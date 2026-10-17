@@ -29,8 +29,8 @@ BODYWEIGHT_TOTAL_HIGH = 1.15
 DEFAULT_INCREMENT_KG = 2.5
 
 # DEC-LOAD-02: the athlete chooses ADDED LOAD as the progression axis for bodyweight
-# movements. So a pull-up is programmed as "bodyweight + 2.5 kg", never as "104 kg", and
-# the double-progression increment applies to the plate. Total mass is still the correct
+# movements. So a pull-up is programmed as "bodyweight + 2.5 kg", never as a three-digit
+# total mass, and the double-progression increment applies to the plate. Total mass is still the correct
 # input for an e1RM, which is why both are carried on ResolvedLoad.
 PROGRESSION_BASIS_BODYWEIGHT = "added"
 
