@@ -12,7 +12,7 @@ import pandas as pd
 
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.domain import rir as rir_mod
-from strength_coach.utils import exercises
+from strength_coach.utils import exercises, numeric
 
 
 def e1rm_applicable(entity_props: dict) -> bool:
@@ -86,7 +86,8 @@ def add_velocity_flags(frame: pd.DataFrame) -> pd.DataFrame:
     testing each column independently.
     """
     out = frame.copy()
-    out["velocity_present"] = out["velocity_mps"].notna() & (out["velocity_mps"] > 0)
+    # One definition, shared with the cleaner: a zero reading is a sentinel, not a measurement.
+    out["velocity_present"] = numeric.positive_measurement_present(out["velocity_mps"])
     return out
 
 

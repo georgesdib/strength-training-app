@@ -89,6 +89,13 @@ def attach_bodyweight(
     body = pd.DataFrame({"date": ready["date"], "bodyweight_kg": weight})
     body = body.dropna().drop_duplicates("date", keep="last").sort_values("date")
 
+    if frame.empty:
+        # An all-quarantined export must still survive: pandas refuses to as-of join an empty
+        # datetime64[s] key against a datetime64[us] one, and there is nothing to attach.
+        out = frame.copy()
+        out["bodyweight_kg"] = pd.Series(dtype="float64")
+        return out
+
     left = frame.sort_values("date")
     merged = pd.merge_asof(
         left, body, on="date", direction="nearest",
@@ -129,6 +136,8 @@ def build_clean_sets(
     frame = _resolve_rir(frame)
     frame = _flag_rows(frame, props)
     frame = _resolve_tonnage(frame)
+    # DQ-SENT-01: 0.000000 means "device unused", so presence requires a positive reading.
+    frame["velocity_present"] = numeric.positive_measurement_present(frame["velocity_mps"])
 
     issues = {
         "rows_total": int(len(training)),
@@ -145,7 +154,7 @@ def build_clean_sets(
         "source_row", "date", "exercise_id", "raw_exercise", "workout_label",
         "load_kg", "load_basis", "external_load_kg", "total_load_kg", "progression_load_kg",
         "reps", "reps_unit", "rir", "rir_class", "rir_source", "suspect_rir",
-        "velocity_mps", "rom_mm", "tut_s", "form_score",
+        "velocity_mps", "velocity_present", "rom_mm", "tut_s", "form_score",
         "is_working_set", "tonnage_kg", "flags",
     ]
     # reindex rather than select: a partial export (or a synthetic fixture) must not raise,

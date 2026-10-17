@@ -16,7 +16,7 @@ config/
   thresholds.v1.yaml                 [ ] increments, caps, bands
 data/raw/training_log.csv            [x] immutable source
 data/raw/readiness.csv               [x] immutable source
-data/coach.db                        [ ] SQLite store
+data/coach.db                        [x] SQLite store (created on demand)
 docs/*.md                            [x] the proposal + evidence
 strength_coach/
   utils/                             [x] pure shared helpers (permanent)
@@ -33,8 +33,11 @@ strength_coach/
     clean.py                         [x] sentinels, load basis, units, flags, quarantine
     sessions.py                      [x] reconstruction + day inference
     readers.py readiness.py           [ ] readiness merge rule (DQ-RD-01)
-  store/                             [ ]
-    schema.sql migrations/ db.py repositories.py
+  store/                             [x] SQLite, append-only
+    migrations/0001_initial.sql      [x] schema + append-only triggers (single source of truth)
+    db.py                            [x] connection, numbered migrations, checksums
+    repositories.py                  [x] append-only writers, explicit identity keys
+    importer.py                      [x] clean export -> raw_row/clean_set/session/run
   features/                          [x] partially
     baseline.py                      [x] per-lift/session baseline
     derived.py                       [x] e1RM, velocity flags, effort windows

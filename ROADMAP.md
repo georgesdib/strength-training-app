@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · version `0.0.1-dev` · **163 tests passing**
+Last updated: 2026-10-17 · version `0.0.1-dev` · **184 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · version `0.0.1-dev` · **163 tests passing**
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 163 passed
+.venv/bin/python -m pytest            # expect: 184 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -34,7 +34,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 0 | Design + approval | **done** | `docs/ARCHITECTURE.md`, `DATA-MODEL.md`, `DATA-QUALITY.md`, `RULES-FORMAT.md`, `VBT-CALIBRATION.md`, `MODULE-LAYOUT.md`, `V0-SCOPE.md`, `OPEN-QUESTIONS.md`, `SANITY-CHECKS.md`, `TRAINING-GUIDELINES.md` |
 | 1 | Ingest (clean + sessions) | **done** | `ingest/clean.py`, `ingest/sessions.py`, `config/templates/days.v1.yaml` |
 | 2 | Derived features + VBT calibration | **done** | `features/derived.py`, `features/baseline.py`, `features/vbt_calibration.py`, `domain/e1rm.py`, `domain/load.py`, `domain/rir.py` |
-| 3 | Store (SQLite, append-only) | **not started** | planned `store/schema.sql`, `store/migrations/`, `store/db.py`, `store/repositories.py` |
+| 3 | Store (SQLite, append-only) | **done** | `store/migrations/0001_initial.sql`, `store/db.py`, `store/repositories.py`, `store/importer.py` |
 | 4 | Rules loader + policy engine | **not started** | rules already encoded in `config/rules/programme.v1.yaml`; needs `rules/loader.py`, `registry.py`, `policy.py` |
 | 5 | Prescription engine (Day B) + deterministic fallback | **not started** | planned `prescribe/templates.py`, `engine.py`, `fallback.py` |
 | 6 | Critique rubric + trace | **not started** | planned `critique/facts.py`, `rubric.py`, `trace/run.py` |
@@ -46,27 +46,30 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 ### What works end to end today
 
 A real export can be cleaned, flagged, quarantined, grouped into sessions, given a programme
-day guess, and calibrated for velocity targets. There is **no persistence and no
-prescription/critique yet** — the pipeline runs in memory.
+day guess, calibrated for velocity targets, and **persisted**: one import writes `raw_row`,
+`clean_set`, `session` and `quarantine` inside a replayable `run`/`run_event` trace, and
+re-importing the same file writes no duplicate rows. There is **no prescription/critique
+yet** — nothing consumes the stored rows.
 
 ## 3. Next actions (in order)
 
-1. **Phase 3 — store.** SQLite schema per `docs/DATA-MODEL.md` §1–§10, numbered migrations,
-   append-only writes, `run`/`run_event` trace. Acceptance: cleaning a real export writes
-   `clean_set` + `session` rows; re-running is idempotent in content, not in duplicate rows.
-2. **Phase 4 — rules loader + policy.** Parse the YAML into `Rule` objects with a content
+1. **Phase 4 — rules loader + policy.** Parse the YAML into `Rule` objects with a content
    hash; implement the registry predicates; evaluate with `veto` / `downgrade` / `warn` /
    `advisory` and the `unknown` verdict when inputs are missing. Acceptance: `PRG-RIR-001` and
    `PRG-SPINE-001` evaluate against historical sessions and produce verdicts with evidence
    references; `PRG-EREC-001` returns `unknown` because no symptom input exists.
-3. **Phase 5 — prescription engine (Day B).** Deterministic, template-driven, unit-aware.
+2. **Phase 5 — prescription engine (Day B).** Deterministic, template-driven, unit-aware.
    Acceptance: the four `docs/V0-SCOPE.md` §4 criteria for executability, plus a golden test.
+3. **Phase 6 — critique rubric + trace.** Deterministic rubric over a stored session. A metric
+   the data cannot support is stored `measurable = 0` rather than guessed. Acceptance: the
+   three known failure patterns (grinding sets, hinge/erector stacking, rotation split by
+   workout label) score with evidence references.
 
 ## 4. Known gaps and risks
 
 | gap | impact | mitigation / status |
 |---|---|---|
-| No persistence | cannot replay a past day; work is lost between runs | Phase 3 (next) |
+| No persistence | cannot replay a past day; work is lost between runs | **resolved** — `run`/`run_event` trace + append-only tables (phase 3) |
 | Erector ramp has no anchor | `PRG-EREC-001` returns `unknown`; Day A/C cannot be prescribed safely | needs a block start date (`OPEN-QUESTIONS` Q3) |
 | No symptom input | back-flare modifier and the ramp's stability gate cannot run | needs a manual input (`OPEN-QUESTIONS` Q4) |
 | No timestamps | session duration unmeasurable; two sessions on one date indistinguishable | flagged as `POSSIBLE_DOUBLE_SESSION`; duration dropped (`OPEN-QUESTIONS` Q5) |

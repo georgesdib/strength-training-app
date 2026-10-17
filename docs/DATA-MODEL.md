@@ -39,9 +39,9 @@ One row per *set*, not per exercise or session.
 | reps | INTEGER | |
 | reps_unit | TEXT | `reps` \| `seconds` |
 | rir | INTEGER | null when missing |
-| rir_source | TEXT | `logged` \| `assumed_default` \| `missing` |
+| rir_source | TEXT | `logged` \| `logged_warmup` (DEC-RIR-01) \| `assumed_default` \| `missing` |
 | velocity_mps | REAL | null when device unused |
-| velocity_present | INTEGER | 0/1 — one flag for the whole telemetry block |
+| velocity_present | INTEGER | 0/1 — one flag for the whole telemetry block; a `0.000000` reading is *absent*, not zero (DQ-SENT-01) |
 | power_w | REAL | null |
 | rom_mm | REAL | null |
 | tut_s | REAL | null |
@@ -63,7 +63,9 @@ meaningless and must not be summed.
 | set_count | INTEGER | |
 | exercise_count | INTEGER | |
 | main_lifts | TEXT | JSON list of canonical ids |
+| working_set_count | INTEGER | working sets only (DEC-RIR-01 excludes warm-ups) |
 | day_guess | TEXT | `A` \| `B` \| `C` \| `unknown` + `day_confidence` |
+| day_reason | TEXT | why the day was assigned or left unknown, so "do not force a bucket" is auditable |
 | tonnage_kg | REAL | sum of non-null `tonnage_kg` |
 | duration_min | REAL | **null by default** — no timestamps exist |
 | duration_basis | TEXT | `measured` \| `unavailable` |
@@ -75,6 +77,13 @@ meaningless and must not be summed.
 `quarantine` row with a reason. They are counted in the run report. They are never
 silently dropped, because doing so hid exactly 8 false `RIR 0` bench violations and 6 for
 trap bar.
+
+| column | type | notes |
+|---|---|---|
+| quarantine_id | INTEGER PK | |
+| raw_id | INTEGER FK | the line that could not be placed |
+| reason | TEXT | `null_date` \| `unknown_exercise` |
+| created_at | TEXT | set by the store |
 
 ## 5. `readiness_day`
 
@@ -97,7 +106,7 @@ Duplicate-readiness merge rule is DQ-RD-01.
 | exercise_id / vbt_family | which target this calibrates |
 | scope | `lift` \| `family` \| `global_prior` |
 | rep_count | target applies at this rep count |
-| rir_band | e.g. `[2,3]` |
+| rir_low / rir_high | the window bounds, e.g. 2 and 3 (stored as two columns so SQL can compare) |
 | velocity_median, velocity_mad | m/s |
 | velocity_low, velocity_high | robust band with relative floor |
 | n_sets, n_sessions, window_start, window_end | provenance |
@@ -115,7 +124,7 @@ after recalibration.
 
 | column | notes |
 |---|---|
-| document_id PK | `programme.constitution` |
+| document_id PK-part | `programme.constitution`; the key is (document_id, version), because a new version is a new row |
 | version | semver |
 | effective_from | date |
 | source_hash | hash of the YAML |

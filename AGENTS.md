@@ -33,6 +33,8 @@ What exists today is:
 - `strength_coach/domain/` — e1RM, load arithmetic, RIR classes (tested).
 - `strength_coach/ingest/` — cleaning, flags, quarantine, session reconstruction.
 - `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration.
+- `strength_coach/store/` — SQLite migrations, append-only repositories, import orchestration.
+  `data/coach.db` is created on demand and is git-ignored.
 - `ROADMAP.md` — phase status and next actions (update it in the same commit as the work).
 
 Build order, current status and the next actions live in `ROADMAP.md` — do not duplicate

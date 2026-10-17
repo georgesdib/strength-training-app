@@ -121,6 +121,29 @@ def test_unknown_exercise_is_quarantined():
     assert result.quarantine.iloc[0]["quarantine_reason"] == "unknown_exercise"
 
 
+def test_an_all_quarantined_export_does_not_crash():
+    # Every row bad is a legitimate input (a wrong file, a broken export). It must produce an
+    # empty result with the rows quarantined, not a pandas dtype error from the as-of join.
+    result = clean.build_clean_sets(
+        make_training([{"Date": "(null)"}, {"Date": "(null)"}]), make_readiness([{}])
+    )
+    assert result.n_sets == 0
+    assert result.n_quarantined == 2
+    assert result.issues["rows_clean"] == 0
+
+
+def test_velocity_presence_ignores_the_zero_sentinel():
+    # DQ-SENT-01: 0.000000 means "device unused", so it is not a measurement.
+    result = clean.build_clean_sets(
+        make_training([
+            {"Avg_velocity": "0.320000"},
+            {"Avg_velocity": "0.000000"},
+        ]),
+        make_readiness([{}]),
+    )
+    assert list(result.sets["velocity_present"]) == [True, False]
+
+
 def test_source_row_is_preserved_for_traceability():
     result = clean.build_clean_sets(
         make_training([{"Date": "(null)"}, {"Date": "2024-01-02"}]), make_readiness([{}])

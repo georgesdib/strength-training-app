@@ -101,6 +101,32 @@ def apply_zero_sentinels(frame: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def measurement_present(value) -> bool:
+    """Whether one telemetry measurement exists, for columns where 0 means "absent".
+
+    The export writes `0.000000` on every row where the VBT device was not used, and the
+    whole telemetry block is zero on exactly the same rows (DQ-SENT-01). Presence is
+    therefore "not null AND positive", never merely "not null": a zero is a sentinel, and
+    treating it as a measurement would put 0 m/s velocities into the calibration.
+    """
+    if value is None:
+        return False
+    try:
+        if pd.isna(value):
+            return False
+    except (TypeError, ValueError):
+        return False
+    try:
+        return float(value) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def positive_measurement_present(values: pd.Series) -> pd.Series:
+    """Column form of `measurement_present`; one definition, two shapes of the same rule."""
+    return values.map(measurement_present).astype(bool)
+
+
 def count_zero_sentinels(frame: pd.DataFrame) -> dict[str, int]:
     """Per-column count of zero values that will be treated as missing (for reports)."""
     counts: dict[str, int] = {}
