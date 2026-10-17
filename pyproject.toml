@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "strength-coach"
+version = "0.0.1.dev0"
+description = "Evidence-based, rules-driven strength coaching: deterministic Python core with a small, auditable LLM layer"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.26",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+strength-coach = "strength_coach.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["strength_coach*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "integration: touches the real CSVs in data/raw (slower, still deterministic)",
+    "golden: snapshot/regression evidence against docs/EVIDENCE.md numbers",
+]
+filterwarnings = [
+    "error::FutureWarning",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]

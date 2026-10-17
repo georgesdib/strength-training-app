@@ -1,0 +1,24 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Local database
+*.db
+*.sqlite3
+
+# ---------------------------------------------------------------------------
+# PERSONAL DATA — never commit, never push.
+# This repository is public. The raw exports contain a complete training history,
+# bodyweight, readiness scores and derived strength metrics.
+# ---------------------------------------------------------------------------
+data/raw/*
+data/export/
+private/
+
+# Anything that looks like a personal export
+*backupDB*.csv
+*backupReadiness*.csv

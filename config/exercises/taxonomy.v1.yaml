@@ -1,0 +1,472 @@
+# Exercise taxonomy — single source of truth for "what is this exercise?"
+#
+# Downstream code NEVER branches on the raw log string. It resolves every row to a
+# canonical `id` through this file, then branches on the id's *properties*.
+# That is what lets a new exercise be added without touching ingestion, features,
+# prescription or agent prompts.
+#
+# Resolution order (first match wins, implemented in strength_coach.utils.exercises):
+#   1. `alias_overrides`  — exact string match, highest priority
+#   2. entity log_names   — exact string match
+#   3. `classification_patterns` — ordered regex, first match wins
+#   4. unmatched          — returns None and is reported, never guessed
+#
+# `applies_to_history` is the load-bearing flag. See docs/RULES-FORMAT.md §2.
+
+schema_version: "1.0.0"
+decisions:
+  # Recorded verbatim from the athlete. This block is audit trail, not config.
+  - id: DEC-TRAPBAR-01
+    decision: >
+      "Competition Deadlift" in the Sheiko Gold log IS the trap-bar deadlift.
+      Applies historically and going forward.
+    consequence: >
+      The constitution's Day B main lift now has a substantial historical record to
+      calibrate loads and velocity from. Q1 is closed. Caveat retained as
+      ASSUMPTION-01: the physical implement is inferred from the log name, not
+      verified.
+  - id: DEC-BACKEXT-01
+    decision: >
+      Back extension is the same movement as "Hyperextensions" GOING FORWARD, but
+      that equivalence must NOT be projected backwards onto historical rows.
+    consequence: >
+      Historical `Hyperextensions` rows map to their own entity `hyperextension`
+      and do NOT count toward the back-extension dose ramp. Therefore there is
+      effectively no historical back-extension dose to ramp from, and the 8-12 week
+      ramp needs an explicit week-1 anchor date going forward.
+
+# ---------------------------------------------------------------------------
+# Canonical entities. `id` is the only identifier used by code and by agents.
+# ---------------------------------------------------------------------------
+entities:
+
+  # ---- Main lifts (constitution §2) ---------------------------------------
+  ssb_squat:
+    display: "SSB Squat"
+    log_names: ["Safety Squat Bar"]
+    pattern: squat
+    main_lift: true
+    primary_compound: true
+    day_roles: [A, C]
+    primary_muscles: [quadriceps, glutes, erectors]
+    erector_family: false          # loaded but not *direct* erector work
+    vbt_family: squat
+    default_rir_target: [2, 3]
+    loadable: true
+    time_based: false
+
+  competition_squat:
+    display: "Competition Squat"
+    log_names: ["Competition Squat"]
+    pattern: squat
+    main_lift: false               # not a constitution main lift...
+    # ...but it is a heavy compound, so the RIR effort window still applies to it.
+    # A rule scoped to main_lift alone would ignore whichever squat is actually
+    # performed most, which is often not one of the constitution's named lifts.
+    primary_compound: true
+    programme_slot_of: ssb_squat   # using it where SSB was programmed is a deviation
+    erector_family: false
+    vbt_family: squat
+    loadable: true
+    time_based: false
+
+  bench_press:
+    display: "Bench Press"
+    log_names: ["Competition Bench Press"]
+    pattern: horizontal_push
+    main_lift: true
+    primary_compound: true
+    day_roles: [A, B, C]
+    primary_muscles: [chest, triceps, front_delts]
+    erector_family: false
+    vbt_family: bench
+    default_rir_target: [2, 3]
+    loadable: true
+    time_based: false
+
+  bench_press_narrow:
+    display: "Bench Press (narrow grip)"
+    log_names: ["Bench Press (narrow grip)"]
+    pattern: horizontal_push
+    main_lift: true                # Day B close-grip slot
+    primary_compound: true
+    day_roles: [B]
+    vbt_family: bench              # pools with bench for calibration
+    default_rir_target: [2, 3]
+    loadable: true
+    time_based: false
+
+  bench_press_pause:
+    display: "Bench Press (pause)"
+    # The constitution's Day B allows "close-grip OR pause bench", so the pause
+    # variants are first-class programme lifts, not generic accessories.
+    log_names:
+      - "Bench Press (2s pause)"
+      - "Bench Press (3s pause)"
+      - "Bench Press (5s pause)"
+      - "Bench Press (2s pause at sticking point)"
+    pattern: horizontal_push
+    main_lift: true
+    primary_compound: true
+    day_roles: [B]
+    vbt_family: bench
+    default_rir_target: [2, 3]
+    loadable: true
+    time_based: false
+
+  trap_bar_deadlift:
+    display: "Trap-Bar Deadlift"
+    # DEC-TRAPBAR-01: the app logs it under this name.
+    log_names: ["Competition Deadlift"]
+    pattern: hinge
+    main_lift: true
+    primary_compound: true
+    day_roles: [B]
+    primary_muscles: [glutes, hamstrings, erectors, upper_back]
+    erector_family: true
+    # Hinge loading is *indirect* erector work: it never satisfies the direct
+    # erector dose, and it must never be stacked with it (constitution §2).
+    direct_erector: false
+    high_fatigue_spinal: true       # counts toward the weekly spinal cap
+    # Ordinal spinal cost, NOT a physiological measurement: it exists so that
+    # "trap-bar + rack pull + RDL" can weigh more than three light back-extension
+    # sets. ASSUMPTION-02 — calibrate against symptom history.
+    spinal_cost: 2
+    vbt_family: hinge
+    default_rir_target: [3, 4]      # constitution: trap-bar is RIR 3-4
+    loadable: true
+    time_based: false
+
+  # ---- Direct erector work (constitution §2) ------------------------------
+  back_extension:
+    display: "Back Extension"
+    # DEC-BACKEXT-01: canonical erector movement from the decision date forward.
+    log_names: ["Back Extension"]
+    pattern: erector_extension
+    main_lift: false
+    day_roles: [A, C]
+    primary_muscles: [erectors]
+    bodyweight_type: true          # 0 or ~bodyweight both appear in Weight_Used
+    e1rm_applicable: false         # not a 1RM lift; an "e1RM" here is a meaningless index
+    erector_family: true
+    direct_erector: true
+    high_fatigue_spinal: true
+    spinal_cost: 1
+    vbt_family: null               # not a VBT lift
+    loadable: true
+    time_based: false
+    progressive_dose: true         # subject to the 8-12 week ramp
+
+  hyperextension:
+    display: "Hyperextension (historical)"
+    # Historical rows. NOT the same entity as back_extension (DEC-BACKEXT-01),
+    # and must not be silently folded into the dose ramp.
+    log_names: ["Hyperextensions"]
+    pattern: erector_extension
+    main_lift: false
+    bodyweight_type: true
+    e1rm_applicable: false
+    direct_erector: true
+    erector_family: true
+    high_fatigue_spinal: true
+    spinal_cost: 1
+    counts_toward_back_extension_dose: false
+    applies_to_history_only: true
+    loadable: true
+    time_based: false
+
+  reverse_hyperextension:
+    display: "Reverse Hyperextension"
+    log_names: ["Reverse Hyperextensions"]
+    pattern: erector_extension
+    bodyweight_type: true
+    e1rm_applicable: false
+    direct_erector: false          # hip extension bias, not spinal erector dose
+    erector_family: true
+    high_fatigue_spinal: true
+    spinal_cost: 1
+    substitutable_for_back_extension: false
+    loadable: true
+    time_based: false
+
+  # ---- Other high-fatigue spinal work (weekly cap) ------------------------
+  rdl:
+    display: "Romanian Deadlift"
+    log_names: ["Romanian Deadlift"]
+    pattern: hinge
+    e1rm_applicable: false         # short ROM vs a deadlift: e1RM is inflated, not a max
+    high_fatigue_spinal: true
+    spinal_cost: 2
+    substitutable_for_back_extension: false   # constitution §2: never the erector dose
+    erector_family: true
+    direct_erector: false
+    vbt_family: hinge
+    loadable: true
+    time_based: false
+
+  good_morning:
+    display: "Good Morning"
+    log_names: ["Good Morning (seated)", "Good Morning (standing)", "Good Morning (from blocks)"]
+    pattern: hinge
+    e1rm_applicable: false         # technique/erector lift, never taken near a true max
+    high_fatigue_spinal: true
+    spinal_cost: 3        # long lever arm = high lumbar moment
+    substitutable_for_back_extension: false
+    erector_family: true
+    direct_erector: false
+    loadable: true
+    time_based: false
+
+  rack_pull:
+    display: "Rack Pull"
+    log_names: ["Rack Pull"]
+    pattern: hinge
+    e1rm_applicable: false         # pulled from pins: short ROM inflates any extrapolation
+    high_fatigue_spinal: true
+    spinal_cost: 3        # supramaximal loads are the point of the movement
+    substitutable_for_back_extension: false
+    erector_family: true
+    direct_erector: false
+    loadable: true
+    time_based: false
+
+  jefferson_curl:
+    display: "Jefferson Curl"
+    log_names: ["Jefferson Curl"]
+    pattern: hinge
+    high_fatigue_spinal: true
+    spinal_cost: 2
+    substitutable_for_back_extension: false
+    direct_erector: true
+    loadable: true
+    time_based: false
+
+  conventional_deadlift:
+    display: "Conventional Deadlift"
+    log_names: ["Deadlift (conventional)"]
+    pattern: hinge
+    high_fatigue_spinal: true
+    spinal_cost: 3        # straighter bar path = longer lumbar moment than the trap bar
+    substitutable_for_back_extension: false
+    erector_family: true
+    direct_erector: false
+    vbt_family: hinge
+    loadable: true
+    time_based: false
+
+  # ---- Bodyweight / time-based (tonnage and reps-as-reps are invalid here) --
+  ab_wheel:
+    display: "Ab Wheel"
+    log_names: ["Ab Wheel"]
+    pattern: core_anti_extension
+    bodyweight_type: true
+    rep_semantics: reps
+    loadable: true                # can be loaded, but usually bodyweight
+    time_based: false
+
+  pull_up:
+    display: "Pull-up"
+    log_names: ["Pull-ups (wide grip)", "Pull-ups (behind neck)", "Pull-ups (neutral grip)"]
+    pattern: vertical_pull
+    bodyweight_type: true
+    rep_semantics: reps
+    loadable: true                # added load is possible
+    time_based: false
+
+  plank:
+    display: "Plank"
+    log_names: ["Regular Plank", "Chinese Plank", "Side Plank", "Front Plank"]
+    pattern: core_isometric
+    bodyweight_type: true
+    rep_semantics: seconds        # <-- 80/90/110 in Reps_Done are SECONDS
+    time_based: true
+    loadable: true                # plate added on back is common
+
+  carry:
+    display: "Carry"
+    log_names: ["Suitcase Carry", "Farmer's Carry", "Farmer Carry"]
+    pattern: carry
+    rep_semantics: seconds
+    time_based: true
+    loadable: true
+
+  hanging_leg_raise:
+    display: "Hanging Leg Raise"
+    log_names: ["Hanging Leg Raise", "Hanging Pike"]
+    pattern: core_flexion
+    bodyweight_type: true
+    rep_semantics: reps
+    time_based: false
+
+  # ---- Generic accessories that still need correct unit handling ----------
+  lateral_raise:
+    display: "Lateral Raise"
+    log_names: ["Lateral Raise"]
+    pattern: shoulder_isolation
+    loadable: true
+    time_based: false
+
+  split_squat:
+    display: "Split Squat"
+    log_names: ["Split Squat", "Bulgarian Split Squat"]
+    pattern: squat
+    loadable: true
+    time_based: false
+
+# ---------------------------------------------------------------------------
+# Exact-string overrides. Highest priority; use when a name is ambiguous or
+# when a user decision overrides the obvious reading.
+# ---------------------------------------------------------------------------
+alias_overrides:
+  - match: "Competition Deadlift"
+    canonical: trap_bar_deadlift
+    applies_to_history: true
+    decision: DEC-TRAPBAR-01
+    reason: "Athlete decision — this app's \"Competition Deadlift\" is the trap-bar pull."
+
+  - match: "Hyperextensions"
+    canonical: hyperextension
+    applies_to_history: true        # historical rows keep their own identity
+    forward_alias: back_extension   # ...but new prescriptions may use this name
+    decision: DEC-BACKEXT-01
+    reason: "Same movement going forward; equivalence not projected backwards."
+
+  - match: "Back Extension"
+    canonical: back_extension
+    applies_to_history: false       # no such rows exist; forward-only name
+    decision: DEC-BACKEXT-01
+
+  - match: "Bench Press (narrow grip)"
+    canonical: bench_press_narrow
+    applies_to_history: true
+    note: "Playbook says 'close-grip'; the app calls it narrow grip."
+
+# ---------------------------------------------------------------------------
+# Ordered regex fallback for the remaining names. First match wins, so specific
+# patterns MUST precede general ones ("flat-bench sit-ups" before "bench",
+# "jump squat" before "squat", "reverse nordic curl" before "curl").
+#
+# Accessories resolve to a `pattern:<family>` slug rather than a hand-written
+# entity. Programme lifts get real entities because the rules address them by
+# name; accessories only need a stable family for tonnage/rotation metrics.
+# ---------------------------------------------------------------------------
+classification_patterns:
+
+  # --- core / isometric (must precede "bench" via flat-bench sit-ups) -------
+  - pattern: '(?i)plank'
+    canonical: plank
+  - pattern: '(?i)carry'
+    canonical: carry
+  - pattern: '(?i)ab wheel'
+    canonical: ab_wheel
+  - pattern: '(?i)hanging (leg raise|pike)'
+    canonical: hanging_leg_raise
+  - pattern: '(?i)bird.?dog'
+    synthetic: {pattern: core_stability, bodyweight_type: true, time_based: false}
+  - pattern: '(?i)sit.?ups?|cable chop|woodchop|pallof'
+    synthetic: {pattern: core, time_based: false}
+
+  # --- direct erector / hinge family (specific before generic) -------------
+  - pattern: '(?i)jefferson'
+    canonical: jefferson_curl
+  - pattern: '(?i)reverse hyper'
+    canonical: reverse_hyperextension
+  - pattern: '(?i)hyperextension'
+    canonical: hyperextension
+  - pattern: '(?i)good morning'
+    canonical: good_morning
+  - pattern: '(?i)rack pull'
+    canonical: rack_pull
+  - pattern: '(?i)single.leg.*\brdl\b|single leg.*romanian'
+    synthetic:
+      pattern: hinge_unilateral
+      erector_family: true
+      high_fatigue_spinal: false
+      loadable: true
+      time_based: false
+  - pattern: '(?i)romanian deadlift|stiff.leg deadlift|\brdl\b'
+    canonical: rdl
+  - pattern: '(?i)kettlebell swing|kb swing'
+    synthetic:
+      pattern: hinge_ballistic
+      erector_family: true
+      # Ballistic, low spinal fatigue: must not consume a high-fatigue slot.
+      high_fatigue_spinal: false
+      loadable: true
+      time_based: false
+  - pattern: '(?i)deadlift'
+    # Any remaining deadlift variant is a hinge and does count as a high-fatigue
+    # spinal exposure (deficit, pause, chains, bands, to-knees, from-block...).
+    synthetic:
+      pattern: hinge
+      high_fatigue_spinal: true
+      erector_family: true
+      direct_erector: false
+      vbt_family: hinge
+      loadable: true
+      time_based: false
+
+  # --- pulls ---------------------------------------------------------------
+  - pattern: '(?i)straight.?arm pulldown'
+    synthetic: {pattern: lat_isolation, loadable: true, time_based: false}
+  - pattern: '(?i)pulldown'
+    synthetic: {pattern: vertical_pull, loadable: true, time_based: false}
+  - pattern: '(?i)pull.?ups?|chin.?ups?'
+    canonical: pull_up
+  - pattern: '(?i)face pull'
+    synthetic: {pattern: rear_delt_pull, loadable: true, time_based: false}
+  - pattern: '(?i)upright row'
+    synthetic: {pattern: shoulder_abduction, loadable: true, time_based: false}
+  - pattern: '(?i)row'
+    synthetic: {pattern: horizontal_pull, loadable: true, time_based: false}
+
+  # --- knee flexion/extension (MUST precede the generic "curl" pattern,
+  #     otherwise "Lying Leg Curls" resolves to a biceps curl) ----------------
+  - pattern: '(?i)leg curl|leg curls'
+    synthetic: {pattern: knee_flexion, loadable: true, time_based: false}
+  - pattern: '(?i)leg extension'
+    synthetic: {pattern: knee_extension, loadable: true, time_based: false}
+
+  # --- arms (after jefferson/nordic so those are not eaten by "curl") ------
+  - pattern: '(?i)nordic'
+    synthetic: {pattern: hamstring_eccentric, bodyweight_type: true, time_based: false}
+  - pattern: '(?i)glute kickback'
+    synthetic: {pattern: hip_extension, loadable: true, time_based: false}
+  - pattern: '(?i)kickback|tricep|triceps'
+    synthetic: {pattern: triceps_extension, loadable: true, time_based: false}
+  - pattern: '(?i)curl'
+    synthetic: {pattern: elbow_flexion, loadable: true, time_based: false}
+
+  # --- shoulders / chest ---------------------------------------------------
+  - pattern: '(?i)external rotation|rotator'
+    synthetic: {pattern: rotator_cuff, loadable: true, time_based: false}
+  - pattern: '(?i)(lateral|front|rear).*raise'
+    synthetic: {pattern: shoulder_abduction, loadable: true, time_based: false}
+  - pattern: '(?i)shrug'
+    synthetic: {pattern: upper_trap, loadable: true, time_based: false}
+  - pattern: '(?i)fly|flyes|flye'
+    synthetic: {pattern: horizontal_push_isolation, loadable: true, time_based: false}
+  - pattern: '(?i)pullover'
+    synthetic: {pattern: lat_isolation, loadable: true, time_based: false}
+  - pattern: '(?i)^dips?\b|push.?ups?'
+    synthetic: {pattern: horizontal_push_bw, bodyweight_type: true, loadable: true, time_based: false}
+
+  # --- legs ----------------------------------------------------------------
+  - pattern: '(?i)calf|calves'
+    synthetic: {pattern: plantar_flexion, loadable: true, time_based: false}
+  - pattern: '(?i)hip thrust|glute bridge|pull.?through'
+    synthetic: {pattern: hip_extension, loadable: true, time_based: false}
+  - pattern: '(?i)jump'
+    # Must precede "squat": Jump Squats are power work, not a squat stimulus.
+    synthetic: {pattern: power_jump, loadable: true, time_based: false}
+  - pattern: '(?i)lunge|lunge'
+    synthetic: {pattern: squat_unilateral, loadable: true, time_based: false}
+
+  # --- broad patterns last -------------------------------------------------
+  - pattern: '(?i)overhead press|military press|shoulder press|dumbbell press'
+    synthetic: {pattern: vertical_push, loadable: true, time_based: false}
+  - pattern: '(?i)squat'
+    synthetic: {pattern: squat, erector_family: false, loadable: true, time_based: false}
+  - pattern: '(?i)bench|press'
+    synthetic: {pattern: horizontal_push, loadable: true, time_based: false}
+
