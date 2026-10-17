@@ -78,14 +78,16 @@ would corrupt every number downstream.
 
 ## Reading order
 
-1. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — layers, data flow, where the LLM sits
-2. [`docs/DATA-MODEL.md`](docs/DATA-MODEL.md) — schemas, append-only records
-3. [`docs/DATA-QUALITY.md`](docs/DATA-QUALITY.md) — the decision ledger
-4. [`docs/RULES-FORMAT.md`](docs/RULES-FORMAT.md) — citable rule IDs
-5. [`docs/VBT-CALIBRATION.md`](docs/VBT-CALIBRATION.md) — velocity targets and sparsity
-6. [`docs/V0-SCOPE.md`](docs/V0-SCOPE.md) — the first end-to-end slice
-7. [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md) — what still blocks the build
-8. [`docs/SANITY-CHECKS.md`](docs/SANITY-CHECKS.md) — external verification of the model
-9. [`docs/TRAINING-GUIDELINES.md`](docs/TRAINING-GUIDELINES.md) — evidence vs the programme
+0. [`ROADMAP.md`](ROADMAP.md) — where the project is right now, and what is next
+1. [`docs/DECISIONS.md`](docs/DECISIONS.md) — decisions that are expensive to reverse
+2. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — layers, data flow, where the LLM sits
+3. [`docs/DATA-MODEL.md`](docs/DATA-MODEL.md) — schemas, append-only records
+4. [`docs/DATA-QUALITY.md`](docs/DATA-QUALITY.md) — the data-quality ledger (`DQ-*`)
+5. [`docs/RULES-FORMAT.md`](docs/RULES-FORMAT.md) — citable rule IDs
+6. [`docs/VBT-CALIBRATION.md`](docs/VBT-CALIBRATION.md) — velocity targets and sparsity
+7. [`docs/V0-SCOPE.md`](docs/V0-SCOPE.md) — the first end-to-end slice
+8. [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md) — open ambiguities, with defaults
+9. [`docs/SANITY-CHECKS.md`](docs/SANITY-CHECKS.md) — external verification of the model
+10. [`docs/TRAINING-GUIDELINES.md`](docs/TRAINING-GUIDELINES.md) — evidence vs the programme
 
 Contributor and agent instructions: [`AGENTS.md`](AGENTS.md).

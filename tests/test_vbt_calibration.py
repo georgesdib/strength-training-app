@@ -64,10 +64,17 @@ def trap_bar_days(rir: str):
     ]
 
 
-def test_trap_bar_uses_its_own_effort_window():
-    """Trap bar is 3-4 by the constitution, so RIR 2 is out of window even though RIR 2 is
-    inside the bench window. Without this the trap bar silently would be calibrated against
-    its own out-of-spec sets."""
+def test_trap_bar_shares_the_default_window():
+    """DEC-WINDOW-01: after the amendment, RIR 2 is in window for the trap bar too."""
+    assert calibrate(trap_bar_days("2")).lookup("trap_bar_deadlift", 3) is not None
+    assert calibrate(trap_bar_days("3")).lookup("trap_bar_deadlift", 3) is not None
+
+
+def test_calibration_honours_a_per_lift_window_override(monkeypatch):
+    """The mechanism survives the amendment: a configured window is respected."""
+    from strength_coach.domain import rir as rir_mod
+
+    monkeypatch.setitem(rir_mod.PER_EXERCISE_RIR_TARGET, "trap_bar_deadlift", (3, 4))
     assert calibrate(trap_bar_days("2")).lookup("trap_bar_deadlift", 3) is None
     assert calibrate(trap_bar_days("3")).lookup("trap_bar_deadlift", 3) is not None
 

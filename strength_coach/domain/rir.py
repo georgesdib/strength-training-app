@@ -40,9 +40,15 @@ SUSPECT_EFFORT_RIR: frozenset[int] = frozenset({0, 1})
 
 RIR_CLASSES = ("missing", "warmup", "effort")
 
-# Default effort windows. Trap bar is 3-4 by the constitution; everything else is 2-3.
+# Default effort window: RIR 2-3, applied to every primary compound.
 DEFAULT_RIR_TARGET: tuple[int, int] = (2, 3)
-TRAP_BAR_RIR_TARGET: tuple[int, int] = (3, 4)
+
+# DEC-WINDOW-01: the trap-bar deadlift originally carried its own tighter window (RIR 3-4) as
+# extra spinal-fatigue caution. In practice the athlete trains it at ~RIR 2, which made the
+# rule fire on 43% of trap-bar sets purely because of the window rather than the effort. The
+# window is therefore amended to the default. The override *mechanism* is kept (empty) so a
+# per-lift window remains a one-line config change rather than a code change.
+PER_EXERCISE_RIR_TARGET: dict[str, tuple[int, int]] = {}
 
 
 @dataclass(frozen=True)
@@ -106,15 +112,13 @@ def within_window(value: int | float | None, low: int, high: int) -> bool:
 
 
 def target_for(exercise_id: str) -> tuple[int, int]:
-    """The RIR window for a lift. Trap bar is 3-4; everything else defaults to 2-3.
+    """The RIR window for a lift: a per-lift override if configured, else the default (2-3).
 
-    Kept aligned with `config/rules/programme.v1.yaml` -> PRG-RIR-001.params. This function
-    is the single code-level source; the rule document declares the same numbers so the two
-    can be diffed in a test.
+    Kept aligned with `config/rules/programme.v1.yaml` -> PRG-RIR-001.params. This function is
+    the single code-level source; the rule document declares the same numbers, and a test
+    diffs the two so they cannot drift apart.
     """
-    if exercise_id == "trap_bar_deadlift":
-        return TRAP_BAR_RIR_TARGET
-    return DEFAULT_RIR_TARGET
+    return PER_EXERCISE_RIR_TARGET.get(str(exercise_id), DEFAULT_RIR_TARGET)
 
 
 def warmup_fraction(values) -> float:

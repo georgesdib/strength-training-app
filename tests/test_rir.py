@@ -68,7 +68,16 @@ def test_float_and_string_inputs_are_accepted():
     assert rir.classify("6").klass == "warmup"
 
 
-def test_target_windows():
+def test_default_window_applies_to_every_compound():
+    """DEC-WINDOW-01: the trap bar no longer carries a tighter window."""
+    assert rir.target_for("bench_press") == (2, 3)
+    assert rir.target_for("trap_bar_deadlift") == (2, 3)
+    assert rir.target_for("ssb_squat") == (2, 3)
+
+
+def test_override_mechanism_still_works(monkeypatch):
+    """The per-lift window survives as config, so amending it again is not a code change."""
+    monkeypatch.setitem(rir.PER_EXERCISE_RIR_TARGET, "trap_bar_deadlift", (3, 4))
     assert rir.target_for("trap_bar_deadlift") == (3, 4)
     assert rir.target_for("bench_press") == (2, 3)
 
@@ -92,5 +101,8 @@ def test_rule_document_and_code_agree():
     rule = next(r for r in document["rules"] if r["id"] == "PRG-RIR-001")
     params = rule["params"]
     assert tuple(params["default_rir"].values()) == rir.DEFAULT_RIR_TARGET
-    trap = params["per_exercise_rir"]["trap_bar_deadlift"]
-    assert tuple(trap.values()) == rir.TRAP_BAR_RIR_TARGET
+    # The YAML override map and the code override map must be the same set of lifts.
+    assert set(params.get("per_exercise_rir") or {}) == set(rir.PER_EXERCISE_RIR_TARGET)
+    for exercise_id, window in (params.get("per_exercise_rir") or {}).items():
+        assert tuple(window.values()) == rir.target_for(exercise_id)
+    assert params["warmup_rir_value"] == rir.WARMUP_RIR

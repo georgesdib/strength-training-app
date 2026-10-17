@@ -86,6 +86,10 @@ ambiguous, the ambiguity is recorded in `notes` and raised in `docs/OPEN-QUESTIO
 > "Main lifts at RIR 2–3 (trap-bar RIR 3–4). No RIR 0–1 sets, no max singles, no 1RM
 > testing inside a block. This is a hard rule, not a preference."
 
+*Amended:* the trap-bar clause was removed (`DEC-WINDOW-01`). One window — RIR 2–3 — now
+applies to every primary compound. The original wording is kept above so the change is
+visible rather than silently rewritten.
+
 ```yaml
 scope: {exercises: "$primary_compounds"}
 params:
@@ -191,8 +195,9 @@ notes: >
 
 ## 5. What is deliberately **not** a rule
 
-- `Trap-bar RIR 3–4` — encoded as a per-exercise override inside `PRG-RIR-001` rather
-  than a second rule, so there is exactly one place that answers "what RIR is allowed?".
+- `Trap-bar RIR 3–4` — **removed** by `DEC-WINDOW-01`. It was a per-exercise override inside
+  `PRG-RIR-001`; the override map remains, empty, so re-adding a per-lift window stays a
+  config change rather than a code change.
 - Power work (3–5 reps, full recovery, stop on decline) — v1, needs rep-level power data
   that the log does not contain (Q4).
 - Session time cap 60–80 min — cannot be measured (no timestamps). Encoded as an

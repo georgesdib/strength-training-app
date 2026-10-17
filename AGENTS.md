@@ -13,8 +13,13 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**The plan is approved; v0 is in progress.** `docs/ARCHITECTURE.md` and
-`docs/V0-SCOPE.md` are the agreed scope. What exists today is:
+**The plan is approved; v0 is in progress.**
+
+**Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
+and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
+expensive to reverse.
+
+What exists today is:
 
 - `docs/` — the proposal and design record (public).
 - `private/docs/` — documents derived from a real training log (git-ignored, never pushed).
@@ -28,11 +33,10 @@ the system must still emit a safe, valid prescription.
 - `strength_coach/domain/` — e1RM, load arithmetic, RIR classes (tested).
 - `strength_coach/ingest/` — cleaning, flags, quarantine, session reconstruction.
 - `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration.
+- `ROADMAP.md` — phase status and next actions (update it in the same commit as the work).
 
-Build order (v0): ~~ingest~~ → ~~store~~ → ~~vbt calibration~~ → rules + policy →
-prescription engine (Day B) → critique rubric + trace. `ingest`, `domain` and
-`features.derived`/`vbt_calibration` are done and tested. `store` is not started: the
-pipeline currently runs in memory, so persistence is the next gap. Do not add a UI.
+Build order, current status and the next actions live in `ROADMAP.md` — do not duplicate
+them here, because two copies drift. Do not add a UI.
 
 ## 3. Non-negotiable invariants
 
@@ -95,7 +99,7 @@ so silently erased genuine `RIR = 0` observations during development.
 ## 6. Exercise identity
 
 - Resolve every raw name through `utils.exercises`; never branch on the raw log string.
-- Two recorded user decisions are encoded and **must not be reverted**:
+- Recorded decisions are encoded and **must not be reverted**:
   - `DEC-TRAPBAR-01` — "Competition Deadlift" **is** the trap-bar deadlift.
   - `DEC-BACKEXT-01` — back extension ≡ hyperextension **going forward only**; historical
     `Hyperextensions` rows keep their own identity and do not feed the erector dose ramp.
@@ -103,6 +107,8 @@ so silently erased genuine `RIR = 0` observations during development.
     e1RM adjustment and working volume, but preserved and reported.
   - `DEC-LOAD-02` — bodyweight progression acts on **added load**; total mass is used only
     for an e1RM.
+  - `DEC-WINDOW-01` — the trap bar's RIR window is the default **2-3** (it used to be 3-4).
+    The per-lift override map is kept, empty, so changing it back is config, not code.
 - There is a standing directive: **back extension is the same as hyperextension going
   forward.** When prescribing, prefer `back_extension`.
 - Adding an exercise = editing YAML, not Python. If you need a new *property*, add it to
@@ -129,6 +135,8 @@ so silently erased genuine `RIR = 0` observations during development.
 
 | File | Contents |
 |---|---|
+| `ROADMAP.md` | live phase status, next actions, resume checklist |
+| `docs/DECISIONS.md` | append-only decision log (`DEC-*`) with where each is enforced |
 | `docs/ARCHITECTURE.md` | layers, data flow, where the LLM sits |
 | `docs/DATA-MODEL.md` | canonical schemas, tables, append-only records |
 | `docs/DATA-QUALITY.md` | the decision ledger (DQ-*) and open sentinel questions |
@@ -148,5 +156,6 @@ so silently erased genuine `RIR = 0` observations during development.
 - Adding a new hard rule → ask; the constitution is versioned and owned by the user.
 - Changing a threshold that affects a prescription → ask.
 - Interpreting an ambiguous rule → add to `OPEN-QUESTIONS.md`, do not pick silently.
+- Phase status changes → update `ROADMAP.md` in the same commit, never in a separate one.
 - "Fixing" data that looks wrong (e.g. `Reps_Done = 1015`) → flag it, quarantine it, do
   not silently delete it.

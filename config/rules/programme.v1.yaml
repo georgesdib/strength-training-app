@@ -51,12 +51,17 @@ rules:
       exercises: "$primary_compounds"
       sessions: [A, B, C]
     statement: >
-      Main lifts at RIR 2-3 (trap-bar RIR 3-4). No RIR 0-1 sets, no max singles, no 1RM
-      testing inside a block. This is a hard rule, not a preference.
+      Main lifts at RIR 2-3. No RIR 0-1 sets, no max singles, no 1RM testing inside a block.
+      This is a hard rule, not a preference. (Amended: the trap bar previously carried a
+      tighter 3-4 window; see DEC-WINDOW-01.)
     params:
       default_rir: {min: 2, max: 3}
-      per_exercise_rir:
-        trap_bar_deadlift: {min: 3, max: 4}
+      # DEC-WINDOW-01: emptied. The trap bar used to be listed here as {min: 3, max: 4} because a
+      # hinge is more forgiving of fatigue at lower effort. In practice the athlete trains it
+      # at ~RIR 2, so the tighter window fired on ~43% of trap-bar sets for reasons of
+      # window definition rather than effort. The map is intentionally kept so re-adding a
+      # per-lift window is a config edit, not a code change.
+      per_exercise_rir: {}
       forbid_max_single: true
       max_single_pct_e1rm: 0.90
       # DEC-RIR-01: this value marks a WARM-UP set. It is not an effort rating, so it is
