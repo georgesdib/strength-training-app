@@ -35,27 +35,36 @@ recorded non-zero bodyweight range is a narrow band consistent with one person.
 **Action:** coerce to null. The 1–5 wellness fields have no zero bucket, so a 0 there is a
 hard data error, not a sentinel.
 
-### DQ-SENT-03 — `RIR` has a hole and a suspicious mode  `NEEDS CONFIRMATION`
-In the reference export, one RIR value is **never used at all**, a second is used far more
-often than any other and clusters on the main lifts, and `RIR 0` clusters on isolation
-accessories — including every row that has a null date.
+### DQ-RIR-01 — `RIR 6` marks a warm-up  `CONFIRMED`
+The athlete confirmed that `RIR = 6` labels a **warm-up set**. That is a much stronger
+statement than "unknown", and it changes what the value may influence:
 
-Two readings with opposite consequences:
-- **All real:** the athlete genuinely reports an easy rating on heavy work and goes to
-  failure on accessories. The hard "no RIR 0–1 on main lifts" rule then has many genuine
-  violations to find.
-- **Partly a default bucket:** the high value means "not recorded" and some zeros are
-  unset. Then effort is systematically *understated*, every RIR-adjusted e1RM is biased
-  low, and a prescription built on RIR will be systematically too light.
+- a warm-up is not evidence of effort, so it must not enter compliance scoring;
+- it must not contribute an RIR adjustment to an e1RM (extrapolating a ramp-up set to a
+  maximum is meaningless);
+- it must not count toward working-set volume, spinal dose or progression decisions;
+- but it **must remain visible**: the warm-up share of a session is itself a coaching signal
+  (how much of the logged work was ramp-up).
 
-**Proposed until answered:** treat the mid values as logged effort, `0/1` as
-logged-but-suspect, and the modal high value as `rir_source = assumed_default` — excluded
-from RIR-adjusted e1RM and from the violation count, but still reported, so a genuine
-violation can never be silently hidden.
+In the reference export this relabels roughly a quarter of all rows, so the practical working
+volume is materially smaller than the raw row count suggests. That is exactly the kind of
+error that is invisible in aggregate and biases every prescription, which is why it was the
+highest-ranked open question.
 
-**Why this matters more than it looks:** it is invisible in aggregate. A wrong reading
-biases every prescribed load a few percent in one direction, which is exactly the kind of
-error no test catches.
+**Action:** `domain.rir.classify` maps 6 to class `warmup`, sets `is_working_set = False`, and
+records `rir_source = logged_warmup`. The value itself is preserved.
+
+### DQ-RIR-02 — `RIR 0–1` remain suspect but in scope  `NEEDS CONFIRMATION`
+These are genuine effort ratings (unlike the warm-up marker), so they are **not** excluded —
+the hard "no RIR 0–1 on main lifts" rule must be able to see them. They are flagged
+`SUSPECT_RIR` and reported separately from clean effort.
+
+What remains open is whether an RIR 0 on an isolation accessory is a real failure set (which
+the constitution does not forbid) or an unset field. The default treats it as real.
+
+### DQ-RIR-03 — `RIR 5` is treated as a genuine easy working set  `ASSUMPTION`
+Nothing indicates it is a sentinel, and it is used far less than the warm-up marker. This is
+the least consequential assumption in this file.
 
 ## 2. Bodyweight load convention  `NEEDS CONFIRMATION`
 
@@ -93,6 +102,16 @@ sensitive. They are config, not code.
 tracked on **total mass** or on **added load**? This changes the double-progression
 increment for every pull-up prescription. Proposed default: total mass for e1RM, added load
 for increments.
+
+### DQ-LOAD-02 — progression acts on ADDED load  `CONFIRMED`
+The athlete chose **added load** as the progression axis for bodyweight movements. So a
+pull-up is programmed as "bodyweight + 2.5 kg", never as a total mass, and the
+double-progression increment applies to the plate.
+
+This is why `ResolvedLoad` carries both `total_load_kg` and `external_load_kg`:
+`progression_load()` returns the added load for a bodyweight movement — with a
+device-captured total-mass reading resolving to **0 kg added**, because the bar is the
+athlete — while total mass remains the correct input for an e1RM.
 
 ### DQ-BW-02 — `0` vs "not recorded"  `ASSUMPTION`
 `Weight_Used = 0` on a bodyweight exercise is read as "unweighted", not "unknown". The

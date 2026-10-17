@@ -9,44 +9,7 @@ produces an `unknown` verdict rather than a silent guess.
 
 ---
 
-## Q1. What do the extreme `RIR` values mean?  <- highest impact
-
-The RIR column does not behave like a real 0-6 scale. In a representative export, one
-mid-scale value is **never used at all**, a high value is used far more often than any other
-and clusters on the main lifts, and `RIR 0` clusters on isolation accessories — including
-every row with a null date.
-
-Two readings, opposite consequences:
-
-- **All real** — the athlete genuinely reports easy ratings on heavy work and goes to
-  failure on accessories. The hard "no RIR 0-1 on main lifts" rule then has many genuine
-  violations to find.
-- **Partly a default bucket** — the modal value means "not recorded" and some zeros are
-  unset. Effort is then systematically *understated*, every RIR-adjusted e1RM is biased low,
-  and any prescription built on RIR is systematically too light.
-
-**Blocks:** the effort rule, RIR-adjusted e1RM, the fatigue modifier's "first-set RIR drop"
-test, and the critique's main rubric line.
-**Default:** modal high value -> `rir_source = assumed_default` (excluded from effort
-statistics, still reported); `0/1` treated as logged but flagged suspect.
-
----
-
-## Q2. Bodyweight movements: total mass or added load?
-
-The weight column mixes three meanings (see DQ-BW-01). The unresolved part is what to *do*:
-
-- For a pull-up logged at total body mass, is progression tracked on **total mass** or on
-  **added load** (0 kg, then +2.5 kg)?
-- Should e1RM for bodyweight movements use bodyweight + added, or added only?
-
-This changes the double-progression increment for every bodyweight prescription.
-
-**Default:** total mass for e1RM; added load for progression increments.
-
----
-
-## Q3. Sessions have no timestamps — how should training days be assigned?
+## Q1. Sessions have no timestamps — how should training days be assigned?
 
 The date column is calendar-date only. So "same date + time gap" is impossible, two sessions
 on one day are indistinguishable, and a squat-plus-bench day is ambiguous between the squat
@@ -59,7 +22,7 @@ day-specific rule is scored when the day is unknown.
 
 ---
 
-## Q4. What is a "high-fatigue spinal exposure"?
+## Q2. What is a "high-fatigue spinal exposure"?
 
 The brief caps "more than ~3 per week" without defining an exposure. Measured on **distinct
 exercise types** the cap almost never fires, which makes it decorative; measured **per set**
@@ -75,7 +38,7 @@ weighted cost reported alongside as context (ASSUMPTION-02).
 
 ---
 
-## Q5. The erector ramp needs an anchor — when is week 1?
+## Q3. The erector ramp needs an anchor — when is week 1?
 
 The 8-12 week dose ramp (bodyweight -> add load -> add a set -> consolidate) requires knowing
 which week of the block today is. Nothing in the source export marks a block boundary, and
@@ -88,7 +51,7 @@ phase labelled `unanchored`.
 
 ---
 
-## Q6. There is no symptom field. How should back symptoms be recorded?
+## Q4. There is no symptom field. How should back symptoms be recorded?
 
 The most safety-relevant rules — "if back symptoms rise and do not settle in 24-48 h",
 "progress only if no symptom flare" — depend on data that does not exist in either export.
@@ -102,7 +65,7 @@ return `unknown` until it exists.
 
 ---
 
-## Q7. Session duration is unmeasurable. Proxy or drop?
+## Q5. Session duration is unmeasurable. Proxy or drop?
 
 The rubric wants "session duration vs 60-80 min cap". There are no timestamps. The options
 are a set-count proxy or dropping the metric — and a proxy presented as minutes would be a
@@ -112,7 +75,7 @@ fabricated score.
 
 ---
 
-## Q8. Readiness conflicts, and how new metrics enter
+## Q6. Readiness conflicts, and how new metrics enter
 
 Two sub-questions:
 1. **Merge** — multiple readiness rows per date exist, and most are *conflicting* rather than
@@ -131,6 +94,11 @@ Two sub-questions:
 
 ## Closed
 
+- ~~What do the extreme `RIR` values mean?~~ **Closed** — `RIR 6` marks a **warm-up set**
+  (`DEC-RIR-01`), so it is excluded from effort, e1RM and working volume while staying
+  visible. `RIR 0-1` remain in scope but flagged (`DQ-RIR-02`).
+- ~~Bodyweight movements: total mass or added load?~~ **Closed** — progression acts on
+  **added load** (`DEC-LOAD-02`); total mass is used only for an e1RM.
 - ~~Is there a trap-bar deadlift in the data?~~ **Closed** — the logging app records it under
   a different name (`DEC-TRAPBAR-01`).
 - ~~Which exercise is "back extension"?~~ **Closed** — synonymous with the older

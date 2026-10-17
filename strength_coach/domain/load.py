@@ -28,6 +28,12 @@ BODYWEIGHT_TOTAL_HIGH = 1.15
 
 DEFAULT_INCREMENT_KG = 2.5
 
+# DEC-LOAD-02: the athlete chooses ADDED LOAD as the progression axis for bodyweight
+# movements. So a pull-up is programmed as "bodyweight + 2.5 kg", never as "104 kg", and
+# the double-progression increment applies to the plate. Total mass is still the correct
+# input for an e1RM, which is why both are carried on ResolvedLoad.
+PROGRESSION_BASIS_BODYWEIGHT = "added"
+
 
 @dataclass(frozen=True)
 class ResolvedLoad:
@@ -106,6 +112,24 @@ def resolve_load_basis(
         total_load_kg=None,
         reason=f"logged weight is {ratio:.2f} x bodyweight -> outside known clusters",
     )
+
+
+def progression_load(resolved: ResolvedLoad, *, is_bodyweight_type: bool) -> float | None:
+    """The load a progression decision or a prescription should act on.
+
+    Implements DEC-LOAD-02. For an ordinary barbell lift this is simply the external load.
+    For a bodyweight movement it is the *added* load, with a device-captured total-mass
+    reading resolving to 0 kg added (because the bar is the athlete).
+    """
+    if not is_bodyweight_type:
+        return resolved.external_load_kg
+    if resolved.basis == "bodyweight_total":
+        # The logged number included the athlete's mass; nothing was added.
+        return 0.0
+    if resolved.basis == "added":
+        return resolved.external_load_kg
+    # Unknown basis: refuse to invent a progression load.
+    return None
 
 
 def default_increment_kg(load_kg: float | None) -> float:

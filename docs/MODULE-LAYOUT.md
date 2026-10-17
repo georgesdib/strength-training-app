@@ -12,7 +12,7 @@ config/
   exercises/taxonomy.v1.yaml         [x] exercise identity + properties
   rules/programme.v1.yaml            [x] the constitution, 5 encoded rules + modifiers
   calibration/overrides.v1.yaml      [ ] per-lift manual velocity overrides
-  templates/days.v1.yaml             [ ] Day A/B/C templates
+  templates/days.v1.yaml             [x] Day A/B/C templates + day inference rules
   thresholds.v1.yaml                 [ ] increments, caps, bands
 data/raw/training_log.csv            [x] immutable source
 data/raw/readiness.csv               [x] immutable source
@@ -23,19 +23,23 @@ strength_coach/
     paths.py io_utils.py dates.py numeric.py stats.py exercises.py reporting.py
   domain/                            [x] pure domain arithmetic
     e1rm.py                          [x] Epley + RIR-adjusted, rep caps
-    load.py                          [x] load-basis resolution, rounding
-    rir.py                           [ ] RIR normalisation & sentinel policy
+    load.py                          [x] load-basis resolution, added-load progression
+    rir.py                           [x] RIR classes incl. warm-up (DEC-RIR-01)
     velocity.py                      [ ] presence, decay proxy
     progression.py                   [ ] double-progression decision
     fatigue.py                       [ ] readiness composite + modifiers
     spinal.py                        [ ] exposure counting, erector dose
-  ingest/                            [ ]
-    readers.py clean.py sessions.py readiness.py quarantine.py
+  ingest/                            [x] partially
+    clean.py                         [x] sentinels, load basis, units, flags, quarantine
+    sessions.py                      [x] reconstruction + day inference
+    readers.py readiness.py           [ ] readiness merge rule (DQ-RD-01)
   store/                             [ ]
     schema.sql migrations/ db.py repositories.py
   features/                          [x] partially
-    baseline.py                      [x] per-lift/session baseline (used by critique)
-    session.py weekly.py vbt_calibration.py
+    baseline.py                      [x] per-lift/session baseline
+    derived.py                       [x] e1RM, velocity flags, effort windows
+    vbt_calibration.py               [x] clean-set filters + sparsity ladder
+    session.py weekly.py             [ ] weekly aggregates
   rules/                             [ ]
     loader.py registry.py policy.py rag.py
   prescribe/                         [ ]
@@ -57,7 +61,8 @@ tests/
   test_exercises.py                  [x] taxonomy + recorded decisions
   test_io_utils.py                   [x] raw reading fidelity
   test_e1rm.py test_load.py          [x] domain arithmetic
-  test_clean.py test_sessions.py     [ ] planned with ingest
+  test_clean.py test_sessions.py     [x] cleaning + reconstruction
+  test_rir.py test_vbt_calibration.py [x] RIR classes + calibration ladder
   test_rules.py test_policy.py       [ ] planned with rules
   test_prescribe.py                  [ ] planned with prescription engine
   test_critique.py                   [ ] planned with rubric

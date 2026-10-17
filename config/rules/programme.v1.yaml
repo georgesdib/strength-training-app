@@ -59,20 +59,24 @@ rules:
         trap_bar_deadlift: {min: 3, max: 4}
       forbid_max_single: true
       max_single_pct_e1rm: 0.90
-      suspect_rir_values: [0, 1, 6]   # see DQ-SENT-03 / Q2
+      # DEC-RIR-01: this value marks a WARM-UP set. It is not an effort rating, so it is
+      # excluded from compliance scoring rather than counted as a very easy set.
+      warmup_rir_value: 6
+      suspect_rir_values: [0, 1]      # logged effort that must be surfaced, not trusted
     inputs: [set.rir, exercise.id, exercise.primary_compound, set.reps, set.load_kg]
     check:
       fn: primary_compound_rir_window
       args: {report_suspect_separately: true}
     citations:
       - "constitution §2: effort bullet"
-    depends_on_data_decisions: [DQ-SENT-03]
+    depends_on_data_decisions: [DQ-RIR-01]
     on_fail: {action: veto, code: RIR_FLOOR}
     notes: >
       Scoped to primary_compound rather than main_lift on purpose: the most-performed
       squat in an export may not be one of the constitution's named lifts, so a
-      main_lift scope would leave most heavy squatting unregulated. The modal RIR value
-      is treated as a possible default bucket, not as an easy set.
+      main_lift scope would leave most heavy squatting unregulated. The warm-up marker
+      (DEC-RIR-01) is excluded from compliance and from e1RM rather than treated as an
+      easy set; RIR 0-1 remain in scope so violations are visible.
 
   # ---------------------------------------------------------------------------
   - id: PRG-DP-001
@@ -99,7 +103,7 @@ rules:
       args: {window_sessions: 4}
     citations:
       - "constitution §2: double progression bullet"
-    depends_on_data_decisions: [DQ-REPS-01, DQ-BW-01]
+    depends_on_data_decisions: [DQ-REPS-01, DQ-BW-01, DQ-LOAD-02]
     on_fail: {action: downgrade, code: HOLD_LOAD}
     notes: >
       "Smallest increment" is per-exercise config because real logs contain 0.5, 1.0 and

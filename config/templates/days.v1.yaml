@@ -1,0 +1,52 @@
+# Day templates for the three-session full-body programme.
+#
+# These describe *shape*, not compliance. The rules engine decides whether a performed
+# session or a proposed prescription is acceptable; this file only says which main lift
+# characterises each day, so a session can be identified.
+#
+# Documented ambiguity (DQ-SESSION-02): days A and C share the same required lifts
+# (squat + bench), so they are separated by emphasis — squat volume vs bench volume —
+# rather than by exercise identity. That is a heuristic, it carries a confidence value, and
+# an ambiguous session is labelled `unknown` instead of being forced into a bucket.
+
+schema_version: "1.0.0"
+
+days:
+  A:
+    label: "Squat emphasis"
+    required_lifts: [ssb_squat, bench_press]
+    characteristic_lift: ssb_squat
+    emphasis: squat            # squat sets exceed bench sets
+    allows_erector_work: true
+    allows_hinge: false
+    allows_power: true
+
+  B:
+    label: "Hinge emphasis"
+    required_lifts: [trap_bar_deadlift]
+    characteristic_lift: trap_bar_deadlift
+    # The constitution allows close-grip OR pause bench on the hinge day.
+    bench_variants: [bench_press_narrow, bench_press_pause]
+    emphasis: hinge
+    allows_erector_work: false
+    allows_hinge: true
+    allows_power: true
+
+  C:
+    label: "Bench + squat"
+    required_lifts: [ssb_squat, bench_press]
+    characteristic_lift: bench_press
+    emphasis: bench            # bench sets at least match squat sets
+    allows_erector_work: true
+    allows_hinge: false
+    allows_power: true
+
+inference:
+  # A session containing the hinge main lift cannot be A or C (the constitution puts
+  # direct erector work off the hinge day, and the hinge only appears on B).
+  hinge_lift: trap_bar_deadlift
+  squat_lifts: [ssb_squat, competition_squat]
+  bench_lifts: [bench_press, bench_press_narrow, bench_press_pause]
+  # Sets above this suggest two sessions merged into one calendar date, because the export
+  # has no timestamps (DQ-SESSION-01).
+  double_session_set_threshold: 35

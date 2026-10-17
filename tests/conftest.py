@@ -49,3 +49,59 @@ def readiness_frame(data_available):
     from strength_coach.utils import io_utils
 
     return io_utils.read_readiness()
+
+
+def make_training(rows: list[dict]):
+    """Build a raw-shaped training frame from partial rows.
+
+    Only the fields a test cares about need to be supplied; the rest default to the export's
+    own "not recorded" representation, so fixtures stay readable.
+    """
+    import pandas as pd
+
+    defaults = {
+        "Date": "2024-01-01",
+        "Workout": "Sheiko",
+        "Exercise": "Competition Squat",
+        "Weight_Used": "100.0",
+        "Weight_Units": "kg",
+        "Reps_Done": "5",
+        "RIR": "2",
+        "ExertionLoad": "0.0",
+        "Main_Muscle": "Quadriceps",
+        "Mechanics": "Compound",
+        "Force": "Push",
+        "Avg_velocity": "0.000000",
+        "Avg_power": "0",
+        "Avg_rom": "0",
+        "TUT": "0",
+        "Form": "0",
+        "Video": "",
+    }
+    merged = [{**defaults, **row} for row in rows]
+    return pd.DataFrame(merged, dtype="str" if hasattr(pd, "StringDtype") else None).astype(str)
+
+
+def make_readiness(rows: list[dict]):
+    """Build a raw-shaped readiness frame from partial rows (Date + Weight matter most)."""
+    import pandas as pd
+
+    defaults = {
+        "Date": "2024-01-01",
+        "Sleep": "4",
+        "Energy": "4",
+        "Mood": "4",
+        "Soreness": "4",
+        "Stress": "4",
+        "Nutrition": "4",
+        "Hydration": "4",
+        "Squat_Readiness": "4",
+        "Bench_Readiness": "4",
+        "Deadlift_Readiness": "4",
+        "HRV": "0",
+        "RHR": "0",
+        "Weight": "80.0",
+        "Fat_Percent": "20.0",
+    }
+    merged = [{**defaults, **row} for row in rows]
+    return pd.DataFrame(merged).astype(str)

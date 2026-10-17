@@ -13,8 +13,8 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**The project is at the proposal stage.** The user has approved nothing yet, and asked to
-review the architecture before code is written. What exists today is:
+**The plan is approved; v0 is in progress.** `docs/ARCHITECTURE.md` and
+`docs/V0-SCOPE.md` are the agreed scope. What exists today is:
 
 - `docs/` — the proposal and design record (public).
 - `private/docs/` — documents derived from a real training log (git-ignored, never pushed).
@@ -25,11 +25,14 @@ review the architecture before code is written. What exists today is:
 - `tests/` — tests for the above.
 - `tools/profile_data.py` — regenerates `private/docs/EVIDENCE.md`.
 - `tools/baseline.py` — regenerates the numbers in `private/docs/BASELINE.md`.
-- `strength_coach/domain/` — e1RM and load arithmetic (tested).
-- `strength_coach/features/baseline.py` — per-lift/session baseline features.
+- `strength_coach/domain/` — e1RM, load arithmetic, RIR classes (tested).
+- `strength_coach/ingest/` — cleaning, flags, quarantine, session reconstruction.
+- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration.
 
-**Do not build the ingestion → prescription → critique pipeline until the user approves
-the plan in `docs/ARCHITECTURE.md`.**
+Build order (v0): ~~ingest~~ → ~~store~~ → ~~vbt calibration~~ → rules + policy →
+prescription engine (Day B) → critique rubric + trace. `ingest`, `domain` and
+`features.derived`/`vbt_calibration` are done and tested. `store` is not started: the
+pipeline currently runs in memory, so persistence is the next gap. Do not add a UI.
 
 ## 3. Non-negotiable invariants
 
@@ -81,7 +84,7 @@ Break any of these and the result is wrong even if the tests pass.
 |---|---|---|
 | `Avg_velocity`, `Avg_power`, `Avg_rom`, `TUT` | device not used | sentinel → NaN |
 | `Weight_Used` | unweighted bodyweight movement | **valid**, preserve |
-| `RIR` | true failure | **valid**, preserve (reliability is Q2) |
+| `RIR` | true failure | **valid**, preserve. `RIR 6` = warm-up (`DEC-RIR-01`) |
 | readiness `Weight`, `HRV`, `RHR`, `Fat_Percent` | missing | sentinel → NaN |
 | readiness `*_Readiness` | missing | sentinel → NaN |
 | readiness `Sleep`/`Energy`/`Mood`/`Soreness`/`Stress`/`Nutrition`/`Hydration` | impossible (1–5 scale) | no sentinel exists |
@@ -96,6 +99,10 @@ so silently erased genuine `RIR = 0` observations during development.
   - `DEC-TRAPBAR-01` — "Competition Deadlift" **is** the trap-bar deadlift.
   - `DEC-BACKEXT-01` — back extension ≡ hyperextension **going forward only**; historical
     `Hyperextensions` rows keep their own identity and do not feed the erector dose ramp.
+  - `DEC-RIR-01` — `RIR 6` marks a **warm-up**. Not effort. Excluded from compliance,
+    e1RM adjustment and working volume, but preserved and reported.
+  - `DEC-LOAD-02` — bodyweight progression acts on **added load**; total mass is used only
+    for an e1RM.
 - There is a standing directive: **back extension is the same as hyperextension going
   forward.** When prescribing, prefer `back_extension`.
 - Adding an exercise = editing YAML, not Python. If you need a new *property*, add it to
