@@ -41,6 +41,7 @@ from strength_coach.eval import backtest, load_marks, record_marks
 from strength_coach.eval.report import format_report, format_session_sheet, item_guide_lines
 from strength_coach.prescribe import build_prescription
 from strength_coach.prescribe import config as prescribe_config
+from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.rules import RuleContext, evaluate, load_document
 from strength_coach.store import db, importer, queries, repositories
 from strength_coach.trace import RunTrace
@@ -683,9 +684,10 @@ def _propose(conn, trace, prescription, args):
     allowed = proposal_mod.allowed_substitutes(conn, context, prescription)
     document = load_document()
     options = proposal_mod.menu(prescription, document)
+    reps = proposal_mod.scheme_options(prescription, schemes_mod.Schemes.load())
     try:
         response = client.complete(
-            proposal_mod.prompt_for(prescription, allowed, options),
+            proposal_mod.prompt_for(prescription, allowed, options, reps),
             system=proposal_mod.SYSTEM,
         )
     except LLMError as exc:

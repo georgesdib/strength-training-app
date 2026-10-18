@@ -252,7 +252,9 @@ The model sees the deterministic session and may propose a **structural** change
 - drop a non-essential item;
 - reorder the session;
 - pick a menu option Python computed: `keep`, `easier`, `harder`, `heavier` or
-  `lighter` (RIR and load are re-solved together).
+  `lighter` (RIR and load are re-solved together);
+- change the **rep scheme**: `maximal` (1-3, main lifts only and never the hinge),
+  `strength` (3-5), `volume` (6-8), `accessory` (8-12). The load is solved for the scheme.
 
 It may **not** supply a load, RIR, percentage or velocity. Any such field is rejected
 before the proposal is even applied, because the model never does arithmetic here.

@@ -113,8 +113,10 @@ model may not change them. That is a design choice, not an evidence claim.
    3RM/5RM (or a `--max` 1RM with confirmation) as a `measured` e1RM override, with a 28-day
    warning for submaximal tests and a 56-day limit for 1RM tests unless `--force`. The test set
    is not logged as training volume, and `--e1rm` lets the athlete override the computed value.
-2. **Rep scheme menu.** Per slot, a small set of schemes; the engine solves the load for the
-   chosen scheme; the model may name a scheme, never a number.
+2. **Rep scheme menu — implemented (`DEC-REPS-01`).** Named schemes: `maximal` (1-3),
+   `strength` (3-5), `volume` (6-8), `accessory` (8-12). The model may name a scheme, never a
+   number; Python re-solves the load for it. `maximal` is excluded on hinge lifts: a
+   near-maximal trap-bar pull is the highest-risk exposure for this athlete.
 3. **Weekly undulation.** A config schedule (e.g. week A strength, week B volume) that shifts
    accessory rep bands and set counts, while main-lift intensity stays inside the RIR window.
 4. **Readiness response.** Keep MOD-FAT-001 as the load cut; add an optional "reduce one set when

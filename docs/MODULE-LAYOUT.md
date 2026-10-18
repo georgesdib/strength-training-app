@@ -15,6 +15,7 @@ config/
   templates/days.v1.yaml             [x] Day A/B/C templates + day inference rules
   thresholds.v1.yaml                 [x] increment 0.5 kg, rounding, e1RM window, fatigue multiplier
   readiness.v1.yaml                  [x] modifier fields/threshold, merge strategy (DEC-READINESS-04)
+  templates/schemes.v1.yaml          [x] named rep schemes (DEC-REPS-01)
   llm.example.toml                   [x] LLM template; llm.local.toml is git-ignored (may hold a key)
 data/raw/training_log.csv            [x] immutable source
 data/raw/readiness.csv               [x] immutable source
@@ -49,6 +50,7 @@ strength_coach/
     derived.py                       [x] e1RM, velocity flags, effort windows
     vbt_calibration.py               [x] clean-set filters + sparsity ladder
     readiness.py                     [x] readiness config: fields, threshold, merge strategy
+  prescribe/schemes.py               [x] named rep schemes and their applicability
     session.py weekly.py             [ ] weekly aggregates
   rules/                             [x] versioned constitution + policy
     loader.py                        [x] YAML -> Rule objects, content hash, strict validation

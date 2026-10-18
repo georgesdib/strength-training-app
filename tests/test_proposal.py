@@ -421,3 +421,81 @@ def test_rir_1_is_accepted_by_the_validator():
         )
 
     assert not any(issue.startswith("RIR_OUTSIDE_WINDOW") for issue in issues)
+
+
+# --- rep schemes -----------------------------------------------------------
+
+DAY_B = [
+    {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "180",
+     "RIR": "2", "Reps_Done": "3"},
+    {"Date": "2024-01-01", "Exercise": "Competition Bench Press", "Weight_Used": "80",
+     "RIR": "2", "Reps_Done": "5"},
+    {"Date": "2024-01-01", "Exercise": "Lateral Raise", "Weight_Used": "12.5",
+     "RIR": "2", "Reps_Done": "10"},
+    {"Date": "2024-01-01", "Exercise": "Split Squat", "Weight_Used": "30",
+     "RIR": "3", "Reps_Done": "8"},
+]
+
+
+def test_maximal_scheme_is_the_lowest_and_excludes_hinges():
+    from strength_coach.prescribe.schemes import Schemes
+
+    schemes = Schemes.load()
+    maximal = schemes.get("maximal")
+    assert (maximal.reps_low, maximal.reps_high) == (1, 3)
+    assert maximal.allows("ssb_squat")
+    assert not maximal.allows("trap_bar_deadlift")
+    assert schemes.applicable("maximal", exercise_id="bench_press", essential=True)
+    assert not schemes.applicable("maximal", exercise_id="lateral_raise", essential=False)
+
+
+def test_setting_the_maximal_scheme_rebuilds_reps_and_load():
+    with store_with(DAY_A) as store:
+        conn = store.connection
+        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        before = next(i for i in prescription.items if i.exercise_id == "bench_press")
+        outcome = assess(conn, prescription, {
+            "changes": [{"action": "set_scheme", "exercise": "bench_press",
+                         "scheme": "maximal"}],
+        })
+
+    assert outcome.accepted, outcome.reasons
+    after = next(i for i in outcome.prescription.items if i.exercise_id == "bench_press")
+    assert (after.reps_low, after.reps_high) == (1, 3)
+    assert after.load_kg > before.load_kg        # fewer reps at the same RIR means more load
+
+
+def test_maximal_scheme_is_refused_on_the_hinge():
+    with store_with(DAY_B) as store:
+        conn = store.connection
+        prescription = build_prescription(conn, for_date="2024-02-01", session_day="B")
+        outcome = assess(conn, prescription, {
+            "changes": [{"action": "set_scheme", "exercise": "trap_bar_deadlift",
+                         "scheme": "maximal"}],
+        })
+    assert not outcome.accepted
+    assert any("not allowed" in reason for reason in outcome.reasons)
+
+
+def test_maximal_scheme_is_refused_on_an_accessory():
+    with store_with(DAY_A) as store:
+        conn = store.connection
+        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        outcome = assess(conn, prescription, {
+            "changes": [{"action": "set_scheme", "exercise": "lateral_raise",
+                         "scheme": "maximal"}],
+        })
+    assert not outcome.accepted
+
+
+def test_volume_scheme_is_offered_to_accessories():
+    with store_with(DAY_A) as store:
+        conn = store.connection
+        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        outcome = assess(conn, prescription, {
+            "changes": [{"action": "set_scheme", "exercise": "lateral_raise",
+                         "scheme": "volume"}],
+        })
+    assert outcome.accepted, outcome.reasons
+    item = next(i for i in outcome.prescription.items if i.exercise_id == "lateral_raise")
+    assert (item.reps_low, item.reps_high) == (6, 8)

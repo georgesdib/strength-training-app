@@ -18,7 +18,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Iterable, Mapping
 
 from strength_coach.domain import e1rm as e1rm_mod
-from strength_coach.prescribe import constraints, engine, loads, templates
+from strength_coach.prescribe import constraints, engine, loads, schemes as schemes_mod, templates
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
 
@@ -29,7 +29,7 @@ SYSTEM = (
     "will be rejected."
 )
 
-ACTIONS = ("substitute", "set_sets", "drop", "reorder", "choose")
+ACTIONS = ("substitute", "set_sets", "drop", "reorder", "choose", "set_scheme")
 REQUIRED_KEYS = {
     "substitute": {"action", "exercise", "with"},
     "set_sets": {"action", "exercise", "sets"},
@@ -38,6 +38,7 @@ REQUIRED_KEYS = {
     # A menu choice is still a choice, not an arithmetic: the model names an option that
     # Python computed, so the number on the bar never comes from the model.
     "choose": {"action", "exercise", "option"},
+    "set_scheme": {"action", "exercise", "scheme"},
 }
 OPTIONS = ("keep", "easier", "harder", "heavier", "lighter")
 TOP_KEYS = {"summary", "changes"}
@@ -60,6 +61,7 @@ class Change:
     sets: int | None = None
     order: tuple[str, ...] = ()
     option: str | None = None
+    scheme: str | None = None
 
 
 @dataclass(frozen=True)
@@ -153,6 +155,11 @@ def parse(raw: str | Mapping[str, Any]) -> Proposal:
             if not isinstance(replacement, str) or not replacement:
                 raise ProposalError(f"{where}.with must be a non-empty exercise id")
             changes.append(Change(action=action, exercise=exercise, replacement=replacement))
+        elif action == "set_scheme":
+            scheme = entry["scheme"]
+            if not isinstance(scheme, str) or not scheme:
+                raise ProposalError(f"{where}.scheme must be a non-empty scheme name")
+            changes.append(Change(action=action, exercise=exercise, scheme=scheme))
         elif action == "choose":
             option = entry["option"]
             if option not in OPTIONS:
@@ -253,10 +260,23 @@ def allowed_substitutes(conn, context, prescription: Prescription) -> dict[str, 
     return options
 
 
+def scheme_options(prescription: Prescription, schemes: schemes_mod.Schemes) -> dict[str, list[str]]:
+    """Rep schemes each item may use. Main lifts get strength schemes; accessories get volume."""
+    return {
+        item.exercise_id: [
+            name for name in schemes.schemes
+            if schemes.applicable(name, exercise_id=item.exercise_id,
+                                  essential=item.essential)
+        ]
+        for item in prescription.items
+    }
+
+
 def prompt_for(
     prescription: Prescription,
     allowed: Mapping[str, Iterable[str]],
     options: Mapping[str, Mapping[str, object]] | None = None,
+    reps: Mapping[str, Iterable[str]] | None = None,
 ) -> str:
     items = []
     for item in prescription.items:
@@ -272,6 +292,8 @@ def prompt_for(
             offered = [name for name in options[item.exercise_id] if name != "keep"]
             if offered:
                 line += f" | menu: {', '.join(offered)}"
+        if reps and item.exercise_id in reps and reps[item.exercise_id]:
+            line += f" | rep schemes: {', '.join(reps[item.exercise_id])}"
         items.append(line)
 
     return (
@@ -283,7 +305,8 @@ def prompt_for(
         "- set_sets: change an item's set count (small change only)\n"
         "- drop: remove a non-essential item\n"
         "- reorder: permute all exercise ids\n"
-        "- choose: pick one of an item's menu options (easier, harder, heavier, lighter)\n\n"
+        "- choose: pick one of an item's menu options (easier, harder, heavier, lighter)\n"
+        "- set_scheme: change an item's rep scheme to one listed for it\n\n"
         "Return JSON only, exactly this shape:\n"
         '{"summary": "<one sentence>", '
         '"changes": [{"action": "substitute", "exercise": "<id>", "with": "<id>"}]}\n'
@@ -313,6 +336,8 @@ def assess(
         )
 
     menus = menu(prescription, document)
+    schemes = schemes_mod.Schemes.load()
+    template = templates.DayTemplate.load(prescription.session_day)
     items = list(prescription.items)
     by_id = {item.exercise_id: item for item in items}
 
@@ -385,6 +410,39 @@ def assess(
                 item, load_kg=chosen["load_kg"], rir_target=chosen["rir_target"]
             )
             by_id[item.exercise_id] = items[index]
+
+        elif change.action == "set_scheme":
+            try:
+                scheme = schemes.get(change.scheme or "")
+            except schemes_mod.SchemeError:
+                reasons.append(f"{change.exercise}: unknown rep scheme {change.scheme!r}")
+                continue
+            if not schemes.applicable(change.scheme or "",
+                                      exercise_id=item.exercise_id,
+                                      essential=item.essential):
+                reasons.append(
+                    f"{item.exercise_id}: scheme {change.scheme!r} is not allowed for this item"
+                )
+                continue
+            slot = templates.Slot(
+                id=f"scheme:{item.exercise_id}",
+                sets=item.sets,
+                reps_low=scheme.reps_low,
+                reps_high=scheme.reps_high,
+                rir_low=item.rir_target,
+                rir_high=item.rir_target,
+                rest_s=item.rest_s,
+                essential=item.essential,
+                load_source="e1rm" if item.essential else "double_progression",
+                exercise=item.exercise_id,
+            )
+            rebuilt, _ = engine.build_item(
+                conn, context, slot, item.order_index, thresholds,
+                prescription.for_date, decisions, template,
+            )
+            index = items.index(item)
+            items[index] = rebuilt
+            by_id[item.exercise_id] = rebuilt
 
         elif change.action == "set_sets":
             if item.essential:

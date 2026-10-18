@@ -1,0 +1,27 @@
+# Rep schemes. The prescription picks one per exercise; Python solves the load for it.
+#
+# The lowest scheme exists because strength is load-specific: 1-3 reps at a controlled RIR is a
+# legitimate maximal-strength exposure in trained lifters. It is deliberately NOT available on
+# the hinge lifts: a near-maximal trap-bar pull is the highest spinal-risk exposure in this
+# programme, and the athlete has a back history (docs/TRAINING-DYNAMICS.md).
+schema_version: "1.0.0"
+
+schemes:
+  maximal:
+    label: "maximal strength (1-3 reps)"
+    reps: [1, 3]
+    # Only lifts with safeties, and never the hinges.
+    exclude: [trap_bar_deadlift, rdl, good_morning, rack_pull, conventional_deadlift,
+              jefferson_curl]
+
+  strength:
+    label: "strength (3-5 reps)"
+    reps: [3, 5]
+
+  volume:
+    label: "volume (6-8 reps)"
+    reps: [6, 8]
+
+  accessory:
+    label: "accessory (8-12 reps)"
+    reps: [8, 12]

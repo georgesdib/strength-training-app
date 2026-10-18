@@ -75,6 +75,9 @@ def config_hash() -> str:
         # Readiness derivation decides whether a session is downgraded, so it belongs in the
         # run's config hash for the same reason the load thresholds do.
         paths.readiness_yaml(),
+        # Rep schemes decide the reps (and therefore the solved load), so they belong in the
+        # run's config hash alongside the thresholds.
+        paths.schemes_yaml(),
     ):
         if Path(path).exists():
             digest.update(Path(path).read_bytes())
