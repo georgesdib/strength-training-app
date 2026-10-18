@@ -258,8 +258,8 @@ It may **not** supply a load, RIR, percentage or velocity. Any such field is rej
 before the proposal is even applied, because the model never does arithmetic here.
 
 Set counts are the one number it may change, within configured bounds. Menu options are bounded
-by the RIR rule itself: with a 2-3 window there is no `harder` option at RIR 2, and if the
-window is widened on evidence, the menu widens with it.
+by the RIR rule itself: with a 1-4 window, `harder` at RIR 2 is RIR 1, and at RIR 1 it is not
+offered at all. If the window changes on evidence, the menu changes with it.
 
 You see the proposal and its one-line reason, then accept or decline (`--yes` skips the
 prompt). If you accept, the prescription is stored with `approved_by = llm+policy`; if you
@@ -303,7 +303,7 @@ Six items are measured, two are not:
 
 | item | measures |
 |---|---|
-| `RIR_ADHERENCE` | share of rated primary-compound sets inside RIR 2–3 |
+| `RIR_ADHERENCE` | share of rated primary-compound sets inside the allowed window (RIR 1–4) |
 | `PROGRESSION_ADHERENCE` | accessories added load only after topping the rep range |
 | `WEEKLY_SPINAL_COST` | the week's weighted spinal load against a cap of 3 |
 | `ESSENTIAL_WORK` | the day's essential lifts were present |

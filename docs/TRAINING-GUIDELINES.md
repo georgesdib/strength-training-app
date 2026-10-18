@@ -48,15 +48,15 @@ A 2024 series of meta-regressions on estimated proximity to failure finds hypert
 from training closer to failure, while strength effects are less clear-cut
 ([Sports Medicine 2024](https://link.springer.com/article/10.1007/s40279-024-02069-2)).
 
-**Implication:** a rule of "main lifts at RIR 2-3, never RIR 0-1" is a
-strength-and-fatigue-management choice and sits deliberately on the conservative side. That is
-coherent, but it has a consequence worth stating plainly:
+**Implication:** the window is now RIR 1-4 with a 2-3 target (`DEC-RIR-02`,
+[evidence](RIR-EVIDENCE.md)). It remains a conservative choice — failure is not required, and
+RIR estimation is imprecise — but RIR 1 is a legitimate strength exposure, so the rule no longer
+forbids it. The consequence worth stating plainly:
 
-> If main lifts are capped at RIR 2-3 and accessories only progress at RIR >= 2, the programme
-> never deliberately trains to failure. That is a legitimate choice for a lifter managing
-> symptoms — but it means **hypertrophy-oriented accessory work will progress more slowly than
-> a failure-inclusive programme would.** A critique must not score "too easy" as a failure,
-> because the constitution forbids the alternative.
+> Main lifts are still never taken to failure, and accessories only progress at RIR >= 2. That
+> is a legitimate choice for a lifter managing symptoms — but it means **hypertrophy-oriented
+> accessory work may progress more slowly than a failure-inclusive programme.** A critique must
+> not score "too easy" as a failure when the constitution forbids the alternative.
 
 It also couples to Q1: if the modal RIR value is a default rather than a real rating, apparent
 average effort is understated and the prescription is systematically too light.

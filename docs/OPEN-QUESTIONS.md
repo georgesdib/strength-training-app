@@ -124,19 +124,10 @@ ASSUMPTION-02 fixes the *weighting* (ordinal `spinal_cost`) but not the *unit*:
 
 ---
 
-## Q9. Can the RIR window itself be widened?
+## Q9. ~~Can the RIR window itself be widened?~~
 
-Currently primary compounds are held at RIR 2-3 (`PRG-RIR-001`, `DEC-WINDOW-01`). The athlete is
-open to relaxing this, but only if evidence supports it; the window is a **veto rule**, so
-changing it is a constitution change, not a config tweak.
-
-What evidence would justify it: a source comparing proximity-to-failure against strength,
-hypertrophy and injury outcomes in a similar population, plus a reason to prefer the wider
-window given the longevity-first goal.
-
-Mechanically the change is small: edit `default_rir` (or `per_exercise_rir`) in the rule
-document, add a `DEC-` row, and both the proposal menu and the `RIR_OUTSIDE_WINDOW` validator
-follow automatically.
+**Closed** by `DEC-RIR-02`: the window is now RIR 1-4 with a 2-3 target, based on the
+evidence collected in `docs/RIR-EVIDENCE.md`. Changing it again is still a constitution change.
 
 ## Closed
 

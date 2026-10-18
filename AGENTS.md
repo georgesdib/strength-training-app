@@ -122,8 +122,10 @@ so silently erased genuine `RIR = 0` observations during development.
     e1RM adjustment and working volume, but preserved and reported.
   - `DEC-LOAD-02` — bodyweight progression acts on **added load**; total mass is used only
     for an e1RM.
-  - `DEC-WINDOW-01` — the trap bar's RIR window is the default **2-3** (it used to be 3-4).
+  - `DEC-WINDOW-01` — the trap bar's RIR window is the default (it used to be 3-4).
     The per-lift override map is kept, empty, so changing it back is config, not code.
+  - `DEC-RIR-02` — the effort window is **RIR 1-4 with a 2-3 target**; RIR 0 is forbidden.
+    The evidence is in `docs/RIR-EVIDENCE.md`.
 - There is a standing directive: **back extension is the same as hyperextension, including its
   history.** When prescribing, prefer `back_extension`.
 - Adding an exercise = editing YAML, not Python. If you need a new *property*, add it to
@@ -157,6 +159,8 @@ so silently erased genuine `RIR = 0` observations during development.
 | `docs/DATA-MODEL.md` | canonical schemas, tables, append-only records |
 | `docs/DATA-QUALITY.md` | the decision ledger (DQ-*) and open sentinel questions |
 | `docs/READINESS.md` | how readiness is derived, merged and used; what is config vs rule |
+| `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |
+| `docs/TRAINING-DYNAMICS.md` | evidence on 1RM testing, rep ranges and DUP; proposal, not decision |
 | `docs/RULES-FORMAT.md` | citable rule IDs + 5 encoded rules |
 | `docs/VBT-CALIBRATION.md` | clean set, sparsity, overrides, versioning |
 | `docs/MODULE-LAYOUT.md` | file layout and test strategy |

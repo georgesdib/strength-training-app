@@ -45,17 +45,21 @@ rules:
 
   # ---------------------------------------------------------------------------
   - id: PRG-RIR-001
-    title: "Effort window on primary compounds (no RIR 0-1, no max singles)"
+    title: "Effort window on primary compounds (RIR 1-4, no RIR 0, no max singles)"
     severity: veto
     scope:
       exercises: "$primary_compounds"
       sessions: [A, B, C]
     statement: >
-      Main lifts at RIR 2-3. No RIR 0-1 sets, no max singles, no 1RM testing inside a block.
-      This is a hard rule, not a preference. (Amended: the trap bar previously carried a
-      tighter 3-4 window; see DEC-WINDOW-01.)
+      Main lifts at RIR 1-4, with 2-3 as the default target. RIR 0 — a grinding set — is
+      prohibited, as are max singles and 1RM testing inside a block. The allowed window is
+      deliberately wider than the target: the proximity-to-failure evidence does not support a
+      tighter veto (strength gains are similar across a wide RIR range, hypertrophy improves
+      closer to failure, and self-reported RIR carries roughly ±1-2 reps of error). See
+      docs/RIR-EVIDENCE.md and DEC-RIR-02. (Amended: the trap bar previously carried a tighter
+      3-4 window; see DEC-WINDOW-01.)
     params:
-      default_rir: {min: 2, max: 3}
+      default_rir: {min: 1, max: 4}
       # DEC-WINDOW-01: emptied. The trap bar used to be listed here as {min: 3, max: 4} because a
       # hinge is more forgiving of fatigue at lower effort. In practice the athlete trains it
       # at ~RIR 2, so the tighter window fired on ~43% of trap-bar sets for reasons of
@@ -67,7 +71,9 @@ rules:
       # DEC-RIR-01: this value marks a WARM-UP set. It is not an effort rating, so it is
       # excluded from compliance scoring rather than counted as a very easy set.
       warmup_rir_value: 6
-      suspect_rir_values: [0, 1]      # logged effort that must be surfaced, not trusted
+      # RIR 1 is now inside the window, so only RIR 0 remains a value to surface rather than
+      # trust: it is the one effort rating the constitution forbids on main lifts.
+      suspect_rir_values: [0]
     inputs: [set.rir, exercise.id, exercise.primary_compound, set.reps, set.load_kg]
     check:
       fn: primary_compound_rir_window

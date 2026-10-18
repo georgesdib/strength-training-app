@@ -15,9 +15,10 @@ allowed to influence:
 So `RIR 6` is reclassified from "suspect default" to a first-class `warmup` class, not
 deleted.
 
-**The remaining ambiguity is RIR 0–1.** Those stay `effort` class and are flagged as
-suspect, because the hard "no RIR 0–1 on main lifts" rule needs to see them. They are
-reported separately from clean effort rather than discarded.
+**The remaining ambiguity is RIR 0.** It stays `effort` class and is flagged as suspect,
+because the hard "no RIR 0 on main lifts" rule needs to see it. It is reported separately from
+clean effort rather than discarded. RIR 1 is inside the allowed window (DEC-RIR-02), so it is
+not suspect.
 
 `RIR 5` is treated as a genuine effort rating (an easy working set), because nothing
 indicates otherwise. That is an assumption, and it is the least consequential one here.
@@ -35,12 +36,18 @@ WARMUP_RIR: int = 6
 EFFORT_RIR_VALUES: frozenset[int] = frozenset({0, 1, 2, 3, 4, 5})
 
 # Logged effort that should be surfaced as a potential rule violation rather than trusted
-# silently. The constitution forbids RIR 0-1 on main lifts.
-SUSPECT_EFFORT_RIR: frozenset[int] = frozenset({0, 1})
+# silently. The constitution forbids RIR 0 on main lifts (PRG-RIR-001, DEC-RIR-02).
+SUSPECT_EFFORT_RIR: frozenset[int] = frozenset({0})
 
 RIR_CLASSES = ("missing", "warmup", "effort")
 
-# Default effort window: RIR 2-3, applied to every primary compound.
+# The allowed window on primary compounds is RIR 1-4 (PRG-RIR-001, DEC-RIR-02). It is
+# deliberately wider than the target: strength gains are similar across a wide RIR range, and
+# self-reported RIR is imprecise enough that a tight veto would punish estimation error.
+ALLOWED_RIR_WINDOW: tuple[int, int] = (1, 4)
+
+# Default *target* band: what the prescription aims for, and what VBT calibration accepts as a
+# clean set. Kept narrower than the allowed window so the athlete is not aiming at the edge.
 DEFAULT_RIR_TARGET: tuple[int, int] = (2, 3)
 
 # DEC-WINDOW-01: the trap-bar deadlift originally carried its own tighter window (RIR 3-4) as

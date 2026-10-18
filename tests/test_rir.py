@@ -100,7 +100,12 @@ def test_rule_document_and_code_agree():
         document = yaml.safe_load(handle)
     rule = next(r for r in document["rules"] if r["id"] == "PRG-RIR-001")
     params = rule["params"]
-    assert tuple(params["default_rir"].values()) == rir.DEFAULT_RIR_TARGET
+    # The rule allows RIR 1-4 (DEC-RIR-02); the *target* band stays narrower (2-3) and is what
+    # VBT calibration accepts as a clean set.
+    assert tuple(params["default_rir"].values()) == rir.ALLOWED_RIR_WINDOW
+    assert rir.DEFAULT_RIR_TARGET == (2, 3)
+    assert rir.ALLOWED_RIR_WINDOW[0] <= rir.DEFAULT_RIR_TARGET[0]
+    assert rir.ALLOWED_RIR_WINDOW[1] >= rir.DEFAULT_RIR_TARGET[1]
     # The YAML override map and the code override map must be the same set of lifts.
     assert set(params.get("per_exercise_rir") or {}) == set(rir.PER_EXERCISE_RIR_TARGET)
     for exercise_id, window in (params.get("per_exercise_rir") or {}).items():

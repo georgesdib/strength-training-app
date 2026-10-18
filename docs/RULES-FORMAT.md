@@ -86,7 +86,10 @@ ambiguous, the ambiguity is recorded in `notes` and raised in `docs/OPEN-QUESTIO
 > "Main lifts at RIR 2–3 (trap-bar RIR 3–4). No RIR 0–1 sets, no max singles, no 1RM
 > testing inside a block. This is a hard rule, not a preference."
 
-*Amended:* the trap-bar clause was removed (`DEC-WINDOW-01`). One window — RIR 2–3 — now
+*Amended:* the window is RIR 1–4 with a 2–3 target (`DEC-RIR-02`), because the
+proximity-to-failure evidence does not support a 2–3 veto and RIR estimates carry roughly
+±1–2 reps of error (`docs/RIR-EVIDENCE.md`). The trap-bar clause was removed earlier
+(`DEC-WINDOW-01`). One window now
 applies to every primary compound. The original wording is kept above so the change is
 visible rather than silently rewritten.
 

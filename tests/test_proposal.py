@@ -336,7 +336,10 @@ def test_menu_options_are_bounded_by_the_rir_rule():
 
     bench = options["bench_press"]
     assert "keep" in bench and "easier" in bench and "heavier" in bench
-    assert "harder" not in bench            # RIR 2 is the bottom of the 2-3 window
+    # DEC-RIR-02: the allowed window is 1-4, so RIR 2 can go harder to RIR 1.
+    assert "harder" in bench
+    assert bench["harder"]["rir_target"] == 1
+    assert bench["harder"]["load_kg"] > bench["keep"]["load_kg"]
     assert bench["easier"]["rir_target"] == 3
     assert bench["easier"]["load_kg"] < bench["keep"]["load_kg"]
     assert bench["heavier"]["load_kg"] > bench["keep"]["load_kg"]
@@ -358,10 +361,17 @@ def test_choosing_a_menu_option_applies_pythons_value():
 
 
 def test_an_option_the_menu_does_not_offer_is_rejected():
+    from dataclasses import replace as dataclass_replace
+
     with store_with(DAY_A) as store:
         conn = store.connection
         prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
-        outcome = assess(conn, prescription, {
+        # At RIR 1 a "harder" option would mean RIR 0, which the rule forbids.
+        items = list(prescription.items)
+        index = next(i for i, item in enumerate(items) if item.exercise_id == "bench_press")
+        items[index] = dataclass_replace(items[index], rir_target=1)
+        low = dataclass_replace(prescription, items=tuple(items))
+        outcome = assess(conn, low, {
             "changes": [{"action": "choose", "exercise": "bench_press",
                          "option": "harder"}],
         })
@@ -386,9 +396,28 @@ def test_an_rir_target_outside_the_rule_window_is_reported():
         context = context_for(conn)
         items = list(prescription.items)
         index = next(i for i, item in enumerate(items) if item.exercise_id == "bench_press")
-        items[index] = dataclass_replace(items[index], rir_target=1)
+        items[index] = dataclass_replace(items[index], rir_target=0)
         issues = validate_prescription(
             tuple(items), context, load_document(), "A", "2024-02-01"
         )
 
     assert any(issue.startswith("RIR_OUTSIDE_WINDOW:bench_press") for issue in issues)
+
+
+def test_rir_1_is_accepted_by_the_validator():
+    from dataclasses import replace as dataclass_replace
+
+    from strength_coach.prescribe.engine import validate_prescription
+
+    with store_with(DAY_A) as store:
+        conn = store.connection
+        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        context = context_for(conn)
+        items = list(prescription.items)
+        index = next(i for i, item in enumerate(items) if item.exercise_id == "bench_press")
+        items[index] = dataclass_replace(items[index], rir_target=1)
+        issues = validate_prescription(
+            tuple(items), context, load_document(), "A", "2024-02-01"
+        )
+
+    assert not any(issue.startswith("RIR_OUTSIDE_WINDOW") for issue in issues)

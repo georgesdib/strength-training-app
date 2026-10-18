@@ -123,7 +123,7 @@ def score_session(
 
 
 def _rir_adherence(facts: CritiqueFacts, document) -> RubricItem:
-    """Grinding sets: RIR 0-1, or any set below the window, on primary compounds."""
+    """Grinding sets: RIR 0, or any set outside the allowed window, on primary compounds."""
     exercises = set(document.collection("$primary_compounds"))
     sets = facts.sets
     rated = sets[
