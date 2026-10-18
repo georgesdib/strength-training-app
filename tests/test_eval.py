@@ -52,7 +52,7 @@ def make_critique(scores: dict[str, float | None], session_id="2024-01-01") -> C
 
 
 def make_labels(scores: dict[str, float | None], session_id="2024-01-01") -> LabelledSession:
-    return LabelledSession(session_id=session_id, scores=scores)
+    return LabelledSession(session_id=session_id, scores=scores, confidence="high")
 
 
 # --- loading and validation ------------------------------------------------
@@ -87,6 +87,34 @@ def test_out_of_range_score_is_rejected(tmp_path):
     }), encoding="utf-8")
     with pytest.raises(LabelError, match="outside 0..1"):
         load_labels(path)
+
+
+def test_invalid_confidence_is_rejected(tmp_path):
+    path = tmp_path / "labels.yaml"
+    path.write_text(yaml.safe_dump({
+        "version": 1,
+        "sessions": {"2024-01-01": {"confidence": "certain", "scores": {}}},
+    }), encoding="utf-8")
+    with pytest.raises(LabelError, match="confidence"):
+        load_labels(path)
+
+
+def test_low_confidence_marks_are_recorded_but_not_scored():
+    from strength_coach.eval import BacktestReport
+
+    comparison = compare(
+        make_critique({"RIR_ADHERENCE": 1.0}),
+        LabelledSession("2024-01-01", {"RIR_ADHERENCE": 0.0}, confidence="low"),
+        tolerance=0.25,
+    )
+    assert comparison.confidence == "low"
+    assert comparison.reliable is False
+
+    report = BacktestReport(tolerance=0.25, sessions=(comparison,))
+    # A reconstructed mark must not move the headline in either direction.
+    assert report.agreement_rate is None
+    assert report.mean_abs_error is None
+    assert report.unreliable_sessions == (comparison,)
 
 
 def test_null_scores_are_allowed_and_mean_not_marked(tmp_path):
@@ -205,7 +233,7 @@ def test_backtest_against_a_perfect_label_agrees_completely():
         critique = score_session(store.connection, "2024-01-01")
         scores = {i.key: i.score for i in critique.items if i.measurable}
         labels = LabelledSet(
-            sessions={"2024-01-01": LabelledSession("2024-01-01", scores)},
+            sessions={"2024-01-01": LabelledSession("2024-01-01", scores, confidence="high")},
             tolerance=0.25,
         )
         report = backtest(store.connection, labels)
@@ -224,7 +252,7 @@ def test_backtest_reports_per_item_agreement():
         # Deliberately wrong on one item.
         scores["RIR_ADHERENCE"] = 0.0
         labels = LabelledSet(
-            sessions={"2024-01-01": LabelledSession("2024-01-01", scores)},
+            sessions={"2024-01-01": LabelledSession("2024-01-01", scores, confidence="high")},
             tolerance=0.25,
         )
         report = backtest(store.connection, labels)

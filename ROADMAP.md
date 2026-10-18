@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · version `0.0.1-dev` · **300 tests passing**
+Last updated: 2026-10-17 · version `0.0.1-dev` · **302 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · version `0.0.1-dev` · **300 tests passing**
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 300 passed
+.venv/bin/python -m pytest            # expect: 302 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -65,9 +65,10 @@ either artifact: the model receives the facts as JSON, may not compute, and its 
 recorded as a `run_event` rather than written into a prescription or a score. With no model
 configured (`NullLLM`) the run is structurally identical and loses only the prose. There is
 **no CLI yet**. The backtest harness replays a session through the rubric and compares it
-with a hand-marked score, per item and per session. Three sessions are marked; agreement is
-42% of items within ±0.25, and the disagreements are recorded rather than tuned away
-(`DEC-EVAL-03`, report in git-ignored `private/eval/`).
+with a hand-marked score, per item and per session. Three sessions are marked, but two are
+reconstructed from memory and excluded; on the one remembered session, 60% of items agree
+within ±0.25. The disagreements are recorded rather than tuned away (`DEC-EVAL-03/04`, report
+in git-ignored `private/eval/`).
 
 ## 3. Next actions
 
@@ -108,7 +109,7 @@ disappears once Days A/C get templates.
 | Only Day B can be prescribed | Days A/C are blocked by the erector-ramp anchor (Q3), the SSB question (H1) and the missing §11 tables | phase 5 ships B only, per `V0-SCOPE.md`; phase 5.5 builds the state tables, then A/C templates land with the answers |
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
 | Velocity is per-set only | within-set velocity loss not computable | labelled decay proxy; `DEC-VELOCITY-01` |
-| Rubric calibrated on 3 sessions only | 42% item agreement; the disagreements are concentrated in the binary items and one load-blind spinal week | recorded, not tuned away (`DEC-EVAL-03`); needs ~10 marks before changing weights |
+| Rubric calibrated on **one reliable session** | 60% of items within ±0.25 (MAE 0.23); the other two marks are reconstructed from memory and excluded | `DEC-EVAL-04`; needs ~10 remembered sessions before changing weights |
 | Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one | ASSUMPTION-02 / Q8; a weighted-by-e1RM or RIR version needs the athlete's decision |
 | ACWR contested | cannot be a hard rule | advisory only; `DEC-ACWR-01` |
 

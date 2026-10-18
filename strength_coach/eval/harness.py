@@ -37,6 +37,11 @@ class SessionComparison:
     session_id: str
     items: tuple[ItemComparison, ...]
     disagreements: tuple[str, ...]
+    confidence: str = "unknown"
+
+    @property
+    def reliable(self) -> bool:
+        return self.confidence == "high"
 
     @property
     def comparable_items(self) -> tuple[ItemComparison, ...]:
@@ -64,9 +69,18 @@ class BacktestReport:
     sessions: tuple[SessionComparison, ...]
 
     @property
+    def reliable_sessions(self) -> tuple[SessionComparison, ...]:
+        """Only sessions the marker actually remembers; the rest are recorded, not scored."""
+        return tuple(session for session in self.sessions if session.reliable)
+
+    @property
+    def unreliable_sessions(self) -> tuple[SessionComparison, ...]:
+        return tuple(session for session in self.sessions if not session.reliable)
+
+    @property
     def comparable_items(self) -> tuple[ItemComparison, ...]:
         return tuple(
-            item for session in self.sessions for item in session.comparable_items
+            item for session in self.reliable_sessions for item in session.comparable_items
         )
 
     @property
@@ -135,6 +149,7 @@ def compare(
         session_id=label.session_id,
         items=tuple(items),
         disagreements=tuple(disagreements),
+        confidence=label.confidence,
     )
 
 

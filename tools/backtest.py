@@ -56,24 +56,29 @@ def main(argv: list[str] | None = None) -> int:
 
 def _print_report(report) -> None:
     print(f"tolerance: +/-{report.tolerance:g}")
+    print("confidence: only 'high' marks count toward agreement; reconstructed marks are shown")
     print()
-    header = f"{'session':<14}{'compared':>10}{'agreement':>11}{'mae':>8}  disagreements"
+    header = (f"{'session':<14}{'confidence':<12}{'compared':>10}"
+              f"{'agreement':>11}{'mae':>8}  disagreements")
     print(header)
     print("-" * (len(header) + 20))
     for session in report.sessions:
         compared = len(session.comparable_items)
         agreement = "-" if session.agreement_rate is None else f"{session.agreement_rate:.0%}"
         mae = "-" if session.mean_abs_error is None else f"{session.mean_abs_error:.2f}"
-        print(f"{session.session_id:<14}{compared:>10}{agreement:>11}{mae:>8}  "
-              f"{', '.join(session.disagreements) or '-'}")
+        print(f"{session.session_id:<14}{session.confidence:<12}{compared:>10}"
+              f"{agreement:>11}{mae:>8}  {', '.join(session.disagreements) or '-'}")
 
     overall = report.agreement_rate
     print()
-    print(f"overall: {len(report.comparable_items)} comparable items, "
+    print(f"headline (high confidence only): {len(report.comparable_items)} comparable items, "
           f"agreement {'-' if overall is None else f'{overall:.0%}'}, "
           f"mean absolute error {'-' if report.mean_abs_error is None else f'{report.mean_abs_error:.2f}'}")
+    excluded = report.unreliable_sessions
+    if excluded:
+        print(f"excluded as reconstructed/unknown: {', '.join(s.session_id for s in excluded)}")
 
-    print("\nper item")
+    print("\nper item (high confidence only)")
     print(f"  {'item':<24}{'n':>4}{'agreement':>11}{'mae':>8}")
     for key, stats in report.per_item.items():
         agreement = "-" if stats["agreement"] is None else f"{stats['agreement']:.0%}"

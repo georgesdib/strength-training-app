@@ -30,6 +30,11 @@ from strength_coach.critique.rubric import RUBRIC_WEIGHTS
 FORMAT_VERSION = 1
 ITEM_KEYS: tuple[str, ...] = tuple(RUBRIC_WEIGHTS)
 
+# A mark is only evidence if the marker actually remembers the session. Reconstructed marks
+# are kept (they are still a record) but excluded from the headline agreement, because tuning
+# a rubric against a guess would encode the guess.
+CONFIDENCE_LEVELS = ("high", "low", "unknown")
+
 # What each item asks, in the direction the engine scores it. Without this the marks are
 # ambiguous: "spinal cost" can read as "how much work" (higher = more) or "how compliant"
 # (higher = better), and a backtest against the wrong reading measures nothing.
@@ -80,6 +85,11 @@ class LabelledSession:
     scores: Mapping[str, float | None]
     notes: str | None = None
     marked_at: str | None = None
+    confidence: str = "unknown"
+
+    @property
+    def reliable(self) -> bool:
+        return self.confidence == "high"
 
     def score_for(self, key: str) -> float | None:
         return self.scores.get(key)
@@ -112,11 +122,17 @@ def load_labels(path: str | Path) -> LabelledSet:
             raise LabelError(f"duplicate session {key!r}")
         block = block or {}
         scores = _validate_scores(key, block.get("scores") or {})
+        confidence = str(block.get("confidence", "unknown")).lower()
+        if confidence not in CONFIDENCE_LEVELS:
+            raise LabelError(
+                f"{key}.confidence: {confidence!r} is not one of {CONFIDENCE_LEVELS}"
+            )
         sessions[key] = LabelledSession(
             session_id=key,
             scores=scores,
             notes=_optional_str(block.get("notes")),
             marked_at=_optional_str(block.get("marked_at")),
+            confidence=confidence,
         )
 
     if not sessions:
@@ -157,7 +173,11 @@ def template(session_ids: list[str]) -> dict[str, Any]:
         "version": FORMAT_VERSION,
         "tolerance": 0.25,
         "sessions": {
-            session_id: {"notes": "", "scores": {key: None for key in ITEM_KEYS}}
+            session_id: {
+                "confidence": "unknown",
+                "notes": "",
+                "scores": {key: None for key in ITEM_KEYS},
+            }
             for session_id in session_ids
         },
     }
@@ -169,6 +189,9 @@ def render_template(session_ids: list[str]) -> str:
         "# Labelled eval set -- a human's scores, compared with the engine's.",
         "#",
         "# Score every item 0-1. HIGHER IS ALWAYS BETTER: 1.0 means 'nothing to improve'.",
+        "#",
+        "# Set confidence per session: high (you remember it), low (reconstructed), or",
+        "# unknown. Only high-confidence marks count toward the headline agreement.",
         "#",
     ]
     for key in ITEM_KEYS:

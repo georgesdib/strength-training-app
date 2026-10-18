@@ -12,6 +12,7 @@ from strength_coach.eval.harness import (
     compare,
 )
 from strength_coach.eval.labels import (
+    CONFIDENCE_LEVELS,
     ITEM_GUIDE,
     ITEM_KEYS,
     LabelError,
@@ -25,6 +26,7 @@ from strength_coach.eval.labels import (
 
 __all__ = [
     "BacktestReport",
+    "CONFIDENCE_LEVELS",
     "ITEM_GUIDE",
     "ITEM_KEYS",
     "ItemComparison",

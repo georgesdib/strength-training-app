@@ -11,6 +11,9 @@ tolerance: 0.25
 
 sessions:
   "2024-01-08":
+    # high = you remember the session; low = reconstructed; unknown = omitted on purpose.
+    # Only high-confidence marks count toward agreement.
+    confidence: high
     notes: "synthetic example, not a real session"
     scores:
       RIR_ADHERENCE: 0.75
@@ -23,6 +26,7 @@ sessions:
       VELOCITY_LOSS: null
 
   "2024-01-15":
+    confidence: high
     notes: "synthetic example, not a real session"
     scores:
       RIR_ADHERENCE: 0.5
