@@ -429,6 +429,40 @@ def append_calibration(
     return identifier
 
 
+def append_rule(
+    conn: sqlite3.Connection,
+    *,
+    rule_id: str,
+    document_id: str,
+    document_version: str,
+    severity: str,
+    scope: Mapping[str, Any] | None,
+    check_fn: str,
+    citations: Sequence[str],
+    depends_on_data_decisions: Sequence[str],
+    body: Mapping[str, Any],
+) -> None:
+    """Store one rule row; part of an immutable document version, never edited."""
+    conn.execute(
+        """
+        INSERT INTO rule (rule_id, document_id, document_version, severity, scope, check_fn,
+                          citations, depends_on_data_decisions, body_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            rule_id,
+            document_id,
+            document_version,
+            severity,
+            _json(dict(scope or {})),
+            check_fn,
+            _json(list(citations)),
+            _json(list(depends_on_data_decisions)),
+            _json(dict(body)),
+        ),
+    )
+
+
 def append_rule_document(
     conn: sqlite3.Connection,
     *,

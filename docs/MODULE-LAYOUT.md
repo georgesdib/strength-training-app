@@ -43,8 +43,12 @@ strength_coach/
     derived.py                       [x] e1RM, velocity flags, effort windows
     vbt_calibration.py               [x] clean-set filters + sparsity ladder
     session.py weekly.py             [ ] weekly aggregates
-  rules/                             [ ]
-    loader.py registry.py policy.py rag.py
+  rules/                             [x] versioned constitution + policy
+    loader.py                        [x] YAML -> Rule objects, content hash, strict validation
+    registry.py                      [x] one predicate per check.fn (5 rules)
+    context.py                       [x] immutable view of stored sets/sessions
+    policy.py                        [x] verdicts, severity effects, evidence validation, publish
+    rag.py                           [ ] deferred (rules are cited by id, not retrieved)
   prescribe/                         [ ]
     templates.py engine.py fallback.py
   critique/                          [ ]

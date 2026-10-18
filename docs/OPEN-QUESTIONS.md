@@ -92,6 +92,35 @@ Two sub-questions:
 
 ---
 
+## Q7. Does "main lifts at RIR 2-3" forbid sets *easier* than the window?
+
+The constitution states a window, but `PRG-RIR-001`'s `on_fail` code is `RIR_FLOOR`, and the
+danger it names is "no RIR 0-1 sets, no max singles". A set at RIR 4-5 is easier than
+prescribed, not more dangerous, so treating it as a veto would make the rule fire on almost
+every session and bury the real violations.
+
+**Blocks:** nothing — the rule runs today with the default below.
+**Default:** the floor is a veto (RIR below the window, plus max singles at >= 90% of a
+multi-rep e1RM); a set *above* the window is counted and reported in the verdict details but
+does not fail the rule. Making easy sets violations is then a config change
+(`on_fail.action`) plus a predicate branch, not a rewrite.
+
+---
+
+## Q8. What counts as one "high-fatigue spinal exposure"?
+
+ASSUMPTION-02 fixes the *weighting* (ordinal `spinal_cost`) but not the *unit*:
+
+* per **set** — one 12-set trap-bar session is twelve exposures, so the cap fires every week;
+* per **exercise type per week** — the cap almost never fires, which makes it decorative;
+* per **exercise per session** — two hinge sessions in a week cost 2+2 = 4 against a cap of 3.
+
+**Blocks:** how strict `PRG-SPINE-001` is. It does not block the build.
+**Default:** one exposure = one exercise in one session, weighted by `spinal_cost`
+(`rules/registry.py` `weekly_spinal_cap`). Sets do not multiply an exposure.
+
+---
+
 ## Closed
 
 - ~~What do the extreme `RIR` values mean?~~ **Closed** — `RIR 6` marks a **warm-up set**

@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · version `0.0.1-dev` · **184 tests passing**
+Last updated: 2026-10-17 · version `0.0.1-dev` · **221 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · version `0.0.1-dev` · **184 tests passing**
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 184 passed
+.venv/bin/python -m pytest            # expect: 221 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -35,7 +35,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 1 | Ingest (clean + sessions) | **done** | `ingest/clean.py`, `ingest/sessions.py`, `config/templates/days.v1.yaml` |
 | 2 | Derived features + VBT calibration | **done** | `features/derived.py`, `features/baseline.py`, `features/vbt_calibration.py`, `domain/e1rm.py`, `domain/load.py`, `domain/rir.py` |
 | 3 | Store (SQLite, append-only) | **done** | `store/migrations/0001_initial.sql`, `store/db.py`, `store/repositories.py`, `store/importer.py` |
-| 4 | Rules loader + policy engine | **not started** | rules already encoded in `config/rules/programme.v1.yaml`; needs `rules/loader.py`, `registry.py`, `policy.py` |
+| 4 | Rules loader + policy engine | **done** | `rules/loader.py`, `registry.py`, `context.py`, `policy.py`; predicates for all five rules |
 | 5 | Prescription engine (Day B) + deterministic fallback | **not started** | planned `prescribe/templates.py`, `engine.py`, `fallback.py` |
 | 6 | Critique rubric + trace | **not started** | planned `critique/facts.py`, `rubric.py`, `trace/run.py` |
 | 7 | LLM layer (critique + prescription agents) | **not started** | planned `agents/llm.py`, `tools.py`, `NullLLM` |
@@ -48,29 +48,30 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 A real export can be cleaned, flagged, quarantined, grouped into sessions, given a programme
 day guess, calibrated for velocity targets, and **persisted**: one import writes `raw_row`,
 `clean_set`, `session` and `quarantine` inside a replayable `run`/`run_event` trace, and
-re-importing the same file writes no duplicate rows. There is **no prescription/critique
-yet** — nothing consumes the stored rows.
+re-importing the same file writes no duplicate rows. The constitution can now be evaluated
+against that history: `rules` parses the YAML into hash-bearing `Rule` objects, the registry
+supplies one predicate per `check.fn`, and `policy` returns a verdict per rule with citable
+evidence. There is **no prescription/critique yet** — nothing produces a plan to judge.
 
 ## 3. Next actions (in order)
 
-1. **Phase 4 — rules loader + policy.** Parse the YAML into `Rule` objects with a content
-   hash; implement the registry predicates; evaluate with `veto` / `downgrade` / `warn` /
-   `advisory` and the `unknown` verdict when inputs are missing. Acceptance: `PRG-RIR-001` and
-   `PRG-SPINE-001` evaluate against historical sessions and produce verdicts with evidence
-   references; `PRG-EREC-001` returns `unknown` because no symptom input exists.
-2. **Phase 5 — prescription engine (Day B).** Deterministic, template-driven, unit-aware.
+1. **Phase 5 — prescription engine (Day B).** Deterministic, template-driven, unit-aware.
    Acceptance: the four `docs/V0-SCOPE.md` §4 criteria for executability, plus a golden test.
-3. **Phase 6 — critique rubric + trace.** Deterministic rubric over a stored session. A metric
+   Note: the engine must supply `rep_ranges` to `rules.context`, which is what turns
+   `PRG-DP-001` from `unknown` into a decision.
+2. **Phase 6 — critique rubric + trace.** Deterministic rubric over a stored session. A metric
    the data cannot support is stored `measurable = 0` rather than guessed. Acceptance: the
    three known failure patterns (grinding sets, hinge/erector stacking, rotation split by
    workout label) score with evidence references.
+3. **Phase 7 — LLM layer.** `NullLLM` plus one optional narrative call behind `--llm on`;
+   the run must be identical in structure with it off (`docs/V0-SCOPE.md` §4 criterion 5).
 
 ## 4. Known gaps and risks
 
 | gap | impact | mitigation / status |
 |---|---|---|
 | No persistence | cannot replay a past day; work is lost between runs | **resolved** — `run`/`run_event` trace + append-only tables (phase 3) |
-| Erector ramp has no anchor | `PRG-EREC-001` returns `unknown`; Day A/C cannot be prescribed safely | needs a block start date (`OPEN-QUESTIONS` Q3) |
+| Erector ramp has no anchor | `PRG-EREC-001` returns `unknown`; Day A/C cannot be prescribed safely | rule implemented; `unknown` names both missing inputs (`OPEN-QUESTIONS` Q3, Q4) |
 | No symptom input | back-flare modifier and the ramp's stability gate cannot run | needs a manual input (`OPEN-QUESTIONS` Q4) |
 | No timestamps | session duration unmeasurable; two sessions on one date indistinguishable | flagged as `POSSIBLE_DOUBLE_SESSION`; duration dropped (`OPEN-QUESTIONS` Q5) |
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |

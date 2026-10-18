@@ -51,6 +51,33 @@ def readiness_frame(data_available):
     return io_utils.read_readiness()
 
 
+@pytest.fixture(scope="session")
+def populated_db(tmp_path_factory, training_frame, readiness_frame):
+    """One real import shared by every integration test that needs stored rows.
+
+    Importing the full export takes ~30s, so doing it once keeps the suite honest rather than
+    tempting anyone to drop the integration coverage.
+    """
+    from strength_coach.store import db, importer
+    from strength_coach.utils import paths
+
+    path = tmp_path_factory.mktemp("store") / "coach.db"
+    store = db.Store(path)
+    shas = (
+        importer.sha256_file(paths.training_log_csv()),
+        importer.sha256_file(paths.readiness_csv()),
+    )
+    report = importer.import_export(
+        store.connection,
+        training_frame,
+        readiness_frame,
+        training_sha256=shas[0],
+        readiness_sha256=shas[1],
+    )
+    yield store, report, shas
+    store.close()
+
+
 def make_training(rows: list[dict]):
     """Build a raw-shaped training frame from partial rows.
 
