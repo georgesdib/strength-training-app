@@ -29,15 +29,16 @@ erector demand between those two lifts, so their relative rating is not measured
 | lift | cost | basis |
 |---|---|---|
 | conventional deadlift (straight bar) | **3** | highest peak lumbar moment of the compared barbells (Swinton 2011); most trunk flexion |
-| sumo deadlift | **2** | lower erector activation and more upright than conventional (Hanen 2025); no sumo-vs-trap measurement |
+| sumo deadlift | **2.5** | lower erector activation and more upright than conventional (Hanen 2025); no sumo-vs-trap measurement, so placed between the trap bar (2) and conventional (3) |
 | trap-bar deadlift | **2** | lower peak lumbar moment than a straight bar (Swinton 2011); no sumo-vs-trap measurement |
 | back extension | 1 | direct erector work but low absolute load; ordinal judgement |
 | RDL / rack pull / good morning | 2-3 | hinge variants; ordinal judgement, not measured |
 
-The **2/2 tie between sumo and trap bar is an assumption** (`ASSUMPTION-02`), not a finding:
-both are lower than a conventional pull, and the evidence does not rank them against each
-other. Collapsing them into the same ordinal bin avoids inventing a precision the data does
-not support.
+The **sumo rating of 2.5 is an assumption** (`ASSUMPTION-02`), not a finding. The evidence
+shows sumo has lower sagittal demand than a conventional pull, but it does not rank sumo
+against the trap bar. The half-step is the athlete's decision: it records "between the trap bar
+and conventional" without pretending to a measured value. Whether a half-step is meaningful on
+an ordinal scale is an open question (`OPEN-QUESTIONS.md` Q11).
 
 ## What would change a rating
 
