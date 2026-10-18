@@ -207,7 +207,7 @@ deterministically, no matter what the LLM says. They are empty until the user an
 | competition_date | nullable |
 | sessions_per_week_target | the *intended* frequency, so the rubric can separate intent from execution |
 | max_session_minutes | the real ceiling, used once duration becomes measurable |
-| block_start_date | week 1 of the current block **as the athlete declared it**; resetting means a new profile row, never an edit (DEC-RAMP-01) |
+| block_start_date | week 1 of the **erector ramp**, as the athlete declared it; it does not bound the programme (DEC-PROGRAMME-01). Resetting means a new profile row, never an edit (DEC-RAMP-01/02) |
 
 ### 11.2 `athlete_constraint` — injuries, contraindications, mobility limits
 

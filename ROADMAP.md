@@ -290,8 +290,15 @@ single exported CSV, so a missing day silently means *no modifier*, which is eas
 for *fresh*. That is the failure this item removes.
 
 Scope: `readiness set --date ... --sleep --energy --soreness ...` accepting **any subset** of
-fields; bulk entry through `state --import`; manual rows merge with imported rows, manual wins
-for the same date, and the source is recorded.
+fields; bulk entry through `state --import`.
+
+Precedence (decided): a manual value wins **per field**, the imported row fills the fields it
+does not provide, and the merge note records both values and which source won. Nothing is
+silently overridden.
+
+Which fields drive the modifier is config (decided): MOD-FAT-001 reads sleep and energy today,
+and the list is a config value so it can grow. Other fields are recorded and reported, but do
+not move a load.
 
 Robustness rule: an absent input never becomes a value. A prescription for a date without
 readiness says *"readiness unknown for <date>; fatigue modifier not applied"*. A partial row
@@ -309,8 +316,10 @@ Data: `readiness_day` is currently one upserted row per date. This needs an appe
 Three input paths, one downstream shape:
 
 1. **the same export file** — already supported and idempotent by content hash;
-2. **manual post-workout entry** — `log set --exercise --weight --reps --rir --date`, or a
-   session flow; must produce exactly the same `clean_set` / `session` rows as an import;
+2. **manual post-workout entry** — **per set** (decided): `log set --date --exercise
+   --weight --reps --rir`, repeated per set. No exercise-level shorthand: the set is the unit
+   of record everywhere else, and expanding a summary into sets would invent detail. Must
+   produce exactly the same `clean_set` / `session` rows as an import;
 3. **another file format** — see 4.3.
 
 Manual entry is also the only path that can capture **session duration**, because the export
@@ -338,34 +347,50 @@ Acceptance: a synthetic second-format CSV imports through a mapping file with no
 an unmapped required column fails loudly; extra columns survive in `raw_row`; re-import stays
 idempotent.
 
-### 4.4 Programme output — the block, not just the day
+### 4.4 Programme output — a rolling horizon, not a block
 
-Today `run` emits one day. The athlete wants either **the whole programme**, or **what remains**
-of it if the block has already started.
+Today `run` emits one day. The athlete wants either **the whole programme** or **what remains**
+of it.
 
-Scope: `programme --weeks 8 [--remaining]`, generated from the declared block start. Each
-planned session is a *provisional* prescription: finalized when the date arrives and data
-exists, superseded rather than edited when new data changes it.
+Decided: there is **no fixed block**. Training is continuous, and a deload is **reactive** —
+it happens because the data asks for it, not because a calendar says so. That makes "remaining
+programme" simply "from today onward".
+
+Scope: `programme --weeks N [--remaining]` prints a rolling horizon. The horizon is a
+forecast, not a commitment, and `--remaining` starts from today. The declared
+`block_start_date` is the **erector-ramp anchor** only; it does not bound the programme.
+
+Reactive deload trigger (config, default): two consecutive weeks over the spinal cap, **or**
+two consecutive flaring sessions. When it fires, the next session is emitted with
+`fallback_level = fatigue_reduced` and the trigger cited. The thresholds live in config and are
+an explicit product rule, not a scientific claim.
+
+Planned loads (decided): **recomputed on the day**. A plan is a forecast; the day's
+prescription uses the current e1RM, readiness and symptoms. Planned rows are superseded when
+the day arrives, never edited.
 
 Rules: progression between weeks uses the existing double-progression decisions for
 accessories and e1RM-derived loads for main lifts; the weekly spinal cap and the erector ramp
-apply **across the block**, not just within a day.
+apply across the horizon.
 
-Acceptance: the programme covers the block with an A/B/C rotation; `--remaining` starts at the
-current week; every planned session carries its rationale refs; regenerating after new data
-supersedes previous planned rows; printing a programme needs no LLM.
+Acceptance: `programme --weeks N` prints a dated A/B/C rotation; `--remaining` starts today;
+every planned session carries its rationale refs; the day's prescription recomputes and
+supersedes the plan; a reactive deload fires on the configured trigger and says why; printing
+a programme needs no LLM.
 
-### 4.5 Open questions — answer before building
+### 4.5 Decisions taken (2026-10-17)
 
-- **Block length and deload cadence.** The constitution does not fix either. Default proposal:
-  8 weeks, deload triggered by two consecutive weeks over the spinal cap.
-- **Are planned loads frozen or recomputed on the day?** Recommendation: recomputed. A plan is
-  a forecast; freezing it would prescribe a stale load after a layoff.
-- **Manual logging granularity** — per set, per exercise, or per session with a text entry.
-- **Which readiness fields are mandatory** for MOD-FAT-001. Today only sleep and energy, and
-  that should stay config.
-- **Where manual readiness sits relative to the imported row** — manual wins, but the imported
-  value must remain visible in the merge note.
+| question | decision |
+|---|---|
+| Block length and deload | **No fixed block. Deload is reactive**, triggered by data, never by a calendar |
+| Planned loads | **Recomputed on the day**; a plan is a forecast and is superseded, not edited |
+| Manual logging granularity | **Per set**; no exercise-level shorthand that would invent detail |
+| Readiness fields for the modifier | **Sleep and energy, as a config list**; other fields are recorded and reported only |
+| Manual vs imported readiness | **Manual wins per field**, import fills gaps, the merge note records both |
+
+These are recorded in the decision log as `DEC-PROGRAMME-01/02`, `DEC-LOG-01` and
+`DEC-READINESS-02/03`. The reactive deload thresholds are an explicit product rule and remain
+config, not a claimed scientific finding.
 
 ## 5. Known gaps and risks
 
