@@ -79,7 +79,7 @@ strength_coach/
     client.py                        [x] protocol, NullLLM, OpenAI-compatible adapter
     config.py                        [x] file + environment settings, masked diagnostics
     narrative.py                     [x] facts -> prompt -> prose, recorded as an event
-    proposal.py                      [x] structured proposal schema + policy check (DEC-LLM-04)
+    proposal.py                      [x] structured proposal + menu schema, policy check (DEC-LLM-04/05)
     facts.py rubric.py
   (nothing further planned in agents: proposals are the v0.1 scope)
   eval/                              [ ]

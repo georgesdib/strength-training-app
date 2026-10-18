@@ -323,3 +323,72 @@ def test_cli_declining_keeps_the_deterministic_session(tmp_path, monkeypatch):
         ).fetchone()["approved_by"] == "deterministic"
     finally:
         store.close()
+
+
+# --- menu choices ----------------------------------------------------------
+
+
+def test_menu_options_are_bounded_by_the_rir_rule():
+    with store_with(DAY_A) as store:
+        conn = store.connection
+        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        options = proposal_mod.menu(prescription, load_document())
+
+    bench = options["bench_press"]
+    assert "keep" in bench and "easier" in bench and "heavier" in bench
+    assert "harder" not in bench            # RIR 2 is the bottom of the 2-3 window
+    assert bench["easier"]["rir_target"] == 3
+    assert bench["easier"]["load_kg"] < bench["keep"]["load_kg"]
+    assert bench["heavier"]["load_kg"] > bench["keep"]["load_kg"]
+
+
+def test_choosing_a_menu_option_applies_pythons_value():
+    with store_with(DAY_A) as store:
+        conn = store.connection
+        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        outcome = assess(conn, prescription, {
+            "changes": [{"action": "choose", "exercise": "bench_press",
+                         "option": "easier"}],
+        })
+
+    assert outcome.accepted, outcome.reasons
+    bench = next(i for i in outcome.prescription.items if i.exercise_id == "bench_press")
+    assert bench.rir_target == 3
+    assert bench.load_kg < 84.5
+
+
+def test_an_option_the_menu_does_not_offer_is_rejected():
+    with store_with(DAY_A) as store:
+        conn = store.connection
+        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        outcome = assess(conn, prescription, {
+            "changes": [{"action": "choose", "exercise": "bench_press",
+                         "option": "harder"}],
+        })
+    assert not outcome.accepted
+    assert any("not offered" in reason for reason in outcome.reasons)
+
+
+def test_unknown_option_name_is_rejected_by_the_parser():
+    with pytest.raises(proposal_mod.ProposalError, match="option must be one of"):
+        proposal_mod.parse({"changes": [{"action": "choose", "exercise": "bench_press",
+                                         "option": "max_out"}]})
+
+
+def test_an_rir_target_outside_the_rule_window_is_reported():
+    from dataclasses import replace as dataclass_replace
+
+    from strength_coach.prescribe.engine import validate_prescription
+
+    with store_with(DAY_A) as store:
+        conn = store.connection
+        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        context = context_for(conn)
+        items = list(prescription.items)
+        index = next(i for i, item in enumerate(items) if item.exercise_id == "bench_press")
+        items[index] = dataclass_replace(items[index], rir_target=1)
+        issues = validate_prescription(
+            tuple(items), context, load_document(), "A", "2024-02-01"
+        )
+
+    assert any(issue.startswith("RIR_OUTSIDE_WINDOW:bench_press") for issue in issues)

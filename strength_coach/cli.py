@@ -579,9 +579,12 @@ def _propose(conn, trace, prescription, args):
         return prescription, "deterministic"
 
     allowed = proposal_mod.allowed_substitutes(conn, context, prescription)
+    document = load_document()
+    options = proposal_mod.menu(prescription, document)
     try:
         response = client.complete(
-            proposal_mod.prompt_for(prescription, allowed), system=proposal_mod.SYSTEM
+            proposal_mod.prompt_for(prescription, allowed, options),
+            system=proposal_mod.SYSTEM,
         )
     except LLMError as exc:
         print(f"\nproposal unavailable: {exc}")
@@ -601,7 +604,6 @@ def _propose(conn, trace, prescription, args):
         trace.finish(status="llm_downgraded")
         return prescription, "deterministic"
 
-    document = load_document()
     thresholds = prescribe_config.Thresholds.load()
     decisions = evaluate(document, context).verdict("PRG-DP-001").details.get("decisions", {})
     outcome = proposal_mod.assess(

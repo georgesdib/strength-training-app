@@ -372,6 +372,22 @@ def validate_prescription(
             # PRG-SCHED-001: direct erector work never belongs on the hinge day.
             issues.append(f"ERECTOR_ON_HINGE_DAY:{item.exercise_id}")
 
+        if context.entity(item.exercise_id).get("primary_compound", False):
+            # PRG-RIR-001: the effort window is a rule, not a suggestion. This check was
+            # missing until proposals could name a menu option, which is exactly when a
+            # target RIR stopped being guaranteed by the template.
+            params = document.rule("PRG-RIR-001").params
+            window = (params.get("per_exercise_rir") or {}).get(
+                item.exercise_id, params.get("default_rir")
+            )
+            if window:
+                low, high = int(window["min"]), int(window["max"])
+                if not low <= item.rir_target <= high:
+                    issues.append(
+                        f"RIR_OUTSIDE_WINDOW:{item.exercise_id}:{item.rir_target} "
+                        f"not in {low}-{high}"
+                    )
+
     rule = document.rule("PRG-SPINE-001")
     proposed = [(for_date, item.exercise_id, for_date) for item in items]
     costs = registry.weekly_spinal_costs(rule, context, proposed)

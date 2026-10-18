@@ -17,7 +17,8 @@ import json
 from dataclasses import dataclass, replace
 from typing import Any, Iterable, Mapping
 
-from strength_coach.prescribe import constraints, engine, templates
+from strength_coach.domain import e1rm as e1rm_mod
+from strength_coach.prescribe import constraints, engine, loads, templates
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
 
@@ -28,13 +29,17 @@ SYSTEM = (
     "will be rejected."
 )
 
-ACTIONS = ("substitute", "set_sets", "drop", "reorder")
+ACTIONS = ("substitute", "set_sets", "drop", "reorder", "choose")
 REQUIRED_KEYS = {
     "substitute": {"action", "exercise", "with"},
     "set_sets": {"action", "exercise", "sets"},
     "drop": {"action", "exercise"},
     "reorder": {"action", "order"},
+    # A menu choice is still a choice, not an arithmetic: the model names an option that
+    # Python computed, so the number on the bar never comes from the model.
+    "choose": {"action", "exercise", "option"},
 }
+OPTIONS = ("keep", "easier", "harder", "heavier", "lighter")
 TOP_KEYS = {"summary", "changes"}
 # A proposal may not carry a computed number, however it is spelled.
 FORBIDDEN_KEYS = {
@@ -54,6 +59,7 @@ class Change:
     replacement: str | None = None
     sets: int | None = None
     order: tuple[str, ...] = ()
+    option: str | None = None
 
 
 @dataclass(frozen=True)
@@ -147,6 +153,11 @@ def parse(raw: str | Mapping[str, Any]) -> Proposal:
             if not isinstance(replacement, str) or not replacement:
                 raise ProposalError(f"{where}.with must be a non-empty exercise id")
             changes.append(Change(action=action, exercise=exercise, replacement=replacement))
+        elif action == "choose":
+            option = entry["option"]
+            if option not in OPTIONS:
+                raise ProposalError(f"{where}.option must be one of {OPTIONS}")
+            changes.append(Change(action=action, exercise=exercise, option=option))
         elif action == "set_sets":
             sets = entry["sets"]
             if not isinstance(sets, int) or isinstance(sets, bool):
@@ -171,6 +182,50 @@ def describe(proposal: Proposal) -> str:
         else:
             lines.append(f"reorder to {', '.join(change.order)}")
     return "; ".join(lines)
+
+
+def menu(prescription: Prescription, document) -> dict[str, dict[str, dict[str, float | int | None]]]:
+    """Python-computed options per item. The model may name one; it may never write one.
+
+    The RIR options are bounded by PRG-RIR-001's window, so relaxing that rule (with evidence)
+    widens the menu automatically instead of requiring a code change. A load option is always
+    a real increment; an RIR option is re-solved from the same e1RM, so the pair stays coherent.
+    """
+    rule = document.rule("PRG-RIR-001")
+    params = rule.params or {}
+    default_window = params.get("default_rir") or {}
+    per_exercise = params.get("per_exercise_rir") or {}
+
+    menus: dict[str, dict[str, dict[str, float | int | None]]] = {}
+    for item in prescription.items:
+        options: dict[str, dict[str, float | int | None]] = {
+            "keep": {"load_kg": item.load_kg, "rir_target": item.rir_target},
+        }
+        increment = item.rounding_increment_kg
+        if item.load_kg is not None and item.load_kg > 0:
+            options["heavier"] = {
+                "load_kg": item.load_kg + increment,
+                "rir_target": item.rir_target,
+            }
+            if item.load_kg - increment > 0:
+                options["lighter"] = {
+                    "load_kg": item.load_kg - increment,
+                    "rir_target": item.rir_target,
+                }
+            window = per_exercise.get(item.exercise_id, default_window)
+            if window:
+                low, high = int(window["min"]), int(window["max"])
+                e1rm = e1rm_mod.epley_rir_adjusted(
+                    item.load_kg, item.reps_low, item.rir_target
+                )
+                for name, delta in (("harder", -1), ("easier", 1)):
+                    rir = item.rir_target + delta
+                    if low <= rir <= high:
+                        solved = loads.solve_load(e1rm, item.reps_low, rir, increment)
+                        if solved > 0:
+                            options[name] = {"load_kg": solved, "rir_target": rir}
+        menus[item.exercise_id] = options
+    return menus
 
 
 def allowed_substitutes(conn, context, prescription: Prescription) -> dict[str, list[str]]:
@@ -198,7 +253,11 @@ def allowed_substitutes(conn, context, prescription: Prescription) -> dict[str, 
     return options
 
 
-def prompt_for(prescription: Prescription, allowed: Mapping[str, Iterable[str]]) -> str:
+def prompt_for(
+    prescription: Prescription,
+    allowed: Mapping[str, Iterable[str]],
+    options: Mapping[str, Mapping[str, object]] | None = None,
+) -> str:
     items = []
     for item in prescription.items:
         line = (
@@ -209,6 +268,10 @@ def prompt_for(prescription: Prescription, allowed: Mapping[str, Iterable[str]])
             alternatives = list(allowed[item.exercise_id])
             if alternatives:
                 line += f" | same-pattern alternatives: {', '.join(alternatives)}"
+        if options and item.exercise_id in options:
+            offered = [name for name in options[item.exercise_id] if name != "keep"]
+            if offered:
+                line += f" | menu: {', '.join(offered)}"
         items.append(line)
 
     return (
@@ -219,7 +282,8 @@ def prompt_for(prescription: Prescription, allowed: Mapping[str, Iterable[str]])
         "- substitute: replace a NON-essential item with a same-pattern alternative\n"
         "- set_sets: change an item's set count (small change only)\n"
         "- drop: remove a non-essential item\n"
-        "- reorder: permute all exercise ids\n\n"
+        "- reorder: permute all exercise ids\n"
+        "- choose: pick one of an item's menu options (easier, harder, heavier, lighter)\n\n"
         "Return JSON only, exactly this shape:\n"
         '{"summary": "<one sentence>", '
         '"changes": [{"action": "substitute", "exercise": "<id>", "with": "<id>"}]}\n'
@@ -248,6 +312,7 @@ def assess(
             summary=proposal.summary,
         )
 
+    menus = menu(prescription, document)
     items = list(prescription.items)
     by_id = {item.exercise_id: item for item in items}
 
@@ -306,6 +371,20 @@ def assess(
             items[index] = new_item
             by_id.pop(item.exercise_id, None)
             by_id[new_item.exercise_id] = new_item
+
+        elif change.action == "choose":
+            table = menus.get(item.exercise_id, {})
+            chosen = table.get(change.option or "")
+            if chosen is None:
+                reasons.append(
+                    f"{item.exercise_id}: option {change.option!r} is not offered"
+                )
+                continue
+            index = items.index(item)
+            items[index] = replace(
+                item, load_kg=chosen["load_kg"], rir_target=chosen["rir_target"]
+            )
+            by_id[item.exercise_id] = items[index]
 
         elif change.action == "set_sets":
             if item.essential:

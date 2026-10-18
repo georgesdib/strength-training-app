@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **380 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **385 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **380 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 380 passed
+.venv/bin/python -m pytest            # expect: 385 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -214,7 +214,10 @@ and filtered by stored constraints; the replacement is rebuilt by the engine's o
 judged by `validate_prescription` and the constraint check before anything is stored.
 Acceptance is explicit (`--yes` for scripting), `approved_by = llm+policy` marks the artifact,
 and the proposal, verdict and reasons are `run_event`s. Proposals are not attempted on a
-session a safety modifier already changed. `DEC-LLM-04` records the contract.
+session a safety modifier already changed. A proposal may also name one of a small menu of
+Python-computed options (keep/easier/harder/heavier/lighter); the menu's RIR width is the
+rule's window, so a documented window change widens it without a code change. `DEC-LLM-04/05`
+record the contract.
 
 ### 3.5 Video analysis (LLM) — a future feature, not a measurement
 
@@ -433,6 +436,11 @@ Recorded so good ideas are not lost, explicitly **not** commitments:
 - Grip-strength left/right asymmetry as a readiness input and a unilateral-work trigger.
 - Per-lift manual velocity overrides with expiry.
 - Regime-change detection (a lift's volume collapsing while a substitute rises).
+- **RIR window relaxation, if evidence supports it.** The 2-3 window is a veto rule
+  (`PRG-RIR-001`, `DEC-WINDOW-01`), so widening it is a constitution change, not a config
+  tweak; the proposal menu reads the window and would widen automatically.
+- Wider proposal licence (more than one increment on the menu) once the menu has proved itself
+  in real sessions.
 
 ## 7. How to change this roadmap
 

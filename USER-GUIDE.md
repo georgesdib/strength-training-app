@@ -250,10 +250,16 @@ The model sees the deterministic session and may propose a **structural** change
 - swap a non-essential item for a same-pattern alternative;
 - change an item's set count within configured bounds;
 - drop a non-essential item;
-- reorder the session.
+- reorder the session;
+- pick a menu option Python computed: `keep`, `easier`, `harder`, `heavier` or
+  `lighter` (RIR and load are re-solved together).
 
 It may **not** supply a load, RIR, percentage or velocity. Any such field is rejected
 before the proposal is even applied, because the model never does arithmetic here.
+
+Set counts are the one number it may change, within configured bounds. Menu options are bounded
+by the RIR rule itself: with a 2-3 window there is no `harder` option at RIR 2, and if the
+window is widened on evidence, the menu widens with it.
 
 You see the proposal and its one-line reason, then accept or decline (`--yes` skips the
 prompt). If you accept, the prescription is stored with `approved_by = llm+policy`; if you
