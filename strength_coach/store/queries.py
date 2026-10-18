@@ -105,6 +105,23 @@ def e1rm_override(conn, exercise_id: str, on_date: str) -> dict | None:
     return dict(row) if row is not None else None
 
 
+def last_measured_override(conn, exercise_id: str) -> dict | None:
+    """The most recent *test-derived* override, regardless of its effective window.
+
+    Used to enforce the testing interval: an expired override still proves the test happened.
+    """
+    row = conn.execute(
+        """
+        SELECT * FROM e1rm_override
+         WHERE exercise_id = ? AND source = 'measured'
+         ORDER BY effective_from DESC, override_id DESC
+         LIMIT 1
+        """,
+        (str(exercise_id),),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
 def e1rm_overrides(conn) -> list[dict]:
     return [
         dict(row)

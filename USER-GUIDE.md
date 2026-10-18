@@ -270,6 +270,34 @@ trace.
 A proposal is **not attempted** when a safety modifier already changed the session (a
 fatigue cut or a back flare). The safety decision outranks the suggestion.
 
+### 4.9 `test` — a strength test that updates the e1RM
+
+```bash
+strength-coach test --exercise ssb_squat --kg 140 --reps 3 --yes
+strength-coach test --exercise ssb_squat --kg 160 --reps 1 --max
+strength-coach test --exercise ssb_squat --kg 140 --reps 3 --e1rm 165 --yes
+```
+
+A **3RM or 5RM** is the default and the recommended test: it gives the e1RM the solver
+needs without loading the spine like a single. The command reports the estimate first, then
+records it as a `measured` e1RM override, so the next prescription uses it and cites
+`e1rm_override:<id>`.
+
+- `--e1rm` lets you **override the computed value** with your own, after the test.
+- `--date` sets when the result takes effect (default: today).
+- A test is an **assessment, not a training set**: it is not counted as volume and does not
+  enter the RIR rule, because a maximal test is RIR 0 by definition.
+
+**True 1RM** is allowed, sparingly:
+
+- requires `--max` (a single rep without it is rejected);
+- asks for confirmation unless you pass `--yes`;
+- is limited to one every **56 days** by default (`--force` overrides, and the config can
+  change the interval);
+- 3RM/5RM tests more often than every 28 days print a warning — testing becomes a stimulus.
+
+The evidence behind this is in [TRAINING-DYNAMICS.md](docs/TRAINING-DYNAMICS.md).
+
 ---
 
 ## 5. Reading the output

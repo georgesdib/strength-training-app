@@ -74,7 +74,7 @@ strength_coach/
     harness.py                       [x] per-item comparison, agreement and MAE
     store.py                         [x] marks in the database: append-only, latest wins
     report.py                        [x] shared sheet and report renderers
-  cli.py                             [x] import / run / review / calibrate / state / block / e1rm / symptom
+  cli.py                             [x] import / run / review / calibrate / state / block / e1rm / test / symptom
   agents/                            [x] LLM interface + narrative
     client.py                        [x] protocol, NullLLM, OpenAI-compatible adapter
     config.py                        [x] file + environment settings, masked diagnostics

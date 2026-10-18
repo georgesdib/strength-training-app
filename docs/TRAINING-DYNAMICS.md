@@ -109,9 +109,10 @@ model may not change them. That is a design choice, not an evidence claim.
 
 ## 4. Proposed shape (needs a decision before building)
 
-1. **`test` session type.** A declared 3RM/5RM test on a main lift, with safeties, excluded from
-   the block's effort rules, producing an e1RM override with `source = measured`. True 1RM only
-   with an explicit `--max` flag.
+1. **`test` session type — implemented (`DEC-TEST-01`).** `strength-coach test` records a
+   3RM/5RM (or a `--max` 1RM with confirmation) as a `measured` e1RM override, with a 28-day
+   warning for submaximal tests and a 56-day limit for 1RM tests unless `--force`. The test set
+   is not logged as training volume, and `--e1rm` lets the athlete override the computed value.
 2. **Rep scheme menu.** Per slot, a small set of schemes; the engine solves the load for the
    chosen scheme; the model may name a scheme, never a number.
 3. **Weekly undulation.** A config schedule (e.g. week A strength, week B volume) that shifts

@@ -34,6 +34,7 @@ from strength_coach.agents import (
 )
 from strength_coach.agents import proposal as proposal_mod
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
+from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.critique import persist as persist_critique
 from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.eval import backtest, load_marks, record_marks
@@ -96,6 +97,22 @@ def main(argv: list[str] | None = None) -> int:
     setter.add_argument("--reason", default=None, help="why this override exists")
     e1rm_sub.add_parser("list", help="show recorded overrides")
 
+    test = sub.add_parser("test", help="record a 3RM/5RM (or confirmed 1RM) strength test")
+    test.add_argument("--exercise", required=True, help="canonical exercise id")
+    test.add_argument("--kg", type=float, required=True, help="load used for the test")
+    test.add_argument("--reps", type=int, required=True,
+                      help="reps completed (3-5 recommended; 1 is a true 1RM and needs --max)")
+    test.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
+    test.add_argument("--e1rm", type=float, default=None,
+                      help="record this e1RM instead of the computed estimate")
+    test.add_argument("--max", action="store_true",
+                      help="declare a true 1RM test; requires confirmation and is rate-limited")
+    test.add_argument("--yes", action="store_true",
+                      help="skip the confirmation prompt (the value is printed first)")
+    test.add_argument("--force", action="store_true",
+                      help="allow a 1RM test inside the minimum interval")
+    test.add_argument("--reason", default=None, help="optional note stored with the override")
+
     symptom = sub.add_parser("symptom", help="log or show the pre-session back symptom")
     symptom.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
     symptom.add_argument("--level", type=int, choices=(0, 1, 2, 3), default=None,
@@ -118,6 +135,7 @@ def main(argv: list[str] | None = None) -> int:
         "calibrate": _cmd_calibrate,
         "state": _cmd_state,
         "e1rm": _cmd_e1rm,
+        "test": _cmd_test,
         "symptom": _cmd_symptom,
         "block": _cmd_block,
     }
@@ -319,6 +337,90 @@ def _print_e1rm(conn) -> None:
             status = "active"
         print(f"{row['exercise_id']:<24}{row['e1rm_kg']:>9g}"
               f"{row['effective_from']:>13}{row['expires_on'] or '-':>13}  {status}")
+
+
+def _cmd_test(args) -> int:
+    """Record a strength test as a measured e1RM override.
+
+    A test is an assessment, not a training set: it is deliberately not written into
+    clean_sets, so it cannot count as volume or trip the RIR rule (a maximal test is RIR 0 by
+    definition). The e1RM override is the durable record, and the prescription cites it.
+    """
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        if args.kg <= 0:
+            print("test load must be positive")
+            return 2
+        if not 1 <= args.reps <= 10:
+            print("reps must be between 1 and 10")
+            return 2
+        if args.reps == 1 and not args.max:
+            print("a single-rep test is a true 1RM: re-run with --max to declare it")
+            return 2
+
+        on_date = args.date or datetime.date.today().isoformat()
+        computed = e1rm_mod.epley_rir_adjusted(args.kg, args.reps, 0)
+        value = float(args.e1rm) if args.e1rm is not None else computed
+        if value <= 0:
+            print("e1RM must be positive")
+            return 2
+
+        thresholds = prescribe_config.Thresholds.load()
+        previous = queries.last_measured_override(conn, args.exercise)
+        days_since = None
+        if previous is not None:
+            try:
+                days_since = (
+                    datetime.date.fromisoformat(on_date)
+                    - datetime.date.fromisoformat(previous["effective_from"])
+                ).days
+            except ValueError:
+                days_since = None
+
+        if args.reps == 1 and days_since is not None:
+            if days_since < thresholds.test_max_single_min_interval_days and not args.force:
+                print(
+                    f"a 1RM test for {args.exercise} was recorded {days_since} days ago; "
+                    f"the minimum interval is {thresholds.test_max_single_min_interval_days} "
+                    "days (use --force to override)"
+                )
+                return 2
+
+        label = "1RM" if args.reps == 1 else f"{args.reps}RM"
+        print(f"{label} test: {args.kg:g} kg x {args.reps} -> e1RM {computed:.1f} kg")
+        if args.e1rm is not None:
+            print(f"using the supplied e1RM instead: {value:.1f} kg")
+            if computed > 0 and abs(value - computed) / computed > 0.15:
+                print("note: that differs from the formula estimate by more than 15%")
+        if days_since is not None and days_since < thresholds.test_min_interval_days:
+            print(
+                f"note: {args.exercise} was tested {days_since} days ago; testing more often "
+                f"than every {thresholds.test_min_interval_days} days is a stimulus, not a "
+                "measurement"
+            )
+
+        if not args.yes:
+            answer = input("record this as the measured e1RM? [y/N] ").strip().lower()
+            if answer not in ("y", "yes"):
+                print("not recorded")
+                return 1
+
+        reason = args.reason or f"{label} test: {args.kg:g} kg x {args.reps}"
+        override_id = repositories.append_e1rm_override(
+            conn,
+            exercise_id=args.exercise,
+            e1rm_kg=value,
+            effective_from=on_date,
+            reason=reason,
+            source="measured",
+        )
+        print(f"recorded e1rm_override:{override_id}: {args.exercise} = {value:g} kg "
+              f"from {on_date}")
+        print("the next prescription uses it and cites the override")
+        return 0
+    finally:
+        store.close()
 
 
 def _cmd_symptom(args) -> int:

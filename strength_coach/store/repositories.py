@@ -515,9 +515,13 @@ def append_e1rm_override(
     expires_on: str | None = None,
     reason: str | None = None,
     source: str = "user",
-) -> None:
-    """Record a manual e1RM. A correction appends; the latest applicable row wins."""
-    conn.execute(
+) -> int:
+    """Record a manual e1RM. A correction appends; the latest applicable row wins.
+
+    Returns the new override id so the caller can tell the athlete what the prescription will
+    cite (`e1rm_override:<id>`).
+    """
+    cursor = conn.execute(
         """
         INSERT INTO e1rm_override (exercise_id, e1rm_kg, effective_from, expires_on, reason,
                                    source)
@@ -525,6 +529,7 @@ def append_e1rm_override(
         """,
         (exercise_id, float(e1rm_kg), effective_from, expires_on, reason, source),
     )
+    return int(cursor.lastrowid)
 
 
 def append_athlete_profile(

@@ -43,3 +43,10 @@ prescription:
   # are the whole of its licence: anything outside them is rejected, not clamped.
   proposal_max_set_change: 2
   proposal_max_sets: 8
+
+testing:
+  # A test is an assessment, not a training session. Testing more often than monthly turns a
+  # measurement into a stimulus with fatigue attached (see docs/TRAINING-DYNAMICS.md).
+  min_interval_days: 28
+  # True 1RM is allowed but rare, and always confirmed: 8 weeks between maximal singles.
+  max_single_min_interval_days: 56

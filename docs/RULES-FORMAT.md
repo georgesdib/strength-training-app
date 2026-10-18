@@ -96,16 +96,18 @@ visible rather than silently rewritten.
 ```yaml
 scope: {exercises: "$primary_compounds"}
 params:
-  default_rir: {min: 2, max: 3}
-  per_exercise: {trap_bar_deadlift: {min: 3, max: 4}}
-  forbid_max_single: true          # reps == 1 at >= 90% e1RM
+  default_rir: {min: 1, max: 4}
+  per_exercise: {}
+  forbid_max_single: true          # reps == 1 at >= 90% e1RM, except a declared test
 check: {fn: primary_compound_rir_window}
 on_fail: {action: veto, code: RIR_FLOOR}
 notes: >
   Scoped to `primary_compound`, not `main_lift`, because the most-performed squat in
   an export may not be one of the constitution's named lifts. Scoping to main_lift
   would leave most heavy squatting unregulated. Depends on DQ-SENT-03: if the modal
-  RIR value is a default bucket it must not be read as an easy set.
+  RIR value is a default bucket it must not be read as an easy set. The only exception
+  to `forbid_max_single` is a declared test session (DEC-TEST-01), recorded through
+  `strength-coach test` as an e1RM override rather than a training set.
 ```
 
 ### PRG-DP-001 — Double progression  (severity: `downgrade`)
