@@ -364,6 +364,10 @@ Tests: `.venv/bin/python -m pytest`, and the markers `-m golden` (locked numbers
 - **Loads are estimates.** e1RM uses Epley with the RIR folded in (`ASSUMPTION-03`); treat the
   number as a target, not a measurement.
 - **Calibration is thin.** One remembered session so far; the rubric is not tuned to it.
+- **One day at a time, and one input path.** There is no whole-programme view yet, and no
+  manual logging or alternative file formats. Those are scoped in
+  [ROADMAP.md](ROADMAP.md) §4 (v0.2), including how missing readiness will be reported rather
+  than assumed.
 
 ---
 

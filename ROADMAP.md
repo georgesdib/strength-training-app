@@ -43,6 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 3 hand-marked sessions, 42% item agreement |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; calibration loop closed |
+| v0.2 | Input flexibility + programme view | **planned** | see §4: readiness on demand, manual logging, format adapters, whole-programme output; depends on 3.3 for the readiness path |
 | v0.1 | Next version | **in progress** | 3.1-3.2 done; see §3 for symptom input, **LLM prescription proposals**, **video analysis**, portability, VBT wiring, larger labelled set |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
@@ -267,7 +268,100 @@ needs roughly ten *remembered* sessions per item before a weight or definition i
 - RAG over the programme: rules are cited by id, and exact lookup beats semantic search here.
 - Automatic rubric retuning: the report proposes, a person decides.
 
-## 4. Known gaps and risks
+## 4. v0.2 — input flexibility and the programme view
+
+v0.1 assumes three things that the athlete has now explicitly challenged: that input arrives
+as one CSV in one known shape, that only one day is prescribed at a time, and that readiness
+is only available on days the export happened to record. v0.2 loosens all three.
+
+Nothing here changes the constitution or the append-only rule. Missing data still yields
+`unknown`, never a default.
+
+### 4.1 Readiness on demand — daily, occasional, partial
+
+The fatigue modifier is only as good as the readiness it sees. Today those rows come from a
+single exported CSV, so a missing day silently means *no modifier*, which is easy to mistake
+for *fresh*. That is the failure this item removes.
+
+Scope: `readiness set --date ... --sleep --energy --soreness ...` accepting **any subset** of
+fields; bulk entry through `state --import`; manual rows merge with imported rows, manual wins
+for the same date, and the source is recorded.
+
+Robustness rule: an absent input never becomes a value. A prescription for a date without
+readiness says *"readiness unknown for <date>; fatigue modifier not applied"*. A partial row
+applies only the fields it has.
+
+Acceptance: a day with 2 of 7 metrics applies the modifier on those two only; a day with none
+leaves it unapplied **and says so**; a week-long gap changes nothing else; re-logging a date
+appends a version rather than editing it.
+
+Data: `readiness_day` is currently one upserted row per date. This needs an append-only
+`readiness_entry` with latest-wins reads, so history is preserved.
+
+### 4.2 Logging workouts three ways
+
+Three input paths, one downstream shape:
+
+1. **the same export file** — already supported and idempotent by content hash;
+2. **manual post-workout entry** — `log set --exercise --weight --reps --rir --date`, or a
+   session flow; must produce exactly the same `clean_set` / `session` rows as an import;
+3. **another file format** — see 4.3.
+
+Manual entry is also the only path that can capture **session duration**, because the export
+has no timestamps. `session.duration_min` becomes measurable (`duration_basis = measured`),
+and the rubric's `SESSION_DURATION` flips from `measurable = 0` to a real score — the first
+time that item can move.
+
+Manual entry must pass the same gates as cleaning: unknown exercise names are quarantined or
+reported (never dropped), `RIR 6` is a warm-up, and seconds-vs-reps follows the taxonomy.
+
+Acceptance: a manually logged session is indistinguishable downstream from an imported one
+(same tables, same critique); duration is stored when given and stays `unavailable` when not
+— never estimated; the rubric scores duration only when it exists.
+
+### 4.3 Column-mapping adapters for other exports
+
+`utils.io_utils` fixes the column names, so another app's export would need code. v0.2 adds a
+mapping file (source column → canonical column, unit, sentinel policy) and a small adapter
+registry.
+
+Extra columns are preserved verbatim in `raw_row` and reported, never silently dropped
+(AGENTS.md §3.9). A missing *required* column is an explicit error, not a silent null.
+
+Acceptance: a synthetic second-format CSV imports through a mapping file with no code change;
+an unmapped required column fails loudly; extra columns survive in `raw_row`; re-import stays
+idempotent.
+
+### 4.4 Programme output — the block, not just the day
+
+Today `run` emits one day. The athlete wants either **the whole programme**, or **what remains**
+of it if the block has already started.
+
+Scope: `programme --weeks 8 [--remaining]`, generated from the declared block start. Each
+planned session is a *provisional* prescription: finalized when the date arrives and data
+exists, superseded rather than edited when new data changes it.
+
+Rules: progression between weeks uses the existing double-progression decisions for
+accessories and e1RM-derived loads for main lifts; the weekly spinal cap and the erector ramp
+apply **across the block**, not just within a day.
+
+Acceptance: the programme covers the block with an A/B/C rotation; `--remaining` starts at the
+current week; every planned session carries its rationale refs; regenerating after new data
+supersedes previous planned rows; printing a programme needs no LLM.
+
+### 4.5 Open questions — answer before building
+
+- **Block length and deload cadence.** The constitution does not fix either. Default proposal:
+  8 weeks, deload triggered by two consecutive weeks over the spinal cap.
+- **Are planned loads frozen or recomputed on the day?** Recommendation: recomputed. A plan is
+  a forecast; freezing it would prescribe a stale load after a layoff.
+- **Manual logging granularity** — per set, per exercise, or per session with a text entry.
+- **Which readiness fields are mandatory** for MOD-FAT-001. Today only sleep and energy, and
+  that should stay config.
+- **Where manual readiness sits relative to the imported row** — manual wins, but the imported
+  value must remain visible in the merge note.
+
+## 5. Known gaps and risks
 
 | gap | impact | mitigation / status |
 |---|---|---|
@@ -284,7 +378,7 @@ needs roughly ten *remembered* sessions per item before a weight or definition i
 | VBT targets not prescribed | a prescription carries no `velocity_target`; `calibration_ids` is empty | deferred to v0.1 by `DEC-VBT-01`; the calibration code and tests remain, only the prescription wiring is postponed |
 | ACWR contested | cannot be a hard rule | advisory only; `DEC-ACWR-01` |
 
-## 5. Idea backlog (not approved, not scheduled)
+## 6. Idea backlog (not approved, not scheduled)
 
 Recorded so good ideas are not lost, explicitly **not** commitments:
 
@@ -295,7 +389,7 @@ Recorded so good ideas are not lost, explicitly **not** commitments:
 - Per-lift manual velocity overrides with expiry.
 - Regime-change detection (a lift's volume collapsing while a substitute rises).
 
-## 6. How to change this roadmap
+## 7. How to change this roadmap
 
 - Phase status changes go in the table, in the same commit as the work.
 - New phases get a number and an acceptance criterion before any code is written.
