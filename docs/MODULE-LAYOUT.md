@@ -63,6 +63,9 @@ strength_coach/
     rubric.py                        [x] 6 measured items + 2 unmeasured, persistence
   trace/                             [x] run lifecycle
     run.py                           [x] start/event/finish; closes failed runs as error
+  eval/                              [x] backtest harness
+    labels.py                        [x] labelled-set format, strict validation
+    harness.py                       [x] per-item comparison, agreement and MAE
   agents/                            [x] LLM interface + narrative
     client.py                        [x] protocol, NullLLM, OpenAI-compatible adapter
     config.py                        [x] file + environment settings, masked diagnostics

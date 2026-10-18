@@ -1,0 +1,35 @@
+# Example labelled set — FABRICATED values, committed only to document the format.
+#
+# Real marks live in private/eval/labelled.yaml (git-ignored), because they are judgements
+# about a real athlete's sessions and carry real training dates.
+#
+# Scores are 0-1. Only the items the engine can measure are compared; the unmeasurable ones
+# (SESSION_DURATION, VELOCITY_LOSS) may be marked but are reported, never scored.
+
+version: 1
+tolerance: 0.25
+
+sessions:
+  "2024-01-08":
+    notes: "synthetic example, not a real session"
+    scores:
+      RIR_ADHERENCE: 0.75
+      PROGRESSION_ADHERENCE: 0.5
+      WEEKLY_SPINAL_COST: 1.0
+      ESSENTIAL_WORK: 1.0
+      REDUNDANCY: 1.0
+      ROTATION: 0.75
+      SESSION_DURATION: null
+      VELOCITY_LOSS: null
+
+  "2024-01-15":
+    notes: "synthetic example, not a real session"
+    scores:
+      RIR_ADHERENCE: 0.5
+      PROGRESSION_ADHERENCE: 0.5
+      WEEKLY_SPINAL_COST: 0.5
+      ESSENTIAL_WORK: 0.5
+      REDUNDANCY: 0.5
+      ROTATION: 1.0
+      SESSION_DURATION: null
+      VELOCITY_LOSS: null

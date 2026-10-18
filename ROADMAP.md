@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · version `0.0.1-dev` · **287 tests passing**
+Last updated: 2026-10-17 · version `0.0.1-dev` · **299 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · version `0.0.1-dev` · **287 tests passing**
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 287 passed
+.venv/bin/python -m pytest            # expect: 299 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -40,7 +40,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 5.5 | Athlete state — DATA-MODEL §11 tables | **not started** | planned `store/migrations/0002_athlete_state.sql`, repository writers; unblocks Days A/C and hard constraints |
 | 6 | Critique rubric + trace | **done** | `critique/facts.py`, `critique/rubric.py`, `trace/run.py`; 6 measurable items + 2 unmeasured |
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
-| 8 | Backtest harness + labelled eval set | **not started** | planned `eval/backtest.py`, `eval/labelled_rubric.yaml` |
+| 8 | Backtest harness + labelled eval set | **in progress** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; harness done, 3 marks pending |
 | 9 | CLI (`coach run --date`) | **not started** | planned `cli.py` |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
@@ -64,7 +64,9 @@ loss). The critique is persisted append-only inside a `run` trace. An **optional
 either artifact: the model receives the facts as JSON, may not compute, and its output is
 recorded as a `run_event` rather than written into a prescription or a score. With no model
 configured (`NullLLM`) the run is structurally identical and loses only the prose. There is
-**no CLI and no backtest yet**.
+**no CLI yet**, but the backtest harness exists: it replays a session through the rubric and
+compares it against a hand-marked score, per item and per session. The labelled set is three
+sessions the athlete still has to mark (`private/eval/labelled.yaml`).
 
 ## 3. Next actions
 
@@ -72,9 +74,10 @@ The main line is **8 → 9**. Phase 5.5 is scheduled but not on that line: it mu
 before Days A/C and before any hard constraint can veto, and it can start as soon as the
 answers are available.
 
-1. **Phase 8 — backtest harness + labelled eval set.** Replay history through phases 5-6 and
-   compare against a hand-marked rubric. This is where the user's judgement is needed: three
-   hand-marked sessions are the labelled set (`docs/V0-SCOPE.md` §3).
+1. **Phase 8 (finish) — mark the three sessions** chosen for the labelled set
+   (`2026-10-05` recent day B, `2023-12-13` grinding, `2024-08-17` hinge+erector stacking).
+   The harness is built and `tools/eval_prepare.py` has written the sheet; filling in
+   `private/eval/labelled.yaml` and running `tools/backtest.py` completes the phase.
 2. **Phase 5.5 — athlete state tables (§11).** Not a detour: it is the prerequisite for Days
    A/C and for any hard constraint, and it can run in parallel with phases 7-9.
    *Why now and not earlier:* nothing can be stored until the tables exist, so collecting

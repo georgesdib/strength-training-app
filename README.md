@@ -40,6 +40,9 @@ python3 -m venv .venv
 .venv/bin/python tools/profile_data.py    # profile your own export
 .venv/bin/python tools/baseline.py        # strength baseline, latest date in the log
 .venv/bin/python tools/llm_check.py       # show the LLM configuration (see below)
+.venv/bin/python tools/import_export.py   # load data/raw into data/coach.db
+.venv/bin/python tools/eval_prepare.py --session <date>   # labelling sheet
+.venv/bin/python tools/backtest.py        # rubric vs hand marks
 ```
 
 The tools read `data/raw/training_log.csv` and `data/raw/readiness.csv`. See
@@ -112,6 +115,7 @@ strength_coach/
   critique/                    rubric over a stored session
   agents/                      LLM interface, config, narrative (NullLLM by default)
   trace/                       run lifecycle
+  eval/                        backtest harness and labelled-set comparison
 tools/profile_data.py          reproducible data profile
 tools/baseline.py              reproducible strength baseline
 tools/llm_check.py             shows the effective LLM settings; --call tests them
