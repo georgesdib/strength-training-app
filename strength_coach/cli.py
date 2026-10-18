@@ -26,17 +26,21 @@ import yaml
 
 from strength_coach import __version__
 from strength_coach.agents import (
+    LLMError,
     build_client,
     explain_critique,
     explain_prescription,
     load_settings,
 )
+from strength_coach.agents import proposal as proposal_mod
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
 from strength_coach.critique import persist as persist_critique
 from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.eval import backtest, load_marks, record_marks
 from strength_coach.eval.report import format_report, format_session_sheet, item_guide_lines
 from strength_coach.prescribe import build_prescription
+from strength_coach.prescribe import config as prescribe_config
+from strength_coach.rules import RuleContext, evaluate, load_document
 from strength_coach.store import db, importer, queries, repositories
 from strength_coach.trace import RunTrace
 from strength_coach.utils import io_utils, paths
@@ -60,6 +64,10 @@ def main(argv: list[str] | None = None) -> int:
                      help="ask the configured model for a narrative (default: off)")
     run.add_argument("--force", action="store_true",
                      help="regenerate even if this date was already prescribed")
+    run.add_argument("--propose", action="store_true",
+                     help="ask the model for a structural proposal (requires --llm on)")
+    run.add_argument("--yes", action="store_true",
+                     help="apply an accepted proposal without asking")
 
     review = sub.add_parser("review", help="mark a session and update calibration")
     review.add_argument("--session", required=True)
@@ -162,6 +170,12 @@ def _cmd_run(args) -> int:
         with RunTrace.start(conn, input_hash=f"{session_id}:{args.date}",
                             window_end=args.date) as trace:
             critique_id = persist_critique(conn, critique, run_id=trace.run_id)
+            approved_by = "deterministic"
+            if args.propose:
+                if args.llm != "on":
+                    print("--propose requires --llm on")
+                    return 2
+                prescription, approved_by = _propose(conn, trace, prescription, args)
             prescription_id = repositories.append_prescription(
                 conn,
                 prescription_id=_new_id(),
@@ -172,7 +186,7 @@ def _cmd_run(args) -> int:
                 rule_document_version=prescription.rule_document_version,
                 # VBT targets are deferred to v0.1 (DEC-VBT-01), so no calibration is cited.
                 calibration_ids=[],
-                approved_by="deterministic",
+                approved_by=approved_by,
                 items=prescription.as_rows(),
             )
             trace.event("artifact", {
@@ -545,6 +559,81 @@ def _import_export(conn):
         training_sha256=importer.sha256_file(training_path),
         readiness_sha256=importer.sha256_file(readiness_path),
     )
+
+
+def _propose(conn, trace, prescription, args):
+    """Ask for a structured proposal and decide it. Returns (prescription, approved_by).
+
+    Every rejection path keeps the deterministic prescription: the model may propose, the
+    validator decides, and a failure never leaves the athlete without a session.
+    """
+    settings = load_settings()
+    client = build_client(settings)
+    if not client.available:
+        print("\n(proposal skipped: no model configured)")
+        return prescription, "deterministic"
+
+    context = RuleContext.from_store(conn, end=prescription.for_date)
+    if prescription.fallback_level != "full" or context.symptom_flare:
+        print("\n(proposal skipped: the session was already modified by a safety rule)")
+        return prescription, "deterministic"
+
+    allowed = proposal_mod.allowed_substitutes(conn, context, prescription)
+    try:
+        response = client.complete(
+            proposal_mod.prompt_for(prescription, allowed), system=proposal_mod.SYSTEM
+        )
+    except LLMError as exc:
+        print(f"\nproposal unavailable: {exc}")
+        trace.finish(status="llm_failed")
+        return prescription, "deterministic"
+
+    trace.add_tokens(response.tokens)
+    trace.event("llm_output", {
+        "kind": "proposal", "text": response.text, "model": response.model,
+    })
+
+    try:
+        parsed = proposal_mod.parse(response.text)
+    except proposal_mod.ProposalError as exc:
+        print(f"\nproposal rejected: {exc}")
+        trace.event("policy_verdict", {"proposal": "rejected", "reasons": [str(exc)]})
+        trace.finish(status="llm_downgraded")
+        return prescription, "deterministic"
+
+    document = load_document()
+    thresholds = prescribe_config.Thresholds.load()
+    decisions = evaluate(document, context).verdict("PRG-DP-001").details.get("decisions", {})
+    outcome = proposal_mod.assess(
+        conn, prescription, parsed, context=context, document=document,
+        thresholds=thresholds, decisions=decisions,
+    )
+
+    print("\nproposal")
+    print("  " + proposal_mod.describe(parsed))
+    if parsed.summary:
+        print(f"  why: {parsed.summary}")
+
+    if not outcome.accepted:
+        print("  rejected: " + "; ".join(outcome.reasons))
+        trace.event("policy_verdict", {
+            "proposal": "rejected", "reasons": list(outcome.reasons),
+        })
+        trace.finish(status="llm_downgraded")
+        return prescription, "deterministic"
+
+    if not args.yes:
+        answer = input("  apply this proposal? [y/N] ").strip().lower()
+        if answer not in ("y", "yes"):
+            print("  declined: keeping the deterministic prescription")
+            trace.event("policy_verdict", {"proposal": "declined"})
+            return prescription, "deterministic"
+
+    trace.event("policy_verdict", {
+        "proposal": "accepted", "changes": proposal_mod.describe(parsed),
+    })
+    print("  accepted")
+    return outcome.prescription, "llm+policy"
 
 
 def _narrate(conn, trace, critique, facts, prescription) -> None:

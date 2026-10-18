@@ -60,98 +60,11 @@ def build_prescription(
     warnings: list[str] = []
 
     for index, slot in enumerate(template.slots):
-        exercise_id, chosen_variant = _choose_exercise(slot, context)
-        if chosen_variant:
-            warnings.append(f"{slot.id}: chose {exercise_id} from {list(slot.variants)}")
-
-        increment = thresholds.increment_for(exercise_id)
-        bodyweight = bool(context.entity(exercise_id).get("bodyweight_type", False))
-        load: float | None
-        refs: tuple[str, ...] = ()
-        unknown_reason: str | None = None
-
-        if slot.load_source == "e1rm":
-            found = _latest_e1rm(conn, context, exercise_id, for_date,
-                                  thresholds.e1rm_window_days)
-            if found is None:
-                # No recent e1RM is common after a layoff. Reusing the last working load is
-                # safer than refusing to prescribe: the load is a real, previously managed
-                # weight, and the warning makes the staleness visible.
-                last_set = _last_working_set(context, exercise_id)
-                if last_set is None:
-                    load = None
-                    refs = ()
-                    unknown_reason = (
-                        f"no usable e1RM for {exercise_id} in the last "
-                        f"{thresholds.e1rm_window_days} days, and no earlier working load"
-                    )
-                else:
-                    prior_load, ref = last_set
-                    load = loads.round_down(prior_load, increment)
-                    refs = ("PRG-RIR-001", ref)
-                    warnings.append(
-                        f"{exercise_id}: no e1RM in the last "
-                        f"{thresholds.e1rm_window_days} days; reused the last working load"
-                    )
-            else:
-                e1rm_kg, ref = found
-                load = loads.solve_load(e1rm_kg, slot.reps_low, slot.rir_low, increment)
-                refs = ("PRG-RIR-001", ref)
-                if ref.startswith("e1rm_override:"):
-                    warnings.append(
-                        f"{exercise_id}: using a manual e1RM override ({e1rm_kg:g} kg)"
-                    )
-        else:
-            found = _last_working_set(context, exercise_id)
-            if found is None and bodyweight:
-                # Bodyweight work needs no history to start: week 1 of an erector ramp is
-                # bodyweight by definition, so prescribing 0 is correct, not a guess.
-                load = 0.0
-                refs = ()
-                warnings.append(f"{exercise_id}: no history; starting at bodyweight")
-            elif found is None:
-                load = None
-                refs = ()
-                unknown_reason = f"no working history for {exercise_id}"
-            else:
-                prior_load, ref = found
-                decision = decisions.get(exercise_id, {}).get("decision", "hold_load")
-                if bodyweight and prior_load == 0:
-                    # Unweighted bodyweight work: adding 0.5 kg to nothing is not a
-                    # progression. Bodyweight progression acts on reps or sets instead
-                    # (DEC-LOAD-02), so the load stays 0 and the warning says why.
-                    load = 0.0
-                    warnings.append(
-                        f"{exercise_id}: bodyweight, progress by reps or sets, not load"
-                    )
-                else:
-                    load = prior_load + increment if decision == "add_increment" else prior_load
-                    load = loads.round_down(load, increment)
-                refs = ("PRG-DP-001", ref)
-
-        items.append(
-            PrescriptionItem(
-                order_index=index,
-                exercise_id=exercise_id,
-                sets=slot.sets,
-                reps_low=slot.reps_low,
-                reps_high=slot.reps_high,
-                load_kg=load,
-                load_basis=(
-                    "bodyweight_total"
-                    if bodyweight and (load in (None, 0.0))
-                    else "external"
-                ),
-                rounding_increment_kg=increment,
-                rir_target=slot.rir_low,
-                rest_s=slot.rest_s,
-                essential=slot.essential,
-                rationale_refs=refs,
-                time_cap_s=template.time_cap_s if slot.essential else None,
-                unknown_load_reason=unknown_reason,
-            )
+        item, slot_warnings = build_item(
+            conn, context, slot, index, thresholds, for_date, decisions, template
         )
-
+        items.append(item)
+        warnings.extend(slot_warnings)
     fallback_level = "full"
     readiness = queries.readiness_day(conn, for_date)
     trigger = readiness_config.trigger(readiness)
@@ -190,7 +103,7 @@ def build_prescription(
         )
     warnings.extend(constraint_report.warnings)
 
-    issues = _validate(tuple(items), context, document, session_day, for_date)
+    issues = validate_prescription(tuple(items), context, document, session_day, for_date)
     for exercise_id, reason in constraint_report.vetoes:
         issues.append(f"CONSTRAINT_VETO:{exercise_id}:{reason}")
 
@@ -255,6 +168,115 @@ def _apply_back_flare(
         else:
             out.append(replace(item, rationale_refs=refs))
     return tuple(out)
+
+
+def build_item(
+    conn,
+    context: RuleContext,
+    slot: templates.Slot,
+    index: int,
+    thresholds: config_mod.Thresholds,
+    for_date: str,
+    decisions: Mapping[str, Any],
+    template: templates.DayTemplate,
+) -> tuple[PrescriptionItem, tuple[str, ...]]:
+    """Build one item from a slot, solving its load from stored history.
+
+    Kept separate from the loop so a proposal can rebuild a single item after a substitution
+    without re-deriving loads itself -- the proposal path must use the same solver as the
+    deterministic path, or the two would drift.
+    """
+    warnings: list[str] = []
+    exercise_id, chosen_variant = _choose_exercise(slot, context)
+    if chosen_variant:
+        warnings.append(f"{slot.id}: chose {exercise_id} from {list(slot.variants)}")
+
+    increment = thresholds.increment_for(exercise_id)
+    bodyweight = bool(context.entity(exercise_id).get("bodyweight_type", False))
+    load: float | None
+    refs: tuple[str, ...] = ()
+    unknown_reason: str | None = None
+
+    if slot.load_source == "e1rm":
+        found = _latest_e1rm(conn, context, exercise_id, for_date,
+                              thresholds.e1rm_window_days)
+        if found is None:
+            # No recent e1RM is common after a layoff. Reusing the last working load is
+            # safer than refusing to prescribe: the load is a real, previously managed
+            # weight, and the warning makes the staleness visible.
+            last_set = _last_working_set(context, exercise_id)
+            if last_set is None:
+                load = None
+                refs = ()
+                unknown_reason = (
+                    f"no usable e1RM for {exercise_id} in the last "
+                    f"{thresholds.e1rm_window_days} days, and no earlier working load"
+                )
+            else:
+                prior_load, ref = last_set
+                load = loads.round_down(prior_load, increment)
+                refs = ("PRG-RIR-001", ref)
+                warnings.append(
+                    f"{exercise_id}: no e1RM in the last "
+                    f"{thresholds.e1rm_window_days} days; reused the last working load"
+                )
+        else:
+            e1rm_kg, ref = found
+            load = loads.solve_load(e1rm_kg, slot.reps_low, slot.rir_low, increment)
+            refs = ("PRG-RIR-001", ref)
+            if ref.startswith("e1rm_override:"):
+                warnings.append(
+                    f"{exercise_id}: using a manual e1RM override ({e1rm_kg:g} kg)"
+                )
+    else:
+        found = _last_working_set(context, exercise_id)
+        if found is None and bodyweight:
+            # Bodyweight work needs no history to start: week 1 of an erector ramp is
+            # bodyweight by definition, so prescribing 0 is correct, not a guess.
+            load = 0.0
+            refs = ()
+            warnings.append(f"{exercise_id}: no history; starting at bodyweight")
+        elif found is None:
+            load = None
+            refs = ()
+            unknown_reason = f"no working history for {exercise_id}"
+        else:
+            prior_load, ref = found
+            decision = decisions.get(exercise_id, {}).get("decision", "hold_load")
+            if bodyweight and prior_load == 0:
+                # Unweighted bodyweight work: adding 0.5 kg to nothing is not a
+                # progression. Bodyweight progression acts on reps or sets instead
+                # (DEC-LOAD-02), so the load stays 0 and the warning says why.
+                load = 0.0
+                warnings.append(
+                    f"{exercise_id}: bodyweight, progress by reps or sets, not load"
+                )
+            else:
+                load = prior_load + increment if decision == "add_increment" else prior_load
+                load = loads.round_down(load, increment)
+            refs = ("PRG-DP-001", ref)
+
+    item = PrescriptionItem(
+        order_index=index,
+        exercise_id=exercise_id,
+        sets=slot.sets,
+        reps_low=slot.reps_low,
+        reps_high=slot.reps_high,
+        load_kg=load,
+        load_basis=(
+            "bodyweight_total"
+            if bodyweight and (load in (None, 0.0))
+            else "external"
+        ),
+        rounding_increment_kg=increment,
+        rir_target=slot.rir_low,
+        rest_s=slot.rest_s,
+        essential=slot.essential,
+        rationale_refs=refs,
+        time_cap_s=template.time_cap_s if slot.essential else None,
+        unknown_load_reason=unknown_reason,
+    )
+    return item, tuple(warnings)
 
 
 def _choose_exercise(slot: templates.Slot, context: RuleContext) -> tuple[str, bool]:
@@ -323,7 +345,7 @@ def _last_working_set(
     return float(row["load_kg"]), f"set:{row['session_id']}/{int(row['set_id'])}"
 
 
-def _validate(
+def validate_prescription(
     items: tuple[PrescriptionItem, ...],
     context: RuleContext,
     document,

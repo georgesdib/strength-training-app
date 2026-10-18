@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **366 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **380 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **366 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 366 passed
+.venv/bin/python -m pytest            # expect: 380 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -44,7 +44,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 3 hand-marked sessions, 42% item agreement |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; calibration loop closed |
 | v0.2 | Input flexibility + programme view | **planned** | see §4: readiness on demand, manual logging, format adapters, whole-programme output; depends on 3.3 for the readiness path |
-| v0.1 | Next version | **in progress** | 3.1-3.3 done; see §3 for **LLM prescription proposals**, **video analysis**, portability, VBT wiring, larger labelled set |
+| v0.1 | Next version | **in progress** | 3.1-3.4 done; see §3 for **video analysis**, portability, VBT wiring, larger labelled set |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
 ### What works end to end today
@@ -148,7 +148,7 @@ reading and a declared block exist, citing `symptom:<date>`; a flare makes `MOD-
 transform the prescription (erector back to the weeks 1-3 dose, main lifts at RIR 3). Multiple
 entries per day are allowed, latest wins (migration 0005).
 
-### 3.4 The LLM may tweak the prescription — within the rules
+### 3.4 The LLM may tweak the prescription — within the rules  (done)
 
 Today the model only narrates. In the next version, with `--llm on`, it may also *propose* a
 modified Day B session, subject to the same policy engine that judges a performed one. The
@@ -205,6 +205,16 @@ Acceptance:
   prescription untouched;
 - the existing LLM-off equivalence test passes unchanged;
 - the golden fixture gains an accepted-proposal case and a vetoed one.
+
+Delivered: `run --propose [--yes]` (requires `--llm on`). Parsing rejects any
+computed-number key — load, weight, RIR, percentage or velocity — anywhere in the payload, so a
+confused model cannot inject a weight. Substitutes are narrowed to the same movement pattern
+and filtered by stored constraints; the replacement is rebuilt by the engine's own
+`build_item`, so the load comes from the same solver as the deterministic path. The result is
+judged by `validate_prescription` and the constraint check before anything is stored.
+Acceptance is explicit (`--yes` for scripting), `approved_by = llm+policy` marks the artifact,
+and the proposal, verdict and reasons are `run_event`s. Proposals are not attempted on a
+session a safety modifier already changed. `DEC-LLM-04` records the contract.
 
 ### 3.5 Video analysis (LLM) — a future feature, not a measurement
 

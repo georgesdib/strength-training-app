@@ -238,6 +238,32 @@ still says `unknown` — no reading is never read as "no flare".
 Correct a mistake by logging again; the latest entry for the day wins and the earlier one
 stays in history.
 
+### 4.8 `run --propose` — the model may suggest, the rules decide
+
+```bash
+strength-coach run --date 2026-11-03 --llm on --propose
+strength-coach run --date 2026-11-03 --llm on --propose --yes   # no prompt
+```
+
+The model sees the deterministic session and may propose a **structural** change:
+
+- swap a non-essential item for a same-pattern alternative;
+- change an item's set count within configured bounds;
+- drop a non-essential item;
+- reorder the session.
+
+It may **not** supply a load, RIR, percentage or velocity. Any such field is rejected
+before the proposal is even applied, because the model never does arithmetic here.
+
+You see the proposal and its one-line reason, then accept or decline (`--yes` skips the
+prompt). If you accept, the prescription is stored with `approved_by = llm+policy`; if you
+decline or the proposal is invalid, the deterministic session is kept, the run is marked
+`llm_downgraded` when the model was at fault, and the proposal plus reasons stay in the run
+trace.
+
+A proposal is **not attempted** when a safety modifier already changed the session (a
+fatigue cut or a back flare). The safety decision outranks the suggestion.
+
 ---
 
 ## 5. Reading the output

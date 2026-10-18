@@ -44,8 +44,8 @@ What exists today is:
   marks that make calibration continuous (`rubric_mark`, append-only).
 - `strength_coach/cli.py` — `import`, `run`, `review`, `calibrate`, `state`, `block`, `e1rm`,
   `symptom`. `review` is the routine that keeps calibration current.
-- `strength_coach/agents/` — LLM interface, config and narrative. `NullLLM` is the default; the
-  model may explain but never compute. Keys live in the git-ignored `config/llm.local.toml`
+- `strength_coach/agents/` — LLM interface, config, narrative and structured proposals.
+  `NullLLM` is the default; the model may explain or propose, but never compute. Keys live in the git-ignored `config/llm.local.toml`
   or the environment (`config/llm.example.toml` is the committed template).
 - `ROADMAP.md` — phase status and next actions (update it in the same commit as the work).
 

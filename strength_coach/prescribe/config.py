@@ -29,6 +29,8 @@ class Thresholds:
     back_flare_erector_added_kg: float
     back_flare_main_rir: int
     session_time_cap_s: int
+    proposal_max_set_change: int = 2
+    proposal_max_sets: int = 8
     source_path: Path = Path()
 
     def increment_for(self, exercise_id: str) -> float:
@@ -58,6 +60,8 @@ class Thresholds:
             back_flare_erector_added_kg=float(modifiers.get("back_flare_erector_added_kg", 0)),
             back_flare_main_rir=int(modifiers.get("back_flare_main_rir", 3)),
             session_time_cap_s=int(prescription.get("session_time_cap_s", 4800)),
+            proposal_max_set_change=int(prescription.get("proposal_max_set_change", 2)),
+            proposal_max_sets=int(prescription.get("proposal_max_sets", 8)),
             source_path=source,
         )
 
@@ -74,4 +78,6 @@ def as_dict(thresholds: Thresholds) -> dict[str, Any]:
         "back_flare_erector_added_kg": thresholds.back_flare_erector_added_kg,
         "back_flare_main_rir": thresholds.back_flare_main_rir,
         "session_time_cap_s": thresholds.session_time_cap_s,
+        "proposal_max_set_change": thresholds.proposal_max_set_change,
+        "proposal_max_sets": thresholds.proposal_max_sets,
     }
