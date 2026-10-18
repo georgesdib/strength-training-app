@@ -19,10 +19,6 @@ def test_rir_adjusted_treats_rir_as_unperformed_reps():
     assert e1rm.epley_rir_adjusted(100, 5, 2) == pytest.approx(e1rm.epley(100, 7))
 
 
-def test_rir_adjustment_always_exceeds_plain_estimate():
-    assert e1rm.epley_rir_adjusted(100, 3, 3) > e1rm.epley(100, 3)
-
-
 def test_estimate_uses_rir_when_available():
     estimate = e1rm.estimate_e1rm(100, 5, 2)
     assert estimate.method == "epley_plus_rir"

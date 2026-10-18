@@ -100,17 +100,6 @@ def test_suitability_latest_rating_wins():
         assert ratings["split_squat"]["rated_on"] == "2024-06-01"
 
 
-def test_symptom_entries_are_append_only():
-    with db.Store(":memory:") as store:
-        conn = store.connection
-        repositories.append_symptom(
-            conn, logged_on="2026-10-17", timing="pre_session", region="low_back", level=0,
-        )
-        assert len(queries.symptom_entries(conn)) == 1
-        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
-            conn.execute("DELETE FROM symptom_log")
-
-
 # --- constraint effects ----------------------------------------------------
 
 

@@ -53,35 +53,27 @@ def test_trap_bar_is_hinge_direct_erector_false(taxonomy):
     assert resolved.is_direct_erector is False
 
 
-def test_historical_hyperextension_keeps_identity_but_counts_as_history(taxonomy):
-    # DEC-BACKEXT-02 amended the original decision: the row keeps its own id, but the
-    # movement is the same, so its history counts for load and dose lookups.
+def test_hyperextension_keeps_identity_but_counts_as_history(taxonomy):
+    """DEC-BACKEXT-02: the row keeps its own id, but the movement is the same."""
     resolved = taxonomy.resolve("Hyperextensions")
     assert resolved.id == "hyperextension"
     assert resolved.id != "back_extension"
     assert resolved.counts_toward_back_extension_dose is True
     assert resolved.decision == "DEC-BACKEXT-02"
 
-
-def test_history_equivalents_expose_the_back_extension_pair():
-    from strength_coach.utils import exercises as exercise_utils
-
-    assert set(exercise_utils.history_equivalents("back_extension")) == {
+    assert set(exercises.history_equivalents("back_extension")) == {
         "back_extension", "hyperextension",
     }
-    assert exercise_utils.history_equivalents("ssb_squat") == ("ssb_squat",)
+    assert exercises.history_equivalents("ssb_squat") == ("ssb_squat",)
 
 
-def test_back_extension_forward_only(taxonomy):
+def test_back_extension_is_forward_only_but_history_counts(taxonomy):
+    """New prescriptions say "back extension"; the old log name keeps its own identity."""
     resolved = taxonomy.resolve("Back Extension")
     assert resolved.id == "back_extension"
     assert resolved.applies_to_history is False
     assert resolved.counts_toward_back_extension_dose is True
 
-
-def test_forward_name_redirects_history_to_canonical():
-    """A prescription may say 'back extension' for a lift historically logged as
-    'Hyperextensions', while the historical row keeps its own identity."""
     assert exercises.canonical_id("Hyperextensions") == "hyperextension"
     assert exercises.forward_name("Hyperextensions") == "back_extension"
 

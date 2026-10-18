@@ -11,16 +11,11 @@ from strength_coach.domain import rir
 from strength_coach.utils import paths
 
 
-def test_six_is_a_warmup():
+def test_six_is_a_warmup_not_an_effort_rating():
     reading = rir.classify(6)
     assert reading.klass == "warmup"
     assert reading.source == "logged_warmup"
     assert reading.value == 6          # preserved, not erased
-
-
-def test_six_is_never_treated_as_effort():
-    reading = rir.classify(6)
-    assert reading.klass != "effort"
     assert reading.suspect is False
     assert not rir.within_window(6, 2, 3)
 

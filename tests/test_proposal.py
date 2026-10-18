@@ -77,26 +77,17 @@ def test_parse_accepts_a_fenced_json_block():
     assert proposal.changes[0].action == "drop"
 
 
-def test_a_load_in_a_proposal_is_rejected():
-    with pytest.raises(proposal_mod.ProposalError, match="computed numbers"):
-        proposal_mod.parse({
-            "summary": "x",
-            "changes": [{"action": "set_sets", "exercise": "lateral_raise",
-                         "sets": 4, "load_kg": 100}],
-        })
-
-
-def test_unknown_action_is_rejected():
-    with pytest.raises(proposal_mod.ProposalError, match="action must be one of"):
-        proposal_mod.parse({"changes": [{"action": "add_load",
-                                         "exercise": "lateral_raise"}]})
-
-
-def test_extra_keys_are_rejected():
-    with pytest.raises(proposal_mod.ProposalError, match="unexpected keys"):
-        proposal_mod.parse({"changes": [{"action": "drop",
-                                         "exercise": "lateral_raise",
-                                         "reason": "because"}]})
+@pytest.mark.parametrize("payload, message", [
+    ({"summary": "x", "changes": [{"action": "set_sets", "exercise": "lateral_raise",
+                                    "sets": 4, "load_kg": 100}]}, "computed numbers"),
+    ({"changes": [{"action": "add_load", "exercise": "lateral_raise"}]},
+     "action must be one of"),
+    ({"changes": [{"action": "drop", "exercise": "lateral_raise",
+                   "reason": "because"}]}, "unexpected keys"),
+])
+def test_invalid_proposals_are_rejected(payload, message):
+    with pytest.raises(proposal_mod.ProposalError, match=message):
+        proposal_mod.parse(payload)
 
 
 # --- allowed substitutes ---------------------------------------------------

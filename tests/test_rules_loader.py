@@ -92,42 +92,17 @@ def test_modifiers_are_parsed_separately_from_rules():
     assert "MOD-FAT-001" not in document.rule_ids
 
 
-def test_duplicate_rule_ids_are_rejected(tmp_path):
-    path = write_document(tmp_path, rules=[make_rule(), make_rule()])
-    with pytest.raises(loader.RuleDocumentError, match="duplicate rule ids"):
-        loader.load_document(path)
-
-
-def test_unknown_collection_is_rejected(tmp_path):
-    path = write_document(
-        tmp_path,
-        rules=[make_rule(scope={"exercises": "$not_a_collection"})],
-    )
-    with pytest.raises(loader.RuleDocumentError, match="unknown collection"):
-        loader.load_document(path)
-
-
-def test_unregistered_predicate_is_rejected(tmp_path):
-    path = write_document(tmp_path, rules=[make_rule(check={"fn": "not_implemented"})])
-    with pytest.raises(loader.RuleDocumentError, match="unregistered check.fn"):
-        loader.load_document(path)
-
-
-def test_invalid_severity_is_rejected(tmp_path):
-    path = write_document(tmp_path, rules=[make_rule(severity="blocker")])
-    with pytest.raises(loader.RuleDocumentError, match="severity must be one of"):
-        loader.load_document(path)
-
-
-def test_missing_fail_code_is_rejected(tmp_path):
-    path = write_document(tmp_path, rules=[make_rule(on_fail={"action": "veto"})])
-    with pytest.raises(loader.RuleDocumentError, match="on_fail.code is required"):
-        loader.load_document(path)
-
-
-def test_invalid_rule_id_is_rejected(tmp_path):
-    path = write_document(tmp_path, rules=[make_rule(id="rir-thing")])
-    with pytest.raises(loader.RuleDocumentError, match="invalid id"):
+@pytest.mark.parametrize("rules, message", [
+    ([make_rule(), make_rule()], "duplicate rule ids"),
+    ([make_rule(scope={"exercises": "$not_a_collection"})], "unknown collection"),
+    ([make_rule(check={"fn": "not_implemented"})], "unregistered check.fn"),
+    ([make_rule(severity="blocker")], "severity must be one of"),
+    ([make_rule(on_fail={"action": "veto"})], "on_fail.code is required"),
+    ([make_rule(id="rir-thing")], "invalid id"),
+])
+def test_invalid_documents_are_rejected(tmp_path, rules, message):
+    path = write_document(tmp_path, rules=rules)
+    with pytest.raises(loader.RuleDocumentError, match=message):
         loader.load_document(path)
 
 
