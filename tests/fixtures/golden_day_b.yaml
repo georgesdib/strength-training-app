@@ -1,0 +1,61 @@
+# Golden Day B prescription — locked values, reviewed once.
+#
+# This is a snapshot test, not a derivation: it exists so that an unintended change to the
+# load arithmetic, rounding, rep targets or the fatigue modifier fails loudly. If a value here
+# is genuinely meant to change, change it deliberately and say why in the commit.
+#
+# Synthetic history: four weekly Day B sessions, trap bar and narrow bench at 5 reps RIR 2,
+# lateral raise at 10 reps RIR 2, split squat at 8 reps RIR 3.
+
+for_date: "2024-02-01"
+session_day: B
+
+expected:
+  executable: true
+  fallback_level: full
+  items:
+    - exercise_id: trap_bar_deadlift
+      sets: 4
+      reps_low: 3
+      reps_high: 5
+      load_kg: 158.5
+      rir_target: 2
+      rest_s: 180
+      essential: true
+      rule: PRG-RIR-001
+    - exercise_id: bench_press_narrow
+      sets: 4
+      reps_low: 3
+      reps_high: 5
+      load_kg: 95.0
+      rir_target: 2
+      rest_s: 180
+      essential: true
+      rule: PRG-RIR-001
+    - exercise_id: lateral_raise
+      sets: 3
+      reps_low: 10
+      reps_high: 12
+      load_kg: 12.5
+      rir_target: 2
+      rest_s: 90
+      essential: false
+      rule: PRG-DP-001
+    - exercise_id: split_squat
+      sets: 3
+      reps_low: 8
+      reps_high: 10
+      load_kg: 30.0
+      rir_target: 2
+      rest_s: 90
+      essential: false
+      rule: PRG-DP-001
+
+# readiness sleep = 2 on the day: MOD-FAT-001 reduces every load by 5% and rounds down.
+fatigue:
+  fallback_level: fatigue_reduced
+  loads:
+    trap_bar_deadlift: 150.5
+    bench_press_narrow: 90.0
+    lateral_raise: 11.5
+    split_squat: 28.5

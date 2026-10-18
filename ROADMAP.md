@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · version `0.0.1-dev` · **311 tests passing**
+Last updated: 2026-10-17 · version `0.0.1-dev` · **316 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · version `0.0.1-dev` · **311 tests passing**
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 311 passed
+.venv/bin/python -m pytest            # expect: 316 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -87,15 +87,16 @@ available.
    *Why now and not earlier:* nothing can be stored until the tables exist, so collecting
    the answers before then would mean holding personal data with nowhere to put it.
    *Scope:* `athlete_profile`, `constraint`, `exercise_suitability`, `metric_definition`,
-   `symptom_log` as numbered migration `0002_athlete_state.sql` plus writers.
+   `symptom_log` as numbered migration `0003_athlete_state.sql` plus writers.
    *Acceptance:* the five tables exist and are empty-not-guessed; a `constraint` row with
    `severity = hard_exclude` vetoes a proposed exercise deterministically (with a test); a
    `exercise_suitability.will_do = 0` is surfaced as a substitution, never silently dropped;
    an empty table yields `unknown`, never "nothing is wrong".
    *Input:* answers come from `private/docs/INFO-REQUESTS.md` §1-3 and are read back for
    confirmation before being written.
-3. **After v0.** Days A/C (blocked on Q3/H1), the symptom input (Q4), and the backtest on a
-   larger labelled set.
+3. **After v0 (v0.1).** Days A/C (blocked on Q3/H1), the symptom input (Q4), a larger
+   labelled set, and the VBT prescription wiring once the target-selection rule is specified
+   (`DEC-VBT-01`).
 
 **Known follow-up from phase 5:** `PRG-DP-001` stays `unknown` even though the engine supplies
 rep ranges, because its scope includes `back_extension`, which Day B never prescribes and so
@@ -116,6 +117,7 @@ disappears once Days A/C get templates.
 | Velocity is per-set only | within-set velocity loss not computable | labelled decay proxy; `DEC-VELOCITY-01` |
 | Rubric calibrated on **one reliable session** | 60% of items within ±0.25 (MAE 0.23); the other two marks are reconstructed from memory and excluded | `DEC-EVAL-04`; needs ~10 remembered sessions before changing weights |
 | Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one | ASSUMPTION-02 / Q8; a weighted-by-e1RM or RIR version needs the athlete's decision |
+| VBT targets not prescribed | a prescription carries no `velocity_target`; `calibration_ids` is empty | deferred to v0.1 by `DEC-VBT-01`; the calibration code and tests remain, only the prescription wiring is postponed |
 | ACWR contested | cannot be a hard rule | advisory only; `DEC-ACWR-01` |
 
 ## 5. Idea backlog (not approved, not scheduled)

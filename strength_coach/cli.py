@@ -128,6 +128,7 @@ def _cmd_run(args) -> int:
                 session_day=prescription.session_day,
                 fallback_level=prescription.fallback_level,
                 rule_document_version=prescription.rule_document_version,
+                # VBT targets are deferred to v0.1 (DEC-VBT-01), so no calibration is cited.
                 calibration_ids=[],
                 approved_by="deterministic",
                 items=prescription.as_rows(),

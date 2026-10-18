@@ -13,7 +13,10 @@ that:
 1. ingests both CSVs,
 2. cleans them under the documented sentinel policy,
 3. reconstructs sessions,
-4. calibrates VBT from history **as of that date** (no look-ahead),
+4. ~~calibrates VBT from history **as of that date** (no look-ahead)~~ — **deferred to v0.1**
+   by `DEC-VBT-01`: the mapping from a velocity band to a prescribed target is not specified
+   precisely enough to implement without inventing it. The step is kept visible here rather
+   than deleted.
 5. produces a **critique** of the most recent session with rubric scores,
 6. produces a **prescription** for the next Day B session,
 7. writes an append-only record of both,
@@ -34,7 +37,7 @@ and erector-ramp questions on day one.
 | Sessions | one per date, workout label retained, `POSSIBLE_DOUBLE_SESSION` flag |
 | Load | `load_basis` resolution (DQ-BW-01), total vs external load |
 | Features | tonnage (external only), e1RM with method+quality tags, per-lift baseline, weekly spinal cost, session frequency |
-| VBT | calibration with the L0–L4 fallback ladder, `calibration_id` versioning; velocity targets **or an explicit `uncalibrated`** |
+| VBT | calibration with the L0–L4 fallback ladder, `calibration_id` versioning; velocity targets **or an explicit `uncalibrated`** — **deferred to v0.1** (`DEC-VBT-01`); prescriptions carry `calibration_ids = []` until then |
 | Rules | load `config/rules/programme.v1.yaml`; evaluate PRG-RIR-001, PRG-DP-001, PRG-SCHED-001, PRG-SPINE-001; PRG-EREC-001 returns `unknown` |
 | Prescribe | deterministic Day B prescription: per item sets/reps/load/RIR/rest/essential/rationale refs; fatigue modifier MOD-FAT-001 |
 | Critique | rubric items that are measurable now: RIR adherence, progression adherence, weekly spinal cost, missing essential work, redundancy. Each with score + evidence refs |
@@ -61,6 +64,7 @@ Each of these is deferred *with a reason*, not forgotten:
 | Bevel / HRV / RHR / grip strength | normalisation layer is designed but there is no data yet |
 | Rotation scoring | needs the app-vs-self provenance decision (see SANITY-CHECKS §B) |
 | Labelled 10-session eval set | v0.1; v0 ships the harness skeleton and 3 hand-marked sessions |
+| VBT velocity targets in prescriptions | deferred by `DEC-VBT-01`: the step from a calibrated velocity band to "do this set at 0.62 m/s" is underspecified, and prescribing it would be fabricated precision. The calibration code and tests remain; only the prescription wiring is postponed |
 | UI | explicitly deferred by the brief |
 
 ## 4. Acceptance criteria

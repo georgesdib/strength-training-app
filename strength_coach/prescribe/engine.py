@@ -143,6 +143,10 @@ def build_prescription(
         warnings=tuple(warnings),
         issues=tuple(issues),
         notes={
+            # VBT velocity targets are deferred (DEC-VBT-01): the calibration exists, but the
+            # step from a band to a prescribed target is not specified, so this stays explicit
+            # rather than silently null.
+            "vbt": "deferred (DEC-VBT-01)",
             "policy_outcome": policy_result.outcome,
             "e1rm_window_days": thresholds.e1rm_window_days,
             "fatigue_trigger": trigger,
