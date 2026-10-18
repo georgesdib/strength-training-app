@@ -26,7 +26,9 @@ What runs today:
 - **prescribe** — a deterministic Day B session whose loads are solved from recent e1RM,
   rounded down to real increments, and validated for executability;
 - **critique** — six measured rubric items against a stored session, two explicitly
-  unmeasurable rather than guessed.
+  unmeasurable rather than guessed;
+- **eval** — a backtest that replays sessions through the rubric and compares them with
+  hand-made marks, per item and per session.
 
 The CLI that ties these together is phase 9; see `docs/V0-SCOPE.md`.
 

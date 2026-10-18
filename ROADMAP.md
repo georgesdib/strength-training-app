@@ -40,7 +40,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 5.5 | Athlete state — DATA-MODEL §11 tables | **not started** | planned `store/migrations/0002_athlete_state.sql`, repository writers; unblocks Days A/C and hard constraints |
 | 6 | Critique rubric + trace | **done** | `critique/facts.py`, `critique/rubric.py`, `trace/run.py`; 6 measurable items + 2 unmeasured |
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
-| 8 | Backtest harness + labelled eval set | **in progress** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; harness done, 3 marks pending |
+| 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 3 hand-marked sessions, 42% item agreement |
 | 9 | CLI (`coach run --date`) | **not started** | planned `cli.py` |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
@@ -64,21 +64,18 @@ loss). The critique is persisted append-only inside a `run` trace. An **optional
 either artifact: the model receives the facts as JSON, may not compute, and its output is
 recorded as a `run_event` rather than written into a prescription or a score. With no model
 configured (`NullLLM`) the run is structurally identical and loses only the prose. There is
-**no CLI yet**, but the backtest harness exists: it replays a session through the rubric and
-compares it against a hand-marked score, per item and per session. The labelled set is three
-sessions the athlete still has to mark (`private/eval/labelled.yaml`).
+**no CLI yet**. The backtest harness replays a session through the rubric and compares it
+with a hand-marked score, per item and per session. Three sessions are marked; agreement is
+42% of items within ±0.25, and the disagreements are recorded rather than tuned away
+(`DEC-EVAL-03`, report in git-ignored `private/eval/`).
 
 ## 3. Next actions
 
-The main line is **8 → 9**. Phase 5.5 is scheduled but not on that line: it must land
-before Days A/C and before any hard constraint can veto, and it can start as soon as the
-answers are available.
+The main line is **9**. Phase 5.5 is scheduled but not on that line: it must land before
+Days A/C and before any hard constraint can veto, and it can start as soon as the answers are
+available.
 
-1. **Phase 8 (finish) — mark the three sessions** chosen for the labelled set
-   (`2026-10-05` recent day B, `2023-12-13` grinding, `2024-08-17` hinge+erector stacking).
-   The harness is built and `tools/eval_prepare.py` has written the sheet; filling in
-   `private/eval/labelled.yaml` and running `tools/backtest.py` completes the phase.
-2. **Phase 5.5 — athlete state tables (§11).** Not a detour: it is the prerequisite for Days
+1. **Phase 5.5 — athlete state tables (§11).** Not a detour: it is the prerequisite for Days
    A/C and for any hard constraint, and it can run in parallel with phases 7-9.
    *Why now and not earlier:* nothing can be stored until the tables exist, so collecting
    the answers before then would mean holding personal data with nowhere to put it.
@@ -90,7 +87,7 @@ answers are available.
    an empty table yields `unknown`, never "nothing is wrong".
    *Input:* answers come from `private/docs/INFO-REQUESTS.md` §1-3 and are read back for
    confirmation before being written.
-3. **Phase 9 — CLI (`coach run --date`).** The end-to-end slice in `docs/V0-SCOPE.md` §1:
+2. **Phase 9 — CLI (`coach run --date`).** The end-to-end slice in `docs/V0-SCOPE.md` §1:
    ingest, prescribe, critique, persist, and print a rationale where every number cites a
    rule or a data point.
 
@@ -111,6 +108,8 @@ disappears once Days A/C get templates.
 | Only Day B can be prescribed | Days A/C are blocked by the erector-ramp anchor (Q3), the SSB question (H1) and the missing §11 tables | phase 5 ships B only, per `V0-SCOPE.md`; phase 5.5 builds the state tables, then A/C templates land with the answers |
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
 | Velocity is per-set only | within-set velocity loss not computable | labelled decay proxy; `DEC-VELOCITY-01` |
+| Rubric calibrated on 3 sessions only | 42% item agreement; the disagreements are concentrated in the binary items and one load-blind spinal week | recorded, not tuned away (`DEC-EVAL-03`); needs ~10 marks before changing weights |
+| Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one | ASSUMPTION-02 / Q8; a weighted-by-e1RM or RIR version needs the athlete's decision |
 | ACWR contested | cannot be a hard rule | advisory only; `DEC-ACWR-01` |
 
 ## 5. Idea backlog (not approved, not scheduled)
