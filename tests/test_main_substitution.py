@@ -1,11 +1,12 @@
-"""Main-lift substitution: allowed, but only with a rated replacement and rarely."""
+"""Main-lift substitution: allowed, but only with a rated replacement and rarely.
+
+Synthetic fixtures only; no athlete suitability values live in this file.
+"""
 
 from __future__ import annotations
 
 import json
 from contextlib import contextmanager
-
-import pytest
 
 from conftest import make_readiness, make_training
 from strength_coach import cli
@@ -16,19 +17,17 @@ from strength_coach.rules import RuleContext, evaluate, load_document
 from strength_coach.store import db, importer, queries, repositories
 
 ROWS = [
-    {"Date": "2026-09-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "180",
-     "RIR": "2", "Reps_Done": "3"},
-    {"Date": "2026-09-01", "Exercise": "Bench Press (narrow grip)", "Weight_Used": "80",
+    {"Date": "2026-09-01", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+     "RIR": "2", "Reps_Done": "5"},
+    {"Date": "2026-09-01", "Exercise": "Competition Bench Press", "Weight_Used": "80",
      "RIR": "2", "Reps_Done": "5"},
     {"Date": "2026-09-01", "Exercise": "Lateral Raise", "Weight_Used": "12.5",
      "RIR": "2", "Reps_Done": "10"},
-    {"Date": "2026-09-01", "Exercise": "Split Squat", "Weight_Used": "30",
-     "RIR": "3", "Reps_Done": "8"},
 ]
 ROWS += [
-    {"Date": day, "Exercise": "Competition Deadlift", "Weight_Used": "180",
-     "RIR": "2", "Reps_Done": "3"}
-    for day in ("2024-01-01", "2024-01-08", "2024-01-15")
+    {"Date": day, "Exercise": "Competition Squat", "Weight_Used": "120",
+     "RIR": "2", "Reps_Done": "5"}
+    for day in ("2026-08-01", "2026-08-08", "2026-08-15")
     for _ in range(4)
 ]
 
@@ -71,17 +70,17 @@ def assess(conn, prescription, payload):
 def test_a_rated_primary_compound_can_replace_an_essential_lift():
     with store_with() as store:
         conn = store.connection
-        rate(conn, "sumo_deadlift")
-        prescription = build_prescription(conn, for_date="2026-10-20", session_day="B")
+        rate(conn, "competition_squat")
+        prescription = build_prescription(conn, for_date="2026-10-20", session_day="A")
         outcome = assess(conn, prescription, {
-            "summary": "switch the hinge to sumo",
-            "changes": [{"action": "substitute", "exercise": "trap_bar_deadlift",
-                         "with": "sumo_deadlift"}],
+            "summary": "switch the main squat",
+            "changes": [{"action": "substitute", "exercise": "ssb_squat",
+                         "with": "competition_squat"}],
         })
 
     assert outcome.accepted, outcome.reasons
     item = next(i for i in outcome.prescription.items
-                if i.exercise_id == "sumo_deadlift")
+                if i.exercise_id == "competition_squat")
     assert item.essential is True
     assert item.load_kg is not None
 
@@ -89,10 +88,10 @@ def test_a_rated_primary_compound_can_replace_an_essential_lift():
 def test_an_unrated_replacement_is_refused():
     with store_with() as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2026-10-20", session_day="B")
+        prescription = build_prescription(conn, for_date="2026-10-20", session_day="A")
         outcome = assess(conn, prescription, {
-            "changes": [{"action": "substitute", "exercise": "trap_bar_deadlift",
-                         "with": "sumo_deadlift"}],
+            "changes": [{"action": "substitute", "exercise": "ssb_squat",
+                         "with": "competition_squat"}],
         })
 
     assert not outcome.accepted
@@ -102,15 +101,15 @@ def test_an_unrated_replacement_is_refused():
 def test_at_most_one_main_lift_substitution_per_proposal():
     with store_with() as store:
         conn = store.connection
-        rate(conn, "sumo_deadlift")
-        rate(conn, "bench_press")
-        prescription = build_prescription(conn, for_date="2026-10-20", session_day="B")
+        rate(conn, "competition_squat")
+        rate(conn, "bench_press_narrow")
+        prescription = build_prescription(conn, for_date="2026-10-20", session_day="A")
         outcome = assess(conn, prescription, {
             "changes": [
-                {"action": "substitute", "exercise": "trap_bar_deadlift",
-                 "with": "sumo_deadlift"},
-                {"action": "substitute", "exercise": "bench_press_narrow",
-                 "with": "bench_press"},
+                {"action": "substitute", "exercise": "ssb_squat",
+                 "with": "competition_squat"},
+                {"action": "substitute", "exercise": "bench_press",
+                 "with": "bench_press_narrow"},
             ],
         })
 
@@ -122,8 +121,8 @@ def test_at_most_one_main_lift_substitution_per_proposal():
 def test_the_interval_limits_how_often_a_main_lift_changes():
     with store_with() as store:
         conn = store.connection
-        rate(conn, "sumo_deadlift")
-        prescription = build_prescription(conn, for_date="2026-10-20", session_day="B")
+        rate(conn, "competition_squat")
+        prescription = build_prescription(conn, for_date="2026-10-20", session_day="A")
         run = repositories.start_run(conn, input_hash="x", code_version="test")
         conn.execute(
             "INSERT INTO run_event (run_id, seq, kind, payload, created_at) "
@@ -131,8 +130,8 @@ def test_the_interval_limits_how_often_a_main_lift_changes():
             (run.run_id, json.dumps({"main_substitution": True})),
         )
         outcome = assess(conn, prescription, {
-            "changes": [{"action": "substitute", "exercise": "trap_bar_deadlift",
-                         "with": "sumo_deadlift"}],
+            "changes": [{"action": "substitute", "exercise": "ssb_squat",
+                         "with": "competition_squat"}],
         })
 
     assert not outcome.accepted
@@ -141,13 +140,13 @@ def test_the_interval_limits_how_often_a_main_lift_changes():
 
 def test_state_rate_records_suitability(tmp_path):
     path = tmp_path / "coach.db"
-    assert cli.main(["--db", str(path), "state", "--rate", "sumo_deadlift",
+    assert cli.main(["--db", str(path), "state", "--rate", "competition_squat",
                      "--can-do", "yes", "--will-do", "yes"]) == 0
     store = db.Store(path)
     try:
         ratings = queries.exercise_suitability(store.connection)
-        assert ratings["sumo_deadlift"]["can_do"] == 1
-        assert ratings["sumo_deadlift"]["will_do"] == 1
-        assert ratings["sumo_deadlift"]["feels_bad"] == 0
+        assert ratings["competition_squat"]["can_do"] == 1
+        assert ratings["competition_squat"]["will_do"] == 1
+        assert ratings["competition_squat"]["feels_bad"] == 0
     finally:
         store.close()

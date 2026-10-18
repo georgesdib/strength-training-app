@@ -36,7 +36,7 @@ erector demand between those two lifts, so their relative rating is not measured
 
 The **sumo rating of 2.5 is an assumption** (`ASSUMPTION-02`), not a finding. The evidence
 shows sumo has lower sagittal demand than a conventional pull, but it does not rank sumo
-against the trap bar. The half-step is the athlete's decision: it records "between the trap bar
+against the trap bar. The half-step is the programme owner's decision: it records "between the trap bar
 and conventional" without pretending to a measured value. Whether a half-step is meaningful on
 an ordinal scale is an open question (`OPEN-QUESTIONS.md` Q11).
 

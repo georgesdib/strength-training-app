@@ -170,7 +170,7 @@ entities:
     direct_erector: false
     high_fatigue_spinal: true
     # Lower erector activation and more upright than conventional (Hanen 2025), but no direct
-    # sumo-vs-trap measurement. Set to 2.5 by the athlete: between the trap bar and a
+    # sumo-vs-trap measurement. Set to 2.5 by the programme owner: between the trap bar and a
     # conventional pull. Half-step is a design choice, not a measured value (docs/SPINAL-COST.md).
     spinal_cost: 2.5
     vbt_family: sumo

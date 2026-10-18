@@ -139,7 +139,7 @@ erector work elsewhere. Option (b) is the clean one; it needs a hinge-variant sl
 `DEC-`. Until then, main-lift substitution (DEC-LLM-06) is the only path, and it requires a
 suitability rating.
 
-## Q11. What follows from sumo at 2.5 and "can do"?
+## Q11. What follows from a half-step cost and a suitability trial?
 
 Parked deliberately; revisit after a trial period.
 
@@ -148,9 +148,9 @@ Parked deliberately; revisit after a trial period.
   meaning, or should the weights or cap be recalibrated if fractional costs are used?
 - **Rotation or replacement?** Sumo can replace the Day B trap bar via main-lift substitution
   (DEC-LLM-06), or rotate with it. Rotation needs a hinge-variant slot (Q10).
-- **Will-do and feels-bad are unproven.** The rating says can-do; whether sumo is *wanted* and
-  whether it provokes symptoms needs a trial, and the back-progression signal (ROADMAP §4.7)
-  should inform the review.
+- **Will-do and feels-bad are unproven.** Whether the lift is actually wanted, and whether it
+  provokes symptoms, needs a trial; the back-progression signal (ROADMAP §4.7) should inform
+  the review.
 - **What evidence would rank sumo against the trap bar?** A direct comparison at matched
   relative loads, or consistent athlete-specific symptom data.
 

@@ -187,7 +187,7 @@ recorded: constraints were not evaluated"*. Silence is not permission.
 To rate one exercise without editing the YAML:
 
 ```bash
-strength-coach state --rate sumo_deadlift --can-do yes --will-do yes --feels-bad no
+strength-coach state --rate EXERCISE_ID --can-do yes --will-do yes --feels-bad no
 ```
 
 An unrated exercise is "unknown", which is why a main-lift substitution (see §4.8) is refused
