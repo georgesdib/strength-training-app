@@ -265,6 +265,22 @@ Adding a new readiness metric therefore requires **no code change and no prompt 
 insert a row, and the composite picks it up. A metric with no row is rejected rather than
 assumed to be higher-is-better.
 
+### 11.6 `e1rm_override` — a manual estimate that outranks the computed one
+
+| column | notes |
+|---|---|
+| override_id PK | |
+| exercise_id | canonical id |
+| e1rm_kg | must be positive |
+| effective_from / expires_on | an override may be temporary; NULL expiry means "until replaced" |
+| reason | why it exists — a tested single, a post-layoff start |
+| source | `user` \| `measured` \| `clinician` |
+| created_at | set by the store |
+
+Append-only: a correction is a new row, and the latest row whose window contains the
+prescription date wins. A prescription cites the row as `e1rm_override:<id>`, so the number is
+auditable even after the override is replaced.
+
 ### 11.5 `symptom_log` — the manual input the constitution needs
 
 | column | notes |

@@ -188,6 +188,34 @@ The block anchor drives the erector ramp. It is **declared, never inferred** (`D
 a gap in the log cannot start a block, because gaps are non-adherence. Resetting is a genuine
 restart — the ramp goes back to week 1 rather than continuing at week 8 (`DEC-RAMP-02`).
 
+### 4.6 `e1rm` — override the estimated max
+
+```bash
+strength-coach e1rm set --exercise ssb_squat --kg 160 --from 2026-11-01 \
+    --reason "tested single"
+strength-coach e1rm set --exercise ssb_squat --kg 150 --until 2026-12-01   # temporary
+strength-coach e1rm list
+```
+
+Use an override when you know a value the formula cannot see: a tested single, a
+post-layoff starting point, or an estimate that disagrees with reality. From `--from` (or
+today) until `--until` (or forever), the override outranks the computed e1RM.
+
+In the prescription it shows up as a normal load, with:
+
+- a citation `e1rm_override:<id>` in its `refs` column, and
+- a note: *"using a manual e1RM override (160 kg)"*.
+
+Worth knowing:
+
+- **Append-only.** A correction is another `e1rm set`; the latest applicable row wins and
+  the older one stays in history.
+- **Temporary is first-class.** `--until` expires it; after that the computed estimate
+  returns on its own.
+- **It only changes the derived load.** History, scores and verdicts are untouched.
+- **Bulk entry** works through the state file: add an `e1rm_overrides:` list and run
+  `strength-coach state --import private/athlete-state.yaml`.
+
 ---
 
 ## 5. Reading the output

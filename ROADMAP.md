@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **332 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **340 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **332 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 332 passed
+.venv/bin/python -m pytest            # expect: 340 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -98,7 +98,9 @@ Delivered: all five tables append-only; `strength-coach state [--import FILE]` a
 inside the engine's validation. `constraint` became `athlete_constraint` because the former is
 a reserved SQL keyword (`DEC-STATE-01`). The athlete's answers are imported from
 `private/athlete-state.yaml`: longevity goal, three resolved monitor-severity back tweaks, and
-14 exercises all rated can-do/will-do.
+14 exercises all rated can-do/will-do. Also delivered: **manual e1RM overrides**
+(`e1rm set/list`, append-only, optional expiry) so a tested value outranks the computed
+estimate and is cited in the prescription.
 
 Input: `private/docs/INFO-REQUESTS.md` §1-3, read back for confirmation before being written.
 **Status: the core answers are collected in `private/docs/ATHLETE-STATE.md`** (goals, back

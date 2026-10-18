@@ -76,6 +76,18 @@ def main(argv: list[str] | None = None) -> int:
     state.add_argument("--force", action="store_true",
                        help="append a new version even if state is already recorded")
 
+    e1rm = sub.add_parser("e1rm", help="set or list manual e1RM overrides")
+    e1rm_sub = e1rm.add_subparsers(dest="action", required=True)
+    setter = e1rm_sub.add_parser("set", help="override the e1RM for one lift")
+    setter.add_argument("--exercise", required=True, help="canonical exercise id")
+    setter.add_argument("--kg", type=float, required=True, help="e1RM in kg")
+    setter.add_argument("--from", dest="effective_from", default=None,
+                        help="YYYY-MM-DD (default: today)")
+    setter.add_argument("--until", dest="expires_on", default=None,
+                        help="YYYY-MM-DD; omit for no expiry")
+    setter.add_argument("--reason", default=None, help="why this override exists")
+    e1rm_sub.add_parser("list", help="show recorded overrides")
+
     block = sub.add_parser("block", help="declare or reset the block start (week 1)")
     block.add_argument("--date", required=True, help="YYYY-MM-DD")
     block.add_argument("--force", action="store_true",
@@ -88,6 +100,7 @@ def main(argv: list[str] | None = None) -> int:
         "review": _cmd_review,
         "calibrate": _cmd_calibrate,
         "state": _cmd_state,
+        "e1rm": _cmd_e1rm,
         "block": _cmd_block,
     }
     try:
@@ -239,6 +252,51 @@ def _cmd_state(args) -> int:
         store.close()
 
 
+def _cmd_e1rm(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        if args.action == "list":
+            _print_e1rm(conn)
+            return 0
+        if args.kg <= 0:
+            print("e1RM must be positive")
+            return 2
+        effective_from = args.effective_from or datetime.date.today().isoformat()
+        repositories.append_e1rm_override(
+            conn,
+            exercise_id=args.exercise,
+            e1rm_kg=args.kg,
+            effective_from=effective_from,
+            expires_on=args.expires_on,
+            reason=args.reason,
+        )
+        until = f" until {args.expires_on}" if args.expires_on else ""
+        print(f"e1RM override: {args.exercise} = {args.kg:g} kg from {effective_from}{until}")
+        print("the next prescription uses it and cites it as e1rm_override:<id>")
+        return 0
+    finally:
+        store.close()
+
+
+def _print_e1rm(conn) -> None:
+    rows = queries.e1rm_overrides(conn)
+    if not rows:
+        print("no e1RM overrides; prescriptions use the computed estimate")
+        return
+    today = datetime.date.today().isoformat()
+    print(f"{'exercise':<24}{'e1RM kg':>9}{'from':>13}{'until':>13}  status")
+    for row in rows:
+        if row["effective_from"] > today:
+            status = "future"
+        elif row["expires_on"] and row["expires_on"] < today:
+            status = "expired"
+        else:
+            status = "active"
+        print(f"{row['exercise_id']:<24}{row['e1rm_kg']:>9g}"
+              f"{row['effective_from']:>13}{row['expires_on'] or '-':>13}  {status}")
+
+
 def _cmd_block(args) -> int:
     store = db.Store(args.db)
     try:
@@ -343,6 +401,19 @@ def _import_state(conn, path: Path, *, force: bool) -> int:
             active_from=entry.get("active_from"),
         )
 
+    overrides = raw.get("e1rm_overrides") or []
+    for entry in overrides:
+        repositories.append_e1rm_override(
+            conn,
+            exercise_id=str(entry["exercise_id"]),
+            e1rm_kg=float(entry["e1rm_kg"]),
+            effective_from=str(entry.get("effective_from")
+                               or datetime.date.today().isoformat()),
+            expires_on=entry.get("expires_on"),
+            reason=entry.get("reason"),
+            source=str(entry.get("source", "user")),
+        )
+
     for entry in raw.get("symptoms") or []:
         repositories.append_symptom(
             conn,
@@ -356,7 +427,7 @@ def _import_state(conn, path: Path, *, force: bool) -> int:
 
     print(f"recorded: profile 1, constraints {len(constraints)}, "
           f"suitability {len(exercises)}, metrics {len(raw.get('metrics') or [])}, "
-          f"symptoms {len(raw.get('symptoms') or [])}")
+          f"e1RM overrides {len(overrides)}, symptoms {len(raw.get('symptoms') or [])}")
     return 0
 
 

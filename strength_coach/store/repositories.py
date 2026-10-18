@@ -506,6 +506,27 @@ def append_rule(
     )
 
 
+def append_e1rm_override(
+    conn: sqlite3.Connection,
+    *,
+    exercise_id: str,
+    e1rm_kg: float,
+    effective_from: str,
+    expires_on: str | None = None,
+    reason: str | None = None,
+    source: str = "user",
+) -> None:
+    """Record a manual e1RM. A correction appends; the latest applicable row wins."""
+    conn.execute(
+        """
+        INSERT INTO e1rm_override (exercise_id, e1rm_kg, effective_from, expires_on, reason,
+                                   source)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (exercise_id, float(e1rm_kg), effective_from, expires_on, reason, source),
+    )
+
+
 def append_athlete_profile(
     conn: sqlite3.Connection,
     *,

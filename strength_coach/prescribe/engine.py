@@ -68,7 +68,8 @@ def build_prescription(
         unknown_reason: str | None = None
 
         if slot.load_source == "e1rm":
-            found = _latest_e1rm(context, exercise_id, for_date, thresholds.e1rm_window_days)
+            found = _latest_e1rm(conn, context, exercise_id, for_date,
+                                  thresholds.e1rm_window_days)
             if found is None:
                 # No recent e1RM is common after a layoff. Reusing the last working load is
                 # safer than refusing to prescribe: the load is a real, previously managed
@@ -93,6 +94,10 @@ def build_prescription(
                 e1rm_kg, ref = found
                 load = loads.solve_load(e1rm_kg, slot.reps_low, slot.rir_low, increment)
                 refs = ("PRG-RIR-001", ref)
+                if ref.startswith("e1rm_override:"):
+                    warnings.append(
+                        f"{exercise_id}: using a manual e1RM override ({e1rm_kg:g} kg)"
+                    )
         else:
             found = _last_working_set(context, exercise_id)
             if found is None and bodyweight:
@@ -223,13 +228,19 @@ def _choose_exercise(slot: templates.Slot, context: RuleContext) -> tuple[str, b
 
 
 def _latest_e1rm(
-    context: RuleContext, exercise_id: str, for_date: str, window_days: int
+    conn, context: RuleContext, exercise_id: str, for_date: str, window_days: int
 ) -> tuple[float, str] | None:
-    """Best usable e1RM in the window ending at `for_date`, with a citable set reference.
+    """The e1RM to prescribe from, with a citable reference.
 
-    The window is measured from the prescription date, not from the last session: an athlete
-    returning after six months off must not be prescribed from a pre-break peak.
+    A manual override in force on the date outranks the computed estimate: the athlete may
+    know a tested value the formula cannot see. Otherwise the best usable e1RM in the window
+    ending at `for_date` is used. The window is measured from the prescription date, not from
+    the last session, so a returning athlete is not prescribed from a pre-break peak.
     """
+    override = queries.e1rm_override(conn, exercise_id, for_date)
+    if override is not None:
+        return float(override["e1rm_kg"]), f"e1rm_override:{override['override_id']}"
+
     if context.sets.empty or "e1rm_kg" not in context.sets:
         return None
     frame = context.sets
@@ -337,6 +348,14 @@ def validate_references(
             elif ref.startswith("readiness:"):
                 if queries.readiness_day(conn, ref.split(":", 1)[1]) is None:
                     problems.append(f"{item.exercise_id}: no readiness row for {ref}")
+            elif ref.startswith("e1rm_override:"):
+                try:
+                    override_id = int(ref.split(":", 1)[1])
+                except ValueError:
+                    problems.append(f"{item.exercise_id}: malformed reference {ref}")
+                else:
+                    if queries.e1rm_override_by_id(conn, override_id) is None:
+                        problems.append(f"{item.exercise_id}: no e1RM override for {ref}")
             elif not policy_mod.resolve_reference(context, ref):
                 problems.append(f"{item.exercise_id}: unresolvable reference {ref}")
     return problems

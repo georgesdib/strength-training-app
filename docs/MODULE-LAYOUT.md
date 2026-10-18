@@ -38,6 +38,7 @@ strength_coach/
     migrations/0001_initial.sql      [x] schema + append-only triggers (single source of truth)
     migrations/0002_rubric_mark.sql  [x] human rubric marks, append-only (continuous calibration)
     migrations/0003_athlete_state.sql [x] §11: profile, constraint, suitability, metrics, symptoms
+    migrations/0004_e1rm_override.sql [x] manual e1RM that outranks the computed estimate
     db.py                            [x] connection, numbered migrations, checksums
     repositories.py                  [x] append-only writers, explicit identity keys
     importer.py                      [x] clean export -> raw_row/clean_set/session/run
@@ -70,7 +71,7 @@ strength_coach/
     harness.py                       [x] per-item comparison, agreement and MAE
     store.py                         [x] marks in the database: append-only, latest wins
     report.py                        [x] shared sheet and report renderers
-  cli.py                             [x] import / run / review / calibrate / state / block
+  cli.py                             [x] import / run / review / calibrate / state / block / e1rm
   agents/                            [x] LLM interface + narrative
     client.py                        [x] protocol, NullLLM, OpenAI-compatible adapter
     config.py                        [x] file + environment settings, masked diagnostics

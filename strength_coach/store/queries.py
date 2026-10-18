@@ -85,6 +85,42 @@ def clean_sets(
     return frame
 
 
+def e1rm_override(conn, exercise_id: str, on_date: str) -> dict | None:
+    """The override in force for this lift on this date, if any.
+
+    The latest row wins; an expired or future-dated row never applies. A NULL `expires_on`
+    means "until replaced".
+    """
+    row = conn.execute(
+        """
+        SELECT * FROM e1rm_override
+         WHERE exercise_id = ?
+           AND effective_from <= ?
+           AND (expires_on IS NULL OR expires_on >= ?)
+         ORDER BY effective_from DESC, override_id DESC
+         LIMIT 1
+        """,
+        (str(exercise_id), str(on_date), str(on_date)),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def e1rm_overrides(conn) -> list[dict]:
+    return [
+        dict(row)
+        for row in conn.execute(
+            "SELECT * FROM e1rm_override ORDER BY exercise_id, effective_from DESC, override_id DESC"
+        )
+    ]
+
+
+def e1rm_override_by_id(conn, override_id: int) -> dict | None:
+    row = conn.execute(
+        "SELECT * FROM e1rm_override WHERE override_id = ?", (int(override_id),)
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
 def athlete_profile(conn) -> dict | None:
     """The current profile: the latest version by effective date."""
     row = conn.execute(
