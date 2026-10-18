@@ -14,6 +14,7 @@ config/
   calibration/overrides.v1.yaml      [ ] per-lift manual velocity overrides
   templates/days.v1.yaml             [x] Day A/B/C templates + day inference rules
   thresholds.v1.yaml                 [x] increment 0.5 kg, rounding, e1RM window, fatigue multiplier
+  llm.example.toml                   [x] LLM template; llm.local.toml is git-ignored (may hold a key)
 data/raw/training_log.csv            [x] immutable source
 data/raw/readiness.csv               [x] immutable source
 data/coach.db                        [x] SQLite store (created on demand)
@@ -62,6 +63,10 @@ strength_coach/
     rubric.py                        [x] 6 measured items + 2 unmeasured, persistence
   trace/                             [x] run lifecycle
     run.py                           [x] start/event/finish; closes failed runs as error
+  agents/                            [x] LLM interface + narrative
+    client.py                        [x] protocol, NullLLM, OpenAI-compatible adapter
+    config.py                        [x] file + environment settings, masked diagnostics
+    narrative.py                     [x] facts -> prompt -> prose, recorded as an event
     facts.py rubric.py
   agents/                            [ ]
     llm.py critique_agent.py prescription_agent.py tools.py

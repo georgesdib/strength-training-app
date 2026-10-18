@@ -11,6 +11,13 @@ __pycache__/
 *.sqlite3
 
 # ---------------------------------------------------------------------------
+# LLM credentials. config/llm.example.toml is the committed template; the local
+# file may contain an API key and must never be pushed.
+# ---------------------------------------------------------------------------
+config/llm.local.toml
+.env
+
+# ---------------------------------------------------------------------------
 # PERSONAL DATA — never commit, never push.
 # This repository is public. The raw exports contain a complete training history,
 # bodyweight, readiness scores and derived strength metrics.

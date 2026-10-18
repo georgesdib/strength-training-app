@@ -1,0 +1,38 @@
+# LLM settings — copy this file to `config/llm.local.toml` and edit.
+#
+# `config/llm.local.toml` is git-ignored: never commit a key.
+#
+# Nothing here is required. With no configuration the system runs with `NullLLM` and every
+# deterministic feature keeps working; the only thing missing is the narrative paragraph.
+#
+# Environment variables override this file, which is convenient for a shell or a service unit:
+#   STRENGTH_COACH_LLM_PROVIDER   null | openai_compatible
+#   STRENGTH_COACH_LLM_MODEL
+#   STRENGTH_COACH_LLM_BASE_URL
+#   STRENGTH_COACH_LLM_API_KEY
+#   STRENGTH_COACH_LLM_TEMPERATURE
+#   STRENGTH_COACH_LLM_MAX_TOKENS
+#   STRENGTH_COACH_LLM_TIMEOUT_S
+#   STRENGTH_COACH_LLM_CONFIG     path to a different settings file
+
+[llm]
+# "null" (default) or "openai_compatible".
+provider = "openai_compatible"
+
+# Any OpenAI-compatible endpoint. Examples:
+#   OpenAI          https://api.openai.com/v1
+#   OpenRouter      https://openrouter.ai/api/v1
+#   Ollama (local)  http://127.0.0.1:11434/v1
+#   llama.cpp       http://127.0.0.1:8080/v1
+#   vLLM            http://127.0.0.1:8000/v1
+base_url = "https://api.openai.com/v1"
+model = "gpt-4o-mini"
+
+# Optional: a local server may not require one. Prefer the environment variable for keys
+# you would rather not have on disk at all.
+api_key = ""
+
+# The model explains; it does not compute. Low temperature keeps it from improvising.
+temperature = 0.2
+max_tokens = 700
+timeout_s = 30.0

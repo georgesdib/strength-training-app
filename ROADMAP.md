@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · version `0.0.1-dev` · **271 tests passing**
+Last updated: 2026-10-17 · version `0.0.1-dev` · **285 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · version `0.0.1-dev` · **271 tests passing**
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 271 passed
+.venv/bin/python -m pytest            # expect: 285 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -39,7 +39,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 5 | Prescription engine (Day B) + deterministic fallback | **done** | `prescribe/templates.py`, `config.py`, `loads.py`, `engine.py`, `fallback.py`; `config/thresholds.v1.yaml` |
 | 5.5 | Athlete state — DATA-MODEL §11 tables | **not started** | planned `store/migrations/0002_athlete_state.sql`, repository writers; unblocks Days A/C and hard constraints |
 | 6 | Critique rubric + trace | **done** | `critique/facts.py`, `critique/rubric.py`, `trace/run.py`; 6 measurable items + 2 unmeasured |
-| 7 | LLM layer (critique + prescription agents) | **not started** | planned `agents/llm.py`, `tools.py`, `NullLLM` |
+| 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **not started** | planned `eval/backtest.py`, `eval/labelled_rubric.yaml` |
 | 9 | CLI (`coach run --date`) | **not started** | planned `cli.py` |
 | — | UI | **deferred indefinitely** | out of scope by request |
@@ -60,17 +60,21 @@ erector-day rule or the weekly spinal cap would be broken. A performed session c
 **critiqued**: six rubric items score it (RIR adherence, progression adherence, weekly spinal
 cost, essential work, redundancy, rotation) with evidence references, and two are stored as
 `measurable = 0` because the export cannot support them (session duration, within-set velocity
-loss). The critique is persisted append-only inside a `run` trace. There is **no CLI and no
-LLM narration yet**.
+loss). The critique is persisted append-only inside a `run` trace. An **optional narrative** can explain
+either artifact: the model receives the facts as JSON, may not compute, and its output is
+recorded as a `run_event` rather than written into a prescription or a score. With no model
+configured (`NullLLM`) the run is structurally identical and loses only the prose. There is
+**no CLI and no backtest yet**.
 
 ## 3. Next actions
 
-The main line is **7 → 8 → 9**. Phase 5.5 is scheduled but not on that line: it must land
+The main line is **8 → 9**. Phase 5.5 is scheduled but not on that line: it must land
 before Days A/C and before any hard constraint can veto, and it can start as soon as the
 answers are available.
 
-1. **Phase 7 — LLM layer.** `NullLLM` plus one optional narrative call behind `--llm on`;
-   the run must be identical in structure with it off (`docs/V0-SCOPE.md` §4 criterion 5).
+1. **Phase 8 — backtest harness + labelled eval set.** Replay history through phases 5-6 and
+   compare against a hand-marked rubric. This is where the user's judgement is needed: three
+   hand-marked sessions are the labelled set (`docs/V0-SCOPE.md` §3).
 2. **Phase 5.5 — athlete state tables (§11).** Not a detour: it is the prerequisite for Days
    A/C and for any hard constraint, and it can run in parallel with phases 7-9.
    *Why now and not earlier:* nothing can be stored until the tables exist, so collecting
@@ -83,9 +87,7 @@ answers are available.
    an empty table yields `unknown`, never "nothing is wrong".
    *Input:* answers come from `private/docs/INFO-REQUESTS.md` §1-3 and are read back for
    confirmation before being written.
-3. **Phase 8 — backtest harness + labelled eval set.** Replay history through phases 5-6 and
-   compare against a hand-marked rubric.
-4. **Phase 9 — CLI (`coach run --date`).** The end-to-end slice in `docs/V0-SCOPE.md` §1:
+3. **Phase 9 — CLI (`coach run --date`).** The end-to-end slice in `docs/V0-SCOPE.md` §1:
    ingest, prescribe, critique, persist, and print a rationale where every number cites a
    rule or a data point.
 

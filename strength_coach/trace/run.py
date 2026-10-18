@@ -23,6 +23,7 @@ class RunTrace:
     run_id: str
     status: str = "running"
     events: list[tuple[int, str]] = field(default_factory=list)
+    llm_tokens: int = 0
 
     @classmethod
     def start(
@@ -50,8 +51,18 @@ class RunTrace:
         self.events.append((seq, kind))
         return seq
 
+    def add_tokens(self, tokens: int) -> None:
+        """Accumulate model usage so the run row reports what the narrative cost."""
+        if tokens:
+            self.llm_tokens += int(tokens)
+
     def finish(self, status: str = "ok") -> None:
-        repo.finish_run(self.conn, self.run_id, status=status)
+        repo.finish_run(
+            self.conn,
+            self.run_id,
+            status=status,
+            llm_tokens=self.llm_tokens or None,
+        )
         self.status = status
 
     def __enter__(self) -> "RunTrace":
@@ -59,4 +70,7 @@ class RunTrace:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         # A failed run must still be closed, or the trace claims a run is still in progress.
+        # An explicit finish() wins: the caller may know the run ended in llm_failed.
+        if self.status != "running":
+            return
         self.finish(status="error" if exc_type is not None else "ok")
