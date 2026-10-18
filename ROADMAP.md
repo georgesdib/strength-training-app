@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **326 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **332 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **326 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 326 passed
+.venv/bin/python -m pytest            # expect: 332 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -43,7 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 3 hand-marked sessions, 42% item agreement |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; calibration loop closed |
-| v0.1 | Next version | **in progress** | 3.1 done; see §3 for Days A/C, symptom input, **LLM prescription proposals within the rules**, VBT wiring, larger labelled set |
+| v0.1 | Next version | **in progress** | 3.1-3.2 done; see §3 for symptom input, **LLM prescription proposals**, **video analysis**, portability, VBT wiring, larger labelled set |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
 ### What works end to end today
@@ -54,7 +54,7 @@ day guess, calibrated for velocity targets, and **persisted**: one import writes
 re-importing the same file writes no duplicate rows. The constitution can now be evaluated
 against that history: `rules` parses the YAML into hash-bearing `Rule` objects, the registry
 supplies one predicate per `check.fn`, and `policy` returns a verdict per rule with citable
-evidence. A **Day B session is now generated**: loads solved from recent e1RM (or double
+evidence. A session for **any programme day (A, B or C) is now generated**: loads solved from recent e1RM (or double
 progression for accessories), rounded down to the athlete's 0.5 kg microplates, with
 MOD-FAT-001 reducing loads when sleep or energy is <= 2. Every item cites a rule id and a
 stored set, and the prescription refuses to be executable if a load, the RIR window, the
@@ -106,7 +106,7 @@ history, suitability, equipment, schedule). Two consequences are already decided
 joins the `primary_goal` enum, and training-log gaps are recorded as **non-adherence**, never
 as symptoms.
 
-### 3.2 Days A and C
+### 3.2 Days A and C  (done)
 
 Depends on 3.1. The SSB question (H1) is answered: the bar is available. The erector-ramp
 anchor is also settled in principle — **the athlete declares the official start, and can reset
@@ -119,6 +119,11 @@ just the calendar; the ramp reads that row.
 Acceptance: a template per day with its own essential lifts; `PRG-SCHED-001` enforced on both
 (no erector work on the hinge day, erector work allowed on A/C); a golden prescription per
 day, in the same style as `tests/fixtures/golden_day_b.yaml`.
+
+Delivered: Day A (squat-led) and Day C (bench-led) templates with erector + accessory work;
+`run --day A|B|C`; golden fixtures for both days. Bodyweight erector work is prescribed at
+load 0 with an explicit warning, never as a 0.5 kg "progression". The athlete declares the
+block start whenever they choose, so the ramp stays `unknown` until then.
 
 Consequence: `PRG-DP-001` stops being `unknown`. It is unknown today only because its scope
 includes `back_extension`, which Day B never prescribes and so has no rep range.
@@ -192,7 +197,45 @@ Acceptance:
 - the existing LLM-off equivalence test passes unchanged;
 - the golden fixture gains an accepted-proposal case and a vetoed one.
 
-### 3.5 VBT prescription wiring
+### 3.5 Video analysis (LLM) — a future feature, not a measurement
+
+Allow a video to be attached to a session or a single set for a vision-capable model to
+comment on: depth, bar path, tempo, rep count. It is a **commentary** feature, and the
+constraints matter more than the feature.
+
+- **Privacy first.** Video is personal data. Files live under `private/` (git-ignored), are
+  never committed, and never enter `data/coach.db` as bytes. Sending a video to a hosted
+  model is an explicit per-video opt-in, and the output must say that the file left the
+  machine. A local model keeps it local.
+- **No numbers, no vetoes.** The analysis is stored as a `run_event` (new kind,
+  `video_analysis`) with the file hash and model id. It cannot change a load, a rubric score
+  or a policy verdict (AGENTS.md §3.2-3.3).
+- **The log stays authoritative.** If the model says "8 reps", that is a comment; the logged
+  set remains the record.
+- **No default dependency.** Frame extraction needs ffmpeg or provider-side video support;
+  decide per provider rather than adding a runtime dependency for everyone.
+
+Acceptance: attaching a video produces exactly one event and changes no artifact; a run with
+no video, or with `--llm off`, stays byte-identical; video bytes never appear in the
+repository; every claim is labelled commentary.
+
+Open questions: which sets get video, retention period, and per-provider capability.
+
+### 3.6 Another athlete, or a fresh start
+
+The tool should be usable by someone else with their own export, and by the athlete after a
+year away, without editing code or mixing data. This is **not** multi-tenancy: one database
+per person.
+
+Scope: document the first-run path for a new athlete (export → state file → block start);
+verify nothing personal is baked into config or defaults; keep `--db` as the only switch
+needed; keep the exercise taxonomy editable so a different exercise vocabulary is a YAML edit.
+
+Acceptance: a second database with a different athlete's synthetic history runs `import`,
+`run`, `review` and `calibrate` with no code change and no access to the first database; no
+personal value appears in any committed file; the user guide has a "new athlete" checklist.
+
+### 3.7 VBT prescription wiring
 
 Deferred by `DEC-VBT-01`. The calibration (band, sparsity ladder, versioning) already exists
 and is tested; what is missing is the rule that turns a band into a target:
@@ -208,16 +251,17 @@ the golden fixture gains velocity columns.
 Do not start this before those three questions have answers — inventing them is what the
 deferral exists to avoid.
 
-### 3.6 A labelled set worth tuning against
+### 3.8 A labelled set worth tuning against
 
 No code. Continue `review --session DATE` after sessions that are still fresh; the report
 needs roughly ten *remembered* sessions per item before a weight or definition is changed
 (`DEC-EVAL-03`, `DEC-EVAL-04`). Two of the three current marks are reconstructed and excluded.
 
-### 3.7 Deliberately not planned
+### 3.9 Deliberately not planned
 
 - A UI (deferred by request).
-- Multi-athlete or cloud sync: this is local-first by design.
+- Several athletes in one database, or a hosted service: local-first, one database per person
+  (3.6 covers portability; 3.5 covers opt-in video).
 - RAG over the programme: rules are cited by id, and exact lookup beats semantic search here.
 - Automatic rubric retuning: the report proposes, a person decides.
 

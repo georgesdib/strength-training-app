@@ -4,7 +4,7 @@ These tests pin the two recorded user decisions, because both are easy to
 "helpfully" undo later:
 
 * DEC-TRAPBAR-01 — the app logs the trap-bar pull as "Competition Deadlift".
-* DEC-BACKEXT-01 — back extension == hyperextension *going forward only*; the
+* DEC-BACKEXT-02 — back extension == hyperextension, and historical rows count as
   equivalence must not be projected backwards onto historical rows.
 
 They also pin the resolution *order*, since regex ordering is the fragile part.
@@ -36,12 +36,23 @@ def test_trap_bar_is_hinge_direct_erector_false(taxonomy):
     assert resolved.is_direct_erector is False
 
 
-def test_historical_hyperextension_is_not_back_extension(taxonomy):
+def test_historical_hyperextension_keeps_identity_but_counts_as_history(taxonomy):
+    # DEC-BACKEXT-02 amended the original decision: the row keeps its own id, but the
+    # movement is the same, so its history counts for load and dose lookups.
     resolved = taxonomy.resolve("Hyperextensions")
     assert resolved.id == "hyperextension"
     assert resolved.id != "back_extension"
-    assert resolved.counts_toward_back_extension_dose is False
-    assert resolved.decision == "DEC-BACKEXT-01"
+    assert resolved.counts_toward_back_extension_dose is True
+    assert resolved.decision == "DEC-BACKEXT-02"
+
+
+def test_history_equivalents_expose_the_back_extension_pair():
+    from strength_coach.utils import exercises as exercise_utils
+
+    assert set(exercise_utils.history_equivalents("back_extension")) == {
+        "back_extension", "hyperextension",
+    }
+    assert exercise_utils.history_equivalents("ssb_squat") == ("ssb_squat",)
 
 
 def test_back_extension_forward_only(taxonomy):

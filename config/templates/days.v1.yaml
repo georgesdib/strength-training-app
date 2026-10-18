@@ -20,6 +20,44 @@ days:
     allows_erector_work: true
     allows_hinge: false
     allows_power: true
+    # Day A is the squat-emphasis day: SSB squat leads, bench supports. Direct erector work is
+    # allowed here (PRG-SCHED-001 forbids it only on the hinge day), and it is bodyweight work
+    # by default, which the engine prescribes as load 0 rather than as a 0.5 kg jump.
+    prescription:
+      time_cap_s: 4800
+      slots:
+        - id: squat_main
+          exercise: ssb_squat
+          sets: 4
+          reps: {low: 3, high: 5}
+          rir: {low: 2, high: 3}
+          rest_s: 180
+          essential: true
+          load_source: e1rm
+        - id: bench_support
+          exercise: bench_press
+          sets: 4
+          reps: {low: 3, high: 5}
+          rir: {low: 2, high: 3}
+          rest_s: 180
+          essential: true
+          load_source: e1rm
+        - id: erector
+          exercise: back_extension
+          sets: 3
+          reps: {low: 10, high: 12}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
+        - id: accessory_lateral_raise
+          exercise: lateral_raise
+          sets: 3
+          reps: {low: 10, high: 12}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
 
   B:
     label: "Hinge emphasis"
@@ -83,6 +121,42 @@ days:
     allows_erector_work: true
     allows_hinge: false
     allows_power: true
+    # Day C is the bench-emphasis day: bench leads, squat supports. Same erector rule as Day A.
+    prescription:
+      time_cap_s: 4800
+      slots:
+        - id: bench_main
+          exercise: bench_press
+          sets: 4
+          reps: {low: 3, high: 5}
+          rir: {low: 2, high: 3}
+          rest_s: 180
+          essential: true
+          load_source: e1rm
+        - id: squat_support
+          exercise: ssb_squat
+          sets: 3
+          reps: {low: 3, high: 5}
+          rir: {low: 2, high: 3}
+          rest_s: 180
+          essential: true
+          load_source: e1rm
+        - id: erector
+          exercise: back_extension
+          sets: 3
+          reps: {low: 10, high: 12}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
+        - id: accessory_split_squat
+          exercise: split_squat
+          sets: 3
+          reps: {low: 8, high: 10}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
 
 inference:
   # A session containing the hinge main lift cannot be A or C (the constitution puts

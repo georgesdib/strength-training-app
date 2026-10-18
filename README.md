@@ -40,7 +40,7 @@ The CLI that ties these together is phase 9; see `docs/V0-SCOPE.md`.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest            # 326 tests
+.venv/bin/python -m pytest            # 332 tests
 .venv/bin/python tools/profile_data.py    # profile your own export
 .venv/bin/python tools/baseline.py        # strength baseline, latest date in the log
 .venv/bin/python tools/llm_check.py       # show the LLM configuration (see below)

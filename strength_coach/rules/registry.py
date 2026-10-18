@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping
 
 import pandas as pd
 
+from strength_coach.utils import exercises as exercises_mod
+
 if TYPE_CHECKING:  # avoids a runtime import cycle: loader validates against this module
     from strength_coach.rules.context import RuleContext
     from strength_coach.rules.loader import Rule, RuleDocument
@@ -485,7 +487,9 @@ def double_progression_decision(
             missing.append(f"rep_range.{exercise_id}")
             continue
         top = int(rep_range[1])
-        history = sets[sets["exercise_id"] == exercise_id].sort_values(["date", "set_id"])
+        history = sets[
+            sets["exercise_id"].isin(exercises_mod.history_equivalents(exercise_id))
+        ].sort_values(["date", "set_id"])
         if history.empty:
             missing.append(f"set.reps.{exercise_id}")
             continue

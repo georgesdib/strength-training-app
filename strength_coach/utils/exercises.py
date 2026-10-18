@@ -11,10 +11,10 @@ names. Instead every row resolves once, here, and all downstream code branches o
 properties (`pattern`, `high_fatigue_spinal`, `direct_erector`, `vbt_family`,
 `time_based`).
 
-The `applies_to_history` flag is the subtle part. "Back extension is the same as
-hyperextension going forward but you cannot assume that backwards" means the alias is
-directional: new prescriptions may name either, historical rows keep their identity
-and do not feed the back-extension dose ramp.
+The `applies_to_history` flag is the subtle part. New prescriptions may name either
+`back_extension` or the historical `Hyperextensions`; rows keep their own identity, but —
+since DEC-BACKEXT-02 amended the original decision — historical hyperextension rows **do**
+count as back-extension history for load and dose lookups.
 """
 
 from __future__ import annotations
@@ -80,8 +80,14 @@ class ResolvedExercise:
 
     @property
     def counts_toward_back_extension_dose(self) -> bool:
-        """DEC-BACKEXT-01: historical hyperextensions must not feed the dose ramp."""
+        """DEC-BACKEXT-02: historical hyperextensions DO feed the dose ramp.
+
+        The id stays distinct (identity is preserved), but the movement is the same, so its
+        history is usable. The amendment reversed the original DEC-BACKEXT-01 clause.
+        """
         if self.id == "back_extension":
+            return True
+        if self.props.get("history_equivalent_of") == "back_extension":
             return True
         return bool(self.props.get("counts_toward_back_extension_dose", False))
 
@@ -241,12 +247,26 @@ def canonical_id(name: str | None) -> str | None:
     return resolved.id if resolved else None
 
 
+def history_equivalents(exercise_id: str) -> tuple[str, ...]:
+    """Ids whose rows count as history for this lift.
+
+    `back_extension` carries `hyperextension` (DEC-BACKEXT-02): the rows keep their own
+    identity, but the same movement's history is usable for load and dose lookups.
+    """
+    entities = taxonomy().entities
+    equivalents = [exercise_id]
+    for candidate, props in entities.items():
+        if props.get("history_equivalent_of") == exercise_id:
+            equivalents.append(candidate)
+    return tuple(equivalents)
+
+
 def forward_name(name: str | None) -> str | None:
     """Name to *use in a prescription* for a historical log name.
 
-    DEC-BACKEXT-01 is the reason this differs from `canonical_id`: a historical
-    `Hyperextensions` row is its own entity, but new prescriptions should talk about
-    `back_extension`.
+    The reason this differs from `canonical_id`: a historical `Hyperextensions` row keeps
+    its own entity id, but new prescriptions talk about `back_extension`. Since
+    DEC-BACKEXT-02 its rows also count as back-extension history.
     """
     resolved = taxonomy().resolve(name)
     if resolved is None:

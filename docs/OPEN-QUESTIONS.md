@@ -134,8 +134,8 @@ ASSUMPTION-02 fixes the *weighting* (ordinal `spinal_cost`) but not the *unit*:
 - ~~Is there a trap-bar deadlift in the data?~~ **Closed** — the logging app records it under
   a different name (`DEC-TRAPBAR-01`).
 - ~~Which exercise is "back extension"?~~ **Closed** — synonymous with the older
-  hyperextension name *going forward only*; historical rows keep their own identity
-  (`DEC-BACKEXT-01`).
+  hyperextension name, **including historical rows**: they keep their own identity but
+  count as back-extension history (`DEC-BACKEXT-02`, amending `DEC-BACKEXT-01`).
 
 ## Decisions taken as defaults unless told otherwise
 

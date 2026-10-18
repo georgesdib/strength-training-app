@@ -14,6 +14,7 @@ Numbers are never reused. Superseding a decision adds a new row; it never edits 
 
 | id | date | decision | why | enforced at |
 |---|---|---|---|---|
+| `DEC-BACKEXT-02` | 2026-10-17 | Historical `Hyperextensions` rows **do** count as back-extension history; this amends the "must not be projected backwards" half of `DEC-BACKEXT-01` | The athlete corrected the original reading: the movement is the same, so its history is usable, including for the erector dose ramp. Identity is still preserved — the rows keep their own id and no equivalence is inferred for any other purpose — so the change is scoped to history lookups and the ramp. | taxonomy `history_equivalent_of`; `utils.exercises.history_equivalents`; `prescribe/engine.py` history lookups |
 | `DEC-TRAPBAR-01` | 2026-10-17 | "Competition Deadlift" in the log **is** the trap-bar deadlift | The logging app records it under the powerlifting name. Without this the hinge main lift appeared to have no history at all. | `config/exercises/taxonomy.v1.yaml` (`alias_overrides`) |
 | `DEC-BACKEXT-01` | 2026-10-17 | Back extension ≡ hyperextension **going forward only**; historical rows keep their own identity | Same movement from now on, but the historical rows may not have used the same bench, so projecting the equivalence backwards would silently fabricate erector-dose history. | taxonomy `alias_overrides` + `forward_alias`; `utils.exercises.forward_name` |
 | `DEC-RIR-01` | 2026-10-17 | `RIR 6` marks a **warm-up set**, not an easy set | The athlete confirmed the meaning. It carried a quarter of all rows, so treating it as effort inflated volume, fatigue and e1RM. | `domain/rir.py` (`classify`) |
@@ -57,4 +58,5 @@ answer.
 
 | id | superseded by | date | why |
 |---|---|---|---|
+| `DEC-BACKEXT-01` (historical-rows clause) | `DEC-BACKEXT-02` | 2026-10-17 | The original projection-before-history caution was overruled by the athlete: the rows are the same movement and their history is usable. |
 | `DEC-STORE-03` | `DEC-READINESS-01` | 2026-10-17 | Readiness is now materialised because the prescription engine needs it for MOD-FAT-001. The merge rule it was waiting for is the documented Q6 default, and the `readiness_day` table already existed for exactly this. |

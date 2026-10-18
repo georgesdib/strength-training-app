@@ -154,6 +154,45 @@ def test_engine_builds_an_executable_prescription():
         assert item.rationale_refs
 
 
+def test_stale_e1rm_falls_back_to_the_last_working_load():
+    # History older than the 84-day window: no e1RM, but a real load was managed before.
+    rows = [
+        {"Date": "2023-01-01", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2023-01-01", "Exercise": "Competition Bench Press", "Weight_Used": "90",
+         "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2023-01-01", "Exercise": "Lateral Raise", "Weight_Used": "12.5",
+         "RIR": "2", "Reps_Done": "10"},
+    ]
+    with store_with(rows) as store:
+        prescription = build_prescription(store.connection, for_date="2024-02-01",
+                                          session_day="A")
+
+    assert prescription.executable, prescription.issues
+    squat = next(i for i in prescription.items if i.exercise_id == "ssb_squat")
+    assert squat.load_kg == 100.0
+    assert any("no e1RM" in warning for warning in prescription.warnings)
+
+
+def test_bodyweight_work_without_history_starts_at_bodyweight():
+    rows = [
+        {"Date": "2024-01-01", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2024-01-01", "Exercise": "Bench Press (narrow grip)", "Weight_Used": "90",
+         "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2024-01-01", "Exercise": "Lateral Raise", "Weight_Used": "12.5",
+         "RIR": "2", "Reps_Done": "10"},
+    ]
+    with store_with(rows) as store:
+        prescription = build_prescription(store.connection, for_date="2024-02-01",
+                                          session_day="A")
+
+    erector = next(i for i in prescription.items if i.exercise_id == "back_extension")
+    assert erector.load_kg == 0.0
+    assert erector.load_basis == "bodyweight_total"
+    assert any("starting at bodyweight" in warning for warning in prescription.warnings)
+
+
 def test_engine_does_not_look_ahead():
     with store_with(BASE_HISTORY) as store:
         before = build_prescription(store.connection, for_date="2024-02-01")

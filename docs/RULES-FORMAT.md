@@ -166,9 +166,9 @@ on_fail: {action: warn, code: ERECTOR_RAMP_HOLD}
 notes: >
   Two blockers, both surfaced rather than guessed: (1) there is no symptom field in
   either CSV, so `inputs: symptom.flare` is unavailable and the rule returns
-  `unknown` rather than assuming no flare; (2) DEC-BACKEXT-01 means historical
-  `Hyperextensions` rows do NOT count toward this dose, so there is effectively no
-  history to ramp from and week 1 needs an explicit anchor date from the user.
+  `unknown` rather than assuming no flare; (2) since DEC-BACKEXT-02, historical
+  `Hyperextensions` rows DO count toward this dose, so there is real history to ramp
+  from — but week 1 still needs an explicit anchor date from the athlete.
 ```
 
 ### PRG-SPINE-001 — Weekly high-fatigue spinal exposure cap  (severity: `veto`)

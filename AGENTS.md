@@ -115,16 +115,17 @@ so silently erased genuine `RIR = 0` observations during development.
 - Resolve every raw name through `utils.exercises`; never branch on the raw log string.
 - Recorded decisions are encoded and **must not be reverted**:
   - `DEC-TRAPBAR-01` — "Competition Deadlift" **is** the trap-bar deadlift.
-  - `DEC-BACKEXT-01` — back extension ≡ hyperextension **going forward only**; historical
-    `Hyperextensions` rows keep their own identity and do not feed the erector dose ramp.
+  - `DEC-BACKEXT-02` (amends `DEC-BACKEXT-01`) — back extension ≡ hyperextension **including
+    historical rows**. `Hyperextensions` rows keep their own identity, but they **do** count
+    as back-extension history for load and dose lookups.
   - `DEC-RIR-01` — `RIR 6` marks a **warm-up**. Not effort. Excluded from compliance,
     e1RM adjustment and working volume, but preserved and reported.
   - `DEC-LOAD-02` — bodyweight progression acts on **added load**; total mass is used only
     for an e1RM.
   - `DEC-WINDOW-01` — the trap bar's RIR window is the default **2-3** (it used to be 3-4).
     The per-lift override map is kept, empty, so changing it back is config, not code.
-- There is a standing directive: **back extension is the same as hyperextension going
-  forward.** When prescribing, prefer `back_extension`.
+- There is a standing directive: **back extension is the same as hyperextension, including its
+  history.** When prescribing, prefer `back_extension`.
 - Adding an exercise = editing YAML, not Python. If you need a new *property*, add it to
   the entity schema and document it in `docs/DATA-MODEL.md`.
 

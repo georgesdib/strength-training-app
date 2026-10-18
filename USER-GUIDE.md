@@ -9,7 +9,7 @@ project is going see [ROADMAP.md](ROADMAP.md).
 
 It reads your training export, cleans it under a documented set of rules, reconstructs
 sessions, judges the most recent one against a fixed constitution, and prescribes the next
-Day B session. **Python computes every number; the LLM only explains them.** If no model is
+session — Day A, B or C. **Python computes every number; the LLM only explains them.** If no model is
 configured, everything still works — you just lose the prose.
 
 It is a coaching tool with a fixed methodology, not a chatbot that invents programmes. Where
@@ -88,6 +88,7 @@ Useful flags:
 
 | flag | effect |
 |---|---|
+| `--day A\|B\|C` | which day to prescribe (default B) |
 | `--llm on` | ask the configured model for a narrative (see §7) |
 | `--force` | regenerate even though that date was already prescribed |
 | `--db PATH` | use a different database |
@@ -323,8 +324,8 @@ Tests: `.venv/bin/python -m pytest`, and the markers `-m golden` (locked numbers
 
 ## 10. Limits you should know
 
-- **Day B only.** Days A and C are blocked on the athlete-state tables, the erector-ramp
-  anchor, and the SSB question.
+- **Days A, B and C** are all prescribable. The erector ramp still needs a declared block
+  start (`block --date`); until then `PRG-EREC-001` is `unknown` on every day.
 - **No symptom input.** Back-symptom rules return `unknown` rather than assuming no flare.
 - **No timestamps.** Session duration is unmeasurable and is stored as such.
 - **VBT targets are not prescribed** (`DEC-VBT-01`): the calibration exists, the step from a

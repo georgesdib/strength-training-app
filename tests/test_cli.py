@@ -79,6 +79,47 @@ def test_run_persists_a_critique_and_a_prescription(database, capsys):
         run.close()
 
 
+def test_run_day_a_uses_the_a_template(tmp_path, capsys):
+    path = tmp_path / "all_days.db"
+    rows = []
+    for day in ("2024-01-04", "2024-01-11"):
+        rows += [
+            {"Date": day, "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+             "RIR": "2", "Reps_Done": "5"},
+            {"Date": day, "Exercise": "Competition Bench Press", "Weight_Used": "80",
+             "RIR": "2", "Reps_Done": "5"},
+            {"Date": day, "Exercise": "Back Extension", "Weight_Used": "0",
+             "RIR": "2", "Reps_Done": "12"},
+            {"Date": day, "Exercise": "Lateral Raise", "Weight_Used": "12.5",
+             "RIR": "2", "Reps_Done": "10"},
+        ]
+    training = make_training(rows)
+    readiness = make_readiness([{}])
+    store = db.Store(path)
+    importer.import_export(
+        store.connection, training, readiness,
+        training_sha256=importer.sha256_frame(training),
+        readiness_sha256=importer.sha256_frame(readiness),
+    )
+    store.close()
+
+    assert cli.main(["--db", str(path), "run", "--date", "2024-02-01", "--day", "A"]) == 0
+    out = capsys.readouterr().out
+    assert "day A" in out
+    assert "ssb_squat" in out
+
+    store = db.Store(path)
+    try:
+        row = store.connection.execute("SELECT session_day FROM prescription").fetchone()
+        assert row["session_day"] == "A"
+        item = store.connection.execute(
+            "SELECT exercise_id FROM prescription_item ORDER BY order_index"
+        ).fetchone()
+        assert item["exercise_id"] == "ssb_squat"
+    finally:
+        store.close()
+
+
 def test_rerunning_the_same_date_appends_nothing(database, capsys):
     cli.main(["--db", str(database), "run", "--date", "2024-02-01"])
     capsys.readouterr()

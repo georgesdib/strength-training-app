@@ -137,19 +137,18 @@ def test_missing_essential_lift_costs_half_the_item():
     assert "1/2" in item.detail
 
 
-def test_essential_work_unmeasurable_on_a_day_without_a_template():
+def test_essential_work_is_unmeasurable_when_the_day_is_unknown():
+    # Every programme day now has a template, so essential work is unassessable only when
+    # the day itself could not be inferred. A bench-only session is "unknown", not day A.
     rows = [
-        {"Date": "2024-01-01", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
-         "RIR": "2", "Reps_Done": "5"},
         {"Date": "2024-01-01", "Exercise": "Competition Bench Press", "Weight_Used": "80",
          "RIR": "2", "Reps_Done": "5"},
     ]
     with store_with(rows) as store:
         critique = score_session(store.connection, "2024-01-01")
     item = critique.item("ESSENTIAL_WORK")
-    # Day A has no prescription template yet, so this is unassessable, not zero.
-    if critique.item("REDUNDANCY").measurable:  # day inferred as A
-        assert not item.measurable
+    assert item.measurable is False
+    assert "no prescription template" in item.detail
 
 
 # --- redundancy ------------------------------------------------------------

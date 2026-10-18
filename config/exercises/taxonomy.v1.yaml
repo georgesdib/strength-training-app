@@ -27,13 +27,20 @@ decisions:
       verified.
   - id: DEC-BACKEXT-01
     decision: >
-      Back extension is the same movement as "Hyperextensions" GOING FORWARD, but
-      that equivalence must NOT be projected backwards onto historical rows.
+      Back extension is the same movement as "Hyperextensions" going forward.
     consequence: >
-      Historical `Hyperextensions` rows map to their own entity `hyperextension`
-      and do NOT count toward the back-extension dose ramp. Therefore there is
-      effectively no historical back-extension dose to ramp from, and the 8-12 week
-      ramp needs an explicit week-1 anchor date going forward.
+      New prescriptions name `back_extension`; the alias is directional so historical
+      rows keep their own entity id.
+  - id: DEC-BACKEXT-02
+    decision: >
+      AMENDMENT (2026-10-17): historical `Hyperextensions` rows DO count as
+      back-extension history, including for the erector dose ramp.
+    consequence: >
+      The second half of DEC-BACKEXT-01 ("must not be projected backwards") is
+      withdrawn. Identity is still preserved — rows keep the `hyperextension` id and
+      no equivalence is inferred for any other purpose — but history lookups and the
+      ramp may use them. Implemented as `history_equivalent_of` on the entity and
+      `utils.exercises.history_equivalents`.
 
 # ---------------------------------------------------------------------------
 # Canonical entities. `id` is the only identifier used by code and by agents.
@@ -159,8 +166,9 @@ entities:
 
   hyperextension:
     display: "Hyperextension (historical)"
-    # Historical rows. NOT the same entity as back_extension (DEC-BACKEXT-01),
-    # and must not be silently folded into the dose ramp.
+    # Historical rows keep their own id, but they DO count as back-extension history
+    # (DEC-BACKEXT-02, amending DEC-BACKEXT-01).
+    history_equivalent_of: back_extension
     log_names: ["Hyperextensions"]
     pattern: erector_extension
     main_lift: false
@@ -328,8 +336,8 @@ alias_overrides:
     canonical: hyperextension
     applies_to_history: true        # historical rows keep their own identity
     forward_alias: back_extension   # ...but new prescriptions may use this name
-    decision: DEC-BACKEXT-01
-    reason: "Same movement going forward; equivalence not projected backwards."
+    decision: DEC-BACKEXT-02
+    reason: "Same movement; historical rows count as back-extension history (DEC-BACKEXT-02)."
 
   - match: "Back Extension"
     canonical: back_extension

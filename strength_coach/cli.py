@@ -54,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
 
     run = sub.add_parser("run", help="critique the last session and prescribe a date")
     run.add_argument("--date", required=True, help="date to prescribe, YYYY-MM-DD")
+    run.add_argument("--day", choices=("A", "B", "C"), default="B",
+                     help="which programme day to prescribe (default: B)")
     run.add_argument("--llm", choices=("on", "off"), default="off",
                      help="ask the configured model for a narrative (default: off)")
     run.add_argument("--force", action="store_true",
@@ -132,7 +134,7 @@ def _cmd_run(args) -> int:
 
         facts = build_facts(conn, session_id)
         critique = score_session(conn, session_id, facts=facts)
-        prescription = build_prescription(conn, for_date=args.date)
+        prescription = build_prescription(conn, for_date=args.date, session_day=args.day)
 
         with RunTrace.start(conn, input_hash=f"{session_id}:{args.date}",
                             window_end=args.date) as trace:

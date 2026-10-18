@@ -178,9 +178,9 @@ rules:
     notes: >
       Two blockers, surfaced rather than guessed. (1) There is no symptom field in the
       source data, so `symptom.flare` is unavailable and the rule returns `unknown`
-      instead of assuming no flare. (2) DEC-BACKEXT-01 says historical Hyperextensions
-      rows do NOT count toward this dose, so there is effectively no history to ramp
-      from and week 1 needs an explicit anchor date from the user.
+      instead of assuming no flare. (2) Since DEC-BACKEXT-02, historical Hyperextensions
+      rows DO count toward this dose, so there is real history to ramp from; week 1 still
+      needs an explicit anchor date from the athlete.
 
   # ---------------------------------------------------------------------------
   - id: PRG-SPINE-001

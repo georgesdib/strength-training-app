@@ -28,6 +28,7 @@ from strength_coach.prescribe.models import Prescription, PrescriptionItem
 from strength_coach.rules import RuleContext, evaluate, load_document, registry
 from strength_coach.rules import policy as policy_mod
 from strength_coach.store import queries
+from strength_coach.utils import exercises as exercises_mod
 
 RULE_REF_RE = re.compile(r"^(PRG|MOD)-[A-Z]+-\d{3}$")
 FATIGUE_FIELDS = ("sleep", "energy")
@@ -61,34 +62,63 @@ def build_prescription(
             warnings.append(f"{slot.id}: chose {exercise_id} from {list(slot.variants)}")
 
         increment = thresholds.increment_for(exercise_id)
+        bodyweight = bool(context.entity(exercise_id).get("bodyweight_type", False))
         load: float | None
-        refs: tuple[str, ...]
+        refs: tuple[str, ...] = ()
         unknown_reason: str | None = None
 
         if slot.load_source == "e1rm":
             found = _latest_e1rm(context, exercise_id, for_date, thresholds.e1rm_window_days)
             if found is None:
-                load = None
-                refs = ()
-                unknown_reason = (
-                    f"no usable e1RM for {exercise_id} in the last "
-                    f"{thresholds.e1rm_window_days} days"
-                )
+                # No recent e1RM is common after a layoff. Reusing the last working load is
+                # safer than refusing to prescribe: the load is a real, previously managed
+                # weight, and the warning makes the staleness visible.
+                last_set = _last_working_set(context, exercise_id)
+                if last_set is None:
+                    load = None
+                    refs = ()
+                    unknown_reason = (
+                        f"no usable e1RM for {exercise_id} in the last "
+                        f"{thresholds.e1rm_window_days} days, and no earlier working load"
+                    )
+                else:
+                    prior_load, ref = last_set
+                    load = loads.round_down(prior_load, increment)
+                    refs = ("PRG-RIR-001", ref)
+                    warnings.append(
+                        f"{exercise_id}: no e1RM in the last "
+                        f"{thresholds.e1rm_window_days} days; reused the last working load"
+                    )
             else:
                 e1rm_kg, ref = found
                 load = loads.solve_load(e1rm_kg, slot.reps_low, slot.rir_low, increment)
                 refs = ("PRG-RIR-001", ref)
         else:
             found = _last_working_set(context, exercise_id)
-            if found is None:
+            if found is None and bodyweight:
+                # Bodyweight work needs no history to start: week 1 of an erector ramp is
+                # bodyweight by definition, so prescribing 0 is correct, not a guess.
+                load = 0.0
+                refs = ()
+                warnings.append(f"{exercise_id}: no history; starting at bodyweight")
+            elif found is None:
                 load = None
                 refs = ()
                 unknown_reason = f"no working history for {exercise_id}"
             else:
                 prior_load, ref = found
                 decision = decisions.get(exercise_id, {}).get("decision", "hold_load")
-                load = prior_load + increment if decision == "add_increment" else prior_load
-                load = loads.round_down(load, increment)
+                if bodyweight and prior_load == 0:
+                    # Unweighted bodyweight work: adding 0.5 kg to nothing is not a
+                    # progression. Bodyweight progression acts on reps or sets instead
+                    # (DEC-LOAD-02), so the load stays 0 and the warning says why.
+                    load = 0.0
+                    warnings.append(
+                        f"{exercise_id}: bodyweight, progress by reps or sets, not load"
+                    )
+                else:
+                    load = prior_load + increment if decision == "add_increment" else prior_load
+                    load = loads.round_down(load, increment)
                 refs = ("PRG-DP-001", ref)
 
         items.append(
@@ -99,7 +129,11 @@ def build_prescription(
                 reps_low=slot.reps_low,
                 reps_high=slot.reps_high,
                 load_kg=load,
-                load_basis="external",
+                load_basis=(
+                    "bodyweight_total"
+                    if bodyweight and (load in (None, 0.0))
+                    else "external"
+                ),
                 rounding_increment_kg=increment,
                 rir_target=slot.rir_low,
                 rest_s=slot.rest_s,
@@ -201,7 +235,7 @@ def _latest_e1rm(
     frame = context.sets
     cutoff = pd.Timestamp(for_date) - pd.Timedelta(days=window_days)
     usable = frame[
-        (frame["exercise_id"] == exercise_id)
+        (frame["exercise_id"].isin(exercises_mod.history_equivalents(exercise_id)))
         & frame["e1rm_kg"].notna()
         & (frame["date"] >= cutoff)
     ]
@@ -218,7 +252,7 @@ def _last_working_set(
     if context.sets.empty:
         return None
     usable = context.sets[
-        (context.sets["exercise_id"] == exercise_id)
+        context.sets["exercise_id"].isin(exercises_mod.history_equivalents(exercise_id))
         & context.sets["is_working_set"]
         & context.sets["load_kg"].notna()
     ]
@@ -253,6 +287,8 @@ def _validate(
         if item.load_kg is None:
             issues.append(f"NO_LOAD:{item.exercise_id}:{item.unknown_load_reason}")
             continue
+        if item.load_basis == "bodyweight_total" and item.load_kg == 0:
+            continue  # unweighted bodyweight: 0 is the correct load, not a missing one
         if item.load_kg <= 0:
             issues.append(f"LOAD_NOT_POSITIVE:{item.exercise_id}:{item.load_kg}")
         if not loads.is_multiple_of(item.load_kg, item.rounding_increment_kg):

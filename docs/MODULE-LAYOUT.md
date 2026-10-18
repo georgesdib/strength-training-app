@@ -146,8 +146,8 @@ Five layers, cheapest first.
 - `test_rir_zero_is_preserved` — reusing the *date* null tokens for numerics silently
   erased genuine `RIR = 0` observations.
 - `test_leg_curls_are_knee_flexion_not_biceps` — regex ordering sent `Lying Leg Curls` to the biceps family.
-- `test_historical_hyperextension_is_not_back_extension` — pins DEC-BACKEXT-01, which
-  would otherwise be quietly reverted by a well-meaning "normalisation".
+- `test_historical_hyperextension_keeps_identity_but_counts_as_history` — pins
+  DEC-BACKEXT-02: the entity id is preserved, but its rows count as back-extension history.
 - `test_zero_dispersion_collapses_without_floor` — documents the MAD-collapse hazard that
   the VBT module must guard against.
 
