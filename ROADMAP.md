@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **398 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **403 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **398 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 398 passed
+.venv/bin/python -m pytest            # expect: 403 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -442,8 +442,8 @@ Recorded so good ideas are not lost, explicitly **not** commitments:
   test`, 3RM/5RM by default, `--max` for a confirmed 1RM. Evidence in `docs/TRAINING-DYNAMICS.md`.
 - ~~Rep-scheme menu.~~ **Delivered** (`DEC-REPS-01`): named schemes including `maximal`
   1-3 (main lifts only, not the hinge).
-- **Weekly undulation (DUP).** Evidence says DUP is comparable to linear, not superior, so
-  this is a variety/fatigue tool, not a claimed optimisation.
+- ~~Weekly undulation (DUP).~~ **Delivered** (`DEC-UNDUL-01`): 4-week cycle keyed to the
+  declared anchor, config-disabled by default when no anchor exists.
 
 ## 7. How to change this roadmap
 

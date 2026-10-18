@@ -48,6 +48,7 @@ PROGRAMME_RULES_YAML = "rules/programme.v1.yaml"
 THRESHOLDS_YAML = "thresholds.v1.yaml"
 READINESS_YAML = "readiness.v1.yaml"
 SCHEMES_YAML = "schemes.v1.yaml"
+UNDULATION_YAML = "undulation.v1.yaml"
 
 
 def training_log_csv() -> Path:
@@ -76,3 +77,7 @@ def readiness_yaml() -> Path:
 
 def schemes_yaml() -> Path:
     return config_dir("templates", SCHEMES_YAML)
+
+
+def undulation_yaml() -> Path:
+    return config_dir("templates", UNDULATION_YAML)

@@ -24,6 +24,8 @@ import pandas as pd
 from strength_coach.features import readiness as readiness_mod
 from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
+from strength_coach.prescribe import schemes as schemes_mod
+from strength_coach.prescribe import undulation as undulation_mod
 from strength_coach.prescribe import fallback, loads, templates
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
 from strength_coach.rules import RuleContext, evaluate, load_document, registry
@@ -45,12 +47,14 @@ def build_prescription(
     thresholds: config_mod.Thresholds | None = None,
     template: templates.DayTemplate | None = None,
     readiness_config: readiness_mod.ReadinessConfig | None = None,
+    undulation: undulation_mod.Undulation | None = None,
 ) -> Prescription:
     """Generate the deterministic session for `for_date`."""
     document = document or load_document()
     thresholds = thresholds or config_mod.Thresholds.load()
     template = template or templates.DayTemplate.load(session_day)
     readiness_config = readiness_config or readiness_mod.ReadinessConfig.load()
+    undulation = undulation or undulation_mod.Undulation.load()
 
     context = RuleContext.from_store(conn, end=for_date, rep_ranges=template.rep_ranges())
     policy_result = evaluate(document, context)
@@ -65,6 +69,13 @@ def build_prescription(
         )
         items.append(item)
         warnings.extend(slot_warnings)
+    dup_plan = None
+    if undulation.enabled and context.block_week_index:
+        items, dup_warnings, dup_plan = _apply_undulation(
+            conn, context, tuple(items), template, thresholds, for_date, decisions, undulation
+        )
+        warnings.extend(dup_warnings)
+
     fallback_level = "full"
     readiness = queries.readiness_day(conn, for_date)
     trigger = readiness_config.trigger(readiness)
@@ -126,6 +137,11 @@ def build_prescription(
             # step from a band to a prescribed target is not specified, so this stays explicit
             # rather than silently null.
             "vbt": "deferred (DEC-VBT-01)",
+            "undulation_week": (
+                ((int(context.block_week_index) - 1) % undulation.cycle_weeks) + 1
+                if dup_plan and undulation.cycle_weeks else None
+            ),
+            "undulation": dict(dup_plan) if dup_plan else {},
             "policy_outcome": policy_result.outcome,
             "e1rm_window_days": thresholds.e1rm_window_days,
             "fatigue_trigger": trigger,
@@ -134,6 +150,64 @@ def build_prescription(
             "constraints": constraint_report.status,
         },
     )
+
+
+def _apply_undulation(
+    conn,
+    context: RuleContext,
+    items: tuple[PrescriptionItem, ...],
+    template: templates.DayTemplate,
+    thresholds: config_mod.Thresholds,
+    for_date: str,
+    decisions: Mapping[str, Any],
+    undulation: undulation_mod.Undulation,
+) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], Mapping[str, str] | None]:
+    """Apply the week's rep schemes, rebuilding each item's load through the solver.
+
+    A scheme is only applied where it is allowed: `maximal` is skipped for hinges, which fall
+    back to the strength scheme. Loads are rebuilt before the fatigue and back-flare modifiers,
+    so those still act on the final session.
+    """
+    week = int(context.block_week_index or 0)
+    plan = undulation.for_week(week)
+    if not plan:
+        return items, (), None
+
+    schemes = schemes_mod.Schemes.load()
+    cycle_week = ((week - 1) % undulation.cycle_weeks) + 1
+    out: list[PrescriptionItem] = []
+    for item in items:
+        layer = "main" if item.essential else "accessory"
+        name = plan.get(layer)
+        if not name:
+            out.append(item)
+            continue
+        if not schemes.applicable(name, exercise_id=item.exercise_id,
+                                  essential=item.essential):
+            name = "strength" if item.essential else "accessory"
+        scheme = schemes.get(name)
+        if (item.reps_low, item.reps_high) == (scheme.reps_low, scheme.reps_high):
+            out.append(item)
+            continue
+        slot = templates.Slot(
+            id=f"dup:{item.exercise_id}",
+            sets=item.sets,
+            reps_low=scheme.reps_low,
+            reps_high=scheme.reps_high,
+            rir_low=item.rir_target,
+            rir_high=item.rir_target,
+            rest_s=item.rest_s,
+            essential=item.essential,
+            load_source="e1rm" if item.essential else "double_progression",
+            exercise=item.exercise_id,
+        )
+        rebuilt, _ = build_item(
+            conn, context, slot, item.order_index, thresholds, for_date, decisions, template
+        )
+        out.append(rebuilt)
+
+    detail = ", ".join(f"{layer} {name}" for layer, name in plan.items())
+    return tuple(out), (f"DUP week {cycle_week}: {detail}",), dict(plan)
 
 
 def _apply_back_flare(

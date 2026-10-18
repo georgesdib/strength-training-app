@@ -1,0 +1,17 @@
+# Weekly undulation (DUP). A cycle of week templates that shift rep schemes between weeks.
+#
+# The evidence says undulating and linear periodization produce comparable strength and
+# hypertrophy outcomes (docs/TRAINING-DYNAMICS.md). This is therefore a variety and fatigue
+# management tool, not a claimed optimisation, and it stays config so it can be switched off.
+#
+# The cycle is keyed to the declared erector-ramp anchor (week 1 = block_start_date). With no
+# anchor declared there is no cycle, so the day templates are used unchanged.
+schema_version: "1.0.0"
+enabled: true
+cycle_weeks: 4
+
+weeks:
+  1: {main: strength, accessory: accessory}
+  2: {main: strength, accessory: volume}
+  3: {main: maximal, accessory: accessory}
+  4: {main: strength, accessory: volume}

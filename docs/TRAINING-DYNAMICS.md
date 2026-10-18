@@ -117,8 +117,9 @@ model may not change them. That is a design choice, not an evidence claim.
    `strength` (3-5), `volume` (6-8), `accessory` (8-12). The model may name a scheme, never a
    number; Python re-solves the load for it. `maximal` is excluded on hinge lifts: a
    near-maximal trap-bar pull is the highest-risk exposure for this athlete.
-3. **Weekly undulation.** A config schedule (e.g. week A strength, week B volume) that shifts
-   accessory rep bands and set counts, while main-lift intensity stays inside the RIR window.
+3. **Weekly undulation — implemented (`DEC-UNDUL-01`).** A 4-week config cycle keyed to the
+   declared anchor: week 3 main lifts at `maximal`, weeks 2/4 accessories at `volume`. With no
+   anchor there is no cycle. It is variety/fatigue management, not a claimed advantage.
 4. **Readiness response.** Keep MOD-FAT-001 as the load cut; add an optional "reduce one set when
    readiness is poor" modifier, config-gated.
 

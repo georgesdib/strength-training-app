@@ -96,6 +96,13 @@ Useful flags:
 Re-running the same date writes nothing unless you pass `--force`. Two runs produce two
 append-only critique rows, by design: history is not rewritten.
 
+If you have declared a block start (`block --date`), the week index drives a 4-week undulation
+cycle: week 3 puts main lifts on the `maximal` scheme (1-3 reps; hinges stay at 3-5), and weeks
+2 and 4 put accessories on `volume` (6-8). The prescription notes which DUP week it used. This
+is a variety and fatigue-management tool — the evidence says undulating and linear
+periodization are comparable — and it can be switched off in
+`config/templates/undulation.v1.yaml`.
+
 ### 4.2 `review` — mark a session, sharpen the calibration
 
 ```bash
