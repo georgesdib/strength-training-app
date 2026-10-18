@@ -72,3 +72,7 @@ The window lives in `config/rules/programme.v1.yaml` (`params.default_rir`) and 
 - the rubric's `RIR_ADHERENCE` score.
 
 That is why a change needs a `DEC-` row and updated tests, not just a YAML edit.
+
+---
+
+Full bibliography with DOIs: [`docs/REFERENCES.md`](REFERENCES.md).

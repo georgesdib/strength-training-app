@@ -49,3 +49,7 @@ not support.
 
 Until then, the ratings are a **conservative ordinal prior**, and the corpus records that
 (`docs/SANITY-CHECKS.md`, ASSUMPTION-02).
+
+---
+
+Full bibliography with DOIs: [`docs/REFERENCES.md`](REFERENCES.md).

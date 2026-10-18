@@ -158,6 +158,7 @@ so silently erased genuine `RIR = 0` observations during development.
 | `USER-GUIDE.md` | how to install, run and read the output (the human-facing entry point) |
 | `ROADMAP.md` | live phase status, next actions, resume checklist |
 | `docs/DECISIONS.md` | append-only decision log (`DEC-*`) with where each is enforced |
+| `docs/REFERENCES.md` | consolidated scientific bibliography with DOIs and where each is used |
 | `docs/ARCHITECTURE.md` | layers, data flow, where the LLM sits |
 | `docs/DATA-MODEL.md` | canonical schemas, tables, append-only records |
 | `docs/DATA-QUALITY.md` | the decision ledger (DQ-*) and open sentinel questions |

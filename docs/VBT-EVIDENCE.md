@@ -96,3 +96,7 @@ To move from "mean-velocity target" to real velocity-based autoregulation, the i
 
 None of that is faked now. The calibration parameters already live in one dataclass
 (`CalibrationParams`) and the method has a version string, so the upgrade is additive.
+
+---
+
+Full bibliography with DOIs: [`docs/REFERENCES.md`](REFERENCES.md).

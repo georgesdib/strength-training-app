@@ -124,3 +124,7 @@ model may not change them. That is a design choice, not an evidence claim.
    readiness is poor" modifier, config-gated.
 
 Each of these changes what is prescribed, so each needs a `DEC-` row and an acceptance test.
+
+---
+
+Full bibliography with DOIs: [`docs/REFERENCES.md`](REFERENCES.md).
