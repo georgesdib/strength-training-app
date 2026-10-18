@@ -156,6 +156,7 @@ so silently erased genuine `RIR = 0` observations during development.
 | `docs/ARCHITECTURE.md` | layers, data flow, where the LLM sits |
 | `docs/DATA-MODEL.md` | canonical schemas, tables, append-only records |
 | `docs/DATA-QUALITY.md` | the decision ledger (DQ-*) and open sentinel questions |
+| `docs/READINESS.md` | how readiness is derived, merged and used; what is config vs rule |
 | `docs/RULES-FORMAT.md` | citable rule IDs + 5 encoded rules |
 | `docs/VBT-CALIBRATION.md` | clean set, sparsity, overrides, versioning |
 | `docs/MODULE-LAYOUT.md` | file layout and test strategy |

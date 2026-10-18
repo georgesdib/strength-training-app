@@ -1,0 +1,30 @@
+# How readiness is derived, and which parts of it move a load.
+#
+# The full derivation is documented in docs/READINESS.md. This file holds the choices a user
+# might reasonably want to change; the mechanical steps (sentinels, coercion) stay in code
+# because they are data-quality rules, not preferences.
+#
+# Precedence at read time: this file > defaults in code.
+
+schema_version: "1.0.0"
+
+merge:
+  # Several rows can share a date and they usually conflict (OPEN-QUESTIONS Q6). The documented
+  # default is the most complete row; ties go to the later row in the file.
+  # Only "most_complete" is implemented today; anything else is rejected rather than ignored.
+  strategy: most_complete
+  tie_break: latest
+
+modifier:
+  # MOD-FAT-001 reads these fields only. Keeping the list here means adding a field is a config
+  # change, not a code change -- and adding one widens what can downgrade a session, so it
+  # should be a deliberate choice.
+  fields: [sleep, energy]
+  # Higher is better on every readiness scale, so "at or below" is the risk side. Stress = 5
+  # means *no stress*; a naive "stress >= 4" reading would be inverted.
+  at_or_below: 2
+
+composite:
+  # A 0-1 readiness composite needs every metric's scale and direction declared first
+  # (metric_definition rows). Until then it stays off and readiness_day.composite stays null.
+  enabled: false

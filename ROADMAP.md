@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **357 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **366 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **357 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 357 passed
+.venv/bin/python -m pytest            # expect: 366 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -310,6 +310,10 @@ appends a version rather than editing it.
 
 Data: `readiness_day` is currently one upserted row per date. This needs an append-only
 `readiness_entry` with latest-wins reads, so history is preserved.
+
+The derivation itself is now documented in [`docs/READINESS.md`](READINESS.md), and its
+changeable parts (modifier fields, threshold, merge strategy) are config in
+`config/readiness.v1.yaml` (`DEC-READINESS-04`). What remains in 4.1 is manual entry.
 
 ### 4.2 Logging workouts three ways
 

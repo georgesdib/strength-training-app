@@ -100,6 +100,10 @@ Duplicate-readiness merge rule is DQ-RD-01; implemented as most-complete-row, ti
 latest (`DEC-READINESS-01`, `ingest/readiness.py`). `composite` stays null until the metric
 directions in Q6 part 2 are declared.
 
+The full derivation — sentinels, merge, storage, and what actually moves a load — is
+[`docs/READINESS.md`](READINESS.md). Which fields drive MOD-FAT-001, the threshold and the merge
+tie-break are config (`config/readiness.v1.yaml`, `DEC-READINESS-04`).
+
 ## 6. `vbt_calibration` — append-only, versioned
 
 | column | notes |

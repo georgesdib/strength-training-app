@@ -46,6 +46,7 @@ READINESS_CSV = "readiness.csv"
 TAXONOMY_YAML = "exercises/taxonomy.v1.yaml"
 PROGRAMME_RULES_YAML = "rules/programme.v1.yaml"
 THRESHOLDS_YAML = "thresholds.v1.yaml"
+READINESS_YAML = "readiness.v1.yaml"
 
 
 def training_log_csv() -> Path:
@@ -66,3 +67,7 @@ def programme_rules_yaml() -> Path:
 
 def thresholds_yaml() -> Path:
     return config_dir(THRESHOLDS_YAML)
+
+
+def readiness_yaml() -> Path:
+    return config_dir(READINESS_YAML)

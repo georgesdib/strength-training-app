@@ -72,6 +72,9 @@ def config_hash() -> str:
         # Prescription thresholds change prescribed loads, so a run must name the version
         # they were under, not just the rules version.
         paths.thresholds_yaml(),
+        # Readiness derivation decides whether a session is downgraded, so it belongs in the
+        # run's config hash for the same reason the load thresholds do.
+        paths.readiness_yaml(),
     ):
         if Path(path).exists():
             digest.update(Path(path).read_bytes())

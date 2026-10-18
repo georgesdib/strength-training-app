@@ -283,6 +283,25 @@ Six items are measured, two are not:
 `composite` is the weighted mean over the items that were measurable, re-normalised — a
 missing metric never drags the score to zero.
 
+### 5.1 Readiness — how it is derived
+
+Readiness can only *reduce* a prescribed load, so its derivation is written down in full in
+[READINESS.md](docs/READINESS.md). In short:
+
+- the export is read as text and then as numbers; `0` becomes missing in the fields where a
+  physical zero is impossible (bodyweight, HRV, RHR, fat %, the three readiness scores);
+- duplicate rows on one date are merged: **most complete wins, ties go to the latest**, and
+  the merge note records which candidate won and why;
+- `MOD-FAT-001` reads only the fields listed in `config/readiness.v1.yaml` (sleep and energy
+  by default) and cuts loads by 5% when one of them is at or below 2;
+- missing readiness is **not** "fine": the modifier does not apply, and the prescription says
+  so.
+
+To change which fields matter, the threshold, or the merge tie-break, edit
+`config/readiness.v1.yaml`. Only implemented values are accepted — anything else raises
+rather than silently doing nothing. Manual and partial readiness entry is planned for v0.2
+(§4.1 of [ROADMAP.md](ROADMAP.md)).
+
 ---
 
 ## 6. Configuration

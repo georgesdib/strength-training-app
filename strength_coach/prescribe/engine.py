@@ -21,6 +21,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
+from strength_coach.features import readiness as readiness_mod
 from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.prescribe import fallback, loads, templates
@@ -31,8 +32,8 @@ from strength_coach.store import queries
 from strength_coach.utils import exercises as exercises_mod
 
 RULE_REF_RE = re.compile(r"^(PRG|MOD)-[A-Z]+-\d{3}$")
-FATIGUE_FIELDS = ("sleep", "energy")
-FATIGUE_THRESHOLD = 2
+# Which readiness fields drive the modifier, and at what threshold, is config
+# (config/readiness.v1.yaml); this module no longer hardcodes either.
 
 
 def build_prescription(
@@ -43,11 +44,13 @@ def build_prescription(
     document=None,
     thresholds: config_mod.Thresholds | None = None,
     template: templates.DayTemplate | None = None,
+    readiness_config: readiness_mod.ReadinessConfig | None = None,
 ) -> Prescription:
     """Generate the deterministic session for `for_date`."""
     document = document or load_document()
     thresholds = thresholds or config_mod.Thresholds.load()
     template = template or templates.DayTemplate.load(session_day)
+    readiness_config = readiness_config or readiness_mod.ReadinessConfig.load()
 
     context = RuleContext.from_store(conn, end=for_date, rep_ranges=template.rep_ranges())
     policy_result = evaluate(document, context)
@@ -151,7 +154,7 @@ def build_prescription(
 
     fallback_level = "full"
     readiness = queries.readiness_day(conn, for_date)
-    trigger = _fatigue_trigger(readiness)
+    trigger = readiness_config.trigger(readiness)
     if trigger:
         multiplier = thresholds.fatigue_load_multiplier
         items = list(
@@ -213,6 +216,7 @@ def build_prescription(
             "policy_outcome": policy_result.outcome,
             "e1rm_window_days": thresholds.e1rm_window_days,
             "fatigue_trigger": trigger,
+            "readiness_fields": list(readiness_config.modifier_fields),
             "back_flare": bool(context.symptom_flare),
             "constraints": constraint_report.status,
         },
@@ -317,17 +321,6 @@ def _last_working_set(
         return None
     row = usable.sort_values(["date", "set_id"]).iloc[-1]
     return float(row["load_kg"]), f"set:{row['session_id']}/{int(row['set_id'])}"
-
-
-def _fatigue_trigger(readiness: Mapping[str, Any] | None) -> str | None:
-    """MOD-FAT-001's readiness branch: sleep <= 2 or energy <= 2 (higher is better)."""
-    if not readiness:
-        return None
-    for field in FATIGUE_FIELDS:
-        value = readiness.get(field)
-        if value is not None and value <= FATIGUE_THRESHOLD:
-            return f"{field}={value}"
-    return None
 
 
 def _validate(
