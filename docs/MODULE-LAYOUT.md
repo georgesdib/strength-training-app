@@ -37,7 +37,7 @@ strength_coach/
   store/                             [x] SQLite, append-only
     migrations/0001_initial.sql      [x] schema + append-only triggers (single source of truth)
     migrations/0002_rubric_mark.sql  [x] human rubric marks, append-only (continuous calibration)
-    migrations/0003_athlete_state.sql [ ] §11: profile, constraint, suitability, metrics, symptoms
+    migrations/0003_athlete_state.sql [x] §11: profile, constraint, suitability, metrics, symptoms
     db.py                            [x] connection, numbered migrations, checksums
     repositories.py                  [x] append-only writers, explicit identity keys
     importer.py                      [x] clean export -> raw_row/clean_set/session/run
@@ -58,6 +58,7 @@ strength_coach/
     loads.py                         [x] e1RM -> rounded load, never up
     engine.py                        [x] build + validate an executable session
     fallback.py                      [x] deterministic fallback, load scaling
+    constraints.py                   [x] stored constraints veto, suitability warns
     templates.py engine.py fallback.py
   critique/                          [x] deterministic rubric
     facts.py                         [x] one session -> immutable, citable facts
@@ -69,7 +70,7 @@ strength_coach/
     harness.py                       [x] per-item comparison, agreement and MAE
     store.py                         [x] marks in the database: append-only, latest wins
     report.py                        [x] shared sheet and report renderers
-  cli.py                             [x] import / run / review / calibrate
+  cli.py                             [x] import / run / review / calibrate / state / block
   agents/                            [x] LLM interface + narrative
     client.py                        [x] protocol, NullLLM, OpenAI-compatible adapter
     config.py                        [x] file + environment settings, masked diagnostics

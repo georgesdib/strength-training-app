@@ -85,6 +85,46 @@ def clean_sets(
     return frame
 
 
+def athlete_profile(conn) -> dict | None:
+    """The current profile: the latest version by effective date."""
+    row = conn.execute(
+        "SELECT * FROM athlete_profile ORDER BY effective_from DESC, profile_id DESC LIMIT 1"
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def athlete_constraints(conn) -> list[dict]:
+    return [
+        dict(row)
+        for row in conn.execute(
+            "SELECT * FROM athlete_constraint ORDER BY constraint_id"
+        )
+    ]
+
+
+def exercise_suitability(conn) -> dict[str, dict]:
+    """The latest rating per exercise; earlier ratings stay in the table as history."""
+    rows = conn.execute(
+        """
+        SELECT s.* FROM exercise_suitability s
+          JOIN (SELECT exercise_id, MAX(rated_on) AS latest
+                  FROM exercise_suitability GROUP BY exercise_id) l
+            ON l.exercise_id = s.exercise_id AND l.latest = s.rated_on
+        """
+    ).fetchall()
+    return {str(row["exercise_id"]): dict(row) for row in rows}
+
+
+def symptom_entries(conn, *, since: str | None = None) -> list[dict]:
+    sql = "SELECT * FROM symptom_log"
+    params: list[object] = []
+    if since is not None:
+        sql += " WHERE logged_on >= ?"
+        params.append(since)
+    sql += " ORDER BY logged_on, log_id"
+    return [dict(row) for row in conn.execute(sql, params)]
+
+
 def latest_rubric_marks(conn) -> list[dict]:
     """The most recent mark per (session, item), newest session first.
 

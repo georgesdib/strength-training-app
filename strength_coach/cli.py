@@ -17,8 +17,12 @@ therefore continuous -- every review is another data point -- rather than a one-
 from __future__ import annotations
 
 import argparse
+import datetime
+import json
 import sys
 from pathlib import Path
+
+import yaml
 
 from strength_coach import __version__
 from strength_coach.agents import (
@@ -64,12 +68,25 @@ def main(argv: list[str] | None = None) -> int:
     calibrate = sub.add_parser("calibrate", help="report agreement between rubric and marks")
     calibrate.add_argument("--tolerance", type=float, default=None)
 
+    state = sub.add_parser("state", help="show or import athlete state (goals, limits, suitability)")
+    state.add_argument("--import", dest="import_file", default=None,
+                       help="YAML file of athlete state to record")
+    state.add_argument("--force", action="store_true",
+                       help="append a new version even if state is already recorded")
+
+    block = sub.add_parser("block", help="declare or reset the block start (week 1)")
+    block.add_argument("--date", required=True, help="YYYY-MM-DD")
+    block.add_argument("--force", action="store_true",
+                       help="reset even if the ramp is already running")
+
     args = parser.parse_args(argv)
     handlers = {
         "import": _cmd_import,
         "run": _cmd_run,
         "review": _cmd_review,
         "calibrate": _cmd_calibrate,
+        "state": _cmd_state,
+        "block": _cmd_block,
     }
     try:
         return handlers[args.command](args)
@@ -205,6 +222,170 @@ def _cmd_calibrate(args) -> int:
         return 0
     finally:
         store.close()
+
+
+def _cmd_state(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        if args.import_file:
+            if code := _import_state(conn, Path(args.import_file), force=args.force):
+                return code
+        _print_state(conn)
+        return 0
+    finally:
+        store.close()
+
+
+def _cmd_block(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        current = queries.athlete_profile(conn)
+        if current is None:
+            print("no athlete profile yet; run 'strength-coach state --import FILE' first")
+            return 2
+        if current["block_start_date"] and not args.force:
+            print(f"the block already started on {current['block_start_date']}; "
+                  "pass --force to reset (the ramp restarts at week 1)")
+            return 2
+        repositories.append_athlete_profile(
+            conn,
+            effective_from=datetime.date.today().isoformat(),
+            primary_goal=current["primary_goal"],
+            goal_rank=json.loads(current["goal_rank"] or "[]"),
+            focus_lifts=json.loads(current["focus_lifts"] or "[]"),
+            competition_date=current["competition_date"],
+            sessions_per_week_target=current["sessions_per_week_target"],
+            max_session_minutes=current["max_session_minutes"],
+            block_start_date=args.date,
+        )
+        print(f"block starts {args.date}: ramp at week 1 (DEC-RAMP-02)")
+        return 0
+    finally:
+        store.close()
+
+
+def _import_state(conn, path: Path, *, force: bool) -> int:
+    if not path.exists():
+        print(f"state file not found: {path}")
+        return 2
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        print(f"could not parse {path}: {exc}")
+        return 2
+
+    if queries.athlete_profile(conn) is not None and not force:
+        print("athlete state is already recorded; pass --force to append a new version")
+        return 2
+
+    profile = raw.get("profile") or {}
+    if not profile:
+        print("state file has no profile section")
+        return 2
+    repositories.append_athlete_profile(
+        conn,
+        effective_from=str(profile.get("effective_from") or datetime.date.today().isoformat()),
+        primary_goal=str(profile["primary_goal"]),
+        goal_rank=profile.get("goal_rank") or [],
+        focus_lifts=profile.get("focus_lifts") or [],
+        competition_date=profile.get("competition_date"),
+        sessions_per_week_target=profile.get("sessions_per_week_target"),
+        max_session_minutes=profile.get("max_session_minutes"),
+        block_start_date=profile.get("block_start_date"),
+    )
+
+    constraints = raw.get("constraints") or []
+    for entry in constraints:
+        repositories.append_athlete_constraint(
+            conn,
+            kind=str(entry["kind"]),
+            region=str(entry["region"]),
+            severity=str(entry["severity"]),
+            forbidden_patterns=entry.get("forbidden_patterns") or [],
+            forbidden_exercises=entry.get("forbidden_exercises") or [],
+            rom_limit=entry.get("rom_limit"),
+            since=entry.get("since"),
+            settled_on=entry.get("settled_on"),
+            evidence=entry.get("evidence"),
+            source=str(entry.get("source", "user")),
+        )
+
+    suitability = raw.get("suitability") or {}
+    rated_on = str(suitability.get("rated_on") or datetime.date.today().isoformat())
+    exercises = suitability.get("exercises") or {}
+    for exercise_id, rating in exercises.items():
+        repositories.append_exercise_suitability(
+            conn,
+            exercise_id=str(exercise_id),
+            rated_on=rated_on,
+            can_do=bool(rating.get("can_do", True)),
+            will_do=bool(rating.get("will_do", True)),
+            feels_bad=bool(rating.get("feels_bad", False)),
+            note=rating.get("note"),
+            source=str(rating.get("source", "user")),
+        )
+
+    for entry in raw.get("metrics") or []:
+        repositories.append_metric_definition(
+            conn,
+            metric_key=str(entry["metric_key"]),
+            label=str(entry["label"]),
+            higher_is_better=bool(entry["higher_is_better"]),
+            aggregation=str(entry["aggregation"]),
+            scale_min=entry.get("scale_min"),
+            scale_max=entry.get("scale_max"),
+            unit=entry.get("unit"),
+            source=entry.get("source"),
+            active_from=entry.get("active_from"),
+        )
+
+    for entry in raw.get("symptoms") or []:
+        repositories.append_symptom(
+            conn,
+            logged_on=str(entry["logged_on"]),
+            timing=str(entry["timing"]),
+            region=str(entry["region"]),
+            level=int(entry["level"]),
+            settled_within_48h=entry.get("settled_within_48h"),
+            note=entry.get("note"),
+        )
+
+    print(f"recorded: profile 1, constraints {len(constraints)}, "
+          f"suitability {len(exercises)}, metrics {len(raw.get('metrics') or [])}, "
+          f"symptoms {len(raw.get('symptoms') or [])}")
+    return 0
+
+
+def _print_state(conn) -> None:
+    profile = queries.athlete_profile(conn)
+    if profile is None:
+        print("no athlete state recorded; run 'strength-coach state --import FILE'")
+        return
+    print("athlete profile")
+    print(f"  primary goal        {profile['primary_goal']}")
+    print(f"  goal rank           {profile['goal_rank']}")
+    print(f"  focus lifts         {profile['focus_lifts']}")
+    print(f"  sessions/week       {profile['sessions_per_week_target']}")
+    print(f"  max session         {profile['max_session_minutes']} min")
+    print(f"  block start         {profile['block_start_date'] or 'not declared'}")
+
+    constraints = queries.athlete_constraints(conn)
+    print(f"\nconstraints ({len(constraints)})")
+    for rule in constraints:
+        print(f"  {rule['severity']:<12} {rule['kind']:<14} {rule['region']:<10} "
+              f"since {rule['since'] or '?'}  settled {rule['settled_on'] or '?'}")
+
+    ratings = queries.exercise_suitability(conn)
+    blocked = [e for e, r in ratings.items() if not r["can_do"]]
+    unwelcome = [e for e, r in ratings.items() if r["can_do"] and not r["will_do"]]
+    print(f"\nsuitability ({len(ratings)} exercises)")
+    print(f"  cannot do           {blocked or 'none'}")
+    print(f"  will not do         {unwelcome or 'none'}")
+
+    symptoms = queries.symptom_entries(conn)
+    print(f"\nsymptom entries ({len(symptoms)})")
 
 
 # --- helpers ---------------------------------------------------------------

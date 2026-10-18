@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **316 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **326 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **316 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 316 passed
+.venv/bin/python -m pytest            # expect: 326 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -38,12 +38,12 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 3 | Store (SQLite, append-only) | **done** | `store/migrations/0001_initial.sql`, `store/db.py`, `store/repositories.py`, `store/importer.py` |
 | 4 | Rules loader + policy engine | **done** | `rules/loader.py`, `registry.py`, `context.py`, `policy.py`; predicates for all five rules |
 | 5 | Prescription engine (Day B) + deterministic fallback | **done** | `prescribe/templates.py`, `config.py`, `loads.py`, `engine.py`, `fallback.py`; `config/thresholds.v1.yaml` |
-| 5.5 | Athlete state — DATA-MODEL §11 tables | **v0.1** | planned `store/migrations/0003_athlete_state.sql`; unblocks Days A/C and hard constraints |
+| 5.5 | Athlete state — DATA-MODEL §11 tables | **done** | `store/migrations/0003_athlete_state.sql`, `prescribe/constraints.py`, `cli state` / `cli block`; hard constraints veto |
 | 6 | Critique rubric + trace | **done** | `critique/facts.py`, `critique/rubric.py`, `trace/run.py`; 6 measurable items + 2 unmeasured |
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 3 hand-marked sessions, 42% item agreement |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; calibration loop closed |
-| v0.1 | Next version | **planned** | see §3: athlete state, Days A/C, symptom input, **LLM prescription proposals within the rules**, VBT wiring, larger labelled set |
+| v0.1 | Next version | **in progress** | 3.1 done; see §3 for Days A/C, symptom input, **LLM prescription proposals within the rules**, VBT wiring, larger labelled set |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
 ### What works end to end today
@@ -78,9 +78,9 @@ on the one remembered session, 60% of items agree within ±0.25 (`DEC-EVAL-03/04
 v0 is complete (see §2 and the user guide). This is the agenda for the next version, in
 dependency order. Nothing here blocks using v0 as it stands.
 
-### 3.1 Athlete state — the §11 tables  (prerequisite for 3.2-3.4)
+### 3.1 Athlete state — the §11 tables  (done)
 
-Scope: `athlete_profile`, `constraint`, `exercise_suitability`, `metric_definition`,
+Scope: `athlete_profile`, `athlete_constraint`, `exercise_suitability`, `metric_definition`,
 `symptom_log`, as numbered migration `0003_athlete_state.sql`, plus writers and a CLI to
 enter them.
 
@@ -88,9 +88,17 @@ Why it is first: it is the only way goals, injuries and preferences become *stat
 something an agent remembers. Until it exists, no hard constraint can veto anything and an
 empty table is indistinguishable from "no constraint".
 
-Acceptance: the five tables exist; a `constraint` row with `severity = hard_exclude` vetoes a
-proposed exercise deterministically (test); `exercise_suitability.will_do = 0` surfaces as a
-substitution, never a silent drop; an empty table yields `unknown`, never "nothing is wrong".
+Acceptance: the five tables exist; a `hard_exclude` constraint vetoes a proposed exercise
+deterministically (tested); `exercise_suitability.will_do = 0` is surfaced as a warning, never
+a silent drop and never a safety veto; unrecorded state reports `none_recorded` and a warning,
+never "nothing is wrong".
+
+Delivered: all five tables append-only; `strength-coach state [--import FILE]` and
+`strength-coach block --date`; `prescribe/constraints.py` applies constraints and suitability
+inside the engine's validation. `constraint` became `athlete_constraint` because the former is
+a reserved SQL keyword (`DEC-STATE-01`). The athlete's answers are imported from
+`private/athlete-state.yaml`: longevity goal, three resolved monitor-severity back tweaks, and
+14 exercises all rated can-do/will-do.
 
 Input: `private/docs/INFO-REQUESTS.md` §1-3, read back for confirmation before being written.
 **Status: the core answers are collected in `private/docs/ATHLETE-STATE.md`** (goals, back

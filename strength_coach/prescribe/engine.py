@@ -22,6 +22,7 @@ from typing import Any, Mapping
 import pandas as pd
 
 from strength_coach.prescribe import config as config_mod
+from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.prescribe import fallback, loads, templates
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
 from strength_coach.rules import RuleContext, evaluate, load_document, registry
@@ -126,7 +127,19 @@ def build_prescription(
             f"MOD-FAT-001: {trigger}; loads x{multiplier} (readiness {for_date})"
         )
 
+    # Stored athlete state is applied deterministically: a hard constraint vetoes, a
+    # suitability rating is surfaced. Unrecorded state is reported, never read as permission.
+    constraint_report = constraints_mod.evaluate(conn, [item.exercise_id for item in items])
+    if not constraint_report.recorded:
+        warnings.append(
+            "athlete state not recorded: constraints were not evaluated (they are unknown, "
+            "not absent)"
+        )
+    warnings.extend(constraint_report.warnings)
+
     issues = _validate(tuple(items), context, document, session_day, for_date)
+    for exercise_id, reason in constraint_report.vetoes:
+        issues.append(f"CONSTRAINT_VETO:{exercise_id}:{reason}")
 
     for verdict in policy_result.unknowns:
         warnings.append(
@@ -150,6 +163,7 @@ def build_prescription(
             "policy_outcome": policy_result.outcome,
             "e1rm_window_days": thresholds.e1rm_window_days,
             "fatigue_trigger": trigger,
+            "constraints": constraint_report.status,
         },
     )
 

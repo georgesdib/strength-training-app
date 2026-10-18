@@ -209,7 +209,9 @@ deterministically, no matter what the LLM says. They are empty until the user an
 | max_session_minutes | the real ceiling, used once duration becomes measurable |
 | block_start_date | week 1 of the current block **as the athlete declared it**; resetting means a new profile row, never an edit (DEC-RAMP-01) |
 
-### 11.2 `constraint` — injuries, contraindications, mobility limits
+### 11.2 `athlete_constraint` — injuries, contraindications, mobility limits
+
+Stored as `athlete_constraint`: `constraint` is a reserved SQL keyword (`DEC-STATE-01`).
 
 | column | notes |
 |---|---|

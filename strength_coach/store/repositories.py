@@ -506,6 +506,163 @@ def append_rule(
     )
 
 
+def append_athlete_profile(
+    conn: sqlite3.Connection,
+    *,
+    effective_from: str,
+    primary_goal: str,
+    goal_rank: Sequence[str],
+    focus_lifts: Sequence[str],
+    competition_date: str | None = None,
+    sessions_per_week_target: int | None = None,
+    max_session_minutes: int | None = None,
+    block_start_date: str | None = None,
+) -> None:
+    """Append a profile version. A reset or a goal change is a new row (DEC-RAMP-01)."""
+    conn.execute(
+        """
+        INSERT INTO athlete_profile (effective_from, primary_goal, goal_rank, focus_lifts,
+                                     competition_date, sessions_per_week_target,
+                                     max_session_minutes, block_start_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            effective_from,
+            primary_goal,
+            _json(list(goal_rank)),
+            _json(list(focus_lifts)),
+            competition_date,
+            sessions_per_week_target,
+            max_session_minutes,
+            block_start_date,
+        ),
+    )
+
+
+def append_athlete_constraint(
+    conn: sqlite3.Connection,
+    *,
+    kind: str,
+    region: str,
+    severity: str,
+    forbidden_patterns: Sequence[str] = (),
+    forbidden_exercises: Sequence[str] = (),
+    rom_limit: str | None = None,
+    since: str | None = None,
+    settled_on: str | None = None,
+    evidence: str | None = None,
+    source: str = "user",
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO athlete_constraint (kind, region, severity, forbidden_patterns,
+                                        forbidden_exercises, rom_limit, since, settled_on,
+                                        evidence, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            kind,
+            region,
+            severity,
+            _json(list(forbidden_patterns)),
+            _json(list(forbidden_exercises)),
+            rom_limit,
+            since,
+            settled_on,
+            evidence,
+            source,
+        ),
+    )
+
+
+def append_exercise_suitability(
+    conn: sqlite3.Connection,
+    *,
+    exercise_id: str,
+    rated_on: str,
+    can_do: bool,
+    will_do: bool,
+    feels_bad: bool,
+    note: str | None = None,
+    source: str = "user",
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO exercise_suitability (exercise_id, rated_on, can_do, will_do, feels_bad,
+                                          note, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            exercise_id,
+            rated_on,
+            1 if can_do else 0,
+            1 if will_do else 0,
+            1 if feels_bad else 0,
+            note,
+            source,
+        ),
+    )
+
+
+def append_metric_definition(
+    conn: sqlite3.Connection,
+    *,
+    metric_key: str,
+    label: str,
+    higher_is_better: bool,
+    aggregation: str,
+    scale_min: float | None = None,
+    scale_max: float | None = None,
+    unit: str | None = None,
+    source: str | None = None,
+    active_from: str | None = None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO metric_definition (metric_key, label, scale_min, scale_max,
+                                       higher_is_better, aggregation, unit, source, active_from)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            metric_key,
+            label,
+            scale_min,
+            scale_max,
+            1 if higher_is_better else 0,
+            aggregation,
+            unit,
+            source,
+            active_from,
+        ),
+    )
+
+
+def append_symptom(
+    conn: sqlite3.Connection,
+    *,
+    logged_on: str,
+    timing: str,
+    region: str,
+    level: int,
+    settled_within_48h: bool | None = None,
+    note: str | None = None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO symptom_log (logged_on, timing, region, level, settled_within_48h, note)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            logged_on,
+            timing,
+            region,
+            int(level),
+            None if settled_within_48h is None else (1 if settled_within_48h else 0),
+            note,
+        ),
+    )
+
+
 def append_prescription(
     conn: sqlite3.Connection,
     *,

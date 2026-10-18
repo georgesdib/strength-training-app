@@ -156,6 +156,37 @@ How to read it:
 Nothing is retuned automatically. A rubric change is a decision, made after reading the
 report, and it bumps `RUBRIC_VERSION` so older marks stay interpretable.
 
+### 4.4 `state` — record your goals, limits and suitability
+
+```bash
+strength-coach state --import private/athlete-state.yaml
+strength-coach state
+```
+
+This is the §11 athlete state: goals, constraints and per-exercise suitability. It exists so
+a hard constraint can veto a prescription deterministically, rather than living in a prompt.
+
+- **constraint** — `hard_exclude` vetoes the exercise; `caution` and `monitor` are recorded
+  but do not block. A resolved injury is `monitor`, not `hard_exclude`.
+- **suitability** — `can_do: false` is a hard block; `will_do: false` is a preference the
+  engine reports as a warning ("a substitution is needed"), never treats as a safety veto.
+- The tables are append-only: re-running the import with `--force` adds a new version, and
+  `state` always shows the latest.
+
+If no state is recorded, a prescription is still produced but says so: *"athlete state not
+recorded: constraints were not evaluated"*. Silence is not permission.
+
+### 4.5 `block` — declare or reset week 1
+
+```bash
+strength-coach block --date 2026-11-02          # declare week 1
+strength-coach block --date 2026-11-02 --force  # reset: the ramp restarts at week 1
+```
+
+The block anchor drives the erector ramp. It is **declared, never inferred** (`DEC-RAMP-01`):
+a gap in the log cannot start a block, because gaps are non-adherence. Resetting is a genuine
+restart — the ramp goes back to week 1 rather than continuing at week 8 (`DEC-RAMP-02`).
+
 ---
 
 ## 5. Reading the output
@@ -177,6 +208,11 @@ up would push the set above the target RIR, so it never happens.
 
 If a load is `-` and the output says `NO_LOAD`, there was no usable e1RM in the window. The
 prescription is then **not executable**, and it says so instead of inventing a number.
+
+`CONSTRAINT_VETO:<exercise>` means a stored hard constraint blocks that exercise; the
+prescription is not executable until the constraint or the template changes. A warning that
+an exercise "you will not do" appears is a **preference**, not a veto — it asks for a
+substitution rather than blocking the session.
 
 ### The critique
 
