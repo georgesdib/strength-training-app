@@ -39,8 +39,10 @@ What exists today is:
 - `strength_coach/prescribe/` — deterministic Day B engine, load solver, fallback. `config/thresholds.v1.yaml` holds the increments and e1RM window.
 - `strength_coach/critique/` — deterministic rubric over a stored session; unmeasurable metrics are stored `measurable = 0`.
 - `strength_coach/trace/` — run lifecycle around `run` / `run_event`.
-- `strength_coach/eval/` — backtest harness and labelled-set comparison; marks live in the
-  git-ignored `private/eval/`.
+- `strength_coach/eval/` — backtest harness, labelled-set comparison, and the database-backed
+  marks that make calibration continuous (`rubric_mark`, append-only).
+- `strength_coach/cli.py` — `import`, `run`, `review`, `calibrate`. `review` is the routine
+  that keeps calibration current.
 - `strength_coach/agents/` — LLM interface, config and narrative. `NullLLM` is the default; the
   model may explain but never compute. Keys live in the git-ignored `config/llm.local.toml`
   or the environment (`config/llm.example.toml` is the committed template).

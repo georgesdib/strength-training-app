@@ -17,7 +17,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from strength_coach.eval import LabelError, backtest, load_labels  # noqa: E402
+from strength_coach.eval import LabelError, backtest, load_labels, load_marks  # noqa: E402
+from strength_coach.eval.report import format_report  # noqa: E402
 from strength_coach.prescribe import build_prescription  # noqa: E402
 from strength_coach.store import db  # noqa: E402
 from strength_coach.utils import paths  # noqa: E402
@@ -25,7 +26,8 @@ from strength_coach.utils import paths  # noqa: E402
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--labels", default=str(Path("private") / "eval" / "labelled.yaml"))
+    parser.add_argument("--labels", default=None,
+                        help="read marks from a YAML file instead of the database")
     parser.add_argument("--tolerance", type=float, default=None,
                         help="absolute difference treated as agreement (default: from labels)")
     parser.add_argument("--prescriptions", action="store_true",
@@ -33,57 +35,32 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--db", default=None)
     args = parser.parse_args(argv)
 
-    try:
-        labels = load_labels(args.labels)
-    except LabelError as exc:
-        print(f"labels: {exc}")
-        return 2
+    if args.labels is not None:
+        try:
+            labels = load_labels(args.labels)
+        except LabelError as exc:
+            print(f"labels: {exc}")
+            return 2
+        store = db.Store(args.db)
+    else:
+        if args.db is None and not paths.data_dir("coach.db").exists():
+            print("no database yet; run tools/import_export.py first")
+            return 2
+        store = db.Store(args.db)
+        labels = load_marks(store.connection)
+        if not labels.sessions:
+            print("no marks yet; review a session first (strength-coach review --session DATE)")
+            store.close()
+            return 2
 
-    if args.db is None and not paths.data_dir("coach.db").exists():
-        print("no database yet; run an import first")
-        return 2
-
-    store = db.Store(args.db)
     try:
         report = backtest(store.connection, labels, tolerance=args.tolerance)
-        _print_report(report)
+        print(format_report(report))
         if args.prescriptions:
             _print_prescriptions(store.connection, labels)
     finally:
         store.close()
     return 0
-
-
-def _print_report(report) -> None:
-    print(f"tolerance: +/-{report.tolerance:g}")
-    print("confidence: only 'high' marks count toward agreement; reconstructed marks are shown")
-    print()
-    header = (f"{'session':<14}{'confidence':<12}{'compared':>10}"
-              f"{'agreement':>11}{'mae':>8}  disagreements")
-    print(header)
-    print("-" * (len(header) + 20))
-    for session in report.sessions:
-        compared = len(session.comparable_items)
-        agreement = "-" if session.agreement_rate is None else f"{session.agreement_rate:.0%}"
-        mae = "-" if session.mean_abs_error is None else f"{session.mean_abs_error:.2f}"
-        print(f"{session.session_id:<14}{session.confidence:<12}{compared:>10}"
-              f"{agreement:>11}{mae:>8}  {', '.join(session.disagreements) or '-'}")
-
-    overall = report.agreement_rate
-    print()
-    print(f"headline (high confidence only): {len(report.comparable_items)} comparable items, "
-          f"agreement {'-' if overall is None else f'{overall:.0%}'}, "
-          f"mean absolute error {'-' if report.mean_abs_error is None else f'{report.mean_abs_error:.2f}'}")
-    excluded = report.unreliable_sessions
-    if excluded:
-        print(f"excluded as reconstructed/unknown: {', '.join(s.session_id for s in excluded)}")
-
-    print("\nper item (high confidence only)")
-    print(f"  {'item':<24}{'n':>4}{'agreement':>11}{'mae':>8}")
-    for key, stats in report.per_item.items():
-        agreement = "-" if stats["agreement"] is None else f"{stats['agreement']:.0%}"
-        mae = "-" if stats["mae"] is None else f"{stats['mae']:.2f}"
-        print(f"  {key:<24}{stats['n']:>4}{agreement:>11}{mae:>8}")
 
 
 def _print_prescriptions(conn, labels) -> None:

@@ -36,7 +36,8 @@ strength_coach/
     readers.py readiness.py           [ ] readiness merge rule (DQ-RD-01)
   store/                             [x] SQLite, append-only
     migrations/0001_initial.sql      [x] schema + append-only triggers (single source of truth)
-    migrations/0002_athlete_state.sql [ ] §11: profile, constraint, suitability, metrics, symptoms
+    migrations/0002_rubric_mark.sql  [x] human rubric marks, append-only (continuous calibration)
+    migrations/0003_athlete_state.sql [ ] §11: profile, constraint, suitability, metrics, symptoms
     db.py                            [x] connection, numbered migrations, checksums
     repositories.py                  [x] append-only writers, explicit identity keys
     importer.py                      [x] clean export -> raw_row/clean_set/session/run
@@ -63,9 +64,12 @@ strength_coach/
     rubric.py                        [x] 6 measured items + 2 unmeasured, persistence
   trace/                             [x] run lifecycle
     run.py                           [x] start/event/finish; closes failed runs as error
-  eval/                              [x] backtest harness
-    labels.py                        [x] labelled-set format, strict validation
+  eval/                              [x] backtest harness + calibration loop
+    labels.py                        [x] labelled-set format, strict validation, confidence
     harness.py                       [x] per-item comparison, agreement and MAE
+    store.py                         [x] marks in the database: append-only, latest wins
+    report.py                        [x] shared sheet and report renderers
+  cli.py                             [x] import / run / review / calibrate
   agents/                            [x] LLM interface + narrative
     client.py                        [x] protocol, NullLLM, OpenAI-compatible adapter
     config.py                        [x] file + environment settings, masked diagnostics

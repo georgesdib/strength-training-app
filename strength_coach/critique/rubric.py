@@ -24,6 +24,10 @@ from strength_coach.rules import load_document
 
 # Weights sum to 1.0 across the measurable items. Duration and velocity loss carry 0.0 because
 # they cannot contribute a number today.
+# Bumped whenever an item's definition or weighting changes. Marks record the version they
+# were made against, so a rubric change does not silently invalidate the calibration history.
+RUBRIC_VERSION = "1.0.0"
+
 RUBRIC_WEIGHTS: Mapping[str, float] = {
     "RIR_ADHERENCE": 0.30,
     "PROGRESSION_ADHERENCE": 0.20,

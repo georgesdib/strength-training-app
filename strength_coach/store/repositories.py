@@ -506,6 +506,92 @@ def append_rule(
     )
 
 
+def append_prescription(
+    conn: sqlite3.Connection,
+    *,
+    prescription_id: str,
+    run_id: str,
+    for_date: str,
+    session_day: str,
+    fallback_level: str,
+    rule_document_version: str,
+    calibration_ids: Sequence[str],
+    approved_by: str,
+    items: Sequence[Mapping[str, Any]],
+    supersedes_id: str | None = None,
+) -> str:
+    """Store a prescription and its items in one transaction-like sequence."""
+    conn.execute(
+        """
+        INSERT INTO prescription (prescription_id, run_id, for_date, session_day,
+                                  fallback_level, rule_document_version, calibration_ids,
+                                  approved_by, supersedes_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            prescription_id,
+            run_id,
+            for_date,
+            session_day,
+            fallback_level,
+            rule_document_version,
+            _json(list(calibration_ids)),
+            approved_by,
+            supersedes_id,
+        ),
+    )
+    for item in items:
+        conn.execute(
+            """
+            INSERT INTO prescription_item (
+                prescription_id, order_index, exercise_id, sets, reps_low, reps_high,
+                load_kg, load_basis, rounding_increment, rir_target, velocity_target,
+                vbt_basis, rest_s, time_cap_s, essential, rationale_refs, substitution_for
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                prescription_id,
+                int(item["order_index"]),
+                str(item["exercise_id"]),
+                int(item["sets"]),
+                item["reps_low"],
+                item["reps_high"],
+                item["load_kg"],
+                str(item["load_basis"]),
+                item["rounding_increment"],
+                item["rir_target"],
+                item.get("velocity_target"),
+                item.get("vbt_basis"),
+                item.get("rest_s"),
+                item.get("time_cap_s"),
+                1 if item["essential"] else 0,
+                _json(list(item.get("rationale_refs") or [])),
+                item.get("substitution_for"),
+            ),
+        )
+    return prescription_id
+
+
+def append_rubric_mark(
+    conn: sqlite3.Connection,
+    *,
+    session_id: str,
+    item: str,
+    score: float | None,
+    confidence: str,
+    rubric_version: str,
+    note: str | None = None,
+) -> None:
+    """Record one human mark. Corrections append; they never edit (DEC-EVAL-04)."""
+    conn.execute(
+        """
+        INSERT INTO rubric_mark (session_id, item, score, confidence, rubric_version, note)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (session_id, item, score, confidence, rubric_version, note),
+    )
+
+
 def append_critique(
     conn: sqlite3.Connection,
     *,

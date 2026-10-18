@@ -38,7 +38,7 @@ The CLI that ties these together is phase 9; see `docs/V0-SCOPE.md`.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest            # 302 tests
+.venv/bin/python -m pytest            # 311 tests
 .venv/bin/python tools/profile_data.py    # profile your own export
 .venv/bin/python tools/baseline.py        # strength baseline, latest date in the log
 .venv/bin/python tools/llm_check.py       # show the LLM configuration (see below)
@@ -49,6 +49,25 @@ python3 -m venv .venv
 
 The tools read `data/raw/training_log.csv` and `data/raw/readiness.csv`. See
 [`data/README.md`](data/README.md) for the expected schema.
+
+## Using it
+
+```bash
+python -m strength_coach.cli import                    # data/raw -> data/coach.db
+python -m strength_coach.cli run --date 2026-10-20     # critique the last session, prescribe
+python -m strength_coach.cli review --session 2026-10-15  # mark it; calibration updates
+python -m strength_coach.cli calibrate                 # agreement report so far
+```
+
+`run` is the v0 slice: it critiques the most recent stored session and prescribes the
+requested date, then prints every item with the rule id or stored set that justifies its
+load. Re-running the same date writes nothing unless you pass `--force`.
+
+`review` is the calibration loop. It shows the session beside the rubric's scores, asks for
+your mark on each item, stores them append-only, and immediately prints running agreement.
+Do it after any session you want to judge: the report gets sharper with every review, and an
+item is flagged for revisiting only once it has five marks and still disagrees by more than
+0.25. Nothing is retuned automatically — a rubric change is a decision, not a side effect.
 
 ## Privacy
 

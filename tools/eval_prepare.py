@@ -18,7 +18,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from strength_coach.critique import build_facts, score_session  # noqa: E402
-from strength_coach.eval.labels import ITEM_KEYS, LabelError, write_template  # noqa: E402
+from strength_coach.eval.labels import LabelError, write_template  # noqa: E402
+from strength_coach.eval.report import format_session_sheet, item_guide_lines  # noqa: E402
 from strength_coach.store import db  # noqa: E402
 from strength_coach.utils import paths  # noqa: E402
 
@@ -39,7 +40,11 @@ def main(argv: list[str] | None = None) -> int:
     store = db.Store(args.db)
     try:
         for session_id in args.session:
-            _print_sheet(store.connection, session_id)
+            facts = build_facts(store.connection, session_id)
+            critique = score_session(store.connection, session_id, facts=facts)
+            print("\n" + format_session_sheet(facts, critique))
+        for line in item_guide_lines():
+            print(line)
         try:
             path = write_template(args.out, args.session, overwrite=args.force)
         except LabelError as exc:

@@ -11,6 +11,8 @@ from strength_coach.eval.harness import (
     backtest,
     compare,
 )
+from strength_coach.eval.report import format_report, format_session_sheet, item_guide_lines
+from strength_coach.eval.store import load_marks, record_marks
 from strength_coach.eval.labels import (
     CONFIDENCE_LEVELS,
     ITEM_GUIDE,
@@ -36,7 +38,12 @@ __all__ = [
     "SessionComparison",
     "backtest",
     "compare",
+    "format_report",
+    "format_session_sheet",
+    "item_guide_lines",
     "load_labels",
+    "load_marks",
+    "record_marks",
     "render_template",
     "template",
     "write_template",

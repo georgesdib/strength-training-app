@@ -226,6 +226,42 @@ SESSION_ROWS = [
 ]
 
 
+def test_marks_append_and_the_latest_wins():
+    import sqlite3
+
+    from strength_coach.eval import load_marks, record_marks
+
+    with store_with(SESSION_ROWS) as store:
+        conn = store.connection
+        record_marks(conn, "2024-01-01", {"RIR_ADHERENCE": 0.5},
+                     confidence="high", rubric_version="1.0.0")
+        record_marks(conn, "2024-01-01", {"RIR_ADHERENCE": 0.9, "REDUNDANCY": None},
+                     confidence="high", rubric_version="1.0.0")
+
+        labels = load_marks(conn)
+        session = labels.sessions["2024-01-01"]
+        assert session.scores["RIR_ADHERENCE"] == 0.9      # correction wins
+        assert "REDUNDANCY" not in session.scores          # a null writes nothing
+
+        rows = conn.execute("SELECT COUNT(*) c FROM rubric_mark").fetchone()["c"]
+        assert rows == 2                                   # history is kept
+
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            conn.execute("UPDATE rubric_mark SET score = 0")
+
+
+def test_marks_record_the_rubric_version():
+    from strength_coach.critique.rubric import RUBRIC_VERSION
+
+    with store_with(SESSION_ROWS) as store:
+        from strength_coach.eval import record_marks
+
+        record_marks(store.connection, "2024-01-01", {"RIR_ADHERENCE": 0.5},
+                     confidence="high", rubric_version=RUBRIC_VERSION)
+        row = store.connection.execute("SELECT rubric_version FROM rubric_mark").fetchone()
+        assert row["rubric_version"] == RUBRIC_VERSION
+
+
 def test_backtest_against_a_perfect_label_agrees_completely():
     from strength_coach.critique import score_session
 

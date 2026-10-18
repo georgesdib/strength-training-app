@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · version `0.0.1-dev` · **302 tests passing**
+Last updated: 2026-10-17 · version `0.0.1-dev` · **311 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · version `0.0.1-dev` · **302 tests passing**
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 302 passed
+.venv/bin/python -m pytest            # expect: 311 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -37,11 +37,11 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 3 | Store (SQLite, append-only) | **done** | `store/migrations/0001_initial.sql`, `store/db.py`, `store/repositories.py`, `store/importer.py` |
 | 4 | Rules loader + policy engine | **done** | `rules/loader.py`, `registry.py`, `context.py`, `policy.py`; predicates for all five rules |
 | 5 | Prescription engine (Day B) + deterministic fallback | **done** | `prescribe/templates.py`, `config.py`, `loads.py`, `engine.py`, `fallback.py`; `config/thresholds.v1.yaml` |
-| 5.5 | Athlete state — DATA-MODEL §11 tables | **not started** | planned `store/migrations/0002_athlete_state.sql`, repository writers; unblocks Days A/C and hard constraints |
+| 5.5 | Athlete state — DATA-MODEL §11 tables | **not started** | planned `store/migrations/0003_athlete_state.sql`, repository writers; unblocks Days A/C and hard constraints |
 | 6 | Critique rubric + trace | **done** | `critique/facts.py`, `critique/rubric.py`, `trace/run.py`; 6 measurable items + 2 unmeasured |
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 3 hand-marked sessions, 42% item agreement |
-| 9 | CLI (`coach run --date`) | **not started** | planned `cli.py` |
+| 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; calibration loop closed |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
 ### What works end to end today
@@ -64,11 +64,12 @@ loss). The critique is persisted append-only inside a `run` trace. An **optional
 either artifact: the model receives the facts as JSON, may not compute, and its output is
 recorded as a `run_event` rather than written into a prescription or a score. With no model
 configured (`NullLLM`) the run is structurally identical and loses only the prose. There is
-**no CLI yet**. The backtest harness replays a session through the rubric and compares it
-with a hand-marked score, per item and per session. Three sessions are marked, but two are
-reconstructed from memory and excluded; on the one remembered session, 60% of items agree
-within ±0.25. The disagreements are recorded rather than tuned away (`DEC-EVAL-03/04`, report
-in git-ignored `private/eval/`).
+**the full v0 slice runs**: `strength-coach run --date` imports if needed, critiques the
+last session, prescribes the date, persists both inside a run trace, and prints a rationale
+that cites a rule or a stored fact. `review` is the calibration loop: it shows the session
+beside the rubric's scores, takes marks, stores them append-only, and reports running
+agreement immediately. Two of the three marks are reconstructed from memory and excluded;
+on the one remembered session, 60% of items agree within ±0.25 (`DEC-EVAL-03/04`).
 
 ## 3. Next actions
 
@@ -76,7 +77,12 @@ The main line is **9**. Phase 5.5 is scheduled but not on that line: it must lan
 Days A/C and before any hard constraint can veto, and it can start as soon as the answers are
 available.
 
-1. **Phase 5.5 — athlete state tables (§11).** Not a detour: it is the prerequisite for Days
+1. **Calibration, continuously.** There is nothing to build here: run
+   `strength-coach review --session DATE` after each session you want to judge. Every review
+   appends marks and the report sharpens; the per-item advice appears once an item has five
+   marks and still disagrees by more than 0.25. Review the report monthly and only then decide
+   whether an item's definition or weight is wrong.
+2. **Phase 5.5 — athlete state tables (§11).** Not a detour: it is the prerequisite for Days
    A/C and for any hard constraint, and it can run in parallel with phases 7-9.
    *Why now and not earlier:* nothing can be stored until the tables exist, so collecting
    the answers before then would mean holding personal data with nowhere to put it.
@@ -88,9 +94,8 @@ available.
    an empty table yields `unknown`, never "nothing is wrong".
    *Input:* answers come from `private/docs/INFO-REQUESTS.md` §1-3 and are read back for
    confirmation before being written.
-2. **Phase 9 — CLI (`coach run --date`).** The end-to-end slice in `docs/V0-SCOPE.md` §1:
-   ingest, prescribe, critique, persist, and print a rationale where every number cites a
-   rule or a data point.
+3. **After v0.** Days A/C (blocked on Q3/H1), the symptom input (Q4), and the backtest on a
+   larger labelled set.
 
 **Known follow-up from phase 5:** `PRG-DP-001` stays `unknown` even though the engine supplies
 rep ranges, because its scope includes `back_extension`, which Day B never prescribes and so

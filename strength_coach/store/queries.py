@@ -85,6 +85,28 @@ def clean_sets(
     return frame
 
 
+def latest_rubric_marks(conn) -> list[dict]:
+    """The most recent mark per (session, item), newest session first.
+
+    `rubric_mark` is append-only, so the latest row wins; an earlier mark stays in the table
+    as history but no longer participates in calibration.
+    """
+    rows = conn.execute(
+        """
+        SELECT m.session_id, m.item, m.score, m.confidence, m.rubric_version, m.marked_at
+          FROM rubric_mark m
+          JOIN (
+                SELECT session_id, item, MAX(mark_id) AS keep_id
+                  FROM rubric_mark
+              GROUP BY session_id, item
+               ) latest
+            ON latest.keep_id = m.mark_id
+      ORDER BY m.session_id DESC, m.item
+        """
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def readiness_day(conn, on_date: str) -> dict | None:
     """One merged readiness row, or None when the date has no readiness data."""
     row = conn.execute(
