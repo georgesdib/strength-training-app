@@ -57,7 +57,7 @@ def test_sets_outside_the_effort_window_are_excluded():
 def trap_bar_days(rir: str):
     """Enough sets across enough sessions to clear the lift-scope thresholds."""
     return [
-        {"Date": day, "Exercise": "Competition Deadlift", "Weight_Used": "150",
+        {"Date": day, "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
          "Reps_Done": "3", "RIR": rir, "Avg_velocity": "0.400000"}
         for day in ("2024-01-01", "2024-01-08", "2024-01-15", "2024-01-22")
         for _ in range(6)

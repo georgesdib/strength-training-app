@@ -40,7 +40,7 @@ def store_with(rows):
 def session_rows(date: str, *, deadlift_rir: str = "2", with_erector: bool = False,
                  bench: bool = True, exercises=None) -> list[dict]:
     rows = [
-        {"Date": date, "Exercise": "Competition Deadlift", "Weight_Used": "150",
+        {"Date": date, "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
          "RIR": deadlift_rir, "Reps_Done": "3"},
         {"Date": date, "Exercise": "Lateral Raise", "Weight_Used": "12.5", "RIR": "2",
          "Reps_Done": "12"},
@@ -75,7 +75,7 @@ def test_grinding_sets_lower_the_rir_score():
 
 def test_rir_item_is_unmeasurable_with_only_warmups():
     rows = [
-        {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "150",
+        {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
          "RIR": "6", "Reps_Done": "5"},
     ]
     with store_with(rows) as store:

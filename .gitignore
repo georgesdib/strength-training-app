@@ -26,6 +26,10 @@ data/raw/*
 data/export/
 private/
 
+# Tests that read the real export and assert values derived from it must stay private.
+# They are ignored here and untracked with `git rm --cached`.
+tests/*_integration.py
+
 # Anything that looks like a personal export
 *backupDB*.csv
 *backupReadiness*.csv

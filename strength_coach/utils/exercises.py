@@ -125,8 +125,13 @@ class Taxonomy:
         )
 
     # ------------------------------------------------------------------
-    def resolve(self, name: str | None) -> ResolvedExercise | None:
-        """Resolve one raw name. Returns None if genuinely unknown — never guesses."""
+    def resolve(self, name: str | None, on_date: str | None = None) -> ResolvedExercise | None:
+        """Resolve one raw name. Returns None if genuinely unknown — never guesses.
+
+        `on_date` matters for identities that changed over time. "Competition Deadlift" was a
+        sumo pull before the athlete's switch and a trap-bar pull afterwards (DEC-TRAPBAR-02),
+        so the same name can legitimately resolve to two different lifts.
+        """
         if name is None:
             return None
         text = str(name).strip()
@@ -137,6 +142,12 @@ class Taxonomy:
         alias = self.aliases.get(text)
         if alias is not None:
             canonical = alias["canonical"]
+            # Date-scoped identities: the historical lift applies only before the switch.
+            switch = alias.get("switch_date")
+            historical = alias.get("historical_canonical")
+            if historical and switch and on_date is not None:
+                if str(on_date)[:10] < str(switch)[:10]:
+                    canonical = str(historical)
             entity = self.entities.get(canonical)
             props = dict(entity) if entity else {}
             props.update({k: v for k, v in alias.items() if k in _PROP_KEYS})
@@ -242,8 +253,8 @@ def taxonomy() -> Taxonomy:
     return Taxonomy.load()
 
 
-def canonical_id(name: str | None) -> str | None:
-    resolved = taxonomy().resolve(name)
+def canonical_id(name: str | None, on_date: str | None = None) -> str | None:
+    resolved = taxonomy().resolve(name, on_date)
     return resolved.id if resolved else None
 
 

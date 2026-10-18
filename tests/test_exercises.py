@@ -3,7 +3,8 @@
 These tests pin the two recorded user decisions, because both are easy to
 "helpfully" undo later:
 
-* DEC-TRAPBAR-01 — the app logs the trap-bar pull as "Competition Deadlift".
+* DEC-TRAPBAR-02 — "Competition Deadlift" was a sumo pull before the 2026-08 switch and is
+  the trap bar afterwards; identity is date-scoped, not a blanket alias.
 * DEC-BACKEXT-02 — back extension == hyperextension, and historical rows count as
   equivalence must not be projected backwards onto historical rows.
 
@@ -21,16 +22,32 @@ def taxonomy():
 
 
 # --- recorded decisions ----------------------------------------------------
-def test_competition_deadlift_is_trap_bar(taxonomy):
-    resolved = taxonomy.resolve("Competition Deadlift")
-    assert resolved.id == "trap_bar_deadlift"
-    assert resolved.decision == "DEC-TRAPBAR-01"
-    assert resolved.applies_to_history is True
+def test_competition_deadlift_is_date_scoped(taxonomy):
+    historical = taxonomy.resolve("Competition Deadlift", "2024-01-01")
+    assert historical.id == "sumo_deadlift"
+    assert historical.decision == "DEC-TRAPBAR-02"
+
+    current = taxonomy.resolve("Competition Deadlift", "2026-09-01")
+    assert current.id == "trap_bar_deadlift"
+    assert current.applies_to_history is True
+
+
+def test_cleaning_resolves_the_same_name_by_row_date():
+    from strength_coach.ingest import clean as clean_mod
+    from conftest import make_readiness, make_training
+
+    rows = [
+        {"Date": "2024-01-01", "Exercise": "Competition Deadlift"},
+        {"Date": "2026-09-01", "Exercise": "Competition Deadlift"},
+    ]
+    result = clean_mod.build_clean_sets(make_training(rows), make_readiness([{}]))
+    ids = list(result.sets.sort_values("date")["exercise_id"])
+    assert ids == ["sumo_deadlift", "trap_bar_deadlift"]
 
 
 def test_trap_bar_is_hinge_direct_erector_false(taxonomy):
     """Hinge loading is indirect erector work: it never satisfies the direct dose."""
-    resolved = taxonomy.resolve("Competition Deadlift")
+    resolved = taxonomy.resolve("Trap Bar Deadlift")
     assert resolved.pattern == "hinge"
     assert resolved.is_high_fatigue_spinal is True
     assert resolved.is_direct_erector is False
@@ -134,20 +151,3 @@ def test_unmatched_reports_only_misses(taxonomy):
 
 def test_whitespace_and_tabs_are_stripped(taxonomy):
     assert taxonomy.resolve("  Bird dog \t") is not None
-
-
-# --- integration against the real log --------------------------------------
-@pytest.mark.integration
-def test_every_real_exercise_name_resolves(taxonomy, training_frame):
-    """All 147 distinct names in the log must resolve; an unresolved name means
-    silently dropped volume in every downstream metric."""
-    names = training_frame["Exercise"].unique()
-    assert taxonomy.unmatched(names) == []
-
-
-@pytest.mark.integration
-def test_classify_adds_traceable_columns(taxonomy, training_frame):
-    out = taxonomy.classify(training_frame.head(50))
-    for column in ("exercise_id", "exercise_matched_by", "exercise_decision"):
-        assert column in out.columns
-    assert out["exercise_id"].notna().all()

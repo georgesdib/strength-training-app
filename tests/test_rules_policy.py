@@ -54,7 +54,7 @@ def bench(rir: str, date: str = "2024-01-01", reps: str = "5", weight: str = "80
 
 def trap_bar(date: str, sets: int = 3) -> list[dict]:
     return [
-        {"Date": date, "Exercise": "Competition Deadlift", "Weight_Used": "150", "RIR": "2"}
+        {"Date": date, "Exercise": "Trap Bar Deadlift", "Weight_Used": "150", "RIR": "2"}
         for _ in range(sets)
     ]
 

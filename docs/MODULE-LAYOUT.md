@@ -131,6 +131,10 @@ progression and spinal functions.** They cannot disagree about what the rule say
 
 ## 3. Test strategy
 
+Tests that read `data/raw` are git-ignored (`tests/*_integration.py`): they assert counts and
+values derived from the real export, so committing them would leak personal data. They run
+locally when the export is present; the public suite is synthetic-only.
+
 Five layers, cheapest first.
 
 1. **Unit tests on pure functions** — every function in `utils` and `domain`. Table-driven,

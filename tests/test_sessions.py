@@ -32,7 +32,7 @@ def bench_sets(n: int, day: str = "2024-01-01") -> list[dict]:
 
 # --- positive identification ----------------------------------------------
 def test_hinge_day_is_b():
-    rows = [{"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "150",
+    rows = [{"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
              "RIR": "3"}]
     [session] = build(rows)
     assert session.day == "B"

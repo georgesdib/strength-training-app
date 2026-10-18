@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **411 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **397 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **411 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 411 passed
+.venv/bin/python -m pytest            # expect: 397 passed (plus 15 private integration tests locally)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```

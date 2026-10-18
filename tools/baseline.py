@@ -26,6 +26,7 @@ TRACKED = [
     "bench_press_narrow",
     "bench_press_pause",
     "trap_bar_deadlift",
+    "sumo_deadlift",
     "conventional_deadlift",
     "back_extension",
     "hyperextension",

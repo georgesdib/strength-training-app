@@ -426,7 +426,7 @@ def test_rir_1_is_accepted_by_the_validator():
 # --- rep schemes -----------------------------------------------------------
 
 DAY_B = [
-    {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "180",
+    {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "180",
      "RIR": "2", "Reps_Done": "3"},
     {"Date": "2024-01-01", "Exercise": "Competition Bench Press", "Weight_Used": "80",
      "RIR": "2", "Reps_Done": "5"},

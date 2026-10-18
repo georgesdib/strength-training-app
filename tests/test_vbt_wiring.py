@@ -124,7 +124,7 @@ def test_hex_bar_velocity_targets_are_withheld():
     for day in ("2024-01-04", "2024-01-11", "2024-01-18"):
         for index in range(4):
             rows.append({
-                "Date": day, "Exercise": "Competition Deadlift", "Weight_Used": "180",
+                "Date": day, "Exercise": "Trap Bar Deadlift", "Weight_Used": "180",
                 "RIR": "2", "Reps_Done": "3",
                 "Avg_velocity": f"{0.31 + 0.01 * index:.6f}",
             })

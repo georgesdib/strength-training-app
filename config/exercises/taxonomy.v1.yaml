@@ -25,6 +25,15 @@ decisions:
       calibrate loads and velocity from. Q1 is closed. Caveat retained as
       ASSUMPTION-01: the physical implement is inferred from the log name, not
       verified.
+  - id: DEC-TRAPBAR-02
+    decision: >
+      "Competition Deadlift" is date-scoped: sumo deadlift before 2026-08-17 (approximate,
+      ASSUMPTION-05), trap-bar deadlift from then on and going forward.
+    consequence: >
+      Historical rows resolve by their own date; the trap bar's strength history starts at the
+      switch, and sumo history is its own entity. DEC-TRAPBAR-01's blanket equivalence is
+      withdrawn. The switch date is config and may change again, especially if manual logging
+      makes the implement explicit.
   - id: DEC-BACKEXT-01
     decision: >
       Back extension is the same movement as "Hyperextensions" going forward.
@@ -123,8 +132,9 @@ entities:
 
   trap_bar_deadlift:
     display: "Trap-Bar Deadlift"
-    # DEC-TRAPBAR-01: the app logs it under this name.
-    log_names: ["Competition Deadlift"]
+    # DEC-TRAPBAR-02: "Competition Deadlift" only means the trap bar from the switch date
+    # forward. The old log name is handled by the date-scoped alias below, not here.
+    log_names: ["Trap Bar Deadlift"]
     pattern: hinge
     main_lift: true
     primary_compound: true
@@ -140,7 +150,25 @@ entities:
     # sets. ASSUMPTION-02 — calibrate against symptom history.
     spinal_cost: 2
     vbt_family: hinge
-    default_rir_target: [3, 4]      # constitution: trap-bar is RIR 3-4
+    default_rir_target: [2, 3]      # target band; the allowed window is 1-4 (DEC-RIR-02)
+    loadable: true
+    time_based: false
+
+  sumo_deadlift:
+    display: "Sumo Deadlift (historical)"
+    # What "Competition Deadlift" actually was before the switch (DEC-TRAPBAR-02). It keeps
+    # its own identity so its history cannot be read as trap-bar history.
+    log_names: []
+    pattern: hinge
+    main_lift: false                # not in the current day templates
+    primary_compound: true          # it was a competition lift, so effort rules still apply
+    day_roles: []
+    primary_muscles: [glutes, hamstrings, erectors, upper_back]
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+    spinal_cost: 2
+    vbt_family: hinge
     loadable: true
     time_based: false
 
@@ -328,9 +356,14 @@ entities:
 alias_overrides:
   - match: "Competition Deadlift"
     canonical: trap_bar_deadlift
+    historical_canonical: sumo_deadlift
+    switch_date: "2026-08-17"       # ASSUMPTION-05: "about two months ago", athlete's words
     applies_to_history: true
-    decision: DEC-TRAPBAR-01
-    reason: "Athlete decision — this app's \"Competition Deadlift\" is the trap-bar pull."
+    decision: DEC-TRAPBAR-02
+    reason: >
+      "Competition Deadlift" was a sumo pull until the athlete switched to the trap bar around
+      2026-08-17, and means the trap bar from then on. Date-scoped so the history is not
+      relabelled in bulk; it may change again, especially with manual logging.
 
   - match: "Hyperextensions"
     canonical: hyperextension

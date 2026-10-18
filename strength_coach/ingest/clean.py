@@ -117,7 +117,13 @@ def build_clean_sets(
     frame = numeric.coerce_frame(frame, NUMERIC_COLUMNS)
 
     taxonomy = exercises.taxonomy()
-    frame["exercise_id"] = frame["raw_exercise"].map(exercises.canonical_id)
+    # Resolve by date: a name whose meaning changed over time must not be relabelled in bulk
+    # (DEC-TRAPBAR-02 — "Competition Deadlift" was sumo before the 2026-08 switch).
+    day_strings = frame["date"].dt.strftime("%Y-%m-%d")
+    frame["exercise_id"] = [
+        exercises.canonical_id(name, day)
+        for name, day in zip(frame["raw_exercise"], day_strings, strict=True)
+    ]
 
     quarantined = frame[frame["date"].isna() | frame["exercise_id"].isna()].copy()
     quarantined["quarantine_reason"] = [

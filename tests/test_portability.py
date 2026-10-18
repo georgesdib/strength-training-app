@@ -27,7 +27,7 @@ ATHLETE_A = [
 
 # A different athlete: a hinge-led day, different dates and loads, different day.
 ATHLETE_B = [
-    {"Date": "2024-03-01", "Exercise": "Competition Deadlift", "Weight_Used": "140",
+    {"Date": "2024-03-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "140",
      "RIR": "3", "Reps_Done": "3"},
     {"Date": "2024-03-01", "Exercise": "Bench Press (narrow grip)", "Weight_Used": "60",
      "RIR": "2", "Reps_Done": "5"},

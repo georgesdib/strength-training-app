@@ -45,7 +45,7 @@ def store_with(rows, readiness_rows=None):
         store.close()
 
 
-def week_sessions(*dates: str, exercise: str = "Competition Deadlift", reps: str = "5"):
+def week_sessions(*dates: str, exercise: str = "Trap Bar Deadlift", reps: str = "5"):
     return [
         {"Date": date, "Exercise": exercise, "Weight_Used": "150", "RIR": "2", "Reps_Done": reps}
         for date in dates
@@ -53,7 +53,7 @@ def week_sessions(*dates: str, exercise: str = "Competition Deadlift", reps: str
 
 
 BASE_HISTORY = [
-    {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "150", "RIR": "2", "Reps_Done": "5"},
+    {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150", "RIR": "2", "Reps_Done": "5"},
     {"Date": "2024-01-01", "Exercise": "Bench Press (narrow grip)", "Weight_Used": "90", "RIR": "2", "Reps_Done": "5"},
     {"Date": "2024-01-01", "Exercise": "Lateral Raise", "Weight_Used": "12.5", "RIR": "2", "Reps_Done": "10"},
     {"Date": "2024-01-01", "Exercise": "Split Squat", "Weight_Used": "30", "RIR": "3", "Reps_Done": "8"},
@@ -198,7 +198,7 @@ def test_engine_does_not_look_ahead():
         before = build_prescription(store.connection, for_date="2024-02-01")
 
     future = BASE_HISTORY + [
-        {"Date": "2024-03-01", "Exercise": "Competition Deadlift",
+        {"Date": "2024-03-01", "Exercise": "Trap Bar Deadlift",
          "Weight_Used": "300", "RIR": "2", "Reps_Done": "1"},
     ]
     with store_with(future) as store:

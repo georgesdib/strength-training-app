@@ -15,7 +15,7 @@ ROWS = [
      "RIR": "2", "Reps_Done": "5"},
     {"Date": "2024-01-01", "Exercise": "Competition Bench Press", "Weight_Used": "80",
      "RIR": "2", "Reps_Done": "5"},
-    {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "180",
+    {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "180",
      "RIR": "2", "Reps_Done": "3"},
     {"Date": "2024-01-01", "Exercise": "Lateral Raise", "Weight_Used": "12.5",
      "RIR": "2", "Reps_Done": "10"},

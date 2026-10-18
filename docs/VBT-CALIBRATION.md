@@ -119,8 +119,9 @@ feature record so the critique cannot accidentally print a real-looking velocity
 
 ## 7. Test strategy for this module
 
-- Golden test: the clean-set counts in §1 are asserted against the real CSV, so a change in
-  exclusion logic cannot silently change the calibration base.
+- Private integration test (git-ignored): the clean-set counts in §1 are asserted against the
+  real CSV, so a change in exclusion logic cannot silently change the calibration base. The
+  expected numbers are personal data and are not committed.
 - Unit tests with synthetic frames for each exclusion criterion (one row each) and for
   each fallback level boundary (`n = 11` vs `12`, `23` vs `24`).
 - Determinism test: same inputs + same `params_hash` ⇒ byte-identical output.

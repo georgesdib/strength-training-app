@@ -35,7 +35,13 @@ def load_training() -> pd.DataFrame:
     frame = io_utils.read_training_log()
     frame["source_row"] = io_utils.source_row_ids(frame)
     frame["date"] = dates.parse_dates(frame["Date"])
-    frame["exercise_id"] = frame["Exercise"].map(exercises.canonical_id)
+    # Date-scoped identity (DEC-TRAPBAR-02): "Competition Deadlift" was sumo before the
+    # switch and trap bar after it, so a plain name map would merge two lifts.
+    day_strings = frame["date"].dt.strftime("%Y-%m-%d")
+    frame["exercise_id"] = [
+        exercises.canonical_id(name, day)
+        for name, day in zip(frame["Exercise"], day_strings, strict=True)
+    ]
     return numeric.coerce_frame(frame, NUMERIC_COLUMNS)
 
 
@@ -78,8 +84,8 @@ def section_cadence(training: pd.DataFrame) -> None:
 def section_main_lifts(training: pd.DataFrame) -> None:
     print(reporting.section("MAIN LIFTS BY YEAR"))
     ids = ["ssb_squat", "competition_squat", "bench_press", "bench_press_narrow",
-           "trap_bar_deadlift", "back_extension", "hyperextension", "rdl", "rack_pull",
-           "good_morning"]
+           "trap_bar_deadlift", "sumo_deadlift", "back_extension", "hyperextension", "rdl",
+           "rack_pull", "good_morning"]
     years = sorted(training["date"].dt.year.dropna().unique())
     header = f"{'exercise_id':24s}" + "".join(f"{int(y):>7d}" for y in years)
     print(header)

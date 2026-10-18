@@ -79,7 +79,8 @@ Break any of these and the result is wrong even if the tests pass.
     deterministically, whatever an agent says.
 12. **An empty/incomplete input produces an `unknown` verdict, never `pass`.**
 13. **Never commit personal data.** `data/` and `private/` are git-ignored and this
-    repository is public. If a test needs a realistic value, synthesise it.
+    repository is public. If a test needs a realistic value, synthesise it. Tests that read
+    `data/raw` and assert values derived from it are private (`tests/*_integration.py`, ignored).
 
 ## 4. Code layout rules
 
@@ -114,7 +115,9 @@ so silently erased genuine `RIR = 0` observations during development.
 
 - Resolve every raw name through `utils.exercises`; never branch on the raw log string.
 - Recorded decisions are encoded and **must not be reverted**:
-  - `DEC-TRAPBAR-01` — "Competition Deadlift" **is** the trap-bar deadlift.
+  - `DEC-TRAPBAR-02` — "Competition Deadlift" is **date-scoped**: sumo deadlift before
+    ~2026-08-17, trap-bar deadlift from then on and forward. Never relabel the whole history.
+    The switch date is config (ASSUMPTION-05) and may change, especially with manual logging.
   - `DEC-BACKEXT-02` (amends `DEC-BACKEXT-01`) — back extension ≡ hyperextension **including
     historical rows**. `Hyperextensions` rows keep their own identity, but they **do** count
     as back-extension history for load and dose lookups.

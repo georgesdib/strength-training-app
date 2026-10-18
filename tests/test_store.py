@@ -110,7 +110,7 @@ def test_foreign_keys_are_enforced(conn):
 def test_append_only_tables_reject_update_and_delete(conn):
     training, readiness = build_frames(
         [
-            {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "150", "RIR": "3"},
+            {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150", "RIR": "3"},
             {"Date": "(null)", "Exercise": "Competition Squat", "Weight_Used": "100", "RIR": "2"},
         ]
     )
@@ -162,9 +162,9 @@ def test_same_rows_from_a_different_file_are_a_new_import(conn):
 
 def test_identical_repeated_sets_survive(conn):
     rows = [
-        {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "150", "RIR": "3"},
-        {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "150", "RIR": "3"},
-        {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "150", "RIR": "3"},
+        {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150", "RIR": "3"},
+        {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150", "RIR": "3"},
+        {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150", "RIR": "3"},
     ]
     training, readiness = build_frames(rows)
     report = do_import(conn, training, readiness)
@@ -179,8 +179,8 @@ def test_identical_repeated_sets_survive(conn):
 def test_import_writes_sets_sessions_and_quarantine(conn):
     training, readiness = build_frames(
         [
-            {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "150", "RIR": "3"},
-            {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "140", "RIR": "4"},
+            {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150", "RIR": "3"},
+            {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "140", "RIR": "4"},
             {"Date": "(null)", "Exercise": "Competition Squat", "Weight_Used": "100", "RIR": "2"},
         ]
     )
@@ -202,7 +202,7 @@ def test_import_writes_sets_sessions_and_quarantine(conn):
 def test_reimport_writes_no_duplicate_rows(conn):
     training, readiness = build_frames(
         [
-            {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "150", "RIR": "3"},
+            {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150", "RIR": "3"},
             {"Date": "2024-01-02", "Exercise": "Competition Squat", "Weight_Used": "100", "RIR": "2"},
         ]
     )
@@ -275,7 +275,7 @@ def test_failed_import_leaves_the_run_marked_error(conn, monkeypatch):
 
 def test_flags_are_stored_as_a_json_list(conn):
     training, readiness = build_frames(
-        [{"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "150", "RIR": "6"}]
+        [{"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150", "RIR": "6"}]
     )
     do_import(conn, training, readiness)
     row = conn.execute("SELECT flags, is_working_set FROM clean_set").fetchone()
@@ -286,9 +286,9 @@ def test_flags_are_stored_as_a_json_list(conn):
 def test_velocity_presence_follows_the_telemetry_block(conn):
     training, readiness = build_frames(
         [
-            {"Date": "2024-01-01", "Exercise": "Competition Deadlift",
+            {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift",
              "Weight_Used": "150", "RIR": "3", "Avg_velocity": "0.32"},
-            {"Date": "2024-01-01", "Exercise": "Competition Deadlift",
+            {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift",
              "Weight_Used": "150", "RIR": "3", "Avg_velocity": "0.000000"},
         ]
     )

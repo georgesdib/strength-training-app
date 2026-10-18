@@ -15,7 +15,7 @@ from strength_coach.agents import LLMResponse
 from strength_coach.store import db, importer
 
 ROWS = [
-    {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "150",
+    {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
      "RIR": "2", "Reps_Done": "3"},
     {"Date": "2024-01-01", "Exercise": "Bench Press (narrow grip)", "Weight_Used": "90",
      "RIR": "2", "Reps_Done": "5"},

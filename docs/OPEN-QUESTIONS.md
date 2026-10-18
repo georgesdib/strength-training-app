@@ -136,8 +136,9 @@ evidence collected in `docs/RIR-EVIDENCE.md`. Changing it again is still a const
   visible. `RIR 0-1` remain in scope but flagged (`DQ-RIR-02`).
 - ~~Bodyweight movements: total mass or added load?~~ **Closed** — progression acts on
   **added load** (`DEC-LOAD-02`); total mass is used only for an e1RM.
-- ~~Is there a trap-bar deadlift in the data?~~ **Closed** — the logging app records it under
-  a different name (`DEC-TRAPBAR-01`).
+- ~~Is there a trap-bar deadlift in the data?~~ **Closed, then corrected** — the log name
+  "Competition Deadlift" meant a **sumo** pull until ~2026-08-17 and the trap bar after that
+  (`DEC-TRAPBAR-02`); the history is resolved by date, not relabelled.
 - ~~Which exercise is "back extension"?~~ **Closed** — synonymous with the older
   hyperextension name, **including historical rows**: they keep their own identity but
   count as back-extension history (`DEC-BACKEXT-02`, amending `DEC-BACKEXT-01`).
