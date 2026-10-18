@@ -30,6 +30,45 @@ from strength_coach.critique.rubric import RUBRIC_WEIGHTS
 FORMAT_VERSION = 1
 ITEM_KEYS: tuple[str, ...] = tuple(RUBRIC_WEIGHTS)
 
+# What each item asks, in the direction the engine scores it. Without this the marks are
+# ambiguous: "spinal cost" can read as "how much work" (higher = more) or "how compliant"
+# (higher = better), and a backtest against the wrong reading measures nothing.
+ITEM_GUIDE: dict[str, tuple[str, str]] = {
+    "RIR_ADHERENCE": (
+        "Did the working sets on primary compounds stay at RIR 2-3?",
+        "1.0 = every rated set was inside the window; 0.0 = none were",
+    ),
+    "PROGRESSION_ADHERENCE": (
+        "Did the accessories add load only after reaching the top of the rep range?",
+        "1.0 = every accessory progressed as double progression prescribes; 0.0 = none did",
+    ),
+    "WEEKLY_SPINAL_COST": (
+        "Did the week stay inside the high-fatigue spinal cap of 3 weighted exposures?",
+        "1.0 = at or under the cap; 0.0 = double the cap or worse. MORE work is a LOWER score",
+    ),
+    "ESSENTIAL_WORK": (
+        "Were the day's essential lifts present (trap bar and a bench variant on day B)?",
+        "1.0 = all essential slots present; 0.0 = none",
+    ),
+    "REDUNDANCY": (
+        "Was the session free of stacking (no hinge + erector, no two hinge exercises)?",
+        "1.0 = no stacking at all; 0.0 = erector stacked on a hinge AND a second hinge",
+    ),
+    "ROTATION": (
+        "Was exercise selection appropriate for the session's provenance?",
+        "1.0 = stable for a self-directed session, or expected rotation for an app-assigned one; "
+        "0.0 = churn in a self-directed session",
+    ),
+    "SESSION_DURATION": (
+        "Was the session length appropriate? (the engine cannot measure this)",
+        "leave null unless you want to record a judgement; it is never compared",
+    ),
+    "VELOCITY_LOSS": (
+        "Was within-set velocity loss controlled? (not computable from the export)",
+        "leave null unless you want to record a judgement; it is never compared",
+    ),
+}
+
 
 class LabelError(ValueError):
     """The labelled set is malformed; refuse rather than compare against garbage."""
@@ -124,12 +163,30 @@ def template(session_ids: list[str]) -> dict[str, Any]:
     }
 
 
+def render_template(session_ids: list[str]) -> str:
+    """The skeleton plus the question each item asks, written as comments."""
+    lines = [
+        "# Labelled eval set -- a human's scores, compared with the engine's.",
+        "#",
+        "# Score every item 0-1. HIGHER IS ALWAYS BETTER: 1.0 means 'nothing to improve'.",
+        "#",
+    ]
+    for key in ITEM_KEYS:
+        question, anchors = ITEM_GUIDE[key]
+        lines.append(f"# {key}")
+        lines.append(f"#   {question}")
+        lines.append(f"#   {anchors}")
+        lines.append("")
+    lines.append(yaml.safe_dump(template(session_ids), sort_keys=False))
+    return "\n".join(lines)
+
+
 def write_template(path: str | Path, session_ids: list[str], *, overwrite: bool = False) -> Path:
     target = Path(path)
     if target.exists() and not overwrite:
         raise LabelError(f"{target} already exists; pass overwrite=True to replace it")
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(yaml.safe_dump(template(session_ids), sort_keys=False), encoding="utf-8")
+    target.write_text(render_template(session_ids), encoding="utf-8")
     return target
 
 

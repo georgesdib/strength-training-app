@@ -12,17 +12,20 @@ from strength_coach.eval.harness import (
     compare,
 )
 from strength_coach.eval.labels import (
+    ITEM_GUIDE,
     ITEM_KEYS,
     LabelError,
     LabelledSession,
     LabelledSet,
     load_labels,
+    render_template,
     template,
     write_template,
 )
 
 __all__ = [
     "BacktestReport",
+    "ITEM_GUIDE",
     "ITEM_KEYS",
     "ItemComparison",
     "LabelError",
@@ -32,6 +35,7 @@ __all__ = [
     "backtest",
     "compare",
     "load_labels",
+    "render_template",
     "template",
     "write_template",
 ]

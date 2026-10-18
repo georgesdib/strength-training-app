@@ -99,6 +99,19 @@ def test_null_scores_are_allowed_and_mean_not_marked(tmp_path):
     assert labelled.sessions["2024-01-01"].scores["RIR_ADHERENCE"] is None
 
 
+def test_the_guide_covers_every_item_and_is_rendered():
+    from strength_coach.eval import ITEM_GUIDE
+    from strength_coach.eval.labels import render_template
+
+    assert set(ITEM_GUIDE) == set(ITEM_KEYS)
+    text = render_template(["2024-01-01"])
+    # Direction is the whole point: a backtest against the opposite reading measures nothing.
+    assert "HIGHER IS ALWAYS BETTER" in text
+    assert "MORE work is a LOWER score" in text
+    for key in ITEM_KEYS:
+        assert key in text
+
+
 def test_template_covers_every_item(tmp_path):
     payload = template(["2024-01-01"])
     assert set(payload["sessions"]["2024-01-01"]["scores"]) == set(ITEM_KEYS)
