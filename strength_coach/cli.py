@@ -203,8 +203,7 @@ def _cmd_run(args) -> int:
                 session_day=prescription.session_day,
                 fallback_level=prescription.fallback_level,
                 rule_document_version=prescription.rule_document_version,
-                # VBT targets are deferred to v0.1 (DEC-VBT-01), so no calibration is cited.
-                calibration_ids=[],
+                calibration_ids=list(prescription.calibration_ids),
                 approved_by=approved_by,
                 items=prescription.as_rows(),
             )
@@ -770,14 +769,20 @@ def _print_import(report) -> None:
 def _print_prescription(prescription) -> None:
     print(f"\nprescription {prescription.for_date}  "
           f"(day {prescription.session_day}, {prescription.fallback_level})")
-    header = f"  {'exercise':<24}{'sets':>5}{'reps':>8}{'load':>9}{'rir':>5}  refs"
+    show_velocity = any(item.velocity_target is not None for item in prescription.items)
+    header = (f"  {'exercise':<24}{'sets':>5}{'reps':>8}{'load':>9}{'rir':>5}"
+              + (f"{'vel':>7}" if show_velocity else "") + "  refs")
     print(header)
     print("  " + "-" * (len(header) - 2))
     for item in prescription.items:
         load = "-" if item.load_kg is None else f"{item.load_kg:g}"
         reps = f"{item.reps_low}-{item.reps_high}"
+        velocity = ""
+        if show_velocity:
+            velocity = (f"{item.velocity_target:>7.2f}"
+                        if item.velocity_target is not None else f"{'-':>7}")
         print(f"  {item.exercise_id:<24}{item.sets:>5}{reps:>8}{load:>9}"
-              f"{item.rir_target:>5}  {', '.join(item.rationale_refs) or '-'}")
+              f"{item.rir_target:>5}{velocity}  {', '.join(item.rationale_refs) or '-'}")
     if prescription.issues:
         print("  issues: " + "; ".join(prescription.issues))
     for warning in prescription.warnings:

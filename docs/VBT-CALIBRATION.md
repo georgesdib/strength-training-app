@@ -15,7 +15,7 @@ reported per lift, so a target with `n = 4` is visibly weak rather than silently
 | # | Criterion | Reason |
 |---|---|---|
 | 1 | `Avg_velocity > 0` | `0.000000` is "device not used" (DQ-SENT-01), not slow |
-| 2 | `RIR ∈ {2, 3}` | the constitution's main-lift effort band; RIR 6 excluded as suspect (DQ-SENT-03) |
+| 2 | `RIR` inside the **2-3 target band** (`rir_mod.target_for`) | calibration deliberately uses the narrower target band, not the 1-4 allowed window (`DEC-RIR-02`); RIR 6 excluded as suspect (DQ-SENT-03) |
 | 3 | `1 ≤ reps ≤ 8` | velocity is rep-count dependent; long sets are not VBT sets |
 | 4 | `load_basis ≠ unknown` | DQ-BW-01 could not classify the load |
 | 5 | not quarantined, no `REPS_TYPO` flag | corrupt rows cannot set a target |
@@ -55,8 +55,8 @@ Never interpolate silently. Resolve in order and record which level was used:
 |---|---|---|
 | **L0** | lift + rep count directly, if `n ≥ 12` and `≥ 3` distinct sessions | `scope: lift` |
 | **L1** | pool by `vbt_family` at the same rep count (bench: bench/narrow/pause; squat: SSB/comp; hinge: trap bar/conventional/RDL), if `n_family ≥ 24` | `scope: family` |
-| **L2** | lift pooled across rep counts 1–5, fitted as `v = a + b·reps`, used only if the slope is negative and the residual MAD is sane | `scope: lift_pooled` |
-| **L3** | family pooled across rep counts, same fit | `scope: family_pooled` |
+| **L2** | *not implemented.* Pooled rep-count fits were designed but the shipped calibration uses lift and family only, because a pooled line can hide a lift-specific curve | — |
+| **L3** | *not implemented* (same reason) | — |
 | **L4** | no target | `scope: none`, `vbt_status: uncalibrated` |
 
 Consequence at L4: **the prescription omits a velocity target entirely** and says so. It
@@ -103,7 +103,8 @@ to any of those is visible as a different calibration even if the numbers coinci
 
 Within-set velocity loss requires a **per-rep velocity series**. The export has one
 `Avg_velocity` per set, so within-set loss is arithmetically unavailable
-(`docs/SANITY-CHECKS.md` §C).
+(`docs/SANITY-CHECKS.md` §C). It remains deferred (`DEC-VBT-02`), and the prescription does
+not pretend otherwise.
 
 Two options, and the choice is Q4:
 
@@ -124,3 +125,34 @@ feature record so the critique cannot accidentally print a real-looking velocity
   each fallback level boundary (`n = 11` vs `12`, `23` vs `24`).
 - Determinism test: same inputs + same `params_hash` ⇒ byte-identical output.
 - Immutability test: recomputation inserts a new row and leaves the old one untouched.
+
+
+## 8. What is wired now (v0.1)
+
+`build_prescription` calibrates from the stored clean sets on every run and attaches a target
+only where the ladder produces one:
+
+- the target is the calibrated **median mean velocity** for that lift, rep count and RIR band;
+- the item records `velocity_target` and `vbt_basis` (scope + sample size);
+- the prescription cites the stored calibration rows in `calibration_ids`;
+- **no target** is attached when the session was already modified by a safety rule (the load no
+  longer matches the calibration), or when no lift has 12 clean sets across 3 sessions;
+- **hex-bar deadlift targets are withheld** regardless of sample size, because the RIR-velocity
+  relationship for that lift failed accuracy criteria (`docs/VBT-EVIDENCE.md`).
+
+The prescription notes say which case applied, and the CLI prints a `vel` column when any item
+has a target. A missing target is visible, not silent.
+
+## 9. Upgrade path (placeholder)
+
+The current input is one mean velocity per set. A real velocity-loss controller needs:
+
+- per-rep velocity samples (or first/last rep), for within-set loss and stop rules;
+- a progressive loading test per lift, for an individual load-velocity line and a minimal
+  velocity threshold;
+- device/belt/setup metadata, so curves are compared like-for-like;
+- a method-version bump, with old calibration rows kept and superseded, never edited.
+
+The calibration already carries `METHOD_VERSION` and a typed `CalibrationParams`, so the
+upgrade is additive: a v2 method can be written beside the current one and selected by config.
+Until then, the app uses what the export provides and says when that is not enough.

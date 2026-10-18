@@ -15,6 +15,7 @@ Order of operations is deliberate:
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import replace
 from typing import Any, Mapping
@@ -24,13 +25,14 @@ import pandas as pd
 from strength_coach.features import readiness as readiness_mod
 from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
+from strength_coach.features import vbt_calibration
 from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import undulation as undulation_mod
 from strength_coach.prescribe import fallback, loads, templates
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
 from strength_coach.rules import RuleContext, evaluate, load_document, registry
 from strength_coach.rules import policy as policy_mod
-from strength_coach.store import queries
+from strength_coach.store import queries, repositories
 from strength_coach.utils import exercises as exercises_mod
 
 RULE_REF_RE = re.compile(r"^(PRG|MOD)-[A-Z]+-\d{3}$")
@@ -104,6 +106,10 @@ def build_prescription(
             f"{thresholds.back_flare_main_rir}"
         )
 
+    items, calibration_ids, vbt_note = _attach_vbt_targets(
+        conn, context, tuple(items), for_date, fallback_level
+    )
+
     # Stored athlete state is applied deterministically: a hard constraint vetoes, a
     # suitability rating is surfaced. Unrecorded state is reported, never read as permission.
     constraint_report = constraints_mod.evaluate(conn, [item.exercise_id for item in items])
@@ -132,11 +138,12 @@ def build_prescription(
         time_cap_s=template.time_cap_s,
         warnings=tuple(warnings),
         issues=tuple(issues),
+        calibration_ids=tuple(calibration_ids),
         notes={
-            # VBT velocity targets are deferred (DEC-VBT-01): the calibration exists, but the
-            # step from a band to a prescribed target is not specified, so this stays explicit
-            # rather than silently null.
-            "vbt": "deferred (DEC-VBT-01)",
+            # VBT now attaches a real target where the calibration is trustworthy, and says so
+            # when it is not. The upgrade path (per-rep velocity loss, individual load-velocity
+            # profiles) is recorded in docs/VBT-CALIBRATION.md.
+            "vbt": vbt_note,
             "undulation_week": (
                 ((int(context.block_week_index) - 1) % undulation.cycle_weeks) + 1
                 if dup_plan and undulation.cycle_weeks else None
@@ -150,6 +157,107 @@ def build_prescription(
             "constraints": constraint_report.status,
         },
     )
+
+
+# Lifts whose velocity signal is not trustworthy enough to prescribe from (docs/VBT-EVIDENCE.md).
+VBT_UNRELIABLE = {"trap_bar_deadlift"}
+
+
+def _attach_vbt_targets(
+    conn,
+    context: RuleContext,
+    items: tuple[PrescriptionItem, ...],
+    for_date: str,
+    fallback_level: str,
+) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], dict[str, Any]]:
+    """Attach velocity targets from the per-lift calibration, when it is trustworthy.
+
+    The calibration needs 12 sets across 3 sessions per lift before it produces a target; with
+    the current export that is often unavailable, and the honest answer is "no target" rather
+    than a plausible velocity. A session already modified by a safety rule is skipped: its load
+    no longer matches the calibration's assumptions.
+    """
+    if fallback_level != "full" or context.symptom_flare:
+        return items, (), {
+            "status": "skipped",
+            "reason": "session modified by a safety rule; load no longer matches the calibration",
+        }
+    if context.sets.empty:
+        return items, (), {"status": "unavailable", "reason": "no stored sets"}
+
+    result = vbt_calibration.calibrate(context.sets)
+    if not result.targets:
+        return items, (), {
+            "status": "unavailable",
+            "reason": "no lift has 12 clean sets across 3 sessions with velocity",
+            "upgrade": "per-rep velocity and individual load-velocity profiles are deferred "
+                       "(docs/VBT-CALIBRATION.md)",
+        }
+
+    out: list[PrescriptionItem] = []
+    ids: list[str] = []
+    withheld: list[str] = []
+    for item in items:
+        if item.exercise_id in VBT_UNRELIABLE:
+            # Chen et al. 2026 found hex-bar RIR-velocity relationships fail the accuracy bar;
+            # a target here would be a confident-looking number the evidence does not support.
+            withheld.append(item.exercise_id)
+            out.append(item)
+            continue
+        target = result.lookup(item.exercise_id, item.reps_low)
+        if target is None:
+            out.append(item)
+            continue
+        calibration_id = _persist_calibration(conn, target, for_date)
+        ids.append(calibration_id)
+        out.append(
+            replace(
+                item,
+                velocity_target=target.velocity_median,
+                vbt_basis=f"{target.scope} · {target.n_sets} sets/{target.n_sessions} sessions",
+            )
+        )
+
+    note = {
+        "status": "available" if ids else "unavailable",
+        "targets": len(ids),
+        "calibration_ids": ids,
+        "withheld": sorted(set(withheld)),
+        "upgrade": "mean velocity only; per-rep velocity loss deferred (docs/VBT-CALIBRATION.md)",
+    }
+    return tuple(out), tuple(ids), note
+
+
+def _persist_calibration(conn, target, for_date: str) -> str:
+    """Store the target (append-only) and return a stable id for the prescription to cite."""
+    raw = (
+        f"{target.exercise_id}|{target.rep_count}|{target.velocity_median}|"
+        f"{target.velocity_low}|{target.velocity_high}|{target.n_sets}|"
+        f"{target.n_sessions}|{target.method_version}|{for_date}"
+    )
+    calibration_id = "vbt-" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+    existing = conn.execute(
+        "SELECT 1 FROM vbt_calibration WHERE calibration_id = ?", (calibration_id,)
+    ).fetchone()
+    if existing is None:
+        repositories.append_calibration(
+            conn,
+            calibration_id=calibration_id,
+            exercise_id=target.exercise_id,
+            vbt_family=None,
+            scope=target.scope if target.scope in ("lift", "family") else "global_prior",
+            rep_count=target.rep_count,
+            rir_band=target.rir_band,
+            velocity_median=target.velocity_median,
+            velocity_low=target.velocity_low,
+            velocity_high=target.velocity_high,
+            n_sets=target.n_sets,
+            n_sessions=target.n_sessions,
+            method_version=target.method_version,
+            params=target.params,
+            window_end=for_date,
+        )
+    return calibration_id
 
 
 def _apply_undulation(

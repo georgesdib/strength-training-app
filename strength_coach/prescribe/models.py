@@ -28,6 +28,10 @@ class PrescriptionItem:
     time_cap_s: int | None = None
     # Set when the engine refused to invent a load. The prescription is then not executable.
     unknown_load_reason: str | None = None
+    # VBT target from the per-lift calibration, when one is trustworthy enough to cite.
+    # None means "no target", never a guessed velocity (docs/VBT-CALIBRATION.md).
+    velocity_target: float | None = None
+    vbt_basis: str | None = None
 
 
 @dataclass(frozen=True)
@@ -40,6 +44,7 @@ class Prescription:
     time_cap_s: int | None = None
     warnings: tuple[str, ...] = ()
     issues: tuple[str, ...] = ()
+    calibration_ids: tuple[str, ...] = ()
     notes: Mapping[str, Any] = field(default_factory=dict)
 
     @property
@@ -70,6 +75,8 @@ class Prescription:
                 "essential": item.essential,
                 "rationale_refs": list(item.rationale_refs),
                 "substitution_for": item.substitution_for,
+                "velocity_target": item.velocity_target,
+                "vbt_basis": item.vbt_basis,
             }
             for item in self.items
         ]

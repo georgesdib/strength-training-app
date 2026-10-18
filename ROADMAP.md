@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **406 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **411 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **406 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 406 passed
+.venv/bin/python -m pytest            # expect: 411 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -263,7 +263,7 @@ if anything under `private/` or `data/` (except the folder README) is committed;
 section 12 with the checklist, and `config/athlete-state.example.yaml` is a placeholder state
 file with no personal values. `DEC-PORT-01` records the one-database-per-person rule.
 
-### 3.7 VBT prescription wiring
+### 3.7 VBT prescription wiring  (done)
 
 Deferred by `DEC-VBT-01`. The calibration (band, sparsity ladder, versioning) already exists
 and is tested; what is missing is the rule that turns a band into a target:

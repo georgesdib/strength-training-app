@@ -371,6 +371,37 @@ To change which fields matter, the threshold, or the merge tie-break, edit
 rather than silently doing nothing. Manual and partial readiness entry is planned for v0.2
 (§4.1 of [ROADMAP.md](ROADMAP.md)).
 
+### 5.2 Velocity targets — what they mean
+
+When the export contains enough velocity data, a prescription item gains a `vel` column:
+
+```
+exercise                 sets    reps     load  rir    vel  refs
+bench_press                 4     3-5     84.5    2   0.31  PRG-RIR-001, set:...
+```
+
+That number is the **calibrated median mean velocity** for that lift, rep count and effort
+band, taken from your own clean sets. It is not a population table. A target appears only when
+the calibration has **12 clean sets across 3 sessions** for the lift (or 24 in its movement
+family), and the basis next to it records the scope and sample size.
+
+How to use it: the first working set should move at roughly the target. Noticeably faster means
+the load is light for the day; noticeably slower means accumulated fatigue or a heavy day. It is
+a reference, not a stop rule — the app does not yet measure within-set velocity loss.
+
+What is deliberately not shown:
+
+- a target when the data is thin — the item simply has no velocity, and the prescription says
+  **unavailable** rather than guessing;
+- a target for the **trap-bar deadlift**, because the velocity-to-RIR relationship for the hex
+  bar failed accuracy criteria in the literature and in practice;
+- a target for a session already modified by a fatigue or back-flare rule, because the load no
+  longer matches the calibration.
+
+The evidence and best practices are in [VBT-EVIDENCE.md](docs/VBT-EVIDENCE.md); the upgrade
+path (per-rep velocity, velocity loss, individual load-velocity profiles) is in
+[VBT-CALIBRATION.md](docs/VBT-CALIBRATION.md) §9.
+
 ---
 
 ## 6. Configuration
