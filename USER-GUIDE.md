@@ -216,6 +216,28 @@ Worth knowing:
 - **Bulk entry** works through the state file: add an `e1rm_overrides:` list and run
   `strength-coach state --import private/athlete-state.yaml`.
 
+### 4.7 `symptom` — the pre-session back reading
+
+```bash
+strength-coach symptom --level 0                          # today, no symptoms
+strength-coach symptom --date 2026-11-03 --level 2 --settled no --note "tight after sitting"
+strength-coach symptom --show
+```
+
+One number for the whole back, recorded **pre-session**: `0` none, `1` awareness, `2`
+annoying, `3` limiting. `--settled` records whether it settled within 48 hours.
+
+A reading counts as a **flare** when the level is 2 or more, or when a level of 1 did not
+settle within 48 hours. A flare makes `MOD-BACK-001` apply to the next prescription: erector
+work returns to the weeks 1-3 dose and main lifts are held at RIR 3.
+
+With a reading **and** a declared block start (`block --date`), `PRG-EREC-001` stops
+returning `unknown` and grades the ramp, citing `symptom:<date>`. Without either input it
+still says `unknown` — no reading is never read as "no flare".
+
+Correct a mistake by logging again; the latest entry for the day wins and the earlier one
+stays in history.
+
 ---
 
 ## 5. Reading the output

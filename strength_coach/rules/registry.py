@@ -381,9 +381,18 @@ def erector_dose_ramp(
         "stable": bool(stability_ok),
         "symptom_flare": bool(context.symptom_flare),
     }
+    evidence: tuple[Evidence, ...] = ()
+    if context.symptom_on:
+        evidence = (
+            Evidence(
+                ref=f"symptom:{context.symptom_on}",
+                detail=f"pre-session back level {context.symptom_level}",
+                value=float(context.symptom_level) if context.symptom_level is not None else None,
+            ),
+        )
     if context.symptom_flare or not stability_ok:
-        return Evaluation(FAIL, rule.fail_code, (), (), details)
-    return Evaluation(PASS, None, (), (), details)
+        return Evaluation(FAIL, rule.fail_code, evidence, (), details)
+    return Evaluation(PASS, None, evidence, (), details)
 
 
 def spinal_exposures(

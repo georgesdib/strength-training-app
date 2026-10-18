@@ -176,9 +176,9 @@ rules:
     depends_on_data_decisions: [DQ-BW-01]
     on_fail: {action: warn, code: ERECTOR_RAMP_HOLD}
     notes: >
-      Two blockers, surfaced rather than guessed. (1) There is no symptom field in the
-      source data, so `symptom.flare` is unavailable and the rule returns `unknown`
-      instead of assuming no flare. (2) Since DEC-BACKEXT-02, historical Hyperextensions
+      Two inputs, surfaced rather than guessed. (1) The symptom signal is manual: the
+      athlete logs a pre-session 0-3 back level (symptom_log), and until one exists the
+      rule returns `unknown` instead of assuming no flare. (2) Since DEC-BACKEXT-02, historical Hyperextensions
       rows DO count toward this dose, so there is real history to ramp from; week 1 still
       needs an explicit anchor date from the athlete.
 
@@ -260,5 +260,5 @@ modifiers:
       main_lift_rir_override: {min: 3, max: 4}
       duration_days: 7
     availability:
-      status: blocked
-      reason: "No symptom field exists in either CSV. Requires a manual input (Q5)."
+      status: available
+      reason: "Symptom input exists: symptom_log records a pre-session 0-3 back level (DEC-SYMPTOM-01/02)."

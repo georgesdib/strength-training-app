@@ -25,6 +25,9 @@ class Thresholds:
     e1rm_window_days: int
     e1rm_source: str
     fatigue_load_multiplier: float
+    back_flare_erector_sets: int
+    back_flare_erector_added_kg: float
+    back_flare_main_rir: int
     session_time_cap_s: int
     source_path: Path = Path()
 
@@ -51,6 +54,9 @@ class Thresholds:
             e1rm_window_days=int(load.get("e1rm_window_days", 84)),
             e1rm_source=str(load.get("e1rm_source", "best_usable")),
             fatigue_load_multiplier=float(modifiers.get("fatigue_load_multiplier", 0.95)),
+            back_flare_erector_sets=int(modifiers.get("back_flare_erector_sets", 3)),
+            back_flare_erector_added_kg=float(modifiers.get("back_flare_erector_added_kg", 0)),
+            back_flare_main_rir=int(modifiers.get("back_flare_main_rir", 3)),
             session_time_cap_s=int(prescription.get("session_time_cap_s", 4800)),
             source_path=source,
         )
@@ -64,5 +70,8 @@ def as_dict(thresholds: Thresholds) -> dict[str, Any]:
         "e1rm_window_days": thresholds.e1rm_window_days,
         "e1rm_source": thresholds.e1rm_source,
         "fatigue_load_multiplier": thresholds.fatigue_load_multiplier,
+        "back_flare_erector_sets": thresholds.back_flare_erector_sets,
+        "back_flare_erector_added_kg": thresholds.back_flare_erector_added_kg,
+        "back_flare_main_rir": thresholds.back_flare_main_rir,
         "session_time_cap_s": thresholds.session_time_cap_s,
     }

@@ -151,6 +151,32 @@ def exercise_suitability(conn) -> dict[str, dict]:
     return {str(row["exercise_id"]): dict(row) for row in rows}
 
 
+def symptom_for_date(conn, on_date: str, *, timing: str = "pre_session") -> dict | None:
+    """The latest pre-session entry for a date, or None when none was logged."""
+    row = conn.execute(
+        """
+        SELECT * FROM symptom_log
+         WHERE logged_on = ? AND timing = ?
+         ORDER BY log_id DESC LIMIT 1
+        """,
+        (str(on_date), timing),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def latest_symptom(conn, on_or_before: str, *, timing: str = "pre_session") -> dict | None:
+    """The most recent entry at or before a date: the symptom state in force that day."""
+    row = conn.execute(
+        """
+        SELECT * FROM symptom_log
+         WHERE logged_on <= ? AND timing = ?
+         ORDER BY logged_on DESC, log_id DESC LIMIT 1
+        """,
+        (str(on_or_before), timing),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
 def symptom_entries(conn, *, since: str | None = None) -> list[dict]:
     sql = "SELECT * FROM symptom_log"
     params: list[object] = []

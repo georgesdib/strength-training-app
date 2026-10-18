@@ -164,9 +164,9 @@ check: {fn: erector_dose_ramp}
 inputs: [block.week_index, session.sets, symptom.flare]
 on_fail: {action: warn, code: ERECTOR_RAMP_HOLD}
 notes: >
-  Two blockers, both surfaced rather than guessed: (1) there is no symptom field in
-  either CSV, so `inputs: symptom.flare` is unavailable and the rule returns
-  `unknown` rather than assuming no flare; (2) since DEC-BACKEXT-02, historical
+  Two inputs, both surfaced rather than guessed: (1) the symptom signal is manual
+  (a pre-session 0-3 back level in `symptom_log`), so until one is logged the rule
+  returns `unknown` rather than assuming no flare; (2) since DEC-BACKEXT-02, historical
   `Hyperextensions` rows DO count toward this dose, so there is real history to ramp
   from — but week 1 still needs an explicit anchor date from the athlete.
 ```

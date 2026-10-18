@@ -166,6 +166,17 @@ def build_prescription(
             f"MOD-FAT-001: {trigger}; loads x{multiplier} (readiness {for_date})"
         )
 
+    if context.symptom_flare is True:
+        # MOD-BACK-001: a flare returns erector work to the weeks 1-3 dose and holds main
+        # lifts at RIR 3-4 for the week. Applied after the fatigue modifier, so a flare
+        # always wins over a load reduction.
+        items = list(_apply_back_flare(tuple(items), context, thresholds))
+        warnings.append(
+            f"MOD-BACK-001: back flare (level {context.symptom_level}, {context.symptom_on}); "
+            f"erector work back to the weeks 1-3 dose, main lifts at RIR "
+            f"{thresholds.back_flare_main_rir}"
+        )
+
     # Stored athlete state is applied deterministically: a hard constraint vetoes, a
     # suitability rating is surfaced. Unrecorded state is reported, never read as permission.
     constraint_report = constraints_mod.evaluate(conn, [item.exercise_id for item in items])
@@ -202,9 +213,44 @@ def build_prescription(
             "policy_outcome": policy_result.outcome,
             "e1rm_window_days": thresholds.e1rm_window_days,
             "fatigue_trigger": trigger,
+            "back_flare": bool(context.symptom_flare),
             "constraints": constraint_report.status,
         },
     )
+
+
+def _apply_back_flare(
+    items: tuple[PrescriptionItem, ...],
+    context: RuleContext,
+    thresholds: config_mod.Thresholds,
+) -> tuple[PrescriptionItem, ...]:
+    """MOD-BACK-001 as a transformation: erector dose down, main-lift effort held back."""
+    extra: tuple[str, ...] = ("MOD-BACK-001",)
+    if context.symptom_on:
+        extra += (f"symptom:{context.symptom_on}",)
+
+    added = float(thresholds.back_flare_erector_added_kg)
+    out: list[PrescriptionItem] = []
+    for item in items:
+        refs = item.rationale_refs + extra
+        if context.entity(item.exercise_id).get("direct_erector", False):
+            out.append(
+                replace(
+                    item,
+                    sets=thresholds.back_flare_erector_sets,
+                    load_kg=added,
+                    load_basis="bodyweight_total" if added == 0 else "external",
+                    rationale_refs=refs,
+                    unknown_load_reason=None,
+                )
+            )
+        elif item.essential:
+            out.append(
+                replace(item, rir_target=thresholds.back_flare_main_rir, rationale_refs=refs)
+            )
+        else:
+            out.append(replace(item, rationale_refs=refs))
+    return tuple(out)
 
 
 def _choose_exercise(slot: templates.Slot, context: RuleContext) -> tuple[str, bool]:

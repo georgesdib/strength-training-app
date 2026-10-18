@@ -27,6 +27,13 @@ modifiers:
   # already enough to matter, and the session can still be completed as written.
   fatigue_load_multiplier: 0.95
 
+  # MOD-BACK-001: when the back flares, erector work returns to the weeks 1-3 dose (bodyweight,
+  # three sets) and main lifts are held at RIR 3-4 for a week. The constitution's own wording,
+  # parameterised here so the numbers are not buried in code.
+  back_flare_erector_sets: 3
+  back_flare_erector_added_kg: 0
+  back_flare_main_rir: 3
+
 prescription:
   # A Day B session at ~20 working sets fits comfortably inside the constitution's 60-80 min
   # guidance. Recorded because the prescription row stores a time cap even when it cannot be

@@ -180,6 +180,8 @@ def resolve_reference(context: RuleContext, ref: str) -> bool:
         if context.sets.empty:
             return False
         return value in set(context.sets["session_id"].astype(str))
+    if kind == "symptom":
+        return context.symptom_on is not None and context.symptom_on == value
     if kind == "week":
         if context.sets.empty:
             return False

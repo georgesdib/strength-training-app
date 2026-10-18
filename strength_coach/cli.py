@@ -88,6 +88,15 @@ def main(argv: list[str] | None = None) -> int:
     setter.add_argument("--reason", default=None, help="why this override exists")
     e1rm_sub.add_parser("list", help="show recorded overrides")
 
+    symptom = sub.add_parser("symptom", help="log or show the pre-session back symptom")
+    symptom.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
+    symptom.add_argument("--level", type=int, choices=(0, 1, 2, 3), default=None,
+                         help="0 none, 1 awareness, 2 annoying, 3 limiting")
+    symptom.add_argument("--settled", choices=("yes", "no", "unknown"), default=None,
+                         help="did it settle within 48 hours?")
+    symptom.add_argument("--note", default=None)
+    symptom.add_argument("--show", action="store_true", help="list recent entries")
+
     block = sub.add_parser("block", help="declare or reset the block start (week 1)")
     block.add_argument("--date", required=True, help="YYYY-MM-DD")
     block.add_argument("--force", action="store_true",
@@ -101,6 +110,7 @@ def main(argv: list[str] | None = None) -> int:
         "calibrate": _cmd_calibrate,
         "state": _cmd_state,
         "e1rm": _cmd_e1rm,
+        "symptom": _cmd_symptom,
         "block": _cmd_block,
     }
     try:
@@ -295,6 +305,49 @@ def _print_e1rm(conn) -> None:
             status = "active"
         print(f"{row['exercise_id']:<24}{row['e1rm_kg']:>9g}"
               f"{row['effective_from']:>13}{row['expires_on'] or '-':>13}  {status}")
+
+
+def _cmd_symptom(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        if args.show or args.level is None:
+            _print_symptoms(conn)
+            return 0
+
+        on_date = args.date or datetime.date.today().isoformat()
+        settled = {"yes": True, "no": False, "unknown": None}.get(args.settled)
+        repositories.append_symptom(
+            conn,
+            logged_on=on_date,
+            timing="pre_session",
+            region="low_back",
+            level=args.level,
+            settled_within_48h=settled,
+            note=args.note,
+        )
+        print(f"logged back symptom {args.level}/3 on {on_date} (pre-session)")
+        if args.level >= 2:
+            print("that is a flare: MOD-BACK-001 will apply to the next prescription")
+        elif args.level == 1 and settled is False:
+            print("level 1 that did not settle is also a flare (DEC-SYMPTOM-02)")
+        return 0
+    finally:
+        store.close()
+
+
+def _print_symptoms(conn) -> None:
+    entries = queries.symptom_entries(conn)
+    if not entries:
+        print("no symptom entries logged; back rules stay unknown until one exists")
+        return
+    print(f"{'date':<12}{'timing':<14}{'level':>6}  {'settled':<8} note")
+    for row in entries[-20:]:
+        settled = "-" if row["settled_within_48h"] is None else (
+            "yes" if row["settled_within_48h"] else "no"
+        )
+        print(f"{row['logged_on']:<12}{row['timing']:<14}{row['level']:>6}  "
+              f"{settled:<8} {row['note'] or ''}")
 
 
 def _cmd_block(args) -> int:

@@ -292,5 +292,11 @@ auditable even after the override is replaced.
 | settled_within_48h | nullable boolean |
 | note | |
 
+v0.1 records **one pre-session number for the whole back** (`DEC-SYMPTOM-01`); the `region`
+column stays for finer detail later. Multiple entries per day are allowed and the latest wins
+(migration 0005), so a correction is an insert. A reading is a **flare** at level >= 2, or at
+level 1 that did not settle within 48 hours (`DEC-SYMPTOM-02`); no reading is `unknown`, never
+"no flare".
+
 Until this table has rows, MOD-BACK-001 and the PRG-EREC-001 stability gate return
 `unknown` — visibly, in the run report.
