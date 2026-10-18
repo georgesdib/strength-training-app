@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **403 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **406 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **403 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 403 passed
+.venv/bin/python -m pytest            # expect: 406 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -43,7 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 3 hand-marked sessions, 42% item agreement |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **planned** | see §4: readiness on demand, manual logging, format adapters, whole-programme output; depends on 3.3 for the readiness path |
+| v0.2 | Input flexibility + programme view | **planned** | see §4: readiness on demand, manual logging, format adapters, whole-programme output, **continuity across missed and planned breaks**; depends on 3.3 for the readiness path |
 | v0.1 | Next version | **in progress** | 3.1-3.4 done; see §3 for **video analysis**, portability, VBT wiring, larger labelled set |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
@@ -243,7 +243,7 @@ repository; every claim is labelled commentary.
 
 Open questions: which sets get video, retention period, and per-provider capability.
 
-### 3.6 Another athlete, or a fresh start
+### 3.6 Another athlete, or a fresh start  (done)
 
 The tool should be usable by someone else with their own export, and by the athlete after a
 year away, without editing code or mixing data. This is **not** multi-tenancy: one database
@@ -256,6 +256,12 @@ needed; keep the exercise taxonomy editable so a different exercise vocabulary i
 Acceptance: a second database with a different athlete's synthetic history runs `import`,
 `run`, `review` and `calibrate` with no code change and no access to the first database; no
 personal value appears in any committed file; the user guide has a "new athlete" checklist.
+
+Delivered: `tests/test_portability.py` runs the whole loop on two databases with different
+lifts, dates and days, and asserts neither sees the other's artifacts; a tracked-file test fails
+if anything under `private/` or `data/` (except the folder README) is committed; the guide has
+section 12 with the checklist, and `config/athlete-state.example.yaml` is a placeholder state
+file with no personal values. `DEC-PORT-01` records the one-database-per-person rule.
 
 ### 3.7 VBT prescription wiring
 
@@ -408,6 +414,35 @@ a programme needs no LLM.
 These are recorded in the decision log as `DEC-PROGRAMME-01/02`, `DEC-LOG-01` and
 `DEC-READINESS-02/03`. The reactive deload thresholds are an explicit product rule and remain
 config, not a claimed scientific finding.
+
+### 4.6 Training continuity — missed and planned time off
+
+The programme must survive real life: a week lost to illness or work, a holiday, a planned
+deload, and a deliberate test week. Today nothing distinguishes "trained on Tuesday" from
+"did not train at all", so the DUP cycle and the erector ramp advance by calendar only.
+
+Scope:
+
+- **Detect gaps** from stored sessions. A session that was never logged must not be treated as
+  a session at the old load; the next prescription should know how long the gap was.
+- **Declared breaks.** A `break --from --to [--reason]` record (holiday, deload, test week)
+  that freezes the DUP week and the ramp anchor for the duration. An undeclared break is
+  inferred from the gap and reported.
+- **Re-entry rules**, config-driven and separate for strength and erector work:
+  - 7-10 days off: keep the load, add one RIR for the first week back;
+  - 14+ days: reduce load ~10% for a week, then resume progression;
+  - 28+ days: re-enter the erector ramp at week 1 (or a declared re-anchor) rather than
+    pretending the ramp continued.
+- **Cycle semantics.** A missed week should not advance the DUP cycle; a declared break should
+  pause it. This is the difference between "week 3 of the cycle" and "the third week of
+  training".
+
+Acceptance: a missed session does not advance the DUP week; a declared break freezes it; after
+a 3-week gap the prescription is a re-entry session with the reason cited; a declared test week
+does not count as a training week; no artifact is deleted or rewritten.
+
+Open questions: the exact gap thresholds, whether the erector ramp pauses or re-anchors after a
+long break, and whether bodyweight work needs a different re-entry rule from barbell work.
 
 ## 5. Known gaps and risks
 

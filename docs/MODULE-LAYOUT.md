@@ -15,6 +15,7 @@ config/
   templates/days.v1.yaml             [x] Day A/B/C templates + day inference rules
   thresholds.v1.yaml                 [x] increment 0.5 kg, rounding, e1RM window, fatigue multiplier
   readiness.v1.yaml                  [x] modifier fields/threshold, merge strategy (DEC-READINESS-04)
+  athlete-state.example.yaml         [x] placeholder state file for a new athlete (DEC-PORT-01)
   templates/schemes.v1.yaml          [x] named rep schemes (DEC-REPS-01)
   templates/undulation.v1.yaml       [x] 4-week DUP cycle (DEC-UNDUL-01)
   llm.example.toml                   [x] LLM template; llm.local.toml is git-ignored (may hold a key)

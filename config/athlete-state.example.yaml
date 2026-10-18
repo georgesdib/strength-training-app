@@ -1,0 +1,34 @@
+# Template for a new athlete. Copy to private/athlete-state.yaml (git-ignored) and replace
+# every placeholder. Import with:
+#
+#   strength-coach --db /path/to/their.db state --import private/athlete-state.yaml
+#
+# Nothing here is personal by default: an empty constraint list and an empty suitability map
+# mean "unrecorded", which the rules report as unknown rather than as permission.
+
+profile:
+  effective_from: "YYYY-MM-DD"
+  primary_goal: longevity          # or strength / hypertrophy / health
+  goal_rank: [longevity, strength] # tie-breaker order
+  focus_lifts: []                  # canonical ids that matter most, if any
+  competition_date: null
+  sessions_per_week_target: 3
+  max_session_minutes: 90
+  # Week 1 of the erector ramp. Leave null until the athlete declares it (DEC-RAMP-01).
+  block_start_date: null
+
+constraints: []                    # e.g. {kind: injury, region: low_back, severity: monitor, ...}
+
+suitability:
+  rated_on: "YYYY-MM-DD"
+  exercises:
+    trap_bar_deadlift: {can_do: true, will_do: true, feels_bad: false}
+    bench_press_narrow: {can_do: true, will_do: true, feels_bad: false}
+    ssb_squat: {can_do: true, will_do: true, feels_bad: false}
+    split_squat: {can_do: true, will_do: true, feels_bad: false}
+    lateral_raise: {can_do: true, will_do: true, feels_bad: false}
+    back_extension: {can_do: true, will_do: true, feels_bad: false}
+
+metrics: []                        # extra readiness metrics, declared with direction
+symptoms: []                       # pre-session back readings
+e1rm_overrides: []                 # manual/tested maxima; typically added by `test`

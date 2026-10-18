@@ -489,3 +489,38 @@ This repository is public and contains no personal data.
 - `private/` (evidence profile, baseline, your marks) is git-ignored.
 - `config/llm.local.toml` and `.env` are git-ignored; keys are masked in every diagnostic.
 - The code, schemas, rules and tests contain no athlete-specific values.
+
+## 12. Using this for someone else
+
+The app is local-first and one database per person. Nothing personal is committed, so a
+second athlete runs exactly the same code against their own database:
+
+1. **Choose their database path.** Every command takes `--db /path/to/their.db`; the default
+   `data/coach.db` belongs to the first athlete. Never point two people at one file.
+2. **Create their state file.** Copy [`config/athlete-state.example.yaml`](config/athlete-state.example.yaml)
+   to `private/athlete-state.yaml` (git-ignored) and fill it in. Leave
+   `block_start_date: null` until they declare week 1.
+3. **Import their state:**
+   ```bash
+   strength-coach --db /path/to/their.db state --import private/athlete-state.yaml
+   ```
+4. **Import their training export** into `data/raw/`, or point the importer at it, then:
+   ```bash
+   strength-coach --db /path/to/their.db import
+   strength-coach --db /path/to/their.db block --date YYYY-MM-DD
+   strength-coach --db /path/to/their.db run --date YYYY-MM-DD --day A
+   strength-coach --db /path/to/their.db review --session YYYY-MM-DD
+   strength-coach --db /path/to/their.db calibrate
+   ```
+5. **Add their exercise vocabulary in YAML**, not Python: `config/exercises/taxonomy.v1.yaml`.
+   Unknown names are reported, never silently dropped.
+
+Privacy rules that make this safe:
+
+- `data/` and `private/` are git-ignored; a tracked-file test fails if anything personal is
+  committed.
+- LLM keys live in `config/llm.local.toml` (git-ignored) or the environment.
+- Their export, state, marks and database never touch the first athlete's files.
+
+The portability test suite runs the full loop on two independent databases with different
+lifts, dates and days, and asserts neither database sees the other's artifacts.
