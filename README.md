@@ -36,7 +36,7 @@ The CLI that ties these together is phase 9; see `docs/V0-SCOPE.md`.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest            # 285 tests
+.venv/bin/python -m pytest            # 287 tests
 .venv/bin/python tools/profile_data.py    # profile your own export
 .venv/bin/python tools/baseline.py        # strength baseline, latest date in the log
 .venv/bin/python tools/llm_check.py       # show the LLM configuration (see below)
@@ -70,8 +70,10 @@ $EDITOR config/llm.local.toml                      # base_url, model, api_key
 .venv/bin/python tools/llm_check.py --call         # send one test prompt
 ```
 
-Any **OpenAI-compatible** endpoint works (OpenAI, OpenRouter, vLLM, llama.cpp, Ollama). The
-API key is optional because a local server may not need one.
+The default endpoint is **DeepSeek** (`https://api.deepseek.com/v1`, `deepseek-chat`), so a
+provider plus an API key is enough. Any other **OpenAI-compatible** endpoint works too
+(OpenAI, OpenRouter, vLLM, llama.cpp, Ollama) by setting `base_url` and `model`. The API key
+is optional because a local server may not need one.
 
 Prefer not to put the key on disk? The environment overrides the file:
 

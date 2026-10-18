@@ -17,16 +17,19 @@
 
 [llm]
 # "null" (default) or "openai_compatible".
+# With a provider set, base_url and model fall back to DeepSeek's endpoint, so a provider
+# plus an API key is enough to enable narration.
 provider = "openai_compatible"
 
-# Any OpenAI-compatible endpoint. Examples:
+# DeepSeek is the default endpoint. Any OpenAI-compatible API works the same way:
+#   DeepSeek        https://api.deepseek.com/v1      (deepseek-chat, deepseek-reasoner)
 #   OpenAI          https://api.openai.com/v1
 #   OpenRouter      https://openrouter.ai/api/v1
 #   Ollama (local)  http://127.0.0.1:11434/v1
 #   llama.cpp       http://127.0.0.1:8080/v1
 #   vLLM            http://127.0.0.1:8000/v1
-base_url = "https://api.openai.com/v1"
-model = "gpt-4o-mini"
+base_url = "https://api.deepseek.com/v1"
+model = "deepseek-chat"
 
 # Optional: a local server may not require one. Prefer the environment variable for keys
 # you would rather not have on disk at all.

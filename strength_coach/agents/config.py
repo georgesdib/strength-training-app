@@ -6,7 +6,9 @@ environment over file over defaults, which lets a shell or a service unit inject
 writing one to disk.
 
 The default is `provider = \"null\"`: an unconfigured checkout behaves exactly like a run with
-no model, which is the property the whole architecture depends on.
+no model, which is the property the whole architecture depends on. Once a provider is
+chosen, the endpoint and model default to DeepSeek (OpenAI-compatible), so enabling
+narration needs only a provider and a key.
 """
 
 from __future__ import annotations
@@ -28,6 +30,12 @@ DEFAULT_CONFIG_NAME = "llm.local.toml"
 EXAMPLE_CONFIG_NAME = "llm.example.toml"
 PROVIDERS = ("null", "openai_compatible")
 
+# The default endpoint is DeepSeek's OpenAI-compatible API. PROVIDER still defaults to
+# "null", so an unconfigured checkout stays offline; these are the values used the moment a
+# provider is chosen, which means `provider` + an API key is enough to enable narration.
+DEFAULT_BASE_URL = "https://api.deepseek.com/v1"
+DEFAULT_MODEL = "deepseek-chat"
+
 ENV_PREFIX = "STRENGTH_COACH_LLM_"
 ENV_KEYS = {
     "PROVIDER": "provider",
@@ -47,8 +55,8 @@ class LLMConfigError(ValueError):
 @dataclass(frozen=True)
 class LLMSettings:
     provider: str = "null"
-    model: str | None = None
-    base_url: str | None = None
+    model: str | None = DEFAULT_MODEL
+    base_url: str | None = DEFAULT_BASE_URL
     api_key: str | None = None
     temperature: float = 0.2
     max_tokens: int = 700
@@ -114,8 +122,8 @@ def _from_file(path: Path) -> LLMSettings:
     block = raw.get("llm") or {}
     return LLMSettings(
         provider=str(block.get("provider", "null")),
-        model=_optional_str(block.get("model")),
-        base_url=_optional_str(block.get("base_url")),
+        model=_optional_str(block.get("model")) or DEFAULT_MODEL,
+        base_url=_optional_str(block.get("base_url")) or DEFAULT_BASE_URL,
         api_key=_optional_str(block.get("api_key")),
         temperature=float(block.get("temperature", 0.2)),
         max_tokens=int(block.get("max_tokens", 700)),

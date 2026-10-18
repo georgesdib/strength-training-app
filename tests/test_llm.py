@@ -87,9 +87,29 @@ def test_api_key_is_masked_in_diagnostics():
     assert "1234567890" not in json.dumps(describe(settings))
 
 
-def test_a_model_without_a_base_url_is_not_enabled():
-    client = build_client(LLMSettings(provider="openai_compatible", model="m"))
+def test_null_provider_stays_disabled_even_with_a_model():
+    client = build_client(LLMSettings(provider="null", model="m"))
     assert isinstance(client, NullLLM)
+
+
+def test_defaults_point_at_deepseek_once_a_provider_is_chosen():
+    client = build_client(LLMSettings(provider="openai_compatible", api_key="sk-test"))
+    assert isinstance(client, OpenAICompatibleClient)
+    assert client.base_url == "https://api.deepseek.com/v1"
+    assert client.model == "deepseek-chat"
+
+
+def test_provider_and_key_from_the_environment_are_enough(tmp_path):
+    settings = load_settings(
+        tmp_path / "missing.toml",
+        env={
+            "STRENGTH_COACH_LLM_PROVIDER": "openai_compatible",
+            "STRENGTH_COACH_LLM_API_KEY": "sk-test",
+        },
+    )
+    assert settings.enabled is True
+    assert settings.model == "deepseek-chat"
+    assert settings.base_url == "https://api.deepseek.com/v1"
 
 
 # --- null client and containment ------------------------------------------
