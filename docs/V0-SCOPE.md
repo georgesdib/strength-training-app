@@ -54,7 +54,7 @@ Each of these is deferred *with a reason*, not forgotten:
 | Deferred | Why |
 |---|---|
 | RAG / vector store | rules are cited by ID; exact lookup is better than semantic search here. RAG is only for programme prose, later |
-| Critique/prescription agents (real LLM) | the deterministic core must be proven first; `NullLLM` exercises the failure path from day one |
+| Critique/prescription agents (real LLM) | the deterministic core must be proven first; `NullLLM` exercises the failure path from day one. **Scheduled for v0.1** (`ROADMAP.md` §3.4): the model may propose a modified session, but only inside the rules and only with policy approval |
 | Days A and C | blocked by the SSB question (H1) and the erector ramp anchor (Q5) |
 | Erector dose ramp (PRG-EREC-001) | returns `unknown` — no symptom input, no anchored week 1 |
 | Velocity-loss scoring | not computable from set means (SANITY-CHECKS §C); v0 reports `velocity_decay_proxy` with `measurable: false` |

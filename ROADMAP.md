@@ -43,7 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 3 hand-marked sessions, 42% item agreement |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; calibration loop closed |
-| v0.1 | Next version | **planned** | see §3: athlete state, Days A/C, symptom input, VBT wiring, larger labelled set |
+| v0.1 | Next version | **planned** | see §3: athlete state, Days A/C, symptom input, **LLM prescription proposals within the rules**, VBT wiring, larger labelled set |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
 ### What works end to end today
@@ -114,7 +114,59 @@ per session, with `settled_within_48h`.
 Acceptance: `PRG-EREC-001` and `MOD-BACK-001` evaluate instead of returning `unknown`; the
 stability gate uses real entries; every verdict cites the symptom rows it used.
 
-### 3.4 VBT prescription wiring
+### 3.4 The LLM may tweak the prescription — within the rules
+
+Today the model only narrates. In the next version, with `--llm on`, it may also *propose* a
+modified Day B session, subject to the same policy engine that judges a performed one. The
+standing rule (AGENTS.md §3.3) is what makes this safe: **the policy engine may veto or
+downgrade the model; the model may never veto the rules.**
+
+What it may propose:
+
+- substitute an accessory for one with the same movement pattern and compatible properties;
+- choose between the day's allowed bench variants;
+- adjust set counts within configured bounds;
+- drop a non-essential item, or reorder items.
+
+What it may **not** do:
+
+- supply a raw load — every load is re-derived by the Python solver from the proposal's
+  structured intent (AGENTS.md §3.2). The proposal schema has no field for a number on the bar;
+- push RIR outside the rule window;
+- add direct erector work on the hinge day (`PRG-SCHED-001`) or push the week over the spinal
+  cap;
+- invent an exercise outside the taxonomy, or one the athlete's constraints exclude.
+
+How it is checked:
+
+- the proposal is structured (exercise ids plus bounded deltas), never prose;
+- `rules.policy` evaluates the *proposed* session against the constitution;
+- `veto` → the deterministic fallback is used; `downgrade` → the reduction is applied;
+  `warn`/`advisory` → recorded;
+- `prescription.approved_by = "llm+policy"`, and the proposal plus its verdicts are stored in
+  the `run` trace so the decision is replayable;
+- with the model off or failing, the deterministic prescription is byte-identical.
+
+Why it waits for 3.1: a substitution is only safe once the athlete-state tables say which
+exercises are excluded or merely unwelcome. Without them the model would be choosing from a
+pool that includes movements the athlete cannot or will not do.
+
+Decision needed at implementation time: this *narrows* `DEC-LLM-01` — prose stays event-only,
+but a structured proposal that passes policy may become the prescription. That needs a new
+`DEC-LLM-04` recording exactly which fields the model may influence and which it may not.
+
+Acceptance:
+
+- an illegal swap (erector work on the hinge day) is vetoed, the deterministic prescription is
+  used, and the veto is visible in the trace;
+- a legal substitution is accepted, persisted with `approved_by = llm+policy`, and its loads
+  still come from the solver;
+- a proposal carrying a raw load or an out-of-window RIR is rejected by validation before it
+  reaches the engine;
+- the existing LLM-off equivalence test passes unchanged;
+- the golden fixture gains an accepted-proposal case and a vetoed one.
+
+### 3.5 VBT prescription wiring
 
 Deferred by `DEC-VBT-01`. The calibration (band, sparsity ladder, versioning) already exists
 and is tested; what is missing is the rule that turns a band into a target:
@@ -130,13 +182,13 @@ the golden fixture gains velocity columns.
 Do not start this before those three questions have answers — inventing them is what the
 deferral exists to avoid.
 
-### 3.5 A labelled set worth tuning against
+### 3.6 A labelled set worth tuning against
 
 No code. Continue `review --session DATE` after sessions that are still fresh; the report
 needs roughly ten *remembered* sessions per item before a weight or definition is changed
 (`DEC-EVAL-03`, `DEC-EVAL-04`). Two of the three current marks are reconstructed and excluded.
 
-### 3.6 Deliberately not planned
+### 3.7 Deliberately not planned
 
 - A UI (deferred by request).
 - Multi-athlete or cloud sync: this is local-first by design.
