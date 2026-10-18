@@ -85,6 +85,14 @@ def clean_sets(
     return frame
 
 
+def readiness_day(conn, on_date: str) -> dict | None:
+    """One merged readiness row, or None when the date has no readiness data."""
+    row = conn.execute(
+        "SELECT * FROM readiness_day WHERE on_date = ?", (str(on_date),)
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
 def sessions(conn, *, start: str | None = None, end: str | None = None) -> pd.DataFrame:
     """Reconstructed sessions, one row per date."""
     sql = "SELECT * FROM session"

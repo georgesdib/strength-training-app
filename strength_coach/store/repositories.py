@@ -265,6 +265,49 @@ def store_clean_sets(
     return inserted, len(rows) - inserted
 
 
+def upsert_readiness_days(conn: sqlite3.Connection, days: pd.DataFrame) -> int:
+    """Write merged readiness rows.
+
+    `readiness_day` is derived state like `session`: adding a later export changes the merge
+    for a date, so the row is recomputed. The raw rows it came from stay immutable in
+    `raw_row`, and `merge_note` records why one candidate won.
+    """
+    if days.empty:
+        return 0
+
+    columns = [
+        "sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration",
+        "squat_readiness", "bench_readiness", "deadlift_readiness", "hrv_ms", "rhr_bpm",
+        "bodyweight_kg", "fat_pct",
+    ]
+    rows = []
+    for record in days.to_dict(orient="records"):
+        rows.append(
+            (
+                str(record["on_date"]),
+                *[_opt(record.get(name)) for name in columns],
+                _opt(record.get("composite")),
+                _opt(record.get("composite_basis")),
+                _opt(record.get("merge_note")),
+            )
+        )
+    assignments = ", ".join(f"{name} = excluded.{name}" for name in columns)
+    return _changes(
+        conn,
+        f"""
+        INSERT INTO readiness_day (
+            on_date, {", ".join(columns)}, composite, composite_basis, merge_note
+        ) VALUES (?, {", ".join("?" * len(columns))}, ?, ?, ?)
+        ON CONFLICT(on_date) DO UPDATE SET
+            {assignments},
+            composite = excluded.composite,
+            composite_basis = excluded.composite_basis,
+            merge_note = excluded.merge_note
+        """,
+        rows,
+    )
+
+
 # --- run trace -------------------------------------------------------------
 
 

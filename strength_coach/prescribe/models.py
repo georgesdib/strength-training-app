@@ -1,0 +1,75 @@
+"""Prescription value objects.
+
+Frozen dataclasses, so a prescription that has been shown to the athlete cannot be edited in
+place; a correction is a new prescription with a pointer back (AGENTS.md §3.7).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Mapping
+
+
+@dataclass(frozen=True)
+class PrescriptionItem:
+    order_index: int
+    exercise_id: str
+    sets: int
+    reps_low: int
+    reps_high: int
+    load_kg: float | None
+    load_basis: str
+    rounding_increment_kg: float
+    rir_target: int
+    rest_s: int | None
+    essential: bool
+    rationale_refs: tuple[str, ...] = ()
+    substitution_for: str | None = None
+    time_cap_s: int | None = None
+    # Set when the engine refused to invent a load. The prescription is then not executable.
+    unknown_load_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class Prescription:
+    for_date: str
+    session_day: str
+    fallback_level: str
+    rule_document_version: str
+    items: tuple[PrescriptionItem, ...]
+    time_cap_s: int | None = None
+    warnings: tuple[str, ...] = ()
+    issues: tuple[str, ...] = ()
+    notes: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def executable(self) -> bool:
+        """V0-SCOPE §4.4: every load is real, rounded, and inside its RIR window."""
+        return not self.issues and all(
+            item.load_kg is not None and item.unknown_load_reason is None for item in self.items
+        )
+
+    def item(self, order_index: int) -> PrescriptionItem:
+        return self.items[order_index]
+
+    def as_rows(self) -> list[dict]:
+        """Flat rows, shaped for the prescription_item table."""
+        return [
+            {
+                "order_index": item.order_index,
+                "exercise_id": item.exercise_id,
+                "sets": item.sets,
+                "reps_low": item.reps_low,
+                "reps_high": item.reps_high,
+                "load_kg": item.load_kg,
+                "load_basis": item.load_basis,
+                "rounding_increment": item.rounding_increment_kg,
+                "rir_target": item.rir_target,
+                "rest_s": item.rest_s,
+                "time_cap_s": item.time_cap_s,
+                "essential": item.essential,
+                "rationale_refs": list(item.rationale_refs),
+                "substitution_for": item.substitution_for,
+            }
+            for item in self.items
+        ]

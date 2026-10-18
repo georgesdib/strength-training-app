@@ -220,8 +220,6 @@ def weekly_spinal_cap(
     """
     params = rule.params
     cap = float(params.get("cap", 3))
-    costs = dict(params.get("costs") or {})
-    excluded = {str(p) for p in (params.get("excluded_patterns") or ())}
 
     sets = context.sets
     if sets.empty:
@@ -230,30 +228,7 @@ def weekly_spinal_cap(
     if working.empty:
         return _unknown(["set.is_working_set"], "no working sets in the window")
 
-    # An "exposure" is one exercise in one session, weighted by its spinal cost. Counting
-    # per set would make a 12-set trap-bar session equal to twelve exposures and fire the cap
-    # every week, which the constitution's own notes warn against; counting per week would
-    # almost never fire. The unit is recorded as OPEN-QUESTIONS Q8.
-    exposures: dict[str, dict[tuple[str, str], float]] = defaultdict(dict)
-    for row in working.itertuples(index=False):
-        entity = context.entity(str(row.exercise_id))
-        if not entity.get("high_fatigue_spinal", False):
-            continue
-        if entity.get("pattern") in excluded:
-            continue
-        cost = costs.get(str(row.exercise_id), entity.get("spinal_cost"))
-        if cost is None:
-            continue
-        week = iso_week(row.date)
-        exposures[week][(str(row.session_id), str(row.exercise_id))] = float(cost)
-
-    per_week: dict[str, dict[str, Any]] = {
-        week: {
-            "cost": sum(items.values()),
-            "exercises": Counter(exercise for (_session, exercise) in items),
-        }
-        for week, items in exposures.items()
-    }
+    per_week = weekly_spinal_costs(rule, context)
 
     if not per_week:
         # Complete input, zero exposure: that is a genuine pass, not an unknown.
@@ -407,6 +382,60 @@ def erector_dose_ramp(
     if context.symptom_flare or not stability_ok:
         return Evaluation(FAIL, rule.fail_code, (), (), details)
     return Evaluation(PASS, None, (), (), details)
+
+
+def spinal_exposures(
+    rule: "Rule",
+    context: "RuleContext",
+    extra: Iterable[tuple[str, str, Any]] = (),
+) -> dict[str, dict[tuple[str, str], float]]:
+    """week -> {(session_id, exercise_id): spinal_cost} for performed and proposed work.
+
+    `extra` lets the prescription engine cost a *proposed* session with the same function
+    that judges performed ones, so the engine cannot drift from the rule it must satisfy.
+    """
+    params = rule.params
+    costs = dict(params.get("costs") or {})
+    excluded = {str(p) for p in (params.get("excluded_patterns") or ())}
+
+    # An "exposure" is one exercise in one session, weighted by its spinal cost. Counting
+    # per set would make a 12-set trap-bar session equal to twelve exposures and fire the cap
+    # every week, which the constitution's own notes warn against; counting per week would
+    # almost never fire. The unit is recorded as OPEN-QUESTIONS Q8.
+    exposures: dict[str, dict[tuple[str, str], float]] = defaultdict(dict)
+
+    def add(session_id: str, exercise_id: str, when: Any) -> None:
+        entity = context.entity(exercise_id)
+        if not entity.get("high_fatigue_spinal", False):
+            return
+        if entity.get("pattern") in excluded:
+            return
+        cost = costs.get(exercise_id, entity.get("spinal_cost"))
+        if cost is None:
+            return
+        exposures[iso_week(when)][(session_id, exercise_id)] = float(cost)
+
+    working = context.sets[context.sets["is_working_set"]]
+    for row in working.itertuples(index=False):
+        add(str(row.session_id), str(row.exercise_id), row.date)
+    for session_id, exercise_id, when in extra:
+        add(str(session_id), str(exercise_id), when)
+    return exposures
+
+
+def weekly_spinal_costs(
+    rule: "Rule",
+    context: "RuleContext",
+    extra: Iterable[tuple[str, str, Any]] = (),
+) -> dict[str, dict[str, Any]]:
+    """Per-week weighted cost and exercise mix, optionally including a proposed session."""
+    return {
+        week: {
+            "cost": sum(items.values()),
+            "exercises": Counter(exercise for (_session, exercise) in items),
+        }
+        for week, items in spinal_exposures(rule, context, extra).items()
+    }
 
 
 def _ramp_phase(params: Mapping[str, Any], week: int) -> Mapping[str, Any] | None:

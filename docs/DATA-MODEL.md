@@ -96,7 +96,9 @@ trap bar.
 | composite | derived, 0–1, with `composite_basis` listing which inputs existed |
 | merge_note | JSON: which duplicate rows were considered and why one won |
 
-Duplicate-readiness merge rule is DQ-RD-01.
+Duplicate-readiness merge rule is DQ-RD-01; implemented as most-complete-row, ties to the
+latest (`DEC-READINESS-01`, `ingest/readiness.py`). `composite` stays null until the metric
+directions in Q6 part 2 are declared.
 
 ## 6. `vbt_calibration` — append-only, versioned
 

@@ -1,0 +1,288 @@
+"""The deterministic Day B prescription engine.
+
+Python computes, the LLM explains (AGENTS.md §1). Every number here comes from a stored fact
+or a config value, and every item carries the citations that justify it, so the rationale
+validator can refuse a prescription whose reasoning does not resolve.
+
+Order of operations is deliberate:
+
+1. read history only up to `for_date` — no look-ahead, or a backtest would be a lie;
+2. derive loads from e1RM (main lifts) or double progression (accessories);
+3. apply MOD-FAT-001, which can only *reduce* a load;
+4. validate executability, including the weekly spinal cap, using the same function the
+   rule uses — so a prescription cannot satisfy the engine and violate the constitution.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import replace
+from typing import Any, Mapping
+
+import pandas as pd
+
+from strength_coach.prescribe import config as config_mod
+from strength_coach.prescribe import fallback, loads, templates
+from strength_coach.prescribe.models import Prescription, PrescriptionItem
+from strength_coach.rules import RuleContext, evaluate, load_document, registry
+from strength_coach.rules import policy as policy_mod
+from strength_coach.store import queries
+
+RULE_REF_RE = re.compile(r"^(PRG|MOD)-[A-Z]+-\d{3}$")
+FATIGUE_FIELDS = ("sleep", "energy")
+FATIGUE_THRESHOLD = 2
+
+
+def build_prescription(
+    conn,
+    *,
+    for_date: str,
+    session_day: str = "B",
+    document=None,
+    thresholds: config_mod.Thresholds | None = None,
+    template: templates.DayTemplate | None = None,
+) -> Prescription:
+    """Generate the deterministic session for `for_date`."""
+    document = document or load_document()
+    thresholds = thresholds or config_mod.Thresholds.load()
+    template = template or templates.DayTemplate.load(session_day)
+
+    context = RuleContext.from_store(conn, end=for_date, rep_ranges=template.rep_ranges())
+    policy_result = evaluate(document, context)
+    decisions = policy_result.verdict("PRG-DP-001").details.get("decisions", {})
+
+    items: list[PrescriptionItem] = []
+    warnings: list[str] = []
+
+    for index, slot in enumerate(template.slots):
+        exercise_id, chosen_variant = _choose_exercise(slot, context)
+        if chosen_variant:
+            warnings.append(f"{slot.id}: chose {exercise_id} from {list(slot.variants)}")
+
+        increment = thresholds.increment_for(exercise_id)
+        load: float | None
+        refs: tuple[str, ...]
+        unknown_reason: str | None = None
+
+        if slot.load_source == "e1rm":
+            found = _latest_e1rm(context, exercise_id, for_date, thresholds.e1rm_window_days)
+            if found is None:
+                load = None
+                refs = ()
+                unknown_reason = (
+                    f"no usable e1RM for {exercise_id} in the last "
+                    f"{thresholds.e1rm_window_days} days"
+                )
+            else:
+                e1rm_kg, ref = found
+                load = loads.solve_load(e1rm_kg, slot.reps_low, slot.rir_low, increment)
+                refs = ("PRG-RIR-001", ref)
+        else:
+            found = _last_working_set(context, exercise_id)
+            if found is None:
+                load = None
+                refs = ()
+                unknown_reason = f"no working history for {exercise_id}"
+            else:
+                prior_load, ref = found
+                decision = decisions.get(exercise_id, {}).get("decision", "hold_load")
+                load = prior_load + increment if decision == "add_increment" else prior_load
+                load = loads.round_down(load, increment)
+                refs = ("PRG-DP-001", ref)
+
+        items.append(
+            PrescriptionItem(
+                order_index=index,
+                exercise_id=exercise_id,
+                sets=slot.sets,
+                reps_low=slot.reps_low,
+                reps_high=slot.reps_high,
+                load_kg=load,
+                load_basis="external",
+                rounding_increment_kg=increment,
+                rir_target=slot.rir_low,
+                rest_s=slot.rest_s,
+                essential=slot.essential,
+                rationale_refs=refs,
+                time_cap_s=template.time_cap_s if slot.essential else None,
+                unknown_load_reason=unknown_reason,
+            )
+        )
+
+    fallback_level = "full"
+    readiness = queries.readiness_day(conn, for_date)
+    trigger = _fatigue_trigger(readiness)
+    if trigger:
+        multiplier = thresholds.fatigue_load_multiplier
+        items = list(
+            fallback.scale_loads(
+                tuple(items),
+                multiplier,
+                extra_refs=("MOD-FAT-001", f"readiness:{for_date}"),
+            )
+        )
+        fallback_level = "fatigue_reduced"
+        warnings.append(
+            f"MOD-FAT-001: {trigger}; loads x{multiplier} (readiness {for_date})"
+        )
+
+    issues = _validate(tuple(items), context, document, session_day, for_date)
+
+    for verdict in policy_result.unknowns:
+        warnings.append(
+            f"{verdict.rule_id} not assessable: missing {', '.join(verdict.missing_inputs)}"
+        )
+
+    return Prescription(
+        for_date=for_date,
+        session_day=session_day,
+        fallback_level=fallback_level,
+        rule_document_version=document.version,
+        items=tuple(items),
+        time_cap_s=template.time_cap_s,
+        warnings=tuple(warnings),
+        issues=tuple(issues),
+        notes={
+            "policy_outcome": policy_result.outcome,
+            "e1rm_window_days": thresholds.e1rm_window_days,
+            "fatigue_trigger": trigger,
+        },
+    )
+
+
+def _choose_exercise(slot: templates.Slot, context: RuleContext) -> tuple[str, bool]:
+    """Pick one exercise for a slot; variants resolve to whichever was trained most recently."""
+    if len(slot.exercises) == 1:
+        return slot.exercises[0], False
+
+    latest: tuple[pd.Timestamp, str] | None = None
+    for exercise_id in slot.exercises:
+        history = context.sets[context.sets["exercise_id"] == exercise_id]
+        if history.empty:
+            continue
+        when = history["date"].max()
+        if latest is None or when > latest[0]:
+            latest = (when, exercise_id)
+    if latest is None:
+        # Nothing trained yet: take the first variant in config order so the choice is
+        # reproducible rather than dependent on dict ordering.
+        return slot.exercises[0], True
+    return latest[1], True
+
+
+def _latest_e1rm(
+    context: RuleContext, exercise_id: str, for_date: str, window_days: int
+) -> tuple[float, str] | None:
+    """Best usable e1RM in the window ending at `for_date`, with a citable set reference.
+
+    The window is measured from the prescription date, not from the last session: an athlete
+    returning after six months off must not be prescribed from a pre-break peak.
+    """
+    if context.sets.empty or "e1rm_kg" not in context.sets:
+        return None
+    frame = context.sets
+    cutoff = pd.Timestamp(for_date) - pd.Timedelta(days=window_days)
+    usable = frame[
+        (frame["exercise_id"] == exercise_id)
+        & frame["e1rm_kg"].notna()
+        & (frame["date"] >= cutoff)
+    ]
+    if usable.empty:
+        return None
+    row = usable.loc[usable["e1rm_kg"].idxmax()]
+    return float(row["e1rm_kg"]), f"set:{row['session_id']}/{int(row['set_id'])}"
+
+
+def _last_working_set(
+    context: RuleContext, exercise_id: str
+) -> tuple[float, str] | None:
+    """The most recent working load, for double progression."""
+    if context.sets.empty:
+        return None
+    usable = context.sets[
+        (context.sets["exercise_id"] == exercise_id)
+        & context.sets["is_working_set"]
+        & context.sets["load_kg"].notna()
+    ]
+    if usable.empty:
+        return None
+    row = usable.sort_values(["date", "set_id"]).iloc[-1]
+    return float(row["load_kg"]), f"set:{row['session_id']}/{int(row['set_id'])}"
+
+
+def _fatigue_trigger(readiness: Mapping[str, Any] | None) -> str | None:
+    """MOD-FAT-001's readiness branch: sleep <= 2 or energy <= 2 (higher is better)."""
+    if not readiness:
+        return None
+    for field in FATIGUE_FIELDS:
+        value = readiness.get(field)
+        if value is not None and value <= FATIGUE_THRESHOLD:
+            return f"{field}={value}"
+    return None
+
+
+def _validate(
+    items: tuple[PrescriptionItem, ...],
+    context: RuleContext,
+    document,
+    session_day: str,
+    for_date: str,
+) -> list[str]:
+    """V0-SCOPE §4.4: a prescription must be executable before it is shown."""
+    issues: list[str] = []
+
+    for item in items:
+        if item.load_kg is None:
+            issues.append(f"NO_LOAD:{item.exercise_id}:{item.unknown_load_reason}")
+            continue
+        if item.load_kg <= 0:
+            issues.append(f"LOAD_NOT_POSITIVE:{item.exercise_id}:{item.load_kg}")
+        if not loads.is_multiple_of(item.load_kg, item.rounding_increment_kg):
+            issues.append(
+                f"LOAD_NOT_EXECUTABLE:{item.exercise_id}:{item.load_kg} "
+                f"is not a multiple of {item.rounding_increment_kg}"
+            )
+        if context.entity(item.exercise_id).get("direct_erector", False) and session_day == "B":
+            # PRG-SCHED-001: direct erector work never belongs on the hinge day.
+            issues.append(f"ERECTOR_ON_HINGE_DAY:{item.exercise_id}")
+
+    rule = document.rule("PRG-SPINE-001")
+    proposed = [(for_date, item.exercise_id, for_date) for item in items]
+    costs = registry.weekly_spinal_costs(rule, context, proposed)
+    week = registry.iso_week(for_date)
+    cost = float(costs.get(week, {}).get("cost", 0.0))
+    cap = float(rule.params.get("cap", 3))
+    if cost > cap:
+        issues.append(f"SPINAL_CAP:{week}:cost {cost:g} exceeds cap {cap:g}")
+
+    return issues
+
+
+def validate_references(
+    prescription: Prescription,
+    context: RuleContext,
+    conn,
+    document=None,
+) -> list[str]:
+    """Every rationale reference must resolve (V0-SCOPE §4.8).
+
+    Rule ids must exist in the document; data references must name a stored set, or a
+    readiness row when the fatigue modifier fired. A citation that resolves to nothing is a
+    hallucination even when Python produced it.
+    """
+    document = document or load_document()
+    known = set(document.rule_ids) | {
+        str(modifier.get("id")) for modifier in document.modifiers
+    }
+    problems: list[str] = []
+    for item in prescription.items:
+        for ref in item.rationale_refs:
+            if RULE_REF_RE.match(ref):
+                if ref not in known:
+                    problems.append(f"{item.exercise_id}: unknown rule {ref}")
+            elif ref.startswith("readiness:"):
+                if queries.readiness_day(conn, ref.split(":", 1)[1]) is None:
+                    problems.append(f"{item.exercise_id}: no readiness row for {ref}")
+            elif not policy_mod.resolve_reference(context, ref):
+                problems.append(f"{item.exercise_id}: unresolvable reference {ref}")
+    return problems

@@ -107,6 +107,18 @@ def estimate_e1rm(
     )
 
 
+def load_for_reps(e1rm_kg: float, reps: int, rir: int) -> float:
+    """Invert the RIR-adjusted Epley: the load that yields `e1rm` at `reps` left `rir`.
+
+    The prescription engine must not invent arithmetic of its own (AGENTS.md §3.2), so the
+    inverse lives next to the forward formula it inverts. It is an APPROXIMATION for the same
+    reason the forward form is (ASSUMPTION-03): it assumes the RIR adjustment is linear.
+    """
+    if e1rm_kg <= 0:
+        raise ValueError(f"e1RM must be positive, got {e1rm_kg}")
+    return float(e1rm_kg) / (1.0 + (float(reps) + float(rir)) / EPLEY_DIVISOR)
+
+
 def percent_of_e1rm(load_kg: float, e1rm_kg: float) -> float | None:
     """Load as a fraction of e1RM, or None when e1RM is unusable."""
     if not e1rm_kg or e1rm_kg <= 0:

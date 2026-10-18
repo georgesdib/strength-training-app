@@ -1,0 +1,34 @@
+# Thresholds that change a prescribed load.
+#
+# AGENTS.md §4: rep ranges, load increments and caps are CONFIG, not code. Changing a value
+# here changes what the athlete is told to lift, so every entry carries its domain reason.
+# anything that alters a prescribed load and is not written down here is a bug.
+
+schema_version: "1.0.0"
+
+load:
+  # The athlete owns 0.25 kg microplates, so the smallest real jump is 0.25 kg per side =
+  # 0.5 kg on the bar. Prescribing 2.5 kg steps would leave most of that resolution unused.
+  increment_kg: 0.5
+  # Per-lift overrides, e.g. a machine with fixed 5 kg pins. Empty: every lift uses 0.5 kg.
+  per_exercise_increment_kg: {}
+
+  # Always round DOWN. A prescribed load the athlete cannot actually make is not executable,
+  # and rounding up would silently exceed the target RIR.
+  rounding: down
+
+  # Which e1RM to build the load from. A recent best-in-window reflects current form; an
+  # all-time best from two years ago would prescribe loads the athlete cannot currently hit.
+  e1rm_window_days: 84
+  e1rm_source: best_usable
+
+modifiers:
+  # MOD-FAT-001 allows reducing load 5-10%. Take the smaller intervention first: a 5% cut is
+  # already enough to matter, and the session can still be completed as written.
+  fatigue_load_multiplier: 0.95
+
+prescription:
+  # A Day B session at ~20 working sets fits comfortably inside the constitution's 60-80 min
+  # guidance. Recorded because the prescription row stores a time cap even when it cannot be
+  # measured (no timestamps in the export).
+  session_time_cap_s: 4800

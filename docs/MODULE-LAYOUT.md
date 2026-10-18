@@ -13,7 +13,7 @@ config/
   rules/programme.v1.yaml            [x] the constitution, 5 encoded rules + modifiers
   calibration/overrides.v1.yaml      [ ] per-lift manual velocity overrides
   templates/days.v1.yaml             [x] Day A/B/C templates + day inference rules
-  thresholds.v1.yaml                 [ ] increments, caps, bands
+  thresholds.v1.yaml                 [x] increment 0.5 kg, rounding, e1RM window, fatigue multiplier
 data/raw/training_log.csv            [x] immutable source
 data/raw/readiness.csv               [x] immutable source
 data/coach.db                        [x] SQLite store (created on demand)
@@ -49,7 +49,12 @@ strength_coach/
     context.py                       [x] immutable view of stored sets/sessions
     policy.py                        [x] verdicts, severity effects, evidence validation, publish
     rag.py                           [ ] deferred (rules are cited by id, not retrieved)
-  prescribe/                         [ ]
+  prescribe/                         [x] deterministic Day B
+    templates.py                     [x] day slots from config/templates/days.v1.yaml
+    config.py                        [x] thresholds: increment, rounding, e1RM window
+    loads.py                         [x] e1RM -> rounded load, never up
+    engine.py                        [x] build + validate an executable session
+    fallback.py                      [x] deterministic fallback, load scaling
     templates.py engine.py fallback.py
   critique/                          [ ]
     facts.py rubric.py

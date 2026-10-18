@@ -31,6 +31,49 @@ days:
     allows_erector_work: false
     allows_hinge: true
     allows_power: true
+    # What a generated Day B session contains. The block above describes *shape* for
+    # identification; this describes the prescription. The rep ranges are the ranges the
+    # athlete actually trains (measured from the log), not invented targets.
+    #
+    # No direct erector work appears here because PRG-SCHED-001 forbids it on the hinge day;
+    # the accessory slots are exactly the constitution's accessory pool minus that work.
+    prescription:
+      time_cap_s: 4800
+      slots:
+        - id: hinge_main
+          exercise: trap_bar_deadlift
+          sets: 4
+          reps: {low: 3, high: 5}
+          rir: {low: 2, high: 3}
+          rest_s: 180
+          essential: true
+          load_source: e1rm
+        - id: bench_main
+          # The constitution allows close-grip OR pause bench on the hinge day; the engine
+          # picks whichever was trained more recently, deterministically.
+          exercise_variants: [bench_press_narrow, bench_press_pause]
+          sets: 4
+          reps: {low: 3, high: 5}
+          rir: {low: 2, high: 3}
+          rest_s: 180
+          essential: true
+          load_source: e1rm
+        - id: accessory_lateral_raise
+          exercise: lateral_raise
+          sets: 3
+          reps: {low: 10, high: 12}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
+        - id: accessory_split_squat
+          exercise: split_squat
+          sets: 3
+          reps: {low: 8, high: 10}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
 
   C:
     label: "Bench + squat"

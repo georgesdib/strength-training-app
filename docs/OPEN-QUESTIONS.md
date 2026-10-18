@@ -85,10 +85,13 @@ Two sub-questions:
    planned. Each needs a declared scale, direction (does higher mean better?) and
    aggregation before it can enter the composite.
 
-**Blocks:** the readiness composite and every fatigue modifier input.
+**Blocks:** the readiness composite. The merge half no longer blocks anything.
 **Default:** most-complete-row merge with conflicts logged; new metrics enter as
 `metric_definition` rows with explicit `scale_min`, `scale_max`, `higher_is_better` and
 `aggregation`, and stay dormant until populated.
+**Status:** the merge default is **implemented** (`ingest/readiness.py`, `DEC-READINESS-01`);
+every date carries its `merge_note`. The composite is still unbuilt and stays `null` until
+part 2 is answered. `ASSUMPTION-04`: completeness is treated as authority.
 
 ---
 

@@ -20,7 +20,7 @@ from typing import Mapping
 import pandas as pd
 
 from strength_coach import __version__
-from strength_coach.ingest import clean, sessions as sessions_mod
+from strength_coach.ingest import clean, readiness as readiness_mod, sessions as sessions_mod
 from strength_coach.store import repositories as repo
 from strength_coach.utils import paths
 
@@ -35,6 +35,7 @@ class ImportReport:
     clean_sets_existing: int
     sessions_written: int
     quarantined: int
+    readiness_days: int = 0
     issues: dict[str, int] = field(default_factory=dict)
     window_start: str | None = None
     window_end: str | None = None
@@ -68,6 +69,9 @@ def config_hash() -> str:
         paths.taxonomy_yaml(),
         paths.config_dir("templates", "days.v1.yaml"),
         paths.programme_rules_yaml(),
+        # Prescription thresholds change prescribed loads, so a run must name the version
+        # they were under, not just the rules version.
+        paths.thresholds_yaml(),
     ):
         if Path(path).exists():
             digest.update(Path(path).read_bytes())
@@ -115,6 +119,11 @@ def import_export(
         inserted, existing = repo.store_clean_sets(conn, result.sets, raw_ids=training_raw)
         quarantined = repo.store_quarantine(conn, result.quarantine, raw_ids=training_raw)
 
+        # Readiness is merged here because the prescription engine needs one row per date for
+        # MOD-FAT-001; the merge rule is the documented Q6 default (DEC-READINESS-01).
+        readiness_result = readiness_mod.build_readiness_day(readiness)
+        readiness_days = repo.upsert_readiness_days(conn, readiness_result.days)
+
         dates = result.sets["date"].dropna() if "date" in result.sets else pd.Series(dtype="object")
         window_start = pd.Timestamp(dates.min()).date().isoformat() if len(dates) else None
         window_end = pd.Timestamp(dates.max()).date().isoformat() if len(dates) else None
@@ -140,6 +149,7 @@ def import_export(
                 "clean_sets_existing": existing,
                 "sessions_written": len(reconstructed),
                 "quarantined": quarantined,
+                "readiness_days": readiness_days,
             },
         )
         repo.finish_run(conn, run.run_id, status="ok")
@@ -151,6 +161,7 @@ def import_export(
             clean_sets_existing=existing,
             sessions_written=len(reconstructed),
             quarantined=quarantined,
+            readiness_days=readiness_days,
             issues=dict(result.issues),
             window_start=window_start,
             window_end=window_end,
