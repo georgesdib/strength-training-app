@@ -100,8 +100,12 @@ as symptoms.
 
 ### 3.2 Days A and C
 
-Depends on 3.1, plus the erector-ramp anchor (Q3) and the SSB question (H1). Day B was chosen
-for v0 exactly because it avoids both.
+Depends on 3.1. The SSB question (H1) is answered: the bar is available. The erector-ramp
+anchor is also settled in principle — **the athlete declares the official start, and can reset
+it at any time** (`DEC-RAMP-01`), so the anchor is stored, never inferred.
+
+Scope: Day A and Day C templates; `block start [--date]` command that sets or resets week 1 as
+a new profile row (never an edit); the ramp reads that row.
 
 Acceptance: a template per day with its own essential lifts; `PRG-SCHED-001` enforced on both
 (no erector work on the hinge day, erector work allowed on A/C); a golden prescription per
@@ -114,6 +118,8 @@ includes `back_extension`, which Day B never prescribes and so has no rep range.
 
 Depends on 3.1 (`symptom_log`). This is the missing safety input (Q4): a manual `--back 0-3`
 per session, with `settled_within_48h`.
+
+Timing is **pre-session only** for now; per-region detail is deferred (`private/docs/ATHLETE-STATE.md`).
 
 Acceptance: `PRG-EREC-001` and `MOD-BACK-001` evaluate instead of returning `unknown`; the
 stability gate uses real entries; every verdict cites the symptom rows it used.
@@ -155,6 +161,10 @@ Why it waits for 3.1: a substitution is only safe once the athlete-state tables 
 exercises are excluded or merely unwelcome. Without them the model would be choosing from a
 pool that includes movements the athlete cannot or will not do.
 
+Consent: the athlete wants **both substitutions and adjustments, but shown before applying**.
+No proposal is applied silently — `run --llm on` prints the difference and asks; a `--yes` flag
+covers scripting.
+
 Decision needed at implementation time: this *narrows* `DEC-LLM-01` — prose stays event-only,
 but a structured proposal that passes policy may become the prescription. That needs a new
 `DEC-LLM-04` recording exactly which fields the model may influence and which it may not.
@@ -167,6 +177,8 @@ Acceptance:
   still come from the solver;
 - a proposal carrying a raw load or an out-of-window RIR is rejected by validation before it
   reaches the engine;
+- nothing is applied without an explicit confirmation, and declining leaves the deterministic
+  prescription untouched;
 - the existing LLM-off equivalence test passes unchanged;
 - the golden fixture gains an accepted-proposal case and a vetoed one.
 
