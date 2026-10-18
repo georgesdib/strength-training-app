@@ -506,6 +506,62 @@ def append_rule(
     )
 
 
+def append_critique(
+    conn: sqlite3.Connection,
+    *,
+    critique_id: str,
+    run_id: str,
+    session_id: str,
+    narrative: str | None,
+    facts_hash: str,
+    supersedes_id: str | None = None,
+) -> str:
+    """Store one critique. `facts_hash` ties it to the exact facts it scored."""
+    conn.execute(
+        """
+        INSERT INTO critique (critique_id, run_id, session_id, narrative, facts_hash,
+                              supersedes_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (critique_id, run_id, session_id, narrative, facts_hash, supersedes_id),
+    )
+    return critique_id
+
+
+def append_rubric_score(
+    conn: sqlite3.Connection,
+    *,
+    critique_id: str,
+    item: str,
+    score: float | None,
+    weight: float,
+    evidence_refs: Sequence[str],
+    rule_ids: Sequence[str],
+    measurable: bool,
+) -> None:
+    """Store one rubric line.
+
+    `measurable = 0` rows must carry no score: the schema refuses a guessed number for a
+    metric the data cannot support (DATA-MODEL §9).
+    """
+    conn.execute(
+        """
+        INSERT INTO rubric_score (critique_id, item, score, weight, evidence_refs, rule_ids,
+                                  measurable)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            critique_id,
+            item,
+            score,
+            weight,
+            _json(list(evidence_refs)),
+            _json(list(rule_ids)),
+            1 if measurable else 0,
+        ),
+    )
+
+
 def append_rule_document(
     conn: sqlite3.Connection,
     *,

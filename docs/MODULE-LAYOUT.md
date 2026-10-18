@@ -57,7 +57,11 @@ strength_coach/
     engine.py                        [x] build + validate an executable session
     fallback.py                      [x] deterministic fallback, load scaling
     templates.py engine.py fallback.py
-  critique/                          [ ]
+  critique/                          [x] deterministic rubric
+    facts.py                         [x] one session -> immutable, citable facts
+    rubric.py                        [x] 6 measured items + 2 unmeasured, persistence
+  trace/                             [x] run lifecycle
+    run.py                           [x] start/event/finish; closes failed runs as error
     facts.py rubric.py
   agents/                            [ ]
     llm.py critique_agent.py prescription_agent.py tools.py

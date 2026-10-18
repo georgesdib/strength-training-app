@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · version `0.0.1-dev` · **248 tests passing**
+Last updated: 2026-10-17 · version `0.0.1-dev` · **271 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · version `0.0.1-dev` · **248 tests passing**
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 248 passed
+.venv/bin/python -m pytest            # expect: 271 passed
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -38,7 +38,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 4 | Rules loader + policy engine | **done** | `rules/loader.py`, `registry.py`, `context.py`, `policy.py`; predicates for all five rules |
 | 5 | Prescription engine (Day B) + deterministic fallback | **done** | `prescribe/templates.py`, `config.py`, `loads.py`, `engine.py`, `fallback.py`; `config/thresholds.v1.yaml` |
 | 5.5 | Athlete state — DATA-MODEL §11 tables | **not started** | planned `store/migrations/0002_athlete_state.sql`, repository writers; unblocks Days A/C and hard constraints |
-| 6 | Critique rubric + trace | **not started** | planned `critique/facts.py`, `rubric.py`, `trace/run.py` |
+| 6 | Critique rubric + trace | **done** | `critique/facts.py`, `critique/rubric.py`, `trace/run.py`; 6 measurable items + 2 unmeasured |
 | 7 | LLM layer (critique + prescription agents) | **not started** | planned `agents/llm.py`, `tools.py`, `NullLLM` |
 | 8 | Backtest harness + labelled eval set | **not started** | planned `eval/backtest.py`, `eval/labelled_rubric.yaml` |
 | 9 | CLI (`coach run --date`) | **not started** | planned `cli.py` |
@@ -56,23 +56,23 @@ evidence. A **Day B session is now generated**: loads solved from recent e1RM (o
 progression for accessories), rounded down to the athlete's 0.5 kg microplates, with
 MOD-FAT-001 reducing loads when sleep or energy is <= 2. Every item cites a rule id and a
 stored set, and the prescription refuses to be executable if a load, the RIR window, the
-erector-day rule or the weekly spinal cap would be broken. There is **no critique yet** —
-nothing scores the session that was performed.
+erector-day rule or the weekly spinal cap would be broken. A performed session can now be
+**critiqued**: six rubric items score it (RIR adherence, progression adherence, weekly spinal
+cost, essential work, redundancy, rotation) with evidence references, and two are stored as
+`measurable = 0` because the export cannot support them (session duration, within-set velocity
+loss). The critique is persisted append-only inside a `run` trace. There is **no CLI and no
+LLM narration yet**.
 
 ## 3. Next actions
 
-The main line is **6 → 7 → 8**. Phase 5.5 is scheduled but not on that line: it must land
+The main line is **7 → 8 → 9**. Phase 5.5 is scheduled but not on that line: it must land
 before Days A/C and before any hard constraint can veto, and it can start as soon as the
 answers are available.
 
-1. **Phase 6 — critique rubric + trace.** Deterministic rubric over a stored session. A metric
-   the data cannot support is stored `measurable = 0` rather than guessed. Acceptance: the
-   three known failure patterns (grinding sets, hinge/erector stacking, rotation split by
-   workout label) score with evidence references.
-2. **Phase 7 — LLM layer.** `NullLLM` plus one optional narrative call behind `--llm on`;
+1. **Phase 7 — LLM layer.** `NullLLM` plus one optional narrative call behind `--llm on`;
    the run must be identical in structure with it off (`docs/V0-SCOPE.md` §4 criterion 5).
-3. **Phase 5.5 — athlete state tables (§11).** Not a detour: it is the prerequisite for Days
-   A/C and for any hard constraint, and it can run in parallel with phases 6-8.
+2. **Phase 5.5 — athlete state tables (§11).** Not a detour: it is the prerequisite for Days
+   A/C and for any hard constraint, and it can run in parallel with phases 7-9.
    *Why now and not earlier:* nothing can be stored until the tables exist, so collecting
    the answers before then would mean holding personal data with nowhere to put it.
    *Scope:* `athlete_profile`, `constraint`, `exercise_suitability`, `metric_definition`,
@@ -83,8 +83,11 @@ answers are available.
    an empty table yields `unknown`, never "nothing is wrong".
    *Input:* answers come from `private/docs/INFO-REQUESTS.md` §1-3 and are read back for
    confirmation before being written.
-4. **Phase 8 — backtest harness + labelled eval set.** Replay history through phase 5-6 and
+3. **Phase 8 — backtest harness + labelled eval set.** Replay history through phases 5-6 and
    compare against a hand-marked rubric.
+4. **Phase 9 — CLI (`coach run --date`).** The end-to-end slice in `docs/V0-SCOPE.md` §1:
+   ingest, prescribe, critique, persist, and print a rationale where every number cites a
+   rule or a data point.
 
 **Known follow-up from phase 5:** `PRG-DP-001` stays `unknown` even though the engine supplies
 rep ranges, because its scope includes `back_extension`, which Day B never prescribes and so

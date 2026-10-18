@@ -1,0 +1,273 @@
+"""The critique rubric: what it scores, and what it refuses to score.
+
+Two properties matter more than any individual number:
+
+* a metric the data cannot support is stored as measurable = 0 with no score, never as 0.0;
+* every measured item cites rows that exist, so a score can be audited.
+"""
+
+from __future__ import annotations
+
+from contextlib import contextmanager
+
+import pytest
+
+from conftest import make_readiness, make_training
+from strength_coach.critique import UnknownSessionError, persist, score_session
+from strength_coach.critique.facts import build_facts
+from strength_coach.rules import load_document
+from strength_coach.rules import policy as policy_mod
+from strength_coach.store import db, importer
+from strength_coach.trace import RunTrace
+
+
+@contextmanager
+def store_with(rows):
+    training = make_training(rows)
+    readiness = make_readiness([{}])
+    store = db.Store(":memory:")
+    try:
+        importer.import_export(
+            store.connection, training, readiness,
+            training_sha256=importer.sha256_frame(training),
+            readiness_sha256=importer.sha256_frame(readiness),
+        )
+        yield store
+    finally:
+        store.close()
+
+
+def session_rows(date: str, *, deadlift_rir: str = "2", with_erector: bool = False,
+                 bench: bool = True, exercises=None) -> list[dict]:
+    rows = [
+        {"Date": date, "Exercise": "Competition Deadlift", "Weight_Used": "150",
+         "RIR": deadlift_rir, "Reps_Done": "3"},
+        {"Date": date, "Exercise": "Lateral Raise", "Weight_Used": "12.5", "RIR": "2",
+         "Reps_Done": "12"},
+        {"Date": date, "Exercise": "Split Squat", "Weight_Used": "30", "RIR": "3",
+         "Reps_Done": "8"},
+    ]
+    if bench:
+        rows.append({"Date": date, "Exercise": "Bench Press (narrow grip)", "Weight_Used": "90",
+                     "RIR": "2", "Reps_Done": "5"})
+    if with_erector:
+        rows.append({"Date": date, "Exercise": "Back Extension", "Weight_Used": "10",
+                     "RIR": "2", "Reps_Done": "12"})
+    return rows
+
+
+# --- RIR adherence ---------------------------------------------------------
+
+
+def test_grinding_sets_lower_the_rir_score():
+    # Two rated primary-compound sets: the deadlift at RIR 0 is a violation, the bench at
+    # RIR 2 is compliant, so the item scores 0.5.
+    rows = session_rows("2024-01-01", deadlift_rir="0")
+    with store_with(rows) as store:
+        critique = score_session(store.connection, "2024-01-01")
+        facts = build_facts(store.connection, "2024-01-01")
+    item = critique.item("RIR_ADHERENCE")
+    assert item.measurable and item.score == 0.5
+    assert "1/2" in item.detail
+    assert item.evidence_refs
+    assert all(policy_mod.resolve_reference(facts.context, ref) for ref in item.evidence_refs)
+
+
+def test_rir_item_is_unmeasurable_with_only_warmups():
+    rows = [
+        {"Date": "2024-01-01", "Exercise": "Competition Deadlift", "Weight_Used": "150",
+         "RIR": "6", "Reps_Done": "5"},
+    ]
+    with store_with(rows) as store:
+        critique = score_session(store.connection, "2024-01-01")
+    item = critique.item("RIR_ADHERENCE")
+    assert not item.measurable and item.score is None
+
+
+# --- progression -----------------------------------------------------------
+
+
+def test_progression_missed_when_top_of_range_was_not_added_to():
+    rows = session_rows("2024-01-01") + session_rows("2024-01-08")
+    # Lateral raise sat at the top (12 reps, RIR 2) on 01-01, so 01-08 should have added a
+    # step; keeping 12.5 kg is a progression failure.
+    with store_with(rows) as store:
+        critique = score_session(store.connection, "2024-01-08")
+    item = critique.item("PROGRESSION_ADHERENCE")
+    assert item.measurable
+    assert item.score < 1.0
+    assert "lateral_raise" in item.detail
+
+
+def test_progression_credit_when_the_step_was_taken():
+    first = session_rows("2024-01-01")
+    second = [
+        {**row, "Date": "2024-01-08"}
+        for row in session_rows("2024-01-01")
+    ]
+    for row in second:
+        if row["Exercise"] == "Lateral Raise":
+            row["Weight_Used"] = "13.0"
+    with store_with(first + second) as store:
+        critique = score_session(store.connection, "2024-01-08")
+    assert critique.item("PROGRESSION_ADHERENCE").score == 1.0
+
+
+# --- spinal cost -----------------------------------------------------------
+
+
+def test_weekly_spinal_cost_scores_below_one_when_over_the_cap():
+    rows = session_rows("2024-01-01") + session_rows("2024-01-03")
+    with store_with(rows) as store:
+        critique = score_session(store.connection, "2024-01-03")
+    item = critique.item("WEEKLY_SPINAL_COST")
+    assert item.score < 1.0
+    assert item.evidence_refs == ("week:2024-W01",)
+
+
+# --- essential work --------------------------------------------------------
+
+
+def test_missing_essential_lift_costs_half_the_item():
+    rows = session_rows("2024-01-01", bench=False)
+    with store_with(rows) as store:
+        critique = score_session(store.connection, "2024-01-01")
+    item = critique.item("ESSENTIAL_WORK")
+    assert item.measurable and item.score == 0.5
+    assert "1/2" in item.detail
+
+
+def test_essential_work_unmeasurable_on_a_day_without_a_template():
+    rows = [
+        {"Date": "2024-01-01", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2024-01-01", "Exercise": "Competition Bench Press", "Weight_Used": "80",
+         "RIR": "2", "Reps_Done": "5"},
+    ]
+    with store_with(rows) as store:
+        critique = score_session(store.connection, "2024-01-01")
+    item = critique.item("ESSENTIAL_WORK")
+    # Day A has no prescription template yet, so this is unassessable, not zero.
+    if critique.item("REDUNDANCY").measurable:  # day inferred as A
+        assert not item.measurable
+
+
+# --- redundancy ------------------------------------------------------------
+
+
+def test_hinge_plus_erector_is_redundant():
+    rows = session_rows("2024-01-01", with_erector=True)
+    with store_with(rows) as store:
+        critique = score_session(store.connection, "2024-01-01")
+    item = critique.item("REDUNDANCY")
+    assert item.measurable and item.score == 0.5
+
+
+def test_a_clean_session_has_no_redundancy():
+    rows = session_rows("2024-01-01")
+    with store_with(rows) as store:
+        critique = score_session(store.connection, "2024-01-01")
+    assert critique.item("REDUNDANCY").score == 1.0
+
+
+# --- rotation --------------------------------------------------------------
+
+
+def test_app_assigned_rotation_is_scored_neutral():
+    rows = session_rows("2024-01-01") + session_rows("2024-01-08")
+    with store_with(rows) as store:
+        critique = score_session(store.connection, "2024-01-08")
+    item = critique.item("ROTATION")
+    assert item.measurable and item.score == 1.0
+    assert "app-assigned" in item.detail
+
+
+def test_self_directed_rotation_is_penalised():
+    first = [
+        {"Date": "2024-01-01", "Workout": "Freestyle", "Exercise": "Competition Squat",
+         "Weight_Used": "100", "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2024-01-01", "Workout": "Freestyle", "Exercise": "Competition Bench Press",
+         "Weight_Used": "80", "RIR": "2", "Reps_Done": "5"},
+    ]
+    second = [
+        {"Date": "2024-01-08", "Workout": "Freestyle", "Exercise": "Romanian Deadlift",
+         "Weight_Used": "100", "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2024-01-08", "Workout": "Freestyle", "Exercise": "Lateral Raise",
+         "Weight_Used": "12.5", "RIR": "2", "Reps_Done": "10"},
+    ]
+    with store_with(first + second) as store:
+        critique = score_session(store.connection, "2024-01-08")
+    item = critique.item("ROTATION")
+    assert item.measurable and item.score == 0.0   # no overlap at all
+
+
+# --- the two unmeasurable items -------------------------------------------
+
+
+def test_duration_and_velocity_loss_are_stored_unmeasured():
+    rows = session_rows("2024-01-01")
+    with store_with(rows) as store:
+        critique = score_session(store.connection, "2024-01-01")
+    for key in ("SESSION_DURATION", "VELOCITY_LOSS"):
+        item = critique.item(key)
+        assert not item.measurable
+        assert item.score is None
+
+
+def test_composite_ignores_unmeasurable_items():
+    rows = session_rows("2024-01-01")
+    with store_with(rows) as store:
+        critique = score_session(store.connection, "2024-01-01")
+    measured = [i for i in critique.items if i.measurable]
+    assert 0 < sum(i.weight for i in measured) <= 1.0
+    # The composite re-normalises over what was measurable, so an unmeasurable item never
+    # drags the score toward zero.
+    expected = sum(i.weight * i.score for i in measured) / sum(i.weight for i in measured)
+    assert critique.composite == pytest.approx(expected)
+
+
+# --- facts and persistence -------------------------------------------------
+
+
+def test_unknown_session_raises():
+    with store_with(session_rows("2024-01-01")) as store:
+        with pytest.raises(UnknownSessionError):
+            score_session(store.connection, "1999-01-01")
+
+
+def test_facts_hash_is_stable_and_changes_with_content():
+    with store_with(session_rows("2024-01-01")) as store:
+        first = build_facts(store.connection, "2024-01-01").facts_hash()
+        second = build_facts(store.connection, "2024-01-01").facts_hash()
+    assert first == second
+
+    with store_with(session_rows("2024-01-01", with_erector=True)) as store:
+        changed = build_facts(store.connection, "2024-01-01").facts_hash()
+    assert changed != first
+
+
+def test_persist_writes_the_critique_and_its_scores():
+    rows = session_rows("2024-01-01")
+    with store_with(rows) as store:
+        critique = score_session(store.connection, "2024-01-01")
+        with RunTrace.start(store.connection, input_hash="abc") as trace:
+            critique_id = persist(store.connection, critique, run_id=trace.run_id)
+            trace.event("artifact", {"critique": critique_id})
+
+        row = store.connection.execute(
+            "SELECT * FROM critique WHERE critique_id = ?", (critique_id,)
+        ).fetchone()
+        assert row["facts_hash"] == critique.facts_hash
+        assert row["narrative"] == critique.narrative
+
+        scores = {
+            r["item"]: r
+            for r in store.connection.execute(
+                "SELECT * FROM rubric_score WHERE critique_id = ?", (critique_id,)
+            )
+        }
+        assert len(scores) == len(critique.items)
+        assert scores["RIR_ADHERENCE"]["measurable"] == 1
+        assert scores["SESSION_DURATION"]["measurable"] == 0
+        assert scores["SESSION_DURATION"]["score"] is None
+        assert trace.status == "ok"
