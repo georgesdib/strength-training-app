@@ -37,6 +37,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 3 | Store (SQLite, append-only) | **done** | `store/migrations/0001_initial.sql`, `store/db.py`, `store/repositories.py`, `store/importer.py` |
 | 4 | Rules loader + policy engine | **done** | `rules/loader.py`, `registry.py`, `context.py`, `policy.py`; predicates for all five rules |
 | 5 | Prescription engine (Day B) + deterministic fallback | **done** | `prescribe/templates.py`, `config.py`, `loads.py`, `engine.py`, `fallback.py`; `config/thresholds.v1.yaml` |
+| 5.5 | Athlete state — DATA-MODEL §11 tables | **not started** | planned `store/migrations/0002_athlete_state.sql`, repository writers; unblocks Days A/C and hard constraints |
 | 6 | Critique rubric + trace | **not started** | planned `critique/facts.py`, `rubric.py`, `trace/run.py` |
 | 7 | LLM layer (critique + prescription agents) | **not started** | planned `agents/llm.py`, `tools.py`, `NullLLM` |
 | 8 | Backtest harness + labelled eval set | **not started** | planned `eval/backtest.py`, `eval/labelled_rubric.yaml` |
@@ -58,7 +59,11 @@ stored set, and the prescription refuses to be executable if a load, the RIR win
 erector-day rule or the weekly spinal cap would be broken. There is **no critique yet** —
 nothing scores the session that was performed.
 
-## 3. Next actions (in order)
+## 3. Next actions
+
+The main line is **6 → 7 → 8**. Phase 5.5 is scheduled but not on that line: it must land
+before Days A/C and before any hard constraint can veto, and it can start as soon as the
+answers are available.
 
 1. **Phase 6 — critique rubric + trace.** Deterministic rubric over a stored session. A metric
    the data cannot support is stored `measurable = 0` rather than guessed. Acceptance: the
@@ -66,7 +71,19 @@ nothing scores the session that was performed.
    workout label) score with evidence references.
 2. **Phase 7 — LLM layer.** `NullLLM` plus one optional narrative call behind `--llm on`;
    the run must be identical in structure with it off (`docs/V0-SCOPE.md` §4 criterion 5).
-3. **Phase 8 — backtest harness + labelled eval set.** Replay history through phase 5-6 and
+3. **Phase 5.5 — athlete state tables (§11).** Not a detour: it is the prerequisite for Days
+   A/C and for any hard constraint, and it can run in parallel with phases 6-8.
+   *Why now and not earlier:* nothing can be stored until the tables exist, so collecting
+   the answers before then would mean holding personal data with nowhere to put it.
+   *Scope:* `athlete_profile`, `constraint`, `exercise_suitability`, `metric_definition`,
+   `symptom_log` as numbered migration `0002_athlete_state.sql` plus writers.
+   *Acceptance:* the five tables exist and are empty-not-guessed; a `constraint` row with
+   `severity = hard_exclude` vetoes a proposed exercise deterministically (with a test); a
+   `exercise_suitability.will_do = 0` is surfaced as a substitution, never silently dropped;
+   an empty table yields `unknown`, never "nothing is wrong".
+   *Input:* answers come from `private/docs/INFO-REQUESTS.md` §1-3 and are read back for
+   confirmation before being written.
+4. **Phase 8 — backtest harness + labelled eval set.** Replay history through phase 5-6 and
    compare against a hand-marked rubric.
 
 **Known follow-up from phase 5:** `PRG-DP-001` stays `unknown` even though the engine supplies
@@ -80,9 +97,10 @@ disappears once Days A/C get templates.
 |---|---|---|
 | No persistence | cannot replay a past day; work is lost between runs | **resolved** — `run`/`run_event` trace + append-only tables (phase 3) |
 | Erector ramp has no anchor | `PRG-EREC-001` returns `unknown`; Day A/C cannot be prescribed safely | rule implemented; `unknown` names both missing inputs (`OPEN-QUESTIONS` Q3, Q4) |
-| No symptom input | back-flare modifier and the ramp's stability gate cannot run | needs a manual input (`OPEN-QUESTIONS` Q4) |
+| No athlete state | no injury, goal or preference can veto a prescription; an empty table currently reads as "no constraint" | phase 5.5 (scheduled) builds the §11 tables; until then nothing is inferred from silence |
+| No symptom input | back-flare modifier and the ramp's stability gate cannot run | needs a manual input (`OPEN-QUESTIONS` Q4), stored in `symptom_log` (phase 5.5) |
 | No timestamps | session duration unmeasurable; two sessions on one date indistinguishable | flagged as `POSSIBLE_DOUBLE_SESSION`; duration dropped (`OPEN-QUESTIONS` Q5) |
-| Only Day B can be prescribed | Days A/C are blocked by the erector-ramp anchor (Q3) and the SSB question (H1) | templates for A/C land with those answers; phase 5 ships B only, per `V0-SCOPE.md` |
+| Only Day B can be prescribed | Days A/C are blocked by the erector-ramp anchor (Q3), the SSB question (H1) and the missing §11 tables | phase 5 ships B only, per `V0-SCOPE.md`; phase 5.5 builds the state tables, then A/C templates land with the answers |
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
 | Velocity is per-set only | within-set velocity loss not computable | labelled decay proxy; `DEC-VELOCITY-01` |
 | ACWR contested | cannot be a hard rule | advisory only; `DEC-ACWR-01` |

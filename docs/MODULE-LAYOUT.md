@@ -35,6 +35,7 @@ strength_coach/
     readers.py readiness.py           [ ] readiness merge rule (DQ-RD-01)
   store/                             [x] SQLite, append-only
     migrations/0001_initial.sql      [x] schema + append-only triggers (single source of truth)
+    migrations/0002_athlete_state.sql [ ] §11: profile, constraint, suitability, metrics, symptoms
     db.py                            [x] connection, numbered migrations, checksums
     repositories.py                  [x] append-only writers, explicit identity keys
     importer.py                      [x] clean export -> raw_row/clean_set/session/run
