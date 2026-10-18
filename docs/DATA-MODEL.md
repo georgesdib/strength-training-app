@@ -269,7 +269,7 @@ assumed to be higher-is-better.
 |---|---|
 | logged_on | |
 | timing | `pre_session` \| `post_session` \| `next_morning` |
-| region | `low_back` \| `mid_back` \| `si_joint` \| … |
+| region | `low_back` \| `mid_back` \| `si_joint` \| … — v0.1 records **one overall number** (stored as `low_back`); per-region is deferred (`DEC-SYMPTOM-01`) |
 | level | 0–3 agreed scale (see INFO-REQUESTS §6) |
 | settled_within_48h | nullable boolean |
 | note | |

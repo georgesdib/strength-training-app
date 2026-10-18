@@ -105,7 +105,8 @@ anchor is also settled in principle — **the athlete declares the official star
 it at any time** (`DEC-RAMP-01`), so the anchor is stored, never inferred.
 
 Scope: Day A and Day C templates; `block start [--date]` command that sets or resets week 1 as
-a new profile row (never an edit); the ramp reads that row.
+a new profile row (never an edit); **a reset restarts the ramp at week 1** (`DEC-RAMP-02`), not
+just the calendar; the ramp reads that row.
 
 Acceptance: a template per day with its own essential lifts; `PRG-SCHED-001` enforced on both
 (no erector work on the hinge day, erector work allowed on A/C); a golden prescription per
@@ -119,7 +120,8 @@ includes `back_extension`, which Day B never prescribes and so has no rep range.
 Depends on 3.1 (`symptom_log`). This is the missing safety input (Q4): a manual `--back 0-3`
 per session, with `settled_within_48h`.
 
-Timing is **pre-session only** for now; per-region detail is deferred (`private/docs/ATHLETE-STATE.md`).
+Timing is **pre-session only** and it is **one number for the whole back** for now; per-region
+detail is deferred (`DEC-SYMPTOM-01`).
 
 Acceptance: `PRG-EREC-001` and `MOD-BACK-001` evaluate instead of returning `unknown`; the
 stability gate uses real entries; every verdict cites the symptom rows it used.
