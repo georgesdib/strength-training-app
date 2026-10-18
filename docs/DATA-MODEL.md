@@ -201,7 +201,7 @@ deterministically, no matter what the LLM says. They are empty until the user an
 |---|---|
 | profile_id PK | |
 | effective_from / effective_to | goals change; old prescriptions must still explain themselves |
-| primary_goal | `strength` \| `hypertrophy` \| `body_comp` \| `pain_free` \| `competition` |
+| primary_goal | `strength` \| `hypertrophy` \| `body_comp` \| `pain_free` \| `longevity` \| `competition` |
 | goal_rank | JSON ordered list; a conflict between erector ramp and squat volume is resolved by this |
 | focus_lifts | JSON list of exercise ids that matter most |
 | competition_date | nullable |

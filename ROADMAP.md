@@ -93,6 +93,10 @@ proposed exercise deterministically (test); `exercise_suitability.will_do = 0` s
 substitution, never a silent drop; an empty table yields `unknown`, never "nothing is wrong".
 
 Input: `private/docs/INFO-REQUESTS.md` §1-3, read back for confirmation before being written.
+**Status: the core answers are collected in `private/docs/ATHLETE-STATE.md`** (goals, back
+history, suitability, equipment, schedule). Two consequences are already decided: `longevity`
+joins the `primary_goal` enum, and training-log gaps are recorded as **non-adherence**, never
+as symptoms.
 
 ### 3.2 Days A and C
 
