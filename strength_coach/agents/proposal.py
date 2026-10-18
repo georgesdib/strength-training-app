@@ -13,12 +13,14 @@ safety decision outranks any convenience.
 
 from __future__ import annotations
 
+import datetime
 import json
 from dataclasses import dataclass, replace
 from typing import Any, Iterable, Mapping
 
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.prescribe import constraints, engine, loads, schemes as schemes_mod, templates
+from strength_coach.store import queries
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
 
@@ -245,19 +247,41 @@ def allowed_substitutes(conn, context, prescription: Prescription) -> dict[str, 
     candidates = [eid for eid in context.entities if eid not in current]
     report = constraints.evaluate(conn, candidates)
     vetoed = {exercise_id for exercise_id, _ in report.vetoes}
+    ratings = queries.exercise_suitability(conn)
+
+    def usable(eid: str, pattern: str, essential: bool) -> bool:
+        entity = context.entity(eid)
+        if entity.get("pattern") != pattern or eid in vetoed:
+            return False
+        if not essential:
+            return True
+        # A main-lift swap is a programme change: the athlete must have rated the replacement.
+        rating = ratings.get(eid)
+        return bool(
+            rating
+            and rating["can_do"] and rating["will_do"] and not rating["feels_bad"]
+            and entity.get("primary_compound")
+        )
 
     options: dict[str, list[str]] = {}
     for item in prescription.items:
-        if item.essential:
-            continue
         pattern = context.entity(item.exercise_id).get("pattern")
         if not pattern:
             continue
         options[item.exercise_id] = [
-            eid for eid in candidates
-            if context.entity(eid).get("pattern") == pattern and eid not in vetoed
+            eid for eid in candidates if usable(eid, pattern, item.essential)
         ]
     return options
+
+
+def _last_main_substitution(conn) -> str | None:
+    """Date of the most recent accepted main-lift swap, from the run trace."""
+    row = conn.execute(
+        "SELECT created_at FROM run_event WHERE kind = 'policy_verdict' "
+        "AND payload LIKE ? ORDER BY rowid DESC LIMIT 1",
+        ('%"main_substitution": true%',),
+    ).fetchone()
+    return str(row["created_at"])[:10] if row is not None else None
 
 
 def scheme_options(prescription: Prescription, schemes: schemes_mod.Schemes) -> dict[str, list[str]]:
@@ -287,7 +311,8 @@ def prompt_for(
         if item.exercise_id in allowed:
             alternatives = list(allowed[item.exercise_id])
             if alternatives:
-                line += f" | same-pattern alternatives: {', '.join(alternatives)}"
+                label = "main-lift alternatives" if item.essential else "same-pattern alternatives"
+                line += f" | {label}: {', '.join(alternatives)}"
         if options and item.exercise_id in options:
             offered = [name for name in options[item.exercise_id] if name != "keep"]
             if offered:
@@ -336,6 +361,7 @@ def assess(
         )
 
     menus = menu(prescription, document)
+    main_substitutions = 0
     schemes = schemes_mod.Schemes.load()
     template = templates.DayTemplate.load(prescription.session_day)
     items = list(prescription.items)
@@ -360,8 +386,36 @@ def assess(
 
         if change.action == "substitute":
             if item.essential:
-                reasons.append(f"{change.exercise}: an essential lift cannot be substituted")
-                continue
+                if main_substitutions >= 1:
+                    reasons.append("at most one main-lift substitution per proposal")
+                    continue
+                rating = queries.exercise_suitability(conn).get(change.replacement or "")
+                if not (
+                    rating and rating["can_do"] and rating["will_do"]
+                    and not rating["feels_bad"]
+                ):
+                    reasons.append(
+                        f"{change.replacement}: an essential lift needs a recorded "
+                        "can-do / will-do rating with no 'feels bad'"
+                    )
+                    continue
+                if not context.entity(change.replacement or "").get("primary_compound"):
+                    reasons.append(f"{change.replacement}: not a primary compound")
+                    continue
+                last = _last_main_substitution(conn)
+                if last is not None:
+                    days = (
+                        datetime.date.fromisoformat(prescription.for_date)
+                        - datetime.date.fromisoformat(last)
+                    ).days
+                    if days < thresholds.proposal_main_substitution_min_interval_days:
+                        reasons.append(
+                            "a main lift was substituted "
+                            f"{days} days ago; the minimum interval is "
+                            f"{thresholds.proposal_main_substitution_min_interval_days}"
+                        )
+                        continue
+                main_substitutions += 1
             old_pattern = context.entity(item.exercise_id).get("pattern")
             new_pattern = context.entity(change.replacement or "").get("pattern")
             if not new_pattern:
@@ -384,13 +438,13 @@ def assess(
                 rir_low=item.rir_target,
                 rir_high=item.rir_target,
                 rest_s=item.rest_s,
-                essential=False,
-                load_source="double_progression",
+                essential=item.essential,
+                load_source="e1rm" if item.essential else "double_progression",
                 exercise=change.replacement,
             )
             new_item, _ = engine.build_item(
                 conn, context, slot, item.order_index, thresholds,
-                prescription.for_date, decisions, None,
+                prescription.for_date, decisions, template if item.essential else None,
             )
             index = items.index(item)
             items[index] = new_item

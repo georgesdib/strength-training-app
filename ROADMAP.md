@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **392 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **397 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **392 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 392 passed (plus 15 private integration tests locally)
+.venv/bin/python -m pytest            # expect: 397 passed (plus 15 private integration tests locally)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -443,6 +443,28 @@ does not count as a training week; no artifact is deleted or rewritten.
 
 Open questions: the exact gap thresholds, whether the erector ramp pauses or re-anchors after a
 long break, and whether bodyweight work needs a different re-entry rule from barbell work.
+
+### 4.7 Back progression signal — informs suitability, never clears it
+
+The athlete asked whether a back that is "strong and recovered enough" could unlock exercises
+like the sumo deadlift. The app has no medical model and must not pretend to; what it can do is
+make the relevant history visible and require a human decision.
+
+Scope: derive a **back-progression summary** from data already stored — symptom-free streak,
+flare count and settlement, erector-ramp stage, whether recent sessions loaded the spine without
+a flare, and readiness trends. Surface it next to an unrated exercise and next to a proposal to
+change a main lift.
+
+Hard rule: the summary **suggests a review, never a rating**. It cannot set
+`exercise_suitability`, cannot clear a constraint, and cannot substitute a lift. The athlete
+rates; the model may explain; the engine obeys.
+
+Acceptance: the summary cites the symptom rows and ramp week it used; an unrated lift shows
+"needs review" with that evidence; no automatic state change occurs; the athlete can rate in one
+command (`state --rate`).
+
+Open: how long a symptom-free streak should be before it is "positive evidence", and whether
+readiness should be part of it at all.
 
 ## 5. Known gaps and risks
 

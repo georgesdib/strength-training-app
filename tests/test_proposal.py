@@ -93,14 +93,15 @@ def test_invalid_proposals_are_rejected(payload, message):
 # --- allowed substitutes ---------------------------------------------------
 
 
-def test_allowed_substitutes_share_the_pattern_and_skip_essentials():
+def test_allowed_substitutes_share_the_pattern_and_require_ratings_for_mains():
     with store_with(DAY_A) as store:
         conn = store.connection
         prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
         context = context_for(conn)
         allowed = proposal_mod.allowed_substitutes(conn, context, prescription)
 
-    assert "ssb_squat" not in allowed          # essential
+    # An essential lift may be swapped only for a rated primary compound; none are rated here.
+    assert allowed["ssb_squat"] == []
     assert "back_extension" in allowed
     assert "hyperextension" in allowed["back_extension"]
     patterns = {context.entity(e).get("pattern") for e in allowed["back_extension"]}

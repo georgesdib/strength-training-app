@@ -31,6 +31,7 @@ class Thresholds:
     session_time_cap_s: int
     proposal_max_set_change: int = 2
     proposal_max_sets: int = 8
+    proposal_main_substitution_min_interval_days: int = 42
     test_min_interval_days: int = 28
     test_max_single_min_interval_days: int = 56
     source_path: Path = Path()
@@ -65,6 +66,9 @@ class Thresholds:
             session_time_cap_s=int(prescription.get("session_time_cap_s", 4800)),
             proposal_max_set_change=int(prescription.get("proposal_max_set_change", 2)),
             proposal_max_sets=int(prescription.get("proposal_max_sets", 8)),
+            proposal_main_substitution_min_interval_days=int(
+                prescription.get("proposal_main_substitution_min_interval_days", 42)
+            ),
             test_min_interval_days=int(testing.get("min_interval_days", 28)),
             test_max_single_min_interval_days=int(
                 testing.get("max_single_min_interval_days", 56)
@@ -87,6 +91,8 @@ def as_dict(thresholds: Thresholds) -> dict[str, Any]:
         "session_time_cap_s": thresholds.session_time_cap_s,
         "proposal_max_set_change": thresholds.proposal_max_set_change,
         "proposal_max_sets": thresholds.proposal_max_sets,
+        "proposal_main_substitution_min_interval_days":
+            thresholds.proposal_main_substitution_min_interval_days,
         "test_min_interval_days": thresholds.test_min_interval_days,
         "test_max_single_min_interval_days": thresholds.test_max_single_min_interval_days,
     }

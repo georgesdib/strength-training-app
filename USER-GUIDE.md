@@ -184,6 +184,15 @@ a hard constraint can veto a prescription deterministically, rather than living 
 If no state is recorded, a prescription is still produced but says so: *"athlete state not
 recorded: constraints were not evaluated"*. Silence is not permission.
 
+To rate one exercise without editing the YAML:
+
+```bash
+strength-coach state --rate sumo_deadlift --can-do yes --will-do yes --feels-bad no
+```
+
+An unrated exercise is "unknown", which is why a main-lift substitution (see §4.8) is refused
+until its replacement has a rating.
+
 ### 4.5 `block` — declare or reset week 1
 
 ```bash
@@ -260,6 +269,9 @@ The model sees the deterministic session and may propose a **structural** change
 - reorder the session;
 - pick a menu option Python computed: `keep`, `easier`, `harder`, `heavier` or
   `lighter` (RIR and load are re-solved together);
+- **substitute an essential lift**, but only for a primary compound you have rated
+  can-do/will-do with no "feels bad", at most once per proposal and no more often than every
+  42 days; a main-lift swap always asks for confirmation, even with `--yes`;
 - change the **rep scheme**: `maximal` (1-3, main lifts only and never the hinge),
   `strength` (3-5), `volume` (6-8), `accessory` (8-12). The load is solved for the scheme.
 

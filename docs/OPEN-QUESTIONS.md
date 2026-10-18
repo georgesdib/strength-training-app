@@ -129,6 +129,16 @@ ASSUMPTION-02 fixes the *weighting* (ordinal `spinal_cost`) but not the *unit*:
 **Closed** by `DEC-RIR-02`: the window is now RIR 1-4 with a 2-3 target, based on the
 evidence collected in `docs/RIR-EVIDENCE.md`. Changing it again is still a constitution change.
 
+## Q10. Can the sumo deadlift be an accessory?
+
+Not as things stand. A second hinge in one session violates the no-stacking rule
+(`PRG-RED-001`): on Day B it would be two hinges; on A/C it would be a hinge alongside direct
+erector work. Sumo can only be (a) a **replacement** for the trap bar as the Day B hinge, or
+(b) a **rotation** with it (one hinge per session), or (c) part of a redesign that moves the
+erector work elsewhere. Option (b) is the clean one; it needs a hinge-variant slot and a
+`DEC-`. Until then, main-lift substitution (DEC-LLM-06) is the only path, and it requires a
+suitability rating.
+
 ## Closed
 
 - ~~What do the extreme `RIR` values mean?~~ **Closed** — `RIR 6` marks a **warm-up set**

@@ -145,9 +145,9 @@ entities:
     # erector dose, and it must never be stacked with it (constitution §2).
     direct_erector: false
     high_fatigue_spinal: true       # counts toward the weekly spinal cap
-    # Ordinal spinal cost, NOT a physiological measurement: it exists so that
-    # "trap-bar + rack pull + RDL" can weigh more than three light back-extension
-    # sets. ASSUMPTION-02 — calibrate against symptom history.
+    # Ordinal 1-3, not a measurement (ASSUMPTION-02; docs/SPINAL-COST.md). Trap bar has a
+    # lower peak lumbar moment than a straight bar (Swinton 2011). Same bin as sumo because no
+    # head-to-head study ranks them.
     spinal_cost: 2
     # Its own family: a trap-bar pull does not share a load-velocity curve with sumo or RDL,
     # so pooling them would manufacture a target (DEC-TRAPBAR-02, docs/VBT-EVIDENCE.md).
@@ -169,6 +169,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Lower erector activation and more upright than conventional (Hanen 2025), so same bin
+    # as the trap bar; no sumo-vs-trap study exists (docs/SPINAL-COST.md).
     spinal_cost: 2
     vbt_family: sumo
     loadable: true

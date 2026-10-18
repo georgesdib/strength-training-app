@@ -85,6 +85,12 @@ def main(argv: list[str] | None = None) -> int:
                        help="YAML file of athlete state to record")
     state.add_argument("--force", action="store_true",
                        help="append a new version even if state is already recorded")
+    state.add_argument("--rate", metavar="EXERCISE", default=None,
+                       help="record a suitability rating for one exercise")
+    state.add_argument("--can-do", choices=("yes", "no"), default="yes")
+    state.add_argument("--will-do", choices=("yes", "no"), default="yes")
+    state.add_argument("--feels-bad", choices=("yes", "no"), default="no")
+    state.add_argument("--note", default=None)
 
     e1rm = sub.add_parser("e1rm", help="set or list manual e1RM overrides")
     e1rm_sub = e1rm.add_subparsers(dest="action", required=True)
@@ -285,6 +291,21 @@ def _cmd_state(args) -> int:
     store = db.Store(args.db)
     try:
         conn = store.connection
+        if args.import_file and args.rate:
+            print("use either --import or --rate, not both")
+            return 2
+        if args.rate:
+            repositories.append_exercise_suitability(
+                conn,
+                exercise_id=args.rate,
+                rated_on=datetime.date.today().isoformat(),
+                can_do=args.can_do == "yes",
+                will_do=args.will_do == "yes",
+                feels_bad=args.feels_bad == "yes",
+                note=args.note,
+            )
+            print(f"rated {args.rate}: can_do={args.can_do}, will_do={args.will_do}, "
+                  f"feels_bad={args.feels_bad}")
         if args.import_file:
             if code := _import_state(conn, Path(args.import_file), force=args.force):
                 return code
@@ -727,15 +748,27 @@ def _propose(conn, trace, prescription, args):
         trace.finish(status="llm_downgraded")
         return prescription, "deterministic"
 
-    if not args.yes:
+    essential_ids = {item.exercise_id for item in prescription.items if item.essential}
+    main_change = any(
+        change.action == "substitute" and change.exercise in essential_ids
+        for change in parsed.changes
+    )
+    if main_change:
+        # A main-lift swap is never applied silently, even with --yes.
+        answer = input("  this replaces an essential lift; apply? [y/N] ").strip().lower()
+    elif not args.yes:
         answer = input("  apply this proposal? [y/N] ").strip().lower()
-        if answer not in ("y", "yes"):
-            print("  declined: keeping the deterministic prescription")
-            trace.event("policy_verdict", {"proposal": "declined"})
-            return prescription, "deterministic"
+    else:
+        answer = "yes"
+    if answer not in ("y", "yes"):
+        print("  declined: keeping the deterministic prescription")
+        trace.event("policy_verdict", {"proposal": "declined"})
+        return prescription, "deterministic"
 
     trace.event("policy_verdict", {
-        "proposal": "accepted", "changes": proposal_mod.describe(parsed),
+        "proposal": "accepted",
+        "changes": proposal_mod.describe(parsed),
+        "main_substitution": main_change,
     })
     print("  accepted")
     return outcome.prescription, "llm+policy"

@@ -43,6 +43,9 @@ prescription:
   # are the whole of its licence: anything outside them is rejected, not clamped.
   proposal_max_set_change: 2
   proposal_max_sets: 8
+  # Replacing an essential lift is a programme change, not a convenience. At most one per
+  # proposal, only for a rated primary compound, and no more often than this.
+  proposal_main_substitution_min_interval_days: 42
 
 testing:
   # A test is an assessment, not a training session. Testing more often than monthly turns a

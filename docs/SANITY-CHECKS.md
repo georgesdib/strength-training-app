@@ -82,6 +82,9 @@ without conditioning on provenance penalises the athlete for following the presc
   need correcting.
   Inferred from the log name; not verifiable from data.
 - **ASSUMPTION-02** — `spinal_cost` values are an ordinal design choice, not a measurement.
+  The `2/2` tie between sumo and trap bar is deliberate: each has evidence of lower sagittal
+  demand than a conventional pull (Swinton 2011 for the trap bar; Hanen 2025 for sumo), but no
+  study ranks them against each other (`docs/SPINAL-COST.md`).
   Must be calibrated against symptom history.
 - **ASSUMPTION-03** — RIR-adjusted e1RM is an approximation.
 - **ASSUMPTION-04** — plank/carry values in the reps column are seconds. Strongly implied by
