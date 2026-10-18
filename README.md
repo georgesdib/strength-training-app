@@ -15,8 +15,11 @@ LLM call fails entirely.
 
 ## Status
 
-**v0 in progress.** The deterministic pipeline runs end to end in the library layer; the CLI
-and the labelled backtest are the remaining phases ([ROADMAP.md](ROADMAP.md)).
+**v0 complete; v0.1 in progress.** The full slice runs: import → prescribe a day → critique
+the last session → review it → calibrate. Days A, B and C are prescribable, athlete state
+(goals, constraints, suitability, e1RM overrides) is stored, and the LLM can narrate.
+[ROADMAP.md](ROADMAP.md) lists what remains: symptom input, LLM proposals, video, portability
+and VBT wiring.
 
 What runs today:
 
@@ -25,8 +28,9 @@ What runs today:
 - **store** — SQLite, append-only, numbered migrations, a replayable `run`/`run_event` trace;
 - **rules** — the constitution loaded as hash-bearing rules, one predicate per `check.fn`,
   verdicts with citable evidence, and `unknown` where an input does not exist;
-- **prescribe** — a deterministic Day B session whose loads are solved from recent e1RM,
-  rounded down to real increments, and validated for executability;
+- **prescribe** — a deterministic session for Day A, B or C, whose loads are solved from a
+  recent e1RM (or a manual override), rounded down to real increments, and validated for
+  executability;
 - **critique** — six measured rubric items against a stored session, two explicitly
   unmeasurable rather than guessed;
 - **eval** — a backtest that replays sessions through the rubric and compares them with
