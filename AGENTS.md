@@ -13,7 +13,7 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**The plan is approved; v0 is in progress.**
+**v0 is complete; v0.1 is planned.**
 
 **Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
@@ -148,6 +148,7 @@ so silently erased genuine `RIR = 0` observations during development.
 
 | File | Contents |
 |---|---|
+| `USER-GUIDE.md` | how to install, run and read the output (the human-facing entry point) |
 | `ROADMAP.md` | live phase status, next actions, resume checklist |
 | `docs/DECISIONS.md` | append-only decision log (`DEC-*`) with where each is enforced |
 | `docs/ARCHITECTURE.md` | layers, data flow, where the LLM sits |

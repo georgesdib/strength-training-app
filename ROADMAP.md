@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · version `0.0.1-dev` · **316 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **316 tests passing**
 
 ---
 
@@ -18,7 +18,8 @@ cd strength-training-app
 
 Then read, in order:
 
-1. **this file** — where we are and what is next
+1. [`USER-GUIDE.md`](USER-GUIDE.md) — how to use what exists
+2. **this file** — where we are and what is next
 2. [`docs/DECISIONS.md`](docs/DECISIONS.md) — decisions that are expensive to reverse
 3. [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md) — what is still ambiguous, with defaults
 4. [`docs/V0-SCOPE.md`](docs/V0-SCOPE.md) — the agreed scope and its exclusions
@@ -37,11 +38,12 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 3 | Store (SQLite, append-only) | **done** | `store/migrations/0001_initial.sql`, `store/db.py`, `store/repositories.py`, `store/importer.py` |
 | 4 | Rules loader + policy engine | **done** | `rules/loader.py`, `registry.py`, `context.py`, `policy.py`; predicates for all five rules |
 | 5 | Prescription engine (Day B) + deterministic fallback | **done** | `prescribe/templates.py`, `config.py`, `loads.py`, `engine.py`, `fallback.py`; `config/thresholds.v1.yaml` |
-| 5.5 | Athlete state — DATA-MODEL §11 tables | **not started** | planned `store/migrations/0003_athlete_state.sql`, repository writers; unblocks Days A/C and hard constraints |
+| 5.5 | Athlete state — DATA-MODEL §11 tables | **v0.1** | planned `store/migrations/0003_athlete_state.sql`; unblocks Days A/C and hard constraints |
 | 6 | Critique rubric + trace | **done** | `critique/facts.py`, `critique/rubric.py`, `trace/run.py`; 6 measurable items + 2 unmeasured |
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 3 hand-marked sessions, 42% item agreement |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; calibration loop closed |
+| v0.1 | Next version | **planned** | see §3: athlete state, Days A/C, symptom input, VBT wiring, larger labelled set |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
 ### What works end to end today
@@ -71,37 +73,75 @@ beside the rubric's scores, takes marks, stores them append-only, and reports ru
 agreement immediately. Two of the three marks are reconstructed from memory and excluded;
 on the one remembered session, 60% of items agree within ±0.25 (`DEC-EVAL-03/04`).
 
-## 3. Next actions
+## 3. v0.1 — the next version
 
-The main line is **9**. Phase 5.5 is scheduled but not on that line: it must land before
-Days A/C and before any hard constraint can veto, and it can start as soon as the answers are
-available.
+v0 is complete (see §2 and the user guide). This is the agenda for the next version, in
+dependency order. Nothing here blocks using v0 as it stands.
 
-1. **Calibration, continuously.** There is nothing to build here: run
-   `strength-coach review --session DATE` after each session you want to judge. Every review
-   appends marks and the report sharpens; the per-item advice appears once an item has five
-   marks and still disagrees by more than 0.25. Review the report monthly and only then decide
-   whether an item's definition or weight is wrong.
-2. **Phase 5.5 — athlete state tables (§11).** Not a detour: it is the prerequisite for Days
-   A/C and for any hard constraint, and it can run in parallel with phases 7-9.
-   *Why now and not earlier:* nothing can be stored until the tables exist, so collecting
-   the answers before then would mean holding personal data with nowhere to put it.
-   *Scope:* `athlete_profile`, `constraint`, `exercise_suitability`, `metric_definition`,
-   `symptom_log` as numbered migration `0003_athlete_state.sql` plus writers.
-   *Acceptance:* the five tables exist and are empty-not-guessed; a `constraint` row with
-   `severity = hard_exclude` vetoes a proposed exercise deterministically (with a test); a
-   `exercise_suitability.will_do = 0` is surfaced as a substitution, never silently dropped;
-   an empty table yields `unknown`, never "nothing is wrong".
-   *Input:* answers come from `private/docs/INFO-REQUESTS.md` §1-3 and are read back for
-   confirmation before being written.
-3. **After v0 (v0.1).** Days A/C (blocked on Q3/H1), the symptom input (Q4), a larger
-   labelled set, and the VBT prescription wiring once the target-selection rule is specified
-   (`DEC-VBT-01`).
+### 3.1 Athlete state — the §11 tables  (prerequisite for 3.2-3.4)
 
-**Known follow-up from phase 5:** `PRG-DP-001` stays `unknown` even though the engine supplies
-rep ranges, because its scope includes `back_extension`, which Day B never prescribes and so
-has no range. That is honest (the rule covers Days A/C too) but noisy in the warning list; it
-disappears once Days A/C get templates.
+Scope: `athlete_profile`, `constraint`, `exercise_suitability`, `metric_definition`,
+`symptom_log`, as numbered migration `0003_athlete_state.sql`, plus writers and a CLI to
+enter them.
+
+Why it is first: it is the only way goals, injuries and preferences become *state* rather than
+something an agent remembers. Until it exists, no hard constraint can veto anything and an
+empty table is indistinguishable from "no constraint".
+
+Acceptance: the five tables exist; a `constraint` row with `severity = hard_exclude` vetoes a
+proposed exercise deterministically (test); `exercise_suitability.will_do = 0` surfaces as a
+substitution, never a silent drop; an empty table yields `unknown`, never "nothing is wrong".
+
+Input: `private/docs/INFO-REQUESTS.md` §1-3, read back for confirmation before being written.
+
+### 3.2 Days A and C
+
+Depends on 3.1, plus the erector-ramp anchor (Q3) and the SSB question (H1). Day B was chosen
+for v0 exactly because it avoids both.
+
+Acceptance: a template per day with its own essential lifts; `PRG-SCHED-001` enforced on both
+(no erector work on the hinge day, erector work allowed on A/C); a golden prescription per
+day, in the same style as `tests/fixtures/golden_day_b.yaml`.
+
+Consequence: `PRG-DP-001` stops being `unknown`. It is unknown today only because its scope
+includes `back_extension`, which Day B never prescribes and so has no rep range.
+
+### 3.3 Symptom input
+
+Depends on 3.1 (`symptom_log`). This is the missing safety input (Q4): a manual `--back 0-3`
+per session, with `settled_within_48h`.
+
+Acceptance: `PRG-EREC-001` and `MOD-BACK-001` evaluate instead of returning `unknown`; the
+stability gate uses real entries; every verdict cites the symptom rows it used.
+
+### 3.4 VBT prescription wiring
+
+Deferred by `DEC-VBT-01`. The calibration (band, sparsity ladder, versioning) already exists
+and is tested; what is missing is the rule that turns a band into a target:
+
+- which rep in the set is targeted — the first, the last, or a mean;
+- what tolerance counts as "on target" before a set is flagged;
+- what to prescribe when the band is wide, or when the lift is `uncalibrated`.
+
+Acceptance: `PrescriptionItem` carries `velocity_target` and `vbt_basis`;
+`prescription.calibration_ids` cites the rows used; an uncalibrated lift says so explicitly;
+the golden fixture gains velocity columns.
+
+Do not start this before those three questions have answers — inventing them is what the
+deferral exists to avoid.
+
+### 3.5 A labelled set worth tuning against
+
+No code. Continue `review --session DATE` after sessions that are still fresh; the report
+needs roughly ten *remembered* sessions per item before a weight or definition is changed
+(`DEC-EVAL-03`, `DEC-EVAL-04`). Two of the three current marks are reconstructed and excluded.
+
+### 3.6 Deliberately not planned
+
+- A UI (deferred by request).
+- Multi-athlete or cloud sync: this is local-first by design.
+- RAG over the programme: rules are cited by id, and exact lookup beats semantic search here.
+- Automatic rubric retuning: the report proposes, a person decides.
 
 ## 4. Known gaps and risks
 
