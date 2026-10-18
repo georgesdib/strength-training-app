@@ -120,6 +120,24 @@ def test_family_fallback_fills_a_sparse_lift():
     assert target.scope == "family"        # borrowed, and labelled as borrowed
 
 
+def test_named_hinges_do_not_borrow_from_each_other():
+    """Trap bar and sumo have different load-velocity curves, so they are separate families."""
+    sumo = [
+        {"Date": day, "Exercise": "Competition Deadlift", "Weight_Used": "180",
+         "Reps_Done": "3", "RIR": "2", "Avg_velocity": "0.350000"}
+        for day in ("2024-01-01", "2024-01-08", "2024-01-15")
+        for _ in range(8)
+    ]
+    trap_bar = [
+        {"Date": day, "Exercise": "Trap Bar Deadlift", "Weight_Used": "180",
+         "Reps_Done": "3", "RIR": "2", "Avg_velocity": "0.360000"}
+        for day in ("2026-09-01", "2026-09-08")
+    ]
+    result = calibrate(sumo + trap_bar)
+    assert result.lookup("sumo_deadlift", 3) is not None
+    assert result.lookup("trap_bar_deadlift", 3) is None
+
+
 def test_lookup_prefers_lift_over_family():
     ssb = [
         {"Date": d, "Exercise": "Safety Squat Bar", "Weight_Used": "100", "Reps_Done": "3",

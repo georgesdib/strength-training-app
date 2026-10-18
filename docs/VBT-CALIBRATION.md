@@ -54,7 +54,7 @@ Never interpolate silently. Resolve in order and record which level was used:
 | level | rule | recorded as |
 |---|---|---|
 | **L0** | lift + rep count directly, if `n ≥ 12` and `≥ 3` distinct sessions | `scope: lift` |
-| **L1** | pool by `vbt_family` at the same rep count (bench: bench/narrow/pause; squat: SSB/comp; hinge: trap bar/conventional/RDL), if `n_family ≥ 24` | `scope: family` |
+| **L1** | pool by `vbt_family` at the same rep count, if `n_family ≥ 24`. Only genuine variants pool: bench grips, squat types. Named hinges (trap bar, sumo, RDL, conventional) each have their own family, because their load-velocity curves differ | `scope: family` |
 | **L2** | *not implemented.* Pooled rep-count fits were designed but the shipped calibration uses lift and family only, because a pooled line can hide a lift-specific curve | — |
 | **L3** | *not implemented* (same reason) | — |
 | **L4** | no target | `scope: none`, `vbt_status: uncalibrated` |

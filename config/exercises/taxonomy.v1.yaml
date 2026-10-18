@@ -149,7 +149,9 @@ entities:
     # "trap-bar + rack pull + RDL" can weigh more than three light back-extension
     # sets. ASSUMPTION-02 — calibrate against symptom history.
     spinal_cost: 2
-    vbt_family: hinge
+    # Its own family: a trap-bar pull does not share a load-velocity curve with sumo or RDL,
+    # so pooling them would manufacture a target (DEC-TRAPBAR-02, docs/VBT-EVIDENCE.md).
+    vbt_family: trap_bar
     default_rir_target: [2, 3]      # target band; the allowed window is 1-4 (DEC-RIR-02)
     loadable: true
     time_based: false
@@ -168,7 +170,7 @@ entities:
     direct_erector: false
     high_fatigue_spinal: true
     spinal_cost: 2
-    vbt_family: hinge
+    vbt_family: sumo
     loadable: true
     time_based: false
 
@@ -236,7 +238,7 @@ entities:
     substitutable_for_back_extension: false   # constitution §2: never the erector dose
     erector_family: true
     direct_erector: false
-    vbt_family: hinge
+    vbt_family: rdl
     loadable: true
     time_based: false
 
@@ -286,7 +288,7 @@ entities:
     substitutable_for_back_extension: false
     erector_family: true
     direct_erector: false
-    vbt_family: hinge
+    vbt_family: conventional_deadlift
     loadable: true
     time_based: false
 

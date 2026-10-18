@@ -63,7 +63,8 @@ The export gives **one mean velocity per set**, plus load, reps, RIR and date. T
 
 - estimate a per-lift, per-rep-count median velocity inside an RIR band;
 - attach a target to a prescription where at least 12 clean sets across 3 sessions exist
-  (or a family pool of 24);
+  (or a family pool of 24, and only for genuine variants such as bench grips or squat types —
+  named hinges are never pooled with each other);
 - withhold a target where the evidence says velocity is not trustworthy (hex bar).
 
 It is **not** enough to:
