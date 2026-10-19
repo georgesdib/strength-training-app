@@ -133,6 +133,18 @@ Then it asks how well you remember the session: `high`, `low` or `unknown`. **On
 `high` counts toward the headline agreement.** A mark from a session you cannot really
 remember is kept for the record but excluded — it is evidence of a guess, not of the rubric.
 
+Catch up on a backlog in one go:
+
+```bash
+strength-coach review --pending            # unreviewed AFTER the last reviewed session, up to 10
+strength-coach review --pending --limit 3
+```
+
+`run` prints how many sessions are unreviewed and points at this command, so a new workout
+does not silently leave the backlog behind. It deliberately stops at the last reviewed workout:
+the distant past does not need reconstructing. When manual workout logging lands (v0.2 §4.2), the
+same catch-up runs as part of concluding and logging the session.
+
 Marks are append-only: marking a session again adds a correction; the latest mark per
 item wins, older ones stay in the table.
 

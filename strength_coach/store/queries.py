@@ -234,6 +234,49 @@ def readiness_day(conn, on_date: str) -> dict | None:
     return dict(row) if row is not None else None
 
 
+def unreviewed_sessions(conn, *, limit: int = 50) -> list[str]:
+    """Sessions with no marks *after the latest reviewed session*, oldest first.
+
+    The athlete does not need to reconstruct the distant past: catch-up stops at the last
+    reviewed workout. If nothing has ever been reviewed, fall back to the most recent `limit`
+    sessions rather than the whole history.
+    """
+    last = conn.execute(
+        """
+        SELECT MAX(s.occurred_on) AS last
+          FROM session s
+          JOIN rubric_mark m ON m.session_id = s.session_id
+        """
+    ).fetchone()["last"]
+
+    if last is None:
+        rows = conn.execute(
+            """
+            SELECT s.session_id FROM session s
+             WHERE NOT EXISTS (
+                   SELECT 1 FROM rubric_mark m WHERE m.session_id = s.session_id
+             )
+             ORDER BY s.occurred_on DESC LIMIT ?
+            """,
+            (int(limit),),
+        ).fetchall()
+        return [str(row["session_id"]) for row in reversed(rows)]
+
+    rows = conn.execute(
+        """
+        SELECT s.session_id FROM session s
+         WHERE NOT EXISTS (
+               SELECT 1 FROM rubric_mark m WHERE m.session_id = s.session_id
+         )
+           AND s.occurred_on > ?
+         ORDER BY s.occurred_on ASC
+         LIMIT ?
+        """,
+        (last, int(limit)),
+    ).fetchall()
+    return [str(row["session_id"]) for row in rows]
+
+
 def sessions(conn, *, start: str | None = None, end: str | None = None) -> pd.DataFrame:
     """Reconstructed sessions, one row per date."""
     sql = "SELECT * FROM session"

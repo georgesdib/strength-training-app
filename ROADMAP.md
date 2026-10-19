@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **407 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **411 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **407 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 407 passed (plus 15 private integration tests locally)
+.venv/bin/python -m pytest            # expect: 411 passed (plus 15 private integration tests locally)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -334,7 +334,8 @@ Manual entry must pass the same gates as cleaning: unknown exercise names are qu
 reported (never dropped), `RIR 6` is a warm-up, and seconds-vs-reps follows the taxonomy.
 
 Acceptance: a manually logged session is indistinguishable downstream from an imported one
-(same tables, same critique); duration is stored when given and stays `unavailable` when not
+(same tables, same critique); concluding a workout also catches up unreviewed sessions via
+`review --pending`; duration is stored when given and stays `unavailable` when not
 — never estimated; the rubric scores duration only when it exists.
 
 ### 4.3 Column-mapping adapters for other exports

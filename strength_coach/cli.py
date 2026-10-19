@@ -73,7 +73,11 @@ def main(argv: list[str] | None = None) -> int:
                      help="apply an accepted proposal without asking")
 
     review = sub.add_parser("review", help="mark a session and update calibration")
-    review.add_argument("--session", required=True)
+    review.add_argument("--session", default=None, help="session id (YYYY-MM-DD)")
+    review.add_argument("--pending", action="store_true",
+                        help="review every session that has no marks, oldest first")
+    review.add_argument("--limit", type=int, default=10,
+                        help="maximum sessions for --pending (default 10)")
     review.add_argument("--scores", default=None, help="read marks from a YAML file")
     review.add_argument("--confidence", choices=("high", "low", "unknown"), default=None)
     review.add_argument("--note", default=None)
@@ -223,6 +227,10 @@ def _cmd_run(args) -> int:
 
         _print_prescription(prescription)
         _print_critique(critique)
+        pending = queries.unreviewed_sessions(conn, limit=100)
+        if pending:
+            print(f"\n{len(pending)} unreviewed session(s); run "
+                  "'strength-coach review --pending' to catch up")
         return 0
     finally:
         store.close()
@@ -233,43 +241,67 @@ def _cmd_review(args) -> int:
     try:
         conn = store.connection
         _ensure_imported(conn)
-        facts = build_facts(conn, args.session)
-        critique = score_session(conn, args.session, facts=facts)
 
-        print(format_session_sheet(facts, critique))
-        for line in item_guide_lines():
-            print(line)
+        if args.pending:
+            sessions = queries.unreviewed_sessions(conn, limit=args.limit)
+            if not sessions:
+                print("no unreviewed sessions")
+                return 0
+            print(f"reviewing {len(sessions)} unreviewed session(s)")
+            reviewed = 0
+            for session_id in sessions:
+                if _review_one(conn, session_id, args) == 0:
+                    reviewed += 1
+            if reviewed:
+                _print_calibration(conn, DEFAULT_TOLERANCE)
+            return 0
 
-        if args.scores:
-            from strength_coach.eval import load_labels
-
-            labels = load_labels(args.scores)
-            if args.session not in labels.sessions:
-                print(f"{args.scores} has no marks for {args.session}")
-                return 2
-            scores = dict(labels.sessions[args.session].scores)
-            confidence = args.confidence or labels.sessions[args.session].confidence
-        else:
-            scores = _ask_scores(critique)
-            confidence = args.confidence or _ask_confidence()
-
-        written = record_marks(
-            conn,
-            args.session,
-            scores,
-            confidence=confidence,
-            rubric_version=RUBRIC_VERSION,
-            note=args.note,
-        )
-        if written == 0:
-            print("\nno marks recorded: every item was skipped. This session is still "
-                  "unreviewed.")
+        if not args.session:
+            print("pass --session DATE, or --pending to catch up on unreviewed sessions")
             return 2
-        print(f"\nrecorded {written} marks for {args.session} (confidence {confidence})")
-        _print_calibration(conn, DEFAULT_TOLERANCE)
-        return 0
+        code = _review_one(conn, args.session, args)
+        if code == 0:
+            _print_calibration(conn, DEFAULT_TOLERANCE)
+        return code
     finally:
         store.close()
+
+
+def _review_one(conn, session_id: str, args) -> int:
+    facts = build_facts(conn, session_id)
+    critique = score_session(conn, session_id, facts=facts)
+
+    print(format_session_sheet(facts, critique))
+    for line in item_guide_lines():
+        print(line)
+
+    if args.scores:
+        from strength_coach.eval import load_labels
+
+        labels = load_labels(args.scores)
+        if session_id not in labels.sessions:
+            print(f"{args.scores} has no marks for {session_id}; skipped")
+            return 2
+        scores = dict(labels.sessions[session_id].scores)
+        confidence = args.confidence or labels.sessions[session_id].confidence
+    else:
+        scores = _ask_scores(critique)
+        confidence = args.confidence or _ask_confidence()
+
+    written = record_marks(
+        conn,
+        session_id,
+        scores,
+        confidence=confidence,
+        rubric_version=RUBRIC_VERSION,
+        note=args.note,
+    )
+    if written == 0:
+        print("\nno marks recorded: every item was skipped. This session is still "
+              "unreviewed.")
+        return 2
+    print(f"\nrecorded {written} marks for {session_id} (confidence {confidence})")
+    return 0
 
 
 def _cmd_calibrate(args) -> int:

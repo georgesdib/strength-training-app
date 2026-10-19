@@ -14,7 +14,7 @@ import pytest
 from conftest import make_readiness, make_training
 from strength_coach import cli
 from strength_coach.eval import load_marks
-from strength_coach.store import db, importer
+from strength_coach.store import db, importer, queries
 
 ROWS = [
     {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
@@ -216,3 +216,60 @@ def test_review_with_no_marks_is_not_reported_as_success(database, tmp_path, cap
     assert code == 2
     assert "still unreviewed" in capsys.readouterr().out
     assert count(database, "rubric_mark") == 0
+
+def test_review_pending_catches_up_on_unmarked_sessions(database, tmp_path, capsys):
+    labels = tmp_path / "marks.yaml"
+    labels.write_text(yaml.safe_dump({
+        "version": 1,
+        "sessions": {"2024-01-01": {"scores": {"RIR_ADHERENCE": 1.0},
+                                    "confidence": "high"}},
+    }), encoding="utf-8")
+
+    assert count(database, "rubric_mark") == 0
+    assert cli.main(["--db", str(database), "review", "--pending",
+                     "--scores", str(labels)]) == 0
+    assert count(database, "rubric_mark") == 1
+    out = capsys.readouterr().out
+    assert "recorded 1 marks" in out
+
+    assert cli.main(["--db", str(database), "review", "--pending"]) == 0
+    assert "no unreviewed sessions" in capsys.readouterr().out
+
+
+def test_run_points_at_pending_reviews(database, capsys):
+    assert cli.main(["--db", str(database), "run", "--date", "2024-02-01"]) == 0
+    assert "review --pending" in capsys.readouterr().out
+
+def test_pending_stops_at_the_last_reviewed_session(tmp_path):
+    rows = [
+        {"Date": day, "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
+         "RIR": "2", "Reps_Done": "3"}
+        for day in ("2024-01-01", "2024-01-02", "2024-01-03")
+    ]
+    path = tmp_path / "coach.db"
+    training = make_training(rows)
+    readiness = make_readiness([{}])
+    store = db.Store(path)
+    try:
+        importer.import_export(
+            store.connection, training, readiness,
+            training_sha256=importer.sha256_frame(training),
+            readiness_sha256=importer.sha256_frame(readiness),
+        )
+    finally:
+        store.close()
+
+    labels = tmp_path / "one.yaml"
+    labels.write_text(yaml.safe_dump({
+        "version": 1,
+        "sessions": {"2024-01-02": {"scores": {"RIR_ADHERENCE": 1.0},
+                                    "confidence": "high"}},
+    }), encoding="utf-8")
+    assert cli.main(["--db", str(path), "review", "--session", "2024-01-02",
+                     "--scores", str(labels)]) == 0
+
+    store = db.Store(path)
+    try:
+        assert queries.unreviewed_sessions(store.connection) == ["2024-01-03"]
+    finally:
+        store.close()
