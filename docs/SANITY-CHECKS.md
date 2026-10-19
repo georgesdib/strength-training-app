@@ -110,6 +110,11 @@ without conditioning on provenance penalises the athlete for following the presc
   predict a new injury.
 - **ASSUMPTION-17** — the attention indicator is grouped by movement/muscle category; regions
   remain the evidence unit, and the category list/links are config.
+- **ASSUMPTION-18** — the old per-lift readiness values are a black-box reference, not ground
+  truth; calibration measures mimicry, not validity.
+- **ASSUMPTION-19** — overrides are bounded by constraints and injury ceilings; "override wins"
+  applies to the computed score only.
+- **ASSUMPTION-20** — calibration features and the date split are design choices until tested.
 - **ASSUMPTION-10** — the injury-to-exercise link is an **exposure** map (direct weight 2,
   indirect 1), not a causal claim. It says which lifts load a region, not which lift caused an
   injury or which one prevents recurrence.

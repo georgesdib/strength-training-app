@@ -109,30 +109,18 @@ if the composite is high. That prevents a single catastrophic field being averag
 ### 2.2 Per-lift readiness
 
 ```
-lift_readiness = min(global,
-                     self_readiness_if_present,
+lift_readiness = min(global_readiness,
+                     category_override_if_present,
                      injury_ceiling_if_linked)
 ```
 
-- `self_readiness` maps the existing per-lift 1-5 fields to patterns (config, not code):
-
-| field | patterns | reason |
-|---|---|---|
-| `squat_readiness` | `squat`, `squat_unilateral` | bilateral and split/SSB squats |
-| `bench_readiness` | `horizontal_push`, `horizontal_push_bw` | bench and its bodyweight variants; not fly/isolation |
-| `deadlift_readiness` | `hinge` | trap bar, sumo, conventional and RDL; not unilateral hinge or swings |
-
-  Accessories resolve through their `pattern:<family>` slug, so rows and curls work too.
-  A lift with no mapped field inherits the global score. If a lift matched two fields, the
-  config order decides and the chosen field is displayed; the default has no overlaps.
-  A per-lift field only applies on its own date; stale or missing means "inherit global".
-
-  The three fields are a coarse subset of a **movement/muscle category** layer. A category
-  groups patterns and primary muscles (for example hinge: `hinge`, `hinge_unilateral`,
-  glutes/hamstrings/erectors). The category is what the injury attention indicator uses; the
-  three named self-ratings are optional inputs to their category.
-- `injury_ceiling` comes from the injury signal for the region linked to that exercise:
-  direct loading uses the table below; indirect loading adds one step less severe.
+- The old `squat_readiness` / `bench_readiness` / `deadlift_readiness` fields are **labels, not
+  inputs** (section 2.8). They are not read here.
+- A **category override** is the manual per-lift input: the athlete may set `category:hinge`,
+  `category:squat`, etc. for the day. This is how the score stays overridable without keeping
+  the old fields in the form.
+- `injury_ceiling` comes from the injury signal for the region linked to that exercise; direct
+  loading uses the table below, indirect loading adds one step less severe.
 
 | injury status | direct ceiling | indirect ceiling |
 |---|---|---|
@@ -141,9 +129,8 @@ lift_readiness = min(global,
 | review | 1.00 (no cap) | 1.00 |
 | insufficient / unknown | 1.00, with a warning | 1.00 |
 
-These numbers are **assumptions** (`ASSUMPTION-13`). The important structural rule is that a
-high readiness score can never lift an item above its injury ceiling, and an injury signal can
-never *increase* readiness.
+These numbers are **assumptions** (`ASSUMPTION-13`). A high readiness score can never lift an
+item above its injury ceiling, and an injury signal can never *increase* readiness.
 
 ### 2.2a Minimum data before a score is shown
 
@@ -153,8 +140,8 @@ readiness-driven load change, require at least one of **sleep or energy** to be 
 otherwise the score can be displayed but does not move a load. The existing sleep/energy floor
 still applies independently.
 
-For a lift with no global score: use `self_readiness` for that lift if present, capped by the
-injury ceiling; otherwise no readiness factor. The injury ceiling still applies either way.
+For a lift with no global score: use its **category override** if present, capped by the injury
+ceiling; otherwise no readiness factor. The injury ceiling still applies either way.
 This is `ASSUMPTION-15`; it prevents a two-field day from masquerading as a full score.
 
 ### 2.3 From score to load
@@ -264,6 +251,74 @@ It is **display and education only** in the first phase. It does not change a lo
 lift, or clear a constraint. It must not feed back into the readiness score as a second penalty.
 A future probability model is out of scope until prospective, calibrated validation exists.
 
+## 2.8 Legacy per-lift readiness labels (black box)
+
+The three imported fields `squat_readiness`, `bench_readiness` and `deadlift_readiness` are
+**not inputs** in the new model. They are outputs of an older external calculation — training
+load plus other readiness data — whose formula is a black box. The athlete could override the
+old value, which is why it is a useful reference but not ground truth.
+
+What we know from the data:
+
+- 306 days carry all three values;
+- all are 1-5, higher better;
+- means: squat 3.53, bench 3.79, deadlift 3.56.
+
+Plan:
+
+1. **Remove them from new input surfaces**: readiness CLI, readiness web form and bulk state
+   import. Stop asking the athlete for them.
+2. **Keep the historical values read-only** in `readiness_day`/raw rows as calibration labels.
+   They are not deleted and never become model inputs at prediction time.
+3. **Calibrate against them in shadow mode.** They can tell us whether the new score *mimics*
+   the old app, not whether it is physiologically correct. That distinction is stated wherever
+   the calibration is reported.
+4. If the old labels depend on training-load features, include those features in calibration
+   (recent acute/chronic load, category-specific sets/tonnage, days since the category was
+   trained). We cannot recover the black-box formula; we can only fit an approximation.
+
+### Calibration shape
+
+One shared global component plus three category adjustments, fitted against the three labels:
+
+```
+label_category ~ f(global readiness inputs,
+                   recent training load,
+                   category-specific load,
+                   days since category trained)
+                   + category adjustment
+```
+
+- fit on a **date split** (earlier dates train, later dates test), not a random split;
+- report MAE and rank correlation for each label and for the pooled labels;
+- compare against a baseline (global score alone) before adding load features;
+- only 306 labelled days exist, so start simple (linear/ridge); no deep model, no black box;
+- the fitted weights are proposals, never auto-applied; the athlete adopts them.
+
+Only squat, bench and deadlift have labels. Other movement categories have no calibration
+target until the athlete provides one.
+
+## 2.9 Readiness overrides
+
+Computed readiness is a model output, so the athlete must be able to correct it. Overrides are
+append-only, dated and reasoned.
+
+- **Scopes:** `global` and `category:<name>` (for example `category:hinge`).
+- **Value:** 0-1 internally (displayed as 1-5 if preferred), with the same direction as the
+  score (higher = more ready).
+- **Precedence:** a category override wins over the global override, which wins over the
+  computed score.
+- **Effect:** the winning score goes through the same load-factor table, so an override **does
+  change the prescribed load**.
+- **Safety ceiling:** an override may raise or lower readiness, but it **cannot** raise a lift
+  above an injury ceiling or bypass a hard constraint/back-flare rule. Those remain the veto
+  layer. This is the one place where "override wins" does not mean "override everything".
+- **Trace:** the prescription cites `readiness_override:<id>` and the reason. A later override
+  appends; the earlier one stays in history.
+
+A manual override is a statement about today's readiness, not a new programme rule. It expires
+with the date unless re-entered.
+
 ## 3. Why this shape
 
 - It separates **subjective readiness** (what the athlete feels today) from **injury history**
@@ -299,6 +354,10 @@ Decided:
 - **Minimum data**: three core subjective fields, with sleep or energy for a load effect.
 - **Grip is capacity only**, never a daily score input.
 - **Injury attention is per movement/muscle category**, not only per region; display only.
+- **The three old per-lift fields are black-box labels**, kept read-only for calibration and
+  removed from new input surfaces.
+- **Overrides cover global and category scores**, win over computed readiness, change the load,
+  but never bypass constraints or injury ceilings.
 
 Still open:
 
@@ -308,7 +367,10 @@ Still open:
 3. Should the combined reduction cap be 20%, or lower for a return after a gap?
 4. The exact category list and exercise-to-category mapping; the table above is a starting
    proposal, not final.
-5. Whether a category with no linked injury should say `unknown` or `not configured`; both
+5. Which training-load features enter the calibration, and how to avoid fitting the old app's
+   quirks rather than readiness.
+6. The override UI: 0-1 or 1-5 entry, and whether a reason is mandatory.
+7. Whether a category with no linked injury should say `unknown` or `not configured`; both
    avoid "fine", but they mean different things.
 
 ## 6. Assumptions
@@ -326,6 +388,11 @@ Still open:
   predict a new injury.
 - `ASSUMPTION-17` — the attention indicator is grouped by movement/muscle category, with the
   region as the underlying evidence unit; the category list and links are config, not science.
+- `ASSUMPTION-18` — the old per-lift readiness values are a black-box reference, not ground
+  truth; calibration measures mimicry, not validity.
+- `ASSUMPTION-19` — readiness overrides are bounded by constraints and injury ceilings; "override
+  wins" applies to the computed score only.
+- `ASSUMPTION-20` — the calibration features and date split are design choices until tested.
 
 Evidence references: [`docs/REFERENCES.md`](REFERENCES.md) §8. Injury evidence:
 [`docs/INJURY-SIGNAL.md`](INJURY-SIGNAL.md).

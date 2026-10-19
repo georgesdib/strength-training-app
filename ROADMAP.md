@@ -576,6 +576,10 @@ built**; the full design, evidence, assumptions and phases are in
   weights later; minimum three core fields (and sleep or energy for a load effect); grip stays
   a capacity trend only. Per-lift mapping: squat → squat/squat_unilateral, bench →
   horizontal_push/horizontal_push_bw, deadlift → hinge.
+- The three old per-lift fields are **black-box labels**: keep 306 historical days read-only for
+  calibration, remove them from new readiness input, and use global/category overrides for
+  manual correction. Overrides win over computed readiness and change the load, but never bypass
+  constraints or injury ceilings.
 - A separate **injury attention indicator** (not a probability) is proposed in the same document:
   previous flares, current symptom status and tolerated loading, grouped by **movement/muscle
   category** (hinge, squat, pushes, pulls, elbow flexion, knee extension/flexion, spinal
