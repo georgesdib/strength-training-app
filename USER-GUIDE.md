@@ -145,6 +145,11 @@ does not silently leave the backlog behind. It deliberately stops at the last re
 the distant past does not need reconstructing. When manual workout logging lands (v0.2 §4.2), the
 same catch-up runs as part of concluding and logging the session.
 
+**You do not need ten sessions before using the app.** Ten remembered sessions per item is the
+threshold for *retuning* a definition or weight (`DEC-EVAL-03`), not for using the tool. Calibration
+runs from the first review and updates after every session; the rubric simply is not re-fitted
+until there is enough evidence.
+
 Marks are append-only: marking a session again adds a correction; the latest mark per
 item wins, older ones stay in the table.
 

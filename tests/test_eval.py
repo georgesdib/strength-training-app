@@ -135,7 +135,7 @@ def test_the_guide_covers_every_item_and_is_rendered():
     text = render_template(["2024-01-01"])
     # Direction is the whole point: a backtest against the opposite reading measures nothing.
     assert "HIGHER IS ALWAYS BETTER" in text
-    assert "MORE work is a LOWER score" in text
+    assert "More heavy spinal work lowers this score" in text
     for key in ITEM_KEYS:
         assert key in text
 

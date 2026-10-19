@@ -40,37 +40,40 @@ CONFIDENCE_LEVELS = ("high", "low", "unknown")
 # (higher = better), and a backtest against the wrong reading measures nothing.
 ITEM_GUIDE: dict[str, tuple[str, str]] = {
     "RIR_ADHERENCE": (
-        "Did the working sets on primary compounds stay at RIR 2-3?",
-        "1.0 = every rated set was inside the window; 0.0 = none were",
+        "Did the main working sets stay in the effort window (RIR 1-4, aiming for 2-3)?",
+        "1.0 = every rated main set was 1-4; 0.0 = none were. Skip if no main set has an RIR.",
     ),
     "PROGRESSION_ADHERENCE": (
-        "Did the accessories add load only after reaching the top of the rep range?",
-        "1.0 = every accessory progressed as double progression prescribes; 0.0 = none did",
+        "Did accessories add load only after reaching the top of their rep range at RIR 2+?",
+        "1.0 = every comparable accessory followed that rule; 0.0 = none did. "
+        "Skip if no accessory has two comparable sessions.",
     ),
     "WEEKLY_SPINAL_COST": (
-        "Did the week stay inside the high-fatigue spinal cap of 3 weighted exposures?",
-        "1.0 = at or under the cap; 0.0 = double the cap or worse. MORE work is a LOWER score",
+        "Did the week stay within the weighted spinal cap (3 exposures)?",
+        "1.0 = at or under the cap; 0.0 = at double the cap or worse. "
+        "More heavy spinal work lowers this score.",
     ),
     "ESSENTIAL_WORK": (
-        "Were the day's essential lifts present (trap bar and a bench variant on day B)?",
-        "1.0 = all essential slots present; 0.0 = none",
+        "Were the day's essential lifts present? "
+        "(A: SSB squat + bench; B: trap bar + a bench variant; C: bench + SSB squat.)",
+        "1.0 = all present; 0.0 = none. Skip if the day could not be identified.",
     ),
     "REDUNDANCY": (
-        "Was the session free of stacking (no hinge + erector, no two hinge exercises)?",
-        "1.0 = no stacking at all; 0.0 = erector stacked on a hinge AND a second hinge",
+        "Was the session free of stacking (no hinge with direct erector work, no two hinges)?",
+        "1.0 = no stacking; 0.0 = both problems at once; use a middle value for one.",
     ),
     "ROTATION": (
-        "Was exercise selection appropriate for the session's provenance?",
-        "1.0 = stable for a self-directed session, or expected rotation for an app-assigned one; "
-        "0.0 = churn in a self-directed session",
+        "Was exercise selection sensible for who chose the session? "
+        "Self-directed: keep lifts stable. App-assigned: rotation is expected.",
+        "1.0 = appropriate; 0.0 = churn in a self-directed session.",
     ),
     "SESSION_DURATION": (
-        "Was the session length appropriate? (the engine cannot measure this)",
-        "leave null unless you want to record a judgement; it is never compared",
+        "Did the session length feel appropriate? (The engine cannot measure this.)",
+        "Score only if you know; otherwise skip. Never compared with the engine.",
     ),
     "VELOCITY_LOSS": (
-        "Was within-set velocity loss controlled? (not computable from the export)",
-        "leave null unless you want to record a judgement; it is never compared",
+        "Was within-set velocity loss controlled? (Not computable from the export.)",
+        "Score only if you have a reason to judge it; otherwise skip. Never compared.",
     ),
 }
 

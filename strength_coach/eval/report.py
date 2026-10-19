@@ -113,8 +113,14 @@ def _range(values: pd.Series) -> str:
 
 
 def item_guide_lines() -> list[str]:
-    """The question each item asks, printed before a review."""
-    lines = ["", "what each score means (higher is always better):"]
+    """The question each item asks, and how to answer it, printed before a review."""
+    lines = [
+        "",
+        "how to mark — higher is always better:",
+        "  0-1  your score;  Enter = skip;  q = stop",
+        "  Only high-confidence marks count toward the headline agreement.",
+        "",
+    ]
     for key in ITEM_KEYS:
         question, anchors = ITEM_GUIDE[key]
         lines.append(f"  {key}")
