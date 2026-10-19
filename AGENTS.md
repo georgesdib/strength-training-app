@@ -13,7 +13,7 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**v0 is complete; v0.1 is planned.**
+**v0 is complete; v0.1 is in progress** (one item left: the labelled calibration set).
 
 **Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
@@ -32,18 +32,18 @@ What exists today is:
 - `tools/baseline.py` — regenerates the numbers in `private/docs/BASELINE.md`.
 - `strength_coach/domain/` — e1RM, load arithmetic, RIR classes (tested).
 - `strength_coach/ingest/` — cleaning, flags, quarantine, session reconstruction.
-- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration.
+- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, back-progression summary.
 - `strength_coach/store/` — SQLite migrations, append-only repositories, import orchestration.
   `data/coach.db` is created on demand and is git-ignored.
 - `strength_coach/rules/` — constitution loader, one predicate per `check.fn`, policy verdicts.
-- `strength_coach/prescribe/` — deterministic Day B engine, load solver, fallback, and the constraint check that applies stored athlete state. `config/thresholds.v1.yaml` holds the increments and e1RM window.
+- `strength_coach/prescribe/` — deterministic Day A/B/C engine, load solver, fallback, and the constraint check that applies stored athlete state. `config/thresholds.v1.yaml` holds the increments and e1RM window.
 - Athlete state lives in the §11 tables (`athlete_profile`, `athlete_constraint`, `exercise_suitability`, `metric_definition`, `symptom_log`), entered with `strength-coach state`.
 - `strength_coach/critique/` — deterministic rubric over a stored session; unmeasurable metrics are stored `measurable = 0`.
 - `strength_coach/trace/` — run lifecycle around `run` / `run_event`.
 - `strength_coach/eval/` — backtest harness, labelled-set comparison, and the database-backed
   marks that make calibration continuous (`rubric_mark`, append-only).
 - `strength_coach/cli.py` — `import`, `run`, `review`, `calibrate`, `state`, `block`, `e1rm`,
-  `test`, `symptom`. `review` is the routine that keeps calibration current.
+  `test`, `symptom`. `review` (with `--pending`) is the routine that keeps calibration current.
 - `strength_coach/agents/` — LLM interface, config, narrative and structured proposals.
   `NullLLM` is the default; the model may explain or propose, but never compute. Keys live in the git-ignored `config/llm.local.toml`
   or the environment (`config/llm.example.toml` is the committed template).

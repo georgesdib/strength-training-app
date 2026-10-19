@@ -63,7 +63,6 @@ def compute(conn, on_date: str, thresholds, *, ramp_week: int | None = None) -> 
     last_flare = str(flares[-1]["logged_on"]) if flares else None
     level = int(latest["level"])
 
-    status = "monitoring"
     if level > 0:
         streak = 0
         summary = f"latest reading is level {level}; no symptom-free streak to count"

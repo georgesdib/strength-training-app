@@ -107,15 +107,16 @@ def flare_from(level: int | None, settled_within_48h: int | None) -> bool | None
 
 
 def _gap_days(conn, on_date: str | None) -> int | None:
-    if end := on_date:
-        row = conn.execute(
-            "SELECT MAX(occurred_on) AS last FROM session WHERE occurred_on < ?", (end,)
-        ).fetchone()
-        if row is not None and row["last"] is not None:
-            last = _dt.date.fromisoformat(str(row["last"])[:10])
-            when = _dt.date.fromisoformat(str(end)[:10])
-            return max(0, (when - last).days)
-    return None
+    if on_date is None:
+        return None
+    row = conn.execute(
+        "SELECT MAX(occurred_on) AS last FROM session WHERE occurred_on < ?", (on_date,)
+    ).fetchone()
+    if row is None or row["last"] is None:
+        return None
+    last = _dt.date.fromisoformat(str(row["last"])[:10])
+    when = _dt.date.fromisoformat(str(on_date)[:10])
+    return max(0, (when - last).days)
 
 
 def trained_week_index(conn, start: str, on_date: str) -> int | None:

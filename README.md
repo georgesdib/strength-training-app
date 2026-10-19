@@ -141,7 +141,7 @@ strength_coach/
   store/                       SQLite migrations, append-only repositories, read queries
   features/                    derived features, baselines, VBT calibration
   rules/                       constitution loader, predicates, policy verdicts
-  prescribe/                   deterministic Day B engine and load solver
+  prescribe/                   deterministic Day A/B/C engine and load solver
   critique/                    rubric over a stored session
   agents/                      LLM interface, config, narrative (NullLLM by default)
   trace/                       run lifecycle
