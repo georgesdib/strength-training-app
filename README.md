@@ -38,13 +38,14 @@ What runs today:
 - **eval** — a backtest that replays sessions through the rubric and compares them with
   hand-made marks, per item and per session.
 
-The CLI that ties these together is phase 9; see `docs/V0-SCOPE.md`.
+The CLI that ties these together is `strength-coach`; see the [user guide](USER-GUIDE.md).
 
 ## Quickstart
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
+source .venv/bin/activate           # so `strength-coach` is on PATH
 
 .venv/bin/python -m pytest            # 407 public tests (15 more locally, private)
 .venv/bin/python tools/profile_data.py    # profile your own export

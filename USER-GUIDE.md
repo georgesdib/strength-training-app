@@ -27,11 +27,20 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 316 tests, including integration on real data
+.venv/bin/python -m pytest          # 407 public tests
 ```
 
-After install you can call `strength-coach ...` instead of
-`.venv/bin/python -m strength_coach.cli ...`; both are identical.
+**Activate the environment before using the command:**
+
+```bash
+source .venv/bin/activate          # bash / zsh
+# or: . .venv/bin/activate.fish   # fish
+strength-coach --version
+```
+
+`strength-coach` lives in `.venv/bin`, so it is only on `PATH` while the venv is active. If
+you would rather not activate it, call `.venv/bin/strength-coach ...` or
+`.venv/bin/python -m strength_coach.cli ...` directly — all three are identical.
 
 ---
 
@@ -514,6 +523,8 @@ Tests: `.venv/bin/python -m pytest`, and the markers `-m golden` (locked numbers
 
 ## 9. Troubleshooting
 
+- **`strength-coach: command not found`** — the venv is not active. Run
+  `source .venv/bin/activate` first, or use `.venv/bin/strength-coach` directly.
 | symptom | cause and fix |
 |---|---|
 | `no stored session on or before <date>` | the date predates the log, or nothing is imported. Run `strength-coach import`. |
