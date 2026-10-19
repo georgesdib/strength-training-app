@@ -18,6 +18,9 @@ from typing import Any, Mapping
 
 import yaml
 
+import datetime
+
+from strength_coach.store import repositories
 from strength_coach.utils import paths
 from strength_coach.utils import readiness as readiness_utils
 
@@ -103,3 +106,25 @@ def as_dict(config: ReadinessConfig) -> dict[str, Any]:
         "tie_break": config.tie_break,
         "composite_enabled": config.composite_enabled,
     }
+
+
+def record_manual(conn, on_date: str, values: Mapping[str, float],
+                  note: str | None = None) -> int:
+    """Validate the whole reading, then append one entry per provided field.
+
+    Shared by the CLI and the web UI so both obey the same precedence and validation. A
+    half-written day would be worse than a rejected one, so every value is checked first.
+    """
+    try:
+        datetime.date.fromisoformat(on_date)
+    except ValueError as exc:
+        raise ValueError(f"date must be YYYY-MM-DD: {on_date}") from exc
+    if not values:
+        raise ValueError("give at least one readiness field")
+    for field, value in values.items():
+        readiness_utils.validate(field, value)
+    for field in sorted(values):
+        repositories.append_readiness_entry(
+            conn, on_date=on_date, field=field, value=float(values[field]), note=note,
+        )
+    return len(values)

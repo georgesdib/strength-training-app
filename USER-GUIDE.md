@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 417 public tests
+.venv/bin/python -m pytest          # 423 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -41,6 +41,26 @@ strength-coach --version
 `strength-coach` lives in `.venv/bin`, so it is only on `PATH` while the venv is active. If
 you would rather not activate it, call `.venv/bin/strength-coach ...` or
 `.venv/bin/python -m strength_coach.cli ...` directly — all three are identical.
+
+
+### 2.1 Web UI
+
+The same core is available in a local browser UI; the CLI remains the automation interface.
+
+```bash
+strength-coach web                 # http://127.0.0.1:8000
+strength-coach web --open          # ...and open a browser
+strength-coach web --port 8001     # another port
+```
+
+It binds to **127.0.0.1 only** and has **no authentication**; do not expose it on a network.
+The pages are Today, Prescribe, Review, Readiness, Athlete and Docs. Every load, RIR, warning
+and calibration number still comes from Python — the browser only displays and submits forms.
+Docs are rendered locally, so the UI works offline.
+
+```bash
+.venv/bin/python -m strength_coach.cli web   # if the venv is not active
+```
 
 ---
 

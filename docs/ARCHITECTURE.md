@@ -104,3 +104,10 @@ place. DataFrames are for computation; SQLite is for memory.
   retrieval by ID beats semantic search. RAG is planned only for the *programme prose*,
   where chunk IDs must be stable.
 - No multi-user, no cloud, no auth.
+
+
+## Local web UI
+
+`strength_coach/web/` is a thin HTTP layer above the same core. It serialises prescriptions,
+critiques, readiness and calibration; it never computes a load or a score. The server binds to
+127.0.0.1 and has no authentication. The CLI remains the automation surface.

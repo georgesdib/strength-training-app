@@ -36,6 +36,7 @@ from strength_coach.agents import proposal as proposal_mod
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import back_signal as back_signal_mod
+from strength_coach.features import readiness as readiness_feature
 from strength_coach.utils import readiness as readiness_utils
 
 READINESS_CLI_FIELDS = {field: field for field in readiness_utils.READINESS_FIELDS}
@@ -159,6 +160,12 @@ def main(argv: list[str] | None = None) -> int:
     readiness.add_argument("--fat-percent", dest="fat_pct", type=float, default=None)
     readiness.add_argument("--note", default=None)
 
+    web = sub.add_parser("web", help="serve the local web UI (127.0.0.1 only)")
+    web.add_argument("--host", default="127.0.0.1",
+                     help="bind address (default 127.0.0.1; no authentication)")
+    web.add_argument("--port", type=int, default=8000, help="port (default 8000)")
+    web.add_argument("--open", action="store_true", help="open a browser")
+
     block = sub.add_parser("block", help="declare or reset the block start (week 1)")
     block.add_argument("--date", required=True, help="YYYY-MM-DD")
     block.add_argument("--force", action="store_true",
@@ -176,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
         "symptom": _cmd_symptom,
         "block": _cmd_block,
         "readiness": _cmd_readiness,
+        "web": _cmd_web,
     }
     try:
         return handlers[args.command](args)
@@ -380,23 +388,7 @@ def _cmd_state(args) -> int:
 
 def _record_readiness(conn, on_date: str, values: dict[str, float],
                       note: str | None = None) -> int:
-    """Validate the whole reading, then append one entry per provided field.
-
-    Validating first matters: a half-written day would be worse than a rejected one.
-    """
-    try:
-        datetime.date.fromisoformat(on_date)
-    except ValueError as exc:
-        raise ValueError(f"date must be YYYY-MM-DD: {on_date}") from exc
-    if not values:
-        raise ValueError("give at least one readiness field")
-    for field, value in values.items():
-        readiness_utils.validate(field, value)
-    for field in sorted(values):
-        repositories.append_readiness_entry(
-            conn, on_date=on_date, field=field, value=float(values[field]), note=note,
-        )
-    return len(values)
+    return readiness_feature.record_manual(conn, on_date, values, note=note)
 
 
 def _cmd_readiness(args) -> int:
@@ -429,6 +421,17 @@ def _cmd_readiness(args) -> int:
         return 0
     finally:
         store.close()
+
+
+def _cmd_web(args) -> int:
+    from strength_coach.web.server import serve
+
+    try:
+        serve(args.db, host=args.host, port=args.port, open_browser=args.open)
+    except OSError as exc:
+        print(f"web: could not start on {args.host}:{args.port}: {exc}")
+        return 2
+    return 0
 
 
 def _cmd_e1rm(args) -> int:

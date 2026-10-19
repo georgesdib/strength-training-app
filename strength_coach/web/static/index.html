@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Strength Coach</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Strength<span>Coach</span></div>
+    <nav id="nav">
+      <button data-view="dashboard" class="active">Today</button>
+      <button data-view="prescribe">Prescribe</button>
+      <button data-view="review">Review</button>
+      <button data-view="readiness">Readiness</button>
+      <button data-view="state">Athlete</button>
+      <button data-view="docs">Docs</button>
+    </nav>
+    <div class="local">local only · <code>127.0.0.1:8000</code></div>
+  </header>
+
+  <main>
+    <section id="view-dashboard" class="view active">
+      <div class="hero">
+        <div>
+          <p class="eyebrow">Today</p>
+          <h1 id="today-title">Loading…</h1>
+          <p class="muted" id="today-sub"></p>
+        </div>
+        <button class="primary" onclick="loadOverview()">Refresh</button>
+      </div>
+      <div id="cards" class="cards"></div>
+      <div class="panel">
+        <div class="panel-head"><h2>Recent sessions</h2><span class="muted">newest first</span></div>
+        <div id="recent"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>How this works</h2></div>
+        <p class="muted">Python computes every load, RIR and warning. The web page is a view over the same
+          core as the CLI; nothing is inferred from a missing value. Docs are linked under
+          <a href="#docs" data-view-link="docs">Docs</a>.</p>
+      </div>
+    </section>
+
+    <section id="view-prescribe" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Prescribe a session</h2><a href="#docs" data-view-link="docs">read the rules</a></div>
+        <form id="prescribe-form" class="form-row">
+          <label>Date <input type="date" id="prescribe-date" required></label>
+          <label>Day
+            <select id="prescribe-day"><option>A</option><option>B</option><option>C</option></select>
+          </label>
+          <button class="primary" type="submit">Build prescription</button>
+        </form>
+        <p class="muted">The prescription is deterministic and cites rule ids. Warnings are part of the
+          answer, not noise: a missing readiness or an unknown load appears here.</p>
+      </div>
+      <div id="prescribe-result"></div>
+    </section>
+
+    <section id="view-review" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Review a session</h2><span class="muted">human marks, engine scores shown</span></div>
+        <form id="review-form" class="form-row">
+          <label>Session <select id="review-session"></select></label>
+          <button type="submit">Load sheet</button>
+        </form>
+        <p class="muted">Only high-confidence marks count toward agreement. Leave an item blank to skip;
+          the engine value is shown for context, not copied.</p>
+      </div>
+      <div id="review-result"></div>
+    </section>
+
+    <section id="view-readiness" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Log readiness</h2><a href="#docs" data-view-link="docs">what moves a load</a></div>
+        <form id="readiness-form">
+          <div class="form-row">
+            <label>Date <input type="date" id="readiness-date" required></label>
+            <label class="grow">Note <input type="text" id="readiness-note" placeholder="optional"></label>
+          </div>
+          <div id="readiness-fields" class="grid-fields"></div>
+          <details class="advanced">
+            <summary>Device fields (optional)</summary>
+            <div id="readiness-device" class="grid-fields"></div>
+          </details>
+          <div class="form-row">
+            <button class="primary" type="submit">Save readiness</button>
+            <span class="muted">Any subset is valid. Manual values win per field.</span>
+          </div>
+        </form>
+        <div id="readiness-result"></div>
+      </div>
+    </section>
+
+    <section id="view-state" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Athlete state</h2><span class="muted">stored in the database, not prompt text</span></div>
+        <div id="state-result" class="state-grid"></div>
+      </div>
+    </section>
+
+    <section id="view-docs" class="view">
+      <div class="docs-layout">
+        <aside class="panel docs-list"><div class="panel-head"><h2>Docs</h2></div><div id="docs-list"></div></aside>
+        <article class="panel doc" id="doc-body"><p class="muted">Choose a document.</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">Same core as <code>strength-coach</code>. The CLI remains the automation interface.</footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>

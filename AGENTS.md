@@ -43,14 +43,15 @@ What exists today is:
 - `strength_coach/eval/` — backtest harness, labelled-set comparison, and the database-backed
   marks that make calibration continuous (`rubric_mark`, append-only).
 - `strength_coach/cli.py` — `import`, `run`, `review`, `calibrate`, `state`, `block`, `e1rm`,
-  `test`, `symptom`, `readiness`. `review` (with `--pending`) is the routine that keeps calibration current.
+  `test`, `symptom`, `readiness`, `web`. `review` (with `--pending`) is the routine that keeps calibration current.
+- `strength_coach/web/` — local-only HTTP UI and JSON API over the same core; no authentication, bind 127.0.0.1.
 - `strength_coach/agents/` — LLM interface, config, narrative and structured proposals.
   `NullLLM` is the default; the model may explain or propose, but never compute. Keys live in the git-ignored `config/llm.local.toml`
   or the environment (`config/llm.example.toml` is the committed template).
 - `ROADMAP.md` — phase status and next actions (update it in the same commit as the work).
 
 Build order, current status and the next actions live in `ROADMAP.md` — do not duplicate
-them here, because two copies drift. Do not add a UI.
+them here, because two copies drift. Do not add a hosted UI. The local web UI exists because the user asked for it and must stay 127.0.0.1-only.
 
 ## 3. Non-negotiable invariants
 
@@ -164,6 +165,7 @@ so silently erased genuine `RIR = 0` observations during development.
 | `docs/DATA-QUALITY.md` | the decision ledger (DQ-*) and open sentinel questions |
 | `docs/READINESS.md` | how readiness is derived, merged and used; what is config vs rule |
 | `docs/CONTINUITY.md` | gap detection, re-entry rules and the back-progression signal |
+| `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |
 | `docs/SPINAL-COST.md` | evidence behind the ordinal spinal-cost ratings |
 | `docs/TRAINING-DYNAMICS.md` | evidence on 1RM testing, rep ranges and DUP; proposal, not decision |
