@@ -43,7 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **planned** | see §4: manual logging, format adapters, whole-programme output, **video analysis (§4.8)**; readiness, continuity and the back signal are delivered early; depends on 3.3 for the readiness path |
+| v0.2 | Input flexibility + programme view | **planned** | see §4: manual logging, format adapters, whole-programme output, **video analysis (§4.8)**, readiness follow-ups (§4.9: composite, HRV/RHR triggers, per-athlete settings); readiness entry, continuity and the back signal are delivered early; depends on 3.3 for the readiness path |
 | v0.1 | Next version | **in progress** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set remains (human work) |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
@@ -489,6 +489,66 @@ Why v0.2 rather than v0.1: it needs a privacy decision (sending personal video t
 model), a provider-capability check, and a storage/retention policy. None of those belong in a
 version whose remaining work is calibration and documentation.
 
+### 4.9 Readiness follow-ups — planned, not built
+
+These extend 4.1. They are **planned**; no code is written yet. The first two were decided in
+discussion, the third is a constraint, and the fourth is a design choice.
+
+#### 4.9.1 Composite readiness score
+
+Add a single 0-1 readiness summary, still **reporting only** — it must never move a load.
+MOD-FAT-001 keeps reading individual fields.
+
+Prerequisite: every metric included in the composite has a metric_definition row declaring
+its scale, direction (higher_is_better), unit and aggregation. Then:
+
+- normalise each present metric to 0-1 using its declared direction (RHR is inverted);
+- aggregate with declared weights over the metrics that exist;
+- store the result with composite_basis naming the inputs and weights;
+- a missing metric is excluded, never treated as zero;
+- the switch stays off until the definitions exist.
+
+Acceptance: enabling the composite without full definitions is refused; an inverted metric
+(RHR) scores correctly in a unit test; a partial day's composite is computed over its present
+fields and says so; no prescription load changes because of it.
+
+#### 4.9.2 HRV and RHR trigger the fatigue modifier
+
+The chosen approach is **baseline-relative**, not absolute:
+
+- baseline = median of the athlete's readings over the previous 28 days (configurable window);
+- require a minimum number of readings before a baseline exists (proposal: 7; config);
+- HRV triggers when it is **below 80% of baseline**;
+- RHR triggers when it is **above 105% of baseline**;
+- no baseline means **no trigger**, reported as *"baseline unknown"* — never silently fine;
+- manual and imported readings both count toward the baseline.
+
+This needs a per-field rule schema; the current single at_or_below cannot express RHR's
+inverted direction. It also widens what can downgrade a load, so MOD-FAT-001's wording and
+DEC-READINESS-02 must be updated when it is built, with a decision for the percentages.
+
+Acceptance: HRV at 79% of baseline triggers, at 81% does not; RHR at 106% triggers, at 104%
+does not; a new athlete with no baseline gets no trigger and an explicit unknown; a test proves
+the direction of each field.
+
+#### 4.9.3 Per-athlete readiness settings
+
+Move the modifier rules from installation config into the database, with the config file as
+defaults:
+
+- a readiness_setting table (or columns on athlete_profile) keyed to the athlete;
+- precedence: athlete override > config > code default;
+- a CLI to view/set them (e.g. readiness config --hrv-below 0.80);
+- the prescription cites the threshold it used, not just MOD-FAT-001.
+
+Acceptance: two databases on the same checkout can use different thresholds; an athlete with
+no overrides falls back to config; the prescription trace names the winning source.
+
+#### 4.9.4 Constraint: the CSV is input, the database is the record
+
+There is **no write-back to readiness.csv**. The export belongs to the logging device/app;
+manual readings live in readiness_entry. If portability is needed later, add a separate
+explicit export (CSV/YAML) rather than mutating the input file. Backups copy data/coach.db.
 ## 5. Known gaps and risks
 
 | gap | impact | mitigation / status |
