@@ -25,7 +25,8 @@ strength-coach web --port 8001
 - **Readiness** — any subset of 1-5 and device fields; manual values win per field; the
   computed global/category score is shown; overrides take 0.00–1.00 with a reason. A current
   workout is refused until readiness is ready.
-- **Athlete** — profile, constraints, suitability and the per-region injury signal (read-only).
+- **Athlete** — append-only editing of profile, constraints, suitability, e1RM overrides,
+  strength tests, block start and symptoms; shows the current tables and injury signal.
 - **Docs** — local Markdown rendered without external assets.
 
 ## API
@@ -40,6 +41,7 @@ strength-coach web --port 8001
 | `GET /api/readiness/<date>` | merged readiness |
 | `POST /api/readiness` | `{date, values, note}` -> merged readiness + score |
 | `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |
+| `GET /api/readiness/calibrate` | calibration report text (no auto-apply) |
 | `GET /api/state` | profile, constraints, suitability, per-region injury signal |
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |

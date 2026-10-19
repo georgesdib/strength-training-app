@@ -67,10 +67,9 @@ async function loadOverview() {
     const readiness = data.readiness;
     const signal = data.injury_signal;
     const cards = [
-      ["Readiness today", readiness?.sleep != null || readiness?.energy != null
-        ? `sleep ${readiness.sleep ?? "—"} · energy ${readiness.energy ?? "—"}`
-        : "unknown", readiness?.sources ? "source: " + Object.entries(readiness.sources)
-          .filter(([k]) => ["sleep", "energy"].includes(k)).map(([k, v]) => k + "=" + v).join(", ") : "no entry"],
+      ["Readiness today", data.readiness_score?.score != null
+        ? data.readiness_score.score.toFixed(2) : "unknown",
+        data.readiness_score?.status + (data.readiness_score?.basis ? " · " + data.readiness_score.basis : "")],
       ["Block week", data.block_week ?? "unknown", "erector ramp / DUP"],
       ["Injury signal", signal?.status ?? "unknown", signal?.summary ?? ""],
       ["Unreviewed", data.unreviewed.length, data.unreviewed.length ? "run review to catch up" : "all caught up"],
@@ -251,6 +250,16 @@ async function loadReadiness(date) {
   }
 }
 
+$("#calibration-run").addEventListener("click", async () => {
+  $("#calibration-result").innerHTML = "<p class='empty'>Fitting…</p>";
+  try {
+    const data = await api("/api/readiness/calibrate");
+    $("#calibration-result").innerHTML = `<pre>${esc(data.text)}</pre>`;
+  } catch (error) {
+    $("#calibration-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+});
+
 $("#override-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
@@ -395,6 +404,7 @@ async function loadState() {
       <div class="muted">of ${r.loaded_sessions} loaded (${r.unverified_sessions} unverified)</div></td>
       <td>${r.window_days} d</td></tr>`).join("") + "</tbody></table>"
       : "<p class='empty'>no regions configured</p>";
+    renderStateForms(data);
     $("#state-result").innerHTML = `
       <div class="panel"><div class="panel-head"><h2>Profile</h2></div>
         <table><tbody>${profileRows}</tbody></table></div>
@@ -408,6 +418,151 @@ async function loadState() {
   } catch (error) {
     $("#state-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
+}
+
+function profileField(name, label, value, type = "text") {
+  return `<label>${label}<input data-profile="${name}" type="${type}" value="${esc(value ?? "")}"></label>`;
+}
+
+function renderStateForms(data) {
+  const p = data.profile || {};
+  const regions = Object.keys(data.injury_signal?.regions || {});
+  const regionOptions = (regions.length ? regions : ["low_back"]).map((r) =>
+    `<option value="${esc(r)}">${esc(r)}</option>`).join("");
+  $("#state-forms").innerHTML = `
+    <div class="panel"><div class="panel-head"><h2>Edit profile</h2><span class="muted">appends a new version</span></div>
+      <form id="profile-form" class="grid-fields">
+        ${profileField("primary_goal", "Primary goal", p.primary_goal)}
+        ${profileField("goal_rank", "Goal rank (comma)", (p.goal_rank || []).join(", "))}
+        ${profileField("focus_lifts", "Focus lifts (comma)", (p.focus_lifts || []).join(", "))}
+        ${profileField("competition_date", "Competition date", p.competition_date, "date")}
+        ${profileField("sessions_per_week_target", "Sessions/week", p.sessions_per_week_target, "number")}
+        ${profileField("max_session_minutes", "Max minutes", p.max_session_minutes, "number")}
+        ${profileField("block_start_date", "Block start", p.block_start_date, "date")}
+        <button class="primary" type="submit">Save profile version</button>
+      </form>
+    </div>
+
+    <div class="panel"><div class="panel-head"><h2>Add constraint</h2></div>
+      <form id="constraint-form" class="grid-fields">
+        <label>Kind<select data-constraint="kind"><option>injury</option><option>rom</option><option>preference</option></select></label>
+        <label>Region<input data-constraint="region" placeholder="low_back"></label>
+        <label>Severity<select data-constraint="severity"><option>monitor</option><option>caution</option><option>hard_exclude</option></select></label>
+        <label>Forbidden exercises<input data-constraint="forbidden_exercises" placeholder="a, b"></label>
+        <label>Forbidden patterns<input data-constraint="forbidden_patterns" placeholder="hinge, squat"></label>
+        <label>Since<input data-constraint="since" placeholder="YYYY-MM"></label>
+        <label>Settled on<input data-constraint="settled_on" placeholder="YYYY-MM"></label>
+        <label class="grow">Evidence<input data-constraint="evidence"></label>
+        <button class="primary" type="submit">Append constraint</button>
+      </form>
+    </div>
+
+    <div class="panel"><div class="panel-head"><h2>Rate suitability</h2></div>
+      <form id="suitability-form" class="grid-fields">
+        <label>Exercise<input data-suit="exercise_id" list="exercise-options" placeholder="canonical id"></label>
+        <label>Can do<select data-suit="can_do"><option>yes</option><option>no</option></select></label>
+        <label>Will do<select data-suit="will_do"><option>yes</option><option>no</option></select></label>
+        <label>Feels bad<select data-suit="feels_bad"><option>no</option><option>yes</option></select></label>
+        <label class="grow">Note<input data-suit="note"></label>
+        <button class="primary" type="submit">Append rating</button>
+      </form>
+    </div>
+
+    <div class="panel"><div class="panel-head"><h2>e1RM override</h2></div>
+      <form id="e1rm-form" class="grid-fields">
+        <label>Exercise<input data-e1rm="exercise_id" list="exercise-options" placeholder="canonical id"></label>
+        <label>kg<input data-e1rm="e1rm_kg" type="number" step="0.5"></label>
+        <label>Effective from<input data-e1rm="effective_from" type="date"></label>
+        <label>Expires<input data-e1rm="expires_on" type="date"></label>
+        <label class="grow">Reason<input data-e1rm="reason"></label>
+        <button class="primary" type="submit">Append override</button>
+      </form>
+    </div>
+
+    <div class="panel"><div class="panel-head"><h2>Strength test</h2><span class="muted">records a measured e1RM</span></div>
+      <form id="test-form" class="grid-fields">
+        <label>Exercise<input data-test="exercise_id" list="exercise-options" placeholder="canonical id"></label>
+        <label>kg<input data-test="kg" type="number" step="0.5"></label>
+        <label>Reps<input data-test="reps" type="number" min="1" max="10"></label>
+        <label>Date<input data-test="date" type="date"></label>
+        <label><input data-test="max" type="checkbox"> confirm true 1RM</label>
+        <label class="grow">Reason<input data-test="reason"></label>
+        <button class="primary" type="submit">Record test</button>
+      </form>
+    </div>
+
+    <div class="panel"><div class="panel-head"><h2>Symptom</h2></div>
+      <form id="symptom-form" class="grid-fields">
+        <label>Date<input data-symptom="date" type="date"></label>
+        <label>Region<select data-symptom="region">${regionOptions}</select></label>
+        <label>Level<select data-symptom="level"><option>0</option><option>1</option><option>2</option><option>3</option></select></label>
+        <label>Settled<select data-symptom="settled"><option>unknown</option><option>yes</option><option>no</option></select></label>
+        <label class="grow">Note<input data-symptom="note"></label>
+        <button class="primary" type="submit">Append symptom</button>
+      </form>
+    </div>
+
+    <div class="panel"><div class="panel-head"><h2>Block start</h2><span class="muted">resets the ramp</span></div>
+      <form id="block-form" class="form-row">
+        <label>Date<input data-block="date" type="date"></label>
+        <label><input data-block="force" type="checkbox"> reset if already set</label>
+        <button class="primary" type="submit">Set block start</button>
+      </form>
+    </div>`;
+
+  const collect = (prefix) => Object.fromEntries(
+    [...document.querySelectorAll(`[data-${prefix}]`)].map((el) => [el.dataset[prefix], el.value])
+  );
+  const save = async (path, payload, target = "#state-result") => {
+    try {
+      await api(path, { method: "POST", body: JSON.stringify(payload) });
+      loadState();
+      loadOverview();
+    } catch (error) {
+      $(target).innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+    }
+  };
+  $("#profile-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const values = collect("profile");
+    save("/api/state/profile", {
+      ...values,
+      sessions_per_week_target: values.sessions_per_week_target || null,
+      max_session_minutes: values.max_session_minutes || null,
+    });
+  });
+  $("#constraint-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    save("/api/state/constraint", collect("constraint"));
+  });
+  $("#suitability-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const values = collect("suit");
+    save("/api/state/suitability", {
+      ...values,
+      can_do: values.can_do === "yes",
+      will_do: values.will_do === "yes",
+      feels_bad: values.feels_bad === "yes",
+    });
+  });
+  $("#e1rm-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    save("/api/state/e1rm", collect("e1rm"));
+  });
+  $("#test-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const values = collect("test");
+    save("/api/state/test", { ...values, max: Boolean(values.max) });
+  });
+  $("#symptom-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    save("/api/state/symptom", collect("symptom"));
+  });
+  $("#block-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const values = collect("block");
+    save("/api/state/block", { ...values, force: Boolean(values.force) });
+  });
 }
 
 /* --- docs --------------------------------------------------------------- */
@@ -438,8 +593,17 @@ async function loadDoc(name) {
   }
 }
 
+async function loadExercises() {
+  try {
+    const list = await api("/api/exercises");
+    $("#exercise-options").innerHTML = list.map((e) =>
+      `<option value="${esc(e.id)}">${esc(e.display)}</option>`).join("");
+  } catch (error) { /* the page still works without the picker */ }
+}
+
 /* --- boot --------------------------------------------------------------- */
 fillSessionSelect();
+loadExercises();
 loadOverview();
 const initial = location.hash.replace("#", "") || "dashboard";
 if (document.getElementById("view-" + initial)) setView(initial);

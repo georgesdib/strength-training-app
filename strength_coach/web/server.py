@@ -23,13 +23,15 @@ from urllib.parse import unquote, urlparse
 
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
 from strength_coach.critique.rubric import RUBRIC_VERSION
+from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, load_marks, record_marks
 from strength_coach.features import injury_signal, readiness as readiness_feature
-from strength_coach.features import readiness_score
+from strength_coach.features import readiness_calibration, readiness_score
 from strength_coach.prescribe import build_prescription
+from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
 from strength_coach.store import db, importer, queries, repositories
-from strength_coach.utils import io_utils
+from strength_coach.utils import exercises, io_utils
 from strength_coach.web import markdown
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -116,6 +118,30 @@ def _docs() -> list[dict]:
     return out
 
 
+def _list(value, default=None) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return list(default or [])
+
+
+def _int_or_none(value):
+    return None if value in (None, "") else int(value)
+
+
+def _truth(value) -> bool:
+    if isinstance(value, str):
+        return value.lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
+def _settled(value):
+    if value in (None, "", "unknown"):
+        return None
+    return _truth(value)
+
+
 class ReadinessRequired(Exception):
     """The date needs a usable readiness score before a workout is generated."""
 
@@ -175,8 +201,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: _session_rows(c, 40)))
             elif path == "/api/calibrate":
                 self._json(200, self._with_conn(self._calibrate))
+            elif path == "/api/readiness/calibrate":
+                self._json(200, self._with_conn(
+                    lambda c: {"text": readiness_calibration.report(c)}
+                ))
             elif path == "/api/state":
                 self._json(200, self._with_conn(self._state))
+            elif path == "/api/exercises":
+                self._json(200, [
+                    {"id": key, "display": str(value.get("display") or key),
+                     "pattern": value.get("pattern")}
+                    for key, value in exercises.taxonomy().entities.items()
+                ])
             elif path == "/api/docs":
                 self._json(200, _docs())
             elif path.startswith("/api/docs/"):
@@ -212,6 +248,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._set_readiness(c, body)))
             elif path == "/api/readiness/override":
                 self._json(200, self._with_conn(lambda c: self._set_readiness_override(c, body)))
+            elif path == "/api/state/profile":
+                self._json(200, self._with_conn(lambda c: self._save_profile(c, body)))
+            elif path == "/api/state/constraint":
+                self._json(200, self._with_conn(lambda c: self._save_constraint(c, body)))
+            elif path == "/api/state/suitability":
+                self._json(200, self._with_conn(lambda c: self._save_suitability(c, body)))
+            elif path == "/api/state/e1rm":
+                self._json(200, self._with_conn(lambda c: self._save_e1rm(c, body)))
+            elif path == "/api/state/symptom":
+                self._json(200, self._with_conn(lambda c: self._save_symptom(c, body)))
+            elif path == "/api/state/block":
+                self._json(200, self._with_conn(lambda c: self._save_block(c, body)))
+            elif path == "/api/state/test":
+                self._json(200, self._with_conn(lambda c: self._save_test(c, body)))
             elif path.startswith("/api/review/"):
                 session = path[len("/api/review/"):]
                 self._json(200, self._with_conn(lambda c: self._save_review(c, session, body)))
@@ -246,6 +296,7 @@ class Handler(BaseHTTPRequestHandler):
             "profile": dict(profile) if profile else None,
             "block_week": context.block_week_index,
             "readiness": readiness,
+            "readiness_score": readiness_score.compute(conn, today).as_dict(),
             "injury_signal": signal,
             "unreviewed": queries.unreviewed_sessions(conn, limit=50),
             "sessions": _session_rows(conn, 12),
@@ -400,8 +451,15 @@ class Handler(BaseHTTPRequestHandler):
                 except (TypeError, ValueError):
                     data[key] = []
             constraints.append(data)
+        profile = dict(queries.athlete_profile(conn) or {}) or None
+        if profile:
+            for key in ("goal_rank", "focus_lifts"):
+                try:
+                    profile[key] = json.loads(profile.get(key) or "[]")
+                except (TypeError, ValueError):
+                    profile[key] = []
         return {
-            "profile": dict(queries.athlete_profile(conn) or {}) or None,
+            "profile": profile,
             "constraints": constraints,
             "suitability": queries.exercise_suitability(conn),
             "symptoms": queries.symptom_entries(conn)[-10:],
@@ -411,6 +469,146 @@ class Handler(BaseHTTPRequestHandler):
                 conn, today, ramp_week=context.block_week_index
             ).as_dict(),
         }
+
+    def _save_profile(self, conn, body: dict) -> dict:
+        current = dict(queries.athlete_profile(conn) or {})
+        def current_list(key):
+            try:
+                return json.loads(current.get(key) or "[]")
+            except (TypeError, ValueError):
+                return []
+        goal = str(body.get("primary_goal") or current.get("primary_goal") or "").strip()
+        if not goal:
+            raise ValueError("primary_goal is required")
+        block_start = body.get("block_start_date", current.get("block_start_date"))
+        repositories.append_athlete_profile(
+            conn,
+            effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
+            primary_goal=goal,
+            goal_rank=_list(body.get("goal_rank"), current_list("goal_rank")),
+            focus_lifts=_list(body.get("focus_lifts"), current_list("focus_lifts")),
+            competition_date=body.get("competition_date") or None,
+            sessions_per_week_target=_int_or_none(body.get("sessions_per_week_target")),
+            max_session_minutes=_int_or_none(body.get("max_session_minutes")),
+            block_start_date=block_start or None,
+        )
+        return self._state(conn)
+
+    def _save_constraint(self, conn, body: dict) -> dict:
+        repositories.append_athlete_constraint(
+            conn,
+            kind=str(body.get("kind") or "").strip(),
+            region=str(body.get("region") or "").strip(),
+            severity=str(body.get("severity") or "monitor").strip(),
+            forbidden_patterns=_list(body.get("forbidden_patterns")),
+            forbidden_exercises=_list(body.get("forbidden_exercises")),
+            rom_limit=body.get("rom_limit") or None,
+            since=body.get("since") or None,
+            settled_on=body.get("settled_on") or None,
+            evidence=body.get("evidence") or None,
+        )
+        return self._state(conn)
+
+    def _save_suitability(self, conn, body: dict) -> dict:
+        exercise_id = str(body.get("exercise_id") or "").strip()
+        if not exercise_id:
+            raise ValueError("exercise_id is required")
+        repositories.append_exercise_suitability(
+            conn,
+            exercise_id=exercise_id,
+            rated_on=str(body.get("rated_on") or datetime.date.today().isoformat()),
+            can_do=_truth(body.get("can_do", True)),
+            will_do=_truth(body.get("will_do", True)),
+            feels_bad=_truth(body.get("feels_bad", False)),
+            note=body.get("note") or None,
+        )
+        return self._state(conn)
+
+    def _save_e1rm(self, conn, body: dict) -> dict:
+        exercise_id = str(body.get("exercise_id") or "").strip()
+        try:
+            kg = float(body.get("e1rm_kg"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("e1rm_kg must be a number") from exc
+        if not exercise_id or kg <= 0:
+            raise ValueError("exercise_id and a positive e1rm_kg are required")
+        repositories.append_e1rm_override(
+            conn,
+            exercise_id=exercise_id,
+            e1rm_kg=kg,
+            effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
+            expires_on=body.get("expires_on") or None,
+            reason=body.get("reason") or None,
+        )
+        return self._state(conn)
+
+    def _save_symptom(self, conn, body: dict) -> dict:
+        region = str(body.get("region") or "low_back").strip()
+        config = injury_signal.InjuryConfig.load()
+        if region not in config.regions:
+            raise ValueError(f"unknown injury region {region!r}; known: {sorted(config.regions)}")
+        level = int(body.get("level"))
+        if not 0 <= level <= 3:
+            raise ValueError("symptom level must be 0-3")
+        repositories.append_symptom(
+            conn,
+            logged_on=str(body.get("date") or datetime.date.today().isoformat()),
+            timing="pre_session",
+            region=region,
+            level=level,
+            settled_within_48h=_settled(body.get("settled")),
+            note=body.get("note") or None,
+        )
+        return self._state(conn)
+
+    def _save_test(self, conn, body: dict) -> dict:
+        exercise_id = str(body.get("exercise_id") or "").strip()
+        try:
+            kg = float(body.get("kg"))
+            reps = int(body.get("reps"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("kg and reps are required") from exc
+        if not exercise_id or kg <= 0 or not 1 <= reps <= 10:
+            raise ValueError("exercise, a positive load and 1-10 reps are required")
+        if reps == 1 and not _truth(body.get("max", False)):
+            raise ValueError("a single-rep test must be confirmed with max=true")
+        on_date = str(body.get("date") or datetime.date.today().isoformat())
+        thresholds = Thresholds.load()
+        previous = queries.last_measured_override(conn, exercise_id)
+        if reps == 1 and previous is not None:
+            days = (datetime.date.fromisoformat(on_date)
+                    - datetime.date.fromisoformat(previous["effective_from"])).days
+            if days < thresholds.test_max_single_min_interval_days:
+                raise ValueError(
+                    f"a 1RM for {exercise_id} was recorded {days} days ago; "
+                    f"minimum interval is {thresholds.test_max_single_min_interval_days}"
+                )
+        value = e1rm_mod.epley_rir_adjusted(kg, reps, 0)
+        repositories.append_e1rm_override(
+            conn, exercise_id=exercise_id, e1rm_kg=float(value),
+            effective_from=on_date, reason=body.get("reason") or f"{reps}RM test",
+            source="measured",
+        )
+        return self._state(conn)
+
+    def _save_block(self, conn, body: dict) -> dict:
+        current = queries.athlete_profile(conn)
+        if current is None:
+            raise ValueError("record an athlete profile first")
+        if current["block_start_date"] and not _truth(body.get("force", False)):
+            raise ValueError("the block already started; pass force=true to reset it")
+        repositories.append_athlete_profile(
+            conn,
+            effective_from=datetime.date.today().isoformat(),
+            primary_goal=current["primary_goal"],
+            goal_rank=json.loads(current["goal_rank"] or "[]"),
+            focus_lifts=json.loads(current["focus_lifts"] or "[]"),
+            competition_date=current["competition_date"],
+            sessions_per_week_target=current["sessions_per_week_target"],
+            max_session_minutes=current["max_session_minutes"],
+            block_start_date=str(body.get("date") or "").strip() or None,
+        )
+        return self._state(conn)
 
     def _calibrate(self, conn) -> dict:
         labels = load_marks(conn)

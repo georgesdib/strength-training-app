@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 451 public tests
+.venv/bin/python -m pytest          # 454 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -219,7 +219,9 @@ strength-coach state --import private/athlete-state.yaml
 strength-coach state
 ```
 
-This is the §11 athlete state: goals, constraints and per-exercise suitability. It exists so
+The web **Athlete** page edits all of this append-only: profile, constraints, suitability,
+e1RM overrides, strength tests, block start and symptoms. The CLI below remains the scripted
+route. This is the §11 athlete state: goals, constraints and per-exercise suitability. It exists so
 a hard constraint can veto a prescription deterministically, rather than living in a prompt.
 
 - **constraint** — `hard_exclude` vetoes the exercise; `caution` and `monitor` are recorded
@@ -502,7 +504,8 @@ strength-coach readiness calibrate     # report only; never auto-applies weights
 ```
 
 A **current or future workout requires a ready assessment**; otherwise `run`/the web page
-refuses and tells you what is missing. Historic prescriptions remain reproducible.
+refuses and tells you what is missing. Historic prescriptions remain reproducible. The web
+Readiness page also shows the computed score and has a **Run calibration** button.
 
 To change which fields matter, the threshold, or the merge tie-break, edit
 `config/readiness.v1.yaml`. Only implemented values are accepted — anything else raises

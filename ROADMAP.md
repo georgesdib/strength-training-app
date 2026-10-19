@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-dev` · **451 public tests** (466 with the 15 private integration tests)
+Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-dev` · **454 public tests** (469 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 466 locally (451 public + 15 private integration)
+.venv/bin/python -m pytest            # 469 locally (454 public + 15 private integration)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -43,7 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry (§4.1), continuity (§4.6), injury signal (§4.7), local web UI (§4.10). Remaining: manual logging, adapters, programme view, video, readiness follow-ups (§4.9), full web parity (§4.11) |
+| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry (§4.1), continuity (§4.6), injury signal (§4.7), local web UI (§4.10). Remaining: manual logging, adapters, programme view, video, learned/HRV readiness settings (§4.9), full web parity (§4.11) |
 | v0.1 | Next version | **in progress** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set remains (human work) |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000` |
 
@@ -496,100 +496,37 @@ Why v0.2 rather than v0.1: it needs a privacy decision (sending personal video t
 model), a provider-capability check, and a storage/retention policy. None of those belong in a
 version whose remaining work is calibration and documentation.
 
-### 4.9 Readiness follow-ups — planned, not built
+### 4.9 Readiness score and follow-ups  (core implemented)
 
-These extend 4.1. They are **planned**; no code is written yet. The first was revised so the
-composite can move a load; the second uses baseline-relative triggers; the third is per-athlete
-settings.
+Implemented on 2026-10-19:
 
-#### 4.9.1 Composite readiness score that can move a load
+- global 0.00-1.00 score from sleep, energy, mood, stress and soreness, with a three-field
+  minimum and a sleep/energy requirement;
+- category scores; the injury signal is a ceiling, never an average;
+- global/category overrides at the score scale, append-only, reason required; override wins over
+  computed readiness and changes the load, but never bypasses constraints or injury ceilings;
+- 20% cap on combined readiness + continuity reduction (guardrail, no direct evidence);
+- readiness-required gate for current/future CLI and web workouts;
+- calibration report against the 306 black-box legacy labels, with main-lift load features,
+  date split and baseline; report only, no auto-apply.
 
-Add a single 0-1 readiness summary that can **trigger the fatigue modifier and reduce loads** —
-not merely report. A reduction is the only direction allowed: readiness may never raise a load.
+Full design and evidence: [`docs/READINESS-SCORE.md`](docs/READINESS-SCORE.md).
 
-Prerequisite: every metric included in the composite has a metric_definition row declaring
-its scale, direction (higher_is_better), unit and aggregation. Then:
+Planned, not built:
 
-- normalise each present metric to 0-1 using its declared direction (RHR is inverted);
-- aggregate with declared weights over the metrics that exist;
-- map the composite through a configurable threshold (e.g. at or below 0.40) that triggers
-  MOD-FAT-001, citing the composite and its basis;
-- a missing metric is excluded, never treated as zero;
-- the switch stays off until the definitions exist; enabling it without them is refused.
+#### 4.9.1 HRV and RHR in the score
 
-Acceptance: a composite below the configured threshold reduces loads and cites
-composite:<date> plus composite_basis; an inverted metric (RHR) scores correctly; a partial
-day is computed over its present fields and says so; the threshold is config, and no path lets
-readiness increase a load.
+Add baseline-relative HRV/RHR to the global score, with the same 28-day median and
+missing-baseline rule as the earlier proposal. Currently they are stored but not scored.
 
-#### 4.9.2 HRV and RHR trigger the fatigue modifier
+#### 4.9.2 Per-athlete readiness settings
 
-The chosen approach is **baseline-relative**, not absolute:
+Move thresholds/weights into the database with athlete > config > code precedence.
 
-- baseline = median of the athlete's readings over the previous 28 days (configurable window);
-- require a minimum number of readings before a baseline exists (proposal: 7; config);
-- HRV triggers when it is **below 80% of baseline**;
-- RHR triggers when it is **above 105% of baseline**;
-- no baseline means **no trigger**, reported as *"baseline unknown"* — never silently fine;
-- manual and imported readings both count toward the baseline.
+#### 4.9.3 Learned weights
 
-This needs a per-field rule schema; the current single at_or_below cannot express RHR's
-inverted direction. It also widens what can downgrade a load, so MOD-FAT-001's wording and
-DEC-READINESS-02 must be updated when it is built, with a decision for the percentages.
-
-Acceptance: HRV at 79% of baseline triggers, at 81% does not; RHR at 106% triggers, at 104%
-does not; a new athlete with no baseline gets no trigger and an explicit unknown; a test proves
-the direction of each field.
-
-#### 4.9.3 Per-athlete readiness settings
-
-Move the modifier rules from installation config into the database, with the config file as
-defaults:
-
-- a readiness_setting table (or columns on athlete_profile) keyed to the athlete;
-- precedence: athlete override > config > code default;
-- a CLI to view/set them (e.g. readiness config --hrv-below 0.80);
-- the prescription cites the threshold it used, not just MOD-FAT-001.
-
-Acceptance: two databases on the same checkout can use different thresholds; an athlete with
-no overrides falls back to config; the prescription trace names the winning source.
-
-#### 4.9.5 Two-level readiness score  (implemented: score/overrides/gate/cap; calibration report)
-
-A global 0-1 readiness score plus a per-lift score that can only lower that lift, capped by
-the injury signal. The current sleep/energy trigger remains a floor. This is **planned, not
-built**; the full design, evidence, assumptions and phases are in
-[`docs/READINESS-SCORE.md`](docs/READINESS-SCORE.md).
-
-- Global: subjective sleep/energy/mood/stress/soreness, with HRV/RHR as baseline-relative
-  context; grip is capacity, not daily readiness.
-- Per lift: `min(global, self-rating, injury ceiling)`; an active region caps direct lifts at
-  0.50 and indirect at 0.60, monitoring at 0.80/0.85. A high score can never raise a lift above
-  its injury ceiling.
-- Load effect: ≥0.80 unchanged; 0.60-0.80 −5% +1 RIR; 0.40-0.60 −10% +1 RIR; <0.40 −15% +2
-  RIR. These are assumptions.
-- Strongest single reduction, not a product; combined readiness + continuity reduction is
-  capped (proposal 20%).
-- Delivered: score, category overrides, injury ceiling, 20% cap, readiness-required gate, and
-  a calibration report. Not yet: learned-weight adoption, HRV/RHR in the score, per-athlete
-  settings.
-- Decided: cut-points and injury caps are accepted; equal weights first, explicit per-athlete
-  weights later; minimum three core fields (and sleep or energy for a load effect); grip stays
-  a capacity trend only. Per-lift mapping: squat → squat/squat_unilateral, bench →
-  horizontal_push/horizontal_push_bw, deadlift → hinge.
-- Overrides use the **0.00-1.00 score scale** (same as computed), win over computed readiness
-  and change the load, but never bypass constraints/injury ceilings. Combined readiness +
-  continuity reduction is capped at **20%** (guardrail, no direct evidence). Main-lift load
-  features (recent load/e1RM, acute/chronic sets/tonnage, days since) enter calibration only.
-- The three old per-lift fields are **black-box labels**: keep 306 historical days read-only for
-  calibration, remove them from new readiness input, and use global/category overrides for
-  manual correction. Overrides win over computed readiness and change the load, but never bypass
-  constraints or injury ceilings.
-- A separate **injury attention indicator** (not a probability) is proposed in the same document:
-  previous flares, current symptom status and tolerated loading, grouped by **movement/muscle
-  category** (hinge, squat, pushes, pulls, elbow flexion, knee extension/flexion, spinal
-  extension, core/carry). Regions stay the evidence unit; categories are the training unit.
-  Display only: no load effect and no feedback into the readiness score.
+Adopt calibrated weights only if the date-split report beats the equal-weight baseline; the
+report is mimicry of the old labels, not validation.
 
 ### 4.10 Local web UI  (done)
 
@@ -614,9 +551,9 @@ Planned surfaces, in suggested order:
 
 1. **Import** — **done**. Upload the training and readiness CSVs, show inserted/existing/
    quarantined counts; files stay in memory and are stored in SQLite.
-2. **State editing** — profile, constraints, suitability ratings, e1RM overrides, strength
-   tests, block start and symptoms. Every write is append-only where the CLI is; the form
-   shows what will be recorded before saving.
+2. **State editing** — **done**. Profile, constraints, suitability ratings, e1RM overrides,
+   strength tests, block start and symptoms; append-only, with an exercise picker and the
+   current tables shown beside the forms.
 3. **LLM proposals** — a proposal view for `run --propose`: proposed changes, citations and
    warnings, explicit accept/reject, never a numeric field. The engine still validates and may
    veto. Proposal history stays visible.

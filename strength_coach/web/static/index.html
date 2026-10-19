@@ -92,6 +92,11 @@
           </div>
         </form>
         <div id="readiness-score"></div>
+        <div class="panel">
+          <div class="panel-head"><h2>Calibration report</h2><span class="muted">mimicry of the old labels</span></div>
+          <button class="ghost" id="calibration-run">Run calibration</button>
+          <div id="calibration-result"></div>
+        </div>
         <div class="panel" style="margin-top:14px">
           <div class="panel-head"><h2>Override the score</h2><span class="muted">0.00–1.00, same as the score</span></div>
           <form id="override-form" class="form-row">
@@ -142,6 +147,8 @@
       <div class="panel">
         <div class="panel-head"><h2>Athlete state</h2><span class="muted">stored in the database, not prompt text</span></div>
         <div id="state-result" class="state-grid"></div>
+        <div id="state-forms" class="state-grid" style="margin-top:16px"></div>
+        <datalist id="exercise-options"></datalist>
       </div>
     </section>
 

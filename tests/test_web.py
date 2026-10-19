@@ -183,3 +183,50 @@ def test_legacy_readiness_field_is_not_an_input(server):
             "date": "2024-01-01", "values": {"squat_readiness": 3},
         })
     assert excinfo.value.code == 400
+
+def test_readiness_calibration_endpoint(server):
+    status, body = get(server, "/api/readiness/calibrate")
+    assert status == 200
+    assert "readiness calibration" in json.loads(body)["text"]
+
+def test_state_can_be_edited(server):
+    state = post(server, "/api/state/profile", {
+        "primary_goal": "strength",
+        "goal_rank": ["strength", "longevity"],
+        "focus_lifts": ["ssb_squat"],
+        "sessions_per_week_target": 3,
+        "max_session_minutes": 90,
+        "block_start_date": "2024-01-01",
+    })
+    assert state["profile"]["primary_goal"] == "strength"
+    assert state["profile"]["goal_rank"] == ["strength", "longevity"]
+
+    post(server, "/api/state/constraint", {
+        "kind": "injury", "region": "low_back", "severity": "monitor",
+        "forbidden_exercises": ["good_morning"], "evidence": "test",
+    })
+    post(server, "/api/state/suitability", {
+        "exercise_id": "ssb_squat", "can_do": True, "will_do": True,
+        "feels_bad": False,
+    })
+    post(server, "/api/state/e1rm", {
+        "exercise_id": "ssb_squat", "e1rm_kg": 155, "reason": "test",
+    })
+    post(server, "/api/state/test", {
+        "exercise_id": "ssb_squat", "kg": 120, "reps": 3, "date": "2024-01-01",
+    })
+    post(server, "/api/state/symptom", {
+        "region": "low_back", "level": 1, "settled": "yes",
+    })
+    state = post(server, "/api/state/block", {"date": "2024-01-01", "force": True})
+    assert state["block_week"] == 1
+    assert any(c["forbidden_exercises"] == ["good_morning"] for c in state["constraints"])
+    assert state["suitability"]["ssb_squat"]["can_do"] == 1
+    assert state["e1rm_overrides"]
+    assert any(row["source"] == "measured" for row in state["e1rm_overrides"])
+    assert state["symptoms"]
+
+def test_exercise_catalogue_is_served(server):
+    status, body = get(server, "/api/exercises")
+    assert status == 200
+    assert any(row["id"] == "ssb_squat" for row in json.loads(body))
