@@ -2,7 +2,8 @@
 
 ## 1. File layout
 
-`[x]` exists today, `[ ]` planned. Nothing marked `[ ]` should be built before approval.
+`[x]` exists today, `[ ]` planned or superseded. This file is the original layout plan; the
+current tree in `AGENTS.md` and `README.md` is authoritative.
 
 ```
 pyproject.toml                       [x] deps, pytest config, ruff
@@ -32,7 +33,7 @@ strength_coach/
     rir.py                           [x] RIR classes incl. warm-up (DEC-RIR-01)
     velocity.py                      [ ] presence, decay proxy
     progression.py                   [ ] double-progression decision
-    fatigue.py                       [ ] readiness composite + modifiers
+    fatigue.py                       [x] readiness score/overrides + modifiers
     spinal.py                        [ ] exposure counting, erector dose
   ingest/                            [x] partially
     clean.py                         [x] sentinels, load basis, units, flags, quarantine
@@ -86,10 +87,10 @@ strength_coach/
     narrative.py                     [x] facts -> prompt -> prose, recorded as an event
     proposal.py                      [x] structured proposal + menu schema, policy check (DEC-LLM-04/05)
     facts.py rubric.py
-  (nothing further planned in agents: proposals are the v0.1 scope)
-  eval/                              [ ]
+  (proposal/narrative implemented; no further agents planned)
+  eval/                              [x]
     backtest.py labelled_rubric.yaml scenarios/
-  cli.py                             [ ]
+  cli.py                             [x]
 tools/
   profile_data.py                    [x] regenerates docs/EVIDENCE.md
   baseline.py                        [x] regenerates docs/BASELINE.md numbers
@@ -102,10 +103,10 @@ tests/
   test_e1rm.py test_load.py          [x] domain arithmetic
   test_clean.py test_sessions.py     [x] cleaning + reconstruction
   test_rir.py test_vbt_calibration.py [x] RIR classes + calibration ladder
-  test_rules.py test_policy.py       [ ] planned with rules
-  test_prescribe.py                  [ ] planned with prescription engine
-  test_critique.py                   [ ] planned with rubric
-  golden/                            [ ] snapshot prescriptions
+  test_rules.py test_policy.py       [x] rule loader and policy
+  test_prescribe.py                  [x] prescription engine
+  test_critique.py                   [x] rubric
+  golden/                            [x] snapshot prescriptions
 ```
 
 ## 2. Where code is reused

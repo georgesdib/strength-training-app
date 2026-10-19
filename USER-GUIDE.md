@@ -592,11 +592,11 @@ What the model may and may not do:
   verdict;
 - a failed call is recorded and the deterministic run continues.
 
-Today the model **only explains**. Letting it *propose* changes to the session — a substitute
-accessory, a different bench variant, more or fewer sets — is planned for v0.1
-([ROADMAP.md](ROADMAP.md) §3.4). Even then the numbers will still come from Python: the model
-would propose a structured intent, the policy engine would accept or veto it, and the
-prescription would record `approved_by = llm+policy`.
+The model may **narrate or propose** within the rules (`run --propose`). It proposes a
+structured intent — a substitute, a set change, a scheme — and the policy engine accepts,
+adjusts or vetoes it; the numbers still come from Python, and the trace records
+`approved_by = llm+policy` when a proposal survives. The CLI remains the proposal surface;
+the web UI does not yet expose it.
 
 ---
 

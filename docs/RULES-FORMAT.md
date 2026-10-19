@@ -63,6 +63,9 @@ verdict is reported as "not assessable — <missing input>" and never scored as 
 Fatigue handling is a **modifier**, not a pass/fail rule: it transforms a prescription
 rather than judging one. Modifiers live in the same document under `modifiers:` and are
 applied in order by the prescription engine before the policy engine evaluates the result.
+`MOD-FAT-001` now uses the computed readiness score (with the sleep/energy floor), global or
+category overrides, and a 20% combined readiness + continuity cap; the details are in
+[`READINESS-SCORE.md`](READINESS-SCORE.md).
 
 ## 3. Citation scheme
 

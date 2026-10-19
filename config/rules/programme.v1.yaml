@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.0.0"
+  version: "1.1.0"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -17,6 +17,8 @@ document:
   changelog:
     - version: "1.0.0"
       change: "Initial encoding of the constitution. Trap-bar and back-extension decisions applied."
+    - version: "1.1.0"
+      change: "MOD-FAT-001 now reads the computed readiness score alongside the sleep/energy floor; overrides and the 20% combined cap are explicit."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -249,15 +251,20 @@ modifiers:
   - id: MOD-FAT-001
     title: "Fatigue downgrade"
     statement: >
-      If sleep <= 2, or energy <= 2, or the first working set is RIR 0-1 at a load that
-      was RIR 2-3 last session, reduce load 5-10% or use the reduced session.
+      If the computed readiness score is below 0.80, or sleep/energy is at or below 2, or
+      the first working set is RIR 0-1 at a load that was RIR 2-3 last session, reduce the
+      load by the configured score factor (or use the reduced session). A global/category
+      readiness override wins over the computed score. The combined readiness + continuity
+      reduction is capped at 20%; constraints and injury ceilings are never diluted by it.
     when:
       any:
+        - {input: readiness.score, op: "<", value: 0.80}
         - {input: readiness.sleep, op: "<=", value: 2}
         - {input: readiness.energy, op: "<=", value: 2}
         - {input: first_set_rir_drop.vs_prior_session, op: ">=", value: 1}
     then:
-      load_multiplier: [0.90, 0.95]
+      load_multiplier: [0.85, 1.0]
+      rir_bump: [0, 2]
       or_prescription: reduced_session
     guard:
       # Readiness is 1-5 with HIGHER BETTER. A guard is required here because the
@@ -266,7 +273,8 @@ modifiers:
       fields: [sleep, energy, mood, soreness, stress, nutrition, hydration]
     notes: >
       The "or" is deliberate: which branch is chosen depends on how many factors fired,
-      and that choice belongs to the deterministic engine, not to an LLM.
+      and that choice belongs to the deterministic engine, not to an LLM. The score,
+      override and cap are documented in docs/READINESS-SCORE.md (DEC-READINESS-06/07).
 
   - id: MOD-BACK-001
     title: "Back symptom flare deload"

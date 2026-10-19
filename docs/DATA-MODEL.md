@@ -118,6 +118,23 @@ latest entry per (date, field) over the imported `readiness_day` row, so a manua
 dict includes `sources` and `manual_merge_note` (imported value, manual value, winner) so the
 override is auditable. `readiness_day` remains the imported, derived row.
 
+### 5.2 `readiness_override` (append-only)
+
+| column | notes |
+|---|---|
+| override_id PK | opaque id |
+| effective_on | the day the override applies to |
+| scope | `global` or `category:<name>` |
+| value | 0.00–1.00, same scale as the computed score |
+| reason | required |
+| source | user |
+| created_at | when entered |
+
+The latest row per (date, scope) wins. A category override wins over global, which wins over
+the computed score; the winning value goes through the load-factor table, but never bypasses a
+constraint or injury ceiling. The legacy `squat_readiness`/`bench_readiness`/`deadlift_readiness`
+columns are calibration labels, not manual inputs.
+
 The full derivation — sentinels, merge, storage, and what actually moves a load — is
 [`docs/READINESS.md`](READINESS.md). Which fields drive MOD-FAT-001, the threshold and the merge
 tie-break are config (`config/readiness.v1.yaml`, `DEC-READINESS-04`).

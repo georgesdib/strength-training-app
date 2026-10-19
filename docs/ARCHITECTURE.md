@@ -17,7 +17,7 @@ outside that may only *explain* and *select among pre-approved options*.
                     └──────────────────┬──────────────────────────┘
                                        ▼
         ┌──────────────────────────────┴───────────────────────────┐
-        │ features   tonnage · e1RM · ACWR · readiness composite   │
+        │ features   tonnage · e1RM · ACWR · readiness score · injury signal   │
         │            weekly spinal cost · erector dose             │
         │ vbt        calibration records (versioned)               │
         └──────────────────────────────┬───────────────────────────┘
@@ -109,5 +109,5 @@ place. DataFrames are for computation; SQLite is for memory.
 ## Local web UI
 
 `strength_coach/web/` is a thin HTTP layer above the same core. It serialises prescriptions,
-critiques, readiness and calibration; it never computes a load or a score. The server binds to
+critiques, readiness score/overrides and calibration; it never computes a load or a score. The server binds to
 127.0.0.1 and has no authentication. The CLI remains the automation surface.

@@ -42,7 +42,9 @@ strength-coach web --port 8001
 | `POST /api/readiness` | `{date, values, note}` -> merged readiness + score |
 | `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |
 | `GET /api/readiness/calibrate` | calibration report text (no auto-apply) |
-| `GET /api/state` | profile, constraints, suitability, per-region injury signal |
+| `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, injury signal |
+| `GET /api/exercises` | canonical exercise catalogue for the pickers |
+| `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes |
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |
 
@@ -55,5 +57,5 @@ The web layer is serialisation and routing only. It calls the same functions as 
 ## Limitations
 
 - No LLM proposal/chat UI (the CLI `run --propose` remains the path).
-- No state-editing forms; those remain CLI operations. Import is available.
+- State editing is available; the taxonomy itself and programme rules remain config/CLI.
 - No authentication; never expose beyond localhost.

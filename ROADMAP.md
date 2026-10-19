@@ -539,11 +539,12 @@ CLI remains the automation surface.
 - The API only serialises and routes; every load/score/warning still comes from the core.
 - Tests cover the API round trips, docs rendering and the readiness/review writes.
 
-Not in this slice: LLM proposals/chat, import, state editing, video.
+Done: import and state editing. Remaining: LLM proposals/chat, manual logging, programme view,
+video.
 
 ### 4.11 Web UI parity — everything in the browser  (planned)
 
-The local UI currently covers Today, Prescribe, Review, Readiness, Athlete (read-only) and
+The local UI covers Today, Prescribe, Review, Readiness, Import, an editable Athlete page and
 Docs. This item brings the remaining interactive CLI actions into the browser. The CLI stays
 as the automation interface; the UI must call the same core functions, never re-implement them.
 
