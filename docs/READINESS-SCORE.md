@@ -91,7 +91,7 @@ count half when a baseline exists. The score is the plain mean of the normalised
 
 Example with sleep 2 (0.25), energy 4 (0.75), mood 4 (0.75), stress 4 (0.75), soreness 4
 (0.75): equal score = **0.65**. With explicit weights sleep ×2, energy ×1.5 and the rest ×1,
-the score falls to **0.58**. Neither number is evidence; the first is the default.
+the score falls to about **0.60**. Neither number is evidence; the first is the default.
 
 **Explicit weights (later, per athlete).** Give each field a weight or a floor, e.g. sleep 2,
 energy 1.5, HRV 0.5, because the evidence is strongest for sleep and weakest for HRV. This can
