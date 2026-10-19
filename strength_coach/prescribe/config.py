@@ -34,6 +34,15 @@ class Thresholds:
     proposal_main_substitution_min_interval_days: int = 42
     test_min_interval_days: int = 28
     test_max_single_min_interval_days: int = 56
+    continuity_short_days: int = 14
+    continuity_medium_days: int = 28
+    continuity_long_days: int = 56
+    continuity_medium_multiplier: float = 0.95
+    continuity_long_multiplier: float = 0.90
+    continuity_rir_bump: int = 1
+    back_signal_symptom_free_days: int = 28
+    back_signal_min_loaded_sessions: int = 4
+    back_signal_max_entry_age_days: int = 14
     source_path: Path = Path()
 
     def increment_for(self, exercise_id: str) -> float:
@@ -46,6 +55,8 @@ class Thresholds:
         load = raw.get("load") or {}
         modifiers = raw.get("modifiers") or {}
         testing = raw.get("testing") or {}
+        continuity = raw.get("continuity") or {}
+        back_signal = raw.get("back_signal") or {}
         prescription = raw.get("prescription") or {}
         if str(load.get("rounding", "down")) != "down":
             # Rounding up would prescribe a load above the target RIR, so only "down" is
@@ -73,6 +84,23 @@ class Thresholds:
             test_max_single_min_interval_days=int(
                 testing.get("max_single_min_interval_days", 56)
             ),
+            continuity_short_days=int(continuity.get("short_gap_days", 14)),
+            continuity_medium_days=int(continuity.get("medium_gap_days", 28)),
+            continuity_long_days=int(continuity.get("long_gap_days", 56)),
+            continuity_medium_multiplier=float(
+                continuity.get("medium_load_multiplier", 0.95)
+            ),
+            continuity_long_multiplier=float(
+                continuity.get("long_load_multiplier", 0.90)
+            ),
+            continuity_rir_bump=int(continuity.get("rir_bump", 1)),
+            back_signal_symptom_free_days=int(back_signal.get("symptom_free_days", 28)),
+            back_signal_min_loaded_sessions=int(
+                back_signal.get("min_loaded_sessions", 4)
+            ),
+            back_signal_max_entry_age_days=int(
+                back_signal.get("max_entry_age_days", 14)
+            ),
             source_path=source,
         )
 
@@ -95,4 +123,13 @@ def as_dict(thresholds: Thresholds) -> dict[str, Any]:
             thresholds.proposal_main_substitution_min_interval_days,
         "test_min_interval_days": thresholds.test_min_interval_days,
         "test_max_single_min_interval_days": thresholds.test_max_single_min_interval_days,
+        "continuity_short_days": thresholds.continuity_short_days,
+        "continuity_medium_days": thresholds.continuity_medium_days,
+        "continuity_long_days": thresholds.continuity_long_days,
+        "continuity_medium_multiplier": thresholds.continuity_medium_multiplier,
+        "continuity_long_multiplier": thresholds.continuity_long_multiplier,
+        "continuity_rir_bump": thresholds.continuity_rir_bump,
+        "back_signal_symptom_free_days": thresholds.back_signal_symptom_free_days,
+        "back_signal_min_loaded_sessions": thresholds.back_signal_min_loaded_sessions,
+        "back_signal_max_entry_age_days": thresholds.back_signal_max_entry_age_days,
     }

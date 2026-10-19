@@ -188,9 +188,9 @@ def test_erector_ramp_fails_on_a_flare():
 def test_back_flare_transforms_the_prescription():
     with store_with(DAY_A_ROWS) as store:
         conn = store.connection
-        log(conn, "2024-02-01", 2)
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
-        context = RuleContext.from_store(conn, end="2024-02-01")
+        log(conn, "2024-01-08", 2)
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
+        context = RuleContext.from_store(conn, end="2024-01-08")
         assert validate_references(prescription, context, conn) == []
 
     erector = next(i for i in prescription.items if i.exercise_id == "back_extension")
@@ -202,7 +202,7 @@ def test_back_flare_transforms_the_prescription():
         item = next(i for i in prescription.items if i.exercise_id == exercise_id)
         assert item.rir_target == 3
         assert "MOD-BACK-001" in item.rationale_refs
-        assert "symptom:2024-02-01" in item.rationale_refs
+        assert "symptom:2024-01-08" in item.rationale_refs
 
     assert any("MOD-BACK-001" in w for w in prescription.warnings)
 
@@ -210,8 +210,8 @@ def test_back_flare_transforms_the_prescription():
 def test_no_flare_leaves_the_prescription_alone():
     with store_with(DAY_A_ROWS) as store:
         conn = store.connection
-        log(conn, "2024-02-01", 0)
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        log(conn, "2024-01-08", 0)
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
 
     assert not any("MOD-BACK-001" in w for w in prescription.warnings)
     squat = next(i for i in prescription.items if i.exercise_id == "ssb_squat")

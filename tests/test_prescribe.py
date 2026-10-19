@@ -143,7 +143,7 @@ def test_template_with_a_typo_in_reps_is_rejected(tmp_path):
 
 def test_engine_builds_an_executable_prescription():
     with store_with(BASE_HISTORY) as store:
-        prescription = build_prescription(store.connection, for_date="2024-02-01")
+        prescription = build_prescription(store.connection, for_date="2024-01-08")
 
     assert prescription.executable, prescription.issues
     assert [item.exercise_id for item in prescription.items][0] == "trap_bar_deadlift"
@@ -163,9 +163,13 @@ def test_stale_e1rm_falls_back_to_the_last_working_load():
          "RIR": "2", "Reps_Done": "5"},
         {"Date": "2023-01-01", "Exercise": "Lateral Raise", "Weight_Used": "12.5",
          "RIR": "2", "Reps_Done": "10"},
+        # A recent session for a lift the test does not inspect, so the gap is not the variable
+        # under test (continuity is covered in test_continuity.py).
+        {"Date": "2024-01-07", "Exercise": "Competition Bench Press", "Weight_Used": "90",
+         "RIR": "2", "Reps_Done": "5"},
     ]
     with store_with(rows) as store:
-        prescription = build_prescription(store.connection, for_date="2024-02-01",
+        prescription = build_prescription(store.connection, for_date="2024-01-08",
                                           session_day="A")
 
     assert prescription.executable, prescription.issues
@@ -184,7 +188,7 @@ def test_bodyweight_work_without_history_starts_at_bodyweight():
          "RIR": "2", "Reps_Done": "10"},
     ]
     with store_with(rows) as store:
-        prescription = build_prescription(store.connection, for_date="2024-02-01",
+        prescription = build_prescription(store.connection, for_date="2024-01-08",
                                           session_day="A")
 
     erector = next(i for i in prescription.items if i.exercise_id == "back_extension")
@@ -195,30 +199,30 @@ def test_bodyweight_work_without_history_starts_at_bodyweight():
 
 def test_engine_does_not_look_ahead():
     with store_with(BASE_HISTORY) as store:
-        before = build_prescription(store.connection, for_date="2024-02-01")
+        before = build_prescription(store.connection, for_date="2024-01-08")
 
     future = BASE_HISTORY + [
         {"Date": "2024-03-01", "Exercise": "Trap Bar Deadlift",
          "Weight_Used": "300", "RIR": "2", "Reps_Done": "1"},
     ]
     with store_with(future) as store:
-        after = build_prescription(store.connection, for_date="2024-02-01")
+        after = build_prescription(store.connection, for_date="2024-01-08")
 
     # A monster single in the future must not change today's load.
     assert [i.load_kg for i in before.items] == [i.load_kg for i in after.items]
 
 
 def test_fatigue_modifier_reduces_loads_and_cites_readiness():
-    with store_with(BASE_HISTORY, readiness_rows=[{"Date": "2024-02-01", "Sleep": "2"}]) as store:
-        prescription = build_prescription(store.connection, for_date="2024-02-01")
-        context = RuleContext.from_store(store.connection, end="2024-02-01")
+    with store_with(BASE_HISTORY, readiness_rows=[{"Date": "2024-01-08", "Sleep": "2"}]) as store:
+        prescription = build_prescription(store.connection, for_date="2024-01-08")
+        context = RuleContext.from_store(store.connection, end="2024-01-08")
         assert not validate_references(prescription, context, store.connection)
 
     assert prescription.fallback_level == "fatigue_reduced"
     assert any("MOD-FAT-001" in warning for warning in prescription.warnings)
     for item in prescription.items:
         assert "MOD-FAT-001" in item.rationale_refs
-        assert "readiness:2024-02-01" in item.rationale_refs
+        assert "readiness:2024-01-08" in item.rationale_refs
         assert loads.is_multiple_of(item.load_kg, 0.5)
 
 
@@ -228,7 +232,7 @@ def test_a_missing_e1rm_is_reported_not_invented():
          "Weight_Used": "90", "RIR": "2", "Reps_Done": "5"},
     ]
     with store_with(rows) as store:
-        prescription = build_prescription(store.connection, for_date="2024-02-01")
+        prescription = build_prescription(store.connection, for_date="2024-01-08")
 
     bench = next(i for i in prescription.items if i.exercise_id.startswith("bench_press"))
     assert bench.load_kg is None
@@ -256,11 +260,11 @@ def test_a_hinge_in_a_previous_week_does_not_consume_this_weeks_cap():
 
 def test_variant_choice_prefers_the_most_recently_trained():
     rows = BASE_HISTORY + [
-        {"Date": "2024-01-20", "Exercise": "Bench Press (2s pause)",
+        {"Date": "2024-01-05", "Exercise": "Bench Press (2s pause)",
          "Weight_Used": "80", "RIR": "2", "Reps_Done": "5"},
     ]
     with store_with(rows) as store:
-        prescription = build_prescription(store.connection, for_date="2024-02-01")
+        prescription = build_prescription(store.connection, for_date="2024-01-08")
     bench = next(i for i in prescription.items if i.exercise_id.startswith("bench_press"))
     assert bench.exercise_id == "bench_press_pause"
 
@@ -271,7 +275,7 @@ def test_accessories_progress_by_double_progression():
          "Weight_Used": "12.5", "RIR": "2", "Reps_Done": "12"},   # top of 10-12 at RIR 2
     ]
     with store_with(rows) as store:
-        prescription = build_prescription(store.connection, for_date="2024-02-01")
+        prescription = build_prescription(store.connection, for_date="2024-01-08")
     lateral = next(i for i in prescription.items if i.exercise_id == "lateral_raise")
     assert lateral.load_kg == 13.0
     assert "PRG-DP-001" in lateral.rationale_refs
@@ -279,6 +283,6 @@ def test_accessories_progress_by_double_progression():
 
 def test_every_rationale_reference_resolves():
     with store_with(BASE_HISTORY) as store:
-        prescription = build_prescription(store.connection, for_date="2024-02-01")
+        prescription = build_prescription(store.connection, for_date="2024-01-08")
         context = RuleContext.from_store(store.connection, end="2024-02-01")
         assert validate_references(prescription, context, store.connection) == []

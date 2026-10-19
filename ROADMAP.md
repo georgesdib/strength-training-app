@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **397 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **407 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **397 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 397 passed (plus 15 private integration tests locally)
+.venv/bin/python -m pytest            # expect: 407 passed (plus 15 private integration tests locally)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -415,7 +415,7 @@ These are recorded in the decision log as `DEC-PROGRAMME-01/02`, `DEC-LOG-01` an
 `DEC-READINESS-02/03`. The reactive deload thresholds are an explicit product rule and remain
 config, not a claimed scientific finding.
 
-### 4.6 Training continuity — missed and planned time off
+### 4.6 Training continuity — missed and planned time off  (done)
 
 The programme must survive real life: a week lost to illness or work, a holiday, a planned
 deload, and a deliberate test week. Today nothing distinguishes "trained on Tuesday" from
@@ -447,10 +447,11 @@ prescription states that it is amended because of the gap; the erector ramp paus
 and steps back one stage after the long break; bodyweight work keeps its load but reduces volume
 and adds one RIR. The exact thresholds remain assumptions (`DEC-CONTINUITY-01`).
 
-Still open: the precise re-entry arithmetic (sets vs RIR) and whether a test week should count
-for the erector ramp as well as DUP.
+Delivered: gap detection from stored sessions, `MOD-GAP-001`, trained-week DUP cycle, ramp
+step-back after a long gap, bodyweight set reduction, and the message in the prescription.
+Open items recorded in Q12.
 
-### 4.7 Back progression signal — informs suitability, never clears it
+### 4.7 Back progression signal — informs suitability, never clears it  (done)
 
 The athlete asked whether a back that is "strong and recovered enough" could unlock exercises
 like the sumo deadlift. The app has no medical model and must not pretend to; what it can do is
@@ -473,8 +474,9 @@ Decided (`DEC-BACKSIGNAL-01`): 4 weeks symptom-free **with loaded sessions and n
 recommend a rating; readiness is excluded; rest alone earns no credit; no data is **unknown**;
 the summary is always disclaimed and may recommend, never set, a rating.
 
-Still open: whether 4 weeks is the right window, and how much spinal loading counts as
-"tolerated".
+Delivered: `features/back_signal.py`, shown by `state` and in prescription notes, with
+unknown/insufficient/monitoring/review states, the 28-day + 4-loaded-session rule, disclaimer,
+and recommendation-only behaviour. Open items recorded in Q13.
 
 ## 5. Known gaps and risks
 

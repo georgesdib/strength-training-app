@@ -114,13 +114,13 @@ def test_the_threshold_is_inclusive():
 
 
 def test_engine_uses_the_configured_fields():
-    readiness = [{"Date": "2024-02-01", "Sleep": "4", "Energy": "4", "Soreness": "2"}]
+    readiness = [{"Date": "2024-01-08", "Sleep": "4", "Energy": "4", "Soreness": "2"}]
 
     with store_with(readiness) as store:
-        default = build_prescription(store.connection, for_date="2024-02-01", session_day="A")
+        default = build_prescription(store.connection, for_date="2024-01-08", session_day="A")
         widened = build_prescription(
             store.connection,
-            for_date="2024-02-01",
+            for_date="2024-01-08",
             session_day="A",
             readiness_config=ReadinessConfig(modifier_fields=("sleep", "soreness")),
         )

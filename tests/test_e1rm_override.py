@@ -51,11 +51,11 @@ def test_override_outranks_the_computed_estimate():
     with store_with() as store:
         conn = store.connection
         repositories.append_e1rm_override(
-            conn, exercise_id="ssb_squat", e1rm_kg=160, effective_from="2024-01-15",
+            conn, exercise_id="ssb_squat", e1rm_kg=160, effective_from="2024-01-02",
             reason="tested single",
         )
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
-        context = RuleContext.from_store(conn, end="2024-02-01")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
+        context = RuleContext.from_store(conn, end="2024-01-08")
 
         item = squat_load(prescription)
         # 160 / (1 + (3+2)/30) = 137.14 -> rounded down to the 0.5 kg increment
@@ -72,7 +72,7 @@ def test_expired_override_is_ignored():
             conn, exercise_id="ssb_squat", e1rm_kg=160,
             effective_from="2023-01-01", expires_on="2023-06-01",
         )
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
 
     item = squat_load(prescription)
     assert item.load_kg == pytest.approx(105.5)   # back to the computed estimate
@@ -85,7 +85,7 @@ def test_future_override_is_ignored():
         repositories.append_e1rm_override(
             conn, exercise_id="ssb_squat", e1rm_kg=160, effective_from="2024-06-01",
         )
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
 
     assert squat_load(prescription).load_kg == pytest.approx(105.5)
 
@@ -99,7 +99,7 @@ def test_latest_effective_override_wins():
         repositories.append_e1rm_override(
             conn, exercise_id="ssb_squat", e1rm_kg=180, effective_from="2024-01-01",
         )
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
 
     # 180 / (1 + 5/30) = 154.29 -> 154.0
     assert squat_load(prescription).load_kg == pytest.approx(154.0)
@@ -122,7 +122,7 @@ def test_override_lookup_respects_the_window():
             conn, exercise_id="ssb_squat", e1rm_kg=160,
             effective_from="2024-01-01", expires_on="2024-03-01",
         )
-        assert queries.e1rm_override(conn, "ssb_squat", "2024-02-01")["e1rm_kg"] == 160
+        assert queries.e1rm_override(conn, "ssb_squat", "2024-01-08")["e1rm_kg"] == 160
         assert queries.e1rm_override(conn, "ssb_squat", "2024-04-01") is None
         assert queries.e1rm_override(conn, "ssb_squat", "2023-12-01") is None
 

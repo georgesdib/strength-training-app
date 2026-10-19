@@ -31,6 +31,8 @@ class RuleContext:
     symptom_on: str | None = None
     # Absent until the athlete anchors the block (Q3).
     block_week_index: int | None = None
+    # Days since the last stored session, or None when this is the first one.
+    gap_days: int | None = None
     # Supplied by the prescription engine in phase 5; empty here rather than guessed.
     rep_ranges: Mapping[str, tuple[int, int]] = field(default_factory=dict)
 
@@ -67,8 +69,13 @@ class RuleContext:
                                        if symptom is not None else None)
 
         profile = queries.athlete_profile(conn)
+        gap_days = _gap_days(conn, end)
         if block_week_index is None and profile and profile["block_start_date"] and end:
-            block_week_index = block_week(profile["block_start_date"], end)
+            block_week_index = trained_week_index(conn, profile["block_start_date"], end)
+            # A long break steps the ramp back one stage: rest settles symptoms but does not
+            # preserve load tolerance (DEC-CONTINUITY-01).
+            if gap_days is not None and gap_days >= 56 and block_week_index:
+                block_week_index = max(1, block_week_index - 1)
 
         return cls(
             sets=sets,
@@ -78,6 +85,7 @@ class RuleContext:
             symptom_level=level,
             symptom_on=on_date,
             block_week_index=block_week_index,
+            gap_days=gap_days,
             rep_ranges=rep_ranges or {},
         )
 
@@ -96,6 +104,58 @@ def flare_from(level: int | None, settled_within_48h: int | None) -> bool | None
     if level == 1:
         return settled_within_48h == 0
     return False
+
+
+def _gap_days(conn, on_date: str | None) -> int | None:
+    if end := on_date:
+        row = conn.execute(
+            "SELECT MAX(occurred_on) AS last FROM session WHERE occurred_on < ?", (end,)
+        ).fetchone()
+        if row is not None and row["last"] is not None:
+            last = _dt.date.fromisoformat(str(row["last"])[:10])
+            when = _dt.date.fromisoformat(str(end)[:10])
+            return max(0, (when - last).days)
+    return None
+
+
+def trained_week_index(conn, start: str, on_date: str) -> int | None:
+    """Weeks with at least one session (or measured test) since the anchor.
+
+    Calendar weeks would let a missed week advance the DUP cycle and the ramp; the athlete
+    asked for the opposite (DEC-CONTINUITY-01). A test week counts as a trained week.
+    """
+    try:
+        first = _dt.date.fromisoformat(str(start)[:10])
+        when = _dt.date.fromisoformat(str(on_date)[:10])
+    except ValueError:
+        return None
+    if when < first:
+        return None
+
+    weeks: set[tuple[int, int]] = set()
+    for row in conn.execute(
+        "SELECT occurred_on FROM session WHERE occurred_on >= ? AND occurred_on <= ?",
+        (str(first), str(when)),
+    ):
+        try:
+            day = _dt.date.fromisoformat(str(row["occurred_on"])[:10])
+        except ValueError:
+            continue
+        iso = day.isocalendar()
+        weeks.add((iso[0], iso[1]))
+    for row in conn.execute(
+        "SELECT effective_from FROM e1rm_override "
+        "WHERE source = 'measured' AND effective_from >= ? AND effective_from <= ?",
+        (str(first), str(when)),
+    ):
+        try:
+            day = _dt.date.fromisoformat(str(row["effective_from"])[:10])
+        except ValueError:
+            continue
+        iso = day.isocalendar()
+        weeks.add((iso[0], iso[1]))
+
+    return max(1, len(weeks))
 
 
 def block_week(start: str, on_date: str) -> int | None:

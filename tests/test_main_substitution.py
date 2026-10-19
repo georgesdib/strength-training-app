@@ -71,7 +71,7 @@ def test_a_rated_primary_compound_can_replace_an_essential_lift():
     with store_with() as store:
         conn = store.connection
         rate(conn, "competition_squat")
-        prescription = build_prescription(conn, for_date="2026-10-20", session_day="A")
+        prescription = build_prescription(conn, for_date="2026-09-05", session_day="A")
         outcome = assess(conn, prescription, {
             "summary": "switch the main squat",
             "changes": [{"action": "substitute", "exercise": "ssb_squat",
@@ -88,7 +88,7 @@ def test_a_rated_primary_compound_can_replace_an_essential_lift():
 def test_an_unrated_replacement_is_refused():
     with store_with() as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2026-10-20", session_day="A")
+        prescription = build_prescription(conn, for_date="2026-09-05", session_day="A")
         outcome = assess(conn, prescription, {
             "changes": [{"action": "substitute", "exercise": "ssb_squat",
                          "with": "competition_squat"}],
@@ -103,7 +103,7 @@ def test_at_most_one_main_lift_substitution_per_proposal():
         conn = store.connection
         rate(conn, "competition_squat")
         rate(conn, "bench_press_narrow")
-        prescription = build_prescription(conn, for_date="2026-10-20", session_day="A")
+        prescription = build_prescription(conn, for_date="2026-09-05", session_day="A")
         outcome = assess(conn, prescription, {
             "changes": [
                 {"action": "substitute", "exercise": "ssb_squat",
@@ -122,7 +122,7 @@ def test_the_interval_limits_how_often_a_main_lift_changes():
     with store_with() as store:
         conn = store.connection
         rate(conn, "competition_squat")
-        prescription = build_prescription(conn, for_date="2026-10-20", session_day="A")
+        prescription = build_prescription(conn, for_date="2026-09-05", session_day="A")
         run = repositories.start_run(conn, input_hash="x", code_version="test")
         conn.execute(
             "INSERT INTO run_event (run_id, seq, kind, payload, created_at) "

@@ -61,7 +61,7 @@ def test_3rm_records_a_measured_override_and_feeds_the_prescription(tmp_path, ca
         row = queries.e1rm_override(store.connection, "ssb_squat", "2024-02-01")
         assert row["e1rm_kg"] == pytest.approx(expected)
         assert row["source"] == "measured"
-        prescription = build_prescription(store.connection, for_date="2024-02-01",
+        prescription = build_prescription(store.connection, for_date="2024-01-20",
                                           session_day="A")
     finally:
         store.close()

@@ -64,7 +64,7 @@ def store_with(rows, readiness_rows=None):
 def test_a_trustworthy_calibration_attaches_and_persists_a_target():
     with store_with(rows_with_velocity()) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-22", session_day="A")
         squat = next(i for i in prescription.items if i.exercise_id == "ssb_squat")
         rows = [
             dict(row) for row in conn.execute(
@@ -87,8 +87,8 @@ def test_a_trustworthy_calibration_attaches_and_persists_a_target():
 def test_the_same_target_is_not_persisted_twice():
     with store_with(rows_with_velocity()) as store:
         conn = store.connection
-        first = build_prescription(conn, for_date="2024-02-01", session_day="A")
-        second = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        first = build_prescription(conn, for_date="2024-01-22", session_day="A")
+        second = build_prescription(conn, for_date="2024-01-22", session_day="A")
         count = conn.execute("SELECT COUNT(*) AS c FROM vbt_calibration").fetchone()["c"]
 
     assert first.calibration_ids == second.calibration_ids
@@ -97,7 +97,7 @@ def test_the_same_target_is_not_persisted_twice():
 
 def test_without_enough_velocity_data_no_target_is_invented():
     with store_with(rows_without_velocity()) as store:
-        prescription = build_prescription(store.connection, for_date="2024-02-01",
+        prescription = build_prescription(store.connection, for_date="2024-01-22",
                                           session_day="A")
 
     assert all(item.velocity_target is None for item in prescription.items)
@@ -109,9 +109,9 @@ def test_without_enough_velocity_data_no_target_is_invented():
 def test_a_modified_session_skips_velocity_targets():
     with store_with(
         rows_with_velocity(),
-        readiness_rows=[{"Date": "2024-02-01", "Sleep": "2", "Energy": "4"}],
+        readiness_rows=[{"Date": "2024-01-22", "Sleep": "2", "Energy": "4"}],
     ) as store:
-        prescription = build_prescription(store.connection, for_date="2024-02-01",
+        prescription = build_prescription(store.connection, for_date="2024-01-22",
                                           session_day="A")
 
     assert prescription.fallback_level == "fatigue_reduced"
@@ -137,7 +137,7 @@ def test_hex_bar_velocity_targets_are_withheld():
          "RIR": "3", "Reps_Done": "8"},
     ]
     with store_with(rows) as store:
-        prescription = build_prescription(store.connection, for_date="2024-02-01",
+        prescription = build_prescription(store.connection, for_date="2024-01-22",
                                           session_day="B")
 
     trap_bar = next(i for i in prescription.items if i.exercise_id == "trap_bar_deadlift")

@@ -21,6 +21,10 @@ ROWS = [
      "RIR": "2", "Reps_Done": "10"},
     {"Date": "2024-01-01", "Exercise": "Split Squat", "Weight_Used": "30",
      "RIR": "3", "Reps_Done": "8"},
+    {"Date": "2024-01-08", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+     "RIR": "2", "Reps_Done": "5"},
+    {"Date": "2024-01-15", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+     "RIR": "2", "Reps_Done": "5"},
 ]
 
 

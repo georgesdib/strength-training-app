@@ -151,6 +151,19 @@ Parked deliberately; revisit after a trial period.
 - **What evidence would rank sumo against the trap bar?** A direct comparison at matched
   relative loads, or consistent athlete-specific symptom data.
 
+## Q12. What is the right re-entry arithmetic?
+
+The thresholds are implemented (14/28/56 days, +1 RIR, −5%/−10%) but the exact arithmetic is
+not settled: should the reduction apply to sets as well as load? Does bodyweight work need a
+different rule? Should a test week count for the erector ramp as well as DUP? See
+`docs/CONTINUITY.md` §1.
+
+## Q13. Is four weeks the right back-signal window?
+
+Four weeks is a pragmatic assumption, not a finding. Open: should the window scale with prior
+flares, what counts as "tolerated" loading, and whether the signal should name specific lifts
+or stay generic. See `docs/CONTINUITY.md` §2.
+
 ## Closed
 
 - ~~What do the extreme `RIR` values mean?~~ **Closed** — `RIR 6` marks a **warm-up set**

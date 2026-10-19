@@ -55,7 +55,7 @@ def store_with(rows, readiness_rows=None):
         store.close()
 
 
-def context_for(conn, date="2024-02-01"):
+def context_for(conn, date="2024-01-08"):
     return RuleContext.from_store(conn, end=date)
 
 
@@ -96,7 +96,7 @@ def test_invalid_proposals_are_rejected(payload, message):
 def test_allowed_substitutes_share_the_pattern_and_require_ratings_for_mains():
     with store_with(DAY_A) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         context = context_for(conn)
         allowed = proposal_mod.allowed_substitutes(conn, context, prescription)
 
@@ -123,7 +123,7 @@ def assess(conn, prescription, payload):
 def test_a_legal_substitution_is_accepted_and_rebuilt():
     with store_with(DAY_A) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         outcome = assess(conn, prescription, {
             "summary": "swap the back extension",
             "changes": [{"action": "substitute", "exercise": "back_extension",
@@ -141,7 +141,7 @@ def test_a_legal_substitution_is_accepted_and_rebuilt():
 def test_a_pattern_change_is_rejected():
     with store_with(DAY_C) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="C")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="C")
         outcome = assess(conn, prescription, {
             "changes": [{"action": "substitute", "exercise": "split_squat",
                          "with": "lateral_raise"}],
@@ -153,7 +153,7 @@ def test_a_pattern_change_is_rejected():
 def test_an_essential_lift_cannot_be_substituted_or_dropped():
     with store_with(DAY_A) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         swapped = assess(conn, prescription, {
             "changes": [{"action": "substitute", "exercise": "ssb_squat",
                          "with": "competition_squat"}],
@@ -168,7 +168,7 @@ def test_an_essential_lift_cannot_be_substituted_or_dropped():
 def test_set_changes_are_bounded():
     with store_with(DAY_A) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         ok = assess(conn, prescription, {
             "changes": [{"action": "set_sets", "exercise": "lateral_raise", "sets": 5}],
         })
@@ -182,7 +182,7 @@ def test_set_changes_are_bounded():
 def test_reorder_must_be_a_permutation():
     with store_with(DAY_A) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         ids = [item.exercise_id for item in prescription.items]
         ok = assess(conn, prescription, {
             "changes": [{"action": "reorder", "order": list(reversed(ids))}],
@@ -196,10 +196,10 @@ def test_reorder_must_be_a_permutation():
 
 
 def test_a_downgraded_session_is_not_open_to_proposals():
-    with store_with(DAY_A, readiness_rows=[{"Date": "2024-02-01", "Sleep": "2",
+    with store_with(DAY_A, readiness_rows=[{"Date": "2024-01-08", "Sleep": "2",
                                             "Energy": "4"}]) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         assert prescription.fallback_level == "fatigue_reduced"
         outcome = assess(conn, prescription, {
             "changes": [{"action": "drop", "exercise": "lateral_raise"}],
@@ -250,7 +250,7 @@ def test_cli_applies_an_accepted_proposal(tmp_path, monkeypatch, capsys):
         "changes": [{"action": "substitute", "exercise": "back_extension",
                      "with": "hyperextension"}],
     }))
-    assert cli.main(["--db", str(path), "run", "--date", "2024-02-01", "--day", "A",
+    assert cli.main(["--db", str(path), "run", "--date", "2024-01-08", "--day", "A",
                      "--llm", "on", "--propose", "--yes"]) == 0
     out = capsys.readouterr().out
     assert "accepted" in out
@@ -280,7 +280,7 @@ def test_cli_falls_back_when_the_proposal_carries_a_load(tmp_path, monkeypatch, 
         "changes": [{"action": "set_sets", "exercise": "lateral_raise", "sets": 4,
                      "load_kg": 100}],
     }))
-    assert cli.main(["--db", str(path), "run", "--date", "2024-02-01", "--day", "A",
+    assert cli.main(["--db", str(path), "run", "--date", "2024-01-08", "--day", "A",
                      "--llm", "on", "--propose", "--yes"]) == 0
     out = capsys.readouterr().out
     assert "rejected" in out
@@ -305,7 +305,7 @@ def test_cli_declining_keeps_the_deterministic_session(tmp_path, monkeypatch):
         "changes": [{"action": "drop", "exercise": "lateral_raise"}],
     }))
     monkeypatch.setattr("builtins.input", lambda prompt="": "n")
-    assert cli.main(["--db", str(path), "run", "--date", "2024-02-01", "--day", "A",
+    assert cli.main(["--db", str(path), "run", "--date", "2024-01-08", "--day", "A",
                      "--llm", "on", "--propose"]) == 0
 
     store = db.Store(path)
@@ -323,7 +323,7 @@ def test_cli_declining_keeps_the_deterministic_session(tmp_path, monkeypatch):
 def test_menu_options_are_bounded_by_the_rir_rule():
     with store_with(DAY_A) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         options = proposal_mod.menu(prescription, load_document())
 
     bench = options["bench_press"]
@@ -340,7 +340,7 @@ def test_menu_options_are_bounded_by_the_rir_rule():
 def test_choosing_a_menu_option_applies_pythons_value():
     with store_with(DAY_A) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         outcome = assess(conn, prescription, {
             "changes": [{"action": "choose", "exercise": "bench_press",
                          "option": "easier"}],
@@ -357,7 +357,7 @@ def test_an_option_the_menu_does_not_offer_is_rejected():
 
     with store_with(DAY_A) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         # At RIR 1 a "harder" option would mean RIR 0, which the rule forbids.
         items = list(prescription.items)
         index = next(i for i, item in enumerate(items) if item.exercise_id == "bench_press")
@@ -384,13 +384,13 @@ def test_an_rir_target_outside_the_rule_window_is_reported():
 
     with store_with(DAY_A) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         context = context_for(conn)
         items = list(prescription.items)
         index = next(i for i, item in enumerate(items) if item.exercise_id == "bench_press")
         items[index] = dataclass_replace(items[index], rir_target=0)
         issues = validate_prescription(
-            tuple(items), context, load_document(), "A", "2024-02-01"
+            tuple(items), context, load_document(), "A", "2024-01-08"
         )
 
     assert any(issue.startswith("RIR_OUTSIDE_WINDOW:bench_press") for issue in issues)
@@ -403,13 +403,13 @@ def test_rir_1_is_accepted_by_the_validator():
 
     with store_with(DAY_A) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         context = context_for(conn)
         items = list(prescription.items)
         index = next(i for i, item in enumerate(items) if item.exercise_id == "bench_press")
         items[index] = dataclass_replace(items[index], rir_target=1)
         issues = validate_prescription(
-            tuple(items), context, load_document(), "A", "2024-02-01"
+            tuple(items), context, load_document(), "A", "2024-01-08"
         )
 
     assert not any(issue.startswith("RIR_OUTSIDE_WINDOW") for issue in issues)
@@ -444,7 +444,7 @@ def test_maximal_scheme_is_the_lowest_and_excludes_hinges():
 def test_setting_the_maximal_scheme_rebuilds_reps_and_load():
     with store_with(DAY_A) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         before = next(i for i in prescription.items if i.exercise_id == "bench_press")
         outcome = assess(conn, prescription, {
             "changes": [{"action": "set_scheme", "exercise": "bench_press",
@@ -460,7 +460,7 @@ def test_setting_the_maximal_scheme_rebuilds_reps_and_load():
 def test_maximal_scheme_is_refused_on_the_hinge():
     with store_with(DAY_B) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="B")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="B")
         outcome = assess(conn, prescription, {
             "changes": [{"action": "set_scheme", "exercise": "trap_bar_deadlift",
                          "scheme": "maximal"}],
@@ -472,7 +472,7 @@ def test_maximal_scheme_is_refused_on_the_hinge():
 def test_maximal_scheme_is_refused_on_an_accessory():
     with store_with(DAY_A) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         outcome = assess(conn, prescription, {
             "changes": [{"action": "set_scheme", "exercise": "lateral_raise",
                          "scheme": "maximal"}],
@@ -483,7 +483,7 @@ def test_maximal_scheme_is_refused_on_an_accessory():
 def test_volume_scheme_is_offered_to_accessories():
     with store_with(DAY_A) as store:
         conn = store.connection
-        prescription = build_prescription(conn, for_date="2024-02-01", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
         outcome = assess(conn, prescription, {
             "changes": [{"action": "set_scheme", "exercise": "lateral_raise",
                          "scheme": "volume"}],

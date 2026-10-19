@@ -22,6 +22,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
+from strength_coach.features import back_signal as back_signal_mod
 from strength_coach.features import readiness as readiness_mod
 from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
@@ -106,6 +107,13 @@ def build_prescription(
             f"{thresholds.back_flare_main_rir}"
         )
 
+    items, gap_level, gap_warnings = _apply_continuity(
+        context, tuple(items), thresholds
+    )
+    if gap_level == "fatigue_reduced":
+        fallback_level = "fatigue_reduced"
+    warnings.extend(gap_warnings)
+
     items, calibration_ids, vbt_note = _attach_vbt_targets(
         conn, context, tuple(items), for_date, fallback_level
     )
@@ -149,6 +157,11 @@ def build_prescription(
                 if dup_plan and undulation.cycle_weeks else None
             ),
             "undulation": dict(dup_plan) if dup_plan else {},
+            "gap_days": context.gap_days,
+            "gap_band": _gap_band(context.gap_days, thresholds),
+            "back_signal": back_signal_mod.compute(
+                conn, for_date, thresholds, ramp_week=context.block_week_index
+            ).as_dict(),
             "policy_outcome": policy_result.outcome,
             "e1rm_window_days": thresholds.e1rm_window_days,
             "fatigue_trigger": trigger,
@@ -161,6 +174,69 @@ def build_prescription(
 
 # Lifts whose velocity signal is not trustworthy enough to prescribe from (docs/VBT-EVIDENCE.md).
 VBT_UNRELIABLE = {"trap_bar_deadlift"}
+
+
+def _gap_band(gap_days: int | None, thresholds: config_mod.Thresholds) -> str | None:
+    if gap_days is None or gap_days < thresholds.continuity_short_days:
+        return None
+    if gap_days >= thresholds.continuity_long_days:
+        return "long"
+    if gap_days >= thresholds.continuity_medium_days:
+        return "medium"
+    return "short"
+
+
+def _apply_continuity(
+    context: RuleContext,
+    items: tuple[PrescriptionItem, ...],
+    thresholds: config_mod.Thresholds,
+) -> tuple[tuple[PrescriptionItem, ...], str, tuple[str, ...]]:
+    """Return-to-training adjustment after a gap (DEC-CONTINUITY-01).
+
+    The gap is detected from stored history; a declared break is optional. Short gaps add one
+    RIR only. From 28 days the load is reduced and the same RIR bump applied; from 56 days the
+    reduction is larger and the context has already stepped the ramp back one stage.
+    Bodyweight work cannot shed load, so it loses a set instead.
+    """
+    band = _gap_band(context.gap_days, thresholds)
+    if band is None:
+        return items, "full", ()
+
+    if band == "long":
+        multiplier = thresholds.continuity_long_multiplier
+    elif band == "medium":
+        multiplier = thresholds.continuity_medium_multiplier
+    else:
+        multiplier = 1.0
+    bump = thresholds.continuity_rir_bump
+    out: list[PrescriptionItem] = []
+    for item in items:
+        refs = item.rationale_refs + ("MOD-GAP-001",)
+        rir = min(4, item.rir_target + bump)
+        if multiplier < 1.0 and item.load_kg is not None and item.load_kg > 0:
+            out.append(replace(
+                item,
+                load_kg=loads.round_down(
+                    item.load_kg * multiplier, item.rounding_increment_kg
+                ),
+                rir_target=rir,
+                rationale_refs=refs,
+            ))
+        elif multiplier < 1.0 and item.load_basis == "bodyweight_total":
+            out.append(replace(
+                item,
+                sets=max(1, item.sets - 1),
+                rir_target=rir,
+                rationale_refs=refs,
+            ))
+        else:
+            out.append(replace(item, rir_target=rir, rationale_refs=refs))
+
+    warnings = (
+        f"MOD-GAP-001: {context.gap_days}-day gap; prescription amended "
+        f"({'load reduced, ' if multiplier < 1 else ''}one extra RIR)",
+    )
+    return tuple(out), "fatigue_reduced" if multiplier < 1 else "full", warnings
 
 
 def _attach_vbt_targets(

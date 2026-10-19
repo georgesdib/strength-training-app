@@ -35,6 +35,7 @@ from strength_coach.agents import (
 from strength_coach.agents import proposal as proposal_mod
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
 from strength_coach.domain import e1rm as e1rm_mod
+from strength_coach.features import back_signal as back_signal_mod
 from strength_coach.critique import persist as persist_critique
 from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.eval import backtest, load_marks, record_marks
@@ -650,6 +651,18 @@ def _print_state(conn) -> None:
     symptoms = queries.symptom_entries(conn)
     print(f"\nsymptom entries ({len(symptoms)})")
 
+    signal = back_signal_mod.compute(
+        conn, datetime.date.today().isoformat(), prescribe_config.Thresholds.load()
+    )
+    print("\nback signal")
+    print(f"  status            {signal.status}")
+    print(f"  summary           {signal.summary}")
+    if signal.ramp_week is not None:
+        print(f"  ramp week         {signal.ramp_week}")
+    if signal.recommendation:
+        print(f"  recommendation    {signal.recommendation}")
+    print(f"  disclaimer        {signal.disclaimer}")
+
 
 # --- helpers ---------------------------------------------------------------
 
@@ -820,6 +833,13 @@ def _print_prescription(prescription) -> None:
         print("  issues: " + "; ".join(prescription.issues))
     for warning in prescription.warnings:
         print(f"  note: {warning}")
+
+    signal = prescription.notes.get("back_signal")
+    if signal:
+        print(f"  back signal: {signal['status']} — {signal['summary']}")
+        if signal.get("recommendation"):
+            print(f"    recommendation: {signal['recommendation']}")
+        print(f"    {signal['disclaimer']}")
 
 
 def _print_critique(critique) -> None:

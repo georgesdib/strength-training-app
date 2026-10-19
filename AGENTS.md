@@ -163,6 +163,7 @@ so silently erased genuine `RIR = 0` observations during development.
 | `docs/DATA-MODEL.md` | canonical schemas, tables, append-only records |
 | `docs/DATA-QUALITY.md` | the decision ledger (DQ-*) and open sentinel questions |
 | `docs/READINESS.md` | how readiness is derived, merged and used; what is config vs rule |
+| `docs/CONTINUITY.md` | gap detection, re-entry rules and the back-progression signal |
 | `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |
 | `docs/SPINAL-COST.md` | evidence behind the ordinal spinal-cost ratings |
 | `docs/TRAINING-DYNAMICS.md` | evidence on 1RM testing, rep ranges and DUP; proposal, not decision |

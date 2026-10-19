@@ -231,6 +231,21 @@ rules:
 # ---------------------------------------------------------------------------
 modifiers:
 
+  - id: MOD-GAP-001
+    title: "Return-to-training adjustment"
+    statement: >
+      After a gap in training, add one RIR for the first week back; from 28 days also reduce
+      load about 5%; from 56 days reduce about 10% and step the erector ramp back one stage.
+    when:
+      any:
+        - {input: session.gap_days, op: ">=", value: 14}
+    then:
+      load_multiplier: [0.90, 1.0]
+      rir_bump: 1
+    availability:
+      status: available
+      reason: "The gap is detected from stored sessions (DEC-CONTINUITY-01)."
+
   - id: MOD-FAT-001
     title: "Fatigue downgrade"
     statement: >

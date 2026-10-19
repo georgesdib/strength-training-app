@@ -88,7 +88,7 @@ def test_unscoped_rule_returns_none():
 def test_modifiers_are_parsed_separately_from_rules():
     document = loader.load_document()
     ids = [modifier["id"] for modifier in document.modifiers]
-    assert ids == ["MOD-FAT-001", "MOD-BACK-001"]
+    assert ids == ["MOD-GAP-001", "MOD-FAT-001", "MOD-BACK-001"]
     assert "MOD-FAT-001" not in document.rule_ids
 
 
