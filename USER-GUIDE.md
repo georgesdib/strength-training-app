@@ -59,9 +59,14 @@ The same core is available in a local browser UI; the CLI remains the automation
 `strength-coach web` command. Everything else works unchanged:
 
 ```bash
+./run-web.sh                       # http://127.0.0.1:8000, opens a browser
+./run-web.sh --no-open             # no browser
+./run-web.sh --port 8001           # another port
+
+# or directly:
 strength-coach web                 # http://127.0.0.1:8000
-strength-coach web --open          # ...and open a browser
-strength-coach web --port 8001     # another port
+strength-coach web --open
+strength-coach web --port 8001
 ```
 
 It binds to **127.0.0.1 only** and has **no authentication**; do not expose it on a network.
