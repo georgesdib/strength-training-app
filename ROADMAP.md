@@ -43,7 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **planned** | see §4: manual logging, format adapters, whole-programme output, **video analysis (§4.8)**, readiness follow-ups (§4.9: composite, HRV/RHR triggers, per-athlete settings); the **local web UI (§4.10)**, readiness entry, continuity and the back signal are delivered early; depends on 3.3 for the readiness path |
+| v0.2 | Input flexibility + programme view | **planned** | see §4: manual logging, format adapters, whole-programme output, **video analysis (§4.8)**, readiness follow-ups (§4.9: composite, HRV/RHR triggers, per-athlete settings); the **local web UI (§4.10)**, readiness entry, continuity and the back signal are delivered early; **full web parity is §4.11**; depends on 3.3 for the readiness path |
 | v0.1 | Next version | **in progress** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set remains (human work) |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
@@ -559,6 +559,44 @@ CLI remains the automation surface.
 - Tests cover the API round trips, docs rendering and the readiness/review writes.
 
 Not in this slice: LLM proposals/chat, import, state editing, video.
+
+### 4.11 Web UI parity — everything in the browser  (planned)
+
+The local UI currently covers Today, Prescribe, Review, Readiness, Athlete (read-only) and
+Docs. This item brings the remaining interactive CLI actions into the browser. The CLI stays
+as the automation interface; the UI must call the same core functions, never re-implement them.
+
+Planned surfaces, in suggested order:
+
+1. **Import** — choose/upload the training and readiness CSVs, show inserted/existing/
+   quarantined counts and the import trace. Files stay private; no path traversal.
+2. **State editing** — profile, constraints, suitability ratings, e1RM overrides, strength
+   tests, block start and symptoms. Every write is append-only where the CLI is; the form
+   shows what will be recorded before saving.
+3. **LLM proposals** — a proposal view for `run --propose`: proposed changes, citations and
+   warnings, explicit accept/reject, never a numeric field. The engine still validates and may
+   veto. Proposal history stays visible.
+4. **Manual workout logging** (4.2) — per-set entry, conclude/log, then the review catch-up for
+   previous sessions.
+5. **Programme view** (4.4) — rolling horizon with recomputation on the day.
+6. **Video** (4.8) — opt-in attachment, privacy warning, commentary only, never a score.
+7. **Readiness settings** (4.9) — composite threshold and per-athlete HRV/RHR rules, once
+   those items exist.
+
+Constraints:
+
+- all writes go through the same functions as the CLI; no business logic in JavaScript;
+- destructive or diagnostic actions (import, overwrite, conclude) require an explicit
+  confirmation step and show the resulting rows;
+- uploads stay under private/ and are never committed; no arbitrary filesystem paths;
+- the server stays local-only; adding authentication is out of scope for a single-user tool;
+- every action reports warnings and refusals as part of the result, not as a toast that hides
+  the reason.
+
+Acceptance: every interactive CLI action has a browser path or a documented exception; the
+same inputs produce the same database rows and warnings through either surface; a failed
+action leaves no partial write; API tests cover each new write; no load, score or threshold is
+computed in the browser.
 
 ## 5. Known gaps and risks
 
