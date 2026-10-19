@@ -11,7 +11,7 @@ import urllib.request
 import pytest
 
 from conftest import make_readiness, make_training
-from strength_coach.store import db, importer
+from strength_coach.store import db, importer, repositories
 from strength_coach.web import markdown
 from strength_coach.web.server import create_server
 
@@ -33,6 +33,10 @@ def server(tmp_path):
         store.connection, training, readiness,
         training_sha256=importer.sha256_frame(training),
         readiness_sha256=importer.sha256_frame(readiness),
+    )
+    repositories.append_athlete_constraint(
+        store.connection, kind="injury", region="low_back", severity="monitor",
+        forbidden_exercises=["back_extension"],
     )
     store.close()
 
@@ -81,7 +85,9 @@ def test_prescribe_and_state_endpoints(server):
 
     status, body = get(server, "/api/state")
     assert status == 200
-    assert json.loads(body)["back_signal"]["status"] in {"unknown", "insufficient", "monitoring", "review"}
+    state = json.loads(body)
+    assert state["back_signal"]["status"] in {"unknown", "insufficient", "monitoring", "review"}
+    assert state["constraints"][0]["forbidden_exercises"] == ["back_extension"]
 
 
 def test_readiness_round_trip_uses_manual_source(server):

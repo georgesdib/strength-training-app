@@ -299,7 +299,7 @@ async function loadState() {
       : "<tr><td class='empty'>not recorded</td></tr>";
     const constraints = data.constraints.length ? data.constraints.map((c) => `
       <li><strong>${esc(c.kind)}</strong> · ${esc(c.region)} · ${esc(c.severity)}
-      ${c.forbidden_exercises && c.forbidden_exercises.length ? " · forbids " + esc(c.forbidden_exercises.join(", ")) : ""}</li>`).join("")
+      ${Array.isArray(c.forbidden_exercises) && c.forbidden_exercises.length ? " · forbids " + esc(c.forbidden_exercises.join(", ")) : ""}</li>`).join("")
       : "<li class='empty'>none recorded</li>";
     const suitability = Object.entries(data.suitability).map(([exercise, rating]) => `
       <tr><td>${esc(exercise)}</td><td>${rating.can_do ? "yes" : "no"}</td>

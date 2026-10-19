@@ -316,9 +316,19 @@ class Handler(BaseHTTPRequestHandler):
     def _state(self, conn) -> dict:
         today = datetime.date.today().isoformat()
         context = RuleContext.from_store(conn, end=today)
+        constraints = []
+        for row in queries.athlete_constraints(conn):
+            data = dict(row)
+            # JSON columns are stored as text; the browser needs arrays, not strings.
+            for key in ("forbidden_patterns", "forbidden_exercises"):
+                try:
+                    data[key] = json.loads(data.get(key) or "[]")
+                except (TypeError, ValueError):
+                    data[key] = []
+            constraints.append(data)
         return {
             "profile": dict(queries.athlete_profile(conn) or {}) or None,
-            "constraints": queries.athlete_constraints(conn),
+            "constraints": constraints,
             "suitability": queries.exercise_suitability(conn),
             "symptoms": queries.symptom_entries(conn)[-10:],
             "e1rm_overrides": queries.e1rm_overrides(conn),
