@@ -86,6 +86,11 @@ without conditioning on provenance penalises the athlete for following the presc
   lower sagittal demand than a conventional pull (Swinton 2011 for the trap bar; Hanen 2025 for
   sumo), but no study ranks them against each other (`docs/SPINAL-COST.md`).
   Must be calibrated against symptom history.
+- **ASSUMPTION-06** — a 4-week symptom-free streak with loaded sessions is treated as weak
+  positive evidence for a suitability review. Relapse is common, so this is a prompt to look,
+  not a clearance (`DEC-BACKSIGNAL-01`).
+- **ASSUMPTION-07** — the continuity thresholds (14/28/56 days and their load/RIR changes) are
+  adapted from detraining studies but are not measured cut-points (`DEC-CONTINUITY-01`).
 - **ASSUMPTION-03** — RIR-adjusted e1RM is an approximation.
 - **ASSUMPTION-04** — plank/carry values in the reps column are seconds. Strongly implied by
   the magnitudes; no schema states it.

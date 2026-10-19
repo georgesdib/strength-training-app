@@ -71,6 +71,16 @@ conclusion is weaker than it looks.
 
 ---
 
+## 6. Detraining and return to training
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 35 | Yamashita D, Hirata K, Yamazaki K, Mujika I, Miyamoto N. *Effect of two weeks of training cessation on concentric and eccentric knee muscle strength in highly trained sprinters.* PLOS ONE, 2023. | 10.1371/journal.pone.0288344 | Two weeks of cessation already reduced fast concentric and eccentric strength; supports a re-entry rule at ~14 days. |
+| 36 | Rønnestad BR, Hansen J, Hollan I, Spencer M, Ellefsen S. *Impairment of Performance Variables After In-Season Strength-Training Cessation in Elite Cyclists.* Int J Sports Physiol Perform, 2016. | 10.1123/ijspp.2015-0372 | Eight weeks of cessation reduced strength/power adaptations. |
+| 37 | Grgic J. *Use It or Lose It? A Meta-Analysis on the Effects of Resistance Training Cessation (Detraining) on Muscle Size in Older Adults.* Int J Environ Res Public Health, 2022;19(21):14048. | 10.3390/ijerph192114048 | Muscle size largely retained for 12-24 weeks of cessation, lost at 31-52 weeks; supports not panicking after a short break. |
+| 38 | Huang Y, Li C, Chen J, Wang Z, Zhao D, Yang L, Zhang Z, Jiang Y, Zhang X, He B, Liu Z. *A Multidimensional Regression Model for Predicting Recurrence in Chronic Low Back Pain.* Eur J Pain, 2025. | 10.1002/ejp.4793 | Recurrence is common (38% in this cohort); a symptom-free streak is weak evidence, not clearance. |
+| 39 | Wongwitwichote K, Yu CWG, Mansfield M, Deane J, Falla D. *Can physical and psychological factors predict pain recurrence or an exacerbation of persistent non-specific low back pain? A protocol for a systematic review and meta-analysis.* BMJ Open, 2025. | 10.1136/bmjopen-2024-096594 | About two-thirds of people relapse within a year; context for the 4-week assumption. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow

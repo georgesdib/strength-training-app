@@ -441,8 +441,14 @@ Acceptance: a missed session does not advance the DUP week; a declared break fre
 a 3-week gap the prescription is a re-entry session with the reason cited; a declared test week
 does not count as a training week; no artifact is deleted or rewritten.
 
-Open questions: the exact gap thresholds, whether the erector ramp pauses or re-anchors after a
-long break, and whether bodyweight work needs a different re-entry rule from barbell work.
+Decided: gaps are detected from history (a declared break is optional); thresholds 14/28/56
+days; a missed week does not advance the DUP cycle; a test week counts as a trained week; the
+prescription states that it is amended because of the gap; the erector ramp pauses during a gap
+and steps back one stage after the long break; bodyweight work keeps its load but reduces volume
+and adds one RIR. The exact thresholds remain assumptions (`DEC-CONTINUITY-01`).
+
+Still open: the precise re-entry arithmetic (sets vs RIR) and whether a test week should count
+for the erector ramp as well as DUP.
 
 ### 4.7 Back progression signal — informs suitability, never clears it
 
@@ -463,8 +469,12 @@ Acceptance: the summary cites the symptom rows and ramp week it used; an unrated
 "needs review" with that evidence; no automatic state change occurs; the athlete can rate in one
 command (`state --rate`).
 
-Open: how long a symptom-free streak should be before it is "positive evidence", and whether
-readiness should be part of it at all.
+Decided (`DEC-BACKSIGNAL-01`): 4 weeks symptom-free **with loaded sessions and no flare** may
+recommend a rating; readiness is excluded; rest alone earns no credit; no data is **unknown**;
+the summary is always disclaimed and may recommend, never set, a rating.
+
+Still open: whether 4 weeks is the right window, and how much spinal loading counts as
+"tolerated".
 
 ## 5. Known gaps and risks
 
