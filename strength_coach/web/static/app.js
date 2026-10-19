@@ -65,14 +65,14 @@ async function loadOverview() {
       + " · " + data.today + " · " + (data.unreviewed.length ? data.unreviewed.length
         + " unreviewed session(s)" : "reviews up to date");
     const readiness = data.readiness;
-    const signal = data.back_signal;
+    const signal = data.injury_signal;
     const cards = [
       ["Readiness today", readiness?.sleep != null || readiness?.energy != null
         ? `sleep ${readiness.sleep ?? "—"} · energy ${readiness.energy ?? "—"}`
         : "unknown", readiness?.sources ? "source: " + Object.entries(readiness.sources)
           .filter(([k]) => ["sleep", "energy"].includes(k)).map(([k, v]) => k + "=" + v).join(", ") : "no entry"],
       ["Block week", data.block_week ?? "unknown", "erector ramp / DUP"],
-      ["Back signal", signal?.status ?? "unknown", signal?.summary ?? ""],
+      ["Injury signal", signal?.status ?? "unknown", signal?.summary ?? ""],
       ["Unreviewed", data.unreviewed.length, data.unreviewed.length ? "run review to catch up" : "all caught up"],
     ];
     $("#cards").innerHTML = cards.map(([label, value, sub]) => `
@@ -129,8 +129,8 @@ function renderPrescription(p) {
   const warnings = p.warnings.length
     ? '<div class="warnbox"><strong>Warnings</strong><ul class="list">' +
       p.warnings.map((w) => "<li>" + esc(w) + "</li>").join("") + "</ul></div>" : "";
-  const signal = p.notes?.back_signal;
-  const signalBox = signal ? `<p class="muted">Back signal: <strong>${esc(signal.status)}</strong>
+  const signal = p.notes?.injury_signal;
+  const signalBox = signal ? `<p class="muted">Injury signal: <strong>${esc(signal.status)}</strong>
     — ${esc(signal.summary)}</p>` : "";
   $("#prescribe-result").innerHTML = `<div class="panel">
     <div class="panel-head"><h2>${esc(p.for_date)} · Day ${esc(p.session_day)}</h2>
@@ -349,15 +349,24 @@ async function loadState() {
     const suitability = Object.entries(data.suitability).map(([exercise, rating]) => `
       <tr><td>${esc(exercise)}</td><td>${rating.can_do ? "yes" : "no"}</td>
       <td>${rating.will_do ? "yes" : "no"}</td><td>${rating.feels_bad ? "yes" : "no"}</td></tr>`).join("");
+    const regions = Object.values(data.injury_signal?.regions || {});
+    const injuryRows = regions.length ? `<table><thead><tr><th>Region</th><th>Status</th>
+      <th>Tolerated</th><th>Window</th></tr></thead><tbody>` + regions.map((r) => `
+      <tr><td><strong>${esc(r.label)}</strong><div class="muted">${esc(r.summary)}</div></td>
+      <td>${esc(r.status)}</td><td>${r.tolerated_sessions}/${r.required_tolerated_sessions}
+      <div class="muted">of ${r.loaded_sessions} loaded (${r.unverified_sessions} unverified)</div></td>
+      <td>${r.window_days} d</td></tr>`).join("") + "</tbody></table>"
+      : "<p class='empty'>no regions configured</p>";
     $("#state-result").innerHTML = `
       <div class="panel"><div class="panel-head"><h2>Profile</h2></div>
         <table><tbody>${profileRows}</tbody></table></div>
       <div class="panel"><div class="panel-head"><h2>Constraints</h2></div><ul class="list">${constraints}</ul></div>
       <div class="panel"><div class="panel-head"><h2>Suitability</h2></div>
         ${suitability ? `<table><thead><tr><th>Exercise</th><th>can-do</th><th>will-do</th><th>feels bad</th></tr></thead><tbody>${suitability}</tbody></table>` : "<p class='empty'>none recorded</p>"}</div>
-      <div class="panel"><div class="panel-head"><h2>Back signal</h2></div>
-        <p>${esc(data.back_signal?.summary || "")}</p>
-        <p class="muted">${esc(data.back_signal?.disclaimer || "")}</p></div>`;
+      <div class="panel"><div class="panel-head"><h2>Injury signal</h2></div>
+        <p>${esc(data.injury_signal?.summary || "")}</p>
+        ${injuryRows}
+        <p class="muted">${esc(data.injury_signal?.disclaimer || "")}</p></div>`;
   } catch (error) {
     $("#state-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }

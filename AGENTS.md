@@ -32,7 +32,7 @@ What exists today is:
 - `tools/baseline.py` — regenerates the numbers in `private/docs/BASELINE.md`.
 - `strength_coach/domain/` — e1RM, load arithmetic, RIR classes (tested).
 - `strength_coach/ingest/` — cleaning, flags, quarantine, session reconstruction.
-- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, back-progression summary.
+- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, per-region injury signal.
 - `strength_coach/store/` — SQLite migrations, append-only repositories, import orchestration.
   `data/coach.db` is created on demand and is git-ignored.
 - `strength_coach/rules/` — constitution loader, one predicate per `check.fn`, policy verdicts.
@@ -164,7 +164,9 @@ so silently erased genuine `RIR = 0` observations during development.
 | `docs/DATA-MODEL.md` | canonical schemas, tables, append-only records |
 | `docs/DATA-QUALITY.md` | the decision ledger (DQ-*) and open sentinel questions |
 | `docs/READINESS.md` | how readiness is derived, merged and used; what is config vs rule |
-| `docs/CONTINUITY.md` | gap detection, re-entry rules and the back-progression signal |
+| `docs/READINESS-SCORE.md` | proposed global and per-lift readiness scoring, evidence and phases |
+| `docs/CONTINUITY.md` | gap detection and re-entry rules; the injury signal is separate |
+| `docs/INJURY-SIGNAL.md` | per-region injury signals, what "tolerated" loading means, injury-to-exercise links |
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |
 | `docs/SPINAL-COST.md` | evidence behind the ordinal spinal-cost ratings |

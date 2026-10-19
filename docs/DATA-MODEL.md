@@ -309,16 +309,22 @@ auditable even after the override is replaced.
 |---|---|
 | logged_on | |
 | timing | `pre_session` \| `post_session` \| `next_morning` |
-| region | `low_back` \| `mid_back` \| `si_joint` \| … — v0.1 records **one overall number** (stored as `low_back`); per-region is deferred (`DEC-SYMPTOM-01`) |
+| region | `low_back` \| `biceps` \| `knee` \| … — one reading per region; the configured regions live in `config/injuries.v1.yaml` |
 | level | 0–3 agreed scale (see INFO-REQUESTS §6) |
 | settled_within_48h | nullable boolean |
 | note | |
 
-v0.1 records **one pre-session number for the whole back** (`DEC-SYMPTOM-01`); the `region`
-column stays for finer detail later. Multiple entries per day are allowed and the latest wins
-(migration 0005), so a correction is an insert. A reading is a **flare** at level >= 2, or at
-level 1 that did not settle within 48 hours (`DEC-SYMPTOM-02`); no reading is `unknown`, never
-"no flare".
+v0.1 recorded **one pre-session number for the whole back** (`DEC-SYMPTOM-01`). Since
+2026-10-19 the same 0-3 scale is recorded **per region** (`DEC-SYMPTOM-03`): `low_back`,
+`biceps`, `knee`, and any region added to the injuries config. The column already existed, so
+no migration is needed — but the region is now load-bearing, not decorative. Every back rule
+reads `low_back` only, so a knee reading cannot trigger `MOD-BACK-001` or reset the back
+signal. Multiple entries per day are allowed and the latest wins (migration 0005), so a
+correction is an insert. A reading is a **flare** at level >= 2, or at level 1 that did not
+settle within 48 hours (`DEC-SYMPTOM-02`); no reading is `unknown`, never "no flare".
+
+The per-region signal built from this table is documented in
+[`INJURY-SIGNAL.md`](INJURY-SIGNAL.md); which exercises load a region is config, not schema.
 
 Until this table has rows, MOD-BACK-001 and the PRG-EREC-001 stability gate return
 `unknown` — visibly, in the run report.

@@ -50,24 +50,36 @@ ROADMAP §4.12, not things to change by opinion:
 
 ---
 
-## 2. Back-progression signal
+## 2. Back-progression signal (now one region of the injury signal)
+
+The single back summary was replaced on 2026-10-19 by a general signal plus one per region
+(low back, biceps, knee, extensible in config). The back rules are unchanged and still read
+**low back only**. The full design, evidence and definitions are in
+[INJURY-SIGNAL.md](INJURY-SIGNAL.md); this section keeps only what continuity needs.
 
 ### What the evidence says
 
-- Relapse after low-back pain is **common**: about two-thirds within a year; one cohort found
-  38% recurrence ([Wongwitwichote et al. 2025](https://doi.org/10.1136/bmjopen-2024-096594);
-  [Huang et al. 2025](https://doi.org/10.1002/ejp.4793)).
-- There is **no evidence that four symptom-free weeks means clearance**. Four weeks is a
-  pragmatic, configurable window (`ASSUMPTION-06`).
+- Relapse after an episode of low back pain is **common**: 69% within 12 months in a
+  prospective inception cohort, median 139 days
+  ([da Silva et al. 2019](https://doi.org/10.1016/j.jphys.2019.04.010)); 38% in another cohort
+  ([Huang et al. 2025](https://doi.org/10.1002/ejp.4793)).
+- **More than two previous episodes predict recurrence** (da Silva 2019), which is why the
+  window scales with prior flares rather than being fixed (`DEC-INJURY-02`).
+- There is **no evidence that four symptom-free weeks means clearance**. Four weeks is the
+  base of a configurable window (`ASSUMPTION-06`, `ASSUMPTION-08`).
 - Rest helps symptoms but does not preserve strength; the signal therefore counts **loaded
   sessions**, not calendar.
 
 ### The rules (implemented)
 
 - Status is one of `unknown` (no entries), `insufficient` (last entry older than 14 days),
-  `monitoring`, or `review`.
-- `review` requires **28 symptom-free days** **and** at least **4 loaded spinal sessions** since
-  the last flare, with a current level of 0.
+  `active` (latest reading is a flare), `monitoring`, or `review`.
+- `review` requires the **scaled** symptom-free window and the **scaled** number of
+  **tolerated** loaded sessions since the last flare, with a current level of 0.
+  Base: 28 days and 4 tolerated sessions; +14 days and +2 sessions per prior flare, capped at
+  84 days and 12 sessions.
+- A loaded session is **tolerated** only when a reading exists in the 7 days after it and no
+  reading in that window is a flare. An unlogged session is `unverified` and never counts.
 - Readiness is **excluded**: it already drives `MOD-FAT-001` and is the wrong signal for a
   structural judgement.
 - The signal may **recommend** reviewing a suitability rating; it never sets one, never clears
@@ -78,16 +90,18 @@ ROADMAP §4.12, not things to change by opinion:
 
 ### Open questions
 
-1. Is four weeks the right window, or should it scale with the number of previous flares?
-2. How much spinal loading counts as "tolerated" - session count, sets, tonnage, or the
-   spinal-cost sum?
-3. Should the signal mention specific lifts, or only say "review an unrated lift"?
+The former three (window length, tolerated-loading definition, per-lift detail) were answered
+on 2026-10-19: the window scales, tolerance means "loaded and followed by a clean reading", and
+the signal names the lifts that load the region. What remains is calibration, not design: the
+step sizes and the 7-day verification window are assumptions, and
+[INJURY-SIGNAL.md](INJURY-SIGNAL.md) §7 lists what would replace them.
 
 ---
 
-Full bibliography: [`docs/REFERENCES.md`](REFERENCES.md) §6. Decisions: `DEC-CONTINUITY-01`,
-`DEC-CONTINUITY-02`, `DEC-BACKSIGNAL-01`. Implementations: `prescribe/engine.py` (`_apply_continuity`),
-`features/back_signal.py`.
+Full bibliography: [`docs/REFERENCES.md`](REFERENCES.md) §6 and §7. Decisions:
+`DEC-CONTINUITY-01`, `DEC-CONTINUITY-02`, `DEC-BACKSIGNAL-01`, `DEC-INJURY-01/02/03`.
+Implementations: `prescribe/engine.py` (`_apply_continuity`, `_injury_warnings`),
+`features/injury_signal.py`.
 
 
 ---

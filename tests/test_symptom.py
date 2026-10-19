@@ -118,12 +118,29 @@ def test_cli_logs_and_shows(tmp_path, capsys):
     path = tmp_path / "coach.db"
     assert cli.main(["--db", str(path), "symptom", "--date", "2024-01-25", "--level", "2"]) == 0
     out = capsys.readouterr().out
-    assert "logged back symptom 2/3 on 2024-01-25" in out
+    assert "logged low_back symptom 2/3 on 2024-01-25" in out
     assert "flare" in out
 
     assert cli.main(["--db", str(path), "symptom", "--show"]) == 0
     out = capsys.readouterr().out
     assert "2024-01-25" in out
+
+
+def test_cli_logs_a_region_and_rejects_an_unknown_one(tmp_path, capsys):
+    path = tmp_path / "coach.db"
+    assert cli.main(["--db", str(path), "symptom", "--date", "2024-01-25",
+                     "--region", "knee", "--level", "1"]) == 0
+    assert "logged knee symptom 1/3" in capsys.readouterr().out
+
+    rows = db.Store(path)
+    try:
+        entries = queries.symptom_entries(rows.connection)
+    finally:
+        rows.close()
+    assert [e["region"] for e in entries] == ["knee"]
+
+    with pytest.raises(SystemExit, match="unknown injury region"):
+        cli.main(["--db", str(path), "symptom", "--region", "elbow", "--level", "1"])
 
 
 # --- context derivation ----------------------------------------------------
@@ -216,3 +233,30 @@ def test_no_flare_leaves_the_prescription_alone():
     assert not any("MOD-BACK-001" in w for w in prescription.warnings)
     squat = next(i for i in prescription.items if i.exercise_id == "ssb_squat")
     assert squat.rir_target == 2
+
+
+# --- per-region signals in a prescription ----------------------------------
+
+
+def test_a_knee_flare_warns_without_vetoing_or_touching_the_back():
+    with store_with(DAY_A_ROWS) as store:
+        conn = store.connection
+        repositories.append_symptom(
+            conn, logged_on="2024-01-08", timing="pre_session", region="knee", level=2
+        )
+        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
+        context = RuleContext.from_store(conn, end="2024-01-08")
+
+    # The back rules did not see the knee reading (DEC-SYMPTOM-03).
+    assert context.symptom_flare is None
+    assert not any("MOD-BACK-001" in w for w in prescription.warnings)
+
+    # The knee is named, and the lifts that load it are listed. Advisory only.
+    knee_warnings = [w for w in prescription.warnings if w.startswith("injury signal:")]
+    assert knee_warnings and "Knee" in knee_warnings[0]
+    assert "ssb_squat" in knee_warnings[0]
+    assert not any("CONSTRAINT_VETO" in issue for issue in prescription.issues)
+
+    signal = prescription.notes["injury_signal"]
+    assert signal["active_regions"] == ["knee"]
+    assert signal["regions"]["knee"]["latest_level"] == 2

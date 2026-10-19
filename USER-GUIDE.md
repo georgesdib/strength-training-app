@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 425 public tests
+.venv/bin/python -m pytest          # 439 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -367,7 +367,7 @@ records it as a `measured` e1RM override, so the next prescription uses it and c
 
 The evidence behind this is in [TRAINING-DYNAMICS.md](docs/TRAINING-DYNAMICS.md).
 
-### 4.10 Gaps, returns, and the back signal
+### 4.10 Gaps, returns, and the injury signal
 
 **Gaps are detected, not declared.** Every prescription compares its date with the last stored
 session. If the gap is long enough, the session is amended and says so:
@@ -385,12 +385,30 @@ only weeks with a session or a measured test, so a missed week does not advance 
 thresholds are config (`config/thresholds.v1.yaml`, `continuity`) and remain assumptions
 (§4.10 is documented in [CONTINUITY.md](docs/CONTINUITY.md)).
 
-**Back signal.** `state` and every prescription show a back-progression summary: `unknown`
-when there are no symptom readings, `insufficient` when the last reading is more than 14 days
-old, `monitoring`, or `review` after **28 symptom-free days with at least 4 loaded spinal
-sessions** since the last flare. A `review` may recommend looking at a suitability rating;
-it never sets one. Every display says: *"Not medical clearance. A symptom-free streak is weak
-evidence; the athlete decides."* Readiness is not part of it.
+**Injury signal.** Log a symptom number per region — low back by default:
+
+```bash
+strength-coach symptom --level 1                    # low back, today
+strength-coach symptom --region knee --level 2      # a knee flare
+strength-coach symptom --show                       # recent readings, all regions
+```
+
+`state` and every prescription then show a general signal plus one per region (`low_back`,
+`biceps`, `knee`). A region is `unknown` with no readings, `insufficient` when the last reading
+is more than 14 days old, `active` while it is flaring, `monitoring` in between, or `review`
+when there is enough evidence to look at a suitability rating.
+
+`review` needs a symptom-free streak **and** enough **tolerated** sessions since the last
+flare. Tolerated means the session loaded the region and a reading in the following 7 days
+showed no flare; a session with no reading is `unverified` and does not count. The streak and
+the number of sessions both scale with how often you have flared before (28 days + 14 per prior
+flare, 4 sessions + 2 per prior flare, capped).
+
+A `review` may recommend looking at a suitability rating; it never sets one. Every display
+says: *"Not medical clearance. A symptom-free streak is weak evidence; the athlete decides."*
+Readiness is not part of it. The regions and the lifts that load them are config
+(`config/injuries.v1.yaml`); the full definitions and evidence are in
+[INJURY-SIGNAL.md](docs/INJURY-SIGNAL.md).
 
 ---
 

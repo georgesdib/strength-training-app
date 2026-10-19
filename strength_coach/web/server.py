@@ -24,9 +24,8 @@ from urllib.parse import unquote, urlparse
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
 from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, load_marks, record_marks
-from strength_coach.features import back_signal, readiness as readiness_feature
+from strength_coach.features import injury_signal, readiness as readiness_feature
 from strength_coach.prescribe import build_prescription
-from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
 from strength_coach.store import db, importer, queries
 from strength_coach.utils import io_utils
@@ -228,15 +227,15 @@ class Handler(BaseHTTPRequestHandler):
         profile = queries.athlete_profile(conn)
         context = RuleContext.from_store(conn, end=today)
         readiness = queries.readiness_day(conn, today)
-        signal = back_signal.compute(
-            conn, today, Thresholds.load(), ramp_week=context.block_week_index
+        signal = injury_signal.compute(
+            conn, today, ramp_week=context.block_week_index
         ).as_dict()
         return {
             "today": today,
             "profile": dict(profile) if profile else None,
             "block_week": context.block_week_index,
             "readiness": readiness,
-            "back_signal": signal,
+            "injury_signal": signal,
             "unreviewed": queries.unreviewed_sessions(conn, limit=50),
             "sessions": _session_rows(conn, 12),
         }
@@ -377,8 +376,8 @@ class Handler(BaseHTTPRequestHandler):
             "symptoms": queries.symptom_entries(conn)[-10:],
             "e1rm_overrides": queries.e1rm_overrides(conn),
             "block_week": context.block_week_index,
-            "back_signal": back_signal.compute(
-                conn, today, Thresholds.load(), ramp_week=context.block_week_index
+            "injury_signal": injury_signal.compute(
+                conn, today, ramp_week=context.block_week_index
             ).as_dict(),
         }
 

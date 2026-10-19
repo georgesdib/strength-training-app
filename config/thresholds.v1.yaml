@@ -58,13 +58,6 @@ continuity:
   long_load_multiplier: 0.90
   rir_bump: 1
 
-back_signal:
-  # Four weeks symptom-free WITH loaded sessions may recommend a suitability review. This is a
-  # pragmatic window, not a finding: relapse is common (ASSUMPTION-06, DEC-BACKSIGNAL-01).
-  symptom_free_days: 28
-  min_loaded_sessions: 4
-  max_entry_age_days: 14
-
 testing:
   # A test is an assessment, not a training session. Testing more often than monthly turns a
   # measurement into a stimulus with fatigue attached (see docs/TRAINING-DYNAMICS.md).

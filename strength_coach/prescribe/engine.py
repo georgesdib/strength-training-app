@@ -22,7 +22,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from strength_coach.features import back_signal as back_signal_mod
+from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import readiness as readiness_mod
 from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
@@ -122,6 +122,13 @@ def build_prescription(
         conn, context, tuple(items), for_date, fallback_level
     )
 
+    # Injury signals are context, never policy: a flaring region adds a warning naming the
+    # lifts that load it, but never vetoes or edits a load (DEC-INJURY-01).
+    injury = injury_signal_mod.compute(
+        conn, for_date, ramp_week=context.block_week_index
+    )
+    warnings.extend(_injury_warnings(injury, tuple(items)))
+
     # Stored athlete state is applied deterministically: a hard constraint vetoes, a
     # suitability rating is surfaced. Unrecorded state is reported, never read as permission.
     constraint_report = constraints_mod.evaluate(conn, [item.exercise_id for item in items])
@@ -163,9 +170,7 @@ def build_prescription(
             "undulation": dict(dup_plan) if dup_plan else {},
             "gap_days": context.gap_days,
             "gap_band": _gap_band(context.gap_days, thresholds),
-            "back_signal": back_signal_mod.compute(
-                conn, for_date, thresholds, ramp_week=context.block_week_index
-            ).as_dict(),
+            "injury_signal": injury.as_dict(),
             "policy_outcome": policy_result.outcome,
             "e1rm_window_days": thresholds.e1rm_window_days,
             "fatigue_trigger": trigger,
@@ -178,6 +183,29 @@ def build_prescription(
 
 # Lifts whose velocity signal is not trustworthy enough to prescribe from (docs/VBT-EVIDENCE.md).
 VBT_UNRELIABLE = {"trap_bar_deadlift"}
+
+
+def _injury_warnings(signal: injury_signal_mod.InjurySignal,
+                     items: tuple[PrescriptionItem, ...]) -> list[str]:
+    """Name the prescribed lifts that load a currently flaring region.
+
+    Low back is excluded because MOD-BACK-001 already reports it; naming it twice would bury
+    the modifier's own warning. Advisory only — it never vetoes or edits a load.
+    """
+    warnings: list[str] = []
+    for region in signal.regions:
+        if region.status != injury_signal_mod.STATUS_ACTIVE or region.region == "low_back":
+            continue
+        hits = sorted({
+            item.exercise_id for item in items
+            if item.exercise_id in region.linked_exercises
+        })
+        if hits:
+            warnings.append(
+                f"injury signal: {region.label} is flaring; this session loads it via "
+                f"{', '.join(hits)} (advisory; the athlete decides)"
+            )
+    return warnings
 
 
 def _gap_band(gap_days: int | None, thresholds: config_mod.Thresholds) -> str | None:

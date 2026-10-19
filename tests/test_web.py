@@ -86,17 +86,22 @@ def test_prescribe_and_state_endpoints(server):
     status, body = get(server, "/api/state")
     assert status == 200
     state = json.loads(body)
-    assert state["back_signal"]["status"] in {"unknown", "insufficient", "monitoring", "review"}
+    assert state["injury_signal"]["status"] in {
+        "unknown", "insufficient", "active", "monitoring", "review"
+    }
     assert state["constraints"][0]["forbidden_exercises"] == ["back_extension"]
 
 
 def test_readiness_round_trip_uses_manual_source(server):
     data = post(server, "/api/readiness", {
-        "date": "2024-01-01", "values": {"sleep": 2}, "note": "web",
+        "date": "2024-01-01", "values": {"sleep": 2, "grip_strength_kg": 45.5},
+        "note": "web",
     })
     assert data["sleep"] == 2
     assert data["sources"]["sleep"] == "manual"
     assert data["sources"]["energy"] == "import"
+    assert data["grip_strength_kg"] == 45.5
+    assert data["sources"]["grip_strength_kg"] == "manual"
 
 
 def test_review_sheet_and_marks(server):

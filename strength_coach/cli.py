@@ -35,7 +35,7 @@ from strength_coach.agents import (
 from strength_coach.agents import proposal as proposal_mod
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
 from strength_coach.domain import e1rm as e1rm_mod
-from strength_coach.features import back_signal as back_signal_mod
+from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.utils import readiness as readiness_utils
 
@@ -129,8 +129,11 @@ def main(argv: list[str] | None = None) -> int:
                       help="allow a 1RM test inside the minimum interval")
     test.add_argument("--reason", default=None, help="optional note stored with the override")
 
-    symptom = sub.add_parser("symptom", help="log or show the pre-session back symptom")
+    symptom = sub.add_parser("symptom", help="log or show a symptom reading for one region")
     symptom.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
+    symptom.add_argument("--region", default=None,
+                         help="injury region (logging defaults to low_back; "
+                              "--show defaults to all regions)")
     symptom.add_argument("--level", type=int, choices=(0, 1, 2, 3), default=None,
                          help="0 none, 1 awareness, 2 annoying, 3 limiting")
     symptom.add_argument("--settled", choices=("yes", "no", "unknown"), default=None,
@@ -569,9 +572,21 @@ def _cmd_symptom(args) -> int:
     store = db.Store(args.db)
     try:
         conn = store.connection
+        config = injury_signal_mod.InjuryConfig.load()
+        requested = str(args.region).strip().lower() if args.region else None
+        if requested is not None and requested not in config.regions:
+            known = ", ".join(sorted(config.regions)) or "none configured"
+            raise SystemExit(
+                f"unknown injury region {requested!r}; configured regions: {known} "
+                f"(add one in config/injuries.v1.yaml)"
+            )
         if args.show or args.level is None:
-            _print_symptoms(conn)
+            # Showing is a survey: with no --region, list every region's readings.
+            _print_symptoms(conn, region=requested)
             return 0
+
+        # Logging keeps the original low_back default so the one-number habit still works.
+        region = requested or "low_back"
 
         on_date = args.date or datetime.date.today().isoformat()
         settled = {"yes": True, "no": False, "unknown": None}.get(args.settled)
@@ -579,14 +594,17 @@ def _cmd_symptom(args) -> int:
             conn,
             logged_on=on_date,
             timing="pre_session",
-            region="low_back",
+            region=region,
             level=args.level,
             settled_within_48h=settled,
             note=args.note,
         )
-        print(f"logged back symptom {args.level}/3 on {on_date} (pre-session)")
+        print(f"logged {region} symptom {args.level}/3 on {on_date} (pre-session)")
         if args.level >= 2:
-            print("that is a flare: MOD-BACK-001 will apply to the next prescription")
+            if region == "low_back":
+                print("that is a flare: MOD-BACK-001 will apply to the next prescription")
+            else:
+                print(f"that is a flare: the {region} signal will show it as active")
         elif args.level == 1 and settled is False:
             print("level 1 that did not settle is also a flare (DEC-SYMPTOM-02)")
         return 0
@@ -594,17 +612,19 @@ def _cmd_symptom(args) -> int:
         store.close()
 
 
-def _print_symptoms(conn) -> None:
-    entries = queries.symptom_entries(conn)
+def _print_symptoms(conn, *, region: str | None = None) -> None:
+    entries = queries.symptom_entries(conn, region=region)
     if not entries:
-        print("no symptom entries logged; back rules stay unknown until one exists")
+        where = f" for {region}" if region else ""
+        print(f"no symptom entries logged{where}; injury signals stay unknown until one exists")
         return
-    print(f"{'date':<12}{'timing':<14}{'level':>6}  {'settled':<8} note")
+    print(f"{'date':<12}{'region':<12}{'timing':<14}{'level':>6}  {'settled':<8} note")
     for row in entries[-20:]:
         settled = "-" if row["settled_within_48h"] is None else (
             "yes" if row["settled_within_48h"] else "no"
         )
-        print(f"{row['logged_on']:<12}{row['timing']:<14}{row['level']:>6}  "
+        print(f"{row['logged_on']:<12}{row['region']:<12}{row['timing']:<14}"
+              f"{row['level']:>6}  "
               f"{settled:<8} {row['note'] or ''}")
 
 
@@ -783,19 +803,33 @@ def _print_state(conn) -> None:
     print(f"  will not do         {unwelcome or 'none'}")
 
     symptoms = queries.symptom_entries(conn)
-    print(f"\nsymptom entries ({len(symptoms)})")
+    symptom_counts: dict[str, int] = {}
+    for row in symptoms:
+        symptom_counts[str(row["region"])] = symptom_counts.get(str(row["region"]), 0) + 1
+    print(f"\nsymptom entries ({len(symptoms)}) {symptom_counts or ''}".rstrip())
 
-    signal = back_signal_mod.compute(
-        conn, datetime.date.today().isoformat(), prescribe_config.Thresholds.load()
+    signal = injury_signal_mod.compute(
+        conn, datetime.date.today().isoformat()
     )
-    print("\nback signal")
+    print("\ninjury signal")
     print(f"  status            {signal.status}")
     print(f"  summary           {signal.summary}")
     if signal.ramp_week is not None:
         print(f"  ramp week         {signal.ramp_week}")
-    if signal.recommendation:
-        print(f"  recommendation    {signal.recommendation}")
-    print(f"  disclaimer        {signal.disclaimer}")
+    for region in signal.regions:
+        print(f"\n  {region.label} ({region.region})")
+        print(f"    status          {region.status}")
+        print(f"    summary         {region.summary}")
+        print(f"    window          {region.window_days} days, "
+              f"{region.required_tolerated_sessions} tolerated sessions required")
+        print(f"    tolerated       {region.tolerated_sessions} of "
+              f"{region.loaded_sessions} loaded sessions "
+              f"({region.unverified_sessions} unverified)")
+        if region.recommendation:
+            print(f"    recommendation  {region.recommendation}")
+        if region.linked_exercises:
+            print(f"    loaded by       {', '.join(region.linked_exercises)}")
+    print(f"\n  disclaimer        {signal.disclaimer}")
 
 
 # --- helpers ---------------------------------------------------------------
@@ -968,11 +1002,12 @@ def _print_prescription(prescription) -> None:
     for warning in prescription.warnings:
         print(f"  note: {warning}")
 
-    signal = prescription.notes.get("back_signal")
+    signal = prescription.notes.get("injury_signal")
     if signal:
-        print(f"  back signal: {signal['status']} — {signal['summary']}")
-        if signal.get("recommendation"):
-            print(f"    recommendation: {signal['recommendation']}")
+        print(f"  injury signal: {signal['status']} — {signal['summary']}")
+        for region in (signal.get("regions") or {}).values():
+            if region.get("recommendation"):
+                print(f"    {region['label']}: {region['recommendation']}")
         print(f"    {signal['disclaimer']}")
 
 

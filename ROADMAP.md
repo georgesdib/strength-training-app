@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-dev` · **425 public tests** (440 with the 15 private integration tests)
+Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-dev` · **439 public tests** (454 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 440 locally (425 public + 15 private integration)
+.venv/bin/python -m pytest            # 454 locally (439 public + 15 private integration)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -43,7 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry (§4.1), continuity (§4.6), back signal (§4.7), local web UI (§4.10). Remaining: manual logging, adapters, programme view, video, readiness follow-ups (§4.9), full web parity (§4.11) |
+| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry (§4.1), continuity (§4.6), injury signal (§4.7), local web UI (§4.10). Remaining: manual logging, adapters, programme view, video, readiness follow-ups (§4.9), full web parity (§4.11) |
 | v0.1 | Next version | **in progress** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set remains (human work) |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000` |
 
@@ -436,32 +436,37 @@ Delivered: gap detection from stored sessions, `MOD-GAP-001`, trained-week DUP c
 step-back after a long gap, bodyweight set reduction, and the message in the prescription.
 Open items recorded in Q12.
 
-### 4.7 Back progression signal — informs suitability, never clears it  (done)
+### 4.7 Injury signal — per region, informs suitability, never clears it  (done)
 
 The athlete asked whether a back that is "strong and recovered enough" could unlock exercises
 like the sumo deadlift. The app has no medical model and must not pretend to; what it can do is
 make the relevant history visible and require a human decision.
 
-Scope: derive a **back-progression summary** from data already stored — symptom-free streak,
-flare count and settlement, erector-ramp stage, whether recent sessions loaded the spine without
-a flare, and readiness trends. Surface it next to an unrated exercise and next to a proposal to
-change a main lift.
+Scope: derive a **general injury signal plus one per region** from data already stored —
+symptom-free streak, flare count and settlement, whether recent sessions loaded the region and
+whether a later reading showed no flare, the erector-ramp stage, and the lifts that load the
+region. Surface it next to an unrated exercise and next to a proposal to change a main lift.
 
-Hard rule: the summary **suggests a review, never a rating**. It cannot set
+Hard rule: the signal **suggests a review, never a rating**. It cannot set
 `exercise_suitability`, cannot clear a constraint, and cannot substitute a lift. The athlete
 rates; the model may explain; the engine obeys.
 
-Acceptance: the summary cites the symptom rows and ramp week it used; an unrated lift shows
-"needs review" with that evidence; no automatic state change occurs; the athlete can rate in one
-command (`state --rate`).
+Acceptance: the signal cites the symptom rows, window and tolerated count it used; an unrated
+lift shows "needs review" with that evidence; no automatic state change occurs; the athlete can
+rate in one command (`state --rate`).
 
-Decided (`DEC-BACKSIGNAL-01`): 4 weeks symptom-free **with loaded sessions and no flare** may
-recommend a rating; readiness is excluded; rest alone earns no credit; no data is **unknown**;
-the summary is always disclaimed and may recommend, never set, a rating.
+Decided (`DEC-BACKSIGNAL-01`, amended in scope by `DEC-INJURY-01`): symptom-free **with
+tolerated loaded sessions** may recommend a rating; readiness is excluded; rest alone earns no
+credit; no data is **unknown**; the signal is always disclaimed and may recommend, never set, a
+rating. `DEC-INJURY-02` scales the window with prior flares; `DEC-INJURY-03` defines a
+tolerated session as loaded **and** followed by a reading with no flare.
 
-Delivered: `features/back_signal.py`, shown by `state` and in prescription notes, with
-unknown/insufficient/monitoring/review states, the 28-day + 4-loaded-session rule, disclaimer,
-and recommendation-only behaviour. Open items recorded in Q13.
+Delivered (2026-10-19): `features/injury_signal.py` + `config/injuries.v1.yaml`, low back,
+biceps and knee, per-region status and scaled window, `unverified` sessions counted separately,
+`state`/prescription/web display, region-scoped symptom logging (`symptom --region`), and an
+advisory warning when a prescription loads a flaring non-back region. Evidence and definitions:
+`docs/INJURY-SIGNAL.md`. Q13 is answered; the remaining uncertainty is calibration
+(`ASSUMPTION-08/09/10`).
 
 ### 4.8 Video analysis (LLM) — moved from v0.1, a commentary feature
 

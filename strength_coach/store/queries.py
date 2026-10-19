@@ -169,38 +169,54 @@ def exercise_suitability(conn) -> dict[str, dict]:
     return {str(row["exercise_id"]): dict(row) for row in rows}
 
 
-def symptom_for_date(conn, on_date: str, *, timing: str = "pre_session") -> dict | None:
-    """The latest pre-session entry for a date, or None when none was logged."""
+def symptom_for_date(conn, on_date: str, *, timing: str = "pre_session",
+                     region: str = "low_back") -> dict | None:
+    """The latest pre-session entry for a date, or None when none was logged.
+
+    `region` defaults to `low_back` so the back rules keep reading the back: a knee entry must
+    never trigger MOD-BACK-001 (DEC-SYMPTOM-03).
+    """
     row = conn.execute(
         """
         SELECT * FROM symptom_log
-         WHERE logged_on = ? AND timing = ?
+         WHERE logged_on = ? AND timing = ? AND region = ?
          ORDER BY log_id DESC LIMIT 1
         """,
-        (str(on_date), timing),
+        (str(on_date), timing, region),
     ).fetchone()
     return dict(row) if row is not None else None
 
 
-def latest_symptom(conn, on_or_before: str, *, timing: str = "pre_session") -> dict | None:
-    """The most recent entry at or before a date: the symptom state in force that day."""
+def latest_symptom(conn, on_or_before: str, *, timing: str = "pre_session",
+                   region: str = "low_back") -> dict | None:
+    """The most recent entry for a region at or before a date.
+
+    Defaults to `low_back`: the back rules must not be driven by another region's symptom.
+    """
     row = conn.execute(
         """
         SELECT * FROM symptom_log
-         WHERE logged_on <= ? AND timing = ?
+         WHERE logged_on <= ? AND timing = ? AND region = ?
          ORDER BY logged_on DESC, log_id DESC LIMIT 1
         """,
-        (str(on_or_before), timing),
+        (str(on_or_before), timing, region),
     ).fetchone()
     return dict(row) if row is not None else None
 
 
-def symptom_entries(conn, *, since: str | None = None) -> list[dict]:
-    sql = "SELECT * FROM symptom_log"
+def symptom_entries(conn, *, since: str | None = None,
+                    region: str | None = None) -> list[dict]:
+    clauses: list[str] = []
     params: list[object] = []
     if since is not None:
-        sql += " WHERE logged_on >= ?"
+        clauses.append("logged_on >= ?")
         params.append(since)
+    if region is not None:
+        clauses.append("region = ?")
+        params.append(region)
+    sql = "SELECT * FROM symptom_log"
+    if clauses:
+        sql += " WHERE " + " AND ".join(clauses)
     sql += " ORDER BY logged_on, log_id"
     return [dict(row) for row in conn.execute(sql, params)]
 

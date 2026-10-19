@@ -15,7 +15,7 @@ strength-coach web --port 8001
 
 ## Pages
 
-- **Today** — goal, block week, readiness, back signal, unreviewed count, recent sessions.
+- **Today** — goal, block week, readiness, injury signal, unreviewed count, recent sessions.
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
   SQLite, never written to the repository.
 - **Prescribe** — date + day; deterministic prescription, warnings and notes; every item cites
@@ -24,7 +24,7 @@ strength-coach web --port 8001
   confidence and note; calibration report after saving.
 - **Readiness** — any subset of 1-5 and device fields; manual values win per field; merged
   values show their source.
-- **Athlete** — profile, constraints, suitability and back signal (read-only).
+- **Athlete** — profile, constraints, suitability and the per-region injury signal (read-only).
 - **Docs** — local Markdown rendered without external assets.
 
 ## API
@@ -38,7 +38,7 @@ strength-coach web --port 8001
 | `POST /api/review/<session>` | `{scores, confidence, note}` -> marks |
 | `GET /api/readiness/<date>` | merged readiness |
 | `POST /api/readiness` | `{date, values, note}` -> merged readiness |
-| `GET /api/state` | profile, constraints, suitability, back signal |
+| `GET /api/state` | profile, constraints, suitability, per-region injury signal |
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |
 

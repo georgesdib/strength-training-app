@@ -146,8 +146,7 @@ Parked deliberately; revisit after a trial period.
 - **Rotation or replacement?** Sumo can replace the Day B trap bar via main-lift substitution
   (DEC-LLM-06), or rotate with it. Rotation needs a hinge-variant slot (Q10).
 - **Will-do and feels-bad are unproven.** Whether the lift is actually wanted, and whether it
-  provokes symptoms, needs a trial; the back-progression signal (ROADMAP §4.7) should inform
-  the review.
+  provokes symptoms, needs a trial; the injury signal (ROADMAP §4.7) should inform the review.
 - **What evidence would rank sumo against the trap bar?** A direct comparison at matched
   relative loads, or consistent athlete-specific symptom data.
 
@@ -169,11 +168,24 @@ The plan is to calibrate them on the athlete's own returns (ROADMAP §4.12):
 Open until then: the minimum number of returns, the model (descriptive first, then a simple
 retention curve), and the fatigue scale. No automatic change to a prescription.
 
-## Q13. Is four weeks the right back-signal window?
+## Q13. ~~Is four weeks the right back-signal window?~~ **Answered (2026-10-19)**
 
-Four weeks is a pragmatic assumption, not a finding. Open: should the window scale with prior
-flares, what counts as "tolerated" loading, and whether the signal should name specific lifts
-or stay generic. See `docs/CONTINUITY.md` §2.
+The owner answered all three parts, and the signal is now per region
+(`DEC-INJURY-01/02/03`; [`docs/INJURY-SIGNAL.md`](INJURY-SIGNAL.md)):
+
+1. **The window scales** with prior flares: 28 days + 14 per prior flare (cap 84), with
+   4 + 2 tolerated sessions per flare (cap 12). More than two previous episodes predict
+   recurrence (da Silva 2019), so a fixed certificate over-states recovery for someone who
+   flares repeatedly.
+2. **"Tolerated" means loaded and followed by a clean reading**, not merely loaded. A session
+   with no post-session reading is counted but `unverified`, and never satisfies the review
+   requirement — missing input is `unknown`, not `pass`.
+3. **The signal names lifts.** A general signal plus one per region (low back, biceps, knee),
+   with the exercise links in `config/injuries.v1.yaml`; adding an injury is a config change.
+
+Residual uncertainty is calibration, not design: the step sizes and the 7-day verification
+window are assumptions (`ASSUMPTION-08`, `ASSUMPTION-09`), and the injury-to-lift link is
+exposure, not causation (`ASSUMPTION-10`).
 
 ## Closed
 

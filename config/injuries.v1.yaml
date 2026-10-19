@@ -1,0 +1,110 @@
+# Injury signals — which lifts load which injury, and how much evidence counts as recovery.
+#
+# This file is the *link* between an injury and exercise selection. It exists because
+# `symptom_log` records a number per region, but "my low back is level 1" says nothing about
+# what loaded it. Two jobs:
+#
+#   1. exposure  — which canonical exercises load a region, and how directly.
+#   2. recovery  — how long a symptom-free streak and how many tolerated loaded sessions are
+#                  needed before the app may *suggest* a suitability review.
+#
+# It is an exposure model, not a causal model (ASSUMPTION-10). "This lift loads that region"
+# is a mechanical statement; it does not claim the lift caused the injury. The evidence notes
+# are in docs/INJURY-SIGNAL.md; the guiding decisions are DEC-INJURY-01/02/03.
+#
+# Precedence at read time: this file > defaults below > values in code.
+
+schema_version: "1.0.0"
+
+# Defaults for every region. A region may override any of them inline, using the same key
+# names; only overrides that differ from the default need to be written.
+defaults:
+  # A symptom-free streak counts only if it is backed by loaded sessions: rest settles
+  # symptoms but does not build load tolerance (DEC-BACKSIGNAL-01).
+  #
+  # 28 days is a pragmatic base, not a finding. It scales with the number of *previous*
+  # flares: recurrence after low back pain is predicted by more than two previous episodes
+  # (da Silva 2019, doi:10.1016/j.jphys.2019.04.010), so the same four-week certificate is
+  # weaker evidence for someone who has flared repeatedly (ASSUMPTION-08).
+  base_symptom_free_days: 28
+  days_per_prior_flare: 14
+  max_symptom_free_days: 84
+
+  # 4 tolerated loaded sessions base, +2 per prior flare. This is what keeps the signal from
+  # being a calendar feeling: a month off with no loading earns nothing (DEC-BACKSIGNAL-01).
+  base_min_tolerated_sessions: 4
+  sessions_per_prior_flare: 2
+  max_min_tolerated_sessions: 12
+
+  # A reading older than this cannot support a claim about today (existing rule).
+  max_entry_age_days: 14
+
+  # A loaded session counts as *tolerated* only if a symptom reading exists in the window
+  # after it and no flare appears in that window (ASSUMPTION-09). A pre-session log on the
+  # next training day is enough; an unlogged session stays `unverified`, never `tolerated`
+  # (AGENTS.md invariant 12: missing input is unknown, not pass).
+  verify_within_days: 7
+
+  # Direct loading is weight 2, indirect is weight 1. A session counts as loaded when the sum
+  # reaches this: one direct set, or two indirect sets.
+  min_session_load: 2
+
+regions:
+
+  # ---------------------------------------------------------------------
+  # Low back — the original signal, still the best-evidenced one.
+  # ---------------------------------------------------------------------
+  low_back:
+    label: "Low back"
+    links:
+      # Direct: the spine is the target or is loaded as a prime mover. Hinges put a lumbar
+      # moment on the spine even when the erectors are not the "target" (Swinton 2011,
+      # doi:10.1519/JSC.0b013e3181e73f87; Hanen 2025, doi:10.3389/fbioe.2025.1597209).
+      direct:
+        patterns: [erector_extension, hinge, hinge_unilateral]
+        flags: [direct_erector]
+      # Indirect: braced or stabilising, not the limiting tissue. A plank loads the spine
+      # isometrically and a squat needs trunk stiffness, but neither is erector work.
+      indirect:
+        patterns: [squat, squat_unilateral, carry, core_flexion, core_anti_extension,
+                   hinge_ballistic]
+        muscles: [erectors]
+        flags: [high_fatigue_spinal, erector_family]
+
+  # ---------------------------------------------------------------------
+  # Biceps / elbow flexors. Evidence for conservative management is thin: a scoping review of
+  # physical-therapy interventions found only 14 studies, mostly of modalities, and concluded
+  # there is "a dearth of evidence" (McDevitt 2024, doi:10.1016/j.bjpt.2023.100586).
+  # After distal-biceps repair, return to sport averages ~6 months (Boufadel 2025,
+  # doi:10.1177/03635465241295618) — a repair is a different case from tendinopathy, and the
+  # app does not model surgery.
+  # ---------------------------------------------------------------------
+  biceps:
+    label: "Biceps / elbow flexor"
+    links:
+      # Everything that pulls with a flexed elbow loads it. Grip is not recorded, so the
+      # supinated-versus-neutral distinction cannot be used; that makes this linkage coarse
+      # rather than precise (ASSUMPTION-10).
+      direct:
+        patterns: [elbow_flexion, vertical_pull, horizontal_pull]
+
+  # ---------------------------------------------------------------------
+  # Knee. Exercise is the main treatment for patellar tendinopathy, but certainty is low and
+  # no trial measured adverse events (Lopes 2025 Cochrane, doi:10.1002/14651858.CD013078.pub2).
+  # For patellofemoral pain, activity modification plus load management and pain monitoring
+  # produced high success rates (Rathleff 2019, doi:10.1177/0363546519843915).
+  # ---------------------------------------------------------------------
+  knee:
+    label: "Knee"
+    links:
+      direct:
+        # Knee-dominant and impact work: the extensor mechanism is the loaded tissue.
+        patterns: [squat, squat_unilateral, knee_extension, knee_flexion,
+                   hamstring_eccentric, power_jump]
+      indirect:
+        # Hinges and carries load the knee without it being the limiting joint.
+        patterns: [hinge, hinge_unilateral, hinge_ballistic, carry]
+
+# Adding an injury is a config change: append a region with its links, and log symptoms
+# against that region (`strength-coach symptom --region ...`). If a new region needs a new
+# *pattern* or *flag*, the taxonomy is the place for it, not this file.

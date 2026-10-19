@@ -15,6 +15,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
+from strength_coach.domain.symptoms import flare_from as _flare_from
 from strength_coach.features import derived
 from strength_coach.store import queries
 from strength_coach.utils import exercises
@@ -93,17 +94,10 @@ class RuleContext:
 def flare_from(level: int | None, settled_within_48h: int | None) -> bool | None:
     """Whether a symptom reading counts as a flare.
 
-    `level` is the agreed 0-3 back scale. A level of 2 or more is a flare; a level of 1 is a
-    flare only if it did not settle within 48 hours, which is the constitution's wording. With
-    no reading at all the answer is None -- unknown, never "no flare" (DEC-SYMPTOM-02).
+    Re-exported from `domain.symptoms` so callers keep one import path and the definition
+    cannot drift between the rule context and the injury signal.
     """
-    if level is None:
-        return None
-    if level >= 2:
-        return True
-    if level == 1:
-        return settled_within_48h == 0
-    return False
+    return _flare_from(level, settled_within_48h)
 
 
 def _gap_days(conn, on_date: str | None) -> int | None:
