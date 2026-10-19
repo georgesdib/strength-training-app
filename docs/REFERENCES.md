@@ -117,6 +117,15 @@ conclusion is weaker than it looks.
 | 62 | Hickmott LM, Butcher SJ, Chilibeck PD. *Conceptualizing a load and volume autoregulation integrated velocity model to minimize neuromuscular fatigue and maximize neuromuscular adaptations in resistance training.* Eur J Appl Physiol, 2025. | 10.1007/s00421-025-05709-1 | Autoregulation adjusts load/volume from readiness and performance; no numeric stacking cap is defined. Supports a guardrail, not a precise cap. |
 | 63 | Suchomel TJ, Nimphius S, Bellon CR, Hornsby WG, Stone MH. *Training for Muscular Strength: Methods for Monitoring and Adjusting Training Intensity.* Sports Med, 2021;51(10):2121-2143. | 10.1007/s40279-021-01488-9 | Reviews RIR/RPE, VBT and autoregulatory methods for adjusting intensity; supports using RIR/load history as calibration features, but gives no universal cap. |
 
+## 9. Fatigue modelling and cardio load
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 64 | Hellard P, Avalos M, Lacoste L, Barale F, Chatard JC, Millet GP. *Assessing the limitations of the Banister model in monitoring training.* J Sports Sci, 2006;24(5):509-520. | 10.1080/02640410500244697 | The Banister model fits performance but its parameters are ill-conditioned/unstable; a good fit is not identification. |
+| 65 | Kontro H, Mastracci A, Cheung SS, MacInnis MJ. *The three-dimensional impulse-response model: Modeling the training process in accordance with energy system-specific adaptation.* PLOS ONE, 2026. | 10.1371/journal.pone.0341721 | A single impulse assumes training types are interchangeable; proposes system-specific dimensions. Basis for not using one global fatigue scalar. |
+| 66 | Piatrikova E, Willsmer NJ, Altini M, Jovanović M, Mitchell LJG, Gonzalez JT, Sousa AC, Williams S. *Monitoring the Heart Rate Variability Responses to Training Loads in Competitive Swimmers Using a Smartphone Application and the Banister Impulse-Response Model.* Int J Sports Physiol Perform, 2021;16(10):1471-1480. | 10.1123/ijspp.2020-0201 | HRV, sRPE and wellness can feed an impulse-response model; not a validated individual prescription. |
+| 67 | Wang W, Zhao Y, Hou X, Yu W, Ren H, Ren H. *Advancing training effectiveness prediction in mass sport through longitudinal data: A mathematical model approach based on the Fitness-Fatigue Model.* PLOS ONE, 2025. | 10.1371/journal.pone.0337824 | Fitness-fatigue models need individual longitudinal data; generic parameters are a prior. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow
@@ -131,3 +140,4 @@ claim that the study is definitive; the evidence notes state the limitations.
 - `docs/SPINAL-COST.md` — ordinal spinal-cost ratings
 - `docs/INJURY-SIGNAL.md` — recurrence, load tolerance and the injury-to-exercise links
 - `docs/READINESS-SCORE.md` — global/per-lift readiness evidence and proposal
+- `ROADMAP.md` §4.13 — cardio load and impulse-fatigue model plan

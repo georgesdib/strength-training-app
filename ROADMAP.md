@@ -43,7 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry (§4.1), continuity (§4.6), injury signal (§4.7), local web UI (§4.10). Remaining: manual logging, adapters, programme view, video, learned/HRV readiness settings (§4.9), full web parity (§4.11) |
+| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry (§4.1), continuity (§4.6), injury signal (§4.7), local web UI (§4.10). Remaining: manual logging, adapters, programme view, video, learned/HRV readiness settings (§4.9), full web parity (§4.11), cardio + impulse fatigue (§4.13) |
 | v0.1 | Next version | **in progress** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set remains (human work) |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000` |
 
@@ -609,6 +609,65 @@ prescription keeps citing the applied rule.
 Acceptance: a return session can be recorded with post-session fatigue; the report shows observed
 returns and the current rule side by side; no prescription changes until the athlete adopts a
 suggested setting; the minimum-data rule is explicit.
+
+### 4.13 Cardio workouts and an impulse fatigue model  (planned)
+
+The app currently measures resistance training only. Cardio is a separate exposure with a
+different fatigue signature, and a single "fatigue score" would hide that. This item adds the
+data and a model, initially advisory and in shadow mode.
+
+**Scope**
+
+1. **Cardio capture** — modality, duration, average/max HR, HR zones, distance or power where
+   available, session RPE, notes. Append-only; no free-text parsing in the core.
+2. **Training impulse** — compute a documented impulse per session: HR-based TRIMP where the
+   data supports it, otherwise session-RPE × duration. Say which one was used and why.
+3. **Fatigue model** — start with an impulse-response / fitness-fatigue model:
+   - a fitness (positive, slow-decaying) and fatigue (negative, faster-decaying) term;
+   - at least two systems: cardiovascular and neuromuscular/spinal, rather than one global
+     impulse;
+   - time constants and weights are config, per athlete when enough data exists;
+   - the model reports a **fatigue state**, not a diagnosis.
+4. **Interaction with the existing layers** — cardio fatigue may inform readiness and load
+   selection, but it must not override constraints, the injury signal or readiness overrides.
+   Cardio that loads the knees/low back must be linked to the injury regions so it is not
+   invisible exposure. Avoid double-counting the same session as both resistance and cardio.
+5. **Shadow first** — compute and display the impulse and fatigue state for weeks without
+   changing a prescription. Only then consider a load/RIR effect.
+
+**Evidence and limits**
+
+- The Banister impulse-response model relates training impulses to performance, but its
+  parameters are ill-conditioned and unstable; a good fit does not make the parameters
+  identifiable ([Hellard 2006](https://doi.org/10.1080/02640410500244697)).
+- A single impulse reduces different training types to one number; the proposed
+  three-dimensional model separates energy-system-specific adaptation, which is the direction
+  this item should take rather than one global fatigue scalar
+  ([Kontro 2026](https://doi.org/10.1371/journal.pone.0341721)).
+- HRV, sRPE and subjective wellness can be inputs to an impulse-response model, but the
+  relationships are not a validated individual prescription
+  ([Piatrikova 2021](https://doi.org/10.1123/ijspp.2020-0201)).
+- Fitness-fatigue models need longitudinal individual data; a generic parameter set is a
+  prior, not a measurement ([Wang 2025](https://doi.org/10.1371/journal.pone.0337824)).
+
+**Open questions**
+
+1. Which cardio modalities are in scope (walking, cycling, rowing, running, intervals)?
+2. Is TRIMP available from the athlete's devices, or is sRPE the only usable impulse?
+3. Should the model have two systems (cardio/neuromuscular) or three (add metabolic/energy
+   system), and how do they interact?
+4. Do cardio sessions link to injury regions by pattern (e.g. running → knee) or only by
+   explicit tags?
+5. Does fatigue modify load, RIR, volume or only the displayed readiness context?
+6. How many weeks of data before an individual time constant is shown?
+7. Can a cardio session count as readiness/load evidence without a symptom follow-up?
+
+**Acceptance**
+
+A cardio session can be recorded and cited; its impulse is reproducible and labelled by
+method; the fatigue state is displayed with inputs and time constants; a shadow period changes
+no prescription; constraints and injury ceilings remain vetoes; no cardio session silently
+counts as resistance volume or vice versa.
 
 ## 5. Known gaps and risks
 

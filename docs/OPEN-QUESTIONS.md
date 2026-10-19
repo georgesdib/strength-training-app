@@ -187,6 +187,12 @@ Residual uncertainty is calibration, not design: the step sizes and the 7-day ve
 window are assumptions (`ASSUMPTION-08`, `ASSUMPTION-09`), and the injury-to-lift link is
 exposure, not causation (`ASSUMPTION-10`).
 
+## Q14. What cardio load and fatigue model should the app use?
+
+Planned in ROADMAP §4.13. Open: which modalities, whether TRIMP or sRPE is the impulse,
+two vs three fatigue systems, whether cardio modifies load or only readiness context, and how
+many weeks of individual data are needed before showing a time constant. No implementation.
+
 ## Closed
 
 - ~~What do the extreme `RIR` values mean?~~ **Closed** — `RIR 6` marks a **warm-up set**

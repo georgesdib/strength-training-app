@@ -24,7 +24,7 @@ targets are attached where the data supports them.
 Delivered early in v0.2: readiness score and overrides, injury signal, continuity, local web UI
 (including CSV import, state editing and the calibration report). Remaining: the labelled set
 (3.8, human work), manual logging, format adapters, programme view, video, learned/HRV
-readiness settings. See [ROADMAP.md](ROADMAP.md).
+readiness settings, and cardio + impulse-fatigue modelling (§4.13). See [ROADMAP.md](ROADMAP.md).
 
 What runs today:
 
