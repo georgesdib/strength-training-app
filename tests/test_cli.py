@@ -203,3 +203,16 @@ def test_review_of_an_unknown_session_fails_cleanly(database, capsys):
     code = cli.main(["--db", str(database), "review", "--session", "1999-01-01"])
     assert code == 2
     assert "session:" in capsys.readouterr().out
+
+def test_review_with_no_marks_is_not_reported_as_success(database, tmp_path, capsys):
+    labels = tmp_path / "empty.yaml"
+    labels.write_text(yaml.safe_dump({
+        "version": 1,
+        "sessions": {"2024-01-01": {"scores": {}, "confidence": "high"}},
+    }), encoding="utf-8")
+
+    code = cli.main(["--db", str(database), "review", "--session", "2024-01-01",
+                     "--scores", str(labels)])
+    assert code == 2
+    assert "still unreviewed" in capsys.readouterr().out
+    assert count(database, "rubric_mark") == 0

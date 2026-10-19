@@ -261,6 +261,10 @@ def _cmd_review(args) -> int:
             rubric_version=RUBRIC_VERSION,
             note=args.note,
         )
+        if written == 0:
+            print("\nno marks recorded: every item was skipped. This session is still "
+                  "unreviewed.")
+            return 2
         print(f"\nrecorded {written} marks for {args.session} (confidence {confidence})")
         _print_calibration(conn, DEFAULT_TOLERANCE)
         return 0
