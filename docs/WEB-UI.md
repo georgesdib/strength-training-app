@@ -16,6 +16,8 @@ strength-coach web --port 8001
 ## Pages
 
 - **Today** — goal, block week, readiness, back signal, unreviewed count, recent sessions.
+- **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
+  SQLite, never written to the repository.
 - **Prescribe** — date + day; deterministic prescription, warnings and notes; every item cites
   rule ids.
 - **Review** — unreviewed/recent session sheet; engine scores shown for context; human marks,
@@ -30,6 +32,7 @@ strength-coach web --port 8001
 | route | purpose |
 |---|---|
 | `GET /api/overview` | dashboard data |
+| `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
 | `POST /api/prescribe` | `{date, day}` -> prescription |
 | `GET /api/review/<session>` | session sheet |
 | `POST /api/review/<session>` | `{scores, confidence, note}` -> marks |
@@ -48,5 +51,5 @@ The web layer is serialisation and routing only. It calls the same functions as 
 ## Limitations
 
 - No LLM proposal/chat UI (the CLI `run --propose` remains the path).
-- No import or state-editing forms; those remain CLI operations.
+- No state-editing forms; those remain CLI operations. Import is available.
 - No authentication; never expose beyond localhost.

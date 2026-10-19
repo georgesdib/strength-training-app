@@ -11,6 +11,7 @@ Design constraints, deliberately:
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 import mimetypes
 import threading
@@ -27,8 +28,8 @@ from strength_coach.features import back_signal, readiness as readiness_feature
 from strength_coach.prescribe import build_prescription
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
-from strength_coach.store import db, queries
-from strength_coach.utils import readiness as readiness_utils
+from strength_coach.store import db, importer, queries
+from strength_coach.utils import io_utils
 from strength_coach.web import markdown
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -197,7 +198,9 @@ class Handler(BaseHTTPRequestHandler):
         path = unquote(urlparse(self.path).path)
         try:
             body = self._body()
-            if path == "/api/prescribe":
+            if path == "/api/import":
+                self._json(200, self._with_conn(lambda c: self._import(c, body)))
+            elif path == "/api/prescribe":
                 self._json(200, self._with_conn(lambda c: self._prescribe(c, body)))
             elif path == "/api/readiness":
                 self._json(200, self._with_conn(lambda c: self._set_readiness(c, body)))
@@ -236,6 +239,47 @@ class Handler(BaseHTTPRequestHandler):
             "back_signal": signal,
             "unreviewed": queries.unreviewed_sessions(conn, limit=50),
             "sessions": _session_rows(conn, 12),
+        }
+
+    def _import(self, conn, body: dict) -> dict:
+        """Import two uploaded CSV bodies without writing them to disk.
+
+        The browser sends text, not paths: there is no filesystem surface to traverse. The
+        raw rows (with their hashes) are the durable record inside SQLite.
+        """
+        def content(part_name: str) -> tuple[str, str]:
+            part = body.get(part_name) or {}
+            if not isinstance(part, dict):
+                raise ValueError(f"{part_name} must be an object with name and text")
+            name = str(part.get("name") or part_name + ".csv")
+            text = part.get("text")
+            if not isinstance(text, str) or not text.strip():
+                raise ValueError(f"{part_name} file is missing or empty")
+            if len(text.encode("utf-8")) > 20 * 1024 * 1024:
+                raise ValueError(f"{part_name} file is larger than 20 MB")
+            return name, text
+
+        training_name, training_text = content("training")
+        readiness_name, readiness_text = content("readiness")
+        training = io_utils.read_raw_csv_text(training_text)
+        readiness = io_utils.read_raw_csv_text(readiness_text)
+        report = importer.import_export(
+            conn, training, readiness,
+            training_sha256=hashlib.sha256(training_text.encode("utf-8")).hexdigest(),
+            readiness_sha256=hashlib.sha256(readiness_text.encode("utf-8")).hexdigest(),
+        )
+        return {
+            "training_name": training_name,
+            "readiness_name": readiness_name,
+            "raw_rows_inserted": report.raw_rows_inserted,
+            "clean_sets_inserted": report.clean_sets_inserted,
+            "clean_sets_existing": report.clean_sets_existing,
+            "sessions_written": report.sessions_written,
+            "quarantined": report.quarantined,
+            "readiness_days": report.readiness_days,
+            "issues": report.issues,
+            "window_start": report.window_start,
+            "window_end": report.window_end,
         }
 
     def _prescribe(self, conn, body: dict) -> dict:

@@ -15,6 +15,7 @@ The raw layer is immutable: cleaning happens in `ingest.clean`, never here.
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
 
 import pandas as pd
@@ -22,10 +23,9 @@ import pandas as pd
 from strength_coach.utils import paths
 
 
-def read_raw_csv(path: str | Path) -> pd.DataFrame:
-    """Read a raw source CSV preserving every cell verbatim as a string."""
+def _read_raw(handle) -> pd.DataFrame:
     frame = pd.read_csv(
-        Path(path),
+        handle,
         dtype=str,
         keep_default_na=False,  # "(null)" and "" are meaningful, not NaN
         na_filter=False,
@@ -33,6 +33,22 @@ def read_raw_csv(path: str | Path) -> pd.DataFrame:
     # Strip a BOM and trailing whitespace that sometimes rides along with exports.
     frame.columns = [str(c).strip().lstrip("\ufeff") for c in frame.columns]
     return frame
+
+
+def read_raw_csv(path: str | Path) -> pd.DataFrame:
+    """Read a raw source CSV preserving every cell verbatim as a string."""
+    return _read_raw(Path(path))
+
+
+def read_raw_csv_text(text: str) -> pd.DataFrame:
+    """The same reader for an uploaded file already held in memory.
+
+    The web import deliberately does not write uploads to disk: the bytes are parsed,
+    hashed and stored as raw_row inside the database, never as a file in the repository.
+    """
+    if not text.strip():
+        raise ValueError("the uploaded CSV is empty")
+    return _read_raw(io.StringIO(text))
 
 
 def read_training_log(path: str | Path | None = None) -> pd.DataFrame:

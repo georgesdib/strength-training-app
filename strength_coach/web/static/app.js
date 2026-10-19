@@ -288,6 +288,51 @@ function renderReadiness(data) {
     <table><thead><tr><th>Field</th><th>value</th><th>source</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
+/* --- import ------------------------------------------------------------- */
+$("#import-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const training = $("#import-training").files[0];
+  const readiness = $("#import-readiness").files[0];
+  if (!training || !readiness) {
+    $("#import-result").innerHTML = "<p class='warnbox'>Choose both CSV files.</p>";
+    return;
+  }
+  if (training.size > 20 * 1024 * 1024 || readiness.size > 20 * 1024 * 1024) {
+    $("#import-result").innerHTML = "<p class='warnbox'>Each file must be under 20 MB.</p>";
+    return;
+  }
+  $("#import-result").innerHTML = "<p class='empty'>Importing…</p>";
+  try {
+    const [trainingText, readinessText] = await Promise.all([training.text(), readiness.text()]);
+    const data = await api("/api/import", {
+      method: "POST",
+      body: JSON.stringify({
+        training: { name: training.name, text: trainingText },
+        readiness: { name: readiness.name, text: readinessText },
+      }),
+    });
+    const issues = Object.entries(data.issues || {});
+    $("#import-result").innerHTML = `<div class="warnbox"><strong>Imported</strong>
+      <table><tbody>
+        <tr><td>Training file</td><td>${esc(data.training_name)}</td></tr>
+        <tr><td>Readiness file</td><td>${esc(data.readiness_name)}</td></tr>
+        <tr><td>Raw rows inserted</td><td>${data.raw_rows_inserted}</td></tr>
+        <tr><td>Clean sets inserted / existing</td><td>${data.clean_sets_inserted} / ${data.clean_sets_existing}</td></tr>
+        <tr><td>Sessions written</td><td>${data.sessions_written}</td></tr>
+        <tr><td>Quarantined</td><td>${data.quarantined}</td></tr>
+        <tr><td>Readiness days</td><td>${data.readiness_days}</td></tr>
+        <tr><td>Window</td><td>${esc(data.window_start || "—")} → ${esc(data.window_end || "—")}</td></tr>
+      </tbody></table>
+      ${issues.length ? "<p>Issues: " + issues.map(([k, v]) => esc(k) + "=" + esc(v)).join(", ") + "</p>" : ""}
+    </div>`;
+    $("#import-training").value = "";
+    $("#import-readiness").value = "";
+    loadOverview();
+  } catch (error) {
+    $("#import-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+});
+
 /* --- state -------------------------------------------------------------- */
 async function loadState() {
   $("#state-result").innerHTML = "<p class='empty'>Loading…</p>";

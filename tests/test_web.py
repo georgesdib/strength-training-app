@@ -131,3 +131,20 @@ def test_markdown_tables_and_links():
     root = Path(__file__).resolve().parents[1]
     linked = markdown.render("[x](CONTINUITY.md)", docs_root=root, base_dir=root / "docs")
     assert 'href="/docs/CONTINUITY.md"' in linked
+
+def test_upload_imports_both_csvs(server):
+    training = make_training(ROWS).to_csv(index=False)
+    readiness = make_readiness([{"Date": "2024-01-01"}]).to_csv(index=False)
+    data = post(server, "/api/import", {
+        "training": {"name": "training.csv", "text": training},
+        "readiness": {"name": "readiness.csv", "text": readiness},
+    })
+    assert data["window_start"] == "2024-01-01"
+    assert data["readiness_days"] >= 1
+    assert data["sessions_written"] >= 1
+
+
+def test_upload_requires_both_files(server):
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        post(server, "/api/import", {"training": {"name": "t.csv", "text": "x"}})
+    assert excinfo.value.code == 400

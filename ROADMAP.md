@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-dev` · **423 public tests** (438 with the 15 private integration tests)
+Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-dev` · **425 public tests** (440 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 438 locally (423 public + 15 private integration)
+.venv/bin/python -m pytest            # 440 locally (425 public + 15 private integration)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -556,7 +556,7 @@ CLI remains the automation surface.
 
 - `strength-coach web` serves on **127.0.0.1:8000** by default, no authentication, no external
   assets; docs are rendered locally.
-- Pages: Today, Prescribe, Review, Readiness, Athlete, Docs.
+- Pages: Today, Prescribe, Review, Readiness, Import, Athlete, Docs.
 - The API only serialises and routes; every load/score/warning still comes from the core.
 - Tests cover the API round trips, docs rendering and the readiness/review writes.
 
@@ -570,8 +570,8 @@ as the automation interface; the UI must call the same core functions, never re-
 
 Planned surfaces, in suggested order:
 
-1. **Import** — choose/upload the training and readiness CSVs, show inserted/existing/
-   quarantined counts and the import trace. Files stay private; no path traversal.
+1. **Import** — **done**. Upload the training and readiness CSVs, show inserted/existing/
+   quarantined counts; files stay in memory and are stored in SQLite.
 2. **State editing** — profile, constraints, suitability ratings, e1RM overrides, strength
    tests, block start and symptoms. Every write is append-only where the CLI is; the form
    shows what will be recorded before saving.

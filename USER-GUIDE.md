@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 423 public tests
+.venv/bin/python -m pytest          # 425 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -54,9 +54,11 @@ strength-coach web --port 8001     # another port
 ```
 
 It binds to **127.0.0.1 only** and has **no authentication**; do not expose it on a network.
-The pages are Today, Prescribe, Review, Readiness, Athlete and Docs. Every load, RIR, warning
+The pages are Today, Prescribe, Review, Readiness, Import, Athlete and Docs. Every load, RIR, warning
 and calibration number still comes from Python — the browser only displays and submits forms.
-Docs are rendered locally, so the UI works offline.
+Docs are rendered locally, so the UI works offline. **Import** accepts the training and
+readiness CSVs in the browser; the files are parsed in memory and stored in SQLite, not written
+to the repository.
 
 ```bash
 .venv/bin/python -m strength_coach.cli web   # if the venv is not active

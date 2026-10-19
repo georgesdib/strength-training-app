@@ -14,6 +14,7 @@
       <button data-view="prescribe">Prescribe</button>
       <button data-view="review">Review</button>
       <button data-view="readiness">Readiness</button>
+      <button data-view="import">Import</button>
       <button data-view="state">Athlete</button>
       <button data-view="docs">Docs</button>
     </nav>
@@ -91,6 +92,23 @@
           </div>
         </form>
         <div id="readiness-result"></div>
+      </div>
+    </section>
+
+    <section id="view-import" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Import training and readiness</h2><span class="muted">both CSVs</span></div>
+        <p class="muted">Upload the two exports. The browser sends the file text to this local process;
+          the bytes are parsed, hashed and stored as raw rows in <code>data/coach.db</code>. Nothing is
+          saved as a file in the repository.</p>
+        <form id="import-form" class="form-row">
+          <label>Training CSV <input type="file" id="import-training" accept=".csv,text/csv" required></label>
+          <label>Readiness CSV <input type="file" id="import-readiness" accept=".csv,text/csv" required></label>
+          <button class="primary" type="submit">Import files</button>
+        </form>
+        <p class="muted">Re-importing the same files is idempotent: existing raw rows and clean sets
+          are reported, not duplicated.</p>
+        <div id="import-result"></div>
       </div>
     </section>
 
