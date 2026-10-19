@@ -458,7 +458,8 @@ strength-coach readiness set --date 2026-10-20 --sleep 2 --energy 3 --soreness 1
 strength-coach readiness set --date 2026-10-20 --energy 4 --note "slept badly"
 ```
 
-The 1-5 fields and the device fields are accepted in any combination. A manual value wins
+The 1-5 fields and the device fields (HRV, resting HR, bodyweight, body fat, grip strength in kg)
+are accepted in any combination. A manual value wins
 **per field**; an imported row fills the fields you did not provide. Re-logging a date appends
 a new version and the latest value wins — nothing is edited or overwritten. The command prints
 each field with its source (`manual` or `import`).

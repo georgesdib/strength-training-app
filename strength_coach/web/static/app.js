@@ -219,12 +219,12 @@ async function saveReview(session) {
 /* --- readiness ---------------------------------------------------------- */
 const SCORE_FIELDS = ["sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration",
   "squat_readiness", "bench_readiness", "deadlift_readiness"];
-const DEVICE_FIELDS = ["hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct"];
+const DEVICE_FIELDS = ["hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "grip_strength_kg"];
 const LABELS = { sleep: "Sleep", energy: "Energy", mood: "Mood", soreness: "Soreness",
   stress: "Stress", nutrition: "Nutrition", hydration: "Hydration",
   squat_readiness: "Squat readiness", bench_readiness: "Bench readiness",
   deadlift_readiness: "Deadlift readiness", hrv_ms: "HRV (ms)", rhr_bpm: "Resting HR (bpm)",
-  bodyweight_kg: "Bodyweight (kg)", fat_pct: "Body fat (%)" };
+  bodyweight_kg: "Bodyweight (kg)", fat_pct: "Body fat (%)", grip_strength_kg: "Grip strength (kg)" };
 
 function fieldInput(field, device = false) {
   if (device) return `<label>${esc(LABELS[field])} <input type="number" step="0.1" min="0"

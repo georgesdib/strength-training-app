@@ -12,7 +12,7 @@ SCORE_FIELDS = (
     "sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration",
     "squat_readiness", "bench_readiness", "deadlift_readiness",
 )
-MEASURE_FIELDS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct")
+MEASURE_FIELDS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "grip_strength_kg")
 READINESS_FIELDS = SCORE_FIELDS + MEASURE_FIELDS
 
 FIELD_LABELS = {
@@ -30,6 +30,7 @@ FIELD_LABELS = {
     "rhr_bpm": "resting HR (bpm)",
     "bodyweight_kg": "bodyweight (kg)",
     "fat_pct": "body fat (%)",
+    "grip_strength_kg": "grip strength (kg)",
 }
 
 

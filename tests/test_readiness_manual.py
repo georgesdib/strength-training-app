@@ -42,15 +42,29 @@ def test_manual_wins_per_field_and_import_fills_the_rest():
         repositories.append_readiness_entry(
             conn, on_date="2024-01-01", field="sleep", value=2, note="rough night",
         )
+        repositories.append_readiness_entry(
+            conn, on_date="2024-01-01", field="grip_strength_kg", value=45.5,
+        )
         merged = queries.readiness_day(conn, "2024-01-01")
 
     assert merged["sleep"] == 2
     assert merged["energy"] == 4
     assert merged["sources"]["sleep"] == "manual"
     assert merged["sources"]["energy"] == "import"
-    assert merged["manual_fields"] == ["sleep"]
+    assert merged["grip_strength_kg"] == 45.5
+    assert merged["sources"]["grip_strength_kg"] == "manual"
+    assert merged["manual_fields"] == ["grip_strength_kg", "sleep"]
     note = json.loads(merged["manual_merge_note"])
     assert note["sleep"] == {"imported": 5.0, "manual": 2.0, "winner": "manual"}
+
+
+def test_grip_strength_must_be_positive():
+    with store_with() as store:
+        with pytest.raises(ValueError):
+            repositories.append_readiness_entry(
+                store.connection, on_date="2024-01-01",
+                field="grip_strength_kg", value=0,
+            )
 
 
 def test_relogging_appends_and_latest_wins():
@@ -111,13 +125,13 @@ def test_readiness_set_cli_and_bulk_import(tmp_path):
     store.close()
 
     assert cli.main(["--db", str(path), "readiness", "set", "--date", "2024-01-02",
-                     "--sleep", "2", "--energy", "3"]) == 0
+                     "--sleep", "2", "--energy", "3", "--grip-strength", "45.5"]) == 0
     store = db.Store(path)
     try:
         day = queries.readiness_day(store.connection, "2024-01-02")
     finally:
         store.close()
-    assert (day["sleep"], day["energy"]) == (2, 3)
+    assert (day["sleep"], day["energy"], day["grip_strength_kg"]) == (2, 3, 45.5)
 
     state = tmp_path / "state.yaml"
     state.write_text(

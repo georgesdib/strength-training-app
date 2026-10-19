@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import json
 
+import pandas as pd
+
 from conftest import make_readiness
 from strength_coach.ingest import readiness as rd
 
 ALL_FIELDS = [
     "Sleep", "Energy", "Mood", "Soreness", "Stress", "Nutrition", "Hydration",
     "Squat_Readiness", "Bench_Readiness", "Deadlift_Readiness",
-    "HRV", "RHR", "Weight", "Fat_Percent",
+    "HRV", "RHR", "Weight", "Fat_Percent", "Grip_Strength",
 ]
 
 
@@ -78,3 +80,13 @@ def test_composite_is_left_empty_until_metrics_are_declared():
     [day] = result.days.to_dict(orient="records")
     assert day["composite"] is None
     assert day["composite_basis"] is None
+
+def test_grip_strength_is_imported_and_zero_is_missing():
+    frame = make_readiness([
+        {"Date": "2024-01-01", "Grip_Strength": "45.5"},
+        {"Date": "2024-01-02", "Grip_Strength": "0"},
+    ])
+    result = rd.build_readiness_day(frame)
+    by_date = result.days.set_index("on_date")
+    assert by_date.loc["2024-01-01", "grip_strength_kg"] == 45.5
+    assert pd.isna(by_date.loc["2024-01-02", "grip_strength_kg"])

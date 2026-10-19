@@ -38,13 +38,14 @@ RAW_RENAME = {
     "RHR": "rhr_bpm",
     "Weight": "bodyweight_kg",
     "Fat_Percent": "fat_pct",
+    "Grip_Strength": "grip_strength_kg",
 }
 
 # Columns where a physical 0 is impossible, so 0 is a missing-value sentinel. These are the
 # RAW names, because `apply_zero_sentinels` is keyed by the export's own vocabulary.
 SENTINEL_COLUMNS = [
     "HRV", "RHR", "Weight", "Fat_Percent",
-    "Squat_Readiness", "Bench_Readiness", "Deadlift_Readiness",
+    "Squat_Readiness", "Bench_Readiness", "Deadlift_Readiness", "Grip_Strength",
 ]
 
 FIELDS = tuple(RAW_RENAME.values())

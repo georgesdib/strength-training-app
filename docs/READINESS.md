@@ -50,6 +50,7 @@ there. Those fields become missing, never zero:
 | `HRV`, `RHR` | 0 ms / 0 bpm are incompatible with life |
 | `Fat_Percent` | 0% body fat is impossible |
 | `Squat_Readiness`, `Bench_Readiness`, `Deadlift_Readiness` | the 1-5 scale has no zero bucket |
+| `Grip_Strength` | 0 kg grip strength is not a measurement |
 
 The 1–5 fields (`Sleep`, `Energy`, `Mood`, `Soreness`, `Stress`, `Nutrition`, `Hydration`)
 have **no** sentinel: a zero would be an invalid entry, not a missing one, and is treated as
@@ -73,8 +74,8 @@ measurement.
 
 ## 4. Storage
 
-One row per date in `readiness_day`, with the 1–5 fields, the device fields, and a nullable
-`composite`.
+One row per date in `readiness_day`, with the 1–5 fields, the device fields (including grip
+strength in kg), and a nullable `composite`.
 
 **The composite is deliberately null.** A 0–1 score would need every metric's scale and
 direction declared first (`metric_definition`), and inventing one would make a guess
