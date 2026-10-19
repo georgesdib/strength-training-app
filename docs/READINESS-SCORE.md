@@ -126,6 +126,11 @@ lift_readiness = min(global,
   A lift with no mapped field inherits the global score. If a lift matched two fields, the
   config order decides and the chosen field is displayed; the default has no overlaps.
   A per-lift field only applies on its own date; stale or missing means "inherit global".
+
+  The three fields are a coarse subset of a **movement/muscle category** layer. A category
+  groups patterns and primary muscles (for example hinge: `hinge`, `hinge_unilateral`,
+  glutes/hamstrings/erectors). The category is what the injury attention indicator uses; the
+  three named self-ratings are optional inputs to their category.
 - `injury_ceiling` comes from the injury signal for the region linked to that exercise:
   direct loading uses the table below; indirect loading adds one step less severe.
 
@@ -188,7 +193,45 @@ term; that would be a separate decision.
 
 ---
 
-## 2.6 Injury risk indicator (proposal, separate from readiness)
+## 2.6 Injury attention by movement/muscle category
+
+**Decision: the attention indicator is per movement/muscle category, not only per injury
+region.** Regions remain the evidence unit (a flare is a low-back flare); the category is the
+training unit the athlete actually chooses between.
+
+A category is configuration, for example:
+
+| category | matches | typically linked regions |
+|---|---|---|
+| hinge | patterns `hinge`, `hinge_unilateral`, `hinge_ballistic`; glutes/hamstrings/erectors | low back (direct), knee (indirect) |
+| squat | `squat`, `squat_unilateral`; quads/glutes | knee (direct), low back (indirect) |
+| horizontal push | `horizontal_push`, `horizontal_push_bw`; chest/triceps/front delts | none configured by default |
+| vertical push | `vertical_push`; delts/triceps | none configured by default |
+| horizontal pull | `horizontal_pull`; lats/rhomboids/biceps | biceps (direct) |
+| vertical pull | `vertical_pull`; lats/biceps | biceps (direct) |
+| elbow flexion | `elbow_flexion`; biceps/brachialis | biceps (direct) |
+| knee extension | `knee_extension`; quads | knee (direct) |
+| knee flexion | `knee_flexion`, `hamstring_eccentric`; hamstrings | knee (direct) |
+| spinal extension | `erector_extension`; erectors | low back (direct) |
+| core / carry | core patterns or `carry` | low back (indirect), knee (indirect) |
+
+The exact list is config; patterns and muscles must exist in the taxonomy or the config is
+rejected. An exercise can match a category by pattern **or** primary muscle; a category can also
+list explicit exercise ids. A category may be **muscle-only** (for example elbow flexors:
+biceps/brachialis) when no single movement pattern captures it.
+
+For each category:
+
+1. collect the configured regions linked to its patterns/muscles;
+2. take the **worst** region status (active > review > monitoring > insufficient/unknown);
+3. show the drivers: region, direct/indirect, latest level, prior flares, tolerated/unverified
+   sessions;
+4. if no region is linked, say *"no injury configured for this category"* — unknown, not fine.
+
+No probability, no load effect, no second penalty. A category's attention is display and
+education only; the injury signal and constraints remain the decision layer.
+
+## 2.7 Injury risk indicator (why it is not a probability)
 
 This is **not** a probability of injury and must not be called one. The evidence supports a
 transparent **attention indicator**, not individual prediction.
@@ -209,7 +252,7 @@ transparent **attention indicator**, not individual prediction.
 
 ### Proposed indicator
 
-For each region, produce an attention tier with drivers, not a percentage:
+For each **movement/muscle category**, produce an attention tier with drivers, not a percentage:
 
 | tier | drivers (examples) |
 |---|---|
@@ -245,17 +288,28 @@ A future probability model is out of scope until prospective, calibrated validat
 4. **Calibrate.** Use the recorded returns and session outcomes to adjust weights/cut-points
    per athlete; no automatic change.
 
-## 5. Open questions
+## 5. Decisions and open questions
 
-1. Should the global score use equal weights or explicit weights per field? Evidence does not
-   settle it.
-2. Is a 1-5 soreness scale direction "higher = less sore" intuitive enough, or should the UI
+Decided:
+
+- **Equal weights first**, explicit per-athlete weights later; the sleep/energy floor stays.
+- **Cut-points and injury caps accepted.**
+- **Per-lift mapping accepted**: squat → `squat`/`squat_unilateral`, bench →
+  `horizontal_push`/`horizontal_push_bw`, deadlift → `hinge`; unmapped lifts inherit global.
+- **Minimum data**: three core subjective fields, with sleep or energy for a load effect.
+- **Grip is capacity only**, never a daily score input.
+- **Injury attention is per movement/muscle category**, not only per region; display only.
+
+Still open:
+
+1. When to move from equal to explicit weights, and which fields get what weight.
+2. Is a 1–5 soreness scale direction "higher = less sore" intuitive enough, or should the UI
    invert the label?
-3. Which per-lift fields map to which patterns, and what about lifts with no field?
-4. Are the injury ceilings (0.50/0.60 active, 0.80/0.85 monitoring) too aggressive?
-5. Should the combined reduction cap be 20%, or lower for a return after a gap?
-6. Does grip strength ever belong in the daily score, or only in a capacity panel?
-7. Minimum data before a score is shown: two subjective fields? Three?
+3. Should the combined reduction cap be 20%, or lower for a return after a gap?
+4. The exact category list and exercise-to-category mapping; the table above is a starting
+   proposal, not final.
+5. Whether a category with no linked injury should say `unknown` or `not configured`; both
+   avoid "fine", but they mean different things.
 
 ## 6. Assumptions
 
@@ -270,6 +324,8 @@ A future probability model is out of scope until prospective, calibrated validat
   choice, not a finding.
 - `ASSUMPTION-16` — the injury attention tiers are descriptive, not probabilistic; they do not
   predict a new injury.
+- `ASSUMPTION-17` — the attention indicator is grouped by movement/muscle category, with the
+  region as the underlying evidence unit; the category list and links are config, not science.
 
 Evidence references: [`docs/REFERENCES.md`](REFERENCES.md) §8. Injury evidence:
 [`docs/INJURY-SIGNAL.md`](INJURY-SIGNAL.md).

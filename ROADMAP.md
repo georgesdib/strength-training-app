@@ -572,8 +572,10 @@ built**; the full design, evidence, assumptions and phases are in
   a capacity trend only. Per-lift mapping: squat → squat/squat_unilateral, bench →
   horizontal_push/horizontal_push_bw, deadlift → hinge.
 - A separate **injury attention indicator** (not a probability) is proposed in the same document:
-  previous flares, current symptom status and tolerated loading, with no load effect and no
-  feedback into the readiness score.
+  previous flares, current symptom status and tolerated loading, grouped by **movement/muscle
+  category** (hinge, squat, pushes, pulls, elbow flexion, knee extension/flexion, spinal
+  extension, core/carry). Regions stay the evidence unit; categories are the training unit.
+  Display only: no load effect and no feedback into the readiness score.
 
 ### 4.10 Local web UI  (done)
 

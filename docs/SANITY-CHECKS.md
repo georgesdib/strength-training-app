@@ -108,6 +108,8 @@ without conditioning on provenance penalises the athlete for following the presc
   design choice, not a finding.
 - **ASSUMPTION-16** — the injury attention tiers are descriptive, not probabilistic, and do not
   predict a new injury.
+- **ASSUMPTION-17** — the attention indicator is grouped by movement/muscle category; regions
+  remain the evidence unit, and the category list/links are config.
 - **ASSUMPTION-10** — the injury-to-exercise link is an **exposure** map (direct weight 2,
   indirect 1), not a causal claim. It says which lifts load a region, not which lift caused an
   injury or which one prevents recurrence.
