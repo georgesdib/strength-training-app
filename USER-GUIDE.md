@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 411 public tests
+.venv/bin/python -m pytest          # 417 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -427,12 +427,32 @@ Readiness can only *reduce* a prescribed load, so its derivation is written down
 - `MOD-FAT-001` reads only the fields listed in `config/readiness.v1.yaml` (sleep and energy
   by default) and cuts loads by 5% when one of them is at or below 2;
 - missing readiness is **not** "fine": the modifier does not apply, and the prescription says
-  so.
+  *"readiness unknown for <date>; fatigue modifier not applied"*.
+
+**Manual entry (any subset):**
+
+```bash
+strength-coach readiness set --date 2026-10-20 --sleep 2 --energy 3 --soreness 1
+strength-coach readiness set --date 2026-10-20 --energy 4 --note "slept badly"
+```
+
+The 1-5 fields and the device fields are accepted in any combination. A manual value wins
+**per field**; an imported row fills the fields you did not provide. Re-logging a date appends
+a new version and the latest value wins — nothing is edited or overwritten. The command prints
+each field with its source (`manual` or `import`).
+
+Bulk entry uses the same store through `state --import`:
+
+```yaml
+readiness:
+  - date: 2026-10-20
+    sleep: 2
+    energy: 3
+```
 
 To change which fields matter, the threshold, or the merge tie-break, edit
 `config/readiness.v1.yaml`. Only implemented values are accepted — anything else raises
-rather than silently doing nothing. Manual and partial readiness entry is planned for v0.2
-(§4.1 of [ROADMAP.md](ROADMAP.md)).
+rather than silently doing nothing.
 
 ### 5.2 Velocity targets — what they mean
 

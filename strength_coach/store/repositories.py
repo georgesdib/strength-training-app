@@ -16,6 +16,7 @@ content-based deduplication, and content is deliberately absent from every key h
 
 from __future__ import annotations
 
+import datetime
 import json
 import sqlite3
 import uuid
@@ -25,7 +26,7 @@ from typing import Any, Iterable, Mapping, Sequence
 import pandas as pd
 
 from strength_coach.ingest.sessions import Session
-from strength_coach.utils import numeric
+from strength_coach.utils import numeric, readiness as readiness_utils
 
 # --- small helpers ---------------------------------------------------------
 
@@ -661,6 +662,37 @@ def append_metric_definition(
             active_from,
         ),
     )
+
+
+def append_readiness_entry(
+    conn: sqlite3.Connection,
+    *,
+    on_date: str,
+    field: str,
+    value: float,
+    source: str = "manual",
+    note: str | None = None,
+) -> str:
+    """Append one field reading; the latest entry for (date, field) wins at read time.
+
+    This is the manual counterpart to the imported `readiness_day` row. Append-only is the
+    point: re-logging a date is a correction, not an edit (DEC-READINESS-03).
+    """
+    if source not in {"manual", "import"}:
+        raise ValueError(f"unknown readiness source {source!r}")
+    readiness_utils.validate(field, value)
+    entry_id = uuid.uuid4().hex
+    recorded_at = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%S.%fZ"
+    )
+    conn.execute(
+        """
+        INSERT INTO readiness_entry (entry_id, on_date, field, value, source, recorded_at, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (entry_id, on_date, field, float(value), source, recorded_at, note),
+    )
+    return entry_id
 
 
 def append_symptom(

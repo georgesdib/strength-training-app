@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **411 tests passing**
+Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **417 tests passing**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **411 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 411 passed (plus 15 private integration tests locally)
+.venv/bin/python -m pytest            # expect: 417 passed (plus 15 private integration tests locally)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -43,7 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **planned** | see §4: readiness on demand, manual logging, format adapters, whole-programme output, **video analysis (§4.8)**, continuity/back signal (delivered early); depends on 3.3 for the readiness path |
+| v0.2 | Input flexibility + programme view | **planned** | see §4: manual logging, format adapters, whole-programme output, **video analysis (§4.8)**; readiness, continuity and the back signal are delivered early; depends on 3.3 for the readiness path |
 | v0.1 | Next version | **in progress** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set remains (human work) |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
@@ -282,7 +282,7 @@ is only available on days the export happened to record. v0.2 loosens all three.
 Nothing here changes the constitution or the append-only rule. Missing data still yields
 `unknown`, never a default.
 
-### 4.1 Readiness on demand — daily, occasional, partial
+### 4.1 Readiness on demand — daily, occasional, partial  (done)
 
 The fatigue modifier is only as good as the readiness it sees. Today those rows come from a
 single exported CSV, so a missing day silently means *no modifier*, which is easy to mistake
@@ -310,9 +310,11 @@ appends a version rather than editing it.
 Data: `readiness_day` is currently one upserted row per date. This needs an append-only
 `readiness_entry` with latest-wins reads, so history is preserved.
 
-The derivation itself is now documented in [`docs/READINESS.md`](READINESS.md), and its
-changeable parts (modifier fields, threshold, merge strategy) are config in
-`config/readiness.v1.yaml` (`DEC-READINESS-04`). What remains in 4.1 is manual entry.
+Delivered: `readiness set` with any subset of fields, bulk entry through `state --import`,
+append-only `readiness_entry`, per-field manual-over-import precedence with a `sources` map,
+and the explicit *readiness unknown* warning. The derivation is in
+[`docs/READINESS.md`](READINESS.md); the changeable parts are config in
+`config/readiness.v1.yaml` (`DEC-READINESS-04`).
 
 ### 4.2 Logging workouts three ways
 

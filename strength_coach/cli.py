@@ -36,6 +36,9 @@ from strength_coach.agents import proposal as proposal_mod
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import back_signal as back_signal_mod
+from strength_coach.utils import readiness as readiness_utils
+
+READINESS_CLI_FIELDS = {field: field for field in readiness_utils.READINESS_FIELDS}
 from strength_coach.critique import persist as persist_critique
 from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.eval import backtest, load_marks, record_marks
@@ -134,6 +137,28 @@ def main(argv: list[str] | None = None) -> int:
     symptom.add_argument("--note", default=None)
     symptom.add_argument("--show", action="store_true", help="list recent entries")
 
+    readiness = sub.add_parser("readiness", help="record a readiness day")
+    readiness.add_argument("action", choices=("set",))
+    readiness.add_argument("--date", required=True, help="YYYY-MM-DD")
+    readiness.add_argument("--sleep", type=int, default=None)
+    readiness.add_argument("--energy", type=int, default=None)
+    readiness.add_argument("--mood", type=int, default=None)
+    readiness.add_argument("--soreness", type=int, default=None)
+    readiness.add_argument("--stress", type=int, default=None)
+    readiness.add_argument("--nutrition", type=int, default=None)
+    readiness.add_argument("--hydration", type=int, default=None)
+    readiness.add_argument("--squat-readiness", dest="squat_readiness", type=int,
+                           default=None)
+    readiness.add_argument("--bench-readiness", dest="bench_readiness", type=int,
+                           default=None)
+    readiness.add_argument("--deadlift-readiness", dest="deadlift_readiness", type=int,
+                           default=None)
+    readiness.add_argument("--hrv", dest="hrv_ms", type=float, default=None)
+    readiness.add_argument("--rhr", dest="rhr_bpm", type=float, default=None)
+    readiness.add_argument("--bodyweight", dest="bodyweight_kg", type=float, default=None)
+    readiness.add_argument("--fat-percent", dest="fat_pct", type=float, default=None)
+    readiness.add_argument("--note", default=None)
+
     block = sub.add_parser("block", help="declare or reset the block start (week 1)")
     block.add_argument("--date", required=True, help="YYYY-MM-DD")
     block.add_argument("--force", action="store_true",
@@ -150,6 +175,7 @@ def main(argv: list[str] | None = None) -> int:
         "test": _cmd_test,
         "symptom": _cmd_symptom,
         "block": _cmd_block,
+        "readiness": _cmd_readiness,
     }
     try:
         return handlers[args.command](args)
@@ -347,6 +373,59 @@ def _cmd_state(args) -> int:
             if code := _import_state(conn, Path(args.import_file), force=args.force):
                 return code
         _print_state(conn)
+        return 0
+    finally:
+        store.close()
+
+
+def _record_readiness(conn, on_date: str, values: dict[str, float],
+                      note: str | None = None) -> int:
+    """Validate the whole reading, then append one entry per provided field.
+
+    Validating first matters: a half-written day would be worse than a rejected one.
+    """
+    try:
+        datetime.date.fromisoformat(on_date)
+    except ValueError as exc:
+        raise ValueError(f"date must be YYYY-MM-DD: {on_date}") from exc
+    if not values:
+        raise ValueError("give at least one readiness field")
+    for field, value in values.items():
+        readiness_utils.validate(field, value)
+    for field in sorted(values):
+        repositories.append_readiness_entry(
+            conn, on_date=on_date, field=field, value=float(values[field]), note=note,
+        )
+    return len(values)
+
+
+def _cmd_readiness(args) -> int:
+    if args.action != "set":
+        print("only 'readiness set' is implemented")
+        return 2
+    values = {
+        field: getattr(args, attr)
+        for field, attr in READINESS_CLI_FIELDS.items()
+        if getattr(args, attr) is not None
+    }
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        try:
+            _record_readiness(conn, args.date, values, note=args.note)
+        except ValueError as exc:
+            print(f"readiness: {exc}")
+            return 2
+        data = queries.readiness_day(conn, args.date)
+        print(f"readiness {args.date}: recorded {len(values)} manual field(s)")
+        if data:
+            for field in readiness_utils.READINESS_FIELDS:
+                if data.get(field) is None:
+                    continue
+                source = (data.get("sources") or {}).get(field, "import")
+                print(f"  {readiness_utils.FIELD_LABELS[field]:<20}"
+                      f"{data[field]:>6g}  ({source})")
+        print("manual values win per field; imported values fill the rest")
         return 0
     finally:
         store.close()
@@ -652,8 +731,22 @@ def _import_state(conn, path: Path, *, force: bool) -> int:
             note=entry.get("note"),
         )
 
+    readiness_count = 0
+    for entry in raw.get("readiness") or []:
+        day = str(entry.get("date") or entry.get("on_date") or "")
+        values = {field: entry[field] for field in readiness_utils.READINESS_FIELDS
+                  if field in entry}
+        try:
+            readiness_count += _record_readiness(
+                conn, day, values, note=entry.get("note")
+            )
+        except ValueError as exc:
+            print(f"readiness {day}: {exc}")
+            return 2
+
     print(f"recorded: profile 1, constraints {len(constraints)}, "
           f"suitability {len(exercises)}, metrics {len(raw.get('metrics') or [])}, "
+          f"readiness {readiness_count}, "
           f"e1RM overrides {len(overrides)}, symptoms {len(raw.get('symptoms') or [])}")
     return 0
 

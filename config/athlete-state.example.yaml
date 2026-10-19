@@ -29,6 +29,7 @@ suitability:
     lateral_raise: {can_do: true, will_do: true, feels_bad: false}
     back_extension: {can_do: true, will_do: true, feels_bad: false}
 
+readiness: []                      # e.g. [{date: 2026-10-20, sleep: 2, energy: 3}]
 metrics: []                        # extra readiness metrics, declared with direction
 symptoms: []                       # pre-session back readings
 e1rm_overrides: []                 # manual/tested maxima; typically added by `test`

@@ -19,11 +19,9 @@ from typing import Any, Mapping
 import yaml
 
 from strength_coach.utils import paths
+from strength_coach.utils import readiness as readiness_utils
 
-KNOWN_FIELDS = (
-    "sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration",
-    "squat_readiness", "bench_readiness", "deadlift_readiness",
-)
+KNOWN_FIELDS = readiness_utils.READINESS_FIELDS
 MERGE_STRATEGIES = ("most_complete",)
 TIE_BREAKS = ("latest",)
 

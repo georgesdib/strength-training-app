@@ -34,9 +34,10 @@ Today readiness arrives only from the exported `readiness.csv`: one row per reco
 several rows can share a date. Every cell is read as text and stored verbatim in `raw_row`
 before anything is interpreted.
 
-Manual entry (daily, occasional, or partial) is planned for v0.2 §4.1. When it lands it will
-feed the same merge, with manual values winning per field and the import filling gaps
-(`DEC-READINESS-03`).
+Manual entry (daily, occasional, or partial) feeds the same merge. A manual value wins **per
+field**; the imported row fills the fields it does not provide (`DEC-READINESS-03`). Manual
+readings are appended to `readiness_entry`, never written into `readiness_day`, so a
+correction preserves the earlier value.
 
 ## 2. Missing values: the sentinel policy
 
@@ -79,6 +80,12 @@ One row per date in `readiness_day`, with the 1–5 fields, the device fields, a
 direction declared first (`metric_definition`), and inventing one would make a guess
 indistinguishable from a measurement. `config/readiness.v1.yaml` has the switch, off.
 
+Manual readings live in `readiness_entry`: one row per field, append-only, with source
+`manual`, a timestamp and an optional note. Re-logging a date appends; the latest entry per
+(date, field) wins. `queries.readiness_day` overlays those entries on the imported row and
+returns a `sources` map and a `manual_merge_note` with both values, so a partial manual day
+keeps the imported fields around it and the override is auditable.
+
 ## 5. What actually moves a load
 
 `MOD-FAT-001` reads **only the configured fields** and compares them to a threshold:
@@ -97,8 +104,8 @@ fatigue factor (0.95), rounded down, and every touched item cites `MOD-FAT-001` 
 `readiness:<date>`.
 
 **Missing is not "fine".** If no readiness exists for the date, the modifier does not apply and
-the prescription says so: *"readiness unknown"*. A partially filled day applies only the fields
-it has.
+the prescription says so: *"readiness unknown for <date>; fatigue modifier not applied"*. A
+partially filled day applies only the fields it has.
 
 ## 6. Changing it
 
@@ -124,3 +131,4 @@ a preference of convenience: record it in `docs/DECISIONS.md` when you do.
   `metric_definition`.
 - No inference of readiness from training data, sleep reports or anything else: absent means
   absent.
+- No automatic export of manual entries back to `readiness.csv`; the database is the record.

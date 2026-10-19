@@ -100,6 +100,24 @@ Duplicate-readiness merge rule is DQ-RD-01; implemented as most-complete-row, ti
 latest (`DEC-READINESS-01`, `ingest/readiness.py`). `composite` stays null until the metric
 directions in Q6 part 2 are declared.
 
+### 5.1 `readiness_entry` (append-only)
+
+| column | notes |
+|---|---|
+| entry_id PK | opaque id |
+| on_date | the day the reading describes |
+| field | one of the readiness fields |
+| value | numeric; 1–5 for score fields, positive for device fields |
+| source | `manual` (currently the only writer) |
+| recorded_at | when it was entered |
+| note | optional |
+
+Manual readings are one row per field, never an update. `queries.readiness_day` overlays the
+latest entry per (date, field) over the imported `readiness_day` row, so a manual value wins
+**per field** and the imported fields around it survive (`DEC-READINESS-03`). The returned
+dict includes `sources` and `manual_merge_note` (imported value, manual value, winner) so the
+override is auditable. `readiness_day` remains the imported, derived row.
+
 The full derivation — sentinels, merge, storage, and what actually moves a load — is
 [`docs/READINESS.md`](READINESS.md). Which fields drive MOD-FAT-001, the threshold and the merge
 tie-break are config (`config/readiness.v1.yaml`, `DEC-READINESS-04`).

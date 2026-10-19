@@ -81,6 +81,10 @@ def build_prescription(
 
     fallback_level = "full"
     readiness = queries.readiness_day(conn, for_date)
+    if readiness is None:
+        warnings.append(
+            f"readiness unknown for {for_date}; fatigue modifier not applied"
+        )
     trigger = readiness_config.trigger(readiness)
     if trigger:
         multiplier = thresholds.fatigue_load_multiplier

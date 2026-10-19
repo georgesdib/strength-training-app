@@ -20,6 +20,7 @@ import json
 import pandas as pd
 
 from strength_coach.domain import rir as rir_mod
+from strength_coach.utils import readiness as readiness_utils
 
 _SET_COLUMNS = {
     "set_id": "set_id",
@@ -227,11 +228,53 @@ def latest_rubric_marks(conn) -> list[dict]:
 
 
 def readiness_day(conn, on_date: str) -> dict | None:
-    """One merged readiness row, or None when the date has no readiness data."""
+    """One merged readiness row, or None when the date has no usable data.
+
+    Imported values come from `readiness_day`; manual values are append-only entries and win
+    **per field** (DEC-READINESS-03). This is why a partial manual reading does not erase the
+    imported fields around it. Sources are returned so the caller can say which value won.
+    """
     row = conn.execute(
         "SELECT * FROM readiness_day WHERE on_date = ?", (str(on_date),)
     ).fetchone()
-    return dict(row) if row is not None else None
+    base = dict(row) if row is not None else None
+
+    entries = conn.execute(
+        """
+        SELECT field, value, source, recorded_at, entry_id
+          FROM readiness_entry
+         WHERE on_date = ?
+         ORDER BY recorded_at, rowid
+        """,
+        (str(on_date),),
+    ).fetchall()
+
+    merged: dict = dict(base) if base is not None else {"on_date": str(on_date)}
+    sources: dict[str, str] = {}
+    manual_note: dict[str, dict] = {}
+    if base is not None:
+        for field in readiness_utils.READINESS_FIELDS:
+            if base.get(field) is not None:
+                sources[field] = "import"
+    for entry in entries:
+        field = str(entry["field"])
+        if str(entry["source"]) == "manual" and base is not None:
+            manual_note[field] = {
+                "imported": base.get(field),
+                "manual": entry["value"],
+                "winner": "manual",
+            }
+        merged[field] = entry["value"]
+        sources[field] = str(entry["source"])
+
+    if not any(merged.get(field) is not None for field in readiness_utils.READINESS_FIELDS):
+        return None
+    merged["sources"] = sources
+    merged["manual_merge_note"] = json.dumps(manual_note, sort_keys=True)
+    merged["manual_fields"] = sorted(
+        field for field, source in sources.items() if source == "manual"
+    )
+    return merged
 
 
 def unreviewed_sessions(conn, *, limit: int = 50) -> list[str]:
