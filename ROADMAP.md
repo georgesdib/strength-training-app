@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **423 tests passing**
+Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-dev` · **423 public tests** (438 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-17 · **v0 complete** · version `0.1.0-dev` · **423 test
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # expect: 423 passed (plus 15 private integration tests locally)
+.venv/bin/python -m pytest            # 438 locally (423 public + 15 private integration)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -43,9 +43,9 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **planned** | see §4: manual logging, format adapters, whole-programme output, **video analysis (§4.8)**, readiness follow-ups (§4.9: composite, HRV/RHR triggers, per-athlete settings); the **local web UI (§4.10)**, readiness entry, continuity and the back signal are delivered early; **full web parity is §4.11**; depends on 3.3 for the readiness path |
+| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry (§4.1), continuity (§4.6), back signal (§4.7), local web UI (§4.10). Remaining: manual logging, adapters, programme view, video, readiness follow-ups (§4.9), full web parity (§4.11) |
 | v0.1 | Next version | **in progress** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set remains (human work) |
-| — | UI | **deferred indefinitely** | out of scope by request |
+| — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000` |
 
 ### What works end to end today
 
