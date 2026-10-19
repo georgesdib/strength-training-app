@@ -549,6 +549,25 @@ defaults:
 Acceptance: two databases on the same checkout can use different thresholds; an athlete with
 no overrides falls back to config; the prescription trace names the winning source.
 
+#### 4.9.5 Two-level readiness score (proposal)
+
+A global 0-1 readiness score plus a per-lift score that can only lower that lift, capped by
+the injury signal. The current sleep/energy trigger remains a floor. This is **planned, not
+built**; the full design, evidence, assumptions and phases are in
+[`docs/READINESS-SCORE.md`](docs/READINESS-SCORE.md).
+
+- Global: subjective sleep/energy/mood/stress/soreness, with HRV/RHR as baseline-relative
+  context; grip is capacity, not daily readiness.
+- Per lift: `min(global, self-rating, injury ceiling)`; an active region caps direct lifts at
+  0.50 and indirect at 0.60, monitoring at 0.80/0.85. A high score can never raise a lift above
+  its injury ceiling.
+- Load effect: ≥0.80 unchanged; 0.60-0.80 −5% +1 RIR; 0.40-0.60 −10% +1 RIR; <0.40 −15% +2
+  RIR. These are assumptions.
+- Strongest single reduction, not a product; combined readiness + continuity reduction is
+  capped (proposal 20%).
+- Phase 1 is shadow mode: compute and display, change no load. Enable only after reviewing the
+  disagreements and collecting outcomes.
+
 ### 4.10 Local web UI  (done)
 
 A browser front end over the same core, so routine interactions do not require the CLI. The

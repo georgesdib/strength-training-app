@@ -127,7 +127,8 @@ a preference of convenience: record it in `docs/DECISIONS.md` when you do.
 
 ## 7. What is deliberately not done
 
-- No composite readiness score yet (`composite` stays null).
+- No composite readiness score in the current build (`composite` stays null). The proposed
+  global + per-lift model is in [`READINESS-SCORE.md`](READINESS-SCORE.md).
 - No normalisation of HRV, RHR, Bevel or grip strength until their directions are declared in
   `metric_definition`.
 - No inference of readiness from training data, sleep reports or anything else: absent means

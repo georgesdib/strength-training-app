@@ -88,7 +88,25 @@ without conditioning on provenance penalises the athlete for following the presc
   Must be calibrated against symptom history.
 - **ASSUMPTION-06** — a 4-week symptom-free streak with loaded sessions is treated as weak
   positive evidence for a suitability review. Relapse is common, so this is a prompt to look,
-  not a clearance (`DEC-BACKSIGNAL-01`).
+  not a clearance (`DEC-BACKSIGNAL-01`). Since `DEC-INJURY-02`, four weeks is the **base** of a
+  scaled window, not the whole rule.
+- **ASSUMPTION-08** — the injury window scales by 14 days and 2 tolerated sessions per prior
+  flare, capped at 84 days and 12 sessions. The predictor (more than two previous episodes) is
+  from da Silva 2019; the step sizes are a design choice (`DEC-INJURY-02`).
+- **ASSUMPTION-09** — a loaded session is verified as tolerated by a symptom reading within
+  7 days and no flare in that window. The direction (pain-guided progression) is supported in
+  tendinopathy; the 7-day window is not measured (`DEC-INJURY-03`).
+- **ASSUMPTION-11** — the readiness composite uses equal weights over present subjective
+  fields as a transparent starting point; the weights are not validated.
+- **ASSUMPTION-12** — per-lift readiness is constructed from global readiness, an optional
+  self-rating and an injury ceiling; no validated per-lift instrument exists.
+- **ASSUMPTION-13** — the injury ceilings (active 0.50/0.60, monitoring 0.80/0.85) are design
+  choices, not measurements.
+- **ASSUMPTION-14** — readiness cut-points, load factors and the combined-reduction cap are
+  design choices, not findings.
+- **ASSUMPTION-10** — the injury-to-exercise link is an **exposure** map (direct weight 2,
+  indirect 1), not a causal claim. It says which lifts load a region, not which lift caused an
+  injury or which one prevents recurrence.
 - **ASSUMPTION-07** — the continuity thresholds (14/28/56 days and their load/RIR changes) are
   adapted from detraining studies but are not measured cut-points (`DEC-CONTINUITY-01`).
 - **ASSUMPTION-03** — RIR-adjusted e1RM is an approximation.
