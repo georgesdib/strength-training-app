@@ -38,13 +38,15 @@ the engine; the open questions are at the end.
 - **Erector ramp**: pauses during the gap; after the long break it steps back one stage. Rest
   settles symptoms but does not build load tolerance.
 
-### Open questions
+### Open questions — parked for calibration
 
-1. The exact arithmetic for re-entry: is −5%/−10% right, and should it apply to sets as well as
-   load?
+The arithmetic is frozen (`DEC-CONTINUITY-02`) and these are inputs to the calibration in
+ROADMAP §4.12, not things to change by opinion:
+
+1. Is −5%/−10% right, and should the reduction apply to sets as well as load?
 2. Does bodyweight work need a different rule from barbell work beyond losing a set?
-3. Should a test week count for the **erector ramp** as well as the DUP cycle? (It currently
-   counts for DUP; only loaded sessions move the ramp.)
+3. Should a measured test count for the **erector ramp**? It already counts in the trained-week
+   index, so the ramp advances today; a test is high load but low volume, so this is unresolved.
 
 ---
 
@@ -84,5 +86,16 @@ the engine; the open questions are at the end.
 ---
 
 Full bibliography: [`docs/REFERENCES.md`](REFERENCES.md) §6. Decisions: `DEC-CONTINUITY-01`,
-`DEC-BACKSIGNAL-01`. Implementations: `prescribe/engine.py` (`_apply_continuity`),
+`DEC-CONTINUITY-02`, `DEC-BACKSIGNAL-01`. Implementations: `prescribe/engine.py` (`_apply_continuity`),
 `features/back_signal.py`.
+
+
+---
+
+## 3. Planned calibration from real returns (not built)
+
+ROADMAP §4.12 replaces the fixed arithmetic only when the athlete's own returns support it.
+Capture each return's gap, first-session load/reps/RIR, completion, symptoms, readiness and
+**post-session fatigue** (1-5, separate from the rubric). Estimate strength retention and
+capacity retention separately, starting descriptively, and show any suggested adjustment next
+to the current rule. Nothing changes automatically.

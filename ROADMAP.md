@@ -335,6 +335,8 @@ time that item can move.
 Manual entry must pass the same gates as cleaning: unknown exercise names are quarantined or
 reported (never dropped), `RIR 6` is a warm-up, and seconds-vs-reps follows the taxonomy.
 
+Capture post-session fatigue (1-5) with the session; it feeds §4.12 and is not a rubric item.
+
 Acceptance: a manually logged session is indistinguishable downstream from an imported one
 (same tables, same critique); concluding a workout also catches up unreviewed sessions via
 `review --pending`; duration is stored when given and stays `unavailable` when not
@@ -597,6 +599,36 @@ Acceptance: every interactive CLI action has a browser path or a documented exce
 same inputs produce the same database rows and warnings through either surface; a failed
 action leaves no partial write; API tests cover each new write; no load, score or threshold is
 computed in the browser.
+
+### 4.12 Continuity calibration from real returns  (planned)
+
+Replace the fixed gap arithmetic with per-athlete retention curves, learned from actual returns.
+No automatic change: the fixed defaults remain until the data supports a cited, configurable
+adjustment.
+
+**Capture** for every return:
+
+- gap length and the last pre-gap session;
+- first session back: load, reps, RIR, whether the planned work was completed;
+- symptoms and readiness around the return;
+- **post-session fatigue** on a 1-5 scale (1 fresh, 5 spent) as a separate session observation,
+  not a rubric item — it is context, not execution quality.
+
+**Estimate** two curves separately:
+
+- **strength** — load at a fixed RIR versus days away;
+- **capacity** — sets/reps tolerated without a flare or excessive fatigue versus days away.
+
+Start descriptive (per gap band), then fit a simple retention curve with shrinkage toward the
+current defaults. Require a minimum number of returns before showing a suggested multiplier.
+
+**Output**: a suggested re-entry factor and volume adjustment, the evidence behind it, and a
+comparison with the current 14/28/56 rule. The athlete decides whether to adopt it; the
+prescription keeps citing the applied rule.
+
+Acceptance: a return session can be recorded with post-session fatigue; the report shows observed
+returns and the current rule side by side; no prescription changes until the athlete adopts a
+suggested setting; the minimum-data rule is explicit.
 
 ## 5. Known gaps and risks
 

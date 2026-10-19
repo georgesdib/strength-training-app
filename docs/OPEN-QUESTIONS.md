@@ -151,12 +151,23 @@ Parked deliberately; revisit after a trial period.
 - **What evidence would rank sumo against the trap bar?** A direct comparison at matched
   relative loads, or consistent athlete-specific symptom data.
 
-## Q12. What is the right re-entry arithmetic?
+## Q12. How should re-entry be calibrated from real returns?
 
-The thresholds are implemented (14/28/56 days, +1 RIR, −5%/−10%) but the exact arithmetic is
-not settled: should the reduction apply to sets as well as load? Does bodyweight work need a
-different rule? Should a test week count for the erector ramp as well as DUP? See
-`docs/CONTINUITY.md` §1.
+**Parked; the current arithmetic stays.** 14/28/56 days, +1 RIR and −5%/−10% remain the
+defaults. They are evidence-informed assumptions, not measured cut-points, and changing them
+without return data would just swap one guess for another.
+
+The plan is to calibrate them on the athlete's own returns (ROADMAP §4.12):
+
+- record each gap and the first sessions back, with load, reps, RIR, completion, symptoms,
+  readiness and **post-session fatigue**;
+- estimate how strength (load at a fixed RIR) and capacity (work tolerated without a flare)
+  taper with time away;
+- replace a fixed band only when there are enough returns to support it, and only as a
+  configurable, cited change.
+
+Open until then: the minimum number of returns, the model (descriptive first, then a simple
+retention curve), and the fatigue scale. No automatic change to a prescription.
 
 ## Q13. Is four weeks the right back-signal window?
 
