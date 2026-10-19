@@ -159,6 +159,31 @@ Final factor is the **strongest single reduction**, not a product of every rule;
 readiness + continuity reduction is capped (proposal: 20%) unless a flare or constraint says
 otherwise. This prevents three rules silently compounding into a session that is too easy.
 
+### 2.3a Combined reduction cap
+
+Several rules can fire on the same day: the readiness score, the old sleep/energy floor, a
+return-from-gap adjustment, a back flare and a per-lift injury ceiling. Without a cap, three
+small reductions can silently become a deload that nobody intended.
+
+Proposal:
+
+- **Readiness vs the old sleep/energy floor:** take the **stronger single reduction**, not the
+  product. They are two views of the same signal.
+- **Readiness + continuity:** these are independent risks, so combine them, but cap the total
+  load reduction at **20%**. The cap applies to the global load factor only.
+- **Not capped:** hard constraints, back-flare RIR rules and per-lift injury ceilings. Those are
+  safety layers; they are allowed to be more restrictive and must never be diluted by a cap.
+- **Trace:** if the cap bites, say so and show the uncapped factors.
+
+Why 20%, and what the evidence says: **there is no direct study of a numerical cap for stacked
+readiness + return-to-training reductions.** Autoregulation research supports adjusting load to
+readiness but shows only small advantages over standard prescription, and the reviews do not
+define a safe stacking ceiling ([Hickmott 2022](https://doi.org/10.1186/s40798-021-00404-9);
+[Hickmott 2025](https://doi.org/10.1007/s00421-025-05709-1)). The cap is therefore a guardrail,
+not a finding. Twenty percent is deliberately modest: it honours two bad signals without turning
+the session into a planned deload. Fifteen or twenty-five percent would be equally defensible;
+the number is `ASSUMPTION-21`.
+
 ### 2.4 Interaction order
 
 1. Hard constraints and suitability vetoes (unchanged; readiness cannot override).
@@ -277,6 +302,26 @@ Plan:
    (recent acute/chronic load, category-specific sets/tonnage, days since the category was
    trained). We cannot recover the black-box formula; we can only fit an approximation.
 
+### Main-lift load features
+
+Calibration must include the main-lift load history, because the old labels were derived from
+training load as well as readiness. Features are built **only from data available before the
+session** (no leakage from the session being predicted):
+
+- readiness inputs for the day (sleep, energy, mood, stress, soreness; HRV/RHR relative to
+  baseline);
+- main lift: last load and e1RM estimate at a comparable RIR, and the change over the last two
+  sessions;
+- main-lift acute load (7 days) and chronic load (28 days): sets, tonnage and best set, relative
+  to the athlete's 28-day baseline;
+- days since that main lift was trained;
+- last session's RIR and mean velocity for that lift, when present;
+- missingness indicators, so "no data" is not silently zero.
+
+Keep the feature set small and pre-specified; 306 labelled days will overfit quickly. Use a
+date split and ridge/linear regression, not a black box. Report the global-only baseline next to
+the load-feature model, and per-label MAE/rank correlation.
+
 ### Calibration shape
 
 One shared global component plus three category adjustments, fitted against the three labels:
@@ -304,8 +349,8 @@ Computed readiness is a model output, so the athlete must be able to correct it.
 append-only, dated and reasoned.
 
 - **Scopes:** `global` and `category:<name>` (for example `category:hinge`).
-- **Value:** 0-1 internally (displayed as 1-5 if preferred), with the same direction as the
-  score (higher = more ready).
+- **Value:** 0.00-1.00, the same scale as the computed score (higher = more ready). No separate
+  1-5 override scale.
 - **Precedence:** a category override wins over the global override, which wins over the
   computed score.
 - **Effect:** the winning score goes through the same load-factor table, so an override **does
@@ -364,14 +409,15 @@ Still open:
 1. When to move from equal to explicit weights, and which fields get what weight.
 2. Is a 1–5 soreness scale direction "higher = less sore" intuitive enough, or should the UI
    invert the label?
-3. Should the combined reduction cap be 20%, or lower for a return after a gap?
-4. The exact category list and exercise-to-category mapping; the table above is a starting
+3. The exact category list and exercise-to-category mapping; the table above is a starting
    proposal, not final.
-5. Which training-load features enter the calibration, and how to avoid fitting the old app's
-   quirks rather than readiness.
-6. The override UI: 0-1 or 1-5 entry, and whether a reason is mandatory.
-7. Whether a category with no linked injury should say `unknown` or `not configured`; both
+4. The exact regularisation/feature weighting in calibration; the feature set is specified, the
+   fit is not.
+5. Whether a category with no linked injury should say `unknown` or `not configured`; both
    avoid "fine", but they mean different things.
+
+Decided: overrides use 0.00–1.00 like the score and require a reason; the combined readiness +
+continuity cap is 20%, applying to loads only.
 
 ## 6. Assumptions
 
@@ -393,6 +439,10 @@ Still open:
 - `ASSUMPTION-19` — readiness overrides are bounded by constraints and injury ceilings; "override
   wins" applies to the computed score only.
 - `ASSUMPTION-20` — the calibration features and date split are design choices until tested.
+- `ASSUMPTION-21` — a 20% cap on combined readiness + continuity reduction is a guardrail, not
+  an evidence-based threshold.
+- `ASSUMPTION-22` — main-lift load features are used only in calibration and only from data
+  available before the session.
 
 Evidence references: [`docs/REFERENCES.md`](REFERENCES.md) §8. Injury evidence:
 [`docs/INJURY-SIGNAL.md`](INJURY-SIGNAL.md).

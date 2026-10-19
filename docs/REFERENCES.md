@@ -114,6 +114,9 @@ conclusion is weaker than it looks.
 | 60 | Impellizzeri FM, Tenan MS, Kempton T, Novak A, Coutts AJ. *Acute:Chronic Workload Ratio: Conceptual Issues and Fundamental Pitfalls.* Int J Sports Physiol Perform, 2020;15(6):907-913. | 10.1123/ijspp.2019-0864 | ACWR has not been shown to be causal for injury; manipulating it is an overinterpretation. Why load-spike language stays descriptive. |
 | 61 | Herr NL, Bunn JA, Williams ML. *Workload and Wellness as Risk Factors for Anterior Cruciate Ligament Injury in a Female Collegiate Lacrosse Athlete: A Level 3 Clinical CASE Report.* J Athl Train, 2026. | 10.4085/1062-6050-0619.25 | A single case report linking a load-reload pattern and poor wellness to an ACL injury; hypothesis-generating only. |
 
+| 62 | Hickmott LM, Butcher SJ, Chilibeck PD. *Conceptualizing a load and volume autoregulation integrated velocity model to minimize neuromuscular fatigue and maximize neuromuscular adaptations in resistance training.* Eur J Appl Physiol, 2025. | 10.1007/s00421-025-05709-1 | Autoregulation adjusts load/volume from readiness and performance; no numeric stacking cap is defined. Supports a guardrail, not a precise cap. |
+| 63 | Suchomel TJ, Nimphius S, Bellon CR, Hornsby WG, Stone MH. *Training for Muscular Strength: Methods for Monitoring and Adjusting Training Intensity.* Sports Med, 2021;51(10):2121-2143. | 10.1007/s40279-021-01488-9 | Reviews RIR/RPE, VBT and autoregulatory methods for adjusting intensity; supports using RIR/load history as calibration features, but gives no universal cap. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow

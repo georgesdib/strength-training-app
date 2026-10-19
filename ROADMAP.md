@@ -576,6 +576,10 @@ built**; the full design, evidence, assumptions and phases are in
   weights later; minimum three core fields (and sleep or energy for a load effect); grip stays
   a capacity trend only. Per-lift mapping: squat → squat/squat_unilateral, bench →
   horizontal_push/horizontal_push_bw, deadlift → hinge.
+- Overrides use the **0.00-1.00 score scale** (same as computed), win over computed readiness
+  and change the load, but never bypass constraints/injury ceilings. Combined readiness +
+  continuity reduction is capped at **20%** (guardrail, no direct evidence). Main-lift load
+  features (recent load/e1RM, acute/chronic sets/tonnage, days since) enter calibration only.
 - The three old per-lift fields are **black-box labels**: keep 306 historical days read-only for
   calibration, remove them from new readiness input, and use global/category overrides for
   manual correction. Overrides win over computed readiness and change the load, but never bypass

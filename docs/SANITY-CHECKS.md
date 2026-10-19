@@ -115,6 +115,10 @@ without conditioning on provenance penalises the athlete for following the presc
 - **ASSUMPTION-19** — overrides are bounded by constraints and injury ceilings; "override wins"
   applies to the computed score only.
 - **ASSUMPTION-20** — calibration features and the date split are design choices until tested.
+- **ASSUMPTION-21** — a 20% cap on combined readiness + continuity reduction is a guardrail,
+  not an evidence-based threshold.
+- **ASSUMPTION-22** — main-lift load features are used only in calibration and only from data
+  available before the session.
 - **ASSUMPTION-10** — the injury-to-exercise link is an **exposure** map (direct weight 2,
   indirect 1), not a causal claim. It says which lifts load a region, not which lift caused an
   injury or which one prevents recurrence.
