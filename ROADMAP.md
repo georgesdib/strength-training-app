@@ -567,6 +567,13 @@ built**; the full design, evidence, assumptions and phases are in
   capped (proposal 20%).
 - Phase 1 is shadow mode: compute and display, change no load. Enable only after reviewing the
   disagreements and collecting outcomes.
+- Decided: cut-points and injury caps are accepted; equal weights first, explicit per-athlete
+  weights later; minimum three core fields (and sleep or energy for a load effect); grip stays
+  a capacity trend only. Per-lift mapping: squat → squat/squat_unilateral, bench →
+  horizontal_push/horizontal_push_bw, deadlift → hinge.
+- A separate **injury attention indicator** (not a probability) is proposed in the same document:
+  previous flares, current symptom status and tolerated loading, with no load effect and no
+  feedback into the readiness score.
 
 ### 4.10 Local web UI  (done)
 

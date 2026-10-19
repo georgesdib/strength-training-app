@@ -29,7 +29,9 @@ Govus 2018 `10.1123/ijspp.2016-0714`; Knowles 2018 `10.1016/j.jsams.2018.01.012`
 Manresa-Rocamora 2021 `10.3390/ijerph181910299`; Schaffarczyk 2026
 `10.3389/fspor.2026.1858271`; Munteanu 2026 `10.1007/s40279-026-02459-8`; Bell 2025
 `10.3390/jfmk10020227`; Silder 2024 `10.1093/milmed/usae227`; Long 2026
-`10.1371/journal.pone.0358036`. Grip and mortality context: LaMonte 2026
+`10.1371/journal.pone.0358036`; Toohey 2017 `10.1136/bjsports-2017-097500`; Lou 2026
+`10.1038/s41598-026-59571-y`; Yuan 2026 `10.52082/jssm.2026.172`; Impellizzeri 2020
+`10.1123/ijspp.2019-0864`; Herr 2026 `10.4085/1062-6050-0619.25`. Grip and mortality context: LaMonte 2026
 `10.1001/jamanetworkopen.2025.59367`. Injury evidence: refs 40-46 in REFERENCES.
 
 ### What is absent
@@ -76,6 +78,34 @@ and RHR when a baseline exists; no score with fewer than **two** subjective fiel
 Every display shows the contributors and their weights, a confidence label based on how many
 fields were present, and the baseline dates used for HRV/RHR.
 
+### 2.1a Equal weights vs explicit weights
+
+**Equal weights (recommended first).** Every present subjective field counts once; HRV/RHR
+count half when a baseline exists. The score is the plain mean of the normalised values.
+
+- why: no field's weight is validated, so equal weights are the least arbitrary choice;
+- it is transparent and cannot overfit a short history;
+- it is robust when a field is missing or noisy;
+- weakness: it assumes a bad night's sleep and a slightly low mood matter equally, and it can
+  dilute one severe field.
+
+Example with sleep 2 (0.25), energy 4 (0.75), mood 4 (0.75), stress 4 (0.75), soreness 4
+(0.75): equal score = **0.65**. With explicit weights sleep ×2, energy ×1.5 and the rest ×1,
+the score falls to **0.58**. Neither number is evidence; the first is the default.
+
+**Explicit weights (later, per athlete).** Give each field a weight or a floor, e.g. sleep 2,
+energy 1.5, HRV 0.5, because the evidence is strongest for sleep and weakest for HRV. This can
+be more faithful to the athlete, but:
+
+- the weights are not validated;
+- with a handful of sessions they fit noise, not readiness;
+- they make the score harder to explain and easier to game.
+
+**Recommendation:** equal weights in shadow mode; explicit weights only as per-athlete config
+after enough scored sessions, with the contributors still shown. Keep the **individual safety
+floor** regardless of weights: sleep or energy at or below 2 still applies the old 5% cut even
+if the composite is high. That prevents a single catastrophic field being averaged away.
+
 ### 2.2 Per-lift readiness
 
 ```
@@ -84,9 +114,18 @@ lift_readiness = min(global,
                      injury_ceiling_if_linked)
 ```
 
-- `self_readiness` maps the existing per-lift 1-5 fields to their patterns:
-  squat readiness → squat patterns; bench readiness → horizontal-push/bench; deadlift
-  readiness → hinge patterns. Lifts without a mapped field inherit the global score.
+- `self_readiness` maps the existing per-lift 1-5 fields to patterns (config, not code):
+
+| field | patterns | reason |
+|---|---|---|
+| `squat_readiness` | `squat`, `squat_unilateral` | bilateral and split/SSB squats |
+| `bench_readiness` | `horizontal_push`, `horizontal_push_bw` | bench and its bodyweight variants; not fly/isolation |
+| `deadlift_readiness` | `hinge` | trap bar, sumo, conventional and RDL; not unilateral hinge or swings |
+
+  Accessories resolve through their `pattern:<family>` slug, so rows and curls work too.
+  A lift with no mapped field inherits the global score. If a lift matched two fields, the
+  config order decides and the chosen field is displayed; the default has no overlaps.
+  A per-lift field only applies on its own date; stale or missing means "inherit global".
 - `injury_ceiling` comes from the injury signal for the region linked to that exercise:
   direct loading uses the table below; indirect loading adds one step less severe.
 
@@ -100,6 +139,18 @@ lift_readiness = min(global,
 These numbers are **assumptions** (`ASSUMPTION-13`). The important structural rule is that a
 high readiness score can never lift an item above its injury ceiling, and an injury signal can
 never *increase* readiness.
+
+### 2.2a Minimum data before a score is shown
+
+Decision: require **at least three of the five core subjective fields** for a numeric global
+score. With one or two, show the individual fields and `insufficient`, not a composite. For a
+readiness-driven load change, require at least one of **sleep or energy** to be present;
+otherwise the score can be displayed but does not move a load. The existing sleep/energy floor
+still applies independently.
+
+For a lift with no global score: use `self_readiness` for that lift if present, capped by the
+injury ceiling; otherwise no readiness factor. The injury ceiling still applies either way.
+This is `ASSUMPTION-15`; it prevents a two-field day from masquerading as a full score.
 
 ### 2.3 From score to load
 
@@ -136,6 +187,39 @@ this proposal. If later evidence supports it, it can enter the global score as a
 term; that would be a separate decision.
 
 ---
+
+## 2.6 Injury risk indicator (proposal, separate from readiness)
+
+This is **not** a probability of injury and must not be called one. The evidence supports a
+transparent **attention indicator**, not individual prediction.
+
+### Evidence
+
+- Previous injury is a risk factor for subsequent/recurrent injury; ACL history was associated
+  with later hamstring injury (RR 2.25, 95% CI 1.34-3.76) ([Toohey 2017](https://doi.org/10.1136/bjsports-2017-097500)); prior low-back episodes predict recurrence ([da Silva 2019](https://doi.org/10.1016/j.jphys.2019.04.010)).
+- Machine-learning models report pooled sensitivity 0.79 / specificity 0.71 across 10 small
+  models, with substantial methodological heterogeneity and risk of bias
+  ([Lou 2026](https://doi.org/10.1038/s41598-026-59571-y)). A 15-study review found AUCs up to
+  0.91 but called for large prospective validation
+  ([Yuan 2026](https://doi.org/10.52082/jssm.2026.172)).
+- The acute:chronic workload ratio has **not** been shown to be causal for injury; treating it
+  as one is an overinterpretation ([Impellizzeri 2020](https://doi.org/10.1123/ijspp.2019-0864)).
+- Wellness/readiness as an injury predictor is case-level and observational, not validated
+  ([Herr 2026](https://doi.org/10.4085/1062-6050-0619.25)).
+
+### Proposed indicator
+
+For each region, produce an attention tier with drivers, not a percentage:
+
+| tier | drivers (examples) |
+|---|---|
+| high attention | active flare, or ≥3 prior flares with recent unverified/un tolerated loading |
+| medium attention | monitoring, 1-2 prior flares, or a sudden load increase without follow-up readings |
+| low attention | review status, no recent flare, tolerated loading |
+
+It is **display and education only** in the first phase. It does not change a load, substitute a
+lift, or clear a constraint. It must not feed back into the readiness score as a second penalty.
+A future probability model is out of scope until prospective, calibrated validation exists.
 
 ## 3. Why this shape
 
@@ -181,7 +265,11 @@ term; that would be a separate decision.
   ceiling; no validated per-lift instrument exists.
 - `ASSUMPTION-13` — the injury ceilings are design choices, not measurements.
 - `ASSUMPTION-14` — readiness cut-points/factors and the combined-reduction cap are design
-  choices.
+  choices; the cut-points and injury caps are approved for the plan.
+- `ASSUMPTION-15` — three core fields are the minimum for a numeric score; this is a design
+  choice, not a finding.
+- `ASSUMPTION-16` — the injury attention tiers are descriptive, not probabilistic; they do not
+  predict a new injury.
 
-Evidence references: [`docs/REFERENCES.md`](REFERENCES.md) §7. Injury evidence:
+Evidence references: [`docs/REFERENCES.md`](REFERENCES.md) §8. Injury evidence:
 [`docs/INJURY-SIGNAL.md`](INJURY-SIGNAL.md).

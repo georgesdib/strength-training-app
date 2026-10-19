@@ -103,7 +103,11 @@ without conditioning on provenance penalises the athlete for following the presc
 - **ASSUMPTION-13** — the injury ceilings (active 0.50/0.60, monitoring 0.80/0.85) are design
   choices, not measurements.
 - **ASSUMPTION-14** — readiness cut-points, load factors and the combined-reduction cap are
-  design choices, not findings.
+  design choices, not findings; the cut-points and injury caps are approved for the plan.
+- **ASSUMPTION-15** — three core subjective fields are the minimum for a numeric score; a
+  design choice, not a finding.
+- **ASSUMPTION-16** — the injury attention tiers are descriptive, not probabilistic, and do not
+  predict a new injury.
 - **ASSUMPTION-10** — the injury-to-exercise link is an **exposure** map (direct weight 2,
   indirect 1), not a causal claim. It says which lifts load a region, not which lift caused an
   injury or which one prevents recurrence.
