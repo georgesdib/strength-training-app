@@ -91,6 +91,32 @@
             <span class="muted">Any subset is valid. Manual values win per field.</span>
           </div>
         </form>
+        <div id="readiness-score"></div>
+        <div class="panel" style="margin-top:14px">
+          <div class="panel-head"><h2>Override the score</h2><span class="muted">0.00–1.00, same as the score</span></div>
+          <form id="override-form" class="form-row">
+            <label>Scope
+              <select id="override-scope">
+                <option value="global">global</option>
+                <option value="category:hinge">category: hinge</option>
+                <option value="category:squat">category: squat</option>
+                <option value="category:horizontal_push">category: horizontal push</option>
+                <option value="category:vertical_push">category: vertical push</option>
+                <option value="category:horizontal_pull">category: horizontal pull</option>
+                <option value="category:vertical_pull">category: vertical pull</option>
+                <option value="category:elbow_flexion">category: elbow flexion</option>
+                <option value="category:knee_extension">category: knee extension</option>
+                <option value="category:knee_flexion">category: knee flexion</option>
+                <option value="category:spinal_extension">category: spinal extension</option>
+                <option value="category:core_carry">category: core / carry</option>
+              </select>
+            </label>
+            <label>Value <input type="number" id="override-value" min="0" max="1" step="0.01" required></label>
+            <label class="grow">Reason <input type="text" id="override-reason" required></label>
+            <button class="primary" type="submit">Override</button>
+          </form>
+          <p class="muted">The override wins over the computed score and changes the load, but never bypasses an injury ceiling or constraint.</p>
+        </div>
         <div id="readiness-result"></div>
       </div>
     </section>

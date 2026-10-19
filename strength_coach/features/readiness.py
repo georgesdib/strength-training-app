@@ -122,6 +122,8 @@ def record_manual(conn, on_date: str, values: Mapping[str, float],
     if not values:
         raise ValueError("give at least one readiness field")
     for field, value in values.items():
+        if field in readiness_utils.LEGACY_FIELDS:
+            raise ValueError(f"{field} is a legacy calibration label, not a readiness input")
         readiness_utils.validate(field, value)
     for field in sorted(values):
         repositories.append_readiness_entry(

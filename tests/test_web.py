@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import threading
+from datetime import date
 from pathlib import Path
 import urllib.error
 import urllib.request
@@ -152,4 +153,33 @@ def test_upload_imports_both_csvs(server):
 def test_upload_requires_both_files(server):
     with pytest.raises(urllib.error.HTTPError) as excinfo:
         post(server, "/api/import", {"training": {"name": "t.csv", "text": "x"}})
+    assert excinfo.value.code == 400
+
+def test_readiness_score_and_override(server):
+    data = post(server, "/api/readiness", {
+        "date": "2024-01-01",
+        "values": {"sleep": 4, "energy": 4, "mood": 4, "soreness": 4, "stress": 4},
+    })
+    assert data["score"]["status"] == "ready"
+    assert data["score"]["score"] == 0.8
+
+    overridden = post(server, "/api/readiness/override", {
+        "date": "2024-01-01", "scope": "global", "value": 0.5,
+        "reason": "felt worse than the form",
+    })
+    assert overridden["score"]["score"] == 0.5
+
+
+def test_prescribe_requires_readiness_for_today(server):
+    today = date.today().isoformat()
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        post(server, "/api/prescribe", {"date": today, "day": "A"})
+    assert excinfo.value.code == 409
+
+
+def test_legacy_readiness_field_is_not_an_input(server):
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        post(server, "/api/readiness", {
+            "date": "2024-01-01", "values": {"squat_readiness": 3},
+        })
     assert excinfo.value.code == 400

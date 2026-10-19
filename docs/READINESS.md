@@ -35,7 +35,9 @@ several rows can share a date. Every cell is read as text and stored verbatim in
 before anything is interpreted.
 
 Manual entry (daily, occasional, or partial) feeds the same merge. A manual value wins **per
-field**; the imported row fills the fields it does not provide (`DEC-READINESS-03`). Manual
+field**; the imported row fills the fields it does not provide (`DEC-READINESS-03`). The old
+`squat_readiness`/`bench_readiness`/`deadlift_readiness` columns are retained only as
+calibration labels; they are not accepted as manual input (`DEC-READINESS-06`). Manual
 readings are appended to `readiness_entry`, never written into `readiness_day`, so a
 correction preserves the earlier value.
 
@@ -89,7 +91,10 @@ keeps the imported fields around it and the override is auditable.
 
 ## 5. What actually moves a load
 
-`MOD-FAT-001` reads **only the configured fields** and compares them to a threshold:
+The implemented score reads the five core subjective fields (sleep, energy, mood, stress,
+soreness) and needs at least three of them plus sleep or energy. It produces a global score and
+per-category scores; overrides are 0.00–1.00. The old `MOD-FAT-001` configured-field rule
+remains as a **floor**:
 
 ```yaml
 modifier:
@@ -104,9 +109,9 @@ When a field crosses the threshold the prescribed loads are multiplied by the co
 fatigue factor (0.95), rounded down, and every touched item cites `MOD-FAT-001` and
 `readiness:<date>`.
 
-**Missing is not "fine".** If no readiness exists for the date, the modifier does not apply and
-the prescription says so: *"readiness unknown for <date>; fatigue modifier not applied"*. A
-partially filled day applies only the fields it has.
+**Missing is not "fine".** A current/future workout is refused until readiness is "ready";
+missing or insufficient data is reported as such. Historic dates remain reproducible. The old
+sleep/energy floor still applies when a score cannot be formed.
 
 ## 6. Changing it
 
@@ -127,8 +132,8 @@ a preference of convenience: record it in `docs/DECISIONS.md` when you do.
 
 ## 7. What is deliberately not done
 
-- No composite readiness score in the current build (`composite` stays null). The proposed
-  global + per-lift model is in [`READINESS-SCORE.md`](READINESS-SCORE.md).
+- The global/category score is implemented in [`READINESS-SCORE.md`](READINESS-SCORE.md);
+  `readiness_day.composite` itself stays null. The old sleep/energy trigger remains a floor.
 - No normalisation of HRV, RHR, Bevel or grip strength until their directions are declared in
   `metric_definition`.
 - No inference of readiness from training data, sleep reports or anything else: absent means

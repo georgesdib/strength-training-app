@@ -293,6 +293,22 @@ def readiness_day(conn, on_date: str) -> dict | None:
     return merged
 
 
+def readiness_overrides(conn, on_date: str) -> dict[str, dict]:
+    """Latest readiness override per scope for a date; scopes are global/category:*."""
+    rows = conn.execute(
+        """
+        SELECT * FROM readiness_override
+         WHERE effective_on = ?
+         ORDER BY created_at, rowid
+        """,
+        (str(on_date),),
+    ).fetchall()
+    latest: dict[str, dict] = {}
+    for row in rows:
+        latest[str(row["scope"])] = dict(row)
+    return latest
+
+
 def unreviewed_sessions(conn, *, limit: int = 50) -> list[str]:
     """Sessions with no marks *after the latest reviewed session*, oldest first.
 

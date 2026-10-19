@@ -22,8 +22,9 @@ strength-coach web --port 8001
   rule ids.
 - **Review** — unreviewed/recent session sheet; engine scores shown for context; human marks,
   confidence and note; calibration report after saving.
-- **Readiness** — any subset of 1-5 and device fields; manual values win per field; merged
-  values show their source.
+- **Readiness** — any subset of 1-5 and device fields; manual values win per field; the
+  computed global/category score is shown; overrides take 0.00–1.00 with a reason. A current
+  workout is refused until readiness is ready.
 - **Athlete** — profile, constraints, suitability and the per-region injury signal (read-only).
 - **Docs** — local Markdown rendered without external assets.
 
@@ -37,7 +38,8 @@ strength-coach web --port 8001
 | `GET /api/review/<session>` | session sheet |
 | `POST /api/review/<session>` | `{scores, confidence, note}` -> marks |
 | `GET /api/readiness/<date>` | merged readiness |
-| `POST /api/readiness` | `{date, values, note}` -> merged readiness |
+| `POST /api/readiness` | `{date, values, note}` -> merged readiness + score |
+| `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |
 | `GET /api/state` | profile, constraints, suitability, per-region injury signal |
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |

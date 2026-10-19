@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 439 public tests
+.venv/bin/python -m pytest          # 451 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -464,10 +464,12 @@ Readiness can only *reduce* a prescribed load, so its derivation is written down
   physical zero is impossible (bodyweight, HRV, RHR, fat %, the three readiness scores);
 - duplicate rows on one date are merged: **most complete wins, ties go to the latest**, and
   the merge note records which candidate won and why;
-- `MOD-FAT-001` reads only the fields listed in `config/readiness.v1.yaml` (sleep and energy
-  by default) and cuts loads by 5% when one of them is at or below 2;
-- missing readiness is **not** "fine": the modifier does not apply, and the prescription says
-  *"readiness unknown for <date>; fatigue modifier not applied"*.
+- a global 0.00–1.00 score is computed from sleep, energy, mood, stress and soreness; it needs
+  at least three of those and either sleep or energy;
+- the old sleep/energy rule remains a floor (at or below 2 still cuts loads by 5%);
+- missing or insufficient readiness blocks a current/future workout rather than silently
+  omitting the modifier;
+- the three old per-lift readiness values are calibration labels, not inputs.
 
 **Manual entry (any subset):**
 
@@ -477,7 +479,7 @@ strength-coach readiness set --date 2026-10-20 --energy 4 --note "slept badly"
 ```
 
 The 1-5 fields and the device fields (HRV, resting HR, bodyweight, body fat, grip strength in kg)
-are accepted in any combination. A manual value wins
+are accepted in any combination. The old squat/bench/deadlift readiness fields are not. A manual value wins
 **per field**; an imported row fills the fields you did not provide. Re-logging a date appends
 a new version and the latest value wins — nothing is edited or overwritten. The command prints
 each field with its source (`manual` or `import`).
@@ -490,6 +492,17 @@ readiness:
     sleep: 2
     energy: 3
 ```
+
+Override the computed score at global or category scope (0.00–1.00, reason required):
+
+```bash
+strength-coach readiness override --date 2026-10-20 --scope global \
+  --value 0.55 --reason "felt worse than the form"
+strength-coach readiness calibrate     # report only; never auto-applies weights
+```
+
+A **current or future workout requires a ready assessment**; otherwise `run`/the web page
+refuses and tells you what is missing. Historic prescriptions remain reproducible.
 
 To change which fields matter, the threshold, or the merge tie-break, edit
 `config/readiness.v1.yaml`. Only implemented values are accepted — anything else raises

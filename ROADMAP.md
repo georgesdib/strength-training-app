@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-dev` · **439 public tests** (454 with the 15 private integration tests)
+Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-dev` · **451 public tests** (466 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 454 locally (439 public + 15 private integration)
+.venv/bin/python -m pytest            # 466 locally (451 public + 15 private integration)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -554,7 +554,7 @@ defaults:
 Acceptance: two databases on the same checkout can use different thresholds; an athlete with
 no overrides falls back to config; the prescription trace names the winning source.
 
-#### 4.9.5 Two-level readiness score (proposal)
+#### 4.9.5 Two-level readiness score  (implemented: score/overrides/gate/cap; calibration report)
 
 A global 0-1 readiness score plus a per-lift score that can only lower that lift, capped by
 the injury signal. The current sleep/energy trigger remains a floor. This is **planned, not
@@ -570,8 +570,9 @@ built**; the full design, evidence, assumptions and phases are in
   RIR. These are assumptions.
 - Strongest single reduction, not a product; combined readiness + continuity reduction is
   capped (proposal 20%).
-- Phase 1 is shadow mode: compute and display, change no load. Enable only after reviewing the
-  disagreements and collecting outcomes.
+- Delivered: score, category overrides, injury ceiling, 20% cap, readiness-required gate, and
+  a calibration report. Not yet: learned-weight adoption, HRV/RHR in the score, per-athlete
+  settings.
 - Decided: cut-points and injury caps are accepted; equal weights first, explicit per-athlete
   weights later; minimum three core fields (and sleep or energy for a load effect); grip stays
   a capacity trend only. Per-lift mapping: squat → squat/squat_unilateral, bench →

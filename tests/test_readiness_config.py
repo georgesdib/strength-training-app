@@ -125,7 +125,9 @@ def test_engine_uses_the_configured_fields():
             readiness_config=ReadinessConfig(modifier_fields=("sleep", "soreness")),
         )
 
-    assert default.fallback_level == "full"          # soreness is not a configured field
+    # The new score reads all core subjective fields, including soreness; the old
+    # modifier_fields list is still reported for traceability.
+    assert default.fallback_level == "fatigue_reduced"
     assert widened.fallback_level == "fatigue_reduced"
-    assert any("soreness=2" in warning for warning in widened.warnings)
+    assert default.notes["readiness_fields"] == ["sleep", "energy"]
     assert widened.notes["readiness_fields"] == ["sleep", "soreness"]

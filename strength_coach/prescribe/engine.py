@@ -24,6 +24,7 @@ import pandas as pd
 
 from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import readiness as readiness_mod
+from strength_coach.features import readiness_score
 from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.features import vbt_calibration
@@ -80,25 +81,30 @@ def build_prescription(
         warnings.extend(dup_warnings)
 
     fallback_level = "full"
+    # Injury status is needed for the readiness ceiling, so compute it before applying the
+    # readiness factor. It is also used later for advisory warnings.
+    injury = injury_signal_mod.compute(
+        conn, for_date, ramp_week=context.block_week_index
+    )
     readiness = queries.readiness_day(conn, for_date)
-    if readiness is None:
+    assessment = readiness_score.compute(conn, for_date)
+    trigger = readiness_config.trigger(readiness)
+    if assessment.status == "unknown":
         warnings.append(
             f"readiness unknown for {for_date}; fatigue modifier not applied"
         )
-    trigger = readiness_config.trigger(readiness)
-    if trigger:
-        multiplier = thresholds.fatigue_load_multiplier
-        items = list(
-            fallback.scale_loads(
-                tuple(items),
-                multiplier,
-                extra_refs=("MOD-FAT-001", f"readiness:{for_date}"),
-            )
-        )
-        fallback_level = "fatigue_reduced"
+    elif assessment.status == "insufficient":
         warnings.append(
-            f"MOD-FAT-001: {trigger}; loads x{multiplier} (readiness {for_date})"
+            f"readiness insufficient for {for_date}: {assessment.basis}; "
+            "score not applied"
         )
+
+    items, readiness_level, readiness_warnings, readiness_factors = _apply_readiness_score(
+        conn, context, tuple(items), for_date, assessment, injury, trigger, thresholds
+    )
+    if readiness_level == "fatigue_reduced":
+        fallback_level = "fatigue_reduced"
+    warnings.extend(readiness_warnings)
 
     if context.symptom_flare is True:
         # MOD-BACK-001: a flare returns erector work to the weeks 1-3 dose and holds main
@@ -112,7 +118,7 @@ def build_prescription(
         )
 
     items, gap_level, gap_warnings = _apply_continuity(
-        context, tuple(items), thresholds
+        context, tuple(items), thresholds, prior_factors=readiness_factors
     )
     if gap_level == "fatigue_reduced":
         fallback_level = "fatigue_reduced"
@@ -124,9 +130,6 @@ def build_prescription(
 
     # Injury signals are context, never policy: a flaring region adds a warning naming the
     # lifts that load it, but never vetoes or edits a load (DEC-INJURY-01).
-    injury = injury_signal_mod.compute(
-        conn, for_date, ramp_week=context.block_week_index
-    )
     warnings.extend(_injury_warnings(injury, tuple(items)))
 
     # Stored athlete state is applied deterministically: a hard constraint vetoes, a
@@ -208,6 +211,88 @@ def _injury_warnings(signal: injury_signal_mod.InjurySignal,
     return warnings
 
 
+def _apply_readiness_score(
+    conn,
+    context: RuleContext,
+    items: tuple[PrescriptionItem, ...],
+    for_date: str,
+    assessment,
+    injury,
+    trigger: str | None,
+    thresholds,
+) -> tuple[tuple[PrescriptionItem, ...], str, tuple[str, ...], dict[str, float]]:
+    """Apply the readiness factor per item, with the old sleep/energy floor.
+
+    The injury ceiling is folded into the per-item score before the factor is chosen, so a
+    high readiness score can never lift an item above its injury status. The old
+    sleep/energy trigger remains a floor for partial days that cannot form a score.
+    """
+    floor_factor = thresholds.fatigue_load_multiplier if trigger else 1.0
+    out: list[PrescriptionItem] = []
+    reduced = False
+    capped = False
+    scored = False
+    factors: dict[str, float] = {}
+    for item in items:
+        entity = (context.entities or {}).get(item.exercise_id, {})
+        factor = 1.0
+        rir_bump = 0
+        score = None
+        ceiling = 1.0
+        if assessment.status == "ready":
+            score, factor, rir_bump, ceiling = readiness_score.effective(
+                assessment, conn, item.exercise_id, entity, signal=injury
+            )
+            scored = True
+        factor = min(factor, floor_factor)
+        if trigger and floor_factor < 1.0:
+            rir_bump = max(rir_bump, 1)
+        factors[item.exercise_id] = min(factors.get(item.exercise_id, 1.0), factor)
+        if factor >= 1.0 and rir_bump == 0:
+            out.append(item)
+            continue
+        reduced = True
+        refs = item.rationale_refs + ("MOD-FAT-001", f"readiness:{for_date}")
+        if score is not None:
+            refs += (f"readiness_score:{score:.3f}",)
+        if ceiling < 1.0:
+            capped = True
+        scope = None
+        category = readiness_score.category_for(item.exercise_id, entity)
+        if category:
+            scope = f"category:{category}"
+        override = assessment.overrides.get(scope) if scope else None
+        override = override or assessment.overrides.get("global")
+        if override is not None:
+            refs += (f"readiness_override:{override['override_id']}",)
+        new_load = item.load_kg
+        if new_load is not None:
+            new_load = loads.round_down(
+                new_load * factor, item.rounding_increment_kg
+            )
+        out.append(
+            replace(
+                item,
+                load_kg=new_load,
+                rir_target=min(4, item.rir_target + rir_bump),
+                rationale_refs=refs,
+            )
+        )
+    warnings: list[str] = []
+    if reduced:
+        pieces = []
+        if scored and assessment.score is not None:
+            pieces.append(f"readiness score {assessment.score:.2f}")
+        if trigger:
+            pieces.append(f"floor {trigger}")
+        if capped:
+            pieces.append("injury ceiling applied")
+        warnings.append(
+            "MOD-FAT-001: " + "; ".join(pieces) + "; load reduced"
+        )
+    return tuple(out), ("fatigue_reduced" if reduced else "full"), tuple(warnings), factors
+
+
 def _gap_band(gap_days: int | None, thresholds: config_mod.Thresholds) -> str | None:
     if gap_days is None or gap_days < thresholds.continuity_short_days:
         return None
@@ -222,6 +307,8 @@ def _apply_continuity(
     context: RuleContext,
     items: tuple[PrescriptionItem, ...],
     thresholds: config_mod.Thresholds,
+    *,
+    prior_factors: Mapping[str, float] | None = None,
 ) -> tuple[tuple[PrescriptionItem, ...], str, tuple[str, ...]]:
     """Return-to-training adjustment after a gap (DEC-CONTINUITY-01).
 
@@ -241,15 +328,24 @@ def _apply_continuity(
     else:
         multiplier = 1.0
     bump = thresholds.continuity_rir_bump
+    prior_factors = prior_factors or {}
+    capped = False
     out: list[PrescriptionItem] = []
     for item in items:
         refs = item.rationale_refs + ("MOD-GAP-001",)
         rir = min(4, item.rir_target + bump)
         if multiplier < 1.0 and item.load_kg is not None and item.load_kg > 0:
+            prior = prior_factors.get(item.exercise_id, 1.0)
+            applied = multiplier
+            if prior * multiplier < 0.80:
+                # The readiness factor is already on the item; do not let the pair exceed the
+                # 20% combined cap. If readiness alone is beyond it, add nothing further.
+                applied = min(1.0, 0.80 / prior)
+                capped = capped or applied > multiplier
             out.append(replace(
                 item,
                 load_kg=loads.round_down(
-                    item.load_kg * multiplier, item.rounding_increment_kg
+                    item.load_kg * applied, item.rounding_increment_kg
                 ),
                 rir_target=rir,
                 rationale_refs=refs,
@@ -266,7 +362,8 @@ def _apply_continuity(
 
     warnings = (
         f"MOD-GAP-001: {context.gap_days}-day gap; prescription amended "
-        f"({'load reduced, ' if multiplier < 1 else ''}one extra RIR)",
+        f"({'load reduced, ' if multiplier < 1 else ''}one extra RIR"
+        f"{'; combined readiness+continuity capped at 20%' if capped else ''})",
     )
     return tuple(out), "fatigue_reduced" if multiplier < 1 else "full", warnings
 
@@ -715,6 +812,11 @@ def validate_references(
             elif ref.startswith("readiness:"):
                 if queries.readiness_day(conn, ref.split(":", 1)[1]) is None:
                     problems.append(f"{item.exercise_id}: no readiness row for {ref}")
+            elif ref.startswith("readiness_score:"):
+                try:
+                    float(ref.split(":", 1)[1])
+                except ValueError:
+                    problems.append(f"{item.exercise_id}: malformed reference {ref}")
             elif ref.startswith("e1rm_override:"):
                 try:
                     override_id = int(ref.split(":", 1)[1])

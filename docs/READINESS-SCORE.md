@@ -1,12 +1,14 @@
-# READINESS SCORE — global and per lift (proposal)
+# READINESS SCORE — global, category and calibration
 
-**Status: proposal, not implemented.** This replaces the single sleep/energy trigger with a
-transparent two-level score, and makes it interact with the per-region injury signal. The
-current behaviour remains: `MOD-FAT-001` reads sleep and energy, cuts every loaded item by 5%
-when either is at or below 2, and says when readiness is unknown.
+**Status: implemented (2026-10-19)** for the global/category score, overrides, the
+readiness-required gate, the 20% combined cap and the calibration report. Still planned:
+learned weight adoption, HRV/RHR in the score, and per-athlete settings.
 
-This document records the evidence, the proposed model, what is assumed rather than measured,
-and the phased path. Decisions still belong in `docs/DECISIONS.md`.
+The score replaces the old sleep/energy-only trigger, but the old trigger remains as a safety
+floor. The three legacy per-lift values are calibration labels, never inputs.
+
+This document records the evidence, the model, what is assumed rather than measured, and the
+remaining path. Decisions live in `docs/DECISIONS.md`.
 
 ---
 
@@ -63,7 +65,7 @@ Inputs and directions (higher score = more ready):
 
 For a field present on the date:
 
-- 1-5: `normalised = (value - 1) / 4`;
+- 1-5: `normalised = value / 5` (so a neutral 4/5 is 0.80 and a 5/5 is 1.00);
 - HRV: `median(previous 28 days)` baseline; ratio clipped to 0.5-1.5, mapped to 0-1;
 - RHR: same baseline, ratio **inverted** before mapping.
 
@@ -276,6 +278,21 @@ It is **display and education only** in the first phase. It does not change a lo
 lift, or clear a constraint. It must not feed back into the readiness score as a second penalty.
 A future probability model is out of scope until prospective, calibrated validation exists.
 
+### Current calibration report (2026-10-19)
+
+`readiness calibrate` on the 306 labelled days, date split 70/30:
+
+| label | n | MAE readiness-only | MAE + load | baseline | rank r |
+|---|---|---|---|---|---|
+| squat | 306 | 0.102 | 0.101 | 0.119 | 0.11 |
+| bench | 306 | 0.069 | 0.068 | 0.071 | 0.00 |
+| deadlift | 306 | 0.106 | 0.111 | 0.118 | 0.04 |
+
+Read: the score is close in absolute error but barely ranks the old labels; main-lift load
+features add almost nothing. That is evidence about **mimicry**, not readiness. The fitted
+weights are not applied. If this remains weak, the old label may be mostly a different
+construct, not a target worth chasing.
+
 ## 2.8 Legacy per-lift readiness labels (black box)
 
 The three imported fields `squat_readiness`, `bench_readiness` and `deadlift_readiness` are
@@ -375,18 +392,25 @@ with the date unless re-entered.
 
 ---
 
-## 4. Phased plan
+## 4. What is implemented
 
-1. **Score core + display (shadow).** Compute global and per-lift scores, show contributors,
-   confidence and injury ceilings; store the assessment in the prescription notes. No load
-   effect. Collect at least a few weeks of scores alongside RIR, completion and post-session
-   fatigue.
-2. **Per-lift caps in shadow.** Compare `min(global, self, injury)` with the current
-   sleep/energy trigger; show where they disagree.
-3. **Enable load effects behind config.** Keep the old trigger as a floor; cap combined
-   reductions; add tests for direction, missing fields, injury precedence and no double count.
-4. **Calibrate.** Use the recorded returns and session outcomes to adjust weights/cut-points
-   per athlete; no automatic change.
+Delivered on 2026-10-19:
+
+- global score from sleep, energy, mood, stress, soreness; 3-field minimum and sleep/energy
+  requirement;
+- category scores and overrides at global/category scope, 0.00–1.00, reason required;
+- injury ceiling per item, applied before the factor;
+- load factor table and the old sleep/energy floor;
+- 20% combined readiness + continuity cap, with a warning when it bites;
+- readiness-required gate for current/future CLI and web workouts;
+- calibration report (`readiness calibrate`) with main-lift load features, date split,
+  ridge/linear fit and baseline comparison.
+
+Still planned:
+
+- HRV/RHR in the score (currently context only, not scored);
+- learned weight adoption (the report does not apply weights);
+- per-athlete settings (ROADMAP §4.9.3).
 
 ## 5. Decisions and open questions
 

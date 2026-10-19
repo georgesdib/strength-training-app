@@ -37,9 +37,11 @@ from strength_coach.critique import UnknownSessionError, build_facts, score_sess
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import readiness as readiness_feature
+from strength_coach.features import readiness_score
 from strength_coach.utils import readiness as readiness_utils
 
-READINESS_CLI_FIELDS = {field: field for field in readiness_utils.READINESS_FIELDS}
+READINESS_CLI_FIELDS = {field: field for field in readiness_utils.INPUT_SCORE_FIELDS}
+READINESS_CLI_FIELDS.update({field: field for field in readiness_utils.MEASURE_FIELDS})
 from strength_coach.critique import persist as persist_critique
 from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.eval import backtest, load_marks, record_marks
@@ -142,8 +144,8 @@ def main(argv: list[str] | None = None) -> int:
     symptom.add_argument("--show", action="store_true", help="list recent entries")
 
     readiness = sub.add_parser("readiness", help="record a readiness day")
-    readiness.add_argument("action", choices=("set",))
-    readiness.add_argument("--date", required=True, help="YYYY-MM-DD")
+    readiness.add_argument("action", choices=("set", "override", "calibrate"))
+    readiness.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
     readiness.add_argument("--sleep", type=int, default=None)
     readiness.add_argument("--energy", type=int, default=None)
     readiness.add_argument("--mood", type=int, default=None)
@@ -151,12 +153,6 @@ def main(argv: list[str] | None = None) -> int:
     readiness.add_argument("--stress", type=int, default=None)
     readiness.add_argument("--nutrition", type=int, default=None)
     readiness.add_argument("--hydration", type=int, default=None)
-    readiness.add_argument("--squat-readiness", dest="squat_readiness", type=int,
-                           default=None)
-    readiness.add_argument("--bench-readiness", dest="bench_readiness", type=int,
-                           default=None)
-    readiness.add_argument("--deadlift-readiness", dest="deadlift_readiness", type=int,
-                           default=None)
     readiness.add_argument("--hrv", dest="hrv_ms", type=float, default=None)
     readiness.add_argument("--rhr", dest="rhr_bpm", type=float, default=None)
     readiness.add_argument("--bodyweight", dest="bodyweight_kg", type=float, default=None)
@@ -164,6 +160,12 @@ def main(argv: list[str] | None = None) -> int:
     readiness.add_argument("--grip-strength", dest="grip_strength_kg", type=float,
                            default=None, help="grip strength in kg")
     readiness.add_argument("--note", default=None)
+    readiness.add_argument("--scope", default="global",
+                           help="override scope: global or category:<name>")
+    readiness.add_argument("--value", type=float, default=None,
+                           help="override value 0.00-1.00 (same scale as the score)")
+    readiness.add_argument("--reason", default=None,
+                           help="why the computed score is overridden")
 
     web = sub.add_parser("web", help="serve the local web UI (127.0.0.1 only)")
     web.add_argument("--host", default="127.0.0.1",
@@ -215,6 +217,16 @@ def _cmd_run(args) -> int:
     try:
         conn = store.connection
         _ensure_imported(conn)
+
+        # Readiness is required for a current/future workout: the score is part of the
+        # prescription, not an optional afterthought. Historical dates stay reproducible.
+        if args.date >= datetime.date.today().isoformat():
+            assessment = readiness_score.compute(conn, args.date)
+            if assessment.status != "ready":
+                print(f"readiness required for {args.date}: {assessment.status} — "
+                      f"{assessment.basis}")
+                print("record it with 'strength-coach readiness set ...' (or the web form)")
+                return 2
 
         # V0-SCOPE §4.6: re-running the same run must append no duplicate artifacts.
         existing = conn.execute(
@@ -397,17 +409,39 @@ def _record_readiness(conn, on_date: str, values: dict[str, float],
 
 
 def _cmd_readiness(args) -> int:
-    if args.action != "set":
-        print("only 'readiness set' is implemented")
-        return 2
-    values = {
-        field: getattr(args, attr)
-        for field, attr in READINESS_CLI_FIELDS.items()
-        if getattr(args, attr) is not None
-    }
     store = db.Store(args.db)
     try:
         conn = store.connection
+        if args.action == "calibrate":
+            from strength_coach.features import readiness_calibration
+
+            print(readiness_calibration.report(conn))
+            return 0
+        args.date = args.date or datetime.date.today().isoformat()
+        if args.action == "override":
+            if args.value is None:
+                print("readiness override: --value is required (0.00-1.00)")
+                return 2
+            if not args.reason:
+                print("readiness override: --reason is required")
+                return 2
+            try:
+                repositories.append_readiness_override(
+                    conn, effective_on=args.date, scope=args.scope,
+                    value=args.value, reason=args.reason,
+                )
+            except ValueError as exc:
+                print(f"readiness override: {exc}")
+                return 2
+            print(f"readiness override {args.scope} = {args.value:.2f} on {args.date}")
+            _print_readiness_score(readiness_score.compute(conn, args.date))
+            return 0
+
+        values = {
+            field: getattr(args, attr)
+            for field, attr in READINESS_CLI_FIELDS.items()
+            if getattr(args, attr) is not None
+        }
         try:
             _record_readiness(conn, args.date, values, note=args.note)
         except ValueError as exc:
@@ -416,16 +450,31 @@ def _cmd_readiness(args) -> int:
         data = queries.readiness_day(conn, args.date)
         print(f"readiness {args.date}: recorded {len(values)} manual field(s)")
         if data:
-            for field in readiness_utils.READINESS_FIELDS:
+            for field in (*readiness_utils.INPUT_SCORE_FIELDS, *readiness_utils.MEASURE_FIELDS):
                 if data.get(field) is None:
                     continue
                 source = (data.get("sources") or {}).get(field, "import")
                 print(f"  {readiness_utils.FIELD_LABELS[field]:<20}"
                       f"{data[field]:>6g}  ({source})")
         print("manual values win per field; imported values fill the rest")
+        _print_readiness_score(readiness_score.compute(conn, args.date))
         return 0
     finally:
         store.close()
+
+
+def _print_readiness_score(assessment) -> None:
+    print(f"\nreadiness score: {assessment.status}")
+    if assessment.score is not None:
+        print(f"  global {assessment.score:.2f} — {assessment.basis}")
+    for component in assessment.components:
+        print(f"  {component.field:<12} {component.value:g} -> {component.normalised:.2f}")
+    for scope, row in sorted(assessment.overrides.items()):
+        print(f"  override {scope:<18} {row['value']:.2f} ({row['reason']})")
+    if assessment.category_scores:
+        print("  categories " + ", ".join(
+            f"{name}={value:.2f}" for name, value in assessment.category_scores.items()
+        ))
 
 
 def _cmd_web(args) -> int:

@@ -217,13 +217,11 @@ async function saveReview(session) {
 }
 
 /* --- readiness ---------------------------------------------------------- */
-const SCORE_FIELDS = ["sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration",
-  "squat_readiness", "bench_readiness", "deadlift_readiness"];
+const SCORE_FIELDS = ["sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration"];
 const DEVICE_FIELDS = ["hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "grip_strength_kg"];
 const LABELS = { sleep: "Sleep", energy: "Energy", mood: "Mood", soreness: "Soreness",
   stress: "Stress", nutrition: "Nutrition", hydration: "Hydration",
-  squat_readiness: "Squat readiness", bench_readiness: "Bench readiness",
-  deadlift_readiness: "Deadlift readiness", hrv_ms: "HRV (ms)", rhr_bpm: "Resting HR (bpm)",
+  hrv_ms: "HRV (ms)", rhr_bpm: "Resting HR (bpm)",
   bodyweight_kg: "Bodyweight (kg)", fat_pct: "Body fat (%)", grip_strength_kg: "Grip strength (kg)" };
 
 function fieldInput(field, device = false) {
@@ -252,6 +250,27 @@ async function loadReadiness(date) {
     $("#readiness-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
+
+$("#override-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    const data = await api("/api/readiness/override", {
+      method: "POST",
+      body: JSON.stringify({
+        date: $("#readiness-date").value,
+        scope: $("#override-scope").value,
+        value: Number($("#override-value").value),
+        reason: $("#override-reason").value,
+      }),
+    });
+    renderReadiness(data);
+    $("#override-value").value = "";
+    $("#override-reason").value = "";
+    loadOverview();
+  } catch (error) {
+    $("#readiness-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+});
 
 $("#readiness-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -286,6 +305,7 @@ function renderReadiness(data) {
     <td><span class="badge">${esc(data.sources?.[field] || "import")}</span></td></tr>`).join("");
   $("#readiness-result").innerHTML = `<div class="warnbox"><strong>Merged readiness</strong>
     <table><thead><tr><th>Field</th><th>value</th><th>source</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  renderReadinessScore(data.score);
 }
 
 /* --- import ------------------------------------------------------------- */
@@ -332,6 +352,24 @@ $("#import-form").addEventListener("submit", async (event) => {
     $("#import-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 });
+
+function renderReadinessScore(score) {
+  if (!score) { $("#readiness-score").innerHTML = ""; return; }
+  const components = (score.components || []).map((c) => `
+    <tr><td>${esc(c.field)}</td><td>${fmt(c.value)}</td><td>${fmt(c.normalised, 2)}</td></tr>`).join("");
+  const categories = Object.entries(score.category_scores || {}).map(([name, value]) => `
+    <tr><td>${esc(name)}</td><td>${fmt(value, 2)}</td></tr>`).join("");
+  const overrides = Object.entries(score.overrides || {}).map(([scope, row]) => `
+    <tr><td>${esc(scope)}</td><td>${fmt(row.value, 2)}</td><td>${esc(row.reason)}</td></tr>`).join("");
+  $("#readiness-score").innerHTML = `<div class="panel">
+    <div class="panel-head"><h2>Computed readiness</h2>
+      <span class="badge ${score.status === "ready" ? "" : "warn"}">${esc(score.status)}</span></div>
+    <p><strong>${score.score == null ? "—" : fmt(score.score, 2)}</strong> <span class="muted">${esc(score.basis || "")}</span></p>
+    ${components ? `<table><thead><tr><th>Input</th><th>value</th><th>normalised</th></tr></thead><tbody>${components}</tbody></table>` : ""}
+    ${categories ? `<h3>Categories</h3><table><thead><tr><th>Category</th><th>score</th></tr></thead><tbody>${categories}</tbody></table>` : ""}
+    ${overrides ? `<h3>Overrides</h3><table><thead><tr><th>Scope</th><th>value</th><th>reason</th></tr></thead><tbody>${overrides}</tbody></table>` : ""}
+  </div>`;
+}
 
 /* --- state -------------------------------------------------------------- */
 async function loadState() {

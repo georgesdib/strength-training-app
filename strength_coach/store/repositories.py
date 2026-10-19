@@ -695,6 +695,33 @@ def append_readiness_entry(
     return entry_id
 
 
+def append_readiness_override(
+    conn: sqlite3.Connection,
+    *,
+    effective_on: str,
+    scope: str,
+    value: float,
+    reason: str,
+    source: str = "user",
+) -> str:
+    """Append a manual correction of a computed readiness score."""
+    if scope != "global" and not scope.startswith("category:"):
+        raise ValueError("scope must be 'global' or 'category:<name>'")
+    if not 0.0 <= float(value) <= 1.0:
+        raise ValueError("readiness override must be between 0 and 1")
+    if not reason.strip():
+        raise ValueError("a readiness override needs a reason")
+    override_id = uuid.uuid4().hex
+    conn.execute(
+        """
+        INSERT INTO readiness_override (override_id, effective_on, scope, value, reason, source)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (override_id, effective_on, scope, float(value), reason, source),
+    )
+    return override_id
+
+
 def append_symptom(
     conn: sqlite3.Connection,
     *,

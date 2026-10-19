@@ -25,9 +25,10 @@ from strength_coach.critique import UnknownSessionError, build_facts, score_sess
 from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, load_marks, record_marks
 from strength_coach.features import injury_signal, readiness as readiness_feature
+from strength_coach.features import readiness_score
 from strength_coach.prescribe import build_prescription
 from strength_coach.rules import RuleContext
-from strength_coach.store import db, importer, queries
+from strength_coach.store import db, importer, queries, repositories
 from strength_coach.utils import io_utils
 from strength_coach.web import markdown
 
@@ -115,6 +116,10 @@ def _docs() -> list[dict]:
     return out
 
 
+class ReadinessRequired(Exception):
+    """The date needs a usable readiness score before a workout is generated."""
+
+
 class Handler(BaseHTTPRequestHandler):
     db_path: str | Path | None = None
     server_version = "strength-coach-web"
@@ -186,6 +191,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._readiness(c, day)))
             else:
                 self._error(404, "not found")
+        except ReadinessRequired as exc:
+            self._error(409, str(exc))
         except UnknownSessionError as exc:
             self._error(404, str(exc))
         except (ValueError, KeyError) as exc:
@@ -203,11 +210,15 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._prescribe(c, body)))
             elif path == "/api/readiness":
                 self._json(200, self._with_conn(lambda c: self._set_readiness(c, body)))
+            elif path == "/api/readiness/override":
+                self._json(200, self._with_conn(lambda c: self._set_readiness_override(c, body)))
             elif path.startswith("/api/review/"):
                 session = path[len("/api/review/"):]
                 self._json(200, self._with_conn(lambda c: self._save_review(c, session, body)))
             else:
                 self._error(404, "not found")
+        except ReadinessRequired as exc:
+            self._error(409, str(exc))
         except UnknownSessionError as exc:
             self._error(404, str(exc))
         except (ValueError, KeyError) as exc:
@@ -286,6 +297,13 @@ class Handler(BaseHTTPRequestHandler):
         day = str(body.get("day") or "A").upper()
         if day not in {"A", "B", "C"}:
             raise ValueError("day must be A, B or C")
+        if for_date >= datetime.date.today().isoformat():
+            assessment = readiness_score.compute(conn, for_date)
+            if assessment.status != "ready":
+                raise ReadinessRequired(
+                    f"readiness required for {for_date}: {assessment.status} — "
+                    f"{assessment.basis}"
+                )
         prescription = build_prescription(conn, for_date=for_date, session_day=day)
         return prescription_dict(prescription)
 
@@ -344,8 +362,9 @@ class Handler(BaseHTTPRequestHandler):
         return {"written": written, "calibration": self._calibrate(conn)}
 
     def _readiness(self, conn, day: str) -> dict:
-        data = queries.readiness_day(conn, day)
-        return data or {"on_date": day, "known": False}
+        data = dict(queries.readiness_day(conn, day) or {"on_date": day, "known": False})
+        data["score"] = readiness_score.compute(conn, day).as_dict()
+        return data
 
     def _set_readiness(self, conn, body: dict) -> dict:
         day = str(body.get("date") or datetime.date.today().isoformat())
@@ -354,6 +373,18 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("values must be an object")
         clean = {key: value for key, value in values.items() if value not in (None, "")}
         readiness_feature.record_manual(conn, day, clean, note=body.get("note") or None)
+        return self._readiness(conn, day)
+
+    def _set_readiness_override(self, conn, body: dict) -> dict:
+        day = str(body.get("date") or datetime.date.today().isoformat())
+        scope = str(body.get("scope") or "global")
+        value = body.get("value")
+        reason = str(body.get("reason") or "").strip()
+        if value is None:
+            raise ValueError("value is required")
+        repositories.append_readiness_override(
+            conn, effective_on=day, scope=scope, value=float(value), reason=reason,
+        )
         return self._readiness(conn, day)
 
     def _state(self, conn) -> dict:
