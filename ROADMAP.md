@@ -43,8 +43,8 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 3 hand-marked sessions, 42% item agreement |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **planned** | see §4: readiness on demand, manual logging, format adapters, whole-programme output, **continuity across missed and planned breaks**; depends on 3.3 for the readiness path |
-| v0.1 | Next version | **in progress** | 3.1-3.4 done; see §3 for **video analysis**, portability, VBT wiring, larger labelled set |
+| v0.2 | Input flexibility + programme view | **planned** | see §4: readiness on demand, manual logging, format adapters, whole-programme output, **video analysis (§4.8)**, continuity/back signal (delivered early); depends on 3.3 for the readiness path |
+| v0.1 | Next version | **in progress** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set remains (human work) |
 | — | UI | **deferred indefinitely** | out of scope by request |
 
 ### What works end to end today
@@ -219,29 +219,9 @@ Python-computed options (keep/easier/harder/heavier/lighter); the menu's RIR wid
 rule's window, so a documented window change widens it without a code change. `DEC-LLM-04/05`
 record the contract.
 
-### 3.5 Video analysis (LLM) — a future feature, not a measurement
+### 3.5 Video analysis — moved to §4.8
 
-Allow a video to be attached to a session or a single set for a vision-capable model to
-comment on: depth, bar path, tempo, rep count. It is a **commentary** feature, and the
-constraints matter more than the feature.
-
-- **Privacy first.** Video is personal data. Files live under `private/` (git-ignored), are
-  never committed, and never enter `data/coach.db` as bytes. Sending a video to a hosted
-  model is an explicit per-video opt-in, and the output must say that the file left the
-  machine. A local model keeps it local.
-- **No numbers, no vetoes.** The analysis is stored as a `run_event` (new kind,
-  `video_analysis`) with the file hash and model id. It cannot change a load, a rubric score
-  or a policy verdict (AGENTS.md §3.2-3.3).
-- **The log stays authoritative.** If the model says "8 reps", that is a comment; the logged
-  set remains the record.
-- **No default dependency.** Frame extraction needs ffmpeg or provider-side video support;
-  decide per provider rather than adding a runtime dependency for everyone.
-
-Acceptance: attaching a video produces exactly one event and changes no artifact; a run with
-no video, or with `--llm off`, stays byte-identical; video bytes never appear in the
-repository; every claim is labelled commentary.
-
-Open questions: which sets get video, retention period, and per-provider capability.
+Video is a v0.2 feature; the full scope and its privacy constraints live in §4.8.
 
 ### 3.6 Another athlete, or a fresh start  (done)
 
@@ -289,7 +269,7 @@ needs roughly ten *remembered* sessions per item before a weight or definition i
 
 - A UI (deferred by request).
 - Several athletes in one database, or a hosted service: local-first, one database per person
-  (3.6 covers portability; 3.5 covers opt-in video).
+  (3.6 covers portability; §4.8 covers opt-in video).
 - RAG over the programme: rules are cited by id, and exact lookup beats semantic search here.
 - Automatic rubric retuning: the report proposes, a person decides.
 
@@ -477,6 +457,34 @@ the summary is always disclaimed and may recommend, never set, a rating.
 Delivered: `features/back_signal.py`, shown by `state` and in prescription notes, with
 unknown/insufficient/monitoring/review states, the 28-day + 4-loaded-session rule, disclaimer,
 and recommendation-only behaviour. Open items recorded in Q13.
+
+### 4.8 Video analysis (LLM) — moved from v0.1, a commentary feature
+
+Allow a video to be attached to a session or a single set for a vision-capable model to
+comment on: depth, bar path, tempo, rep count. It is a **commentary** feature, and the
+constraints matter more than the feature.
+
+- **Privacy first.** Video is personal data. Files live under `private/` (git-ignored), are
+  never committed, and never enter `data/coach.db` as bytes. Sending a video to a hosted
+  model is an explicit per-video opt-in, and the output must say that the file left the
+  machine. A local model keeps it local.
+- **No numbers, no vetoes.** The analysis is stored as a `run_event` (new kind,
+  `video_analysis`) with the file hash and model id. It cannot change a load, a rubric score
+  or a policy verdict (AGENTS.md §3.2-3.3).
+- **The log stays authoritative.** If the model says "8 reps", that is a comment; the logged
+  set remains the record.
+- **No default dependency.** Frame extraction needs ffmpeg or provider-side video support;
+  decide per provider rather than adding a runtime dependency for everyone.
+
+Acceptance: attaching a video produces exactly one event and changes no artifact; a run with
+no video, or with `--llm off`, stays byte-identical; video bytes never appear in the
+repository; every claim is labelled commentary.
+
+Open questions: which sets get video, retention period, and per-provider capability.
+
+Why v0.2 rather than v0.1: it needs a privacy decision (sending personal video to a hosted
+model), a provider-capability check, and a storage/retention policy. None of those belong in a
+version whose remaining work is calibration and documentation.
 
 ## 5. Known gaps and risks
 
