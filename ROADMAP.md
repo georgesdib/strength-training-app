@@ -43,7 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry (§4.1), continuity (§4.6), injury signal (§4.7), local web UI (§4.10). Remaining: manual logging, adapters, programme view, video, learned/HRV readiness settings (§4.9), full web parity (§4.11), cardio + impulse fatigue (§4.13) |
+| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry (§4.1), continuity (§4.6), injury signal (§4.7), local web UI (§4.10). Remaining: manual logging, adapters, programme view, video, learned/HRV readiness settings (§4.9), full web parity (§4.11); later/unscheduled: cardio + impulse fatigue (§4.13) |
 | v0.1 | Next version | **in progress** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set remains (human work) |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000` |
 
@@ -610,7 +610,7 @@ Acceptance: a return session can be recorded with post-session fatigue; the repo
 returns and the current rule side by side; no prescription changes until the athlete adopts a
 suggested setting; the minimum-data rule is explicit.
 
-### 4.13 Cardio workouts and an impulse fatigue model  (planned)
+### 4.13 Cardio workouts and an impulse fatigue model  (planned, unscheduled)
 
 The app currently measures resistance training only. Cardio is a separate exposure with a
 different fatigue signature, and a single "fatigue score" would hide that. This item adds the
