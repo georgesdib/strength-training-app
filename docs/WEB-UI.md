@@ -6,10 +6,17 @@ replacement for the CLI.
 ## Run
 
 ```bash
+./run-web.sh                       # launcher: finds the venv, opens the browser
+./run-web.sh --no-open --port 8001
+./run-web.sh --db other.db
+
 strength-coach web                 # http://127.0.0.1:8000
 strength-coach web --open
 strength-coach web --port 8001
 ```
+
+`run-web.sh` refuses a non-loopback `--host` and moves `--db` before the subcommand (it is a
+global option in the CLI). It is convenience only: it ends in the same `strength-coach web`.
 
 **Local only, no authentication.** The default bind is 127.0.0.1. Do not pass a public host.
 
@@ -17,10 +24,12 @@ strength-coach web --port 8001
 
 - **Today** — goal, block week, readiness, injury signal, unreviewed count, recent sessions.
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
-  SQLite, never written to the repository.
+  SQLite, never written to the repository. New cumulative exports are overlap-matched against
+  stored rows, so old history is not duplicated.
 - **Prescribe** — date + day; deterministic prescription, warnings and notes; every item cites
   rule ids.
 - **Review** — unreviewed/recent session sheet; engine scores shown for context; human marks,
+  plus a **Run rubric calibration** button (same report as `strength-coach calibrate`),
   confidence and note; calibration report after saving.
 - **Readiness** — any subset of 1-5 and device fields; manual values win per field; the
   computed global/category score is shown; overrides take 0.00–1.00 with a reason. A current

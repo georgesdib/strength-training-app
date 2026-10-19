@@ -230,3 +230,8 @@ def test_exercise_catalogue_is_served(server):
     status, body = get(server, "/api/exercises")
     assert status == 200
     assert any(row["id"] == "ssb_squat" for row in json.loads(body))
+
+def test_rubric_calibration_endpoint(server):
+    status, body = get(server, "/api/calibrate")
+    assert status == 200
+    assert "no marks yet" in json.loads(body)["text"]

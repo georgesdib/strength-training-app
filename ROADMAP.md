@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-dev` · **454 public tests** (469 with the 15 private integration tests)
+Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-dev` · **461 public tests** (476 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 469 locally (454 public + 15 private integration)
+.venv/bin/python -m pytest            # 476 locally (461 public + 15 private integration)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -639,7 +639,7 @@ data and a model, initially advisory and in shadow mode.
 
 - The Banister impulse-response model relates training impulses to performance, but its
   parameters are ill-conditioned and unstable; a good fit does not make the parameters
-  identifiable ([Hellard 2006](https://doi.org/10.1080/02640410500244697)).
+  identifiable ([Hellard 2006](https://doi.org/10.1080/02640410500244767)).
 - A single impulse reduces different training types to one number; the proposed
   three-dimensional model separates energy-system-specific adaptation, which is the direction
   this item should take rather than one global fatigue scalar

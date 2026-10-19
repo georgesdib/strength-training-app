@@ -19,7 +19,9 @@ every row that came from a CSV keeps `source_row` so an error is traceable to a 
 | file_sha256 | TEXT | which import produced it |
 | payload | TEXT | the row as JSON, verbatim |
 
-Nothing is ever deleted. `(null)` dates live here permanently.
+Nothing is ever deleted. `(null)` dates live here permanently. A cumulative re-export reuses
+the existing raw row when its canonical payload is identical; duplicates *within* one file
+still get separate rows (`DEC-IMPORT-01`, DQ-DUP-01).
 
 ## 2. `clean_set` — canonical training record
 

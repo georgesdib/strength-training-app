@@ -152,12 +152,32 @@ def test_raw_rows_are_identified_by_file_and_line(conn):
     assert count(conn, "raw_row") == 1
 
 
-def test_same_rows_from_a_different_file_are_a_new_import(conn):
+def test_same_rows_from_a_different_file_are_overlap(conn):
     training, _ = build_frames([{"Date": "2024-01-01"}])
-    repo.store_raw_rows(conn, training, table_name="training", file_sha256="aaa")
-    repo.store_raw_rows(conn, training, table_name="training", file_sha256="bbb")
-    # A re-export with different bytes is a different provenance, so both are kept.
-    assert count(conn, "raw_row") == 2
+    first, inserted = repo.store_raw_rows(conn, training, table_name="training", file_sha256="aaa")
+    second, again = repo.store_raw_rows(conn, training, table_name="training", file_sha256="bbb")
+    # A cumulative re-export reuses the existing raw row rather than duplicating it.
+    assert inserted == 1 and again == 0
+    assert first == second
+    assert count(conn, "raw_row") == 1
+
+
+def test_cumulative_export_appends_only_new_rows(conn):
+    first_rows = [
+        {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150", "RIR": "3"},
+        {"Date": "2024-01-01", "Exercise": "Competition Bench Press", "Weight_Used": "80", "RIR": "2"},
+    ]
+    second_rows = first_rows + [
+        {"Date": "2024-01-02", "Exercise": "Trap Bar Deadlift", "Weight_Used": "155", "RIR": "3"},
+    ]
+    first_training, first_readiness = build_frames(first_rows)
+    do_import(conn, first_training, first_readiness)
+    second_training, second_readiness = build_frames(second_rows)
+    report = do_import(conn, second_training, second_readiness)
+
+    assert report.clean_sets_inserted == 1
+    assert count(conn, "clean_set") == 3
+    assert report.raw_rows_overlap >= 2
 
 
 def test_identical_repeated_sets_survive(conn):

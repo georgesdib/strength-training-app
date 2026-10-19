@@ -1024,7 +1024,8 @@ def _narrate(conn, trace, critique, facts, prescription) -> None:
 
 
 def _print_import(report) -> None:
-    print(f"imported: {report.raw_rows_inserted} raw rows, "
+    print(f"imported: {report.raw_rows_inserted} new raw rows, "
+          f"{report.raw_rows_overlap} overlapping, "
           f"{report.clean_sets_inserted} clean sets, {report.sessions_written} sessions, "
           f"{report.readiness_days} readiness days, {report.quarantined} quarantined")
 

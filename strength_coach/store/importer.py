@@ -31,6 +31,7 @@ class ImportReport:
 
     run_id: str
     raw_rows_inserted: int
+    raw_rows_overlap: int
     clean_sets_inserted: int
     clean_sets_existing: int
     sessions_written: int
@@ -163,6 +164,7 @@ def import_export(
         return ImportReport(
             run_id=run.run_id,
             raw_rows_inserted=training_inserted + readiness_inserted,
+            raw_rows_overlap=len(training) + len(readiness) - training_inserted - readiness_inserted,
             clean_sets_inserted=inserted,
             clean_sets_existing=existing,
             sessions_written=len(reconstructed),

@@ -74,45 +74,61 @@ def store_raw_rows(
     table_name: str,
     file_sha256: str,
 ) -> tuple[dict[int, int], int]:
-    """Persist every source line verbatim; return ({source_row: raw_id}, rows inserted).
+    """Persist source lines, reusing an existing raw row when the content is identical.
 
-    The payload is the row exactly as read (`io_utils` keeps cells as text), so a cleaning
-    bug can always be re-run against the original bytes rather than against its own output.
+    Identity is normally (file, source line). A new cumulative export has a different file
+    hash, so that identity alone would duplicate every historical row. Instead, before
+    inserting, each incoming row is matched against the stored payloads by canonical content:
+
+    * an identical row already stored is mapped to its existing raw_id, so clean_set's
+      UNIQUE(raw_id) skips it;
+    * duplicates *inside the new file* still get separate raw rows, because each incoming line
+      is matched at most once against the existing pool (DQ-DUP-01 preserved within a file);
+    * a genuinely new row is inserted with the new file hash.
+
+    This is overlap detection across exports, not content deduplication within one export.
     """
     if table_name not in {"training", "readiness"}:
         raise ValueError(f"unknown table_name: {table_name}")
 
-    rows = [
-        (
-            table_name,
-            index,
-            file_sha256,
-            _json({str(k): (None if _opt(v) is None else str(v)) for k, v in record.items()}),
-        )
-        for index, record in enumerate(frame.to_dict(orient="records"), start=1)
-    ]
-    existing = {
-        int(row["source_row"])
-        for row in conn.execute(
-            "SELECT source_row FROM raw_row WHERE table_name = ? AND file_sha256 = ?",
-            (table_name, file_sha256),
-        )
-    }
-    fresh = [row for row in rows if row[1] not in existing]
-    # A plain INSERT, not INSERT OR IGNORE: a duplicate is skipped deliberately above, so any
-    # IntegrityError that still fires is a real schema violation and must not be swallowed.
-    inserted = _changes(
-        conn,
-        "INSERT INTO raw_row (table_name, source_row, file_sha256, payload) VALUES (?, ?, ?, ?)",
-        fresh,
-    )
-    mapping = {
+    def payload_of(record: Mapping[str, Any]) -> str:
+        return _json({str(k): (None if _opt(v) is None else str(v)) for k, v in record.items()})
+
+    def fingerprint(payload: str) -> str:
+        return json.dumps(json.loads(payload), sort_keys=True, separators=(",", ":"))
+
+    same_file = {
         int(row["source_row"]): int(row["raw_id"])
         for row in conn.execute(
             "SELECT source_row, raw_id FROM raw_row WHERE table_name = ? AND file_sha256 = ?",
             (table_name, file_sha256),
         )
     }
+    pool: dict[str, list[int]] = {}
+    for row in conn.execute(
+        "SELECT raw_id, payload FROM raw_row WHERE table_name = ? ORDER BY raw_id",
+        (table_name,),
+    ):
+        pool.setdefault(fingerprint(str(row["payload"])), []).append(int(row["raw_id"]))
+
+    mapping: dict[int, int] = {}
+    inserted = 0
+    for index, record in enumerate(frame.to_dict(orient="records"), start=1):
+        payload = payload_of(record)
+        if index in same_file:
+            mapping[index] = same_file[index]
+            continue
+        matches = pool.get(fingerprint(payload))
+        if matches:
+            mapping[index] = matches.pop(0)
+            continue
+        cursor = conn.execute(
+            "INSERT INTO raw_row (table_name, source_row, file_sha256, payload) "
+            "VALUES (?, ?, ?, ?)",
+            (table_name, index, file_sha256, payload),
+        )
+        mapping[index] = int(cursor.lastrowid)
+        inserted += 1
     return mapping, inserted
 
 

@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 454 public tests
+.venv/bin/python -m pytest          # 461 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -46,6 +46,17 @@ you would rather not activate it, call `.venv/bin/strength-coach ...` or
 ### 2.1 Web UI
 
 The same core is available in a local browser UI; the CLI remains the automation interface.
+
+```bash
+./run-web.sh                       # http://127.0.0.1:8000, opens a browser
+./run-web.sh --no-open             # ...without opening one
+./run-web.sh --port 8001           # another port
+./run-web.sh --db other.db         # another athlete database
+```
+
+`run-web.sh` is a convenience launcher: it finds `.venv/bin/python` (falling back to
+`python3`), checks the dependencies, refuses a non-loopback `--host`, and then runs the same
+`strength-coach web` command. Everything else works unchanged:
 
 ```bash
 strength-coach web                 # http://127.0.0.1:8000
@@ -73,7 +84,10 @@ strength-coach import
 ```
 
 This reads the two CSVs into `data/coach.db` (git-ignored). It prints how many rows were
-inserted, how many sessions were reconstructed, and how many rows were quarantined. Importing
+inserted, how many were already present as overlap, how many sessions were reconstructed,
+and how many rows were quarantined. A new cumulative export is overlap-matched against the
+stored rows, so old history is not duplicated; identical rows inside one file are still kept
+as separate sets. Importing
 the same file twice writes nothing the second time — identity is the source line, not the
 content.
 

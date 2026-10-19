@@ -333,6 +333,7 @@ class Handler(BaseHTTPRequestHandler):
             "training_name": training_name,
             "readiness_name": readiness_name,
             "raw_rows_inserted": report.raw_rows_inserted,
+            "raw_rows_overlap": report.raw_rows_overlap,
             "clean_sets_inserted": report.clean_sets_inserted,
             "clean_sets_existing": report.clean_sets_existing,
             "sessions_written": report.sessions_written,

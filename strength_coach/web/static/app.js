@@ -152,6 +152,16 @@ function fillSessionSelect() {
   if (current) select.value = current;
 }
 
+$("#rubric-calibration-run").addEventListener("click", async () => {
+  $("#rubric-calibration").innerHTML = "<p class='empty'>Loading…</p>";
+  try {
+    const data = await api("/api/calibrate");
+    $("#rubric-calibration").innerHTML = `<pre>${esc(data.text)}</pre>`;
+  } catch (error) {
+    $("#rubric-calibration").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+});
+
 $("#review-form").addEventListener("submit", (event) => {
   event.preventDefault();
   loadReview($("#review-session").value);
@@ -345,7 +355,7 @@ $("#import-form").addEventListener("submit", async (event) => {
       <table><tbody>
         <tr><td>Training file</td><td>${esc(data.training_name)}</td></tr>
         <tr><td>Readiness file</td><td>${esc(data.readiness_name)}</td></tr>
-        <tr><td>Raw rows inserted</td><td>${data.raw_rows_inserted}</td></tr>
+        <tr><td>New raw rows / overlapping</td><td>${data.raw_rows_inserted} / ${data.raw_rows_overlap}</td></tr>
         <tr><td>Clean sets inserted / existing</td><td>${data.clean_sets_inserted} / ${data.clean_sets_existing}</td></tr>
         <tr><td>Sessions written</td><td>${data.sessions_written}</td></tr>
         <tr><td>Quarantined</td><td>${data.quarantined}</td></tr>

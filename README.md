@@ -22,7 +22,8 @@ editable in the CLI and local web UI, the LLM can narrate or propose within the 
 targets are attached where the data supports them.
 
 Delivered early in v0.2: readiness score and overrides, injury signal, continuity, local web UI
-(including CSV import, state editing and the calibration report). Remaining: the labelled set
+(including CSV import with overlap detection, editable athlete state, rubric and readiness
+calibration reports). Remaining: the labelled set
 (3.8, human work), manual logging, format adapters, programme view, video, learned/HRV
 readiness settings; later/unscheduled: cardio + impulse-fatigue modelling (§4.13). See [ROADMAP.md](ROADMAP.md).
 
@@ -50,13 +51,14 @@ python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 source .venv/bin/activate           # so `strength-coach` is on PATH
 
-.venv/bin/python -m pytest            # 454 public tests (15 more locally, private)
+.venv/bin/python -m pytest            # 461 public tests (15 more locally, private)
 .venv/bin/python tools/profile_data.py    # profile your own export
 .venv/bin/python tools/baseline.py        # strength baseline, latest date in the log
 .venv/bin/python tools/llm_check.py       # show the LLM configuration (see below)
 .venv/bin/python tools/import_export.py   # load data/raw into data/coach.db
 .venv/bin/python tools/eval_prepare.py --session <date>   # labelling sheet
 .venv/bin/python tools/backtest.py        # rubric vs hand marks
+./run-web.sh                              # local web UI at http://127.0.0.1:8000
 ```
 
 The tools read `data/raw/training_log.csv` and `data/raw/readiness.csv`. See

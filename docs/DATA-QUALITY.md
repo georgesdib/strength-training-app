@@ -184,6 +184,14 @@ the same suspicious RIR value and no telemetry — most likely an orphaned early
 **Action:** quarantine, exclude from sessions, report the count in every run. Do not delete:
 quarantined rows otherwise leak into violation counts and fabricate failures.
 
+### DQ-IMPORT-01 — overlap across exports is not deduplication
+
+A cumulative re-export contains rows already stored. The importer matches each new row to
+a stored payload and reuses the existing `raw_id`; that is **overlap detection across files**,
+not content deduplication. Two identical rows *inside the same new file* still create two raw
+rows and two clean sets, preserving DQ-DUP-01. A correction with a changed load/reps/date is a
+new row, not a silent merge.
+
 ## 6. Flags that must not be resolved silently
 
 | issue | handling |
