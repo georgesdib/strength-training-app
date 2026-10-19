@@ -17,9 +17,11 @@ LLM call fails entirely.
 
 **v0 complete; v0.1 in progress.** The full slice runs: import → prescribe a day → critique
 the last session → review it → calibrate. Days A, B and C are prescribable, athlete state
-(goals, constraints, suitability, e1RM overrides) is stored, and the LLM can narrate.
-[ROADMAP.md](ROADMAP.md) lists what remains: symptom input, LLM proposals, video, portability
-and VBT wiring.
+(goals, constraints, suitability, e1RM overrides) and symptoms are stored, the LLM can narrate
+or propose within the rules, and VBT targets are attached where the data supports them.
+[ROADMAP.md](ROADMAP.md) lists what remains: the labelled calibration set (3.8, human work);
+video moved to v0.2, which also covers readiness entry, manual logging, format adapters and
+the programme view.
 
 What runs today:
 
