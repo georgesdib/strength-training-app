@@ -131,4 +131,3 @@ a preference of convenience: record it in `docs/DECISIONS.md` when you do.
   `metric_definition`.
 - No inference of readiness from training data, sleep reports or anything else: absent means
   absent.
-- No automatic export of manual entries back to `readiness.csv`; the database is the record.

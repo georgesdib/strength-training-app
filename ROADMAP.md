@@ -491,26 +491,29 @@ version whose remaining work is calibration and documentation.
 
 ### 4.9 Readiness follow-ups — planned, not built
 
-These extend 4.1. They are **planned**; no code is written yet. The first two were decided in
-discussion, the third is a constraint, and the fourth is a design choice.
+These extend 4.1. They are **planned**; no code is written yet. The first was revised so the
+composite can move a load; the second uses baseline-relative triggers; the third is per-athlete
+settings.
 
-#### 4.9.1 Composite readiness score
+#### 4.9.1 Composite readiness score that can move a load
 
-Add a single 0-1 readiness summary, still **reporting only** — it must never move a load.
-MOD-FAT-001 keeps reading individual fields.
+Add a single 0-1 readiness summary that can **trigger the fatigue modifier and reduce loads** —
+not merely report. A reduction is the only direction allowed: readiness may never raise a load.
 
 Prerequisite: every metric included in the composite has a metric_definition row declaring
 its scale, direction (higher_is_better), unit and aggregation. Then:
 
 - normalise each present metric to 0-1 using its declared direction (RHR is inverted);
 - aggregate with declared weights over the metrics that exist;
-- store the result with composite_basis naming the inputs and weights;
+- map the composite through a configurable threshold (e.g. at or below 0.40) that triggers
+  MOD-FAT-001, citing the composite and its basis;
 - a missing metric is excluded, never treated as zero;
-- the switch stays off until the definitions exist.
+- the switch stays off until the definitions exist; enabling it without them is refused.
 
-Acceptance: enabling the composite without full definitions is refused; an inverted metric
-(RHR) scores correctly in a unit test; a partial day's composite is computed over its present
-fields and says so; no prescription load changes because of it.
+Acceptance: a composite below the configured threshold reduces loads and cites
+composite:<date> plus composite_basis; an inverted metric (RHR) scores correctly; a partial
+day is computed over its present fields and says so; the threshold is config, and no path lets
+readiness increase a load.
 
 #### 4.9.2 HRV and RHR trigger the fatigue modifier
 
@@ -544,11 +547,6 @@ defaults:
 Acceptance: two databases on the same checkout can use different thresholds; an athlete with
 no overrides falls back to config; the prescription trace names the winning source.
 
-#### 4.9.4 Constraint: the CSV is input, the database is the record
-
-There is **no write-back to readiness.csv**. The export belongs to the logging device/app;
-manual readings live in readiness_entry. If portability is needed later, add a separate
-explicit export (CSV/YAML) rather than mutating the input file. Backups copy data/coach.db.
 ## 5. Known gaps and risks
 
 | gap | impact | mitigation / status |
