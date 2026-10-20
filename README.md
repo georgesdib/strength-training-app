@@ -15,7 +15,7 @@ LLM call fails entirely.
 
 ## Status
 
-**v0 complete; v0.1 in progress; v0.2 in progress.** The full slice runs: import → readiness
+**v0 complete; v0.1 complete; v0.2 in progress.** The full slice runs: import → readiness
 → prescribe a day → critique the last session → review it → calibrate. Days A, B and C are
 prescribable, athlete state (goals, constraints, suitability, e1RM overrides) and symptoms are
 editable in the CLI and local web UI, the LLM can narrate or propose within the rules, and VBT
@@ -24,8 +24,8 @@ targets are attached where the data supports them.
 Delivered early in v0.2: readiness score and overrides, injury signal, continuity, local web UI
 (including CSV import with overlap detection, editable athlete state, rubric and readiness
 calibration reports). Remaining: the labelled set
-(3.8, human work), manual logging, format adapters, programme view, video, learned/HRV
-readiness settings; later/unscheduled: cardio + impulse-fatigue modelling (§4.13). See [ROADMAP.md](ROADMAP.md).
+(now §4.14), manual logging, format adapters, programme view, video, learned/HRV readiness
+settings; later/unscheduled: cardio + impulse-fatigue modelling (§4.13). See [ROADMAP.md](ROADMAP.md).
 
 What runs today:
 

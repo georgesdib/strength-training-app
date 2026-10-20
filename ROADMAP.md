@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-19 · **v0 complete, v0.1 in progress** · version `0.1.0-dev` · **461 public tests** (476 with the 15 private integration tests)
+Last updated: 2026-10-19 · **v0 complete, v0.1 done, v0.2 in progress** · version `0.1.0-dev` · **461 public tests** (476 with the 15 private integration tests)
 
 ---
 
@@ -43,8 +43,8 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry + score/overrides + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/calibration (§4.10/4.11). Remaining: manual logging, adapters, programme view, video, HRV/per-athlete/learned readiness settings (§4.9), web parity for LLM/manual logging/programme/video (§4.11); later/unscheduled: cardio + impulse fatigue (§4.13) |
-| v0.1 | Next version | **in progress** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set remains (human work) |
+| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry + score/overrides + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/calibration (§4.10/4.11), labelled set moved here (§4.14). Remaining: manual logging, adapters, programme view, video, HRV/per-athlete/learned readiness settings (§4.9), web parity for LLM/manual logging/programme/video (§4.11); later/unscheduled: cardio + impulse fatigue (§4.13) |
+| v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000` |
 
 ### What works end to end today
@@ -74,7 +74,7 @@ beside the rubric's scores, takes marks, stores them append-only, and reports ru
 agreement immediately. Two of the three marks are reconstructed from memory and excluded;
 on the one remembered session, 60% of items agree within ±0.25 (`DEC-EVAL-03/04`).
 
-## 3. v0.1 — the next version
+## 3. v0.1 — complete
 
 v0 is complete (see §2 and the user guide). This is the agenda for the next version, in
 dependency order. Nothing here blocks using v0 as it stands.
@@ -259,11 +259,9 @@ the golden fixture gains velocity columns.
 Do not start this before those three questions have answers — inventing them is what the
 deferral exists to avoid.
 
-### 3.8 A labelled set worth tuning against
+### 3.8 Labelled set — moved to §4.14
 
-No code. Continue `review --session DATE` after sessions that are still fresh; the report
-needs roughly ten *remembered* sessions per item before a weight or definition is changed
-(`DEC-EVAL-03`, `DEC-EVAL-04`). Two of the three current marks are reconstructed and excluded.
+This is now a v0.2 item; the content and acceptance are in §4.14. v0.1 is complete.
 
 ### 3.9 Deliberately not planned
 
@@ -669,6 +667,18 @@ method; the fatigue state is displayed with inputs and time constants; a shadow 
 no prescription; constraints and injury ceilings remain vetoes; no cardio session silently
 counts as resistance volume or vice versa.
 
+### 4.14 Labelled calibration set  (moved from v0.1 3.8)
+
+No code. Continue reviewing sessions while they are fresh; the rubric report needs roughly ten
+*remembered* sessions per item before changing a definition or weight (DEC-EVAL-03,
+DEC-EVAL-04). Reconstructed marks are stored but excluded from agreement.
+
+Current state: 5 high-confidence sessions, 75% agreement, MAE 0.20; rotation is the weak item.
+The web Review page has the **Run rubric calibration** button; the CLI remains
+`strength-coach calibrate`.
+
+Acceptance: ten high-confidence marks per item before a rubric change; every review appends,
+never edits; the report states the sample size and excludes low-confidence marks.
 ## 5. Known gaps and risks
 
 | gap | impact | mitigation / status |

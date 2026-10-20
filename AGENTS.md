@@ -13,7 +13,7 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**v0 is complete; v0.1 is in progress** (one item left: the labelled calibration set).
+**v0 and v0.1 are complete; v0.2 is in progress.** The labelled calibration set is now §4.14.
 
 **Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
