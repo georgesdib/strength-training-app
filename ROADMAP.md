@@ -43,7 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry (§4.1), continuity (§4.6), injury signal (§4.7), local web UI (§4.10). Remaining: manual logging, adapters, programme view, video, learned/HRV readiness settings (§4.9), full web parity (§4.11); later/unscheduled: cardio + impulse fatigue (§4.13) |
+| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry + score/overrides + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/calibration (§4.10/4.11). Remaining: manual logging, adapters, programme view, video, HRV/per-athlete/learned readiness settings (§4.9), web parity for LLM/manual logging/programme/video (§4.11); later/unscheduled: cardio + impulse fatigue (§4.13) |
 | v0.1 | Next version | **in progress** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set remains (human work) |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000` |
 
@@ -542,7 +542,7 @@ CLI remains the automation surface.
 Done: import and state editing. Remaining: LLM proposals/chat, manual logging, programme view,
 video.
 
-### 4.11 Web UI parity — everything in the browser  (planned)
+### 4.11 Web UI parity — everything in the browser  (partial: import + state editing done)
 
 The local UI covers Today, Prescribe, Review, Readiness, Import, an editable Athlete page and
 Docs. This item brings the remaining interactive CLI actions into the browser. The CLI stays
