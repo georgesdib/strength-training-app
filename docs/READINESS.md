@@ -79,9 +79,10 @@ measurement.
 One row per date in `readiness_day`, with the 1–5 fields, the device fields (including grip
 strength in kg), and a nullable `composite`.
 
-**The composite is deliberately null.** A 0–1 score would need every metric's scale and
-direction declared first (`metric_definition`), and inventing one would make a guess
-indistinguishable from a measurement. `config/readiness.v1.yaml` has the switch, off.
+**`readiness_day.composite` is deliberately null.** The computed score is a separate
+`readiness_score` assessment (`docs/READINESS-SCORE.md`), so the imported row stays a
+measurement record. Its HRV/RHR baseline and optional wearable blend are explicit and shown
+with the result; they are not written back into `readiness_day.composite`.
 
 Manual readings live in `readiness_entry`: one row per field, append-only, with source
 `manual`, a timestamp and an optional note. Re-logging a date appends; the latest entry per
@@ -92,9 +93,10 @@ keeps the imported fields around it and the override is auditable.
 ## 5. What actually moves a load
 
 The implemented score reads the five core subjective fields (sleep, energy, mood, stress,
-soreness) and needs at least three of them plus sleep or energy. It produces a global score and
-per-category scores; overrides are 0.00–1.00. The old `MOD-FAT-001` configured-field rule
-remains as a **floor**:
+soreness) and needs at least three of them plus sleep or energy. HRV and RHR enter only with
+a 28-day baseline (at least 7 readings) at half weight; an optional wearable score is a 10%
+blend. It produces a global score and per-category scores; overrides are 0.00–1.00. The old
+`MOD-FAT-001` configured-field rule remains as a **floor**:
 
 ```yaml
 modifier:
@@ -122,6 +124,9 @@ Everything a user might reasonably want different is in `config/readiness.v1.yam
 | `modifier.fields` | which readiness fields can downgrade a session |
 | `modifier.at_or_below` | the threshold on those fields |
 | `merge.strategy` / `merge.tie_break` | which duplicate row wins; only the implemented values are accepted |
+| `score.baseline_days` / `score.baseline_min_readings` | HRV/RHR baseline window and minimum |
+| `score.hrv_weight` / `score.rhr_weight` | device-field weights (default 0.5) |
+| `score.wearable_weight` | optional wearable blend (default 0.10) |
 | `composite.enabled` | reserved; stays off until metrics are declared |
 
 An unimplemented value raises rather than being ignored — a config that silently did nothing
@@ -134,7 +139,7 @@ a preference of convenience: record it in `docs/DECISIONS.md` when you do.
 
 - The global/category score is implemented in [`READINESS-SCORE.md`](READINESS-SCORE.md);
   `readiness_day.composite` itself stays null. The old sleep/energy trigger remains a floor.
-- No normalisation of HRV, RHR, Bevel or grip strength until their directions are declared in
-  `metric_definition`.
+- Grip strength stays a capacity trend, not a daily score input.
+- The wearable score is not used to override constraints or the injury ceiling.
 - No inference of readiness from training data, sleep reports or anything else: absent means
   absent.

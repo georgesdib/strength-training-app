@@ -28,3 +28,15 @@ composite:
   # A 0-1 readiness composite needs every metric's scale and direction declared first
   # (metric_definition rows). Until then it stays off and readiness_day.composite stays null.
   enabled: false
+
+score:
+  # HRV/RHR need a personal baseline before they can enter the score. The baseline is the
+  # median of the previous window, and a device field is skipped rather than guessed when the
+  # window has too few readings.
+  baseline_days: 28
+  baseline_min_readings: 7
+  # The subjective core is the primary signal (weight 1.0 per available field). Device fields
+  # carry half that weight; the proprietary wearable composite is only a 10% blend.
+  hrv_weight: 0.5
+  rhr_weight: 0.5
+  wearable_weight: 0.10

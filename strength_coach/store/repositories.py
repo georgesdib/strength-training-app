@@ -295,7 +295,7 @@ def upsert_readiness_days(conn: sqlite3.Connection, days: pd.DataFrame) -> int:
     columns = [
         "sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration",
         "squat_readiness", "bench_readiness", "deadlift_readiness", "hrv_ms", "rhr_bpm",
-        "bodyweight_kg", "fat_pct", "grip_strength_kg",
+        "bodyweight_kg", "fat_pct", "grip_strength_kg", "wearable_score",
     ]
     rows = []
     for record in days.to_dict(orient="records"):

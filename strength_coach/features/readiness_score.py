@@ -2,7 +2,9 @@
 
 This is the shadow-first implementation of docs/READINESS-SCORE.md:
 
-* subjective fields only for the score (sleep, energy, mood, stress, soreness);
+* subjective fields drive the score (sleep, energy, mood, stress, soreness);
+* HRV and RHR enter only with a 28-day baseline and half the weight of a subjective field;
+* an optional device-computed wearable score is a 10% blend, never a replacement;
 * legacy squat/bench/deadlift readiness are labels, never inputs;
 * grip is capacity, never a daily score input;
 * a score needs at least three core fields and sleep or energy;
@@ -15,10 +17,12 @@ The load factor is deliberately small and explicit. Nothing here writes a prescr
 from __future__ import annotations
 
 import datetime as dt
+import statistics
 from dataclasses import dataclass
 from typing import Any, Mapping
 
 from strength_coach.features import injury_signal
+from strength_coach.features import readiness as readiness_config
 from strength_coach.store import queries
 from strength_coach.utils import exercises
 from strength_coach.utils import readiness as readiness_utils
@@ -121,7 +125,71 @@ def _core_values(readiness: Mapping[str, Any] | None) -> list[Component]:
     return out
 
 
-def compute(conn, on_date: str) -> ReadinessAssessment:
+def _clamp(value: float) -> float:
+    return max(0.0, min(1.0, value))
+
+
+def _device_components(conn, data: Mapping[str, Any], on_date: str,
+                       config: readiness_config.ReadinessConfig):
+    """Baseline-relative HRV/RHR components, with an explicit missing-baseline note."""
+    history = queries.readiness_history(conn, on_date, config.baseline_days)
+    components: list[Component] = []
+    notes: list[str] = []
+    for field, direction, label in (
+        ("hrv_ms", "higher", "HRV"),
+        ("rhr_bpm", "lower", "RHR"),
+    ):
+        try:
+            value = float(data.get(field))
+        except (TypeError, ValueError):
+            continue
+        values = []
+        for row in history:
+            try:
+                number = float(row.get(field))
+            except (TypeError, ValueError):
+                continue
+            if number > 0:
+                values.append(number)
+        if len(values) < config.baseline_min_readings:
+            notes.append(f"{label} present, baseline {len(values)}/{config.baseline_min_readings} readings")
+            continue
+        baseline = statistics.median(values)
+        ratio = value / baseline
+        # 0.5 is baseline; a 50% deviation maps to 0 or 1. The slope is a heuristic, not a
+        # validated clinical cutoff; its low weight is what keeps that honest.
+        normalised = 0.5 + (ratio - 1.0 if direction == "higher" else 1.0 - ratio)
+        weight = config.hrv_weight if field == "hrv_ms" else config.rhr_weight
+        components.append(Component(field, value, _clamp(normalised), weight))
+    return components, notes
+
+
+def _wearable(data: Mapping[str, Any], weight: float):
+    value = data.get("wearable_score")
+    if value is None or value == "":
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not 0 <= number <= 100:
+        return None
+    return Component("wearable_score", number, number / 100.0, weight)
+
+
+def _basis(data: Mapping[str, Any], components: tuple[Component, ...],
+           notes: list[str], config: readiness_config.ReadinessConfig) -> str:
+    parts = ["weighted subjective core (1.0 each)"]
+    if any(c.field in {"hrv_ms", "rhr_bpm"} for c in components):
+        parts.append("HRV/RHR baseline-relative (0.5 each)")
+    parts.extend(notes)
+    if any(c.field == "wearable_score" for c in components):
+        parts.append(f"optional wearable blended at {config.wearable_weight:.0%}")
+    return "; ".join(parts)
+
+
+def compute(conn, on_date: str, config: readiness_config.ReadinessConfig | None = None) -> ReadinessAssessment:
+    config = config or readiness_config.ReadinessConfig.load()
     data = queries.readiness_day(conn, on_date)
     components = _core_values(data)
     overrides = queries.readiness_overrides(conn, on_date)
@@ -137,7 +205,19 @@ def compute(conn, on_date: str) -> ReadinessAssessment:
             overrides, {}, {},
         )
 
-    score = sum(c.normalised for c in components) / len(components)
+    device_components, device_notes = _device_components(conn, data, on_date, config)
+    components.extend(device_components)
+    wearable = _wearable(data, config.wearable_weight)
+    if wearable is not None:
+        components.append(wearable)
+
+    total_weight = sum(c.weight for c in components if c.field not in {"wearable_score"})
+    score = sum(c.normalised * c.weight for c in components
+                if c.field not in {"wearable_score"}) / total_weight
+    if wearable is not None:
+        score = score * (1.0 - config.wearable_weight) + wearable.normalised * config.wearable_weight
+    score = _clamp(score)
+
     global_override = overrides.get("global")
     if global_override is not None:
         score = float(global_override["value"])
@@ -157,7 +237,7 @@ def compute(conn, on_date: str) -> ReadinessAssessment:
         status="ready",
         score=score,
         components=tuple(components),
-        basis="equal weights over core subjective fields; HRV/RHR context not yet scored",
+        basis=_basis(data, components, device_notes, config),
         overrides=overrides,
         category_scores=categories,
         category_factors=factors,

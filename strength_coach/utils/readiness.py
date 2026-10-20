@@ -12,7 +12,8 @@ SCORE_FIELDS = (
     "sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration",
     "squat_readiness", "bench_readiness", "deadlift_readiness",
 )
-MEASURE_FIELDS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "grip_strength_kg")
+MEASURE_FIELDS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "grip_strength_kg",
+                  "wearable_score")
 # Old per-lift values from the previous app. They are calibration labels, not inputs.
 LEGACY_FIELDS = ("squat_readiness", "bench_readiness", "deadlift_readiness")
 CORE_SCORE_FIELDS = ("sleep", "energy", "mood", "stress", "soreness")
@@ -35,6 +36,7 @@ FIELD_LABELS = {
     "bodyweight_kg": "bodyweight (kg)",
     "fat_pct": "body fat (%)",
     "grip_strength_kg": "grip strength (kg)",
+    "wearable_score": "wearable readiness (0-100)",
 }
 
 
@@ -51,5 +53,8 @@ def validate(field: str, value: float) -> None:
     if field in SCORE_FIELDS:
         if not 1 <= number <= 5 or number != int(number):
             raise ValueError(f"{field} must be an integer from 1 to 5")
+    elif field == "wearable_score":
+        if not 0 <= number <= 100:
+            raise ValueError("wearable_score must be from 0 to 100")
     elif number <= 0:
         raise ValueError(f"{field} must be positive")

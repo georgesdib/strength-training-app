@@ -40,6 +40,11 @@ class ReadinessConfig:
     merge_strategy: str = "most_complete"
     tie_break: str = "latest"
     composite_enabled: bool = False
+    baseline_days: int = 28
+    baseline_min_readings: int = 7
+    hrv_weight: float = 0.5
+    rhr_weight: float = 0.5
+    wearable_weight: float = 0.10
     source_path: Path = Path()
 
     def trigger(self, readiness: Mapping[str, Any] | None) -> str | None:
@@ -88,12 +93,29 @@ class ReadinessConfig:
             raise ReadinessConfigError(f"modifier.fields: unknown readiness fields {unknown}")
 
         composite = raw.get("composite") or {}
+        score = raw.get("score") or {}
+        baseline_days = int(score.get("baseline_days", 28))
+        baseline_min = int(score.get("baseline_min_readings", 7))
+        hrv_weight = float(score.get("hrv_weight", 0.5))
+        rhr_weight = float(score.get("rhr_weight", 0.5))
+        wearable_weight = float(score.get("wearable_weight", 0.10))
+        if baseline_days <= 0 or baseline_min <= 0:
+            raise ReadinessConfigError("score baseline_days and baseline_min_readings must be positive")
+        for name, value in (("hrv_weight", hrv_weight), ("rhr_weight", rhr_weight),
+                            ("wearable_weight", wearable_weight)):
+            if not 0 <= value <= 1:
+                raise ReadinessConfigError(f"score.{name} must be from 0 to 1")
         return cls(
             modifier_fields=fields,
             at_or_below=float(modifier.get("at_or_below", 2)),
             merge_strategy=strategy,
             tie_break=tie_break,
             composite_enabled=bool(composite.get("enabled", False)),
+            baseline_days=baseline_days,
+            baseline_min_readings=baseline_min,
+            hrv_weight=hrv_weight,
+            rhr_weight=rhr_weight,
+            wearable_weight=wearable_weight,
             source_path=source,
         )
 
@@ -105,6 +127,11 @@ def as_dict(config: ReadinessConfig) -> dict[str, Any]:
         "merge_strategy": config.merge_strategy,
         "tie_break": config.tie_break,
         "composite_enabled": config.composite_enabled,
+        "baseline_days": config.baseline_days,
+        "baseline_min_readings": config.baseline_min_readings,
+        "hrv_weight": config.hrv_weight,
+        "rhr_weight": config.rhr_weight,
+        "wearable_weight": config.wearable_weight,
     }
 
 

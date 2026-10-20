@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 467 public tests
+.venv/bin/python -m pytest          # 471 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -500,6 +500,8 @@ Readiness can only *reduce* a prescribed load, so its derivation is written down
   the merge note records which candidate won and why;
 - a global 0.00–1.00 score is computed from sleep, energy, mood, stress and soreness; it needs
   at least three of those and either sleep or energy;
+- HRV and RHR enter at half weight only with a 28-day baseline (7 readings); an optional
+  **wearable readiness score (0–100)** is a 10% blend, never a replacement;
 - the old sleep/energy rule remains a floor (at or below 2 still cuts loads by 5%);
 - missing or insufficient readiness blocks a current/future workout rather than silently
   omitting the modifier;
@@ -512,8 +514,8 @@ strength-coach readiness set --date 2026-10-20 --sleep 2 --energy 3 --soreness 1
 strength-coach readiness set --date 2026-10-20 --energy 4 --note "slept badly"
 ```
 
-The 1-5 fields and the device fields (HRV, resting HR, bodyweight, body fat, grip strength in kg)
-are accepted in any combination. The old squat/bench/deadlift readiness fields are not. A manual value wins
+The 1-5 fields and the device fields (HRV, resting HR, bodyweight, body fat, grip strength in kg,
+wearable readiness 0–100) are accepted in any combination. The old squat/bench/deadlift readiness fields are not. A manual value wins
 **per field**; an imported row fills the fields you did not provide. Re-logging a date appends
 a new version and the latest value wins — nothing is edited or overwritten. The command prints
 each field with its source (`manual` or `import`).

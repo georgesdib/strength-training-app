@@ -126,6 +126,14 @@ conclusion is weaker than it looks.
 | 66 | Piatrikova E, Willsmer NJ, Altini M, Jovanović M, Mitchell LJG, Gonzalez JT, Sousa AC, Williams S. *Monitoring the Heart Rate Variability Responses to Training Loads in Competitive Swimmers Using a Smartphone Application and the Banister Impulse-Response Model.* Int J Sports Physiol Perform, 2021;16(10):1471-1480. | 10.1123/ijspp.2020-0201 | HRV, sRPE and wellness can feed an impulse-response model; not a validated individual prescription. |
 | 67 | Wang W, Zhao Y, Hou X, Yu W, Ren H, Ren H. *Advancing training effectiveness prediction in mass sport through longitudinal data: A mathematical model approach based on the Fitness-Fatigue Model.* PLOS ONE, 2025. | 10.1371/journal.pone.0337824 | Fitness-fatigue models need individual longitudinal data; generic parameters are a prior. |
 
+## 10. Wearable readiness composites
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 68 | Spetz L, Rogestedt J, Nilsson R, Mattsson CM, Larsen FJ. *Validating subjective ratings with wearable data for a nuanced understanding of load-recovery status in elite endurance athletes.* Sports Med Open, 2025. | 10.1186/s40798-025-00958-y | Wearable metrics are useful context but do not replace subjective load-recovery ratings; supports a low-weight blend. |
+| 69 | Khodr R, Kamal L, Minerbi A, Gupta G. *Accuracy, utility and applicability of the WHOOP wearable monitoring device in health, wellness and performance — a systematic review.* medRxiv, 2024 (preprint). | 10.1101/2024.01.04.24300784 | Sleep/HR accuracy is acceptable, but the proprietary recovery score is not a validated readiness measure; supports bounded use. |
+| 70 | Zhang P. *Predicting athletic performance in track and field athletes based on wearable physiological and psychological indicators: an interpretable machine learning study.* Front Physiol, 2026. | 10.3389/fphys.2026.1912453 | Wearable physiological/readiness indicators can relate to performance in groups, not an individual prescription. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow

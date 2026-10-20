@@ -21,9 +21,9 @@ prescribable, athlete state (goals, constraints, suitability, e1RM overrides) an
 editable in the CLI and local web UI, the LLM can narrate or propose within the rules, and VBT
 targets are attached where the data supports them.
 
-Delivered early in v0.2: readiness score and overrides, injury signal, continuity, local web UI
-(including CSV import with overlap detection, editable athlete state, rubric and readiness
-calibration reports). Remaining: the labelled set
+Delivered early in v0.2: readiness score and overrides (including optional wearable readiness,
+HRV/RHR baselines), injury signal, continuity, local web UI (including CSV import with overlap
+detection, editable athlete state, Programme/Terminal, rubric and readiness calibration reports). Remaining: the labelled set
 (now §4.14), manual logging, format adapters, programme view, video, learned/HRV readiness
 settings; later/unscheduled: cardio + impulse-fatigue modelling (§4.13). See [ROADMAP.md](ROADMAP.md).
 
@@ -51,7 +51,7 @@ python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 source .venv/bin/activate           # so `strength-coach` is on PATH
 
-.venv/bin/python -m pytest            # 467 public tests (15 more locally, private)
+.venv/bin/python -m pytest            # 471 public tests (15 more locally, private)
 .venv/bin/python tools/profile_data.py    # profile your own export
 .venv/bin/python tools/baseline.py        # strength baseline, latest date in the log
 .venv/bin/python tools/llm_check.py       # show the LLM configuration (see below)

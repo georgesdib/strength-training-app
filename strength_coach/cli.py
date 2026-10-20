@@ -168,6 +168,8 @@ def main(argv: list[str] | None = None) -> int:
     readiness.add_argument("--fat-percent", dest="fat_pct", type=float, default=None)
     readiness.add_argument("--grip-strength", dest="grip_strength_kg", type=float,
                            default=None, help="grip strength in kg")
+    readiness.add_argument("--wearable-score", dest="wearable_score", type=float,
+                           default=None, help="third-party readiness score, 0-100")
     readiness.add_argument("--note", default=None)
     readiness.add_argument("--scope", default="global",
                            help="override scope: global or category:<name>")

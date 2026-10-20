@@ -95,6 +95,7 @@ trap bar.
 | sleep, energy, mood, soreness, stress, nutrition, hydration | 1–5, higher better, null when absent |
 | squat_readiness, bench_readiness, deadlift_readiness | 1–5 or null |
 | hrv_ms, rhr_bpm, bodyweight_kg, fat_pct, grip_strength_kg | null when 0 sentinel |
+| wearable_score | 0–100 device-computed readiness; null when absent; 0 is a valid worst score |
 | composite | derived, 0–1, with `composite_basis` listing which inputs existed |
 | merge_note | JSON: which duplicate rows were considered and why one won |
 
@@ -109,7 +110,7 @@ directions in Q6 part 2 are declared.
 | entry_id PK | opaque id |
 | on_date | the day the reading describes |
 | field | one of the readiness fields |
-| value | numeric; 1–5 for score fields, positive for device fields (including grip strength in kg) |
+| value | numeric; 1–5 for score fields, positive for device fields (including grip strength in kg), 0–100 for wearable_score |
 | source | `manual` (currently the only writer) |
 | recorded_at | when it was entered |
 | note | optional |

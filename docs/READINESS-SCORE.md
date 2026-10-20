@@ -1,8 +1,9 @@
 # READINESS SCORE — global, category and calibration
 
-**Status: implemented (2026-10-19)** for the global/category score, overrides, the
-readiness-required gate, the 20% combined cap and the calibration report. Still planned:
-learned weight adoption, HRV/RHR in the score, and per-athlete settings.
+**Status: implemented (2026-10-19; HRV/RHR + wearable 2026-10-20)** for the global/category
+score, overrides, the readiness-required gate, the 20% combined cap, the calibration report,
+baseline-relative HRV/RHR, and the optional device-computed wearable score. Still planned:
+learned weight adoption and per-athlete settings.
 
 The score replaces the old sleep/energy-only trigger, but the old trigger remains as a safety
 floor. The three legacy per-lift values are calibration labels, never inputs.
@@ -61,6 +62,7 @@ Inputs and directions (higher score = more ready):
 | soreness | 1-5 | higher = less sore | core subjective |
 | HRV | ms | higher better, only relative to baseline | context, low weight |
 | RHR | bpm | **lower** better, only relative to baseline | context, low weight |
+| wearable score | 0-100 | higher better, device-defined | optional 10% blend; never a replacement |
 | grip strength | kg | higher better | **capacity trend only; excluded from the daily score** |
 
 For a field present on the date:
@@ -73,9 +75,10 @@ For a field present on the date:
 global = sum(weight_i * normalised_i) / sum(weight_i)   over present, eligible fields
 ```
 
-Defaults (config, not code): equal weight 1 for the five subjective fields; weight 0.5 for HRV
-and RHR when a baseline exists; no score with fewer than **two** subjective fields (report
-"insufficient", not a number). Missing fields are excluded, never zero.
+Defaults (config, not code): weight 1 for the five subjective fields; weight 0.5 for HRV and
+RHR when a baseline exists; no score with fewer than **three** subjective fields (report
+"insufficient", not a number). Missing fields are excluded, never zero. If a wearable score is
+present, the final score is `0.90 * subjective/device score + 0.10 * wearable/100`.
 
 Every display shows the contributors and their weights, a confidence label based on how many
 fields were present, and the baseline dates used for HRV/RHR.
@@ -107,6 +110,43 @@ be more faithful to the athlete, but:
 after enough scored sessions, with the contributors still shown. Keep the **individual safety
 floor** regardless of weights: sleep or energy at or below 2 still applies the old 5% cut even
 if the composite is high. That prevents a single catastrophic field being averaged away.
+
+### 2.1b HRV and RHR: implementation
+
+HRV and RHR enter the score only when the athlete has a personal baseline:
+
+- baseline = median of the previous **28 days**, at least **7** readings (imported or manual);
+- HRV is higher-is-better, RHR lower-is-better; both are normalised around 0.5 at baseline;
+- a 50% deviation from baseline maps to 0 or 1; the slope is a heuristic, not a clinical cutoff;
+- each device field has weight **0.5**, against 1.0 for each subjective field;
+- if the baseline is missing, the field is shown as present but **not scored**; it is never
+  replaced by an arbitrary population value;
+- a day with only device data is still insufficient: three subjective fields plus sleep or
+  energy are required.
+
+This is deliberately low-weight. HRV-guided training improves vagal indices, but performance
+benefits are small and not clearly significant, and there is no standard decision framework
+([Manresa-Rocamora 2021](https://doi.org/10.3390/ijerph181910299);
+[Schaffarczyk 2026](https://doi.org/10.3389/fspor.2026.1858271)).
+
+### 2.1c Optional wearable readiness score
+
+A device such as Bevel can supply its own readiness score (0-100). The app treats it as an
+**optional context blend**, not as a second truth:
+
+- absent: no effect;
+- present: `score = 0.90 * computed_score + 0.10 * wearable/100`;
+- 0 is valid (worst), blank is missing; the device threshold is not reinterpreted;
+- global and category overrides still win; the injury ceiling still caps the result;
+- the UI and score report label it `wearable_score` and show the 10% weight.
+
+Why only 10%: the algorithm is proprietary and cannot be audited; it may double-count sleep,
+HRV and soreness that are already in the subjective score; and different devices disagree.
+Wearable data are useful context and can predict performance in groups, but they do not
+replace the athlete's own report for an individual session
+([Spetz 2025](https://doi.org/10.1186/s40798-025-00958-y);
+[Khodr 2024](https://doi.org/10.1101/2024.01.04.24300784);
+[Zhang 2026](https://doi.org/10.3389/fphys.2026.1912453)).
 
 ### 2.2 Per-lift readiness
 
@@ -404,11 +444,12 @@ Delivered on 2026-10-19:
 - 20% combined readiness + continuity cap, with a warning when it bites;
 - readiness-required gate for current/future CLI and web workouts;
 - calibration report (`readiness calibrate`) with main-lift load features, date split,
-  ridge/linear fit and baseline comparison.
+  ridge/linear fit and baseline comparison;
+- HRV/RHR baseline-relative components (0.5 weight, 7 readings in 28 days);
+- optional wearable score at a 10% blend.
 
 Still planned:
 
-- HRV/RHR in the score (currently context only, not scored);
 - learned weight adoption (the report does not apply weights);
 - per-athlete settings (ROADMAP §4.9.3).
 

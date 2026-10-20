@@ -293,6 +293,40 @@ def readiness_day(conn, on_date: str) -> dict | None:
     return merged
 
 
+def readiness_history(conn, before: str, days: int = 28) -> list[dict]:
+    """Merged readiness rows in the window [before-days, before), newest last.
+
+    The baseline for HRV/RHR must include manual fields, not just the imported row, or a
+    manually entered morning reading would silently not count.
+    """
+    rows = [
+        dict(row)
+        for row in conn.execute(
+            """
+            SELECT * FROM readiness_day
+             WHERE on_date < ? AND on_date >= date(?, ?)
+             ORDER BY on_date
+            """,
+            (str(before), str(before), f"-{int(days)} day"),
+        )
+    ]
+    by_date = {str(row["on_date"]): row for row in rows}
+    entries = conn.execute(
+        """
+        SELECT on_date, field, value, recorded_at
+          FROM readiness_entry
+         WHERE on_date < ? AND on_date >= date(?, ?)
+         ORDER BY on_date, recorded_at, rowid
+        """,
+        (str(before), str(before), f"-{int(days)} day"),
+    )
+    for entry in entries:
+        day = str(entry["on_date"])
+        row = by_date.setdefault(day, {"on_date": day})
+        row[str(entry["field"])] = entry["value"]
+    return [by_date[key] for key in sorted(by_date)]
+
+
 def readiness_overrides(conn, on_date: str) -> dict[str, dict]:
     """Latest readiness override per scope for a date; scopes are global/category:*."""
     rows = conn.execute(

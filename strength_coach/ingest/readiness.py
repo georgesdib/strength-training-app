@@ -39,6 +39,13 @@ RAW_RENAME = {
     "Weight": "bodyweight_kg",
     "Fat_Percent": "fat_pct",
     "Grip_Strength": "grip_strength_kg",
+    # Optional third-party readiness score. Aliases cover the common export headers.
+    "Wearable_Score": "wearable_score",
+    "Wearable Score": "wearable_score",
+    "Readiness_Score": "wearable_score",
+    "Readiness Score": "wearable_score",
+    "Bevel_Readiness": "wearable_score",
+    "Bevel Readiness": "wearable_score",
 }
 
 # Columns where a physical 0 is impossible, so 0 is a missing-value sentinel. These are the

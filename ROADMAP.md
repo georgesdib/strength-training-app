@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-19 · **v0 complete, v0.1 done, v0.2 in progress** · version `0.1.0-dev` · **467 public tests** (482 with the 15 private integration tests)
+Last updated: 2026-10-19 · **v0 complete, v0.1 done, v0.2 in progress** · version `0.1.0-dev` · **471 public tests** (486 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-19 · **v0 complete, v0.1 done, v0.2 in progress** · vers
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 482 locally (467 public + 15 private integration)
+.venv/bin/python -m pytest            # 486 locally (471 public + 15 private integration)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -506,18 +506,23 @@ Implemented on 2026-10-19:
 - 20% cap on combined readiness + continuity reduction (guardrail, no direct evidence);
 - readiness-required gate for current/future CLI and web workouts;
 - calibration report against the 306 black-box legacy labels, with main-lift load features,
-  date split and baseline; report only, no auto-apply.
+  date split and baseline; report only, no auto-apply;
+- baseline-relative HRV/RHR at 0.5 weight, only with 7 readings in the previous 28 days;
+- optional device-computed wearable readiness (0-100) at a 10% blend.
 
 Full design and evidence: [`docs/READINESS-SCORE.md`](docs/READINESS-SCORE.md).
 
 Planned, not built:
 
-#### 4.9.1 HRV and RHR in the score
+#### 4.9.1 HRV and RHR in the score — done
 
-Add baseline-relative HRV/RHR to the global score, with the same 28-day median and
-missing-baseline rule as the earlier proposal. Currently they are stored but not scored.
+Baseline-relative HRV/RHR are in the global score: 28-day median, minimum 7 readings, gap
+or direction handled explicitly, weight 0.5 each. Missing baseline is shown, not guessed.
 
-#### 4.9.2 Per-athlete readiness settings
+#### 4.9.4 Optional wearable score — done
+
+A 0-100 score from a device such as Bevel is an optional 10% blend. It cannot override the
+subjective score, constraints or the injury ceiling.
 
 Move thresholds/weights into the database with athlete > config > code precedence.
 
@@ -533,12 +538,12 @@ CLI remains the automation surface.
 
 - `strength-coach web` serves on **127.0.0.1:8000** by default, no authentication, no external
   assets; docs are rendered locally.
-- Pages: Today, Prescribe, Review, Readiness, Import, Athlete, Docs.
+- Pages: Today, Prescribe, Programme, Review, Readiness, Import, Athlete, Terminal, Docs.
 - The API only serialises and routes; every load/score/warning still comes from the core.
 - Tests cover the API round trips, docs rendering and the readiness/review writes.
 
-Done: import and state editing. Remaining: LLM proposals/chat, manual logging, programme view,
-video.
+Done: import, state editing, Programme, Terminal. Remaining: LLM proposals/chat, manual
+logging, video.
 
 ### 4.11 Web UI parity — everything in the browser  (partial: import + state editing done)
 
@@ -640,7 +645,7 @@ data and a model, initially advisory and in shadow mode.
 
 - The Banister impulse-response model relates training impulses to performance, but its
   parameters are ill-conditioned and unstable; a good fit does not make the parameters
-  identifiable ([Hellard 2006](https://doi.org/10.1080/02640410500244827)).
+  identifiable ([Hellard 2006](https://doi.org/10.1080/02640410500244867)).
 - A single impulse reduces different training types to one number; the proposed
   three-dimensional model separates energy-system-specific adaptation, which is the direction
   this item should take rather than one global fatigue scalar
