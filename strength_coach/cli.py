@@ -37,6 +37,7 @@ from strength_coach.critique import UnknownSessionError, build_facts, score_sess
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import readiness as readiness_feature
+from strength_coach.features import programme as programme_feature
 from strength_coach.features import readiness_score
 from strength_coach.utils import readiness as readiness_utils
 
@@ -102,6 +103,14 @@ def main(argv: list[str] | None = None) -> int:
     state.add_argument("--will-do", choices=("yes", "no"), default="yes")
     state.add_argument("--feels-bad", choices=("yes", "no"), default="no")
     state.add_argument("--note", default=None)
+
+    programme = sub.add_parser("programme", help="forecast a rolling A/B/C horizon")
+    programme.add_argument("--weeks", type=int, required=True)
+    programme.add_argument("--remaining", action="store_true",
+                           help="start today instead of the block anchor")
+    programme.add_argument("--start", default=None, help="YYYY-MM-DD")
+    programme.add_argument("--sessions-per-week", type=int, choices=(1, 2, 3), default=3)
+    programme.add_argument("--start-day", choices=("A", "B", "C"), default=None)
 
     e1rm = sub.add_parser("e1rm", help="set or list manual e1RM overrides")
     e1rm_sub = e1rm.add_subparsers(dest="action", required=True)
@@ -182,6 +191,7 @@ def main(argv: list[str] | None = None) -> int:
     handlers = {
         "import": _cmd_import,
         "run": _cmd_run,
+        "programme": _cmd_programme,
         "review": _cmd_review,
         "calibrate": _cmd_calibrate,
         "state": _cmd_state,
@@ -475,6 +485,43 @@ def _print_readiness_score(assessment) -> None:
         print("  categories " + ", ".join(
             f"{name}={value:.2f}" for name, value in assessment.category_scores.items()
         ))
+
+
+def _cmd_programme(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        _ensure_imported(conn)
+        start = args.start
+        if args.remaining:
+            start = datetime.date.today().isoformat()
+        elif start is None:
+            profile = queries.athlete_profile(conn)
+            start = (profile or {}).get("block_start_date") or datetime.date.today().isoformat()
+        entries = programme_feature.build_programme(
+            conn, start=start, weeks=args.weeks,
+            per_week=args.sessions_per_week, start_day=args.start_day,
+        )
+        print(f"programme: {args.weeks} week(s) from {start}; forecast only, "
+              "recomputed on the day")
+        print(f"{'date':<12}{'day':<5}{'status':<10}loads")
+        for entry in entries:
+            p = entry.prescription
+            loads = ", ".join(
+                f"{item.exercise_id}={item.load_kg:g}"
+                for item in p.items if item.load_kg is not None
+            ) or "no loads"
+            status = "forecast" if p.executable else "not executable"
+            if entry.deload_reason:
+                status = "deload"
+            print(f"{entry.on_date:<12}{entry.day:<5}{status:<10}{loads}")
+            if entry.deload_reason:
+                print(f"  reactive deload: {entry.deload_reason}")
+            if p.warnings:
+                print(f"  warnings: {len(p.warnings)} (the day's run will show them)")
+        return 0
+    finally:
+        store.close()
 
 
 def _cmd_web(args) -> int:

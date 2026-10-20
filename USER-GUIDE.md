@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 461 public tests
+.venv/bin/python -m pytest          # 464 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -261,6 +261,19 @@ strength-coach state --rate EXERCISE_ID --can-do yes --will-do yes --feels-bad n
 
 An unrated exercise is "unknown", which is why a main-lift substitution (see §4.8) is refused
 until its replacement has a rating.
+
+### 4.4b `programme` — a rolling forecast
+
+```bash
+strength-coach programme --weeks 4
+strength-coach programme --weeks 4 --remaining
+```
+
+It prints a dated A/B/C rotation for the next N weeks, three sessions per week on
+Monday/Wednesday/Friday. This is a **forecast**: the day's prescription is rebuilt when the
+day arrives, using current e1RM, readiness and symptoms. It is not a fixed block and persists
+nothing. The first session is marked `fatigue_reduced` if the last two weeks exceeded the
+spinal cap or the last two sessions both flared.
 
 ### 4.5 `block` — declare or reset week 1
 
@@ -666,7 +679,8 @@ Tests: `.venv/bin/python -m pytest`, and the markers `-m golden` (locked numbers
 - **Loads are estimates.** e1RM uses Epley with the RIR folded in (`ASSUMPTION-03`); treat the
   number as a target, not a measurement.
 - **Calibration is thin.** One remembered session so far; the rubric is not tuned to it.
-- **One day at a time, and one input path.** There is no whole-programme view yet, and no
+- **One day at a time, and one input path.** The CLI has a rolling forecast (`programme`); the
+  web programme view is still planned. There is no
   manual logging or alternative file formats. Those are scoped in
   [ROADMAP.md](ROADMAP.md) §4 (v0.2), including how missing readiness will be reported rather
   than assumed.

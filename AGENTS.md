@@ -43,7 +43,7 @@ What exists today is:
 - `strength_coach/eval/` — backtest harness, labelled-set comparison, and the database-backed
   marks that make calibration continuous (`rubric_mark`, append-only).
 - `strength_coach/cli.py` — `import`, `run`, `review`, `calibrate`, `state`, `block`, `e1rm`,
-  `test`, `symptom`, `readiness`, `web`. `review` (with `--pending`) is the routine that keeps calibration current.
+  `test`, `symptom`, `readiness`, `programme`, `web`. `review` (with `--pending`) is the routine that keeps calibration current.
 - `strength_coach/web/` — local-only HTTP UI and JSON API over the same core; no authentication, bind 127.0.0.1.
 - `strength_coach/agents/` — LLM interface, config, narrative and structured proposals.
   `NullLLM` is the default; the model may explain or propose, but never compute. Keys live in the git-ignored `config/llm.local.toml`
