@@ -43,7 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry + score/overrides + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/calibration (§4.10/4.11), labelled set moved here (§4.14). Remaining: manual logging, adapters, web programme view, video, learned readiness weights (§4.9), web parity for LLM/manual logging/web programme view/video (§4.11); later/unscheduled: cardio + impulse fatigue (§4.13) |
+| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Terminal/calibration (§4.10/4.11), labelled set moved here (§4.14). Remaining: manual logging, adapters, video, learned readiness weights (§4.9), web parity for LLM/manual logging/video (§4.11); later/unscheduled: cardio + impulse fatigue (§4.13) |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000` |
 
@@ -353,7 +353,7 @@ Acceptance: a synthetic second-format CSV imports through a mapping file with no
 an unmapped required column fails loudly; extra columns survive in `raw_row`; re-import stays
 idempotent.
 
-### 4.4 Programme output — a rolling horizon, not a block  (CLI done)
+### 4.4 Programme output — a rolling horizon, not a block  (done: CLI + web)
 
 Today `run` emits one day. The athlete wants either **the whole programme** or **what remains**
 of it.
@@ -494,9 +494,9 @@ Why v0.2 rather than v0.1: it needs a privacy decision (sending personal video t
 model), a provider-capability check, and a storage/retention policy. None of those belong in a
 version whose remaining work is calibration and documentation.
 
-### 4.9 Readiness score and follow-ups  (core implemented)
+### 4.9 Readiness score and follow-ups  (core + devices implemented)
 
-Implemented on 2026-10-19:
+Implemented (2026-10-19/20):
 
 - global 0.00-1.00 score from sleep, energy, mood, stress and soreness, with a three-field
   minimum and a sleep/energy requirement;
@@ -511,8 +511,6 @@ Implemented on 2026-10-19:
 - optional device-computed wearable readiness (0-100) at a 10% blend.
 
 Full design and evidence: [`docs/READINESS-SCORE.md`](docs/READINESS-SCORE.md).
-
-Planned, not built:
 
 #### 4.9.1 HRV and RHR in the score — done
 
@@ -534,7 +532,7 @@ with athlete > config > code precedence. The effective source is shown in the sc
 `readiness shadow` compares the rolling-median baseline with a log-linear trend projection.
 It reports the normalised difference; it never changes a score or load.
 
-#### 4.9.3 Learned weights
+#### 4.9.3 Learned weights — remaining
 
 Adopt calibrated weights only if the date-split report beats the equal-weight baseline; the
 report is mimicry of the old labels, not validation.
@@ -553,7 +551,7 @@ CLI remains the automation surface.
 Done: import, state editing, Programme, Terminal. Remaining: LLM proposals/chat, manual
 logging, video.
 
-### 4.11 Web UI parity — everything in the browser  (partial: import + state editing done)
+### 4.11 Web UI parity — everything in the browser  (partial: LLM, manual logging, video remain)
 
 The local UI covers Today, Prescribe, Programme, Review, Readiness, Import, an editable Athlete
 page, Terminal and Docs. This item brings the remaining interactive CLI actions into the browser. The CLI stays
