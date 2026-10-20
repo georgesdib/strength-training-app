@@ -14,6 +14,9 @@ import datetime
 import hashlib
 import json
 import mimetypes
+import shlex
+import subprocess
+import sys
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -26,6 +29,7 @@ from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, load_marks, record_marks
 from strength_coach.features import injury_signal, readiness as readiness_feature
+from strength_coach.features import programme as programme_feature
 from strength_coach.features import readiness_calibration, readiness_score
 from strength_coach.prescribe import build_prescription
 from strength_coach.prescribe.config import Thresholds
@@ -248,6 +252,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._set_readiness(c, body)))
             elif path == "/api/readiness/override":
                 self._json(200, self._with_conn(lambda c: self._set_readiness_override(c, body)))
+            elif path == "/api/programme":
+                self._json(200, self._with_conn(lambda c: self._programme(c, body)))
+            elif path == "/api/terminal":
+                self._json(200, self._terminal(body))
             elif path == "/api/state/profile":
                 self._json(200, self._with_conn(lambda c: self._save_profile(c, body)))
             elif path == "/api/state/constraint":
@@ -470,6 +478,59 @@ class Handler(BaseHTTPRequestHandler):
                 conn, today, ramp_week=context.block_week_index
             ).as_dict(),
         }
+
+    def _programme(self, conn, body: dict) -> dict:
+        start = body.get("start") or None
+        if body.get("remaining"):
+            start = datetime.date.today().isoformat()
+        pages = programme_feature.build_programme(
+            conn,
+            start=start,
+            weeks=int(body.get("weeks") or 4),
+            per_week=int(body.get("sessions_per_week") or 3),
+            start_day=body.get("start_day") or None,
+            apply_deload=True,
+        )
+        return {"entries": [
+            {"date": entry.on_date, "day": entry.day,
+             "deload_reason": entry.deload_reason,
+             "prescription": prescription_dict(entry.prescription)}
+            for entry in pages
+        ]}
+
+    def _terminal(self, body: dict) -> dict:
+        """Run one strength-coach command. No shell, no other executable."""
+        raw = str(body.get("command") or "").strip()
+        if not raw:
+            raise ValueError("enter a strength-coach command")
+        try:
+            tokens = shlex.split(raw)
+        except ValueError as exc:
+            raise ValueError(f"could not parse command: {exc}") from exc
+        if not tokens or tokens[0] not in {"strength-coach", "strength_coach"}:
+            raise ValueError("only strength-coach commands are allowed")
+        args = tokens[1:]
+        if any(arg == "--db" or arg.startswith("--db=") for arg in args):
+            raise ValueError("the terminal is bound to the UI database; do not pass --db")
+        subcommand = next((arg for arg in args if not arg.startswith("-")), None)
+        if subcommand == "web":
+            raise ValueError("the web command cannot run inside the web terminal")
+        if subcommand == "review" and "--scores" not in args:
+            raise ValueError("interactive review is not available here; use the Review page or pass --scores")
+        command = [sys.executable, "-m", "strength_coach.cli"]
+        if self.db_path is not None:
+            command += ["--db", str(self.db_path)]
+        command += args
+        try:
+            result = subprocess.run(
+                command, cwd=ROOT, capture_output=True, text=True, timeout=60,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise ValueError("command timed out after 60 seconds") from exc
+        output = (result.stdout or "") + (result.stderr or "")
+        if len(output) > 200_000:
+            output = output[:200_000] + "\n[output truncated]"
+        return {"output": output, "returncode": result.returncode}
 
     def _save_profile(self, conn, body: dict) -> dict:
         current = dict(queries.athlete_profile(conn) or {})

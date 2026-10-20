@@ -34,8 +34,10 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 - **Readiness** — any subset of 1-5 and device fields; manual values win per field; the
   computed global/category score is shown; overrides take 0.00–1.00 with a reason. A current
   workout is refused until readiness is ready.
+- **Programme** — rolling A/B/C forecast, deload flag and warnings; nothing is persisted.
 - **Athlete** — append-only editing of profile, constraints, suitability, e1RM overrides,
   strength tests, block start and symptoms; shows the current tables and injury signal.
+- **Terminal** — restricted `strength-coach` command runner bound to the UI database.
 - **Docs** — local Markdown rendered without external assets.
 
 ## API
@@ -53,6 +55,8 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `GET /api/readiness/calibrate` | calibration report text (no auto-apply) |
 | `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, injury signal |
 | `GET /api/exercises` | canonical exercise catalogue for the pickers |
+| `POST /api/programme` | rolling forecast; returns dated entries and prescriptions |
+| `POST /api/terminal` | one restricted `strength-coach` command |
 | `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes |
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |

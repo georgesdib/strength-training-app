@@ -12,10 +12,12 @@
     <nav id="nav">
       <button data-view="dashboard" class="active">Today</button>
       <button data-view="prescribe">Prescribe</button>
+      <button data-view="programme">Programme</button>
       <button data-view="review">Review</button>
       <button data-view="readiness">Readiness</button>
       <button data-view="import">Import</button>
       <button data-view="state">Athlete</button>
+      <button data-view="terminal">Terminal</button>
       <button data-view="docs">Docs</button>
     </nav>
     <div class="local">local only · <code>127.0.0.1:8000</code></div>
@@ -58,6 +60,22 @@
           answer, not noise: a missing readiness or an unknown load appears here.</p>
       </div>
       <div id="prescribe-result"></div>
+    </section>
+
+    <section id="view-programme" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Programme forecast</h2><span class="muted">forecast only; rebuilt on the day</span></div>
+        <form id="programme-form" class="form-row">
+          <label>Weeks <input id="programme-weeks" type="number" min="1" max="26" value="4" required></label>
+          <label><input id="programme-remaining" type="checkbox"> from today</label>
+          <label>Start <input id="programme-start" type="date"></label>
+          <label>Sessions/week <select id="programme-per-week"><option>3</option><option>2</option><option>1</option></select></label>
+          <label>First day <select id="programme-day"><option value="">auto</option><option>A</option><option>B</option><option>C</option></select></label>
+          <button class="primary" type="submit">Build forecast</button>
+        </form>
+        <p class="muted">A dated A/B/C rotation. Loads are projections; every session is recomputed when its day arrives. Nothing is persisted.</p>
+      </div>
+      <div id="programme-result"></div>
     </section>
 
     <section id="view-review" class="view">
@@ -154,6 +172,19 @@
         <div id="state-result" class="state-grid"></div>
         <div id="state-forms" class="state-grid" style="margin-top:16px"></div>
         <datalist id="exercise-options"></datalist>
+      </div>
+    </section>
+
+    <section id="view-terminal" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Terminal</h2><span class="muted">strength-coach only</span></div>
+        <form id="terminal-form" class="form-row">
+          <label class="grow">Command <input id="terminal-command" autocomplete="off" spellcheck="false" placeholder="strength-coach programme --weeks 4"></label>
+          <button class="primary" type="submit">Run</button>
+        </form>
+        <p class="muted">Runs one command in the UI's database. No shell, no <code>web</code>, no <code>--db</code>;
+          interactive <code>review</code> is refused (use the Review page).</p>
+        <pre id="terminal-output" class="terminal"></pre>
       </div>
     </section>
 

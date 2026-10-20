@@ -79,3 +79,16 @@ pre { background: #f0ede4; padding: 13px; border-radius: 10px; overflow: auto; f
   .docs-list { position: static; max-height: none; }
   h1 { font-size: 28px; }
 }
+
+/* Programme and terminal additions. */
+.plain { margin: 0; padding-left: 18px; }
+.plain li { margin: 2px 0; }
+.terminal {
+  background: #171915;
+  color: #e8e4d8;
+  border: 1px solid #34382f;
+  min-height: 220px;
+  max-height: 520px;
+  white-space: pre-wrap;
+}
+details summary { cursor: pointer; color: var(--muted); }

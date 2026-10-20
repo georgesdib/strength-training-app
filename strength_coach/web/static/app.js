@@ -611,6 +611,100 @@ async function loadExercises() {
   } catch (error) { /* the page still works without the picker */ }
 }
 
+
+/* --- programme ---------------------------------------------------------- */
+function programmeStatus(entry) {
+  if (entry.deload_reason) return "deload";
+  if (!entry.prescription.executable) return "not executable";
+  return entry.prescription.fallback_level || "forecast";
+}
+
+function renderProgramme(entries) {
+  if (!entries.length) {
+    $("#programme-result").innerHTML = "<p class='warnbox'>No sessions in that horizon.</p>";
+    return;
+  }
+  const rows = entries.map((entry) => {
+    const items = entry.prescription.items.map((item) =>
+      `<li>${esc(item.exercise_id)} — ${item.sets}×${item.reps_low}-${item.reps_high}
+       @ ${fmt(item.load_kg)} kg, RIR ${esc(item.rir_target)}</li>`).join("");
+    const warn = entry.prescription.warnings.length
+      ? `<details><summary>${entry.prescription.warnings.length} warning(s)</summary><ul>${entry.prescription.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></details>`
+      : "<span class='empty'>none</span>";
+    return `<tr>
+      <td>${esc(entry.date)}</td>
+      <td><strong>${esc(entry.day)}</strong></td>
+      <td>${esc(programmeStatus(entry))}</td>
+      <td><ul class="plain">${items}</ul>
+        ${entry.deload_reason ? `<p class="warnbox">reactive deload: ${esc(entry.deload_reason)}</p>` : ""}
+        ${warn}</td>
+    </tr>`;
+  }).join("");
+  $("#programme-result").innerHTML = `<div class="panel"><table>
+    <thead><tr><th>Date</th><th>Day</th><th>Status</th><th>Session</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+async function runProgramme() {
+  const payload = {
+    weeks: Number($("#programme-weeks").value || 4),
+    remaining: $("#programme-remaining").checked,
+    start: $("#programme-start").value || null,
+    sessions_per_week: Number($("#programme-per-week").value || 3),
+    start_day: $("#programme-day").value || null,
+  };
+  $("#programme-result").innerHTML = "<p class='empty'>Building forecast…</p>";
+  try {
+    const data = await api("/api/programme", { method: "POST", body: JSON.stringify(payload) });
+    renderProgramme(data.entries);
+  } catch (error) {
+    $("#programme-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+/* --- terminal ----------------------------------------------------------- */
+const terminalHistory = [];
+let terminalCursor = -1;
+
+async function runTerminal(command) {
+  const value = command.trim();
+  if (!value) return;
+  $("#terminal-output").textContent = "$ " + value + "\n\nRunning…";
+  try {
+    const data = await api("/api/terminal", { method: "POST", body: JSON.stringify({ command: value }) });
+    $("#terminal-output").textContent = "$ " + value + "\n\n" + data.output +
+      (data.returncode ? "\n[exit " + data.returncode + "]" : "");
+  } catch (error) {
+    $("#terminal-output").textContent = "$ " + value + "\n\n" + error.message;
+  }
+}
+
+$("#programme-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  runProgramme();
+});
+$("#terminal-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const command = $("#terminal-command").value;
+  if (command.trim()) {
+    terminalHistory.push(command.trim());
+    terminalCursor = terminalHistory.length;
+    $("#terminal-command").value = "";
+    runTerminal(command);
+  }
+});
+$("#terminal-command").addEventListener("keydown", (event) => {
+  if (event.key === "ArrowUp" && terminalHistory.length) {
+    terminalCursor = Math.max(0, terminalCursor - 1);
+    $("#terminal-command").value = terminalHistory[terminalCursor];
+    event.preventDefault();
+  } else if (event.key === "ArrowDown") {
+    terminalCursor = Math.min(terminalHistory.length, terminalCursor + 1);
+    $("#terminal-command").value = terminalHistory[terminalCursor] || "";
+    event.preventDefault();
+  }
+});
+
 /* --- boot --------------------------------------------------------------- */
 fillSessionSelect();
 loadExercises();

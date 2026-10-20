@@ -183,7 +183,18 @@ so silently erased genuine `RIR = 0` observations during development.
 | `private/docs/BASELINE.md` | current strength baseline (personal) |
 | `private/docs/INFO-REQUESTS.md` | goals/injury/suitability backlog (personal) |
 
-## 10. Things an agent should ask instead of doing
+## 10. CLI/UI parity — standing instruction
+
+Everything built in the CLI must also be available in the local web UI **where practicable**,
+in the same change. The UI must call the same core function as the CLI, never re-implement it.
+If a capability cannot reasonably live in the UI (interactive prompt, destructive migration,
+host-level operation), record the exception in `docs/WEB-UI.md` and `ROADMAP.md` §4.11 rather
+than leaving it silently missing.
+
+The in-browser terminal is the fallback for uncovered commands: it runs **only**
+`strength-coach`, never a shell, and is bound to the UI database.
+
+## 11. Things an agent should ask instead of doing
 
 - Adding a new hard rule → ask; the constitution is versioned and owned by the user.
 - Changing a threshold that affects a prescription → ask.

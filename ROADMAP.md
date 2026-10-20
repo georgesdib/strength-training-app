@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-19 · **v0 complete, v0.1 done, v0.2 in progress** · version `0.1.0-dev` · **464 public tests** (479 with the 15 private integration tests)
+Last updated: 2026-10-19 · **v0 complete, v0.1 done, v0.2 in progress** · version `0.1.0-dev` · **467 public tests** (482 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-19 · **v0 complete, v0.1 done, v0.2 in progress** · vers
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 479 locally (464 public + 15 private integration)
+.venv/bin/python -m pytest            # 482 locally (467 public + 15 private integration)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -542,8 +542,8 @@ video.
 
 ### 4.11 Web UI parity — everything in the browser  (partial: import + state editing done)
 
-The local UI covers Today, Prescribe, Review, Readiness, Import, an editable Athlete page and
-Docs. This item brings the remaining interactive CLI actions into the browser. The CLI stays
+The local UI covers Today, Prescribe, Programme, Review, Readiness, Import, an editable Athlete
+page, Terminal and Docs. This item brings the remaining interactive CLI actions into the browser. The CLI stays
 as the automation interface; the UI must call the same core functions, never re-implement them.
 
 Planned surfaces, in suggested order:
@@ -558,10 +558,11 @@ Planned surfaces, in suggested order:
    veto. Proposal history stays visible.
 4. **Manual workout logging** (4.2) — per-set entry, conclude/log, then the review catch-up for
    previous sessions.
-5. **Programme view** (4.4) — rolling horizon with recomputation on the day.
+5. **Programme view** (4.4) — **done**. Rolling horizon with recomputation on the day.
 6. **Video** (4.8) — opt-in attachment, privacy warning, commentary only, never a score.
 7. **Readiness settings** (4.9) — composite threshold and per-athlete HRV/RHR rules, once
    those items exist.
+8. **Terminal** — **done**. One `strength-coach` command, no shell; bound to the UI database.
 
 Constraints:
 
@@ -571,7 +572,9 @@ Constraints:
 - uploads stay under private/ and are never committed; no arbitrary filesystem paths;
 - the server stays local-only; adding authentication is out of scope for a single-user tool;
 - every action reports warnings and refusals as part of the result, not as a toast that hides
-  the reason.
+  the reason;
+- the terminal executes only `strength-coach`, never a shell, and refuses `web`, `--db` and
+  interactive `review`.
 
 Acceptance: every interactive CLI action has a browser path or a documented exception; the
 same inputs produce the same database rows and warnings through either surface; a failed
@@ -637,7 +640,7 @@ data and a model, initially advisory and in shadow mode.
 
 - The Banister impulse-response model relates training impulses to performance, but its
   parameters are ill-conditioned and unstable; a good fit does not make the parameters
-  identifiable ([Hellard 2006](https://doi.org/10.1080/02640410500244797)).
+  identifiable ([Hellard 2006](https://doi.org/10.1080/02640410500244827)).
 - A single impulse reduces different training types to one number; the proposed
   three-dimensional model separates energy-system-specific adaptation, which is the direction
   this item should take rather than one global fatigue scalar

@@ -72,6 +72,7 @@ def test_the_page_and_overview_are_served(server):
     status, page = get(server, "/")
     assert status == 200
     assert "Strength" in page
+    assert "Programme" in page and "Terminal" in page
 
     status, body = get(server, "/api/overview")
     assert status == 200
@@ -235,3 +236,60 @@ def test_rubric_calibration_endpoint(server):
     status, body = get(server, "/api/calibrate")
     assert status == 200
     assert "no marks yet" in json.loads(body)["text"]
+
+def post_status(base: str, path: str, payload: dict) -> tuple[int, str]:
+    request = urllib.request.Request(
+        base + path,
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request) as response:
+            return response.status, response.read().decode()
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read().decode()
+
+
+def test_programme_endpoint(server):
+    data = post(server, "/api/programme", {
+        "weeks": 2, "start": "2024-01-02", "start_day": "A",
+    })
+    assert len(data["entries"]) == 6
+    assert data["entries"][0]["date"] == "2024-01-03"
+    assert data["entries"][0]["day"] == "A"
+    assert data["entries"][0]["prescription"]["items"]
+
+
+def test_terminal_accepts_only_strength_coach(server):
+    status, body = post_status(server, "/api/terminal", {"command": "ls"})
+    assert status == 400
+    assert "only strength-coach" in body
+
+    status, body = post_status(server, "/api/terminal", {
+        "command": "strength-coach web",
+    })
+    assert status == 400
+    assert "cannot run" in body
+
+    status, body = post_status(server, "/api/terminal", {
+        "command": "strength-coach state --db other.db",
+    })
+    assert status == 400
+    assert "--db" in body
+
+    status, body = post_status(server, "/api/terminal", {
+        "command": "strength-coach review",
+    })
+    assert status == 400
+    assert "interactive" in body
+
+
+def test_terminal_runs_a_valid_command(server):
+    status, body = post_status(server, "/api/terminal", {
+        "command": "strength-coach programme --weeks 1 --start 2024-01-02 --start-day A",
+    })
+    assert status == 200
+    data = json.loads(body)
+    assert data["returncode"] == 0
+    assert "forecast only" in data["output"]
