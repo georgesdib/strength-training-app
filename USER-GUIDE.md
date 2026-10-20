@@ -102,7 +102,118 @@ violations disappear.
 
 ---
 
-## 4. The three routines
+### 3.1 The workflow — how to actually use it
+
+Think in four layers, not one big loop:
+
+| layer | how often | where |
+|---|---|---|
+| **state** — goals, constraints, suitability, e1RM, block | once, then when life changes | Athlete page / `state` |
+| **readiness** — sleep, energy, soreness, HRV/RHR, optional wearable | before each session | Readiness page / `readiness set` |
+| **training** — prescribe, perform, import | each session | Prescribe / Import |
+| **review + calibration** — marks, reports, adjustments | after sessions, weekly | Review / Calibrate |
+
+The important rule: **readiness comes first, then the prescription.** A current or future
+workout is refused until readiness is ready enough; that is deliberate, because the readiness
+score changes the load and may trigger a deload.
+
+#### First-time setup
+
+1. **Import** the training and readiness exports (Import page or `strength-coach import`).
+   Check the quarantine count; a row with no date or an unknown exercise is reported, not
+   silently dropped.
+2. **Record athlete state** (Athlete page or `strength-coach state`): primary goal, constraints,
+   exercise suitability, and any e1RM overrides. Set the block start when the erector ramp
+   should begin (`block --date YYYY-MM-DD`).
+3. **Review a few recent sessions** so the rubric has marks. Do this while the sessions are
+   fresh; reconstructed marks are kept but excluded from agreement.
+4. **Optional device setup**: HRV/RHR are scored only after seven readings in the previous
+   28 days. Set a per-athlete baseline window, minimum and slopes on the Readiness page if the
+   defaults do not fit. A wearable readiness score (0-100) is optional and only a 10% blend.
+
+#### Before each workout
+
+1. **Log readiness** for today:
+   ```bash
+   strength-coach readiness set --date 2026-10-20 \
+     --sleep 4 --energy 4 --mood 4 --soreness 4 --stress 4
+   ```
+   Device fields and the optional wearable score can be added in the same command or on the
+   Readiness page. Any subset is valid, but a score needs at least three core fields plus sleep
+   or energy.
+2. **Check the readiness result.** The page/CLI shows the score, components, overrides, injury
+   ceiling and whether a baseline was available. Do not use the old squat/bench/deadlift
+   readiness fields; they are labels, not inputs.
+3. **Prescribe the session**:
+   ```bash
+   strength-coach run --date 2026-10-20 --day A
+   ```
+   Or use the Prescribe page. Check the warnings, rule citations, load sources and any
+   constraints; a hard constraint or injury ceiling wins over the score.
+4. **Optional:** print the rolling horizon with `strength-coach programme --weeks 4 --remaining`
+   or the Programme page. Treat it as a forecast; the day's prescription is rebuilt when the
+   day arrives.
+
+#### After the workout
+
+1. **Update the export and import it** (or use the Import page). A new cumulative export is
+   overlap-matched against stored rows, so old history is not duplicated. A genuinely changed
+   row is new, not silently merged.
+2. **Review the session while it is fresh**:
+   ```bash
+   strength-coach review --session 2026-10-20
+   ```
+   Or use the Review page. Marks are append-only; leave an item blank if you do not remember.
+3. **Catch up on missed reviews** with `strength-coach review --pending`; this is the routine
+   that keeps calibration current.
+
+#### Weekly or when something changes
+
+- **Review** the new sessions and run the rubric calibration report (Review page or
+  `strength-coach calibrate`). It is a report, not an automatic weight change.
+- **Readiness calibration** (`strength-coach readiness calibrate`) compares the score with the
+  historical labels. It is mimicry of those labels, not validation, and it does not auto-apply
+  weights.
+- **Baseline shadow** (`strength-coach readiness shadow`) compares the rolling-median HRV/RHR
+  baseline with a trend projection. It is diagnostic only.
+- **Symptoms/injury**: log a pre-session symptom when relevant; the injury signal can cap the
+  readiness score and veto risky work. It never clears a constraint.
+- **State changes** (new injury, goal change, exercise no longer suitable, new e1RM/test,
+  block reset) go through the Athlete page or `state`. Never edit the database by hand.
+- **Programme view** is a forecast, not a commitment; use it for planning, then prescribe the
+  actual day.
+
+#### The short loop
+
+```text
+import  →  state (once)  →  readiness  →  prescribe  →  perform
+                                      ↓
+                           import updated export
+                                      ↓
+                                review marks
+                                      ↓
+                         weekly calibration reports
+```
+
+#### CLI and UI are the same workflow
+
+| step | CLI | UI |
+|---|---|---|
+| import | `import` | Import |
+| athlete state | `state`, `block`, `e1rm`, `test` | Athlete |
+| readiness | `readiness set` | Readiness |
+| prescription | `run --date ... --day ...` | Prescribe |
+| programme | `programme --weeks N` | Programme |
+| review | `review --session ...` | Review |
+| rubric report | `calibrate` | Review → Run rubric calibration |
+| readiness report | `readiness calibrate` | Readiness → Run calibration |
+| baseline shadow | `readiness shadow` | Readiness → Run baseline shadow |
+| baseline settings | `readiness settings` | Readiness → Baseline settings |
+
+The Terminal page can run any of the CLI commands against the same database, but the dedicated
+pages are safer because they validate and show the result in context.
+
+## 4. The routines
 
 ### 4.1 `run` — critique the last session, prescribe a date
 
