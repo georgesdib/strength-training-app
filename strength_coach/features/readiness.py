@@ -42,9 +42,12 @@ class ReadinessConfig:
     composite_enabled: bool = False
     baseline_days: int = 28
     baseline_min_readings: int = 7
+    hrv_slope: float = 0.5
+    rhr_slope: float = 0.5
     hrv_weight: float = 0.5
     rhr_weight: float = 0.5
     wearable_weight: float = 0.10
+    setting_source: str = "config"
     source_path: Path = Path()
 
     def trigger(self, readiness: Mapping[str, Any] | None) -> str | None:
@@ -96,11 +99,16 @@ class ReadinessConfig:
         score = raw.get("score") or {}
         baseline_days = int(score.get("baseline_days", 28))
         baseline_min = int(score.get("baseline_min_readings", 7))
+        hrv_slope = float(score.get("hrv_slope", 0.5))
+        rhr_slope = float(score.get("rhr_slope", 0.5))
         hrv_weight = float(score.get("hrv_weight", 0.5))
         rhr_weight = float(score.get("rhr_weight", 0.5))
         wearable_weight = float(score.get("wearable_weight", 0.10))
         if baseline_days <= 0 or baseline_min <= 0:
             raise ReadinessConfigError("score baseline_days and baseline_min_readings must be positive")
+        for name, value in (("hrv_slope", hrv_slope), ("rhr_slope", rhr_slope)):
+            if not 0 < value <= 1:
+                raise ReadinessConfigError(f"score.{name} must be in (0, 1]")
         for name, value in (("hrv_weight", hrv_weight), ("rhr_weight", rhr_weight),
                             ("wearable_weight", wearable_weight)):
             if not 0 <= value <= 1:
@@ -113,6 +121,8 @@ class ReadinessConfig:
             composite_enabled=bool(composite.get("enabled", False)),
             baseline_days=baseline_days,
             baseline_min_readings=baseline_min,
+            hrv_slope=hrv_slope,
+            rhr_slope=rhr_slope,
             hrv_weight=hrv_weight,
             rhr_weight=rhr_weight,
             wearable_weight=wearable_weight,
@@ -129,9 +139,12 @@ def as_dict(config: ReadinessConfig) -> dict[str, Any]:
         "composite_enabled": config.composite_enabled,
         "baseline_days": config.baseline_days,
         "baseline_min_readings": config.baseline_min_readings,
+        "hrv_slope": config.hrv_slope,
+        "rhr_slope": config.rhr_slope,
         "hrv_weight": config.hrv_weight,
         "rhr_weight": config.rhr_weight,
         "wearable_weight": config.wearable_weight,
+        "setting_source": config.setting_source,
     }
 
 

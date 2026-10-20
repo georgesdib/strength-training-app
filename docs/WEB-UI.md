@@ -31,9 +31,10 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 - **Review** — unreviewed/recent session sheet; engine scores shown for context; human marks,
   plus a **Run rubric calibration** button (same report as `strength-coach calibrate`),
   confidence and note; calibration report after saving.
-- **Readiness** — any subset of 1-5 and device fields; manual values win per field; the
-  computed global/category score is shown; overrides take 0.00–1.00 with a reason. A current
-  workout is refused until readiness is ready.
+- **Readiness** — any subset of 1-5 and device fields, including optional wearable readiness;
+  manual values win per field; the computed global/category score is shown; per-athlete
+  baseline settings and the shadow baseline report are available; overrides take 0.00–1.00
+  with a reason. A current workout is refused until readiness is ready.
 - **Programme** — rolling A/B/C forecast, deload flag and warnings; nothing is persisted.
 - **Athlete** — append-only editing of profile, constraints, suitability, e1RM overrides,
   strength tests, block start and symptoms; shows the current tables and injury signal.

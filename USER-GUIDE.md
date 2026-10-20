@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 471 public tests
+.venv/bin/python -m pytest          # 474 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -544,6 +544,20 @@ Readiness page also shows the computed score and has a **Run calibration** butto
 To change which fields matter, the threshold, or the merge tie-break, edit
 `config/readiness.v1.yaml`. Only implemented values are accepted — anything else raises
 rather than silently doing nothing.
+
+**Per-athlete baseline settings** override the config from a date:
+
+```bash
+strength-coach readiness settings --date 2026-10-20 \
+  --baseline-days 14 --baseline-min-readings 5 \
+  --hrv-slope 0.4 --rhr-slope 0.4 \
+  --hrv-weight 0.5 --rhr-weight 0.5 --wearable-weight 0.1
+strength-coach readiness shadow --date 2026-10-20   # diagnostic only
+```
+
+The same controls are on the Readiness page. Settings are append-only; the latest effective
+row wins. `readiness shadow` compares the rolling-median baseline with a trend projection
+and never changes a prescription.
 
 ### 5.2 Velocity targets — what they mean
 

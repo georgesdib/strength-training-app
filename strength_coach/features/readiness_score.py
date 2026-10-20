@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import datetime as dt
 import statistics
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Mapping
 
 from strength_coach.features import injury_signal
@@ -158,7 +158,9 @@ def _device_components(conn, data: Mapping[str, Any], on_date: str,
         ratio = value / baseline
         # 0.5 is baseline; a 50% deviation maps to 0 or 1. The slope is a heuristic, not a
         # validated clinical cutoff; its low weight is what keeps that honest.
-        normalised = 0.5 + (ratio - 1.0 if direction == "higher" else 1.0 - ratio)
+        slope = config.hrv_slope if field == "hrv_ms" else config.rhr_slope
+        delta = ratio - 1.0 if direction == "higher" else 1.0 - ratio
+        normalised = 0.5 + delta / (2.0 * slope)
         weight = config.hrv_weight if field == "hrv_ms" else config.rhr_weight
         components.append(Component(field, value, _clamp(normalised), weight))
     return components, notes
@@ -180,6 +182,8 @@ def _wearable(data: Mapping[str, Any], weight: float):
 def _basis(data: Mapping[str, Any], components: tuple[Component, ...],
            notes: list[str], config: readiness_config.ReadinessConfig) -> str:
     parts = ["weighted subjective core (1.0 each)"]
+    if config.setting_source == "athlete":
+        parts.append("athlete score setting")
     if any(c.field in {"hrv_ms", "rhr_bpm"} for c in components):
         parts.append("HRV/RHR baseline-relative (0.5 each)")
     parts.extend(notes)
@@ -188,8 +192,29 @@ def _basis(data: Mapping[str, Any], components: tuple[Component, ...],
     return "; ".join(parts)
 
 
+def effective_settings(conn, on_date: str,
+                       config: readiness_config.ReadinessConfig | None = None
+                       ) -> readiness_config.ReadinessConfig:
+    """Config, overlaid by the latest athlete setting effective on or before the date."""
+    base = config or readiness_config.ReadinessConfig.load()
+    row = queries.readiness_setting(conn, on_date)
+    if row is None:
+        return base
+    return replace(
+        base,
+        baseline_days=int(row["baseline_days"]),
+        baseline_min_readings=int(row["baseline_min_readings"]),
+        hrv_slope=float(row["hrv_slope"]),
+        rhr_slope=float(row["rhr_slope"]),
+        hrv_weight=float(row["hrv_weight"]),
+        rhr_weight=float(row["rhr_weight"]),
+        wearable_weight=float(row["wearable_weight"]),
+        setting_source="athlete",
+    )
+
+
 def compute(conn, on_date: str, config: readiness_config.ReadinessConfig | None = None) -> ReadinessAssessment:
-    config = config or readiness_config.ReadinessConfig.load()
+    config = effective_settings(conn, on_date, config)
     data = queries.readiness_day(conn, on_date)
     components = _core_values(data)
     overrides = queries.readiness_overrides(conn, on_date)

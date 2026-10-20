@@ -2,8 +2,8 @@
 
 **Status: implemented (2026-10-19; HRV/RHR + wearable 2026-10-20)** for the global/category
 score, overrides, the readiness-required gate, the 20% combined cap, the calibration report,
-baseline-relative HRV/RHR, and the optional device-computed wearable score. Still planned:
-learned weight adoption and per-athlete settings.
+baseline-relative HRV/RHR, the optional device-computed wearable score, per-athlete baseline
+settings and the shadow baseline report. Still planned: learned weight adoption.
 
 The score replaces the old sleep/energy-only trigger, but the old trigger remains as a safety
 floor. The three legacy per-lift values are calibration labels, never inputs.
@@ -80,6 +80,10 @@ RHR when a baseline exists; no score with fewer than **three** subjective fields
 "insufficient", not a number). Missing fields are excluded, never zero. If a wearable score is
 present, the final score is `0.90 * subjective/device score + 0.10 * wearable/100`.
 
+**Athlete settings.** A `readiness_setting` row effective on the date overrides the config
+window, minimum readings, slopes and weights. Precedence is **athlete > config > code default**;
+the score report says `athlete score setting` when one is active. Settings are append-only.
+
 Every display shows the contributors and their weights, a confidence label based on how many
 fields were present, and the baseline dates used for HRV/RHR.
 
@@ -128,6 +132,17 @@ This is deliberately low-weight. HRV-guided training improves vagal indices, but
 benefits are small and not clearly significant, and there is no standard decision framework
 ([Manresa-Rocamora 2021](https://doi.org/10.3390/ijerph181910299);
 [Schaffarczyk 2026](https://doi.org/10.3389/fspor.2026.1858271)).
+
+### 2.1b1 Per-athlete baseline settings
+
+The rolling median is the default. An athlete can set the baseline window, minimum readings,
+slopes and weights in `readiness_setting`; the latest row effective on the score date wins.
+Nothing is auto-fitted. The CLI/UI show the effective values and their source.
+
+The **shadow report** compares the shipped rolling median with a trend-projected baseline
+(log-linear fit over the same prior readings), reporting the normalised difference. It is
+diagnostic only: it does not change a score, a factor, or a load. The projection is capped to
+0.5-1.5× the rolling median so an extrapolated trend cannot produce an absurd target.
 
 ### 2.1c Optional wearable readiness score
 
@@ -451,7 +466,7 @@ Delivered on 2026-10-19:
 Still planned:
 
 - learned weight adoption (the report does not apply weights);
-- per-athlete settings (ROADMAP §4.9.3).
+- learned weight adoption (ROADMAP §4.9.3).
 
 ## 5. Decisions and open questions
 

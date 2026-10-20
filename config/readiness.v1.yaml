@@ -37,6 +37,9 @@ score:
   baseline_min_readings: 7
   # The subjective core is the primary signal (weight 1.0 per available field). Device fields
   # carry half that weight; the proprietary wearable composite is only a 10% blend.
+  # Slope is the ratio half-width: 0.5 means a 50% deviation reaches 0 or 1.
+  hrv_slope: 0.5
+  rhr_slope: 0.5
   hrv_weight: 0.5
   rhr_weight: 0.5
   wearable_weight: 0.10

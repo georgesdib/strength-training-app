@@ -116,9 +116,25 @@
         </form>
         <div id="readiness-score"></div>
         <div class="panel">
+          <div class="panel-head"><h2>Baseline settings</h2><span class="muted">athlete overrides config</span></div>
+          <form id="settings-form" class="grid-fields">
+            <label>Baseline days <input id="setting-baseline-days" type="number" min="1" max="365"></label>
+            <label>Minimum readings <input id="setting-min-readings" type="number" min="1"></label>
+            <label>HRV slope <input id="setting-hrv-slope" type="number" step="0.05" min="0.05" max="1"></label>
+            <label>RHR slope <input id="setting-rhr-slope" type="number" step="0.05" min="0.05" max="1"></label>
+            <label>HRV weight <input id="setting-hrv-weight" type="number" step="0.05" min="0" max="1"></label>
+            <label>RHR weight <input id="setting-rhr-weight" type="number" step="0.05" min="0" max="1"></label>
+            <label>Wearable weight <input id="setting-wearable-weight" type="number" step="0.05" min="0" max="1"></label>
+            <button class="primary" type="submit">Set for this athlete</button>
+          </form>
+          <p id="settings-source" class="muted"></p>
+        </div>
+        <div class="panel">
           <div class="panel-head"><h2>Calibration report</h2><span class="muted">mimicry of the old labels</span></div>
           <button class="ghost" id="calibration-run">Run calibration</button>
+          <button class="ghost" id="shadow-run">Run baseline shadow</button>
           <div id="calibration-result"></div>
+          <div id="shadow-result"></div>
         </div>
         <div class="panel" style="margin-top:14px">
           <div class="panel-head"><h2>Override the score</h2><span class="muted">0.00–1.00, same as the score</span></div>

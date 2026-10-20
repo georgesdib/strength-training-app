@@ -30,6 +30,7 @@ from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, load_marks, record_marks
 from strength_coach.features import injury_signal, readiness as readiness_feature
 from strength_coach.features import programme as programme_feature
+from strength_coach.features import readiness_baseline
 from strength_coach.features import readiness_calibration, readiness_score
 from strength_coach.prescribe import build_prescription
 from strength_coach.prescribe.config import Thresholds
@@ -205,6 +206,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: _session_rows(c, 40)))
             elif path == "/api/calibrate":
                 self._json(200, self._with_conn(self._calibrate))
+            elif path == "/api/readiness/shadow":
+                self._json(200, self._with_conn(
+                    lambda c: {"text": readiness_baseline.report(c)}
+                ))
             elif path == "/api/readiness/calibrate":
                 self._json(200, self._with_conn(
                     lambda c: {"text": readiness_calibration.report(c)}
@@ -252,6 +257,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._set_readiness(c, body)))
             elif path == "/api/readiness/override":
                 self._json(200, self._with_conn(lambda c: self._set_readiness_override(c, body)))
+            elif path == "/api/readiness/settings":
+                self._json(200, self._with_conn(lambda c: self._set_readiness_settings(c, body)))
             elif path == "/api/programme":
                 self._json(200, self._with_conn(lambda c: self._programme(c, body)))
             elif path == "/api/terminal":
@@ -424,6 +431,9 @@ class Handler(BaseHTTPRequestHandler):
     def _readiness(self, conn, day: str) -> dict:
         data = dict(queries.readiness_day(conn, day) or {"on_date": day, "known": False})
         data["score"] = readiness_score.compute(conn, day).as_dict()
+        data["settings"] = readiness_feature.as_dict(
+            readiness_score.effective_settings(conn, day)
+        )
         return data
 
     def _set_readiness(self, conn, body: dict) -> dict:
@@ -433,6 +443,20 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("values must be an object")
         clean = {key: value for key, value in values.items() if value not in (None, "")}
         readiness_feature.record_manual(conn, day, clean, note=body.get("note") or None)
+        return self._readiness(conn, day)
+
+    def _set_readiness_settings(self, conn, body: dict) -> dict:
+        day = str(body.get("date") or datetime.date.today().isoformat())
+        current = readiness_score.effective_settings(conn, day)
+        fields = ("baseline_days", "baseline_min_readings", "hrv_slope", "rhr_slope",
+                  "hrv_weight", "rhr_weight", "wearable_weight")
+        values = {
+            name: body[name] if body.get(name) not in (None, "") else getattr(current, name)
+            for name in fields
+        }
+        repositories.append_readiness_setting(
+            conn, effective_from=day, note=body.get("note") or None, **values,
+        )
         return self._readiness(conn, day)
 
     def _set_readiness_override(self, conn, body: dict) -> dict:

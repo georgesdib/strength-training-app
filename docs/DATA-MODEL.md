@@ -142,6 +142,23 @@ The full derivation — sentinels, merge, storage, and what actually moves a loa
 [`docs/READINESS.md`](READINESS.md). Which fields drive MOD-FAT-001, the threshold and the merge
 tie-break are config (`config/readiness.v1.yaml`, `DEC-READINESS-04`).
 
+### 5.3 `readiness_setting` (append-only, per athlete)
+
+| column | notes |
+|---|---|
+| setting_id PK | opaque id |
+| effective_from | date the setting takes effect |
+| baseline_days / baseline_min_readings | HRV/RHR baseline window and minimum |
+| hrv_slope / rhr_slope | ratio half-width for normalisation |
+| hrv_weight / rhr_weight / wearable_weight | weights/blend |
+| note | optional |
+| source | user |
+| created_at | when entered |
+
+The latest row with `effective_from <= date` wins. It overrides `config/readiness.v1.yaml`;
+no row means config/defaults. Append-only, because changing a baseline changes a prescribed
+load.
+
 ## 6. `vbt_calibration` — append-only, versioned
 
 | column | notes |

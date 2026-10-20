@@ -293,3 +293,21 @@ def test_terminal_runs_a_valid_command(server):
     data = json.loads(body)
     assert data["returncode"] == 0
     assert "forecast only" in data["output"]
+
+def test_readiness_settings_and_shadow_endpoints(server):
+    data = post(server, "/api/readiness/settings", {
+        "date": "2024-01-01",
+        "baseline_days": 14,
+        "baseline_min_readings": 4,
+        "hrv_slope": 0.4,
+        "rhr_slope": 0.4,
+        "hrv_weight": 0.4,
+        "rhr_weight": 0.4,
+        "wearable_weight": 0.1,
+    })
+    assert data["settings"]["setting_source"] == "athlete"
+    assert data["settings"]["baseline_days"] == 14
+
+    status, body = get(server, "/api/readiness/shadow")
+    assert status == 200
+    assert "SHADOW BASELINE" in json.loads(body)["text"]

@@ -37,6 +37,7 @@ from strength_coach.critique import UnknownSessionError, build_facts, score_sess
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import readiness as readiness_feature
+from strength_coach.features import readiness_baseline
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import readiness_score
 from strength_coach.utils import readiness as readiness_utils
@@ -153,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
     symptom.add_argument("--show", action="store_true", help="list recent entries")
 
     readiness = sub.add_parser("readiness", help="record a readiness day")
-    readiness.add_argument("action", choices=("set", "override", "calibrate"))
+    readiness.add_argument("action", choices=("set", "override", "calibrate", "settings", "shadow"))
     readiness.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
     readiness.add_argument("--sleep", type=int, default=None)
     readiness.add_argument("--energy", type=int, default=None)
@@ -177,6 +178,18 @@ def main(argv: list[str] | None = None) -> int:
                            help="override value 0.00-1.00 (same scale as the score)")
     readiness.add_argument("--reason", default=None,
                            help="why the computed score is overridden")
+    readiness.add_argument("--baseline-days", type=int, default=None,
+                           help="baseline window in days (athlete setting)")
+    readiness.add_argument("--baseline-min-readings", type=int, default=None,
+                           help="minimum baseline readings (athlete setting)")
+    readiness.add_argument("--hrv-slope", type=float, default=None,
+                           help="HRV ratio half-width, e.g. 0.5")
+    readiness.add_argument("--rhr-slope", type=float, default=None,
+                           help="RHR ratio half-width, e.g. 0.5")
+    readiness.add_argument("--hrv-weight", type=float, default=None)
+    readiness.add_argument("--rhr-weight", type=float, default=None)
+    readiness.add_argument("--wearable-weight", type=float, default=None)
+    readiness.add_argument("--setting-note", default=None)
 
     web = sub.add_parser("web", help="serve the local web UI (127.0.0.1 only)")
     web.add_argument("--host", default="127.0.0.1",
@@ -428,6 +441,41 @@ def _cmd_readiness(args) -> int:
             from strength_coach.features import readiness_calibration
 
             print(readiness_calibration.report(conn))
+            return 0
+        if args.action == "shadow":
+            print(readiness_baseline.report(conn, end=args.date))
+            return 0
+        args.date = args.date or datetime.date.today().isoformat()
+        if args.action == "settings":
+            effective = readiness_score.effective_settings(conn, args.date)
+            supplied = {
+                "baseline_days": args.baseline_days,
+                "baseline_min_readings": args.baseline_min_readings,
+                "hrv_slope": args.hrv_slope,
+                "rhr_slope": args.rhr_slope,
+                "hrv_weight": args.hrv_weight,
+                "rhr_weight": args.rhr_weight,
+                "wearable_weight": args.wearable_weight,
+            }
+            if any(value is not None for value in supplied.values()):
+                values = {
+                    key: value if value is not None else getattr(effective, key)
+                    for key, value in supplied.items()
+                }
+                try:
+                    repositories.append_readiness_setting(
+                        conn, effective_from=args.date, note=args.setting_note, **values,
+                    )
+                except ValueError as exc:
+                    print(f"readiness settings: {exc}")
+                    return 2
+                effective = readiness_score.effective_settings(conn, args.date)
+                print(f"readiness settings recorded from {args.date}")
+            print(f"baseline_days={effective.baseline_days} "
+                  f"baseline_min_readings={effective.baseline_min_readings} "
+                  f"hrv_slope={effective.hrv_slope:g} rhr_slope={effective.rhr_slope:g} "
+                  f"weights hrv={effective.hrv_weight:g} rhr={effective.rhr_weight:g} "
+                  f"wearable={effective.wearable_weight:g} ({effective.setting_source})")
             return 0
         args.date = args.date or datetime.date.today().isoformat()
         if args.action == "override":

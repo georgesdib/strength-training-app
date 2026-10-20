@@ -256,11 +256,58 @@ async function loadReadiness(date) {
       const value = data[input.dataset.field];
       input.value = value ?? "";
     });
+    if (data.settings) {
+      const s = data.settings;
+      $("#setting-baseline-days").value = s.baseline_days;
+      $("#setting-min-readings").value = s.baseline_min_readings;
+      $("#setting-hrv-slope").value = s.hrv_slope;
+      $("#setting-rhr-slope").value = s.rhr_slope;
+      $("#setting-hrv-weight").value = s.hrv_weight;
+      $("#setting-rhr-weight").value = s.rhr_weight;
+      $("#setting-wearable-weight").value = s.wearable_weight;
+      $("#settings-source").textContent =
+        "effective source: " + s.setting_source + " · config file plus athlete overrides";
+    }
     renderReadiness(data);
   } catch (error) {
     $("#readiness-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
+
+$("#settings-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const payload = {
+    date: $("#readiness-date").value,
+    baseline_days: Number($("#setting-baseline-days").value),
+    baseline_min_readings: Number($("#setting-min-readings").value),
+    hrv_slope: Number($("#setting-hrv-slope").value),
+    rhr_slope: Number($("#setting-rhr-slope").value),
+    hrv_weight: Number($("#setting-hrv-weight").value),
+    rhr_weight: Number($("#setting-rhr-weight").value),
+    wearable_weight: Number($("#setting-wearable-weight").value),
+  };
+  try {
+    const data = await api("/api/readiness/settings", {
+      method: "POST", body: JSON.stringify(payload),
+    });
+    renderReadiness(data);
+    $("#settings-source").textContent =
+      "effective source: " + data.settings.setting_source + " · athlete setting recorded";
+    loadOverview();
+  } catch (error) {
+    $("#settings-source").textContent = error.message;
+  }
+});
+
+$("#shadow-run").addEventListener("click", async () => {
+  $("#shadow-result").innerHTML = "<p class='empty'>Comparing…</p>";
+  try {
+    const data = await api("/api/readiness/shadow");
+    $("#shadow-result").innerHTML = `<pre>${esc(data.text)}</pre>`;
+  } catch (error) {
+    $("#shadow-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+});
 
 $("#calibration-run").addEventListener("click", async () => {
   $("#calibration-result").innerHTML = "<p class='empty'>Fitting…</p>";

@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-19 · **v0 complete, v0.1 done, v0.2 in progress** · version `0.1.0-dev` · **471 public tests** (486 with the 15 private integration tests)
+Last updated: 2026-10-19 · **v0 complete, v0.1 done, v0.2 in progress** · version `0.1.0-dev` · **474 public tests** (489 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-19 · **v0 complete, v0.1 done, v0.2 in progress** · vers
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 486 locally (471 public + 15 private integration)
+.venv/bin/python -m pytest            # 489 locally (474 public + 15 private integration)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -43,7 +43,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry + score/overrides + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/calibration (§4.10/4.11), labelled set moved here (§4.14). Remaining: manual logging, adapters, web programme view, video, HRV/per-athlete/learned readiness settings (§4.9), web parity for LLM/manual logging/web programme view/video (§4.11); later/unscheduled: cardio + impulse fatigue (§4.13) |
+| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry + score/overrides + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/calibration (§4.10/4.11), labelled set moved here (§4.14). Remaining: manual logging, adapters, web programme view, video, learned readiness weights (§4.9), web parity for LLM/manual logging/web programme view/video (§4.11); later/unscheduled: cardio + impulse fatigue (§4.13) |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000` |
 
@@ -524,7 +524,15 @@ or direction handled explicitly, weight 0.5 each. Missing baseline is shown, not
 A 0-100 score from a device such as Bevel is an optional 10% blend. It cannot override the
 subjective score, constraints or the injury ceiling.
 
-Move thresholds/weights into the database with athlete > config > code precedence.
+#### 4.9.2 Per-athlete score settings — done
+
+Baseline window, minimum readings, HRV/RHR slopes and weights are append-only athlete rows,
+with athlete > config > code precedence. The effective source is shown in the score.
+
+#### 4.9.5 Shadow baseline comparison — done
+
+`readiness shadow` compares the rolling-median baseline with a log-linear trend projection.
+It reports the normalised difference; it never changes a score or load.
 
 #### 4.9.3 Learned weights
 
@@ -565,8 +573,8 @@ Planned surfaces, in suggested order:
    previous sessions.
 5. **Programme view** (4.4) — **done**. Rolling horizon with recomputation on the day.
 6. **Video** (4.8) — opt-in attachment, privacy warning, commentary only, never a score.
-7. **Readiness settings** (4.9) — composite threshold and per-athlete HRV/RHR rules, once
-   those items exist.
+7. **Readiness settings** (4.9) — **done**. Baseline window, minimum readings, slopes and
+   weights; shadow baseline report.
 8. **Terminal** — **done**. One `strength-coach` command, no shell; bound to the UI database.
 
 Constraints:
@@ -645,7 +653,7 @@ data and a model, initially advisory and in shadow mode.
 
 - The Banister impulse-response model relates training impulses to performance, but its
   parameters are ill-conditioned and unstable; a good fit does not make the parameters
-  identifiable ([Hellard 2006](https://doi.org/10.1080/02640410500244867)).
+  identifiable ([Hellard 2006](https://doi.org/10.1080/02640410500244897)).
 - A single impulse reduces different training types to one number; the proposed
   three-dimensional model separates energy-system-specific adaptation, which is the direction
   this item should take rather than one global fatigue scalar

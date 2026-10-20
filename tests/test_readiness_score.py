@@ -257,3 +257,44 @@ def test_wearable_score_rejects_out_of_range():
             assert "0 to 100" in str(exc)
         else:
             raise AssertionError("wearable score >100 was accepted")
+
+def test_athlete_setting_overrides_baseline_and_weights():
+    baseline = [(d, {"HRV": "60", "RHR": "60"}) for d in range(1, 8)]
+    rows = _readiness_with_history(
+        baseline, {"Sleep": "4", "Energy": "4", "Mood": "4", "Stress": "4",
+                   "Soreness": "4", "HRV": "90", "RHR": "45"},
+    )
+    with store_with(readiness_rows=rows) as store:
+        default = readiness_score.compute(store.connection, TODAY)
+        repositories.append_readiness_setting(
+            store.connection, effective_from=TODAY, baseline_days=14,
+            baseline_min_readings=7, hrv_slope=0.25, rhr_slope=0.25,
+            hrv_weight=1.0, rhr_weight=1.0, wearable_weight=0.10,
+            note="test",
+        )
+        configured = readiness_score.compute(store.connection, TODAY)
+        effective = readiness_score.effective_settings(store.connection, TODAY)
+
+    assert effective.setting_source == "athlete"
+    assert effective.baseline_days == 14
+    assert configured.score != default.score
+    assert "athlete score setting" in configured.basis
+    assert any(c.weight == 1.0 for c in configured.components if c.field == "hrv_ms")
+
+
+def test_baseline_shadow_report_does_not_apply_a_baseline():
+    baseline = [(d, {"HRV": str(60 + d), "RHR": str(60 - d)}) for d in range(1, 10)]
+    rows = _readiness_with_history(
+        baseline, {"Sleep": "4", "Energy": "4", "Mood": "4", "Stress": "4",
+                   "Soreness": "4", "HRV": "80", "RHR": "50"},
+    )
+    with store_with(readiness_rows=rows) as store:
+        before = readiness_score.compute(store.connection, TODAY).score
+        from strength_coach.features import readiness_baseline
+
+        report = readiness_baseline.report(store.connection, TODAY)
+        after = readiness_score.compute(store.connection, TODAY).score
+
+    assert "SHADOW BASELINE" in report
+    assert "No prescription uses" in report
+    assert before == after

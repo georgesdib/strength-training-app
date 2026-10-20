@@ -711,6 +711,50 @@ def append_readiness_entry(
     return entry_id
 
 
+def append_readiness_setting(
+    conn: sqlite3.Connection,
+    *,
+    effective_from: str,
+    baseline_days: int,
+    baseline_min_readings: int,
+    hrv_slope: float,
+    rhr_slope: float,
+    hrv_weight: float,
+    rhr_weight: float,
+    wearable_weight: float,
+    note: str | None = None,
+    source: str = "user",
+) -> None:
+    """Append a per-athlete score setting. Latest effective row wins; nothing is edited."""
+    datetime.date.fromisoformat(str(effective_from))
+    if not 1 <= int(baseline_days) <= 365:
+        raise ValueError("baseline_days must be 1-365")
+    if not 1 <= int(baseline_min_readings) <= int(baseline_days):
+        raise ValueError("baseline_min_readings must be 1..baseline_days")
+    for name, value in (("hrv_slope", hrv_slope), ("rhr_slope", rhr_slope)):
+        if not 0 < float(value) <= 1:
+            raise ValueError(f"{name} must be in (0, 1]")
+    for name, value in (("hrv_weight", hrv_weight), ("rhr_weight", rhr_weight),
+                        ("wearable_weight", wearable_weight)):
+        if not 0 <= float(value) <= 1:
+            raise ValueError(f"{name} must be from 0 to 1")
+    uuid_value = uuid.uuid4().hex
+    conn.execute(
+        """
+        INSERT INTO readiness_setting (
+            setting_id, effective_from, baseline_days, baseline_min_readings,
+            hrv_slope, rhr_slope, hrv_weight, rhr_weight, wearable_weight,
+            note, source
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            uuid_value, str(effective_from), int(baseline_days), int(baseline_min_readings),
+            float(hrv_slope), float(rhr_slope), float(hrv_weight), float(rhr_weight),
+            float(wearable_weight), note, source,
+        ),
+    )
+
+
 def append_readiness_override(
     conn: sqlite3.Connection,
     *,
