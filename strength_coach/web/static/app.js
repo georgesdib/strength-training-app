@@ -797,6 +797,9 @@ async function loadContinuity() {
     const data = await api(`/api/continuity?date=${encodeURIComponent(date)}`);
     $("#continuity-relax").checked = !!data.allow_relax_fixed;
     const c = data.calibration;
+    $("#continuity-status").textContent = c.applied
+      ? "calibrated factors applied"
+      : "fixed rule in use";
     const rows = Object.keys(c.bands).map((key) => {
       const b = c.bands[key];
       const ci = b.ci_low == null ? "—" : `${b.ci_low}–${b.ci_high}`;
