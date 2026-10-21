@@ -38,7 +38,7 @@ function setView(name) {
   if (name === "exercises") loadExerciseCatalog();
   if (name === "cardio") loadCardio();
   if (name === "measures") loadMeasurements();
-  if (name === "prescribe") loadFatigue();
+  if (name === "prescribe") { loadFatigue(); loadContinuity(); }
   if (name === "docs" && !$("#docs-list").dataset.loaded) loadDocs();
   if (name === "state") loadState();
   if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
@@ -787,6 +787,33 @@ async function loadExercises() {
 }
 
 
+
+
+/* --- continuity calibration --------------------------------------------- */
+async function loadContinuity() {
+  const date = $("#prescribe-date").value;
+  if (!date) { $("#continuity-model").innerHTML = "<p class='empty'>Choose a date.</p>"; return; }
+  try {
+    const data = await api(`/api/continuity?date=${encodeURIComponent(date)}`);
+    const c = data.calibration;
+    const rows = Object.keys(c.bands).map((key) => {
+      const b = c.bands[key];
+      const ci = b.ci_low == null ? "—" : `${b.ci_low}–${b.ci_high}`;
+      return `<tr><td><strong>${esc(key)}</strong></td><td>${b.n}</td>
+        <td>${b.median == null ? "—" : b.median}</td><td>${ci}</td>
+        <td>${b.fixed}</td><td><strong>${b.factor}</strong></td>
+        <td>${esc(b.status)}${b.applied ? " · applied" : ""}</td>
+        <td class="muted">${esc(b.reason)}</td></tr>`;
+    }).join("");
+    $("#continuity-model").innerHTML = `<p class="muted">${c.n_total} return(s);
+      ${c.applied ? "calibrated factors applied" : "fixed rule in use"}.</p>
+      <table><thead><tr><th>band</th><th>n</th><th>median</th><th>95% CI</th>
+      <th>fixed</th><th>factor</th><th>status</th><th>reason</th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
+  } catch (error) {
+    $("#continuity-model").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
 
 /* --- exercise catalogue -------------------------------------------------- */
 const EXERCISE_KNOWN = [

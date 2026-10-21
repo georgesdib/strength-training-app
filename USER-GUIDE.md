@@ -691,6 +691,15 @@ Python validates and falls back deterministically on any error. By default it is
 the Prescribe **Apply selection** toggle (or `run --apply-selection`) applies the chosen
 candidates and re-solves their loads. The Prescribe page has the same panel.
 
+### 4.10g `continuity` — return-to-training calibration
+
+```bash
+strength-coach continuity --date 2026-10-20
+```
+
+Shows per-band return count, e1RM retention median, bootstrap interval, fixed factor and
+applied factor. Fixed continuity remains the fallback when a band is under-powered.
+
 ### 4.10d `fatigue` — the strength model in shadow mode
 
 ```bash

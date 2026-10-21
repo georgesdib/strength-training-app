@@ -41,7 +41,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 - **Prescribe** — date + day; deterministic prescription, warnings and notes; every item cites
   rule ids. A `recent stress` column, a `readiness` column, the **strength fatigue model**
   panel (shadow: per-lift + overall fitness/fatigue/state with approximate 95% intervals,
-  R²/status; no load effect) and the **exercise selection** panel (preview rankings; optional LLM chooser). The **Apply selection** toggle on the form
+  R²/status; no load effect), the **continuity calibration** panel (per-band returns/fixed/applied) and the **exercise selection** panel (preview rankings; optional LLM chooser). The **Apply selection** toggle on the form
   makes the chosen candidates replace the slot exercises; **Use LLM** appears only when it is
   ticked. Without the toggle the prescription is unchanged. It says when a day has no variant
   slots.
@@ -80,6 +80,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `GET /api/cardio?weeks=N` | cardio summary for the window |
 | `POST /api/cardio` | `{date, modality, minutes, avg_hr, max_hr, distance_km, srpe, note}` -> summary |
 | `GET /api/fatigue?date=N` | strength fitness-fatigue shadow model (per-lift state and status) |
+| `GET /api/continuity?date=N` | return-to-training calibration: per-band n/median/CI/fixed/applied |
 | `GET /api/selection?date=N&day=X&llm=0\|1` | shadow exercise-selection rankings |
 | `GET /api/exercises/catalog` | full exercise catalogue with source/properties |
 | `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml` |

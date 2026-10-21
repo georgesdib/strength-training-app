@@ -1,0 +1,22 @@
+# Return-to-training calibration (roadmap §4.12).
+#
+# Fixed continuity remains the fallback. The model only applies a band factor when there are
+# enough observed returns and the bootstrap interval is tight enough. It is deliberately
+# explicit: when a band is sufficiently observed and the interval is tight, the model may
+# replace the fixed reduction (including relaxing it); otherwise the fixed rule is kept.
+
+enabled: true
+apply: true
+
+# A "return" is the first session for one lift after a gap >= continuity.short_gap_days.
+min_returns_per_band: 5
+min_total_returns: 12
+max_gap_days: 365
+min_ratio: 0.50              # reject a return that is implausibly low (injury/typo)
+max_ratio: 1.50              # reject a return that is implausibly high (new exercise/equipment)
+bootstrap_samples: 1000
+confidence: 0.95
+max_ci_width: 0.15
+factor_floor: 0.85
+allow_relax_fixed: true      # the calibrated factor replaces the fixed reduction when enough data exists
+seed: 20261020

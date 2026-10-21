@@ -29,6 +29,7 @@ from strength_coach.features import readiness_score
 from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import continuity_calibration
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
 from strength_coach.features import lift_readiness as lift_readiness_feature
 from strength_coach.features import recent_stress as recent_stress_feature
@@ -165,8 +166,19 @@ def build_prescription(
             f"{thresholds.back_flare_main_rir}"
         )
 
+    continuity_cal = None
+    if context.gap_days is not None and context.gap_days >= thresholds.continuity_short_days:
+        continuity_cal = continuity_calibration.compute(
+            context.sets,
+            short_days=thresholds.continuity_short_days,
+            medium_days=thresholds.continuity_medium_days,
+            long_days=thresholds.continuity_long_days,
+            medium_multiplier=thresholds.continuity_medium_multiplier,
+            long_multiplier=thresholds.continuity_long_multiplier,
+        )
     items, gap_level, gap_warnings = _apply_continuity(
-        context, tuple(items), thresholds, prior_factors=readiness_factors
+        context, tuple(items), thresholds, prior_factors=readiness_factors,
+        calibration=continuity_cal,
     )
     if gap_level == "fatigue_reduced":
         fallback_level = "fatigue_reduced"
@@ -233,6 +245,9 @@ def build_prescription(
             "undulation": dict(dup_plan) if dup_plan else {},
             "gap_days": context.gap_days,
             "gap_band": _gap_band(context.gap_days, thresholds),
+            "continuity_calibration": (
+                continuity_cal.as_dict() if continuity_cal is not None else None
+            ),
             "injury_signal": injury.as_dict(),
             "policy_outcome": policy_result.outcome,
             "e1rm_window_days": thresholds.e1rm_window_days,
@@ -407,6 +422,7 @@ def _apply_continuity(
     thresholds: config_mod.Thresholds,
     *,
     prior_factors: Mapping[str, float] | None = None,
+    calibration: continuity_calibration.Calibration | None = None,
 ) -> tuple[tuple[PrescriptionItem, ...], str, tuple[str, ...]]:
     """Return-to-training adjustment after a gap (DEC-CONTINUITY-01).
 
@@ -425,6 +441,13 @@ def _apply_continuity(
         multiplier = thresholds.continuity_medium_multiplier
     else:
         multiplier = 1.0
+    fixed_multiplier = multiplier
+    calibrated = False
+    if calibration is not None:
+        estimate = calibration.bands.get(band)
+        if estimate is not None and estimate.applied:
+            multiplier = estimate.factor
+            calibrated = True
     bump = thresholds.continuity_rir_bump
     prior_factors = prior_factors or {}
     capped = False
@@ -458,10 +481,17 @@ def _apply_continuity(
         else:
             out.append(replace(item, rir_target=rir, rationale_refs=refs))
 
+    calibration_note = ""
+    if calibrated:
+        calibration_note = (
+            f"; calibrated factor {multiplier:.3f} from "
+            f"{calibration.bands[band].n} returns (fixed {fixed_multiplier:.2f})"
+        )
     warnings = (
         f"MOD-GAP-001: {context.gap_days}-day gap; prescription amended "
         f"({'load reduced, ' if multiplier < 1 else ''}one extra RIR"
-        f"{'; combined readiness+continuity capped at 20%' if capped else ''})",
+        f"{'; combined readiness+continuity capped at 20%' if capped else ''}"
+        f"{calibration_note})",
     )
     return tuple(out), "fatigue_reduced" if multiplier < 1 else "full", warnings
 

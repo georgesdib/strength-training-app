@@ -106,10 +106,28 @@ Implementations: `prescribe/engine.py` (`_apply_continuity`, `_injury_warnings`)
 
 ---
 
-## 3. Planned calibration from real returns (not built)
+## 3. Calibration from real returns (implemented 2026-10-20)
 
-ROADMAP §4.12 replaces the fixed arithmetic only when the athlete's own returns support it.
-Capture each return's gap, first-session load/reps/RIR, completion, symptoms, readiness and
-**post-session fatigue** (1-5, separate from the rubric). Estimate strength retention and
-capacity retention separately, starting descriptively, and show any suggested adjustment next
-to the current rule. Nothing changes automatically.
+`features/continuity_calibration.py` estimates, per fixed band (short/medium/long), the ratio
+of the first return session's best working e1RM to the last pre-gap session's best working e1RM
+for the same lift. A return pair is excluded if the gap is outside the configured range or the
+ratio is implausible.
+
+Each band reports:
+
+- number of returns;
+- median retention and a deterministic bootstrap 95% interval;
+- the fixed factor and the applied factor;
+- `ok`, `insufficient`, `uncertain`, `disabled` or `report_only`.
+
+A calibrated factor is applied only when the band has at least `min_returns_per_band` and the
+whole dataset has `min_total_returns`, the interval is no wider than `max_ci_width`, and
+calibration is enabled. Otherwise the fixed 14/28/56 rule is used. The factor is bounded to
+`[factor_floor, 1.0]`; `allow_relax_fixed` decides whether the model may remove part of a fixed
+reduction. The config is `config/continuity-calibration.v1.yaml`; `MOD-GAP-001` remains the cited
+rule and the warning names the calibrated factor and its return count.
+
+This is **strength retention**, not capacity retention, and not the e1RM age decay. A future
+capacity curve needs post-session fatigue/completion data; the current model only uses e1RM
+observations already in `clean_set`. `strength-coach continuity` and the Prescribe continuity
+panel show the report; `GET /api/continuity` is the same data.

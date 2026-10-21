@@ -37,6 +37,7 @@ from strength_coach.agents import selection as agent_selection
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import cardio as cardio_feature
+from strength_coach.features import continuity_calibration
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import measurements as measurements_feature
@@ -237,6 +238,9 @@ def main(argv: list[str] | None = None) -> int:
     select.add_argument("--llm", action="store_true",
                         help="let the configured model choose from the filtered candidates")
 
+    continuity = sub.add_parser("continuity", help="show return-to-training calibration")
+    continuity.add_argument("--date", default=None, help="as-of date (default: today)")
+
     fatigue = sub.add_parser("fatigue", help="show the strength fitness-fatigue shadow model")
     fatigue.add_argument("--date", default=None, help="as-of date (default: today)")
 
@@ -274,6 +278,7 @@ def main(argv: list[str] | None = None) -> int:
         "symptom": _cmd_symptom,
         "cardio": _cmd_cardio,
         "measure": _cmd_measure,
+        "continuity": _cmd_continuity,
         "fatigue": _cmd_fatigue,
         "select": _cmd_select,
         "exercise": _cmd_exercise,
@@ -1027,6 +1032,36 @@ def _cmd_select(args) -> int:
         for candidate in row.candidates:
             print(f"    {candidate.exercise_id:<24} {candidate.score:.3f}  "
                   f"{', '.join(candidate.reasons)}")
+    return 0
+
+
+def _cmd_continuity(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        on_date = args.date or datetime.date.today().isoformat()
+        context = RuleContext.from_store(conn, end=on_date)
+        thresholds = prescribe_config.Thresholds.load()
+        report = continuity_calibration.compute(
+            context.sets,
+            short_days=thresholds.continuity_short_days,
+            medium_days=thresholds.continuity_medium_days,
+            long_days=thresholds.continuity_long_days,
+            medium_multiplier=thresholds.continuity_medium_multiplier,
+            long_multiplier=thresholds.continuity_long_multiplier,
+        )
+    finally:
+        store.close()
+    print(f"continuity calibration as of {on_date}: {report.n_total} returns; "
+          f"applied={report.applied}")
+    print(f"  {'band':<8}{'n':>4}{'median':>9}{'CI':>17}{'fixed':>8}{'factor':>8}  status")
+    for band in ("short", "medium", "long"):
+        row = report.bands[band]
+        ci = "-" if row.low is None else f"{row.low:.3f}-{row.high:.3f}"
+        median = "-" if row.median is None else f"{row.median:.3f}"
+        print(f"  {band:<8}{row.n:>4}{median:>9}{ci:>17}{row.fixed:>8.2f}"
+              f"{row.factor:>8.3f}  {row.status}")
+    print(f"  {report.note}")
     return 0
 
 

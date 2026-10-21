@@ -420,3 +420,11 @@ def test_prescribe_can_apply_selection(server):
     })
     assert data["notes"]["selection"]["applied"] is True
     assert "selection" in data["notes"]
+
+
+def test_continuity_calibration_endpoint(server):
+    status, body = get(server, "/api/continuity?date=2024-01-15")
+    assert status == 200
+    data = json.loads(body)
+    assert data["on_date"] == "2024-01-15"
+    assert "bands" in data["calibration"]

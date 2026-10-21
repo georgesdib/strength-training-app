@@ -74,6 +74,14 @@
         <div id="fatigue-model"></div>
       </div>
       <div class="panel">
+        <div class="panel-head"><h2>Continuity calibration</h2>
+          <span class="muted">fixed rule until enough returns</span></div>
+        <p class="muted">Return-to-training retention from actual gaps. Each band uses a calibrated
+          factor only when it has enough returns and a tight bootstrap interval; otherwise the
+          fixed −5%/−10% rule remains. This is not the e1RM age decay.</p>
+        <div id="continuity-model"></div>
+      </div>
+      <div class="panel">
         <div class="panel-head"><h2>Exercise selection</h2>
           <span class="muted">preview; applies only when ticked above</span></div>
         <p class="muted">Ranks the configured variants for each slot using readiness, recent

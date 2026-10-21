@@ -123,6 +123,9 @@ without conditioning on provenance penalises the athlete for following the presc
   anti-extension + anti-rotation/lateral, progressed by load/leverage) is a synthesis of the
   evidence, not a validated minimum. The evidence gives no dose-response for this population
   (`docs/CORE-TRAINING.md`).
+- **ASSUMPTION-30** — the continuity calibration minimums (5 returns/band, 12 total), 0.15
+  bootstrap-width ceiling, 0.85 lower bound and 365-day cap are transparent defaults, not
+  validated (`DEC-CONTINUITY-03`).
 - **ASSUMPTION-29** — the exercise-selection weights (readiness 0.35, stress 0.25,
   rotation 0.20, preference 0.10, fatigue 0.10), 28-day rotation window and 0.15 injury
   penalty are transparent defaults, not validated (`DEC-SELECT-01`).

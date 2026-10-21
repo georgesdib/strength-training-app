@@ -32,6 +32,7 @@ from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, load_marks, record_marks
 from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import continuity_calibration
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import measurements as measurements_feature
 from strength_coach.features import session_feedback as session_feedback_feature
@@ -237,6 +238,11 @@ class Handler(BaseHTTPRequestHandler):
                 day = parse_qs(urlparse(self.path).query).get("date", [None])[0]
                 self._json(200, self._with_conn(
                     lambda c: self._fatigue(c, day)
+                ))
+            elif path == "/api/continuity":
+                day = parse_qs(urlparse(self.path).query).get("date", [None])[0]
+                self._json(200, self._with_conn(
+                    lambda c: self._continuity(c, day)
                 ))
             elif path == "/api/selection":
                 query = parse_qs(urlparse(self.path).query)
@@ -611,6 +617,20 @@ class Handler(BaseHTTPRequestHandler):
             "day": session_day,
             "slots": selection_mod.as_dict(rows),
         }
+
+    def _continuity(self, conn, day: str | None = None) -> dict:
+        on_date = day or datetime.date.today().isoformat()
+        context = RuleContext.from_store(conn, end=on_date)
+        thresholds = Thresholds.load()
+        report = continuity_calibration.compute(
+            context.sets,
+            short_days=thresholds.continuity_short_days,
+            medium_days=thresholds.continuity_medium_days,
+            long_days=thresholds.continuity_long_days,
+            medium_multiplier=thresholds.continuity_medium_multiplier,
+            long_multiplier=thresholds.continuity_long_multiplier,
+        )
+        return {"on_date": on_date, "calibration": report.as_dict()}
 
     def _fatigue(self, conn, day: str | None = None) -> dict:
         on_date = day or datetime.date.today().isoformat()
