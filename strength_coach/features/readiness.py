@@ -47,6 +47,10 @@ class ReadinessConfig:
     hrv_weight: float = 0.5
     rhr_weight: float = 0.5
     wearable_weight: float = 0.10
+    set_reduction_enabled: bool = True
+    set_reduction_score_below: float = 0.50
+    set_reduction_sets: int = 1
+    set_reduction_include_essential: bool = False
     setting_source: str = "config"
     source_path: Path = Path()
 
@@ -104,6 +108,7 @@ class ReadinessConfig:
         hrv_weight = float(score.get("hrv_weight", 0.5))
         rhr_weight = float(score.get("rhr_weight", 0.5))
         wearable_weight = float(score.get("wearable_weight", 0.10))
+        set_reduction = raw.get("set_reduction") or {}
         if baseline_days <= 0 or baseline_min <= 0:
             raise ReadinessConfigError("score baseline_days and baseline_min_readings must be positive")
         for name, value in (("hrv_slope", hrv_slope), ("rhr_slope", rhr_slope)):
@@ -126,6 +131,12 @@ class ReadinessConfig:
             hrv_weight=hrv_weight,
             rhr_weight=rhr_weight,
             wearable_weight=wearable_weight,
+            set_reduction_enabled=bool(set_reduction.get("enabled", True)),
+            set_reduction_score_below=float(set_reduction.get("score_below", 0.50)),
+            set_reduction_sets=max(0, int(set_reduction.get("sets", 1))),
+            set_reduction_include_essential=bool(
+                set_reduction.get("include_essential", False)
+            ),
             source_path=source,
         )
 
@@ -144,6 +155,10 @@ def as_dict(config: ReadinessConfig) -> dict[str, Any]:
         "hrv_weight": config.hrv_weight,
         "rhr_weight": config.rhr_weight,
         "wearable_weight": config.wearable_weight,
+        "set_reduction_enabled": config.set_reduction_enabled,
+        "set_reduction_score_below": config.set_reduction_score_below,
+        "set_reduction_sets": config.set_reduction_sets,
+        "set_reduction_include_essential": config.set_reduction_include_essential,
         "setting_source": config.setting_source,
     }
 

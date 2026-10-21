@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **558 public tests** (573 with the 15 private integration tests)
+Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **565 public tests** (580 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progres
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 573 locally, including private integration
+.venv/bin/python -m pytest            # 580 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -44,7 +44,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
-| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights (§4.9 remaining), LLM/manual-logging parity (§4.11), continuity calibration (§4.12, calibrated bands with fixed fallback), labelled set depth (§4.14), exercise selection (§4.15), strength fitness-fatigue shadow model (§4.16) |
+| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights (§4.9 remaining), LLM/manual-logging parity (§4.11), continuity calibration (§4.12, calibrated bands with fixed fallback), labelled set depth (§4.14), exercise selection (§4.15), strength fitness-fatigue shadow model (§4.16), rolling session types / upper-body balance / set reduction (§4.17) |
 | v0.4 | Cardio prescription and model | **planned** | cardio prescription and cardio impulse/fatigue model (§4.13 remaining) |
 | v0.5 | Video analysis | **planned** | video capture/analysis and its UI parity (§4.8, §4.11 video part) |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
@@ -574,7 +574,7 @@ logging, video.
 
 ### 4.11 Web UI parity  (v0.3 for LLM/manual logging; video part v0.5)
 
-The local UI covers Today, Prescribe, Programme, Review, Readiness, Import, an editable
+The local UI covers Today, Prescribe (rolling session types), Programme, Review, Readiness, Import, an editable
 Athlete page, an editable **Exercises** catalogue, Terminal and Docs. This item brings the remaining interactive CLI actions into the browser. The CLI stays
 as the automation interface; the UI must call the same core functions, never re-implement them.
 
@@ -842,6 +842,36 @@ when unidentified (done); shadow mode changes no prescription (done); per-lift, 
 overall views done; chronological backtest done; UI shows inputs, state, intervals, backtest and
 “not identifiable” honestly (done); no cardio in the strength model (done); frozen-parameter
 prospective test remains open.
+
+### 4.17 Rolling session types and strength-programme balance  (v0.3, implemented)
+
+**Status: implemented 2026-10-20.** The rigid A/B/C calendar is replaced for new prescriptions by
+four session types:
+
+| type | legacy label | main work | upper body | direct erector |
+|---|---|---|---|---|
+| `squat` | A | SSB squat + power | bench support + row | yes |
+| `hinge` | B | trap-bar deadlift | narrow/pause bench + row + pull | no |
+| `bench_squat` | C | bench + squat support | overhead press + row | no |
+| `bench_hinge` | C | bench + single-leg RDL | overhead press + row + pull | no |
+
+The rolling rule targets two squat, two hinge and two bench-emphasis sessions per six, uses the
+recent `day_guess` history plus forecast choices, and falls back to the preferred emphasis
+cycle when the counts are tied. A missed session shifts the deficit; it does not advance a
+calendar. A/B/C remain as legacy labels for historical rules and explicit overrides.
+
+**Balance changes:** every session includes bench or another upper-body press/pull, plus a
+horizontal row. The hinge gets a second exposure through the single-leg RDL support on the
+bench+hinge session, without stacking another high-fatigue spinal lift. Only the squat-emphasis
+session carries direct erector work, keeping a normal week at squat 1 + hinge 2 = 3 against the
+spinal cap. Accessory sets lose one when readiness is poor (config-gated; main lifts keep
+volume unless `include_essential` is enabled). Power work is bodyweight/implement-only.
+
+**Acceptance (done):** session templates parse; every session has a row and an upper-body
+push/pull; hinge sessions contain no direct erector work; the two-week sequence balances
+squat/hinge/bench; legacy A/B/C still resolve for history; the rolling forecast and UI expose the
+selected type; set reduction is cited in the `MOD-FAT-001` warning; power carries no external
+load; full tests pass.
 
 ## 5. Known gaps and risks
 

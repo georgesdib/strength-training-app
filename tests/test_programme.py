@@ -48,7 +48,11 @@ def test_programme_is_a_weekday_abc_forecast_and_persists_nothing():
         ).fetchone()["c"]
 
     assert len(entries) == 6
-    assert [e.day for e in entries] == ["A", "B", "C", "A", "B", "C"]
+    assert all(e.day in {"A", "B", "C"} for e in entries)
+    assert all(e.session_type in {
+        "squat", "hinge", "bench_squat", "bench_hinge"
+    } for e in entries)
+    assert len({e.session_type for e in entries}) >= 3
     assert all(dt.date.fromisoformat(e.on_date).weekday() in (0, 2, 4) for e in entries)
     assert before == after == 0
 
@@ -88,7 +92,8 @@ def test_a_forecast_entry_equals_a_freshly_built_prescription():
         )
         entry = entries[1]
         direct = build_prescription(
-            conn, for_date=entry.on_date, session_day=entry.day
+            conn, for_date=entry.on_date, session_day=entry.day,
+            session_type=entry.session_type,
         )
 
     assert entry.prescription.items == direct.items

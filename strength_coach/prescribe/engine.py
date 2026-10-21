@@ -36,7 +36,7 @@ from strength_coach.features import recent_stress as recent_stress_feature
 from strength_coach.features import vbt_calibration
 from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import undulation as undulation_mod
-from strength_coach.prescribe import fallback, loads, templates
+from strength_coach.prescribe import fallback, loads, schedule, templates
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
 from strength_coach.rules import History, RuleContext, evaluate, load_document, registry
@@ -63,6 +63,7 @@ def build_prescription(
     vbt: vbt_calibration.CalibrationResult | None = None,
     apply_selection: bool = False,
     selection_chooser: Callable | None = None,
+    session_type: str | None = None,
 ) -> Prescription:
     """Generate the deterministic session for `for_date`.
 
@@ -72,7 +73,12 @@ def build_prescription(
     """
     document = document or load_document()
     thresholds = thresholds or config_mod.Thresholds.load()
-    template = template or templates.DayTemplate.load(session_day)
+    if session_type is not None:
+        if template is None:
+            template = templates.SessionTemplate.load(session_type)
+        session_day = schedule.legacy_day(session_type)
+    else:
+        template = template or templates.DayTemplate.load(session_day)
     readiness_config = readiness_config or readiness_mod.ReadinessConfig.load()
     undulation = undulation or undulation_mod.Undulation.load()
 
@@ -88,7 +94,8 @@ def build_prescription(
     selection_notes: list[dict] = []
     if apply_selection:
         selected = selection_mod.select(
-            conn, context, for_date, session_day, chooser=selection_chooser
+            conn, context, for_date, session_day,
+            session_type=session_type, chooser=selection_chooser,
         )
         selection_rows = {row.slot_id: row for row in selected}
         selection_notes = [row.as_dict() for row in selected]
@@ -149,7 +156,7 @@ def build_prescription(
         vbt_cal = vbt_calibration.calibrate(context.sets)
     items, readiness_level, readiness_warnings, readiness_factors, lift_readiness = _apply_readiness_score(
         conn, context, tuple(items), for_date, assessment, injury, trigger, thresholds,
-        calibration=vbt_cal,
+        readiness_config=readiness_config, calibration=vbt_cal,
     )
     if readiness_level == "fatigue_reduced":
         fallback_level = "fatigue_reduced"
@@ -220,6 +227,7 @@ def build_prescription(
     return Prescription(
         for_date=for_date,
         session_day=session_day,
+        session_type=session_type,
         fallback_level=fallback_level,
         rule_document_version=document.version,
         items=tuple(items),
@@ -253,8 +261,15 @@ def build_prescription(
             "e1rm_window_days": thresholds.e1rm_window_days,
             "fatigue_trigger": trigger,
             "readiness_fields": list(readiness_config.modifier_fields),
+            "readiness_set_reduction": {
+                "enabled": readiness_config.set_reduction_enabled,
+                "score_below": readiness_config.set_reduction_score_below,
+                "sets": readiness_config.set_reduction_sets,
+                "include_essential": readiness_config.set_reduction_include_essential,
+            },
             "back_flare": bool(context.symptom_flare),
             "constraints": constraint_report.status,
+            "session_type": session_type,
             "selection": {
                 "applied": bool(apply_selection),
                 "llm_requested": bool(selection_chooser),
@@ -302,6 +317,7 @@ def _apply_readiness_score(
     trigger: str | None,
     thresholds,
     *,
+    readiness_config: readiness_mod.ReadinessConfig | None = None,
     calibration: "vbt_calibration.CalibrationResult | None" = None,
 ) -> tuple[tuple[PrescriptionItem, ...], str, tuple[str, ...], dict[str, float],
            dict[str, lift_readiness_feature.LiftReadiness]]:
@@ -329,11 +345,21 @@ def _apply_readiness_score(
         lift_scores = lift_readiness_feature.compute(
             context.sets, base_scores, for_date, calibration=calibration
         )
+    config = readiness_config or readiness_mod.ReadinessConfig.load()
+    poor_for_sets = bool(
+        config.set_reduction_enabled
+        and (
+            trigger is not None
+            or (assessment.score is not None
+                and assessment.score < config.set_reduction_score_below)
+        )
+    )
     out: list[PrescriptionItem] = []
     reduced = False
     capped = False
     scored = False
     lift_reduced: list[str] = []
+    sets_reduced: list[str] = []
     factors: dict[str, float] = {}
     for item in items:
         entity = (context.entities or {}).get(item.exercise_id, {})
@@ -358,7 +384,13 @@ def _apply_readiness_score(
         if trigger and floor_factor < 1.0:
             rir_bump = max(rir_bump, 1)
         factors[item.exercise_id] = min(factors.get(item.exercise_id, 1.0), factor)
-        if factor >= 1.0 and rir_bump == 0:
+        new_sets = item.sets
+        if (poor_for_sets and config.set_reduction_sets > 0
+                and (config.set_reduction_include_essential or not item.essential)):
+            new_sets = max(1, item.sets - config.set_reduction_sets)
+            if new_sets != item.sets:
+                sets_reduced.append(item.exercise_id)
+        if factor >= 1.0 and rir_bump == 0 and new_sets == item.sets:
             out.append(item)
             continue
         reduced = True
@@ -383,6 +415,7 @@ def _apply_readiness_score(
         out.append(
             replace(
                 item,
+                sets=new_sets,
                 load_kg=new_load,
                 rir_target=min(4, item.rir_target + rir_bump),
                 rationale_refs=refs,
@@ -399,8 +432,10 @@ def _apply_readiness_score(
             pieces.append("injury ceiling applied")
         if lift_reduced:
             pieces.append("per-lift readiness applied: " + ", ".join(lift_reduced))
+        if sets_reduced:
+            pieces.append("accessory sets reduced: " + ", ".join(sets_reduced))
         warnings.append(
-            "MOD-FAT-001: " + "; ".join(pieces) + "; load reduced"
+            "MOD-FAT-001: " + "; ".join(pieces) + "; session reduced"
         )
     return (tuple(out), ("fatigue_reduced" if reduced else "full"), tuple(warnings),
             factors, lift_scores)

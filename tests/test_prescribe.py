@@ -8,6 +8,7 @@ honesty rules: no look-ahead, and no invented load when the e1RM is missing.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from contextlib import contextmanager
 
 import pytest
@@ -451,3 +452,27 @@ def test_apply_selection_rebuilds_the_item_and_cites_mod_select(monkeypatch):
         assert prescription.notes["selection"]["applied"] is True
         context = RuleContext.from_store(store.connection, end="2024-01-15")
         assert validate_references(prescription, context, store.connection) == []
+
+
+def test_poor_readiness_reduces_accessory_sets_not_main_lifts():
+    rows = BASE_HISTORY
+    readiness = [{"Date": "2024-01-02", "Sleep": "1", "Energy": "1",
+                  "Mood": "1", "Soreness": "1", "Stress": "1"}]
+    with store_with(rows, readiness_rows=readiness) as store:
+        plain = build_prescription(store.connection, for_date="2024-01-02", session_day="A")
+    with store_with(rows, readiness_rows=readiness) as store:
+        # The same date with a deliberately disabled valve is the control.
+        from strength_coach.features import readiness as readiness_mod
+        cfg = readiness_mod.ReadinessConfig.load()
+        cfg = replace(cfg, set_reduction_enabled=False)
+        control = build_prescription(
+            store.connection, for_date="2024-01-02", session_day="A",
+            readiness_config=cfg,
+        )
+    plain_sets = {i.exercise_id: i.sets for i in plain.items}
+    control_sets = {i.exercise_id: i.sets for i in control.items}
+    accessory = next(i for i in plain.items if not i.essential)
+    main = next(i for i in plain.items if i.essential)
+    assert plain_sets[accessory.exercise_id] == control_sets[accessory.exercise_id] - 1
+    assert plain_sets[main.exercise_id] == control_sets[main.exercise_id]
+    assert "accessory sets reduced" in " ".join(plain.warnings)

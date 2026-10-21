@@ -121,13 +121,14 @@ $("#prescribe-apply-selection").addEventListener("change", () => {
 $("#prescribe-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const date = $("#prescribe-date").value;
-  const day = $("#prescribe-day").value;
+  const sessionType = $("#prescribe-session-type").value;
   $("#prescribe-result").innerHTML = "<p class='empty'>Building…</p>";
   const applySelection = $("#prescribe-apply-selection").checked;
   const selectionLlm = applySelection && $("#prescribe-selection-llm").checked;
   try {
     const data = await api("/api/prescribe", { method: "POST", body: JSON.stringify({
-      date, day, apply_selection: applySelection, selection_llm: selectionLlm,
+      date, session_type: sessionType,
+      apply_selection: applySelection, selection_llm: selectionLlm,
     }) });
     renderPrescription(data);
   } catch (error) {
@@ -169,7 +170,7 @@ function renderPrescription(p) {
   const signalBox = signal ? `<p class="muted">Injury signal: <strong>${esc(signal.status)}</strong>
     — ${esc(signal.summary)}</p>` : "";
   $("#prescribe-result").innerHTML = `<div class="panel">
-    <div class="panel-head"><h2>${esc(p.for_date)} · Day ${esc(p.session_day)}</h2>
+    <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_type || ("Day " + p.session_day))}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
     ${warnings}${selectionBox}${signalBox}
     <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>refs</th></tr></thead>
@@ -276,12 +277,12 @@ async function saveReview(session) {
 /* --- exercise selection -------------------------------------------------- */
 async function loadSelection() {
   const date = $("#prescribe-date").value;
-  const day = $("#prescribe-day").value;
+  const sessionType = $("#prescribe-session-type").value;
   if (!date) { $("#selection-result").innerHTML = "<p class='empty'>Choose a date first.</p>"; return; }
   const llm = $("#selection-llm").checked ? "1" : "0";
   $("#selection-result").innerHTML = "<p class='empty'>Scoring variants…</p>";
   try {
-    const data = await api(`/api/selection?date=${encodeURIComponent(date)}&day=${encodeURIComponent(day)}&llm=${llm}`);
+    const data = await api(`/api/selection?date=${encodeURIComponent(date)}&session_type=${encodeURIComponent(sessionType)}&llm=${llm}`);
     const rows = (data.slots || []).map((slot) => {
       const candidates = slot.candidates.map((c) =>
         `<li>${esc(c.exercise_id)} — ${c.score} <span class="muted">${esc(c.reasons.join("; "))}</span></li>`).join("");
@@ -1015,7 +1016,8 @@ function renderProgramme(entries) {
       : "<span class='empty'>none</span>";
     return `<tr>
       <td>${esc(entry.date)}</td>
-      <td><strong>${esc(entry.day)}</strong></td>
+      <td><strong>${esc(entry.session_type || entry.day)}</strong>
+        <div class="muted">legacy ${esc(entry.day)}</div></td>
       <td>${esc(programmeStatus(entry))}</td>
       <td><ul class="plain">${items}</ul>
         ${entry.deload_reason ? `<p class="warnbox">reactive deload: ${esc(entry.deload_reason)}</p>` : ""}
@@ -1023,7 +1025,7 @@ function renderProgramme(entries) {
     </tr>`;
   }).join("");
   $("#programme-result").innerHTML = `<div class="panel"><table>
-    <thead><tr><th>Date</th><th>Day</th><th>Status</th><th>Session</th></tr></thead>
+    <thead><tr><th>Date</th><th>Session type</th><th>Status</th><th>Session</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 

@@ -139,6 +139,7 @@ def select(
     on_date: str,
     day: str,
     *,
+    session_type: str | None = None,
     config: SelectionConfig | None = None,
     chooser: Callable[[templates.Slot, tuple[Candidate, ...]], tuple[str, str] | None] | None = None,
 ) -> list[SlotSelection]:
@@ -148,8 +149,11 @@ def select(
     candidates and must return `(exercise_id, reason)` or None. The id is validated here.
     """
     cfg = config or SelectionConfig.load()
-    template = templates.DayTemplate.load(day)
-    extra = _catalogue().get(day, {})
+    template = (
+        templates.SessionTemplate.load(session_type)
+        if session_type is not None else templates.DayTemplate.load(day)
+    )
+    extra = _catalogue().get(session_type or day, {})
     slot_ids = {
         slot.id: tuple(dict.fromkeys((*slot.exercises, *extra.get(slot.id, ()))))
         for slot in template.slots

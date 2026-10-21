@@ -429,3 +429,17 @@ def test_continuity_calibration_endpoint(server):
     assert data["on_date"] == "2024-01-15"
     assert "bands" in data["calibration"]
     assert isinstance(data["allow_relax_fixed"], bool)
+
+
+def test_prescribe_accepts_a_session_type(server):
+    data = post(server, "/api/prescribe", {
+        "date": "2024-01-15", "session_type": "hinge",
+    })
+    assert data["session_type"] == "hinge"
+    assert data["session_day"] == "B"
+    assert any(row["exercise_id"] == "trap_bar_deadlift" for row in data["items"])
+
+
+def test_prescribe_auto_session_type_is_rolling(server):
+    data = post(server, "/api/prescribe", {"date": "2024-01-15"})
+    assert data["session_type"] in {"squat", "hinge", "bench_squat", "bench_hinge"}

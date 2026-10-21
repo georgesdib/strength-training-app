@@ -29,6 +29,14 @@ composite:
   # (metric_definition rows). Until then it stays off and readiness_day.composite stays null.
   enabled: false
 
+set_reduction:
+  # Poor readiness first reduces load/RIR (MOD-FAT-001). This second, conservative valve
+  # removes one accessory set; the main lifts keep their volume unless explicitly enabled.
+  enabled: true
+  score_below: 0.50
+  sets: 1
+  include_essential: false
+
 score:
   # HRV/RHR need a personal baseline before they can enter the score. The baseline is the
   # median of the previous window, and a device field is skipped rather than guessed when the

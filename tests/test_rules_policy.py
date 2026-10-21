@@ -227,6 +227,12 @@ def test_double_progression_decides_when_ranges_are_supplied(document):
          "RIR": "2", "Reps_Done": "12"},
         {"Date": "2024-01-01", "Exercise": "Pull-ups (wide grip)", "Weight_Used": "0",
          "RIR": "2", "Reps_Done": "8"},
+        {"Date": "2024-01-01", "Exercise": "Dumbbell Row", "Weight_Used": "20",
+         "RIR": "2", "Reps_Done": "12"},
+        {"Date": "2024-01-01", "Exercise": "Overhead Press (seated)", "Weight_Used": "40",
+         "RIR": "2", "Reps_Done": "10"},
+        {"Date": "2024-01-01", "Exercise": "Single Leg DB RDL", "Weight_Used": "20",
+         "RIR": "2", "Reps_Done": "10"},
     ]
     ctx = context(
         rows,
@@ -234,6 +240,8 @@ def test_double_progression_decides_when_ranges_are_supplied(document):
             "back_extension": (8, 12), "lateral_raise": (12, 15),
             "split_squat": (8, 10), "ab_wheel": (6, 10),
             "hanging_leg_raise": (8, 12), "pull_up": (6, 10), "lat_pulldown": (6, 10),
+            "dumbbell_row": (8, 12), "overhead_press_seated": (6, 10),
+            "single_leg_db_rdl": (8, 10),
         },
     )
     verdict = evaluate(document, ctx, rule_ids=["PRG-DP-001"]).verdict("PRG-DP-001")

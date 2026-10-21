@@ -54,15 +54,22 @@
         <div class="panel-head"><h2>Prescribe a session</h2><a href="#docs" data-view-link="docs">read the rules</a></div>
         <form id="prescribe-form" class="form-row">
           <label>Date <input type="date" id="prescribe-date" required></label>
-          <label>Day
-            <select id="prescribe-day"><option>A</option><option>B</option><option>C</option></select>
+          <label>Session
+            <select id="prescribe-session-type">
+              <option value="auto">Auto (rolling)</option>
+              <option value="squat">Squat emphasis</option>
+              <option value="hinge">Hinge emphasis</option>
+              <option value="bench_squat">Bench + squat support</option>
+              <option value="bench_hinge">Bench + hinge support</option>
+            </select>
           </label>
           <label><input type="checkbox" id="prescribe-apply-selection"> Apply selection</label>
           <label id="prescribe-selection-llm-wrap" hidden><input type="checkbox" id="prescribe-selection-llm"> Use LLM</label>
           <button class="primary" type="submit">Build prescription</button>
         </form>
         <p class="muted">The prescription is deterministic and cites rule ids. Warnings are part of the
-          answer, not noise: a missing readiness or an unknown load appears here.</p>
+          answer, not noise: a missing readiness or an unknown load appears here. Poor readiness
+          reduces accessory sets by one (config/readiness.v1.yaml) as well as load/RIR.</p>
       </div>
       <div id="prescribe-result"></div>
       <div class="panel" id="continuity-panel">

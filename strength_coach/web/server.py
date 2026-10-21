@@ -41,6 +41,7 @@ from strength_coach.features import programme as programme_feature
 from strength_coach.features import readiness_baseline
 from strength_coach.features import readiness_calibration, readiness_score
 from strength_coach.prescribe import build_prescription
+from strength_coach.prescribe import schedule as schedule_mod
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
@@ -81,6 +82,7 @@ def prescription_dict(prescription) -> dict:
     return {
         "for_date": prescription.for_date,
         "session_day": prescription.session_day,
+        "session_type": prescription.session_type,
         "fallback_level": prescription.fallback_level,
         "executable": prescription.executable,
         "items": [_item_dict(item) for item in prescription.items],
@@ -247,10 +249,11 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/selection":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [datetime.date.today().isoformat()])[0]
-                session_day = query.get("day", ["B"])[0]
+                session_type = query.get("session_type", [None])[0]
+                session_day = query.get("day", [None])[0]
                 use_llm = query.get("llm", ["0"])[0] == "1"
                 self._json(200, self._with_conn(
-                    lambda c: self._selection(c, day, session_day, use_llm)
+                    lambda c: self._selection(c, day, session_type, session_day, use_llm)
                 ))
             elif path == "/api/exercises/catalog":
                 self._json(200, exercise_admin.catalog())
@@ -414,8 +417,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def _prescribe(self, conn, body: dict) -> dict:
         for_date = str(body.get("date") or datetime.date.today().isoformat())
-        day = str(body.get("day") or "A").upper()
-        if day not in {"A", "B", "C"}:
+        day = str(body.get("day") or "").upper()
+        requested_type = body.get("session_type")
+        if requested_type in (None, "", "auto"):
+            if day:
+                session_type = None
+            else:
+                session_type = schedule_mod.next_session_type(conn, for_date)
+                day = schedule_mod.legacy_day(session_type)
+        else:
+            session_type = str(requested_type)
+            day = schedule_mod.legacy_day(session_type)
+        if day and day not in {"A", "B", "C"}:
             raise ValueError("day must be A, B or C")
         if for_date >= datetime.date.today().isoformat():
             assessment = readiness_score.compute(conn, for_date)
@@ -432,6 +445,7 @@ class Handler(BaseHTTPRequestHandler):
         )
         prescription = build_prescription(
             conn, for_date=for_date, session_day=day,
+            session_type=session_type,
             apply_selection=apply_selection, selection_chooser=chooser,
         )
         return prescription_dict(prescription)
@@ -611,14 +625,27 @@ class Handler(BaseHTTPRequestHandler):
         )
         return self._cardio(conn, body)
 
-    def _selection(self, conn, day: str, session_day: str, use_llm: bool) -> dict:
+    def _selection(self, conn, day: str, session_type: str | None,
+                   session_day: str | None, use_llm: bool) -> dict:
         chooser = None
         if use_llm:
             chooser = agent_selection.chooser(build_client(load_settings()))
-        rows = selection_mod.select(conn, None, day, session_day, chooser=chooser)
+        if session_type in (None, "", "auto"):
+            if session_day:
+                session_type = None
+            else:
+                session_type = schedule_mod.next_session_type(conn, day)
+                session_day = schedule_mod.legacy_day(session_type)
+        else:
+            session_day = schedule_mod.legacy_day(session_type)
+        rows = selection_mod.select(
+            conn, None, day, session_day or "A",
+            session_type=session_type, chooser=chooser
+        )
         return {
             "on_date": day,
             "day": session_day,
+            "session_type": session_type,
             "slots": selection_mod.as_dict(rows),
         }
 
@@ -682,6 +709,7 @@ class Handler(BaseHTTPRequestHandler):
         )
         return {"entries": [
             {"date": entry.on_date, "day": entry.day,
+             "session_type": entry.session_type,
              "deload_reason": entry.deload_reason,
              "prescription": prescription_dict(entry.prescription)}
             for entry in pages

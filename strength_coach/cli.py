@@ -56,6 +56,7 @@ from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.eval import backtest, load_marks, record_marks
 from strength_coach.eval.report import format_report, format_session_sheet, item_guide_lines
 from strength_coach.prescribe import build_prescription
+from strength_coach.prescribe import schedule as schedule_mod
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import schemes as schemes_mod
@@ -77,8 +78,10 @@ def main(argv: list[str] | None = None) -> int:
 
     run = sub.add_parser("run", help="critique the last session and prescribe a date")
     run.add_argument("--date", required=True, help="date to prescribe, YYYY-MM-DD")
-    run.add_argument("--day", choices=("A", "B", "C"), default="B",
-                     help="which programme day to prescribe (default: B)")
+    run.add_argument("--day", choices=("A", "B", "C"), default=None,
+                     help="legacy A/B/C override; omit for rolling session type")
+    run.add_argument("--session-type", choices=("auto", "squat", "hinge", "bench_squat", "bench_hinge"),
+                     default="auto", help="session emphasis (default: auto rolling)")
     run.add_argument("--llm", choices=("on", "off"), default="off",
                      help="ask the configured model for a narrative (default: off)")
     run.add_argument("--force", action="store_true",
@@ -345,12 +348,23 @@ def _cmd_run(args) -> int:
         if args.selection_llm and not args.apply_selection:
             print("--selection-llm requires --apply-selection")
             return 2
+        if args.session_type == "auto":
+            if args.day:
+                session_type = None
+                day = args.day
+            else:
+                session_type = schedule_mod.next_session_type(conn, args.date)
+                day = schedule_mod.legacy_day(session_type)
+        else:
+            session_type = args.session_type
+            day = schedule_mod.legacy_day(session_type)
         chooser = (
             agent_selection.chooser(build_client(load_settings()))
             if args.selection_llm else None
         )
         prescription = build_prescription(
-            conn, for_date=args.date, session_day=args.day,
+            conn, for_date=args.date, session_day=day,
+            session_type=session_type,
             apply_selection=args.apply_selection, selection_chooser=chooser,
         )
 

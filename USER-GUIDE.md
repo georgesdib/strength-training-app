@@ -147,10 +147,11 @@ score changes the load and may trigger a deload.
    readiness fields; they are labels, not inputs.
 3. **Prescribe the session**:
    ```bash
-   strength-coach run --date 2026-10-20 --day A
+   strength-coach run --date 2026-10-20 --session-type auto
    ```
    Or use the Prescribe page. Check the warnings, rule citations, load sources and any
-   constraints; a hard constraint or injury ceiling wins over the score.
+   constraints; a hard constraint or injury ceiling wins over the score. Poor readiness also
+   removes one accessory set (main-lift volume is unchanged) in addition to the load/RIR cut.
 4. **Optional:** print the rolling horizon with `strength-coach programme --weeks 4 --remaining`
    or the Programme page. Treat it as a forecast; the day's prescription is rebuilt when the
    day arrives.
@@ -203,7 +204,7 @@ import  →  state (once)  →  readiness  →  prescribe  →  perform
 | import | `import` | Import |
 | athlete state | `state`, `block`, `e1rm`, `test` | Athlete |
 | readiness | `readiness set` | Readiness |
-| prescription | `run --date ... --day ...` | Prescribe |
+| prescription | `run --date ... --session-type auto` | Prescribe |
 | programme | `programme --weeks N` | Programme |
 | review | `review --session ...` | Review |
 | rubric report | `calibrate` | Review → Run rubric calibration |
@@ -670,6 +671,19 @@ strength-coach exercise set --id front_squat --json '{"pattern":"squat"}'
 Edits and additions are written to `config/exercises/overrides.v1.yaml`; the checked-in
 taxonomy is not rewritten. The web **Exercises** tab is the form-based version.
 
+### 4.10d Session types and rolling selection
+
+`run` and the Prescribe page default to a rolling session type rather than a fixed A/B/C
+calendar. The types are `squat`, `hinge`, `bench_squat` and `bench_hinge`; the rule balances
+squat/hinge/bench emphasis over recent sessions. A/B/C remain available as legacy overrides for
+historical comparison:
+
+```bash
+strength-coach run --date 2026-10-20 --session-type auto
+strength-coach run --date 2026-10-20 --session-type hinge
+strength-coach run --date 2026-10-20 --day B   # legacy
+```
+
 ### 4.10e `select` — exercise selection
 
 Apply it to a prescription with:
@@ -680,12 +694,12 @@ strength-coach run --date 2026-10-20 --day A --apply-selection --selection-llm
 ```
 
 ```bash
-strength-coach select --date 2026-10-20 --day B
-strength-coach select --date 2026-10-20 --day B --llm
+strength-coach select --date 2026-10-20 --session-type hinge
+strength-coach select --date 2026-10-20 --session-type hinge --llm
 ```
 
-Ranks the configured variants for each slot from readiness, recent stress, rotation and
-preference. Constraints and `can_do: false` exclude a candidate; an active injury region
+Ranks the configured variants for the chosen session type from readiness, recent stress,
+rotation and preference. Constraints and `can_do: false` exclude a candidate; an active injury region
 penalises one. `--llm` lets the configured model choose **only from that filtered list**;
 Python validates and falls back deterministically on any error. By default it is preview-only;
 the Prescribe **Apply selection** toggle (or `run --apply-selection`) applies the chosen

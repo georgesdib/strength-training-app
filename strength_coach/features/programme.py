@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from strength_coach.domain.symptoms import flare_from
 from strength_coach.features import readiness as readiness_mod
 from strength_coach.features import vbt_calibration
-from strength_coach.prescribe import build_prescription, fallback
+from strength_coach.prescribe import build_prescription, fallback, schedule
 from strength_coach.prescribe import config as thresholds_mod
 from strength_coach.prescribe import templates, undulation as undulation_mod
 from strength_coach.rules import History, RuleContext, evaluate, load_document
@@ -32,6 +32,7 @@ class ProgrammeEntry:
     day: str
     prescription: object
     deload_reason: str | None = None
+    session_type: str | None = None
 
 
 def _next_day(conn, before: str, start_day: str | None) -> str:
@@ -111,8 +112,12 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
     if not 1 <= per_week <= len(WEEKDAYS):
         raise ValueError("per_week must be 1-3 for the A/B/C programme")
     first = dt.date.fromisoformat(start) if start else dt.date.today()
-    day = _next_day(conn, first.isoformat(), start_day)
     dates = _dates(first, weeks, per_week)
+    prior: list[str] = []
+    if start_day:
+        start_type = {"A": "squat", "B": "hinge", "C": "bench_squat"}[start_day.upper()]
+    else:
+        start_type = schedule.next_session_type(conn, first.isoformat())
     # The past does not change across a forward horizon, so load it once. Rebuilding the
     # enriched history and the VBT calibration for every projected session made a four-week
     # forecast take over two minutes; the date-dependent inputs are still derived per date.
@@ -123,21 +128,24 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
     )
     document = load_document()
     thresholds = thresholds_mod.Thresholds.load()
-    templates_by_day = {name: templates.DayTemplate.load(name) for name in DAYS}
+    session_types = {name: templates.SessionTemplate.load(name)
+                     for name in templates.SESSION_TYPES}
     readiness_config = readiness_mod.ReadinessConfig.load()
     undulation = undulation_mod.Undulation.load()
     # No history means no calibration to reuse; `calibrate` expects enriched columns that an
     # empty frame does not have, and the engine already reports VBT as unavailable.
     vbt = vbt_calibration.calibrate(history.sets) if not history.sets.empty else None
     out: list[ProgrammeEntry] = []
+    current_type = start_type
     for index, date in enumerate(dates):
         prescription = build_prescription(
             conn,
             for_date=date.isoformat(),
-            session_day=day,
+            session_day=schedule.legacy_day(current_type),
+            session_type=current_type,
             document=document,
             thresholds=thresholds,
-            template=templates_by_day[day],
+            template=session_types[current_type],
             readiness_config=readiness_config,
             undulation=undulation,
             history=history,
@@ -148,6 +156,11 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
             prescription = fallback.reduced_prescription(
                 prescription, factor=0.90, reason=f"reactive deload: {reason}"
             )
-        out.append(ProgrammeEntry(date.isoformat(), day, prescription, trigger))
-        day = DAYS[(DAYS.index(day) + 1) % len(DAYS)]
+        out.append(ProgrammeEntry(
+            date.isoformat(), prescription.session_day, prescription, trigger, current_type
+        ))
+        prior.append(current_type)
+        current_type = schedule.next_session_type(
+            conn, date.isoformat(), prior_types=prior
+        )
     return out

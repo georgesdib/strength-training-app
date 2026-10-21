@@ -28,9 +28,6 @@ global option in the CLI). It is convenience only: it ends in the same `strength
   stored rows, so old history is not duplicated. An **After the import** panel states the
   procedure: check the report, review recent sessions to create marks, then calibrate later —
   importing alone does not require a calibration.
-- **Prescribe** — date + day; deterministic prescription, warnings and notes; every item cites
-  rule ids. A `recent stress` column shows the advisory decayed hard-set status (never a load
-  change); a `readiness` column shows the per-lift score (can only lower a load).
 - **Review** — unreviewed/recent session sheet; engine scores shown for context; human marks, optional session RPE and session length,
   plus a **Run rubric calibration** button (same report as `strength-coach calibrate`),
   confidence and note; calibration report after saving.
@@ -38,11 +35,11 @@ global option in the CLI). It is convenience only: it ends in the same `strength
   manual values win per field; the computed global/category score is shown; per-athlete
   baseline settings and the shadow baseline report are available; overrides take 0.00–1.00
   with a reason. A current workout is refused until readiness is ready.
-- **Prescribe** — date + day; deterministic prescription, warnings and notes; every item cites
+- **Prescribe** — date + session type (`auto` rolling, squat, hinge, bench+squat, bench+hinge); deterministic prescription, warnings and notes; every item cites
   rule ids. A `recent stress` column, a `readiness` column, the **strength fatigue model**
   panel (shadow: per-lift + overall fitness/fatigue/state with approximate 95% intervals,
   R²/status; no load effect), the **continuity calibration** panel (per-band returns/fixed/applied and the
-  `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings; optional LLM chooser). The **Apply selection** toggle on the form
+  `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings; optional LLM chooser). The session is chosen by the rolling emphasis rule; **Apply selection** on the form
   makes the chosen candidates replace the slot exercises; **Use LLM** appears only when it is
   ticked. Without the toggle the prescription is unchanged. It says when a day has no variant
   slots.
@@ -68,7 +65,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 |---|---|
 | `GET /api/overview` | dashboard data |
 | `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
-| `POST /api/prescribe` | `{date, day, apply_selection?, selection_llm?}` -> prescription |
+| `POST /api/prescribe` | `{date, session_type?, day?, apply_selection?, selection_llm?}` -> prescription; `session_type=auto` uses the rolling rule |
 | `GET /api/review/<session>` | session sheet |
 | `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes}` -> marks + optional session detail |
 | `GET /api/readiness/<date>` | merged readiness |
@@ -83,7 +80,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `GET /api/fatigue?date=N` | strength fitness-fatigue shadow model (per-lift state and status) |
 | `GET /api/continuity?date=N` | return-to-training calibration: per-band n/median/CI/fixed/applied and `allow_relax_fixed` |
 | `POST /api/continuity/settings` | `{allow_relax_fixed}` -> update the calibration policy |
-| `GET /api/selection?date=N&day=X&llm=0\|1` | shadow exercise-selection rankings |
+| `GET /api/selection?date=N&session_type=X&llm=0\|1` | exercise-selection rankings for a session type |
 | `GET /api/exercises/catalog` | full exercise catalogue with source/properties |
 | `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml` |
 | `GET /api/measurements` | metric catalogue, per-metric summary and recent entries |

@@ -55,7 +55,7 @@ def test_run_persists_a_critique_and_a_prescription(database, capsys):
     tables = ("critique", "rubric_score", "prescription", "prescription_item", "run", "run_event")
     before = {table: count(database, table) for table in tables}
 
-    code = cli.main(["--db", str(database), "run", "--date", "2024-02-01"])
+    code = cli.main(["--db", str(database), "run", "--date", "2024-02-01", "--day", "B"])
     assert code == 0
 
     out = capsys.readouterr().out
@@ -126,11 +126,11 @@ def test_run_day_a_uses_the_a_template(tmp_path, capsys):
 
 
 def test_rerunning_the_same_date_appends_nothing(database, capsys):
-    cli.main(["--db", str(database), "run", "--date", "2024-02-01"])
+    cli.main(["--db", str(database), "run", "--date", "2024-02-01", "--day", "B"])
     capsys.readouterr()
     before = {t: count(database, t) for t in ("critique", "prescription", "run")}
 
-    assert cli.main(["--db", str(database), "run", "--date", "2024-02-01"]) == 0
+    assert cli.main(["--db", str(database), "run", "--date", "2024-02-01", "--day", "B"]) == 0
     assert "already prescribed" in capsys.readouterr().out
     # V0-SCOPE §4.6: idempotent in content, no duplicate artifacts.
     assert {t: count(database, t) for t in before} == before
@@ -242,7 +242,7 @@ def test_review_pending_catches_up_on_unmarked_sessions(database, tmp_path, caps
 
 
 def test_run_points_at_pending_reviews(database, capsys):
-    assert cli.main(["--db", str(database), "run", "--date", "2024-02-01"]) == 0
+    assert cli.main(["--db", str(database), "run", "--date", "2024-02-01", "--day", "B"]) == 0
     assert "review --pending" in capsys.readouterr().out
 
 def test_pending_stops_at_the_last_reviewed_session(tmp_path):

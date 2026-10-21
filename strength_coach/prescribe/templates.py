@@ -23,6 +23,7 @@ LOAD_SOURCES = ("e1rm", "double_progression", "bodyweight")
 # The programme is the three-day A/B/C rotation; rep ranges are pooled across it so a rule
 # that scopes the whole accessory collection can see every exercise on every day.
 DAYS = ("A", "B", "C")
+SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
 
 
 class TemplateError(ValueError):
@@ -51,6 +52,31 @@ class Slot:
         if self.exercise:
             return (self.exercise,)
         return self.variants
+
+
+@dataclass(frozen=True)
+class SessionTemplate:
+    session_type: str
+    legacy_day: str
+    label: str
+    slots: tuple[Slot, ...]
+    time_cap_s: int
+    schema_version: str
+
+    def rep_ranges(self) -> dict[str, tuple[int, int]]:
+        ranges: dict[str, tuple[int, int]] = {}
+        for slot in self.slots:
+            for exercise_id in slot.exercises:
+                ranges[exercise_id] = (slot.reps_low, slot.reps_high)
+        return ranges
+
+    @classmethod
+    def load(cls, session_type: str,
+             path: str | Path | None = None) -> "SessionTemplate":
+        source = Path(path or paths.session_types_yaml())
+        body = source.read_text(encoding="utf-8")
+        digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+        return _parse_session_template(str(session_type), str(source), digest, body)
 
 
 @dataclass(frozen=True)
@@ -108,6 +134,37 @@ def _parse_template(day: str, source_name: str, digest: str, body: str) -> DayTe
     )
 
 
+@lru_cache(maxsize=8)
+def _parse_session_template(session_type: str, source_name: str, digest: str,
+                            body: str) -> SessionTemplate:
+    raw = yaml.safe_load(body) or {}
+    schema_version = str(raw.get("schema_version", "unversioned"))
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        raise TemplateError(
+            f"unsupported session-types schema {schema_version!r}; "
+            f"supported: {SUPPORTED_SCHEMA_VERSIONS}"
+        )
+    types = raw.get("session_types") or {}
+    if session_type not in types:
+        raise TemplateError(f"session type {session_type!r} is not defined in {Path(source_name).name}")
+    block = types[session_type].get("prescription")
+    if not block:
+        raise TemplateError(f"session type {session_type!r} has no prescription block")
+    slots = tuple(_parse_slot(entry, f"{session_type}/{entry.get('id', '<unnamed>')}")
+                  for entry in (block.get("slots") or []))
+    if not slots:
+        raise TemplateError(f"session type {session_type!r} has an empty prescription block")
+    _check_ids(slots)
+    return SessionTemplate(
+        session_type=session_type,
+        legacy_day=str(types[session_type].get("legacy_day", "C")),
+        label=str(types[session_type].get("label", session_type)),
+        slots=slots,
+        time_cap_s=int(block.get("time_cap_s", 4800)),
+        schema_version=schema_version,
+    )
+
+
 def all_rep_ranges(path: str | Path | None = None) -> dict[str, tuple[int, int]]:
     """Rep range per exercise across every day.
 
@@ -118,6 +175,10 @@ def all_rep_ranges(path: str | Path | None = None) -> dict[str, tuple[int, int]]
     ranges: dict[str, tuple[int, int]] = {}
     for day in DAYS:
         ranges.update(DayTemplate.load(day, path).rep_ranges())
+    # New session types carry exercises (row, vertical press, single-leg RDL) that the legacy
+    # A/B/C templates do not, so PRG-DP-001 must see their ranges too.
+    for session_type in SESSION_TYPES:
+        ranges.update(SessionTemplate.load(session_type).rep_ranges())
     return ranges
 
 

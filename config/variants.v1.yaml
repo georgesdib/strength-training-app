@@ -1,99 +1,105 @@
-# Additional selection candidates per slot (shadow only; does not change the prescription).
+# Additional selection candidates per slot (explicit apply; the template still decides the default).
 #
-# All canonical variants now rewrite their historical clean_set identity via migration 0014.
-# This catalogue is selection-only: the prescription engine still uses the template's
-# exercise/exercise_variants. Trap bar date-scoping and back-extension equivalence are
-# preserved by the migration.
-#
-# Load comparability is NOT implied by presence here; the selector ranks candidates but the
-# athlete/prescriber still decides whether a substitution is sensible.
-
+# New session types use the same candidate lists as the legacy A/B/C shapes:
+# squat, hinge, bench_squat, bench_hinge. The catalogue only feeds the selector; applying a
+# substitution is an explicit UI/CLI opt-in.
 slots:
   A:
-    squat_main:
-      - ssb_squat
-      - competition_squat
-      - front_squat
-      - front_squat_to_box
-      - high_bar_squat
-      - hack_squat
-      - belt_squat
-      - deep_squat
-      - landmine_squat
-      - squat_to_box
-      - squat_2s_pause
-      - squat_2s_pause_halfway_down
-      - squat_2s_pause_halfway_up
-      - squat_from_pins
-      - squat_narrow_stance
-      - squat_partial_range_of_motion
-      - squat_w_chains
-      - squat_w_bands
-    bench_support:
-      - bench_press
-      - bench_press_narrow
-      - bench_press_pause
-      - bench_press_from_pins
-      - bench_press_w_chains
-      - bench_press_w_bands
-      - bench_press_w_cambered_bar
-      - bench_press_elevated_legs
-      - bench_press_medium_grip
-      - bench_press_wide_grip
-      - bench_press_reverse_grip
-      - bench_press_negative
-      - bench_press_explosive
-      - floor_press
-      - board_press
-      - incline_press
-      - decline_bench_press
-      - incline_db_bench_press
-      - dumbbell_bench_press
+    squat_main: &id001
+    - ssb_squat
+    - competition_squat
+    - front_squat
+    - front_squat_to_box
+    - high_bar_squat
+    - hack_squat
+    - belt_squat
+    - deep_squat
+    - landmine_squat
+    - squat_to_box
+    - squat_2s_pause
+    - squat_2s_pause_halfway_down
+    - squat_2s_pause_halfway_up
+    - squat_from_pins
+    - squat_narrow_stance
+    - squat_partial_range_of_motion
+    - squat_w_chains
+    - squat_w_bands
+    bench_support: &id002
+    - bench_press
+    - bench_press_narrow
+    - bench_press_pause
+    - bench_press_from_pins
+    - bench_press_w_chains
+    - bench_press_w_bands
+    - bench_press_w_cambered_bar
+    - bench_press_elevated_legs
+    - bench_press_medium_grip
+    - bench_press_wide_grip
+    - bench_press_reverse_grip
+    - bench_press_negative
+    - bench_press_explosive
+    - floor_press
+    - board_press
+    - incline_press
+    - decline_bench_press
+    - incline_db_bench_press
+    - dumbbell_bench_press
   B:
-    bench_main:
-      - bench_press_narrow
-      - bench_press_pause
-    accessory_pull_up:
-      - pull_up
-      - lat_pulldown
-      - close_grip_pulldown
+    bench_main: &id003
+    - bench_press_narrow
+    - bench_press_pause
+    accessory_pull_up: &id004
+    - pull_up
+    - lat_pulldown
+    - close_grip_pulldown
   C:
-    bench_main:
-      - bench_press
-      - bench_press_narrow
-      - bench_press_pause
-      - bench_press_from_pins
-      - bench_press_w_chains
-      - bench_press_w_bands
-      - bench_press_w_cambered_bar
-      - bench_press_elevated_legs
-      - bench_press_medium_grip
-      - bench_press_wide_grip
-      - bench_press_reverse_grip
-      - bench_press_negative
-      - bench_press_explosive
-      - floor_press
-      - board_press
-      - incline_press
-      - decline_bench_press
-      - incline_db_bench_press
-      - dumbbell_bench_press
-    squat_support:
-      - ssb_squat
-      - competition_squat
-      - front_squat
-      - front_squat_to_box
-      - high_bar_squat
-      - hack_squat
-      - belt_squat
-      - deep_squat
-      - landmine_squat
-      - squat_to_box
-      - squat_2s_pause
-      - squat_2s_pause_halfway_down
-      - squat_2s_pause_halfway_up
-      - squat_from_pins
-      - squat_narrow_stance
-      - squat_partial_range_of_motion
-      - squat_w_chains
-      - squat_w_bands
+    bench_main: &id005
+    - bench_press
+    - bench_press_narrow
+    - bench_press_pause
+    - bench_press_from_pins
+    - bench_press_w_chains
+    - bench_press_w_bands
+    - bench_press_w_cambered_bar
+    - bench_press_elevated_legs
+    - bench_press_medium_grip
+    - bench_press_wide_grip
+    - bench_press_reverse_grip
+    - bench_press_negative
+    - bench_press_explosive
+    - floor_press
+    - board_press
+    - incline_press
+    - decline_bench_press
+    - incline_db_bench_press
+    - dumbbell_bench_press
+    squat_support: &id006
+    - ssb_squat
+    - competition_squat
+    - front_squat
+    - front_squat_to_box
+    - high_bar_squat
+    - hack_squat
+    - belt_squat
+    - deep_squat
+    - landmine_squat
+    - squat_to_box
+    - squat_2s_pause
+    - squat_2s_pause_halfway_down
+    - squat_2s_pause_halfway_up
+    - squat_from_pins
+    - squat_narrow_stance
+    - squat_partial_range_of_motion
+    - squat_w_chains
+    - squat_w_bands
+  squat:
+    squat_main: *id001
+    bench_support: *id002
+  hinge:
+    bench_main: *id003
+    accessory_pull_up: *id004
+  bench_squat:
+    bench_main: *id005
+    squat_support: *id006
+  bench_hinge:
+    bench_main: *id005

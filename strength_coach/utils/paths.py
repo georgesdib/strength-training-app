@@ -59,6 +59,7 @@ CONTINUITY_CALIBRATION_YAML = "continuity-calibration.v1.yaml"
 SELECTION_YAML = "selection.v1.yaml"
 SCHEMES_YAML = "schemes.v1.yaml"
 UNDULATION_YAML = "undulation.v1.yaml"
+SESSION_TYPES_YAML = "session-types.v1.yaml"
 
 
 def training_log_csv() -> Path:
@@ -131,3 +132,7 @@ def schemes_yaml() -> Path:
 
 def undulation_yaml() -> Path:
     return config_dir("templates", UNDULATION_YAML)
+
+
+def session_types_yaml() -> Path:
+    return config_dir("templates", SESSION_TYPES_YAML)
