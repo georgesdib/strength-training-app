@@ -124,13 +124,10 @@ the hard ceiling.
 
 #### B. Power work can be prescribed as a loaded lift
 
-The power slot uses `load_source: double_progression` and passes through the normal item builder.
-A box jump can therefore receive an external load from history, even though power work is about
-intent and quality, not load progression. The engine warns about intent but still solves a load.
-This is a concrete implementation/programme mismatch, not a philosophical point.
-
-**Suggestion:** power items should be bodyweight/implement-only, have no e1RM and no
-double-progression decision, and stop on quality loss. The warning is not enough.
+**Applied 2026-10-20.** The power slot now uses `load_source: bodyweight`; it ignores stored
+external load and e1RM history, carries no double-progression citation, and stops on quality
+loss. `box_jump` remains bodyweight-only in the taxonomy. Loaded power work, if wanted,
+must be a separate variation with its own prescription, not this slot.
 
 #### C. Exercise selection has no comparability guard
 

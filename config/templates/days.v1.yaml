@@ -36,7 +36,9 @@ days:
           rest_s: 120
           essential: false
           power: true
-          load_source: double_progression
+          # Progress height/quality, never an external load: no e1RM and no
+          # double-progression decision (DEC-POWER-01, STRENGTH-PROGRAM-REVIEW §B).
+          load_source: bodyweight
         - id: squat_main
           exercise: ssb_squat
           sets: 4

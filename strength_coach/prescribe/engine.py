@@ -727,7 +727,11 @@ def build_item(
         chosen_variant = False
 
     increment = thresholds.increment_for(exercise_id)
-    bodyweight = bool(context.entity(exercise_id).get("bodyweight_type", False))
+    props = context.entity(exercise_id)
+    bodyweight = bool(props.get("bodyweight_type", False))
+    # A power jump is never load-progressed, even if a proposal rebuilds the item through a
+    # generic slot. The pattern check is the backstop; the template also uses bodyweight.
+    power_exercise = bool(slot.power) or str(props.get("pattern")) == "power_jump"
     load: float | None
     refs: tuple[str, ...] = ()
     unknown_reason: str | None = None
@@ -736,7 +740,25 @@ def build_item(
         calibration_factors = e1rm_calibration_feature.factors(
             conn, for_date, window_days=thresholds.e1rm_window_days
         )
-    if slot.load_source == "e1rm":
+    if power_exercise:
+        if bodyweight:
+            load = 0.0
+        else:
+            load = None
+            unknown_reason = f"{exercise_id}: power work is bodyweight/implement-only"
+    elif slot.load_source == "bodyweight":
+        if bodyweight:
+            load = 0.0
+            if not slot.power:
+                warnings.append(
+                    f"{exercise_id}: bodyweight; progress by reps or sets, not load"
+                )
+        else:
+            load = None
+            unknown_reason = (
+                f"{exercise_id}: bodyweight load_source on a non-bodyweight exercise"
+            )
+    elif slot.load_source == "e1rm":
         found = _latest_e1rm(conn, context, exercise_id, for_date,
                               thresholds.e1rm_window_days, calibration_factors)
         if found is None:
@@ -807,7 +829,7 @@ def build_item(
                 load = loads.round_down(load, increment)
             refs = ("PRG-DP-001", ref)
 
-    if slot.power:
+    if power_exercise:
         # A power set is not progressed by load or scored by RIR; the rationale is intent and
         # quality, so no rule citation is attached and the warning says what "RIR" means here.
         refs = ()

@@ -367,6 +367,24 @@ def test_day_a_opens_with_power_work_and_no_load_progression_citation():
     assert any("power work" in warning for warning in prescription.warnings)
 
 
+def test_power_slot_ignores_external_load_history():
+    rows = BASE_HISTORY + [
+        {"Date": "2024-01-01", "Exercise": "Box Jumps", "Weight_Used": "20",
+         "RIR": "4", "Reps_Done": "4"},
+    ]
+    with store_with(rows) as store:
+        prescription = build_prescription(
+            store.connection, for_date="2024-01-08", session_day="A"
+        )
+
+    first = prescription.items[0]
+    assert first.exercise_id == "box_jump"
+    assert first.load_kg == 0.0
+    assert first.load_basis == "bodyweight_total"
+    assert "PRG-DP-001" not in first.rationale_refs
+    assert "MOD-E1RM-001" not in first.rationale_refs
+
+
 def test_recent_stress_is_attached_as_an_advisory_only():
     rows = BASE_HISTORY + [
         {"Date": "2024-01-01", "Exercise": "Safety Squat Bar", "Weight_Used": "100",

@@ -19,7 +19,7 @@ import yaml
 from strength_coach.utils import paths
 
 SUPPORTED_SCHEMA_VERSIONS = ("1.0.0",)
-LOAD_SOURCES = ("e1rm", "double_progression")
+LOAD_SOURCES = ("e1rm", "double_progression", "bodyweight")
 # The programme is the three-day A/B/C rotation; rep ranges are pooled across it so a rule
 # that scopes the whole accessory collection can see every exercise on every day.
 DAYS = ("A", "B", "C")
