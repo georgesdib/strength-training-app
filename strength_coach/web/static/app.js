@@ -795,6 +795,7 @@ async function loadContinuity() {
   if (!date) { $("#continuity-model").innerHTML = "<p class='empty'>Choose a date.</p>"; return; }
   try {
     const data = await api(`/api/continuity?date=${encodeURIComponent(date)}`);
+    $("#continuity-relax").checked = !!data.allow_relax_fixed;
     const c = data.calibration;
     const rows = Object.keys(c.bands).map((key) => {
       const b = c.bands[key];
@@ -814,6 +815,21 @@ async function loadContinuity() {
     $("#continuity-model").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
+
+$("#continuity-save").addEventListener("click", async () => {
+  const value = $("#continuity-relax").checked;
+  $("#continuity-msg").textContent = "Saving…";
+  try {
+    const data = await api("/api/continuity/settings", {
+      method: "POST", body: JSON.stringify({ allow_relax_fixed: value }),
+    });
+    $("#continuity-relax").checked = !!data.allow_relax_fixed;
+    $("#continuity-msg").textContent = "Saved";
+    await loadContinuity();
+  } catch (error) {
+    $("#continuity-msg").textContent = error.message;
+  }
+});
 
 /* --- exercise catalogue -------------------------------------------------- */
 const EXERCISE_KNOWN = [

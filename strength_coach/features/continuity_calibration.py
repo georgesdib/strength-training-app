@@ -16,6 +16,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
+import os
+import re
+import tempfile
+
 import numpy as np
 import pandas as pd
 import yaml
@@ -60,6 +64,30 @@ class CalibrationConfig:
             seed=int(raw.get("seed", 20261020)),
             source_path=source,
         )
+
+
+def save_allow_relax_fixed(value: bool, path: str | Path | None = None) -> CalibrationConfig:
+    """Toggle whether a well-observed band may relax the fixed reduction.
+
+    Line-based update keeps the explanatory comments in the checked-in config.
+    """
+    source = Path(path or paths.continuity_calibration_yaml())
+    text = source.read_text(encoding="utf-8")
+    replacement = f"allow_relax_fixed: {'true' if value else 'false'}"
+    pattern = re.compile(r"^allow_relax_fixed:\s*(?:true|false)\s*(?:#.*)?$", re.MULTILINE)
+    if pattern.search(text):
+        text = pattern.sub(replacement, text, count=1)
+    else:
+        text = text.rstrip() + "\n" + replacement + "\n"
+    fd, tmp = tempfile.mkstemp(prefix=source.name + ".", dir=str(source.parent), text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(tmp, source)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+    return CalibrationConfig.load(source)
 
 
 @dataclass(frozen=True)

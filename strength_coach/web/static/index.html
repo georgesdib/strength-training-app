@@ -65,6 +65,19 @@
           answer, not noise: a missing readiness or an unknown load appears here.</p>
       </div>
       <div id="prescribe-result"></div>
+      <div class="panel" id="continuity-panel">
+        <div class="panel-head"><h2>Continuity calibration</h2>
+          <span class="muted">fixed rule until enough returns</span></div>
+        <p class="muted">Return-to-training retention from actual gaps. Each band uses a calibrated
+          factor only when it has enough returns and a tight bootstrap interval; otherwise the
+          fixed −5%/−10% rule remains. This is not the e1RM age decay.</p>
+        <div class="form-row">
+          <label><input type="checkbox" id="continuity-relax"> allow calibrated bands to relax the fixed reduction</label>
+          <button class="ghost" id="continuity-save" type="button">Save setting</button>
+          <span class="muted" id="continuity-msg"></span>
+        </div>
+        <div id="continuity-model"></div>
+      </div>
       <div class="panel">
         <div class="panel-head"><h2>Strength fatigue model</h2>
           <span class="muted">shadow; no load effect</span></div>
@@ -72,14 +85,6 @@
           approximate 95% intervals. It refuses sparse or ill-conditioned fits; nothing here changes
           the prescription above.</p>
         <div id="fatigue-model"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h2>Continuity calibration</h2>
-          <span class="muted">fixed rule until enough returns</span></div>
-        <p class="muted">Return-to-training retention from actual gaps. Each band uses a calibrated
-          factor only when it has enough returns and a tight bootstrap interval; otherwise the
-          fixed −5%/−10% rule remains. This is not the e1RM age decay.</p>
-        <div id="continuity-model"></div>
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Exercise selection</h2>

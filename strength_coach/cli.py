@@ -238,8 +238,10 @@ def main(argv: list[str] | None = None) -> int:
     select.add_argument("--llm", action="store_true",
                         help="let the configured model choose from the filtered candidates")
 
-    continuity = sub.add_parser("continuity", help="show return-to-training calibration")
+    continuity = sub.add_parser("continuity", help="show or configure return-to-training calibration")
     continuity.add_argument("--date", default=None, help="as-of date (default: today)")
+    continuity.add_argument("--allow-relax-fixed", choices=("on", "off"), default=None,
+                            help="allow calibrated bands to relax the fixed reduction")
 
     fatigue = sub.add_parser("fatigue", help="show the strength fitness-fatigue shadow model")
     fatigue.add_argument("--date", default=None, help="as-of date (default: today)")
@@ -1036,6 +1038,9 @@ def _cmd_select(args) -> int:
 
 
 def _cmd_continuity(args) -> int:
+    if args.allow_relax_fixed is not None:
+        cfg = continuity_calibration.save_allow_relax_fixed(args.allow_relax_fixed == "on")
+        print(f"allow_relax_fixed={str(cfg.allow_relax_fixed).lower()}")
     store = db.Store(args.db)
     try:
         conn = store.connection

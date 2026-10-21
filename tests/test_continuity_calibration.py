@@ -72,3 +72,13 @@ def test_a_wide_interval_keeps_the_fixed_rule():
                                             max_ci_width=0.01))
     assert result.bands["medium"].factor == 0.95
     assert result.bands["medium"].status == "uncertain"
+
+
+def test_allow_relax_fixed_is_written_without_dropping_the_config(tmp_path):
+    path = tmp_path / "continuity.yaml"
+    path.write_text("enabled: true\nallow_relax_fixed: true  # comment\n")
+    cfg = cc.save_allow_relax_fixed(False, path=path)
+    assert cfg.allow_relax_fixed is False
+    text = path.read_text()
+    assert "allow_relax_fixed: false" in text
+    assert "enabled: true" in text

@@ -428,3 +428,4 @@ def test_continuity_calibration_endpoint(server):
     data = json.loads(body)
     assert data["on_date"] == "2024-01-15"
     assert "bands" in data["calibration"]
+    assert isinstance(data["allow_relax_fixed"], bool)

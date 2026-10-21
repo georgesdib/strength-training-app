@@ -699,6 +699,8 @@ strength-coach continuity --date 2026-10-20
 
 Shows per-band return count, e1RM retention median, bootstrap interval, fixed factor and
 applied factor. Fixed continuity remains the fallback when a band is under-powered.
+`--allow-relax-fixed on|off` changes whether a well-observed band may remove part of the fixed
+reduction; the same checkbox is in the Prescribe continuity panel.
 
 ### 4.10d `fatigue` — the strength model in shadow mode
 

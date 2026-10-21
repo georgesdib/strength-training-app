@@ -125,7 +125,8 @@ whole dataset has `min_total_returns`, the interval is no wider than `max_ci_wid
 calibration is enabled. Otherwise the fixed 14/28/56 rule is used. The factor is bounded to
 `[factor_floor, 1.0]`; `allow_relax_fixed` decides whether the model may remove part of a fixed
 reduction. The config is `config/continuity-calibration.v1.yaml`; `MOD-GAP-001` remains the cited
-rule and the warning names the calibrated factor and its return count.
+rule and the warning names the calibrated factor and its return count. `allow_relax_fixed` can
+be changed from the Prescribe continuity panel or with `continuity --allow-relax-fixed on|off`.
 
 This is **strength retention**, not capacity retention, and not the e1RM age decay. A future
 capacity curve needs post-session fatigue/completion data; the current model only uses e1RM

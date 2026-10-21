@@ -305,6 +305,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: self._save_measurement(c, body)
                 ))
+            elif path == "/api/continuity/settings":
+                value = _truth(body.get("allow_relax_fixed"))
+                cfg = continuity_calibration.save_allow_relax_fixed(value)
+                self._json(200, {"allow_relax_fixed": cfg.allow_relax_fixed})
             elif path == "/api/exercises":
                 entity_id = str(body.get("id") or "").strip()
                 props = body.get("props") or {}
@@ -622,6 +626,7 @@ class Handler(BaseHTTPRequestHandler):
         on_date = day or datetime.date.today().isoformat()
         context = RuleContext.from_store(conn, end=on_date)
         thresholds = Thresholds.load()
+        cfg = continuity_calibration.CalibrationConfig.load()
         report = continuity_calibration.compute(
             context.sets,
             short_days=thresholds.continuity_short_days,
@@ -629,8 +634,13 @@ class Handler(BaseHTTPRequestHandler):
             long_days=thresholds.continuity_long_days,
             medium_multiplier=thresholds.continuity_medium_multiplier,
             long_multiplier=thresholds.continuity_long_multiplier,
+            config=cfg,
         )
-        return {"on_date": on_date, "calibration": report.as_dict()}
+        return {
+            "on_date": on_date,
+            "allow_relax_fixed": cfg.allow_relax_fixed,
+            "calibration": report.as_dict(),
+        }
 
     def _fatigue(self, conn, day: str | None = None) -> dict:
         on_date = day or datetime.date.today().isoformat()
