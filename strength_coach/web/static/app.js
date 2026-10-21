@@ -112,13 +112,23 @@ function openReview(session) {
 
 /* --- prescribe ---------------------------------------------------------- */
 $("#prescribe-date").value = today();
+$("#prescribe-apply-selection").addEventListener("change", () => {
+  const wrap = $("#prescribe-selection-llm-wrap");
+  wrap.hidden = !$("#prescribe-apply-selection").checked;
+  if (wrap.hidden) $("#prescribe-selection-llm").checked = false;
+});
+
 $("#prescribe-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const date = $("#prescribe-date").value;
   const day = $("#prescribe-day").value;
   $("#prescribe-result").innerHTML = "<p class='empty'>Building…</p>";
+  const applySelection = $("#prescribe-apply-selection").checked;
+  const selectionLlm = applySelection && $("#prescribe-selection-llm").checked;
   try {
-    const data = await api("/api/prescribe", { method: "POST", body: JSON.stringify({ date, day }) });
+    const data = await api("/api/prescribe", { method: "POST", body: JSON.stringify({
+      date, day, apply_selection: applySelection, selection_llm: selectionLlm,
+    }) });
     renderPrescription(data);
   } catch (error) {
     $("#prescribe-result").innerHTML = `<div class="panel warnbox">${esc(error.message)}</div>`;
@@ -151,13 +161,17 @@ function renderPrescription(p) {
   const warnings = p.warnings.length
     ? '<div class="warnbox"><strong>Warnings</strong><ul class="list">' +
       p.warnings.map((w) => "<li>" + esc(w) + "</li>").join("") + "</ul></div>" : "";
+  const selection = p.notes?.selection;
+  const selectionBox = selection?.applied
+    ? `<p class="muted">Selection applied (${esc(selection.llm_used ? "LLM" : "Python")}); substituted slots are cited as <code>MOD-SELECT-001</code>.</p>`
+    : "";
   const signal = p.notes?.injury_signal;
   const signalBox = signal ? `<p class="muted">Injury signal: <strong>${esc(signal.status)}</strong>
     — ${esc(signal.summary)}</p>` : "";
   $("#prescribe-result").innerHTML = `<div class="panel">
     <div class="panel-head"><h2>${esc(p.for_date)} · Day ${esc(p.session_day)}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
-    ${warnings}${signalBox}
+    ${warnings}${selectionBox}${signalBox}
     <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table>
     <details><summary class="muted">notes (JSON)</summary><pre>${esc(JSON.stringify(p.notes, null, 2))}</pre></details>

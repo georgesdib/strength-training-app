@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **551 public tests** (566 with the 15 private integration tests)
+Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **553 public tests** (568 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progres
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 566 locally, including private integration
+.venv/bin/python -m pytest            # 568 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -731,15 +731,12 @@ The web Review page has the **Run rubric calibration** button; the CLI remains
 
 Acceptance: ten high-confidence marks per item before a rubric change; every review appends,
 never edits; the report states the sample size and excludes low-confidence marks.
-### 4.15 Exercise selection adapted to readiness and fatigue  (v0.3; shadow implemented)
+### 4.15 Exercise selection adapted to readiness and fatigue  (v0.3; apply implemented)
 
-**Status: shadow implemented 2026-10-20.** `prescribe/selection.py` ranks the configured
-and catalogue variants per slot from readiness, recent stress, rotation, preference and the cached fitness-fatigue state; constraints and
-`can_do: false` exclude a candidate; injury is a penalty, not a veto. It is exposed as
-`strength-coach select` and a Prescribe panel. **No prescription is changed** yet. All synthetic raw variant names were canonicalised and their history rewritten (migration 0014, 114 entities, 3,607 audited remaps; migration 0015 split close-grip pulldown); trap-bar date-scoping and back-extension equivalence are preserved. The shadow catalogue now offers the squat/bench/pull variants.
+**Status: apply implemented 2026-10-20.** `prescribe/selection.py` ranks the configured and catalogue variants per slot from readiness, recent stress, rotation, preference and the cached fitness-fatigue state; constraints and `can_do: false` exclude a candidate; injury is a penalty, not a veto. It is exposed as `strength-coach select` and a Prescribe panel. With the explicit **Apply selection** toggle, the chosen candidate replaces the slot exercise and the load is re-solved from that lift's own history (`MOD-SELECT-001`). Without the toggle nothing changes. All synthetic raw variant names were canonicalised and their history rewritten (migration 0014, 114 entities, 3,607 audited remaps; migration 0015 split close-grip pulldown); trap-bar date-scoping and back-extension equivalence are preserved.
 
-**Later phase — weakness/injury tailoring.** Once the selector is allowed to apply a
-substitution, rank candidates against per-lift weakness (e1RM relative to bodyweight or a
+**Later phase — weakness/injury tailoring.** Now that the selector can apply a substitution,
+rank candidates against per-lift weakness (e1RM relative to bodyweight or a
 comparison lift, muscle-group volume), active injury regions and suitability, not just
 day-to-day readiness. This needs a weakness definition and an explicit policy; it is not part of
 the shadow pass.
@@ -775,8 +772,8 @@ letting an unvalidated model override safety.
 - a preference/suitability tie-break (adherence is a real outcome).
 
 Only one substitution per slot, cited as `MOD-SELECT-001`; the deterministic candidate list and
-scores are shown. The shadow phase is done; applying a substitution is still a separate,
-approval-gated step.
+scores are shown. Applying a substitution is explicit (UI/CLI toggle) and remains
+reviewable; it is never automatic.
 
 **Optional LLM (`--select=llm`).** The model receives the **already-filtered candidate list**
 and returns one candidate plus a reason; Python validates and logs the choice. The LLM may not
@@ -795,7 +792,7 @@ preference, not an optimiser.
 **Acceptance:** constraints always win (done); selection is reproducible (done); LLM proposals
 are validated and cannot override policy (done); shadow mode changes no prescription (done); UI
 shows the chosen exercise and why (done); tests cover vetoes, ties, missing metadata and LLM
-fallback (done); applying a substitution remains open.
+fallback (done); explicit apply toggle and re-solve (done).
 
 ### 4.16 Strength fitness-fatigue model  (v0.3; shadow prototype implemented)
 

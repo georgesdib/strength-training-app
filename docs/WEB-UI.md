@@ -41,8 +41,10 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 - **Prescribe** — date + day; deterministic prescription, warnings and notes; every item cites
   rule ids. A `recent stress` column, a `readiness` column, the **strength fatigue model**
   panel (shadow: per-lift + overall fitness/fatigue/state with approximate 95% intervals,
-  R²/status; no load effect) and the **exercise selection** panel (shadow rankings; optional
-  LLM chooser; no prescription change). It says when a day has no variant slots.
+  R²/status; no load effect) and the **exercise selection** panel (preview rankings; optional LLM chooser). The **Apply selection** toggle on the form
+  makes the chosen candidates replace the slot exercises; **Use LLM** appears only when it is
+  ticked. Without the toggle the prescription is unchanged. It says when a day has no variant
+  slots.
 - **Cardio** — log a session (modality, minutes, HR, distance, sRPE) choose the window (4/12/26/52 weeks) and an optional as-of date:
   sessions, total/average minutes, weekly breakdown and the WHO reference as context. Capture
   only; no load changes.
@@ -65,7 +67,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 |---|---|
 | `GET /api/overview` | dashboard data |
 | `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
-| `POST /api/prescribe` | `{date, day}` -> prescription |
+| `POST /api/prescribe` | `{date, day, apply_selection?, selection_llm?}` -> prescription |
 | `GET /api/review/<session>` | session sheet |
 | `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes}` -> marks + optional session detail |
 | `GET /api/readiness/<date>` | merged readiness |

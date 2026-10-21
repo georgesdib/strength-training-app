@@ -670,7 +670,14 @@ strength-coach exercise set --id front_squat --json '{"pattern":"squat"}'
 Edits and additions are written to `config/exercises/overrides.v1.yaml`; the checked-in
 taxonomy is not rewritten. The web **Exercises** tab is the form-based version.
 
-### 4.10e `select` — shadow exercise selection
+### 4.10e `select` — exercise selection
+
+Apply it to a prescription with:
+
+```bash
+strength-coach run --date 2026-10-20 --day A --apply-selection
+strength-coach run --date 2026-10-20 --day A --apply-selection --selection-llm
+```
 
 ```bash
 strength-coach select --date 2026-10-20 --day B
@@ -680,8 +687,9 @@ strength-coach select --date 2026-10-20 --day B --llm
 Ranks the configured variants for each slot from readiness, recent stress, rotation and
 preference. Constraints and `can_do: false` exclude a candidate; an active injury region
 penalises one. `--llm` lets the configured model choose **only from that filtered list**;
-Python validates and falls back deterministically on any error. It is **shadow only** — the
-prescription is unchanged. The Prescribe page has the same panel.
+Python validates and falls back deterministically on any error. By default it is preview-only;
+the Prescribe **Apply selection** toggle (or `run --apply-selection`) applies the chosen
+candidates and re-solves their loads. The Prescribe page has the same panel.
 
 ### 4.10d `fatigue` — the strength model in shadow mode
 

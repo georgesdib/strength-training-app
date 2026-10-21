@@ -401,3 +401,35 @@ def test_per_lift_readiness_can_only_lower_a_load():
     assert entry["score"] < 0.8
     assert any("MOD-FAT-001" in warning for warning in prescription.warnings)
     assert any("per-lift readiness applied" in warning for warning in prescription.warnings)
+
+
+def test_apply_selection_rebuilds_the_item_and_cites_mod_select(monkeypatch):
+    from strength_coach.prescribe import selection as selection_mod
+    from strength_coach.prescribe.engine import validate_references
+
+    def fake_select(conn, context, on_date, day, **kwargs):
+        return [selection_mod.SlotSelection(
+            slot_id="accessory_pull_up",
+            current="lat_pulldown",
+            suggested="pull_up",
+            changed=True,
+            source="python",
+            reason="test substitution",
+            candidates=(),
+        )]
+
+    monkeypatch.setattr("strength_coach.prescribe.engine.selection_mod.select", fake_select)
+    rows = BASE_HISTORY + [
+        {"Date": "2024-01-08", "Exercise": "Lat Pulldown", "Weight_Used": "60",
+         "RIR": "2", "Reps_Done": "10"},
+    ]
+    with store_with(rows) as store:
+        prescription = build_prescription(
+            store.connection, for_date="2024-01-15", session_day="B",
+            apply_selection=True,
+        )
+        item = next(i for i in prescription.items if i.exercise_id == "pull_up")
+        assert "MOD-SELECT-001" in item.rationale_refs
+        assert prescription.notes["selection"]["applied"] is True
+        context = RuleContext.from_store(store.connection, end="2024-01-15")
+        assert validate_references(prescription, context, store.connection) == []

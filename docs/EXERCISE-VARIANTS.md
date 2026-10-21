@@ -95,9 +95,10 @@ applies to `Bench Press (medium grip)`, which remains its own entity.
 The generated mapping is kept for audit at [`config/variants.mapping.yaml`](../config/variants.mapping.yaml).
 A pre-migration database backup was made at `data/coach.db.pre-variant-20261020` (git-ignored).
 
-[`config/variants.v1.yaml`](../config/variants.v1.yaml) now lists the squat/bench/pull
-variants as shadow candidates. This is selection-only: the template still decides the
-prescription.
+[`config/variants.v1.yaml`](../config/variants.v1.yaml) lists the squat/bench/pull variants as
+selection candidates. The template still decides the default prescription; ticking **Apply
+selection** in Prescribe (or `run --apply-selection`) applies at most one substitution per slot
+and re-solves the load from the selected lift (`MOD-SELECT-001`).
 
 ## 5. Selection tuning
 

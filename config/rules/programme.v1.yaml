@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.6.0"
+  version: "1.7.0"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -29,6 +29,8 @@ document:
       change: "Measured-test e1RM calibration may scale a formula-derived e1RM by a bounded per-lift factor when its CI excludes 1.0 (DEC-E1RM-CAL-02, MOD-E1RM-001)."
     - version: "1.6.0"
       change: "An old e1RM (formula or measured override) is decayed after a grace period, bounded to 10% (DEC-E1RM-DECAY-01, MOD-E1RM-DECAY-001)."
+    - version: "1.7.0"
+      change: "Exercise selection may apply one categorical substitution per slot when explicitly enabled; the load is re-solved from the selected lift's own history (DEC-SELECT-02, MOD-SELECT-001)."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -322,6 +324,23 @@ modifiers:
       The "or" is deliberate: which branch is chosen depends on how many factors fired,
       and that choice belongs to the deterministic engine, not to an LLM. The score,
       override and cap are documented in docs/READINESS-SCORE.md (DEC-READINESS-06/07).
+
+  - id: MOD-SELECT-001
+    title: "Categorical exercise substitution from the filtered selector"
+    statement: >
+      When exercise selection is explicitly enabled, at most one allowed candidate may replace
+      the slot's current exercise. Candidates come only from the configured slot list after
+      hard constraints, suitability and injury penalties; an LLM may choose only from that
+      Python-filtered list. The load is re-solved from the selected lift's own history, never
+      copied from the replaced lift, and all normal rules and validators still apply.
+    when:
+      any:
+        - {input: selection.applied, op: "==", value: true}
+    then:
+      substitution: one_per_slot
+    availability:
+      status: available
+      reason: "Shadow selector plus explicit UI/CLI opt-in (DEC-SELECT-02)."
 
   - id: MOD-BACK-001
     title: "Back symptom flare deload"

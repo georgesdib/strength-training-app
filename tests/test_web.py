@@ -412,3 +412,11 @@ def test_exercise_post_rejects_an_invalid_id_without_writing(server):
         "props": {"display": "Bad", "log_names": ["Bad"], "pattern": "squat"},
     })
     assert status == 400
+
+
+def test_prescribe_can_apply_selection(server):
+    data = post(server, "/api/prescribe", {
+        "date": "2024-01-15", "day": "A", "apply_selection": True,
+    })
+    assert data["notes"]["selection"]["applied"] is True
+    assert "selection" in data["notes"]

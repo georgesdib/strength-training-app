@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Callable
 from dataclasses import replace
 from typing import Any, Mapping
 
@@ -35,6 +36,7 @@ from strength_coach.features import vbt_calibration
 from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import undulation as undulation_mod
 from strength_coach.prescribe import fallback, loads, templates
+from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
 from strength_coach.rules import History, RuleContext, evaluate, load_document, registry
 from strength_coach.rules import policy as policy_mod
@@ -58,6 +60,8 @@ def build_prescription(
     undulation: undulation_mod.Undulation | None = None,
     history: History | None = None,
     vbt: vbt_calibration.CalibrationResult | None = None,
+    apply_selection: bool = False,
+    selection_chooser: Callable | None = None,
 ) -> Prescription:
     """Generate the deterministic session for `for_date`.
 
@@ -79,15 +83,37 @@ def build_prescription(
 
     items: list[PrescriptionItem] = []
     warnings: list[str] = []
+    selection_rows: dict[str, selection_mod.SlotSelection] = {}
+    selection_notes: list[dict] = []
+    if apply_selection:
+        selected = selection_mod.select(
+            conn, context, for_date, session_day, chooser=selection_chooser
+        )
+        selection_rows = {row.slot_id: row for row in selected}
+        selection_notes = [row.as_dict() for row in selected]
 
     e1rm_factors = e1rm_calibration_feature.factors(
         conn, for_date, window_days=thresholds.e1rm_window_days
     )
     for index, slot in enumerate(template.slots):
+        selected_row = selection_rows.get(slot.id)
+        selected_exercise = (
+            selected_row.suggested
+            if selected_row is not None and selected_row.changed else None
+        )
         item, slot_warnings = build_item(
             conn, context, slot, index, thresholds, for_date, decisions, template,
-            calibration_factors=e1rm_factors,
+            calibration_factors=e1rm_factors, exercise_id=selected_exercise,
         )
+        if selected_exercise is not None:
+            item = replace(
+                item,
+                rationale_refs=item.rationale_refs + ("MOD-SELECT-001",),
+            )
+            warnings.append(
+                f"MOD-SELECT-001: {slot.id} selected {selected_exercise} "
+                f"({selected_row.source}); load re-solved from its own history"
+            )
         items.append(item)
         warnings.extend(slot_warnings)
     dup_plan = None
@@ -214,6 +240,12 @@ def build_prescription(
             "readiness_fields": list(readiness_config.modifier_fields),
             "back_flare": bool(context.symptom_flare),
             "constraints": constraint_report.status,
+            "selection": {
+                "applied": bool(apply_selection),
+                "llm_requested": bool(selection_chooser),
+                "llm_used": any(row.get("source") == "llm" for row in selection_notes),
+                "slots": selection_notes,
+            },
         },
     )
 
@@ -647,6 +679,7 @@ def build_item(
     template: templates.DayTemplate,
     *,
     calibration_factors: Mapping[str, object] | None = None,
+    exercise_id: str | None = None,
 ) -> tuple[PrescriptionItem, tuple[str, ...]]:
     """Build one item from a slot, solving its load from stored history.
 
@@ -655,9 +688,13 @@ def build_item(
     deterministic path, or the two would drift.
     """
     warnings: list[str] = []
-    exercise_id, chosen_variant = _choose_exercise(slot, context)
-    if chosen_variant:
-        warnings.append(f"{slot.id}: chose {exercise_id} from {list(slot.variants)}")
+    if exercise_id is None:
+        exercise_id, chosen_variant = _choose_exercise(slot, context)
+        if chosen_variant:
+            warnings.append(f"{slot.id}: chose {exercise_id} from {list(slot.variants)}")
+    else:
+        # Selection already validated the candidate against constraints/suitability.
+        chosen_variant = False
 
     increment = thresholds.increment_for(exercise_id)
     bodyweight = bool(context.entity(exercise_id).get("bodyweight_type", False))

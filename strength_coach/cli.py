@@ -84,6 +84,10 @@ def main(argv: list[str] | None = None) -> int:
                      help="regenerate even if this date was already prescribed")
     run.add_argument("--propose", action="store_true",
                      help="ask the model for a structural proposal (requires --llm on)")
+    run.add_argument("--apply-selection", action="store_true",
+                     help="apply the shadow selector's exercise substitutions")
+    run.add_argument("--selection-llm", action="store_true",
+                     help="let the model choose among the filtered candidates (requires --apply-selection)")
     run.add_argument("--yes", action="store_true",
                      help="apply an accepted proposal without asking")
 
@@ -331,7 +335,17 @@ def _cmd_run(args) -> int:
 
         facts = build_facts(conn, session_id)
         critique = score_session(conn, session_id, facts=facts)
-        prescription = build_prescription(conn, for_date=args.date, session_day=args.day)
+        if args.selection_llm and not args.apply_selection:
+            print("--selection-llm requires --apply-selection")
+            return 2
+        chooser = (
+            agent_selection.chooser(build_client(load_settings()))
+            if args.selection_llm else None
+        )
+        prescription = build_prescription(
+            conn, for_date=args.date, session_day=args.day,
+            apply_selection=args.apply_selection, selection_chooser=chooser,
+        )
 
         with RunTrace.start(conn, input_hash=f"{session_id}:{args.date}",
                             window_end=args.date) as trace:

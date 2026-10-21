@@ -57,6 +57,8 @@
           <label>Day
             <select id="prescribe-day"><option>A</option><option>B</option><option>C</option></select>
           </label>
+          <label><input type="checkbox" id="prescribe-apply-selection"> Apply selection</label>
+          <label id="prescribe-selection-llm-wrap" hidden><input type="checkbox" id="prescribe-selection-llm"> Use LLM</label>
           <button class="primary" type="submit">Build prescription</button>
         </form>
         <p class="muted">The prescription is deterministic and cites rule ids. Warnings are part of the
@@ -73,10 +75,12 @@
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Exercise selection</h2>
-          <span class="muted">shadow; no prescription change</span></div>
+          <span class="muted">preview; applies only when ticked above</span></div>
         <p class="muted">Ranks the configured variants for each slot using readiness, recent
-          stress, rotation and preference. The model option may only choose from that ranked
-          list; Python falls back deterministically.</p>
+          stress, rotation and preference. Tick <strong>Apply selection</strong> above to let the
+          chosen candidates replace the slot exercise; the load is then re-solved from the
+          selected lift's own history. The model option may only choose from that ranked list;
+          Python falls back deterministically.</p>
         <div class="form-row">
           <label><input type="checkbox" id="selection-llm"> use LLM</label>
           <button class="ghost" id="selection-run">Check selection</button>

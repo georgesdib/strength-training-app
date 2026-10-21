@@ -414,7 +414,16 @@ class Handler(BaseHTTPRequestHandler):
                     f"readiness required for {for_date}: {assessment.status} — "
                     f"{assessment.basis}"
                 )
-        prescription = build_prescription(conn, for_date=for_date, session_day=day)
+        apply_selection = _truth(body.get("apply_selection"))
+        selection_llm = _truth(body.get("selection_llm")) and apply_selection
+        chooser = (
+            agent_selection.chooser(build_client(load_settings()))
+            if selection_llm else None
+        )
+        prescription = build_prescription(
+            conn, for_date=for_date, session_day=day,
+            apply_selection=apply_selection, selection_chooser=chooser,
+        )
         return prescription_dict(prescription)
 
     def _review_sheet(self, conn, session: str) -> dict:
