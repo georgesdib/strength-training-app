@@ -62,7 +62,12 @@ pre { background: #f0ede4; padding: 13px; border-radius: 10px; overflow: auto; f
 .advanced { margin: 10px 0; }
 .advanced summary { cursor: pointer; color: var(--accent); }
 .state-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
-.state-grid .panel { margin: 0; }
+.state-grid .panel { margin: 0; min-width: 0; }
+.state-wide { grid-column: 1 / -1; }
+.table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.e1rm-table { min-width: 900px; }
+.injury-table { min-width: 660px; }
+.signal-summary { max-width: 90ch; }
 .docs-layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
 .docs-list { position: sticky; top: 86px; max-height: calc(100vh - 110px); overflow: auto; }
 .docs-list a { display: block; padding: 7px 8px; border-radius: 8px; text-decoration: none; color: var(--ink); font-size: 14px; }

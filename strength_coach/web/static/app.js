@@ -547,12 +547,12 @@ async function loadState() {
       <tr><td>${esc(exercise)}</td><td>${rating.can_do ? "yes" : "no"}</td>
       <td>${rating.will_do ? "yes" : "no"}</td><td>${rating.feels_bad ? "yes" : "no"}</td></tr>`).join("");
     const regions = Object.values(data.injury_signal?.regions || {});
-    const injuryRows = regions.length ? `<table><thead><tr><th>Region</th><th>Status</th>
+    const injuryRows = regions.length ? `<div class="table-scroll"><table class="injury-table"><thead><tr><th>Region</th><th>Status</th>
       <th>Tolerated</th><th>Window</th></tr></thead><tbody>` + regions.map((r) => `
       <tr><td><strong>${esc(r.label)}</strong><div class="muted">${esc(r.summary)}</div></td>
       <td>${esc(r.status)}</td><td>${r.tolerated_sessions}/${r.required_tolerated_sessions}
       <div class="muted">of ${r.loaded_sessions} loaded (${r.unverified_sessions} unverified)</div></td>
-      <td>${r.window_days} d</td></tr>`).join("") + "</tbody></table>"
+      <td>${r.window_days} d</td></tr>`).join("") + "</tbody></table></div>"
       : "<p class='empty'>no regions configured</p>";
     const calibration = data.e1rm_calibration || [];
     const e1rmPair = (raw, eff) => raw == null ? "—" :
@@ -572,17 +572,17 @@ async function loadState() {
       <div class="panel"><div class="panel-head"><h2>Constraints</h2></div><ul class="list">${constraints}</ul></div>
       <div class="panel"><div class="panel-head"><h2>Suitability</h2></div>
         ${suitability ? `<table><thead><tr><th>Exercise</th><th>can-do</th><th>will-do</th><th>feels bad</th></tr></thead><tbody>${suitability}</tbody></table>` : "<p class='empty'>none recorded</p>"}</div>
-      <div class="panel"><div class="panel-head"><h2>e1RM calibration</h2>
+      <div class="panel state-wide"><div class="panel-head"><h2>e1RM calibration</h2>
         <span class="muted">measured vs formula; report only</span></div>
-        ${calibrationRows ? `<table><thead><tr><th>Lift</th><th>formula (raw → effective)</th>
+        ${calibrationRows ? `<div class="table-scroll"><table class="e1rm-table"><thead><tr><th>Lift</th><th>formula (raw → effective)</th>
           <th>override (raw → effective)</th><th>used</th><th>last set</th><th>tests</th>
           <th>median ratio</th><th>95% CI</th></tr></thead>
-          <tbody>${calibrationRows}</tbody></table>
+          <tbody>${calibrationRows}</tbody></table></div>
           <p class="muted">A bounded correction is applied only when the 95% CI excludes 1.0;
           measured tests still override the formula. Formula-only rows show the current
           estimate and last set.</p>`
           : "<p class='empty'>no measured tests with a prior estimate yet.</p>"}</div>
-      <div class="panel"><div class="panel-head"><h2>Injury signal</h2></div>
+      <div class="panel state-wide"><div class="panel-head"><h2>Injury signal</h2></div>
         <p>${esc(data.injury_signal?.summary || "")}</p>
         ${injuryRows}
         <p class="muted">${esc(data.injury_signal?.disclaimer || "")}</p></div>`;
