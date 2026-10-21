@@ -16,6 +16,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    # Parallel test runs: the suite is fixture-heavy, and 4 workers cut a full run from
+    # ~8 min to ~4.5 min. `-n 0` is the serial escape hatch.
+    "pytest-xdist>=3.6",
 ]
 
 [project.scripts]
@@ -26,7 +29,7 @@ include = ["strength_coach*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q --strict-markers"
+addopts = "-q --strict-markers -n auto --dist loadfile"
 markers = [
     "integration: touches the real CSVs in data/raw (slower, still deterministic)",
     "golden: snapshot/regression evidence against docs/EVIDENCE.md numbers",

@@ -119,6 +119,27 @@ without conditioning on provenance penalises the athlete for following the presc
   not an evidence-based threshold.
 - **ASSUMPTION-22** — main-lift load features are used only in calibration and only from data
   available before the session.
+- **ASSUMPTION-23** — the proposed core dose (2 sessions/week, 2-3 sets, 30-60 s holds,
+  anti-extension + anti-rotation/lateral, progressed by load/leverage) is a synthesis of the
+  evidence, not a validated minimum. The evidence gives no dose-response for this population
+  (`docs/CORE-TRAINING.md`).
+- **ASSUMPTION-29** — the exercise-selection weights (readiness 0.35, stress 0.25,
+  rotation 0.20, preference 0.10, fatigue 0.10), 28-day rotation window and 0.15 injury
+  penalty are transparent defaults, not validated (`DEC-SELECT-01`).
+- **ASSUMPTION-28** — the fixed 42-day/4-day half-lives and the 8-observation/28-day minimums
+  for the strength shadow model are assumptions, not fitted findings; the model never changes a
+  load (`DEC-FFM-01`).
+- **ASSUMPTION-27** — the 21-day grace, 1%/week decay and 10% cap for an old e1RM are
+  transparent defaults, not a validated detraining rate (`DEC-E1RM-DECAY-01`).
+- **ASSUMPTION-26** — the e1RM correction minimum (3 tests), 95% bootstrap CI, ±10%
+  bound and median-ratio estimator are assumptions, not validated; the correction is disabled
+  in config if the evidence is ambiguous (`DEC-E1RM-CAL-02`).
+- **ASSUMPTION-25** — the per-lift readiness weights (e1RM 0.20, RIR 0.15, velocity 0.15)
+  and bands are transparent defaults, not validated; the score can only lower a load
+  (`DEC-LIFT-READY-01`, `docs/LIFT-READINESS.md`).
+- **ASSUMPTION-24** — the recent-stress decay constants (48 h half-life, 6/3 decayed
+  hard-set thresholds, 48 h warning window) are transparent defaults, not validated
+  parameters. The indicator is advisory and never changes a load (`DEC-STRESS-01`).
 - **ASSUMPTION-10** — the injury-to-exercise link is an **exposure** map (direct weight 2,
   indirect 1), not a causal claim. It says which lifts load a region, not which lift caused an
   injury or which one prevents recurrence.

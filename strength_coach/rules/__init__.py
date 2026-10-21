@@ -5,7 +5,7 @@ immutable; the predicates in `registry` are the only implementations of `check.f
 `policy` decides the effect (veto/downgrade/warn/advisory) -- predicates never do.
 """
 
-from strength_coach.rules.context import RuleContext
+from strength_coach.rules.context import History, RuleContext
 from strength_coach.rules.loader import Rule, RuleDocument, RuleDocumentError, load_document
 from strength_coach.rules.policy import (
     PolicyResult,
@@ -17,6 +17,7 @@ from strength_coach.rules.policy import (
 )
 
 __all__ = [
+    "History",
     "PolicyResult",
     "Rule",
     "RuleContext",

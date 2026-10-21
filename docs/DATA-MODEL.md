@@ -365,3 +365,23 @@ The per-region signal built from this table is documented in
 
 Until this table has rows, MOD-BACK-001 and the PRG-EREC-001 stability gate return
 `unknown` — visibly, in the run report.
+
+---
+
+## 15. `exercise_remap_log` — one-off variant identity rewrite
+
+Migration `0014` canonicalised synthetic `pattern:*` identities in `clean_set` to named
+variant entities. `clean_set` is normally append-only; the migration temporarily drops its
+update trigger, records every change here, then recreates the trigger. Raw rows are untouched.
+
+| column | notes |
+|---|---|
+| raw_id | source raw row |
+| old_exercise_id | previous synthetic or canonical id |
+| new_exercise_id | canonical variant id |
+| reason | migration reason |
+| created_at | |
+
+Exceptions: `Competition Deadlift` keeps date-scoped sumo/trap-bar resolution; `Hyperextensions`
+keeps its own id and remains `history_equivalent_of: back_extension`. Migration `0015` later
+split `close_grip_pulldown` from `lat_pulldown` using the same audit table.

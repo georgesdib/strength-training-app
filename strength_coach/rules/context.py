@@ -22,6 +22,45 @@ from strength_coach.utils import exercises
 
 
 @dataclass(frozen=True)
+class History:
+    """The enriched training history a context is built from.
+
+    Building it is the expensive part (a query, the derived metrics, the ISO-week column), so
+    callers that need several dates — the programme forecast builds twelve — load it once and
+    pass it to `RuleContext.from_store`. It is read-only: `until` returns a date-bounded view.
+    """
+
+    sets: pd.DataFrame
+    sessions: pd.DataFrame
+
+    @classmethod
+    def load(cls, conn, *, start: str | None = None,
+             end: str | None = None) -> "History":
+        sets = queries.clean_sets(conn, start=start, end=end)
+        if not sets.empty:
+            # Enrichment is required for e1RM (max-single detection) and for the shared
+            # velocity/effort fields; it is the same transform the feature layer uses.
+            sets = derived.enrich(sets)
+        return cls(
+            sets=_with_iso_week(sets),
+            sessions=queries.sessions(conn, start=start, end=end),
+        )
+
+    def until(self, end: str | None) -> "History":
+        """The frame as it stood at `end`; the stored history is never mutated."""
+        if end is None or self.sets.empty:
+            return self
+        cutoff = pd.Timestamp(end)
+        return History(
+            sets=self.sets[self.sets["date"] <= cutoff],
+            sessions=(
+                self.sessions[self.sessions["occurred_on"] <= cutoff]
+                if not self.sessions.empty else self.sessions
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class RuleContext:
     sets: pd.DataFrame
     sessions: pd.DataFrame
@@ -36,6 +75,11 @@ class RuleContext:
     gap_days: int | None = None
     # Supplied by the prescription engine in phase 5; empty here rather than guessed.
     rep_ranges: Mapping[str, tuple[int, int]] = field(default_factory=dict)
+    # Evidence indices, built once from `sets`. Resolving a `set:`/`session:`/`week:`
+    # citation by scanning the frame each time made a 12-session forecast take minutes.
+    set_keys: frozenset[tuple[str, int]] = frozenset()
+    session_ids: frozenset[str] = frozenset()
+    iso_weeks: frozenset[str] = frozenset()
 
     def entity(self, exercise_id: str) -> Mapping[str, Any]:
         return self.entities.get(str(exercise_id), {})
@@ -50,18 +94,22 @@ class RuleContext:
         symptom_flare: bool | None = None,
         block_week_index: int | None = None,
         rep_ranges: Mapping[str, tuple[int, int]] | None = None,
+        history: "History | None" = None,
     ) -> "RuleContext":
         """Build the context, deriving symptom state and block week when possible.
+
+        `history` lets a caller reuse one enriched frame across several dates (the programme
+        forecast does); it is sliced to `end` here, so a shared frame cannot leak future rows.
 
         Explicit arguments win, which keeps tests able to present a specific state. Otherwise
         the latest logged symptom at or before `end` is used, and the block week is measured
         from the declared `block_start_date` — never inferred.
         """
-        sets = queries.clean_sets(conn, start=start, end=end)
-        if not sets.empty:
-            # Enrichment is required for e1RM (max-single detection) and for the shared
-            # velocity/effort fields; it is the same transform the feature layer uses.
-            sets = derived.enrich(sets)
+        if history is None:
+            history = History.load(conn, start=start, end=end)
+        scoped = history.until(end)
+        sets = scoped.sets
+        sessions_frame = scoped.sessions
         symptom = queries.latest_symptom(conn, end) if end else None
         level = int(symptom["level"]) if symptom is not None else None
         on_date = str(symptom["logged_on"]) if symptom is not None else None
@@ -80,7 +128,7 @@ class RuleContext:
 
         return cls(
             sets=sets,
-            sessions=queries.sessions(conn, start=start, end=end),
+            sessions=sessions_frame,
             entities=exercises.taxonomy().entities,
             symptom_flare=symptom_flare,
             symptom_level=level,
@@ -88,7 +136,29 @@ class RuleContext:
             block_week_index=block_week_index,
             gap_days=gap_days,
             rep_ranges=rep_ranges or {},
+            set_keys=_set_keys(sets),
+            session_ids=frozenset(sets["session_id"].astype(str)) if not sets.empty
+            else frozenset(),
+            iso_weeks=frozenset(sets["iso_week"].dropna()) if "iso_week" in sets
+            else frozenset(),
         )
+
+
+def _set_keys(sets: pd.DataFrame) -> frozenset[tuple[str, int]]:
+    if sets.empty:
+        return frozenset()
+    return frozenset(zip(sets["session_id"].astype(str), sets["set_id"].astype(int)))
+
+
+def _with_iso_week(sets: pd.DataFrame) -> pd.DataFrame:
+    """Attach ISO year-week once, because several rule helpers group by it.
+
+    `%G-W%V` is the vectorised equivalent of registry.iso_week, which is the unit `week:`
+    evidence references use and the bucket the weekly spinal cap counts.
+    """
+    if sets.empty or "iso_week" in sets.columns:
+        return sets
+    return sets.assign(iso_week=sets["date"].dt.strftime("%G-W%V"))
 
 
 def flare_from(level: int | None, settled_within_48h: int | None) -> bool | None:

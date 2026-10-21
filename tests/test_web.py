@@ -73,6 +73,14 @@ def test_the_page_and_overview_are_served(server):
     assert status == 200
     assert "Strength" in page
     assert "Programme" in page and "Terminal" in page
+    # CLI/UI parity: the recent capture surfaces are reachable from the shell.
+    assert "Cardio" in page and "Measures" in page
+    assert "cardio-weeks" in page
+    assert "fatigue-model" in page
+    assert "selection-result" in page
+    # Import page explains that calibration is a later, separate step.
+    assert "After the import" in page and "import-next" in page
+    assert "calibration is not an import step" in page
 
     status, body = get(server, "/api/overview")
     assert status == 200
@@ -92,18 +100,19 @@ def test_prescribe_and_state_endpoints(server):
         "unknown", "insufficient", "active", "monitoring", "review"
     }
     assert state["constraints"][0]["forbidden_exercises"] == ["back_extension"]
+    assert isinstance(state["e1rm_calibration"], list)
 
 
 def test_readiness_round_trip_uses_manual_source(server):
     data = post(server, "/api/readiness", {
-        "date": "2024-01-01", "values": {"sleep": 2, "grip_strength_kg": 45.5},
+        "date": "2024-01-01", "values": {"sleep": 2, "bodyweight_kg": 80.5},
         "note": "web",
     })
     assert data["sleep"] == 2
     assert data["sources"]["sleep"] == "manual"
     assert data["sources"]["energy"] == "import"
-    assert data["grip_strength_kg"] == 45.5
-    assert data["sources"]["grip_strength_kg"] == "manual"
+    assert data["bodyweight_kg"] == 80.5
+    assert data["sources"]["bodyweight_kg"] == "manual"
 
 
 def test_review_sheet_and_marks(server):
@@ -311,3 +320,95 @@ def test_readiness_settings_and_shadow_endpoints(server):
     status, body = get(server, "/api/readiness/shadow")
     assert status == 200
     assert "SHADOW BASELINE" in json.loads(body)["text"]
+
+
+def test_cardio_round_trip_and_overview(server):
+    today = date.today().isoformat()
+    data = post(server, "/api/cardio", {
+        "date": today, "modality": "walk", "minutes": 30,
+        "avg_hr": 110, "max_hr": 130, "srpe": 3,
+    })
+    assert data["sessions"] == 1
+    assert data["total_minutes"] == 30.0
+    assert data["by_modality"] == {"walk": 1}
+
+    status, body = get(server, "/api/cardio?weeks=4")
+    assert status == 200
+    assert json.loads(body)["sessions"] == 1
+
+    # The API accepts the same window anchor as `cardio --show --date`.
+    status, body = get(server, f"/api/cardio?weeks=4&date={today}")
+    assert status == 200
+    assert json.loads(body)["to_date"] == today
+
+    overview = json.loads(get(server, "/api/overview")[1])
+    assert overview["cardio"]["sessions"] == 1
+    assert overview["cardio"]["reference_min"] == 150
+
+
+def test_measurements_round_trip(server):
+    data = post(server, "/api/measurements", {
+        "metric": "vo2max", "value": 45.2, "date": "2024-01-02",
+        "method": "step test",
+    })
+    row = next(r for r in data["summary"] if r["key"] == "vo2max")
+    assert row["latest_value"] == 45.2
+    assert row["latest_on"] == "2024-01-02"
+    assert data["entries"][-1]["method"] == "step test"
+
+    status, body = get(server, "/api/measurements")
+    assert status == 200
+    assert json.loads(body)["entries"][-1]["value"] == 45.2
+
+
+def test_review_accepts_optional_session_detail(server):
+    data = post(server, "/api/review/2024-01-01", {
+        "scores": {"RIR_ADHERENCE": 0.9},
+        "confidence": "high",
+        "session_rpe": 7,
+        "session_minutes": 75,
+    })
+    assert data["feedback"]["srpe"] == 7
+    assert data["feedback"]["duration_min"] == 75
+
+    status, body = get(server, "/api/review/2024-01-01")
+    assert status == 200
+    assert json.loads(body)["feedback"]["srpe"] == 7
+
+    # Session detail can be saved without adding marks (the review stays optional).
+    data = post(server, "/api/review/2024-01-01", {"scores": {}, "session_rpe": 8})
+    assert data["written"] == 0
+    assert data["feedback"]["srpe"] == 8
+
+
+def test_fatigue_model_endpoint_is_shadow_only(server):
+    status, body = get(server, "/api/fatigue")
+    assert status == 200
+    data = json.loads(body)
+    assert data["on_date"]
+    assert isinstance(data["models"], list)
+
+
+def test_exercise_selection_endpoint_is_shadow_only(server):
+    status, body = get(server, "/api/selection?date=2024-01-01&day=B")
+    assert status == 200
+    data = json.loads(body)
+    assert data["day"] == "B"
+    assert isinstance(data["slots"], list)
+
+
+def test_exercise_catalog_endpoint(server):
+    status, body = get(server, "/api/exercises/catalog")
+    assert status == 200
+    data = json.loads(body)
+    assert data["entities"]
+    assert "patterns" in data
+    assert any(row["id"] == "ssb_squat" for row in data["entities"])
+
+
+def test_exercise_post_rejects_an_invalid_id_without_writing(server):
+    status, _ = post_status(server, "/api/exercises", {
+        "id": "Bad Id",
+        "props": {"display": "Bad", "log_names": ["Bad"], "pattern": "squat"},
+    })
+    assert status == 400

@@ -13,7 +13,7 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**v0 and v0.1 are complete; v0.2 is in progress.** The labelled calibration set is now §4.14.
+**v0, v0.1 and v0.2 are complete; v0.3 is in progress.** Cardio is v0.4, video v0.5 (see ROADMAP). The labelled calibration set is §4.14.
 
 **Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
@@ -32,7 +32,7 @@ What exists today is:
 - `tools/baseline.py` — regenerates the numbers in `private/docs/BASELINE.md`.
 - `strength_coach/domain/` — e1RM, load arithmetic, RIR classes (tested).
 - `strength_coach/ingest/` — cleaning, flags, quarantine, session reconstruction.
-- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, per-region injury signal.
+- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, per-region injury signal, cardio capture summary, periodic measurement log, optional session RPE/length, e1RM calibration/decay, per-lift readiness, strength fitness-fatigue shadow model.
 - `strength_coach/store/` — SQLite migrations, append-only repositories, import orchestration.
   `data/coach.db` is created on demand and is git-ignored.
 - `strength_coach/rules/` — constitution loader, one predicate per `check.fn`, policy verdicts.
@@ -43,7 +43,7 @@ What exists today is:
 - `strength_coach/eval/` — backtest harness, labelled-set comparison, and the database-backed
   marks that make calibration continuous (`rubric_mark`, append-only).
 - `strength_coach/cli.py` — `import`, `run`, `review`, `calibrate`, `state`, `block`, `e1rm`,
-  `test`, `symptom`, `readiness`, `programme`, `web`. `review` (with `--pending`) is the routine that keeps calibration current.
+  `test`, `symptom`, `cardio`, `measure`, `fatigue`, `select`, `exercise`, `readiness`, `programme`, `web`. `review` (with `--pending`) is the routine that keeps calibration current.
 - `strength_coach/web/` — local-only HTTP UI and JSON API over the same core; no authentication, bind 127.0.0.1.
 - `strength_coach/agents/` — LLM interface, config, narrative and structured proposals.
   `NullLLM` is the default; the model may explain or propose, but never compute. Keys live in the git-ignored `config/llm.local.toml`
@@ -144,6 +144,34 @@ so silently erased genuine `RIR = 0` observations during development.
 4. New/changed config has a comment explaining the domain reason.
 5. If you made a judgement call, it is written down as an assumption, not just in code.
 
+### 7.1 How to run tests without wasting ten minutes
+
+The full suite includes costly integration and golden tests. While iterating, run only what
+the change can affect:
+
+```bash
+.venv/bin/python -m pytest tests/test_prescribe.py tests/test_rules_policy.py
+.venv/bin/python -m pytest --lf                       # only the last failures
+.venv/bin/python -m pytest -m "not integration and not golden"   # broad, ~2 min
+.venv/bin/python -m pytest -n 0                       # serial, for debugging a failure
+```
+
+`pytest` runs in parallel by default (`pytest-xdist`, one worker per core). A full run is
+about 4-5 minutes; the fast lane is under 2. Run the **full** suite once, before handing off
+or committing — not after every edit. If a
+test fails, fix it and re-run that file/marker first; a full re-run is the last step, not the
+first reflex.
+
+Tests assert **contracts, not incidental order**: e.g. "power work precedes the main lift"
+rather than "item 0 is the box jump". Only the golden fixtures pin full item order, on
+purpose, because the prescription is a user-facing document. When a template changes, update
+the fixture deliberately; if a test fails only because an unrelated item moved position, the
+test is too literal.
+
+A test that imports the real export is `integration`-marked and must not run in the default
+fast lane. If a public test needs data, synthesise it with `make_training`/`make_readiness` —
+never read `data/raw`.
+
 ## 8. Style
 
 - Python 3.11+. `from __future__ import annotations`.
@@ -167,6 +195,11 @@ so silently erased genuine `RIR = 0` observations during development.
 | `docs/READINESS-SCORE.md` | proposed global and per-lift readiness scoring, evidence and phases |
 | `docs/CONTINUITY.md` | gap detection and re-entry rules; the injury signal is separate |
 | `docs/INJURY-SIGNAL.md` | per-region injury signals, what "tolerated" loading means, injury-to-exercise links |
+| `docs/CORE-TRAINING.md` | core/trunk training evidence and the proposed programme amendment |
+| `docs/LONGEVITY-REVIEW.md` | modality review against the longevity-first goal: gaps, doses, priorities |
+| `docs/FATIGUE-FITNESS.md` | fatigue-fitness evidence, strength recovery, e1RM calibration and why no model drives loads |
+| `docs/LIFT-READINESS.md` | per-lift readiness evidence, components, weights and downward-only rule |
+| `docs/EXERCISE-VARIANTS.md` | how to add a canonical variant, slot wiring, history caveat, selection tuning |
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |
 | `docs/SPINAL-COST.md` | evidence behind the ordinal spinal-cost ratings |
@@ -195,6 +228,10 @@ The in-browser terminal is the fallback for uncovered commands: it runs **only**
 `strength-coach`, never a shell, and is bound to the UI database.
 
 ## 11. Things an agent should ask instead of doing
+
+**Standing rule: when in doubt, ask the user.** Do not silently choose an interpretation,
+a variant, a threshold, a data migration or a programme change because it seems convenient.
+State the ambiguity, the options and your recommendation, then wait.
 
 - Adding a new hard rule → ask; the constitution is versioned and owned by the user.
 - Changing a threshold that affects a prescription → ask.

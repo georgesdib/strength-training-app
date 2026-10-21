@@ -26,6 +26,17 @@ days:
     prescription:
       time_cap_s: 4800
       slots:
+        # Power first, while fresh. Maximal intent, full recovery, stop when height or
+        # quality drops; RIR 4-5 means "nowhere near failure" (DEC-POWER-01).
+        - id: power
+          exercise: box_jump
+          sets: 3
+          reps: {low: 3, high: 5}
+          rir: {low: 4, high: 5}
+          rest_s: 120
+          essential: false
+          power: true
+          load_source: double_progression
         - id: squat_main
           exercise: ssb_squat
           sets: 4
@@ -46,6 +57,17 @@ days:
           exercise: back_extension
           sets: 3
           reps: {low: 10, high: 12}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
+        # Core work (docs/CORE-TRAINING.md): anti-extension on the squat day. Reps-based, so
+        # PRG-DP-001 can progress it; no planks/carries here because those are time-based and
+        # "top of range" would mean holding longer, which the evidence does not support.
+        - id: core_anti_extension
+          exercise: ab_wheel
+          sets: 3
+          reps: {low: 6, high: 10}
           rir: {low: 2, high: 3}
           rest_s: 90
           essential: false
@@ -96,6 +118,19 @@ days:
           rest_s: 180
           essential: true
           load_source: e1rm
+        # Pulling balances the pressing and the athlete already trains it (rows, pull-ups).
+        # Bodyweight, so progression acts on reps first and added load later (DEC-LOAD-02).
+        - id: accessory_pull_up
+          # Vertical pull: the pull-up and the lat pulldown are interchangeable here
+          # (DEC-PULL-02). The engine picks whichever was trained most recently; loads are
+          # not comparable between them, so each progresses on its own history.
+          exercise_variants: [pull_up, lat_pulldown]
+          sets: 3
+          reps: {low: 6, high: 10}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
         - id: accessory_lateral_raise
           exercise: lateral_raise
           sets: 3
@@ -145,6 +180,16 @@ days:
           exercise: back_extension
           sets: 3
           reps: {low: 10, high: 12}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
+        # Core work (docs/CORE-TRAINING.md): flexion on the bench-emphasis day. Bodyweight, so
+        # progression acts on reps first (DEC-LOAD-02); loadable later if the athlete adds it.
+        - id: core_flexion
+          exercise: hanging_leg_raise
+          sets: 3
+          reps: {low: 8, high: 12}
           rir: {low: 2, high: 3}
           rest_s: 90
           essential: false

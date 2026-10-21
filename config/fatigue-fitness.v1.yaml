@@ -1,0 +1,21 @@
+# Strength fitness-fatigue shadow model (v0.3, §4.16).
+#
+# Per lift: session hard-set load feeds a slow "fitness" and a fast "fatigue" exponential;
+# a linear performance model is fitted to the athlete's own e1RM observations. This is a
+# diagnostic, not a load controller. It refuses to show parameters when the design is too
+# small or ill-conditioned.
+#
+# The half-lives and minimums are assumptions (ASSUMPTION-28). Strength-specific evidence is
+# small and the fatigue component may not improve prediction (docs/FATIGUE-FITNESS.md); the
+# fixed half-lives avoid fitting four unstable parameters at once.
+
+schema_version: "1.0.0"
+enabled: true
+fitness_half_life_days: 42
+fatigue_half_life_days: 4
+min_observations: 8
+min_span_days: 28
+min_r2: 0.30
+max_condition: 100000000.0
+# Shrink each lift's slopes toward its family's common slopes: weight = n / (n + pooling_k).
+pooling_k: 10.0

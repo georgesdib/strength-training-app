@@ -16,6 +16,7 @@ Reconstructing those from the stored columns is safe because:
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 
 import pandas as pd
 
@@ -52,6 +53,7 @@ def clean_sets(
     *,
     start: str | None = None,
     end: str | None = None,
+    exercise_ids: Iterable[str] | None = None,
 ) -> pd.DataFrame:
     """Every clean set in [start, end], in the cleaner's domain shape."""
     sql = (
@@ -62,12 +64,21 @@ def clean_sets(
         " FROM clean_set s JOIN raw_row r ON r.raw_id = s.raw_id"
     )
     params: list[object] = []
+    clauses: list[str] = []
     if start is not None:
-        sql += " WHERE s.occurred_on >= ?"
+        clauses.append("s.occurred_on >= ?")
         params.append(start)
     if end is not None:
-        sql += (" WHERE s.occurred_on <= ?" if start is None else " AND s.occurred_on <= ?")
+        clauses.append("s.occurred_on <= ?")
         params.append(end)
+    if exercise_ids is not None:
+        ids = tuple(str(item) for item in exercise_ids)
+        if not ids:
+            return pd.DataFrame(columns=list(_SET_COLUMNS.values()) + ["rir_class", "total_load_kg"])
+        clauses.append("s.exercise_id IN (" + ", ".join("?" for _ in ids) + ")")
+        params.extend(ids)
+    if clauses:
+        sql += " WHERE " + " AND ".join(clauses)
     sql += " ORDER BY s.occurred_on, s.set_id"
 
     rows = [dict(row) for row in conn.execute(sql, params)]
@@ -425,3 +436,78 @@ def _flags_to_ingest_form(raw: str) -> str:
     except (TypeError, ValueError):
         return str(raw or "")
     return ";".join(str(v) for v in values)
+
+
+def cardio_entries(
+    conn,
+    *,
+    since: str | None = None,
+    until: str | None = None,
+) -> list[dict]:
+    """Cardio sessions in date order. Append-only, so a correction is a later row."""
+    clauses: list[str] = []
+    params: list[object] = []
+    if since is not None:
+        clauses.append("performed_on >= ?")
+        params.append(since)
+    if until is not None:
+        clauses.append("performed_on <= ?")
+        params.append(until)
+    sql = "SELECT * FROM cardio_log"
+    if clauses:
+        sql += " WHERE " + " AND ".join(clauses)
+    sql += " ORDER BY performed_on, created_at, entry_id"
+    return [dict(row) for row in conn.execute(sql, params)]
+
+
+def metric_definitions(conn) -> dict[str, dict]:
+    rows = conn.execute("SELECT * FROM metric_definition ORDER BY metric_key")
+    return {str(row["metric_key"]): dict(row) for row in rows}
+
+
+def measurements(
+    conn,
+    *,
+    metric_key: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+) -> list[dict]:
+    """Periodic measurements in date order; append-only, so a correction is a later row."""
+    clauses: list[str] = []
+    params: list[object] = []
+    if metric_key is not None:
+        clauses.append("metric_key = ?")
+        params.append(metric_key)
+    if since is not None:
+        clauses.append("measured_on >= ?")
+        params.append(since)
+    if until is not None:
+        clauses.append("measured_on <= ?")
+        params.append(until)
+    sql = "SELECT * FROM measurement"
+    if clauses:
+        sql += " WHERE " + " AND ".join(clauses)
+    sql += " ORDER BY measured_on, created_at, measurement_id"
+    return [dict(row) for row in conn.execute(sql, params)]
+
+
+def session_feedback(conn, session_id: str) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT * FROM session_feedback
+        WHERE session_id = ?
+        -- recorded_at has millisecond resolution; rowid breaks ties in insertion order.
+        ORDER BY recorded_at DESC, rowid DESC
+        LIMIT 1
+        """,
+        (str(session_id),),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def session_feedback_all(conn) -> list[dict]:
+    return [
+        dict(row) for row in conn.execute(
+            "SELECT * FROM session_feedback ORDER BY recorded_at, feedback_id"
+        )
+    ]

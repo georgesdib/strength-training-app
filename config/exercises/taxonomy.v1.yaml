@@ -314,6 +314,45 @@ entities:
     loadable: true                # added load is possible
     time_based: false
 
+  lat_pulldown:
+    display: "Lat Pulldown"
+    # Substitutable for the pull-up in the vertical-pull slot (DEC-PULL-02): same prime movers,
+    # but open-chain and loadable below bodyweight, so the loads are not comparable and
+    # progression is tracked per variant. See docs/LONGEVITY-REVIEW.md.
+    log_names: ["Lat Pulldown"]
+    pattern: vertical_pull
+    bodyweight_type: false
+    rep_semantics: reps
+    loadable: true
+    time_based: false
+    primary_muscles: [lats, biceps, upper_back]
+    e1rm_applicable: false
+
+  close_grip_pulldown:
+    display: "Close Grip Pulldown"
+    # A grip variant of the lat pulldown, not the same lift: the narrower grip changes
+    # leverage and the load you can use, so it keeps its own history and selection slot.
+    log_names: ["Close Grip Pulldown"]
+    pattern: vertical_pull
+    bodyweight_type: false
+    rep_semantics: reps
+    loadable: true
+    time_based: false
+    primary_muscles: [lats, biceps, upper_back]
+    e1rm_applicable: false
+
+  box_jump:
+    display: "Box Jump"
+    # Power work: maximal intent, full recovery, stop when height or quality drops. It is a
+    # template slot, not a double-progression lift (DEC-POWER-01).
+    log_names: ["Box Jumps", "Box Jump"]
+    pattern: power_jump
+    bodyweight_type: true
+    rep_semantics: reps
+    loadable: false
+    time_based: false
+    e1rm_applicable: false
+
   plank:
     display: "Plank"
     log_names: ["Regular Plank", "Chinese Plank", "Side Plank", "Front Plank"]
@@ -350,14 +389,1430 @@ entities:
   split_squat:
     display: "Split Squat"
     log_names: ["Split Squat", "Bulgarian Split Squat"]
-    pattern: squat
+    # Unilateral: one leg bears the load, so it is not a bilateral-squat variant.
+    pattern: squat_unilateral
+    primary_compound: true
+    primary_muscles: [quadriceps, glutes]
     loadable: true
     time_based: false
 
 # ---------------------------------------------------------------------------
 # Exact-string overrides. Highest priority; use when a name is ambiguous or
 # when a user decision overrides the obvious reading.
-# ---------------------------------------------------------------------------
+# --- canonical variants generated from the training log (2026-10-20) -----------
+  1_arm_row:
+    display: "1 Arm Row"
+    log_names: ["1 Arm Row"]
+    pattern: horizontal_pull
+    primary_compound: true
+    primary_muscles: [upper_back]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_pull
+    erector_family: false
+
+  1_arm_tricep_pushdown:
+    display: "1 Arm Tricep Pushdown"
+    log_names: ["1 Arm Tricep Pushdown"]
+    pattern: triceps_extension
+    primary_compound: false
+    primary_muscles: [triceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: triceps_extension
+    erector_family: false
+
+  barbell_calf_raises:
+    display: "Barbell Calf Raises"
+    log_names: ["Barbell Calf Raises"]
+    pattern: plantar_flexion
+    primary_compound: false
+    primary_muscles: [calves]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: plantar_flexion
+    erector_family: false
+
+  barbell_curl:
+    display: "Barbell Curl"
+    log_names: ["Barbell Curl"]
+    pattern: elbow_flexion
+    primary_compound: false
+    primary_muscles: [biceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: elbow_flexion
+    erector_family: false
+
+  belt_squat:
+    display: "Belt Squat"
+    log_names: ["Belt Squat"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  bench_dips:
+    display: "Bench Dips"
+    log_names: ["Bench Dips"]
+    pattern: horizontal_push_bw
+    primary_compound: false
+    primary_muscles: [triceps]
+    bodyweight_type: true
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push_bw
+    erector_family: false
+
+  bench_press_elevated_legs:
+    display: "Bench Press (elevated legs)"
+    log_names: ["Bench Press (elevated legs)"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  bench_press_explosive:
+    display: "Bench Press (explosive)"
+    log_names: ["Bench Press (explosive)"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  bench_press_from_pins:
+    display: "Bench Press (from pins)"
+    log_names: ["Bench Press (from pins)"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  bench_press_medium_grip:
+    display: "Bench Press (medium grip)"
+    log_names: ["Bench Press (medium grip)"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  bench_press_negative:
+    display: "Bench Press (negative)"
+    log_names: ["Bench Press (negative)"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  bench_press_reverse_grip:
+    display: "Bench Press (reverse grip)"
+    log_names: ["Bench Press (reverse grip)"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  bench_press_w_bands:
+    display: "Bench Press (w/bands)"
+    log_names: ["Bench Press (w/bands)"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  bench_press_w_cambered_bar:
+    display: "Bench Press (w/cambered bar)"
+    log_names: ["Bench Press (w/cambered bar)"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  bench_press_w_chains:
+    display: "Bench Press (w/chains)"
+    log_names: ["Bench Press (w/chains)"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  bench_press_wide_grip:
+    display: "Bench Press (wide grip)"
+    log_names: ["Bench Press (wide grip)"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  bent_over_row:
+    display: "Bent Over Row"
+    log_names: ["Bent Over Row"]
+    pattern: horizontal_pull
+    primary_compound: true
+    primary_muscles: [upper_back]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_pull
+    erector_family: false
+
+  bird_dog:
+    display: "Bird dog "
+    log_names: ["Bird dog "]
+    pattern: core_stability
+    primary_compound: false
+    primary_muscles: [abs]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: core_stability
+    erector_family: false
+
+  board_press:
+    display: "Board Press"
+    log_names: ["Board Press"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  cable_bent_over_triceps_extension:
+    display: "Cable Bent-over Triceps Extension"
+    log_names: ["Cable Bent-over Triceps Extension"]
+    pattern: triceps_extension
+    primary_compound: false
+    primary_muscles: [triceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: triceps_extension
+    erector_family: false
+
+  cable_glute_kickback:
+    display: "Cable Glute Kickback"
+    log_names: ["Cable Glute Kickback"]
+    pattern: hip_extension
+    primary_compound: false
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hip_extension
+    erector_family: false
+
+  cable_pull_through:
+    display: "Cable Pull Through"
+    log_names: ["Cable Pull Through"]
+    pattern: hip_extension
+    primary_compound: true
+    primary_muscles: [hamstrings]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hip_extension
+    erector_family: false
+
+  deadlift_above_knees_off_blocks:
+    display: "Deadlift (above knees, off blocks)"
+    log_names: ["Deadlift (above knees, off blocks)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deadlift_below_knees_off_blocks:
+    display: "Deadlift (below knees, off blocks)"
+    log_names: ["Deadlift (below knees, off blocks)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deadlift_below_knees_off_blocks_pause_above:
+    display: "Deadlift (below knees, off blocks, pause above)"
+    log_names: ["Deadlift (below knees, off blocks, pause above)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deadlift_from_center_block:
+    display: "Deadlift (from center block)"
+    log_names: ["Deadlift (from center block)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [hamstrings]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deadlift_pause_above_knees:
+    display: "Deadlift (pause above knees)"
+    log_names: ["Deadlift (pause above knees)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deadlift_pause_below_knees:
+    display: "Deadlift (pause below knees)"
+    log_names: ["Deadlift (pause below knees)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deadlift_plus_deadlift_from_above_knees:
+    display: "Deadlift (plus deadlift from above knees)"
+    log_names: ["Deadlift (plus deadlift from above knees)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deadlift_plus_deadlift_from_below_knees:
+    display: "Deadlift (plus deadlift from below knees)"
+    log_names: ["Deadlift (plus deadlift from below knees)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deadlift_snatch_grip_slow_descent:
+    display: "Deadlift (snatch grip, slow descent)"
+    log_names: ["Deadlift (snatch grip, slow descent)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deadlift_to_knees:
+    display: "Deadlift (to knees)"
+    log_names: ["Deadlift (to knees)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deadlift_to_knees_plus_full_deadlift:
+    display: "Deadlift (to knees, plus full deadlift)"
+    log_names: ["Deadlift (to knees, plus full deadlift)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deadlift_w_bands:
+    display: "Deadlift (w/bands)"
+    log_names: ["Deadlift (w/bands)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deadlift_w_chains:
+    display: "Deadlift (w/chains)"
+    log_names: ["Deadlift (w/chains)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deadlift_w_chains_off_blocks:
+    display: "Deadlift (w/chains, off blocks)"
+    log_names: ["Deadlift (w/chains, off blocks)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  decline_bench_press:
+    display: "Decline Bench Press"
+    log_names: ["Decline Bench Press"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  deep_squat:
+    display: "Deep Squat"
+    log_names: ["Deep Squat"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  deficit_deadlift_conventional:
+    display: "Deficit Deadlift (conventional)"
+    log_names: ["Deficit Deadlift (conventional)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deficit_deadlift_pause_above_knees:
+    display: "Deficit Deadlift (pause above knees)"
+    log_names: ["Deficit Deadlift (pause above knees)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deficit_deadlift_pause_below_knees:
+    display: "Deficit Deadlift (pause below knees)"
+    log_names: ["Deficit Deadlift (pause below knees)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deficit_deadlift_sumo:
+    display: "Deficit Deadlift (sumo)"
+    log_names: ["Deficit Deadlift (sumo)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  deficit_deadlift_w_chains:
+    display: "Deficit Deadlift (w/chains)"
+    log_names: ["Deficit Deadlift (w/chains)"]
+    pattern: hinge
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  depth_jumps:
+    display: "Depth Jumps"
+    log_names: ["Depth Jumps"]
+    pattern: power_jump
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: true
+    loadable: true
+    time_based: false
+    vbt_family: power_jump
+    erector_family: false
+
+  dips:
+    display: "Dips"
+    log_names: ["Dips"]
+    pattern: horizontal_push_bw
+    primary_compound: false
+    primary_muscles: [triceps]
+    bodyweight_type: true
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push_bw
+    erector_family: false
+
+  dumbbell_bench_press:
+    display: "Dumbbell Bench Press"
+    log_names: ["Dumbbell Bench Press"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  dumbbell_chest_supported_row:
+    display: "Dumbbell Chest Supported Row"
+    log_names: ["Dumbbell Chest Supported Row"]
+    pattern: horizontal_pull
+    primary_compound: false
+    primary_muscles: [lats]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_pull
+    erector_family: false
+
+  dumbbell_kickbacks:
+    display: "Dumbbell Kickbacks"
+    log_names: ["Dumbbell Kickbacks"]
+    pattern: triceps_extension
+    primary_compound: false
+    primary_muscles: [triceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: triceps_extension
+    erector_family: false
+
+  dumbbell_press_alternating:
+    display: "Dumbbell Press (alternating)"
+    log_names: ["Dumbbell Press (alternating)"]
+    pattern: vertical_push
+    primary_compound: true
+    primary_muscles: [front_delts]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: vertical_push
+    erector_family: false
+
+  dumbbell_pullover:
+    display: "Dumbbell Pullover"
+    log_names: ["Dumbbell Pullover"]
+    pattern: lat_isolation
+    primary_compound: false
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: lat_isolation
+    erector_family: false
+
+  dumbbell_row:
+    display: "Dumbbell Row"
+    log_names: ["Dumbbell Row"]
+    pattern: horizontal_pull
+    primary_compound: true
+    primary_muscles: [lats]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_pull
+    erector_family: false
+
+  dumbbell_tricep_extension:
+    display: "Dumbbell Tricep Extension"
+    log_names: ["Dumbbell Tricep Extension"]
+    pattern: triceps_extension
+    primary_compound: false
+    primary_muscles: [triceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: triceps_extension
+    erector_family: false
+
+  dumbell_curl_alternating:
+    display: "Dumbell Curl (alternating)"
+    log_names: ["Dumbell Curl (alternating)"]
+    pattern: elbow_flexion
+    primary_compound: false
+    primary_muscles: [biceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: elbow_flexion
+    erector_family: false
+
+  face_pull:
+    display: "Face Pull"
+    log_names: ["Face Pull "]
+    pattern: rear_delt_pull
+    primary_compound: false
+    primary_muscles: [rear_delts, rotator_cuff]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: rear_delt_pull
+    erector_family: false
+
+  flat_dumbbell_flyes:
+    display: "Flat Dumbbell Flyes"
+    log_names: ["Flat Dumbbell Flyes"]
+    pattern: horizontal_push_isolation
+    primary_compound: false
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push_isolation
+    erector_family: false
+
+  flat_bench_sit_ups:
+    display: "Flat-bench Sit-ups"
+    log_names: ["Flat-bench Sit-ups"]
+    pattern: core
+    primary_compound: false
+    primary_muscles: [abs]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: core
+    erector_family: false
+
+  floor_press:
+    display: "Floor Press"
+    log_names: ["Floor Press"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  french_press:
+    display: "French Press"
+    log_names: ["French Press"]
+    pattern: triceps_extension
+    primary_compound: false
+    primary_muscles: [triceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: triceps_extension
+    erector_family: false
+
+  front_raise:
+    display: "Front Raise"
+    log_names: ["Front Raise"]
+    pattern: shoulder_abduction
+    primary_compound: false
+    primary_muscles: [front_delts]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: shoulder_abduction
+    erector_family: false
+
+  front_squat:
+    display: "Front Squat"
+    log_names: ["Front Squat"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  front_squat_to_box:
+    display: "Front Squat (to box)"
+    log_names: ["Front Squat (to box)"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  hack_squat:
+    display: "Hack Squat"
+    log_names: ["Hack Squat"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  half_kneeling_single_arm_cable_row:
+    display: "Half-Kneeling Single Arm Cable Row"
+    log_names: ["Half-Kneeling Single Arm Cable Row"]
+    pattern: horizontal_pull
+    primary_compound: false
+    primary_muscles: [lats, upper_back]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_pull
+    erector_family: false
+
+  high_bar_squat:
+    display: "High Bar Squat"
+    log_names: ["High Bar Squat"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  high_to_low_cable_chop:
+    display: "High To Low Cable Chop"
+    log_names: ["High To Low Cable Chop"]
+    pattern: core
+    primary_compound: false
+    primary_muscles: [abs]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: core
+    erector_family: false
+
+  hip_thrust:
+    display: "Hip Thrust"
+    log_names: ["Hip Thrust"]
+    pattern: hip_extension
+    primary_compound: false
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hip_extension
+    erector_family: false
+
+  incline_db_bench_press:
+    display: "Incline DB Bench Press"
+    log_names: ["Incline DB Bench Press"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  incline_press:
+    display: "Incline Press"
+    log_names: ["Incline Press"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  incline_sit_ups:
+    display: "Incline Sit-ups"
+    log_names: ["Incline Sit-ups"]
+    pattern: core
+    primary_compound: false
+    primary_muscles: [abs]
+    bodyweight_type: true
+    loadable: true
+    time_based: false
+    vbt_family: core
+    erector_family: false
+
+  jump_squats:
+    display: "Jump Squats"
+    log_names: ["Jump Squats"]
+    pattern: power_jump
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: power_jump
+    erector_family: false
+
+  kettlebell_swing:
+    display: "Kettlebell Swing"
+    log_names: ["Kettlebell Swing"]
+    pattern: hinge_ballistic
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge_ballistic
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  landmine_press:
+    display: "Landmine Press"
+    log_names: ["Landmine Press"]
+    pattern: vertical_push
+    primary_compound: true
+    primary_muscles: [front_delts]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: vertical_push
+    erector_family: false
+
+  landmine_squat:
+    display: "Landmine Squat"
+    log_names: ["Landmine Squat"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  leg_extension:
+    display: "Leg Extension"
+    log_names: ["Leg Extension"]
+    pattern: knee_extension
+    primary_compound: false
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: knee_extension
+    erector_family: false
+
+  lying_leg_curls:
+    display: "Lying Leg Curls"
+    log_names: ["Lying Leg Curls"]
+    pattern: knee_flexion
+    primary_compound: false
+    primary_muscles: [hamstrings]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: knee_flexion
+    erector_family: false
+
+  nordic_curl:
+    display: "Nordic Curl"
+    log_names: ["Nordic Curl"]
+    pattern: hamstring_eccentric
+    primary_compound: false
+    primary_muscles: [hamstrings]
+    bodyweight_type: true
+    loadable: true
+    time_based: false
+    vbt_family: hamstring_eccentric
+    erector_family: false
+
+  overhead_press_behind_the_neck:
+    display: "Overhead Press (behind the neck)"
+    log_names: ["Overhead Press (behind the neck)"]
+    pattern: vertical_push
+    primary_compound: true
+    primary_muscles: [front_delts]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: vertical_push
+    erector_family: false
+
+  overhead_press_seated:
+    display: "Overhead Press (seated)"
+    log_names: ["Overhead Press (seated)"]
+    pattern: vertical_push
+    primary_compound: true
+    primary_muscles: [front_delts]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: vertical_push
+    erector_family: false
+
+  overhead_tricep_extension:
+    display: "Overhead Tricep Extension"
+    log_names: ["Overhead Tricep Extension"]
+    pattern: triceps_extension
+    primary_compound: false
+    primary_muscles: [triceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: triceps_extension
+    erector_family: false
+
+  pallof_press:
+    display: "Pallof Press"
+    log_names: ["Pallof Press"]
+    pattern: core_stability
+    primary_compound: false
+    primary_muscles: [abs]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: core_stability
+    erector_family: false
+
+  preacher_curl:
+    display: "Preacher Curl"
+    log_names: ["Preacher Curl"]
+    pattern: elbow_flexion
+    primary_compound: false
+    primary_muscles: [biceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: elbow_flexion
+    erector_family: false
+
+  pushups_chest_emphasis:
+    display: "Pushups (chest emphasis)"
+    log_names: ["Pushups (chest emphasis)"]
+    pattern: horizontal_push_bw
+    primary_compound: true
+    primary_muscles: [chest]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push_bw
+    erector_family: false
+
+  pushups_tricep_emphasis:
+    display: "Pushups (tricep emphasis)"
+    log_names: ["Pushups (tricep emphasis)"]
+    pattern: horizontal_push_bw
+    primary_compound: true
+    primary_muscles: [triceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push_bw
+    erector_family: false
+
+  rear_lateral_raise:
+    display: "Rear Lateral Raise"
+    log_names: ["Rear Lateral Raise"]
+    pattern: rear_delt_pull
+    primary_compound: false
+    primary_muscles: [rear_delts]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: rear_delt_pull
+    erector_family: false
+
+  reverse_nordic_curl:
+    display: "Reverse Nordic Curl"
+    log_names: ["Reverse Nordic Curl"]
+    # Quadriceps eccentric, not a hamstring curl: the knee extends under load.
+    pattern: knee_extension
+    primary_compound: false
+    primary_muscles: [quadriceps]
+    bodyweight_type: true
+    loadable: true
+    time_based: false
+    vbt_family: knee_extension
+    erector_family: false
+
+  sl_glute_bridge:
+    display: "SL Glute Bridge"
+    log_names: ["SL Glute Bridge"]
+    pattern: hip_extension
+    primary_compound: true
+    primary_muscles: [glutes]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hip_extension
+    erector_family: false
+
+  seal_row:
+    display: "Seal Row"
+    log_names: ["Seal Row"]
+    pattern: horizontal_pull
+    primary_compound: true
+    primary_muscles: [upper_back]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_pull
+    erector_family: false
+
+  seated_cable_row:
+    display: "Seated Cable Row"
+    log_names: ["Seated Cable Row"]
+    pattern: horizontal_pull
+    primary_compound: true
+    primary_muscles: [upper_back]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_pull
+    erector_family: false
+
+  seated_calf_raises:
+    display: "Seated Calf Raises"
+    log_names: ["Seated Calf Raises"]
+    pattern: plantar_flexion
+    primary_compound: false
+    primary_muscles: [calves]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: plantar_flexion
+    erector_family: false
+
+  seated_dumbbell_external_rotation:
+    display: "Seated Dumbbell External Rotation"
+    log_names: ["Seated Dumbbell External Rotation"]
+    pattern: rotator_cuff
+    primary_compound: false
+    primary_muscles: [rotator_cuff]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: rotator_cuff
+    erector_family: false
+
+  shoulder_shrugs:
+    display: "Shoulder Shrugs"
+    log_names: ["Shoulder Shrugs"]
+    pattern: upper_trap
+    primary_compound: false
+    primary_muscles: [upper_trap]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: upper_trap
+    erector_family: false
+
+  side_lunges:
+    display: "Side Lunges"
+    log_names: ["Side Lunges"]
+    pattern: squat_unilateral
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat_unilateral
+    erector_family: false
+
+  single_arm_cable_triceps_kickback:
+    display: "Single Arm Cable Triceps Kickback"
+    log_names: ["Single Arm Cable Triceps Kickback"]
+    pattern: triceps_extension
+    primary_compound: false
+    primary_muscles: [triceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: triceps_extension
+    erector_family: false
+
+  single_leg_db_rdl:
+    display: "Single Leg DB RDL"
+    log_names: ["Single Leg DB RDL"]
+    pattern: hinge_unilateral
+    primary_compound: true
+    primary_muscles: [hamstrings]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: hinge_unilateral
+    erector_family: true
+    direct_erector: false
+    high_fatigue_spinal: true
+
+  speed_bench_press:
+    display: "Speed Bench Press"
+    log_names: ["Speed Bench Press"]
+    pattern: horizontal_push
+    primary_compound: true
+    primary_muscles: [chest, triceps, front_delts]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_push
+    erector_family: false
+
+  squat_2s_pause_halfway_down:
+    display: "Squat (2s pause halfway down)"
+    log_names: ["Squat (2s pause halfway down)"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  squat_2s_pause_halfway_up:
+    display: "Squat (2s pause halfway up)"
+    log_names: ["Squat (2s pause halfway up)"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  squat_2s_pause:
+    display: "Squat (2s pause)"
+    log_names: ["Squat (2s pause)"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  squat_down_slow_up_fast:
+    display: "Squat (down slow, up fast)"
+    log_names: ["Squat (down slow, up fast)"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  squat_from_pins:
+    display: "Squat (from pins)"
+    log_names: ["Squat (from pins)"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  squat_narrow_stance:
+    display: "Squat (narrow stance)"
+    log_names: ["Squat (narrow stance)"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  squat_negatives:
+    display: "Squat (negatives)"
+    log_names: ["Squat (negatives)"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  squat_partial_range_of_motion:
+    display: "Squat (partial range of motion)"
+    log_names: ["Squat (partial range of motion)"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  squat_slow_downwards_and_upwards:
+    display: "Squat (slow downwards & upwards)"
+    log_names: ["Squat (slow downwards & upwards)"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  squat_to_box:
+    display: "Squat (to box)"
+    log_names: ["Squat (to box)"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  squat_w_bands:
+    display: "Squat (w/bands)"
+    log_names: ["Squat (w/bands)"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  squat_w_chains:
+    display: "Squat (w/chains)"
+    log_names: ["Squat (w/chains)"]
+    pattern: squat
+    primary_compound: true
+    primary_muscles: [quadriceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: squat
+    erector_family: false
+
+  standing_single_arm_cable_curls_shoulder_flexed:
+    display: "Standing Single-Arm Cable Curls (Shoulder Flexed)\t"
+    log_names: ["Standing Single-Arm Cable Curls (Shoulder Flexed)\t"]
+    pattern: elbow_flexion
+    primary_compound: false
+    primary_muscles: [biceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: elbow_flexion
+    erector_family: false
+
+  straight_arm_pulldown:
+    display: "Straight Arm Pulldown"
+    log_names: ["Straight Arm Pulldown"]
+    pattern: lat_isolation
+    primary_compound: false
+    primary_muscles: [lats]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: lat_isolation
+    erector_family: false
+
+  straight_bar_cable_curl:
+    display: "Straight Bar Cable Curl"
+    log_names: ["Straight Bar Cable Curl"]
+    pattern: elbow_flexion
+    primary_compound: false
+    primary_muscles: [biceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: elbow_flexion
+    erector_family: false
+
+  t_bar_row:
+    display: "T Bar Row"
+    log_names: ["T Bar Row"]
+    pattern: horizontal_pull
+    primary_compound: true
+    primary_muscles: [lats, upper_back]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: horizontal_pull
+    erector_family: false
+
+  tib_bar_calves:
+    display: "Tib Bar Calves"
+    log_names: ["Tib Bar Calves"]
+    # Tibialis anterior raises are ankle dorsiflexion, the opposite of a calf raise.
+    # There is deliberately no readiness category for dorsiflexion yet.
+    pattern: dorsiflexion
+    primary_compound: false
+    primary_muscles: [tibialis_anterior]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: dorsiflexion
+    erector_family: false
+
+  tricep_pushdown:
+    display: "Tricep Pushdown"
+    log_names: ["Tricep Pushdown"]
+    pattern: triceps_extension
+    primary_compound: false
+    primary_muscles: [triceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: triceps_extension
+    erector_family: false
+
+  upright_row:
+    display: "Upright Row"
+    log_names: ["Upright Row"]
+    pattern: shoulder_abduction
+    primary_compound: false
+    primary_muscles: [upper_trap]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: shoulder_abduction
+    erector_family: false
+
 alias_overrides:
   - match: "Competition Deadlift"
     canonical: trap_bar_deadlift
@@ -456,7 +1911,7 @@ classification_patterns:
   - pattern: '(?i)straight.?arm pulldown'
     synthetic: {pattern: lat_isolation, loadable: true, time_based: false}
   - pattern: '(?i)pulldown'
-    synthetic: {pattern: vertical_pull, loadable: true, time_based: false}
+    canonical: lat_pulldown
   - pattern: '(?i)pull.?ups?|chin.?ups?'
     canonical: pull_up
   - pattern: '(?i)face pull'
@@ -502,6 +1957,8 @@ classification_patterns:
     synthetic: {pattern: plantar_flexion, loadable: true, time_based: false}
   - pattern: '(?i)hip thrust|glute bridge|pull.?through'
     synthetic: {pattern: hip_extension, loadable: true, time_based: false}
+  - pattern: '(?i)box jump'
+    canonical: box_jump
   - pattern: '(?i)jump'
     # Must precede "squat": Jump Squats are power work, not a squat stimulus.
     synthetic: {pattern: power_jump, loadable: true, time_based: false}

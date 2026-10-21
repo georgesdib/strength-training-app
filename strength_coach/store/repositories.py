@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import math
 import sqlite3
 import uuid
 from dataclasses import dataclass
@@ -967,3 +968,138 @@ def append_rule_document(
         """,
         (document_id, version, effective_from, source_hash, body_yaml),
     )
+
+
+def append_cardio(
+    conn: sqlite3.Connection,
+    *,
+    performed_on: str,
+    modality: str,
+    duration_s: int,
+    avg_hr: int | None = None,
+    max_hr: int | None = None,
+    distance_m: float | None = None,
+    srpe: int | None = None,
+    note: str | None = None,
+) -> str:
+    """Append one cardio session.
+
+    Validation lives here so the CLI and the web form cannot diverge. A missing optional
+    field stays null; a zero is not a sentinel here, so `avg_hr=0` is rejected rather than
+    treated as "not recorded" (AGENTS.md §5).
+    """
+    try:
+        datetime.date.fromisoformat(str(performed_on))
+    except ValueError as exc:
+        raise ValueError(f"date must be YYYY-MM-DD: {performed_on!r}") from exc
+
+    label = str(modality).strip().lower()
+    if not label:
+        raise ValueError("modality cannot be empty")
+    seconds = int(duration_s)
+    if seconds <= 0:
+        raise ValueError("duration must be positive")
+
+    def bounded(value: int | None, name: str, low: int, high: int) -> int | None:
+        if value is None:
+            return None
+        number = int(value)
+        if not low <= number <= high:
+            raise ValueError(f"{name} must be {low}-{high}, got {number}")
+        return number
+
+    avg = bounded(avg_hr, "avg_hr", 30, 230)
+    peak = bounded(max_hr, "max_hr", 30, 250)
+    if avg is not None and peak is not None and avg > peak:
+        raise ValueError("avg_hr cannot exceed max_hr")
+    effort = bounded(srpe, "srpe", 1, 10)
+    distance = None if distance_m is None else float(distance_m)
+    if distance is not None and distance < 0:
+        raise ValueError("distance_m cannot be negative")
+
+    entry_id = uuid.uuid4().hex
+    conn.execute(
+        """
+        INSERT INTO cardio_log (
+            entry_id, performed_on, modality, duration_s, avg_hr, max_hr, distance_m,
+            srpe, note
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (entry_id, str(performed_on), label, seconds, avg, peak, distance, effort, note),
+    )
+    return entry_id
+
+
+def append_measurement(
+    conn: sqlite3.Connection,
+    *,
+    metric_key: str,
+    measured_on: str,
+    value: float,
+    method: str | None = None,
+    source: str = "user",
+    note: str | None = None,
+) -> str:
+    """Append one periodic measurement; the metric definition must already exist.
+
+    Direction and aggregation live in `metric_definition`, not here, so the same number can
+    never be read as "higher is better" in one place and "lower is better" in another.
+    """
+    try:
+        datetime.date.fromisoformat(str(measured_on))
+    except ValueError as exc:
+        raise ValueError(f"date must be YYYY-MM-DD: {measured_on!r}") from exc
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError("value must be a finite number")
+    if source not in {"user", "clinician", "device"}:
+        raise ValueError(f"unknown measurement source {source!r}")
+
+    measurement_id = uuid.uuid4().hex
+    conn.execute(
+        """
+        INSERT INTO measurement (measurement_id, metric_key, measured_on, value, method,
+                                 source, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            measurement_id,
+            str(metric_key),
+            str(measured_on),
+            number,
+            method or None,
+            source,
+            note or None,
+        ),
+    )
+    return measurement_id
+
+
+def append_session_feedback(
+    conn: sqlite3.Connection,
+    *,
+    session_id: str,
+    srpe: float | None = None,
+    duration_min: float | None = None,
+    note: str | None = None,
+) -> str:
+    """Append optional post-session feedback; latest row per session wins at read time."""
+    if srpe is None and duration_min is None and not (note or "").strip():
+        raise ValueError("at least one of srpe, duration_min or note is required")
+    if srpe is not None:
+        srpe = float(srpe)
+        if not 1 <= srpe <= 10:
+            raise ValueError("session RPE must be between 1 and 10")
+    if duration_min is not None:
+        duration_min = float(duration_min)
+        if not 0 < duration_min <= 600:
+            raise ValueError("session length must be between 0 and 600 minutes")
+    feedback_id = uuid.uuid4().hex
+    conn.execute(
+        """
+        INSERT INTO session_feedback (feedback_id, session_id, srpe, duration_min, note)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (feedback_id, str(session_id), srpe, duration_min, (note or "").strip() or None),
+    )
+    return feedback_id

@@ -165,12 +165,20 @@ def evaluate(
 
 
 def resolve_reference(context: RuleContext, ref: str) -> bool:
-    """Whether an evidence reference names a fact that exists in this context."""
+    """Whether an evidence reference names a fact that exists in this context.
+
+    The context carries the lookup indices (`set_keys`, `session_ids`, `iso_weeks`) so this
+    is O(1) per citation. Rebuilding them here made a rule-heavy forecast take minutes; the
+    fallbacks keep a hand-built context correct.
+    """
     kind, _, value = ref.partition(":")
     if kind == "set":
         session_id, _, set_id = value.partition("/")
         if not set_id.isdigit() or context.sets.empty:
             return False
+        key = (session_id, int(set_id))
+        if context.set_keys:
+            return key in context.set_keys
         match = context.sets[
             (context.sets["set_id"] == int(set_id))
             & (context.sets["session_id"].astype(str) == session_id)
@@ -179,12 +187,16 @@ def resolve_reference(context: RuleContext, ref: str) -> bool:
     if kind == "session":
         if context.sets.empty:
             return False
+        if context.session_ids:
+            return value in context.session_ids
         return value in set(context.sets["session_id"].astype(str))
     if kind == "symptom":
         return context.symptom_on is not None and context.symptom_on == value
     if kind == "week":
         if context.sets.empty:
             return False
+        if context.iso_weeks:
+            return value in context.iso_weeks
         weeks = {
             registry.iso_week(value) for value in context.sets["date"].dropna()
         }

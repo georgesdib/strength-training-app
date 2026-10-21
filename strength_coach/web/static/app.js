@@ -35,6 +35,10 @@ function setView(name) {
   });
   if (name === "review") fillSessionSelect();
   if (name === "readiness") loadReadiness($("#readiness-date").value);
+  if (name === "exercises") loadExerciseCatalog();
+  if (name === "cardio") loadCardio();
+  if (name === "measures") loadMeasurements();
+  if (name === "prescribe") loadFatigue();
   if (name === "docs" && !$("#docs-list").dataset.loaded) loadDocs();
   if (name === "state") loadState();
   if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
@@ -72,6 +76,9 @@ async function loadOverview() {
         data.readiness_score?.status + (data.readiness_score?.basis ? " · " + data.readiness_score.basis : "")],
       ["Block week", data.block_week ?? "unknown", "erector ramp / DUP"],
       ["Injury signal", signal?.status ?? "unknown", signal?.summary ?? ""],
+      ["Cardio (4 wk avg)", data.cardio ? data.cardio.average_weekly_minutes + " min/wk" : "unknown",
+        data.cardio ? "reference " + data.cardio.reference_min + "-" + data.cardio.reference_max
+          + " · " + data.cardio.sessions + " session(s)" : "no entry"],
       ["Unreviewed", data.unreviewed.length, data.unreviewed.length ? "run review to catch up" : "all caught up"],
     ];
     $("#cards").innerHTML = cards.map(([label, value, sub]) => `
@@ -119,12 +126,28 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
 });
 
 function renderPrescription(p) {
-  const rows = p.items.map((item) => `<tr>
+  const stress = p.notes?.recent_stress || {};
+  const liftReady = p.notes?.per_lift_readiness || {};
+  const rows = p.items.map((item) => {
+    const st = stress[item.exercise_id];
+    const lr = liftReady[item.exercise_id];
+    const readyCell = lr
+      ? `<span class="badge ${lr.status === "low" ? "bad" : ""}">${esc(lr.status)}</span>
+         <div class="muted">${lr.score}</div>`
+      : "<span class='muted'>—</span>";
+    const stressCell = st
+      ? `<span class="badge ${st.status === "high" ? "bad" : ""}">${esc(st.status)}</span>
+         <div class="muted">${st.decayed_sets} sets · ${st.last_hours}h</div>`
+      : "<span class='muted'>—</span>";
+    return `<tr>
     <td><strong>${esc(item.exercise_id)}</strong>${item.essential ? ' <span class="badge">essential</span>' : ""}
       ${item.unknown_load_reason ? '<div class="muted">' + esc(item.unknown_load_reason) + "</div>" : ""}</td>
     <td>${item.sets}</td><td>${item.reps_low}–${item.reps_high}</td>
     <td>${fmt(item.load_kg)}</td><td>${item.rir_target}</td>
-    <td class="muted">${esc(item.refs.slice(-2).join(", "))}</td></tr>`).join("");
+    <td>${stressCell}</td>
+    <td>${readyCell}</td>
+    <td class="muted">${esc(item.refs.slice(-2).join(", "))}</td></tr>`;
+  }).join("");
   const warnings = p.warnings.length
     ? '<div class="warnbox"><strong>Warnings</strong><ul class="list">' +
       p.warnings.map((w) => "<li>" + esc(w) + "</li>").join("") + "</ul></div>" : "";
@@ -135,7 +158,7 @@ function renderPrescription(p) {
     <div class="panel-head"><h2>${esc(p.for_date)} · Day ${esc(p.session_day)}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
     ${warnings}${signalBox}
-    <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>refs</th></tr></thead>
+    <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table>
     <details><summary class="muted">notes (JSON)</summary><pre>${esc(JSON.stringify(p.notes, null, 2))}</pre></details>
   </div>`;
@@ -191,6 +214,12 @@ async function loadReview(session) {
           <option value="low" ${data.confidence === "low" ? "selected" : ""}>low</option>
           <option value="unknown" ${data.confidence === "unknown" ? "selected" : ""}>unknown</option>
         </select></label>
+        <label>Session RPE <input id="review-srpe" type="number" min="1" max="10"
+          step="0.5" placeholder="optional"
+          value="${data.feedback && data.feedback.srpe != null ? data.feedback.srpe : ""}"></label>
+        <label>Length (min) <input id="review-minutes" type="number" min="1" max="600"
+          step="1" placeholder="optional"
+          value="${data.feedback && data.feedback.duration_min != null ? data.feedback.duration_min : ""}"></label>
         <label class="grow">Note <input id="review-note" placeholder="optional"></label>
         <button class="primary" id="save-review">Save marks</button>
       </div>
@@ -212,12 +241,17 @@ async function saveReview(session) {
     scores,
     confidence: $("#review-confidence").value,
     note: $("#review-note").value || null,
+    session_rpe: $("#review-srpe").value || null,
+    session_minutes: $("#review-minutes").value || null,
   };
   try {
     const data = await api("/api/review/" + encodeURIComponent(session), {
       method: "POST", body: JSON.stringify(payload),
     });
-    $("#review-calibration").innerHTML = `<div class="warnbox"><strong>Saved ${data.written} marks</strong>
+    const saved = data.written
+      ? `Saved ${data.written} marks`
+      : "Saved session details (no marks)";
+    $("#review-calibration").innerHTML = `<div class="warnbox"><strong>${esc(saved)}</strong>
       <pre>${esc(data.calibration.text)}</pre></div>`;
     loadOverview();
   } catch (error) {
@@ -225,14 +259,71 @@ async function saveReview(session) {
   }
 }
 
+/* --- exercise selection -------------------------------------------------- */
+async function loadSelection() {
+  const date = $("#prescribe-date").value;
+  const day = $("#prescribe-day").value;
+  if (!date) { $("#selection-result").innerHTML = "<p class='empty'>Choose a date first.</p>"; return; }
+  const llm = $("#selection-llm").checked ? "1" : "0";
+  $("#selection-result").innerHTML = "<p class='empty'>Scoring variants…</p>";
+  try {
+    const data = await api(`/api/selection?date=${encodeURIComponent(date)}&day=${encodeURIComponent(day)}&llm=${llm}`);
+    const rows = (data.slots || []).map((slot) => {
+      const candidates = slot.candidates.map((c) =>
+        `<li>${esc(c.exercise_id)} — ${c.score} <span class="muted">${esc(c.reasons.join("; "))}</span></li>`).join("");
+      return `<tr><td><strong>${esc(slot.slot_id)}</strong></td>
+        <td>${esc(slot.current)} → <strong>${esc(slot.suggested)}</strong>
+        <div class="muted">${esc(slot.reason)} [${esc(slot.source)}]</div></td>
+        <td><ul class="plain">${candidates}</ul></td></tr>`;
+    }).join("");
+    $("#selection-result").innerHTML = rows
+      ? `<table><thead><tr><th>Slot</th><th>current → suggested</th><th>candidates</th></tr></thead>
+         <tbody>${rows}</tbody></table>`
+      : "<p class='empty'>No multi-variant slots on this day. Only Day B currently has configured variants (bench and pull); add more in <code>config/templates/days.v1.yaml</code> and the taxonomy — see docs/EXERCISE-VARIANTS.md.</p>";
+  } catch (error) {
+    $("#selection-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+$("#selection-run").addEventListener("click", loadSelection);
+
+/* --- strength fatigue model ---------------------------------------------- */
+async function loadFatigue() {
+  try {
+    const data = await api("/api/fatigue");
+    const unit = (m) => m.unit === "ratio" ? "x" : " kg";
+    const rows = (data.models || []).map((m) => {
+      const u = unit(m);
+      const ci = m.state_ci && m.state_ci[0] != null
+        ? ` [${m.state_ci[0]}, ${m.state_ci[1]}]` : "";
+      const state = m.state_kg == null ? "—" : `${m.state_kg}${u}${ci}`;
+      return `<tr><td><strong>${esc(m.exercise_id)}</strong><div class="muted">${esc(m.family || "")}</div></td>
+      <td>${m.n_observations} / ${m.span_days} d</td>
+      <td>${m.r2 == null ? "—" : m.r2}</td>
+      <td>${m.backtest_mae == null ? "—" : m.backtest_mae + " / " + m.backtest_naive_mae}</td>
+      <td>${m.fitness_kg == null ? "—" : m.fitness_kg + u}</td>
+      <td>${m.fatigue_kg == null ? "—" : m.fatigue_kg + u}</td>
+      <td>${state}</td>
+      <td>${m.latest_e1rm == null ? "—" : m.latest_e1rm + " kg"}</td>
+      <td>${esc(m.status)}</td></tr>`;
+    }).join("");
+    $("#fatigue-model").innerHTML = rows
+      ? `<table><thead><tr><th>Lift</th><th>obs / span</th><th>R²</th><th>backtest MAE / naive</th><th>fitness</th>
+          <th>fatigue</th><th>state [95% CI]</th><th>latest e1RM</th><th>status</th></tr></thead>
+          <tbody>${rows}</tbody></table>`
+      : "<p class='empty'>No e1RM observations for the model yet.</p>";
+  } catch (error) {
+    $("#fatigue-model").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
 /* --- readiness ---------------------------------------------------------- */
 const SCORE_FIELDS = ["sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration"];
-const DEVICE_FIELDS = ["hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "grip_strength_kg",
-  "wearable_score"];
+const DEVICE_FIELDS = ["hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "wearable_score"];
 const LABELS = { sleep: "Sleep", energy: "Energy", mood: "Mood", soreness: "Soreness",
   stress: "Stress", nutrition: "Nutrition", hydration: "Hydration",
   hrv_ms: "HRV (ms)", rhr_bpm: "Resting HR (bpm)",
-  bodyweight_kg: "Bodyweight (kg)", fat_pct: "Body fat (%)", grip_strength_kg: "Grip strength (kg)",
+  bodyweight_kg: "Bodyweight (kg)", fat_pct: "Body fat (%)",
   wearable_score: "Wearable readiness (0-100)" };
 
 function fieldInput(field, device = false) {
@@ -463,6 +554,17 @@ async function loadState() {
       <div class="muted">of ${r.loaded_sessions} loaded (${r.unverified_sessions} unverified)</div></td>
       <td>${r.window_days} d</td></tr>`).join("") + "</tbody></table>"
       : "<p class='empty'>no regions configured</p>";
+    const calibration = data.e1rm_calibration || [];
+    const e1rmPair = (raw, eff) => raw == null ? "—" :
+      (eff == null ? raw + " kg" : `${raw} → ${eff} kg`);
+    const calibrationRows = calibration.map((row) => `
+      <tr><td><strong>${esc(row.exercise_id)}</strong><div class="muted">${esc(row.status)}</div></td>
+      <td>${e1rmPair(row.formula_raw, row.formula_effective)}</td>
+      <td>${e1rmPair(row.override_raw, row.override_effective)}</td>
+      <td>${row.active_source || "—"}${row.active_e1rm == null ? "" : ` · ${row.active_e1rm} kg`}</td>
+      <td>${row.latest_on || "—"}</td>
+      <td>${row.n}</td><td>${row.median_ratio ?? "—"}</td>
+      <td>${row.ci_low == null ? "—" : row.ci_low + "–" + row.ci_high}</td></tr>`).join("");
     renderStateForms(data);
     $("#state-result").innerHTML = `
       <div class="panel"><div class="panel-head"><h2>Profile</h2></div>
@@ -470,6 +572,16 @@ async function loadState() {
       <div class="panel"><div class="panel-head"><h2>Constraints</h2></div><ul class="list">${constraints}</ul></div>
       <div class="panel"><div class="panel-head"><h2>Suitability</h2></div>
         ${suitability ? `<table><thead><tr><th>Exercise</th><th>can-do</th><th>will-do</th><th>feels bad</th></tr></thead><tbody>${suitability}</tbody></table>` : "<p class='empty'>none recorded</p>"}</div>
+      <div class="panel"><div class="panel-head"><h2>e1RM calibration</h2>
+        <span class="muted">measured vs formula; report only</span></div>
+        ${calibrationRows ? `<table><thead><tr><th>Lift</th><th>formula (raw → effective)</th>
+          <th>override (raw → effective)</th><th>used</th><th>last set</th><th>tests</th>
+          <th>median ratio</th><th>95% CI</th></tr></thead>
+          <tbody>${calibrationRows}</tbody></table>
+          <p class="muted">A bounded correction is applied only when the 95% CI excludes 1.0;
+          measured tests still override the formula. Formula-only rows show the current
+          estimate and last set.</p>`
+          : "<p class='empty'>no measured tests with a prior estimate yet.</p>"}</div>
       <div class="panel"><div class="panel-head"><h2>Injury signal</h2></div>
         <p>${esc(data.injury_signal?.summary || "")}</p>
         ${injuryRows}
@@ -661,6 +773,160 @@ async function loadExercises() {
 }
 
 
+
+/* --- exercise catalogue -------------------------------------------------- */
+const EXERCISE_KNOWN = [
+  "display", "log_names", "pattern", "primary_muscles", "primary_compound",
+  "loadable", "bodyweight_type", "time_based", "e1rm_applicable", "vbt_family",
+  "main_lift", "high_fatigue_spinal", "erector_family", "direct_erector",
+];
+
+function openExerciseEditor(row) {
+  const props = row ? JSON.parse(JSON.stringify(row.props || {})) : {
+    display: "", log_names: [], pattern: "", primary_muscles: [],
+    primary_compound: false, loadable: true, bodyweight_type: false,
+    time_based: false, e1rm_applicable: true,
+  };
+  $("#exercise-editor").hidden = false;
+  $("#exercise-editor-title").textContent = row ? "Edit " + row.id : "Add exercise";
+  $("#exercise-id").value = row ? row.id : "";
+  $("#exercise-id").readOnly = !!row;
+  $("#exercise-display").value = props.display || "";
+  $("#exercise-pattern").value = props.pattern || "";
+  $("#exercise-vbt").value = props.vbt_family || "";
+  $("#exercise-log-names").value = (props.log_names || []).join("\n");
+  $("#exercise-muscles").value = (props.primary_muscles || []).join(", ");
+  $("#exercise-compound").checked = !!props.primary_compound;
+  $("#exercise-loadable").checked = props.loadable !== false;
+  $("#exercise-bodyweight").checked = !!props.bodyweight_type;
+  $("#exercise-timed").checked = !!props.time_based;
+  $("#exercise-e1rm").checked = props.e1rm_applicable !== undefined
+    ? !!props.e1rm_applicable
+    : (props.loadable !== false && !props.time_based && !props.bodyweight_type);
+  $("#exercise-main").checked = !!props.main_lift;
+  $("#exercise-spinal").checked = !!props.high_fatigue_spinal;
+  $("#exercise-erector").checked = !!props.erector_family;
+  $("#exercise-direct-erector").checked = !!props.direct_erector;
+  $("#exercise-msg").textContent = row ? "source: " + row.source : "new override entity";
+  const extra = { ...props };
+  EXERCISE_KNOWN.forEach((key) => delete extra[key]);
+  $("#exercise-extra").value = Object.keys(extra).length ? JSON.stringify(extra, null, 2) : "{}";
+  $("#exercise-editor").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderExerciseCatalog() {
+  const data = window.__exerciseCatalog;
+  if (!data) return;
+  const query = ($("#exercise-search").value || "").toLowerCase();
+  const pattern = $("#exercise-filter").value;
+  const rows = data.entities.filter((row) => {
+    if (pattern && row.pattern !== pattern) return false;
+    const haystack = [row.id, row.display, row.pattern,
+      ...(row.props.log_names || [])].join(" ").toLowerCase();
+    return !query || haystack.includes(query);
+  });
+  if (!rows.length) {
+    $("#exercise-catalog").innerHTML = "<p class='empty'>No exercises match.</p>";
+    return;
+  }
+  const body = rows.map((row) => {
+    const p = row.props || {};
+    const flags = [
+      p.primary_compound ? "compound" : "",
+      p.bodyweight_type ? "bodyweight" : "",
+      p.time_based ? "timed" : "",
+      p.e1rm_applicable === false ? "no e1rm" : "",
+      p.main_lift ? "main lift" : "",
+      p.high_fatigue_spinal ? "high spinal" : "",
+    ].filter(Boolean).map((f) => `<span class="pill">${esc(f)}</span>`).join("");
+    const names = (p.log_names || []).map((n) => `<code>${esc(n)}</code>`).join(", ");
+    return `<tr>
+      <td><strong>${esc(row.display)}</strong><div class="muted"><code>${esc(row.id)}</code>
+        · ${esc(row.source)}</div></td>
+      <td><code>${esc(row.pattern || "—")}</code></td>
+      <td>${(p.primary_muscles || []).map((m) => `<span class="pill">${esc(m)}</span>`).join("") || "—"}</td>
+      <td>${flags || "—"}</td>
+      <td>${names || "—"}</td>
+      <td><button class="ghost" data-edit-exercise="${esc(row.id)}">Edit</button>
+        <details><summary class="muted">all fields</summary>
+        <pre class="props">${esc(JSON.stringify(p, null, 2))}</pre></details></td>
+    </tr>`;
+  }).join("");
+  $("#exercise-catalog").innerHTML = `<table><thead><tr><th>Exercise</th><th>Pattern</th>
+    <th>Primary muscles</th><th>Flags</th><th>Log names</th><th></th></tr></thead>
+    <tbody>${body}</tbody></table>`;
+  document.querySelectorAll("[data-edit-exercise]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = window.__exerciseCatalog.entities.find((e) => e.id === button.dataset.editExercise);
+      if (row) openExerciseEditor(row);
+    });
+  });
+}
+
+async function loadExerciseCatalog() {
+  try {
+    const data = await api("/api/exercises/catalog");
+    window.__exerciseCatalog = data;
+    const select = $("#exercise-filter");
+    const current = select.value;
+    select.innerHTML = "<option value=''>all patterns</option>" +
+      data.patterns.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join("");
+    select.value = current;
+    $("#exercise-patterns").innerHTML = data.patterns.map((p) => `<option value="${esc(p)}">`).join("");
+    renderExerciseCatalog();
+  } catch (error) {
+    $("#exercise-catalog").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+$("#exercise-search").addEventListener("input", renderExerciseCatalog);
+$("#exercise-filter").addEventListener("change", renderExerciseCatalog);
+$("#exercise-refresh").addEventListener("click", loadExerciseCatalog);
+$("#exercise-add").addEventListener("click", () => openExerciseEditor(null));
+$("#exercise-cancel").addEventListener("click", () => { $("#exercise-editor").hidden = true; });
+
+$("#exercise-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const id = $("#exercise-id").value.trim();
+  const extraText = $("#exercise-extra").value.trim() || "{}";
+  let extra;
+  try { extra = JSON.parse(extraText); } catch (error) {
+    $("#exercise-msg").textContent = "Additional properties must be valid JSON: " + error.message;
+    return;
+  }
+  if (!extra || Array.isArray(extra) || typeof extra !== "object") {
+    $("#exercise-msg").textContent = "Additional properties must be a JSON object.";
+    return;
+  }
+  const props = Object.assign({}, extra, {
+    display: $("#exercise-display").value.trim(),
+    log_names: $("#exercise-log-names").value.split("\n").filter((line) => line.length > 0),
+    pattern: $("#exercise-pattern").value.trim(),
+    primary_muscles: $("#exercise-muscles").value.split(",").map((m) => m.trim()).filter(Boolean),
+    primary_compound: $("#exercise-compound").checked,
+    loadable: $("#exercise-loadable").checked,
+    bodyweight_type: $("#exercise-bodyweight").checked,
+    time_based: $("#exercise-timed").checked,
+    e1rm_applicable: $("#exercise-e1rm").checked,
+    vbt_family: $("#exercise-vbt").value.trim() || null,
+    main_lift: $("#exercise-main").checked,
+    high_fatigue_spinal: $("#exercise-spinal").checked,
+    erector_family: $("#exercise-erector").checked,
+    direct_erector: $("#exercise-direct-erector").checked,
+  });
+  if (!props.vbt_family) delete props.vbt_family;
+  $("#exercise-msg").textContent = "Saving…";
+  try {
+    const data = await api("/api/exercises", { method: "POST", body: JSON.stringify({ id, props }) });
+    window.__exerciseCatalog = data;
+    $("#exercise-editor").hidden = true;
+    await loadExerciseCatalog();
+    await loadExercises();
+  } catch (error) {
+    $("#exercise-msg").textContent = error.message;
+  }
+});
+
 /* --- programme ---------------------------------------------------------- */
 function programmeStatus(entry) {
   if (entry.deload_reason) return "deload";
@@ -674,9 +940,16 @@ function renderProgramme(entries) {
     return;
   }
   const rows = entries.map((entry) => {
-    const items = entry.prescription.items.map((item) =>
-      `<li>${esc(item.exercise_id)} — ${item.sets}×${item.reps_low}-${item.reps_high}
-       @ ${fmt(item.load_kg)} kg, RIR ${esc(item.rir_target)}</li>`).join("");
+    const stress = entry.prescription.notes?.recent_stress || {};
+    const items = entry.prescription.items.map((item) => {
+      const st = stress[item.exercise_id];
+      const lr = (entry.prescription.notes?.per_lift_readiness || {})[item.exercise_id];
+      const tag = st && st.status === "high" ? " · high stress" :
+        (st && st.status === "normal" ? " · normal stress" : "");
+      const rtag = lr && lr.status !== "ready" ? ` · readiness ${lr.score}` : "";
+      return `<li>${esc(item.exercise_id)} — ${item.sets}×${item.reps_low}-${item.reps_high}
+       @ ${fmt(item.load_kg)} kg, RIR ${esc(item.rir_target)}${tag}${rtag}</li>`;
+    }).join("");
     const warn = entry.prescription.warnings.length
       ? `<details><summary>${entry.prescription.warnings.length} warning(s)</summary><ul>${entry.prescription.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></details>`
       : "<span class='empty'>none</span>";
@@ -702,14 +975,161 @@ async function runProgramme() {
     sessions_per_week: Number($("#programme-per-week").value || 3),
     start_day: $("#programme-day").value || null,
   };
-  $("#programme-result").innerHTML = "<p class='empty'>Building forecast…</p>";
+  const button = $("#programme-form button[type='submit']");
+  $("#programme-result").innerHTML = "<p class='empty'>Building forecast… each week is three prescriptions, so this takes a few seconds.</p>";
+  button.disabled = true;
   try {
     const data = await api("/api/programme", { method: "POST", body: JSON.stringify(payload) });
     renderProgramme(data.entries);
   } catch (error) {
     $("#programme-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  } finally {
+    button.disabled = false;
   }
 }
+
+/* --- cardio ------------------------------------------------------------- */
+function renderCardio(data) {
+  const weeks = Object.entries(data.weekly_minutes || {}).map(([week, minutes]) =>
+    `<tr><td>${esc(week)}</td><td>${minutes}</td></tr>`).join("");
+  const modalities = Object.entries(data.by_modality || {}).map(([name, count]) =>
+    `<tr><td>${esc(name)}</td><td>${count}</td></tr>`).join("");
+  $("#cardio-result").innerHTML = `
+    <div class="panel"><div class="panel-head"><h2>Summary</h2>
+      <span class="muted">${esc(data.from_date)} to ${esc(data.to_date)}</span></div>
+      <p><strong>${data.total_minutes}</strong> min across <strong>${data.sessions}</strong>
+        session(s) · <strong>${data.average_weekly_minutes}</strong> min/week average</p>
+      <p class="muted">Reference: ${data.reference_min}-${data.reference_max} min/week.
+        ${esc(data.reference_note)}</p>
+      ${weeks ? `<table><thead><tr><th>Week</th><th>Minutes</th></tr></thead>
+        <tbody>${weeks}</tbody></table>` : "<p class='empty'>No cardio logged in this window.</p>"}
+      ${modalities ? `<table><thead><tr><th>Modality</th><th>Sessions</th></tr></thead>
+        <tbody>${modalities}</tbody></table>` : ""}
+    </div>`;
+}
+
+function cardioWeeks() {
+  return Number($("#cardio-weeks")?.value || 12);
+}
+
+async function loadCardio(weeks = null) {
+  try {
+    const params = new URLSearchParams({ weeks: weeks || cardioWeeks() });
+    const asOf = $("#cardio-asof")?.value;
+    if (asOf) params.set("date", asOf);
+    const data = await api("/api/cardio?" + params.toString());
+    renderCardio(data);
+  } catch (error) {
+    $("#cardio-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+$("#cardio-weeks").addEventListener("change", () => loadCardio());
+$("#cardio-asof").addEventListener("change", () => loadCardio());
+
+$("#cardio-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const payload = {
+    date: $("#cardio-date").value || null,
+    modality: $("#cardio-modality").value,
+    minutes: $("#cardio-minutes").value,
+    avg_hr: $("#cardio-avg-hr").value || null,
+    max_hr: $("#cardio-max-hr").value || null,
+    distance_km: $("#cardio-distance").value || null,
+    srpe: $("#cardio-srpe").value || null,
+    note: $("#cardio-note").value || null,
+  };
+  const button = $("#cardio-form button[type='submit']");
+  button.disabled = true;
+  try {
+    await api("/api/cardio", { method: "POST", body: JSON.stringify(payload) });
+    await loadCardio();
+    $("#cardio-form").reset();
+  } catch (error) {
+    $("#cardio-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+/* --- measurements ------------------------------------------------------- */
+let lastMeasurements = null;
+
+function renderMeasurements(data) {
+  lastMeasurements = data;
+  const all = data.summary || [];
+  const filter = $("#measure-filter").value;
+  const summary = all.filter((m) => !filter || m.key === filter);
+  const select = $("#measure-metric");
+  if (!select.options.length) {
+    select.innerHTML = all.map((m) =>
+      `<option value="${esc(m.key)}">${esc(m.label)} (${esc(m.unit || "no unit")})</option>`
+    ).join("");
+  }
+  const filterSelect = $("#measure-filter");
+  if (filterSelect.options.length <= 1) {
+    filterSelect.innerHTML = '<option value="">all metrics</option>' + all.map((m) =>
+      `<option value="${esc(m.key)}">${esc(m.label)}</option>`).join("");
+  }
+  const rows = summary.map((m) => {
+    const latest = m.latest_value == null ? "—" : `${m.latest_value} ${m.unit || ""}`;
+    const change = m.change == null ? "" :
+      `${m.change > 0 ? "+" : ""}${m.change} ${m.unit || ""}`;
+    return `<tr><td><strong>${esc(m.label)}</strong>
+      <div class="muted">${esc(m.key)} · ${m.higher_is_better ? "higher is better" : "lower is better"}</div></td>
+      <td>${esc(latest)}</td><td>${esc(change)}</td>
+      <td>${m.count}${m.latest_on ? `<div class="muted">${esc(m.latest_on)}</div>` : ""}</td></tr>`;
+  }).join("");
+  const entries = (data.entries || []).filter((e) => !filter || e.metric_key === filter)
+    .slice().reverse().map((e) => `
+    <tr><td>${esc(e.measured_on)}</td><td>${esc(e.metric_key)}</td>
+    <td>${e.value}</td><td>${esc(e.method || "")}</td></tr>`).join("");
+  $("#measure-result").innerHTML = `
+    <div class="panel"><div class="panel-head"><h2>Latest</h2></div>
+      <table><thead><tr><th>Metric</th><th>Latest</th><th>Change</th><th>Entries</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="panel"><div class="panel-head"><h2>Recent entries</h2></div>
+      ${entries ? `<table><thead><tr><th>Date</th><th>Metric</th><th>Value</th><th>Method</th></tr></thead>
+        <tbody>${entries}</tbody></table>` : "<p class='empty'>No measurements yet.</p>"}</div>`;
+}
+
+$("#measure-filter").addEventListener("change", () => {
+  if (lastMeasurements) renderMeasurements(lastMeasurements);
+});
+
+async function loadMeasurements() {
+  try {
+    const data = await api("/api/measurements");
+    renderMeasurements(data);
+  } catch (error) {
+    $("#measure-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+$("#measure-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("#measure-form button[type='submit']");
+  button.disabled = true;
+  try {
+    const data = await api("/api/measurements", {
+      method: "POST",
+      body: JSON.stringify({
+        metric: $("#measure-metric").value,
+        date: $("#measure-date").value || null,
+        value: $("#measure-value").value,
+        method: $("#measure-method").value || null,
+        note: $("#measure-note").value || null,
+      }),
+    });
+    renderMeasurements(data);
+    $("#measure-value").value = "";
+    $("#measure-note").value = "";
+  } catch (error) {
+    $("#measure-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  } finally {
+    button.disabled = false;
+  }
+});
 
 /* --- terminal ----------------------------------------------------------- */
 const terminalHistory = [];

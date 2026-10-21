@@ -43,7 +43,7 @@ def test_manual_wins_per_field_and_import_fills_the_rest():
             conn, on_date="2024-01-01", field="sleep", value=2, note="rough night",
         )
         repositories.append_readiness_entry(
-            conn, on_date="2024-01-01", field="grip_strength_kg", value=45.5,
+            conn, on_date="2024-01-01", field="bodyweight_kg", value=80.5,
         )
         merged = queries.readiness_day(conn, "2024-01-01")
 
@@ -51,19 +51,20 @@ def test_manual_wins_per_field_and_import_fills_the_rest():
     assert merged["energy"] == 4
     assert merged["sources"]["sleep"] == "manual"
     assert merged["sources"]["energy"] == "import"
-    assert merged["grip_strength_kg"] == 45.5
-    assert merged["sources"]["grip_strength_kg"] == "manual"
-    assert merged["manual_fields"] == ["grip_strength_kg", "sleep"]
+    assert merged["bodyweight_kg"] == 80.5
+    assert merged["sources"]["bodyweight_kg"] == "manual"
+    assert merged["manual_fields"] == ["bodyweight_kg", "sleep"]
     note = json.loads(merged["manual_merge_note"])
     assert note["sleep"] == {"imported": 5.0, "manual": 2.0, "winner": "manual"}
 
 
-def test_grip_strength_must_be_positive():
+def test_grip_strength_is_not_a_readiness_field():
+    # DEC-GRIP-01: grip is a periodic capacity measurement, not daily readiness.
     with store_with() as store:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="unknown readiness field"):
             repositories.append_readiness_entry(
                 store.connection, on_date="2024-01-01",
-                field="grip_strength_kg", value=0,
+                field="grip_strength_kg", value=45.5,
             )
 
 
@@ -125,13 +126,13 @@ def test_readiness_set_cli_and_bulk_import(tmp_path):
     store.close()
 
     assert cli.main(["--db", str(path), "readiness", "set", "--date", "2024-01-02",
-                     "--sleep", "2", "--energy", "3", "--grip-strength", "45.5"]) == 0
+                     "--sleep", "2", "--energy", "3", "--bodyweight", "80.5"]) == 0
     store = db.Store(path)
     try:
         day = queries.readiness_day(store.connection, "2024-01-02")
     finally:
         store.close()
-    assert (day["sleep"], day["energy"], day["grip_strength_kg"]) == (2, 3, 45.5)
+    assert (day["sleep"], day["energy"], day["bodyweight_kg"]) == (2, 3, 80.5)
 
     state = tmp_path / "state.yaml"
     state.write_text(

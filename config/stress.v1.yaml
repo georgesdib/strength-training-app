@@ -1,0 +1,21 @@
+# Advisory recent-stress decay (option B in docs/FATIGUE-FITNESS.md).
+#
+# This is deliberately NOT a fitness-fatigue fit and never changes a load. It answers one
+# question: how much hard work has this lift had in the last few days, with a transparent
+# exponential decay? The constants are assumptions, not findings (ASSUMPTION-24):
+#   - a 48 h half-life: a set two days old counts half as much as one from today;
+#   - 6 decayed hard sets = high, 3 = normal;
+#   - warn when a lift is prescribed within 48 h of high recent stress.
+# Hard set = working set with RIR <= 4 (the effort window); a missing RIR is counted, because
+# a working set with no rating is still work, not zero.
+#
+# Why no fitting: the strength-specific evidence is small and the model parameters are not
+# identifiable from ~3 sessions/week (docs/FATIGUE-FITNESS.md §2-4).
+
+schema_version: "1.0.0"
+half_life_hours: 48
+window_days: 10
+high_decayed_sets: 6.0
+normal_decayed_sets: 3.0
+warning_within_hours: 48
+effort_max_rir: 4

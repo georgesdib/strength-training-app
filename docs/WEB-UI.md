@@ -25,19 +25,37 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 - **Today** — goal, block week, readiness, injury signal, unreviewed count, recent sessions.
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
   SQLite, never written to the repository. New cumulative exports are overlap-matched against
-  stored rows, so old history is not duplicated.
+  stored rows, so old history is not duplicated. An **After the import** panel states the
+  procedure: check the report, review recent sessions to create marks, then calibrate later —
+  importing alone does not require a calibration.
 - **Prescribe** — date + day; deterministic prescription, warnings and notes; every item cites
-  rule ids.
-- **Review** — unreviewed/recent session sheet; engine scores shown for context; human marks,
+  rule ids. A `recent stress` column shows the advisory decayed hard-set status (never a load
+  change); a `readiness` column shows the per-lift score (can only lower a load).
+- **Review** — unreviewed/recent session sheet; engine scores shown for context; human marks, optional session RPE and session length,
   plus a **Run rubric calibration** button (same report as `strength-coach calibrate`),
   confidence and note; calibration report after saving.
 - **Readiness** — any subset of 1-5 and device fields, including optional wearable readiness;
   manual values win per field; the computed global/category score is shown; per-athlete
   baseline settings and the shadow baseline report are available; overrides take 0.00–1.00
   with a reason. A current workout is refused until readiness is ready.
-- **Programme** — rolling A/B/C forecast, deload flag and warnings; nothing is persisted.
+- **Prescribe** — date + day; deterministic prescription, warnings and notes; every item cites
+  rule ids. A `recent stress` column, a `readiness` column, the **strength fatigue model**
+  panel (shadow: per-lift + overall fitness/fatigue/state with approximate 95% intervals,
+  R²/status; no load effect) and the **exercise selection** panel (shadow rankings; optional
+  LLM chooser; no prescription change). It says when a day has no variant slots.
+- **Cardio** — log a session (modality, minutes, HR, distance, sRPE) choose the window (4/12/26/52 weeks) and an optional as-of date:
+  sessions, total/average minutes, weekly breakdown and the WHO reference as context. Capture
+  only; no load changes.
+- **Measures** — periodic outcomes (VO2max, grip, 5x sit-to-stand, steps, sitting), with latest
+  value, change and entries, filtered by metric. Metrics and directions are config;
+  nothing changes a load.
+- **Exercises** — full canonical catalogue with search/filter, all properties per row, and an
+  add/edit form. Edits are written to `config/exercises/overrides.v1.yaml`; ids are immutable.
 - **Athlete** — append-only editing of profile, constraints, suitability, e1RM overrides,
-  strength tests, block start and symptoms; shows the current tables and injury signal.
+  strength tests, block start and symptoms; shows the current tables, injury signal and the
+  **e1RM calibration** report (current formula e1RM and last set for every lift, plus
+  measured tests vs formula; a bounded correction is applied only when the confidence interval
+  excludes 1.0).
 - **Terminal** — restricted `strength-coach` command runner bound to the UI database.
 - **Docs** — local Markdown rendered without external assets.
 
@@ -49,7 +67,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
 | `POST /api/prescribe` | `{date, day}` -> prescription |
 | `GET /api/review/<session>` | session sheet |
-| `POST /api/review/<session>` | `{scores, confidence, note}` -> marks |
+| `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes}` -> marks + optional session detail |
 | `GET /api/readiness/<date>` | merged readiness |
 | `POST /api/readiness` | `{date, values, note}` -> merged readiness + score |
 | `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |
@@ -57,6 +75,14 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, injury signal |
 | `GET /api/exercises` | canonical exercise catalogue for the pickers |
 | `POST /api/programme` | rolling forecast; returns dated entries and prescriptions |
+| `GET /api/cardio?weeks=N` | cardio summary for the window |
+| `POST /api/cardio` | `{date, modality, minutes, avg_hr, max_hr, distance_km, srpe, note}` -> summary |
+| `GET /api/fatigue?date=N` | strength fitness-fatigue shadow model (per-lift state and status) |
+| `GET /api/selection?date=N&day=X&llm=0\|1` | shadow exercise-selection rankings |
+| `GET /api/exercises/catalog` | full exercise catalogue with source/properties |
+| `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml` |
+| `GET /api/measurements` | metric catalogue, per-metric summary and recent entries |
+| `POST /api/measurements` | `{metric, value, date, method, note}` -> summary |
 | `POST /api/terminal` | one restricted `strength-coach` command |
 | `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes |
 | `GET /api/calibrate` | calibration report |

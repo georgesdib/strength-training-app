@@ -33,8 +33,14 @@ from strength_coach.agents import (
     load_settings,
 )
 from strength_coach.agents import proposal as proposal_mod
+from strength_coach.agents import selection as agent_selection
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
 from strength_coach.domain import e1rm as e1rm_mod
+from strength_coach.features import cardio as cardio_feature
+from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
+from strength_coach.features import measurements as measurements_feature
+from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import readiness_baseline
@@ -49,10 +55,11 @@ from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.eval import backtest, load_marks, record_marks
 from strength_coach.eval.report import format_report, format_session_sheet, item_guide_lines
 from strength_coach.prescribe import build_prescription
+from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.rules import RuleContext, evaluate, load_document
-from strength_coach.store import db, importer, queries, repositories
+from strength_coach.store import db, exercise_admin, importer, queries, repositories
 from strength_coach.trace import RunTrace
 from strength_coach.utils import io_utils, paths
 
@@ -83,12 +90,16 @@ def main(argv: list[str] | None = None) -> int:
     review = sub.add_parser("review", help="mark a session and update calibration")
     review.add_argument("--session", default=None, help="session id (YYYY-MM-DD)")
     review.add_argument("--pending", action="store_true",
-                        help="review every session that has no marks, oldest first")
+                        help="review unreviewed sessions after the last reviewed one, oldest first")
     review.add_argument("--limit", type=int, default=10,
                         help="maximum sessions for --pending (default 10)")
     review.add_argument("--scores", default=None, help="read marks from a YAML file")
     review.add_argument("--confidence", choices=("high", "low", "unknown"), default=None)
     review.add_argument("--note", default=None)
+    review.add_argument("--session-rpe", type=float, default=None,
+                        help="optional session RPE 1-10 (also asked interactively at review)")
+    review.add_argument("--session-minutes", type=float, default=None,
+                        help="optional session length in minutes")
 
     calibrate = sub.add_parser("calibrate", help="report agreement between rubric and marks")
     calibrate.add_argument("--tolerance", type=float, default=None)
@@ -124,6 +135,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="YYYY-MM-DD; omit for no expiry")
     setter.add_argument("--reason", default=None, help="why this override exists")
     e1rm_sub.add_parser("list", help="show recorded overrides")
+    e1rm_cal = e1rm_sub.add_parser(
+        "calibrate", help="compare measured tests with the formula estimate (report only)"
+    )
+    e1rm_cal.add_argument("--window-days", type=int, default=84,
+                          help="look-back window before each test (default 84)")
 
     test = sub.add_parser("test", help="record a 3RM/5RM (or confirmed 1RM) strength test")
     test.add_argument("--exercise", required=True, help="canonical exercise id")
@@ -153,6 +169,14 @@ def main(argv: list[str] | None = None) -> int:
     symptom.add_argument("--note", default=None)
     symptom.add_argument("--show", action="store_true", help="list recent entries")
 
+    exercise = sub.add_parser("exercise", help="list or edit the exercise catalogue")
+    exercise_sub = exercise.add_subparsers(dest="action", required=True)
+    exercise_sub.add_parser("list", help="list canonical exercises and their source")
+    editor = exercise_sub.add_parser("set", help="edit or add one exercise from JSON")
+    editor.add_argument("--id", required=True, help="lower_snake_case canonical id")
+    editor.add_argument("--json", required=True, dest="props_json",
+                        help='JSON object of properties, e.g. {"pattern":"squat"}')
+
     readiness = sub.add_parser("readiness", help="record a readiness day")
     readiness.add_argument("action", choices=("set", "override", "calibrate", "settings", "shadow"))
     readiness.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
@@ -167,8 +191,6 @@ def main(argv: list[str] | None = None) -> int:
     readiness.add_argument("--rhr", dest="rhr_bpm", type=float, default=None)
     readiness.add_argument("--bodyweight", dest="bodyweight_kg", type=float, default=None)
     readiness.add_argument("--fat-percent", dest="fat_pct", type=float, default=None)
-    readiness.add_argument("--grip-strength", dest="grip_strength_kg", type=float,
-                           default=None, help="grip strength in kg")
     readiness.add_argument("--wearable-score", dest="wearable_score", type=float,
                            default=None, help="third-party readiness score, 0-100")
     readiness.add_argument("--note", default=None)
@@ -190,6 +212,39 @@ def main(argv: list[str] | None = None) -> int:
     readiness.add_argument("--rhr-weight", type=float, default=None)
     readiness.add_argument("--wearable-weight", type=float, default=None)
     readiness.add_argument("--setting-note", default=None)
+
+    cardio = sub.add_parser("cardio", help="log or summarise cardio sessions")
+    cardio.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
+    cardio.add_argument("--modality", default=None,
+                        help="e.g. walk, run, bike, row, intervals, swim")
+    cardio.add_argument("--minutes", type=float, default=None, help="session duration")
+    cardio.add_argument("--avg-hr", type=int, default=None, help="average heart rate")
+    cardio.add_argument("--max-hr", type=int, default=None, help="maximum heart rate")
+    cardio.add_argument("--distance-km", type=float, default=None)
+    cardio.add_argument("--srpe", type=int, default=None, help="session RPE, 1-10")
+    cardio.add_argument("--note", default=None)
+    cardio.add_argument("--show", action="store_true", help="show the summary")
+    cardio.add_argument("--weeks", type=int, default=12,
+                        help="summary window in weeks (default 12)")
+
+    select = sub.add_parser("select", help="show shadow exercise-selection suggestions")
+    select.add_argument("--date", required=True, help="YYYY-MM-DD")
+    select.add_argument("--day", choices=("A", "B", "C"), default="B")
+    select.add_argument("--llm", action="store_true",
+                        help="let the configured model choose from the filtered candidates")
+
+    fatigue = sub.add_parser("fatigue", help="show the strength fitness-fatigue shadow model")
+    fatigue.add_argument("--date", default=None, help="as-of date (default: today)")
+
+    measure = sub.add_parser("measure", help="log or show periodic measurements")
+    measure.add_argument("--metric", default=None,
+                         help="e.g. vo2max, grip_strength_kg, sit_to_stand_5_s, steps_per_day")
+    measure.add_argument("--value", type=float, default=None)
+    measure.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
+    measure.add_argument("--method", default=None,
+                         help="protocol or device, e.g. 'step test' or 'hand dynamometer'")
+    measure.add_argument("--note", default=None)
+    measure.add_argument("--show", action="store_true", help="show the summary")
 
     web = sub.add_parser("web", help="serve the local web UI (127.0.0.1 only)")
     web.add_argument("--host", default="127.0.0.1",
@@ -213,6 +268,11 @@ def main(argv: list[str] | None = None) -> int:
         "e1rm": _cmd_e1rm,
         "test": _cmd_test,
         "symptom": _cmd_symptom,
+        "cardio": _cmd_cardio,
+        "measure": _cmd_measure,
+        "fatigue": _cmd_fatigue,
+        "select": _cmd_select,
+        "exercise": _cmd_exercise,
         "block": _cmd_block,
         "readiness": _cmd_readiness,
         "web": _cmd_web,
@@ -364,6 +424,17 @@ def _review_one(conn, session_id: str, args) -> int:
         scores = _ask_scores(critique)
         confidence = args.confidence or _ask_confidence()
 
+    feedback = _collect_session_feedback(args)
+    stored_feedback = None
+    if feedback:
+        try:
+            stored_feedback = session_feedback_feature.record(conn, session_id, **feedback)
+        except ValueError as exc:
+            print(f"session detail: {exc}")
+            return 2
+        if stored_feedback:
+            print(_format_session_feedback(stored_feedback))
+
     written = record_marks(
         conn,
         session_id,
@@ -375,9 +446,58 @@ def _review_one(conn, session_id: str, args) -> int:
     if written == 0:
         print("\nno marks recorded: every item was skipped. This session is still "
               "unreviewed.")
+        if stored_feedback:
+            print("session detail was saved; review again to add marks.")
         return 2
     print(f"\nrecorded {written} marks for {session_id} (confidence {confidence})")
     return 0
+
+
+def _collect_session_feedback(args) -> dict | None:
+    """Optional session RPE/length: flags first, then a skippable prompt.
+
+    A file-based review (`--scores`) stays non-interactive; flags still work there. The prompt
+    is only for the interactive path, because these fields are useful but never required.
+    """
+    if args.session_rpe is not None or args.session_minutes is not None:
+        return {
+            key: value for key, value in {
+                "srpe": args.session_rpe,
+                "duration_min": args.session_minutes,
+            }.items() if value is not None
+        }
+    if args.scores:
+        return None
+
+    print("\noptional session detail (Enter to skip)")
+    srpe = _ask_optional_number("  session RPE 1-10: ", 1, 10)
+    minutes = _ask_optional_number("  session length minutes: ", 1, 600)
+    values = {"srpe": srpe, "duration_min": minutes}
+    return {key: value for key, value in values.items() if value is not None} or None
+
+
+def _ask_optional_number(prompt: str, low: float, high: float) -> float | None:
+    raw = input(prompt).strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        print("  skipped (not a number)")
+        return None
+    if not low <= value <= high:
+        print(f"  skipped (outside {low:g}-{high:g})")
+        return None
+    return value
+
+
+def _format_session_feedback(feedback: dict) -> str:
+    pieces = []
+    if feedback.get("srpe") is not None:
+        pieces.append(f"RPE {feedback['srpe']:g}")
+    if feedback.get("duration_min") is not None:
+        pieces.append(f"{feedback['duration_min']:g} min")
+    return "session detail: " + ", ".join(pieces)
 
 
 def _cmd_calibrate(args) -> int:
@@ -592,6 +712,10 @@ def _cmd_e1rm(args) -> int:
         if args.action == "list":
             _print_e1rm(conn)
             return 0
+        if args.action == "calibrate":
+            report = e1rm_calibration_feature.build(conn, window_days=args.window_days)
+            _print_e1rm_calibration(report)
+            return 0
         if args.kg <= 0:
             print("e1RM must be positive")
             return 2
@@ -628,6 +752,33 @@ def _print_e1rm(conn) -> None:
             status = "active"
         print(f"{row['exercise_id']:<24}{row['e1rm_kg']:>9g}"
               f"{row['effective_from']:>13}{row['expires_on'] or '-':>13}  {status}")
+
+
+def _print_e1rm_calibration(report) -> None:
+    if not report:
+        print("no measured tests with a prior estimate; run `test` first, then calibrate")
+        return
+    print(f"{'exercise':<24}{'formula raw>eff':>20}{'override raw>eff':>20}"
+          f"{'used':>9}{'n':>3}{'median':>8}{'95% CI':>15}  status")
+    for row in report:
+        formula = "-" if row.formula_raw is None else (
+            f"{row.formula_raw:.1f}" if row.formula_effective is None
+            else f"{row.formula_raw:.1f}>{row.formula_effective:.1f}"
+        )
+        override = "-" if row.override_raw is None else (
+            f"{row.override_raw:.1f}>{row.override_effective:.1f}"
+            if row.override_effective is not None else f"{row.override_raw:.1f}"
+        )
+        used = "-" if row.active_source is None else row.active_source
+        ratio = "-" if row.median_ratio is None else f"{row.median_ratio:.3f}"
+        ci = "-" if row.ci_low is None else f"{row.ci_low:.3f}-{row.ci_high:.3f}"
+        print(f"{row.exercise_id:<24}{formula:>20}{override:>20}{used:>9}{row.n:>3}"
+              f"{ratio:>8}{ci:>15}  {row.status}")
+        for point in row.points:
+            print(f"    {point.measured_on}  measured {point.measured_kg:g} kg"
+                  f"  formula {point.predicted_kg:g} kg  ({point.ratio:.3f})")
+    print("\nbounded correction: applied only when the 95% CI excludes 1.0 and the median "
+          "bias is within ±10%; measured tests still override the formula.")
 
 
 def _cmd_test(args) -> int:
@@ -772,6 +923,182 @@ def _print_symptoms(conn, *, region: str | None = None) -> None:
         print(f"{row['logged_on']:<12}{row['region']:<12}{row['timing']:<14}"
               f"{row['level']:>6}  "
               f"{settled:<8} {row['note'] or ''}")
+
+
+def _cmd_cardio(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        logging = args.modality is not None or args.minutes is not None
+        if args.show or not logging:
+            _print_cardio(conn, weeks=args.weeks, on_date=args.date)
+            return 0
+        if not args.modality:
+            raise SystemExit("--modality is required when logging a cardio session")
+        if args.minutes is None:
+            raise SystemExit("--minutes is required when logging a cardio session")
+        on_date = args.date or datetime.date.today().isoformat()
+        repositories.append_cardio(
+            conn,
+            performed_on=on_date,
+            modality=args.modality,
+            duration_s=round(float(args.minutes) * 60),
+            avg_hr=args.avg_hr,
+            max_hr=args.max_hr,
+            distance_m=(None if args.distance_km is None else args.distance_km * 1000),
+            srpe=args.srpe,
+            note=args.note,
+        )
+        print(f"logged {args.modality} {args.minutes:g} min on {on_date}")
+        summary = cardio_feature.compute(conn, weeks=args.weeks, on_date=on_date)
+        print(f"last {args.weeks} weeks: {summary.total_minutes:g} min across "
+              f"{summary.sessions} sessions "
+              f"({summary.average_weekly_minutes:g} min/week)")
+        return 0
+    finally:
+        store.close()
+
+
+def _print_cardio(conn, *, weeks: int = 12, on_date: str | None = None) -> None:
+    summary = cardio_feature.compute(conn, weeks=weeks, on_date=on_date)
+    print(f"cardio, last {weeks} weeks ({summary.from_date} to {summary.to_date})")
+    print(f"  sessions        {summary.sessions}")
+    print(f"  total minutes   {summary.total_minutes:g}")
+    print(f"  average/week    {summary.average_weekly_minutes:g}")
+    if summary.average_srpe is not None:
+        print(f"  average sRPE    {summary.average_srpe:g}/10")
+    if summary.by_modality:
+        print("  modalities      " + ", ".join(
+            f"{name} x{count}" for name, count in summary.by_modality.items()
+        ))
+    if summary.weekly_minutes:
+        print("  weekly minutes")
+        for week, minutes in summary.weekly_minutes.items():
+            print(f"    {week}  {minutes:g}")
+    print(f"  reference       {summary.reference_min}-{summary.reference_max} min/week")
+    print(f"  {summary.reference_note}")
+
+
+def _cmd_exercise(args) -> int:
+    if args.action == "list":
+        catalog = exercise_admin.catalog()
+        for row in catalog["entities"]:
+            print(f"  {row['id']:<42} {row['pattern']:<22} {row['source']:<8} {row['display']}")
+        return 0
+    props = json.loads(args.props_json)
+    result = exercise_admin.save(args.id, props)
+    row = next(r for r in result["entities"] if r["id"] == args.id)
+    print(f"exercise {args.id}: {row['display']} ({row['pattern']}, {row['source']})")
+    return 0
+
+
+def _cmd_select(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        chooser = None
+        if args.llm:
+            chooser = agent_selection.chooser(build_client(load_settings()))
+        rows = selection_mod.select(conn, None, args.date, args.day, chooser=chooser)
+    finally:
+        store.close()
+    print(f"exercise selection (shadow; no prescription change) {args.date} day {args.day}")
+    if not rows:
+        print("no multi-variant slots on this day")
+        return 0
+    for row in rows:
+        mark = "->" if row.changed else "="
+        print(f"  {row.slot_id:<28}{row.current} {mark} {row.suggested}  [{row.source}]")
+        print(f"    {row.reason}")
+        for candidate in row.candidates:
+            print(f"    {candidate.exercise_id:<24} {candidate.score:.3f}  "
+                  f"{', '.join(candidate.reasons)}")
+    return 0
+
+
+def _cmd_fatigue(args) -> int:
+    store = db.Store(args.db)
+    try:
+        on_date = args.date or datetime.date.today().isoformat()
+        models = fatigue_fitness_feature.compute(store.connection, on_date)
+    finally:
+        store.close()
+    if not models:
+        print("no e1RM observations for the strength model yet")
+        return 0
+    print(f"strength fitness-fatigue (shadow; no load effect) as of {on_date}")
+    print(f"{'exercise':<24}{'n':>3}{'span':>6}{'R2':>7}{'backtest':>10}"
+          f"{'fitness':>9}{'fatigue':>9}{'state [95% CI]':>21}  status")
+    for model in models:
+        r2 = "-" if model.r2 is None else f"{model.r2:.2f}"
+        suffix = "" if model.unit == "kg" else "x"
+        fit = "-" if model.fitness_kg is None else f"{model.fitness_kg:.1f}{suffix}"
+        fat = "-" if model.fatigue_kg is None else f"{model.fatigue_kg:.1f}{suffix}"
+        bt = "-" if model.backtest_mae is None else (
+            f"{model.backtest_mae:.1f}/{model.backtest_naive_mae:.1f}"
+        )
+        state = "-" if model.state_kg is None else f"{model.state_kg:.1f}{suffix}"
+        if model.state_ci_low is not None and model.state_ci_high is not None:
+            state += f" [{model.state_ci_low:.1f},{model.state_ci_high:.1f}]"
+        print(f"{model.exercise_id:<24}{model.n_observations:>3}{model.span_days:>6}"
+              f"{r2:>7}{bt:>10}{fit:>9}{fat:>9}{state:>21}  {model.status}")
+    print("\nshadow only: parameters are fitted, not validated; no prescription reads this.")
+    return 0
+
+
+def _cmd_measure(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        if args.show or (args.metric is None and args.value is None):
+            _print_measurements(conn, metric_key=args.metric)
+            return 0
+        if args.metric is None:
+            raise SystemExit("--metric is required (or use --show to list metrics)")
+        if args.value is None:
+            # A bare --metric filters the display; it does not log a value.
+            _print_measurements(conn, metric_key=args.metric)
+            return 0
+        spec = measurements_feature.record(
+            conn,
+            metric_key=args.metric,
+            value=args.value,
+            measured_on=args.date,
+            method=args.method,
+            note=args.note,
+        )
+        unit = f" {spec.unit}" if spec.unit else ""
+        print(f"logged {spec.label}: {args.value:g}{unit}")
+        _print_measurements(conn, metric_key=spec.key)
+        return 0
+    finally:
+        store.close()
+
+
+def _print_measurements(conn, *, metric_key: str | None = None) -> None:
+    rows = measurements_feature.summary(conn)
+    if metric_key is not None:
+        rows = [row for row in rows if row["key"] == metric_key]
+    print("measurements")
+    for row in rows:
+        unit = f" {row['unit']}" if row["unit"] else ""
+        if row["count"] == 0:
+            print(f"  {row['key']:<22} no entries       {row['label']}")
+            continue
+        change = row["change"]
+        trend = (
+            f", {change:+g}{unit} since first"
+            if change is not None and row["count"] > 1 else ""
+        )
+        print(f"  {row['key']:<22} {row['latest_value']:g}{unit} on {row['latest_on']}"
+              f"  ({row['count']} entr{'y' if row['count'] == 1 else 'ies'}{trend})")
+    recent = measurements_feature.entries(conn, metric_key=metric_key)[-10:]
+    if recent:
+        print("\nrecent entries")
+        for entry in recent:
+            method = f" · {entry['method']}" if entry.get("method") else ""
+            print(f"  {entry['measured_on']}  {entry['metric_key']:<22} "
+                  f"{float(entry['value']):g}{method}")
 
 
 def _cmd_block(args) -> int:
@@ -1125,6 +1452,10 @@ def _print_import(report) -> None:
           f"{report.raw_rows_overlap} overlapping, "
           f"{report.clean_sets_inserted} clean sets, {report.sessions_written} sessions, "
           f"{report.readiness_days} readiness days, {report.quarantined} quarantined")
+    # Import and calibration are separate steps: sessions are not labels. Without marks,
+    # `calibrate` has nothing to compare, so point at review rather than implying a next run.
+    print("next: review recent sessions (`strength-coach review --pending`) to create marks; "
+          "rubric calibration runs after reviews, not as part of the import")
 
 
 def _print_prescription(prescription) -> None:
@@ -1146,6 +1477,23 @@ def _print_prescription(prescription) -> None:
               f"{item.rir_target:>5}{velocity}  {', '.join(item.rationale_refs) or '-'}")
     if prescription.issues:
         print("  issues: " + "; ".join(prescription.issues))
+    stress = (prescription.notes or {}).get("recent_stress") or {}
+    if stress:
+        print("  recent stress (decayed hard sets; advisory)")
+        for item in prescription.items:
+            entry = stress.get(item.exercise_id)
+            if entry is None:
+                continue
+            print(f"    {item.exercise_id:<24} {entry['status']:<7}"
+                  f" {entry['decayed_sets']:>5.1f} sets, last {entry['last_hours']:g}h ago")
+    lift_ready = (prescription.notes or {}).get("per_lift_readiness") or {}
+    if lift_ready:
+        print("  per-lift readiness (advisory; can only lower a load)")
+        for item in prescription.items:
+            entry = lift_ready.get(item.exercise_id)
+            if entry is None:
+                continue
+            print(f"    {item.exercise_id:<24} {entry['status']:<8} {entry['score']:.2f}")
     for warning in prescription.warnings:
         print(f"  note: {warning}")
 

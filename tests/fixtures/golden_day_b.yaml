@@ -32,6 +32,15 @@ expected:
       rest_s: 180
       essential: true
       rule: PRG-RIR-001
+    - exercise_id: pull_up
+      sets: 3
+      reps_low: 6
+      reps_high: 10
+      load_kg: 0.0
+      rir_target: 2
+      rest_s: 90
+      essential: false
+      rule: PRG-DP-001
     - exercise_id: lateral_raise
       sets: 3
       reps_low: 10

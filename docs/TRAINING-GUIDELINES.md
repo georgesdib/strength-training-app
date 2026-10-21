@@ -4,6 +4,10 @@ Purpose: check a fixed-methodology strength programme against published resistan
 evidence, and record where they agree, where they differ, and where the literature is too
 weak to settle anything.
 
+This file is about the strength programme. The wider question — whether the programme covers
+the *modalities* that matter for a longevity-first goal (cardio, power, pulling, assessment) —
+is reviewed in [`LONGEVITY-REVIEW.md`](LONGEVITY-REVIEW.md).
+
 **The programme's constitution wins every conflict** — it is the product's methodology. This
 file only says where a rule is well supported, over-constrained, or unsupported.
 

@@ -51,7 +51,9 @@ python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 source .venv/bin/activate           # so `strength-coach` is on PATH
 
-.venv/bin/python -m pytest            # 474 public tests (15 more locally, private)
+.venv/bin/python -m pytest -m "not integration and not golden"   # fast iteration (~2 min)
+.venv/bin/python -m pytest tests/test_prescribe.py --lf             # targeted / last failed
+.venv/bin/python -m pytest            # full, parallel, ~4-5 min; -n 0 to debug serially
 .venv/bin/python tools/profile_data.py    # profile your own export
 .venv/bin/python tools/baseline.py        # strength baseline, latest date in the log
 .venv/bin/python tools/llm_check.py       # show the LLM configuration (see below)

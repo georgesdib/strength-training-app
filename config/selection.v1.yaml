@@ -1,0 +1,18 @@
+# Exercise-selection shadow scoring (roadmap §4.15).
+#
+# Only variants already configured for a slot are candidates. Hard constraints and
+# can_do=false exclude a candidate; injury is a penalty, never a veto (DEC-INJURY-01).
+# The score is transparent and advisory: this module does not change a prescription yet.
+#
+# Weights and the rotation window are ASSUMPTION-29. The fatigue model is cached per database version;
+# it is cached so the selector can use it without paying ~2 s per request.
+
+schema_version: "1.0.0"
+weights:
+  readiness: 0.35
+  stress: 0.25
+  rotation: 0.20
+  preference: 0.10
+  fatigue: 0.10
+rotation_days: 28
+injury_penalty: 0.15

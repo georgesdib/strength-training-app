@@ -143,3 +143,33 @@ def test_unmatched_reports_only_misses(taxonomy):
 
 def test_whitespace_and_tabs_are_stripped(taxonomy):
     assert taxonomy.resolve("  Bird dog \t") is not None
+
+
+def test_lat_pulldown_is_a_canonical_vertical_pull():
+    # DEC-PULL-02: the pulldown is interchangeable with the pull-up in the vertical-pull slot,
+    # so it must resolve to a real entity (with loadability), not a synthetic pattern slug.
+    taxonomy = exercises.taxonomy()
+    assert taxonomy.resolve("Lat Pulldown").id == "lat_pulldown"
+    assert taxonomy.resolve("Close Grip Pulldown").id == "close_grip_pulldown"
+    assert taxonomy.resolve("Straight-Arm Pulldown").pattern == "lat_isolation"
+
+
+def test_box_jump_is_canonical_and_other_jumps_stay_synthetic():
+    taxonomy = exercises.taxonomy()
+    assert taxonomy.resolve("Box Jumps").id == "box_jump"
+    assert taxonomy.resolve("Box Jumps").get("bodyweight_type") is True
+    assert taxonomy.resolve("Jump Squats").pattern == "power_jump"
+
+
+def test_approved_variant_pattern_and_muscle_corrections(taxonomy):
+    assert taxonomy.resolve("Reverse Nordic Curl").pattern == "knee_extension"
+    assert taxonomy.resolve("Split Squat").pattern == "squat_unilateral"
+    assert taxonomy.resolve("Bulgarian Split Squat").pattern == "squat_unilateral"
+    tib = taxonomy.resolve("Tib Bar Calves")
+    assert tib.pattern == "dorsiflexion"
+    assert tib.get("primary_muscles") == ["tibialis_anterior"]
+    assert taxonomy.resolve("Face Pull ").get("primary_muscles") == ["rear_delts", "rotator_cuff"]
+    assert taxonomy.resolve("T Bar Row").get("primary_muscles") == ["lats", "upper_back"]
+    assert taxonomy.resolve("Speed Bench Press").get("primary_muscles") == [
+        "chest", "triceps", "front_delts"
+    ]

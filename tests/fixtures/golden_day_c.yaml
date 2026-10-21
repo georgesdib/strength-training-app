@@ -37,6 +37,16 @@ expected:
       rest_s: 90
       essential: false
       rule: PRG-DP-001
+    - exercise_id: hanging_leg_raise
+      sets: 3
+      reps_low: 8
+      reps_high: 12
+      load_kg: 0.0
+      load_basis: bodyweight_total
+      rir_target: 2
+      rest_s: 90
+      essential: false
+      rule: PRG-DP-001
     - exercise_id: split_squat
       sets: 3
       reps_low: 8

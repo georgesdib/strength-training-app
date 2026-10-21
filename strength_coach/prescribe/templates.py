@@ -8,7 +8,9 @@ yesterday's programme.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -18,6 +20,9 @@ from strength_coach.utils import paths
 
 SUPPORTED_SCHEMA_VERSIONS = ("1.0.0",)
 LOAD_SOURCES = ("e1rm", "double_progression")
+# The programme is the three-day A/B/C rotation; rep ranges are pooled across it so a rule
+# that scopes the whole accessory collection can see every exercise on every day.
+DAYS = ("A", "B", "C")
 
 
 class TemplateError(ValueError):
@@ -37,6 +42,9 @@ class Slot:
     load_source: str
     exercise: str | None = None
     variants: tuple[str, ...] = field(default_factory=tuple)
+    # Power work is prescribed by intent and quality, not by a load target: it is excluded
+    # from weekly rep-scheme undulation and carries no double-progression citation.
+    power: bool = False
 
     @property
     def exercises(self) -> tuple[str, ...]:
@@ -63,33 +71,54 @@ class DayTemplate:
     @classmethod
     def load(cls, day: str = "B", path: str | Path | None = None) -> "DayTemplate":
         source = Path(path or paths.config_dir("templates", "days.v1.yaml"))
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
-        schema_version = str(raw.get("schema_version", "unversioned"))
-        if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
-            raise TemplateError(
-                f"unsupported days template schema {schema_version!r}; "
-                f"supported: {SUPPORTED_SCHEMA_VERSIONS}"
-            )
-        days = raw.get("days") or {}
-        if day not in days:
-            raise TemplateError(f"day {day!r} is not defined in {source.name}")
+        body = source.read_text(encoding="utf-8")
+        digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+        return _parse_template(day, str(source), digest, body)
 
-        block = days[day].get("prescription")
-        if not block:
-            # A day without prescription slots cannot be generated. Saying so is better than
-            # emitting an empty session that looks valid.
-            raise TemplateError(f"day {day!r} has no prescription block")
 
-        slots = tuple(_parse_slot(entry, day) for entry in (block.get("slots") or []))
-        if not slots:
-            raise TemplateError(f"day {day!r} has an empty prescription block")
-        _check_ids(slots)
-        return cls(
-            day=day,
-            slots=slots,
-            time_cap_s=int(block.get("time_cap_s", 4800)),
-            schema_version=schema_version,
+@lru_cache(maxsize=8)
+def _parse_template(day: str, source_name: str, digest: str, body: str) -> DayTemplate:
+    source = Path(source_name)
+    raw = yaml.safe_load(body) or {}
+    schema_version = str(raw.get("schema_version", "unversioned"))
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        raise TemplateError(
+            f"unsupported days template schema {schema_version!r}; "
+            f"supported: {SUPPORTED_SCHEMA_VERSIONS}"
         )
+    days = raw.get("days") or {}
+    if day not in days:
+        raise TemplateError(f"day {day!r} is not defined in {source.name}")
+
+    block = days[day].get("prescription")
+    if not block:
+        # A day without prescription slots cannot be generated. Saying so is better than
+        # emitting an empty session that looks valid.
+        raise TemplateError(f"day {day!r} has no prescription block")
+
+    slots = tuple(_parse_slot(entry, day) for entry in (block.get("slots") or []))
+    if not slots:
+        raise TemplateError(f"day {day!r} has an empty prescription block")
+    _check_ids(slots)
+    return DayTemplate(
+        day=day,
+        slots=slots,
+        time_cap_s=int(block.get("time_cap_s", 4800)),
+        schema_version=schema_version,
+    )
+
+
+def all_rep_ranges(path: str | Path | None = None) -> dict[str, tuple[int, int]]:
+    """Rep range per exercise across every day.
+
+    The rule that needs these (`PRG-DP-001`) scopes the whole accessory collection, not just
+    the day being prescribed. Using the current day's ranges left it unassessable on every day
+    because each template is missing at least one scoped exercise (OPEN-QUESTIONS Q16).
+    """
+    ranges: dict[str, tuple[int, int]] = {}
+    for day in DAYS:
+        ranges.update(DayTemplate.load(day, path).rep_ranges())
+    return ranges
 
 
 def _parse_slot(entry: Mapping[str, Any], day: str) -> Slot:
@@ -118,6 +147,7 @@ def _parse_slot(entry: Mapping[str, Any], day: str) -> Slot:
             load_source=load_source,
             exercise=str(exercise) if exercise else None,
             variants=variants,
+            power=bool(entry.get("power", False)),
         )
     except KeyError as exc:
         raise TemplateError(f"{where}: missing required field {exc}") from exc

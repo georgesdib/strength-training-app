@@ -1,0 +1,21 @@
+# Cardio reference guidance — context, not a prescription.
+#
+# The app captures cardio sessions first (ROADMAP section 4.13); no rule reads these values
+# and no load is changed by them. They exist so the display can say where the athlete is
+# relative to the public-health guideline without burying the number in the UI.
+#
+# Source: WHO 2020 guidelines (Bull et al., doi:10.1136/bjsports-2020-102955) — 150-300 min
+# of moderate aerobic activity, or 75-150 min vigorous, per week, plus 2+ strengthening days.
+# The reference is a population guideline, not an individual target; docs/LONGEVITY-REVIEW.md
+# explains why the recommended structure here is 2x zone-2 plus one interval session.
+
+schema_version: "1.0.0"
+
+reference:
+  weekly_minutes_min: 150
+  weekly_minutes_max: 300
+  source: "WHO 2020 physical activity guidelines"
+  doi: "10.1136/bjsports-2020-102955"
+  note: >
+    Population guidance, not a personal target. This is context for the athlete and never
+    changes a prescription.

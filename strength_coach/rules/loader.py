@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping, Sequence
@@ -108,11 +109,23 @@ class RuleDocument:
 
 
 def load_document(path: str | Path | None = None) -> RuleDocument:
-    """Read, validate and hash the constitution."""
+    """Read, validate and hash the constitution.
+
+    Parsing is cached by content hash: a forecast rebuilds the same document for every
+    projected session, and parsing it each time cost more than the prescription itself. A
+    changed file has a new digest, so an edit is never served from the cache.
+    """
     source = Path(path or paths.programme_rules_yaml())
     if not source.exists():
         raise RuleDocumentError(f"rule document not found: {source}")
     body = source.read_text(encoding="utf-8")
+    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    return _parse_document(str(source), digest, body)
+
+
+@lru_cache(maxsize=8)
+def _parse_document(source_name: str, digest: str, body: str) -> RuleDocument:
+    source = Path(source_name)
     raw = yaml.safe_load(body)
     if not isinstance(raw, dict):
         raise RuleDocumentError(f"{source.name}: top level must be a mapping")
@@ -135,7 +148,7 @@ def load_document(path: str | Path | None = None) -> RuleDocument:
         effective_from=_optional_str(document.get("effective_from")),
         owner=str(document.get("owner", "unknown")),
         source_text=str(document.get("source_text", "")),
-        source_hash=hashlib.sha256(body.encode("utf-8")).hexdigest(),
+        source_hash=digest,
         body_yaml=body,
         collections=collections,
         rules=rules,

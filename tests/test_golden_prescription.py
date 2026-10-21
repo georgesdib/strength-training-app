@@ -38,6 +38,8 @@ def history_rows() -> list[dict]:
              "RIR": "2", "Reps_Done": "5"},
             {"Date": day, "Exercise": "Lateral Raise", "Weight_Used": "12.5",
              "RIR": "2", "Reps_Done": "10"},
+            {"Date": day, "Exercise": "Pull-ups (wide grip)", "Weight_Used": "0",
+             "RIR": "2", "Reps_Done": "8"},
             {"Date": day, "Exercise": "Split Squat", "Weight_Used": "30",
              "RIR": "3", "Reps_Done": "8"},
         ]
@@ -53,8 +55,14 @@ def history_rows_all_days() -> list[dict]:
              "RIR": "2", "Reps_Done": "5"},
             {"Date": day, "Exercise": "Competition Bench Press", "Weight_Used": "80",
              "RIR": "2", "Reps_Done": "5"},
+            {"Date": day, "Exercise": "Box Jumps", "Weight_Used": "0",
+             "RIR": "4", "Reps_Done": "4"},
             {"Date": day, "Exercise": "Back Extension", "Weight_Used": "0",
              "RIR": "2", "Reps_Done": "12"},
+            {"Date": day, "Exercise": "Ab Wheel", "Weight_Used": "0",
+             "RIR": "2", "Reps_Done": "8"},
+            {"Date": day, "Exercise": "Hanging Leg Raise", "Weight_Used": "0",
+             "RIR": "2", "Reps_Done": "10"},
             {"Date": day, "Exercise": "Lateral Raise", "Weight_Used": "12.5",
              "RIR": "2", "Reps_Done": "10"},
             {"Date": day, "Exercise": "Split Squat", "Weight_Used": "30",
@@ -95,7 +103,10 @@ def test_golden_day_a_and_c(day):
         assert item.rir_target == target["rir_target"]
         assert item.rest_s == target["rest_s"]
         assert item.essential is target["essential"]
-        assert item.rationale_refs[0] == target["rule"]
+        if target.get("rule"):
+            assert item.rationale_refs[0] == target["rule"]
+        else:
+            assert item.rationale_refs == ()
 
     # The A/C templates provide the rep range the double-progression rule was missing.
     assert not any("rep_range.back_extension" in w for w in prescription.warnings)
@@ -139,7 +150,10 @@ def test_golden_day_b_prescription():
             assert item.rir_target == target["rir_target"]
             assert item.rest_s == target["rest_s"]
             assert item.essential is target["essential"]
-            assert item.rationale_refs[0] == target["rule"]
+            if target.get("rule"):
+                assert item.rationale_refs[0] == target["rule"]
+            else:
+                assert item.rationale_refs == ()
 
 
 def test_golden_fatigue_reduction():

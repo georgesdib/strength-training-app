@@ -1,0 +1,11 @@
+# Exercise catalogue overrides written by the local UI (Exercises tab).
+#
+# The checked-in taxonomy remains the base. Each entry here patches that entity field by
+# field, or adds a new entity when its id is absent from the base. `log_names` are exact
+# strings; editing an id would orphan history, so ids are immutable.
+#
+# The UI writes this file atomically. Keep it in version control if the changes should be
+# reproducible; it is configuration, not personal training data.
+
+schema_version: "1.0.0"
+entities: {}

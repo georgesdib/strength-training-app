@@ -104,12 +104,27 @@ class Taxonomy:
     patterns: tuple[tuple[re.Pattern[str], Mapping[str, Any]], ...]
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "Taxonomy":
+    def load(
+        cls,
+        path: str | Path | None = None,
+        overrides_path: str | Path | None = None,
+    ) -> "Taxonomy":
         source = Path(path or paths.taxonomy_yaml())
         with source.open("r", encoding="utf-8") as handle:
             raw = yaml.safe_load(handle)
 
-        entities = raw.get("entities", {}) or {}
+        entities = {str(k): dict(v) for k, v in (raw.get("entities") or {}).items()}
+        # UI edits live in a separate file so the checked-in taxonomy keeps its comments and
+        # the base values remain auditable. Overrides are field-wise patches, not a replacement.
+        if overrides_path is None and path is None:
+            overrides_path = paths.exercise_overrides_yaml()
+        if overrides_path is not None and Path(overrides_path).exists():
+            with Path(overrides_path).open("r", encoding="utf-8") as handle:
+                overrides = yaml.safe_load(handle) or {}
+            for entity_id, patch in (overrides.get("entities") or {}).items():
+                merged = dict(entities.get(str(entity_id), {}))
+                merged.update(dict(patch or {}))
+                entities[str(entity_id)] = merged
         aliases = {
             str(item["match"]): dict(item)
             for item in (raw.get("alias_overrides") or [])

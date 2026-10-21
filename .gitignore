@@ -6,8 +6,12 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# Local database
+# Local database (WAL mode leaves these companions next to it); data/*.db* keeps the
+# pre-migration backups private too.
 *.db
+data/*.db*
+*.db-wal
+*.db-shm
 *.sqlite3
 
 # ---------------------------------------------------------------------------

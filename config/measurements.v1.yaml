@@ -1,0 +1,60 @@
+# Periodic measurement metrics — outcomes, not daily readiness.
+#
+# Readiness (sleep, energy, HRV, RHR, grip as a daily field) feeds the fatigue modifier.
+# These metrics are *assessments*: VO2max estimates, grip, function tests, steps, sitting time.
+# They never change a load. Each metric is declared once in `metric_definition` (direction and
+# aggregation are mandatory) and then measured as often as the athlete repeats the test.
+#
+# `higher_is_better` is explicit because the opposite is a real trap: a 5x sit-to-stand time is
+# better when *lower*, steps are better when higher.
+#
+# Precedence: this file > nothing. A metric key not listed here is rejected rather than
+# assumed to be higher-is-better (DATA-MODEL §11.4).
+
+schema_version: "1.0.0"
+
+metrics:
+
+  vo2max:
+    label: "VO2max estimate"
+    unit: "ml/kg/min"
+    higher_is_better: true
+    aggregation: last
+    plausible: [10, 90]
+    note: >
+      Submaximal estimate (step test, 1.5-mile/2 km, or device). Record the method; never
+      compare estimates from different protocols as if they were the same measurement.
+
+  grip_strength_kg:
+    label: "Grip strength"
+    unit: "kg"
+    higher_is_better: true
+    aggregation: best_of_3
+    # The same field exists in readiness for daily context. This entry is the periodic
+    # assessment; use it when testing grip deliberately, not as a readiness input.
+    plausible: [5, 150]
+    note: "Best of three per hand; record which hand and dynamometer in the method."
+
+  sit_to_stand_5_s:
+    label: "5x sit-to-stand"
+    unit: "s"
+    higher_is_better: false
+    aggregation: last
+    plausible: [3, 120]
+    note: "Time to stand five times from a chair without arms; lower is better."
+
+  steps_per_day:
+    label: "Steps per day"
+    unit: "steps"
+    higher_is_better: true
+    aggregation: mean
+    plausible: [0, 60000]
+    note: "Weekly or monthly average from a phone or watch."
+
+  sitting_hours_per_day:
+    label: "Sitting time"
+    unit: "h"
+    higher_is_better: false
+    aggregation: mean
+    plausible: [0, 24]
+    note: "Average daily sitting; lower is better, but it is context, not a prescription."

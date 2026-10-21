@@ -22,20 +22,28 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
+from strength_coach.agents.config import build_client, load_settings
+from strength_coach.agents import selection as agent_selection
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
 from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, load_marks, record_marks
+from strength_coach.features import cardio as cardio_feature
+from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
+from strength_coach.features import measurements as measurements_feature
+from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import injury_signal, readiness as readiness_feature
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import readiness_baseline
 from strength_coach.features import readiness_calibration, readiness_score
 from strength_coach.prescribe import build_prescription
+from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
-from strength_coach.store import db, importer, queries, repositories
+from strength_coach.store import db, exercise_admin, importer, queries, repositories
 from strength_coach.utils import exercises, io_utils
 from strength_coach.web import markdown
 
@@ -216,6 +224,30 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             elif path == "/api/state":
                 self._json(200, self._with_conn(self._state))
+            elif path == "/api/cardio":
+                query = parse_qs(urlparse(self.path).query)
+                weeks = int(query.get("weeks", ["12"])[0])
+                on_date = query.get("date", [None])[0]
+                self._json(200, self._with_conn(
+                    lambda c: self._cardio(c, {"weeks": weeks, "date": on_date})
+                ))
+            elif path == "/api/measurements":
+                self._json(200, self._with_conn(self._measurements))
+            elif path == "/api/fatigue":
+                day = parse_qs(urlparse(self.path).query).get("date", [None])[0]
+                self._json(200, self._with_conn(
+                    lambda c: self._fatigue(c, day)
+                ))
+            elif path == "/api/selection":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [datetime.date.today().isoformat()])[0]
+                session_day = query.get("day", ["B"])[0]
+                use_llm = query.get("llm", ["0"])[0] == "1"
+                self._json(200, self._with_conn(
+                    lambda c: self._selection(c, day, session_day, use_llm)
+                ))
+            elif path == "/api/exercises/catalog":
+                self._json(200, exercise_admin.catalog())
             elif path == "/api/exercises":
                 self._json(200, [
                     {"id": key, "display": str(value.get("display") or key),
@@ -261,6 +293,16 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._set_readiness_settings(c, body)))
             elif path == "/api/programme":
                 self._json(200, self._with_conn(lambda c: self._programme(c, body)))
+            elif path == "/api/cardio":
+                self._json(200, self._with_conn(lambda c: self._save_cardio(c, body)))
+            elif path == "/api/measurements":
+                self._json(200, self._with_conn(
+                    lambda c: self._save_measurement(c, body)
+                ))
+            elif path == "/api/exercises":
+                entity_id = str(body.get("id") or "").strip()
+                props = body.get("props") or {}
+                self._json(200, exercise_admin.save(entity_id, props))
             elif path == "/api/terminal":
                 self._json(200, self._terminal(body))
             elif path == "/api/state/profile":
@@ -312,6 +354,7 @@ class Handler(BaseHTTPRequestHandler):
             "block_week": context.block_week_index,
             "readiness": readiness,
             "readiness_score": readiness_score.compute(conn, today).as_dict(),
+            "cardio": cardio_feature.compute(conn, weeks=4).as_dict(),
             "injury_signal": signal,
             "unreviewed": queries.unreviewed_sessions(conn, limit=50),
             "sessions": _session_rows(conn, 12),
@@ -387,6 +430,7 @@ class Handler(BaseHTTPRequestHandler):
             "week_cost": facts.week_cost,
             "composite": critique.composite,
             "confidence": marks.confidence if marks else "unknown",
+            "feedback": queries.session_feedback(conn, session),
             "items": [
                 {
                     "key": item.key,
@@ -420,16 +464,27 @@ class Handler(BaseHTTPRequestHandler):
         confidence = str(body.get("confidence") or "unknown")
         if confidence not in {"high", "low", "unknown"}:
             raise ValueError("confidence must be high, low or unknown")
+        feedback = session_feedback_feature.record(
+            conn, session,
+            srpe=body.get("session_rpe"),
+            duration_min=body.get("session_minutes"),
+        )
         written = record_marks(
             conn, session, scores, confidence=confidence,
             rubric_version=RUBRIC_VERSION, note=body.get("note") or None,
         )
-        if written == 0:
+        if written == 0 and feedback is None:
             raise ValueError("no marks recorded; give at least one score")
-        return {"written": written, "calibration": self._calibrate(conn)}
+        return {
+            "written": written,
+            "feedback": feedback,
+            "calibration": self._calibrate(conn),
+        }
 
     def _readiness(self, conn, day: str) -> dict:
         data = dict(queries.readiness_day(conn, day) or {"on_date": day, "known": False})
+        # Legacy column kept for historical rows; grip is a measurement now (DEC-GRIP-01).
+        data.pop("grip_strength_kg", None)
         data["score"] = readiness_score.compute(conn, day).as_dict()
         data["settings"] = readiness_feature.as_dict(
             readiness_score.effective_settings(conn, day)
@@ -497,11 +552,82 @@ class Handler(BaseHTTPRequestHandler):
             "suitability": queries.exercise_suitability(conn),
             "symptoms": queries.symptom_entries(conn)[-10:],
             "e1rm_overrides": queries.e1rm_overrides(conn),
+            "e1rm_calibration": e1rm_calibration_feature.as_dict(
+                e1rm_calibration_feature.build(conn)
+            ),
             "block_week": context.block_week_index,
             "injury_signal": injury_signal.compute(
                 conn, today, ramp_week=context.block_week_index
             ).as_dict(),
         }
+
+    def _cardio(self, conn, body: dict | None = None) -> dict:
+        body = body or {}
+        weeks = int(body.get("weeks") or 12)
+        # `date` anchors the window like `cardio --show --date`; without it, today.
+        return cardio_feature.compute(
+            conn, weeks=weeks, on_date=body.get("date") or None
+        ).as_dict()
+
+    def _save_cardio(self, conn, body: dict) -> dict:
+        """Log one cardio session through the same writer the CLI uses."""
+        def optional(name: str):
+            value = body.get(name)
+            return None if value in (None, "") else value
+
+        minutes = optional("minutes")
+        if minutes is None:
+            raise ValueError("minutes is required")
+        distance_km = optional("distance_km")
+        repositories.append_cardio(
+            conn,
+            performed_on=str(body.get("date") or datetime.date.today().isoformat()),
+            modality=str(body.get("modality") or ""),
+            duration_s=round(float(minutes) * 60),
+            avg_hr=optional("avg_hr"),
+            max_hr=optional("max_hr"),
+            distance_m=None if distance_km is None else float(distance_km) * 1000,
+            srpe=optional("srpe"),
+            note=body.get("note") or None,
+        )
+        return self._cardio(conn, body)
+
+    def _selection(self, conn, day: str, session_day: str, use_llm: bool) -> dict:
+        chooser = None
+        if use_llm:
+            chooser = agent_selection.chooser(build_client(load_settings()))
+        rows = selection_mod.select(conn, None, day, session_day, chooser=chooser)
+        return {
+            "on_date": day,
+            "day": session_day,
+            "slots": selection_mod.as_dict(rows),
+        }
+
+    def _fatigue(self, conn, day: str | None = None) -> dict:
+        on_date = day or datetime.date.today().isoformat()
+        return {
+            "on_date": on_date,
+            "models": fatigue_fitness_feature.as_dict(
+                fatigue_fitness_feature.compute_cached(conn, on_date)
+            ),
+        }
+
+    def _measurements(self, conn) -> dict:
+        return {
+            "summary": measurements_feature.summary(conn),
+            "entries": measurements_feature.entries(conn, limit=50),
+        }
+
+    def _save_measurement(self, conn, body: dict) -> dict:
+        measurements_feature.record(
+            conn,
+            metric_key=str(body.get("metric") or ""),
+            value=body.get("value"),
+            measured_on=body.get("date") or None,
+            method=body.get("method") or None,
+            note=body.get("note") or None,
+        )
+        return self._measurements(conn)
 
     def _programme(self, conn, body: dict) -> dict:
         start = body.get("start") or None

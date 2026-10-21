@@ -38,7 +38,6 @@ RAW_RENAME = {
     "RHR": "rhr_bpm",
     "Weight": "bodyweight_kg",
     "Fat_Percent": "fat_pct",
-    "Grip_Strength": "grip_strength_kg",
     # Optional third-party readiness score. Aliases cover the common export headers.
     "Wearable_Score": "wearable_score",
     "Wearable Score": "wearable_score",

@@ -71,11 +71,12 @@ def test_every_configured_region_is_reported():
 
 
 def test_a_region_names_the_patterns_it_loads_not_just_canonical_lifts():
-    # Curls and rows resolve to `pattern:...` slugs, so an entity-only list would claim the
-    # biceps is loaded by pull-ups alone.
+    # Curls are canonical now, but the region must still name the curl variants rather than
+    # only pull-ups; this is what makes the biceps link useful after variant canonicalisation.
     rule = CONFIG.regions["biceps"]
     linked = injury_signal.linked_exercises(rule)
-    assert "pattern:elbow_flexion" in linked  # curls have no entity of their own
+    assert "barbell_curl" in linked
+    assert "dumbell_curl_alternating" in linked
     assert "pull_up" in linked                # vertical pulls do
     taxonomy = exercises.taxonomy()
     covered = {

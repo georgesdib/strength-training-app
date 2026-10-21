@@ -144,20 +144,31 @@ def primary_compound_rir_window(
 
     evidence: list[Evidence] = []
     below = above = 0
-    for row in rated.itertuples(index=False):
-        low, high = _window(params, str(row.exercise_id))
-        value = int(row.rir)
-        if value < low or value in suspect:
-            below += 1
-            evidence.append(
-                Evidence(
-                    ref=_set_ref(str(row.session_id), int(row.set_id)),
-                    detail=f"{row.exercise_id} at RIR {value}, window {low}-{high}",
-                    value=float(value),
-                )
+    # One window lookup per lift, then a vectorised comparison. Evaluating `_window` per set
+    # and looping in Python cost ~0.5 s on a four-week forecast, where the frame is unchanged
+    # between entries.
+    windows = {
+        str(exercise_id): _window(params, str(exercise_id))
+        for exercise_id in rated["exercise_id"].unique()
+    }
+    values = rated["rir"].astype(int)
+    lows = rated["exercise_id"].astype(str).map(lambda e: windows[e][0])
+    highs = rated["exercise_id"].astype(str).map(lambda e: windows[e][1])
+    below_mask = values < lows
+    if suspect:
+        below_mask = below_mask | values.isin(suspect)
+    above_mask = ~below_mask & (values > highs)
+    below = int(below_mask.sum())
+    above = int(above_mask.sum())
+    for row in rated[below_mask].itertuples(index=False):
+        low, high = windows[str(row.exercise_id)]
+        evidence.append(
+            Evidence(
+                ref=_set_ref(str(row.session_id), int(row.set_id)),
+                detail=f"{row.exercise_id} at RIR {int(row.rir)}, window {low}-{high}",
+                value=float(row.rir),
             )
-        elif value > high:
-            above += 1
+        )
 
     singles = 0
     reference = _e1rm_reference(scoped)
@@ -284,16 +295,30 @@ def direct_erector_scheduling(
 
     evidence: list[Evidence] = []
     with_erector = 0
-    for session_id, group in sets.groupby("session_id", sort=True):
-        ids = [str(value) for value in group["exercise_id"].unique()]
-        erector = [i for i in ids if context.entity(i).get("direct_erector", False)]
+    # Grouping thousands of rows by session in pandas was the single slowest predicate in a
+    # forecast. Sessions and exercise ids do not change between forecast entries, so build
+    # the (session -> exercises) map once per call from distinct pairs instead.
+    pairs = sets[["session_id", "exercise_id"]].drop_duplicates()
+    by_session: dict[str, list[str]] = {}
+    for session_id, exercise_id in pairs.itertuples(index=False):
+        by_session.setdefault(str(session_id), []).append(str(exercise_id))
+    entity = context.entity
+    erector_ids = {
+        eid for eid in sets["exercise_id"].astype(str).unique()
+        if entity(eid).get("direct_erector", False)
+    }
+    hinge_ids = {
+        eid for eid in sets["exercise_id"].astype(str).unique()
+        if entity(eid).get("pattern") in forbidden_patterns
+    }
+    for session_id in sorted(by_session):
+        ids = by_session[session_id]
+        erector = [i for i in ids if i in erector_ids]
         if not erector:
             continue
         with_erector += 1
-        hinged = [
-            i for i in ids if context.entity(i).get("pattern") in forbidden_patterns
-        ]
-        day = day_of.get(str(session_id), "unknown")
+        hinged = [i for i in ids if i in hinge_ids]
+        day = day_of.get(session_id, "unknown")
         if hinged:
             evidence.append(
                 Evidence(
@@ -415,7 +440,7 @@ def spinal_exposures(
     # almost never fire. The unit is recorded as OPEN-QUESTIONS Q8.
     exposures: dict[str, dict[tuple[str, str], float]] = defaultdict(dict)
 
-    def add(session_id: str, exercise_id: str, when: Any) -> None:
+    def add(session_id: str, exercise_id: str, week: str) -> None:
         entity = context.entity(exercise_id)
         if not entity.get("high_fatigue_spinal", False):
             return
@@ -424,13 +449,22 @@ def spinal_exposures(
         cost = costs.get(exercise_id, entity.get("spinal_cost"))
         if cost is None:
             return
-        exposures[iso_week(when)][(session_id, exercise_id)] = float(cost)
+        exposures[week][(session_id, exercise_id)] = float(cost)
 
-    working = context.sets[context.sets["is_working_set"]]
-    for row in working.itertuples(index=False):
-        add(str(row.session_id), str(row.exercise_id), row.date)
+    # An exposure is per (session, exercise, week), so deduplicating before the loop is exact
+    # and cuts a set-level frame (thousands of rows) to the distinct pairs. An empty frame
+    # must be skipped explicitly: boolean-masking it drops the columns too, and `extra` can
+    # still contribute a proposed session.
+    if not context.sets.empty:
+        working = context.sets[context.sets["is_working_set"]]
+        columns = ["session_id", "exercise_id"]
+        has_week = "iso_week" in working.columns
+        rows = working[columns + (["iso_week"] if has_week else ["date"])].drop_duplicates()
+        for row in rows.itertuples(index=False):
+            add(str(row.session_id), str(row.exercise_id),
+                str(row.iso_week) if has_week else iso_week(row.date))
     for session_id, exercise_id, when in extra:
-        add(str(session_id), str(exercise_id), when)
+        add(str(session_id), str(exercise_id), iso_week(when))
     return exposures
 
 
@@ -500,7 +534,9 @@ def double_progression_decision(
             sets["exercise_id"].isin(exercises_mod.history_equivalents(exercise_id))
         ].sort_values(["date", "set_id"])
         if history.empty:
-            missing.append(f"set.reps.{exercise_id}")
+            # Never trained is not "unknown": there is simply nothing to progress yet. The
+            # load fallback already handles it, and making the whole rule unknown because one
+            # scoped variant has no history would hide every other lift's decision.
             continue
         # The decision looks at the last N sessions that actually contain the lift, so an
         # unchanged top set is not washed out by unrelated accessory days in between.

@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.1.0"
+  version: "1.6.0"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -19,6 +19,16 @@ document:
       change: "Initial encoding of the constitution. Trap-bar and back-extension decisions applied."
     - version: "1.1.0"
       change: "MOD-FAT-001 now reads the computed readiness score alongside the sleep/energy floor; overrides and the 20% combined cap are explicit."
+    - version: "1.2.0"
+      change: "Core work is part of the accessory pool: ab_wheel and hanging_leg_raise join accessories_and_back_extension, so PRG-DP-001 governs their progression (DEC-CORE-01, docs/CORE-TRAINING.md)."
+    - version: "1.3.0"
+      change: "Pulling is part of the accessory pool: pull_up joins accessories_and_back_extension and Day B prescribes it (DEC-PULL-01, docs/LONGEVITY-REVIEW.md)."
+    - version: "1.4.0"
+      change: "The vertical pull is a variant slot: lat_pulldown joins pull_up in accessories_and_back_extension, interchangeable in the slot but progressing on its own load history (DEC-PULL-02)."
+    - version: "1.5.0"
+      change: "Measured-test e1RM calibration may scale a formula-derived e1RM by a bounded per-lift factor when its CI excludes 1.0 (DEC-E1RM-CAL-02, MOD-E1RM-001)."
+    - version: "1.6.0"
+      change: "An old e1RM (formula or measured override) is decayed after a grace period, bounded to 10% (DEC-E1RM-DECAY-01, MOD-E1RM-DECAY-001)."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -42,6 +52,13 @@ collections:
     - back_extension
     - lateral_raise
     - split_squat
+    # Core work is accessory work: it is trained at the end of the session, never before a
+    # main lift, and it progresses by the same double-progression rule (DEC-CORE-01).
+    - ab_wheel
+    - hanging_leg_raise
+    # Pulling is accessory work: it balances the pressing and the athlete already trains it.
+    - pull_up
+    - lat_pulldown
 
 rules:
 
@@ -232,6 +249,36 @@ rules:
 # Applied by the prescription engine before the policy engine evaluates the result.
 # ---------------------------------------------------------------------------
 modifiers:
+
+  - id: MOD-E1RM-001
+    title: "Measured e1RM calibration"
+    statement: >
+      When a lift has at least three measured tests and a 95% bootstrap CI of the median
+      measured/formula ratio excludes 1.0, scale the formula-derived e1RM by that median
+      ratio, bounded to +/-10%. Measured e1RM overrides are never adjusted.
+    when:
+      any:
+        - {input: e1rm_calibration.applied, op: "==", value: true}
+    then:
+      load_multiplier: [0.90, 1.10]
+    availability:
+      status: available
+      reason: "Computed from measured tests (DEC-E1RM-CAL-02, ASSUMPTION-26)."
+
+  - id: MOD-E1RM-DECAY-001
+    title: "Age decay of an old e1RM"
+    statement: >
+      After a 21-day grace period, reduce the e1RM used as the load basis by 1% per week,
+      capped at 10%. The decay applies to formula estimates and measured overrides; the
+      continuity modifier remains separate.
+    when:
+      any:
+        - {input: e1rm.age_days, op: ">", value: 21}
+    then:
+      load_multiplier: [0.90, 1.0]
+    availability:
+      status: available
+      reason: "Age of the selected e1RM (DEC-E1RM-DECAY-01, ASSUMPTION-27)."
 
   - id: MOD-GAP-001
     title: "Return-to-training adjustment"

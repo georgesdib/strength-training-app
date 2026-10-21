@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 
 import pandas as pd
+import pytest
 
 from conftest import make_readiness
 from strength_coach.ingest import readiness as rd
@@ -16,7 +17,7 @@ from strength_coach.ingest import readiness as rd
 ALL_FIELDS = [
     "Sleep", "Energy", "Mood", "Soreness", "Stress", "Nutrition", "Hydration",
     "Squat_Readiness", "Bench_Readiness", "Deadlift_Readiness",
-    "HRV", "RHR", "Weight", "Fat_Percent", "Grip_Strength",
+    "HRV", "RHR", "Weight", "Fat_Percent",
 ]
 
 
@@ -81,12 +82,10 @@ def test_composite_is_left_empty_until_metrics_are_declared():
     assert day["composite"] is None
     assert day["composite_basis"] is None
 
-def test_grip_strength_is_imported_and_zero_is_missing():
-    frame = make_readiness([
-        {"Date": "2024-01-01", "Grip_Strength": "45.5"},
-        {"Date": "2024-01-02", "Grip_Strength": "0"},
-    ])
-    result = rd.build_readiness_day(frame)
-    by_date = result.days.set_index("on_date")
-    assert by_date.loc["2024-01-01", "grip_strength_kg"] == 45.5
-    assert pd.isna(by_date.loc["2024-01-02", "grip_strength_kg"])
+def test_grip_strength_is_not_a_readiness_input():
+    # DEC-GRIP-01: grip is capacity, tracked with `measure`; readiness no longer accepts it.
+    from strength_coach.utils import readiness as readiness_utils
+
+    assert "grip_strength_kg" not in readiness_utils.READINESS_FIELDS
+    with pytest.raises(ValueError, match="unknown readiness field"):
+        readiness_utils.validate("grip_strength_kg", 45.5)

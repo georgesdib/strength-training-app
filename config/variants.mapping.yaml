@@ -1,0 +1,1796 @@
+schema_version: 1.0.0
+note: 'Generated mapping: review before applying. Trap bar and back-extension rows
+  are intentionally excluded.'
+mapping:
+- raw: 1 Arm Row
+  old_id: pattern:horizontal_pull
+  new_id: 1_arm_row
+  create_entity: true
+  pattern: horizontal_pull
+  primary_muscles:
+  - upper_back
+  mechanics:
+  - Compound
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: 1 Arm Tricep Pushdown
+  old_id: pattern:triceps_extension
+  new_id: 1_arm_tricep_pushdown
+  create_entity: true
+  pattern: triceps_extension
+  primary_muscles:
+  - triceps
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Ab Wheel
+  old_id: ab_wheel
+  new_id: ab_wheel
+  create_entity: false
+  pattern: ab_wheel
+  primary_muscles:
+  - abs
+  mechanics:
+  - Compound
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Barbell Calf Raises
+  old_id: pattern:plantar_flexion
+  new_id: barbell_calf_raises
+  create_entity: true
+  pattern: plantar_flexion
+  primary_muscles:
+  - calves
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Barbell Curl
+  old_id: pattern:elbow_flexion
+  new_id: barbell_curl
+  create_entity: true
+  pattern: elbow_flexion
+  primary_muscles:
+  - biceps
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Belt Squat
+  old_id: pattern:squat
+  new_id: belt_squat
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Dips
+  old_id: pattern:horizontal_push
+  new_id: bench_dips
+  create_entity: true
+  pattern: horizontal_push_bw
+  primary_muscles:
+  - triceps
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: true
+- raw: Bench Press (2s pause at sticking point)
+  old_id: bench_press_pause
+  new_id: bench_press_pause
+  create_entity: false
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (2s pause)
+  old_id: bench_press_pause
+  new_id: bench_press_pause
+  create_entity: false
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (3s pause)
+  old_id: bench_press_pause
+  new_id: bench_press_pause
+  create_entity: false
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (5s pause)
+  old_id: bench_press_pause
+  new_id: bench_press_pause
+  create_entity: false
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (elevated legs)
+  old_id: pattern:horizontal_push
+  new_id: bench_press_elevated_legs
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (explosive)
+  old_id: pattern:horizontal_push
+  new_id: bench_press_explosive
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (from pins)
+  old_id: pattern:horizontal_push
+  new_id: bench_press_from_pins
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (medium grip)
+  old_id: pattern:horizontal_push
+  new_id: bench_press_medium_grip
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (narrow grip)
+  old_id: bench_press_narrow
+  new_id: bench_press_narrow
+  create_entity: false
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (negative)
+  old_id: pattern:horizontal_push
+  new_id: bench_press_negative
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (reverse grip)
+  old_id: pattern:horizontal_push
+  new_id: bench_press_reverse_grip
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (w/bands)
+  old_id: pattern:horizontal_push
+  new_id: bench_press_w_bands
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (w/cambered bar)
+  old_id: pattern:horizontal_push
+  new_id: bench_press_w_cambered_bar
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (w/chains)
+  old_id: pattern:horizontal_push
+  new_id: bench_press_w_chains
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bench Press (wide grip)
+  old_id: pattern:horizontal_push
+  new_id: bench_press_wide_grip
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bent Over Row
+  old_id: pattern:horizontal_pull
+  new_id: bent_over_row
+  create_entity: true
+  pattern: horizontal_pull
+  primary_muscles:
+  - upper_back
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: 'Bird dog '
+  old_id: pattern:core_stability
+  new_id: bird_dog
+  create_entity: true
+  pattern: core_stability
+  primary_muscles:
+  - abs
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Board Press
+  old_id: pattern:horizontal_push
+  new_id: board_press
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Box Jumps
+  old_id: pattern:power_jump
+  new_id: box_jump
+  create_entity: false
+  pattern: power_jump
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Bulgarian Split Squat
+  old_id: split_squat
+  new_id: split_squat
+  create_entity: false
+  pattern: squat_unilateral
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Cable Bent-over Triceps Extension
+  old_id: pattern:triceps_extension
+  new_id: cable_bent_over_triceps_extension
+  create_entity: true
+  pattern: triceps_extension
+  primary_muscles:
+  - triceps
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Cable Glute Kickback
+  old_id: pattern:hip_extension
+  new_id: cable_glute_kickback
+  create_entity: true
+  pattern: hip_extension
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Cable Pull Through
+  old_id: pattern:hip_extension
+  new_id: cable_pull_through
+  create_entity: true
+  pattern: hip_extension
+  primary_muscles:
+  - hamstrings
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Chinese Plank
+  old_id: plank
+  new_id: plank
+  create_entity: false
+  pattern: core_stability
+  primary_muscles:
+  - erectors
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Close Grip Pulldown
+  old_id: pattern:vertical_pull
+  new_id: close_grip_pulldown
+  create_entity: true
+  pattern: vertical_pull
+  primary_muscles:
+  - lats
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Competition Bench Press
+  old_id: bench_press
+  new_id: bench_press
+  create_entity: false
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Competition Deadlift
+  old_id: sumo_deadlift
+  new_id: trap_bar_deadlift
+  create_entity: false
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Competition Deadlift
+  old_id: trap_bar_deadlift
+  new_id: trap_bar_deadlift
+  create_entity: false
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Competition Squat
+  old_id: competition_squat
+  new_id: competition_squat
+  create_entity: false
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Deadlift (above knees, off blocks)
+  old_id: pattern:hinge
+  new_id: deadlift_above_knees_off_blocks
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deadlift (below knees, off blocks)
+  old_id: pattern:hinge
+  new_id: deadlift_below_knees_off_blocks
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deadlift (below knees, off blocks, pause above)
+  old_id: pattern:hinge
+  new_id: deadlift_below_knees_off_blocks_pause_above
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deadlift (conventional)
+  old_id: conventional_deadlift
+  new_id: conventional_deadlift
+  create_entity: false
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  - Push
+  bodyweight: false
+- raw: Deadlift (from center block)
+  old_id: pattern:hinge
+  new_id: deadlift_from_center_block
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - hamstrings
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deadlift (pause above knees)
+  old_id: pattern:hinge
+  new_id: deadlift_pause_above_knees
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deadlift (pause below knees)
+  old_id: pattern:hinge
+  new_id: deadlift_pause_below_knees
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deadlift (plus deadlift from above knees)
+  old_id: pattern:hinge
+  new_id: deadlift_plus_deadlift_from_above_knees
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deadlift (plus deadlift from below knees)
+  old_id: pattern:hinge
+  new_id: deadlift_plus_deadlift_from_below_knees
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deadlift (snatch grip, slow descent)
+  old_id: pattern:hinge
+  new_id: deadlift_snatch_grip_slow_descent
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deadlift (to knees)
+  old_id: pattern:hinge
+  new_id: deadlift_to_knees
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deadlift (to knees, plus full deadlift)
+  old_id: pattern:hinge
+  new_id: deadlift_to_knees_plus_full_deadlift
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deadlift (w/bands)
+  old_id: pattern:hinge
+  new_id: deadlift_w_bands
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deadlift (w/chains)
+  old_id: pattern:hinge
+  new_id: deadlift_w_chains
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deadlift (w/chains, off blocks)
+  old_id: pattern:hinge
+  new_id: deadlift_w_chains_off_blocks
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Decline Bench Press
+  old_id: pattern:horizontal_push
+  new_id: decline_bench_press
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Deep Squat
+  old_id: pattern:squat
+  new_id: deep_squat
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Deficit Deadlift (conventional)
+  old_id: pattern:hinge
+  new_id: deficit_deadlift_conventional
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deficit Deadlift (pause above knees)
+  old_id: pattern:hinge
+  new_id: deficit_deadlift_pause_above_knees
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deficit Deadlift (pause below knees)
+  old_id: pattern:hinge
+  new_id: deficit_deadlift_pause_below_knees
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deficit Deadlift (sumo)
+  old_id: pattern:hinge
+  new_id: deficit_deadlift_sumo
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Deficit Deadlift (w/chains)
+  old_id: pattern:hinge
+  new_id: deficit_deadlift_w_chains
+  create_entity: true
+  pattern: hinge
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Depth Jumps
+  old_id: pattern:power_jump
+  new_id: depth_jumps
+  create_entity: true
+  pattern: power_jump
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: true
+- raw: Dips
+  old_id: pattern:horizontal_push_bw
+  new_id: dips
+  create_entity: true
+  pattern: horizontal_push_bw
+  primary_muscles:
+  - triceps
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: true
+- raw: Dumbbell Bench Press
+  old_id: pattern:horizontal_push
+  new_id: dumbbell_bench_press
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Dumbbell Chest Supported Row
+  old_id: pattern:horizontal_pull
+  new_id: dumbbell_chest_supported_row
+  create_entity: true
+  pattern: horizontal_pull
+  primary_muscles:
+  - lats
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Dumbbell Kickbacks
+  old_id: pattern:triceps_extension
+  new_id: dumbbell_kickbacks
+  create_entity: true
+  pattern: triceps_extension
+  primary_muscles:
+  - triceps
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Dumbbell Press (alternating)
+  old_id: pattern:vertical_push
+  new_id: dumbbell_press_alternating
+  create_entity: true
+  pattern: vertical_push
+  primary_muscles:
+  - front_delts
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Dumbbell Pullover
+  old_id: pattern:lat_isolation
+  new_id: dumbbell_pullover
+  create_entity: true
+  pattern: lat_isolation
+  primary_muscles:
+  - chest
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Dumbbell Row
+  old_id: pattern:horizontal_pull
+  new_id: dumbbell_row
+  create_entity: true
+  pattern: horizontal_pull
+  primary_muscles:
+  - lats
+  mechanics:
+  - Compound
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Dumbbell Tricep Extension
+  old_id: pattern:triceps_extension
+  new_id: dumbbell_tricep_extension
+  create_entity: true
+  pattern: triceps_extension
+  primary_muscles:
+  - triceps
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Dumbell Curl (alternating)
+  old_id: pattern:elbow_flexion
+  new_id: dumbell_curl_alternating
+  create_entity: true
+  pattern: elbow_flexion
+  primary_muscles:
+  - biceps
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: 'Face Pull '
+  old_id: pattern:rear_delt_pull
+  new_id: face_pull
+  create_entity: true
+  pattern: rear_delt_pull
+  primary_muscles:
+  - rear_delts
+  - rotator_cuff
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Flat Dumbbell Flyes
+  old_id: pattern:horizontal_push_isolation
+  new_id: flat_dumbbell_flyes
+  create_entity: true
+  pattern: horizontal_push_isolation
+  primary_muscles:
+  - chest
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Flat-bench Sit-ups
+  old_id: pattern:core
+  new_id: flat_bench_sit_ups
+  create_entity: true
+  pattern: core
+  primary_muscles:
+  - abs
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Floor Press
+  old_id: pattern:horizontal_push
+  new_id: floor_press
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: French Press
+  old_id: pattern:horizontal_push
+  new_id: french_press
+  create_entity: true
+  pattern: triceps_extension
+  primary_muscles:
+  - triceps
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Front Raise
+  old_id: pattern:shoulder_abduction
+  new_id: front_raise
+  create_entity: true
+  pattern: shoulder_abduction
+  primary_muscles:
+  - front_delts
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Front Squat
+  old_id: pattern:squat
+  new_id: front_squat
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Front Squat (to box)
+  old_id: pattern:squat
+  new_id: front_squat_to_box
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Good Morning (from blocks)
+  old_id: good_morning
+  new_id: good_morning
+  create_entity: false
+  pattern: hinge
+  primary_muscles:
+  - erectors
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Good Morning (seated)
+  old_id: good_morning
+  new_id: good_morning
+  create_entity: false
+  pattern: hinge
+  primary_muscles:
+  - erectors
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Good Morning (standing)
+  old_id: good_morning
+  new_id: good_morning
+  create_entity: false
+  pattern: hinge
+  primary_muscles:
+  - erectors
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Hack Squat
+  old_id: pattern:squat
+  new_id: hack_squat
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Half-Kneeling Single Arm Cable Row
+  old_id: pattern:horizontal_pull
+  new_id: half_kneeling_single_arm_cable_row
+  create_entity: true
+  pattern: horizontal_pull
+  primary_muscles:
+  - lats
+  - upper_back
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Hanging Leg Raise
+  old_id: hanging_leg_raise
+  new_id: hanging_leg_raise
+  create_entity: false
+  pattern: hanging_leg_raise
+  primary_muscles:
+  - abs
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Hanging Pike
+  old_id: hanging_leg_raise
+  new_id: hanging_leg_raise
+  create_entity: false
+  pattern: hanging_leg_raise
+  primary_muscles:
+  - abs
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: true
+- raw: High Bar Squat
+  old_id: pattern:squat
+  new_id: high_bar_squat
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: High To Low Cable Chop
+  old_id: pattern:core
+  new_id: high_to_low_cable_chop
+  create_entity: true
+  pattern: core
+  primary_muscles:
+  - abs
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Hip Thrust
+  old_id: pattern:hip_extension
+  new_id: hip_thrust
+  create_entity: true
+  pattern: hip_extension
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Hyperextensions
+  old_id: hyperextension
+  new_id: hyperextension
+  create_entity: false
+  pattern: hyperextension
+  primary_muscles:
+  - erectors
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Incline DB Bench Press
+  old_id: pattern:horizontal_push
+  new_id: incline_db_bench_press
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Incline Press
+  old_id: pattern:horizontal_push
+  new_id: incline_press
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Incline Sit-ups
+  old_id: pattern:core
+  new_id: incline_sit_ups
+  create_entity: true
+  pattern: core
+  primary_muscles:
+  - abs
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: true
+- raw: Jefferson Curl
+  old_id: jefferson_curl
+  new_id: jefferson_curl
+  create_entity: false
+  pattern: elbow_flexion
+  primary_muscles:
+  - erectors
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Jump Squats
+  old_id: pattern:power_jump
+  new_id: jump_squats
+  create_entity: true
+  pattern: power_jump
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Kettlebell Swing
+  old_id: pattern:hinge_ballistic
+  new_id: kettlebell_swing
+  create_entity: true
+  pattern: hinge_ballistic
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Landmine Press
+  old_id: pattern:horizontal_push
+  new_id: landmine_press
+  create_entity: true
+  pattern: vertical_push
+  primary_muscles:
+  - front_delts
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Landmine Squat
+  old_id: pattern:squat
+  new_id: landmine_squat
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Lat Pulldown
+  old_id: pattern:vertical_pull
+  new_id: lat_pulldown
+  create_entity: false
+  pattern: vertical_pull
+  primary_muscles:
+  - lats
+  mechanics:
+  - Compound
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Lateral Raise
+  old_id: lateral_raise
+  new_id: lateral_raise
+  create_entity: false
+  pattern: shoulder_abduction
+  primary_muscles:
+  - front_delts
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Leg Extension
+  old_id: pattern:knee_extension
+  new_id: leg_extension
+  create_entity: true
+  pattern: knee_extension
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Lying Leg Curls
+  old_id: pattern:knee_flexion
+  new_id: lying_leg_curls
+  create_entity: true
+  pattern: knee_flexion
+  primary_muscles:
+  - hamstrings
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Nordic Curl
+  old_id: pattern:hamstring_eccentric
+  new_id: nordic_curl
+  create_entity: true
+  pattern: hamstring_eccentric
+  primary_muscles:
+  - hamstrings
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: true
+- raw: Overhead Press (behind the neck)
+  old_id: pattern:vertical_push
+  new_id: overhead_press_behind_the_neck
+  create_entity: true
+  pattern: vertical_push
+  primary_muscles:
+  - front_delts
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Overhead Press (seated)
+  old_id: pattern:vertical_push
+  new_id: overhead_press_seated
+  create_entity: true
+  pattern: vertical_push
+  primary_muscles:
+  - front_delts
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Overhead Tricep Extension
+  old_id: pattern:triceps_extension
+  new_id: overhead_tricep_extension
+  create_entity: true
+  pattern: triceps_extension
+  primary_muscles:
+  - triceps
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Pallof Press
+  old_id: pattern:core
+  new_id: pallof_press
+  create_entity: true
+  pattern: core_stability
+  primary_muscles:
+  - abs
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Preacher Curl
+  old_id: pattern:elbow_flexion
+  new_id: preacher_curl
+  create_entity: true
+  pattern: elbow_flexion
+  primary_muscles:
+  - biceps
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Pull-ups (behind neck)
+  old_id: pull_up
+  new_id: pull_up
+  create_entity: false
+  pattern: vertical_pull
+  primary_muscles:
+  - lats
+  mechanics:
+  - Compound
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Pull-ups (wide grip)
+  old_id: pull_up
+  new_id: pull_up
+  create_entity: false
+  pattern: vertical_pull
+  primary_muscles:
+  - lats
+  mechanics:
+  - Compound
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Pushups (chest emphasis)
+  old_id: pattern:horizontal_push_bw
+  new_id: pushups_chest_emphasis
+  create_entity: true
+  pattern: horizontal_push_bw
+  primary_muscles:
+  - chest
+  mechanics:
+  - Compound
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Pushups (tricep emphasis)
+  old_id: pattern:triceps_extension
+  new_id: pushups_tricep_emphasis
+  create_entity: true
+  pattern: horizontal_push_bw
+  primary_muscles:
+  - triceps
+  mechanics:
+  - Compound
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Rack Pull
+  old_id: rack_pull
+  new_id: rack_pull
+  create_entity: false
+  pattern: hinge
+  primary_muscles:
+  - erectors
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Rear Lateral Raise
+  old_id: pattern:shoulder_abduction
+  new_id: rear_lateral_raise
+  create_entity: true
+  pattern: rear_delt_pull
+  primary_muscles:
+  - rear_delts
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Regular Plank
+  old_id: plank
+  new_id: plank
+  create_entity: false
+  pattern: core_stability
+  primary_muscles:
+  - abs
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: true
+- raw: Reverse Hyperextensions
+  old_id: reverse_hyperextension
+  new_id: reverse_hyperextension
+  create_entity: false
+  pattern: reverse_hyperextension
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Reverse Nordic Curl
+  old_id: pattern:hamstring_eccentric
+  new_id: reverse_nordic_curl
+  create_entity: true
+  pattern: knee_extension
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: true
+- raw: Romanian Deadlift
+  old_id: rdl
+  new_id: rdl
+  create_entity: false
+  pattern: hinge
+  primary_muscles:
+  - hamstrings
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: SL Glute Bridge
+  old_id: pattern:hip_extension
+  new_id: sl_glute_bridge
+  create_entity: true
+  pattern: hip_extension
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Safety Squat Bar
+  old_id: ssb_squat
+  new_id: ssb_squat
+  create_entity: false
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Seal Row
+  old_id: pattern:horizontal_pull
+  new_id: seal_row
+  create_entity: true
+  pattern: horizontal_pull
+  primary_muscles:
+  - upper_back
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Seated Cable Row
+  old_id: pattern:horizontal_pull
+  new_id: seated_cable_row
+  create_entity: true
+  pattern: horizontal_pull
+  primary_muscles:
+  - upper_back
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Seated Calf Raises
+  old_id: pattern:plantar_flexion
+  new_id: seated_calf_raises
+  create_entity: true
+  pattern: plantar_flexion
+  primary_muscles:
+  - calves
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Seated Dumbbell External Rotation
+  old_id: pattern:rotator_cuff
+  new_id: seated_dumbbell_external_rotation
+  create_entity: true
+  pattern: rotator_cuff
+  primary_muscles:
+  - rotator_cuff
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Shoulder Shrugs
+  old_id: pattern:upper_trap
+  new_id: shoulder_shrugs
+  create_entity: true
+  pattern: upper_trap
+  primary_muscles:
+  - upper_trap
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Side Lunges
+  old_id: pattern:squat_unilateral
+  new_id: side_lunges
+  create_entity: true
+  pattern: squat_unilateral
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Side Plank
+  old_id: plank
+  new_id: plank
+  create_entity: false
+  pattern: core_stability
+  primary_muscles:
+  - abs
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Single Arm Cable Triceps Kickback
+  old_id: pattern:triceps_extension
+  new_id: single_arm_cable_triceps_kickback
+  create_entity: true
+  pattern: triceps_extension
+  primary_muscles:
+  - triceps
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Single Leg DB RDL
+  old_id: pattern:hinge_unilateral
+  new_id: single_leg_db_rdl
+  create_entity: true
+  pattern: hinge_unilateral
+  primary_muscles:
+  - hamstrings
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: Speed Bench Press
+  old_id: pattern:horizontal_push
+  new_id: speed_bench_press
+  create_entity: true
+  pattern: horizontal_push
+  primary_muscles:
+  - chest
+  - triceps
+  - front_delts
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Split Squat
+  old_id: split_squat
+  new_id: split_squat
+  create_entity: false
+  pattern: squat_unilateral
+  primary_muscles:
+  - glutes
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Squat (2s pause halfway down)
+  old_id: pattern:squat
+  new_id: squat_2s_pause_halfway_down
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Squat (2s pause halfway up)
+  old_id: pattern:squat
+  new_id: squat_2s_pause_halfway_up
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Squat (2s pause)
+  old_id: pattern:squat
+  new_id: squat_2s_pause
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Squat (down slow, up fast)
+  old_id: pattern:squat
+  new_id: squat_down_slow_up_fast
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Squat (from pins)
+  old_id: pattern:squat
+  new_id: squat_from_pins
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Squat (narrow stance)
+  old_id: pattern:horizontal_pull
+  new_id: squat_narrow_stance
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Squat (negatives)
+  old_id: pattern:squat
+  new_id: squat_negatives
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Squat (partial range of motion)
+  old_id: pattern:squat
+  new_id: squat_partial_range_of_motion
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Squat (slow downwards & upwards)
+  old_id: pattern:squat
+  new_id: squat_slow_downwards_and_upwards
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Squat (to box)
+  old_id: pattern:squat
+  new_id: squat_to_box
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Squat (w/bands)
+  old_id: pattern:squat
+  new_id: squat_w_bands
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: Squat (w/chains)
+  old_id: pattern:squat
+  new_id: squat_w_chains
+  create_entity: true
+  pattern: squat
+  primary_muscles:
+  - quadriceps
+  mechanics:
+  - Compound
+  force:
+  - Push
+  bodyweight: false
+- raw: "Standing Single-Arm Cable Curls (Shoulder Flexed)\t"
+  old_id: pattern:elbow_flexion
+  new_id: standing_single_arm_cable_curls_shoulder_flexed
+  create_entity: true
+  pattern: elbow_flexion
+  primary_muscles:
+  - biceps
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Straight Arm Pulldown
+  old_id: pattern:lat_isolation
+  new_id: straight_arm_pulldown
+  create_entity: true
+  pattern: lat_isolation
+  primary_muscles:
+  - lats
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Straight Bar Cable Curl
+  old_id: pattern:elbow_flexion
+  new_id: straight_bar_cable_curl
+  create_entity: true
+  pattern: elbow_flexion
+  primary_muscles:
+  - biceps
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Suitcase Carry
+  old_id: carry
+  new_id: carry
+  create_entity: false
+  pattern: carry
+  primary_muscles:
+  - abs
+  mechanics:
+  - Compound
+  force:
+  - Pull
+  bodyweight: false
+- raw: T Bar Row
+  old_id: pattern:horizontal_pull
+  new_id: t_bar_row
+  create_entity: true
+  pattern: horizontal_pull
+  primary_muscles:
+  - lats
+  - upper_back
+  mechanics:
+  - Compound
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false
+- raw: Tib Bar Calves
+  old_id: pattern:plantar_flexion
+  new_id: tib_bar_calves
+  create_entity: true
+  pattern: dorsiflexion
+  primary_muscles:
+  - tibialis_anterior
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Tricep Pushdown
+  old_id: pattern:triceps_extension
+  new_id: tricep_pushdown
+  create_entity: true
+  pattern: triceps_extension
+  primary_muscles:
+  - triceps
+  mechanics:
+  - Isolation
+  force:
+  - Push
+  bodyweight: false
+- raw: Upright Row
+  old_id: pattern:shoulder_abduction
+  new_id: upright_row
+  create_entity: true
+  pattern: shoulder_abduction
+  primary_muscles:
+  - upper_trap
+  mechanics:
+  - Isolation
+  force:
+  - Pull
+  bodyweight: false

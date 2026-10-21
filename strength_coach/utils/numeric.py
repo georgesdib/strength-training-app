@@ -47,7 +47,6 @@ ZERO_IS_MISSING: dict[str, str] = {
     "Squat_Readiness": "1-5 scale has no zero bucket",
     "Bench_Readiness": "1-5 scale has no zero bucket",
     "Deadlift_Readiness": "1-5 scale has no zero bucket",
-    "Grip_Strength": "0 kg grip strength is not a measurement",
 }
 
 # Fields where 0 is a legitimate observation and must be preserved.

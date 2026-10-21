@@ -68,7 +68,7 @@ def test_run_persists_a_critique_and_a_prescription(database, capsys):
     assert after["critique"] - before["critique"] == 1
     assert after["rubric_score"] - before["rubric_score"] == 8
     assert after["prescription"] - before["prescription"] == 1
-    assert after["prescription_item"] - before["prescription_item"] == 4
+    assert after["prescription_item"] - before["prescription_item"] == 5
     assert after["run"] - before["run"] == 1
     assert after["run_event"] - before["run_event"] == 1
     run = db.Store(database)
@@ -112,10 +112,15 @@ def test_run_day_a_uses_the_a_template(tmp_path, capsys):
     try:
         row = store.connection.execute("SELECT session_day FROM prescription").fetchone()
         assert row["session_day"] == "A"
-        item = store.connection.execute(
-            "SELECT exercise_id FROM prescription_item ORDER BY order_index"
-        ).fetchone()
-        assert item["exercise_id"] == "ssb_squat"
+        items = [
+            row["exercise_id"] for row in store.connection.execute(
+                "SELECT exercise_id FROM prescription_item ORDER BY order_index"
+            )
+        ]
+        # The contract is "power before the main lift", not a hardcoded index.
+        assert "box_jump" in items
+        assert "ssb_squat" in items
+        assert items.index("box_jump") < items.index("ssb_squat")
     finally:
         store.close()
 
@@ -160,12 +165,12 @@ def test_review_records_marks_and_reports(database, tmp_path, capsys):
 
 
 def test_review_interactively_takes_scores(database, monkeypatch, capsys):
-    responses = iter(["0.9", "", "0.5", "", "", "", "", "", "high"])
+    responses = iter(["0.9", "", "0.5", "", "", "", "", "", "high", "", ""])
     monkeypatch.setattr("builtins.input", lambda *a, **k: next(responses))
 
     code = cli.main(["--db", str(database), "review", "--session", "2024-01-01"])
     assert code == 0
-    # Two non-empty scores out of eight items, plus the confidence prompt.
+    # Two non-empty scores out of eight items, plus confidence and two optional detail prompts.
     assert count(database, "rubric_mark") == 2
 
     store = db.Store(database)

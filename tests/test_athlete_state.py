@@ -62,6 +62,23 @@ def add_profile(conn, *, goal="longevity", block_start=None):
 # --- storage ---------------------------------------------------------------
 
 
+def seed_db(path):
+    """Seed a file-backed store with synthetic data.
+
+    These tests exercise `state`/`block` wiring, not the import pipeline; importing the real
+    export here made them private-data tests in disguise (about 60 s each).
+    """
+    store = db.Store(path)
+    training = make_training(ROWS)
+    readiness = make_readiness([{}])
+    importer.import_export(
+        store.connection, training, readiness,
+        training_sha256=importer.sha256_frame(training),
+        readiness_sha256=importer.sha256_frame(readiness),
+    )
+    store.close()
+
+
 def test_the_five_tables_exist():
     with db.Store(":memory:") as store:
         tables = set(store.tables())
@@ -158,7 +175,7 @@ def test_unrecorded_state_reads_as_unknown_not_as_permission():
 
 def test_state_import_and_show(tmp_path, capsys):
     path = tmp_path / "coach.db"
-    cli.main(["--db", str(path), "import"])
+    seed_db(path)
     state = tmp_path / "state.yaml"
     state.write_text(
         """
@@ -191,7 +208,7 @@ suitability:
 
 def test_block_start_declares_week_one_and_reset_replaces_it(tmp_path, capsys):
     path = tmp_path / "coach.db"
-    cli.main(["--db", str(path), "import"])
+    seed_db(path)
     state = tmp_path / "state.yaml"
     state.write_text(
         'profile:\n  effective_from: "2026-10-17"\n  primary_goal: longevity\n',

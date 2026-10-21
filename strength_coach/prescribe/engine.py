@@ -27,17 +27,21 @@ from strength_coach.features import readiness as readiness_mod
 from strength_coach.features import readiness_score
 from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
+from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import e1rm_decay as e1rm_decay_feature
+from strength_coach.features import lift_readiness as lift_readiness_feature
+from strength_coach.features import recent_stress as recent_stress_feature
 from strength_coach.features import vbt_calibration
 from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import undulation as undulation_mod
 from strength_coach.prescribe import fallback, loads, templates
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
-from strength_coach.rules import RuleContext, evaluate, load_document, registry
+from strength_coach.rules import History, RuleContext, evaluate, load_document, registry
 from strength_coach.rules import policy as policy_mod
 from strength_coach.store import queries, repositories
 from strength_coach.utils import exercises as exercises_mod
 
-RULE_REF_RE = re.compile(r"^(PRG|MOD)-[A-Z]+-\d{3}$")
+RULE_REF_RE = re.compile(r"^(PRG|MOD)(?:-[A-Z0-9]+)+-\d{3}$")
 # Which readiness fields drive the modifier, and at what threshold, is config
 # (config/readiness.v1.yaml); this module no longer hardcodes either.
 
@@ -52,31 +56,45 @@ def build_prescription(
     template: templates.DayTemplate | None = None,
     readiness_config: readiness_mod.ReadinessConfig | None = None,
     undulation: undulation_mod.Undulation | None = None,
+    history: History | None = None,
+    vbt: vbt_calibration.CalibrationResult | None = None,
 ) -> Prescription:
-    """Generate the deterministic session for `for_date`."""
+    """Generate the deterministic session for `for_date`.
+
+    `history` and `vbt` are optional precomputed inputs for callers that build more than one
+    prescription from the same past (the programme forecast): the enriched frame and the VBT
+    calibration do not change with the forecast date, so recomputing them per entry is waste.
+    """
     document = document or load_document()
     thresholds = thresholds or config_mod.Thresholds.load()
     template = template or templates.DayTemplate.load(session_day)
     readiness_config = readiness_config or readiness_mod.ReadinessConfig.load()
     undulation = undulation or undulation_mod.Undulation.load()
 
-    context = RuleContext.from_store(conn, end=for_date, rep_ranges=template.rep_ranges())
+    context = RuleContext.from_store(
+        conn, end=for_date, rep_ranges=templates.all_rep_ranges(), history=history
+    )
     policy_result = evaluate(document, context)
     decisions = policy_result.verdict("PRG-DP-001").details.get("decisions", {})
 
     items: list[PrescriptionItem] = []
     warnings: list[str] = []
 
+    e1rm_factors = e1rm_calibration_feature.factors(
+        conn, for_date, window_days=thresholds.e1rm_window_days
+    )
     for index, slot in enumerate(template.slots):
         item, slot_warnings = build_item(
-            conn, context, slot, index, thresholds, for_date, decisions, template
+            conn, context, slot, index, thresholds, for_date, decisions, template,
+            calibration_factors=e1rm_factors,
         )
         items.append(item)
         warnings.extend(slot_warnings)
     dup_plan = None
     if undulation.enabled and context.block_week_index:
         items, dup_warnings, dup_plan = _apply_undulation(
-            conn, context, tuple(items), template, thresholds, for_date, decisions, undulation
+            conn, context, tuple(items), template, thresholds, for_date, decisions, undulation,
+            calibration_factors=e1rm_factors,
         )
         warnings.extend(dup_warnings)
 
@@ -99,8 +117,12 @@ def build_prescription(
             "score not applied"
         )
 
-    items, readiness_level, readiness_warnings, readiness_factors = _apply_readiness_score(
-        conn, context, tuple(items), for_date, assessment, injury, trigger, thresholds
+    vbt_cal = vbt
+    if vbt_cal is None and not context.sets.empty:
+        vbt_cal = vbt_calibration.calibrate(context.sets)
+    items, readiness_level, readiness_warnings, readiness_factors, lift_readiness = _apply_readiness_score(
+        conn, context, tuple(items), for_date, assessment, injury, trigger, thresholds,
+        calibration=vbt_cal,
     )
     if readiness_level == "fatigue_reduced":
         fallback_level = "fatigue_reduced"
@@ -125,7 +147,7 @@ def build_prescription(
     warnings.extend(gap_warnings)
 
     items, calibration_ids, vbt_note = _attach_vbt_targets(
-        conn, context, tuple(items), for_date, fallback_level
+        conn, context, tuple(items), for_date, fallback_level, calibration=vbt_cal
     )
 
     # Injury signals are context, never policy: a flaring region adds a warning naming the
@@ -151,6 +173,12 @@ def build_prescription(
             f"{verdict.rule_id} not assessable: missing {', '.join(verdict.missing_inputs)}"
         )
 
+    # Advisory recent stress: visible context, never a load change (DEC-STRESS-01).
+    stress = recent_stress_feature.compute(context.sets, for_date)
+    warnings.extend(recent_stress_feature.advisories(
+        stress, tuple(item.exercise_id for item in items)
+    ))
+
     return Prescription(
         for_date=for_date,
         session_day=session_day,
@@ -166,6 +194,12 @@ def build_prescription(
             # when it is not. The upgrade path (per-rep velocity loss, individual load-velocity
             # profiles) is recorded in docs/VBT-CALIBRATION.md.
             "vbt": vbt_note,
+            "recent_stress": recent_stress_feature.as_dict(stress),
+            "per_lift_readiness": lift_readiness_feature.as_dict(lift_readiness),
+            "e1rm_calibration": {
+                key: {"factor": row.correction_factor, "reason": row.correction_reason}
+                for key, row in e1rm_factors.items()
+            },
             "undulation_week": (
                 ((int(context.block_week_index) - 1) % undulation.cycle_weeks) + 1
                 if dup_plan and undulation.cycle_weeks else None
@@ -220,7 +254,10 @@ def _apply_readiness_score(
     injury,
     trigger: str | None,
     thresholds,
-) -> tuple[tuple[PrescriptionItem, ...], str, tuple[str, ...], dict[str, float]]:
+    *,
+    calibration: "vbt_calibration.CalibrationResult | None" = None,
+) -> tuple[tuple[PrescriptionItem, ...], str, tuple[str, ...], dict[str, float],
+           dict[str, lift_readiness_feature.LiftReadiness]]:
     """Apply the readiness factor per item, with the old sleep/energy floor.
 
     The injury ceiling is folded into the per-item score before the factor is chosen, so a
@@ -228,10 +265,28 @@ def _apply_readiness_score(
     sleep/energy trigger remains a floor for partial days that cannot form a score.
     """
     floor_factor = thresholds.fatigue_load_multiplier if trigger else 1.0
+    # Per-lift readiness: a lower score may reduce this lift's load; a higher one never
+    # raises it. Without a ready global score there is no base to adjust, so it stays empty.
+    lift_scores: dict[str, lift_readiness_feature.LiftReadiness] = {}
+    prepared: dict[str, tuple[float | None, float, int, float]] = {}
+    if assessment.status == "ready":
+        base_scores: dict[str, float] = {}
+        for item in items:
+            entity = (context.entities or {}).get(item.exercise_id, {})
+            effective = readiness_score.effective(
+                assessment, conn, item.exercise_id, entity, signal=injury
+            )
+            prepared[item.exercise_id] = effective
+            if effective[0] is not None:
+                base_scores[item.exercise_id] = float(effective[0])
+        lift_scores = lift_readiness_feature.compute(
+            context.sets, base_scores, for_date, calibration=calibration
+        )
     out: list[PrescriptionItem] = []
     reduced = False
     capped = False
     scored = False
+    lift_reduced: list[str] = []
     factors: dict[str, float] = {}
     for item in items:
         entity = (context.entities or {}).get(item.exercise_id, {})
@@ -240,10 +295,18 @@ def _apply_readiness_score(
         score = None
         ceiling = 1.0
         if assessment.status == "ready":
-            score, factor, rir_bump, ceiling = readiness_score.effective(
-                assessment, conn, item.exercise_id, entity, signal=injury
-            )
+            score, factor, rir_bump, ceiling = prepared[item.exercise_id]
             scored = True
+            lift = lift_scores.get(item.exercise_id)
+            if lift is not None and lift.score < score:
+                # Asymmetric on purpose: evidence for per-lift readiness is weak, so it can
+                # only add caution, never make the session harder.
+                previous = factor
+                score = min(lift.score, ceiling)
+                factor, rir_bump = readiness_score.factor_for(score)
+                if factor < previous:
+                    lift_reduced.append(item.exercise_id)
+                scored = True
         factor = min(factor, floor_factor)
         if trigger and floor_factor < 1.0:
             rir_bump = max(rir_bump, 1)
@@ -287,10 +350,13 @@ def _apply_readiness_score(
             pieces.append(f"floor {trigger}")
         if capped:
             pieces.append("injury ceiling applied")
+        if lift_reduced:
+            pieces.append("per-lift readiness applied: " + ", ".join(lift_reduced))
         warnings.append(
             "MOD-FAT-001: " + "; ".join(pieces) + "; load reduced"
         )
-    return tuple(out), ("fatigue_reduced" if reduced else "full"), tuple(warnings), factors
+    return (tuple(out), ("fatigue_reduced" if reduced else "full"), tuple(warnings),
+            factors, lift_scores)
 
 
 def _gap_band(gap_days: int | None, thresholds: config_mod.Thresholds) -> str | None:
@@ -374,6 +440,8 @@ def _attach_vbt_targets(
     items: tuple[PrescriptionItem, ...],
     for_date: str,
     fallback_level: str,
+    *,
+    calibration: "vbt_calibration.CalibrationResult | None" = None,
 ) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], dict[str, Any]]:
     """Attach velocity targets from the per-lift calibration, when it is trustworthy.
 
@@ -390,7 +458,7 @@ def _attach_vbt_targets(
     if context.sets.empty:
         return items, (), {"status": "unavailable", "reason": "no stored sets"}
 
-    result = vbt_calibration.calibrate(context.sets)
+    result = calibration or vbt_calibration.calibrate(context.sets)
     if not result.targets:
         return items, (), {
             "status": "unavailable",
@@ -474,6 +542,8 @@ def _apply_undulation(
     for_date: str,
     decisions: Mapping[str, Any],
     undulation: undulation_mod.Undulation,
+    *,
+    calibration_factors: Mapping[str, object] | None = None,
 ) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], Mapping[str, str] | None]:
     """Apply the week's rep schemes, rebuilding each item's load through the solver.
 
@@ -488,8 +558,16 @@ def _apply_undulation(
 
     schemes = schemes_mod.Schemes.load()
     cycle_week = ((week - 1) % undulation.cycle_weeks) + 1
+    # Power is quality work: a longer or shorter rep scheme would change its intent, so the
+    # undulating accessory layer leaves it alone (DEC-POWER-01).
+    power_ids = {
+        exercise for slot in template.slots if slot.power for exercise in slot.exercises
+    }
     out: list[PrescriptionItem] = []
     for item in items:
+        if item.exercise_id in power_ids:
+            out.append(item)
+            continue
         layer = "main" if item.essential else "accessory"
         name = plan.get(layer)
         if not name:
@@ -515,7 +593,8 @@ def _apply_undulation(
             exercise=item.exercise_id,
         )
         rebuilt, _ = build_item(
-            conn, context, slot, item.order_index, thresholds, for_date, decisions, template
+            conn, context, slot, item.order_index, thresholds, for_date, decisions, template,
+            calibration_factors=calibration_factors,
         )
         out.append(rebuilt)
 
@@ -566,6 +645,8 @@ def build_item(
     for_date: str,
     decisions: Mapping[str, Any],
     template: templates.DayTemplate,
+    *,
+    calibration_factors: Mapping[str, object] | None = None,
 ) -> tuple[PrescriptionItem, tuple[str, ...]]:
     """Build one item from a slot, solving its load from stored history.
 
@@ -584,9 +665,13 @@ def build_item(
     refs: tuple[str, ...] = ()
     unknown_reason: str | None = None
 
+    if calibration_factors is None:
+        calibration_factors = e1rm_calibration_feature.factors(
+            conn, for_date, window_days=thresholds.e1rm_window_days
+        )
     if slot.load_source == "e1rm":
         found = _latest_e1rm(conn, context, exercise_id, for_date,
-                              thresholds.e1rm_window_days)
+                              thresholds.e1rm_window_days, calibration_factors)
         if found is None:
             # No recent e1RM is common after a layoff. Reusing the last working load is
             # safer than refusing to prescribe: the load is a real, previously managed
@@ -608,9 +693,21 @@ def build_item(
                     f"{thresholds.e1rm_window_days} days; reused the last working load"
                 )
         else:
-            e1rm_kg, ref = found
+            e1rm_kg, ref, calibrated, decayed = found
             load = loads.solve_load(e1rm_kg, slot.reps_low, slot.rir_low, increment)
             refs = ("PRG-RIR-001", ref)
+            if calibrated:
+                refs += ("MOD-E1RM-001",)
+                warnings.append(
+                    f"{exercise_id}: e1RM calibrated from measured tests "
+                    f"(x{float(calibration_factors[exercise_id].correction_factor):.3f})"
+                )
+            if decayed:
+                refs += ("MOD-E1RM-DECAY-001",)
+                warnings.append(
+                    f"{exercise_id}: e1RM is old; decayed for the load basis "
+                    f"({e1rm_kg:g} kg effective)"
+                )
             if ref.startswith("e1rm_override:"):
                 warnings.append(
                     f"{exercise_id}: using a manual e1RM override ({e1rm_kg:g} kg)"
@@ -642,6 +739,15 @@ def build_item(
                 load = prior_load + increment if decision == "add_increment" else prior_load
                 load = loads.round_down(load, increment)
             refs = ("PRG-DP-001", ref)
+
+    if slot.power:
+        # A power set is not progressed by load or scored by RIR; the rationale is intent and
+        # quality, so no rule citation is attached and the warning says what "RIR" means here.
+        refs = ()
+        warnings.append(
+            f"{exercise_id}: power work — maximal intent, full recovery, stop when height or "
+            f"quality drops"
+        )
 
     item = PrescriptionItem(
         order_index=index,
@@ -686,9 +792,22 @@ def _choose_exercise(slot: templates.Slot, context: RuleContext) -> tuple[str, b
     return latest[1], True
 
 
+def _e1rm_decay(context: RuleContext, age_days: float) -> float:
+    """Age decay, unless the continuity modifier already handles a long gap.
+
+    A gap of 28+ days triggers MOD-GAP-001's load reduction; decaying the e1RM as well would
+    double-count the same absence. A stale lift while training continues (small gap) still
+    decays normally.
+    """
+    if context.gap_days is not None and context.gap_days >= 28:
+        return 1.0
+    return e1rm_decay_feature.factor(age_days)
+
+
 def _latest_e1rm(
-    conn, context: RuleContext, exercise_id: str, for_date: str, window_days: int
-) -> tuple[float, str] | None:
+    conn, context: RuleContext, exercise_id: str, for_date: str, window_days: int,
+    calibration_factors: Mapping[str, object] | None = None,
+) -> tuple[float, str, bool, bool] | None:
     """The e1RM to prescribe from, with a citable reference.
 
     A manual override in force on the date outranks the computed estimate: the athlete may
@@ -698,7 +817,10 @@ def _latest_e1rm(
     """
     override = queries.e1rm_override(conn, exercise_id, for_date)
     if override is not None:
-        return float(override["e1rm_kg"]), f"e1rm_override:{override['override_id']}"
+        age = (pd.Timestamp(for_date) - pd.Timestamp(override["effective_from"])).days
+        decay = _e1rm_decay(context, age)
+        return (float(override["e1rm_kg"]) * decay,
+                f"e1rm_override:{override['override_id']}", False, decay != 1.0)
 
     if context.sets.empty or "e1rm_kg" not in context.sets:
         return None
@@ -711,8 +833,24 @@ def _latest_e1rm(
     ]
     if usable.empty:
         return None
-    row = usable.loc[usable["e1rm_kg"].idxmax()]
-    return float(row["e1rm_kg"]), f"set:{row['session_id']}/{int(row['set_id'])}"
+    # Pick the best *current* estimate: the same e1RM from an older set decays more, and a
+    # tie should prefer the more recent observation. Selecting by raw e1RM first made the
+    # oldest of several identical sets the winner.
+    usable = usable.assign(
+        _age_days=(pd.Timestamp(for_date) - usable["date"]).dt.days,
+    )
+    usable["_decay"] = [_e1rm_decay(context, age) for age in usable["_age_days"]]
+    usable["_effective"] = usable["e1rm_kg"] * usable["_decay"]
+    row = usable.sort_values(
+        ["_effective", "date", "set_id"], ascending=[False, False, False]
+    ).iloc[0]
+    calibration = (calibration_factors or {}).get(exercise_id)
+    factor = 1.0 if calibration is None else float(calibration.correction_factor)
+    decay = float(row["_decay"])
+    return (float(row["e1rm_kg"]) * factor * decay,
+            f"set:{row['session_id']}/{int(row['set_id'])}",
+            factor != 1.0,
+            decay != 1.0)
 
 
 def _last_working_set(

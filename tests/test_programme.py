@@ -76,6 +76,43 @@ def test_two_flaring_sessions_trigger_a_reactive_deload():
     assert "reactive deload" in " ".join(entries[0].prescription.warnings)
 
 
+def test_a_forecast_entry_equals_a_freshly_built_prescription():
+    # The forecast shares one history frame and one VBT calibration across entries for speed;
+    # that must not change what building that date on its own would produce.
+    from strength_coach.prescribe import build_prescription
+
+    with store_with() as store:
+        conn = store.connection
+        entries = programme.build_programme(
+            conn, start="2024-01-02", weeks=1, per_week=3, start_day="A",
+        )
+        entry = entries[1]
+        direct = build_prescription(
+            conn, for_date=entry.on_date, session_day=entry.day
+        )
+
+    assert entry.prescription.items == direct.items
+    assert entry.prescription.warnings == direct.warnings
+    assert entry.prescription.notes == direct.notes
+
+
+def test_a_forecast_on_an_empty_store_is_empty_not_a_crash():
+    # A new athlete clicking "Build forecast" before importing must get a plan with unknown
+    # loads, not a 500. The VBT calibration and the spinal-cost helper both assume columns
+    # that an empty history does not carry.
+    store = db.Store(":memory:")
+    try:
+        entries = programme.build_programme(
+            store.connection, start="2024-01-02", weeks=1, per_week=3, start_day="A",
+        )
+    finally:
+        store.close()
+
+    assert len(entries) == 3
+    assert all(entry.prescription.items for entry in entries)
+    assert not any(entry.prescription.executable for entry in entries)
+
+
 def test_programme_cli_prints_a_horizon(tmp_path, capsys):
     path = tmp_path / "coach.db"
     store = db.Store(path)

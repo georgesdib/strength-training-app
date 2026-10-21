@@ -9,6 +9,15 @@ expected:
   executable: true
   fallback_level: full
   items:
+    - exercise_id: box_jump
+      sets: 3
+      reps_low: 3
+      reps_high: 5
+      load_kg: 0.0
+      load_basis: bodyweight_total
+      rir_target: 4
+      rest_s: 120
+      essential: false
     - exercise_id: ssb_squat
       sets: 4
       reps_low: 3
@@ -33,6 +42,16 @@ expected:
       sets: 3
       reps_low: 10
       reps_high: 12
+      load_kg: 0.0
+      load_basis: bodyweight_total
+      rir_target: 2
+      rest_s: 90
+      essential: false
+      rule: PRG-DP-001
+    - exercise_id: ab_wheel
+      sets: 3
+      reps_low: 6
+      reps_high: 10
       load_kg: 0.0
       load_basis: bodyweight_total
       rir_target: 2

@@ -57,6 +57,7 @@ BASE_HISTORY = [
     {"Date": "2024-01-01", "Exercise": "Bench Press (narrow grip)", "Weight_Used": "90", "RIR": "2", "Reps_Done": "5"},
     {"Date": "2024-01-01", "Exercise": "Lateral Raise", "Weight_Used": "12.5", "RIR": "2", "Reps_Done": "10"},
     {"Date": "2024-01-01", "Exercise": "Split Squat", "Weight_Used": "30", "RIR": "3", "Reps_Done": "8"},
+    {"Date": "2024-01-01", "Exercise": "Pull-ups (wide grip)", "Weight_Used": "0", "RIR": "2", "Reps_Done": "8"},
 ]
 
 
@@ -106,7 +107,7 @@ def test_day_b_template_has_no_erector_work():
     assert "back_extension" not in exercises          # PRG-SCHED-001
     assert set(exercises) == {
         "trap_bar_deadlift", "bench_press_narrow", "bench_press_pause",
-        "lateral_raise", "split_squat",
+        "lateral_raise", "split_squat", "pull_up", "lat_pulldown",
     }
     assert template.rep_ranges()["lateral_raise"] == (10, 12)
     assert template.time_cap_s == 4800
@@ -281,8 +282,122 @@ def test_accessories_progress_by_double_progression():
     assert "PRG-DP-001" in lateral.rationale_refs
 
 
+def test_core_work_is_prescribed_on_the_strength_days_only():
+    # DEC-CORE-01 / docs/CORE-TRAINING.md: two reps-based core slots, never on the hinge day,
+    # and never time-based (progressing a plank "top of range" would mean holding longer).
+    a = [e for slot in DayTemplate.load("A").slots for e in slot.exercises]
+    b = [e for slot in DayTemplate.load("B").slots for e in slot.exercises]
+    c = [e for slot in DayTemplate.load("C").slots for e in slot.exercises]
+    assert "ab_wheel" in a
+    assert "hanging_leg_raise" in c
+    assert "ab_wheel" not in b and "hanging_leg_raise" not in b
+    assert "plank" not in a + b + c and "carry" not in a + b + c
+
+
+def test_rep_ranges_are_pooled_across_every_day():
+    # PRG-DP-001 scopes the whole accessory collection; a per-day map left it unassessable
+    # (OPEN-QUESTIONS Q16, now answered).
+    from strength_coach.prescribe import templates
+
+    ranges = templates.all_rep_ranges()
+    assert {"back_extension", "lateral_raise", "split_squat",
+            "ab_wheel", "hanging_leg_raise"} <= set(ranges)
+
+
+def test_double_progression_is_assessable_on_every_day():
+    rows = BASE_HISTORY + [
+        {"Date": "2024-01-01", "Exercise": "Back Extension", "Weight_Used": "10",
+         "RIR": "2", "Reps_Done": "12"},
+        {"Date": "2024-01-01", "Exercise": "Ab Wheel", "Weight_Used": "0",
+         "RIR": "2", "Reps_Done": "8"},
+        {"Date": "2024-01-01", "Exercise": "Hanging Leg Raise", "Weight_Used": "0",
+         "RIR": "2", "Reps_Done": "10"},
+        {"Date": "2024-01-01", "Exercise": "Pull-ups (wide grip)", "Weight_Used": "0",
+         "RIR": "2", "Reps_Done": "8"},
+    ]
+    with store_with(rows) as store:
+        for day in ("A", "B", "C"):
+            prescription = build_prescription(
+                store.connection, for_date="2024-01-08", session_day=day
+            )
+            assert not any(
+                "PRG-DP-001 not assessable" in warning for warning in prescription.warnings
+            ), day
+
+
 def test_every_rationale_reference_resolves():
     with store_with(BASE_HISTORY) as store:
         prescription = build_prescription(store.connection, for_date="2024-01-08")
         context = RuleContext.from_store(store.connection, end="2024-02-01")
         assert validate_references(prescription, context, store.connection) == []
+
+
+def test_vertical_pull_slot_accepts_pull_up_or_lat_pulldown():
+    # DEC-PULL-02: the slot is a variant; the most recently trained option wins and the
+    # loads are never compared between them.
+    rows = BASE_HISTORY + [
+        {"Date": "2024-01-03", "Exercise": "Lat Pulldown", "Weight_Used": "60",
+         "RIR": "2", "Reps_Done": "10"},
+    ]
+    with store_with(rows) as store:
+        prescription = build_prescription(store.connection, for_date="2024-01-08")
+    pull = next(
+        item for item in prescription.items
+        if item.exercise_id in {"pull_up", "lat_pulldown"}
+    )
+    assert pull.exercise_id == "lat_pulldown"
+    # 10 reps at RIR 2 is the top of the range, so the double-progression rule adds 0.5 kg.
+    assert pull.load_kg == 60.5
+
+
+def test_day_a_opens_with_power_work_and_no_load_progression_citation():
+    rows = BASE_HISTORY + [
+        {"Date": "2024-01-01", "Exercise": "Box Jumps", "Weight_Used": "0",
+         "RIR": "4", "Reps_Done": "4"},
+    ]
+    with store_with(rows) as store:
+        prescription = build_prescription(
+            store.connection, for_date="2024-01-08", session_day="A"
+        )
+
+    first = prescription.items[0]
+    assert first.exercise_id == "box_jump"
+    assert first.load_basis == "bodyweight_total"
+    assert first.rationale_refs == ()          # power is intent, not a rule
+    assert any("power work" in warning for warning in prescription.warnings)
+
+
+def test_recent_stress_is_attached_as_an_advisory_only():
+    rows = BASE_HISTORY + [
+        {"Date": "2024-01-01", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"}
+        for _ in range(10)
+    ]
+    with store_with(rows) as store:
+        prescription = build_prescription(
+            store.connection, for_date="2024-01-02", session_day="A"
+        )
+
+    stress = prescription.notes["recent_stress"]["ssb_squat"]
+    assert stress["status"] == "high"
+    assert any("recent stress: ssb_squat high" in w for w in prescription.warnings)
+    # The advisory did not add a load modifier or a rule citation.
+    assert not any("MOD-FAT" in ref for item in prescription.items for ref in item.rationale_refs)
+
+
+def test_per_lift_readiness_can_only_lower_a_load():
+    rows = BASE_HISTORY + [
+        {"Date": "2024-01-06", "Exercise": "Trap Bar Deadlift", "Weight_Used": "100",
+         "RIR": "0", "Reps_Done": "5"},
+    ]
+    readiness = [{"Date": "2024-01-08", "Sleep": "4", "Energy": "4", "Mood": "4",
+                  "Stress": "4", "Soreness": "4"}]
+    with store_with(rows, readiness_rows=readiness) as store:
+        prescription = build_prescription(
+            store.connection, for_date="2024-01-08", session_day="B"
+        )
+
+    entry = prescription.notes["per_lift_readiness"]["trap_bar_deadlift"]
+    assert entry["score"] < 0.8
+    assert any("MOD-FAT-001" in warning for warning in prescription.warnings)
+    assert any("per-lift readiness applied" in warning for warning in prescription.warnings)

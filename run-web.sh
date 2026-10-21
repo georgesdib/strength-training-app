@@ -19,9 +19,11 @@ Launch the strength-coach local web UI.
 Usage: ./run-web.sh [--no-open] [options passed to `strength-coach web`]
 
   --no-open        do not open a browser (default: open)
+  --open           open a browser (default)
   --port N         port to bind (default 8000)
+  --host ADDR      bind address; loopback only
   --db PATH        database to serve (default data/coach.db)
-  -h, --help       show this help and the full option list
+  -h, --help       show this help
 
 The server binds 127.0.0.1 only and has no authentication. Any other option is
 passed through, so `--host` is accepted only for loopback addresses.
@@ -46,7 +48,6 @@ ROOT="$(cd -P -- "$(dirname -- "$SOURCE")" && pwd)"
 cd "$ROOT"
 
 OPEN_BROWSER="${OPEN_BROWSER:-1}"
-SHOW_HELP=0
 expect_host=0
 expect_db=0
 ARGS=()
@@ -75,9 +76,9 @@ for arg in "$@"; do
   fi
   case "$arg" in
     -h | --help)
+      # Answer immediately: help must not pay for importing pandas.
       usage
-      SHOW_HELP=1
-      ARGS+=("$arg")
+      exit 0
       ;;
     --db)
       expect_db=1
@@ -140,7 +141,7 @@ if ! "$PYTHON" -c 'import sys, strength_coach.cli; assert sys.version_info >= (3
   exit 1
 fi
 
-if [ "$OPEN_BROWSER" = 1 ] && [ "$SHOW_HELP" = 0 ]; then
+if [ "$OPEN_BROWSER" = 1 ]; then
   ARGS+=(--open)
 fi
 

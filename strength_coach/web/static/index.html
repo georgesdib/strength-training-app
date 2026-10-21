@@ -15,7 +15,10 @@
       <button data-view="programme">Programme</button>
       <button data-view="review">Review</button>
       <button data-view="readiness">Readiness</button>
+      <button data-view="cardio">Cardio</button>
+      <button data-view="measures">Measures</button>
       <button data-view="import">Import</button>
+      <button data-view="exercises">Exercises</button>
       <button data-view="state">Athlete</button>
       <button data-view="terminal">Terminal</button>
       <button data-view="docs">Docs</button>
@@ -60,6 +63,26 @@
           answer, not noise: a missing readiness or an unknown load appears here.</p>
       </div>
       <div id="prescribe-result"></div>
+      <div class="panel">
+        <div class="panel-head"><h2>Strength fatigue model</h2>
+          <span class="muted">shadow; no load effect</span></div>
+        <p class="muted">Per-lift and overall fitness/fatigue fit from your own e1RM observations;
+          approximate 95% intervals. It refuses sparse or ill-conditioned fits; nothing here changes
+          the prescription above.</p>
+        <div id="fatigue-model"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Exercise selection</h2>
+          <span class="muted">shadow; no prescription change</span></div>
+        <p class="muted">Ranks the configured variants for each slot using readiness, recent
+          stress, rotation and preference. The model option may only choose from that ranked
+          list; Python falls back deterministically.</p>
+        <div class="form-row">
+          <label><input type="checkbox" id="selection-llm"> use LLM</label>
+          <button class="ghost" id="selection-run">Check selection</button>
+        </div>
+        <div id="selection-result"></div>
+      </div>
     </section>
 
     <section id="view-programme" class="view">
@@ -165,6 +188,60 @@
       </div>
     </section>
 
+    <section id="view-cardio" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Cardio</h2><span class="muted">separate exposure; no prescription yet</span></div>
+        <form id="cardio-form" class="form-row">
+          <label>Date <input id="cardio-date" type="date"></label>
+          <label>Modality <input id="cardio-modality" type="text" placeholder="walk / run / bike" required></label>
+          <label>Minutes <input id="cardio-minutes" type="number" min="1" step="1" required></label>
+          <label>Avg HR <input id="cardio-avg-hr" type="number" min="30" max="230"></label>
+          <label>Max HR <input id="cardio-max-hr" type="number" min="30" max="250"></label>
+          <label>Distance km <input id="cardio-distance" type="number" min="0" step="0.1"></label>
+          <label>sRPE 1-10 <input id="cardio-srpe" type="number" min="1" max="10"></label>
+          <label class="grow">Note <input id="cardio-note" type="text"></label>
+          <button class="primary" type="submit">Log session</button>
+        </form>
+        <div class="form-row">
+          <label>Show last
+            <select id="cardio-weeks">
+              <option value="4">4</option>
+              <option value="12" selected>12</option>
+              <option value="26">26</option>
+              <option value="52">52</option>
+            </select> weeks</label>
+          <label>As of <input type="date" id="cardio-asof"></label>
+        </div>
+        <p class="muted">Cardio is captured first, as its own exposure. Nothing here changes a load;
+          the reference range is public-health guidance, not a personal target.</p>
+      </div>
+      <div id="cardio-result"></div>
+    </section>
+
+    <section id="view-measures" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Measurements</h2><span class="muted">periodic outcomes; never a load change</span></div>
+        <form id="measure-form" class="form-row">
+          <label>Metric <select id="measure-metric"></select></label>
+          <label>Date <input id="measure-date" type="date"></label>
+          <label>Value <input id="measure-value" type="number" step="0.01" required></label>
+          <label>Method <input id="measure-method" type="text" placeholder="step test / dynamometer"></label>
+          <label class="grow">Note <input id="measure-note" type="text"></label>
+          <button class="primary" type="submit">Log measurement</button>
+        </form>
+        <p class="muted">VO2max, grip, 5x sit-to-stand, steps and sitting time. Directions and
+          plausible ranges live in <code>config/measurements.v1.yaml</code>; nothing here changes
+          a prescription.</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>History</h2><span class="muted">filter by metric</span></div>
+        <div class="form-row">
+          <label>Metric <select id="measure-filter"><option value="">all metrics</option></select></label>
+        </div>
+      </div>
+      <div id="measure-result"></div>
+    </section>
+
     <section id="view-import" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Import training and readiness</h2><span class="muted">both CSVs</span></div>
@@ -179,6 +256,80 @@
         <p class="muted">Re-importing the same files is idempotent: existing raw rows and clean sets
           are reported, not duplicated.</p>
         <div id="import-result"></div>
+      </div>
+      <div class="panel" id="import-next">
+        <div class="panel-head"><h2>After the import</h2>
+          <span class="muted">calibration is not an import step</span></div>
+        <p class="muted">The short answer: <strong>do not run a calibration because you imported.</strong>
+          Import adds sessions; calibration compares the engine's rubric with <em>your marks</em>.
+          With no marks, <code>calibrate</code> says <code>no marks yet</code>.</p>
+        <ol class="muted">
+          <li><strong>Check the report above.</strong> New raw rows/sessions are the history that
+            was added; <em>overlapping</em> means it was already loaded. A high
+            <em>quarantined</em> count means dates or exercise names need attention.</li>
+          <li><strong>Review recent sessions.</strong> Open <strong>Review</strong> and mark the
+            sessions you remember (or run <code>strength-coach review --pending</code>). Those
+            marks are the calibration labels; only <code>high</code>-confidence marks count.</li>
+          <li><strong>Calibrate later.</strong> After the review — weekly, or after a block —
+            run <strong>Run rubric calibration</strong> on the Review page
+            (or <code>strength-coach calibrate</code>). Re-importing does not invalidate marks,
+            and importing does not require a re-run on its own.</li>
+        </ol>
+        <p class="muted">Review the recent sessions, not the distant past: the pending review stops
+          at your last reviewed session. Rubric calibration and readiness calibration are
+          different reports; neither changes weights automatically.</p>
+        <button class="ghost" data-view-link="review">Go to Review</button>
+      </div>
+    </section>
+
+    <section id="view-exercises" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Exercise catalogue</h2><span class="muted">base taxonomy + local overrides</span></div>
+        <p class="muted">Every canonical exercise and its properties. Edits are written to
+          <code>config/exercises/overrides.v1.yaml</code>; the checked-in taxonomy stays intact.
+          IDs are immutable because history is keyed by them.</p>
+        <div class="form-row">
+          <label class="grow">Search <input id="exercise-search" placeholder="id, name, log name, pattern"></label>
+          <label>Pattern <select id="exercise-filter"><option value="">all</option></select></label>
+          <button class="primary" id="exercise-add" type="button">Add exercise</button>
+          <button class="ghost" id="exercise-refresh" type="button">Refresh</button>
+        </div>
+        <div id="exercise-catalog"></div>
+      </div>
+
+      <div class="panel" id="exercise-editor" hidden>
+        <div class="panel-head"><h2 id="exercise-editor-title">Edit exercise</h2>
+          <button class="ghost" id="exercise-cancel" type="button">Close</button></div>
+        <form id="exercise-form">
+          <div class="form-row">
+            <label>ID <input id="exercise-id" required pattern="[a-z][a-z0-9_]*"></label>
+            <label class="grow">Display name <input id="exercise-display" required></label>
+            <label>Pattern <input id="exercise-pattern" list="exercise-patterns" required></label>
+            <label>VBT family <input id="exercise-vbt"></label>
+          </div>
+          <label class="grow">Log names — one exact raw name per line
+            <textarea id="exercise-log-names" rows="4"></textarea></label>
+          <label class="grow">Primary muscles — comma separated
+            <input id="exercise-muscles"></label>
+          <div class="form-row">
+            <label><input type="checkbox" id="exercise-compound"> primary compound</label>
+            <label><input type="checkbox" id="exercise-loadable"> loadable</label>
+            <label><input type="checkbox" id="exercise-bodyweight"> bodyweight type</label>
+            <label><input type="checkbox" id="exercise-timed"> time based</label>
+            <label><input type="checkbox" id="exercise-e1rm"> e1RM applicable</label>
+            <label><input type="checkbox" id="exercise-main"> main lift</label>
+            <label><input type="checkbox" id="exercise-spinal"> high fatigue spinal</label>
+            <label><input type="checkbox" id="exercise-erector"> erector family</label>
+            <label><input type="checkbox" id="exercise-direct-erector"> direct erector</label>
+          </div>
+          <label class="grow">Additional properties (JSON object; unknown fields are preserved)
+            <textarea id="exercise-extra" rows="5" spellcheck="false"></textarea></label>
+          <div class="form-row">
+            <button class="primary" type="submit">Save exercise</button>
+            <span id="exercise-msg" class="muted"></span>
+          </div>
+        </form>
+        <datalist id="exercise-patterns"></datalist>
       </div>
     </section>
 

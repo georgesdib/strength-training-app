@@ -22,7 +22,9 @@ It may recommend; it may never set `exercise_suitability` or clear a constraint
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Iterable, Mapping
@@ -142,7 +144,14 @@ class InjuryConfig:
             # A missing file means no region is configured; the signal then says `unknown`
             # rather than pretending the athlete is fine.
             return cls(regions=MappingProxyType({}), source_path=source)
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        body = source.read_text(encoding="utf-8")
+        # The signal is rebuilt for every projected session; parsing and validating the same
+        # file each time is pure waste. The digest keeps an edited file from being cached.
+        digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+        return _parse_config(str(source), digest, body)
+
+    @classmethod
+    def _from_raw(cls, source: Path, raw: Mapping[str, Any]) -> "InjuryConfig":
         defaults = raw.get("defaults") or {}
         taxonomy = exercises.taxonomy()
         known_patterns, known_flags, known_muscles = _taxonomy_vocabulary(taxonomy)
@@ -187,6 +196,12 @@ class InjuryConfig:
         if not regions:
             raise InjuryConfigError("no regions configured; the signal would say nothing")
         return cls(regions=MappingProxyType(regions), source_path=source)
+
+
+@lru_cache(maxsize=8)
+def _parse_config(source_name: str, digest: str, body: str) -> InjuryConfig:
+    raw = yaml.safe_load(body) or {}
+    return InjuryConfig._from_raw(Path(source_name), raw)
 
 
 def _value(body: Mapping[str, Any], defaults: Mapping[str, Any], key: str,

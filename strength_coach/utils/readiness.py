@@ -12,8 +12,10 @@ SCORE_FIELDS = (
     "sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration",
     "squat_readiness", "bench_readiness", "deadlift_readiness",
 )
-MEASURE_FIELDS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "grip_strength_kg",
-                  "wearable_score")
+MEASURE_FIELDS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "wearable_score")
+# `grip_strength_kg` is deliberately absent: grip is a periodic capacity measurement, not a
+# daily readiness input (DEC-GRIP-01). The readiness_day/readiness_entry columns remain for
+# historical rows but no readiness path accepts new ones; use `measure --metric grip_strength_kg`.
 # Old per-lift values from the previous app. They are calibration labels, not inputs.
 LEGACY_FIELDS = ("squat_readiness", "bench_readiness", "deadlift_readiness")
 CORE_SCORE_FIELDS = ("sleep", "energy", "mood", "stress", "soreness")
@@ -35,7 +37,7 @@ FIELD_LABELS = {
     "rhr_bpm": "resting HR (bpm)",
     "bodyweight_kg": "bodyweight (kg)",
     "fat_pct": "body fat (%)",
-    "grip_strength_kg": "grip strength (kg)",
+    "grip_strength_kg": "grip strength (kg, legacy readiness field)",
     "wearable_score": "wearable readiness (0-100)",
 }
 

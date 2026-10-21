@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-19 · **v0 complete, v0.1 done, v0.2 in progress** · version `0.1.0-dev` · **474 public tests** (489 with the 15 private integration tests)
+Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **551 public tests** (566 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-19 · **v0 complete, v0.1 done, v0.2 in progress** · vers
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 489 locally (474 public + 15 private integration)
+.venv/bin/python -m pytest            # 566 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -43,9 +43,24 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
-| v0.2 | Input flexibility + programme view | **in progress** | delivered early: readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Terminal/calibration (§4.10/4.11), labelled set moved here (§4.14). Remaining: manual logging, adapters, video, learned readiness weights (§4.9), web parity for LLM/manual logging/video (§4.11); later/unscheduled: cardio + impulse fatigue (§4.13) |
+| v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
+| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights (§4.9 remaining), LLM/manual-logging parity (§4.11), continuity calibration (§4.12), labelled set depth (§4.14), exercise selection (§4.15), strength fitness-fatigue shadow model (§4.16) |
+| v0.4 | Cardio prescription and model | **planned** | cardio prescription and cardio impulse/fatigue model (§4.13 remaining) |
+| v0.5 | Video analysis | **planned** | video capture/analysis and its UI parity (§4.8, §4.11 video part) |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000` |
+
+### Version plan (2026-10-20)
+
+| version | boundary | status |
+|---|---|---|
+| v0.2 | readiness, continuity, injury, web UI, cardio capture, measurements, session RPE/length, recent stress, per-lift readiness, e1RM calibration/decay | **done** |
+| v0.3 | everything strength/data-depth that is not cardio or video: manual logging, adapters, learned readiness weights, LLM/manual-logging parity, continuity calibration, deeper labelled set, exercise selection, strength fitness-fatigue model | **in progress** |
+| v0.4 | everything cardio: prescription, cardio impulse model, cardio fatigue interaction | **planned** |
+| v0.5 | everything video: capture, analysis, UI parity | **planned** |
+
+**Rule:** cardio work does not enter v0.3; video work does not enter v0.3 or v0.4. The strength
+model (§4.16) is strength-only and stays in v0.3.
 
 ### What works end to end today
 
@@ -124,12 +139,18 @@ Acceptance: a template per day with its own essential lifts; `PRG-SCHED-001` enf
 day, in the same style as `tests/fixtures/golden_day_b.yaml`.
 
 Delivered: Day A (squat-led) and Day C (bench-led) templates with erector + accessory work;
-`run --day A|B|C`; golden fixtures for both days. Bodyweight erector work is prescribed at
-load 0 with an explicit warning, never as a 0.5 kg "progression". The athlete declares the
-block start whenever they choose, so the ramp stays `unknown` until then.
+`run --day A|B|C`; golden fixtures for both days. Core work was added on 2026-10-20
+(`ab_wheel` on A, `hanging_leg_raise` on C, `DEC-CORE-01`; `docs/CORE-TRAINING.md`). Day A
+opens with a power slot (`box_jump`, `DEC-POWER-01`) and Day B with a vertical-pull variant
+slot (`pull_up` / `lat_pulldown`, `DEC-PULL-01/02`; `docs/LONGEVITY-REVIEW.md`).
+Bodyweight erector work is prescribed at load 0 with an explicit warning, never as a 0.5 kg
+"progression". The athlete declares the block start whenever they choose, so the ramp stays
+`unknown` until then.
 
-Consequence: `PRG-DP-001` stops being `unknown`. It is unknown today only because its scope
-includes `back_extension`, which Day B never prescribes and so has no rep range.
+Consequence: `PRG-DP-001` should stop being `unknown`. It was unknown because its scope
+includes accessories that no single day prescribes, so the per-day rep-range map always lacked
+one exercise. Fixed in Q16 by pooling rep ranges across all three templates; see
+`docs/CORE-TRAINING.md` §5.4.
 
 ### 3.3 Symptom input  (done)
 
@@ -314,7 +335,7 @@ and the explicit *readiness unknown* warning. The derivation is in
 [`docs/READINESS.md`](READINESS.md); the changeable parts are config in
 `config/readiness.v1.yaml` (`DEC-READINESS-04`).
 
-### 4.2 Logging workouts three ways
+### 4.2 Logging workouts three ways  (v0.3)
 
 Three input paths, one downstream shape:
 
@@ -340,7 +361,7 @@ Acceptance: a manually logged session is indistinguishable downstream from an im
 `review --pending`; duration is stored when given and stays `unavailable` when not
 — never estimated; the rubric scores duration only when it exists.
 
-### 4.3 Column-mapping adapters for other exports
+### 4.3 Column-mapping adapters for other exports  (v0.3)
 
 `utils.io_utils` fixes the column names, so another app's export would need code. v0.2 adds a
 mapping file (source column → canonical column, unit, sentinel policy) and a small adapter
@@ -466,7 +487,7 @@ advisory warning when a prescription loads a flaring non-back region. Evidence a
 `docs/INJURY-SIGNAL.md`. Q13 is answered; the remaining uncertainty is calibration
 (`ASSUMPTION-08/09/10`).
 
-### 4.8 Video analysis (LLM) — moved from v0.1, a commentary feature
+### 4.8 Video analysis (LLM) — moved to v0.5
 
 Allow a video to be attached to a session or a single set for a vision-capable model to
 comment on: depth, bar path, tempo, rep count. It is a **commentary** feature, and the
@@ -494,7 +515,7 @@ Why v0.2 rather than v0.1: it needs a privacy decision (sending personal video t
 model), a provider-capability check, and a storage/retention policy. None of those belong in a
 version whose remaining work is calibration and documentation.
 
-### 4.9 Readiness score and follow-ups  (core + devices implemented)
+### 4.9 Readiness score and follow-ups  (core + devices done; learned weights = v0.3)
 
 Implemented (2026-10-19/20):
 
@@ -551,10 +572,10 @@ CLI remains the automation surface.
 Done: import, state editing, Programme, Terminal. Remaining: LLM proposals/chat, manual
 logging, video.
 
-### 4.11 Web UI parity — everything in the browser  (partial: LLM, manual logging, video remain)
+### 4.11 Web UI parity  (v0.3 for LLM/manual logging; video part v0.5)
 
-The local UI covers Today, Prescribe, Programme, Review, Readiness, Import, an editable Athlete
-page, Terminal and Docs. This item brings the remaining interactive CLI actions into the browser. The CLI stays
+The local UI covers Today, Prescribe, Programme, Review, Readiness, Import, an editable
+Athlete page, an editable **Exercises** catalogue, Terminal and Docs. This item brings the remaining interactive CLI actions into the browser. The CLI stays
 as the automation interface; the UI must call the same core functions, never re-implement them.
 
 Planned surfaces, in suggested order:
@@ -574,6 +595,9 @@ Planned surfaces, in suggested order:
 7. **Readiness settings** (4.9) — **done**. Baseline window, minimum readings, slopes and
    weights; shadow baseline report.
 8. **Terminal** — **done**. One `strength-coach` command, no shell; bound to the UI database.
+9. **Exercise catalogue** — **done**. Full taxonomy table, search/filter, all fields per row,
+   edit/add form writing `config/exercises/overrides.v1.yaml`; ids immutable, log-name
+   collisions refused; API tests and CLI `exercise list`/`exercise set`.
 
 Constraints:
 
@@ -592,7 +616,7 @@ same inputs produce the same database rows and warnings through either surface; 
 action leaves no partial write; API tests cover each new write; no load, score or threshold is
 computed in the browser.
 
-### 4.12 Continuity calibration from real returns  (planned)
+### 4.12 Continuity calibration from real returns  (v0.3, planned)
 
 Replace the fixed gap arithmetic with per-athlete retention curves, learned from actual returns.
 No automatic change: the fixed defaults remain until the data supports a cited, configurable
@@ -622,16 +646,30 @@ Acceptance: a return session can be recorded with post-session fatigue; the repo
 returns and the current rule side by side; no prescription changes until the athlete adopts a
 suggested setting; the minimum-data rule is explicit.
 
-### 4.13 Cardio workouts and an impulse fatigue model  (planned, unscheduled)
+### 4.13 Cardio workouts and an impulse fatigue model  (capture v0.2 done; cardio model v0.4; strength model is §4.16)
 
 The app currently measures resistance training only. Cardio is a separate exposure with a
 different fatigue signature, and a single "fatigue score" would hide that. This item adds the
 data and a model, initially advisory and in shadow mode.
 
+**Delivered 2026-10-20 (`DEC-CARDIO-01`):** append-only `cardio_log` with modality, duration,
+average/max HR, distance and sRPE; `strength-coach cardio` (log with `--date`, `--minutes`,
+`--avg-hr`, `--max-hr`, `--distance-km`, `--srpe`; `--show --weeks`); a Cardio page and
+`GET/POST /api/cardio`; a weekly summary with the WHO reference as context. No prescription
+reads it and no fatigue model exists yet.
+
+**Priority:** the longevity review ranks cardio capture as the largest gap between the
+programme and the primary goal — cardiorespiratory fitness is the strongest modifiable
+mortality signal, and the app currently records none of it
+([`docs/LONGEVITY-REVIEW.md`](docs/LONGEVITY-REVIEW.md)). Capture is useful before the fatigue
+model exists; the model stays shadow-mode until there is data.
+
 **Scope**
 
 1. **Cardio capture** — modality, duration, average/max HR, HR zones, distance or power where
    available, session RPE, notes. Append-only; no free-text parsing in the core.
+   **Done (migration 0011):** modality, duration, average/max HR, distance and sRPE; HR zones
+   and power are not captured yet.
 2. **Training impulse** — compute a documented impulse per session: HR-based TRIMP where the
    data supports it, otherwise session-RPE × duration. Say which one was used and why.
 3. **Fatigue model** — start with an impulse-response / fitness-fatigue model:
@@ -681,7 +719,7 @@ method; the fatigue state is displayed with inputs and time constants; a shadow 
 no prescription; constraints and injury ceilings remain vetoes; no cardio session silently
 counts as resistance volume or vice versa.
 
-### 4.14 Labelled calibration set  (moved from v0.1 3.8)
+### 4.14 Labelled calibration set  (v0.3; moved from v0.1 3.8)
 
 No code. Continue reviewing sessions while they are fresh; the rubric report needs roughly ten
 *remembered* sessions per item before changing a definition or weight (DEC-EVAL-03,
@@ -693,6 +731,120 @@ The web Review page has the **Run rubric calibration** button; the CLI remains
 
 Acceptance: ten high-confidence marks per item before a rubric change; every review appends,
 never edits; the report states the sample size and excludes low-confidence marks.
+### 4.15 Exercise selection adapted to readiness and fatigue  (v0.3; shadow implemented)
+
+**Status: shadow implemented 2026-10-20.** `prescribe/selection.py` ranks the configured
+and catalogue variants per slot from readiness, recent stress, rotation, preference and the cached fitness-fatigue state; constraints and
+`can_do: false` exclude a candidate; injury is a penalty, not a veto. It is exposed as
+`strength-coach select` and a Prescribe panel. **No prescription is changed** yet. All synthetic raw variant names were canonicalised and their history rewritten (migration 0014, 114 entities, 3,607 audited remaps; migration 0015 split close-grip pulldown); trap-bar date-scoping and back-extension equivalence are preserved. The shadow catalogue now offers the squat/bench/pull variants.
+
+**Later phase — weakness/injury tailoring.** Once the selector is allowed to apply a
+substitution, rank candidates against per-lift weakness (e1RM relative to bodyweight or a
+comparison lift, muscle-group volume), active injury regions and suitability, not just
+day-to-day readiness. This needs a weakness definition and an explicit policy; it is not part of
+the shadow pass.
+
+**Later phase — variant-group e1RM ratios.** Variants stay distinct entities for now. A future
+model may express a variant's e1RM as a ratio of a parent lift (illustrative: front squat ≈60%
+of squat — a fictitious number, not a proposal). Any ratio must be a configured,
+per-athlete/phase prior with a CI, learned from paired sessions where possible, used only when
+the variant's own history is too sparse, and never presented as a measured e1RM. This needs a
+formal `variant_of` relation and a validation rule; it is not implemented.
+
+**Load handling — bands/chains.** The log's weight figure already includes band/chain load, so
+the current total-load treatment is accepted for now and no prescription change is made. A
+future item should define whether an e1RM uses the total logged load, how band tension varies
+through range, and whether these variants need a separate comparison rule.
+
+Current selection remains template-driven: each day has fixed slots, variant slots pick the
+most recently trained variant, and constraints/suitability can veto. Readiness changes the
+load, not the exercise.
+
+**Goal.** Choose among evidence-permitted exercises for a slot using the per-lift readiness
+score (`docs/LIFT-READINESS.md`), the recent-stress decay (option B), the strength
+fitness-fatigue state (§4.16), injury links, equipment, rep range and rotation — without
+letting an unvalidated model override safety.
+
+**Default: Python, deterministic.** Score each allowed candidate:
+
+- hard filters — constraint veto, `can_do: false`, injury region active, equipment missing;
+- per-lift readiness and recent stress (lower readiness → prefer a lower-skill or less
+  fatiguing variant, not a harder one);
+- recent stress and the cached fitness-fatigue state;
+- rotation/history (avoid repeating the same variant indefinitely);
+- a preference/suitability tie-break (adherence is a real outcome).
+
+Only one substitution per slot, cited as `MOD-SELECT-001`; the deterministic candidate list and
+scores are shown. The shadow phase is done; applying a substitution is still a separate,
+approval-gated step.
+
+**Optional LLM (`--select=llm`).** The model receives the **already-filtered candidate list**
+and returns one candidate plus a reason; Python validates and logs the choice. The LLM may not
+invent an exercise, a load, a rep count or a veto, and a missing/invalid answer falls back to
+the deterministic choice. Off by default; provenance recorded.
+
+**Evidence and limits.** Specificity and adherence support stable exercise choices; there is no
+trial showing that algorithmic selection outperforms a fixed programme. Autoregulation
+evidence supports adjusting load/effort, not swapping exercises. Injury/suitability links are
+exposure maps, not causal (ASSUMPTION-10). Treat selection as a conservative, explainable
+preference, not an optimiser.
+
+**Dependencies:** per-lift readiness (done), recent stress (done), session RPE/length (done),
+§4.16 model, exercise suitability state, taxonomy metadata.
+
+**Acceptance:** constraints always win (done); selection is reproducible (done); LLM proposals
+are validated and cannot override policy (done); shadow mode changes no prescription (done); UI
+shows the chosen exercise and why (done); tests cover vetoes, ties, missing metadata and LLM
+fallback (done); applying a substitution remains open.
+
+### 4.16 Strength fitness-fatigue model  (v0.3; shadow prototype implemented)
+
+**Status: shadow prototype implemented 2026-10-20.** `features/fatigue_fitness.py` fits a
+per-lift linear performance model from fixed fitness/fatigue half-lives and the athlete's own
+e1RM observations; it reports fitness, fatigue, state, R², condition and refuses sparse or
+ill-conditioned fits. It is exposed as `strength-coach fatigue` and on the Prescribe page.
+**No load reads it.** Option B (recent stress) and session RPE/length remain inputs.
+
+**Scope.** Strength only. Cardio keeps its own impulse item (§4.13); do not collapse both into
+one fatigue scalar. Model per **lift**, with partial pooling across a movement family / muscle
+group, rather than a separate free model for every exercise with sparse data.
+
+**Candidate state model.** Per lift (or family), an observed e1RM performance is a slow
+fitness term plus a fast fatigue term; training load is built from hard sets × proximity to
+failure, with session RPE × duration as a cross-check. Parameters are hierarchical and
+partially pooled; intervals are mandatory. The model must state when it is not identifiable.
+
+**Phased plan.**
+
+1. **Inputs**: session RPE/length (done), per-lift readiness (done), recent stress (done),
+   e1RM calibration report (done), RIR/VBT. Add a per-lift soreness/readiness rating only if
+   it earns its place.
+2. **Shadow fit — done for this phase**: fixed half-lives + linear fit on stored e1RM series,
+   approximate 95% intervals, family-slope shrinkage, and a chronological 80/20 backtest against
+   a naive baseline; an **overall** relative-e1RM row pools lifts. No load change. **Still open:**
+   a frozen-parameter prospective test on future sessions.
+3. **Prospective validation**: freeze parameters, predict held-out sessions, compare with a
+   fitness-only and a readiness-only baseline.
+4. **Optional use**: only after validation, and only downward (extra caution), never to raise a
+   load from an unvalidated model.
+
+**Evidence and limits.** Direct strength evidence is one small weight-lifter study (Busso 1990);
+parameters are ill-conditioned and the fatigue term did not improve out-of-sample prediction in
+a 2025 re-analysis (Marchal 2025); load metric choice changes the fit (Vermeire 2021/2022); RIR
+and e1RM are noisy. Recovery after failure/volume is 24–72 h (Morán-Navarro 2017; Sousa 2024),
+which the current RIR window and 48–72 h spacing already manage. See
+[`docs/FATIGUE-FITNESS.md`](docs/FATIGUE-FITNESS.md) refs 93–100.
+
+**Open questions.** Which load metric (hard sets, volume load, sRPE)? Per lift vs family? How
+many measured tests make a parameter identifiable? Does the model beat readiness-only
+prospectively? Does it change any decision in shadow mode?
+
+**Acceptance:** reproducible fit with approximate intervals (done); refuses to show parameters
+when unidentified (done); shadow mode changes no prescription (done); per-lift, family-shrunk and
+overall views done; chronological backtest done; UI shows inputs, state, intervals, backtest and
+“not identifiable” honestly (done); no cardio in the strength model (done); frozen-parameter
+prospective test remains open.
+
 ## 5. Known gaps and risks
 
 | gap | impact | mitigation / status |

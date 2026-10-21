@@ -221,15 +221,26 @@ def test_double_progression_decides_when_ranges_are_supplied(document):
          "RIR": "2", "Reps_Done": "15"},
         {"Date": "2024-01-01", "Exercise": "Split Squat", "Weight_Used": "20",
          "RIR": "3", "Reps_Done": "10"},
+        {"Date": "2024-01-01", "Exercise": "Ab Wheel", "Weight_Used": "0",
+         "RIR": "2", "Reps_Done": "10"},
+        {"Date": "2024-01-01", "Exercise": "Hanging Leg Raise", "Weight_Used": "0",
+         "RIR": "2", "Reps_Done": "12"},
+        {"Date": "2024-01-01", "Exercise": "Pull-ups (wide grip)", "Weight_Used": "0",
+         "RIR": "2", "Reps_Done": "8"},
     ]
     ctx = context(
         rows,
-        rep_ranges={"back_extension": (8, 12), "lateral_raise": (12, 15), "split_squat": (8, 10)},
+        rep_ranges={
+            "back_extension": (8, 12), "lateral_raise": (12, 15),
+            "split_squat": (8, 10), "ab_wheel": (6, 10),
+            "hanging_leg_raise": (8, 12), "pull_up": (6, 10), "lat_pulldown": (6, 10),
+        },
     )
     verdict = evaluate(document, ctx, rule_ids=["PRG-DP-001"]).verdict("PRG-DP-001")
     assert verdict.verdict == "pass"
     assert verdict.details["decisions"]["back_extension"]["decision"] == "add_increment"
     assert verdict.details["decisions"]["split_squat"]["increment_kg"] == 2.5
+    assert verdict.details["decisions"]["ab_wheel"]["decision"] == "add_increment"
 
 
 # --- aggregate policy ------------------------------------------------------

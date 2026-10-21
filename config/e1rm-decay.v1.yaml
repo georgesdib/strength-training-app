@@ -1,0 +1,20 @@
+# Age decay for an e1RM estimate or measured override.
+#
+# Short-term detraining (about two weeks) leaves maximal strength largely intact; after that
+# strength declines gradually. There is no single validated rate, so this is deliberately
+# conservative and bounded:
+#   - 21-day grace: a three-week-old estimate is treated as current;
+#   - 1% per week after the grace period;
+#   - 10% maximum decay, so a stale estimate is never discounted into nonsense.
+# A separate continuity modifier handles long gaps; this decay is a load-basis adjustment,
+# not a second gap rule.
+#
+# Evidence: short-term detraining in elite powerlifters altered neuromuscular performance while
+# muscle size was preserved (Yilmaz 2026); strength maintenance after detraining depends on
+# training and detraining duration (Yang 2022). The rate is ASSUMPTION-27.
+
+schema_version: "1.0.0"
+apply: true
+grace_days: 21
+weekly_decay: 0.01
+max_decay: 0.10

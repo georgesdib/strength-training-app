@@ -45,6 +45,9 @@ Manresa-Rocamora 2021 `10.3390/ijerph181910299`; Schaffarczyk 2026
 - **No evidence for specific composite weights or cut-points.** Equal weights and the
   thresholds below are transparent starting points, not science.
 - **No evidence that grip strength tracks day-to-day readiness.** It is slow capacity.
+- **No validated per-lift readiness score.** A per-lift advisory score now combines the global
+  base with e1RM trend, RIR and VBT and can only lower a load (`docs/LIFT-READINESS.md`); it is
+  an assumption, not validation.
 - **No trial of a readiness score overriding an injury signal.** The safe rule is that it
   cannot: injury is a ceiling/veto, readiness is a down-adjustment.
 
@@ -63,7 +66,7 @@ Inputs and directions (higher score = more ready):
 | HRV | ms | higher better, only relative to baseline | context, low weight |
 | RHR | bpm | **lower** better, only relative to baseline | context, low weight |
 | wearable score | 0-100 | higher better, device-defined | optional 10% blend; never a replacement |
-| grip strength | kg | higher better | **capacity trend only; excluded from the daily score** |
+| grip strength | kg | higher better | **moved out of readiness**: measured with `measure`, never a daily score input (`DEC-GRIP-01`) |
 
 For a field present on the date:
 

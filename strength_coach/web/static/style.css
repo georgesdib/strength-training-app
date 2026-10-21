@@ -92,3 +92,11 @@ pre { background: #f0ede4; padding: 13px; border-radius: 10px; overflow: auto; f
   white-space: pre-wrap;
 }
 details summary { cursor: pointer; color: var(--muted); }
+
+/* exercise catalogue */
+#exercise-catalog td { vertical-align: top; }
+#exercise-catalog .props { margin: 4px 0 0; font-size: 12px; max-height: 220px; overflow: auto; }
+#exercise-catalog .pill { display: inline-block; border: 1px solid var(--line); border-radius: 999px;
+  padding: 1px 7px; margin: 1px 3px 1px 0; font-size: 12px; color: var(--muted); }
+#exercise-editor textarea { width: 100%; }
+#exercise-editor input#exercise-id[readonly] { background: var(--soft); }

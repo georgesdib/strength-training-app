@@ -1,0 +1,16 @@
+# Measured-test correction for the formula e1RM.
+#
+# A correction is applied only when the evidence is consistent: at least 3 measured tests,
+# a 95% bootstrap CI of measured/formula that excludes 1.0, and a median bias within
+# ±10%. The correction is the median ratio, clamped to ±10%. Measured overrides are never
+# adjusted. This is deliberately conservative; the report is always available.
+#
+# The 3-test minimum and ±10% bound are assumptions (ASSUMPTION-26), not findings.
+
+schema_version: "1.0.0"
+apply: true
+min_tests: 3
+confidence: 0.95
+max_correction: 0.10
+bootstrap_samples: 2000
+seed: 20261020

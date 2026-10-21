@@ -81,9 +81,10 @@ Two sub-questions:
 1. **Merge** — multiple readiness rows per date exist, and most are *conflicting* rather than
    identical. Proposed rule: most-complete row, tie-break on latest. That assumes
    completeness equals authority.
-2. **New metrics** — a composite readiness score, HRV, RHR and left/right grip strength are
-   planned. Each needs a declared scale, direction (does higher mean better?) and
-   aggregation before it can enter the composite.
+2. **New metrics** — a composite readiness score, HRV and RHR are planned. Each needs a
+   declared scale, direction (does higher mean better?) and aggregation before it can enter
+   the composite. Grip strength is a periodic measurement, not a readiness input
+   (`DEC-GRIP-01`).
 
 **Blocks:** the readiness composite. The merge half no longer blocks anything.
 **Default:** most-complete-row merge with conflicts logged; new metrics enter as
@@ -192,6 +193,99 @@ exposure, not causation (`ASSUMPTION-10`).
 Planned in ROADMAP §4.13. Open: which modalities, whether TRIMP or sRPE is the impulse,
 two vs three fatigue systems, whether cardio modifies load or only readiness context, and how
 many weeks of individual data are needed before showing a time constant. No implementation.
+
+## Q15. ~~Should the programme prescribe dedicated core work, and at what dose?~~ **Answered (2026-10-20)**
+
+Before the answer, the prescribed days contained **no dedicated core work**: four slots per day
+(main lifts, back extension, lateral raise, split squat), with six sets of spinal-extension work
+per week. The taxonomy and rules already knew the movements — `PRG-DP-001` even carried an
+`ab_wheel` increment — but no template or collection referenced them, so the config was dead.
+
+The evidence supports a **small** block, not a large one: core exercise is not superior to
+other exercise for low back pain at six months (Wang 2012; Saragiotto 2016), exercise did not
+reduce recurrence in a randomised trial (Ferreira 2021), core training modestly improves
+speed/jump in athletes (Kayantaş 2026), and trunk endurance is associated with lower overuse
+injury (Lopes 2021, observational).
+
+**Applied (`DEC-CORE-01`, constitution 1.2.0):** two reps-based slots — Day A `ab_wheel`
+3×6-10, Day C `hanging_leg_raise` 3×8-12 — added to `accessories_and_back_extension` so
+`PRG-DP-001` progresses them. No new hard rule; planks and carries stay self-directed because
+they are time-based. Full reasoning: [`docs/CORE-TRAINING.md`](CORE-TRAINING.md).
+
+## Q16. ~~Why is `PRG-DP-001` never assessable?~~ **Answered (2026-10-20)**
+
+The rule scoped the whole `$accessories_and_back_extension` collection, but `rep_ranges` was
+built from the current day's template (`DayTemplate.rep_ranges`). Every day lacked at least one
+scoped exercise (A: `split_squat`, B: `back_extension`, C: `lateral_raise`), so the rule
+returned `unknown` every day and "add increment" could never fire.
+
+**Applied:** `templates.all_rep_ranges()` pools the map across all three day templates, and the
+engine passes it to the rule context. On the current store the decision is still "hold load",
+so no prescribed load changed on the day of the fix. See `docs/CORE-TRAINING.md` §5.4.
+
+## Q17. ~~Should the programme add pulling and/or power slots?~~ **Answered (2026-10-20)**
+
+- **Pulling — applied (`DEC-PULL-01/02`, constitution 1.4.0).** The prescribed upper body was
+  entirely pressing (bench ×2-3, lateral raise) with no pull in any template, while the log
+  contained rows, pull-ups and lat pulldowns. Day B now has a **vertical-pull variant slot**:
+  `pull_up` **or** `lat_pulldown` 3×6-10, whichever was trained most recently; both are in
+  `accessories_and_back_extension` so `PRG-DP-001` progresses each on its own history. They
+  are substitutable for the stimulus but not identical (chin-ups load the biceps/erectors
+  more, pulldowns the rectus abdominis more; 1RM correlation ~0.78), and their loads are never
+  compared.
+- **Power — applied (`DEC-POWER-01`).** Day A opens with `box_jump` 3×3-5, RIR 4-5, full
+  recovery, before the main lift. `box_jump` is now a real taxonomy entity; the slot is
+  excluded from weekly undulation and carries no double-progression citation because power
+  cannot be scored from per-set average velocity.
+
+Full reasoning and evidence: [`docs/LONGEVITY-REVIEW.md`](LONGEVITY-REVIEW.md).
+
+## Q18. ~~Which longevity assessment metrics should the app record?~~ **Answered (2026-10-20)**
+
+**Applied (`DEC-MEASURE-01`).** A generic append-only `measurement` table with a config
+catalogue (`config/measurements.v1.yaml`): `vo2max`, `grip_strength_kg`,
+`sit_to_stand_5_s`, `steps_per_day`, `sitting_hours_per_day`. Each metric is declared in
+`metric_definition` with a direction and aggregation; a later direction change is refused. The
+CLI is `strength-coach measure` and the web UI has a Measures page.
+
+Grip strength was previously a readiness field; it has since been removed from readiness
+(`DEC-GRIP-01`) and is measurement-only. None of these metrics changes a load.
+
+## Q19. Should a fatigue-fitness model drive strength loads?
+
+**Open — research note:** [`docs/FATIGUE-FITNESS.md`](FATIGUE-FITNESS.md).
+
+The app currently has no post-session fatigue state: readiness is the athlete's integrated
+signal, and the gap rules handle long breaks. A completed workout does not change the next
+prescription unless readiness changes.
+
+Options:
+
+- **A (default, recommended):** readiness only. No modelled fatigue.
+- **B:** a fixed-decay "recent stress" indicator, advisory only, no load effect.
+  **Applied 2026-10-20 (`DEC-STRESS-01`):** shown on Prescribe/Programme; still no load change.
+- **C:** a per-lift fitness-fatigue model fitted to the athlete's e1RM series, then validated
+  prospectively before it may change a load.
+- **D:** collect session RPE for strength (and optional per-lift soreness) first; revisit C.
+  **Partially applied 2026-10-20 (`DEC-SRPE-01`):** optional session RPE and length are captured
+  at review; no model reads them yet.
+
+**Why not C now:** the strength-specific evidence is one small weight-lifter study; parameter
+identifiability is poor; the fatigue component did not improve out-of-sample prediction in a
+2025 re-analysis; and the log still lacks frequent performance tests. The current RIR
+window and 48–72 h spacing already manage acute fatigue.
+
+**Default if unanswered: no modelled fatigue (A).** Recommendation: B or D, then revisit.
+
+## Q20. Should e1RM estimates be calibrated against test results?
+
+**Open.** There is no e1RM calibration today: Epley+RIR estimates are used as `best_usable` in
+an 84-day window, and a measured `test` becomes an override. A report comparing measured tests
+with the pre-test estimate (bias, MAE per lift) would be cheap and useful. Auto-correcting the
+formula from a handful of tests would overfit, and RIR error is not constant across loads.
+
+**Applied 2026-10-20 (`DEC-E1RM-CAL-01/02`):** report plus a bounded correction when the CI
+excludes 1.0; `e1rm calibrate` and the Athlete page. Measured overrides remain the control.
 
 ## Closed
 

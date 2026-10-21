@@ -44,10 +44,18 @@ TRAINING_LOG_CSV = "training_log.csv"
 READINESS_CSV = "readiness.csv"
 
 TAXONOMY_YAML = "exercises/taxonomy.v1.yaml"
+EXERCISE_OVERRIDES_YAML = "exercises/overrides.v1.yaml"
 PROGRAMME_RULES_YAML = "rules/programme.v1.yaml"
 THRESHOLDS_YAML = "thresholds.v1.yaml"
 READINESS_YAML = "readiness.v1.yaml"
 INJURIES_YAML = "injuries.v1.yaml"
+CARDIO_YAML = "cardio.v1.yaml"
+MEASUREMENTS_YAML = "measurements.v1.yaml"
+STRESS_YAML = "stress.v1.yaml"
+E1RM_CALIBRATION_YAML = "e1rm-calibration.v1.yaml"
+E1RM_DECAY_YAML = "e1rm-decay.v1.yaml"
+FATIGUE_FITNESS_YAML = "fatigue-fitness.v1.yaml"
+SELECTION_YAML = "selection.v1.yaml"
 SCHEMES_YAML = "schemes.v1.yaml"
 UNDULATION_YAML = "undulation.v1.yaml"
 
@@ -64,6 +72,10 @@ def taxonomy_yaml() -> Path:
     return config_dir(TAXONOMY_YAML)
 
 
+def exercise_overrides_yaml() -> Path:
+    return config_dir(EXERCISE_OVERRIDES_YAML)
+
+
 def programme_rules_yaml() -> Path:
     return config_dir(PROGRAMME_RULES_YAML)
 
@@ -78,6 +90,34 @@ def readiness_yaml() -> Path:
 
 def injuries_yaml() -> Path:
     return config_dir(INJURIES_YAML)
+
+
+def cardio_yaml() -> Path:
+    return config_dir(CARDIO_YAML)
+
+
+def measurements_yaml() -> Path:
+    return config_dir(MEASUREMENTS_YAML)
+
+
+def stress_yaml() -> Path:
+    return config_dir(STRESS_YAML)
+
+
+def e1rm_calibration_yaml() -> Path:
+    return config_dir(E1RM_CALIBRATION_YAML)
+
+
+def e1rm_decay_yaml() -> Path:
+    return config_dir(E1RM_DECAY_YAML)
+
+
+def fatigue_fitness_yaml() -> Path:
+    return config_dir(FATIGUE_FITNESS_YAML)
+
+
+def selection_yaml() -> Path:
+    return config_dir(SELECTION_YAML)
 
 
 def schemes_yaml() -> Path:

@@ -70,7 +70,7 @@ strength-coach web --port 8001
 ```
 
 It binds to **127.0.0.1 only** and has **no authentication**; do not expose it on a network.
-The pages are Today, Prescribe, Programme, Review, Readiness, Import, Athlete, Terminal and Docs. Every load, RIR, warning
+The pages are Today, Prescribe, Programme, Review, Readiness, Cardio, Import, Athlete, Terminal and Docs. Every load, RIR, warning
 and calibration number still comes from Python — the browser only displays and submits forms.
 Docs are rendered locally, so the UI works offline. **Import** accepts the training and
 readiness CSVs in the browser; the files are parsed in memory and stored in SQLite, not written
@@ -121,12 +121,13 @@ score changes the load and may trigger a deload.
 
 1. **Import** the training and readiness exports (Import page or `strength-coach import`).
    Check the quarantine count; a row with no date or an unknown exercise is reported, not
-   silently dropped.
+   silently dropped. The full procedure, including when calibration happens, is §4.0.
 2. **Record athlete state** (Athlete page or `strength-coach state`): primary goal, constraints,
    exercise suitability, and any e1RM overrides. Set the block start when the erector ramp
    should begin (`block --date YYYY-MM-DD`).
 3. **Review a few recent sessions** so the rubric has marks. Do this while the sessions are
-   fresh; reconstructed marks are kept but excluded from agreement.
+   fresh; reconstructed marks are kept but excluded from agreement. Calibration is **not** an
+   import step — run it after this review (or weekly), not immediately after uploading.
 4. **Optional device setup**: HRV/RHR are scored only after seven readings in the previous
    28 days. Set a per-athlete baseline window, minimum and slopes on the Readiness page if the
    defaults do not fit. A wearable readiness score (0-100) is optional and only a 10% blend.
@@ -215,6 +216,60 @@ pages are safer because they validate and show the result in context.
 
 ## 4. The routines
 
+### 4.0 `import` — load a history file, and when to calibrate
+
+```bash
+strength-coach import
+```
+
+Reads `data/raw/training_log.csv` and `data/raw/readiness.csv`; the **Import** page uploads the
+same two files. A cumulative export is overlap-matched against stored rows, so old history is
+not duplicated. Quarantined rows (no date, or an exercise the taxonomy cannot resolve) are kept
+and counted, never silently dropped.
+
+**"Should I run a calibration after importing?" — not because of the import.** Import adds
+sessions. Calibration compares the engine's rubric scores with **your marks**, so with no marks
+there is nothing to compare and `calibrate` prints `no marks yet`. The procedure is:
+
+1. **Import and read the report.**
+
+   | field | what to look at |
+   |---|---|
+   | new raw rows / overlapping | overlap means the export was already loaded; no duplicate sets |
+   | clean sets inserted / existing | how much training history is new |
+   | sessions written | reconstructed workouts |
+   | quarantined | rows that could not be used; investigate a high count |
+   | readiness days | days merged from the readiness export |
+   | window | the date range actually covered |
+   | issues | flags such as unknown exercise names or sentinel values |
+
+2. **Review recent sessions** — `strength-coach review --pending` (up to 10 after the last
+   reviewed session) or the **Review** page. The marks you enter are the calibration labels.
+   Only `high`-confidence marks count toward the headline agreement. Do not reconstruct the
+   distant past; `--pending` deliberately stops at the last reviewed session.
+
+3. **Calibrate later, after the review.** `review` prints the report automatically;
+   `strength-coach calibrate` reprints it, and the Review page has **Run rubric calibration**.
+   Cadence: after a batch of reviews, weekly, or at the end of a block. Importing history does
+   **not** require it, and re-importing does not invalidate existing marks.
+
+So for a history file now: **import → check the report → review the recent sessions you actually
+remember → calibrate after that**, then keep reviewing new sessions and re-run the report on the
+same cadence.
+
+**Two different calibrations, both report-only:**
+
+| report | compares | where |
+|---|---|---|
+| rubric calibration | your marks vs the engine's rubric scores | `strength-coach calibrate` / Review page |
+| readiness calibration | the readiness score vs the old readiness labels | `strength-coach readiness calibrate` / Readiness page |
+
+Neither retunes anything automatically. A rubric change is a separate decision (`DEC-EVAL-03`);
+the report flags an item for review after five marks and is used to decide, not to auto-adjust.
+
+First import also needs the one-time setup in §3.1: athlete state, block start, and a readiness
+entry before a current or future prescription.
+
 ### 4.1 `run` — critique the last session, prescribe a date
 
 ```bash
@@ -233,6 +288,7 @@ prescription 2026-10-20  (day B, full)
   ---------------------------------------------------------
   trap_bar_deadlift           4     3-5      158.5    2  PRG-RIR-001, set:2026-10-05/7821
   bench_press_narrow          4     3-5      106.5    2  PRG-RIR-001, set:2026-10-05/7835
+  pull_up                     3     6-10         0    2  PRG-DP-001, set:2026-09-20/7012
   lateral_raise               3   10-12       25.0    2  PRG-DP-001, set:2025-11-10/6565
   split_squat                 3    8-10       67.5    2  PRG-DP-001, set:2026-06-05/7359
   note: bench_main: chose bench_press_narrow from [...]
@@ -244,6 +300,12 @@ critique 2026-10-15: composite 0.88
   ESSENTIAL_WORK             n/a   no prescription template for day 'unknown'
   ...
 ```
+
+Two programme details worth knowing: **Day A opens with a power slot** (`box_jump` 3×3-5,
+maximal intent, full recovery, stop when height or quality drops — the "RIR 4" means far from
+failure), and **Day B's pull slot is interchangeable** between `pull_up` and `lat_pulldown`;
+the engine picks whichever you trained most recently and never compares their loads. Both are
+explained, with the evidence, in [LONGEVITY-REVIEW.md](docs/LONGEVITY-REVIEW.md).
 
 Useful flags:
 
@@ -285,6 +347,19 @@ Then it asks how well you remember the session: `high`, `low` or `unknown`. **On
 `high` counts toward the headline agreement.** A mark from a session you cannot really
 remember is kept for the record but excluded — it is evidence of a guess, not of the rubric.
 
+Finally it asks for two **optional** numbers: overall session RPE (1–10) and session length
+(minutes). Press Enter to skip either; they are stored append-only and can be corrected later.
+Why ask: sets, reps and load give volume, but not how hard the session felt or how long it took
+(no timestamps). Session RPE is a validated internal-load measure for resistance training; no
+model reads it yet, so it is capture for later review and a possible future fatigue model.
+Non-interactive form:
+
+```bash
+strength-coach review --session 2026-10-15 --session-rpe 7 --session-minutes 75
+```
+
+The Review page has the same two optional fields.
+
 Catch up on a backlog in one go:
 
 ```bash
@@ -312,6 +387,9 @@ strength-coach review --session 2026-10-15 --scores private/eval/labelled.yaml
 ```
 
 ### 4.3 `calibrate` — the running picture
+
+Run this **after you have reviewed sessions**, not as part of importing: with no marks it exits
+with `no marks yet`. It is a report; it never retunes the rubric.
 
 ```bash
 strength-coach calibrate
@@ -424,6 +502,16 @@ Worth knowing:
 - **It only changes the derived load.** History, scores and verdicts are untouched.
 - **Bulk entry** works through the state file: add an `e1rm_overrides:` list and run
   `strength-coach state --import private/athlete-state.yaml`.
+
+**Calibration report.** `strength-coach e1rm calibrate` compares each measured `test` with the
+formula estimate the app would have used before it: per-lift median ratio, mean bias and MAE.
+The table includes every lift with a recent e1RM, even before any measured test: it shows
+both the **formula** and the **active measured override** as raw → effective (decayed), which
+source is used, the last set, and "no measured test; formula only". It also applies
+a **bounded correction** when at least 3 tests exist and the 95% bootstrap CI
+of the median ratio excludes 1.0: the formula e1RM is multiplied by the median ratio, clamped
+to ±10%, and cited as `MOD-E1RM-001`. Ambiguous evidence or a larger bias applies nothing.
+Measured overrides are never adjusted. The same table is on the Athlete page.
 
 ### 4.7 `symptom` — the pre-session back reading
 
@@ -555,6 +643,83 @@ Readiness is not part of it. The regions and the lifts that load them are config
 (`config/injuries.v1.yaml`); the full definitions and evidence are in
 [INJURY-SIGNAL.md](docs/INJURY-SIGNAL.md).
 
+### 4.10b `cardio` — capture the other half
+
+Cardio is a separate exposure, not a strength session. It is captured first; it does **not**
+change a load yet and no fatigue model reads it.
+
+```bash
+strength-coach cardio --modality run --minutes 40 --avg-hr 150 --max-hr 170 --srpe 6
+strength-coach cardio --modality walk --minutes 30
+strength-coach cardio --show --weeks 12
+```
+
+`--date` defaults to today, `--distance-km` is optional, and sRPE is 1-10. `--show` prints the
+last N weeks: sessions, total and average minutes, weekly breakdown, modalities, and the WHO
+reference range (150-300 min/week) as **context**, not a target. The Cardio page in the web UI
+does the same. The evidence and the proposed prescription are in
+[LONGEVITY-REVIEW.md](docs/LONGEVITY-REVIEW.md).
+
+### 4.10f `exercise` — catalogue listing/editing
+
+```bash
+strength-coach exercise list
+strength-coach exercise set --id front_squat --json '{"pattern":"squat"}'
+```
+
+Edits and additions are written to `config/exercises/overrides.v1.yaml`; the checked-in
+taxonomy is not rewritten. The web **Exercises** tab is the form-based version.
+
+### 4.10e `select` — shadow exercise selection
+
+```bash
+strength-coach select --date 2026-10-20 --day B
+strength-coach select --date 2026-10-20 --day B --llm
+```
+
+Ranks the configured variants for each slot from readiness, recent stress, rotation and
+preference. Constraints and `can_do: false` exclude a candidate; an active injury region
+penalises one. `--llm` lets the configured model choose **only from that filtered list**;
+Python validates and falls back deterministically on any error. It is **shadow only** — the
+prescription is unchanged. The Prescribe page has the same panel.
+
+### 4.10d `fatigue` — the strength model in shadow mode
+
+```bash
+strength-coach fatigue --date 2026-10-20
+```
+
+Per-lift fitness/fatigue state fitted from hard sets and your own e1RM observations, plus an
+**overall** relative-e1RM row. It shows R², span, fitness/fatigue/state with approximate 95%
+intervals, and a status (`ok`, `weak fit`, `insufficient`, `unstable`);
+it refuses parameters when the data are sparse or ill-conditioned. **No prescription reads
+it.** The Prescribe page shows the same table under **Strength fatigue model**. See
+[FATIGUE-FITNESS.md](docs/FATIGUE-FITNESS.md) §4a.
+
+### 4.10c `measure` — periodic measurements
+
+Readiness is daily; these are **outcomes** you test every few weeks. They never change a load.
+
+```bash
+strength-coach measure --metric vo2max --value 45.2 --method "step test"
+strength-coach measure --metric grip_strength_kg --value 52 --method "dynamometer"
+strength-coach measure --metric sit_to_stand_5_s --value 9.4
+strength-coach measure --show
+strength-coach measure --show --metric vo2max
+```
+
+The catalogue is `config/measurements.v1.yaml`: `vo2max`, `grip_strength_kg`,
+`sit_to_stand_5_s` (lower is better), `steps_per_day`, `sitting_hours_per_day` (lower is
+better). Each metric is declared once with its direction and aggregation; a later direction
+change is refused rather than silently reinterpreting old values. `--method` keeps the protocol
+next to the number, which matters for VO2max estimates.
+
+Grip strength is **only** a measurement now; readiness no longer accepts it
+(`DEC-GRIP-01`). Log it here or on the Measures page.
+
+The **Measures** page in the web UI does the same and shows the latest value and change per
+metric.
+
 ---
 
 ## 5. Reading the output
@@ -568,11 +733,31 @@ Readiness is not part of it. The regions and the lifts that load them are config
 | reps | the rep range; add load only at the top of it |
 | load | solved from your recent e1RM, **rounded down** to your increment |
 | rir | target reps in reserve |
+| recent stress | advisory decayed hard sets: `high`, `normal` or `low`; **never changes the load** |
+| readiness | per-lift 0–1 score from global readiness + e1RM trend, RIR and VBT; can only **lower** a load |
 | refs | the rule id **and** the stored set that justify the load |
 
 Loads come from the best usable e1RM in the last 84 days, inverted through the same
 Epley+RIR formula that produced it, then rounded down to 0.5 kg (your microplates). Rounding
-up would push the set above the target RIR, so it never happens.
+up would push the set above the target RIR, so it never happens. An e1RM older than 21 days is
+decayed by 1% per week (capped at 10%); this applies to measured overrides too, and cites
+`MOD-E1RM-DECAY-001`. If the continuity rule is already handling a 28+ day gap, the age decay
+is skipped to avoid counting the same absence twice.
+
+`readiness` is the per-lift score: it starts from the global/category readiness and nudges it
+by recent e1RM, mean RIR and velocity-vs-calibration. A lower score can reduce this lift's load
+(and add RIR); a higher one never increases it. No per-lift readiness instrument is validated,
+so this is deliberately asymmetric (`docs/LIFT-READINESS.md`).
+
+`recent stress` is a fixed exponential decay of your working sets (48 h half-life, high
+at 6 decayed sets). A lift prescribed within 48 h of high stress gets a warning saying so, but
+the load and RIR are unchanged — it is context for your judgement, not a fatigue model. The
+constants are in `config/stress.v1.yaml` and are assumptions (`ASSUMPTION-24`).
+
+That e1RM is an **estimate, not a calibrated measurement**: Epley with RIR folded in is an
+approximation, and no bias correction is applied. A measured `test` writes an override and the
+next prescription cites it. A calibration report (measured vs predicted, bias/MAE per lift) is
+proposed but not implemented; see [FATIGUE-FITNESS.md](docs/FATIGUE-FITNESS.md) §6.
 
 If a load is `-` and the output says `NO_LOAD`, there was no usable e1RM in the window. The
 prescription is then **not executable**, and it says so instead of inventing a number.
@@ -616,7 +801,10 @@ Readiness can only *reduce* a prescribed load, so its derivation is written down
 - the old sleep/energy rule remains a floor (at or below 2 still cuts loads by 5%);
 - missing or insufficient readiness blocks a current/future workout rather than silently
   omitting the modifier;
-- the three old per-lift readiness values are calibration labels, not inputs.
+- the three old per-lift readiness values are calibration labels, not inputs;
+- readiness is **not per lift**: there is one global score plus manual **category** overrides
+  (squat, hinge, horizontal push, …). An exercise inherits its category's factor. A validated
+  per-lift readiness score does not exist.
 
 **Manual entry (any subset):**
 
@@ -785,7 +973,7 @@ Tests: `.venv/bin/python -m pytest`, and the markers `-m golden` (locked numbers
 | `NO_LOAD: ... no usable e1RM` | no rated set for that lift in the last 84 days. Train it, or widen `e1rm_window_days`. |
 | `SPINAL_CAP ... exceeds cap` | the week already contains a hinge exposure; two hinge sessions cost 2+2 against a cap of 3. Move the day or accept the warning. |
 | `PRG-EREC-001 ... missing symptom.flare` | expected: there is no symptom input yet. It becomes assessable in v0.1. |
-| `PRG-DP-001 ... missing rep_range.back_extension` | expected on Day B: the rule also covers Day A/C accessory work. Harmless but noisy; disappears with A/C templates. |
+| `PRG-DP-001 ... missing set.reps.<exercise>` | the scoped accessory has no comparable working set yet. Train it once; the range itself now comes from all day templates. |
 | `no marks yet` | run `strength-coach review --session DATE` first. |
 | `llm: off (NullLLM)` | no model configured; see §7. |
 | `call failed: HTTP 401` | wrong key, or the key is in the environment but not the file. Check `tools/llm_check.py`. |
