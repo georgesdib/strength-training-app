@@ -101,9 +101,12 @@ to any of those is visible as a different calibration even if the numbers coinci
 
 ## 6. What cannot be computed — velocity loss
 
+See [`VBT-REP-LEVEL.md`](VBT-REP-LEVEL.md) for the post-hoc cost/benefit and the decision not
+to add manual rep-level entry.
+
 Within-set velocity loss requires a **per-rep velocity series**. The export has one
 `Avg_velocity` per set, so within-set loss is arithmetically unavailable
-(`docs/SANITY-CHECKS.md` §C). It remains deferred (`DEC-VBT-02`), and the prescription does
+(`docs/SANITY-CHECKS.md` §C). It remains deferred (`DEC-VBT-02`, `DEC-VBT-03`), and the prescription does
 not pretend otherwise.
 
 Two options, and the choice is Q4:

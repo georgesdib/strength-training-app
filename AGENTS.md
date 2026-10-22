@@ -214,6 +214,7 @@ never read `data/raw`.
 | `docs/RULES-FORMAT.md` | citable rule IDs + 5 encoded rules |
 | `docs/VBT-CALIBRATION.md` | clean set, sparsity, overrides, versioning, current wiring |
 | `docs/VBT-EVIDENCE.md` | VBT evidence, best practices, what our data can and cannot support |
+| `docs/VBT-REP-LEVEL.md` | post-hoc rep-level VBT: benefits, limitations and decision not to build manual entry |
 | `docs/MODULE-LAYOUT.md` | file layout and test strategy |
 | `docs/V0-SCOPE.md` | smallest end-to-end slice and its exclusions |
 | `docs/OPEN-QUESTIONS.md` | ranked design questions blocking the build |
