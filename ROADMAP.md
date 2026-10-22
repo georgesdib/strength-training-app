@@ -975,9 +975,9 @@ Moved out of the strength-programme review so it can close. These are **not** v0
 | Prospective validation of a future continuity/fatigue candidate | gate only; current candidates rejected | §4.20.1, DEC-VALIDATION-01 |
 | Parent-variant e1RM ratios | unscheduled; needs paired data and validation | §4.20.2 |
 | Weakness targeting | deferred to after v0.5 / ~April 2027 | §4.20.3, Q22, DEC-SELECT-05 |
-| Selection A/B boundary (pause/narrow, SSB/high-bar) | open calibration/config decision | Q21, docs/SELECTION-COMPARABILITY.md |
-| Session timestamps / automatic duration | only manual session feedback today; no timestamp source | Q1, Q5 known gap |
-| Sumo half-step / replacement trial | parked until a trial period | Q11 |
+| Selection A/B boundary (pause/narrow, SSB/high-bar) | dormant policy decision; current default is conservative (A only same exercise) | Q21, docs/SELECTION-COMPARABILITY.md |
+| Session timestamps / automatic duration | **closed** — manual/optional only; no timestamp feature planned | Q1/Q5, DEC-DURATION-01 |
+| Sumo half-step / replacement trial | trial 6–8 hinge sessions once stable; half-step remains a separate config decision | Q11 |
 | Cardio model | v0.4 | §4.13, Q14 |
 | Fatigue-plan backfill UI, phase cutoff, report format, one-month check | open; decide when that plan resumes | docs/NEXT-PHASE-FATIGUE-PLAN.md §9 |
 

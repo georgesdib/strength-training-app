@@ -9,7 +9,7 @@ produces an `unknown` verdict rather than a silent guess.
 
 ---
 
-## Q1. Sessions have no timestamps — **default implemented; timestamp gap remains**
+## Q1. Sessions have no timestamps — **accepted: date-only, manual duration only**
 
 The date column is calendar-date only. So "same date + time gap" is impossible, two sessions
 on one day are indistinguishable, and a squat-plus-bench day is ambiguous between the squat
@@ -65,7 +65,7 @@ gate read it. Missing entries still return `unknown`.
 
 ---
 
-## Q5. ~~Session duration is unmeasurable.~~ **Partially answered: manual feedback exists**
+## Q5. ~~Session duration is unmeasurable.~~ **Answered: manual/optional only**
 
 The rubric wants "session duration vs 60-80 min cap". There are no timestamps. The options
 are a set-count proxy or dropping the metric — and a proxy presented as minutes would be a
@@ -140,9 +140,20 @@ is not added alongside it or as an accessory: a second hinge violates the no-sta
 (`PRG-RED-001`), and on A/C it would sit next to direct erector work. No hinge-variant slot and
 no rotation are planned. The path is main-lift substitution (`DEC-LLM-06`), once sumo is rated.
 
-## Q11. What follows from a half-step cost and a suitability trial?
+## Q11. What follows from a half-step cost and a suitability trial? **Trial defined; parked**
 
-Parked deliberately; revisit after a trial period.
+Parked deliberately; the trial is **6–8 hinge exposures at one per week**, not a calendar date.
+
+**When it starts:** when the athlete chooses a stable block with no active low-back flare and
+substitutes sumo for the trap-bar hinge on Day B. It does not start automatically.
+
+**What to record each exposure:** pre/post low-back level (0–3), whether it settled within 48 h,
+load/reps/RIR and performance versus the trap-bar session, will-do/feels-bad, and any technique
+change. Stop the trial on a flare or if the athlete no longer wants it.
+
+**Decision after 6–8 exposures:** keep sumo as the replacement hinge, or return to trap bar.
+The trial tests tolerance/willingness/performance; it does **not** test whether 2.5 is the
+correct ordinal spinal cost. That remains a separate config decision.
 
 - **Is a half-step meaningful on an ordinal scale?** The cap is 3. With 2.5, two sumo sessions
   weigh 5 rather than 6, and one sumo + one trap bar weighs 4.5. Does that change the cap's
