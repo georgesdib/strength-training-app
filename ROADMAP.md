@@ -940,11 +940,11 @@ deferred items stay listed in §4.19.
 |---|---|---|
 | P1 | Scheduled deload / broader fatigue-management policy | done — `DEC-PROGRAMME-05` |
 | P1 | 3RM/5RM calibration cadence and explicit warm-up prescription | done — 10-week reminder + 50/70/85 ramp |
-| P2 | Parent-variant e1RM ratios | open |
+| P2 | Parent-variant e1RM ratios | moved to §4.20, unscheduled |
 | P2 | Weakness/injury-targeted selection | display-only context done; targeting deferred — earliest after v0.5 / ~April 2027; gates in `DEC-SELECT-05` |
-| P2 | Strength-review implementation closeout | implementation done; two future items remain |
+| P2 | Strength-review implementation closeout | **review closed**; future work in §4.20 |
 | P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
-| P2 | Prospective validation of continuity, volume, selection and fatigue models | **partial** — retrospective walk-forward done; continuity/fatigue failed; prospective not started |
+| P2 | Prospective validation of continuity, volume, selection and fatigue models | moved to §4.20 — no candidate; current models failed the retrospective baseline |
 | P1 (v0.3) | Manual workout logging and import adapters | not started |
 | P1 (v0.3) | LLM/manual-logging parity | not started |
 | P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
@@ -952,6 +952,21 @@ deferred items stay listed in §4.19.
 | v0.4 | Cardio prescription and cardio fatigue interaction | planned |
 | v0.5 | Video capture/analysis and UI parity | planned |
 | future | LLM-guided suggested programme (§4.18) | idea only |
+
+### 4.20 Post-review follow-ups  (unscheduled)
+
+Moved out of the strength-programme review so it can close. These are **not** v0.3 work.
+
+1. **Prospective validation gate.** No current candidate. A model may enter a frozen prospective
+   period only after it beats the fixed/persistence baseline in a retrospective walk-forward.
+   The current continuity and fatigue models failed; they remain fixed/shadow-only. A prospective
+   run is 8–12 weeks / 24–36 sessions with no retuning and no load effect.
+2. **Parent-variant e1RM ratios.** Needs a formal parent relation, enough paired sessions and a
+   validated ratio with uncertainty. It is a prior/display aid, never a silent load conversion.
+   No schedule.
+3. **Weakness/injury targeting.** No positive targeting. A display-only own-history context is
+   implemented. Weakness targeting is gated by `DEC-SELECT-05` (earliest after v0.5 / ~April
+   2027); injury targeting is unscheduled and remains constraint/penalty/ceiling only.
 
 ## 5. Known gaps and risks
 

@@ -3,7 +3,10 @@
 **Scope:** the strength programme only. Cardio, video, the LLM narrative and the web UI are out
 of scope. This is the evidence snapshot; implementation status is recorded in the note and table below.
 
-**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload is now implemented as an optional suggestion with automatic reactive triggers; a standardised warm-up, a 3RM/5RM cadence and accessory under-MEV progression are implemented. Individualized MRV is closed as not estimable from the available data; main-lift volume experimentation is deliberately not done; prospective validation remains open. The retrospective walk-forward check is done; continuity and fatigue lost to their baselines, so neither is adopted. Weakness/injury targeting is deliberately deferred (`DEC-SELECT-04`). This document is the evidence snapshot, not a claim that every suggestion is still pending.
+**Review status: CLOSED 2026-10-20.** No open programme-design items remain here. Future
+validation, parent-ratio and targeting work is tracked in [ROADMAP.md](ROADMAP.md) §4.20.
+
+**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload is now implemented as an optional suggestion with automatic reactive triggers; a standardised warm-up, a 3RM/5RM cadence and accessory under-MEV progression are implemented. Individualized MRV is closed as not estimable from the available data; main-lift volume experimentation is deliberately not done. The retrospective walk-forward check is done; continuity and fatigue lost to their baselines, so neither is adopted; prospective validation is a future gate only for a candidate that first beats the retrospective baseline. Weakness/injury targeting is deliberately deferred (`DEC-SELECT-04/05`). There are no open programme-design items left in this review.
 
 **Method:** read the templates, constitution, prescription engine, evidence notes and references;
 generated A/B/C prescriptions from the local database; checked the planned weekly dose and the
@@ -236,8 +239,8 @@ Status reflects the implementation, not only the original recommendation.
 - [x] MRV question closed — not estimable without independent volume variation; no experiment.
 - [x] 3RM/5RM calibration cadence (`test --status`).
 - [x] Explicit warm-up prescription (50/70/85 ramp).
-- [ ] Prospective validation of continuity, volume and fatigue models. **Retrospective walk-forward done; continuity and fatigue failed the baseline; prospective period not started.**
-- [ ] Parent-variant e1RM ratios. Weakness/injury targeting is **deferred** (`DEC-SELECT-04/05`); a display-only own-history context is implemented, but no targeting. Earliest review after v0.5 / ~April 2027, with the gates in [WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md).
+- [x] Review closed: prospective validation is moved to ROADMAP §4.20 as a gate for a future candidate. The retrospective check rejected the current continuity/fatigue models; no prospective period is active.
+- [x] Parent-variant e1RM ratios moved to ROADMAP §4.20. Weakness/injury targeting is deferred there (`DEC-SELECT-04/05`); only the display-only own-history context is implemented.
 
 | priority | change | reason | effort | status |
 |---|---|---|---|---|
@@ -249,8 +252,8 @@ Status reflects the implementation, not only the original recommendation.
 | P1 | Define a rolling next-session policy that preserves A/B/C balance across missed weeks | Current fixed sequence is brittle | Medium | **Done** (session types) |
 | P2 | Schedule a 3RM/5RM calibration every 8–12 weeks; no routine 1RM | Keeps e1RM honest without adding maximal testing | Small | **Done** — 10-week reminder |
 | P2 | Add warm-up/ramp sets to the prescription or document the assumption explicitly | The template only describes working sets | Small | **Done** — 50/70/85 ramp |
-| P2 | Validate the calibrated continuity and selection models prospectively before letting them drive loads automatically | Avoid overfitting to a small, noisy log | Large | **Partial** — retrospective walk-forward done; continuity/fatigue failed baselines; no adoption |
-| P3 | Parent-variant e1RM ratios and weakness/injury selection | Useful later, but not needed to fix the current programme | Large | **Open** — ratios open; targeting deferred (`DEC-SELECT-04/05`) |
+| P2 | Validate the calibrated continuity and selection models prospectively before letting them drive loads automatically | Avoid overfitting to a small, noisy log | Large | **Moved** to ROADMAP §4.20 — no candidate; current models failed the retrospective baseline |
+| P3 | Parent-variant e1RM ratios and weakness/injury selection | Useful later, but not needed to fix the current programme | Large | **Moved** to ROADMAP §4.20; targeting deferred (`DEC-SELECT-04/05`) |
 
 ## 5. Bottom line
 
@@ -258,10 +261,10 @@ Status reflects the implementation, not only the original recommendation.
   load, trap-bar choice, measurable strength.
 - **Methodology, not evidence:** erector scheduling, spinal cap, exact accessory RIR, 3×/week
   calendar.
-- **Weakest links now:** prospective validation and the broader data-depth work (manual
-  logging, adapters, labelled set).
-- **Verdict:** a good, safer and more balanced default for a back-sensitive lifter; fatigue
-  management is implemented, but the model is not yet prospectively validated.
+- **Weakest links now:** data depth and future model validation; neither is a programme-design
+  defect in the current template.
+- **Verdict:** a good, safer and more balanced default for a back-sensitive lifter. The review
+  is **closed**; future model/ratio/targeting work is in ROADMAP §4.20.
 
 ---
 
