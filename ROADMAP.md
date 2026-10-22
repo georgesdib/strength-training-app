@@ -58,6 +58,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v0.3 | everything strength/data-depth that is not cardio or video: manual logging, adapters, learned readiness weights, LLM/manual-logging parity, continuity calibration, deeper labelled set, exercise selection, strength fitness-fatigue model | **in progress** |
 | v0.4 | everything cardio: prescription, cardio impulse model, cardio fatigue interaction | **planned** |
 | v0.5 | everything video: capture, analysis, UI parity | **planned** |
+| future | LLM-guided suggested programme (§4.18) | **idea only; not scheduled** |
 
 **Rule:** cardio work does not enter v0.3; video work does not enter v0.3 or v0.4. The strength
 model (§4.16) is strength-only and stays in v0.3.
@@ -754,10 +755,6 @@ the current total-load treatment is accepted for now and no prescription change 
 future item should define whether an e1RM uses the total logged load, how band tension varies
 through range, and whether these variants need a separate comparison rule.
 
-Current selection remains template-driven: each day has fixed slots, variant slots pick the
-most recently trained variant, and constraints/suitability can veto. Readiness changes the
-load, not the exercise.
-
 **Goal.** Choose among evidence-permitted exercises for a slot using the per-lift readiness
 score (`docs/LIFT-READINESS.md`), the recent-stress decay (option B), the strength
 fitness-fatigue state (§4.16), injury links, equipment, rep range and rotation — without
@@ -893,6 +890,43 @@ are complete. The following are explicitly **not** claimed as done:
 
 These stay open in the roadmap rather than being implied by the v1 label.
 
+### 4.18 LLM-guided suggested programme  (future; not scheduled)
+
+**Idea:** the model could eventually propose a *suggested programme* — session emphasis, exercise
+choices, weekly volume allocation and progression structure — rather than only narrating a
+Python-built prescription.
+
+This is explicitly future work, not a v0.3 deliverable. The existing invariants still apply:
+
+- the model receives a structured state/evidence summary and a bounded menu of allowed
+  exercises, sessions and volume bands;
+- it may propose **choices**, never loads, reps, RIR, percentages or safety vetoes;
+- Python validates every proposal against the constitution, constraints, injury signal, volume
+  landmarks and comparability classes;
+- a suggested programme is shown as a diffable proposal with evidence and assumptions, and is
+  never applied without explicit approval;
+- every proposal and approval is audited; the deterministic programme remains the fallback;
+- the proposal must not invent evidence or hide uncertainty.
+
+**Prerequisite:** a stable programme schema, a validated volume/selection policy and enough
+reviewed sessions to evaluate whether the suggestions are better than the fixed programme.
+**Status:** idea only; no implementation, no phase assigned.
+
+### 4.19 Consolidated next actions
+
+| priority | action | status |
+|---|---|---|
+| P1 | Scheduled deload / broader fatigue-management policy | open |
+| P1 | 3RM/5RM calibration cadence and explicit warm-up prescription | open |
+| P2 | Parent-variant e1RM ratios and weakness/injury-targeted selection | open |
+| P2 | Prospective validation of continuity, volume, selection and fatigue models | open |
+| P1 (v0.3) | Manual workout logging and import adapters | not started |
+| P1 (v0.3) | Learned readiness weights / LLM-manual-logging parity | not started |
+| P1 (v0.3) | Deeper labelled calibration set | in progress |
+| v0.4 | Cardio prescription and cardio fatigue interaction | planned |
+| v0.5 | Video capture/analysis and UI parity | planned |
+| future | LLM-guided suggested programme (§4.18) | idea only |
+
 ## 5. Known gaps and risks
 
 | gap | impact | mitigation / status |
@@ -920,6 +954,7 @@ Recorded so good ideas are not lost, explicitly **not** commitments:
 - Grip-strength left/right asymmetry as a readiness input and a unilateral-work trigger.
 - Per-lift manual velocity overrides with expiry.
 - Regime-change detection (a lift's volume collapsing while a substitute rises).
+- LLM-guided suggested programme under the §4.18 guardrails (idea only).
 - Wider proposal licence (more than one increment on the menu) once the menu has proved itself
   in real sessions.
 - ~~A declared 3RM/5RM test session.~~ **Delivered in v0.1** (`DEC-TEST-01`): `strength-coach

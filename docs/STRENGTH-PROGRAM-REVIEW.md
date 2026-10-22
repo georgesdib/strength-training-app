@@ -14,26 +14,35 @@ main evidence claims against the cited literature. The local 12-week audit is in
 
 ## 1. The programme as implemented
 
-### Weekly shape
+### Current weekly shape (Plan A, 2026-10-20)
 
-| day | emphasis | main work | accessory work | sets |
-|---|---|---|---|---:|
-| A | squat | box jump, SSB squat 4×3–5, bench 4×3–5 | back extension 3×10–12, ab wheel 3×6–10, lateral raise 3×10–12 | 20 |
-| B | hinge | trap-bar deadlift 4×3–5, narrow/pause bench 4×3–5 | pull-up/lat pulldown 3×6–10, lateral raise 3×10–12, split squat 3×8–10 | 17 |
-| C | bench | bench 4×3–5, SSB squat 3×3–5 | back extension 3×10–12, hanging leg raise 3×8–12, split squat 3×8–10 | 16 |
+Default prescriptions use rolling session types; legacy A/B/C remain for history and explicit
+overrides.
 
-Planned total: **53 working sets/week**, three sessions.
+| session type | work | sets |
+|---|---|---|---:|
+| **squat** | box jump 3×3–5; SSB squat **5×3–5**; bench 4×3–5; back extension 3×10–12; dumbbell row 3×8–12; ab wheel 3×6–10 | 21 |
+| **hinge** | trap-bar deadlift **5×3–5**; narrow/pause bench 4×3–5; pull-up/pulldown 3×6–10; dumbbell row 3×8–12; split squat 3×8–10 | 18 |
+| **bench_squat** | bench 4×3–5; SSB squat support **4×3–5**; dumbbell row 3×8–12; overhead press 3×6–10; ab wheel 3×6–10 | 17 |
+| **bench_hinge** | bench 4×3–5; single-leg RDL 3×8–10; pull-up/pulldown 3×6–10; dumbbell row 3×8–12; overhead press 3×6–10; hanging leg raise 3×8–12 | 19 |
 
-Main-lift frequency and volume:
+Over six sessions (two weeks): squat, hinge, bench+squat, squat, hinge, bench+hinge. Planned
+average is **~57 working sets/week** across three sessions.
 
-| lift | sessions/week | sets/week |
-|---|---:|---:|
-| squat (SSB) | 2 | 7 |
-| bench (competition/narrow/pause) | 3 | 12 |
-| trap-bar deadlift | 1 | 4 |
-| vertical pull | 1 | 3 |
-| horizontal pull | 0 | 0 |
-| vertical press | 0 | 0 |
+Current main-lift volume:
+
+| lift | sets/week |
+|---|---:|
+| squat (SSB main + support) | **7** |
+| bench (main + support) | 12 |
+| trap-bar deadlift | **5** |
+| single-leg RDL | 1.5 |
+| back extension | 3 |
+| horizontal row | 9 |
+| overhead press | 3 |
+| split squat | 3 |
+| core | 6 |
+| power | 3 |
 
 ### Effort and progression
 
@@ -45,11 +54,12 @@ Main-lift frequency and volume:
   calibration and age decay.
 - Undulation: 4-week cycle (strength / strength / maximal / strength; accessory / volume /
   accessory / volume), only when a block anchor is declared. No scheduled deload week.
-- Readiness and continuity can reduce load and add RIR; the combined readiness + continuity
-  reduction is capped at 20%. The fitness-fatigue model does **not** change loads.
+- Readiness and continuity can reduce load and add RIR; poor readiness can also remove one
+  accessory set. The combined readiness + continuity load reduction is capped at 20%. The
+  fitness-fatigue model does **not** change loads.
 - Exercise selection can apply at most one substitution per slot when explicitly enabled; the
-  load is re-solved from the selected lift's history. The selector is Python-first; the LLM may
-  only choose from the filtered list.
+  load is re-solved from the selected lift's history. A/B/C comparability classes gate
+  automatic application, and the LLM may only choose from the Python-filtered list.
 
 ---
 
@@ -62,7 +72,7 @@ settled by trials.
 | # | Claim in the programme | Evidence status | What the evidence says | Verdict |
 |---|---|---|---|---|
 | 1 | 3×/week full-body is a good strength frequency | Moderate | When weekly volume is equated, higher frequency appears to help strength somewhat; 3× full-body is within the supported range. Frequency is not a free extra dose. ([frequency meta-analysis](https://pubmed.ncbi.nlm.nih.gov/30076500/); [2025 dose-response](https://link.springer.com/article/10.1007/s40279-025-02344-w)) | Supported |
-| 2 | Weekly volume around the current plan is enough | Moderate, but uneven | Hypertrophy rises with weekly volume to roughly 10+ sets per muscle with diminishing returns; strength is less volume-dependent. The plan has 12 bench sets, 7 squat sets and 4 hinge sets per week, which is not a balanced strength dose. ([Schoenfeld 2017](https://www.tandfonline.com/doi/abs/10.1080/02640414.2016.1210197); [2025 dose-response](https://link.springer.com/article/10.1007/s40279-025-02344-w)) | Bench/squat supported; hinge under-dosed |
+| 2 | Weekly volume around the current plan is enough | Moderate | Hypertrophy rises with weekly volume to roughly 10+ sets per muscle with diminishing returns; strength is less volume-dependent. The current plan has ~7 squat, 12 bench and ~5 heavy-hinge sets/week, plus accessory volume. ([Schoenfeld 2017](https://www.tandfonline.com/doi/abs/10.1080/02640414.2016.1210197); [2025 dose-response](https://link.springer.com/article/10.1007/s40279-025-02344-w)) | Supported after Plan A; hinge still below bench volume |
 | 3 | Main lifts at 3–5 reps | Strong for strength | Heavy, lower-rep training is more specific for 1RM strength when effort is matched. ([Hammert 2026](https://doi.org/10.1007/s40279-025-02370-8)) | Supported |
 | 4 | RIR 2 target, RIR 1–4 allowed, RIR 0 forbidden | Moderate | Strength gains are similar across a wide RIR range; non-failure is at least as good for dynamic strength; hypertrophy improves closer to failure; RIR self-estimation carries meaningful error. ([Robinson 2024](https://doi.org/10.1007/s40279-024-02069-2); [Wu 2026](https://doi.org/10.1186/s13102-026-01861-z); [RIR-EVIDENCE](RIR-EVIDENCE.md)) | Supported and conservative |
 | 5 | Accessories at RIR 2 with double progression | Moderate | The effort is defensible for a back-sensitive athlete, but hypertrophy-oriented accessory work may progress more slowly than a failure-inclusive programme. This is a deliberate trade-off, not an evidence claim that RIR 2 is optimal. | Coherent trade-off |
@@ -109,20 +119,15 @@ settled by trials.
 
 #### A. Main-lift volume — applied
 
-**Applied 2026-10-20 (Plan A + session types).** The original plan gave bench **12 sets/week
-across three sessions**, squat **7 sets/week across two**, and hinge **4 sets/week once**; the
-current templates restore squat volume and add a second hinge exposure. The snapshot numbers
-below are retained as the reason for the change. The original concern was that this was not a
-balanced stimulus: the hinge is the lowest-volume main lift and the one with the most
-technical/spinal risk; one exposure per week gives little practice and little strength-specific volume. The bench, by
-contrast, gets three exposures and three times the sets.
+**Applied 2026-10-20 (Plan A + session types).** The original plan gave bench 12 sets/week,
+squat 7 sets/week and hinge 4 sets/week once. The rolling programme initially restored squat but
+left heavy hinge at 4 and squat at ~5.5; Plan A corrected that to squat **~7** and trap-bar
+**~5** sets/week. The added hinge is a single-leg RDL support, not a second heavy hinge; heavy
+hinge frequency remains about once per week.
 
-This may be intentional because of the back history, but then it should be an explicit
-trade-off, not an accident of the A/B/C template. The evidence supports 2–3 exposures for
-strength and does not support treating the hinge as a once-weekly afterthought.
-
-**Applied above:** the second hinge support and Plan A changes close this item; the spinal cap
-remains the hard ceiling. No further change is implied by this review.
+This is a **volume-first** resolution: the evidence favours added volume over added frequency
+when weekly volume is matched, and a second heavy hinge would exceed the spinal cap. The spinal
+cap remains the hard ceiling.
 
 #### B. Power work loading — applied
 
@@ -166,9 +171,6 @@ management.
 vertical press on the bench-heavy sessions; the vertical pull remains. This closes the original
 gap without changing the bench main-lift volume.
 
-**Applied above:** the session types now include the row and vertical press. This is a
-balance/longevity change, not a claim that it increases bench strength.
-
 #### F. Rolling next-session policy — applied
 
 **Applied 2026-10-20.** New prescriptions use session types and a rolling next-session rule;
@@ -197,8 +199,8 @@ or use a repeatable top-set standard. Do not add routine 1RM testing.
 
 ### Is it good?
 
-**Yes as a safe, evidence-aware strength skeleton. No as a finished, balanced strength
-programme.**
+**Yes as a safe, evidence-aware and now reasonably balanced strength programme. No as a
+finished, validated or fully fatigue-managed programme.**
 
 The core — 3×/week full body, 3–5 reps, RIR 2, no failure, autoregulated load, conservative
 back rules — is defensible and better than most generic templates. The original weaknesses were
@@ -206,13 +208,13 @@ programme-design imbalances and one concrete power-load bug, not a bad philosoph
 
 The current template includes the fixes that mattered:
 
-1. rebalanced hinge and bench volumes — **done** (Plan A + session types);
+1. rebalanced hinge and squat volumes — **done** (Plan A + session types);
 2. bodyweight-only power slot — **done**;
 3. horizontal pulling and a vertical press — **done**;
 4. comparability-guarded selection — **done**;
 5. fatigue-management valve — **partial**: readiness set reduction done, scheduled deload open.
 
-The remaining gap before calling it fully balanced is the scheduled deload, plus the open
+The remaining gap before calling it finished is the scheduled deload, plus the open
 calibration/warm-up/validation items in §4.
 
 ---
@@ -221,13 +223,32 @@ calibration/warm-up/validation items in §4.
 
 Status reflects the implementation, not only the original recommendation.
 
+### Implementation checklist
+
+- [x] Power work bodyweight/implement-only.
+- [x] Rolling session types instead of rigid A/B/C.
+- [x] Upper-body row in every session.
+- [x] Overhead press on bench-emphasis sessions.
+- [x] Readiness accessory set reduction and editable valve.
+- [x] Continuity calibration from observed returns, with fixed-band fallback.
+- [x] Dorsiflexion readiness category for the tib-bar lift.
+- [x] Volume v1: ledger, MEV/MAV/MRV, conservative MRV cap.
+- [x] Selection comparability A/B/C guard.
+- [x] Plan A: squat ~7 sets/week and trap-bar ~5 sets/week.
+- [ ] Scheduled deload / broader fatigue-management policy.
+- [ ] Individualized MRV and under-MEV titration.
+- [ ] Scheduled 3RM/5RM calibration cadence.
+- [ ] Explicit warm-up prescription.
+- [ ] Prospective validation of continuity, volume and fatigue models.
+- [ ] Parent-variant e1RM ratios and weakness/injury-targeted selection.
+
 | priority | change | reason | effort | status |
 |---|---|---|---|---|
 | P0 | Fix power items: bodyweight/implement only, no e1RM/double progression | A loaded box jump is not the intended stimulus | Small | **Done** |
-| P0 | Rebalance main-lift volume: second hinge exposure or lower bench volume; target ~6–8 hinge sets/week | Current 4 vs 12 is not a balanced strength dose | Medium | **Done** (Plan A + second hinge) |
+| P0 | Rebalance main-lift volume: restore squat and raise hinge volume without breaking the spinal cap | Current 4 hinge vs 12 bench and reduced squat was not a balanced strength dose | Medium | **Done** — Plan A, volume-first; heavy hinge still ~1×/week |
 | P0 | Restrict automatic selection to load-comparable variants; require confirmation for different implements | Prevents a valid load solve from silently changing the stimulus | Medium | **Done** (A/B/C guard) |
 | P1 | Add a horizontal row and a vertical press (3 sets each), or explicitly trade bench accessory volume | Upper-body balance and shoulder health | Small | **Done** |
-| P1 | Add a scheduled low-volume week or a readiness set-reduction option | No general fatigue valve today; evidence is weak but the gap is real | Medium | **Partial** — set valve done; scheduled deload open |
+| P1 | Add a scheduled low-volume week or a readiness set-reduction option | Set valve exists; a scheduled deload policy is still missing; evidence is weak but the gap is real | Medium | **Partial** — set valve done; scheduled deload open |
 | P1 | Define a rolling next-session policy that preserves A/B/C balance across missed weeks | Current fixed sequence is brittle | Medium | **Done** (session types) |
 | P2 | Schedule a 3RM/5RM calibration every 8–12 weeks; no routine 1RM | Keeps e1RM honest without adding maximal testing | Small | **Open** |
 | P2 | Add warm-up/ramp sets to the prescription or document the assumption explicitly | The template only describes working sets | Small | **Open** |
@@ -242,8 +263,8 @@ Status reflects the implementation, not only the original recommendation.
   calendar.
 - **Weakest links now:** scheduled deload, individualized MRV/under-MEV titration, 3RM/5RM test
   cadence, explicit warm-up prescription, and prospective validation.
-- **Verdict:** a good foundation and a safe default for a back-sensitive lifter; not yet a
-  well-balanced strength programme.
+- **Verdict:** a good, safer and more balanced default for a back-sensitive lifter; not yet a
+  fully validated or fatigue-managed strength programme.
 
 ---
 

@@ -15,17 +15,21 @@ LLM call fails entirely.
 
 ## Status
 
-**v0 complete; v0.1 complete; v0.2 in progress.** The full slice runs: import → readiness
-→ prescribe a day → critique the last session → review it → calibrate. Days A, B and C are
-prescribable, athlete state (goals, constraints, suitability, e1RM overrides) and symptoms are
-editable in the CLI and local web UI, the LLM can narrate or propose within the rules, and VBT
-targets are attached where the data supports them.
+**v0 complete; v0.1 complete; v0.2 complete; v0.3 in progress.** The full slice runs:
+import → readiness → prescribe a day → critique the last session → review it → calibrate. Days
+are prescribable through rolling session types (squat, hinge, bench+squat, bench+hinge); athlete
+state, constraints, suitability, e1RM overrides, symptoms and the exercise catalogue are editable
+in the CLI and local web UI; the LLM can narrate or propose within the rules; VBT targets attach
+where the data supports them.
 
-Delivered early in v0.2: readiness score and overrides (including optional wearable readiness,
-HRV/RHR baselines), injury signal, continuity, local web UI (including CSV import with overlap
-detection, editable athlete state, Programme/Terminal, rubric and readiness calibration reports). Remaining: the labelled set
-(now §4.14), manual logging, format adapters, programme view, video, learned/HRV readiness
-settings; later/unscheduled: cardio + impulse-fatigue modelling (§4.13). See [ROADMAP.md](ROADMAP.md).
+Delivered in v0.2/v0.3: readiness score and overrides, wearable/HRV/RHR baselines, injury signal,
+continuity calibration, cardio capture, measurements, session RPE/length, recent stress,
+per-lift readiness, e1RM calibration/decay, rolling session types, readiness volume valve,
+weekly volume ledger/MRV cap, exercise selection with A/B/C comparability, and the local web UI
+with import, state, Programme, Exercises, Terminal and calibration reports. Remaining v0.3:
+manual logging, format adapters, learned readiness weights, LLM/manual-logging parity, deeper
+labelled set, scheduled deload and prospective validation; v0.4 cardio prescription/model; v0.5
+video. See [ROADMAP.md](ROADMAP.md).
 
 What runs today:
 

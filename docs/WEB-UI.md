@@ -34,11 +34,11 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 - **Readiness** — any subset of 1-5 and device fields, including optional wearable readiness;
   manual values win per field; the computed global/category score is shown; per-athlete
   baseline settings and the shadow baseline report are available; overrides take 0.00–1.00
-  with a reason; the **Volume valve** sets the poor-readiness accessory set reduction. A current workout is refused until readiness is ready.
+  with a reason; the **Volume valve** sets the poor-readiness accessory set reduction; the volume ledger and MRV cap are on Prescribe. A current workout is refused until readiness is ready.
 - **Prescribe** — date + session type (`auto` rolling, squat, hinge, bench+squat, bench+hinge); deterministic prescription, warnings and notes; every item cites
   rule ids. A `recent stress` column, a `readiness` column, the **strength fatigue model**
   panel (shadow: per-lift + overall fitness/fatigue/state with approximate 95% intervals,
-  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against advisory targets), the **continuity calibration** panel (per-band returns/fixed/applied and the
+  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets), the **continuity calibration** panel (per-band returns/fixed/applied and the
   `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings with A/B/C
   comparison classes; optional LLM chooser). The session is chosen by the rolling emphasis rule;
   **Apply selection** makes A candidates replace the slot exercises, **Confirm near-comparable**
