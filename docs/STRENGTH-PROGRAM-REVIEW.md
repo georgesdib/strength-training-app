@@ -131,6 +131,9 @@ external load and e1RM history, carries no double-progression citation, and stop
 loss. `box_jump` remains bodyweight-only in the taxonomy. Loaded power work, if wanted,
 must be a separate variation with its own prescription, not this slot.
 
+See [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md) for the evidence and the proposed
+three-class guard. No implementation yet.
+
 #### C. Exercise selection has no comparability guard
 
 The selector can substitute across variants with different load bases: SSB squat to front squat,

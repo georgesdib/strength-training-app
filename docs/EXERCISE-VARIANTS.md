@@ -105,7 +105,9 @@ and re-solves the load from the selected lift (`MOD-SELECT-001`).
 [`config/selection.v1.yaml`](../config/selection.v1.yaml) holds the weights and rotation
 window. The selector uses readiness, recent stress, rotation, suitability preference and the
 fitness-fatigue state. The model is **cached per database version** (file mtime/size), so the
-selector does not pay the fit cost on every request. Per-exercise preference comes from Athlete
+selector does not pay the fit cost on every request. Selection comparability is not yet
+implemented; the evidence and proposed classes are in
+[SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md). Per-exercise preference comes from Athlete
 suitability, not config.
 
 ## 6. Validation checklist

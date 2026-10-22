@@ -200,6 +200,7 @@ never read `data/raw`.
 | `docs/FATIGUE-FITNESS.md` | fatigue-fitness evidence, strength recovery, e1RM calibration and why no model drives loads |
 | `docs/LIFT-READINESS.md` | per-lift readiness evidence, components, weights and downward-only rule |
 | `docs/EXERCISE-VARIANTS.md` | how to add a canonical variant, slot wiring, history caveat, selection tuning |
+| `docs/SELECTION-COMPARABILITY.md` | evidence and proposed three-class guard for variant substitution |
 | `docs/STRENGTH-PROGRAM-REVIEW.md` | evidence check and critique of the strength programme (review only) |
 | `docs/VOLUME-MANAGEMENT.md` | MEV/MAV/MRV evidence, configured landmarks, ledger and MRV cap |
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |

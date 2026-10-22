@@ -287,6 +287,17 @@ formula from a handful of tests would overfit, and RIR error is not constant acr
 **Applied 2026-10-20 (`DEC-E1RM-CAL-01/02`):** report plus a bounded correction when the CI
 excludes 1.0; `e1rm calibrate` and the Athlete page. Measured overrides remain the control.
 
+## Q21. How should exercise selection decide what is comparable?
+
+The selector can swap configured variants but has no explicit comparability class. Open:
+where the A/B boundary sits (pause/narrow bench, SSB/high-bar), whether the class is per
+exercise or per pair, what confirmation means, and whether parent-variant e1RM ratios can ever
+be used.
+
+Proposed in [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md): class A load-comparable,
+class B near-comparable (confirmation required), class C different lift (never automatic).
+No implementation.
+
 ## Closed
 
 - ~~What do the extreme `RIR` values mean?~~ **Closed** — `RIR 6` marks a **warm-up set**
