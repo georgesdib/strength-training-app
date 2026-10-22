@@ -946,7 +946,8 @@ deferred items stay listed in §4.19.
 | P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
 | P2 | Prospective validation of continuity, volume, selection and fatigue models | **partial** — retrospective walk-forward done; continuity/fatigue failed; prospective not started |
 | P1 (v0.3) | Manual workout logging and import adapters | not started |
-| P1 (v0.3) | Learned readiness weights / LLM-manual-logging parity | not started |
+| P1 (v0.3) | LLM/manual-logging parity | not started |
+| P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
 | P1 (v0.3) | Deeper labelled calibration set | in progress |
 | v0.4 | Cardio prescription and cardio fatigue interaction | planned |
 | v0.5 | Video capture/analysis and UI parity | planned |
