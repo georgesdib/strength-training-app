@@ -168,7 +168,8 @@ performance or an obvious technical change appears.
 ### The half-step cost is separate
 
 The trial tests tolerance and preference, not whether **2.5** is the right ordinal spinal cost.
-That remains a config decision (**DEC-SPINE-01**).
+The owner has accepted 2.5; it stays. `DEC-SPINE-01` records it as an ordinal design choice,
+not a measured value.
 
 ### Evidence
 

@@ -977,7 +977,8 @@ Moved out of the strength-programme review so it can close. These are **not** v0
 | Weakness targeting | deferred to after v0.5 / ~April 2027 | §4.20.3, Q22, DEC-SELECT-05 |
 | Selection A/B boundary (pause/narrow, SSB/high-bar) | dormant policy decision; current default is conservative (A only same exercise) | Q21, docs/SELECTION-COMPARABILITY.md |
 | Session timestamps / automatic duration | **closed** — manual/optional only; no timestamp feature planned | Q1/Q5, DEC-DURATION-01 |
-| Sumo half-step / replacement | use sumo as the hinge for 4–6 weeks once stable; normal symptom judgement, no formal trial; 2.5 cost remains separate | Q11 |
+| Sumo half-step / replacement | 2.5 accepted; use sumo as the hinge for 4–6 weeks once stable, normal symptom judgement, no formal trial | Q11, DEC-SPINE-01 |
+| Conventional deadlift | not in the current template; optional substitution, spinal cost 3; no evidence-based safety ranking, no scheduled work | `SPINAL-COST.md` |
 | Cardio model | v0.4 | §4.13, Q14 |
 | Fatigue-plan backfill UI, phase cutoff, report format, one-month check | open; decide when that plan resumes | docs/NEXT-PHASE-FATIGUE-PLAN.md §9 |
 
