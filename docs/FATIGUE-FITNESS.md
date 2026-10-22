@@ -19,7 +19,7 @@ captures the practical consequence through self-reported readiness.
 | `MOD-FAT-001` | reduces load up to 5% and raises RIR when readiness is low | does not know what you lifted yesterday |
 | e1RM | best usable Epley+RIR estimate in the **84-day** window, or a measured override | does not decay the estimate after a hard session |
 | gap rules | 14/28/56-day bands reduce load and step back the erector ramp | a 48-hour turnaround is "no gap" |
-| deload | readiness/block rules can reduce the week | no accumulated-load or fitness-fatigue state |
+| deload | scheduled/reactive low-volume week can reduce sets, load and RIR | no accumulated-load or fitness-fatigue state drives the trigger |
 
 So a very hard Monday does not directly change Wednesday's prescription. Only the readiness you
 report on Wednesday does. That is conservative and defensible, but it means the app treats a

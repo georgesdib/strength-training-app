@@ -151,3 +151,44 @@ def test_start_session_type_can_force_bench_hinge_and_start_day_is_legacy():
     assert forced[0].session_type == "bench_hinge"
     assert forced[0].day == "C"
     assert legacy[0].session_type == "bench_squat"
+
+
+def test_scheduled_deload_week_reduces_sets_and_load():
+    with store_with() as store:
+        conn = store.connection
+        repositories.append_athlete_profile(
+            conn, effective_from="2024-01-01", primary_goal="strength",
+            goal_rank=["strength"], focus_lifts=["ssb_squat"],
+            block_start_date="2024-01-01",
+        )
+        entries = programme.build_programme(
+            conn, start="2024-02-05", weeks=1, per_week=3,
+            start_session_type="squat",
+        )
+
+    assert all(entry.deload_reason for entry in entries)
+    assert all("scheduled deload" in entry.deload_reason for entry in entries)
+    assert all(entry.prescription.fallback_level == "fatigue_reduced" for entry in entries)
+    assert all(
+        entry.prescription.notes["deload"]["trigger"] == "scheduled"
+        for entry in entries
+    )
+    assert all(
+        any("MOD-DELOAD-001" in warning for warning in entry.prescription.warnings)
+        for entry in entries
+    )
+    squat = next(
+        item for entry in entries for item in entry.prescription.items
+        if item.exercise_id == "ssb_squat"
+    )
+    assert squat.sets == 4
+    assert squat.rir_target >= 3
+
+
+def test_scheduled_deload_needs_an_anchor():
+    with store_with() as store:
+        entries = programme.build_programme(
+            store.connection, start="2024-02-05", weeks=1, per_week=1,
+            start_session_type="squat",
+        )
+    assert entries[0].deload_reason is None

@@ -28,7 +28,7 @@ per-lift readiness, e1RM calibration/decay, rolling session types, readiness vol
 weekly volume ledger/MRV cap, exercise selection with A/B/C comparability, and the local web UI
 with import, state, Programme, Exercises, Terminal and calibration reports. Remaining v0.3:
 manual logging, format adapters, learned readiness weights, LLM/manual-logging parity, deeper
-labelled set, scheduled deload and prospective validation; v0.4 cardio prescription/model; v0.5
+labelled set and prospective validation; a scheduled/reactive deload policy is implemented; v0.4 cardio prescription/model; v0.5
 video. See [ROADMAP.md](ROADMAP.md).
 
 What runs today:

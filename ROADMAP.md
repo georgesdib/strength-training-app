@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **576 public tests** (591 with the 15 private integration tests)
+Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **578 public tests** (593 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progres
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 591 locally, including private integration
+.venv/bin/python -m pytest            # 593 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -380,18 +380,20 @@ idempotent.
 Today `run` emits one day. The athlete wants either **the whole programme** or **what remains**
 of it.
 
-Decided: there is **no fixed block**. Training is continuous, and a deload is **reactive** —
-it happens because the data asks for it, not because a calendar says so. That makes "remaining
-programme" simply "from today onward".
+Decided: there is **no fixed training block**. Training is continuous. A deload can be
+**scheduled** every six weeks from the declared block anchor or **reactive** when the data
+asks for it; the schedule is configurable and the reactive triggers still override it. That
+makes "remaining programme" simply "from today onward".
 
 Scope: `programme --weeks N [--remaining] [--start-session-type T]` prints a rolling horizon. The horizon is a
 forecast, not a commitment, and `--remaining` starts from today. The declared
-`block_start_date` is the **erector-ramp anchor** only; it does not bound the programme.
+`block_start_date` anchors the erector ramp and the scheduled deload; it does not bound the programme.
 
-Reactive deload trigger (config, default): two consecutive weeks over the spinal cap, **or**
-two consecutive flaring sessions. When it fires, the next session is emitted with
-`fallback_level = fatigue_reduced` and the trigger cited. The thresholds live in config and are
-an explicit product rule, not a scientific claim.
+Scheduled deload: every six weeks from `block_start_date` by default; one set per item
+(minimum two), 10% load reduction and one RIR under `MOD-DELOAD-001`. Reactive deload triggers
+remain: two consecutive weeks over the spinal cap, **or** two consecutive flaring sessions.
+When either fires, the session is emitted with `fallback_level = fatigue_reduced` and the
+trigger cited. The six-week interval is an assumption, not a scientific claim.
 
 Planned loads (decided): **recomputed on the day**. A plan is a forecast; the day's
 prescription uses the current e1RM, readiness and symptoms. Planned rows are superseded when
@@ -403,22 +405,22 @@ apply across the horizon.
 
 Acceptance: `programme --weeks N` prints a dated session-type forecast with legacy A/B/C labels; `--start-session-type T` (or deprecated `--start-day`) sets the first session; `--remaining` starts today;
 every planned session carries its rationale refs; the day's prescription recomputes and
-supersedes the plan; a reactive deload fires on the configured trigger and says why; printing
+supersedes the plan; scheduled and reactive deloads fire on the configured triggers and say why; printing
 a programme needs no LLM.
 
 ### 4.5 Decisions taken (2026-10-17)
 
 | question | decision |
 |---|---|
-| Block length and deload | **No fixed block. Deload is reactive**, triggered by data, never by a calendar |
+| Block length and deload | **No fixed block. Deload is scheduled every six weeks or reactive**, configurable; the reactive triggers remain |
 | Planned loads | **Recomputed on the day**; a plan is a forecast and is superseded, not edited |
 | Manual logging granularity | **Per set**; no exercise-level shorthand that would invent detail |
 | Readiness fields for the modifier | **Sleep and energy, as a config list**; other fields are recorded and reported only |
 | Manual vs imported readiness | **Manual wins per field**, import fills gaps, the merge note records both |
 
-These are recorded in the decision log as `DEC-PROGRAMME-01/02`, `DEC-LOG-01` and
-`DEC-READINESS-02/03`. The reactive deload thresholds are an explicit product rule and remain
-config, not a claimed scientific finding.
+These are recorded in the decision log as `DEC-PROGRAMME-01/02/05`, `DEC-LOG-01` and
+`DEC-READINESS-02/03`. The deload interval and reactive thresholds are explicit policy and
+remain config, not a claimed scientific finding.
 
 ### 4.6 Training continuity — missed and planned time off  (done)
 
@@ -882,7 +884,7 @@ are complete. The following are explicitly **not** claimed as done:
 
 - individual MRV calibration from this athlete's response;
 - automatic volume titration below MEV;
-- a scheduled or fully autoregulated deload;
+- a fully autoregulated deload (a scheduled/reactive policy now exists);
 - per-muscle rather than movement-pattern volume;
 - set quality/load/tonnage rather than raw hard sets;
 - prospective validation against e1RM or performance;
@@ -916,7 +918,7 @@ reviewed sessions to evaluate whether the suggestions are better than the fixed 
 
 | priority | action | status |
 |---|---|---|
-| P1 | Scheduled deload / broader fatigue-management policy | open |
+| P1 | Scheduled deload / broader fatigue-management policy | done — `DEC-PROGRAMME-05` |
 | P1 | 3RM/5RM calibration cadence and explicit warm-up prescription | open |
 | P2 | Parent-variant e1RM ratios and weakness/injury-targeted selection | open |
 | P2 | Prospective validation of continuity, volume, selection and fatigue models | open |

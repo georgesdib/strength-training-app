@@ -179,10 +179,14 @@ function renderPrescription(p) {
   const signal = p.notes?.injury_signal;
   const signalBox = signal ? `<p class="muted">Injury signal: <strong>${esc(signal.status)}</strong>
     — ${esc(signal.summary)}</p>` : "";
+  const deload = p.notes?.deload;
+  const deloadBox = deload ? `<p class="warnbox"><strong>Deload (${esc(deload.trigger)})</strong>
+    — ${esc(deload.reason)}. Sets -${deload.set_reduction}, load
+    ${Math.round(deload.load_multiplier * 100)}%, RIR +${deload.rir_add}.</p>` : "";
   $("#prescribe-result").innerHTML = `<div class="panel">
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_type || ("Day " + p.session_day))}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
-    ${warnings}${selectionBox}${signalBox}
+    ${warnings}${deloadBox}${selectionBox}${signalBox}
     <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table>
     <details><summary class="muted">notes (JSON)</summary><pre>${esc(JSON.stringify(p.notes, null, 2))}</pre></details>
@@ -1087,7 +1091,7 @@ function renderProgramme(entries) {
         <div class="muted">legacy ${esc(entry.day)}</div></td>
       <td>${esc(programmeStatus(entry))}</td>
       <td><ul class="plain">${items}</ul>
-        ${entry.deload_reason ? `<p class="warnbox">reactive deload: ${esc(entry.deload_reason)}</p>` : ""}
+        ${entry.deload_reason ? `<p class="warnbox">deload: ${esc(entry.deload_reason)}</p>` : ""}
         ${warn}</td>
     </tr>`;
   }).join("");

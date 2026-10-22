@@ -123,6 +123,8 @@ without conditioning on provenance penalises the athlete for following the presc
   anti-extension + anti-rotation/lateral, progressed by load/leverage) is a synthesis of the
   evidence, not a validated minimum. The evidence gives no dose-response for this population
   (`docs/CORE-TRAINING.md`).
+- **ASSUMPTION-32** — the six-week scheduled-deload interval and its 10% load / one-set / one-RIR
+  prescription are broad coaching defaults, not a measured optimum (`DEC-PROGRAMME-05`).
 - **ASSUMPTION-31** — the MEV/MAV/MRV landmarks and the seven-day MRV window are broad
   coaching defaults, not measured individual thresholds (`DEC-VOLUME-02`).
 - **ASSUMPTION-30** — the continuity calibration minimums (5 returns/band, 12 total), 0.15

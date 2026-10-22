@@ -2,8 +2,9 @@
 
 **Status: v1 done (2026-10-20).** “Done” means the evidence check, ledger, configured
 landmarks, conservative MRV cap, readiness valve and UI/CLI/API are implemented. It does **not**
-mean individualized MRV, automatic under-MEV titration, scheduled deloads, per-muscle volume or
-prospective validation; those remain roadmap items.
+mean individualized MRV, automatic under-MEV titration, per-muscle volume or prospective
+validation; those remain roadmap items. A separate scheduled/reactive deload policy is described
+in `DEC-PROGRAMME-05`.
 
 **Scope:** weekly hard-set volume for the strength programme. This note records the evidence
 used for the volume ledger and the conservative MRV cap; it is not a claim that MEV/MRV are
@@ -137,7 +138,9 @@ weekly landmark. It is editable on the Readiness page and recorded in the `MOD-F
 - The seven-day MRV window is a practical approximation of a week, not an individual recovery
   measurement.
 - The cap is asymmetric: it never adds work below MEV and never cuts an essential item.
-- The evidence does not support a fixed automatic deload schedule; none is implemented.
+- The evidence does not support a fixed automatic deload schedule; the scheduled deload is a
+  configurable fatigue-management policy (`DEC-PROGRAMME-05`), not a claim of proven superiority.
+- Volume management does not itself trigger a deload; the deload policy is separate.
 
 ---
 

@@ -31,6 +31,7 @@ from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, load_marks, record_marks
 from strength_coach.features import cardio as cardio_feature
+from strength_coach.features import deload as deload_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import continuity_calibration
 from strength_coach.features import volume as volume_feature
@@ -42,6 +43,7 @@ from strength_coach.features import programme as programme_feature
 from strength_coach.features import readiness_baseline
 from strength_coach.features import readiness_calibration, readiness_score
 from strength_coach.prescribe import build_prescription
+from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe.config import Thresholds
@@ -463,6 +465,8 @@ class Handler(BaseHTTPRequestHandler):
             apply_selection=apply_selection, selection_chooser=chooser,
             selection_confirmed=selection_confirmed,
         )
+        decision = deload_feature.decision(conn, for_date)
+        prescription = deload_mod.apply(prescription, decision)
         return prescription_dict(prescription)
 
     def _review_sheet(self, conn, session: str) -> dict:

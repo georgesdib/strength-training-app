@@ -1,0 +1,31 @@
+# Fatigue-management / deload policy (DEC-PROGRAMME-05).
+#
+# Evidence for a fixed deload calendar is thin; these are configurable coaching defaults,
+# not measured thresholds (ASSUMPTION-32). A deload is a low-volume week, not a second
+# programme: main lifts keep their pattern and a hard-ish effort, while sets, load and RIR
+# are eased.
+schema_version: "1.0.0"
+
+enabled: true
+
+scheduled:
+  enabled: true
+  # Six weeks is a conservative default. It is deliberately not justified as an optimum:
+  # the evidence does not establish one. Change here, not in code.
+  every_weeks: 6
+  # Scheduled deloads use the declared block_start_date as the anchor. Without an anchor
+  # there is no honest calendar position, so only reactive triggers run.
+  anchor_required: true
+
+reactive:
+  enabled: true
+  # Existing triggers: two consecutive weeks over the spinal cap, or two consecutive flares.
+  # They stay available even when the scheduled calendar is disabled.
+
+prescription:
+  # Reduce one set from each item, including main lifts. The session remains a real stimulus.
+  set_reduction: 1
+  minimum_sets_per_item: 2
+  include_essential: true
+  load_multiplier: 0.90
+  rir_add: 1

@@ -3,7 +3,7 @@
 **Scope:** the strength programme only. Cardio, video, the LLM narrative and the web UI are out
 of scope. This is the evidence snapshot; implementation status is recorded in the note and table below.
 
-**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload, individualized MRV/under-MEV titration, a 3RM/5RM test cadence, explicit warm-up prescription and prospective validation remain open. This document is the evidence snapshot, not a claim that every suggestion is still pending.
+**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload is now implemented as a configurable low-volume week with reactive triggers; individualized MRV/under-MEV titration, a 3RM/5RM test cadence, explicit warm-up prescription and prospective validation remain open. This document is the evidence snapshot, not a claim that every suggestion is still pending.
 
 **Method:** read the templates, constitution, prescription engine, evidence notes and references;
 generated A/B/C prescriptions from the local database; checked the planned weekly dose and the
@@ -53,7 +53,7 @@ Current main-lift volume:
 - Main-lift load: solved from the lift's own e1RM (Epley + RIR) with a bounded measured-test
   calibration and age decay.
 - Undulation: 4-week cycle (strength / strength / maximal / strength; accessory / volume /
-  accessory / volume), only when a block anchor is declared. No scheduled deload week.
+  accessory / volume), only when a block anchor is declared. A scheduled deload week is configured every 6 weeks; reactive triggers still override it.
 - Readiness and continuity can reduce load and add RIR; poor readiness can also remove one
   accessory set. The combined readiness + continuity load reduction is capped at 20%. The
   fitness-fatigue model does **not** change loads.
@@ -78,7 +78,7 @@ settled by trials.
 | 5 | Accessories at RIR 2 with double progression | Moderate | The effort is defensible for a back-sensitive athlete, but hypertrophy-oriented accessory work may progress more slowly than a failure-inclusive programme. This is a deliberate trade-off, not an evidence claim that RIR 2 is optimal. | Coherent trade-off |
 | 6 | Power work: box jumps 3×3–5, quality stop | Moderate for function, weak for this exact dose | Power training improves physical function in older adults, with low certainty; the exact 3–5 set prescription is practice, not a validated protocol. ([power meta-analysis](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9096601/)) | Keep, label as practice |
 | 7 | 4-week undulating cycle | Moderate | Linear and undulating periodization produce comparable strength and body-composition outcomes. DUP is variety/fatigue management, not a superiority claim. ([Zhang 2026](https://doi.org/10.3389/fpubh.2026.1707627)) | Supported as structure, not advantage |
-| 8 | No scheduled deload; reactive deload only | Weak/Methodology | Practical deload recommendations exist, but the comparative evidence for a fixed deload schedule is thin. A reactive trigger is defensible; the absence of any planned fatigue management is a design choice with a cost. ([practical deload review](https://shura.shu.ac.uk/35313/3/Bell-APracticalApproach%28AM%29.pdf)) | Plausible, but a gap |
+| 8 | Scheduled and reactive deload policy | Weak/Methodology | Practical deload recommendations exist, but the comparative evidence for a fixed deload schedule is thin. The implemented policy is a low-volume week every six weeks plus reactive triggers, explicitly framed as fatigue management rather than a proven strength intervention. ([practical deload review](https://shura.shu.ac.uk/35313/3/Bell-APracticalApproach%28AM%29.pdf)) | Implemented as a policy; evidence remains weak |
 | 9 | Readiness reduces load, not volume | Moderate/Weak | Autoregulated load has not clearly beaten standard percentage prescription; readiness is a fatigue-management tool, not a proven strength optimiser. ([Hickmott 2022](https://doi.org/10.1186/s40798-021-00404-9)) | Reasonable safety choice |
 | 10 | Trap-bar hinge is the main hinge; direct erector work is not stacked with it | Moderate for trap-bar biomechanics; methodology for the stacking rule | Trap-bar deadlift has lower peak lumbar moments than a straight bar. The no-stacking rule is plausible fatigue management but not established by trials. ([Swinton 2011](https://doi.org/10.1519/JSC.0b013e3181e73f87); [TRAINING-GUIDELINES](TRAINING-GUIDELINES.md)) | Trap-bar supported; stacking is methodology |
 | 11 | Fixed continuity bands, now calibrated from returns | Weak for fixed cut-points; improving with calibration | Detraining occurs within weeks, but exact −5%/−10% cut-points are assumptions. The calibration model estimates observed e1RM retention per band and falls back to fixed values when a band is sparse. ([CONTINUITY](CONTINUITY.md); [Yamashita 2023](https://doi.org/10.1371/journal.pone.0288344)) | Honest and improving |
@@ -153,17 +153,14 @@ transferred. The implementation is in `config/selection-comparability.v1.yaml`,
 the class boundary are in [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md)
 (`DEC-SELECT-03`, Q21).
 
-#### D. Scheduled deload — partially applied
+#### D. Scheduled deload — applied
 
-The 4-week cycle varies reps but still has no **scheduled** deload week; reactive deload only
-fires after two weeks over the spinal cap or two flares. The readiness **set-reduction valve**
-is now implemented, so poor readiness can remove an accessory set as well as load. A scheduled
-low-volume week remains open. The evidence for a fixed deload is weak, so do not claim a
-strength benefit; this is fatigue management.
-
-**Still open:** add one configurable low-volume week per 4–6 week cycle. The set-reduction
-response is already implemented; do not claim a strength benefit from either — call it fatigue
-management.
+**Applied 2026-10-20 (`DEC-PROGRAMME-05`).** A configurable low-volume week runs every six weeks
+from the declared block anchor. It removes one set from each item (minimum two), reduces load
+by 10% and adds one RIR under `MOD-DELOAD-001`; reactive triggers (two weeks over the spinal cap
+or two flares) still apply. The evidence for a fixed deload is weak, so this is described as
+fatigue management, not a proven strength intervention. The readiness set valve remains a
+separate, within-week response.
 
 #### E. Upper-body balance — applied
 
@@ -212,10 +209,10 @@ The current template includes the fixes that mattered:
 2. bodyweight-only power slot — **done**;
 3. horizontal pulling and a vertical press — **done**;
 4. comparability-guarded selection — **done**;
-5. fatigue-management valve — **partial**: readiness set reduction done, scheduled deload open.
+5. fatigue-management valve — **done**: readiness set reduction, volume cap, reactive and scheduled deload.
 
-The remaining gap before calling it finished is the scheduled deload, plus the open
-calibration/warm-up/validation items in §4.
+The remaining gaps are the calibration/warm-up/validation items in §4, not a missing deload
+policy.
 
 ---
 
@@ -235,7 +232,7 @@ Status reflects the implementation, not only the original recommendation.
 - [x] Volume v1: ledger, MEV/MAV/MRV, conservative MRV cap.
 - [x] Selection comparability A/B/C guard.
 - [x] Plan A: squat ~7 sets/week and trap-bar ~5 sets/week.
-- [ ] Scheduled deload / broader fatigue-management policy.
+- [x] Scheduled deload / broader fatigue-management policy (`DEC-PROGRAMME-05`).
 - [ ] Individualized MRV and under-MEV titration.
 - [ ] Scheduled 3RM/5RM calibration cadence.
 - [ ] Explicit warm-up prescription.
@@ -248,7 +245,7 @@ Status reflects the implementation, not only the original recommendation.
 | P0 | Rebalance main-lift volume: restore squat and raise hinge volume without breaking the spinal cap | Current 4 hinge vs 12 bench and reduced squat was not a balanced strength dose | Medium | **Done** — Plan A, volume-first; heavy hinge still ~1×/week |
 | P0 | Restrict automatic selection to load-comparable variants; require confirmation for different implements | Prevents a valid load solve from silently changing the stimulus | Medium | **Done** (A/B/C guard) |
 | P1 | Add a horizontal row and a vertical press (3 sets each), or explicitly trade bench accessory volume | Upper-body balance and shoulder health | Small | **Done** |
-| P1 | Add a scheduled low-volume week or a readiness set-reduction option | Set valve exists; a scheduled deload policy is still missing; evidence is weak but the gap is real | Medium | **Partial** — set valve done; scheduled deload open |
+| P1 | Add a scheduled low-volume week or a readiness set-reduction option | Set valve and scheduled/reactive deload policy exist; evidence is weak but the gap is now addressed | Medium | **Done** — set valve + scheduled deload (`MOD-DELOAD-001`) |
 | P1 | Define a rolling next-session policy that preserves A/B/C balance across missed weeks | Current fixed sequence is brittle | Medium | **Done** (session types) |
 | P2 | Schedule a 3RM/5RM calibration every 8–12 weeks; no routine 1RM | Keeps e1RM honest without adding maximal testing | Small | **Open** |
 | P2 | Add warm-up/ramp sets to the prescription or document the assumption explicitly | The template only describes working sets | Small | **Open** |
@@ -261,10 +258,10 @@ Status reflects the implementation, not only the original recommendation.
   load, trap-bar choice, measurable strength.
 - **Methodology, not evidence:** erector scheduling, spinal cap, exact accessory RIR, 3×/week
   calendar.
-- **Weakest links now:** scheduled deload, individualized MRV/under-MEV titration, 3RM/5RM test
-  cadence, explicit warm-up prescription, and prospective validation.
-- **Verdict:** a good, safer and more balanced default for a back-sensitive lifter; not yet a
-  fully validated or fatigue-managed strength programme.
+- **Weakest links now:** individualized MRV/under-MEV titration, 3RM/5RM test cadence,
+  explicit warm-up prescription, and prospective validation.
+- **Verdict:** a good, safer and more balanced default for a back-sensitive lifter; fatigue
+  management is implemented, but the model is not yet prospectively validated.
 
 ---
 

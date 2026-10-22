@@ -49,7 +49,7 @@ def write_document(tmp_path, *, rules=None, collections=None, document=None, nam
 def test_loads_the_real_constitution():
     document = loader.load_document()
     assert document.document_id == "programme.constitution"
-    assert document.version == "1.9.0"
+    assert document.version == "1.10.0"
     assert document.rule_ids == (
         "PRG-RIR-001",
         "PRG-DP-001",
@@ -88,7 +88,7 @@ def test_unscoped_rule_returns_none():
 def test_modifiers_are_parsed_separately_from_rules():
     document = loader.load_document()
     ids = [modifier["id"] for modifier in document.modifiers]
-    assert ids == ["MOD-E1RM-001", "MOD-E1RM-DECAY-001", "MOD-GAP-001", "MOD-FAT-001", "MOD-VOL-001", "MOD-SELECT-001", "MOD-BACK-001"]
+    assert ids == ["MOD-DELOAD-001", "MOD-E1RM-001", "MOD-E1RM-DECAY-001", "MOD-GAP-001", "MOD-FAT-001", "MOD-VOL-001", "MOD-SELECT-001", "MOD-BACK-001"]
     assert "MOD-FAT-001" not in document.rule_ids
 
 

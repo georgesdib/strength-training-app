@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.9.0"
+  version: "1.10.0"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -35,6 +35,8 @@ document:
       change: "The rolling session-type layer replaces the rigid calendar: squat/hinge emphasis alternates, every session has bench or a vertical pull/press, and horizontal row plus vertical press join the accessory pool (DEC-PROGRAMME-02)."
     - version: "1.9.0"
       change: "A conservative MRV cap trims non-essential sets when a movement pattern would exceed its configured weekly maximum recoverable volume; under-MEV is reported, never auto-filled (DEC-VOLUME-02, MOD-VOL-001)."
+    - version: "1.10.0"
+      change: "A scheduled low-volume deload week joins the reactive triggers; it reduces sets, load and adds RIR under MOD-DELOAD-001 (DEC-PROGRAMME-05)."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -261,6 +263,24 @@ rules:
 # Applied by the prescription engine before the policy engine evaluates the result.
 # ---------------------------------------------------------------------------
 modifiers:
+
+  - id: MOD-DELOAD-001
+    title: "Scheduled or reactive low-volume deload"
+    statement: >
+      When a deload is due — the configured block week or a reactive trigger — reduce one set
+      from each item (never below the configured minimum), reduce load by about 10% and add one
+      RIR. Keep the session's movement pattern; a deload is a low-volume week, not a new block.
+      A scheduled deload needs a declared block anchor.
+    when:
+      any:
+        - {input: deload.due, op: "==", value: true}
+    then:
+      set_reduction: all_items
+      load_multiplier: 0.90
+      rir_bump: 1
+    availability:
+      status: available
+      reason: "Config polices scheduled and reactive triggers (DEC-PROGRAMME-05, ASSUMPTION-32)."
 
   - id: MOD-E1RM-001
     title: "Measured e1RM calibration"

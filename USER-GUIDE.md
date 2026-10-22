@@ -751,6 +751,20 @@ it refuses parameters when the data are sparse or ill-conditioned. **No prescrip
 it.** The Prescribe page shows the same table under **Strength fatigue model**. See
 [FATIGUE-FITNESS.md](docs/FATIGUE-FITNESS.md) §4a.
 
+### 4.10e Deload policy
+
+A deload is a **low-volume week**, not a new training block:
+
+- scheduled every 6 weeks from your declared `block_start_date`;
+- also triggered reactively by two consecutive weeks over the spinal cap or two consecutive
+  back flares;
+- one set removed per item (never below two), load reduced 10%, RIR increased by one;
+- cited as `MOD-DELOAD-001` in the prescription and shown on Prescribe/Programme.
+
+Without a declared block anchor there is no scheduled calendar position, so only reactive
+deloads run. The six-week interval is a configurable policy
+(`config/deload.v1.yaml`, `ASSUMPTION-32`), not a claim of a proven optimal schedule.
+
 ### 4.10c `measure` — periodic measurements
 
 Readiness is daily; these are **outcomes** you test every few weeks. They never change a load.
