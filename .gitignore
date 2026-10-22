@@ -37,6 +37,3 @@ tests/*_integration.py
 # Anything that looks like a personal export
 *backupDB*.csv
 *backupReadiness*.csv
-
-# Local workout export (personal; never commit)
-/export.csv
