@@ -918,11 +918,11 @@ This is explicitly future work, not a v0.3 deliverable. The existing invariants 
 reviewed sessions to evaluate whether the suggestions are better than the fixed programme.
 **Status:** idea only; no implementation, no phase assigned.
 
-**Next-phase design:** the final lean non-cardio fatigue-management plan is recorded in
-[`docs/NEXT-PHASE-FATIGUE-PLAN.md`](docs/NEXT-PHASE-FATIGUE-PLAN.md). It uses the existing data
-plus an sRPE/duration backfill for descriptive calibration; no programme experiments, no
-individualised MRV and no randomised deload trial. The scheduled deload remains an optional
-suggestion.
+**Next-phase design:** the final lean non-cardio fatigue-management plan is **closed**
+([`docs/NEXT-PHASE-FATIGUE-PLAN.md`](docs/NEXT-PHASE-FATIGUE-PLAN.md)). It used the existing
+data plus an sRPE/duration backfill for descriptive calibration and implemented the optional
+deload plus four deterministic programme changes. No programme experiments, no individualised
+MRV and no randomised deload trial. The intentionally deferred items remain listed in §4.19.
 
 ### 4.19 Consolidated next actions
 

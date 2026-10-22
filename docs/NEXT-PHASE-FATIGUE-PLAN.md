@@ -1,7 +1,6 @@
 # Next-phase fatigue-management plan — final lean version
 
-**Status:** Phase 0 backfill done; descriptive sRPE and readiness–performance reports done;
-optional-deload suggestion implemented. Four programme changes are recorded in §6a.
+**Status:** **closed 2026-10-20.** Phase 0 backfill done; descriptive sRPE and readiness–performance reports done; optional-deload suggestion implemented; four programme changes implemented. Deferred items are explicit.
 **Date:** 2026-10-20
 **Scope:** non-cardio fatigue-management work. This supersedes the earlier experimental draft;
 the feedback was that the programme must not become an experiment.
@@ -225,7 +224,7 @@ These are deterministic programme changes, not experiments:
 | Main-lift readiness volume | poor readiness can remove one set from main lifts as well as accessories (`include_essential: true`) |
 | Volume/MRV | no individual MRV and no experimental volume manipulation |
 
-### Phase 1 — Optional one-month measurement check  (not triggered; decision open)
+### Phase 1 — Optional one-month measurement check  (not triggered; closed)
 
 Only if the backfill leaves a specific, concrete gap.
 
@@ -273,7 +272,7 @@ The scheduled deload remains an optional suggestion, not a calibration:
 
 The optional-deload suggestion is implemented; the reactive triggers remain automatic.
 
-### Phase 4 — Stop and document  (stop point reached; final closure open)
+### Phase 4 — Stop and document  (closed)
 
 After the descriptive report:
 
@@ -321,13 +320,17 @@ programme.
 
 ---
 
-## 9. Open decisions
+## 9. Closure decisions
 
-1. Edit the bulk backfill table in Review or Import.
-2. Define the phase-start cutoff date.
-3. Decide the exact descriptive-report format.
-4. Decide whether the current reports are sufficient or whether a one-month measurement check is needed.
+1. **Backfill tool:** not built. The processed export/YAML were imported directly, then removed;
+   no bulk table is needed now.
+2. **Phase-start cutoff:** not needed; there is no prospective experimental phase.
+3. **Report format:** the private descriptive report is sufficient.
+4. **One-month check:** not triggered; no specific data gap justified it.
 
-Phase 0 backfill and Phase 2 descriptive reports are complete; the optional-deload policy and
-the four programme changes in §6a are implemented. No programme experiments were made. The
-Phase 1 measurement decision and formal Phase 4 closure remain open.
+**Plan closed.** Phase 0 backfill, Phase 2 descriptive reports, the optional-deload policy and
+the four programme changes in §6a are complete. No programme experiments were made.
+
+**Deliberately deferred, not blockers:** individualized MRV, main-lift volume experimentation
+and prospective validation of the fatigue/volume models. These require data or designs the
+athlete explicitly did not want.
