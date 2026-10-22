@@ -1,7 +1,7 @@
 # Next-phase fatigue-management plan — final lean version
 
-**Status:** Phase 0 backfill done; descriptive sRPE calibration report done; optional-deload
-suggestion not implemented. No programme changes.
+**Status:** Phase 0 backfill done; descriptive sRPE and readiness–performance reports done;
+optional-deload suggestion implemented. No training-programme changes.
 **Date:** 2026-10-20
 **Scope:** non-cardio fatigue-management work. This supersedes the earlier experimental draft;
 the feedback was that the programme must not become an experiment.
@@ -212,7 +212,7 @@ A single editable table, planned for the Review/Import UI:
 
 **No programme change.**
 
-### Phase 1 — Optional one-month measurement check
+### Phase 1 — Optional one-month measurement check  (not triggered; decision open)
 
 Only if the backfill leaves a specific, concrete gap.
 
@@ -230,7 +230,7 @@ For at most **one month**:
 
 If no specific gap exists, **skip this phase**.
 
-### Phase 2 — Descriptive calibration report  (sRPE done; readiness-performance open)
+### Phase 2 — Descriptive calibration report  (sRPE + readiness descriptive done)
 
 Produce, with uncertainty and limitations:
 
@@ -247,7 +247,7 @@ Do not produce:
 - a deload effect estimate;
 - a new trigger.
 
-### Phase 3 — Optional deload suggestion  (not implemented; current code still applies it automatically)
+### Phase 3 — Optional deload suggestion  (implemented)
 
 The scheduled deload remains an optional suggestion, not a calibration:
 
@@ -258,9 +258,9 @@ The scheduled deload remains an optional suggestion, not a calibration:
 - reactive triggers remain automatic;
 - no trial, no randomisation.
 
-This can be implemented later as a small UX/policy change, separate from the calibration report.
+The optional-deload suggestion is implemented; the reactive triggers remain automatic.
 
-### Phase 4 — Stop and document
+### Phase 4 — Stop and document  (stop point reached; final closure open)
 
 After the descriptive report:
 
@@ -312,6 +312,8 @@ programme.
 1. Edit the bulk backfill table in Review or Import.
 2. Define the phase-start cutoff date.
 3. Decide the exact descriptive-report format.
-4. Decide whether to implement the optional-deload prompt before or after the calibration report.
+4. Decide whether the current reports are sufficient or whether a one-month measurement check is needed.
 
-No code or configuration has been changed for this plan.
+Phase 0 backfill and Phase 2 descriptive reports are complete; the optional-deload policy is
+implemented. No training-programme changes or experiments were made. The Phase 1 measurement
+decision and formal Phase 4 closure remain open.
