@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 573 public tests
+.venv/bin/python -m pytest          # 574 public tests
 ```
 
 **Activate the environment before using the command:**

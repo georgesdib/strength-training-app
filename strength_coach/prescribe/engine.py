@@ -301,7 +301,8 @@ def build_prescription(
             "session_type": session_type,
             "volume_management": volume_note,
             "selection": {
-                "applied": bool(apply_selection),
+                "requested": bool(apply_selection),
+                "applied": any(row.get("applied") for row in selection_notes),
                 "llm_requested": bool(selection_chooser),
                 "llm_used": any(row.get("source") == "llm" for row in selection_notes),
                 "slots": selection_notes,

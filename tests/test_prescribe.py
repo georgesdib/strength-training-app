@@ -435,6 +435,8 @@ def test_selection_b_requires_confirmation():
     assert "bench_press_pause" not in ids
     assert "bench_press_narrow" in ids
     assert any("requires confirmation" in warning for warning in prescription.warnings)
+    assert prescription.notes["selection"]["applied"] is False
+    assert prescription.notes["selection"]["requested"] is True
 
 
 def test_selection_c_is_never_automatic():
@@ -468,6 +470,7 @@ def test_selection_c_is_never_automatic():
         assert "lat_pulldown" in {item.exercise_id for item in prescription.items}
         assert any("different lift/load basis" in warning for warning in prescription.warnings)
         assert prescription.notes["selection"]["slots"][0]["blocked_reason"]
+        assert prescription.notes["selection"]["applied"] is False
 
 
 def test_per_lift_readiness_can_only_lower_a_load():

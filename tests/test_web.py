@@ -419,8 +419,16 @@ def test_exercise_post_rejects_an_invalid_id_without_writing(server):
 
 
 def test_prescribe_can_apply_selection(server):
-    data = post(server, "/api/prescribe", {
+    unconfirmed = post(server, "/api/prescribe", {
         "date": "2024-01-15", "day": "A", "apply_selection": True,
+    })
+    assert unconfirmed["notes"]["selection"]["requested"] is True
+    assert unconfirmed["notes"]["selection"]["applied"] is False
+    assert any(slot["blocked_reason"] for slot in unconfirmed["notes"]["selection"]["slots"])
+
+    data = post(server, "/api/prescribe", {
+        "date": "2024-01-15", "day": "A",
+        "apply_selection": True, "selection_confirmed": True,
     })
     assert data["notes"]["selection"]["applied"] is True
     assert "selection" in data["notes"]
