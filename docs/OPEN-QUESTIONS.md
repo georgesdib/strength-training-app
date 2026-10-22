@@ -9,7 +9,7 @@ produces an `unknown` verdict rather than a silent guess.
 
 ---
 
-## Q1. Sessions have no timestamps — how should training days be assigned?
+## Q1. Sessions have no timestamps — **default implemented; timestamp gap remains**
 
 The date column is calendar-date only. So "same date + time gap" is impossible, two sessions
 on one day are indistinguishable, and a squat-plus-bench day is ambiguous between the squat
@@ -22,7 +22,7 @@ day-specific rule is scored when the day is unknown.
 
 ---
 
-## Q2. What is a "high-fatigue spinal exposure"?
+## Q2. What is a "high-fatigue spinal exposure"? **Default implemented: weighted cost**
 
 The brief caps "more than ~3 per week" without defining an exposure. Measured on **distinct
 exercise types** the cap almost never fires, which makes it decorative; measured **per set**
@@ -38,7 +38,7 @@ weighted cost reported alongside as context (ASSUMPTION-02).
 
 ---
 
-## Q3. The erector ramp needs an anchor — when is week 1?
+## Q3. The erector ramp needs an anchor — **default implemented: optional anchor**
 
 The 8-12 week dose ramp (bodyweight -> add load -> add a set -> consolidate) requires knowing
 which week of the block today is. Nothing in the source export marks a block boundary, and
@@ -77,7 +77,7 @@ rubric line remains unmeasured.
 
 ---
 
-## Q6. Readiness conflicts, and how new metrics enter
+## Q6. Readiness conflicts and new metrics — **merge + score implemented**
 
 Two sub-questions:
 1. **Merge** — multiple readiness rows per date exist, and most are *conflicting* rather than
@@ -92,13 +92,14 @@ Two sub-questions:
 **Default:** most-complete-row merge with conflicts logged; new metrics enter as
 `metric_definition` rows with explicit `scale_min`, `scale_max`, `higher_is_better` and
 `aggregation`, and stay dormant until populated.
-**Status:** the merge default is **implemented** (`ingest/readiness.py`, `DEC-READINESS-01`);
-every date carries its `merge_note`. The composite is still unbuilt and stays `null` until
-part 2 is answered. `ASSUMPTION-04`: completeness is treated as authority.
+**Status:** the merge default is implemented (`ingest/readiness.py`, `DEC-READINESS-01`);
+every date carries its `merge_note`. The global/category score, HRV/RHR baseline and wearable
+blend are implemented separately (`features/readiness_score.py`); `readiness_day.composite`
+still stays null by design. `ASSUMPTION-04`: completeness is treated as authority.
 
 ---
 
-## Q7. Does "main lifts at RIR 2-3" forbid sets *easier* than the window?
+## Q7. Does "main lifts at RIR 2-3" forbid sets *easier*? **Default implemented**
 
 The constitution states a window, but `PRG-RIR-001`'s `on_fail` code is `RIR_FLOOR`, and the
 danger it names is "no RIR 0-1 sets, no max singles". A set at RIR 4-5 is easier than
@@ -113,7 +114,7 @@ does not fail the rule. Making easy sets violations is then a config change
 
 ---
 
-## Q8. What counts as one "high-fatigue spinal exposure"?
+## Q8. What counts as one "high-fatigue spinal exposure"? **Default implemented**
 
 ASSUMPTION-02 fixes the *weighting* (ordinal `spinal_cost`) but not the *unit*:
 
