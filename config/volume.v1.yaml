@@ -8,6 +8,14 @@ schema_version: "1.0.0"
 window_weeks: 4
 apply_mrv_cap: true
 
+under_mev:
+  # Add one accessory set when a pattern has been below MEV for three weeks. This is a
+  # deterministic programme adjustment, not an experiment; main lifts are never increased here.
+  enabled: true
+  weeks: 3
+  add_sets: 1
+  max_sets_per_item: 8
+
 landmarks:
   # pattern: {mev, mav: [low, high], mrv}
   squat: {mev: 6, mav: [8, 12], mrv: 14}

@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.10.0"
+  version: "1.11.0"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -37,6 +37,8 @@ document:
       change: "A conservative MRV cap trims non-essential sets when a movement pattern would exceed its configured weekly maximum recoverable volume; under-MEV is reported, never auto-filled (DEC-VOLUME-02, MOD-VOL-001)."
     - version: "1.10.0"
       change: "A scheduled low-volume deload week joins the reactive triggers; it reduces sets, load and adds RIR under MOD-DELOAD-001 (DEC-PROGRAMME-05)."
+    - version: "1.11.0"
+      change: "An under-MEV pattern adds one accessory set after three weeks below MEV (MOD-VOL-002), and poor readiness may now reduce main-lift sets as well as accessories (DEC-READINESS-08 amendment)."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -359,9 +361,10 @@ modifiers:
     title: "Conservative weekly MRV cap"
     statement: >
       If the proposed session plus the prior seven days would put a movement pattern above its
-      configured maximum recoverable volume (MRV), trim non-essential sets first. Never auto-add
-      volume below MEV, never silently cut an essential item, and treat MRV as a configurable
-      coaching landmark rather than a measured individual threshold.
+      configured maximum recoverable volume (MRV), trim non-essential sets first. Under-MEV is
+      handled only by the separate accessory progression in MOD-VOL-002; never silently cut an
+      essential item, and treat MRV as a configurable coaching landmark rather than a measured
+      individual threshold.
     when:
       any:
         - {input: volume.projected_sets, op: ">", value: 0}
@@ -370,6 +373,21 @@ modifiers:
     availability:
       status: available
       reason: "Volume ledger plus configured landmarks (DEC-VOLUME-02, ASSUMPTION-31)."
+
+  - id: MOD-VOL-002
+    title: "Under-MEV accessory progression"
+    statement: >
+      When a movement pattern has been below its configured MEV for three weeks, add one set
+      to the first non-essential item in that pattern, up to the configured maximum. Never add
+      volume to a main lift through this rule; the MRV cap still applies afterwards.
+    when:
+      any:
+        - {input: volume.under_mev, op: "==", value: true}
+    then:
+      set_increase: accessory_only_one
+    availability:
+      status: available
+      reason: "Volume ledger and configured landmarks (DEC-VOLUME-03, ASSUMPTION-33)."
 
   - id: MOD-SELECT-001
     title: "Categorical exercise substitution from the filtered selector"

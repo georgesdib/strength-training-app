@@ -526,7 +526,7 @@ def test_apply_selection_rebuilds_the_item_and_cites_mod_select(monkeypatch):
         assert validate_references(prescription, context, store.connection) == []
 
 
-def test_poor_readiness_reduces_accessory_sets_not_main_lifts():
+def test_poor_readiness_reduces_accessory_and_main_sets():
     rows = BASE_HISTORY
     readiness = [{"Date": "2024-01-02", "Sleep": "1", "Energy": "1",
                   "Mood": "1", "Soreness": "1", "Stress": "1"}]
@@ -546,5 +546,18 @@ def test_poor_readiness_reduces_accessory_sets_not_main_lifts():
     accessory = next(i for i in plain.items if not i.essential)
     main = next(i for i in plain.items if i.essential)
     assert plain_sets[accessory.exercise_id] == control_sets[accessory.exercise_id] - 1
-    assert plain_sets[main.exercise_id] == control_sets[main.exercise_id]
-    assert "accessory sets reduced" in " ".join(plain.warnings)
+    assert plain_sets[main.exercise_id] == control_sets[main.exercise_id] - 1
+    assert "sets reduced" in " ".join(plain.warnings)
+
+
+def test_main_lifts_carry_a_standardised_warmup_ramp():
+    with store_with(BASE_HISTORY) as store:
+        prescription = build_prescription(
+            store.connection, for_date="2024-01-15", session_day="B",
+        )
+    main = next(item for item in prescription.items if item.essential and item.load_kg)
+    assert [w.percent for w in main.warmup] == [0.50, 0.70, 0.85]
+    assert [w.reps for w in main.warmup] == [5, 3, 2]
+    assert all(0 < w.load_kg <= main.load_kg for w in main.warmup)
+    accessory = next(item for item in prescription.items if not item.essential)
+    assert accessory.warmup == ()

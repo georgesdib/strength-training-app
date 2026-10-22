@@ -3,7 +3,7 @@
 **Scope:** the strength programme only. Cardio, video, the LLM narrative and the web UI are out
 of scope. This is the evidence snapshot; implementation status is recorded in the note and table below.
 
-**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload is now implemented as a configurable low-volume week with reactive triggers; individualized MRV/under-MEV titration, a 3RM/5RM test cadence, explicit warm-up prescription and prospective validation remain open. This document is the evidence snapshot, not a claim that every suggestion is still pending.
+**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload is now implemented as an optional suggestion with automatic reactive triggers; a standardised warm-up, a 3RM/5RM cadence and accessory under-MEV progression are implemented. Individualized MRV, main-lift volume experimentation and prospective validation remain open. This document is the evidence snapshot, not a claim that every suggestion is still pending.
 
 **Method:** read the templates, constitution, prescription engine, evidence notes and references;
 generated A/B/C prescriptions from the local database; checked the planned weekly dose and the
@@ -211,8 +211,7 @@ The current template includes the fixes that mattered:
 4. comparability-guarded selection — **done**;
 5. fatigue-management valve — **done**: readiness set reduction, volume cap, reactive and scheduled deload.
 
-The remaining gaps are the calibration/warm-up/validation items in §4, not a missing deload
-policy.
+The remaining gaps are the calibration/validation items in §4, not a missing deload policy.
 
 ---
 
@@ -226,16 +225,17 @@ Status reflects the implementation, not only the original recommendation.
 - [x] Rolling session types instead of rigid A/B/C.
 - [x] Upper-body row in every session.
 - [x] Overhead press on bench-emphasis sessions.
-- [x] Readiness accessory set reduction and editable valve.
+- [x] Readiness set reduction (accessories + main lifts) and editable valve.
 - [x] Continuity calibration from observed returns, with fixed-band fallback.
 - [x] Dorsiflexion readiness category for the tib-bar lift.
 - [x] Volume v1: ledger, MEV/MAV/MRV, conservative MRV cap.
 - [x] Selection comparability A/B/C guard.
 - [x] Plan A: squat ~7 sets/week and trap-bar ~5 sets/week.
 - [x] Scheduled deload / broader fatigue-management policy (`DEC-PROGRAMME-05`).
-- [ ] Individualized MRV and under-MEV titration.
-- [ ] Scheduled 3RM/5RM calibration cadence.
-- [ ] Explicit warm-up prescription.
+- [x] Under-MEV accessory progression (`MOD-VOL-002`).
+- [ ] Individualized MRV and main-lift volume experimentation.
+- [x] 3RM/5RM calibration cadence (`test --status`).
+- [x] Explicit warm-up prescription (50/70/85 ramp).
 - [ ] Prospective validation of continuity, volume and fatigue models.
 - [ ] Parent-variant e1RM ratios and weakness/injury-targeted selection.
 
@@ -247,8 +247,8 @@ Status reflects the implementation, not only the original recommendation.
 | P1 | Add a horizontal row and a vertical press (3 sets each), or explicitly trade bench accessory volume | Upper-body balance and shoulder health | Small | **Done** |
 | P1 | Add a scheduled low-volume week or a readiness set-reduction option | Set valve and scheduled/reactive deload policy exist; evidence is weak but the gap is now addressed | Medium | **Done** — set valve + scheduled deload (`MOD-DELOAD-001`) |
 | P1 | Define a rolling next-session policy that preserves A/B/C balance across missed weeks | Current fixed sequence is brittle | Medium | **Done** (session types) |
-| P2 | Schedule a 3RM/5RM calibration every 8–12 weeks; no routine 1RM | Keeps e1RM honest without adding maximal testing | Small | **Open** |
-| P2 | Add warm-up/ramp sets to the prescription or document the assumption explicitly | The template only describes working sets | Small | **Open** |
+| P2 | Schedule a 3RM/5RM calibration every 8–12 weeks; no routine 1RM | Keeps e1RM honest without adding maximal testing | Small | **Done** — 10-week reminder |
+| P2 | Add warm-up/ramp sets to the prescription or document the assumption explicitly | The template only describes working sets | Small | **Done** — 50/70/85 ramp |
 | P2 | Validate the calibrated continuity and selection models prospectively before letting them drive loads automatically | Avoid overfitting to a small, noisy log | Large | **Open** |
 | P3 | Parent-variant e1RM ratios and weakness/injury selection | Useful later, but not needed to fix the current programme | Large | **Open** |
 
@@ -258,8 +258,8 @@ Status reflects the implementation, not only the original recommendation.
   load, trap-bar choice, measurable strength.
 - **Methodology, not evidence:** erector scheduling, spinal cap, exact accessory RIR, 3×/week
   calendar.
-- **Weakest links now:** individualized MRV/under-MEV titration, 3RM/5RM test cadence,
-  explicit warm-up prescription, and prospective validation.
+- **Weakest links now:** individualized MRV, main-lift volume experimentation and prospective
+  validation.
 - **Verdict:** a good, safer and more balanced default for a back-sensitive lifter; fatigue
   management is implemented, but the model is not yet prospectively validated.
 

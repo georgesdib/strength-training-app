@@ -175,7 +175,8 @@ function renderPrescription(p) {
       : "<span class='muted'>—</span>";
     return `<tr>
     <td><strong>${esc(item.exercise_id)}</strong>${item.essential ? ' <span class="badge">essential</span>' : ""}
-      ${item.unknown_load_reason ? '<div class="muted">' + esc(item.unknown_load_reason) + "</div>" : ""}</td>
+      ${item.unknown_load_reason ? '<div class="muted">' + esc(item.unknown_load_reason) + "</div>" : ""}
+      ${item.warmup && item.warmup.length ? '<div class="muted">warm-up: ' + item.warmup.map((w) => `${Math.round(w.percent * 100)}% × ${w.reps} @ ${fmt(w.load_kg)} kg`).join(" · ") + "</div>" : ""}</td>
     <td>${item.sets}</td><td>${item.reps_low}–${item.reps_high}</td>
     <td>${fmt(item.load_kg)}</td><td>${item.rir_target}</td>
     <td>${stressCell}</td>
@@ -194,6 +195,10 @@ function renderPrescription(p) {
   const signal = p.notes?.injury_signal;
   const signalBox = signal ? `<p class="muted">Injury signal: <strong>${esc(signal.status)}</strong>
     — ${esc(signal.summary)}</p>` : "";
+  const cadence = p.notes?.test_cadence;
+  const cadenceBox = cadence?.enabled ? `<p class="muted">Strength test:
+    <strong>${esc(cadence.due ? "due" : "not due")}</strong>
+    — ${esc(cadence.next_scheme)} by ${esc(cadence.next_due)}. ${esc(cadence.reason)}</p>` : "";
   const deload = p.notes?.deload;
   const deloadBox = deload ? `<p class="warnbox"><strong>Deload (${esc(deload.trigger)})</strong>
     — ${esc(deload.reason)}. Sets -${deload.set_reduction}, load
@@ -206,7 +211,7 @@ function renderPrescription(p) {
   $("#prescribe-result").innerHTML = `<div class="panel">
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_type || ("Day " + p.session_day))}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
-    ${warnings}${deloadBox}${suggestionBox}${selectionBox}${signalBox}
+    ${warnings}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table>
     <details><summary class="muted">notes (JSON)</summary><pre>${esc(JSON.stringify(p.notes, null, 2))}</pre></details>

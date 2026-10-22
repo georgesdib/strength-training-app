@@ -78,6 +78,10 @@ def _item_dict(item) -> dict:
         "refs": list(item.rationale_refs),
         "velocity_target": item.velocity_target,
         "unknown_load_reason": item.unknown_load_reason,
+        "warmup": [
+            {"percent": w.percent, "reps": w.reps, "load_kg": w.load_kg}
+            for w in item.warmup
+        ],
     }
 
 

@@ -1,0 +1,8 @@
+# 3RM/5RM strength-test cadence.
+#
+# This is a reminder schedule, not a prescription change. Testing is an assessment; the
+# default interval is deliberately conservative and configurable.
+schema_version: "1.0.0"
+enabled: true
+every_weeks: 10
+schemes: ["3RM", "5RM"]

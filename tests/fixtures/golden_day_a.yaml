@@ -49,7 +49,7 @@ expected:
       essential: false
       rule: PRG-DP-001
     - exercise_id: ab_wheel
-      sets: 3
+      sets: 4
       reps_low: 6
       reps_high: 10
       load_kg: 0.0

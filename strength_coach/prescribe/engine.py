@@ -30,7 +30,8 @@ from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import continuity_calibration
-from strength_coach.features import volume as volume_feature
+from strength_coach.features import test_cadence, volume as volume_feature
+from strength_coach.prescribe import warmup
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
 from strength_coach.features import lift_readiness as lift_readiness_feature
 from strength_coach.features import recent_stress as recent_stress_feature
@@ -219,10 +220,15 @@ def build_prescription(
         conn, context, tuple(items), for_date, fallback_level, calibration=vbt_cal
     )
 
+    items, under_warnings, under_note = _apply_under_mev(
+        context, tuple(items), for_date
+    )
+    warnings.extend(under_warnings)
     items, volume_warnings, volume_note = _apply_volume_cap(
         context, tuple(items), for_date
     )
     warnings.extend(volume_warnings)
+    items = warmup.attach(tuple(items))
 
     # Injury signals are context, never policy: a flaring region adds a warning naming the
     # lifts that load it, but never vetoes or edits a load (DEC-INJURY-01).
@@ -299,6 +305,8 @@ def build_prescription(
             "back_flare": bool(context.symptom_flare),
             "constraints": constraint_report.status,
             "session_type": session_type,
+            "under_mev": under_note,
+            "test_cadence": test_cadence.status(conn, for_date),
             "volume_management": volume_note,
             "selection": {
                 "requested": bool(apply_selection),
@@ -313,6 +321,62 @@ def build_prescription(
 
 # Lifts whose velocity signal is not trustworthy enough to prescribe from (docs/VBT-EVIDENCE.md).
 VBT_UNRELIABLE = {"trap_bar_deadlift"}
+
+
+def _apply_under_mev(
+    context: RuleContext,
+    items: tuple[PrescriptionItem, ...],
+    for_date: str,
+) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], dict]:
+    """Add one accessory set to a pattern that has been below MEV for the configured window.
+
+    Main lifts are intentionally excluded: this is a small accessory progression, not a
+    licence to raise the primary strength dose. The MRV cap runs afterwards and can still
+    remove a set if the result would exceed the ceiling.
+    """
+    cfg = volume_feature.VolumeConfig.load()
+    if not cfg.under_mev_enabled or not cfg.landmarks:
+        return items, (), {"applied": False}
+    report = volume_feature.compute(
+        context.sets, on_date=for_date,
+        config=replace(cfg, window_weeks=cfg.under_mev_weeks),
+    )
+    under = {
+        volume_feature.volume_target_key(row["pattern"])
+        for row in report["patterns"] if row["status"] == "under"
+    }
+    if not under:
+        return items, (), {"applied": False}
+    out = list(items)
+    changed: list[str] = []
+    for pattern in sorted(under):
+        indexes = [
+            i for i, item in enumerate(out)
+            if not item.essential
+            and item.exercise_id
+            and volume_feature.volume_target_key(
+                context.entity(item.exercise_id).get("pattern") or ""
+            ) == pattern
+        ]
+        if not indexes:
+            continue
+        index = indexes[0]
+        item = out[index]
+        add = min(cfg.under_mev_add_sets, cfg.under_mev_max_sets - item.sets)
+        if add <= 0:
+            continue
+        out[index] = replace(
+            item,
+            sets=item.sets + add,
+            rationale_refs=item.rationale_refs + ("MOD-VOL-002",),
+        )
+        changed.append(f"{pattern}:{item.exercise_id}+{add}")
+    if not changed:
+        return tuple(out), (), {"applied": False}
+    warning = (
+        "MOD-VOL-002: under-MEV accessory progression: " + ", ".join(changed)
+    )
+    return tuple(out), (warning,), {"applied": True, "changes": changed}
 
 
 def _apply_volume_cap(
@@ -548,7 +612,7 @@ def _apply_readiness_score(
         if lift_reduced:
             pieces.append("per-lift readiness applied: " + ", ".join(lift_reduced))
         if sets_reduced:
-            pieces.append("accessory sets reduced: " + ", ".join(sets_reduced))
+            pieces.append("sets reduced: " + ", ".join(sets_reduced))
         warnings.append(
             "MOD-FAT-001: " + "; ".join(pieces) + "; session reduced"
         )

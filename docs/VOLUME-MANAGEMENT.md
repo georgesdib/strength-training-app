@@ -2,8 +2,8 @@
 
 **Status: v1 done (2026-10-20).** “Done” means the evidence check, ledger, configured
 landmarks, conservative MRV cap, readiness valve and UI/CLI/API are implemented. It does **not**
-mean individualized MRV, automatic under-MEV titration, per-muscle volume or prospective
-validation; those remain roadmap items. A separate scheduled/reactive deload policy is described
+mean individualized MRV, per-muscle volume or prospective validation; the under-MEV accessory
+progression is a separate deterministic rule (`MOD-VOL-002`). A separate scheduled/reactive deload policy is described
 in `DEC-PROGRAMME-05`.
 
 **Scope:** weekly hard-set volume for the strength programme. This note records the evidence
@@ -49,7 +49,8 @@ measured individual constants.
   - a ledger reports under/within/high/over;
   - a cap trims **non-essential** sets only when the recent week plus the proposed session is
     above the configured MRV;
-  - under-MEV is reported, never auto-filled;
+  - under-MEV is reported; a separate accessory-only rule adds one set after three weeks below
+    MEV (`MOD-VOL-002`);
   - the readiness set valve remains a separate recovery rule.
 
 ---
@@ -121,13 +122,18 @@ volume stacking.
 
 ### Under-MEV
 
-The ledger shows `under`, but the engine **does not add volume automatically**. Adding sets on
-the basis of a coaching landmark would be a larger intervention than the evidence supports.
+When a pattern is below MEV across the configured three-week window, the engine adds **one
+accessory set** to the first non-essential item in that pattern (`MOD-VOL-002`), up to the
+configured per-item maximum. Main lifts are never increased by this rule. The MRV cap runs
+afterwards, so the result still cannot exceed the weekly ceiling.
+
+This is a small deterministic progression, not an individual MRV or an experiment.
 
 ### Readiness valve
 
-The readiness set valve is separate: poor readiness removes accessory sets regardless of the
-weekly landmark. It is editable on the Readiness page and recorded in the `MOD-FAT-001` warning.
+The readiness set valve is separate: poor readiness removes one set from accessories and main
+lifts (config `include_essential`), regardless of the weekly landmark. It is editable on the
+Readiness page and recorded in the `MOD-FAT-001` warning.
 
 ---
 

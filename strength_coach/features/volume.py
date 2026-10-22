@@ -22,6 +22,10 @@ class VolumeConfig:
     targets: dict[str, tuple[float, float]] | None = None
     landmarks: dict[str, tuple[float, float, float, float]] | None = None
     apply_mrv_cap: bool = True
+    under_mev_enabled: bool = True
+    under_mev_weeks: int = 3
+    under_mev_add_sets: int = 1
+    under_mev_max_sets: int = 8
     source_path: Path = Path()
 
     @classmethod
@@ -32,6 +36,7 @@ class VolumeConfig:
             str(key): (float(value[0]), float(value[1]))
             for key, value in (raw.get("targets") or {}).items()
         }
+        under = raw.get("under_mev") or {}
         landmarks = {}
         for key, value in (raw.get("landmarks") or {}).items():
             mav = value.get("mav") or [value.get("mev", 0), value.get("mrv", 0)]
@@ -46,6 +51,10 @@ class VolumeConfig:
             targets=targets,
             landmarks=landmarks,
             apply_mrv_cap=bool(raw.get("apply_mrv_cap", True)),
+            under_mev_enabled=bool(under.get("enabled", True)),
+            under_mev_weeks=max(1, int(under.get("weeks", 3))),
+            under_mev_add_sets=max(1, int(under.get("add_sets", 1))),
+            under_mev_max_sets=max(1, int(under.get("max_sets_per_item", 8))),
             source_path=source,
         )
 

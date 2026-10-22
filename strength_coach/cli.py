@@ -162,9 +162,11 @@ def main(argv: list[str] | None = None) -> int:
                           help="look-back window before each test (default 84)")
 
     test = sub.add_parser("test", help="record a 3RM/5RM (or confirmed 1RM) strength test")
-    test.add_argument("--exercise", required=True, help="canonical exercise id")
-    test.add_argument("--kg", type=float, required=True, help="load used for the test")
-    test.add_argument("--reps", type=int, required=True,
+    test.add_argument("--status", action="store_true",
+                      help="show the 3RM/5RM cadence instead of recording a test")
+    test.add_argument("--exercise", help="canonical exercise id")
+    test.add_argument("--kg", type=float, default=None, help="load used for the test")
+    test.add_argument("--reps", type=int, default=None,
                       help="reps completed (3-5 recommended; 1 is a true 1RM and needs --max)")
     test.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
     test.add_argument("--e1rm", type=float, default=None,
@@ -878,6 +880,20 @@ def _cmd_test(args) -> int:
     store = db.Store(args.db)
     try:
         conn = store.connection
+        if args.status:
+            from strength_coach.features import test_cadence
+            report = test_cadence.status(
+                conn, args.date or datetime.date.today().isoformat()
+            )
+            print("strength-test cadence")
+            print(f"  due         {'yes' if report['due'] else 'no'}")
+            print(f"  next        {report['next_scheme']} by {report['next_due']}")
+            print(f"  last test   {report['last_test'] or 'none'}")
+            print(f"  basis       {report['reason']}")
+            return 0
+        if not args.exercise or args.kg is None or args.reps is None:
+            print("--exercise, --kg and --reps are required unless --status is used")
+            return 2
         if args.kg <= 0:
             print("test load must be positive")
             return 2

@@ -1,0 +1,9 @@
+# Standardised main-lift ramp. Warm-up sets are not working volume.
+#
+# The 50/70/85 ramp is a comparability device, not a claim of an optimal warm-up. Keeping it
+# config rather than hard-coded means the athlete can change it without a code change.
+schema_version: "1.0.0"
+enabled: true
+percents: [0.50, 0.70, 0.85]
+reps: [5, 3, 2]
+apply_to_essential: true

@@ -581,7 +581,11 @@ fatigue cut or a back flare). The safety decision outranks the suggestion.
 strength-coach test --exercise ssb_squat --kg 140 --reps 3 --yes
 strength-coach test --exercise ssb_squat --kg 160 --reps 1 --max
 strength-coach test --exercise ssb_squat --kg 140 --reps 3 --e1rm 165 --yes
+strength-coach test --status
 ```
+
+`test --status` shows the 3RM/5RM cadence: the next scheme and due date. The reminder interval
+is 10 weeks by default (`config/test-cadence.v1.yaml`); it never records a test automatically.
 
 A **3RM or 5RM** is the default and the recommended test: it gives the e1RM the solver
 needs without loading the spine like a single. The command reports the estimate first, then
@@ -723,9 +727,10 @@ The Prescribe **Apply selection** toggle applies A, and B only when confirmed.
 strength-coach volume --weeks 4 --date 2026-10-20
 ```
 
-Working sets by movement pattern, average per week, total and advisory target status. It
-reports drift; it does not change a prescription. The Readiness page's **Volume valve** sets
-whether poor readiness removes accessory sets and how many.
+Working sets by movement pattern, average per week, total and target status. It reports drift.
+When a pattern is below MEV for three weeks, the engine adds **one accessory set** to that
+pattern (`MOD-VOL-002`); main lifts are never increased by this rule. The MRV cap still applies.
+The Readiness page's **Volume valve** sets whether poor readiness removes sets and how many.
 
 ### 4.10g `continuity` — return-to-training calibration
 
@@ -798,6 +803,9 @@ metric.
 ## 5. Reading the output
 
 ### The prescription
+
+Main lifts carry three **warm-up ramp sets** at roughly 50/70/85% of the working load; they are
+not counted as working volume. The Prescribe page shows them under the exercise.
 
 | column | meaning |
 |---|---|

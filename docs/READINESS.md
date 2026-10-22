@@ -113,10 +113,11 @@ fatigue factor (0.95), rounded down, and every touched item cites `MOD-FAT-001` 
 `readiness:<date>`.
 
 There is also a conservative **set-reduction valve**: when the global score is below
-`set_reduction.score_below`, or the sleep/energy floor fires, each non-essential item loses
-`set_reduction.sets` (minimum one set). Main lifts keep their volume unless
-`include_essential: true`. The warning names the affected accessory sets, and the prescription
-notes record the setting. This is fatigue management, not a proven strength optimisation.
+`set_reduction.score_below`, or the sleep/energy floor fires, each item loses
+`set_reduction.sets` (minimum one set). `include_essential` is now **true** by default, so main
+lifts lose one set as well as accessories; set it false to keep main-lift volume fixed. The
+warning names the affected sets, and the prescription notes record the setting. This is fatigue
+management, not a proven strength optimisation.
 
 **Missing is not "fine".** A current/future workout is refused until readiness is "ready";
 missing or insufficient data is reported as such. Historic dates remain reproducible. The old
@@ -129,7 +130,7 @@ Everything a user might reasonably want different is in `config/readiness.v1.yam
 | key | effect |
 |---|---|
 | `modifier.fields` | which readiness fields can downgrade a session |
-| `set_reduction` | whether poor readiness removes accessory sets, at what score, how many, and whether essentials are included |
+| `set_reduction` | whether poor readiness removes sets, at what score, how many, and whether essentials are included |
 | `modifier.at_or_below` | the threshold on those fields |
 | `merge.strategy` / `merge.tie_break` | which duplicate row wins; only the implemented values are accepted |
 | `score.baseline_days` / `score.baseline_min_readings` | HRV/RHR baseline window and minimum |

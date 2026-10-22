@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from strength_coach.features.deload import DeloadConfig, DeloadDecision
-from strength_coach.prescribe import loads
+from strength_coach.prescribe import loads, warmup
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
 
 
@@ -78,7 +78,7 @@ def apply(
     )
     return replace(
         prescription,
-        items=tuple(items),
+        items=warmup.refresh(tuple(items)),
         fallback_level="fatigue_reduced",
         warnings=prescription.warnings + (warning,),
         notes={

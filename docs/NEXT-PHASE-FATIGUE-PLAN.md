@@ -1,7 +1,7 @@
 # Next-phase fatigue-management plan — final lean version
 
 **Status:** Phase 0 backfill done; descriptive sRPE and readiness–performance reports done;
-optional-deload suggestion implemented. No training-programme changes.
+optional-deload suggestion implemented. Four programme changes are recorded in §6a.
 **Date:** 2026-10-20
 **Scope:** non-cardio fatigue-management work. This supersedes the earlier experimental draft;
 the feedback was that the programme must not become an experiment.
@@ -13,8 +13,8 @@ the feedback was that the programme must not become an experiment.
 The plan now follows these constraints:
 
 - use the data already available plus a one-time sRPE/duration backfill;
-- do not require measured 3RM/5RM tests — use the computed e1RM as the outcome, with its
-  limitations;
+- use the computed e1RM as the primary observational outcome; 3RM/5RM tests are a reminder
+  cadence, not a requirement;
 - treat the three known low-back tweaks as the current back-history evidence; revisit only if
   a future episode does not fit the pattern;
 - do not invent a “bad session” label;
@@ -94,12 +94,13 @@ No. The plan does **not**:
 
 - randomise training;
 - alter volume to estimate MRV;
-- test under-MEV titration;
-- test main-lift volume reduction;
 - run deload versus no-deload periods;
 - use the athlete as a guinea pig.
 
-The programme stays as written unless the athlete independently chooses the optional deload.
+The deterministic programme changes — warm-up ramp, 3RM/5RM reminder, under-MEV accessory
+progression and main-lift readiness set reduction — are implemented rules, not experiments.
+The programme otherwise stays as written unless the athlete independently chooses the optional
+deload.
 Observations are recorded around the existing programme.
 
 ---
@@ -210,7 +211,19 @@ A single editable table, planned for the Review/Import UI:
    - recall-bias caveat.
 4. Freeze a phase-start date for retrospective/prospective separation.
 
-**No programme change.**
+**No programme change in this phase.** The programme changes are listed in §6a.
+
+### Phase 6a — Programme changes implemented
+
+These are deterministic programme changes, not experiments:
+
+| change | implementation |
+|---|---|
+| Standardised warm-up | three ramp sets at ~50/70/85% of the working load (5/3/2 reps) on main lifts; not counted as volume (`DEC-PROGRAMME-06`) |
+| 3RM/5RM cadence | a 10-week reminder, alternating schemes; `strength-coach test --status` (`DEC-PROGRAMME-07`) |
+| Under-MEV accessory progression | one accessory set when a pattern is below MEV for three weeks (`MOD-VOL-002`, `DEC-VOLUME-03`) |
+| Main-lift readiness volume | poor readiness can remove one set from main lifts as well as accessories (`include_essential: true`) |
+| Volume/MRV | no individual MRV and no experimental volume manipulation |
 
 ### Phase 1 — Optional one-month measurement check  (not triggered; decision open)
 
@@ -280,7 +293,8 @@ It will say so directly:
 - “Readiness–performance association is descriptive only.”
 - “Two back episodes are a case series, not a model.”
 - “Deload effect and individual MRV are not estimable.”
-- “No programme change is justified.”
+- “No automatic trigger or individualised volume change is justified.”
+- “The deterministic programme changes in §6a are separate from this calibration.”
 
 That is a valid outcome. It is better than overfitting a model to a single athlete’s fixed
 programme.
@@ -297,11 +311,11 @@ programme.
 | Provenance flag | none; use phase-start cutoff |
 | Post-session signal | sRPE only |
 | Bad-session label | not needed; derive performance ratio |
-| Measured strength tests | not required; computed e1RM is the observational outcome |
+| Measured strength tests | computed e1RM is the primary outcome; 3RM/5RM reminder every 10 weeks |
 | Back episodes | three known low-back tweaks as a case series; revisit only if pattern changes |
 | Scheduled deload | optional suggestion; no trial |
 | Reactive deload | automatic |
-| Volume/MRV work | not in this phase |
+| Volume/MRV work | under-MEV accessory progression implemented; individual MRV deferred |
 | Programme experiments | none |
 | One-month check | only if a specific data gap exists; no programme change |
 
@@ -314,6 +328,6 @@ programme.
 3. Decide the exact descriptive-report format.
 4. Decide whether the current reports are sufficient or whether a one-month measurement check is needed.
 
-Phase 0 backfill and Phase 2 descriptive reports are complete; the optional-deload policy is
-implemented. No training-programme changes or experiments were made. The Phase 1 measurement
-decision and formal Phase 4 closure remain open.
+Phase 0 backfill and Phase 2 descriptive reports are complete; the optional-deload policy and
+the four programme changes in §6a are implemented. No programme experiments were made. The
+Phase 1 measurement decision and formal Phase 4 closure remain open.

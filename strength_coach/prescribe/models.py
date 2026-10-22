@@ -11,6 +11,14 @@ from typing import Any, Mapping
 
 
 @dataclass(frozen=True)
+class WarmupSet:
+    """One ramp set, expressed as a percentage and its rounded load."""
+    percent: float
+    reps: int
+    load_kg: float
+
+
+@dataclass(frozen=True)
 class PrescriptionItem:
     order_index: int
     exercise_id: str
@@ -32,6 +40,8 @@ class PrescriptionItem:
     # None means "no target", never a guessed velocity (docs/VBT-CALIBRATION.md).
     velocity_target: float | None = None
     vbt_basis: str | None = None
+    # Main-lift ramp sets; empty for accessories and unknown loads.
+    warmup: tuple[WarmupSet, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -79,6 +89,10 @@ class Prescription:
                 "substitution_for": item.substitution_for,
                 "velocity_target": item.velocity_target,
                 "vbt_basis": item.vbt_basis,
+                "warmup": [
+                    {"percent": w.percent, "reps": w.reps, "load_kg": w.load_kg}
+                    for w in item.warmup
+                ],
             }
             for item in self.items
         ]

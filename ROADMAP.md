@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **580 public tests** (595 with the 15 private integration tests)
+Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **583 public tests** (598 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progres
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 595 locally, including private integration
+.venv/bin/python -m pytest            # 598 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -44,7 +44,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
-| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights (§4.9 remaining), LLM/manual-logging parity (§4.11), continuity calibration (§4.12, calibrated bands with fixed fallback), labelled set depth (§4.14), exercise selection apply + comparability (§4.15; weakness/ratios later), strength fitness-fatigue shadow model (§4.16), rolling session types / upper-body balance / set reduction / volume management v1 (§4.17) |
+| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights (§4.9 remaining), LLM/manual-logging parity (§4.11), continuity calibration (§4.12, calibrated bands with fixed fallback), labelled set depth (§4.14), exercise selection apply + comparability (§4.15; weakness/ratios later), strength fitness-fatigue shadow model (§4.16), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence (§4.17) |
 | v0.4 | Cardio prescription and model | **planned** | cardio prescription and cardio impulse/fatigue model (§4.13 remaining) |
 | v0.5 | Video analysis | **planned** | video capture/analysis and its UI parity (§4.8, §4.11 video part) |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
@@ -871,7 +871,10 @@ spinal cap. Accessory sets lose one when readiness is poor (config-gated; main l
 `include_essential` is enabled), and the Readiness page exposes that **volume valve**.
 A weekly **hard-set ledger** reports sets per movement pattern against broad MEV/MAV/MRV
 landmarks; non-essential sets are trimmed only when the recent week plus the proposed session
-exceeds MRV (`MOD-VOL-001`), and under-MEV is reported rather than auto-filled. Power work is bodyweight/implement-only.
+exceeds MRV (`MOD-VOL-001`). Under-MEV adds one accessory set after three weeks below MEV
+(`MOD-VOL-002`), while main lifts are unchanged by that rule; poor readiness can remove one
+main-lift or accessory set. Main lifts carry a 50/70/85 warm-up ramp, and `test --status`
+reports the 10-week 3RM/5RM cadence. Power work is bodyweight/implement-only.
 
 **Acceptance (done):** session templates parse; every session has a row and an upper-body
 push/pull; hinge sessions contain no direct erector work; the two-week sequence balances
@@ -926,8 +929,9 @@ suggestion.
 | priority | action | status |
 |---|---|---|
 | P1 | Scheduled deload / broader fatigue-management policy | done — `DEC-PROGRAMME-05` |
-| P1 | 3RM/5RM calibration cadence and explicit warm-up prescription | open |
+| P1 | 3RM/5RM calibration cadence and explicit warm-up prescription | done — 10-week reminder + 50/70/85 ramp |
 | P2 | Parent-variant e1RM ratios and weakness/injury-targeted selection | open |
+| P2 | Individualized MRV / main-lift volume experimentation | open (deliberately not done) |
 | P2 | Prospective validation of continuity, volume, selection and fatigue models | open |
 | P1 (v0.3) | Manual workout logging and import adapters | not started |
 | P1 (v0.3) | Learned readiness weights / LLM-manual-logging parity | not started |

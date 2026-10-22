@@ -31,11 +31,12 @@ composite:
 
 set_reduction:
   # Poor readiness first reduces load/RIR (MOD-FAT-001). This second, conservative valve
-  # removes one accessory set; the main lifts keep their volume unless explicitly enabled.
+  # removes one set. Main-lift volume reduction is enabled by default after the 2026-10-20
+  # review decision; set include_essential: false to keep main-lift volume fixed.
   enabled: true
   score_below: 0.50
   sets: 1
-  include_essential: false
+  include_essential: true
 
 score:
   # HRV/RHR need a personal baseline before they can enter the score. The baseline is the
