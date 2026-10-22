@@ -1,6 +1,7 @@
 # Next-phase fatigue-management plan — final lean version
 
-**Status:** planning only. No implementation has been approved or performed.
+**Status:** Phase 0 backfill done; descriptive sRPE calibration report done; optional-deload
+suggestion not implemented. No programme changes.
 **Date:** 2026-10-20
 **Scope:** non-cardio fatigue-management work. This supersedes the earlier experimental draft;
 the feedback was that the programme must not become an experiment.
@@ -195,7 +196,7 @@ A single editable table, planned for the Review/Import UI:
 
 ## 6. Final lean plan
 
-### Phase 0 — Backfill and audit
+### Phase 0 — Backfill and audit  (done)
 
 **Goal:** make the existing record usable.
 
@@ -229,7 +230,7 @@ For at most **one month**:
 
 If no specific gap exists, **skip this phase**.
 
-### Phase 2 — Descriptive calibration report
+### Phase 2 — Descriptive calibration report  (sRPE done; readiness-performance open)
 
 Produce, with uncertainty and limitations:
 
@@ -246,7 +247,7 @@ Do not produce:
 - a deload effect estimate;
 - a new trigger.
 
-### Phase 3 — Optional deload suggestion (separate policy work)
+### Phase 3 — Optional deload suggestion  (not implemented; current code still applies it automatically)
 
 The scheduled deload remains an optional suggestion, not a calibration:
 
