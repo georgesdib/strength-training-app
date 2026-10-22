@@ -107,24 +107,24 @@ settled by trials.
 
 ### What is weak or risky
 
-#### A. Main-lift volume is unbalanced — highest priority
+#### A. Main-lift volume — applied
 
-The plan gives bench **12 sets/week across three sessions**, squat **7 sets/week across two**,
-and hinge **4 sets/week once**. For a strength programme that is not a balanced stimulus. The
-hinge is the lowest-volume main lift and the one with the most technical/spinal risk; one
-exposure per week gives little practice and little strength-specific volume. The bench, by
+**Applied 2026-10-20 (Plan A + session types).** The original plan gave bench **12 sets/week
+across three sessions**, squat **7 sets/week across two**, and hinge **4 sets/week once**; the
+current templates restore squat volume and add a second hinge exposure. The snapshot numbers
+below are retained as the reason for the change. The original concern was that this was not a
+balanced stimulus: the hinge is the lowest-volume main lift and the one with the most
+technical/spinal risk; one exposure per week gives little practice and little strength-specific volume. The bench, by
 contrast, gets three exposures and three times the sets.
 
 This may be intentional because of the back history, but then it should be an explicit
 trade-off, not an accident of the A/B/C template. The evidence supports 2–3 exposures for
 strength and does not support treating the hinge as a once-weekly afterthought.
 
-**Suggestion:** either add a second, lower-fatigue hinge exposure (e.g. a submaximal trap-bar or
-RDL slot on Day A/C, respecting the erector rules) or reduce bench volume and explain the
-priority. Target roughly 6–8 hinge sets/week if the back tolerates it; keep the spinal cap as
-the hard ceiling.
+**Applied above:** the second hinge support and Plan A changes close this item; the spinal cap
+remains the hard ceiling. No further change is implied by this review.
 
-#### B. Power work can be prescribed as a loaded lift
+#### B. Power work loading — applied
 
 **Applied 2026-10-20.** The power slot now uses `load_source: bodyweight`; it ignores stored
 external load and e1RM history, carries no double-progression citation, and stops on quality
@@ -148,45 +148,43 @@ transferred. The implementation is in `config/selection-comparability.v1.yaml`,
 the class boundary are in [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md)
 (`DEC-SELECT-03`, Q21).
 
-#### D. No planned deload or volume autoregulation
+#### D. Scheduled deload — partially applied
 
-The 4-week cycle varies reps but has no deload week; reactive deload only fires after two weeks
-over the spinal cap or two flares. Readiness reduces load, not sets. The evidence for a fixed
-deload is weak, but the programme has no general fatigue-management valve. A lifter who is
-sleep-deprived, traveling or accumulating joint irritation can keep the same 53-set week with
-only a load cut.
+The 4-week cycle varies reps but still has no **scheduled** deload week; reactive deload only
+fires after two weeks over the spinal cap or two flares. The readiness **set-reduction valve**
+is now implemented, so poor readiness can remove an accessory set as well as load. A scheduled
+low-volume week remains open. The evidence for a fixed deload is weak, so do not claim a
+strength benefit; this is fatigue management.
 
-**Suggestion:** add one configurable low-volume week per 4–6 week cycle, or an optional
-"reduce one set per slot" readiness response, kept in shadow until validated. Do not claim a
-strength benefit; call it fatigue management.
+**Still open:** add one configurable low-volume week per 4–6 week cycle. The set-reduction
+response is already implemented; do not claim a strength benefit from either — call it fatigue
+management.
 
-#### E. Upper-body balance is incomplete
+#### E. Upper-body balance — applied
 
-There are 12 bench sets/week but **no horizontal row and no vertical press**. The only pull is
-three sets of vertical pull. For shoulder health and general strength, a horizontal pull and an
-overhead press are conspicuous gaps. The actual log contains rows and overhead presses, so the
-programme is narrower than the athlete's practice.
+**Applied 2026-10-20.** The session types now include a horizontal row on every session and a
+vertical press on the bench-heavy sessions; the vertical pull remains. This closes the original
+gap without changing the bench main-lift volume.
 
-**Suggestion:** add 3 sets of a horizontal row and 3 sets of a vertical press, or explicitly
-replace some bench accessory volume. This is a balance/longevity change, not a claim that it
-increases bench strength.
+**Applied above:** the session types now include the row and vertical press. This is a
+balance/longevity change, not a claim that it increases bench strength.
 
-#### F. The 3×/week assumption is not robust to missed sessions
+#### F. Rolling next-session policy — applied
 
-The programme is a fixed A/B/C sequence. When sessions are missed, the day sequence does not
-automatically rebalance; the forecast uses a calendar and the log's day inference is often
-`unknown`. A strength programme should survive a two-session week without silently skipping the
-hinge or doubling bench.
+**Applied 2026-10-20.** New prescriptions use session types and a rolling next-session rule;
+A/B/C remain legacy labels for history and explicit overrides. The forecast still shows a
+calendar, but the day's session is selected from the rolling balance rather than a strict
+A/B/C sequence.
 
-**Suggestion:** define a rolling "next session" rule that preserves the main-lift balance over
-2–3 weeks, rather than a strict weekly A/B/C calendar. This is a scheduling policy, not a new
-training principle.
+**Applied above:** the rolling rule preserves the main-lift balance without a strict weekly
+A/B/C calendar. This is a scheduling policy, not a new training principle.
 
-#### G. Readiness changes load but not the rest of the dose
+#### G. Readiness set reduction — applied
 
-If readiness is low, load drops and RIR rises, but set count and exercise selection stay. That is
-a reasonable safety-first response, but it can leave a fatigued athlete doing the same volume at
-lighter loads. The evidence does not say this is wrong; it is a design gap worth measuring.
+**Applied 2026-10-20.** Poor readiness can now reduce accessory sets by a configured amount as
+well as reducing load and raising RIR. Main lifts keep their volume unless the config explicitly
+includes essential work. Exercise selection remains restricted by the A/B/C comparability guard;
+it is not a readiness-driven free swap.
 
 #### H. Main-lift progression depends on e1RM estimates
 
@@ -203,17 +201,19 @@ or use a repeatable top-set standard. Do not add routine 1RM testing.
 programme.**
 
 The core — 3×/week full body, 3–5 reps, RIR 2, no failure, autoregulated load, conservative
-back rules — is defensible and better than most generic templates. The weaknesses are mostly
+back rules — is defensible and better than most generic templates. The original weaknesses were
 programme-design imbalances and one concrete power-load bug, not a bad philosophy.
 
-I would not run the current template unchanged for a lifter whose primary goal is strength. I
-would run it after:
+The current template includes the fixes that mattered:
 
-1. rebalancing the hinge and bench volumes;
-2. fixing the power slot;
-3. adding horizontal pulling and a vertical press;
-4. restricting automatic selection to comparable variants;
-5. adding a fatigue-management valve (deload or set reduction).
+1. rebalanced hinge and bench volumes — **done** (Plan A + session types);
+2. bodyweight-only power slot — **done**;
+3. horizontal pulling and a vertical press — **done**;
+4. comparability-guarded selection — **done**;
+5. fatigue-management valve — **partial**: readiness set reduction done, scheduled deload open.
+
+The remaining gap before calling it fully balanced is the scheduled deload, plus the open
+calibration/warm-up/validation items in §4.
 
 ---
 
