@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **589 public tests** (604 with the 15 private integration tests)
+Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.3.0` · **589 public tests** (604 with the 15 private integration tests)
 
 ---
 
@@ -990,7 +990,7 @@ Moved out of the strength-programme review so it can close. These are **not** v0
 | No timestamps | session duration unmeasurable; two sessions on one date indistinguishable | flagged as `POSSIBLE_DOUBLE_SESSION`; duration dropped (`OPEN-QUESTIONS` Q5) |
 | Only Day B can be prescribed | Days A/C are blocked by the erector-ramp anchor (Q3), the SSB question (H1) and the missing §11 tables | **resolved** — Days A/B/C prescribable; the ramp anchor is optional and `unknown` is explicit |
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
-| Velocity is per-set only | within-set velocity loss not computable | labelled decay proxy; `DEC-VELOCITY-01` |
+| Velocity is per-set only | within-set velocity loss not computable | labelled decay proxy; `DEC-VELOCITY-01`; post-hoc rep-level decision in `docs/VBT-REP-LEVEL.md` (`DEC-VBT-03`) |
 | Rubric calibrated on **five high-confidence sessions** | 75% agreement, MAE 0.20; rotation is the weak item (40%, n=5); two old marks are reconstructed and excluded | `DEC-EVAL-04`; needs ~10 remembered marks per item before changing weights |
 | Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one | ASSUMPTION-02 / Q8; a weighted-by-e1RM or RIR version needs the athlete's decision |
 | VBT targets not prescribed | a prescription carries no `velocity_target` | **resolved** — 22 targets where trustworthy; trap bar withheld; `DEC-VBT-02` |
