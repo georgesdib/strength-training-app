@@ -4,6 +4,8 @@
 # might reasonably want to change; the mechanical steps (sentinels, coercion) stay in code
 # because they are data-quality rules, not preferences.
 #
+# Fixed weights are retained after the 2026-10-20 held-out readiness-weight comparison;
+# learned individual weights are closed (DEC-READINESS-10).
 # Precedence at read time: this file > defaults in code.
 
 schema_version: "1.0.0"

@@ -468,16 +468,17 @@ Delivered on 2026-10-19:
 - HRV/RHR baseline-relative components (0.5 weight, 7 readings in 28 days);
 - optional wearable score at a 10% blend.
 
-Still planned:
+Closed:
 
-- learned weight adoption (the report does not apply weights);
-- learned weight adoption (ROADMAP §4.9.3).
+- learned weight adoption — the held-out comparison found no improvement; fixed transparent
+  weights are retained (`DEC-READINESS-10`, [`READINESS-WEIGHT-EVIDENCE.md`](READINESS-WEIGHT-EVIDENCE.md)).
 
 ## 5. Decisions and open questions
 
 Decided:
 
-- **Equal weights first**, explicit per-athlete weights later; the sleep/energy floor stays.
+- **Equal weights retained**; explicit per-athlete weights and learned weights are not adopted;
+  the sleep/energy floor stays.
 - **Cut-points and injury caps accepted.**
 - **Per-lift mapping accepted**: squat → `squat`/`squat_unilateral`, bench →
   `horizontal_push`/`horizontal_push_bw`, deadlift → `hinge`; unmapped lifts inherit global.
@@ -491,12 +492,11 @@ Decided:
 
 Still open:
 
-1. When to move from equal to explicit weights, and which fields get what weight.
-2. Is a 1–5 soreness scale direction "higher = less sore" intuitive enough, or should the UI
+1. Is a 1–5 soreness scale direction "higher = less sore" intuitive enough, or should the UI
    invert the label?
-3. The exact category list and exercise-to-category mapping; the table above is a starting
+2. The exact category list and exercise-to-category mapping; the table above is a starting
    proposal, not final.
-4. The exact regularisation/feature weighting in calibration; the feature set is specified, the
+3. The exact regularisation/feature weighting in calibration; the feature set is specified, the
    fit is not.
 5. Whether a category with no linked injury should say `unknown` or `not configured`; both
    avoid "fine", but they mean different things.
