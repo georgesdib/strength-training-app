@@ -2,8 +2,8 @@
 
 **Status: v1 done (2026-10-20).** “Done” means the evidence check, ledger, configured
 landmarks, conservative MRV cap, readiness valve and UI/CLI/API are implemented. It does **not**
-mean individualized MRV, per-muscle volume or prospective validation; the under-MEV accessory
-progression is a separate deterministic rule (`MOD-VOL-002`). A separate scheduled/reactive deload policy is described
+mean individualized MRV (closed as not estimable), per-muscle volume or prospective validation;
+the under-MEV accessory progression is a separate deterministic rule (`MOD-VOL-002`). A separate scheduled/reactive deload policy is described
 in `DEC-PROGRAMME-05`.
 
 **Scope:** weekly hard-set volume for the strength programme. This note records the evidence

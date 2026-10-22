@@ -86,9 +86,32 @@ async function loadOverview() {
       <div class="value">${esc(value)}</div><div class="sub">${esc(sub)}</div></div>`).join("");
     renderRecent(data.sessions);
     fillSessionSelect();
+    loadProgress();
   } catch (error) {
     $("#today-title").textContent = "Could not load";
     $("#today-sub").textContent = error.message;
+  }
+}
+
+async function loadProgress() {
+  try {
+    const data = await api("/api/progress");
+    const p = data.performance || {};
+    const latest = p.latest ? `${p.latest.ratio.toFixed(3)} on ${p.latest.date}` : "insufficient";
+    const rows = (data.volume || []).filter((row) => row.status !== "untargeted").slice(0, 8)
+      .map((row) => `<tr><td>${esc(row.pattern)}</td><td>${row.average}</td>
+        <td>${esc(row.status)}</td></tr>`).join("");
+    const back = data.back?.level == null ? "none logged" :
+      `${data.back.level}/3 on ${data.back.date}`;
+    $("#progress").innerHTML = `
+      <p class="muted">sRPE coverage: ${data.coverage.with_srpe}/${data.coverage.sessions}
+        (${data.coverage.pct}%). Performance ratio: <strong>${esc(latest)}</strong>;
+        median ${p.median_ratio ?? "—"} across ${p.n} sessions. Back: ${esc(back)}.</p>
+      <table><thead><tr><th>Pattern</th><th>avg sets/week</th><th>status</th></tr></thead>
+      <tbody>${rows || "<tr><td colspan='3' class='muted'>no targeted volume</td></tr>"}</tbody></table>
+      <p class="muted">${esc(data.note)}</p>`;
+  } catch (error) {
+    $("#progress").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
 

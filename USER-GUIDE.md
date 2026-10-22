@@ -723,6 +723,10 @@ The Prescribe **Apply selection** toggle applies A, and B only when confirmed.
 
 ### 4.10h `volume` — weekly hard-set ledger
 
+The Today page also has a small **Descriptive progress** panel: sRPE coverage, performance
+ratio, weekly volume status and latest back symptom. It is monitoring only and never changes a
+prescription.
+
 ```bash
 strength-coach volume --weeks 4 --date 2026-10-20
 ```

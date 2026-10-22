@@ -496,3 +496,13 @@ def test_prescribe_suggests_a_scheduled_deload_and_applies_only_when_confirmed(s
     assert applied["fallback_level"] == "fatigue_reduced"
     squat = next(item for item in applied["items"] if item["exercise_id"] == "ssb_squat")
     assert squat["sets"] == 4
+
+
+def test_progress_dashboard_endpoint(server):
+    status, body = get(server, "/api/progress?date=2024-01-15")
+    assert status == 200
+    data = json.loads(body)
+    assert "coverage" in data
+    assert "performance" in data
+    assert "volume" in data
+    assert "no prescription change" in data["note"]

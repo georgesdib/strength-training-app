@@ -22,7 +22,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 
 ## Pages
 
-- **Today** — goal, block week, readiness, injury signal, unreviewed count, recent sessions.
+- **Today** — goal, block week, readiness, injury signal, unreviewed count, recent sessions, and a **Descriptive progress** panel (sRPE coverage, performance ratio, weekly volume status, latest back symptom; monitoring only).
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
   SQLite, never written to the repository. New cumulative exports are overlap-matched against
   stored rows, so old history is not duplicated. An **After the import** panel states the
@@ -85,6 +85,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `GET /api/fatigue?date=N` | strength fitness-fatigue shadow model (per-lift state and status) |
 | `GET /api/continuity?date=N` | return-to-training calibration: per-band n/median/CI/fixed/applied and `allow_relax_fixed` |
 | `GET /api/volume?date=N&weeks=4` | weekly hard-set ledger by movement pattern (advisory) |
+| `GET /api/progress?date=N` | descriptive progress: sRPE coverage, performance ratio, volume status, latest back symptom |
 | `POST /api/continuity/settings` | `{allow_relax_fixed}` -> update the calibration policy |
 | `POST /api/readiness/volume` | update the readiness volume valve (enabled, score below, sets, include essentials) |
 | `GET /api/selection?date=N&session_type=X&llm=0\|1&include_different=0\|1` | exercise-selection rankings with A/B/C comparability classes |

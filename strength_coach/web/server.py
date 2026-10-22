@@ -40,6 +40,7 @@ from strength_coach.features import measurements as measurements_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import injury_signal, readiness as readiness_feature
 from strength_coach.features import programme as programme_feature
+from strength_coach.features import progress as progress_feature
 from strength_coach.features import readiness_baseline
 from strength_coach.features import readiness_calibration, readiness_score
 from strength_coach.prescribe import build_prescription
@@ -259,6 +260,12 @@ class Handler(BaseHTTPRequestHandler):
                 weeks = int(query.get("weeks", ["4"])[0])
                 self._json(200, self._with_conn(
                     lambda c: self._volume(c, day, weeks)
+                ))
+            elif path == "/api/progress":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0]
+                self._json(200, self._with_conn(
+                    lambda c: progress_feature.dashboard(c, day)
                 ))
             elif path == "/api/selection":
                 query = parse_qs(urlparse(self.path).query)

@@ -328,9 +328,10 @@ programme.
 3. **Report format:** the private descriptive report is sufficient.
 4. **One-month check:** not triggered; no specific data gap justified it.
 
-**Plan closed.** Phase 0 backfill, Phase 2 descriptive reports, the optional-deload policy and
-the four programme changes in §6a are complete. No programme experiments were made.
+**Plan closed.** Phase 0 backfill, Phase 2 descriptive reports, the volume–performance baseline,
+the small progress dashboard, the optional-deload policy and the four programme changes in §6a
+are complete. No programme experiments were made.
 
-**Deliberately deferred, not blockers:** individualized MRV, main-lift volume experimentation
-and prospective validation of the fatigue/volume models. These require data or designs the
-athlete explicitly did not want.
+**Deliberately deferred, not blockers:** individualized MRV (closed as not estimable), main-lift
+volume experimentation and prospective validation of the fatigue/volume models. These require
+data or designs the athlete explicitly did not want.

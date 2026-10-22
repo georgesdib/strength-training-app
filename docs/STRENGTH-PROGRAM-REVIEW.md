@@ -3,7 +3,7 @@
 **Scope:** the strength programme only. Cardio, video, the LLM narrative and the web UI are out
 of scope. This is the evidence snapshot; implementation status is recorded in the note and table below.
 
-**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload is now implemented as an optional suggestion with automatic reactive triggers; a standardised warm-up, a 3RM/5RM cadence and accessory under-MEV progression are implemented. Individualized MRV, main-lift volume experimentation and prospective validation remain open. This document is the evidence snapshot, not a claim that every suggestion is still pending.
+**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload is now implemented as an optional suggestion with automatic reactive triggers; a standardised warm-up, a 3RM/5RM cadence and accessory under-MEV progression are implemented. Individualized MRV is closed as not estimable from the available data; main-lift volume experimentation is deliberately not done; prospective validation remains open. This document is the evidence snapshot, not a claim that every suggestion is still pending.
 
 **Method:** read the templates, constitution, prescription engine, evidence notes and references;
 generated A/B/C prescriptions from the local database; checked the planned weekly dose and the
@@ -233,7 +233,7 @@ Status reflects the implementation, not only the original recommendation.
 - [x] Plan A: squat ~7 sets/week and trap-bar ~5 sets/week.
 - [x] Scheduled deload / broader fatigue-management policy (`DEC-PROGRAMME-05`).
 - [x] Under-MEV accessory progression (`MOD-VOL-002`).
-- [ ] Individualized MRV and main-lift volume experimentation.
+- [x] MRV question closed — not estimable without independent volume variation; no experiment.
 - [x] 3RM/5RM calibration cadence (`test --status`).
 - [x] Explicit warm-up prescription (50/70/85 ramp).
 - [ ] Prospective validation of continuity, volume and fatigue models.
@@ -258,8 +258,8 @@ Status reflects the implementation, not only the original recommendation.
   load, trap-bar choice, measurable strength.
 - **Methodology, not evidence:** erector scheduling, spinal cap, exact accessory RIR, 3×/week
   calendar.
-- **Weakest links now:** individualized MRV, main-lift volume experimentation and prospective
-  validation.
+- **Weakest links now:** prospective validation and the broader data-depth work (manual
+  logging, adapters, labelled set).
 - **Verdict:** a good, safer and more balanced default for a back-sensitive lifter; fatigue
   management is implemented, but the model is not yet prospectively validated.
 
