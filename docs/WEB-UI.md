@@ -34,11 +34,11 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 - **Readiness** — any subset of 1-5 and device fields, including optional wearable readiness;
   manual values win per field; the computed global/category score is shown; per-athlete
   baseline settings and the shadow baseline report are available; overrides take 0.00–1.00
-  with a reason. A current workout is refused until readiness is ready.
+  with a reason; the **Volume valve** sets the poor-readiness accessory set reduction. A current workout is refused until readiness is ready.
 - **Prescribe** — date + session type (`auto` rolling, squat, hinge, bench+squat, bench+hinge); deterministic prescription, warnings and notes; every item cites
   rule ids. A `recent stress` column, a `readiness` column, the **strength fatigue model**
   panel (shadow: per-lift + overall fitness/fatigue/state with approximate 95% intervals,
-  R²/status; no load effect), the **continuity calibration** panel (per-band returns/fixed/applied and the
+  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against advisory targets), the **continuity calibration** panel (per-band returns/fixed/applied and the
   `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings; optional LLM chooser). The session is chosen by the rolling emphasis rule; **Apply selection** on the form
   makes the chosen candidates replace the slot exercises; **Use LLM** appears only when it is
   ticked. Without the toggle the prescription is unchanged. It says when a day has no variant
@@ -79,7 +79,9 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `POST /api/cardio` | `{date, modality, minutes, avg_hr, max_hr, distance_km, srpe, note}` -> summary |
 | `GET /api/fatigue?date=N` | strength fitness-fatigue shadow model (per-lift state and status) |
 | `GET /api/continuity?date=N` | return-to-training calibration: per-band n/median/CI/fixed/applied and `allow_relax_fixed` |
+| `GET /api/volume?date=N&weeks=4` | weekly hard-set ledger by movement pattern (advisory) |
 | `POST /api/continuity/settings` | `{allow_relax_fixed}` -> update the calibration policy |
+| `POST /api/readiness/volume` | update the readiness volume valve (enabled, score below, sets, include essentials) |
 | `GET /api/selection?date=N&session_type=X&llm=0\|1` | exercise-selection rankings for a session type |
 | `GET /api/exercises/catalog` | full exercise catalogue with source/properties |
 | `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml` |

@@ -42,6 +42,7 @@ CATEGORY_PATTERNS: Mapping[str, tuple[str, ...]] = {
     "elbow_flexion": ("elbow_flexion",),
     "knee_extension": ("knee_extension",),
     "knee_flexion": ("knee_flexion", "hamstring_eccentric"),
+    "dorsiflexion": ("dorsiflexion",),
     "spinal_extension": ("erector_extension",),
     "core_carry": ("core_flexion", "core_anti_extension", "core_isometric",
                    "core_stability", "carry"),

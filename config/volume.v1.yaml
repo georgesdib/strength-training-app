@@ -1,0 +1,15 @@
+# Weekly hard-set ledger. This is an advisory report, not a load controller (ROADMAP §4.17).
+#
+# Targets are broad movement-pattern ranges, not precise prescriptions. They are deliberately
+# config so the programme can be audited without encoding a new training theory.
+schema_version: "1.0.0"
+window_weeks: 4
+targets:
+  squat: [6, 12]
+  hinge: [6, 10]
+  hinge_unilateral: [0, 6]
+  horizontal_push: [8, 14]
+  vertical_push: [3, 8]
+  horizontal_pull: [4, 10]
+  vertical_pull: [3, 8]
+  core: [3, 9]

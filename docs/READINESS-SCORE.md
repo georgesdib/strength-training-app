@@ -283,6 +283,7 @@ A category is configuration, for example:
 | vertical pull | `vertical_pull`; lats/biceps | biceps (direct) |
 | elbow flexion | `elbow_flexion`; biceps/brachialis | biceps (direct) |
 | knee extension | `knee_extension`; quads | knee (direct) |
+| dorsiflexion | `dorsiflexion`; tibialis anterior | ankle/shin (if configured) |
 | knee flexion | `knee_flexion`, `hamstring_eccentric`; hamstrings | knee (direct) |
 | spinal extension | `erector_extension`; erectors | low back (direct) |
 | core / carry | core patterns or `carry` | low back (indirect), knee (indirect) |

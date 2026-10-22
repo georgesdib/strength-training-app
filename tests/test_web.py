@@ -113,6 +113,8 @@ def test_readiness_round_trip_uses_manual_source(server):
     assert data["sources"]["energy"] == "import"
     assert data["bodyweight_kg"] == 80.5
     assert data["sources"]["bodyweight_kg"] == "manual"
+    assert data["volume_valve"]["enabled"] is True
+    assert data["volume_valve"]["sets"] == 1
 
 
 def test_review_sheet_and_marks(server):
@@ -443,3 +445,11 @@ def test_prescribe_accepts_a_session_type(server):
 def test_prescribe_auto_session_type_is_rolling(server):
     data = post(server, "/api/prescribe", {"date": "2024-01-15"})
     assert data["session_type"] in {"squat", "hinge", "bench_squat", "bench_hinge"}
+
+
+def test_volume_ledger_endpoint(server):
+    status, body = get(server, "/api/volume?date=2024-01-15&weeks=4")
+    assert status == 200
+    data = json.loads(body)
+    assert "patterns" in data
+    assert data["window_weeks"] == 4

@@ -38,7 +38,7 @@ function setView(name) {
   if (name === "exercises") loadExerciseCatalog();
   if (name === "cardio") loadCardio();
   if (name === "measures") loadMeasurements();
-  if (name === "prescribe") { loadFatigue(); loadContinuity(); }
+  if (name === "prescribe") { loadFatigue(); loadContinuity(); loadVolume(); }
   if (name === "docs" && !$("#docs-list").dataset.loaded) loadDocs();
   if (name === "state") loadState();
   if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
@@ -371,6 +371,11 @@ async function loadReadiness(date) {
       $("#setting-hrv-weight").value = s.hrv_weight;
       $("#setting-rhr-weight").value = s.rhr_weight;
       $("#setting-wearable-weight").value = s.wearable_weight;
+      const v = data.volume_valve || {};
+      $("#volume-enabled").checked = v.enabled !== false;
+      $("#volume-score").value = v.score_below ?? 0.5;
+      $("#volume-sets").value = v.sets ?? 1;
+      $("#volume-essential").checked = !!v.include_essential;
       $("#settings-source").textContent =
         "effective source: " + s.setting_source + " · config file plus athlete overrides";
     }
@@ -379,6 +384,27 @@ async function loadReadiness(date) {
     $("#readiness-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
+
+$("#volume-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    const data = await api("/api/readiness/volume", {
+      method: "POST",
+      body: JSON.stringify({
+        date: $("#readiness-date").value,
+        enabled: $("#volume-enabled").checked,
+        score_below: Number($("#volume-score").value),
+        sets: Number($("#volume-sets").value),
+        include_essential: $("#volume-essential").checked,
+      }),
+    });
+    renderReadiness(data);
+    $("#volume-msg").textContent = "Saved";
+    loadOverview();
+  } catch (error) {
+    $("#volume-msg").textContent = error.message;
+  }
+});
 
 $("#settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -789,6 +815,30 @@ async function loadExercises() {
 
 
 
+
+
+/* --- weekly volume ledger ------------------------------------------------ */
+async function loadVolume() {
+  const date = $("#prescribe-date").value;
+  if (!date) { $("#volume-ledger").innerHTML = "<p class='empty'>Choose a date.</p>"; return; }
+  try {
+    const data = await api(`/api/volume?date=${encodeURIComponent(date)}&weeks=4`);
+    if (!data.patterns.length) {
+      $("#volume-ledger").innerHTML = "<p class='empty'>No working sets in the window.</p>";
+      return;
+    }
+    const rows = data.patterns.map((row) => `<tr>
+      <td><code>${esc(row.pattern)}</code></td>
+      <td>${row.average}</td><td>${row.total}</td>
+      <td>${row.target ? row.target[0] + "–" + row.target[1] : "—"}</td>
+      <td>${esc(row.status)}</td></tr>`).join("");
+    $("#volume-ledger").innerHTML = `<p class="muted">${esc(data.from)} to ${esc(data.to)}</p>
+      <table><thead><tr><th>pattern</th><th>avg sets/week</th><th>total</th>
+      <th>target</th><th>status</th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch (error) {
+    $("#volume-ledger").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
 
 /* --- continuity calibration --------------------------------------------- */
 async function loadContinuity() {

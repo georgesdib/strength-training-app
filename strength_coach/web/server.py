@@ -33,6 +33,7 @@ from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, 
 from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import continuity_calibration
+from strength_coach.features import volume as volume_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import measurements as measurements_feature
 from strength_coach.features import session_feedback as session_feedback_feature
@@ -246,6 +247,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: self._continuity(c, day)
                 ))
+            elif path == "/api/volume":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0]
+                weeks = int(query.get("weeks", ["4"])[0])
+                self._json(200, self._with_conn(
+                    lambda c: self._volume(c, day, weeks)
+                ))
             elif path == "/api/selection":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [datetime.date.today().isoformat()])[0]
@@ -300,6 +308,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._set_readiness_override(c, body)))
             elif path == "/api/readiness/settings":
                 self._json(200, self._with_conn(lambda c: self._set_readiness_settings(c, body)))
+            elif path == "/api/readiness/volume":
+                self._json(200, self._with_conn(lambda c: self._set_readiness_volume(c, body)))
             elif path == "/api/programme":
                 self._json(200, self._with_conn(lambda c: self._programme(c, body)))
             elif path == "/api/cardio":
@@ -522,6 +532,13 @@ class Handler(BaseHTTPRequestHandler):
         data["settings"] = readiness_feature.as_dict(
             readiness_score.effective_settings(conn, day)
         )
+        cfg = readiness_feature.ReadinessConfig.load()
+        data["volume_valve"] = {
+            "enabled": cfg.set_reduction_enabled,
+            "score_below": cfg.set_reduction_score_below,
+            "sets": cfg.set_reduction_sets,
+            "include_essential": cfg.set_reduction_include_essential,
+        }
         return data
 
     def _set_readiness(self, conn, body: dict) -> dict:
@@ -544,6 +561,16 @@ class Handler(BaseHTTPRequestHandler):
         }
         repositories.append_readiness_setting(
             conn, effective_from=day, note=body.get("note") or None, **values,
+        )
+        return self._readiness(conn, day)
+
+    def _set_readiness_volume(self, conn, body: dict) -> dict:
+        day = str(body.get("date") or datetime.date.today().isoformat())
+        readiness_feature.save_set_reduction(
+            enabled=_truth(body.get("enabled")),
+            score_below=float(body.get("score_below", 0.50)),
+            sets=int(body.get("sets", 1)),
+            include_essential=_truth(body.get("include_essential")),
         )
         return self._readiness(conn, day)
 
@@ -648,6 +675,16 @@ class Handler(BaseHTTPRequestHandler):
             "session_type": session_type,
             "slots": selection_mod.as_dict(rows),
         }
+
+    def _volume(self, conn, day: str | None = None, weeks: int = 4) -> dict:
+        on_date = day or datetime.date.today().isoformat()
+        context = RuleContext.from_store(conn, end=on_date)
+        cfg = volume_feature.VolumeConfig.load()
+        cfg = volume_feature.VolumeConfig(
+            window_weeks=weeks, targets=cfg.targets, source_path=cfg.source_path
+        )
+        report = volume_feature.compute(context.sets, on_date=on_date, config=cfg)
+        return {"on_date": on_date, "window_weeks": weeks, **report}
 
     def _continuity(self, conn, day: str | None = None) -> dict:
         on_date = day or datetime.date.today().isoformat()

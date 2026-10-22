@@ -173,3 +173,11 @@ def test_approved_variant_pattern_and_muscle_corrections(taxonomy):
     assert taxonomy.resolve("Speed Bench Press").get("primary_muscles") == [
         "chest", "triceps", "front_delts"
     ]
+
+
+def test_tib_bar_has_a_dorsiflexion_readiness_category(taxonomy):
+    from strength_coach.features import readiness_score
+
+    assert readiness_score.category_for(
+        "tib_bar_calves", taxonomy.entities["tib_bar_calves"]
+    ) == "dorsiflexion"

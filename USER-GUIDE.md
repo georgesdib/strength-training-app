@@ -705,6 +705,16 @@ Python validates and falls back deterministically on any error. By default it is
 the Prescribe **Apply selection** toggle (or `run --apply-selection`) applies the chosen
 candidates and re-solves their loads. The Prescribe page has the same panel.
 
+### 4.10h `volume` — weekly hard-set ledger
+
+```bash
+strength-coach volume --weeks 4 --date 2026-10-20
+```
+
+Working sets by movement pattern, average per week, total and advisory target status. It
+reports drift; it does not change a prescription. The Readiness page's **Volume valve** sets
+whether poor readiness removes accessory sets and how many.
+
 ### 4.10g `continuity` — return-to-training calibration
 
 ```bash

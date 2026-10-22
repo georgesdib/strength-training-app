@@ -16,6 +16,10 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping
 
+import os
+import re
+import tempfile
+
 import yaml
 
 import datetime
@@ -139,6 +143,45 @@ class ReadinessConfig:
             ),
             source_path=source,
         )
+
+
+def save_set_reduction(
+    *,
+    enabled: bool,
+    score_below: float,
+    sets: int,
+    include_essential: bool,
+    path: str | Path | None = None,
+) -> ReadinessConfig:
+    """Write the volume-valve block without rewriting the rest of readiness config."""
+    if not 0.0 <= float(score_below) <= 1.0:
+        raise ValueError("set_reduction.score_below must be 0.00-1.00")
+    if int(sets) < 0:
+        raise ValueError("set_reduction.sets must be >= 0")
+    source = Path(path or paths.readiness_yaml())
+    text = source.read_text(encoding="utf-8")
+    block = (
+        "set_reduction:\n"
+        "  # Poor readiness reduces load/RIR; this optional valve removes accessory sets.\n"
+        f"  enabled: {'true' if enabled else 'false'}\n"
+        f"  score_below: {float(score_below):.2f}\n"
+        f"  sets: {int(sets)}\n"
+        f"  include_essential: {'true' if include_essential else 'false'}\n"
+    )
+    pattern = re.compile(r"^set_reduction:\n(?:[ \t].*\n)*", re.MULTILINE)
+    if pattern.search(text):
+        text = pattern.sub(block, text, count=1)
+    else:
+        text = text.rstrip() + "\n\n" + block
+    fd, tmp = tempfile.mkstemp(prefix=source.name + ".", dir=str(source.parent), text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(tmp, source)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+    return ReadinessConfig.load(source)
 
 
 def as_dict(config: ReadinessConfig) -> dict[str, Any]:

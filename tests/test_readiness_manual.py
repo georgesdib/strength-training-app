@@ -151,3 +151,20 @@ def test_readiness_set_cli_and_bulk_import(tmp_path):
     finally:
         store.close()
     assert day["sleep"] == 1
+
+
+def test_volume_valve_config_can_be_saved_without_losing_the_file(tmp_path):
+    from strength_coach.features import readiness as readiness_mod
+
+    path = tmp_path / "readiness.yaml"
+    path.write_text("modifier:\n  fields: [sleep, energy]\nset_reduction:\n  enabled: true\n  score_below: 0.50\n")
+    cfg = readiness_mod.save_set_reduction(
+        enabled=False, score_below=0.40, sets=2, include_essential=True, path=path,
+    )
+    assert cfg.set_reduction_enabled is False
+    assert cfg.set_reduction_score_below == 0.40
+    assert cfg.set_reduction_sets == 2
+    assert cfg.set_reduction_include_essential is True
+    text = path.read_text()
+    assert "modifier:" in text
+    assert "score_below: 0.40" in text

@@ -56,6 +56,7 @@ E1RM_CALIBRATION_YAML = "e1rm-calibration.v1.yaml"
 E1RM_DECAY_YAML = "e1rm-decay.v1.yaml"
 FATIGUE_FITNESS_YAML = "fatigue-fitness.v1.yaml"
 CONTINUITY_CALIBRATION_YAML = "continuity-calibration.v1.yaml"
+VOLUME_YAML = "volume.v1.yaml"
 SELECTION_YAML = "selection.v1.yaml"
 SCHEMES_YAML = "schemes.v1.yaml"
 UNDULATION_YAML = "undulation.v1.yaml"
@@ -120,6 +121,10 @@ def fatigue_fitness_yaml() -> Path:
 
 def continuity_calibration_yaml() -> Path:
     return config_dir(CONTINUITY_CALIBRATION_YAML)
+
+
+def volume_yaml() -> Path:
+    return config_dir(VOLUME_YAML)
 
 
 def selection_yaml() -> Path:

@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **565 public tests** (580 with the 15 private integration tests)
+Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **568 public tests** (583 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progres
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 580 locally, including private integration
+.venv/bin/python -m pytest            # 583 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -864,8 +864,10 @@ calendar. A/B/C remain as legacy labels for historical rules and explicit overri
 horizontal row. The hinge gets a second exposure through the single-leg RDL support on the
 bench+hinge session, without stacking another high-fatigue spinal lift. Only the squat-emphasis
 session carries direct erector work, keeping a normal week at squat 1 + hinge 2 = 3 against the
-spinal cap. Accessory sets lose one when readiness is poor (config-gated; main lifts keep
-volume unless `include_essential` is enabled). Power work is bodyweight/implement-only.
+spinal cap. Accessory sets lose one when readiness is poor (config-gated; main lifts keep volume unless
+`include_essential` is enabled), and the Readiness page exposes that **volume valve**.
+A weekly **hard-set ledger** reports sets per movement pattern against broad targets; it is
+advisory and does not change loads. Power work is bodyweight/implement-only.
 
 **Acceptance (done):** session templates parse; every session has a row and an upper-body
 push/pull; hinge sessions contain no direct erector work; the two-week sequence balances

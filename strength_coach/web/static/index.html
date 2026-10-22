@@ -86,6 +86,13 @@
         <div id="continuity-model"></div>
       </div>
       <div class="panel">
+        <div class="panel-head"><h2>Weekly volume</h2>
+          <span class="muted">advisory hard-set ledger</span></div>
+        <p class="muted">Working sets per movement pattern over the last four weeks, compared with
+          broad config targets. It reports drift; it does not change the prescription.</p>
+        <div id="volume-ledger"></div>
+      </div>
+      <div class="panel">
         <div class="panel-head"><h2>Strength fatigue model</h2>
           <span class="muted">shadow; no load effect</span></div>
         <p class="muted">Per-lift and overall fitness/fatigue fit from your own e1RM observations;
@@ -175,6 +182,17 @@
             <button class="primary" type="submit">Set for this athlete</button>
           </form>
           <p id="settings-source" class="muted"></p>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>Volume valve</h2><span class="muted">poor-readiness accessory set reduction</span></div>
+          <form id="volume-form" class="grid-fields">
+            <label><input type="checkbox" id="volume-enabled"> enabled</label>
+            <label>Score below <input id="volume-score" type="number" min="0" max="1" step="0.05"></label>
+            <label>Sets removed <input id="volume-sets" type="number" min="0" max="3" step="1"></label>
+            <label><input type="checkbox" id="volume-essential"> include main lifts</label>
+            <button class="primary" type="submit">Save valve</button>
+          </form>
+          <p id="volume-msg" class="muted"></p>
         </div>
         <div class="panel">
           <div class="panel-head"><h2>Calibration report</h2><span class="muted">mimicry of the old labels</span></div>

@@ -38,6 +38,7 @@ from strength_coach.critique import UnknownSessionError, build_facts, score_sess
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import continuity_calibration
+from strength_coach.features import volume as volume_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import measurements as measurements_feature
@@ -241,6 +242,10 @@ def main(argv: list[str] | None = None) -> int:
     select.add_argument("--llm", action="store_true",
                         help="let the configured model choose from the filtered candidates")
 
+    volume = sub.add_parser("volume", help="show weekly hard-set volume by movement pattern")
+    volume.add_argument("--weeks", type=int, default=4)
+    volume.add_argument("--date", default=None, help="as-of date (default: today)")
+
     continuity = sub.add_parser("continuity", help="show or configure return-to-training calibration")
     continuity.add_argument("--date", default=None, help="as-of date (default: today)")
     continuity.add_argument("--allow-relax-fixed", choices=("on", "off"), default=None,
@@ -283,6 +288,7 @@ def main(argv: list[str] | None = None) -> int:
         "symptom": _cmd_symptom,
         "cardio": _cmd_cardio,
         "measure": _cmd_measure,
+        "volume": _cmd_volume,
         "continuity": _cmd_continuity,
         "fatigue": _cmd_fatigue,
         "select": _cmd_select,
@@ -1048,6 +1054,28 @@ def _cmd_select(args) -> int:
         for candidate in row.candidates:
             print(f"    {candidate.exercise_id:<24} {candidate.score:.3f}  "
                   f"{', '.join(candidate.reasons)}")
+    return 0
+
+
+def _cmd_volume(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        on_date = args.date or datetime.date.today().isoformat()
+        context = RuleContext.from_store(conn, end=on_date)
+        report = volume_feature.compute(context.sets, on_date=on_date,
+                                        config=volume_feature.VolumeConfig(
+                                            window_weeks=args.weeks,
+                                            targets=volume_feature.VolumeConfig.load().targets,
+                                        ))
+    finally:
+        store.close()
+    print(f"weekly hard sets, {report['from']} to {report['to']} (weeks {report['weeks']})")
+    print(f"  {'pattern':<28}{'avg/wk':>8}{'total':>8}{'target':>12}  status")
+    for row in report["patterns"]:
+        target = "-" if row["target"] is None else f"{row['target'][0]:g}-{row['target'][1]:g}"
+        print(f"  {row['pattern']:<28}{row['average']:>8.1f}{row['total']:>8}"
+              f"{target:>12}  {row['status']}")
     return 0
 
 
