@@ -124,6 +124,8 @@ $("#prescribe-apply-selection").addEventListener("change", () => {
   }
 });
 
+let lastPrescribePayload = null;
+
 $("#prescribe-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const date = $("#prescribe-date").value;
@@ -132,17 +134,30 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
   const applySelection = $("#prescribe-apply-selection").checked;
   const selectionLlm = applySelection && $("#prescribe-selection-llm").checked;
   const selectionConfirmed = applySelection && $("#prescribe-selection-confirm").checked;
+  lastPrescribePayload = {
+    date, session_type: sessionType,
+    apply_selection: applySelection, selection_llm: selectionLlm,
+    selection_confirmed: selectionConfirmed,
+  };
   try {
-    const data = await api("/api/prescribe", { method: "POST", body: JSON.stringify({
-      date, session_type: sessionType,
-      apply_selection: applySelection, selection_llm: selectionLlm,
-      selection_confirmed: selectionConfirmed,
-    }) });
+    const data = await api("/api/prescribe", { method: "POST", body: JSON.stringify(lastPrescribePayload) });
     renderPrescription(data);
   } catch (error) {
     $("#prescribe-result").innerHTML = `<div class="panel warnbox">${esc(error.message)}</div>`;
   }
 });
+
+async function applySuggestedDeload() {
+  if (!lastPrescribePayload) return;
+  const payload = { ...lastPrescribePayload, deload_confirmed: true };
+  $("#prescribe-result").innerHTML = "<p class='empty'>Applying deload…</p>";
+  try {
+    const data = await api("/api/prescribe", { method: "POST", body: JSON.stringify(payload) });
+    renderPrescription(data);
+  } catch (error) {
+    $("#prescribe-result").innerHTML = `<div class="panel warnbox">${esc(error.message)}</div>`;
+  }
+}
 
 function renderPrescription(p) {
   const stress = p.notes?.recent_stress || {};
@@ -183,10 +198,15 @@ function renderPrescription(p) {
   const deloadBox = deload ? `<p class="warnbox"><strong>Deload (${esc(deload.trigger)})</strong>
     — ${esc(deload.reason)}. Sets -${deload.set_reduction}, load
     ${Math.round(deload.load_multiplier * 100)}%, RIR +${deload.rir_add}.</p>` : "";
+  const suggestion = p.notes?.deload_suggestion;
+  const suggestionBox = suggestion ? `<div class="warnbox"><strong>Deload suggested</strong>
+    — ${esc(suggestion.reason)}.<br>
+    <button type="button" onclick="applySuggestedDeload()">Deload this workout</button>
+    <span class="muted">Or train as planned; the suggestion will return next workout this week.</span></div>` : "";
   $("#prescribe-result").innerHTML = `<div class="panel">
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_type || ("Day " + p.session_day))}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
-    ${warnings}${deloadBox}${selectionBox}${signalBox}
+    ${warnings}${deloadBox}${suggestionBox}${selectionBox}${signalBox}
     <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table>
     <details><summary class="muted">notes (JSON)</summary><pre>${esc(JSON.stringify(p.notes, null, 2))}</pre></details>
@@ -1061,7 +1081,8 @@ $("#exercise-form").addEventListener("submit", async (event) => {
 
 /* --- programme ---------------------------------------------------------- */
 function programmeStatus(entry) {
-  if (entry.deload_reason) return "deload";
+  if (entry.deload_applied || entry.deload_reason) return "deload";
+  if (entry.deload_suggestion) return "suggested deload";
   if (!entry.prescription.executable) return "not executable";
   return entry.prescription.fallback_level || "forecast";
 }
@@ -1091,7 +1112,8 @@ function renderProgramme(entries) {
         <div class="muted">legacy ${esc(entry.day)}</div></td>
       <td>${esc(programmeStatus(entry))}</td>
       <td><ul class="plain">${items}</ul>
-        ${entry.deload_reason ? `<p class="warnbox">deload: ${esc(entry.deload_reason)}</p>` : ""}
+        ${entry.deload_reason ? `<p class="warnbox">deload applied: ${esc(entry.deload_reason)}</p>` : ""}
+        ${entry.deload_suggestion ? `<p class="warnbox">deload suggested: ${esc(entry.deload_suggestion)}</p>` : ""}
         ${warn}</td>
     </tr>`;
   }).join("");

@@ -7,7 +7,9 @@ from contextlib import contextmanager
 
 from conftest import make_readiness, make_training
 from strength_coach import cli
+from strength_coach.features import deload as deload_feature
 from strength_coach.features import programme
+from strength_coach.prescribe import deload as deload_mod
 from strength_coach.store import db, importer, repositories
 
 ROWS = [
@@ -153,7 +155,7 @@ def test_start_session_type_can_force_bench_hinge_and_start_day_is_legacy():
     assert legacy[0].session_type == "bench_squat"
 
 
-def test_scheduled_deload_week_reduces_sets_and_load():
+def test_scheduled_deload_is_suggested_not_applied():
     with store_with() as store:
         conn = store.connection
         repositories.append_athlete_profile(
@@ -166,23 +168,24 @@ def test_scheduled_deload_week_reduces_sets_and_load():
             start_session_type="squat",
         )
 
-    assert all(entry.deload_reason for entry in entries)
-    assert all("scheduled deload" in entry.deload_reason for entry in entries)
-    assert all(entry.prescription.fallback_level == "fatigue_reduced" for entry in entries)
+    assert all(entry.deload_suggestion for entry in entries)
+    assert all(entry.deload_reason is None for entry in entries)
+    assert all(entry.deload_applied is False for entry in entries)
+    assert all("deload" not in entry.prescription.notes for entry in entries)
     assert all(
-        entry.prescription.notes["deload"]["trigger"] == "scheduled"
+        entry.prescription.notes["deload_suggestion"]["trigger"] == "scheduled"
         for entry in entries
     )
     assert all(
-        any("MOD-DELOAD-001" in warning for warning in entry.prescription.warnings)
+        not any("MOD-DELOAD-001" in warning for warning in entry.prescription.warnings)
         for entry in entries
     )
     squat = next(
         item for entry in entries for item in entry.prescription.items
         if item.exercise_id == "ssb_squat"
     )
-    assert squat.sets == 4
-    assert squat.rir_target >= 3
+    assert squat.sets == 5
+    assert squat.rir_target >= 2
 
 
 def test_scheduled_deload_needs_an_anchor():
@@ -192,3 +195,27 @@ def test_scheduled_deload_needs_an_anchor():
             start_session_type="squat",
         )
     assert entries[0].deload_reason is None
+    assert entries[0].deload_suggestion is None
+
+
+def test_scheduled_deload_can_be_applied_after_confirmation():
+    with store_with() as store:
+        conn = store.connection
+        repositories.append_athlete_profile(
+            conn, effective_from="2024-01-01", primary_goal="strength",
+            goal_rank=["strength"], focus_lifts=["ssb_squat"],
+            block_start_date="2024-01-01",
+        )
+        suggestion = deload_feature.scheduled_decision(conn, "2024-02-05")
+        entry = programme.build_programme(
+            conn, start="2024-02-05", weeks=1, per_week=1,
+            start_session_type="squat",
+        )[0]
+        applied = deload_mod.apply(entry.prescription, suggestion)
+    assert suggestion is not None
+    assert applied.fallback_level == "fatigue_reduced"
+    assert applied.notes["deload"]["trigger"] == "scheduled"
+    assert applied.notes["deload_suggestion"]["applied"] is False
+    assert any("MOD-DELOAD-001" in warning for warning in applied.warnings)
+    squat = next(item for item in applied.items if item.exercise_id == "ssb_squat")
+    assert squat.sets == 4

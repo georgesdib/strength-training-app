@@ -34,6 +34,8 @@ class ProgrammeEntry:
     prescription: object
     deload_reason: str | None = None
     session_type: str | None = None
+    deload_suggestion: str | None = None
+    deload_applied: bool = False
 
 
 def _next_day(conn, before: str, start_day: str | None) -> str:
@@ -121,20 +123,29 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
             history=history,
             vbt=vbt,
         )
-        # Scheduled deloads apply on every projected date in the deload week; reactive
-        # triggers are evaluated once against the current state and apply to the first entry.
-        decision = (
-            deload_feature.decision(
-                conn, date.isoformat(), history=history,
-                include_reactive=(index == 0), config=deload_cfg,
+        # Reactive triggers are automatic and are evaluated once against current state.
+        # A scheduled deload is only a suggestion in the forecast; it is never applied here.
+        reactive = None
+        scheduled = None
+        if deload_cfg is not None:
+            reactive = (
+                deload_feature.reactive_decision(
+                    conn, date.isoformat(), history=history, config=deload_cfg,
+                )
+                if index == 0 else None
             )
-            if deload_cfg is not None else None
-        )
-        if decision is not None:
-            prescription = deload_mod.apply(prescription, decision, config=deload_cfg)
+            scheduled = deload_feature.scheduled_decision(
+                conn, date.isoformat(), config=deload_cfg,
+            )
+        if reactive is not None:
+            prescription = deload_mod.apply(prescription, reactive, config=deload_cfg)
+        elif scheduled is not None:
+            prescription = deload_mod.suggest(prescription, scheduled)
         out.append(ProgrammeEntry(
             date.isoformat(), prescription.session_day, prescription,
-            decision.reason if decision else None, current_type
+            reactive.reason if reactive else None, current_type,
+            deload_suggestion=scheduled.reason if scheduled and reactive is None else None,
+            deload_applied=reactive is not None,
         ))
         prior.append(current_type)
         current_type = schedule.next_session_type(

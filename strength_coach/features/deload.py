@@ -130,11 +130,36 @@ def reactive_reason(
     return None
 
 
+def scheduled_decision(
+    conn, as_of: str, *, config: DeloadConfig | None = None,
+) -> DeloadDecision | None:
+    """Return the scheduled-deload suggestion for one date, without applying it."""
+    reason = scheduled_reason(conn, as_of, config=config)
+    if reason is None:
+        return None
+    return DeloadDecision(reason, "scheduled", block_week=_block_week(conn, as_of))
+
+
+def reactive_decision(
+    conn, as_of: str, *, history: History | None = None,
+    config: DeloadConfig | None = None,
+) -> DeloadDecision | None:
+    """Return an automatic reactive-deload decision for one date."""
+    reason = reactive_reason(conn, as_of, history=history, config=config)
+    if reason is None:
+        return None
+    return DeloadDecision(reason, "reactive", block_week=_block_week(conn, as_of))
+
+
 def decision(
     conn, as_of: str, *, history: History | None = None,
     include_reactive: bool = True, config: DeloadConfig | None = None,
 ) -> DeloadDecision | None:
-    """Combine scheduled and reactive triggers into one decision for one date."""
+    """Combine scheduled and reactive triggers into one decision for one date.
+
+    This is retained for callers that explicitly want the combined policy; the prescription
+    path now separates a scheduled suggestion from an automatic reactive decision.
+    """
     cfg = config or DeloadConfig.load()
     if not cfg.enabled:
         return None
@@ -146,8 +171,7 @@ def decision(
     if scheduled and reactive:
         return DeloadDecision(
             f"{scheduled}; reactive trigger also active: {reactive}",
-            "scheduled+reactive",
-            block_week=_block_week(conn, as_of),
+            "scheduled+reactive", block_week=_block_week(conn, as_of),
         )
     if scheduled:
         return DeloadDecision(scheduled, "scheduled", block_week=_block_week(conn, as_of))

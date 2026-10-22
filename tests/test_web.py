@@ -472,3 +472,27 @@ def test_programme_accepts_a_start_session_type(server):
     })
     assert data["entries"][0]["session_type"] == "bench_hinge"
     assert data["entries"][0]["day"] == "C"
+
+
+def test_prescribe_suggests_a_scheduled_deload_and_applies_only_when_confirmed(server):
+    post(server, "/api/state/profile", {
+        "primary_goal": "strength", "effective_from": "2024-01-01",
+        "block_start_date": "2024-01-01",
+    })
+    suggested = post(server, "/api/prescribe", {
+        "date": "2024-02-05", "session_type": "squat",
+    })
+    assert suggested["notes"]["deload_suggestion"]["trigger"] == "scheduled"
+    assert "deload" not in suggested["notes"]
+    suggested_squat = next(
+        item for item in suggested["items"] if item["exercise_id"] == "ssb_squat"
+    )
+    assert suggested_squat["sets"] == 5
+
+    applied = post(server, "/api/prescribe", {
+        "date": "2024-02-05", "session_type": "squat", "deload_confirmed": True,
+    })
+    assert applied["notes"]["deload"]["trigger"] == "scheduled"
+    assert applied["fallback_level"] == "fatigue_reduced"
+    squat = next(item for item in applied["items"] if item["exercise_id"] == "ssb_squat")
+    assert squat["sets"] == 4

@@ -13,6 +13,27 @@ from strength_coach.prescribe import loads
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
 
 
+def suggest(prescription: Prescription, decision: DeloadDecision | None) -> Prescription:
+    """Record a scheduled deload as a suggestion, without changing the session."""
+    if decision is None:
+        return prescription
+    return replace(
+        prescription,
+        warnings=prescription.warnings + (
+            f"deload suggested: {decision.reason}; train as planned unless confirmed",
+        ),
+        notes={
+            **prescription.notes,
+            "deload_suggestion": {
+                "trigger": decision.trigger,
+                "reason": decision.reason,
+                "block_week": decision.block_week,
+                "applied": False,
+            },
+        },
+    )
+
+
 def apply(
     prescription: Prescription,
     decision: DeloadDecision | None,

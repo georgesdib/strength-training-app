@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **578 public tests** (593 with the 15 private integration tests)
+Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **580 public tests** (595 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progres
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 593 locally, including private integration
+.venv/bin/python -m pytest            # 595 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -389,11 +389,12 @@ Scope: `programme --weeks N [--remaining] [--start-session-type T]` prints a rol
 forecast, not a commitment, and `--remaining` starts from today. The declared
 `block_start_date` anchors the erector ramp and the scheduled deload; it does not bound the programme.
 
-Scheduled deload: every six weeks from `block_start_date` by default; one set per item
+Scheduled deload: every six weeks from `block_start_date` by default, presented as a
+**suggestion** at workout time (default no; non-interactive default no). One set per item
 (minimum two), 10% load reduction and one RIR under `MOD-DELOAD-001`. Reactive deload triggers
-remain: two consecutive weeks over the spinal cap, **or** two consecutive flaring sessions.
-When either fires, the session is emitted with `fallback_level = fatigue_reduced` and the
-trigger cited. The six-week interval is an assumption, not a scientific claim.
+remain **automatic**: two consecutive weeks over the spinal cap, **or** two consecutive
+flaring sessions. A reactive deload emits `fallback_level = fatigue_reduced` and cites the
+trigger. The six-week interval is an assumption, not a scientific claim.
 
 Planned loads (decided): **recomputed on the day**. A plan is a forecast; the day's
 prescription uses the current e1RM, readiness and symptoms. Planned rows are superseded when

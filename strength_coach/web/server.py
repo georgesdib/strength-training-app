@@ -465,8 +465,17 @@ class Handler(BaseHTTPRequestHandler):
             apply_selection=apply_selection, selection_chooser=chooser,
             selection_confirmed=selection_confirmed,
         )
-        decision = deload_feature.decision(conn, for_date)
-        prescription = deload_mod.apply(prescription, decision)
+        # Reactive triggers are automatic. A scheduled deload is only a suggestion and
+        # requires an explicit deload_confirmed=true in the request.
+        reactive = deload_feature.reactive_decision(conn, for_date)
+        scheduled = deload_feature.scheduled_decision(conn, for_date)
+        if reactive is not None:
+            prescription = deload_mod.apply(prescription, reactive)
+        elif scheduled is not None:
+            if _truth(body.get("deload_confirmed")):
+                prescription = deload_mod.apply(prescription, scheduled)
+            else:
+                prescription = deload_mod.suggest(prescription, scheduled)
         return prescription_dict(prescription)
 
     def _review_sheet(self, conn, session: str) -> dict:
@@ -762,6 +771,8 @@ class Handler(BaseHTTPRequestHandler):
             {"date": entry.on_date, "day": entry.day,
              "session_type": entry.session_type,
              "deload_reason": entry.deload_reason,
+             "deload_suggestion": entry.deload_suggestion,
+             "deload_applied": entry.deload_applied,
              "prescription": prescription_dict(entry.prescription)}
             for entry in pages
         ]}

@@ -89,6 +89,8 @@ def main(argv: list[str] | None = None) -> int:
                      help="ask the configured model for a narrative (default: off)")
     run.add_argument("--force", action="store_true",
                      help="regenerate even if this date was already prescribed")
+    run.add_argument("--deload", choices=("ask", "yes", "no"), default="ask",
+                     help="scheduled deload: ask (interactive, default no), yes, or no")
     run.add_argument("--propose", action="store_true",
                      help="ask the model for a structural proposal (requires --llm on)")
     run.add_argument("--apply-selection", action="store_true",
@@ -398,8 +400,29 @@ def _cmd_run(args) -> int:
                     print("--propose requires --llm on")
                     return 2
                 prescription, approved_by = _propose(conn, trace, prescription, args)
-            deload_decision = deload_feature.decision(conn, args.date)
-            prescription = deload_mod.apply(prescription, deload_decision)
+            reactive = deload_feature.reactive_decision(conn, args.date)
+            scheduled = deload_feature.scheduled_decision(conn, args.date)
+            if reactive is not None:
+                # Reactive safety trigger: always applied, even when a scheduled suggestion
+                # was also due.
+                prescription = deload_mod.apply(prescription, reactive)
+                print(f"deload applied: {reactive.reason}")
+            elif scheduled is not None:
+                confirmed = False
+                if args.deload == "yes":
+                    confirmed = True
+                elif args.deload == "ask" and sys.stdin.isatty():
+                    print(f"deload suggested: {scheduled.reason}")
+                    answer = input("Apply deload for this workout? [y/N] ").strip().lower()
+                    confirmed = answer in {"y", "yes"}
+                if confirmed:
+                    prescription = deload_mod.apply(prescription, scheduled)
+                    print(f"deload applied: {scheduled.reason}")
+                else:
+                    prescription = deload_mod.suggest(prescription, scheduled)
+                    if args.deload == "ask" and not sys.stdin.isatty():
+                        print("deload suggested; non-interactive run trains as planned "
+                              "(use --deload yes to apply)")
             prescription_id = repositories.append_prescription(
                 conn,
                 prescription_id=_new_id(),
@@ -741,12 +764,16 @@ def _cmd_programme(args) -> int:
                 for item in p.items if item.load_kg is not None
             ) or "no loads"
             status = "forecast" if p.executable else "not executable"
-            if entry.deload_reason:
+            if entry.deload_applied:
                 status = "deload"
+            elif entry.deload_suggestion:
+                status = "suggested deload"
             print(f"{entry.on_date:<12}{entry.session_type or entry.day:<14}"
                   f"{entry.day:<5}{status:<10}{loads}")
             if entry.deload_reason:
                 print(f"  reactive deload: {entry.deload_reason}")
+            if entry.deload_suggestion:
+                print(f"  scheduled deload suggested: {entry.deload_suggestion}")
             if p.warnings:
                 print(f"  warnings: {len(p.warnings)} (the day's run will show them)")
         return 0
