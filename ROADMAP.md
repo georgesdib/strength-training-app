@@ -867,8 +867,8 @@ raises heavy hinge to ~5 sets/week without a second heavy exposure; back extensi
 sets/week. The hinge gets a second exposure through the single-leg RDL support on the
 bench+hinge session, without stacking another high-fatigue spinal lift. Only the squat-emphasis
 session carries direct erector work, keeping a normal week at squat 1 + hinge 2 = 3 against the
-spinal cap. Accessory sets lose one when readiness is poor (config-gated; main lifts keep volume unless
-`include_essential` is enabled), and the Readiness page exposes that **volume valve**.
+spinal cap. Poor readiness can remove one accessory or main-lift set (`include_essential: true` by default),
+and the Readiness page exposes that **volume valve**.
 A weekly **hard-set ledger** reports sets per movement pattern against broad MEV/MAV/MRV
 landmarks; non-essential sets are trimmed only when the recent week plus the proposed session
 exceeds MRV (`MOD-VOL-001`). Under-MEV adds one accessory set after three weeks below MEV
@@ -886,15 +886,16 @@ load; full tests pass.
 configured MEV/MAV/MRV landmarks, conservative MRV cap, readiness volume valve and UI/CLI/API
 are complete. The following are explicitly **not** claimed as done:
 
-- individual MRV calibration from this athlete's response;
-- automatic volume titration below MEV;
+- individual MRV calibration — closed as not estimable (`DEC-VOLUME-04`);
+- main-lift volume titration below MEV;
 - a fully autoregulated deload (a scheduled/reactive policy now exists);
 - per-muscle rather than movement-pattern volume;
 - set quality/load/tonnage rather than raw hard sets;
 - prospective validation against e1RM or performance;
 - a forecast-aware cap that accounts for planned-but-not-performed future sessions.
 
-These stay open in the roadmap rather than being implied by the v1 label.
+These are documented boundaries, not implied claims; individual MRV is closed and the rest stay
+open or deferred.
 
 ### 4.18 LLM-guided suggested programme  (future; not scheduled)
 
@@ -932,6 +933,7 @@ deferred items stay listed in §4.19.
 | P1 | Scheduled deload / broader fatigue-management policy | done — `DEC-PROGRAMME-05` |
 | P1 | 3RM/5RM calibration cadence and explicit warm-up prescription | done — 10-week reminder + 50/70/85 ramp |
 | P2 | Parent-variant e1RM ratios and weakness/injury-targeted selection | open |
+| P2 | Strength-review implementation closeout | implementation done; two future items remain |
 | P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
 | P2 | Prospective validation of continuity, volume, selection and fatigue models | open |
 | P1 (v0.3) | Manual workout logging and import adapters | not started |
