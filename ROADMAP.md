@@ -914,6 +914,10 @@ This is explicitly future work, not a v0.3 deliverable. The existing invariants 
 reviewed sessions to evaluate whether the suggestions are better than the fixed programme.
 **Status:** idea only; no implementation, no phase assigned.
 
+**Next-phase design:** the non-cardio fatigue-management plan is recorded in
+[`docs/NEXT-PHASE-FATIGUE-PLAN.md`](docs/NEXT-PHASE-FATIGUE-PLAN.md). It is planning only; the
+scheduled deload remains an optional suggestion and no randomised deload trial is planned.
+
 ### 4.19 Consolidated next actions
 
 | priority | action | status |
