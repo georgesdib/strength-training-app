@@ -44,7 +44,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
-| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights evaluated and closed (§4.9), LLM/manual-logging parity (§4.11), continuity calibration (§4.12, calibrated bands with fixed fallback), labelled set depth (§4.14), exercise selection apply + comparability (§4.15; weakness/ratios later), strength fitness-fatigue shadow model (§4.16), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17) |
+| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights evaluated and closed (§4.9), LLM/manual-logging parity (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), labelled set depth (§4.14), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17) |
 | v0.4 | Cardio prescription and model | **planned** | cardio prescription and cardio impulse/fatigue model (§4.13 remaining) |
 | v0.5 | Video analysis | **planned** | video capture/analysis and its UI parity (§4.8, §4.11 video part) |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
@@ -624,7 +624,7 @@ same inputs produce the same database rows and warnings through either surface; 
 action leaves no partial write; API tests cover each new write; no load, score or threshold is
 computed in the browser.
 
-### 4.12 Continuity calibration from real returns  (v0.3, implemented)
+### 4.12 Continuity calibration from real returns  (v0.3, implemented; calibrated factor rejected)
 
 Estimate per-athlete return retention from actual returns. The fixed 14/28/56 bands remain per-band
 fallbacks until that band has enough returns and a tight bootstrap interval; when it does, the
@@ -803,7 +803,7 @@ are validated and cannot override policy (done); shadow mode changes no prescrip
 shows the chosen exercise and why (done); tests cover vetoes, ties, missing metadata and LLM
 fallback (done); explicit apply toggle and re-solve (done).
 
-### 4.16 Strength fitness-fatigue model  (v0.3; shadow prototype implemented)
+### 4.16 Strength fitness-fatigue model  (v0.3; shadow only; retrospective rejected)
 
 **Status: shadow prototype implemented 2026-10-20; retrospective check failed 2026-10-20.** `features/fatigue_fitness.py` fits a
 per-lift linear performance model from fixed fitness/fatigue half-lives and the athlete's own
@@ -965,8 +965,20 @@ Moved out of the strength-programme review so it can close. These are **not** v0
    validated ratio with uncertainty. It is a prior/display aid, never a silent load conversion.
    No schedule.
 3. **Weakness/injury targeting.** No positive targeting. A display-only own-history context is
-   implemented. Weakness targeting is gated by `DEC-SELECT-05` (earliest after v0.5 / ~April
+   implemented. Weakness targeting is gated by DEC-SELECT-05 (earliest after v0.5 / ~April
    2027); injury targeting is unscheduled and remains constraint/penalty/ceiling only.
+
+**Open decisions register**
+
+| decision | state | where |
+|---|---|---|
+| Prospective validation of a future continuity/fatigue candidate | gate only; current candidates rejected | §4.20.1, DEC-VALIDATION-01 |
+| Parent-variant e1RM ratios | unscheduled; needs paired data and validation | §4.20.2 |
+| Weakness targeting | deferred to after v0.5 / ~April 2027 | §4.20.3, Q22, DEC-SELECT-05 |
+| Selection A/B boundary (pause/narrow, SSB/high-bar) | open calibration/config decision | Q21, docs/SELECTION-COMPARABILITY.md |
+| Sumo half-step / replacement trial | parked until a trial period | Q11 |
+| Cardio model | v0.4 | §4.13, Q14 |
+| Fatigue-plan backfill UI, phase cutoff, report format, one-month check | open; decide when that plan resumes | docs/NEXT-PHASE-FATIGUE-PLAN.md §9 |
 
 ## 5. Known gaps and risks
 

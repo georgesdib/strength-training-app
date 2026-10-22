@@ -51,7 +51,7 @@ phase labelled `unanchored`.
 
 ---
 
-## Q4. There is no symptom field. How should back symptoms be recorded?
+## Q4. ~~There is no symptom field.~~ **Answered: symptom_log exists**
 
 The most safety-relevant rules — "if back symptoms rise and do not settle in 24-48 h",
 "progress only if no symptom flare" — depend on data that does not exist in either export.
@@ -60,18 +60,20 @@ as a proxy.
 
 **Blocks:** the back-flare modifier, the erector stability gate, the "symptoms reported"
 rubric line.
-**Default:** a manual per-session input (`--back 0-3`) into a `symptom_log` table; rules
-return `unknown` until it exists.
+**Applied:** manual pre-session 0-3 entries in `symptom_log`; `MOD-BACK-001` and the stability
+gate read it. Missing entries still return `unknown`.
 
 ---
 
-## Q5. Session duration is unmeasurable. Proxy or drop?
+## Q5. ~~Session duration is unmeasurable.~~ **Partially answered: manual feedback exists**
 
 The rubric wants "session duration vs 60-80 min cap". There are no timestamps. The options
 are a set-count proxy or dropping the metric — and a proxy presented as minutes would be a
 fabricated score.
 
-**Default:** drop the line; report sets-per-session as context with `measurable: false`.
+**Applied partially:** `session_feedback.duration_min` records optional session length at
+review; there are still no timestamps, so imported sessions cannot be timed automatically. The
+rubric line remains unmeasured.
 
 ---
 
@@ -151,11 +153,11 @@ Parked deliberately; revisit after a trial period.
 - **What evidence would rank sumo against the trap bar?** A direct comparison at matched
   relative loads, or consistent athlete-specific symptom data.
 
-## Q12. How should re-entry be calibrated from real returns?
+## Q12. ~~How should re-entry be calibrated from real returns?~~ **Implemented; calibrated factor rejected**
 
-**Parked; the current arithmetic stays.** 14/28/56 days, +1 RIR and −5%/−10% remain the
-defaults. They are evidence-informed assumptions, not measured cut-points, and changing them
-without return data would just swap one guess for another.
+**Now rejected for use; the fixed arithmetic stays.** 14/28/56 days, +1 RIR and −5%/−10% remain
+the defaults. They are evidence-informed assumptions, not measured cut-points; the calibrated
+factor was tested and lost.
 
 The plan is to calibrate them on the athlete's own returns (ROADMAP §4.12):
 
@@ -166,8 +168,9 @@ The plan is to calibrate them on the athlete's own returns (ROADMAP §4.12):
 - replace a fixed band only when there are enough returns to support it, and only as a
   configurable, cited change.
 
-Open until then: the minimum number of returns, the model (descriptive first, then a simple
-retention curve), and the fatigue scale. No automatic change to a prescription.
+**Applied then rejected:** the calibration exists, but the 2026-10-20 retrospective walk-forward
+had ratio MAE 0.150 vs 0.128 for the fixed rule. The calibrated factor is not adopted; fixed
+bands remain. See [RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md).
 
 ## Q13. ~~Is four weeks the right back-signal window?~~ **Answered (2026-10-19)**
 
@@ -251,13 +254,16 @@ CLI is `strength-coach measure` and the web UI has a Measures page.
 Grip strength was previously a readiness field; it has since been removed from readiness
 (`DEC-GRIP-01`) and is measurement-only. None of these metrics changes a load.
 
-## Q19. Should a fatigue-fitness model drive strength loads?
+## Q19. ~~Should a fatigue-fitness model drive strength loads?~~ **Answered: no load effect**
 
-**Open — research note:** [`docs/FATIGUE-FITNESS.md`](FATIGUE-FITNESS.md).
+**Answered 2026-10-20.** The model is shadow-only; the retrospective check lost to persistence
+(0.158 vs 0.074), so it does not drive loads. A future candidate must pass §4.20's gate.
 
-The app currently has no post-session fatigue state: readiness is the athlete's integrated
-signal, and the gap rules handle long breaks. A completed workout does not change the next
-prescription unless readiness changes.
+**Research note:** [`docs/FATIGUE-FITNESS.md`](FATIGUE-FITNESS.md).
+
+At the time of the question, the app had no post-session fatigue state: readiness was the
+athlete's integrated signal, and gap rules handled long breaks. The model now exists in shadow
+but does not change a prescription.
 
 Options:
 
@@ -277,12 +283,11 @@ window and 48–72 h spacing already manage acute fatigue.
 
 **Default if unanswered: no modelled fatigue (A).** Recommendation: B or D, then revisit.
 
-## Q20. Should e1RM estimates be calibrated against test results?
+## Q20. ~~Should e1RM estimates be calibrated against test results?~~ **Answered: bounded correction applied**
 
-**Open.** There is no e1RM calibration today: Epley+RIR estimates are used as `best_usable` in
-an 84-day window, and a measured `test` becomes an override. A report comparing measured tests
-with the pre-test estimate (bias, MAE per lift) would be cheap and useful. Auto-correcting the
-formula from a handful of tests would overfit, and RIR error is not constant across loads.
+**Answered 2026-10-20.** Epley+RIR estimates were used as `best_usable` in an 84-day window,
+and a measured `test` became an override. The report and bounded correction now exist; a
+correction is applied only when the CI excludes 1.0 and the bias is within ±10%.
 
 **Applied 2026-10-20 (`DEC-E1RM-CAL-01/02`):** report plus a bounded correction when the CI
 excludes 1.0; `e1rm calibrate` and the Athlete page. Measured overrides remain the control.
