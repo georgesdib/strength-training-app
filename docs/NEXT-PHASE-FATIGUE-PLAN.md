@@ -252,6 +252,10 @@ Produce, with uncertainty and limitations:
 4. Three low-back case reviews.
 5. A statement of what cannot be estimated.
 
+**Retrospective result:** continuity MAE 0.150 vs 0.128 fixed; fatigue MAE 0.158 vs 0.074
+persistence. Both candidates lost, so neither is adopted. See
+[RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md).
+
 Do not produce:
 
 - an automatic fatigue score;
@@ -276,6 +280,8 @@ The optional-deload suggestion is implemented; the reactive triggers remain auto
 
 After the descriptive report:
 
+- do not adopt a model that lost its retrospective baseline; no prospective period is started
+  for continuity or fatigue in this phase;
 - keep the evidence-based defaults;
 - keep the reactive rules;
 - keep the optional deload;

@@ -748,11 +748,11 @@ never edits; the report states the sample size and excludes low-confidence marks
 
 **Status: apply + comparability implemented 2026-10-20.** `prescribe/selection.py` ranks the configured and catalogue variants per slot from readiness, recent stress, rotation, preference and the cached fitness-fatigue state; constraints and `can_do: false` exclude a candidate; injury is a penalty, not a veto. Candidates carry an A/B/C comparability class: A applies automatically, B requires confirmation, C is hidden by default and never automatic; the selected lift's own history is always used. See `DEC-SELECT-03` and [SELECTION-COMPARABILITY.md](docs/SELECTION-COMPARABILITY.md). It is exposed as `strength-coach select` and a Prescribe panel. With the explicit **Apply selection** toggle, the chosen candidate replaces the slot exercise and the load is re-solved from that lift's own history (`MOD-SELECT-001`). Without the toggle nothing changes. All synthetic raw variant names were canonicalised and their history rewritten (migration 0014, 114 entities, 3,607 audited remaps; migration 0015 split close-grip pulldown); trap-bar date-scoping and back-extension equivalence are preserved.
 
-**Weakness/injury tailoring — deferred.** The evidence does not support positive
-weakness/injury targeting (see [WEAKNESS-INJURY-SELECTION.md](docs/WEAKNESS-INJURY-SELECTION.md),
-`DEC-SELECT-04`). Injury remains an exclusion/penalty/ceiling; a relative-weakness display, if
-added, must be display-only. Revisit only after a validated definition, retrospective baseline
-and prospective/N-of-1 test.
+**Weakness/injury tailoring — deferred.** No positive weakness/injury targeting. Injury remains
+an exclusion/penalty/ceiling. Earliest review is after v0.5 and ~April 2027, and only with 12
+sessions per target lift over 12 weeks, a pre-registered own-trend metric, a retrospective
+baseline win, and an opt-in N-of-1/alternating test; injury targeting remains unscheduled.
+See [WEAKNESS-INJURY-SELECTION.md](docs/WEAKNESS-INJURY-SELECTION.md), `DEC-SELECT-04/05`, Q22.
 
 **Later phase — variant-group e1RM ratios.** Variants stay distinct entities for now. A future
 model may express a variant's e1RM as a ratio of a parent lift (illustrative: front squat ≈60%
@@ -941,7 +941,7 @@ deferred items stay listed in §4.19.
 | P1 | Scheduled deload / broader fatigue-management policy | done — `DEC-PROGRAMME-05` |
 | P1 | 3RM/5RM calibration cadence and explicit warm-up prescription | done — 10-week reminder + 50/70/85 ramp |
 | P2 | Parent-variant e1RM ratios | open |
-| P2 | Weakness/injury-targeted selection | deferred — `DEC-SELECT-04`, evidence documented |
+| P2 | Weakness/injury-targeted selection | deferred — earliest after v0.5 / ~April 2027; gates in `DEC-SELECT-05` |
 | P2 | Strength-review implementation closeout | implementation done; two future items remain |
 | P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
 | P2 | Prospective validation of continuity, volume, selection and fatigue models | **partial** — retrospective walk-forward done; continuity/fatigue failed; prospective not started |

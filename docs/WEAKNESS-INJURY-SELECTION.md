@@ -78,7 +78,29 @@ not “train the weak area to prevent recurrence.”
    - a retrospective baseline result,
    - and a prospective or N-of-1 test showing benefit without harming the main lifts.
 
-## 4. What would be tested if this is revisited
+## 4. Deferral gates — when this can be revisited
+
+**Recommended: not before v0.5 is complete, and not before six months of stable current-programme
+data (~April 2027).** That is an earliest review point, not a commitment.
+
+Weakness targeting may be reconsidered only when all of these exist:
+
+1. **Data:** at least 12 sessions per targeted lift, across at least 12 weeks, under the current
+   programme and with manual logging/import quality fixed.
+2. **Definition:** a pre-registered weakness metric (own-trend e1RM, not a population ratio) and
+   a declared target lift.
+3. **Retrospective baseline:** the proposed targeting rule beats fixed selection on a
+   walk-forward check, with uncertainty.
+4. **Counterfactual design:** an opt-in N-of-1 or alternating-block test, not a single-path
+   observational comparison.
+5. **Safety:** the test shows no harm to the other main lifts or the back, and no increase in
+   flare frequency.
+
+Injury targeting is **not scheduled at all**. It may only be revisited if a clinician defines a
+specific rehabilitation goal and the athlete wants it; it is not a general selection feature.
+Until then, injury remains exclusion/penalty/ceiling only.
+
+## 5. What would be tested if this is revisited
 
 - primary outcome: the targeted lift’s e1RM/performance, not “feels better”;
 - guardrail outcomes: other main lifts, pain/injury, session completion;

@@ -237,7 +237,7 @@ Status reflects the implementation, not only the original recommendation.
 - [x] 3RM/5RM calibration cadence (`test --status`).
 - [x] Explicit warm-up prescription (50/70/85 ramp).
 - [ ] Prospective validation of continuity, volume and fatigue models. **Retrospective walk-forward done; continuity and fatigue failed the baseline; prospective period not started.**
-- [ ] Parent-variant e1RM ratios. Weakness/injury targeting is **deferred** (`DEC-SELECT-04`); evidence in [WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md).
+- [ ] Parent-variant e1RM ratios. Weakness/injury targeting is **deferred** (`DEC-SELECT-04/05`); earliest review after v0.5 / ~April 2027, with the gates in [WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md).
 
 | priority | change | reason | effort | status |
 |---|---|---|---|---|
@@ -250,7 +250,7 @@ Status reflects the implementation, not only the original recommendation.
 | P2 | Schedule a 3RM/5RM calibration every 8–12 weeks; no routine 1RM | Keeps e1RM honest without adding maximal testing | Small | **Done** — 10-week reminder |
 | P2 | Add warm-up/ramp sets to the prescription or document the assumption explicitly | The template only describes working sets | Small | **Done** — 50/70/85 ramp |
 | P2 | Validate the calibrated continuity and selection models prospectively before letting them drive loads automatically | Avoid overfitting to a small, noisy log | Large | **Partial** — retrospective walk-forward done; continuity/fatigue failed baselines; no adoption |
-| P3 | Parent-variant e1RM ratios and weakness/injury selection | Useful later, but not needed to fix the current programme | Large | **Open** — evidence documented; targeting deferred (`DEC-SELECT-04`) |
+| P3 | Parent-variant e1RM ratios and weakness/injury selection | Useful later, but not needed to fix the current programme | Large | **Open** — ratios open; targeting deferred (`DEC-SELECT-04/05`) |
 
 ## 5. Bottom line
 
