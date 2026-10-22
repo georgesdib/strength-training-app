@@ -140,54 +140,25 @@ is not added alongside it or as an accessory: a second hinge violates the no-sta
 (`PRG-RED-001`), and on A/C it would sit next to direct erector work. No hinge-variant slot and
 no rotation are planned. The path is main-lift substitution (`DEC-LLM-06`), once sumo is rated.
 
-## Q11. What follows from a half-step cost and a suitability trial? **Simple block, not a formal trial**
+## Q11. Sumo replacement and the 2.5 cost — **Closed**
 
-**Recommendation: do not run a formal trial.** Use sumo as the replacement hinge for a normal
-**4–6 week block** (about 4–6 hinge sessions), starting when the back is stable and there is no
-active flare. There is no mandatory pre/post log, no 48-hour timer and no separate trial mode in
-the app.
+**Closed 2026-10-20.** Sumo is a replacement for the trap-bar hinge
+(`DEC-TRAPBAR-03`), not a rotation or accessory. The 2.5 spinal cost is accepted as the
+owner's ordinal design choice (`DEC-SPINE-01`); it is not a measured value and will not be
+recalibrated.
 
-### What to do
+There is **no formal trial and no open question**. If you want to use sumo, run it as the hinge
+for a normal 4–6 week block, using ordinary training judgement:
 
-- substitute sumo for the trap-bar hinge on Day B;
-- keep the normal working-set/RIR rules and progress conservatively;
+- normal working-set/RIR rules, conservative progression;
 - log a symptom reading only when the back actually feels different;
-- continue if symptoms stay at 0–1, or at 2 but settle within about 48 hours;
-- reduce or stop if level 3, a persistent level 2, or any new neurological symptom appears;
-- after 4–6 weeks, keep sumo if it is tolerated and performance is acceptable; otherwise return
-  to the trap bar.
+- continue at 0–1, or level 2 that settles within about 48 hours;
+- reduce or stop at level 3, persistent level 2, or new neurological symptoms;
+- one video or coach check in the first 1–2 sessions; not every session.
 
-That is ordinary training judgement, not a study protocol.
-
-### Technique
-
-Use **one video set or a coach's eye during the first 1–2 sumo sessions** to check stance, bar
-path and bracing. Do not review technique after every session. Review again only if pain,
-performance or an obvious technical change appears.
-
-### The half-step cost is separate
-
-The trial tests tolerance and preference, not whether **2.5** is the right ordinal spinal cost.
-The owner has accepted 2.5; it stays. `DEC-SPINE-01` records it as an ordinal design choice,
-not a measured value.
-
-### Evidence
-
-- There is **no RCT comparing sumo and trap-bar injury outcomes**. The choice is not
-  evidence-ranked for safety.
-- Sumo and conventional deadlifts differ in muscle activity and joint moments, but both are
-  legitimate; quadriceps activity is higher in sumo and gastrocnemius higher in conventional
-  ([Escamilla 2002](https://doi.org/10.1097/00005768-200204000-00019)).
-- The 3-D comparison shows sumo uses a wider stance, more upright trunk and less vertical bar
-  travel, with different knee/ankle demands
-  ([Escamilla 2000](https://doi.org/10.1097/00005768-200007000-00013)).
-- In an 8-week RCT, trap-bar deadlift and barbell half-squat produced similar strength, power
-  and lean-mass changes; the authors concluded exercise selection matters less than heavy loads
-  and targeting the relevant muscles
-  ([Hagerupsen 2024](https://doi.org/10.1186/s13102-024-00911-8)).
-- Feedback improves acute performance and technical competency, especially visual feedback, but
-  the evidence does not require a technique review after every session
-  ([Weakley 2023](https://doi.org/10.1007/s40279-023-01877-2)).
+Evidence: no RCT ranks sumo against trap bar for injury; they differ in muscle activity and joint
+moments, and trap-bar/squat selection matters less than heavy loading and target muscles. See
+references 132–135 and `docs/SPINAL-COST.md`.
 
 ## Q12. ~~How should re-entry be calibrated from real returns?~~ **Implemented; calibrated factor rejected**
 
