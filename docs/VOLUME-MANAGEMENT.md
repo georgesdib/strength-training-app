@@ -81,6 +81,11 @@ The ledger reports the **average per week over the window**, not one session's s
 
 ---
 
+**Programme adjustment (2026-10-20):** the squat-emphasis SSB is 5×3–5, bench+squat squat
+support is 4×3–5, and trap-bar hinge is 5×3–5. Planned weekly squat volume is ~7 sets and heavy
+hinge ~5 sets; the back-extension and single-leg RDL doses are unchanged. This came from the
+review decision `DEC-PROGRAMME-04`, not from a new MRV estimate.
+
 ## 3. Implemented behaviour
 
 ### Ledger

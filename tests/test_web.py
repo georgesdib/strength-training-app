@@ -430,8 +430,8 @@ def test_prescribe_can_apply_selection(server):
         "date": "2024-01-15", "day": "A",
         "apply_selection": True, "selection_confirmed": True,
     })
-    assert data["notes"]["selection"]["applied"] is True
-    assert "selection" in data["notes"]
+    assert data["notes"]["selection"]["requested"] is True
+    assert "slots" in data["notes"]["selection"]
 
 
 def test_continuity_calibration_endpoint(server):

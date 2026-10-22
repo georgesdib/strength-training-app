@@ -1,9 +1,9 @@
 # Strength programme review — 2026-10-20
 
 **Scope:** the strength programme only. Cardio, video, the LLM narrative and the web UI are out
-of scope. This is a review document; no code or configuration was changed.
+of scope. This is the evidence snapshot; implementation status is recorded in the note and table below.
 
-**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction and volume management v1 were subsequently implemented; selection comparability, a scheduled deload and individualized MRV/under-MEV titration remain open. This document is the evidence snapshot, not a claim that every suggestion is still pending.
+**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload, individualized MRV/under-MEV titration, a 3RM/5RM test cadence, explicit warm-up prescription and prospective validation remain open. This document is the evidence snapshot, not a claim that every suggestion is still pending.
 
 **Method:** read the templates, constitution, prescription engine, evidence notes and references;
 generated A/B/C prescriptions from the local database; checked the planned weekly dose and the
@@ -131,21 +131,22 @@ external load and e1RM history, carries no double-progression citation, and stop
 loss. `box_jump` remains bodyweight-only in the taxonomy. Loaded power work, if wanted,
 must be a separate variation with its own prescription, not this slot.
 
-See [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md) for the evidence and the proposed
-three-class guard. Implemented 2026-10-20.
 
-#### C. Exercise selection has no comparability guard
 
-The selector can substitute across variants with different load bases: SSB squat to front squat,
-competition bench to dumbbell bench, trap-bar hinge to a very different variant. It re-solves the
-load from the selected lift, which is mechanically correct, but the resulting session may no
-longer be the intended stimulus. The LLM can only choose from the filtered list, which is good,
-but the list itself is broad. This undermines the "one programme" idea.
+#### C. Exercise selection comparability — applied
 
-**Suggestion:** distinguish **same-stimulus variants** (pause/narrow/competition bench; SSB/
-high-bar/front squat with appropriate expectations) from **different lifts**. Keep the latter
-out of automatic apply, or require explicit confirmation and show the load-basis difference.
-The parent-variant e1RM ratio idea is relevant but not a substitute for a comparability flag.
+**Applied 2026-10-20.** The selector now classifies every candidate against the current lift:
+
+- **A** — load-comparable; auto-eligible;
+- **B** — near-comparable (same pattern, changed grip/bar/ROM/stability); explicit
+  confirmation required;
+- **C** — different lift/load basis; hidden by default and never applied automatically.
+
+The load is always re-solved from the selected lift's own history; the old load/citation is not
+transferred. The implementation is in `config/selection-comparability.v1.yaml`,
+`prescribe/selection.py`, `prescribe/engine.py`, the CLI and the Prescribe panel. Evidence and
+the class boundary are in [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md)
+(`DEC-SELECT-03`, Q21).
 
 #### D. No planned deload or volume autoregulation
 
@@ -218,20 +219,20 @@ would run it after:
 
 ## 4. Suggested changes, prioritised
 
-No implementation here; this is the recommendation list.
+Status reflects the implementation, not only the original recommendation.
 
-| priority | change | reason | effort |
-|---|---|---|---|
-| P0 | Fix power items: bodyweight/implement only, no e1RM/double progression | A loaded box jump is not the intended stimulus | Small |
-| P0 | Rebalance main-lift volume: second hinge exposure or lower bench volume; target ~6–8 hinge sets/week | Current 4 vs 12 is not a balanced strength dose | Medium |
-| P0 | Restrict automatic selection to load-comparable variants; require confirmation for different implements | Prevents a valid load solve from silently changing the stimulus | Medium |
-| P1 | Add a horizontal row and a vertical press (3 sets each), or explicitly trade bench accessory volume | Upper-body balance and shoulder health | Small |
-| P1 | Add a scheduled low-volume week or a readiness set-reduction option | No general fatigue valve today; evidence is weak but the gap is real | Medium |
-| P1 | Define a rolling next-session policy that preserves A/B/C balance across missed weeks | Current fixed sequence is brittle | Medium |
-| P2 | Schedule a 3RM/5RM calibration every 8–12 weeks; no routine 1RM | Keeps e1RM honest without adding maximal testing | Small |
-| P2 | Add warm-up/ramp sets to the prescription or document the assumption explicitly | The template only describes working sets | Small |
-| P2 | Validate the calibrated continuity and selection models prospectively before letting them drive loads automatically | Avoid overfitting to a small, noisy log | Large |
-| P3 | Parent-variant e1RM ratios and weakness/injury selection | Useful later, but not needed to fix the current programme | Large |
+| priority | change | reason | effort | status |
+|---|---|---|---|---|
+| P0 | Fix power items: bodyweight/implement only, no e1RM/double progression | A loaded box jump is not the intended stimulus | Small | **Done** |
+| P0 | Rebalance main-lift volume: second hinge exposure or lower bench volume; target ~6–8 hinge sets/week | Current 4 vs 12 is not a balanced strength dose | Medium | **Done** (Plan A + second hinge) |
+| P0 | Restrict automatic selection to load-comparable variants; require confirmation for different implements | Prevents a valid load solve from silently changing the stimulus | Medium | **Done** (A/B/C guard) |
+| P1 | Add a horizontal row and a vertical press (3 sets each), or explicitly trade bench accessory volume | Upper-body balance and shoulder health | Small | **Done** |
+| P1 | Add a scheduled low-volume week or a readiness set-reduction option | No general fatigue valve today; evidence is weak but the gap is real | Medium | **Partial** — set valve done; scheduled deload open |
+| P1 | Define a rolling next-session policy that preserves A/B/C balance across missed weeks | Current fixed sequence is brittle | Medium | **Done** (session types) |
+| P2 | Schedule a 3RM/5RM calibration every 8–12 weeks; no routine 1RM | Keeps e1RM honest without adding maximal testing | Small | **Open** |
+| P2 | Add warm-up/ramp sets to the prescription or document the assumption explicitly | The template only describes working sets | Small | **Open** |
+| P2 | Validate the calibrated continuity and selection models prospectively before letting them drive loads automatically | Avoid overfitting to a small, noisy log | Large | **Open** |
+| P3 | Parent-variant e1RM ratios and weakness/injury selection | Useful later, but not needed to fix the current programme | Large | **Open** |
 
 ## 5. Bottom line
 
@@ -239,8 +240,8 @@ No implementation here; this is the recommendation list.
   load, trap-bar choice, measurable strength.
 - **Methodology, not evidence:** erector scheduling, spinal cap, exact accessory RIR, 3×/week
   calendar.
-- **Weakest links:** hinge volume/frequency, power-load handling, selection comparability,
-  absence of a general deload/volume valve, and upper-body balance.
+- **Weakest links now:** scheduled deload, individualized MRV/under-MEV titration, 3RM/5RM test
+  cadence, explicit warm-up prescription, and prospective validation.
 - **Verdict:** a good foundation and a safe default for a back-sensitive lifter; not yet a
   well-balanced strength programme.
 

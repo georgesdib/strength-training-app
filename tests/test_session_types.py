@@ -29,3 +29,12 @@ def test_rolling_schedule_keeps_the_three_emphases_balanced():
     assert schedule.legacy_day("hinge") == "B"
     assert schedule.legacy_day("bench_squat") == "C"
     assert schedule.legacy_day("bench_hinge") == "C"
+
+
+def test_plan_a_restores_squat_and_raises_hinge_volume():
+    squat = templates.SessionTemplate.load("squat")
+    hinge = templates.SessionTemplate.load("hinge")
+    bench_squat = templates.SessionTemplate.load("bench_squat")
+    assert next(s.sets for s in squat.slots if s.id == "squat_main") == 5
+    assert next(s.sets for s in hinge.slots if s.id == "hinge_main") == 5
+    assert next(s.sets for s in bench_squat.slots if s.id == "squat_support") == 4

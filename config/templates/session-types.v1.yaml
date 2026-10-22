@@ -27,7 +27,7 @@ session_types:
           load_source: bodyweight
         - id: squat_main
           exercise: ssb_squat
-          sets: 4
+          sets: 5
           reps: {low: 3, high: 5}
           rir: {low: 2, high: 3}
           rest_s: 180
@@ -74,7 +74,7 @@ session_types:
       slots:
         - id: hinge_main
           exercise: trap_bar_deadlift
-          sets: 4
+          sets: 5
           reps: {low: 3, high: 5}
           rir: {low: 2, high: 3}
           rest_s: 180
@@ -129,7 +129,7 @@ session_types:
           load_source: e1rm
         - id: squat_support
           exercise: ssb_squat
-          sets: 3
+          sets: 4
           reps: {low: 3, high: 5}
           rir: {low: 2, high: 3}
           rest_s: 180
