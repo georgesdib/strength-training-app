@@ -106,6 +106,7 @@ def reactive_deload_reason(conn, as_of: str, *,
 
 def build_programme(conn, *, start: str | None = None, weeks: int = 4,
                     per_week: int = 3, start_day: str | None = None,
+                    start_session_type: str | None = None,
                     apply_deload: bool = True) -> list[ProgrammeEntry]:
     if weeks <= 0:
         raise ValueError("weeks must be positive")
@@ -114,8 +115,19 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
     first = dt.date.fromisoformat(start) if start else dt.date.today()
     dates = _dates(first, weeks, per_week)
     prior: list[str] = []
-    if start_day:
-        start_type = {"A": "squat", "B": "hinge", "C": "bench_squat"}[start_day.upper()]
+    if start_session_type and start_session_type != "auto":
+        if start_session_type not in templates.SESSION_TYPES:
+            raise ValueError(
+                f"start_session_type must be one of {templates.SESSION_TYPES} or auto"
+            )
+        start_type = start_session_type
+    elif start_day:
+        # Deprecated A/B/C compatibility; C maps to bench+squat because the legacy label had
+        # no bench+hinge distinction.
+        legacy = {"A": "squat", "B": "hinge", "C": "bench_squat"}
+        if start_day.upper() not in legacy:
+            raise ValueError("start_day must be A, B or C")
+        start_type = legacy[start_day.upper()]
     else:
         start_type = schedule.next_session_type(conn, first.isoformat())
     # The past does not change across a forward horizon, so load it once. Rebuilding the

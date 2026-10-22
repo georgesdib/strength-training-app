@@ -126,10 +126,18 @@
           <label><input id="programme-remaining" type="checkbox"> from today</label>
           <label>Start <input id="programme-start" type="date"></label>
           <label>Sessions/week <select id="programme-per-week"><option>3</option><option>2</option><option>1</option></select></label>
-          <label>First day <select id="programme-day"><option value="">auto</option><option>A</option><option>B</option><option>C</option></select></label>
+          <label>First session
+            <select id="programme-session-type">
+              <option value="auto">auto (rolling)</option>
+              <option value="squat">Squat emphasis</option>
+              <option value="hinge">Hinge emphasis</option>
+              <option value="bench_squat">Bench + squat</option>
+              <option value="bench_hinge">Bench + hinge</option>
+            </select>
+          </label>
           <button class="primary" type="submit">Build forecast</button>
         </form>
-        <p class="muted">A dated A/B/C rotation. Loads are projections; every session is recomputed when its day arrives. Nothing is persisted.</p>
+        <p class="muted">Rolling session-type forecast; A/B/C remains the legacy label. Loads are projections, and every session is rebuilt when its day arrives. Nothing is persisted.</p>
       </div>
       <div id="programme-result"></div>
     </section>

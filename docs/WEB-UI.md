@@ -45,6 +45,9 @@ global option in the CLI). It is convenience only: it ends in the same `strength
   is required for B, and C is hidden unless **show different lifts** is ticked (and can never be
   applied automatically). **Use LLM** appears only when Apply is ticked. Without the toggle the
   prescription is unchanged.
+- **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
+  date and first session type (`auto` or a specific type). Legacy A/B/C is shown as context;
+  every session is rebuilt on the day and nothing is persisted.
 - **Cardio** — log a session (modality, minutes, HR, distance, sRPE) choose the window (4/12/26/52 weeks) and an optional as-of date:
   sessions, total/average minutes, weekly breakdown and the WHO reference as context. Capture
   only; no load changes.

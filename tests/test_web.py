@@ -464,3 +464,11 @@ def test_volume_ledger_endpoint(server):
     assert "patterns" in data
     assert data["window_weeks"] == 4
     assert any(row["mrv"] is not None for row in data["patterns"])
+
+
+def test_programme_accepts_a_start_session_type(server):
+    data = post(server, "/api/programme", {
+        "weeks": 1, "sessions_per_week": 1, "start_session_type": "bench_hinge",
+    })
+    assert data["entries"][0]["session_type"] == "bench_hinge"
+    assert data["entries"][0]["day"] == "C"

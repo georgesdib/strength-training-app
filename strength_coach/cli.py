@@ -133,7 +133,12 @@ def main(argv: list[str] | None = None) -> int:
                            help="start today instead of the block anchor")
     programme.add_argument("--start", default=None, help="YYYY-MM-DD")
     programme.add_argument("--sessions-per-week", type=int, choices=(1, 2, 3), default=3)
-    programme.add_argument("--start-day", choices=("A", "B", "C"), default=None)
+    programme.add_argument("--start-session-type",
+                           choices=("auto", "squat", "hinge", "bench_squat", "bench_hinge"),
+                           default=None,
+                           help="first session type; default: rolling")
+    programme.add_argument("--start-day", choices=("A", "B", "C"), default=None,
+                           help="deprecated A/B/C alias; C maps to bench_squat")
 
     e1rm = sub.add_parser("e1rm", help="set or list manual e1RM overrides")
     e1rm_sub = e1rm.add_subparsers(dest="action", required=True)
@@ -720,10 +725,11 @@ def _cmd_programme(args) -> int:
         entries = programme_feature.build_programme(
             conn, start=start, weeks=args.weeks,
             per_week=args.sessions_per_week, start_day=args.start_day,
+            start_session_type=args.start_session_type,
         )
         print(f"programme: {args.weeks} week(s) from {start}; forecast only, "
               "recomputed on the day")
-        print(f"{'date':<12}{'day':<5}{'status':<10}loads")
+        print(f"{'date':<12}{'type':<14}{'day':<5}{'status':<10}loads")
         for entry in entries:
             p = entry.prescription
             loads = ", ".join(
@@ -733,7 +739,8 @@ def _cmd_programme(args) -> int:
             status = "forecast" if p.executable else "not executable"
             if entry.deload_reason:
                 status = "deload"
-            print(f"{entry.on_date:<12}{entry.day:<5}{status:<10}{loads}")
+            print(f"{entry.on_date:<12}{entry.session_type or entry.day:<14}"
+                  f"{entry.day:<5}{status:<10}{loads}")
             if entry.deload_reason:
                 print(f"  reactive deload: {entry.deload_reason}")
             if p.warnings:

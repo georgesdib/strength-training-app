@@ -136,3 +136,18 @@ def test_programme_cli_prints_a_horizon(tmp_path, capsys):
     assert "forecast only" in out
     assert "2024-01-03" in out
     assert "Day A" not in out  # column format, not prose
+
+
+def test_start_session_type_can_force_bench_hinge_and_start_day_is_legacy():
+    with store_with() as store:
+        conn = store.connection
+        forced = programme.build_programme(
+            conn, start="2024-01-02", weeks=1, per_week=1,
+            start_session_type="bench_hinge",
+        )
+        legacy = programme.build_programme(
+            conn, start="2024-01-02", weeks=1, per_week=1, start_day="C",
+        )
+    assert forced[0].session_type == "bench_hinge"
+    assert forced[0].day == "C"
+    assert legacy[0].session_type == "bench_squat"

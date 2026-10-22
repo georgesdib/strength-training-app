@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **574 public tests** (589 with the 15 private integration tests)
+Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **576 public tests** (591 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progres
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 589 locally, including private integration
+.venv/bin/python -m pytest            # 591 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -384,7 +384,7 @@ Decided: there is **no fixed block**. Training is continuous, and a deload is **
 it happens because the data asks for it, not because a calendar says so. That makes "remaining
 programme" simply "from today onward".
 
-Scope: `programme --weeks N [--remaining]` prints a rolling horizon. The horizon is a
+Scope: `programme --weeks N [--remaining] [--start-session-type T]` prints a rolling horizon. The horizon is a
 forecast, not a commitment, and `--remaining` starts from today. The declared
 `block_start_date` is the **erector-ramp anchor** only; it does not bound the programme.
 
@@ -401,7 +401,7 @@ Rules: progression between weeks uses the existing double-progression decisions 
 accessories and e1RM-derived loads for main lifts; the weekly spinal cap and the erector ramp
 apply across the horizon.
 
-Acceptance: `programme --weeks N` prints a dated A/B/C rotation; `--remaining` starts today;
+Acceptance: `programme --weeks N` prints a dated session-type forecast with legacy A/B/C labels; `--start-session-type T` (or deprecated `--start-day`) sets the first session; `--remaining` starts today;
 every planned session carries its rationale refs; the day's prescription recomputes and
 supersedes the plan; a reactive deload fires on the configured trigger and says why; printing
 a programme needs no LLM.
@@ -591,7 +591,7 @@ Planned surfaces, in suggested order:
    veto. Proposal history stays visible.
 4. **Manual workout logging** (4.2) — per-set entry, conclude/log, then the review catch-up for
    previous sessions.
-5. **Programme view** (4.4) — **done**. Rolling horizon with recomputation on the day.
+5. **Programme view** (4.4) — **done**. Rolling session-type horizon with recomputation on the day; legacy A/B/C is context only.
 6. **Video** (4.8) — opt-in attachment, privacy warning, commentary only, never a score.
 7. **Readiness settings** (4.9) — **done**. Baseline window, minimum readings, slopes and
    weights; shadow baseline report.

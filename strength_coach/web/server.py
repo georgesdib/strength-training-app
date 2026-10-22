@@ -751,6 +751,7 @@ class Handler(BaseHTTPRequestHandler):
             weeks=int(body.get("weeks") or 4),
             per_week=int(body.get("sessions_per_week") or 3),
             start_day=body.get("start_day") or None,
+            start_session_type=body.get("start_session_type") or None,
             apply_deload=True,
         )
         return {"entries": [
