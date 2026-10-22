@@ -298,6 +298,14 @@ Proposed in [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md): class A lo
 class B near-comparable (confirmation required), class C different lift (never automatic).
 **Implemented 2026-10-20**; the exact A/B boundary remains open.
 
+## Q22. Should selection target weakness or injury?
+
+**Deferred 2026-10-20.** No positive weakness/injury targeting. Injury remains a
+constraint/ceiling/penalty; it must never boost a candidate. A relative-weakness display, if
+added, is display-only. Revisit only with a validated weakness definition, retrospective
+baseline, and prospective/N-of-1 evidence. See
+[WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md).
+
 ## Closed
 
 - ~~What do the extreme `RIR` values mean?~~ **Closed** — `RIR 6` marks a **warm-up set**

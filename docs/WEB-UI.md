@@ -44,7 +44,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
   **Apply selection** makes A candidates replace the slot exercises, **Confirm near-comparable**
   is required for B, and C is hidden unless **show different lifts** is ticked (and can never be
   applied automatically). **Use LLM** appears only when Apply is ticked. Without the toggle the
-  prescription is unchanged. A scheduled deload is shown as a suggestion with an **Apply deload** button; it is not applied until confirmed. Reactive deloads are automatic. Applied deloads cite `MOD-DELOAD-001`. Main lifts show their warm-up ramp; the strength-test cadence is shown in the notes. The volume ledger now applies `MOD-VOL-002` (one accessory set after three weeks below MEV).
+  prescription is unchanged. The **Retrospective validation** panel runs the walk-forward check. A scheduled deload is shown as a suggestion with an **Apply deload** button; it is not applied until confirmed. Reactive deloads are automatic. Applied deloads cite `MOD-DELOAD-001`. Main lifts show their warm-up ramp; the strength-test cadence is shown in the notes. The volume ledger now applies `MOD-VOL-002` (one accessory set after three weeks below MEV).
 - **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
   date and first session type (`auto` or a specific type). Legacy A/B/C is shown as context;
   every session is rebuilt on the day and nothing is persisted.
@@ -83,6 +83,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `GET /api/cardio?weeks=N` | cardio summary for the window |
 | `POST /api/cardio` | `{date, modality, minutes, avg_hr, max_hr, distance_km, srpe, note}` -> summary |
 | `GET /api/fatigue?date=N` | strength fitness-fatigue shadow model (per-lift state and status) |
+| `GET /api/validation?max_dates=N` | retrospective walk-forward report (not prospective) |
 | `GET /api/continuity?date=N` | return-to-training calibration: per-band n/median/CI/fixed/applied and `allow_relax_fixed` |
 | `GET /api/volume?date=N&weeks=4` | weekly hard-set ledger by movement pattern (advisory) |
 | `GET /api/progress?date=N` | descriptive progress: sRPE coverage, performance ratio, volume status, latest back symptom |

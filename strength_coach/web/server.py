@@ -42,6 +42,7 @@ from strength_coach.features import injury_signal, readiness as readiness_featur
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import progress as progress_feature
 from strength_coach.features import readiness_baseline
+from strength_coach.features import retrospective_validation
 from strength_coach.features import readiness_calibration, readiness_score
 from strength_coach.prescribe import build_prescription
 from strength_coach.prescribe import deload as deload_mod
@@ -266,6 +267,12 @@ class Handler(BaseHTTPRequestHandler):
                 day = query.get("date", [None])[0]
                 self._json(200, self._with_conn(
                     lambda c: progress_feature.dashboard(c, day)
+                ))
+            elif path == "/api/validation":
+                query = parse_qs(urlparse(self.path).query)
+                max_dates = int(query.get("max_dates", ["12"])[0])
+                self._json(200, self._with_conn(
+                    lambda c: {"text": retrospective_validation.report(c, max_dates=max_dates)}
                 ))
             elif path == "/api/selection":
                 query = parse_qs(urlparse(self.path).query)

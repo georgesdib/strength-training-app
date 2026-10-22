@@ -77,6 +77,7 @@ class LiftModel:
     backtest_mae: float | None = None
     backtest_naive_mae: float | None = None
     backtest_n: int = 0
+    scale_kg: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         def r(value):
@@ -102,6 +103,7 @@ class LiftModel:
             "backtest_mae": r(self.backtest_mae),
             "backtest_naive_mae": r(self.backtest_naive_mae),
             "backtest_n": self.backtest_n,
+            "scale_kg": r(self.scale_kg),
             "params": self.params,
         }
 
@@ -262,6 +264,7 @@ def _fit_model(
         backtest_mae=backtest_mae,
         backtest_naive_mae=backtest_naive_mae,
         backtest_n=backtest_n,
+        scale_kg=scale,
     )
 
 

@@ -75,6 +75,7 @@ def test_the_page_and_overview_are_served(server):
     assert "Programme" in page and "Terminal" in page
     assert "prescribe-selection-confirm" in page
     assert "selection-include-different" in page
+    assert "validation-run" in page
     # CLI/UI parity: the recent capture surfaces are reachable from the shell.
     assert "Cardio" in page and "Measures" in page
     assert "cardio-weeks" in page
@@ -506,3 +507,8 @@ def test_progress_dashboard_endpoint(server):
     assert "performance" in data
     assert "volume" in data
     assert "no prescription change" in data["note"]
+
+def test_retrospective_validation_endpoint(server):
+    status, body = get(server, "/api/validation?max_dates=2")
+    assert status == 200
+    assert "RETROSPECTIVE WALK-FORWARD" in json.loads(body)["text"]

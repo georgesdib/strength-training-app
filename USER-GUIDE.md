@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 574 public tests
+.venv/bin/python -m pytest          # 588 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -759,6 +759,24 @@ intervals, and a status (`ok`, `weak fit`, `insufficient`, `unstable`);
 it refuses parameters when the data are sparse or ill-conditioned. **No prescription reads
 it.** The Prescribe page shows the same table under **Strength fatigue model**. See
 [FATIGUE-FITNESS.md](docs/FATIGUE-FITNESS.md) §4a.
+
+### 4.10f `validate` — retrospective walk-forward
+
+```bash
+strength-coach validate --max-dates 12
+```
+
+Replays past cutoffs using only earlier data. It checks:
+
+- **continuity** against the fixed rule;
+- the **strength fatigue** model against persistence;
+- volume only descriptively, because no predictive volume model exists;
+- selection is excluded, because there is no counterfactual.
+
+The 12-date result was: fatigue relative MAE 0.158 vs 0.074 persistence; continuity 0.150 vs
+0.128 fixed. Both lost to their baselines, so neither is adopted. The Prescribe page has the same
+report under **Retrospective validation**. This is not prospective validation; see
+[RETROSPECTIVE-VALIDATION.md](docs/RETROSPECTIVE-VALIDATION.md).
 
 ### 4.10e Deload policy
 

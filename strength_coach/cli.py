@@ -46,6 +46,7 @@ from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import readiness_baseline
+from strength_coach.features import retrospective_validation
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import deload as deload_feature
 from strength_coach.features import readiness_score
@@ -249,6 +250,10 @@ def main(argv: list[str] | None = None) -> int:
     cardio.add_argument("--weeks", type=int, default=12,
                         help="summary window in weeks (default 12)")
 
+    validate = sub.add_parser("validate", help="retrospective walk-forward model checks")
+    validate.add_argument("--max-dates", type=int, default=12,
+                          help="number of evaluation dates (default 12)")
+
     select = sub.add_parser("select", help="show shadow exercise-selection suggestions")
     select.add_argument("--date", required=True, help="YYYY-MM-DD")
     select.add_argument("--day", choices=("A", "B", "C"), default="B")
@@ -307,6 +312,7 @@ def main(argv: list[str] | None = None) -> int:
         "continuity": _cmd_continuity,
         "fatigue": _cmd_fatigue,
         "select": _cmd_select,
+        "validate": _cmd_validate,
         "exercise": _cmd_exercise,
         "block": _cmd_block,
         "readiness": _cmd_readiness,
@@ -1093,6 +1099,15 @@ def _cmd_exercise(args) -> int:
     row = next(r for r in result["entities"] if r["id"] == args.id)
     print(f"exercise {args.id}: {row['display']} ({row['pattern']}, {row['source']})")
     return 0
+
+
+def _cmd_validate(args) -> int:
+    store = db.Store(args.db)
+    try:
+        print(retrospective_validation.report(store.connection, max_dates=args.max_dates))
+        return 0
+    finally:
+        store.close()
 
 
 def _cmd_select(args) -> int:

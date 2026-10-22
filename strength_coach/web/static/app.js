@@ -369,6 +369,16 @@ async function loadSelection() {
 
 $("#selection-run").addEventListener("click", loadSelection);
 
+$("#validation-run").addEventListener("click", async () => {
+  $("#validation-result").innerHTML = "<p class='empty'>Running walk-forward check…</p>";
+  try {
+    const data = await api("/api/validation?max_dates=12");
+    $("#validation-result").innerHTML = `<pre>${esc(data.text)}</pre>`;
+  } catch (error) {
+    $("#validation-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+});
+
 /* --- strength fatigue model ---------------------------------------------- */
 async function loadFatigue() {
   try {

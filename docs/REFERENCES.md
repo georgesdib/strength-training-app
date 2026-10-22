@@ -224,6 +224,18 @@ conclusion is weaker than it looks.
 | 123 | Farias DA, Willardson JM, Paz GA, Bezerra ES, Miranda H. *Maximal Strength Performance and Muscle Activation for the Bench Press and Triceps Extension Exercises Adopting Dumbbell, Barbell, and Machine Modalities Over Multiple Sets.* J Strength Cond Res, 2017;31(7):1879-1887. | 10.1519/JSC.0000000000001651 | Bench modality changes performance, repetitions and activation. |
 | 124 | Baz-Valle E, Schoenfeld BJ, Torres-Unda J, Santos-Concejero J, Balsalobre-Fernández C. *The effects of exercise variation in muscle thickness, maximal strength and motivation in resistance trained men.* PLOS ONE, 2019;14(12):e0226989. | 10.1371/journal.pone.0226989 | Random variation produced similar strength/hypertrophy but better motivation; no evidence for algorithmic selection. |
 
+## 18. Weakness/injury targeting and individual response
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 125 | Robinson ZP, Helms ER, Trexler ET, Steele J, Hall ME, Huang CJ, Zourdos MC. *N of 1: Optimizing Methodology for the Detection of Individual Response Variation in Resistance Training.* Sports Medicine, 2024. | 10.1007/s40279-024-02050-z | Individual response variation needs repeated within-person designs; group averages can hide different responses. |
+| 126 | Rauch JT, Ugrinowitsch C, Barakat CI, et al. *Auto-Regulated Exercise Selection Training Regimen Produces Small Increases in Lean Body Mass and Maximal Strength Adaptations in Strength-trained Individuals.* J Strength Cond Res, 2020;34(4):1133-1140. | 10.1519/JSC.0000000000002272 | Small advantage for auto-regulated selection in one small study; not a weakness-targeting algorithm. |
+| 127 | Parkinson AO, Apps CL, Morris JG, Barnett CT, Lewis MGC. *The Calculation, Thresholds and Reporting of Inter-Limb Strength Asymmetry: A Systematic Review.* J Sports Sci Med, 2021. | 10.52082/jssm.2021.594 | Asymmetry calculation, thresholds and reporting are inconsistent. |
+| 128 | Helme M, Tee J, Emmonds S, Low C. *The associations between unilateral leg strength, asymmetry and injury in sub-elite Rugby League players.* Phys Ther Sport, 2023. | 10.1016/j.ptsp.2023.05.003 | No leg-strength measure was related to injury relative risk; only a weak association with time lost. |
+| 129 | Tyler TF, Mullaney MJ, Mirabella MR, Nicholas SJ, McHugh MP. *Risk Factors for Shoulder and Elbow Injuries in High School Baseball Pitchers: The Role of Preseason Strength and Range of Motion.* Am J Sports Med, 2014. | 10.1177/0363546514535070 | Population-specific association between supraspinatus weakness and major injury; not a general selection rule. |
+| 130 | Knapik JJ, Bauman CL, Jones BH, Harris JM, Vaughan L. *Preseason strength and flexibility imbalances associated with athletic injuries in female collegiate athletes.* Am J Sports Med, 1991. | 10.1177/036354659101900113 | Mixed historical evidence on preseason imbalance and injury. |
+| 131 | Sprague AL, Couppé C, Pohlig RT, Snyder-Mackler L, Silbernagel KG. *Pain-guided activity modification during treatment for patellar tendinopathy: a feasibility and pilot randomized clinical trial.* Pilot Feasibility Stud, 2021. | 10.1186/s40814-021-00792-5 | Pain-guided modification is feasible in rehabilitation; not evidence for algorithm-selected exercise substitution. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow

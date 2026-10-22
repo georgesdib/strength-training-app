@@ -120,6 +120,15 @@
         </div>
         <div id="selection-result"></div>
       </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Retrospective validation</h2>
+          <span class="muted">walk-forward; no prescription change</span></div>
+        <p class="muted">Replays past cutoffs using only earlier data. It checks continuity and the
+          strength fatigue model against simple baselines; volume is descriptive only and
+          selection has no counterfactual. Not prospective validation.</p>
+        <button class="ghost" id="validation-run">Run retrospective check</button>
+        <div id="validation-result"></div>
+      </div>
     </section>
 
     <section id="view-programme" class="view">

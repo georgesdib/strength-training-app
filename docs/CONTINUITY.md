@@ -38,6 +38,12 @@ the engine; the open questions are at the end.
 - **Erector ramp**: pauses during the gap; after the long break it steps back one stage. Rest
   settles symptoms but does not build load tolerance.
 
+### Retrospective walk-forward (2026-10-20)
+
+On 12 observed returns, the calibrated factor had ratio MAE 0.150 versus 0.128 for the fixed
+rule; the calibrated version lost. The fixed fallback therefore remains in use. This is
+retrospective, not prospective; see [RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md).
+
 ### Open questions — parked for calibration
 
 The arithmetic is frozen (`DEC-CONTINUITY-02`) and these are inputs to the calibration in
