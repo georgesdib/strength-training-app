@@ -236,6 +236,15 @@ conclusion is weaker than it looks.
 | 130 | Knapik JJ, Bauman CL, Jones BH, Harris JM, Vaughan L. *Preseason strength and flexibility imbalances associated with athletic injuries in female collegiate athletes.* Am J Sports Med, 1991. | 10.1177/036354659101900113 | Mixed historical evidence on preseason imbalance and injury. |
 | 131 | Sprague AL, Couppé C, Pohlig RT, Snyder-Mackler L, Silbernagel KG. *Pain-guided activity modification during treatment for patellar tendinopathy: a feasibility and pilot randomized clinical trial.* Pilot Feasibility Stud, 2021. | 10.1186/s40814-021-00792-5 | Pain-guided modification is feasible in rehabilitation; not evidence for algorithm-selected exercise substitution. |
 
+## 19. Deadlift variants and feedback
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 132 | Escamilla RF, Francisco AC, Kayes AV, Speer KP, Moorman CT. *An electromyographic analysis of sumo and conventional style deadlifts.* Med Sci Sports Exerc, 2002;34(4):682-688. | 10.1097/00005768-200204000-00019 | Sumo has more quadriceps/less gastrocnemius activity than conventional; both are legitimate variants. |
+| 133 | Escamilla RF, Francisco AC, Fleisig GS, et al. *A three-dimensional biomechanical analysis of sumo and conventional style deadlifts.* Med Sci Sports Exerc, 2000;32(7):1265-1275. | 10.1097/00005768-200007000-00013 | Kinematic/kinetic differences; no injury-outcome ranking. |
+| 134 | Hagerupsen K, Pedersen S, Giller NB, et al. *Comparison of resistance training using barbell half squats and trap bar deadlifts on maximal strength, power performance, and lean mass in recreationally active females: an eight-week randomised trial.* BMC Sports Sci Med Rehabil, 2024;16:124. | 10.1186/s13102-024-00911-8 | Similar adaptations when loads are heavy and target muscles are trained; exercise selection is secondary. |
+| 135 | Weakley J, Cowley N, Schoenfeld BJ, et al. *The Effect of Feedback on Resistance Training Performance and Adaptations: A Systematic Review and Meta-analysis.* Sports Med, 2023;53(9):1789-1803. | 10.1007/s40279-023-01877-2 | Feedback improves acute performance and technical competency; does not mandate routine post-session review. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow
