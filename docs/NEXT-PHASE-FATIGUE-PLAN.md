@@ -14,7 +14,7 @@ The plan now follows these constraints:
 - use the data already available plus a one-time sRPE/duration backfill;
 - do not require measured 3RM/5RM tests — use the computed e1RM as the outcome, with its
   limitations;
-- treat the two known back-flare episodes as the current back-history evidence; revisit only if
+- treat the three known low-back tweaks as the current back-history evidence; revisit only if
   a future episode does not fit the pattern;
 - do not invent a “bad session” label;
 - do not experiment with or manipulate the training programme;
@@ -40,7 +40,7 @@ Assuming sRPE and duration are backfilled, the usable dataset will contain:
 - actual reps and load;
 - computed e1RM from the existing sets;
 - daily readiness;
-- the two known back-flare episodes;
+- the three known low-back tweaks;
 - future sessions logged normally, if the athlete chooses.
 
 It will **not** contain:
@@ -53,12 +53,12 @@ It will **not** contain:
 
 That is enough for **descriptive calibration**, not for automatic decision rules.
 
-### 2. The two back-flare episodes
+### 2. The three low-back tweaks
 
 Use them as a **qualitative case series**:
 
-- both occurred in the historical record;
-- they are too few for statistical calibration;
+- all three occurred in the historical record;
+- three events are too few for statistical calibration;
 - they justify keeping the existing reactive back rules;
 - if a future episode does not fit the expected pattern, revisit the model then.
 
@@ -181,7 +181,7 @@ A single editable table, planned for the Review/Import UI:
 - actual reps and loads;
 - computed e1RM;
 - readiness;
-- two known back episodes.
+- three known low-back tweaks.
 
 ### Not required
 
@@ -236,7 +236,7 @@ Produce, with uncertainty and limitations:
 1. sRPE coverage and distribution.
 2. sRPE versus hard sets, tonnage and duration.
 3. Readiness versus performance ratio.
-4. Two back-flare case reviews.
+4. Three low-back case reviews.
 5. A statement of what cannot be estimated.
 
 Do not produce:
@@ -297,7 +297,7 @@ programme.
 | Post-session signal | sRPE only |
 | Bad-session label | not needed; derive performance ratio |
 | Measured strength tests | not required; computed e1RM is the observational outcome |
-| Back episodes | two known episodes as a case series; revisit only if pattern changes |
+| Back episodes | three known low-back tweaks as a case series; revisit only if pattern changes |
 | Scheduled deload | optional suggestion; no trial |
 | Reactive deload | automatic |
 | Volume/MRV work | not in this phase |
