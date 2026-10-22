@@ -93,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
                      help="apply the shadow selector's exercise substitutions")
     run.add_argument("--selection-llm", action="store_true",
                      help="let the model choose among the filtered candidates (requires --apply-selection)")
+    run.add_argument("--selection-confirm", action="store_true",
+                     help="confirm a near-comparable (class B) substitution; class C is never automatic")
     run.add_argument("--yes", action="store_true",
                      help="apply an accepted proposal without asking")
 
@@ -239,6 +241,8 @@ def main(argv: list[str] | None = None) -> int:
     select = sub.add_parser("select", help="show shadow exercise-selection suggestions")
     select.add_argument("--date", required=True, help="YYYY-MM-DD")
     select.add_argument("--day", choices=("A", "B", "C"), default="B")
+    select.add_argument("--include-different", action="store_true",
+                        help="show class C (different lift/load basis) candidates")
     select.add_argument("--llm", action="store_true",
                         help="let the configured model choose from the filtered candidates")
 
@@ -354,6 +358,9 @@ def _cmd_run(args) -> int:
         if args.selection_llm and not args.apply_selection:
             print("--selection-llm requires --apply-selection")
             return 2
+        if args.selection_confirm and not args.apply_selection:
+            print("--selection-confirm requires --apply-selection")
+            return 2
         if args.session_type == "auto":
             if args.day:
                 session_type = None
@@ -372,6 +379,7 @@ def _cmd_run(args) -> int:
             conn, for_date=args.date, session_day=day,
             session_type=session_type,
             apply_selection=args.apply_selection, selection_chooser=chooser,
+            selection_confirmed=args.selection_confirm,
         )
 
         with RunTrace.start(conn, input_hash=f"{session_id}:{args.date}",
@@ -1040,7 +1048,10 @@ def _cmd_select(args) -> int:
         chooser = None
         if args.llm:
             chooser = agent_selection.chooser(build_client(load_settings()))
-        rows = selection_mod.select(conn, None, args.date, args.day, chooser=chooser)
+        rows = selection_mod.select(
+            conn, None, args.date, args.day, chooser=chooser,
+            include_different=args.include_different,
+        )
     finally:
         store.close()
     print(f"exercise selection (shadow; no prescription change) {args.date} day {args.day}")
@@ -1049,7 +1060,8 @@ def _cmd_select(args) -> int:
         return 0
     for row in rows:
         mark = "->" if row.changed else "="
-        print(f"  {row.slot_id:<28}{row.current} {mark} {row.suggested}  [{row.source}]")
+        print(f"  {row.slot_id:<28}{row.current} {mark} {row.suggested}  "
+              f"[{row.source}; class {row.comparison_class}]")
         print(f"    {row.reason}")
         for candidate in row.candidates:
             print(f"    {candidate.exercise_id:<24} {candidate.score:.3f}  "

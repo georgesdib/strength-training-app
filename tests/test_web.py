@@ -73,6 +73,8 @@ def test_the_page_and_overview_are_served(server):
     assert status == 200
     assert "Strength" in page
     assert "Programme" in page and "Terminal" in page
+    assert "prescribe-selection-confirm" in page
+    assert "selection-include-different" in page
     # CLI/UI parity: the recent capture surfaces are reachable from the shell.
     assert "Cardio" in page and "Measures" in page
     assert "cardio-weeks" in page

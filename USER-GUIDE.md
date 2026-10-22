@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 474 public tests
+.venv/bin/python -m pytest          # 573 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -690,20 +690,30 @@ Apply it to a prescription with:
 
 ```bash
 strength-coach run --date 2026-10-20 --day A --apply-selection
+strength-coach run --date 2026-10-20 --day A --apply-selection --selection-confirm
 strength-coach run --date 2026-10-20 --day A --apply-selection --selection-llm
 ```
 
 ```bash
 strength-coach select --date 2026-10-20 --session-type hinge
+strength-coach select --date 2026-10-20 --session-type hinge --include-different
 strength-coach select --date 2026-10-20 --session-type hinge --llm
 ```
 
 Ranks the configured variants for the chosen session type from readiness, recent stress,
 rotation and preference. Constraints and `can_do: false` exclude a candidate; an active injury region
 penalises one. `--llm` lets the configured model choose **only from that filtered list**;
-Python validates and falls back deterministically on any error. By default it is preview-only;
-the Prescribe **Apply selection** toggle (or `run --apply-selection`) applies the chosen
-candidates and re-solves their loads. The Prescribe page has the same panel.
+Python validates and falls back deterministically on any error. Candidates now carry a
+comparability class:
+
+- **A** — load-comparable; can apply automatically.
+- **B** — near-comparable (same pattern, different grip/bar/ROM/stability); requires explicit
+  confirmation with `--selection-confirm` or the Prescribe checkbox.
+- **C** — different lift/load basis; hidden by default and **never applied automatically**.
+
+The selector still re-solves the load from the selected lift's own history. Class C is shown
+only with `--include-different` (or "show different lifts" in the UI) for information.
+The Prescribe **Apply selection** toggle applies A, and B only when confirmed.
 
 ### 4.10h `volume` — weekly hard-set ledger
 

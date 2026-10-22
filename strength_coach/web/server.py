@@ -260,8 +260,11 @@ class Handler(BaseHTTPRequestHandler):
                 session_type = query.get("session_type", [None])[0]
                 session_day = query.get("day", [None])[0]
                 use_llm = query.get("llm", ["0"])[0] == "1"
+                include_different = query.get("include_different", ["0"])[0] == "1"
                 self._json(200, self._with_conn(
-                    lambda c: self._selection(c, day, session_type, session_day, use_llm)
+                    lambda c: self._selection(
+                        c, day, session_type, session_day, use_llm, include_different
+                    )
                 ))
             elif path == "/api/exercises/catalog":
                 self._json(200, exercise_admin.catalog())
@@ -448,6 +451,7 @@ class Handler(BaseHTTPRequestHandler):
                     f"{assessment.basis}"
                 )
         apply_selection = _truth(body.get("apply_selection"))
+        selection_confirmed = _truth(body.get("selection_confirmed")) and apply_selection
         selection_llm = _truth(body.get("selection_llm")) and apply_selection
         chooser = (
             agent_selection.chooser(build_client(load_settings()))
@@ -457,6 +461,7 @@ class Handler(BaseHTTPRequestHandler):
             conn, for_date=for_date, session_day=day,
             session_type=session_type,
             apply_selection=apply_selection, selection_chooser=chooser,
+            selection_confirmed=selection_confirmed,
         )
         return prescription_dict(prescription)
 
@@ -653,7 +658,8 @@ class Handler(BaseHTTPRequestHandler):
         return self._cardio(conn, body)
 
     def _selection(self, conn, day: str, session_type: str | None,
-                   session_day: str | None, use_llm: bool) -> dict:
+                   session_day: str | None, use_llm: bool,
+                   include_different: bool = False) -> dict:
         chooser = None
         if use_llm:
             chooser = agent_selection.chooser(build_client(load_settings()))
@@ -667,7 +673,8 @@ class Handler(BaseHTTPRequestHandler):
             session_day = schedule_mod.legacy_day(session_type)
         rows = selection_mod.select(
             conn, None, day, session_day or "A",
-            session_type=session_type, chooser=chooser
+            session_type=session_type, chooser=chooser,
+            include_different=include_different,
         )
         return {
             "on_date": day,

@@ -132,7 +132,7 @@ loss. `box_jump` remains bodyweight-only in the taxonomy. Loaded power work, if 
 must be a separate variation with its own prescription, not this slot.
 
 See [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md) for the evidence and the proposed
-three-class guard. No implementation yet.
+three-class guard. Implemented 2026-10-20.
 
 #### C. Exercise selection has no comparability guard
 

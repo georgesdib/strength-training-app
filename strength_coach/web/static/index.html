@@ -64,6 +64,7 @@
             </select>
           </label>
           <label><input type="checkbox" id="prescribe-apply-selection"> Apply selection</label>
+          <label id="prescribe-selection-confirm-wrap" hidden><input type="checkbox" id="prescribe-selection-confirm"> Confirm near-comparable (B)</label>
           <label id="prescribe-selection-llm-wrap" hidden><input type="checkbox" id="prescribe-selection-llm"> Use LLM</label>
           <button class="primary" type="submit">Build prescription</button>
         </form>
@@ -110,6 +111,7 @@
           Python falls back deterministically.</p>
         <div class="form-row">
           <label><input type="checkbox" id="selection-llm"> use LLM</label>
+          <label><input type="checkbox" id="selection-include-different"> show different lifts (C)</label>
           <button class="ghost" id="selection-run">Check selection</button>
         </div>
         <div id="selection-result"></div>

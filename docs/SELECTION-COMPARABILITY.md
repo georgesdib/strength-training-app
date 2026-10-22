@@ -1,8 +1,9 @@
 # SELECTION COMPARABILITY — evidence and proposed guard
 
-**Status: proposal, not implemented.** This note documents the evidence behind the open P0 in
+**Status: implemented 2026-10-20.** This note documents the evidence and the guard that is now
 [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md) and proposes a comparability model.
-It changes no code or configuration.
+The implemented classification is in `config/selection-comparability.v1.yaml`; the selector,
+engine, CLI and web UI enforce it.
 
 ---
 
@@ -144,7 +145,7 @@ weak**. The guard is a safety and coherence measure, not a proven performance in
    load and stimulus change visible.
 6. **No parent-variant ratio is validated.** A ratio can be a future prior, not a conversion.
 
-## 5. Proposed solution (no implementation)
+## 5. Implemented solution
 
 ### 5.1 Classify each variant, not just its pattern
 
@@ -232,4 +233,20 @@ Adopt the **three-class guard**, default all non-identical variants to **B**, an
 for different implements/load bases. Keep variation available, but make the load-basis change
 explicit and require confirmation before a prescription changes.
 
-No implementation in this change.
+## 8. Implementation status
+
+Implemented 2026-10-20:
+
+- `config/selection-comparability.v1.yaml` defines load-basis groups, default B and explicit
+  B/C pairs;
+- `prescribe/selection.py` classifies candidates against the current lift and hides C unless
+  `include_different` is requested;
+- `prescribe/engine.py` applies only A automatically; B requires `selection_confirmed`; C is
+  never applied by the selector;
+- CLI `select` shows the class and `--include-different`; `run --selection-confirm` confirms B;
+- the web Prescribe form has a near-comparable confirmation and a “show different lifts”
+  checkbox; the selection panel shows class badges;
+- tests cover default filtering, B confirmation, C blocking and selected-lift load resolution.
+
+Still open: the exact A/B boundary for pause/narrow bench and SSB/high-bar, pair-vs-exercise
+metadata, and any future parent-ratio prior.

@@ -404,6 +404,72 @@ def test_recent_stress_is_attached_as_an_advisory_only():
     assert not any("MOD-FAT" in ref for item in prescription.items for ref in item.rationale_refs)
 
 
+def test_selection_b_requires_confirmation():
+    from strength_coach.prescribe import selection as selection_mod
+    from unittest.mock import patch
+
+    def fake_select(conn, context, on_date, day, **kwargs):
+        return [selection_mod.SlotSelection(
+            slot_id="bench_main",
+            current="bench_press_narrow",
+            suggested="bench_press_pause",
+            changed=True,
+            source="python",
+            reason="test substitution",
+            candidates=(),
+            comparison_class="B",
+            requires_confirmation=True,
+        )]
+
+    rows = BASE_HISTORY + [
+        {"Date": "2024-01-08", "Exercise": "Bench Press (narrow grip)", "Weight_Used": "90",
+         "RIR": "2", "Reps_Done": "5"},
+    ]
+    with store_with(rows) as store:
+        with patch("strength_coach.prescribe.engine.selection_mod.select", fake_select):
+            prescription = build_prescription(
+                store.connection, for_date="2024-01-15", session_day="B",
+                apply_selection=True,
+            )
+    ids = {item.exercise_id for item in prescription.items}
+    assert "bench_press_pause" not in ids
+    assert "bench_press_narrow" in ids
+    assert any("requires confirmation" in warning for warning in prescription.warnings)
+
+
+def test_selection_c_is_never_automatic():
+    from strength_coach.prescribe import selection as selection_mod
+
+    def fake_select(conn, context, on_date, day, **kwargs):
+        return [selection_mod.SlotSelection(
+            slot_id="accessory_pull_up",
+            current="lat_pulldown",
+            suggested="pull_up",
+            changed=True,
+            source="python",
+            reason="test substitution",
+            candidates=(),
+            comparison_class="C",
+            requires_confirmation=True,
+        )]
+
+    rows = BASE_HISTORY + [
+        {"Date": "2024-01-08", "Exercise": "Lat Pulldown", "Weight_Used": "60",
+         "RIR": "2", "Reps_Done": "10"},
+    ]
+    with store_with(rows) as store:
+        from unittest.mock import patch
+        with patch("strength_coach.prescribe.engine.selection_mod.select", fake_select):
+            prescription = build_prescription(
+                store.connection, for_date="2024-01-15", session_day="B",
+                apply_selection=True, selection_confirmed=True,
+            )
+        assert "pull_up" not in {item.exercise_id for item in prescription.items}
+        assert "lat_pulldown" in {item.exercise_id for item in prescription.items}
+        assert any("different lift/load basis" in warning for warning in prescription.warnings)
+        assert prescription.notes["selection"]["slots"][0]["blocked_reason"]
+
+
 def test_per_lift_readiness_can_only_lower_a_load():
     rows = BASE_HISTORY + [
         {"Date": "2024-01-06", "Exercise": "Trap Bar Deadlift", "Weight_Used": "100",
@@ -428,13 +494,15 @@ def test_apply_selection_rebuilds_the_item_and_cites_mod_select(monkeypatch):
 
     def fake_select(conn, context, on_date, day, **kwargs):
         return [selection_mod.SlotSelection(
-            slot_id="accessory_pull_up",
-            current="lat_pulldown",
-            suggested="pull_up",
+            slot_id="bench_main",
+            current="bench_press_narrow",
+            suggested="bench_press_pause",
             changed=True,
             source="python",
             reason="test substitution",
             candidates=(),
+            comparison_class="B",
+            requires_confirmation=True,
         )]
 
     monkeypatch.setattr("strength_coach.prescribe.engine.selection_mod.select", fake_select)
@@ -445,11 +513,12 @@ def test_apply_selection_rebuilds_the_item_and_cites_mod_select(monkeypatch):
     with store_with(rows) as store:
         prescription = build_prescription(
             store.connection, for_date="2024-01-15", session_day="B",
-            apply_selection=True,
+            apply_selection=True, selection_confirmed=True,
         )
-        item = next(i for i in prescription.items if i.exercise_id == "pull_up")
+        item = next(i for i in prescription.items if i.exercise_id == "bench_press_pause")
         assert "MOD-SELECT-001" in item.rationale_refs
         assert prescription.notes["selection"]["applied"] is True
+        assert prescription.notes["selection"]["slots"][0]["applied"] is True
         context = RuleContext.from_store(store.connection, end="2024-01-15")
         assert validate_references(prescription, context, store.connection) == []
 

@@ -64,6 +64,7 @@ def build_prescription(
     vbt: vbt_calibration.CalibrationResult | None = None,
     apply_selection: bool = False,
     selection_chooser: Callable | None = None,
+    selection_confirmed: bool = False,
     session_type: str | None = None,
 ) -> Prescription:
     """Generate the deterministic session for `for_date`.
@@ -106,10 +107,26 @@ def build_prescription(
     )
     for index, slot in enumerate(template.slots):
         selected_row = selection_rows.get(slot.id)
-        selected_exercise = (
-            selected_row.suggested
-            if selected_row is not None and selected_row.changed else None
-        )
+        selected_exercise = None
+        if selected_row is not None and selected_row.changed:
+            if selected_row.comparison_class == "C":
+                blocked = "different lift/load basis; never automatic"
+            elif selected_row.comparison_class == "B" and not selection_confirmed:
+                blocked = "near-comparable substitution requires confirmation"
+            else:
+                blocked = None
+            if blocked is None:
+                selected_exercise = selected_row.suggested
+            else:
+                warnings.append(
+                    f"selection skipped for {slot.id}: {selected_row.suggested} "
+                    f"({blocked})"
+                )
+                note = next(
+                    (row for row in selection_notes if row["slot_id"] == slot.id), None
+                )
+                if note is not None:
+                    note["blocked_reason"] = blocked
         item, slot_warnings = build_item(
             conn, context, slot, index, thresholds, for_date, decisions, template,
             calibration_factors=e1rm_factors, exercise_id=selected_exercise,
@@ -119,9 +136,15 @@ def build_prescription(
                 item,
                 rationale_refs=item.rationale_refs + ("MOD-SELECT-001",),
             )
+            note = next(
+                (row for row in selection_notes if row["slot_id"] == slot.id), None
+            )
+            if note is not None:
+                note["applied"] = True
             warnings.append(
                 f"MOD-SELECT-001: {slot.id} selected {selected_exercise} "
-                f"({selected_row.source}); load re-solved from its own history"
+                f"({selected_row.source}, {selected_row.comparison_class}); "
+                f"load re-solved from its own history"
             )
         items.append(item)
         warnings.extend(slot_warnings)

@@ -8,7 +8,7 @@ under `MOD-SELECT-001`; this module deliberately stops short of that.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -21,6 +21,58 @@ from strength_coach.prescribe import templates
 from strength_coach.rules import RuleContext
 from strength_coach.store import queries
 from strength_coach.utils import exercises, paths
+
+
+@dataclass(frozen=True)
+class ComparisonConfig:
+    """A/B/C classification for a current -> candidate substitution."""
+
+    default_class: str = "B"
+    load_basis: Mapping[str, str] = field(default_factory=dict)
+    pair_classes: Mapping[frozenset[str], str] = field(default_factory=dict)
+    source_path: Path = Path()
+
+    @classmethod
+    def load(cls, path: str | Path | None = None) -> "ComparisonConfig":
+        source = Path(path or paths.config_dir("selection-comparability.v1.yaml"))
+        if not source.exists():
+            return cls(source_path=source)
+        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        default = str(raw.get("default_class", "B")).upper()
+        if default not in {"A", "B", "C"}:
+            raise ValueError(f"default_class must be A/B/C, got {default!r}")
+        load_basis: dict[str, str] = {}
+        for basis, ids in (raw.get("load_basis") or {}).items():
+            for exercise_id in ids or ():
+                load_basis[str(exercise_id)] = str(basis)
+        pair_classes: dict[frozenset[str], str] = {}
+        for klass, pairs in (raw.get("pairs") or {}).items():
+            name = str(klass).upper()
+            if name not in {"A", "B", "C"}:
+                raise ValueError(f"pair class must be A/B/C, got {klass!r}")
+            for pair in pairs or ():
+                if len(pair) != 2:
+                    raise ValueError("each comparability pair needs two exercise ids")
+                pair_classes[frozenset((str(pair[0]), str(pair[1])))] = name
+        return cls(default_class=default, load_basis=load_basis,
+                   pair_classes=pair_classes, source_path=source)
+
+    def classify(self, current: str, candidate: str) -> tuple[str, str]:
+        if current == candidate:
+            return "A", "same exercise"
+        pair = frozenset((current, candidate))
+        if pair in self.pair_classes:
+            klass = self.pair_classes[pair]
+            if klass == "C":
+                return "C", "configured as a different lift/load basis"
+            if klass == "B":
+                return "B", "near-comparable; confirmation required"
+            return "A", "configured as load-comparable"
+        left = self.load_basis.get(current)
+        right = self.load_basis.get(candidate)
+        if left and right and left != right:
+            return "C", f"different load basis ({left} -> {right})"
+        return self.default_class, "same load basis; confirmation required"
 
 
 @dataclass(frozen=True)
@@ -63,12 +115,16 @@ class Candidate:
     exercise_id: str
     score: float
     reasons: tuple[str, ...]
+    comparison_class: str
+    comparison_reason: str
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "exercise_id": self.exercise_id,
             "score": round(self.score, 3),
             "reasons": list(self.reasons),
+            "comparison_class": self.comparison_class,
+            "comparison_reason": self.comparison_reason,
         }
 
 
@@ -81,6 +137,8 @@ class SlotSelection:
     source: str                 # python | llm | none
     reason: str
     candidates: tuple[Candidate, ...]
+    comparison_class: str
+    requires_confirmation: bool
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -91,6 +149,10 @@ class SlotSelection:
             "source": self.source,
             "reason": self.reason,
             "candidates": [candidate.as_dict() for candidate in self.candidates],
+            "comparison_class": self.comparison_class,
+            "requires_confirmation": self.requires_confirmation,
+            "applied": False,
+            "blocked_reason": None,
         }
 
 
@@ -142,6 +204,8 @@ def select(
     session_type: str | None = None,
     config: SelectionConfig | None = None,
     chooser: Callable[[templates.Slot, tuple[Candidate, ...]], tuple[str, str] | None] | None = None,
+    include_different: bool = False,
+    comparability: ComparisonConfig | None = None,
 ) -> list[SlotSelection]:
     """Rank variants per slot; never modify the prescription.
 
@@ -149,6 +213,7 @@ def select(
     candidates and must return `(exercise_id, reason)` or None. The id is validated here.
     """
     cfg = config or SelectionConfig.load()
+    comparison = comparability or ComparisonConfig.load()
     template = (
         templates.SessionTemplate.load(session_type)
         if session_type is not None else templates.DayTemplate.load(day)
@@ -189,6 +254,9 @@ def select(
         current = _current(slot, context)
         candidates: list[Candidate] = []
         for exercise_id in candidate_ids:
+            comparison_class, comparison_reason = comparison.classify(current, exercise_id)
+            if comparison_class == "C" and not include_different:
+                continue
             entity = context.entity(exercise_id)
             if exercise_id in vetoed:
                 continue
@@ -231,7 +299,10 @@ def select(
                 f"preference {preference:.1f}",
                 f"fatigue {fatigue:.2f}",
             ]
-            candidates.append(Candidate(exercise_id, _clamp(score), tuple(reasons)))
+            candidates.append(Candidate(
+                exercise_id, _clamp(score), tuple(reasons),
+                comparison_class, comparison_reason,
+            ))
 
         if not candidates:
             continue
@@ -266,6 +337,15 @@ def select(
             source=source,
             reason=reason,
             candidates=ranked,
+            comparison_class=(
+                next(c.comparison_class for c in ranked if c.exercise_id == suggested)
+                if suggested != current else "A"
+            ),
+            requires_confirmation=(
+                suggested != current and next(
+                    c.comparison_class for c in ranked if c.exercise_id == suggested
+                ) != "A"
+            ),
         ))
     return out
 

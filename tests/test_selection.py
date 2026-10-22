@@ -35,7 +35,8 @@ def pull_slot(rows):
 def test_the_most_recent_variant_is_the_current_choice_and_suggestions_are_advisory():
     with store_with() as store:
         context = RuleContext.from_store(store.connection, end="2024-01-15")
-        rows = selection.select(store.connection, context, "2024-01-15", "B")
+        rows = selection.select(store.connection, context, "2024-01-15", "B",
+                                include_different=True)
     slot = pull_slot(rows)
     assert slot.current == "lat_pulldown"
     assert slot.suggested in {"pull_up", "lat_pulldown", "close_grip_pulldown"}
@@ -51,7 +52,8 @@ def test_can_do_false_excludes_a_candidate():
             can_do=False, will_do=False, feels_bad=False,
         )
         context = RuleContext.from_store(store.connection, end="2024-01-15")
-        rows = selection.select(store.connection, context, "2024-01-15", "B")
+        rows = selection.select(store.connection, context, "2024-01-15", "B",
+                                include_different=True)
     slot = pull_slot(rows)
     assert "lat_pulldown" not in {c.exercise_id for c in slot.candidates}
     assert "pull_up" in {c.exercise_id for c in slot.candidates}
@@ -63,6 +65,7 @@ def test_an_llm_choice_must_come_from_the_candidate_list():
         rows = selection.select(
             store.connection, context, "2024-01-15", "B",
             chooser=lambda slot, candidates: ("pull_up", "model prefers the pull-up"),
+            include_different=True,
         )
     slot = pull_slot(rows)
     assert slot.suggested == "pull_up"
@@ -85,3 +88,23 @@ def test_day_a_has_catalogue_variants_even_though_the_template_has_one_exercise(
         rows = selection.select(store.connection, context, "2024-01-15", "A")
     squat = next(row for row in rows if row.slot_id == "squat_main")
     assert {"ssb_squat", "competition_squat"} <= {c.exercise_id for c in squat.candidates}
+
+def test_comparability_classes_and_default_filtering():
+    cfg = selection.ComparisonConfig.load()
+    assert cfg.classify("bench_press", "bench_press_pause")[0] == "B"
+    assert cfg.classify("bench_press", "dumbbell_bench_press")[0] == "C"
+    assert cfg.classify("ssb_squat", "competition_squat")[0] == "B"
+    assert cfg.classify("ssb_squat", "front_squat")[0] == "C"
+    assert cfg.classify("pull_up", "lat_pulldown")[0] == "C"
+    assert cfg.classify("bench_press", "bench_press")[0] == "A"
+
+    with store_with() as store:
+        context = RuleContext.from_store(store.connection, end="2024-01-15")
+        hidden = selection.select(store.connection, context, "2024-01-15", "B")
+        shown = selection.select(store.connection, context, "2024-01-15", "B",
+                                 include_different=True)
+    hidden_slot = pull_slot(hidden)
+    shown_slot = pull_slot(shown)
+    assert "pull_up" not in {c.exercise_id for c in hidden_slot.candidates}
+    assert "pull_up" in {c.exercise_id for c in shown_slot.candidates}
+    assert any(c.comparison_class == "C" for c in shown_slot.candidates)

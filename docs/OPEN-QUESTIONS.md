@@ -296,7 +296,7 @@ be used.
 
 Proposed in [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md): class A load-comparable,
 class B near-comparable (confirmation required), class C different lift (never automatic).
-No implementation.
+**Implemented 2026-10-20**; the exact A/B boundary remains open.
 
 ## Closed
 

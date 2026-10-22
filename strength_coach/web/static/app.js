@@ -113,9 +113,15 @@ function openReview(session) {
 /* --- prescribe ---------------------------------------------------------- */
 $("#prescribe-date").value = today();
 $("#prescribe-apply-selection").addEventListener("change", () => {
-  const wrap = $("#prescribe-selection-llm-wrap");
-  wrap.hidden = !$("#prescribe-apply-selection").checked;
-  if (wrap.hidden) $("#prescribe-selection-llm").checked = false;
+  const llmWrap = $("#prescribe-selection-llm-wrap");
+  const confirmWrap = $("#prescribe-selection-confirm-wrap");
+  const on = $("#prescribe-apply-selection").checked;
+  llmWrap.hidden = !on;
+  confirmWrap.hidden = !on;
+  if (!on) {
+    $("#prescribe-selection-llm").checked = false;
+    $("#prescribe-selection-confirm").checked = false;
+  }
 });
 
 $("#prescribe-form").addEventListener("submit", async (event) => {
@@ -125,10 +131,12 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
   $("#prescribe-result").innerHTML = "<p class='empty'>Building…</p>";
   const applySelection = $("#prescribe-apply-selection").checked;
   const selectionLlm = applySelection && $("#prescribe-selection-llm").checked;
+  const selectionConfirmed = applySelection && $("#prescribe-selection-confirm").checked;
   try {
     const data = await api("/api/prescribe", { method: "POST", body: JSON.stringify({
       date, session_type: sessionType,
       apply_selection: applySelection, selection_llm: selectionLlm,
+      selection_confirmed: selectionConfirmed,
     }) });
     renderPrescription(data);
   } catch (error) {
@@ -165,7 +173,9 @@ function renderPrescription(p) {
   const selection = p.notes?.selection;
   const selectionBox = selection?.applied
     ? `<p class="muted">Selection applied (${esc(selection.llm_used ? "LLM" : "Python")}); substituted slots are cited as <code>MOD-SELECT-001</code>.</p>`
-    : "";
+    : selection?.slots?.some((s) => s.blocked_reason)
+      ? `<p class="warnbox">Selection skipped: ${esc(selection.slots.filter((s) => s.blocked_reason).map((s) => s.slot_id + " (" + s.blocked_reason + ")").join("; "))}</p>`
+      : "";
   const signal = p.notes?.injury_signal;
   const signalBox = signal ? `<p class="muted">Injury signal: <strong>${esc(signal.status)}</strong>
     — ${esc(signal.summary)}</p>` : "";
@@ -280,15 +290,20 @@ async function loadSelection() {
   const sessionType = $("#prescribe-session-type").value;
   if (!date) { $("#selection-result").innerHTML = "<p class='empty'>Choose a date first.</p>"; return; }
   const llm = $("#selection-llm").checked ? "1" : "0";
+  const different = $("#selection-include-different").checked ? "1" : "0";
   $("#selection-result").innerHTML = "<p class='empty'>Scoring variants…</p>";
   try {
-    const data = await api(`/api/selection?date=${encodeURIComponent(date)}&session_type=${encodeURIComponent(sessionType)}&llm=${llm}`);
+    const data = await api(`/api/selection?date=${encodeURIComponent(date)}&session_type=${encodeURIComponent(sessionType)}&llm=${llm}&include_different=${different}`);
     const rows = (data.slots || []).map((slot) => {
       const candidates = slot.candidates.map((c) =>
-        `<li>${esc(c.exercise_id)} — ${c.score} <span class="muted">${esc(c.reasons.join("; "))}</span></li>`).join("");
+        `<li>${esc(c.exercise_id)} — ${c.score}
+          <span class="badge">${esc(c.comparison_class)}</span>
+          <span class="muted">${esc(c.reasons.join("; "))} · ${esc(c.comparison_reason)}</span></li>`).join("");
+      const policy = slot.comparison_class === "A" ? "auto-eligible"
+        : slot.requires_confirmation ? "confirmation required" : "current";
       return `<tr><td><strong>${esc(slot.slot_id)}</strong></td>
         <td>${esc(slot.current)} → <strong>${esc(slot.suggested)}</strong>
-        <div class="muted">${esc(slot.reason)} [${esc(slot.source)}]</div></td>
+        <div class="muted">${esc(slot.reason)} [${esc(slot.source)}] · ${esc(policy)}</div></td>
         <td><ul class="plain">${candidates}</ul></td></tr>`;
     }).join("");
     $("#selection-result").innerHTML = rows

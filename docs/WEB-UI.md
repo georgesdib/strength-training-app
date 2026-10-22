@@ -39,10 +39,12 @@ global option in the CLI). It is convenience only: it ends in the same `strength
   rule ids. A `recent stress` column, a `readiness` column, the **strength fatigue model**
   panel (shadow: per-lift + overall fitness/fatigue/state with approximate 95% intervals,
   R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against advisory targets), the **continuity calibration** panel (per-band returns/fixed/applied and the
-  `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings; optional LLM chooser). The session is chosen by the rolling emphasis rule; **Apply selection** on the form
-  makes the chosen candidates replace the slot exercises; **Use LLM** appears only when it is
-  ticked. Without the toggle the prescription is unchanged. It says when a day has no variant
-  slots.
+  `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings with A/B/C
+  comparison classes; optional LLM chooser). The session is chosen by the rolling emphasis rule;
+  **Apply selection** makes A candidates replace the slot exercises, **Confirm near-comparable**
+  is required for B, and C is hidden unless **show different lifts** is ticked (and can never be
+  applied automatically). **Use LLM** appears only when Apply is ticked. Without the toggle the
+  prescription is unchanged.
 - **Cardio** — log a session (modality, minutes, HR, distance, sRPE) choose the window (4/12/26/52 weeks) and an optional as-of date:
   sessions, total/average minutes, weekly breakdown and the WHO reference as context. Capture
   only; no load changes.
@@ -65,7 +67,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 |---|---|
 | `GET /api/overview` | dashboard data |
 | `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
-| `POST /api/prescribe` | `{date, session_type?, day?, apply_selection?, selection_llm?}` -> prescription; `session_type=auto` uses the rolling rule |
+| `POST /api/prescribe` | `{date, session_type?, day?, apply_selection?, selection_confirmed?, selection_llm?}` -> prescription; `session_type=auto` uses the rolling rule |
 | `GET /api/review/<session>` | session sheet |
 | `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes}` -> marks + optional session detail |
 | `GET /api/readiness/<date>` | merged readiness |
@@ -82,7 +84,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `GET /api/volume?date=N&weeks=4` | weekly hard-set ledger by movement pattern (advisory) |
 | `POST /api/continuity/settings` | `{allow_relax_fixed}` -> update the calibration policy |
 | `POST /api/readiness/volume` | update the readiness volume valve (enabled, score below, sets, include essentials) |
-| `GET /api/selection?date=N&session_type=X&llm=0\|1` | exercise-selection rankings for a session type |
+| `GET /api/selection?date=N&session_type=X&llm=0\|1&include_different=0\|1` | exercise-selection rankings with A/B/C comparability classes |
 | `GET /api/exercises/catalog` | full exercise catalogue with source/properties |
 | `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml` |
 | `GET /api/measurements` | metric catalogue, per-metric summary and recent entries |

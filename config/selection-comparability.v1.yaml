@@ -1,0 +1,74 @@
+# Selection comparability — config, not code.
+#
+# A = same load basis, safe to apply automatically.
+# B = same pattern but a changed grip/bar/ROM/stability; confirmation required.
+# C = different implement/load basis; never automatic.
+#
+# Default is B: a configured candidate is assumed to be a real variant unless its load basis
+# differs. Explicit pairs win over the load-basis check.
+
+schema_version: "1.0.0"
+default_class: B
+
+load_basis:
+  barbell:
+    - competition_squat
+    - high_bar_squat
+    - deep_squat
+    - squat_to_box
+    - squat_2s_pause
+    - squat_2s_pause_halfway_down
+    - squat_2s_pause_halfway_up
+    - squat_from_pins
+    - squat_narrow_stance
+    - squat_partial_range_of_motion
+    - squat_w_chains
+    - squat_w_bands
+    - bench_press
+    - bench_press_narrow
+    - bench_press_pause
+    - bench_press_from_pins
+    - bench_press_w_chains
+    - bench_press_w_bands
+    - bench_press_elevated_legs
+    - bench_press_medium_grip
+    - bench_press_wide_grip
+    - bench_press_reverse_grip
+    - bench_press_negative
+    - bench_press_explosive
+    - floor_press
+    - board_press
+    - incline_press
+    - decline_bench_press
+  dumbbell:
+    - dumbbell_bench_press
+    - incline_db_bench_press
+  machine:
+    - hack_squat
+    - belt_squat
+    - landmine_squat
+    - lat_pulldown
+    - close_grip_pulldown
+  bodyweight:
+    - pull_up
+  safety_bar:
+    - ssb_squat
+  front_rack:
+    - front_squat
+    - front_squat_to_box
+
+# Explicit overrides. C examples are different implements/positions even when both are
+# barbell; B examples are the hard same-pattern cases that still need confirmation.
+pairs:
+  B:
+    - [ssb_squat, competition_squat]
+    - [ssb_squat, high_bar_squat]
+    - [front_squat, front_squat_to_box]
+    - [lat_pulldown, close_grip_pulldown]
+  C:
+    - [bench_press, incline_press]
+    - [bench_press, decline_bench_press]
+    - [bench_press, bench_press_w_cambered_bar]
+    - [bench_press_narrow, bench_press_w_cambered_bar]
+    - [ssb_squat, front_squat]
+    - [ssb_squat, front_squat_to_box]
