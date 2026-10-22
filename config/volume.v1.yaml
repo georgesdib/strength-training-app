@@ -1,15 +1,20 @@
-# Weekly hard-set ledger. This is an advisory report, not a load controller (ROADMAP §4.17).
+# Weekly hard-set ledger and conservative MRV cap (ROADMAP §4.17).
 #
-# Targets are broad movement-pattern ranges, not precise prescriptions. They are deliberately
-# config so the programme can be audited without encoding a new training theory.
+# MEV/MAV/MRV are coaching landmarks, not measured individual thresholds. The values are broad
+# defaults informed by volume dose-response work and deliberately configurable; the cap only
+# trims non-essential sets when a pattern is already over MRV. Under-MEV is reported, never
+# auto-filled.
 schema_version: "1.0.0"
 window_weeks: 4
-targets:
-  squat: [6, 12]
-  hinge: [6, 10]
-  hinge_unilateral: [0, 6]
-  horizontal_push: [8, 14]
-  vertical_push: [3, 8]
-  horizontal_pull: [4, 10]
-  vertical_pull: [3, 8]
-  core: [3, 9]
+apply_mrv_cap: true
+
+landmarks:
+  # pattern: {mev, mav: [low, high], mrv}
+  squat: {mev: 6, mav: [8, 12], mrv: 14}
+  hinge: {mev: 6, mav: [6, 9], mrv: 10}
+  hinge_unilateral: {mev: 0, mav: [0, 6], mrv: 8}
+  horizontal_push: {mev: 8, mav: [10, 16], mrv: 18}
+  vertical_push: {mev: 3, mav: [4, 8], mrv: 10}
+  horizontal_pull: {mev: 4, mav: [6, 10], mrv: 12}
+  vertical_pull: {mev: 3, mav: [4, 8], mrv: 10}
+  core: {mev: 3, mav: [4, 9], mrv: 12}

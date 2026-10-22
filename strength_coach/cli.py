@@ -1067,6 +1067,8 @@ def _cmd_volume(args) -> int:
                                         config=volume_feature.VolumeConfig(
                                             window_weeks=args.weeks,
                                             targets=volume_feature.VolumeConfig.load().targets,
+                                            landmarks=volume_feature.VolumeConfig.load().landmarks,
+                                            apply_mrv_cap=volume_feature.VolumeConfig.load().apply_mrv_cap,
                                         ))
     finally:
         store.close()

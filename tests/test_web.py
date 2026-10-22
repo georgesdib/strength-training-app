@@ -453,3 +453,4 @@ def test_volume_ledger_endpoint(server):
     data = json.loads(body)
     assert "patterns" in data
     assert data["window_weeks"] == 4
+    assert any(row["mrv"] is not None for row in data["patterns"])

@@ -30,6 +30,7 @@ from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import continuity_calibration
+from strength_coach.features import volume as volume_feature
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
 from strength_coach.features import lift_readiness as lift_readiness_feature
 from strength_coach.features import recent_stress as recent_stress_feature
@@ -195,6 +196,11 @@ def build_prescription(
         conn, context, tuple(items), for_date, fallback_level, calibration=vbt_cal
     )
 
+    items, volume_warnings, volume_note = _apply_volume_cap(
+        context, tuple(items), for_date
+    )
+    warnings.extend(volume_warnings)
+
     # Injury signals are context, never policy: a flaring region adds a warning naming the
     # lifts that load it, but never vetoes or edits a load (DEC-INJURY-01).
     warnings.extend(_injury_warnings(injury, tuple(items)))
@@ -270,6 +276,7 @@ def build_prescription(
             "back_flare": bool(context.symptom_flare),
             "constraints": constraint_report.status,
             "session_type": session_type,
+            "volume_management": volume_note,
             "selection": {
                 "applied": bool(apply_selection),
                 "llm_requested": bool(selection_chooser),
@@ -282,6 +289,90 @@ def build_prescription(
 
 # Lifts whose velocity signal is not trustworthy enough to prescribe from (docs/VBT-EVIDENCE.md).
 VBT_UNRELIABLE = {"trap_bar_deadlift"}
+
+
+def _apply_volume_cap(
+    context: RuleContext,
+    items: tuple[PrescriptionItem, ...],
+    for_date: str,
+) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], dict]:
+    """Trim non-essential sets when a pattern would exceed its configured MRV.
+
+    The cap is deliberately one-directional: under-MEV is reported by the volume ledger but is
+    never auto-filled. The MRV landmark is a coaching heuristic, not a measured individual
+    threshold, so only accessories are trimmed; an essential item is never silently cut.
+    """
+    cfg = volume_feature.VolumeConfig.load()
+    if not cfg.apply_mrv_cap or cfg.landmarks is None:
+        return items, (), {"applied": False, "reason": "cap disabled"}
+
+    cutoff = pd.Timestamp(for_date) - pd.Timedelta(days=7)
+    prior = context.sets
+    if not prior.empty and "is_working_set" in prior:
+        prior = prior[prior["is_working_set"].astype(bool)]
+        prior = prior[(prior["date"] > cutoff) & (prior["date"] <= pd.Timestamp(for_date))]
+    prior_counts: dict[str, int] = {}
+    if not prior.empty:
+        for exercise_id in prior["exercise_id"].astype(str).unique():
+            pattern = context.entity(exercise_id).get("pattern")
+            key = volume_feature.volume_target_key(pattern) if pattern else None
+            if key:
+                count = int((prior["exercise_id"].astype(str) == exercise_id).sum())
+                prior_counts[key] = prior_counts.get(key, 0) + count
+
+    proposed: dict[str, list[int]] = {}
+    for index, item in enumerate(items):
+        pattern = context.entity(item.exercise_id).get("pattern")
+        key = volume_feature.volume_target_key(pattern) if pattern else None
+        if key:
+            proposed.setdefault(key, []).append(index)
+
+    warnings: list[str] = []
+    changed: dict[int, int] = {}
+    for key, indexes in proposed.items():
+        landmark = cfg.landmarks.get(key)
+        if landmark is None:
+            continue
+        mrv = landmark[3]
+        total = prior_counts.get(key, 0) + sum(items[i].sets for i in indexes)
+        if total <= mrv:
+            continue
+        for index in indexes:
+            if items[index].essential:
+                continue
+            if total <= mrv:
+                break
+            item = items[index]
+            cut = min(item.sets - 1, total - mrv)
+            if cut > 0:
+                changed[index] = item.sets - cut
+                total -= cut
+        if total > mrv:
+            warnings.append(
+                f"volume: {key} would reach {total:g} hard sets in 7 days, above MRV "
+                f"{mrv:g}; no non-essential sets left to trim"
+            )
+
+    out: list[PrescriptionItem] = []
+    for index, item in enumerate(items):
+        if index not in changed:
+            out.append(item)
+            continue
+        out.append(replace(
+            item,
+            sets=changed[index],
+            rationale_refs=item.rationale_refs + ("MOD-VOL-001",),
+        ))
+    if changed:
+        warnings.append(
+            "MOD-VOL-001: trimmed non-essential sets to stay at or below the configured MRV"
+        )
+    return tuple(out), tuple(warnings), {
+        "applied": bool(changed),
+        "reductions": {items[i].exercise_id: items[i].sets - sets
+                       for i, sets in changed.items()},
+        "warning_count": len(warnings),
+    }
 
 
 def _injury_warnings(signal: injury_signal_mod.InjurySignal,

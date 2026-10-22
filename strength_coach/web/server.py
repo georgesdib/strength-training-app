@@ -681,7 +681,9 @@ class Handler(BaseHTTPRequestHandler):
         context = RuleContext.from_store(conn, end=on_date)
         cfg = volume_feature.VolumeConfig.load()
         cfg = volume_feature.VolumeConfig(
-            window_weeks=weeks, targets=cfg.targets, source_path=cfg.source_path
+            window_weeks=weeks, targets=cfg.targets,
+            landmarks=cfg.landmarks, apply_mrv_cap=cfg.apply_mrv_cap,
+            source_path=cfg.source_path,
         )
         report = volume_feature.compute(context.sets, on_date=on_date, config=cfg)
         return {"on_date": on_date, "window_weeks": weeks, **report}

@@ -201,6 +201,7 @@ never read `data/raw`.
 | `docs/LIFT-READINESS.md` | per-lift readiness evidence, components, weights and downward-only rule |
 | `docs/EXERCISE-VARIANTS.md` | how to add a canonical variant, slot wiring, history caveat, selection tuning |
 | `docs/STRENGTH-PROGRAM-REVIEW.md` | evidence check and critique of the strength programme (review only) |
+| `docs/VOLUME-MANAGEMENT.md` | MEV/MAV/MRV evidence, configured landmarks, ledger and MRV cap |
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |
 | `docs/SPINAL-COST.md` | evidence behind the ordinal spinal-cost ratings |

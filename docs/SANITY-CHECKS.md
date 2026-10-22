@@ -123,6 +123,8 @@ without conditioning on provenance penalises the athlete for following the presc
   anti-extension + anti-rotation/lateral, progressed by load/leverage) is a synthesis of the
   evidence, not a validated minimum. The evidence gives no dose-response for this population
   (`docs/CORE-TRAINING.md`).
+- **ASSUMPTION-31** — the MEV/MAV/MRV landmarks and the seven-day MRV window are broad
+  coaching defaults, not measured individual thresholds (`DEC-VOLUME-02`).
 - **ASSUMPTION-30** — the continuity calibration minimums (5 returns/band, 12 total), 0.15
   bootstrap-width ceiling, 0.85 lower bound and 365-day cap are transparent defaults, not
   validated (`DEC-CONTINUITY-03`).

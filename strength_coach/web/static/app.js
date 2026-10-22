@@ -830,11 +830,13 @@ async function loadVolume() {
     const rows = data.patterns.map((row) => `<tr>
       <td><code>${esc(row.pattern)}</code></td>
       <td>${row.average}</td><td>${row.total}</td>
-      <td>${row.target ? row.target[0] + "–" + row.target[1] : "—"}</td>
+      <td>${row.mev ?? "—"}</td>
+      <td>${row.mav ? row.mav[0] + "–" + row.mav[1] : "—"}</td>
+      <td>${row.mrv ?? "—"}</td>
       <td>${esc(row.status)}</td></tr>`).join("");
     $("#volume-ledger").innerHTML = `<p class="muted">${esc(data.from)} to ${esc(data.to)}</p>
       <table><thead><tr><th>pattern</th><th>avg sets/week</th><th>total</th>
-      <th>target</th><th>status</th></tr></thead><tbody>${rows}</tbody></table>`;
+      <th>MEV</th><th>MAV</th><th>MRV</th><th>status</th></tr></thead><tbody>${rows}</tbody></table>`;
   } catch (error) {
     $("#volume-ledger").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }

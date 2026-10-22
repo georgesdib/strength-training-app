@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.8.0"
+  version: "1.9.0"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -33,6 +33,8 @@ document:
       change: "Exercise selection may apply one categorical substitution per slot when explicitly enabled; the load is re-solved from the selected lift's own history (DEC-SELECT-02, MOD-SELECT-001)."
     - version: "1.8.0"
       change: "The rolling session-type layer replaces the rigid calendar: squat/hinge emphasis alternates, every session has bench or a vertical pull/press, and horizontal row plus vertical press join the accessory pool (DEC-PROGRAMME-02)."
+    - version: "1.9.0"
+      change: "A conservative MRV cap trims non-essential sets when a movement pattern would exceed its configured weekly maximum recoverable volume; under-MEV is reported, never auto-filled (DEC-VOLUME-02, MOD-VOL-001)."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -332,6 +334,22 @@ modifiers:
       The "or" is deliberate: which branch is chosen depends on how many factors fired,
       and that choice belongs to the deterministic engine, not to an LLM. The score,
       override and cap are documented in docs/READINESS-SCORE.md (DEC-READINESS-06/07).
+
+  - id: MOD-VOL-001
+    title: "Conservative weekly MRV cap"
+    statement: >
+      If the proposed session plus the prior seven days would put a movement pattern above its
+      configured maximum recoverable volume (MRV), trim non-essential sets first. Never auto-add
+      volume below MEV, never silently cut an essential item, and treat MRV as a configurable
+      coaching landmark rather than a measured individual threshold.
+    when:
+      any:
+        - {input: volume.projected_sets, op: ">", value: 0}
+    then:
+      set_reduction: accessory_only
+    availability:
+      status: available
+      reason: "Volume ledger plus configured landmarks (DEC-VOLUME-02, ASSUMPTION-31)."
 
   - id: MOD-SELECT-001
     title: "Categorical exercise substitution from the filtered selector"
