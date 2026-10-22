@@ -3,7 +3,8 @@
 **Status: implemented (2026-10-19; HRV/RHR + wearable 2026-10-20)** for the global/category
 score, overrides, the readiness-required gate, the 20% combined cap, the calibration report,
 baseline-relative HRV/RHR, the optional device-computed wearable score, per-athlete baseline
-settings and the shadow baseline report. Still planned: learned weight adoption.
+settings and the shadow baseline report. Learned weight adoption was evaluated and closed
+on 2026-10-20; see [`READINESS-WEIGHT-EVIDENCE.md`](READINESS-WEIGHT-EVIDENCE.md).
 
 The score replaces the old sleep/energy-only trigger, but the old trigger remains as a safety
 floor. The three legacy per-lift values are calibration labels, never inputs.

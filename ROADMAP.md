@@ -44,7 +44,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
-| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights (§4.9 remaining), LLM/manual-logging parity (§4.11), continuity calibration (§4.12, calibrated bands with fixed fallback), labelled set depth (§4.14), exercise selection apply + comparability (§4.15; weakness/ratios later), strength fitness-fatigue shadow model (§4.16), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17) |
+| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights evaluated and closed (§4.9), LLM/manual-logging parity (§4.11), continuity calibration (§4.12, calibrated bands with fixed fallback), labelled set depth (§4.14), exercise selection apply + comparability (§4.15; weakness/ratios later), strength fitness-fatigue shadow model (§4.16), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17) |
 | v0.4 | Cardio prescription and model | **planned** | cardio prescription and cardio impulse/fatigue model (§4.13 remaining) |
 | v0.5 | Video analysis | **planned** | video capture/analysis and its UI parity (§4.8, §4.11 video part) |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
@@ -55,7 +55,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | version | boundary | status |
 |---|---|---|
 | v0.2 | readiness, continuity, injury, web UI, cardio capture, measurements, session RPE/length, recent stress, per-lift readiness, e1RM calibration/decay | **done** |
-| v0.3 | everything strength/data-depth that is not cardio or video: manual logging, adapters, learned readiness weights, LLM/manual-logging parity, continuity calibration, deeper labelled set, exercise selection, strength fitness-fatigue model | **in progress** |
+| v0.3 | everything strength/data-depth that is not cardio or video: manual logging, adapters, LLM/manual-logging parity, continuity calibration, deeper labelled set, exercise selection, strength fitness-fatigue model | **in progress** |
 | v0.4 | everything cardio: prescription, cardio impulse model, cardio fatigue interaction | **planned** |
 | v0.5 | everything video: capture, analysis, UI parity | **planned** |
 | future | LLM-guided suggested programme (§4.18) | **idea only; not scheduled** |
@@ -519,7 +519,7 @@ Why v0.2 rather than v0.1: it needs a privacy decision (sending personal video t
 model), a provider-capability check, and a storage/retention policy. None of those belong in a
 version whose remaining work is calibration and documentation.
 
-### 4.9 Readiness score and follow-ups  (core + devices done; learned weights = v0.3)
+### 4.9 Readiness score and follow-ups  (core + devices done; learned weights closed)
 
 Implemented (2026-10-19/20):
 
@@ -535,7 +535,8 @@ Implemented (2026-10-19/20):
 - baseline-relative HRV/RHR at 0.5 weight, only with 7 readings in the previous 28 days;
 - optional device-computed wearable readiness (0-100) at a 10% blend.
 
-Full design and evidence: [`docs/READINESS-SCORE.md`](docs/READINESS-SCORE.md).
+Full design and evidence: [`docs/READINESS-SCORE.md`](docs/READINESS-SCORE.md) and
+[`docs/READINESS-WEIGHT-EVIDENCE.md`](docs/READINESS-WEIGHT-EVIDENCE.md).
 
 #### 4.9.1 HRV and RHR in the score — done
 
@@ -557,10 +558,13 @@ with athlete > config > code precedence. The effective source is shown in the sc
 `readiness shadow` compares the rolling-median baseline with a log-linear trend projection.
 It reports the normalised difference; it never changes a score or load.
 
-#### 4.9.3 Learned weights — remaining
+#### 4.9.3 Learned weights — closed
 
-Adopt calibrated weights only if the date-split report beats the equal-weight baseline; the
-report is mimicry of the old labels, not validation.
+The constrained comparison (current equal weights, sleep-heavy, HRV-low) found no improvement
+in the held-out late period. The performance association was essentially zero in that window
+and sRPE associations were weak. Keep fixed transparent weights; do not fit individual weights
+from this dataset. Full method/results: [`docs/READINESS-WEIGHT-EVIDENCE.md`](docs/READINESS-WEIGHT-EVIDENCE.md)
+and `DEC-READINESS-10`.
 
 ### 4.10 Local web UI  (done)
 
@@ -646,6 +650,10 @@ current defaults. Require a minimum number of returns before showing a suggested
 applied factor and status. The prescription keeps `MOD-GAP-001` and adds the calibrated factor
 in its warning/notes. A band with too few returns, a wide interval, or calibration disabled uses
 the fixed factor.
+
+**Retrospective walk-forward (2026-10-20):** 12 returns; calibrated-factor ratio MAE 0.150
+vs fixed-rule 0.128, so the calibrated factor **lost** and the fixed fallback stays in use.
+This is retrospective, not prospective. See [RETROSPECTIVE-VALIDATION.md](docs/RETROSPECTIVE-VALIDATION.md).
 
 Acceptance: `strength-coach continuity` and `GET /api/continuity` show observed returns versus
 the fixed rule; the minimum-data rule is explicit; a sparse band keeps the fixed factor; a
@@ -740,11 +748,11 @@ never edits; the report states the sample size and excludes low-confidence marks
 
 **Status: apply + comparability implemented 2026-10-20.** `prescribe/selection.py` ranks the configured and catalogue variants per slot from readiness, recent stress, rotation, preference and the cached fitness-fatigue state; constraints and `can_do: false` exclude a candidate; injury is a penalty, not a veto. Candidates carry an A/B/C comparability class: A applies automatically, B requires confirmation, C is hidden by default and never automatic; the selected lift's own history is always used. See `DEC-SELECT-03` and [SELECTION-COMPARABILITY.md](docs/SELECTION-COMPARABILITY.md). It is exposed as `strength-coach select` and a Prescribe panel. With the explicit **Apply selection** toggle, the chosen candidate replaces the slot exercise and the load is re-solved from that lift's own history (`MOD-SELECT-001`). Without the toggle nothing changes. All synthetic raw variant names were canonicalised and their history rewritten (migration 0014, 114 entities, 3,607 audited remaps; migration 0015 split close-grip pulldown); trap-bar date-scoping and back-extension equivalence are preserved.
 
-**Later phase — weakness/injury tailoring.** Now that the selector can apply a substitution,
-rank candidates against per-lift weakness (e1RM relative to bodyweight or a
-comparison lift, muscle-group volume), active injury regions and suitability, not just
-day-to-day readiness. This needs a weakness definition and an explicit policy; it is not part of
-the shadow pass.
+**Weakness/injury tailoring — deferred.** The evidence does not support positive
+weakness/injury targeting (see [WEAKNESS-INJURY-SELECTION.md](docs/WEAKNESS-INJURY-SELECTION.md),
+`DEC-SELECT-04`). Injury remains an exclusion/penalty/ceiling; a relative-weakness display, if
+added, must be display-only. Revisit only after a validated definition, retrospective baseline
+and prospective/N-of-1 test.
 
 **Later phase — variant-group e1RM ratios.** Variants stay distinct entities for now. A future
 model may express a variant's e1RM as a ratio of a parent lift (illustrative: front squat ≈60%
@@ -797,7 +805,7 @@ fallback (done); explicit apply toggle and re-solve (done).
 
 ### 4.16 Strength fitness-fatigue model  (v0.3; shadow prototype implemented)
 
-**Status: shadow prototype implemented 2026-10-20.** `features/fatigue_fitness.py` fits a
+**Status: shadow prototype implemented 2026-10-20; retrospective check failed 2026-10-20.** `features/fatigue_fitness.py` fits a
 per-lift linear performance model from fixed fitness/fatigue half-lives and the athlete's own
 e1RM observations; it reports fitness, fatigue, state, R², condition and refuses sparse or
 ill-conditioned fits. It is exposed as `strength-coach fatigue` and on the Prescribe page.
@@ -820,7 +828,7 @@ partially pooled; intervals are mandatory. The model must state when it is not i
 2. **Shadow fit — done for this phase**: fixed half-lives + linear fit on stored e1RM series,
    approximate 95% intervals, family-slope shrinkage, and a chronological 80/20 backtest against
    a naive baseline; an **overall** relative-e1RM row pools lifts. No load change. **Still open:**
-   a frozen-parameter prospective test on future sessions.
+   a frozen-parameter prospective test on future sessions. **Retrospective walk-forward:** 25 lift-session predictions, relative MAE 0.158 vs persistence 0.074 (skill −112%); the model lost, so no load or adoption follows. Volume has no predictive model; selection has no counterfactual.
 3. **Prospective validation**: freeze parameters, predict held-out sessions, compare with a
    fitness-only and a readiness-only baseline.
 4. **Optional use**: only after validation, and only downward (extra caution), never to raise a
@@ -932,10 +940,11 @@ deferred items stay listed in §4.19.
 |---|---|---|
 | P1 | Scheduled deload / broader fatigue-management policy | done — `DEC-PROGRAMME-05` |
 | P1 | 3RM/5RM calibration cadence and explicit warm-up prescription | done — 10-week reminder + 50/70/85 ramp |
-| P2 | Parent-variant e1RM ratios and weakness/injury-targeted selection | open |
+| P2 | Parent-variant e1RM ratios | open |
+| P2 | Weakness/injury-targeted selection | deferred — `DEC-SELECT-04`, evidence documented |
 | P2 | Strength-review implementation closeout | implementation done; two future items remain |
 | P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
-| P2 | Prospective validation of continuity, volume, selection and fatigue models | open |
+| P2 | Prospective validation of continuity, volume, selection and fatigue models | **partial** — retrospective walk-forward done; continuity/fatigue failed; prospective not started |
 | P1 (v0.3) | Manual workout logging and import adapters | not started |
 | P1 (v0.3) | Learned readiness weights / LLM-manual-logging parity | not started |
 | P1 (v0.3) | Deeper labelled calibration set | in progress |

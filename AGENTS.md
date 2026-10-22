@@ -193,6 +193,7 @@ never read `data/raw`.
 | `docs/DATA-QUALITY.md` | the decision ledger (DQ-*) and open sentinel questions |
 | `docs/READINESS.md` | how readiness is derived, merged and used; what is config vs rule |
 | `docs/READINESS-SCORE.md` | proposed global and per-lift readiness scoring, evidence and phases |
+| `docs/READINESS-WEIGHT-EVIDENCE.md` | readiness-weight evidence and held-out comparison; learned weights closed |
 | `docs/CONTINUITY.md` | gap detection and re-entry rules; the injury signal is separate |
 | `docs/INJURY-SIGNAL.md` | per-region injury signals, what "tolerated" loading means, injury-to-exercise links |
 | `docs/CORE-TRAINING.md` | core/trunk training evidence and the proposed programme amendment |
@@ -204,6 +205,8 @@ never read `data/raw`.
 | `docs/STRENGTH-PROGRAM-REVIEW.md` | evidence check and critique of the strength programme (review only) |
 | `docs/VOLUME-MANAGEMENT.md` | MEV/MAV/MRV evidence, configured landmarks, ledger and MRV cap |
 | `docs/NEXT-PHASE-FATIGUE-PLAN.md` | final lean non-cardio fatigue plan: sRPE/duration backfill, descriptive calibration, optional deload; no experiments |
+| `docs/RETROSPECTIVE-VALIDATION.md` | retrospective walk-forward method/result; not prospective; no model adoption |
+| `docs/WEAKNESS-INJURY-SELECTION.md` | evidence and deferral of weakness/injury-targeted selection |
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |
 | `docs/SPINAL-COST.md` | evidence behind the ordinal spinal-cost ratings |
