@@ -1,5 +1,10 @@
 # Volume management — evidence and implementation
 
+**Status: v1 done (2026-10-20).** “Done” means the evidence check, ledger, configured
+landmarks, conservative MRV cap, readiness valve and UI/CLI/API are implemented. It does **not**
+mean individualized MRV, automatic under-MEV titration, scheduled deloads, per-muscle volume or
+prospective validation; those remain roadmap items.
+
 **Scope:** weekly hard-set volume for the strength programme. This note records the evidence
 used for the volume ledger and the conservative MRV cap; it is not a claim that MEV/MRV are
 measured individual constants.

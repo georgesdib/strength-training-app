@@ -44,7 +44,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
-| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights (§4.9 remaining), LLM/manual-logging parity (§4.11), continuity calibration (§4.12, calibrated bands with fixed fallback), labelled set depth (§4.14), exercise selection (§4.15), strength fitness-fatigue shadow model (§4.16), rolling session types / upper-body balance / set reduction (§4.17) |
+| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights (§4.9 remaining), LLM/manual-logging parity (§4.11), continuity calibration (§4.12, calibrated bands with fixed fallback), labelled set depth (§4.14), exercise selection (§4.15), strength fitness-fatigue shadow model (§4.16), rolling session types / upper-body balance / set reduction / volume management v1 (§4.17) |
 | v0.4 | Cardio prescription and model | **planned** | cardio prescription and cardio impulse/fatigue model (§4.13 remaining) |
 | v0.5 | Video analysis | **planned** | video capture/analysis and its UI parity (§4.8, §4.11 video part) |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
@@ -843,7 +843,7 @@ overall views done; chronological backtest done; UI shows inputs, state, interva
 “not identifiable” honestly (done); no cardio in the strength model (done); frozen-parameter
 prospective test remains open.
 
-### 4.17 Rolling session types and strength-programme balance  (v0.3, implemented)
+### 4.17 Rolling session types and strength-programme balance  (v0.3; volume management v1 done)
 
 **Status: implemented 2026-10-20.** The rigid A/B/C calendar is replaced for new prescriptions by
 four session types:
@@ -875,6 +875,20 @@ push/pull; hinge sessions contain no direct erector work; the two-week sequence 
 squat/hinge/bench; legacy A/B/C still resolve for history; the rolling forecast and UI expose the
 selected type; set reduction is cited in the `MOD-FAT-001` warning; power carries no external
 load; full tests pass.
+
+**Volume management v1 boundary (done 2026-10-20).** The evidence check, hard-set ledger,
+configured MEV/MAV/MRV landmarks, conservative MRV cap, readiness volume valve and UI/CLI/API
+are complete. The following are explicitly **not** claimed as done:
+
+- individual MRV calibration from this athlete's response;
+- automatic volume titration below MEV;
+- a scheduled or fully autoregulated deload;
+- per-muscle rather than movement-pattern volume;
+- set quality/load/tonnage rather than raw hard sets;
+- prospective validation against e1RM or performance;
+- a forecast-aware cap that accounts for planned-but-not-performed future sessions.
+
+These stay open in the roadmap rather than being implied by the v1 label.
 
 ## 5. Known gaps and risks
 

@@ -3,7 +3,7 @@
 **Scope:** the strength programme only. Cardio, video, the LLM narrative and the web UI are out
 of scope. This is a review document; no code or configuration was changed.
 
-**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press and readiness set reduction were subsequently implemented; selection comparability and a scheduled deload remain open. This document is the evidence snapshot, not a claim that every suggestion is still pending.
+**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction and volume management v1 were subsequently implemented; selection comparability, a scheduled deload and individualized MRV/under-MEV titration remain open. This document is the evidence snapshot, not a claim that every suggestion is still pending.
 
 **Method:** read the templates, constitution, prescription engine, evidence notes and references;
 generated A/B/C prescriptions from the local database; checked the planned weekly dose and the
