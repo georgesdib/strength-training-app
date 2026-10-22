@@ -108,3 +108,17 @@ def test_comparability_classes_and_default_filtering():
     assert "pull_up" not in {c.exercise_id for c in hidden_slot.candidates}
     assert "pull_up" in {c.exercise_id for c in shown_slot.candidates}
     assert any(c.comparison_class == "C" for c in shown_slot.candidates)
+
+def test_history_context_is_display_only_and_not_scored():
+    with store_with() as store:
+        context = RuleContext.from_store(store.connection, end="2024-01-15")
+        rows = selection.select(store.connection, context, "2024-01-15", "B")
+    slot = pull_slot(rows)
+    candidate = next(c for c in slot.candidates if c.exercise_id == "lat_pulldown")
+    assert candidate.history_context is not None
+    assert candidate.history_context.status in {
+        "insufficient", "below own recent median", "near own recent median",
+        "above own recent median",
+    }
+    # The score reasons must not include the display-only context.
+    assert not any("own recent median" in reason for reason in candidate.reasons)

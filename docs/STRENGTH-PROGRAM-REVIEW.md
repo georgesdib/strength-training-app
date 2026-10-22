@@ -237,7 +237,7 @@ Status reflects the implementation, not only the original recommendation.
 - [x] 3RM/5RM calibration cadence (`test --status`).
 - [x] Explicit warm-up prescription (50/70/85 ramp).
 - [ ] Prospective validation of continuity, volume and fatigue models. **Retrospective walk-forward done; continuity and fatigue failed the baseline; prospective period not started.**
-- [ ] Parent-variant e1RM ratios. Weakness/injury targeting is **deferred** (`DEC-SELECT-04/05`); earliest review after v0.5 / ~April 2027, with the gates in [WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md).
+- [ ] Parent-variant e1RM ratios. Weakness/injury targeting is **deferred** (`DEC-SELECT-04/05`); a display-only own-history context is implemented, but no targeting. Earliest review after v0.5 / ~April 2027, with the gates in [WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md).
 
 | priority | change | reason | effort | status |
 |---|---|---|---|---|

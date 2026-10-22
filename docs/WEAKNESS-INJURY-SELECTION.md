@@ -1,7 +1,9 @@
 # WEAKNESS / INJURY-TARGETED SELECTION — evidence and decision
 
-**Status: deferred.** No targeting is implemented. Injury remains a constraint/ceiling/penalty.
-No exercise is selected because it “targets” an injury or a weak muscle.
+**Status: targeting deferred; display-only own-history context implemented.** No exercise is
+selected because it targets an injury or a weak muscle. Injury remains a
+constraint/ceiling/penalty. The selector shows an own-history e1RM ratio, which never enters the
+score.
 
 ---
 
@@ -78,6 +80,15 @@ not “train the weak area to prevent recurrence.”
    - a retrospective baseline result,
    - and a prospective or N-of-1 test showing benefit without harming the main lifts.
 
+## 3a. What was implemented now
+
+- Each selection candidate gets a **display-only** `history_context`:
+  latest best e1RM versus the median of that lift's own earlier 84 days, with n and a plain
+  label.
+- It is **not** part of the score, ranking, class or prescription.
+- It uses no parent-lift ratio and no population norm.
+- No weakness target and no injury-positive selection were added.
+
 ## 4. Deferral gates — when this can be revisited
 
 **Recommended: not before v0.5 is complete, and not before six months of stable current-programme
@@ -100,6 +111,19 @@ Injury targeting is **not scheduled at all**. It may only be revisited if a clin
 specific rehabilitation goal and the athlete wants it; it is not a general selection feature.
 Until then, injury remains exclusion/penalty/ceiling only.
 
+## 4a. Plan and earliest date
+
+| phase | deliverable | status |
+|---|---|---|
+| 0 | evidence, guardrails, display-only own-history context | **done** |
+| 1 | 12 sessions per target lift over 12 weeks; stable logging | waiting for data |
+| 2 | pre-registered own-trend weakness metric + retrospective walk-forward baseline | not started |
+| 3 | opt-in N-of-1 / alternating-block comparison, with safety outcomes | not started |
+| 4 | decision: keep fixed, or add a bounded targeting rule | not reached |
+
+**Earliest review:** after v0.5 and roughly **April 2027**. This is a gate, not a scheduled
+feature. Injury targeting remains unscheduled at every phase.
+
 ## 5. What would be tested if this is revisited
 
 - primary outcome: the targeted lift’s e1RM/performance, not “feels better”;
@@ -107,4 +131,4 @@ Until then, injury remains exclusion/penalty/ceiling only.
 - comparison: fixed programme vs targeted selection, with a pre-declared analysis;
 - no automatic application until the comparison is positive.
 
-No implementation in this change.
+No targeting implementation in this change.

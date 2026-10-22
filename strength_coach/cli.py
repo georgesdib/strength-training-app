@@ -1133,8 +1133,14 @@ def _cmd_select(args) -> int:
               f"[{row.source}; class {row.comparison_class}]")
         print(f"    {row.reason}")
         for candidate in row.candidates:
+            context = ""
+            if candidate.history_context:
+                hc = candidate.history_context
+                context = (f"  own-history {hc.status}"
+                           f" (ratio {hc.ratio:.2f}, n={hc.n})"
+                           if hc.ratio is not None else f"  own-history {hc.status}")
             print(f"    {candidate.exercise_id:<24} {candidate.score:.3f}  "
-                  f"{', '.join(candidate.reasons)}")
+                  f"{', '.join(candidate.reasons)}{context}")
     return 0
 
 

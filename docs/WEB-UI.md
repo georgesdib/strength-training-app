@@ -40,7 +40,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
   panel (shadow: per-lift + overall fitness/fatigue/state with approximate 95% intervals,
   R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets), the **continuity calibration** panel (per-band returns/fixed/applied and the
   `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings with A/B/C
-  comparison classes; optional LLM chooser). The session is chosen by the rolling emphasis rule;
+  comparison classes and a display-only own-history e1RM ratio; optional LLM chooser). The session is chosen by the rolling emphasis rule;
   **Apply selection** makes A candidates replace the slot exercises, **Confirm near-comparable**
   is required for B, and C is hidden unless **show different lifts** is ticked (and can never be
   applied automatically). **Use LLM** appears only when Apply is ticked. Without the toggle the

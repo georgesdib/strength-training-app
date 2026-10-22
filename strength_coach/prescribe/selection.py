@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+import pandas as pd
 import yaml
 
 from strength_coach.features import fatigue_fitness, injury_signal, recent_stress
@@ -20,6 +21,7 @@ from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.prescribe import templates
 from strength_coach.rules import RuleContext
 from strength_coach.store import queries
+
 from strength_coach.utils import exercises, paths
 
 
@@ -111,12 +113,35 @@ def _catalogue() -> dict[str, dict[str, tuple[str, ...]]]:
 
 
 @dataclass(frozen=True)
+class HistoryContext:
+    """Display-only own-history context. Never enters the selection score."""
+
+    latest_e1rm: float | None
+    prior_median: float | None
+    ratio: float | None
+    n: int
+    window_days: int
+    status: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "latest_e1rm": None if self.latest_e1rm is None else round(self.latest_e1rm, 2),
+            "prior_median": None if self.prior_median is None else round(self.prior_median, 2),
+            "ratio": None if self.ratio is None else round(self.ratio, 3),
+            "n": self.n,
+            "window_days": self.window_days,
+            "status": self.status,
+        }
+
+
+@dataclass(frozen=True)
 class Candidate:
     exercise_id: str
     score: float
     reasons: tuple[str, ...]
     comparison_class: str
     comparison_reason: str
+    history_context: HistoryContext | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -125,6 +150,9 @@ class Candidate:
             "reasons": list(self.reasons),
             "comparison_class": self.comparison_class,
             "comparison_reason": self.comparison_reason,
+            "history_context": (
+                self.history_context.as_dict() if self.history_context else None
+            ),
         }
 
 
@@ -181,6 +209,44 @@ def _preference(exercise_id: str, suitability: Mapping[str, Mapping[str, Any]]) 
     if rating.get("feels_bad") in (1, True):
         return 0.0
     return 1.0 if rating.get("will_do") in (1, True) else 0.5
+
+
+def _history_context(context, exercise_id: str, window_days: int = 84) -> HistoryContext:
+    """Own-history e1RM context only; deliberately not a weakness score.
+
+    It compares the latest best e1RM with the median of that lift's own earlier
+    observations. No parent ratio, no population norm, no ranking effect.
+    """
+    history = context.sets[
+        context.sets["exercise_id"].isin(exercises.history_equivalents(exercise_id))
+    ]
+    if history.empty or "e1rm_kg" not in history.columns:
+        return HistoryContext(None, None, None, 0, window_days, "insufficient")
+    working = history[history["e1rm_kg"].notna()].copy()
+    if "is_working_set" in working.columns:
+        working = working[working["is_working_set"].astype(bool)]
+    if working.empty:
+        return HistoryContext(None, None, None, 0, window_days, "insufficient")
+    by_date = working.groupby("date", as_index=False)["e1rm_kg"].max().sort_values("date")
+    latest = float(by_date["e1rm_kg"].iloc[-1])
+    latest_date = pd.Timestamp(by_date["date"].iloc[-1])
+    prior = by_date[
+        (by_date["date"] < latest_date)
+        & (by_date["date"] >= latest_date - pd.Timedelta(days=window_days))
+    ]
+    if len(prior) < 4:
+        return HistoryContext(latest, None, None, int(len(prior)), window_days, "insufficient")
+    median = float(prior["e1rm_kg"].median())
+    ratio = latest / median if median else None
+    if ratio is None:
+        status = "insufficient"
+    elif ratio < 0.95:
+        status = "below own recent median"
+    elif ratio > 1.05:
+        status = "above own recent median"
+    else:
+        status = "near own recent median"
+    return HistoryContext(latest, median, ratio, int(len(prior)), window_days, status)
 
 
 def _light_context(conn, on_date: str, exercise_ids: tuple[str, ...]) -> RuleContext:
@@ -302,6 +368,7 @@ def select(
             candidates.append(Candidate(
                 exercise_id, _clamp(score), tuple(reasons),
                 comparison_class, comparison_reason,
+                _history_context(context, exercise_id),
             ))
 
         if not candidates:

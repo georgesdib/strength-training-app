@@ -350,7 +350,9 @@ async function loadSelection() {
       const candidates = slot.candidates.map((c) =>
         `<li>${esc(c.exercise_id)} — ${c.score}
           <span class="badge">${esc(c.comparison_class)}</span>
-          <span class="muted">${esc(c.reasons.join("; "))} · ${esc(c.comparison_reason)}</span></li>`).join("");
+          <span class="muted">${esc(c.reasons.join("; "))} · ${esc(c.comparison_reason)}</span>
+          ${c.history_context ? `<div class="muted">own-history: ${esc(c.history_context.status)}
+            (ratio ${fmt(c.history_context.ratio, 2)}, n=${c.history_context.n}); context only</div>` : ""}</li>`).join("");
       const policy = slot.comparison_class === "A" ? "auto-eligible"
         : slot.requires_confirmation ? "confirmation required" : "current";
       return `<tr><td><strong>${esc(slot.slot_id)}</strong></td>

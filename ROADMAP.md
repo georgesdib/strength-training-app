@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **588 public tests** (603 with the 15 private integration tests)
+Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.1.0-dev` · **589 public tests** (604 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progres
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 603 locally, including private integration
+.venv/bin/python -m pytest            # 604 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -746,7 +746,7 @@ Acceptance: ten high-confidence marks per item before a rubric change; every rev
 never edits; the report states the sample size and excludes low-confidence marks.
 ### 4.15 Exercise selection adapted to readiness and fatigue  (v0.3; apply + comparability done)
 
-**Status: apply + comparability implemented 2026-10-20.** `prescribe/selection.py` ranks the configured and catalogue variants per slot from readiness, recent stress, rotation, preference and the cached fitness-fatigue state; constraints and `can_do: false` exclude a candidate; injury is a penalty, not a veto. Candidates carry an A/B/C comparability class: A applies automatically, B requires confirmation, C is hidden by default and never automatic; the selected lift's own history is always used. See `DEC-SELECT-03` and [SELECTION-COMPARABILITY.md](docs/SELECTION-COMPARABILITY.md). It is exposed as `strength-coach select` and a Prescribe panel. With the explicit **Apply selection** toggle, the chosen candidate replaces the slot exercise and the load is re-solved from that lift's own history (`MOD-SELECT-001`). Without the toggle nothing changes. All synthetic raw variant names were canonicalised and their history rewritten (migration 0014, 114 entities, 3,607 audited remaps; migration 0015 split close-grip pulldown); trap-bar date-scoping and back-extension equivalence are preserved.
+**Status: apply + comparability implemented 2026-10-20.** `prescribe/selection.py` ranks the configured and catalogue variants per slot from readiness, recent stress, rotation, preference and the cached fitness-fatigue state; constraints and `can_do: false` exclude a candidate; injury is a penalty, not a veto. Candidates carry an A/B/C comparability class: A applies automatically, B requires confirmation, C is hidden by default and never automatic; the selected lift's own history is always used. A display-only own-history e1RM ratio is shown, but it does not enter the score. See `DEC-SELECT-03` and [SELECTION-COMPARABILITY.md](docs/SELECTION-COMPARABILITY.md). It is exposed as `strength-coach select` and a Prescribe panel. With the explicit **Apply selection** toggle, the chosen candidate replaces the slot exercise and the load is re-solved from that lift's own history (`MOD-SELECT-001`). Without the toggle nothing changes. All synthetic raw variant names were canonicalised and their history rewritten (migration 0014, 114 entities, 3,607 audited remaps; migration 0015 split close-grip pulldown); trap-bar date-scoping and back-extension equivalence are preserved.
 
 **Weakness/injury tailoring — deferred.** No positive weakness/injury targeting. Injury remains
 an exclusion/penalty/ceiling. Earliest review is after v0.5 and ~April 2027, and only with 12
@@ -941,7 +941,7 @@ deferred items stay listed in §4.19.
 | P1 | Scheduled deload / broader fatigue-management policy | done — `DEC-PROGRAMME-05` |
 | P1 | 3RM/5RM calibration cadence and explicit warm-up prescription | done — 10-week reminder + 50/70/85 ramp |
 | P2 | Parent-variant e1RM ratios | open |
-| P2 | Weakness/injury-targeted selection | deferred — earliest after v0.5 / ~April 2027; gates in `DEC-SELECT-05` |
+| P2 | Weakness/injury-targeted selection | display-only context done; targeting deferred — earliest after v0.5 / ~April 2027; gates in `DEC-SELECT-05` |
 | P2 | Strength-review implementation closeout | implementation done; two future items remain |
 | P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
 | P2 | Prospective validation of continuity, volume, selection and fatigue models | **partial** — retrospective walk-forward done; continuity/fatigue failed; prospective not started |

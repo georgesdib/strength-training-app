@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 588 public tests
+.venv/bin/python -m pytest          # 589 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -719,6 +719,8 @@ comparability class:
 
 The selector still re-solves the load from the selected lift's own history. Class C is shown
 only with `--include-different` (or "show different lifts" in the UI) for information.
+A display-only "own-history" ratio (latest e1RM versus that lift's own recent median) appears
+beside each candidate; it does not affect the score, ranking, class or prescription.
 The Prescribe **Apply selection** toggle applies A, and B only when confirmed.
 
 ### 4.10h `volume` — weekly hard-set ledger
