@@ -44,7 +44,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
-| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights evaluated and closed (§4.9), LLM/manual-logging parity (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), labelled set depth (§4.14), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout foundation (§4.21) |
+| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights evaluated and closed (§4.9), LLM/manual-logging parity (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), labelled set depth (§4.14), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed) |
 | v0.4 | Cardio prescription and model | **planned** | cardio prescription and cardio impulse/fatigue model (§4.13 remaining) |
 | v0.5 | Video analysis | **planned** | video capture/analysis and its UI parity (§4.8, §4.11 video part) |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
@@ -587,8 +587,9 @@ logging, video.
 
 ### 4.11 Web UI parity  (v0.3 for LLM/manual logging; video part v0.5)
 
-**Workout mode exception:** the live workout flow is UI/API first (§4.21); CLI commands for
-start/add-set/end are not built yet and must be added before parity is claimed.
+**Workout mode exception:** start is UI-only because it requires the full pre-workout readiness form
+and displayed prescription. CLI covers status, add/update/remove set, end, abandon and import;
+this exception is recorded in §4.21 and is not an open plan item.
 
 The local UI covers Today, Prescribe (rolling session types), Programme, Review, Readiness, Import, an editable
 Athlete page, an editable **Exercises** catalogue, Terminal and Docs. This item brings the remaining interactive CLI actions into the browser. The CLI stays
@@ -955,7 +956,7 @@ deferred items stay listed in §4.19.
 | P2 | Strength-review implementation closeout | **review closed**; future work in §4.20 |
 | P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
 | P2 | Prospective validation of continuity, volume, selection and fatigue models | moved to §4.20 — no candidate; current models failed the retrospective baseline |
-| P1 (v0.3) | Live workout mode | **mostly done** — start/end/manual+import sets, actual edit, materialisation, plan overrides, comparisons, rubric/review, CSV conflict/undo; CLI start missing |
+| P1 (v0.3) | Live workout mode | **closed** — full UI flow; CLI start remains a documented UI-only exception |
 | P1 (v0.3) | Manual workout logging and import adapters | not started |
 | P1 (v0.3) | LLM/manual-logging parity | not started |
 | P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
@@ -990,9 +991,11 @@ Moved out of the strength-programme review so it can close. These are **not** v0
 | Cardio model | v0.4 | §4.13, Q14 |
 | Fatigue-plan backfill UI, phase cutoff, report format, one-month check | open; decide when that plan resumes | docs/NEXT-PHASE-FATIGUE-PLAN.md §9 |
 
-### 4.21 Live workout mode  (v0.3, in progress)
+### 4.21 Live workout mode  (v0.3, CLOSED 2026-10-23)
 
-Phased implementation of the approved workout flow:
+**Status: closed.** The approved workout flow is implemented; the only remaining parity exception is
+`workout start` in the CLI, because starting requires the full pre-workout readiness form and the
+displayed prescription. That is not part of this plan.
 
 | slice | scope | status |
 |---|---|---|
@@ -1001,7 +1004,6 @@ Phased implementation of the approved workout flow:
 | 3 | CSV import inside workout: paste/file, preview, conflicts, RPE→RIR, replace/undo | **done** |
 | 4 | Plan overrides: swap/add/remove exercise and sets | **done** |
 | 5 | Deterministic rubric review + human marks; post-processing pipeline | **done** |
-| 6 | Workout-CSV backfill; duplicate/overlap warnings | not needed — backfill uses the standard dated training export |
 
 Workout sets materialise into `session`/`clean_set` on completion. The end screen compares actual
 vs the modified plan and the original prescription, runs the deterministic rubric, and closes on

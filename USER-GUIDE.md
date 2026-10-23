@@ -678,8 +678,8 @@ no date, so it only imports into the active workout. On **End workout**, sets ar
 actual vs original prescription are shown, the deterministic rubric is persisted, and
 **Review workout** opens the rubric sheet. Saving marks runs calibration and closes the workout.
 The standard dated training export remains the Import-page backfill path. Workout CSV import is
-in-workout only. CLI workout commands cover status/add/update/remove/end/import; starting a
-workout remains UI-only.
+in-workout only. This plan is **closed**; CLI workout commands cover
+status/add/update/remove/end/import, while starting a workout remains UI-only.
 
 ### 4.10b `cardio` — capture the other half
 
