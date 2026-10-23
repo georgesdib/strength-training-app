@@ -87,6 +87,7 @@ async function loadOverview() {
     renderRecent(data.sessions);
     fillSessionSelect();
     loadProgress();
+    loadReviews();
   } catch (error) {
     $("#today-title").textContent = "Could not load";
     $("#today-sub").textContent = error.message;
@@ -112,6 +113,71 @@ async function loadProgress() {
       <p class="muted">${esc(data.note)}</p>`;
   } catch (error) {
     $("#progress").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function loadReviews() {
+  try {
+    const data = await api("/api/reviews");
+    const tasks = data.tasks || [];
+    const actionable = tasks.filter((t) => ["due", "attention", "insufficient", "snoozed"].includes(t.status));
+    if (!actionable.length) {
+      $("#reviews").innerHTML = "<p class='muted'>No reviews due.</p>";
+      return;
+    }
+    const cards = actionable.map((task) => {
+      const details = (task.steps || []).map((s) => `<li>${esc(s)}</li>`).join("");
+      const dont = (task.dont || []).map((s) => `<li>${esc(s)}</li>`).join("");
+      const doc = task.doc ? `<a href="#docs" data-view-link="docs">${esc(task.doc)}</a>` : "";
+      const actions = task.periodic
+        ? `<details><summary>Mark reviewed</summary>
+             <div class="form-row">
+               <label>Decision <select id="review-decision-${esc(task.key)}">
+                 <option value="kept">kept</option><option value="changed">changed</option>
+                 <option value="insufficient">insufficient</option>
+                 <option value="not_applicable">not applicable</option>
+               </select></label>
+               <label class="grow">Note <input id="review-note-${esc(task.key)}" placeholder="optional"></label>
+               <button type="button" onclick="completeReview('${esc(task.key)}')">Save review</button>
+               <button type="button" class="ghost" onclick="snoozeReview('${esc(task.key)}')">Snooze 2 weeks</button>
+             </div></details>`
+        : `<p class="muted">Use the linked workflow; this is a data-state reminder.</p>`;
+      return `<div class="panel" style="margin-bottom:8px">
+        <div class="panel-head"><h3>${esc(task.label)}</h3>
+          <span class="badge ${task.status === "ok" ? "" : "warn"}">${esc(task.status)}</span></div>
+        <p><strong>${esc(task.summary)}</strong></p>
+        <p class="muted">${esc(task.why)}</p>
+        <ul class="list">${details}</ul>
+        ${dont ? `<p class="muted"><strong>Do not:</strong></p><ul class="list">${dont}</ul>` : ""}
+        <p class="muted">${doc}</p>${actions}</div>`;
+    }).join("");
+    $("#reviews").innerHTML = `<p class="muted">${data.due_count} item(s) need attention.</p>${cards}`;
+  } catch (error) {
+    $("#reviews").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function completeReview(taskKey) {
+  const decision = document.querySelector(`#review-decision-${CSS.escape(taskKey)}`).value;
+  const note = document.querySelector(`#review-note-${CSS.escape(taskKey)}`).value;
+  try {
+    await api("/api/reviews", { method: "POST", body: JSON.stringify({
+      task_key: taskKey, action: "completed", decision, note,
+    }) });
+    await loadReviews();
+  } catch (error) {
+    $("#reviews").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function snoozeReview(taskKey) {
+  try {
+    await api("/api/reviews", { method: "POST", body: JSON.stringify({
+      task_key: taskKey, action: "snoozed",
+    }) });
+    await loadReviews();
+  } catch (error) {
+    $("#reviews").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
 
@@ -299,7 +365,7 @@ async function loadReview(session) {
           step="1" placeholder="optional"
           value="${data.feedback && data.feedback.duration_min != null ? data.feedback.duration_min : ""}"></label>
         <label class="grow">Note <input id="review-note" placeholder="optional"></label>
-        <button class="primary" id="save-review">Save marks</button>
+        <button class="primary" id="save-review">End review</button>
       </div>
       <p class="muted">Only high-confidence marks count toward agreement. Blank = skip.</p>
       <div id="review-calibration"></div>
@@ -329,7 +395,10 @@ async function saveReview(session) {
     const saved = data.written
       ? `Saved ${data.written} marks`
       : "Saved session details (no marks)";
-    $("#review-calibration").innerHTML = `<div class="warnbox"><strong>${esc(saved)}</strong>
+    const post = data.postprocess
+      ? `<p class="muted">Rubric: ${esc(data.postprocess.rubric)} · calibration: ${esc(data.postprocess.calibration)} · workout closed: ${data.postprocess.workout_closed ? "yes" : "no"}</p>`
+      : "";
+    $("#review-calibration").innerHTML = `<div class="warnbox"><strong>${esc(saved)}</strong>${post}
       <pre>${esc(data.calibration.text)}</pre></div>`;
     loadOverview();
   } catch (error) {

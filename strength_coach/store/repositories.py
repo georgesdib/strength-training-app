@@ -1105,3 +1105,45 @@ def append_session_feedback(
         (feedback_id, str(session_id), srpe, duration_min, (note or "").strip() or None),
     )
     return feedback_id
+
+
+def append_maintenance_review(
+    conn: sqlite3.Connection,
+    *,
+    task_key: str,
+    action: str,
+    reviewed_on: str,
+    decision: str | None = None,
+    note: str | None = None,
+    snoozed_until: str | None = None,
+) -> str:
+    """Append a human acknowledgement of a periodic review.
+
+    A completed review must carry a decision; a snooze must carry an until-date. This keeps
+    "reviewed" from becoming a no-op and keeps snoozing distinct from completion.
+    """
+    task_key = str(task_key).strip()
+    action = str(action).strip().lower()
+    if action not in {"completed", "snoozed"}:
+        raise ValueError("review action must be completed or snoozed")
+    if action == "completed":
+        if decision not in {"kept", "changed", "insufficient", "not_applicable"}:
+            raise ValueError("completed review needs a valid decision")
+        snoozed_until = None
+    else:
+        decision = None
+        if not snoozed_until:
+            raise ValueError("snoozed review needs snoozed_until")
+    review_id = uuid.uuid4().hex
+    conn.execute(
+        """
+        INSERT INTO maintenance_review (
+            review_id, task_key, action, decision, note, reviewed_on, snoozed_until
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            review_id, task_key, action, decision,
+            (note or "").strip() or None, str(reviewed_on), snoozed_until,
+        ),
+    )
+    return review_id

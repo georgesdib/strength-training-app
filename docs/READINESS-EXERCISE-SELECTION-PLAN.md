@@ -1,7 +1,7 @@
 # Readiness- and symptom-driven exercise selection — implementation plan
 
-**Status:** locked 2026-10-20. No code or configuration has been changed; this is the approved
-implementation plan.
+**Status:** review-panel slice implemented 2026-10-20; exercise-substitution slice remains
+locked but not implemented.
 **Scope:** exercise substitution inside an already-prescribed session. Load/RIR/set adjustment
 stays the first response to fatigue.
 
@@ -345,7 +345,7 @@ No automatic promotion to a rule.
 These values are policy assumptions, not validated cut-points. Changes require updating this
 document, the config, tests and the decision log.
 
-No implementation until the user starts the implementation phase.
+The review panel (§12) is implemented. The exercise-substitution slice remains a plan.
 
 ---
 

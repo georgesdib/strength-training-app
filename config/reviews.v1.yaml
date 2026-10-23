@@ -1,0 +1,77 @@
+# Periodic review reminders. These are prompts, not automatic programme changes.
+schema_version: "1.0.0"
+
+readiness_thresholds:
+  label: "Review readiness thresholds"
+  interval_weeks: 12
+  interval_sessions: 40
+  snooze_days: 14
+  doc: docs/READINESS-EXERCISE-SELECTION-PLAN.md
+  why: >
+    Readiness associations and the absolute/relative gates are policy choices. Review them
+    against held-out data; do not change a threshold because one week looked unusual.
+  steps:
+    - Re-run the readiness-performance and readiness-sRPE associations.
+    - Compare the current absolute threshold with the absolute-plus-relative gate.
+    - Check how many sessions would trigger each rule.
+    - Keep the current threshold unless the alternative wins out of sample.
+  dont:
+    - Do not change thresholds automatically.
+    - Do not choose and validate a cutoff on the same data.
+
+rubric_labels:
+  label: "Deepen rubric calibration labels"
+  target_per_item: 10
+  measurable_items:
+    - RIR_ADHERENCE
+    - PROGRESSION_ADHERENCE
+    - WEEKLY_SPINAL_COST
+    - ESSENTIAL_WORK
+    - REDUNDANCY
+    - ROTATION
+  doc: docs/STRENGTH-PROGRAM-REVIEW.md
+  why: Only high-confidence human marks count; the rubric is not retuned on a thin sample.
+  steps:
+    - Open Review and mark recent sessions.
+    - Use high confidence only when the session is genuinely remembered.
+    - Aim for 10 high-confidence marks per measurable item.
+
+strength_test:
+  label: "3RM/5RM strength test"
+  every_weeks: 10
+  doc: docs/TRAINING-DYNAMICS.md
+  why: A periodic submaximal test keeps e1RM honest without routine 1RM testing.
+  steps:
+    - Run `strength-coach test --status`.
+    - Schedule the indicated 3RM or 5RM when due.
+
+srpe_coverage:
+  label: "sRPE/duration coverage"
+  window_days: 56
+  target_pct: 80
+  minimum_sessions: 6
+  doc: docs/NEXT-PHASE-FATIGUE-PLAN.md
+  why: Missing sRPE/duration weakens every descriptive calibration and the dashboard.
+  steps:
+    - Review recent sessions with missing sRPE or duration.
+    - Fill what you remember; leave the rest blank.
+
+readiness_baseline:
+  label: "Readiness baseline sufficiency"
+  window_days: 28
+  minimum_readings: 10
+  doc: docs/READINESS-EXERCISE-SELECTION-PLAN.md
+  why: The relative gate needs enough prior readings; otherwise it falls back to the fixed value.
+  steps:
+    - Keep logging the required readiness fields.
+    - If the baseline is insufficient, use the fixed fallback and record it.
+
+back_pattern:
+  label: "Back-pattern review"
+  recent_days: 14
+  doc: docs/WEAKNESS-INJURY-SELECTION.md
+  why: A new episode may not fit the three known tweaks; review without changing rules automatically.
+  steps:
+    - Check whether the new episode fits the existing case series.
+    - If not, record what was different.
+    - Do not change the back rules automatically.

@@ -42,6 +42,7 @@ from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import injury_signal, readiness as readiness_feature
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import progress as progress_feature
+from strength_coach.features import reviews as reviews_feature
 from strength_coach.features import readiness_baseline
 from strength_coach.features import retrospective_validation
 from strength_coach.features import readiness_calibration, readiness_score
@@ -299,6 +300,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: {"text": retrospective_validation.report(c, max_dates=max_dates)}
                 ))
+            elif path == "/api/reviews":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0]
+                self._json(200, self._with_conn(
+                    lambda c: reviews_feature.status(c, day or datetime.date.today().isoformat())
+                ))
             elif path == "/api/selection":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [datetime.date.today().isoformat()])[0]
@@ -352,6 +359,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._workout_start(c, body)))
             elif path.startswith("/api/workout/"):
                 self._json(200, self._with_conn(lambda c: self._workout_action(c, path, body)))
+            elif path == "/api/reviews":
+                self._json(200, self._with_conn(lambda c: self._save_review_task(c, body)))
             elif path == "/api/prescribe":
                 self._json(200, self._with_conn(lambda c: self._prescribe(c, body)))
             elif path == "/api/readiness":
@@ -535,6 +544,26 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("unknown workout action")
         return {"workout": result}
 
+    def _save_review_task(self, conn, body: dict) -> dict:
+        task_key = str(body.get("task_key") or "").strip()
+        if task_key != "readiness_thresholds":
+            raise ValueError("only readiness_thresholds is a periodic review task today")
+        action = str(body.get("action") or "completed").strip().lower()
+        on_date = str(body.get("date") or datetime.date.today().isoformat())
+        decision = body.get("decision") if action == "completed" else None
+        note = body.get("note")
+        snoozed_until = None
+        if action == "snoozed":
+            days = int(body.get("snooze_days") or reviews_feature.snooze_days(task_key))
+            snoozed_until = (
+                datetime.date.fromisoformat(on_date) + datetime.timedelta(days=days)
+            ).isoformat()
+        repositories.append_maintenance_review(
+            conn, task_key=task_key, action=action, reviewed_on=on_date,
+            decision=decision, note=note, snoozed_until=snoozed_until,
+        )
+        return reviews_feature.status(conn, on_date)
+
     def _prescribe(self, conn, body: dict) -> dict:
         for_date = str(body.get("date") or datetime.date.today().isoformat())
         day = str(body.get("day") or "").upper()
@@ -641,10 +670,18 @@ class Handler(BaseHTTPRequestHandler):
         )
         if written == 0 and feedback is None:
             raise ValueError("no marks recorded; give at least one score")
+        workout_reviewed = workout.mark_reviewed(conn, session)
         return {
             "written": written,
             "feedback": feedback,
             "calibration": self._calibrate(conn),
+            "reviewed_workout": workout_reviewed,
+            "postprocess": {
+                "rubric": "persisted at end workout",
+                "marks": written,
+                "calibration": "report only",
+                "workout_closed": workout_reviewed,
+            },
         }
 
     def _readiness(self, conn, day: str) -> dict:

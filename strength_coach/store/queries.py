@@ -511,3 +511,15 @@ def session_feedback_all(conn) -> list[dict]:
             "SELECT * FROM session_feedback ORDER BY recorded_at, feedback_id"
         )
     ]
+
+
+def latest_maintenance_review(conn, task_key: str) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT * FROM maintenance_review
+         WHERE task_key = ?
+         ORDER BY reviewed_on DESC, rowid DESC LIMIT 1
+        """,
+        (str(task_key),),
+    ).fetchone()
+    return dict(row) if row is not None else None
