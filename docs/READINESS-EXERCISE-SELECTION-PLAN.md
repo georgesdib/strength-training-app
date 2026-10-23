@@ -1,7 +1,8 @@
 # Readiness- and symptom-driven exercise selection — implementation plan
 
-**Status:** review-panel and suggestion slices implemented 2026-10-20. Substitutions remain
-explicit; no automatic swap or symptom withholding in this slice.
+**Status:** closed 2026-10-20. Tax metadata, candidate catalogue, review panel and explicit
+suggestions are implemented. Automatic symptom withholding is deliberately deferred to the
+follow-up review.
 **Scope:** exercise substitution inside an already-prescribed session. Load/RIR/set adjustment
 stays the first response to fatigue.
 
@@ -132,8 +133,8 @@ Trigger when:
 Behaviour:
 
 - a hard constraint veto is **automatic** — the exercise is not prescribed;
-- a symptom-linked exercise that is not a hard constraint is marked **safety-blocked** by
-  default and requires an explicit override to keep it;
+- a symptom-linked exercise that is not a hard constraint is **safety-blocked** in the
+  suggestion and flagged in the UI; automatic withholding is **not enabled** in this slice;
 - a same-pattern candidate is suggested when it has:
   - no link to the active region;
   - lower axial/erector cost;
@@ -142,8 +143,8 @@ Behaviour:
 - if no safe candidate exists, **do not invent one**; show “no safe substitution” and leave the
   decision to the athlete/clinician.
 
-The exclusion is automatic; the **replacement is explicit**. The suggestion is prominent
-because the safety case is stronger.
+The hard-constraint exclusion is automatic; the symptom **suggestion and replacement remain
+explicit**. Automatic symptom withholding is the next gate, not a current behaviour.
 
 #### Tier 2 — recent stress + a meaningful readiness drop
 
@@ -338,15 +339,16 @@ No automatic promotion to a rule.
 | Tier 2 readiness | `< 0.70` absolute **and** at least `0.10` below the 28-day median |
 | Baseline | previous 28 days, excluding today, minimum 10 readings; fallback to `0.65` |
 | High stress | existing `recent_stress.status == "high"` for the current lift |
-| Symptom | automatic exclusion of unsafe/vetoed exercise; replacement explicit |
+| Symptom | hard veto automatic; symptom-linked exercise safety-blocked, suggested replacement explicit; automatic withholding deferred |
 | Mandatory tax dimensions | main: axial + systemic + skill; accessories: axial + skill; ROM optional |
 | Rule ID | no new rule; applied substitutions cite `MOD-SELECT-001`; exclusions cite existing injury/constraint rules; trigger recorded in notes |
 
 These values are policy assumptions, not validated cut-points. Changes require updating this
 document, the config, tests and the decision log.
 
-The review panel (§12) and explicit substitution suggestions are implemented. Automatic
-symptom withholding remains deferred by the first-slice decision.
+The review panel (§12), tax metadata, candidate catalogue and explicit substitution
+suggestions are implemented. Automatic symptom withholding remains deferred to the follow-up
+review; see §14.
 
 ---
 
@@ -517,3 +519,60 @@ Before the review panel is built:
 4. keep all actions non-prescriptive.
 
 No code has been written for this section.
+
+
+---
+
+## 14. Closure and follow-up
+
+### 14.1 Implemented
+
+- ordinal tax metadata for main lifts and accessories (`config/selection-tax.v1.yaml`);
+- accessory candidate lists in `config/variants.v1.yaml`;
+- symptom and stress/readiness **suggestions** in `/api/selection` and the Prescribe panel;
+- current vs candidate tax, trigger, safety-blocked flag and reasoning;
+- explicit apply only; load re-solved from the selected lift's history;
+- no automatic substitution;
+- no automatic symptom withholding.
+
+### 14.2 Evidence boundary
+
+The evidence supports:
+
+- load/volume autoregulation better than daily exercise selection;
+- pain-guided modification as injury management, not a general readiness rule;
+- same-pattern variants over unrelated exercises;
+- comparability classes because load bases differ.
+
+The evidence does **not** establish:
+
+- a validated per-lift readiness threshold;
+- that daily exercise substitution improves outcomes;
+- that an ordinal tax map is a measured fatigue model;
+- that automatic withholding is safer than a visible suggestion.
+
+The one small autoregulated-selection study found a small lean-mass/bench advantage and no
+squat advantage ([Rauch 2020](https://doi.org/10.1519/JSC.0000000000002272)); that is not enough
+for automatic removal.
+
+### 14.3 What is needed before automatic withholding
+
+1. **8–12 weeks or ~30 sessions** of suggestion use.
+2. Record:
+   - trigger frequency;
+   - accepted vs ignored suggestions;
+   - back symptoms/flares;
+   - session completion;
+   - main-lift performance.
+3. No increase in symptoms or abandoned sessions.
+4. The tax table remains accepted after real use.
+5. A decision that automatic withholding is preferable to the current safety-blocked
+   suggestion.
+
+The **Exercise substitution review** task is now in the periodic reviews dashboard with an
+8-week/30-session interval. It records a decision and note; it does not change behaviour.
+
+### 14.4 Plan status
+
+**Closed for the suggestion slice.** Automatic withholding is a separate, evidence-gated
+follow-up, not unfinished implementation.

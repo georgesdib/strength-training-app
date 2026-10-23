@@ -52,3 +52,24 @@ def test_review_status_reports_data_gaps_without_writing():
     assert tasks["srpe_coverage"]["status"] == "attention"
     assert tasks["readiness_baseline"]["status"] == "insufficient"
     assert tasks["back_pattern"]["status"] == "ok"
+
+
+def test_substitution_review_is_a_periodic_task():
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        report = reviews.status(conn, "2024-01-01")
+        task = next(t for t in report["tasks"] if t["key"] == "exercise_substitution")
+        assert task["status"] == "due"
+        assert task["periodic"] is True
+        repositories.append_maintenance_review(
+            conn, task_key="exercise_substitution", action="completed",
+            reviewed_on="2024-01-01", decision="kept", note="suggestions still useful",
+        )
+        after = next(
+            t for t in reviews.status(conn, "2024-01-02")["tasks"]
+            if t["key"] == "exercise_substitution"
+        )
+        assert after["status"] == "not_due"
+    finally:
+        store.close()

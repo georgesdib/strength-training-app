@@ -574,8 +574,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _save_review_task(self, conn, body: dict) -> dict:
         task_key = str(body.get("task_key") or "").strip()
-        if task_key != "readiness_thresholds":
-            raise ValueError("only readiness_thresholds is a periodic review task today")
+        if task_key not in {"readiness_thresholds", "exercise_substitution"}:
+            raise ValueError("unknown periodic review task")
         action = str(body.get("action") or "completed").strip().lower()
         on_date = str(body.get("date") or datetime.date.today().isoformat())
         decision = body.get("decision") if action == "completed" else None

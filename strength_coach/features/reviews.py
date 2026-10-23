@@ -61,8 +61,8 @@ def _latest(conn, task_key: str) -> dict | None:
 
 def snooze_days(task_key: str) -> int:
     config = _config()
-    if task_key == "readiness_thresholds":
-        return int((config.get("readiness_thresholds") or {}).get("snooze_days", 14))
+    if task_key in {"readiness_thresholds", "exercise_substitution"}:
+        return int((config.get(task_key) or {}).get("snooze_days", 14))
     raise ValueError(f"no snooze policy for {task_key!r}")
 
 
@@ -70,6 +70,8 @@ def _task(conn, key: str, on_date: str, config: dict) -> ReviewTask:
     cfg = config.get(key) or {}
     if key == "readiness_thresholds":
         return _readiness_task(conn, on_date, cfg)
+    if key == "exercise_substitution":
+        return _substitution_task(conn, on_date, cfg)
     if key == "rubric_labels":
         return _rubric_task(conn, on_date, cfg)
     if key == "strength_test":
@@ -83,22 +85,22 @@ def _task(conn, key: str, on_date: str, config: dict) -> ReviewTask:
     raise ValueError(f"unknown review task {key!r}")
 
 
-def _readiness_task(conn, on_date: str, cfg: dict) -> ReviewTask:
-    last = _latest(conn, "readiness_thresholds")
+def _periodic_task(
+    conn, on_date: str, key: str, cfg: dict, default_label: str,
+) -> ReviewTask:
+    last = _latest(conn, key)
     interval = dt.timedelta(weeks=int(cfg.get("interval_weeks", 12)))
     if last and last["action"] == "snoozed" and str(last["snoozed_until"]) >= on_date:
         return ReviewTask(
-            "readiness_thresholds", str(cfg.get("label", "Review readiness thresholds")),
-            "periodic", "snoozed", str(last["snoozed_until"]),
+            key, str(cfg.get("label", default_label)), "periodic", "snoozed",
+            str(last["snoozed_until"]),
             f"Snoozed until {last['snoozed_until']}.", str(cfg.get("why", "")),
             tuple(cfg.get("steps") or ()), tuple(cfg.get("dont") or ()),
             str(cfg.get("doc", "")), True,
             {"last_completed": last.get("reviewed_on")},
         )
-    completed = None
-    if last and last["action"] == "completed":
-        completed = str(last["reviewed_on"])
-    sessions_since = 0
+    completed = str(last["reviewed_on"]) if last and last["action"] == "completed" else None
+    sessions_since = None
     if completed is not None:
         sessions_since = conn.execute(
             "SELECT COUNT(*) AS n FROM session WHERE occurred_on > ? AND occurred_on <= ?",
@@ -106,24 +108,32 @@ def _readiness_task(conn, on_date: str, cfg: dict) -> ReviewTask:
         ).fetchone()[0]
     if completed is None:
         due_on = on_date
-        status, summary = "due", "No readiness-threshold review recorded."
-        sessions_since = None
+        status, summary = "due", f"No {default_label.lower()} recorded."
     else:
         due_on = (dt.date.fromisoformat(completed) + interval).isoformat()
-        by_sessions = sessions_since >= int(cfg.get("interval_sessions", 40))
+        by_sessions = sessions_since is not None and sessions_since >= int(cfg.get("interval_sessions", 40))
         status = "due" if (on_date >= due_on or by_sessions) else "not_due"
         summary = (
-            "Readiness thresholds are due for review."
+            f"{default_label} are due for review."
             if status == "due" else f"Next review {due_on}."
         )
     return ReviewTask(
-        "readiness_thresholds", str(cfg.get("label", "Review readiness thresholds")),
-        "periodic", status, due_on, summary, str(cfg.get("why", "")),
-        tuple(cfg.get("steps") or ()), tuple(cfg.get("dont") or ()),
-        str(cfg.get("doc", "")), True,
+        key, str(cfg.get("label", default_label)), "periodic", status, due_on,
+        summary, str(cfg.get("why", "")), tuple(cfg.get("steps") or ()),
+        tuple(cfg.get("dont") or ()), str(cfg.get("doc", "")), True,
         {"last_completed": completed, "interval_weeks": cfg.get("interval_weeks", 12),
          "sessions_since": sessions_since},
     )
+
+
+def _readiness_task(conn, on_date: str, cfg: dict) -> ReviewTask:
+    return _periodic_task(conn, on_date, "readiness_thresholds", cfg,
+                          "Readiness thresholds")
+
+
+def _substitution_task(conn, on_date: str, cfg: dict) -> ReviewTask:
+    return _periodic_task(conn, on_date, "exercise_substitution", cfg,
+                          "Substitution suggestions")
 
 
 def _rubric_task(conn, on_date: str, cfg: dict) -> ReviewTask:
@@ -244,8 +254,8 @@ def status(conn, on_date: str) -> dict:
     config = _config()
     tasks = []
     for key in (
-        "readiness_thresholds", "rubric_labels", "strength_test",
-        "srpe_coverage", "readiness_baseline", "back_pattern",
+        "readiness_thresholds", "exercise_substitution", "rubric_labels",
+        "strength_test", "srpe_coverage", "readiness_baseline", "back_pattern",
     ):
         tasks.append(_task(conn, key, on_date, config).as_dict())
     due = [task for task in tasks if task["status"] in {"due", "attention"}]
