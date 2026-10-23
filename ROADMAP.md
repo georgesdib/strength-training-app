@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-23 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **610 public tests** (625 with the 15 private integration tests)
+Last updated: 2026-10-23 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **611 public tests** (626 with the 15 private integration tests)
 
 ---
 
@@ -33,11 +33,11 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | # | Phase | Status | Artifacts |
 |---|---|---|---|
 | 0 | Design + approval | **done** | `docs/ARCHITECTURE.md`, `DATA-MODEL.md`, `DATA-QUALITY.md`, `RULES-FORMAT.md`, `VBT-CALIBRATION.md`, `MODULE-LAYOUT.md`, `V0-SCOPE.md`, `OPEN-QUESTIONS.md`, `SANITY-CHECKS.md`, `TRAINING-GUIDELINES.md` |
-| 1 | Ingest (clean + sessions) | **done** | `ingest/clean.py`, `ingest/sessions.py`, `config/templates/days.v1.yaml` |
+| 1 | Ingest (clean + sessions) | **done** | `ingest/clean.py`, `ingest/sessions.py`, `config/templates/inference.v1.yaml` |
 | 2 | Derived features + VBT calibration | **done** | `features/derived.py`, `features/baseline.py`, `features/vbt_calibration.py`, `domain/e1rm.py`, `domain/load.py`, `domain/rir.py` |
 | 3 | Store (SQLite, append-only) | **done** | `store/migrations/0001_initial.sql`, `store/db.py`, `store/repositories.py`, `store/importer.py` |
 | 4 | Rules loader + policy engine | **done** | `rules/loader.py`, `registry.py`, `context.py`, `policy.py`; predicates for all five rules |
-| 5 | Prescription engine (Day A/B/C) + deterministic fallback | **done** | `prescribe/templates.py`, `config.py`, `loads.py`, `engine.py`, `fallback.py`; `config/thresholds.v1.yaml` |
+| 5 | Prescription engine (four session types) + deterministic fallback | **done** | `prescribe/templates.py`, `config.py`, `loads.py`, `engine.py`, `fallback.py`; `config/thresholds.v1.yaml` |
 | 5.5 | Athlete state — DATA-MODEL §11 tables | **done** | `store/migrations/0003_athlete_state.sql`, `prescribe/constraints.py`, `cli state` / `cli block`; hard constraints veto |
 | 6 | Critique rubric + trace | **done** | `critique/facts.py`, `critique/rubric.py`, `trace/run.py`; 6 measurable items + 2 unmeasured |
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
@@ -140,7 +140,7 @@ Acceptance: a template per day with its own essential lifts; `PRG-SCHED-001` enf
 day, in the same style as `tests/fixtures/golden_day_b.yaml`.
 
 Delivered: Day A (squat-led) and Day C (bench-led) templates with erector + accessory work;
-`run --day A|B|C`; golden fixtures for both days. Core work was added on 2026-10-20
+`run --session-type T`; golden fixtures for the canonical types. Core work was added on 2026-10-20
 (`ab_wheel` on A, `hanging_leg_raise` on C, `DEC-CORE-01`; `docs/CORE-TRAINING.md`). Day A
 opens with a power slot (`box_jump`, `DEC-POWER-01`) and Day B with a vertical-pull variant
 slot (`pull_up` / `lat_pulldown`, `DEC-PULL-01/02`; `docs/LONGEVITY-REVIEW.md`).
@@ -404,7 +404,7 @@ Rules: progression between weeks uses the existing double-progression decisions 
 accessories and e1RM-derived loads for main lifts; the weekly spinal cap and the erector ramp
 apply across the horizon.
 
-Acceptance: `programme --weeks N` prints a dated session-type forecast with legacy A/B/C labels; `--start-session-type T` (or deprecated `--start-day`) sets the first session; `--remaining` starts today;
+Acceptance: `programme --weeks N` prints a dated session-type forecast with canonical session types; `--start-session-type T` sets the first session; `--remaining` starts today;
 every planned session carries its rationale refs; the day's prescription recomputes and
 supersedes the plan; scheduled and reactive deloads fire on the configured triggers and say why; printing
 a programme needs no LLM.
@@ -601,7 +601,7 @@ Planned surfaces, in suggested order:
    warnings and policy veto in the terminal; the web UI does not duplicate it.
 4. **Manual workout logging** (4.2) — **done** via Workout mode: per-set entry, plan overrides,
    import, end, review and calibration.
-5. **Programme view** (4.4) — **done**. Rolling session-type horizon with recomputation on the day; legacy A/B/C is context only.
+5. **Programme view** (4.4) — **done**. Rolling session-type horizon with recomputation on the day; canonical session types are the only label.
 6. **Video** (4.8) — opt-in attachment, privacy warning, commentary only, never a score.
 7. **Readiness settings** (4.9) — **done**. Baseline window, minimum readings, slopes and
    weights; shadow baseline report.
@@ -861,17 +861,17 @@ prospective test remains open.
 **Status: implemented 2026-10-20.** The rigid A/B/C calendar is replaced for new prescriptions by
 four session types:
 
-| type | legacy label | main work | upper body | direct erector |
-|---|---|---|---|---|
-| `squat` | A | SSB squat + power | bench support + row | yes |
-| `hinge` | B | trap-bar deadlift | narrow/pause bench + row + pull | no |
-| `bench_squat` | C | bench + squat support | overhead press + row | no |
-| `bench_hinge` | C | bench + single-leg RDL | overhead press + row + pull | no |
+| type | main work | upper body | direct erector |
+|---|---|---|---|
+| `squat` | SSB squat + power | bench support + row | yes |
+| `hinge` | trap-bar deadlift | narrow/pause bench + row + pull | no |
+| `bench_squat` | bench + squat support | overhead press + row | no |
+| `bench_hinge` | bench + single-leg RDL | overhead press + row + pull | no |
 
 The rolling rule targets two squat, two hinge and two bench-emphasis sessions per six, uses the
-recent `day_guess` history plus forecast choices, and falls back to the preferred emphasis
+recent `session_type` history plus forecast choices, and falls back to the preferred emphasis
 cycle when the counts are tied. A missed session shifts the deficit; it does not advance a
-calendar. A/B/C remain as legacy labels for historical rules and explicit overrides.
+calendar. The legacy A/B/C fields and overrides were removed by migration 0023 (`DEC-SESSION-01`); imported sessions without enough evidence stay `unknown`.
 
 **Balance changes:** every session includes bench or another upper-body press/pull, plus a
 horizontal row. After the 2026-10-20 review, squat-emphasis SSB is 5×3–5, the bench+squat
@@ -891,7 +891,7 @@ reports the 10-week 3RM/5RM cadence. Power work is bodyweight/implement-only.
 
 **Acceptance (done):** session templates parse; every session has a row and an upper-body
 push/pull; hinge sessions contain no direct erector work; the two-week sequence balances
-squat/hinge/bench; legacy A/B/C still resolve for history; the rolling forecast and UI expose the
+squat/hinge/bench; canonical types resolve for history; the rolling forecast and UI expose the
 selected type; set reduction is cited in the `MOD-FAT-001` warning; power carries no external
 load; full tests pass.
 
@@ -1014,7 +1014,7 @@ path. CLI workout commands are partial (no start).
 | No athlete state | no injury, goal or preference can veto a prescription | **resolved** — §11 tables and `state` command |
 | No symptom input | back-flare modifier and the ramp's stability gate cannot run | **resolved** — pre-session 0-3 input, `symptom_log`, `MOD-BACK-001` |
 | Imported sessions have no timestamps | imported duration unmeasurable; two imported sessions on one date indistinguishable | workout mode measures duration; imports remain date-only (`OPEN-QUESTIONS` Q5) |
-| Only Day B can be prescribed | Days A/C are blocked by the erector-ramp anchor (Q3), the SSB question (H1) and the missing §11 tables | **resolved** — Days A/B/C prescribable; the ramp anchor is optional and `unknown` is explicit |
+| Only one session type can be prescribed | The other templates are blocked by the erector-ramp anchor (Q3), the SSB question (H1) and the missing §11 tables | **resolved** — all four session types prescribable; the ramp anchor is optional and `unknown` is explicit |
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
 | Velocity is per-set only | within-set velocity loss not computable | labelled decay proxy; `DEC-VELOCITY-01`; post-hoc rep-level decision in `docs/VBT-REP-LEVEL.md` (`DEC-VBT-03`) |
 | Rubric calibrated on **five high-confidence sessions** | 75% agreement, MAE 0.20; rotation is the weak item (40%, n=5); two old marks are reconstructed and excluded | `DEC-EVAL-04`; needs ~10 remembered marks per item before changing weights |

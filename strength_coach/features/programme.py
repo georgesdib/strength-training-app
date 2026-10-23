@@ -24,29 +24,16 @@ from strength_coach.rules import History, load_document
 from strength_coach.store import queries
 
 WEEKDAYS = (0, 2, 4)          # Monday, Wednesday, Friday
-DAYS = ("A", "B", "C")
 
 
 @dataclass(frozen=True)
 class ProgrammeEntry:
     on_date: str
-    day: str
     prescription: object
+    session_type: str
     deload_reason: str | None = None
-    session_type: str | None = None
     deload_suggestion: str | None = None
     deload_applied: bool = False
-
-
-def _next_day(conn, before: str, start_day: str | None) -> str:
-    if start_day:
-        return start_day.upper()
-    sessions = queries.sessions(conn, end=before)
-    if not sessions.empty:
-        last = str(sessions.iloc[-1]["day_guess"])
-        if last in DAYS:
-            return DAYS[(DAYS.index(last) + 1) % len(DAYS)]
-    return "A"
 
 
 def _dates(start: dt.date, weeks: int, per_week: int) -> list[dt.date]:
@@ -68,8 +55,7 @@ def reactive_deload_reason(conn, as_of: str, *,
 
 
 def build_programme(conn, *, start: str | None = None, weeks: int = 4,
-                    per_week: int = 3, start_day: str | None = None,
-                    start_session_type: str | None = None,
+                    per_week: int = 3, start_session_type: str | None = None,
                     apply_deload: bool = True) -> list[ProgrammeEntry]:
     if weeks <= 0:
         raise ValueError("weeks must be positive")
@@ -84,13 +70,6 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
                 f"start_session_type must be one of {templates.SESSION_TYPES} or auto"
             )
         start_type = start_session_type
-    elif start_day:
-        # Deprecated A/B/C compatibility; C maps to bench+squat because the legacy label had
-        # no bench+hinge distinction.
-        legacy = {"A": "squat", "B": "hinge", "C": "bench_squat"}
-        if start_day.upper() not in legacy:
-            raise ValueError("start_day must be A, B or C")
-        start_type = legacy[start_day.upper()]
     else:
         start_type = schedule.next_session_type(conn, first.isoformat())
     # The past does not change across a forward horizon, so load it once. Rebuilding the
@@ -113,7 +92,6 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
         prescription = build_prescription(
             conn,
             for_date=date.isoformat(),
-            session_day=schedule.legacy_day(current_type),
             session_type=current_type,
             document=document,
             thresholds=thresholds,
@@ -142,8 +120,8 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
         elif scheduled is not None:
             prescription = deload_mod.suggest(prescription, scheduled)
         out.append(ProgrammeEntry(
-            date.isoformat(), prescription.session_day, prescription,
-            reactive.reason if reactive else None, current_type,
+            date.isoformat(), prescription, current_type,
+            reactive.reason if reactive else None,
             deload_suggestion=scheduled.reason if scheduled and reactive is None else None,
             deload_applied=reactive is not None,
         ))

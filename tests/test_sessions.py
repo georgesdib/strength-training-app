@@ -35,21 +35,17 @@ def test_hinge_day_is_b():
     rows = [{"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
              "RIR": "3"}]
     [session] = build(rows)
-    assert session.day == "B"
-    assert session.day_reason == "hinge"
-    assert session.day_confidence >= 0.9
+    assert session.session_type == "hinge"
 
 
 def test_squat_dominant_day_is_a():
     [session] = build(squat_sets(8) + bench_sets(3))
-    assert session.day == "A"
-    assert session.day_reason == "squat_emphasis"
+    assert session.session_type == "squat"
 
 
 def test_bench_dominant_day_is_c():
     [session] = build(squat_sets(3) + bench_sets(8))
-    assert session.day == "C"
-    assert session.day_reason == "bench_emphasis"
+    assert session.session_type == "bench_squat"
 
 
 def test_pause_bench_counts_towards_the_bench_family():
@@ -58,36 +54,33 @@ def test_pause_bench_counts_towards_the_bench_family():
          "RIR": "2"} for _ in range(8)
     ]
     [session] = build(rows)
-    assert session.day == "C"
+    assert session.session_type == "bench_squat"
 
 
 # --- honest abstention ----------------------------------------------------
 def test_bench_only_session_is_not_forced_into_a_day():
     """Every programme day contains a squat or a hinge, so bench-only is off-programme."""
     [session] = build(bench_sets(8))
-    assert session.day == "unknown"
-    assert session.day_reason == "bench_only"
+    assert session.session_type == "unknown"
     assert sessions.FLAG_OFF_PROGRAMME in session.flags
 
 
 def test_squat_only_session_is_not_forced_into_a():
     [session] = build(squat_sets(8))
-    assert session.day == "unknown"
-    assert session.day_reason == "squat_only"
+    assert session.session_type == "unknown"
 
 
 def test_accessory_only_session_has_no_primary():
     rows = [{"Date": "2024-01-01", "Exercise": "Lateral Raise", "Weight_Used": "10",
              "RIR": "2"}]
     [session] = build(rows)
-    assert session.day == "unknown"
-    assert session.day_reason == "no_primary"
+    assert session.session_type == "unknown"
     assert sessions.FLAG_NO_MAIN_LIFT in session.flags
 
 
 def test_ambiguous_session_is_flagged_as_such():
     [session] = build(bench_sets(5))
-    assert sessions.FLAG_AMBIGUOUS_DAY in session.flags
+    assert sessions.FLAG_AMBIGUOUS_SESSION_TYPE in session.flags
 
 
 # --- programme substitution ----------------------------------------------
@@ -101,7 +94,7 @@ def test_competition_squat_instead_of_ssb_is_flagged_as_substitution():
     assert session.main_lifts == ("bench_press",)
     assert "competition_squat" in session.primary_compounds
     assert sessions.FLAG_SUBSTITUTED_MAIN_LIFT not in session.flags  # bench IS a main lift
-    assert session.day in {"A", "C"}
+    assert session.session_type in {"squat", "bench_squat"}
 
 
 # --- structural flags -----------------------------------------------------

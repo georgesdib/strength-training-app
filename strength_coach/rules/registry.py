@@ -279,17 +279,19 @@ def direct_erector_scheduling(
     """Direct erector work off the hinge day and never stacked with a hinge."""
     sets = context.sets
     if sets.empty:
-        return _unknown(["session.day"], "no clean sets in the window")
+        return _unknown(["session.session_type"], "no clean sets in the window")
 
     params = rule.params
-    allowed_days = {str(d) for d in (params.get("allowed_days") or ("A", "C"))}
+    allowed_types = {
+        str(t) for t in (params.get("allowed_session_types") or ("squat", "bench_squat"))
+    }
     forbidden_patterns = {
         str(p) for p in (params.get("forbid_same_session_as_patterns") or ("hinge",))
     }
     day_of: dict[str, str] = {}
     if not context.sessions.empty:
         day_of = {
-            str(row.session_id): str(row.day_guess)
+            str(row.session_id): str(row.session_type)
             for row in context.sessions.itertuples(index=False)
         }
 
@@ -329,11 +331,14 @@ def direct_erector_scheduling(
                     ),
                 )
             )
-        elif day not in allowed_days and day != "unknown":
+        elif day not in allowed_types and day != "unknown":
             evidence.append(
                 Evidence(
                     ref=f"session:{session_id}",
-                    detail=f"direct erector work ({', '.join(erector)}) on day {day}, allowed {sorted(allowed_days)}",
+                    detail=(
+                        f"direct erector work ({', '.join(erector)}) on {day}, "
+                        f"allowed {sorted(allowed_types)}"
+                    ),
                 )
             )
 

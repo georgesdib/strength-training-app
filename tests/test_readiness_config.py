@@ -117,11 +117,11 @@ def test_engine_uses_the_configured_fields():
     readiness = [{"Date": "2024-01-08", "Sleep": "4", "Energy": "4", "Soreness": "2"}]
 
     with store_with(readiness) as store:
-        default = build_prescription(store.connection, for_date="2024-01-08", session_day="A")
+        default = build_prescription(store.connection, for_date="2024-01-08", session_type="squat")
         widened = build_prescription(
             store.connection,
             for_date="2024-01-08",
-            session_day="A",
+            session_type="squat",
             readiness_config=ReadinessConfig(modifier_fields=("sleep", "soreness")),
         )
 

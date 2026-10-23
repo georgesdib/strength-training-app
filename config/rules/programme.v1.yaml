@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.11.0"
+  version: "1.12.0"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -39,6 +39,8 @@ document:
       change: "A scheduled low-volume deload week joins the reactive triggers; it reduces sets, load and adds RIR under MOD-DELOAD-001 (DEC-PROGRAMME-05)."
     - version: "1.11.0"
       change: "An under-MEV pattern adds one accessory set after three weeks below MEV (MOD-VOL-002), and poor readiness may now reduce main-lift sets as well as accessories (DEC-READINESS-08 amendment)."
+    - version: "1.12.0"
+      change: "Canonical session types replace the legacy A/B/C label. Direct-erector scheduling reads session.session_type and allows squat/bench_squat only (DEC-SESSION-01)."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -63,7 +65,6 @@ collections:
     - back_extension
   accessories_and_back_extension:
     - back_extension
-    - lateral_raise
     - split_squat
     # Core work is accessory work: it is trained at the end of the session, never before a
     # main lift, and it progresses by the same double-progression rule (DEC-CORE-01).
@@ -168,12 +169,12 @@ rules:
       plus direct erector work in the same session. Do not substitute RDLs, good
       mornings, rack pulls or Jefferson curls for the back extension.
     params:
-      allowed_days: [A, C]
+      allowed_session_types: [squat, bench_squat]
       direct_erector_property: direct_erector
       forbid_same_session_as_patterns: [hinge]
       forbid_substitution: true
       substitutable_property: substitutable_for_back_extension
-    inputs: [session.day, prescription.items.exercise_id, exercise.direct_erector,
+    inputs: [session.session_type, prescription.items.exercise_id, exercise.direct_erector,
              exercise.pattern]
     check:
       fn: direct_erector_scheduling
@@ -187,7 +188,7 @@ rules:
       a new erector exercise is covered automatically. `substitutable_for_back_extension`
       is what makes "do not substitute" machine-checkable: an RDL cannot satisfy the
       erector dose by proxy. Verification against performed sessions is impossible while
-      Day A/B/C has to be retrofitted from the log (DQ-SESSION-02).
+      The canonical session type has to be reconstructed from the log (DQ-SESSION-02).
 
   # ---------------------------------------------------------------------------
   - id: PRG-EREC-001

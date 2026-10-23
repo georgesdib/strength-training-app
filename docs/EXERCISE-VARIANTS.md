@@ -41,7 +41,7 @@ Do not use `history_equivalent_of` for a different variant with different loads
 
 ## 2. Add it to a slot
 
-[`config/templates/days.v1.yaml`](../config/templates/days.v1.yaml):
+[`config/templates/session-types.v1.yaml`](../config/templates/session-types.v1.yaml):
 
 ```yaml
         - id: squat_main
@@ -115,6 +115,6 @@ suitability, not config.
 
 - [ ] canonical entity resolves: `strength-coach state` or a fresh import;
 - [ ] new variant has history (or accept that it starts at no history);
-- [ ] template parses: `strength-coach select --date YYYY-MM-DD --day A|B|C`;
+- [ ] template parses: `strength-coach select --date YYYY-MM-DD --session-type T`;
 - [ ] golden/rep-range tests updated if the template changed;
 - [ ] server restarted.

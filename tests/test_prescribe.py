@@ -17,7 +17,7 @@ import yaml
 from conftest import make_readiness, make_training
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.prescribe import (
-    DayTemplate,
+    SessionTemplate,
     TemplateError,
     Thresholds,
     build_prescription,
@@ -59,6 +59,7 @@ BASE_HISTORY = [
     {"Date": "2024-01-01", "Exercise": "Lateral Raise", "Weight_Used": "12.5", "RIR": "2", "Reps_Done": "10"},
     {"Date": "2024-01-01", "Exercise": "Split Squat", "Weight_Used": "30", "RIR": "3", "Reps_Done": "8"},
     {"Date": "2024-01-01", "Exercise": "Pull-ups (wide grip)", "Weight_Used": "0", "RIR": "2", "Reps_Done": "8"},
+    {"Date": "2024-01-01", "Exercise": "Dumbbell Row", "Weight_Used": "30", "RIR": "2", "Reps_Done": "10"},
 ]
 
 
@@ -103,33 +104,34 @@ def test_unsupported_rounding_mode_is_rejected(tmp_path):
 
 
 def test_day_b_template_has_no_erector_work():
-    template = DayTemplate.load("B")
+    template = SessionTemplate.load("hinge")
     exercises = [e for slot in template.slots for e in slot.exercises]
     assert "back_extension" not in exercises          # PRG-SCHED-001
     assert set(exercises) == {
         "trap_bar_deadlift", "bench_press_narrow", "bench_press_pause",
-        "lateral_raise", "split_squat", "pull_up", "lat_pulldown",
+        "split_squat", "pull_up", "lat_pulldown", "dumbbell_row",
     }
-    assert template.rep_ranges()["lateral_raise"] == (10, 12)
+    assert template.rep_ranges()["split_squat"] == (8, 10)
     assert template.time_cap_s == 4800
 
 
 def test_template_without_prescription_block_is_rejected(tmp_path):
-    path = tmp_path / "days.yaml"
+    path = tmp_path / "session-types.yaml"
     path.write_text(
-        yaml.safe_dump({"schema_version": "1.0.0", "days": {"B": {"required_lifts": []}}}),
+        yaml.safe_dump({"schema_version": "1.0.0",
+                        "session_types": {"hinge": {"required_lifts": []}}}),
         encoding="utf-8",
     )
     with pytest.raises(TemplateError, match="no prescription block"):
-        DayTemplate.load("B", path)
+        SessionTemplate.load("hinge", path)
 
 
 def test_template_with_a_typo_in_reps_is_rejected(tmp_path):
-    path = tmp_path / "days.yaml"
+    path = tmp_path / "session-types.yaml"
     path.write_text(
         yaml.safe_dump({
             "schema_version": "1.0.0",
-            "days": {"B": {"prescription": {"slots": [
+            "session_types": {"hinge": {"prescription": {"slots": [
                 {"id": "x", "exercise": "trap_bar_deadlift", "sets": 3,
                  "reps": {"low": 5, "high": 3}, "rir": {"low": 2, "high": 3}}
             ]}}},
@@ -137,7 +139,7 @@ def test_template_with_a_typo_in_reps_is_rejected(tmp_path):
         encoding="utf-8",
     )
     with pytest.raises(TemplateError, match="reps.low > reps.high"):
-        DayTemplate.load("B", path)
+        SessionTemplate.load("hinge", path)
 
 
 # --- the engine ------------------------------------------------------------
@@ -165,6 +167,8 @@ def test_stale_e1rm_falls_back_to_the_last_working_load():
          "RIR": "2", "Reps_Done": "5"},
         {"Date": "2023-01-01", "Exercise": "Lateral Raise", "Weight_Used": "12.5",
          "RIR": "2", "Reps_Done": "10"},
+        {"Date": "2024-01-07", "Exercise": "Dumbbell Row", "Weight_Used": "30",
+         "RIR": "2", "Reps_Done": "10"},
         # A recent session for a lift the test does not inspect, so the gap is not the variable
         # under test (continuity is covered in test_continuity.py).
         {"Date": "2024-01-07", "Exercise": "Competition Bench Press", "Weight_Used": "90",
@@ -172,7 +176,7 @@ def test_stale_e1rm_falls_back_to_the_last_working_load():
     ]
     with store_with(rows) as store:
         prescription = build_prescription(store.connection, for_date="2024-01-08",
-                                          session_day="A")
+                                          session_type="squat")
 
     assert prescription.executable, prescription.issues
     squat = next(i for i in prescription.items if i.exercise_id == "ssb_squat")
@@ -191,7 +195,7 @@ def test_bodyweight_work_without_history_starts_at_bodyweight():
     ]
     with store_with(rows) as store:
         prescription = build_prescription(store.connection, for_date="2024-01-08",
-                                          session_day="A")
+                                          session_type="squat")
 
     erector = next(i for i in prescription.items if i.exercise_id == "back_extension")
     assert erector.load_kg == 0.0
@@ -273,26 +277,30 @@ def test_variant_choice_prefers_the_most_recently_trained():
 
 def test_accessories_progress_by_double_progression():
     rows = [
-        {"Date": "2024-01-01", "Exercise": "Lateral Raise",
-         "Weight_Used": "12.5", "RIR": "2", "Reps_Done": "12"},   # top of 10-12 at RIR 2
+        {"Date": "2024-01-01", "Exercise": "Dumbbell Row",
+         "Weight_Used": "12.5", "RIR": "2", "Reps_Done": "12"},   # top of 8-12 at RIR 2
     ]
     with store_with(rows) as store:
-        prescription = build_prescription(store.connection, for_date="2024-01-08")
-    lateral = next(i for i in prescription.items if i.exercise_id == "lateral_raise")
-    assert lateral.load_kg == 13.0
-    assert "PRG-DP-001" in lateral.rationale_refs
+        prescription = build_prescription(
+            store.connection, for_date="2024-01-08", session_type="bench_squat"
+        )
+    row = next(i for i in prescription.items if i.exercise_id == "dumbbell_row")
+    assert row.load_kg == 13.0
+    assert "PRG-DP-001" in row.rationale_refs
 
 
 def test_core_work_is_prescribed_on_the_strength_days_only():
     # DEC-CORE-01 / docs/CORE-TRAINING.md: two reps-based core slots, never on the hinge day,
     # and never time-based (progressing a plank "top of range" would mean holding longer).
-    a = [e for slot in DayTemplate.load("A").slots for e in slot.exercises]
-    b = [e for slot in DayTemplate.load("B").slots for e in slot.exercises]
-    c = [e for slot in DayTemplate.load("C").slots for e in slot.exercises]
-    assert "ab_wheel" in a
-    assert "hanging_leg_raise" in c
-    assert "ab_wheel" not in b and "hanging_leg_raise" not in b
-    assert "plank" not in a + b + c and "carry" not in a + b + c
+    squat = [e for slot in SessionTemplate.load("squat").slots for e in slot.exercises]
+    bench_squat = [e for slot in SessionTemplate.load("bench_squat").slots
+                    for e in slot.exercises]
+    bench_hinge = [e for slot in SessionTemplate.load("bench_hinge").slots
+                    for e in slot.exercises]
+    assert "ab_wheel" in squat and "ab_wheel" in bench_squat
+    assert "hanging_leg_raise" in bench_hinge
+    assert "ab_wheel" not in bench_hinge and "hanging_leg_raise" not in squat
+    assert "plank" not in squat + bench_squat + bench_hinge
 
 
 def test_rep_ranges_are_pooled_across_every_day():
@@ -301,8 +309,7 @@ def test_rep_ranges_are_pooled_across_every_day():
     from strength_coach.prescribe import templates
 
     ranges = templates.all_rep_ranges()
-    assert {"back_extension", "lateral_raise", "split_squat",
-            "ab_wheel", "hanging_leg_raise"} <= set(ranges)
+    assert {"back_extension", "split_squat", "ab_wheel", "hanging_leg_raise"} <= set(ranges)
 
 
 def test_double_progression_is_assessable_on_every_day():
@@ -317,13 +324,13 @@ def test_double_progression_is_assessable_on_every_day():
          "RIR": "2", "Reps_Done": "8"},
     ]
     with store_with(rows) as store:
-        for day in ("A", "B", "C"):
+        for session_type in ("squat", "hinge", "bench_squat", "bench_hinge"):
             prescription = build_prescription(
-                store.connection, for_date="2024-01-08", session_day=day
+                store.connection, for_date="2024-01-08", session_type=session_type
             )
             assert not any(
                 "PRG-DP-001 not assessable" in warning for warning in prescription.warnings
-            ), day
+            ), session_type
 
 
 def test_every_rationale_reference_resolves():
@@ -358,7 +365,7 @@ def test_day_a_opens_with_power_work_and_no_load_progression_citation():
     ]
     with store_with(rows) as store:
         prescription = build_prescription(
-            store.connection, for_date="2024-01-08", session_day="A"
+            store.connection, for_date="2024-01-08", session_type="squat"
         )
 
     first = prescription.items[0]
@@ -375,7 +382,7 @@ def test_power_slot_ignores_external_load_history():
     ]
     with store_with(rows) as store:
         prescription = build_prescription(
-            store.connection, for_date="2024-01-08", session_day="A"
+            store.connection, for_date="2024-01-08", session_type="squat"
         )
 
     first = prescription.items[0]
@@ -394,7 +401,7 @@ def test_recent_stress_is_attached_as_an_advisory_only():
     ]
     with store_with(rows) as store:
         prescription = build_prescription(
-            store.connection, for_date="2024-01-02", session_day="A"
+            store.connection, for_date="2024-01-02", session_type="squat"
         )
 
     stress = prescription.notes["recent_stress"]["ssb_squat"]
@@ -428,7 +435,7 @@ def test_selection_b_requires_confirmation():
     with store_with(rows) as store:
         with patch("strength_coach.prescribe.engine.selection_mod.select", fake_select):
             prescription = build_prescription(
-                store.connection, for_date="2024-01-15", session_day="B",
+                store.connection, for_date="2024-01-15", session_type="hinge",
                 apply_selection=True,
             )
     ids = {item.exercise_id for item in prescription.items}
@@ -463,7 +470,7 @@ def test_selection_c_is_never_automatic():
         from unittest.mock import patch
         with patch("strength_coach.prescribe.engine.selection_mod.select", fake_select):
             prescription = build_prescription(
-                store.connection, for_date="2024-01-15", session_day="B",
+                store.connection, for_date="2024-01-15", session_type="hinge",
                 apply_selection=True, selection_confirmed=True,
             )
         assert "pull_up" not in {item.exercise_id for item in prescription.items}
@@ -482,7 +489,7 @@ def test_per_lift_readiness_can_only_lower_a_load():
                   "Stress": "4", "Soreness": "4"}]
     with store_with(rows, readiness_rows=readiness) as store:
         prescription = build_prescription(
-            store.connection, for_date="2024-01-08", session_day="B"
+            store.connection, for_date="2024-01-08", session_type="hinge"
         )
 
     entry = prescription.notes["per_lift_readiness"]["trap_bar_deadlift"]
@@ -515,7 +522,7 @@ def test_apply_selection_rebuilds_the_item_and_cites_mod_select(monkeypatch):
     ]
     with store_with(rows) as store:
         prescription = build_prescription(
-            store.connection, for_date="2024-01-15", session_day="B",
+            store.connection, for_date="2024-01-15", session_type="hinge",
             apply_selection=True, selection_confirmed=True,
         )
         item = next(i for i in prescription.items if i.exercise_id == "bench_press_pause")
@@ -531,14 +538,14 @@ def test_poor_readiness_reduces_accessory_and_main_sets():
     readiness = [{"Date": "2024-01-02", "Sleep": "1", "Energy": "1",
                   "Mood": "1", "Soreness": "1", "Stress": "1"}]
     with store_with(rows, readiness_rows=readiness) as store:
-        plain = build_prescription(store.connection, for_date="2024-01-02", session_day="A")
+        plain = build_prescription(store.connection, for_date="2024-01-02", session_type="squat")
     with store_with(rows, readiness_rows=readiness) as store:
         # The same date with a deliberately disabled valve is the control.
         from strength_coach.features import readiness as readiness_mod
         cfg = readiness_mod.ReadinessConfig.load()
         cfg = replace(cfg, set_reduction_enabled=False)
         control = build_prescription(
-            store.connection, for_date="2024-01-02", session_day="A",
+            store.connection, for_date="2024-01-02", session_type="squat",
             readiness_config=cfg,
         )
     plain_sets = {i.exercise_id: i.sets for i in plain.items}
@@ -553,7 +560,7 @@ def test_poor_readiness_reduces_accessory_and_main_sets():
 def test_main_lifts_carry_a_standardised_warmup_ramp():
     with store_with(BASE_HISTORY) as store:
         prescription = build_prescription(
-            store.connection, for_date="2024-01-15", session_day="B",
+            store.connection, for_date="2024-01-15", session_type="hinge",
         )
     main = next(item for item in prescription.items if item.essential and item.load_kg)
     assert [w.percent for w in main.warmup] == [0.50, 0.70, 0.85]

@@ -37,7 +37,7 @@ What exists today is:
 - `strength_coach/workout.py` — live workout session, linked prescription snapshot, manual/imported sets, plan overrides, timed/manual end and rubric link.
 - `data/coach.db` is created on demand and is git-ignored.
 - `strength_coach/rules/` — constitution loader, one predicate per `check.fn`, policy verdicts.
-- `strength_coach/prescribe/` — deterministic Day A/B/C engine, load solver, fallback, and the constraint check that applies stored athlete state. `config/thresholds.v1.yaml` holds the increments and e1RM window.
+- `strength_coach/prescribe/` — deterministic four-session-type engine, load solver, fallback, and the constraint check that applies stored athlete state. `config/thresholds.v1.yaml` holds the increments and e1RM window.
 - Athlete state lives in the §11 tables (`athlete_profile`, `athlete_constraint`, `exercise_suitability`, `metric_definition`, `symptom_log`), entered with `strength-coach state`.
 - `strength_coach/critique/` — deterministic rubric over a stored session; unmeasurable metrics are stored `measurable = 0`.
 - `strength_coach/trace/` — run lifecycle around `run` / `run_event`.

@@ -17,11 +17,10 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from strength_coach.prescribe import DayTemplate, TemplateError
+from strength_coach.prescribe import SessionTemplate, TemplateError
+from strength_coach.prescribe.templates import SESSION_TYPES
 from strength_coach.rules import RuleContext, load_document, registry
 from strength_coach.store import queries
-
-DAY_TEMPLATE_DIR = ("templates", "days.v1.yaml")
 
 
 class UnknownSessionError(KeyError):
@@ -32,7 +31,7 @@ class UnknownSessionError(KeyError):
 class CritiqueFacts:
     session_id: str
     occurred_on: str
-    day: str
+    session_type: str
     workout_label: str | None
     sets: pd.DataFrame
     prior_sets: pd.DataFrame
@@ -58,7 +57,7 @@ class CritiqueFacts:
         """A stable fingerprint of the facts, stored on the critique row."""
         payload = {
             "session_id": self.session_id,
-            "day": self.day,
+            "session_type": self.session_type,
             "sets": int(len(self.sets)),
             "working_sets": int(self.sets["is_working_set"].sum()),
             "exercises": sorted({str(e) for e in self.sets["exercise_id"].unique()}),
@@ -75,7 +74,7 @@ def build_facts(
     session_id: str,
     *,
     document=None,
-    template_loader=DayTemplate.load,
+    template_loader=SessionTemplate.load,
 ) -> CritiqueFacts:
     """Assemble everything the rubric may look at, for one stored session."""
     document = document or load_document()
@@ -95,8 +94,8 @@ def build_facts(
         raise UnknownSessionError(f"no session {session_id!r} in the store")
     row = matches.iloc[0]
 
-    day = str(row["day_guess"])
-    template = _template_for(day, template_loader)
+    session_type = str(row["session_type"])
+    template = _template_for(session_type, template_loader)
     rep_ranges = template.rep_ranges() if template is not None else {}
 
     # History is cut at the session date: a critique that could see the future would grade
@@ -127,7 +126,7 @@ def build_facts(
     return CritiqueFacts(
         session_id=str(session_id),
         occurred_on=str(row["occurred_on"])[:10],
-        day=day,
+        session_type=session_type,
         workout_label=(str(row["workout_label"]) if pd.notna(row["workout_label"]) else None),
         sets=sets,
         prior_sets=prior,
@@ -143,15 +142,11 @@ def build_facts(
     )
 
 
-def _template_for(day: str, loader) -> DayTemplate | None:
-    """The day template, or None when this day has no prescription block yet.
-
-    Days A and C are not prescribable (roadmap phase 5.5 / Q3), so their essential work is
-    genuinely unassessable rather than missing.
-    """
-    if day not in {"A", "B", "C"}:
+def _template_for(session_type: str, loader) -> SessionTemplate | None:
+    """The session template, or None when the imported session type is unknown."""
+    if session_type not in SESSION_TYPES:
         return None
     try:
-        return loader(day)
+        return loader(session_type)
     except TemplateError:
         return None

@@ -247,7 +247,7 @@ def _essential_work(facts: CritiqueFacts) -> RubricItem:
         # Day A/C have no prescription template yet, so their essential work is genuinely
         # unassessable rather than absent.
         return _unmeasurable(
-            "ESSENTIAL_WORK", (), f"no prescription template for day {facts.day!r}"
+            "ESSENTIAL_WORK", (), f"no prescription template for day {facts.session_type!r}"
         )
     present = {str(e) for e in facts.sets["exercise_id"].unique()}
     covered = [slot for slot, exercises in facts.essential_slots if present & set(exercises)]
@@ -387,9 +387,9 @@ def _narrative(facts: CritiqueFacts, items: Iterable[RubricItem]) -> str:
         if i.measurable and i.score is not None
     )
     head = (
-        f"Session {facts.session_id} ({facts.occurred_on}, day {facts.day}). "
+        f"Session {facts.session_id} ({facts.occurred_on}, day {facts.session_type}). "
         f"Composite {composite:.2f}. " if composite is not None else
-        f"Session {facts.session_id} ({facts.occurred_on}, day {facts.day}). "
+        f"Session {facts.session_id} ({facts.occurred_on}, day {facts.session_type}). "
     )
     return head + (f"Measured: {scored}." if scored else "No item was measurable.")
 

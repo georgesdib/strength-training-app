@@ -172,9 +172,7 @@ def upsert_sessions(conn: sqlite3.Connection, sessions: Sequence[Session]) -> in
             session.working_set_count,
             session.exercise_count,
             _json(list(session.main_lifts)),
-            session.day,
-            session.day_confidence,
-            session.day_reason,
+            session.session_type,
             _opt(session.tonnage_kg),
             _json(list(session.flags)),
         )
@@ -185,9 +183,9 @@ def upsert_sessions(conn: sqlite3.Connection, sessions: Sequence[Session]) -> in
         """
         INSERT INTO session (
             session_id, occurred_on, workout_label, set_count, working_set_count,
-            exercise_count, main_lifts, day_guess, day_confidence, day_reason,
+            exercise_count, main_lifts, session_type,
             tonnage_kg, flags, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                   strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
         ON CONFLICT(session_id) DO UPDATE SET
             occurred_on       = excluded.occurred_on,
@@ -196,9 +194,7 @@ def upsert_sessions(conn: sqlite3.Connection, sessions: Sequence[Session]) -> in
             working_set_count = excluded.working_set_count,
             exercise_count    = excluded.exercise_count,
             main_lifts        = excluded.main_lifts,
-            day_guess         = excluded.day_guess,
-            day_confidence    = excluded.day_confidence,
-            day_reason        = excluded.day_reason,
+            session_type      = excluded.session_type,
             tonnage_kg        = excluded.tonnage_kg,
             flags             = excluded.flags,
             updated_at        = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
@@ -815,7 +811,7 @@ def append_prescription(
     prescription_id: str,
     run_id: str,
     for_date: str,
-    session_day: str,
+    session_type: str,
     fallback_level: str,
     rule_document_version: str,
     calibration_ids: Sequence[str],
@@ -826,7 +822,7 @@ def append_prescription(
     """Store a prescription and its items in one transaction-like sequence."""
     conn.execute(
         """
-        INSERT INTO prescription (prescription_id, run_id, for_date, session_day,
+        INSERT INTO prescription (prescription_id, run_id, for_date, session_type,
                                   fallback_level, rule_document_version, calibration_ids,
                                   approved_by, supersedes_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -835,7 +831,7 @@ def append_prescription(
             prescription_id,
             run_id,
             for_date,
-            session_day,
+            session_type,
             fallback_level,
             rule_document_version,
             _json(list(calibration_ids)),

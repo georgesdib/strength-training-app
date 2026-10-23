@@ -94,8 +94,8 @@ def test_the_page_and_overview_are_served(server):
 
 
 def test_prescribe_and_state_endpoints(server):
-    data = post(server, "/api/prescribe", {"date": "2024-01-08", "day": "A"})
-    assert data["session_day"] == "A"
+    data = post(server, "/api/prescribe", {"date": "2024-01-08", "session_type": "squat"})
+    assert data["session_type"] == "squat"
     assert data["items"]
 
     status, body = get(server, "/api/state")
@@ -190,7 +190,7 @@ def test_readiness_score_and_override(server):
 def test_prescribe_requires_readiness_for_today(server):
     today = date.today().isoformat()
     with pytest.raises(urllib.error.HTTPError) as excinfo:
-        post(server, "/api/prescribe", {"date": today, "day": "A"})
+        post(server, "/api/prescribe", {"date": today, "session_type": "squat"})
     assert excinfo.value.code == 409
 
 
@@ -269,11 +269,11 @@ def post_status(base: str, path: str, payload: dict) -> tuple[int, str]:
 
 def test_programme_endpoint(server):
     data = post(server, "/api/programme", {
-        "weeks": 2, "start": "2024-01-02", "start_day": "A",
+        "weeks": 2, "start": "2024-01-02", "start_session_type": "squat",
     })
     assert len(data["entries"]) == 6
     assert data["entries"][0]["date"] == "2024-01-03"
-    assert data["entries"][0]["day"] == "A"
+    assert data["entries"][0]["session_type"] == "squat"
     assert data["entries"][0]["prescription"]["items"]
 
 
@@ -303,7 +303,7 @@ def test_terminal_accepts_only_strength_coach(server):
 
 def test_terminal_runs_a_valid_command(server):
     status, body = post_status(server, "/api/terminal", {
-        "command": "strength-coach programme --weeks 1 --start 2024-01-02 --start-day A",
+        "command": "strength-coach programme --weeks 1 --start 2024-01-02 --start-session-type squat",
     })
     assert status == 200
     data = json.loads(body)
@@ -397,10 +397,10 @@ def test_fatigue_model_endpoint_is_shadow_only(server):
 
 
 def test_exercise_selection_endpoint_is_shadow_only(server):
-    status, body = get(server, "/api/selection?date=2024-01-01&day=B")
+    status, body = get(server, "/api/selection?date=2024-01-01&session_type=hinge")
     assert status == 200
     data = json.loads(body)
-    assert data["day"] == "B"
+    assert data["session_type"] == "hinge"
     assert isinstance(data["slots"], list)
 
 
@@ -423,14 +423,14 @@ def test_exercise_post_rejects_an_invalid_id_without_writing(server):
 
 def test_prescribe_can_apply_selection(server):
     unconfirmed = post(server, "/api/prescribe", {
-        "date": "2024-01-15", "day": "A", "apply_selection": True,
+        "date": "2024-01-15", "session_type": "squat", "apply_selection": True,
     })
     assert unconfirmed["notes"]["selection"]["requested"] is True
     assert unconfirmed["notes"]["selection"]["applied"] is False
     assert any(slot["blocked_reason"] for slot in unconfirmed["notes"]["selection"]["slots"])
 
     data = post(server, "/api/prescribe", {
-        "date": "2024-01-15", "day": "A",
+        "date": "2024-01-15", "session_type": "squat",
         "apply_selection": True, "selection_confirmed": True,
     })
     assert data["notes"]["selection"]["requested"] is True
@@ -451,7 +451,7 @@ def test_prescribe_accepts_a_session_type(server):
         "date": "2024-01-15", "session_type": "hinge",
     })
     assert data["session_type"] == "hinge"
-    assert data["session_day"] == "B"
+    assert data["session_type"] == "hinge"
     assert any(row["exercise_id"] == "trap_bar_deadlift" for row in data["items"])
 
 
@@ -474,7 +474,7 @@ def test_programme_accepts_a_start_session_type(server):
         "weeks": 1, "sessions_per_week": 1, "start_session_type": "bench_hinge",
     })
     assert data["entries"][0]["session_type"] == "bench_hinge"
-    assert data["entries"][0]["day"] == "C"
+    assert data["entries"][0]["session_type"] == "bench_hinge"
 
 
 def test_prescribe_suggests_a_scheduled_deload_and_applies_only_when_confirmed(server):

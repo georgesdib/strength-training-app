@@ -42,7 +42,7 @@ def session_rows(date: str, *, deadlift_rir: str = "2", with_erector: bool = Fal
     rows = [
         {"Date": date, "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
          "RIR": deadlift_rir, "Reps_Done": "3"},
-        {"Date": date, "Exercise": "Lateral Raise", "Weight_Used": "12.5", "RIR": "2",
+        {"Date": date, "Exercise": "Dumbbell Row", "Weight_Used": "30", "RIR": "2",
          "Reps_Done": "12"},
         {"Date": date, "Exercise": "Split Squat", "Weight_Used": "30", "RIR": "3",
          "Reps_Done": "8"},
@@ -60,15 +60,15 @@ def session_rows(date: str, *, deadlift_rir: str = "2", with_erector: bool = Fal
 
 
 def test_grinding_sets_lower_the_rir_score():
-    # Two rated primary-compound sets: the deadlift at RIR 0 is a violation, the bench at
-    # RIR 2 is compliant, so the item scores 0.5.
+    # Three rated sets: the deadlift at RIR 0 is a violation, the row and bench at RIR 2 are
+    # compliant, so the item scores two-thirds.
     rows = session_rows("2024-01-01", deadlift_rir="0")
     with store_with(rows) as store:
         critique = score_session(store.connection, "2024-01-01")
         facts = build_facts(store.connection, "2024-01-01")
     item = critique.item("RIR_ADHERENCE")
-    assert item.measurable and item.score == 0.5
-    assert "1/2" in item.detail
+    assert item.measurable and item.score == pytest.approx(0.6667)
+    assert "2/3" in item.detail
     assert item.evidence_refs
     assert all(policy_mod.resolve_reference(facts.context, ref) for ref in item.evidence_refs)
 
@@ -96,7 +96,7 @@ def test_progression_missed_when_top_of_range_was_not_added_to():
     item = critique.item("PROGRESSION_ADHERENCE")
     assert item.measurable
     assert item.score < 1.0
-    assert "lateral_raise" in item.detail
+    assert "dumbbell_row" in item.detail
 
 
 def test_progression_credit_when_the_step_was_taken():
@@ -106,8 +106,8 @@ def test_progression_credit_when_the_step_was_taken():
         for row in session_rows("2024-01-01")
     ]
     for row in second:
-        if row["Exercise"] == "Lateral Raise":
-            row["Weight_Used"] = "13.0"
+        if row["Exercise"] == "Dumbbell Row":
+            row["Weight_Used"] = "32.5"
     with store_with(first + second) as store:
         critique = score_session(store.connection, "2024-01-08")
     assert critique.item("PROGRESSION_ADHERENCE").score == 1.0

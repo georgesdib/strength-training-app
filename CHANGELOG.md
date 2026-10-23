@@ -2,6 +2,14 @@
 
 ## [0.3.1] — unreleased
 
+### Changed
+
+- Replaced the legacy A/B/C session fields and overrides with four canonical session types
+  (`squat`, `hinge`, `bench_squat`, `bench_hinge`). Migration 0023 reparses imported sessions
+  from their preserved raw exercise composition, leaves unresolved sessions `unknown`, and
+  drops `session_day`/`day_guess`. `--day` and `--start-day` are removed; use
+  `--session-type`.
+
 ### Added
 
 - Workout mode foundation: start a workout from a prescription, required pre-workout readiness,

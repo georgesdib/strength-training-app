@@ -68,7 +68,7 @@ def config_hash() -> str:
     digest = hashlib.sha256()
     for path in (
         paths.taxonomy_yaml(),
-        paths.config_dir("templates", "days.v1.yaml"),
+        paths.config_dir("templates", "inference.v1.yaml"),
         paths.programme_rules_yaml(),
         # Prescription thresholds change prescribed loads, so a run must name the version
         # they were under, not just the rules version.

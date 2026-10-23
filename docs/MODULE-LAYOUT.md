@@ -13,7 +13,8 @@ config/
   exercises/taxonomy.v1.yaml         [x] exercise identity + properties
   rules/programme.v1.yaml            [x] the constitution, 5 encoded rules + modifiers
   calibration/overrides.v1.yaml      [ ] per-lift manual velocity overrides
-  templates/days.v1.yaml             [x] Day A/B/C templates + day inference rules
+  templates/session-types.v1.yaml    [x] canonical session templates
+templates/inference.v1.yaml        [x] imported-session type inference
   thresholds.v1.yaml                 [x] increment 0.5 kg, rounding, e1RM window, fatigue multiplier
   readiness.v1.yaml                  [x] modifier fields/threshold, merge strategy (DEC-READINESS-04)
   athlete-state.example.yaml         [x] placeholder state file for a new athlete (DEC-PORT-01)
@@ -62,8 +63,8 @@ strength_coach/
     context.py                       [x] immutable view of stored sets/sessions
     policy.py                        [x] verdicts, severity effects, evidence validation, publish
     rag.py                           [ ] deferred (rules are cited by id, not retrieved)
-  prescribe/                         [x] deterministic Day B
-    templates.py                     [x] day slots from config/templates/days.v1.yaml
+  prescribe/                         [x] deterministic session engine
+    templates.py                     [x] session slots from config/templates/session-types.v1.yaml
     config.py                        [x] thresholds: increment, rounding, e1RM window
     loads.py                         [x] e1RM -> rounded load, never up
     engine.py                        [x] build + validate an executable session

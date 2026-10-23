@@ -1,0 +1,37 @@
+# Reconstruction inference for imported sessions. This is deliberately a heuristic: the
+# export has no session type, so the exercise composition is the only evidence.
+schema_version: "1.0.0"
+schema_version: 1.0.0
+hinge_lift: trap_bar_deadlift
+hinge_support_lifts:
+- single_leg_db_rdl
+squat_lifts:
+- ssb_squat
+- competition_squat
+- front_squat
+- high_bar_squat
+- hack_squat
+- belt_squat
+- landmine_squat
+bench_lifts:
+- bench_press
+- bench_press_pause
+- bench_press_narrow
+- bench_press_medium_grip
+- bench_press_wide_grip
+- bench_press_elevated_legs
+- bench_press_explosive
+- bench_press_from_pins
+- bench_press_negative
+- bench_press_reverse_grip
+- bench_press_w_bands
+- bench_press_w_cambered_bar
+- bench_press_w_chains
+- board_press
+- floor_press
+- decline_bench_press
+- incline_press
+- dumbbell_bench_press
+- incline_db_bench_press
+- speed_bench_press
+double_session_set_threshold: 35

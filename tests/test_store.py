@@ -213,8 +213,7 @@ def test_import_writes_sets_sessions_and_quarantine(conn):
 
     session = conn.execute("SELECT * FROM session").fetchone()
     assert session["session_id"] == "2024-01-01"
-    assert session["day_guess"] == "B"          # the hinge is decisive
-    assert session["day_reason"] == "hinge"
+    assert session["session_type"] == "hinge"     # the hinge is decisive
     assert session["set_count"] == 2
     assert count(conn, "quarantine") == 1
 

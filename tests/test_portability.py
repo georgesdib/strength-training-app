@@ -71,9 +71,9 @@ def test_two_athletes_run_the_whole_loop_independently(tmp_path, capsys):
     build_db(second, ATHLETE_B)
 
     assert cli.main(["--db", str(first), "run", "--date", "2024-02-01",
-                     "--day", "A"]) == 0
+                     "--session-type", "squat"]) == 0
     assert cli.main(["--db", str(second), "run", "--date", "2024-04-01",
-                     "--day", "B"]) == 0
+                     "--session-type", "hinge"]) == 0
 
     labels_first = tmp_path / "labels-first.yaml"
     labels_second = tmp_path / "labels-second.yaml"
@@ -123,7 +123,7 @@ def test_the_database_path_is_the_only_switch(tmp_path, capsys):
     build_db(second, ATHLETE_A)
 
     assert cli.main(["--db", str(first), "run", "--date", "2024-02-01",
-                     "--day", "A"]) == 0
+                     "--session-type", "squat"]) == 0
     with db.Store(first) as store:
         assert store.connection.execute("SELECT COUNT(*) AS c FROM prescription"
                                         ).fetchone()["c"] == 1

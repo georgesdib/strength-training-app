@@ -43,14 +43,14 @@ def test_programme_is_a_weekday_abc_forecast_and_persists_nothing():
         ).fetchone()["c"]
         entries = programme.build_programme(
             store.connection, start="2024-01-02", weeks=2,
-            per_week=3, start_day="A",
+            per_week=3, start_session_type="squat",
         )
         after = store.connection.execute(
             "SELECT COUNT(*) AS c FROM prescription"
         ).fetchone()["c"]
 
     assert len(entries) == 6
-    assert all(e.day in {"A", "B", "C"} for e in entries)
+    assert all(e.session_type in {"squat", "hinge", "bench_squat", "bench_hinge"} for e in entries)
     assert all(e.session_type in {
         "squat", "hinge", "bench_squat", "bench_hinge"
     } for e in entries)
@@ -74,7 +74,7 @@ def test_two_flaring_sessions_trigger_a_reactive_deload():
                 level=2, settled_within_48h=0,
             )
         entries = programme.build_programme(
-            conn, start="2024-01-04", weeks=1, per_week=3, start_day="A",
+            conn, start="2024-01-04", weeks=1, per_week=3, start_session_type="squat",
         )
 
     assert entries[0].deload_reason is not None
@@ -90,12 +90,11 @@ def test_a_forecast_entry_equals_a_freshly_built_prescription():
     with store_with() as store:
         conn = store.connection
         entries = programme.build_programme(
-            conn, start="2024-01-02", weeks=1, per_week=3, start_day="A",
+            conn, start="2024-01-02", weeks=1, per_week=3, start_session_type="squat",
         )
         entry = entries[1]
         direct = build_prescription(
-            conn, for_date=entry.on_date, session_day=entry.day,
-            session_type=entry.session_type,
+            conn, for_date=entry.on_date, session_type=entry.session_type,
         )
 
     assert entry.prescription.items == direct.items
@@ -110,7 +109,7 @@ def test_a_forecast_on_an_empty_store_is_empty_not_a_crash():
     store = db.Store(":memory:")
     try:
         entries = programme.build_programme(
-            store.connection, start="2024-01-02", weeks=1, per_week=3, start_day="A",
+            store.connection, start="2024-01-02", weeks=1, per_week=3, start_session_type="squat",
         )
     finally:
         store.close()
@@ -133,14 +132,14 @@ def test_programme_cli_prints_a_horizon(tmp_path, capsys):
     store.close()
 
     assert cli.main(["--db", str(path), "programme", "--weeks", "2",
-                     "--start", "2024-01-02", "--start-day", "A"]) == 0
+                     "--start", "2024-01-02", "--start-session-type", "squat"]) == 0
     out = capsys.readouterr().out
     assert "forecast only" in out
     assert "2024-01-03" in out
     assert "Day A" not in out  # column format, not prose
 
 
-def test_start_session_type_can_force_bench_hinge_and_start_day_is_legacy():
+def test_start_session_type_can_force_bench_hinge():
     with store_with() as store:
         conn = store.connection
         forced = programme.build_programme(
@@ -148,10 +147,9 @@ def test_start_session_type_can_force_bench_hinge_and_start_day_is_legacy():
             start_session_type="bench_hinge",
         )
         legacy = programme.build_programme(
-            conn, start="2024-01-02", weeks=1, per_week=1, start_day="C",
+            conn, start="2024-01-02", weeks=1, per_week=1, start_session_type="bench_squat",
         )
     assert forced[0].session_type == "bench_hinge"
-    assert forced[0].day == "C"
     assert legacy[0].session_type == "bench_squat"
 
 

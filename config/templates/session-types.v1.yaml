@@ -1,7 +1,6 @@
 # Session types for the rolling two-week emphasis cycle.
 #
-# A/B/C remain the historical day labels and the explicit legacy override. New sessions are
-# selected by type; the legacy label is kept for rules and historical comparison.
+# Session types are the canonical identity; there is no legacy day override.
 #
 # Back-extension rule: only the squat-emphasis session carries direct erector work. The hinge
 # session and the bench+hinge session must not; the bench+squat session also omits it so a
@@ -11,7 +10,6 @@ schema_version: "1.0.0"
 session_types:
   squat:
     label: "Squat emphasis"
-    legacy_day: A
     prescription:
       time_cap_s: 4800
       slots:
@@ -68,7 +66,6 @@ session_types:
 
   hinge:
     label: "Hinge emphasis"
-    legacy_day: B
     prescription:
       time_cap_s: 4800
       slots:
@@ -115,7 +112,6 @@ session_types:
 
   bench_squat:
     label: "Bench + squat support"
-    legacy_day: C
     prescription:
       time_cap_s: 4800
       slots:
@@ -162,7 +158,6 @@ session_types:
 
   bench_hinge:
     label: "Bench + hinge support"
-    legacy_day: C
     prescription:
       time_cap_s: 4800
       slots:

@@ -9,7 +9,6 @@ from strength_coach.store import db
 
 PLAN = {
     "for_date": "2024-01-01",
-    "session_day": "B",
     "session_type": "hinge",
     "items": [
         {"exercise_id": "trap_bar_deadlift", "sets": 5, "reps_low": 3,

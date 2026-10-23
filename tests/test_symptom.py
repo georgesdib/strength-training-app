@@ -206,7 +206,7 @@ def test_back_flare_transforms_the_prescription():
     with store_with(DAY_A_ROWS) as store:
         conn = store.connection
         log(conn, "2024-01-08", 2)
-        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_type="squat")
         context = RuleContext.from_store(conn, end="2024-01-08")
         assert validate_references(prescription, context, conn) == []
 
@@ -228,7 +228,7 @@ def test_no_flare_leaves_the_prescription_alone():
     with store_with(DAY_A_ROWS) as store:
         conn = store.connection
         log(conn, "2024-01-08", 0)
-        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_type="squat")
 
     assert not any("MOD-BACK-001" in w for w in prescription.warnings)
     squat = next(i for i in prescription.items if i.exercise_id == "ssb_squat")
@@ -244,7 +244,7 @@ def test_a_knee_flare_warns_without_vetoing_or_touching_the_back():
         repositories.append_symptom(
             conn, logged_on="2024-01-08", timing="pre_session", region="knee", level=2
         )
-        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_type="squat")
         context = RuleContext.from_store(conn, end="2024-01-08")
 
     # The back rules did not see the knee reading (DEC-SYMPTOM-03).

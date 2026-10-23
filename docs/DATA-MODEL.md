@@ -66,8 +66,7 @@ meaningless and must not be summed.
 | exercise_count | INTEGER | |
 | main_lifts | TEXT | JSON list of canonical ids |
 | working_set_count | INTEGER | working sets only (DEC-RIR-01 excludes warm-ups) |
-| day_guess | TEXT | `A` \| `B` \| `C` \| `unknown` + `day_confidence` |
-| day_reason | TEXT | why the day was assigned or left unknown, so "do not force a bucket" is auditable |
+| session_type | TEXT | `squat` \| `hinge` \| `bench_squat` \| `bench_hinge` \| `unknown` |
 | tonnage_kg | REAL | sum of non-null `tonnage_kg` |
 | duration_min | REAL | **null by default** — no timestamps exist |
 | duration_basis | TEXT | `measured` \| `unavailable` |
@@ -202,7 +201,7 @@ document version.
 | prescription_id PK | |
 | run_id | trace |
 | for_date | |
-| session_day | A/B/C |
+| session_type | squat/hinge/bench_squat/bench_hinge |
 | fallback_level | `full` \| `fatigue_reduced` \| `llm_downgraded` |
 | rule_document_version | |
 | calibration_ids | JSON |
@@ -400,7 +399,7 @@ until completion.
 |---|---|
 | workout_id | UUID |
 | prescription_id | nullable link; the snapshot is `plan_json` because the displayed prescription is frozen at start |
-| for_date / session_type / session_day | copied from the plan |
+| for_date / session_type | copied from the plan |
 | status | `in_progress` \| `completed` \| `abandoned` |
 | plan_json | frozen prescription payload; later regeneration cannot rewrite it |
 | plan_modified_json | latest in-workout plan after swaps/adds/removes/set edits; null until changed |

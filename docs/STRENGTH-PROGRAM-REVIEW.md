@@ -19,7 +19,7 @@ main evidence claims against the cited literature. The local 12-week audit is in
 
 ### Current weekly shape (Plan A, 2026-10-20)
 
-Default prescriptions use rolling session types; legacy A/B/C remain for history and explicit
+Default prescriptions use rolling session types; the legacy A/B/C override has been removed.
 overrides.
 
 | session type | work | sets |
@@ -174,9 +174,9 @@ gap without changing the bench main-lift volume.
 #### F. Rolling next-session policy — applied
 
 **Applied 2026-10-20.** New prescriptions use session types and a rolling next-session rule;
-A/B/C remain legacy labels for history and explicit overrides. The forecast still shows a
+Canonical session types now replace the old labels. The forecast shows a
 calendar, but the day's session is selected from the rolling balance rather than a strict
-A/B/C sequence.
+session-type sequence.
 
 **Applied above:** the rolling rule preserves the main-lift balance without a strict weekly
 A/B/C calendar. This is a scheduling policy, not a new training principle.

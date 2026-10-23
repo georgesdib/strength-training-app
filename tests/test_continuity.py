@@ -48,7 +48,7 @@ def item(prescription, exercise_id):
 def test_no_gap_leaves_the_session_alone():
     with store_with() as store:
         prescription = build_prescription(store.connection, for_date="2024-01-02",
-                                          session_day="A")
+                                          session_type="squat")
 
     squat = item(prescription, "ssb_squat")
     assert squat.rir_target == 2
@@ -59,7 +59,7 @@ def test_no_gap_leaves_the_session_alone():
 def test_a_short_gap_adds_one_rir_but_keeps_the_load():
     with store_with() as store:
         prescription = build_prescription(store.connection, for_date="2024-01-22",
-                                          session_day="A")
+                                          session_type="squat")
 
     squat = item(prescription, "ssb_squat")
     assert squat.load_kg == 105.5
@@ -72,7 +72,7 @@ def test_a_short_gap_adds_one_rir_but_keeps_the_load():
 def test_a_medium_gap_reduces_the_load():
     with store_with() as store:
         prescription = build_prescription(store.connection, for_date="2024-02-05",
-                                          session_day="A")
+                                          session_type="squat")
 
     squat = item(prescription, "ssb_squat")
     assert squat.load_kg == 100.0          # 105.5 * 0.95 = 100.225, rounded down
@@ -87,7 +87,7 @@ def test_bodyweight_work_loses_a_set_instead_of_load():
     ]
     with store_with(rows) as store:
         prescription = build_prescription(store.connection, for_date="2024-02-05",
-                                          session_day="A")
+                                          session_type="squat")
 
     erector = item(prescription, "back_extension")
     assert erector.load_kg == 0.0
@@ -103,7 +103,7 @@ def test_missed_weeks_do_not_advance_the_cycle():
     with store_with(rows, block_start="2024-01-01") as store:
         context = RuleContext.from_store(store.connection, end="2024-01-16")
         prescription = build_prescription(store.connection, for_date="2024-01-16",
-                                          session_day="A")
+                                          session_type="squat")
 
     # Weeks 1 and 3 were trained; that is two trained weeks, not three calendar weeks.
     assert context.block_week_index == 2

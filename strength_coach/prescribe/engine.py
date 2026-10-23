@@ -55,10 +55,10 @@ def build_prescription(
     conn,
     *,
     for_date: str,
-    session_day: str = "B",
+    session_type: str = "hinge",
     document=None,
     thresholds: config_mod.Thresholds | None = None,
-    template: templates.DayTemplate | None = None,
+    template: templates.SessionTemplate | None = None,
     readiness_config: readiness_mod.ReadinessConfig | None = None,
     undulation: undulation_mod.Undulation | None = None,
     history: History | None = None,
@@ -66,7 +66,6 @@ def build_prescription(
     apply_selection: bool = False,
     selection_chooser: Callable | None = None,
     selection_confirmed: bool = False,
-    session_type: str | None = None,
 ) -> Prescription:
     """Generate the deterministic session for `for_date`.
 
@@ -76,12 +75,8 @@ def build_prescription(
     """
     document = document or load_document()
     thresholds = thresholds or config_mod.Thresholds.load()
-    if session_type is not None:
-        if template is None:
-            template = templates.SessionTemplate.load(session_type)
-        session_day = schedule.legacy_day(session_type)
-    else:
-        template = template or templates.DayTemplate.load(session_day)
+    if template is None:
+        template = templates.SessionTemplate.load(session_type)
     readiness_config = readiness_config or readiness_mod.ReadinessConfig.load()
     undulation = undulation or undulation_mod.Undulation.load()
 
@@ -97,8 +92,8 @@ def build_prescription(
     selection_notes: list[dict] = []
     if apply_selection:
         selected = selection_mod.select(
-            conn, context, for_date, session_day,
-            session_type=session_type, chooser=selection_chooser,
+            conn, context, for_date, session_type,
+            chooser=selection_chooser,
         )
         selection_rows = {row.slot_id: row for row in selected}
         selection_notes = [row.as_dict() for row in selected]
@@ -244,7 +239,7 @@ def build_prescription(
         )
     warnings.extend(constraint_report.warnings)
 
-    issues = validate_prescription(tuple(items), context, document, session_day, for_date)
+    issues = validate_prescription(tuple(items), context, document, session_type, for_date)
     for exercise_id, reason in constraint_report.vetoes:
         issues.append(f"CONSTRAINT_VETO:{exercise_id}:{reason}")
 
@@ -261,7 +256,6 @@ def build_prescription(
 
     return Prescription(
         for_date=for_date,
-        session_day=session_day,
         session_type=session_type,
         fallback_level=fallback_level,
         rule_document_version=document.version,
@@ -813,7 +807,7 @@ def _apply_undulation(
     conn,
     context: RuleContext,
     items: tuple[PrescriptionItem, ...],
-    template: templates.DayTemplate,
+    template: templates.SessionTemplate,
     thresholds: config_mod.Thresholds,
     for_date: str,
     decisions: Mapping[str, Any],
@@ -920,7 +914,7 @@ def build_item(
     thresholds: config_mod.Thresholds,
     for_date: str,
     decisions: Mapping[str, Any],
-    template: templates.DayTemplate,
+    template: templates.SessionTemplate,
     *,
     calibration_factors: Mapping[str, object] | None = None,
     exercise_id: str | None = None,
@@ -1177,7 +1171,7 @@ def validate_prescription(
     items: tuple[PrescriptionItem, ...],
     context: RuleContext,
     document,
-    session_day: str,
+    session_type: str,
     for_date: str,
 ) -> list[str]:
     """V0-SCOPE §4.4: a prescription must be executable before it is shown."""
@@ -1196,7 +1190,10 @@ def validate_prescription(
                 f"LOAD_NOT_EXECUTABLE:{item.exercise_id}:{item.load_kg} "
                 f"is not a multiple of {item.rounding_increment_kg}"
             )
-        if context.entity(item.exercise_id).get("direct_erector", False) and session_day == "B":
+        if (
+            context.entity(item.exercise_id).get("direct_erector", False)
+            and session_type in {"hinge", "bench_hinge"}
+        ):
             # PRG-SCHED-001: direct erector work never belongs on the hinge day.
             issues.append(f"ERECTOR_ON_HINGE_DAY:{item.exercise_id}")
 

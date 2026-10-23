@@ -1,6 +1,6 @@
 # Additional selection candidates per slot (explicit apply; the template decides the default).
 #
-# New session types use the same candidate lists as the legacy A/B/C shapes. The catalogue
+# The four session types share candidate lists. The catalogue
 # only feeds the selector; applying a substitution is an explicit UI/CLI opt-in.
 slots:
   A:

@@ -323,7 +323,7 @@ def prompt_for(
 
     return (
         "Current deterministic session for "
-        f"{prescription.for_date} (day {prescription.session_day}):\n"
+        f"{prescription.for_date} ({prescription.session_type}):\n"
         + "\n".join(items)
         + "\n\nPropose at most one structural change. Allowed actions:\n"
         "- substitute: replace a NON-essential item with a same-pattern alternative\n"
@@ -363,7 +363,7 @@ def assess(
     menus = menu(prescription, document)
     main_substitutions = 0
     schemes = schemes_mod.Schemes.load()
-    template = templates.DayTemplate.load(prescription.session_day)
+    template = templates.SessionTemplate.load(prescription.session_type)
     items = list(prescription.items)
     by_id = {item.exercise_id: item for item in items}
 
@@ -530,7 +530,7 @@ def assess(
 
     if not reasons:
         issues = engine.validate_prescription(
-            tuple(items), context, document, prescription.session_day, prescription.for_date
+            tuple(items), context, document, prescription.session_type, prescription.for_date
         )
         report = constraints.evaluate(conn, [item.exercise_id for item in items])
         issues += [f"CONSTRAINT_VETO:{eid}:{why}" for eid, why in report.vetoes]

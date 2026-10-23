@@ -8,10 +8,10 @@ engine accepts.
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.prescribe.engine import build_prescription, validate_references
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
-from strength_coach.prescribe.templates import DayTemplate, Slot, TemplateError
+from strength_coach.prescribe.templates import SessionTemplate, Slot, TemplateError
 
 __all__ = [
-    "DayTemplate",
+    "SessionTemplate",
     "Prescription",
     "PrescriptionItem",
     "Slot",

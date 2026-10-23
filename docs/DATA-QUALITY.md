@@ -173,9 +173,10 @@ count is implausible for one session or when two main-lift families appear that 
 template contains; `duration_min` is null with `duration_basis = unavailable`.
 
 ### DQ-SESSION-02 — day classification is retrofitted  `NEEDS CONFIRMATION`
-Day A/B/C must be inferred from which main lift is present. A and C are both squat + bench,
-so they are distinguishable only by the presence of erector or power work. Ambiguous
-sessions get `unknown`, and no day-specific rule is scored when the day is unknown.
+The canonical session type is inferred from which main lift and support work is present.
+Squat and bench_squat both contain squat + bench, so they are distinguished by emphasis and
+support; bench_squat and bench_hinge are distinguished by squat-support versus hinge-support
+exercises. Ambiguous sessions get `unknown`, and no type-specific rule is scored.
 
 ### DQ-NULLDATE-01 — rows with a null date  `CONFIRMED`
 A contiguous block of rows with a null date forms a plausible session fragment, all carrying

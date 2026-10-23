@@ -92,7 +92,6 @@ def _item_dict(item) -> dict:
 def prescription_dict(prescription) -> dict:
     return {
         "for_date": prescription.for_date,
-        "session_day": prescription.session_day,
         "session_type": prescription.session_type,
         "fallback_level": prescription.fallback_level,
         "executable": prescription.executable,
@@ -106,7 +105,7 @@ def prescription_dict(prescription) -> dict:
 def _session_rows(conn, limit: int = 20) -> list[dict]:
     rows = conn.execute(
         """
-        SELECT s.session_id, s.occurred_on, s.day_guess, s.set_count, s.working_set_count,
+        SELECT s.session_id, s.occurred_on, s.session_type, s.set_count, s.working_set_count,
                s.main_lifts, s.tonnage_kg,
                (SELECT COUNT(*) FROM rubric_mark m WHERE m.session_id = s.session_id) AS marks
           FROM session s
@@ -310,12 +309,11 @@ class Handler(BaseHTTPRequestHandler):
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [datetime.date.today().isoformat()])[0]
                 session_type = query.get("session_type", [None])[0]
-                session_day = query.get("day", [None])[0]
                 use_llm = query.get("llm", ["0"])[0] == "1"
                 include_different = query.get("include_different", ["0"])[0] == "1"
                 self._json(200, self._with_conn(
                     lambda c: self._selection(
-                        c, day, session_type, session_day, use_llm, include_different
+                        c, day, session_type, use_llm, include_different
                     )
                 ))
             elif path == "/api/exercises/catalog":
@@ -610,19 +608,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def _prescribe(self, conn, body: dict) -> dict:
         for_date = str(body.get("date") or datetime.date.today().isoformat())
-        day = str(body.get("day") or "").upper()
         requested_type = body.get("session_type")
-        if requested_type in (None, "", "auto"):
-            if day:
-                session_type = None
-            else:
-                session_type = schedule_mod.next_session_type(conn, for_date)
-                day = schedule_mod.legacy_day(session_type)
-        else:
-            session_type = str(requested_type)
-            day = schedule_mod.legacy_day(session_type)
-        if day and day not in {"A", "B", "C"}:
-            raise ValueError("day must be A, B or C")
+        session_type = (
+            schedule_mod.next_session_type(conn, for_date)
+            if requested_type in (None, "", "auto") else str(requested_type)
+        )
         if for_date >= datetime.date.today().isoformat():
             assessment = readiness_score.compute(conn, for_date)
             if assessment.status != "ready":
@@ -638,8 +628,7 @@ class Handler(BaseHTTPRequestHandler):
             if selection_llm else None
         )
         prescription = build_prescription(
-            conn, for_date=for_date, session_day=day,
-            session_type=session_type,
+            conn, for_date=for_date, session_type=session_type,
             apply_selection=apply_selection, selection_chooser=chooser,
             selection_confirmed=selection_confirmed,
         )
@@ -671,7 +660,7 @@ class Handler(BaseHTTPRequestHandler):
                 "original_comparison": workout_data.get("original_comparison"),
             } if workout_data else None),
             "occurred_on": facts.occurred_on,
-            "day": facts.day,
+            "session_type": facts.session_type,
             "week": facts.week,
             "week_cost": facts.week_cost,
             "composite": critique.composite,
@@ -864,28 +853,21 @@ class Handler(BaseHTTPRequestHandler):
         return self._cardio(conn, body)
 
     def _selection(self, conn, day: str, session_type: str | None,
-                   session_day: str | None, use_llm: bool,
-                   include_different: bool = False) -> dict:
+                   use_llm: bool, include_different: bool = False) -> dict:
         chooser = None
         if use_llm:
             chooser = agent_selection.chooser(build_client(load_settings()))
-        if session_type in (None, "", "auto"):
-            if session_day:
-                session_type = None
-            else:
-                session_type = schedule_mod.next_session_type(conn, day)
-                session_day = schedule_mod.legacy_day(session_type)
-        else:
-            session_day = schedule_mod.legacy_day(session_type)
+        resolved = (
+            schedule_mod.next_session_type(conn, day)
+            if session_type in (None, "", "auto") else str(session_type)
+        )
         rows = selection_mod.select(
-            conn, None, day, session_day or "A",
-            session_type=session_type, chooser=chooser,
+            conn, None, day, resolved, chooser=chooser,
             include_different=include_different,
         )
         return {
             "on_date": day,
-            "day": session_day,
-            "session_type": session_type,
+            "session_type": resolved,
             "slots": selection_mod.as_dict(rows),
         }
 
@@ -956,12 +938,11 @@ class Handler(BaseHTTPRequestHandler):
             start=start,
             weeks=int(body.get("weeks") or 4),
             per_week=int(body.get("sessions_per_week") or 3),
-            start_day=body.get("start_day") or None,
             start_session_type=body.get("start_session_type") or None,
             apply_deload=True,
         )
         return {"entries": [
-            {"date": entry.on_date, "day": entry.day,
+            {"date": entry.on_date,
              "session_type": entry.session_type,
              "deload_reason": entry.deload_reason,
              "deload_suggestion": entry.deload_suggestion,

@@ -61,7 +61,7 @@ def test_week_three_puts_main_lifts_on_maximal():
     with store_with("2024-01-01") as store:
         # 2024-01-15 is week 3 of the cycle.
         prescription = build_prescription(store.connection, for_date="2024-01-15",
-                                          session_day="A")
+                                          session_type="squat")
 
     bench = item(prescription, "bench_press")
     assert (bench.reps_low, bench.reps_high) == (1, 3)
@@ -73,7 +73,7 @@ def test_week_three_puts_main_lifts_on_maximal():
 def test_the_hinge_keeps_the_strength_scheme():
     with store_with("2024-01-01") as store:
         prescription = build_prescription(store.connection, for_date="2024-01-15",
-                                          session_day="B")
+                                          session_type="hinge")
 
     trap_bar = item(prescription, "trap_bar_deadlift")
     assert (trap_bar.reps_low, trap_bar.reps_high) == (3, 5)
@@ -82,16 +82,16 @@ def test_the_hinge_keeps_the_strength_scheme():
 def test_week_two_puts_accessories_on_volume():
     with store_with("2024-01-01") as store:
         prescription = build_prescription(store.connection, for_date="2024-01-08",
-                                          session_day="A")
+                                          session_type="squat")
 
-    lateral = item(prescription, "lateral_raise")
-    assert (lateral.reps_low, lateral.reps_high) == (6, 8)
+    ab_wheel = item(prescription, "ab_wheel")
+    assert (ab_wheel.reps_low, ab_wheel.reps_high) == (6, 8)
 
 
 def test_without_an_anchor_the_day_templates_apply():
     with store_with() as store:
         prescription = build_prescription(store.connection, for_date="2024-01-15",
-                                          session_day="A")
+                                          session_type="squat")
 
     bench = item(prescription, "bench_press")
     assert (bench.reps_low, bench.reps_high) == (3, 5)
@@ -105,7 +105,7 @@ def test_undulation_can_be_disabled():
     )
     with store_with("2024-01-01") as store:
         prescription = build_prescription(store.connection, for_date="2024-01-15",
-                                          session_day="A", undulation=disabled)
+                                          session_type="squat", undulation=disabled)
 
     bench = item(prescription, "bench_press")
     assert (bench.reps_low, bench.reps_high) == (3, 5)

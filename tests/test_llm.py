@@ -294,4 +294,4 @@ def _critique() -> Critique:
 
 
 def _facts():
-    return SimpleNamespace(session_id="2026-10-05", occurred_on="2026-10-05", day="B")
+    return SimpleNamespace(session_id="2026-10-05", occurred_on="2026-10-05", session_type="hinge")

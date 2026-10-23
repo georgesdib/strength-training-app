@@ -25,7 +25,7 @@ where the data supports them.
 Delivered in v0.2/v0.3: readiness score and overrides, wearable/HRV/RHR baselines, injury signal,
 continuity calibration, cardio capture, measurements, session RPE/length, recent stress,
 per-lift readiness, e1RM calibration/decay, rolling session types, readiness volume valve,
-weekly volume ledger/MRV cap, exercise selection with A/B/C comparability, and the local web UI
+weekly volume ledger/MRV cap, exercise selection with A/B/C *variant* comparability, and the local web UI
 with import, state, Programme, Exercises, Terminal and calibration reports. v0.3 is complete. v0.4 covers cardio prescription/model plus the deeper labelled calibration
 set moved from v0.3. Prospective validation remains a future gate, not an active candidate;
 review follow-ups are in ROADMAP §4.20. v0.5 is video.
@@ -34,11 +34,11 @@ See [ROADMAP.md](ROADMAP.md).
 What runs today:
 
 - **ingest** — both exports, cleaned under the documented sentinel policy, quarantined rather
-  than dropped, reconstructed into sessions with an explicit day guess;
+  than dropped, reconstructed into sessions with a canonical session type;
 - **store** — SQLite, append-only, numbered migrations, a replayable `run`/`run_event` trace;
 - **rules** — the constitution loaded as hash-bearing rules, one predicate per `check.fn`,
   verdicts with citable evidence, and `unknown` where an input does not exist;
-- **prescribe** — a deterministic session for Day A, B or C, whose loads are solved from a
+- **prescribe** — a deterministic session of one of the four canonical types, whose loads are solved from a
   recent e1RM (or a manual override), rounded down to real increments, and validated for
   executability;
 - **critique** — six measured rubric items against a stored session, two explicitly
@@ -140,7 +140,8 @@ bad model can produce bad prose but cannot change what you lift.
 config/
   exercises/taxonomy.v1.yaml   exercise identity + properties (single source of truth)
   rules/programme.v1.yaml      the constitution as citable, machine-checkable rules
-  templates/days.v1.yaml       day identification + Day B prescription slots
+  templates/session-types.v1.yaml  canonical session templates
+  templates/inference.v1.yaml      imported-session type inference
   thresholds.v1.yaml           increments, rounding, e1RM window, fatigue multiplier
   llm.example.toml             LLM configuration template (the real file is git-ignored)
 docs/                          the design record
@@ -152,7 +153,7 @@ strength_coach/
   store/                       SQLite migrations, append-only repositories, read queries
   features/                    derived features, baselines, VBT calibration
   rules/                       constitution loader, predicates, policy verdicts
-  prescribe/                   deterministic Day A/B/C engine and load solver
+  prescribe/                   deterministic session-type engine and load solver
   critique/                    rubric over a stored session
   agents/                      LLM interface, config, narrative (NullLLM by default)
   trace/                       run lifecycle

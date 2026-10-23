@@ -34,7 +34,7 @@ function openWorkoutStart() {
   $("#workout-ended-panel").hidden = true;
   $("#workout-start-panel").hidden = false;
   $("#workout-start-summary").textContent =
-    plan.for_date + " · " + (plan.session_type || ("Day " + plan.session_day));
+    plan.for_date + " · " + (plan.session_type || "unknown");
   $("#workout-readiness-required").innerHTML =
     WORKOUT_REQUIRED.map(function (key) { return workoutField(key, true); }).join("");
   $("#workout-readiness-optional").innerHTML =
@@ -253,7 +253,7 @@ function renderWorkout(w) {
   $("#workout-start-panel").hidden = true;
   $("#workout-ended-panel").hidden = true;
   $("#workout-active-panel").hidden = false;
-  $("#workout-title").textContent = w.for_date + " · " + (w.session_type || ("Day " + w.session_day));
+  $("#workout-title").textContent = w.for_date + " · " + (w.session_type || "unknown");
   $("#workout-meta").innerHTML = "Started " + esc(w.started_at) + " · status <strong>" +
     esc(w.status) + "</strong>";
 

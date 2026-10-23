@@ -9,7 +9,7 @@ project is going see [ROADMAP.md](ROADMAP.md).
 
 It reads your training export, cleans it under a documented set of rules, reconstructs
 sessions, judges the most recent one against a fixed constitution, and prescribes the next
-session — Day A, B or C. **Python computes every number; the LLM only explains them.** If no model is
+session — squat, hinge, bench_squat or bench_hinge. **Python computes every number; the LLM only explains them.** If no model is
 configured, everything still works — you just lose the prose.
 
 It is a coaching tool with a fixed methodology, not a chatbot that invents programmes. Where
@@ -277,7 +277,7 @@ entry before a current or future prescription.
 strength-coach run --date 2026-10-20
 ```
 
-It critiques the most recent stored session on or before that date, prescribes Day B for it,
+It critiques the most recent stored session on or before that date, prescribes the rolling session type for it,
 stores both inside a run trace, and prints the prescription with the rule or stored set that
 justifies every number.
 
@@ -302,9 +302,9 @@ critique 2026-10-15: composite 0.88
   ...
 ```
 
-Two programme details worth knowing: **Day A opens with a power slot** (`box_jump` 3×3-5,
+Two programme details worth knowing: **The squat session opens with a power slot** (`box_jump` 3×3-5,
 maximal intent, full recovery, stop when height or quality drops — the "RIR 4" means far from
-failure), and **Day B's pull slot is interchangeable** between `pull_up` and `lat_pulldown`;
+failure), and **The hinge session's pull slot is interchangeable** between `pull_up` and `lat_pulldown`;
 the engine picks whichever you trained most recently and never compares their loads. Both are
 explained, with the evidence, in [LONGEVITY-REVIEW.md](docs/LONGEVITY-REVIEW.md).
 
@@ -312,7 +312,7 @@ Useful flags:
 
 | flag | effect |
 |---|---|
-| `--day A\|B\|C` | which day to prescribe (default B) |
+| `--session-type T` | squat, hinge, bench_squat or bench_hinge (default: auto rolling) |
 | `--llm on` | ask the configured model for a narrative (see §7) |
 | `--force` | regenerate even though that date was already prescribed |
 | `--db PATH` | use a different database |
@@ -460,7 +460,7 @@ strength-coach programme --weeks 4 --remaining
 ```
 
 It prints a dated rolling session-type forecast for the next N weeks, three sessions per week
-on Monday/Wednesday/Friday. The legacy A/B/C label is shown for comparison. Use
+on Monday/Wednesday/Friday. Use
 `--start-session-type squat|hinge|bench_squat|bench_hinge|auto` to force the first session; the
 default is the rolling rule. This is a **forecast**: the day's prescription is rebuilt when the
 day arrives, using current e1RM, readiness and symptoms. It is not a fixed block and persists
@@ -712,13 +712,11 @@ taxonomy is not rewritten. The web **Exercises** tab is the form-based version.
 
 `run` and the Prescribe page default to a rolling session type rather than a fixed A/B/C
 calendar. The types are `squat`, `hinge`, `bench_squat` and `bench_hinge`; the rule balances
-squat/hinge/bench emphasis over recent sessions. A/B/C remain available as legacy overrides for
-historical comparison:
+squat/hinge/bench emphasis over recent sessions. The four types are the only override labels:
 
 ```bash
 strength-coach run --date 2026-10-20 --session-type auto
 strength-coach run --date 2026-10-20 --session-type hinge
-strength-coach run --date 2026-10-20 --day B   # legacy
 ```
 
 ### 4.10e `select` — exercise selection
@@ -726,9 +724,9 @@ strength-coach run --date 2026-10-20 --day B   # legacy
 Apply it to a prescription with:
 
 ```bash
-strength-coach run --date 2026-10-20 --day A --apply-selection
-strength-coach run --date 2026-10-20 --day A --apply-selection --selection-confirm
-strength-coach run --date 2026-10-20 --day A --apply-selection --selection-llm
+strength-coach run --date 2026-10-20 --session-type squat --apply-selection
+strength-coach run --date 2026-10-20 --session-type squat --apply-selection --selection-confirm
+strength-coach run --date 2026-10-20 --session-type squat --apply-selection --selection-llm
 ```
 
 ```bash
@@ -1034,7 +1032,7 @@ Everything that changes a number lives in config, not code.
 | file | what it controls |
 |---|---|
 | `config/thresholds.v1.yaml` | load increment (0.5 kg), rounding, e1RM window (84 days), fatigue multiplier (0.95) |
-| `config/templates/days.v1.yaml` | which lifts a day contains, sets, rep ranges, rest |
+| `config/templates/session-types.v1.yaml` | session slots, sets, rep ranges, rest |
 | `config/rules/programme.v1.yaml` | the constitution: rule ids, severities, thresholds |
 | `config/exercises/taxonomy.v1.yaml` | exercise identity and properties |
 
@@ -1165,7 +1163,7 @@ second athlete runs exactly the same code against their own database:
    ```bash
    strength-coach --db /path/to/their.db import
    strength-coach --db /path/to/their.db block --date YYYY-MM-DD
-   strength-coach --db /path/to/their.db run --date YYYY-MM-DD --day A
+   strength-coach --db /path/to/their.db run --date YYYY-MM-DD --session-type squat
    strength-coach --db /path/to/their.db review --session YYYY-MM-DD
    strength-coach --db /path/to/their.db calibrate
    ```

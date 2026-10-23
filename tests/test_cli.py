@@ -55,7 +55,7 @@ def test_run_persists_a_critique_and_a_prescription(database, capsys):
     tables = ("critique", "rubric_score", "prescription", "prescription_item", "run", "run_event")
     before = {table: count(database, table) for table in tables}
 
-    code = cli.main(["--db", str(database), "run", "--date", "2024-02-01", "--day", "B"])
+    code = cli.main(["--db", str(database), "run", "--date", "2024-02-01", "--session-type", "hinge"])
     assert code == 0
 
     out = capsys.readouterr().out
@@ -79,7 +79,7 @@ def test_run_persists_a_critique_and_a_prescription(database, capsys):
         run.close()
 
 
-def test_run_day_a_uses_the_a_template(tmp_path, capsys):
+def test_run_squat_uses_the_squat_template(tmp_path, capsys):
     path = tmp_path / "all_days.db"
     rows = []
     for day in ("2024-01-04", "2024-01-11"):
@@ -103,15 +103,15 @@ def test_run_day_a_uses_the_a_template(tmp_path, capsys):
     )
     store.close()
 
-    assert cli.main(["--db", str(path), "run", "--date", "2024-02-01", "--day", "A"]) == 0
+    assert cli.main(["--db", str(path), "run", "--date", "2024-02-01", "--session-type", "squat"]) == 0
     out = capsys.readouterr().out
-    assert "day A" in out
+    assert "squat" in out
     assert "ssb_squat" in out
 
     store = db.Store(path)
     try:
-        row = store.connection.execute("SELECT session_day FROM prescription").fetchone()
-        assert row["session_day"] == "A"
+        row = store.connection.execute("SELECT session_type FROM prescription").fetchone()
+        assert row["session_type"] == "squat"
         items = [
             row["exercise_id"] for row in store.connection.execute(
                 "SELECT exercise_id FROM prescription_item ORDER BY order_index"
@@ -126,11 +126,11 @@ def test_run_day_a_uses_the_a_template(tmp_path, capsys):
 
 
 def test_rerunning_the_same_date_appends_nothing(database, capsys):
-    cli.main(["--db", str(database), "run", "--date", "2024-02-01", "--day", "B"])
+    cli.main(["--db", str(database), "run", "--date", "2024-02-01", "--session-type", "hinge"])
     capsys.readouterr()
     before = {t: count(database, t) for t in ("critique", "prescription", "run")}
 
-    assert cli.main(["--db", str(database), "run", "--date", "2024-02-01", "--day", "B"]) == 0
+    assert cli.main(["--db", str(database), "run", "--date", "2024-02-01", "--session-type", "hinge"]) == 0
     assert "already prescribed" in capsys.readouterr().out
     # V0-SCOPE §4.6: idempotent in content, no duplicate artifacts.
     assert {t: count(database, t) for t in before} == before
@@ -242,7 +242,7 @@ def test_review_pending_catches_up_on_unmarked_sessions(database, tmp_path, caps
 
 
 def test_run_points_at_pending_reviews(database, capsys):
-    assert cli.main(["--db", str(database), "run", "--date", "2024-02-01", "--day", "B"]) == 0
+    assert cli.main(["--db", str(database), "run", "--date", "2024-02-01", "--session-type", "hinge"]) == 0
     assert "review --pending" in capsys.readouterr().out
 
 def test_pending_stops_at_the_last_reviewed_session(tmp_path):

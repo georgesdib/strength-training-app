@@ -130,7 +130,7 @@ def test_the_prescription_applies_the_calibrated_factor_and_cites_it():
 
     with _store_with_three_tests() as store:
         prescription = build_prescription(
-            store.connection, for_date="2024-04-02", session_day="A"
+            store.connection, for_date="2024-04-02", session_type="squat"
         )
 
     calibration = prescription.notes["e1rm_calibration"]["ssb_squat"]

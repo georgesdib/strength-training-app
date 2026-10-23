@@ -28,7 +28,7 @@ def critique_prompt(critique, facts) -> str:
     payload = {
         "session": facts.session_id,
         "date": facts.occurred_on,
-        "day": facts.day,
+        "session_type": facts.session_type,
         "composite": critique.composite,
         "items": [
             {
@@ -53,7 +53,7 @@ def critique_prompt(critique, facts) -> str:
 def prescription_prompt(prescription) -> str:
     payload = {
         "for_date": prescription.for_date,
-        "day": prescription.session_day,
+        "session_type": prescription.session_type,
         "fallback_level": prescription.fallback_level,
         "items": [
             {

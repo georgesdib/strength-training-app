@@ -82,8 +82,6 @@ def main(argv: list[str] | None = None) -> int:
 
     run = sub.add_parser("run", help="critique the last session and prescribe a date")
     run.add_argument("--date", required=True, help="date to prescribe, YYYY-MM-DD")
-    run.add_argument("--day", choices=("A", "B", "C"), default=None,
-                     help="legacy A/B/C override; omit for rolling session type")
     run.add_argument("--session-type", choices=("auto", "squat", "hinge", "bench_squat", "bench_hinge"),
                      default="auto", help="session emphasis (default: auto rolling)")
     run.add_argument("--llm", choices=("on", "off"), default="off",
@@ -142,8 +140,6 @@ def main(argv: list[str] | None = None) -> int:
                            choices=("auto", "squat", "hinge", "bench_squat", "bench_hinge"),
                            default=None,
                            help="first session type; default: rolling")
-    programme.add_argument("--start-day", choices=("A", "B", "C"), default=None,
-                           help="deprecated A/B/C alias; C maps to bench_squat")
 
     e1rm = sub.add_parser("e1rm", help="set or list manual e1RM overrides")
     e1rm_sub = e1rm.add_subparsers(dest="action", required=True)
@@ -283,7 +279,8 @@ def main(argv: list[str] | None = None) -> int:
 
     select = sub.add_parser("select", help="show shadow exercise-selection suggestions")
     select.add_argument("--date", required=True, help="YYYY-MM-DD")
-    select.add_argument("--day", choices=("A", "B", "C"), default="B")
+    select.add_argument("--session-type", required=True,
+                        choices=("squat", "hinge", "bench_squat", "bench_hinge"))
     select.add_argument("--include-different", action="store_true",
                         help="show class C (different lift/load basis) candidates")
     select.add_argument("--llm", action="store_true",
@@ -406,23 +403,16 @@ def _cmd_run(args) -> int:
         if args.selection_confirm and not args.apply_selection:
             print("--selection-confirm requires --apply-selection")
             return 2
-        if args.session_type == "auto":
-            if args.day:
-                session_type = None
-                day = args.day
-            else:
-                session_type = schedule_mod.next_session_type(conn, args.date)
-                day = schedule_mod.legacy_day(session_type)
-        else:
-            session_type = args.session_type
-            day = schedule_mod.legacy_day(session_type)
+        session_type = (
+            schedule_mod.next_session_type(conn, args.date)
+            if args.session_type == "auto" else args.session_type
+        )
         chooser = (
             agent_selection.chooser(build_client(load_settings()))
             if args.selection_llm else None
         )
         prescription = build_prescription(
-            conn, for_date=args.date, session_day=day,
-            session_type=session_type,
+            conn, for_date=args.date, session_type=session_type,
             apply_selection=args.apply_selection, selection_chooser=chooser,
             selection_confirmed=args.selection_confirm,
         )
@@ -464,7 +454,7 @@ def _cmd_run(args) -> int:
                 prescription_id=_new_id(),
                 run_id=trace.run_id,
                 for_date=prescription.for_date,
-                session_day=prescription.session_day,
+                session_type=prescription.session_type,
                 fallback_level=prescription.fallback_level,
                 rule_document_version=prescription.rule_document_version,
                 calibration_ids=list(prescription.calibration_ids),
@@ -787,12 +777,12 @@ def _cmd_programme(args) -> int:
             start = (profile or {}).get("block_start_date") or datetime.date.today().isoformat()
         entries = programme_feature.build_programme(
             conn, start=start, weeks=args.weeks,
-            per_week=args.sessions_per_week, start_day=args.start_day,
+            per_week=args.sessions_per_week,
             start_session_type=args.start_session_type,
         )
         print(f"programme: {args.weeks} week(s) from {start}; forecast only, "
               "recomputed on the day")
-        print(f"{'date':<12}{'type':<14}{'day':<5}{'status':<10}loads")
+        print(f"{'date':<12}{'type':<14}{'status':<10}loads")
         for entry in entries:
             p = entry.prescription
             loads = ", ".join(
@@ -804,8 +794,7 @@ def _cmd_programme(args) -> int:
                 status = "deload"
             elif entry.deload_suggestion:
                 status = "suggested deload"
-            print(f"{entry.on_date:<12}{entry.session_type or entry.day:<14}"
-                  f"{entry.day:<5}{status:<10}{loads}")
+            print(f"{entry.on_date:<12}{entry.session_type:<14}{status:<10}{loads}")
             if entry.deload_reason:
                 print(f"  reactive deload: {entry.deload_reason}")
             if entry.deload_suggestion:
@@ -1194,12 +1183,12 @@ def _cmd_select(args) -> int:
         if args.llm:
             chooser = agent_selection.chooser(build_client(load_settings()))
         rows = selection_mod.select(
-            conn, None, args.date, args.day, chooser=chooser,
+            conn, None, args.date, args.session_type, chooser=chooser,
             include_different=args.include_different,
         )
     finally:
         store.close()
-    print(f"exercise selection (shadow; no prescription change) {args.date} day {args.day}")
+    print(f"exercise selection (shadow; no prescription change) {args.date} {args.session_type}")
     if not rows:
         print("no multi-variant slots on this day")
         return 0
@@ -1721,7 +1710,7 @@ def _print_import(report) -> None:
 
 def _print_prescription(prescription) -> None:
     print(f"\nprescription {prescription.for_date}  "
-          f"(day {prescription.session_day}, {prescription.fallback_level})")
+          f"({prescription.session_type}, {prescription.fallback_level})")
     show_velocity = any(item.velocity_target is not None for item in prescription.items)
     header = (f"  {'exercise':<24}{'sets':>5}{'reps':>8}{'load':>9}{'rir':>5}"
               + (f"{'vel':>7}" if show_velocity else "") + "  refs")

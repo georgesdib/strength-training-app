@@ -35,7 +35,7 @@ modifiers:
   back_flare_main_rir: 3
 
 prescription:
-  # A Day B session at ~20 working sets fits comfortably inside the constitution's 60-80 min
+  # A hinge session at ~20 working sets fits comfortably inside the constitution's 60-80 min
   # guidance. Recorded because the prescription row stores a time cap even when it cannot be
   # measured (no timestamps in the export).
   session_time_cap_s: 4800

@@ -47,7 +47,7 @@ class PrescriptionItem:
 @dataclass(frozen=True)
 class Prescription:
     for_date: str
-    session_day: str
+    session_type: str
     fallback_level: str
     rule_document_version: str
     items: tuple[PrescriptionItem, ...]
@@ -56,8 +56,6 @@ class Prescription:
     issues: tuple[str, ...] = ()
     calibration_ids: tuple[str, ...] = ()
     notes: Mapping[str, Any] = field(default_factory=dict)
-    # New session-type layer; A/B/C remains in session_day for rules and history.
-    session_type: str | None = None
 
     @property
     def executable(self) -> bool:

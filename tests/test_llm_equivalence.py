@@ -69,7 +69,7 @@ def artifacts(path) -> dict:
                 "FROM rubric_score ORDER BY item"
             ),
             "prescription": rows(
-                "SELECT for_date, session_day, fallback_level, rule_document_version, "
+                "SELECT for_date, session_type, fallback_level, rule_document_version, "
                 "approved_by, calibration_ids FROM prescription"
             ),
             "items": rows(

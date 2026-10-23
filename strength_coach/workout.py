@@ -82,21 +82,20 @@ def start(
         raise ValueError("a workout is already in progress; end or abandon it first")
     plan_data = _plan(plan)
     readiness_data = validate_readiness(readiness)
-    day = str(plan_data.get("session_day") or "").upper()
-    if day not in {"A", "B", "C"}:
-        raise ValueError("plan.session_day must be A, B or C")
+    resolved_type = str(session_type or plan_data.get("session_type") or "")
+    if resolved_type not in {"squat", "hinge", "bench_squat", "bench_hinge"}:
+        raise ValueError("plan.session_type must be squat, hinge, bench_squat or bench_hinge")
     workout_id = str(uuid.uuid4())
     conn.execute(
         """
         INSERT INTO workout_session
-            (workout_id, prescription_id, for_date, session_type, session_day, status,
+            (workout_id, prescription_id, for_date, session_type, status,
              plan_json, readiness_json, started_at, notes)
-        VALUES (?, ?, ?, ?, ?, 'in_progress', ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, 'in_progress', ?, ?, ?, ?)
         """,
         (
-            workout_id, prescription_id, for_date,
-            session_type or plan_data.get("session_type"),
-            day, json.dumps(plan_data, separators=(",", ":")),
+            workout_id, prescription_id, for_date, resolved_type,
+            json.dumps(plan_data, separators=(",", ":")),
             json.dumps(readiness_data, separators=(",", ":")),
             _now(), note,
         ),
@@ -714,16 +713,16 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
         """
         INSERT INTO session
             (session_id, occurred_on, workout_label, set_count, working_set_count,
-             exercise_count, main_lifts, day_guess, day_confidence, day_reason,
+             exercise_count, main_lifts, session_type,
              tonnage_kg, duration_min, duration_basis, flags, prescription_id, source,
              workout_id, session_rpe, session_rpe_recorded)
-        VALUES (?, ?, 'workout mode', ?, ?, ?, ?, ?, 1.0, 'live workout',
+        VALUES (?, ?, 'workout mode', ?, ?, ?, ?, ?,
                 ?, ?, 'measured', '[]', ?, 'workout', ?, ?, ?)
         """,
         (
             workout_id, workout["for_date"], len(sets), len(working),
             len({row["exercise_id"] for row in sets}), json.dumps(main_lifts),
-            workout["session_day"], tonnage if tonnage_present else None, duration,
+            workout["session_type"], tonnage if tonnage_present else None, duration,
             workout.get("prescription_id"), workout_id, session_rpe,
             1 if session_rpe_recorded else 0,
         ),

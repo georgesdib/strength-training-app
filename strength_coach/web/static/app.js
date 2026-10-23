@@ -185,7 +185,7 @@ function renderRecent(sessions) {
   if (!sessions.length) { $("#recent").innerHTML = "<p class='empty'>No sessions.</p>"; return; }
   $("#recent").innerHTML = `<table><thead><tr><th>Date</th><th>Day</th><th>Sets</th>
     <th>Main lifts</th><th>Marks</th><th></th></tr></thead><tbody>` +
-    sessions.map((s) => `<tr><td>${esc(s.occurred_on)}</td><td>${esc(s.day_guess)}</td>
+    sessions.map((s) => `<tr><td>${esc(s.occurred_on)}</td><td>${esc(s.session_type)}</td>
       <td>${s.working_set_count}/${s.set_count}</td>
       <td>${esc((s.main_lifts || []).join(", "))}</td>
       <td>${s.marks ? '<span class="badge">' + s.marks + "</span>" : '<span class="badge warn">none</span>'}</td>
@@ -323,7 +323,7 @@ function renderPrescription(p) {
     <button type="button" onclick="applySuggestedDeload()">Deload this workout</button>
     <span class="muted">Or train as planned; the suggestion will return next workout this week.</span></div>` : "";
   $("#prescribe-result").innerHTML = `<div class="panel">
-    <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_type || ("Day " + p.session_day))}</h2>
+    <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_type || "unknown")}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
     ${warnings}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>refs</th></tr></thead>
@@ -339,7 +339,7 @@ function fillSessionSelect() {
   if (!sessions.length) { select.innerHTML = "<option value=''>no sessions</option>"; return; }
   const current = select.value;
   select.innerHTML = sessions.map((s) => `<option value="${esc(s.session_id)}">
-    ${esc(s.occurred_on)} · ${esc(s.day_guess)} · ${s.marks ? s.marks + " marks" : "unreviewed"}</option>`).join("");
+    ${esc(s.occurred_on)} · ${esc(s.session_type)} · ${s.marks ? s.marks + " marks" : "unreviewed"}</option>`).join("");
   if (current) select.value = current;
 }
 
@@ -371,7 +371,7 @@ async function loadReview(session) {
         value="${item.existing ?? ""}" placeholder="skip"></td>
       <td class="muted">${esc(item.detail)}</td></tr>`).join("");
     $("#review-result").innerHTML = `<div class="panel">
-      <div class="panel-head"><h2>${esc(data.session)} · Day ${esc(data.day)}</h2>
+      <div class="panel-head"><h2>${esc(data.session)} · ${esc(data.session_type)}</h2>
         <span class="badge">composite ${fmt(data.composite, 2)}</span></div>
       <p class="muted">Week ${esc(data.week)} · spinal cost ${fmt(data.week_cost, 2)}</p>
       ${reviewWorkoutSummary(data.workout)}
@@ -461,7 +461,7 @@ async function loadSelection() {
     $("#selection-result").innerHTML = rows
       ? `<table><thead><tr><th>Slot</th><th>current → suggested</th><th>candidates</th></tr></thead>
          <tbody>${rows}</tbody></table>`
-      : "<p class='empty'>No multi-variant slots on this day. Only Day B currently has configured variants (bench and pull); add more in <code>config/templates/days.v1.yaml</code> and the taxonomy — see docs/EXERCISE-VARIANTS.md.</p>";
+      : "<p class='empty'>No multi-variant slots on this day. Add more candidates in <code>config/variants.v1.yaml</code> and the taxonomy — see docs/EXERCISE-VARIANTS.md.</p>";
   } catch (error) {
     $("#selection-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
@@ -1333,8 +1333,7 @@ function renderProgramme(entries) {
       : "<span class='empty'>none</span>";
     return `<tr>
       <td>${esc(entry.date)}</td>
-      <td><strong>${esc(entry.session_type || entry.day)}</strong>
-        <div class="muted">legacy ${esc(entry.day)}</div></td>
+      <td><strong>${esc(entry.session_type)}</strong></td>
       <td>${esc(programmeStatus(entry))}</td>
       <td><ul class="plain">${items}</ul>
         ${entry.deload_reason ? `<p class="warnbox">deload applied: ${esc(entry.deload_reason)}</p>` : ""}

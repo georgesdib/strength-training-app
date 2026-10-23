@@ -54,7 +54,7 @@ def test_override_outranks_the_computed_estimate():
             conn, exercise_id="ssb_squat", e1rm_kg=160, effective_from="2024-01-02",
             reason="tested single",
         )
-        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_type="squat")
         context = RuleContext.from_store(conn, end="2024-01-08")
 
         item = squat_load(prescription)
@@ -72,7 +72,7 @@ def test_expired_override_is_ignored():
             conn, exercise_id="ssb_squat", e1rm_kg=160,
             effective_from="2023-01-01", expires_on="2023-06-01",
         )
-        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_type="squat")
 
     item = squat_load(prescription)
     assert item.load_kg == pytest.approx(105.5)   # back to the computed estimate
@@ -85,7 +85,7 @@ def test_future_override_is_ignored():
         repositories.append_e1rm_override(
             conn, exercise_id="ssb_squat", e1rm_kg=160, effective_from="2024-06-01",
         )
-        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_type="squat")
 
     assert squat_load(prescription).load_kg == pytest.approx(105.5)
 
@@ -99,7 +99,7 @@ def test_latest_effective_override_wins():
         repositories.append_e1rm_override(
             conn, exercise_id="ssb_squat", e1rm_kg=180, effective_from="2024-01-01",
         )
-        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_type="squat")
 
     # 180 / (1 + 5/30) = 154.29 -> 154.0
     assert squat_load(prescription).load_kg == pytest.approx(154.0)

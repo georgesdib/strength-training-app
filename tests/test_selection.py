@@ -35,7 +35,7 @@ def pull_slot(rows):
 def test_the_most_recent_variant_is_the_current_choice_and_suggestions_are_advisory():
     with store_with() as store:
         context = RuleContext.from_store(store.connection, end="2024-01-15")
-        rows = selection.select(store.connection, context, "2024-01-15", "B",
+        rows = selection.select(store.connection, context, "2024-01-15", "hinge",
                                 include_different=True)
     slot = pull_slot(rows)
     assert slot.current == "lat_pulldown"
@@ -52,7 +52,7 @@ def test_can_do_false_excludes_a_candidate():
             can_do=False, will_do=False, feels_bad=False,
         )
         context = RuleContext.from_store(store.connection, end="2024-01-15")
-        rows = selection.select(store.connection, context, "2024-01-15", "B",
+        rows = selection.select(store.connection, context, "2024-01-15", "hinge",
                                 include_different=True)
     slot = pull_slot(rows)
     assert "lat_pulldown" not in {c.exercise_id for c in slot.candidates}
@@ -63,7 +63,7 @@ def test_an_llm_choice_must_come_from_the_candidate_list():
     with store_with() as store:
         context = RuleContext.from_store(store.connection, end="2024-01-15")
         rows = selection.select(
-            store.connection, context, "2024-01-15", "B",
+            store.connection, context, "2024-01-15", "hinge",
             chooser=lambda slot, candidates: ("pull_up", "model prefers the pull-up"),
             include_different=True,
         )
@@ -74,7 +74,7 @@ def test_an_llm_choice_must_come_from_the_candidate_list():
     with store_with() as store:
         context = RuleContext.from_store(store.connection, end="2024-01-15")
         rows = selection.select(
-            store.connection, context, "2024-01-15", "B",
+            store.connection, context, "2024-01-15", "hinge",
             chooser=lambda slot, candidates: ("invented_exercise", "bad answer"),
         )
     slot = pull_slot(rows)
@@ -85,7 +85,7 @@ def test_an_llm_choice_must_come_from_the_candidate_list():
 def test_day_a_has_catalogue_variants_even_though_the_template_has_one_exercise():
     with store_with() as store:
         context = RuleContext.from_store(store.connection, end="2024-01-15")
-        rows = selection.select(store.connection, context, "2024-01-15", "A")
+        rows = selection.select(store.connection, context, "2024-01-15", "squat")
     squat = next(row for row in rows if row.slot_id == "squat_main")
     assert {"ssb_squat", "competition_squat"} <= {c.exercise_id for c in squat.candidates}
 
@@ -100,8 +100,8 @@ def test_comparability_classes_and_default_filtering():
 
     with store_with() as store:
         context = RuleContext.from_store(store.connection, end="2024-01-15")
-        hidden = selection.select(store.connection, context, "2024-01-15", "B")
-        shown = selection.select(store.connection, context, "2024-01-15", "B",
+        hidden = selection.select(store.connection, context, "2024-01-15", "hinge")
+        shown = selection.select(store.connection, context, "2024-01-15", "hinge",
                                  include_different=True)
     hidden_slot = pull_slot(hidden)
     shown_slot = pull_slot(shown)
@@ -112,7 +112,7 @@ def test_comparability_classes_and_default_filtering():
 def test_history_context_is_display_only_and_not_scored():
     with store_with() as store:
         context = RuleContext.from_store(store.connection, end="2024-01-15")
-        rows = selection.select(store.connection, context, "2024-01-15", "B")
+        rows = selection.select(store.connection, context, "2024-01-15", "hinge")
     slot = pull_slot(rows)
     candidate = next(c for c in slot.candidates if c.exercise_id == "lat_pulldown")
     assert candidate.history_context is not None

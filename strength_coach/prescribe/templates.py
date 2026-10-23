@@ -1,9 +1,7 @@
 """Day templates: which slots a generated session contains.
 
-`ingest.sessions` answers "which day was this?"; this module answers "what should the day
-contain?". They share `config/templates/days.v1.yaml` but read different blocks, and the
-schema version is checked so a stale template fails loudly instead of silently prescribing
-yesterday's programme.
+`ingest.sessions` answers "which session type was this?"; this module answers "what should
+the session contain?". The schema version is checked so a stale template fails loudly.
 """
 
 from __future__ import annotations
@@ -20,9 +18,6 @@ from strength_coach.utils import paths
 
 SUPPORTED_SCHEMA_VERSIONS = ("1.0.0",)
 LOAD_SOURCES = ("e1rm", "double_progression", "bodyweight")
-# The programme is the three-day A/B/C rotation; rep ranges are pooled across it so a rule
-# that scopes the whole accessory collection can see every exercise on every day.
-DAYS = ("A", "B", "C")
 SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
 
 
@@ -57,7 +52,6 @@ class Slot:
 @dataclass(frozen=True)
 class SessionTemplate:
     session_type: str
-    legacy_day: str
     label: str
     slots: tuple[Slot, ...]
     time_cap_s: int
@@ -77,61 +71,6 @@ class SessionTemplate:
         body = source.read_text(encoding="utf-8")
         digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
         return _parse_session_template(str(session_type), str(source), digest, body)
-
-
-@dataclass(frozen=True)
-class DayTemplate:
-    day: str
-    slots: tuple[Slot, ...]
-    time_cap_s: int
-    schema_version: str
-
-    def rep_ranges(self) -> dict[str, tuple[int, int]]:
-        """Rep range per exercise, for PRG-DP-001 and for the load solver."""
-        ranges: dict[str, tuple[int, int]] = {}
-        for slot in self.slots:
-            for exercise_id in slot.exercises:
-                ranges[exercise_id] = (slot.reps_low, slot.reps_high)
-        return ranges
-
-    @classmethod
-    def load(cls, day: str = "B", path: str | Path | None = None) -> "DayTemplate":
-        source = Path(path or paths.config_dir("templates", "days.v1.yaml"))
-        body = source.read_text(encoding="utf-8")
-        digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
-        return _parse_template(day, str(source), digest, body)
-
-
-@lru_cache(maxsize=8)
-def _parse_template(day: str, source_name: str, digest: str, body: str) -> DayTemplate:
-    source = Path(source_name)
-    raw = yaml.safe_load(body) or {}
-    schema_version = str(raw.get("schema_version", "unversioned"))
-    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
-        raise TemplateError(
-            f"unsupported days template schema {schema_version!r}; "
-            f"supported: {SUPPORTED_SCHEMA_VERSIONS}"
-        )
-    days = raw.get("days") or {}
-    if day not in days:
-        raise TemplateError(f"day {day!r} is not defined in {source.name}")
-
-    block = days[day].get("prescription")
-    if not block:
-        # A day without prescription slots cannot be generated. Saying so is better than
-        # emitting an empty session that looks valid.
-        raise TemplateError(f"day {day!r} has no prescription block")
-
-    slots = tuple(_parse_slot(entry, day) for entry in (block.get("slots") or []))
-    if not slots:
-        raise TemplateError(f"day {day!r} has an empty prescription block")
-    _check_ids(slots)
-    return DayTemplate(
-        day=day,
-        slots=slots,
-        time_cap_s=int(block.get("time_cap_s", 4800)),
-        schema_version=schema_version,
-    )
 
 
 @lru_cache(maxsize=8)
@@ -157,7 +96,6 @@ def _parse_session_template(session_type: str, source_name: str, digest: str,
     _check_ids(slots)
     return SessionTemplate(
         session_type=session_type,
-        legacy_day=str(types[session_type].get("legacy_day", "C")),
         label=str(types[session_type].get("label", session_type)),
         slots=slots,
         time_cap_s=int(block.get("time_cap_s", 4800)),
@@ -173,10 +111,6 @@ def all_rep_ranges(path: str | Path | None = None) -> dict[str, tuple[int, int]]
     because each template is missing at least one scoped exercise (OPEN-QUESTIONS Q16).
     """
     ranges: dict[str, tuple[int, int]] = {}
-    for day in DAYS:
-        ranges.update(DayTemplate.load(day, path).rep_ranges())
-    # New session types carry exercises (row, vertical press, single-leg RDL) that the legacy
-    # A/B/C templates do not, so PRG-DP-001 must see their ranges too.
     for session_type in SESSION_TYPES:
         ranges.update(SessionTemplate.load(session_type).rep_ranges())
     return ranges

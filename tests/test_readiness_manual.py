@@ -94,7 +94,7 @@ def test_manual_entry_is_append_only():
 def test_unknown_readiness_is_said_out_loud():
     with store_with() as store:
         prescription = build_prescription(store.connection, for_date="2024-01-08",
-                                          session_day="A")
+                                          session_type="squat")
 
     assert any("readiness unknown for 2024-01-08" in w for w in prescription.warnings)
 
@@ -103,7 +103,7 @@ def test_manual_readiness_arms_the_fatigue_modifier():
     with store_with() as store:
         conn = store.connection
         repositories.append_readiness_entry(conn, on_date="2024-01-08", field="sleep", value=2)
-        prescription = build_prescription(conn, for_date="2024-01-08", session_day="A")
+        prescription = build_prescription(conn, for_date="2024-01-08", session_type="squat")
 
     assert prescription.fallback_level == "fatigue_reduced"
     assert any("MOD-FAT-001" in w for w in prescription.warnings)

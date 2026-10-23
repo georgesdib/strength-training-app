@@ -37,7 +37,7 @@ def test_an_old_set_is_decayed_in_the_prescription():
             readiness_sha256=importer.sha256_frame(readiness),
         )
         prescription = build_prescription(
-            store.connection, for_date="2024-03-01", session_day="A"
+            store.connection, for_date="2024-03-01", session_type="squat"
         )
     squat = next(item for item in prescription.items if item.exercise_id == "ssb_squat")
     assert "MOD-E1RM-DECAY-001" in squat.rationale_refs

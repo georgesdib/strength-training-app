@@ -15,20 +15,16 @@ def test_every_session_has_an_upper_body_push_and_a_row():
 
 
 def test_hinge_sessions_do_not_carry_direct_erector_work():
-    for session_type, leg in (("hinge", "B"), ("bench_hinge", "C")):
+    for session_type in ("hinge", "bench_hinge"):
         template = templates.SessionTemplate.load(session_type)
         ids = {slot.exercises[0] for slot in template.slots}
         assert "back_extension" not in ids
-        assert templates.SessionTemplate.load(session_type).legacy_day == leg
 
 
 def test_rolling_schedule_keeps_the_three_emphases_balanced():
     # No history: the first choice is squat. Then a fresh two-week cycle alternates.
     assert schedule.next_session_type.__module__
-    assert schedule.legacy_day("squat") == "A"
-    assert schedule.legacy_day("hinge") == "B"
-    assert schedule.legacy_day("bench_squat") == "C"
-    assert schedule.legacy_day("bench_hinge") == "C"
+    assert schedule.SESSION_TYPES == ("squat", "hinge", "bench_squat", "bench_hinge")
 
 
 def test_plan_a_restores_squat_and_raises_hinge_volume():

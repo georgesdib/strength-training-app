@@ -16,7 +16,7 @@ def format_session_sheet(facts, critique) -> str:
     lines: list[str] = []
     lines.append("=" * 78)
     lines.append(
-        f"session {facts.session_id}  ({facts.occurred_on}, day {facts.day}, "
+        f"session {facts.session_id}  ({facts.occurred_on}, day {facts.session_type}, "
         f"label {facts.workout_label or 'none'})"
     )
     lines.append("=" * 78)

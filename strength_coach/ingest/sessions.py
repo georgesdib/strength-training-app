@@ -5,9 +5,9 @@ calendar date. This is a real limitation, not a stylistic choice: two sessions o
 day are indistinguishable, and the only defence is to flag the implausible cases rather than
 pretend they do not exist.
 
-Day inference is a heuristic and is labelled as such: a session is assigned A/B/C only when
-the main lift present, and for the squat/bench pair the emphasis, support it. Otherwise it is
-`unknown`, and day-specific rules are not scored.
+Session-type inference is a heuristic and is labelled as such: a session is assigned
+squat/hinge/bench_squat/bench_hinge only when the lifts present distinguish it. Otherwise it is
+`unknown`, and type-specific rules are not scored.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from strength_coach.utils import paths
 FLAG_DOUBLE_SESSION = "POSSIBLE_DOUBLE_SESSION"
 FLAG_NO_MAIN_LIFT = "NO_MAIN_LIFT"
 FLAG_SUBSTITUTED_MAIN_LIFT = "SUBSTITUTED_MAIN_LIFT"
-FLAG_AMBIGUOUS_DAY = "AMBIGUOUS_DAY"
+FLAG_AMBIGUOUS_SESSION_TYPE = "AMBIGUOUS_DAY"
 FLAG_OFF_PROGRAMME = "OFF_PROGRAMME_SESSION"
 FLAG_HIGH_WARMUP_SHARE = "HIGH_WARMUP_SHARE"
 
@@ -34,30 +34,27 @@ HIGH_WARMUP_SHARE = 0.6
 
 
 @dataclass(frozen=True)
-class DayTemplates:
-    """Which lifts characterise each day, and how to infer the day from a session."""
+class SessionInference:
+    """Which lifts distinguish a session type."""
 
-    days: dict
     hinge_lift: str
+    hinge_support_lifts: tuple[str, ...]
     squat_lifts: tuple[str, ...]
     bench_lifts: tuple[str, ...]
     double_session_set_threshold: int
     version: str = "unversioned"
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> DayTemplates:
-        source = Path(path or paths.config_dir("templates", "days.v1.yaml"))
+    def load(cls, path: str | Path | None = None) -> "SessionInference":
+        source = Path(path or paths.config_dir("templates", "inference.v1.yaml"))
         with source.open("r", encoding="utf-8") as handle:
-            raw = yaml.safe_load(handle)
-        inference = raw.get("inference", {}) or {}
+            raw = yaml.safe_load(handle) or {}
         return cls(
-            days=raw.get("days", {}) or {},
-            hinge_lift=str(inference.get("hinge_lift", "trap_bar_deadlift")),
-            squat_lifts=tuple(inference.get("squat_lifts", ("ssb_squat",))),
-            bench_lifts=tuple(inference.get("bench_lifts", ("bench_press",))),
-            double_session_set_threshold=int(
-                inference.get("double_session_set_threshold", 35)
-            ),
+            hinge_lift=str(raw.get("hinge_lift", "trap_bar_deadlift")),
+            hinge_support_lifts=tuple(raw.get("hinge_support_lifts", ())),
+            squat_lifts=tuple(raw.get("squat_lifts", ())),
+            bench_lifts=tuple(raw.get("bench_lifts", ())),
+            double_session_set_threshold=int(raw.get("double_session_set_threshold", 35)),
             version=str(raw.get("schema_version", "unversioned")),
         )
 
@@ -74,30 +71,28 @@ class Session:
     exercise_count: int
     main_lifts: tuple[str, ...]
     primary_compounds: tuple[str, ...]
-    day: str                # "A" | "B" | "C" | "unknown"
-    day_confidence: float   # 0.0-1.0; heuristic, never presented as certainty
-    day_reason: str         # why the day was assigned or left unknown
+    session_type: str       # squat | hinge | bench_squat | bench_hinge | unknown
     tonnage_kg: float | None
     warmup_share: float
     flags: tuple[str, ...] = field(default_factory=tuple)
 
     @property
-    def is_ambiguous_day(self) -> bool:
-        return self.day == "unknown"
+    def is_ambiguous_session(self) -> bool:
+        return self.session_type == "unknown"
 
 
 @lru_cache(maxsize=1)
-def day_templates() -> DayTemplates:
-    return DayTemplates.load()
+def session_inference() -> SessionInference:
+    return SessionInference.load()
 
 
 def build_sessions(
     clean_sets: pd.DataFrame,
     *,
-    templates: DayTemplates | None = None,
+    templates: SessionInference | None = None,
 ) -> list[Session]:
-    """Group clean sets into sessions and infer the programme day for each."""
-    templates = templates or day_templates()
+    """Group clean sets into sessions and infer the canonical session type for each."""
+    templates = templates or session_inference()
     if clean_sets.empty:
         return []
 
@@ -107,7 +102,7 @@ def build_sessions(
     return sessions
 
 
-def _build_one(date, group: pd.DataFrame, templates: DayTemplates) -> Session:
+def _build_one(date, group: pd.DataFrame, templates: SessionInference) -> Session:
     exercise_ids = tuple(sorted(set(group["exercise_id"].dropna())))
     main_lifts = tuple(sorted({eid for eid in exercise_ids if _has_prop(eid, "main_lift")}))
     primary = tuple(
@@ -117,7 +112,7 @@ def _build_one(date, group: pd.DataFrame, templates: DayTemplates) -> Session:
     working = group[group["is_working_set"]]
     tonnage = physical_tonnage(working)
 
-    day, confidence, reason = infer_day(group, exercise_ids, templates)
+    session_type = infer_session_type(group, exercise_ids, templates)
 
     flags: list[str] = []
     if len(group) > templates.double_session_set_threshold:
@@ -131,10 +126,9 @@ def _build_one(date, group: pd.DataFrame, templates: DayTemplates) -> Session:
         flags.append(
             FLAG_SUBSTITUTED_MAIN_LIFT if primary else FLAG_NO_MAIN_LIFT
         )
-    if day == "unknown":
-        flags.append(FLAG_AMBIGUOUS_DAY)
-        if reason in {"bench_only", "squat_only", "no_primary"}:
-            flags.append(FLAG_OFF_PROGRAMME)
+    if session_type == "unknown":
+        flags.append(FLAG_AMBIGUOUS_SESSION_TYPE)
+        flags.append(FLAG_OFF_PROGRAMME)
 
     warmup_share = float((~group["is_working_set"]).mean()) if len(group) else 0.0
     if warmup_share > HIGH_WARMUP_SHARE:
@@ -150,55 +144,38 @@ def _build_one(date, group: pd.DataFrame, templates: DayTemplates) -> Session:
         exercise_count=len(exercise_ids),
         main_lifts=main_lifts,
         primary_compounds=primary,
-        day=day,
-        day_confidence=confidence,
-        day_reason=reason,
+        session_type=session_type,
         tonnage_kg=tonnage,
         warmup_share=round(warmup_share, 2),
         flags=tuple(flags),
     )
 
 
-def infer_day(
+def infer_session_type(
     group: pd.DataFrame,
     exercise_ids: tuple[str, ...],
-    templates: DayTemplates,
-) -> tuple[str, float]:
-    """Infer A/B/C from the main lifts present, with a confidence.
-
-    Order matters: the hinge is decisive because the programme only puts it on day B. A and C
-    both contain squat and bench, so they are separated by which lift got more sets — a
-    heuristic, hence the confidence value rather than a boolean.
-    """
+    templates: SessionInference,
+) -> str:
+    """Infer one of the four canonical types from the exercises present, or unknown."""
     present = set(exercise_ids)
-
     if templates.hinge_lift in present:
-        return "B", 0.95, "hinge"
+        return "hinge"
 
     has_squat = bool(present & set(templates.squat_lifts))
     has_bench = bool(present & set(templates.bench_lifts))
+    has_hinge_support = bool(present & set(templates.hinge_support_lifts))
 
-    if not has_squat and not has_bench:
-        return "unknown", 0.0, "no_primary"
-
-    counts = group.groupby("exercise_id").size()
-    squat_sets = int(sum(counts.get(lift, 0) for lift in templates.squat_lifts))
-    bench_sets = int(sum(counts.get(lift, 0) for lift in templates.bench_lifts))
-
-    if has_squat and not has_bench:
-        # Squat-only is not one of the programme's three days, so it stays unassigned rather
-        # than being forced into A. Every programme day contains a press.
-        return "unknown", 0.2, "squat_only"
-
-    if has_bench and has_squat:
+    if has_bench and has_hinge_support and not has_squat:
+        return "bench_hinge"
+    if has_squat and has_bench:
+        counts = group.groupby("exercise_id").size()
+        squat_sets = int(sum(counts.get(lift, 0) for lift in templates.squat_lifts))
+        bench_sets = int(sum(counts.get(lift, 0) for lift in templates.bench_lifts))
         if squat_sets > bench_sets:
-            margin = (squat_sets - bench_sets) / max(squat_sets + bench_sets, 1)
-            return "A", round(0.5 + 0.5 * margin, 2), "squat_emphasis"
-        margin = (bench_sets - squat_sets) / max(squat_sets + bench_sets, 1)
-        return "C", round(0.5 + 0.5 * margin, 2), "bench_emphasis"
-
-    # Bench-only sessions are not one of the three programme days either.
-    return "unknown", 0.3, "bench_only"
+            return "squat"
+        if bench_sets > squat_sets:
+            return "bench_squat"
+    return "unknown"
 
 
 def _has_prop(exercise_id: str, prop: str) -> bool:

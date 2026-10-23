@@ -296,9 +296,8 @@ def select(
     conn,
     context: RuleContext | None,
     on_date: str,
-    day: str,
+    session_type: str,
     *,
-    session_type: str | None = None,
     config: SelectionConfig | None = None,
     chooser: Callable[[templates.Slot, tuple[Candidate, ...]], tuple[str, str] | None] | None = None,
     include_different: bool = False,
@@ -311,11 +310,8 @@ def select(
     """
     cfg = config or SelectionConfig.load()
     comparison = comparability or ComparisonConfig.load()
-    template = (
-        templates.SessionTemplate.load(session_type)
-        if session_type is not None else templates.DayTemplate.load(day)
-    )
-    extra = _catalogue().get(session_type or day, {})
+    template = templates.SessionTemplate.load(session_type)
+    extra = _catalogue().get(session_type, {})
     slot_ids = {
         slot.id: tuple(dict.fromkeys((*slot.exercises, *extra.get(slot.id, ()))))
         for slot in template.slots

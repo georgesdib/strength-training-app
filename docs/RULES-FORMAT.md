@@ -27,7 +27,7 @@ implements the predicate once and tests it.
   severity: veto | downgrade | warn | advisory
   scope:                          # what the rule applies to
     exercises: [ssb_squat, ...]   # canonical ids
-    sessions: [A, B, C]
+    sessions: [squat, hinge, bench_squat, bench_hinge]
   statement: >                    # the constitution, in words
     ...
   params:                         # every number the predicate needs
@@ -139,7 +139,7 @@ notes: >
 > direct erector work in the same session."
 
 ```yaml
-scope: {sessions: [A, B, C]}
+scope: {sessions: [squat, hinge, bench_squat, bench_hinge]}
 params:
   allowed_days: [A, C]
   forbid_with_patterns: [hinge]

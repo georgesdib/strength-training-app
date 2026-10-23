@@ -44,7 +44,7 @@ The 8-12 week dose ramp (bodyweight -> add load -> add a set -> consolidate) req
 which week of the block today is. Nothing in the source export marks a block boundary, and
 the historical erector rows deliberately do **not** count toward the dose.
 
-**Blocks:** the erector ramp rule, day A/C prescription, the "weekly erector dose vs plan"
+**Blocks:** the erector ramp rule, squat/bench session prescription, the "weekly erector dose vs plan"
 rubric line.
 **Default:** block starts on the first Monday after approval; until then, bodyweight only,
 phase labelled `unanchored`.
