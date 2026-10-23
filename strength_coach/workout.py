@@ -117,11 +117,17 @@ def get(conn, workout_id: str) -> dict | None:
     if row is None:
         return None
     data = dict(row)
-    data["plan"] = json.loads(data.pop("plan_json"))
+    original = json.loads(data.pop("plan_json"))
+    modified_raw = data.pop("plan_modified_json", None)
+    modified = json.loads(modified_raw) if modified_raw else original
+    data["original_plan"] = original
+    data["plan"] = modified
+    data["plan_modified"] = bool(modified_raw)
     data["readiness"] = json.loads(data.pop("readiness_json"))
     data["sets"] = _sets(conn, workout_id)
     data["elapsed_seconds"] = _elapsed(data)
     data["comparison"] = _comparison(data)
+    data["original_comparison"] = _comparison({**data, "plan": original})
     return data
 
 
@@ -270,6 +276,120 @@ def mark_reviewed(conn, session_id: str) -> bool:
     return True
 
 
+def _validate_exercise(exercise_id: str) -> str:
+    exercise_id = str(exercise_id or "").strip()
+    if not exercise_id:
+        raise ValueError("exercise_id is required")
+    if exercise_id not in exercises.taxonomy().entities:
+        raise ValueError(f"unknown exercise: {exercise_id}")
+    return exercise_id
+
+
+def _write_plan(conn, workout_id: str, plan: dict, event_type: str,
+                payload: dict) -> dict:
+    conn.execute(
+        "UPDATE workout_session SET plan_modified_json = ? WHERE workout_id = ?",
+        (json.dumps(plan, separators=(",", ":")), workout_id),
+    )
+    _event(conn, workout_id, event_type, payload)
+    return get(conn, workout_id)
+
+
+def _editable(workout: dict) -> list[dict]:
+    if workout.get("status") != "in_progress":
+        raise ValueError("workout is not in progress")
+    return [dict(item) for item in (workout.get("plan") or {}).get("items") or []]
+
+
+def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> dict:
+    workout = get(conn, workout_id)
+    if workout is None:
+        raise ValueError("workout not found")
+    items = _editable(workout)
+    if not 0 <= int(item_index) < len(items):
+        raise ValueError("item_index out of range")
+    new_id = _validate_exercise(exercise_id)
+    old = items[int(item_index)].get("exercise_id")
+    items[int(item_index)] = {
+        **items[int(item_index)],
+        "exercise_id": new_id,
+        "substitution_for": old,
+        # The old load belongs to the old lift; do not silently carry it across.
+        "load_kg": None,
+        "unknown_load_reason": "swapped during workout; load not re-solved",
+    }
+    plan = {**(workout.get("plan") or {}), "items": items}
+    return _write_plan(conn, workout_id, plan, "swap_exercise",
+                       {"item_index": int(item_index), "from": old, "to": new_id})
+
+
+def add_exercise(
+    conn,
+    workout_id: str,
+    *,
+    exercise_id: str,
+    sets: int = 3,
+    reps_low: int = 8,
+    reps_high: int = 12,
+    load_kg: float | None = None,
+    rir_target: int | None = 2,
+) -> dict:
+    workout = get(conn, workout_id)
+    if workout is None:
+        raise ValueError("workout not found")
+    items = _editable(workout)
+    new_id = _validate_exercise(exercise_id)
+    if any(item.get("exercise_id") == new_id for item in items):
+        raise ValueError(f"{new_id} is already in the plan")
+    sets = max(1, min(20, int(sets)))
+    low = max(1, min(50, int(reps_low)))
+    high = max(low, min(50, int(reps_high)))
+    item = {
+        "exercise_id": new_id,
+        "sets": sets,
+        "reps_low": low,
+        "reps_high": high,
+        "load_kg": load_kg,
+        "rir_target": rir_target,
+        "essential": False,
+        "added_during_workout": True,
+    }
+    plan = {**(workout.get("plan") or {}), "items": items + [item]}
+    return _write_plan(conn, workout_id, plan, "add_exercise", item)
+
+
+def remove_exercise(conn, workout_id: str, item_index: int) -> dict:
+    workout = get(conn, workout_id)
+    if workout is None:
+        raise ValueError("workout not found")
+    items = _editable(workout)
+    index = int(item_index)
+    if not 0 <= index < len(items):
+        raise ValueError("item_index out of range")
+    removed = items.pop(index)
+    plan = {**(workout.get("plan") or {}), "items": items}
+    return _write_plan(conn, workout_id, plan, "remove_exercise",
+                       {"item_index": index, "removed": removed})
+
+
+def change_sets(conn, workout_id: str, item_index: int, delta: int) -> dict:
+    workout = get(conn, workout_id)
+    if workout is None:
+        raise ValueError("workout not found")
+    items = _editable(workout)
+    index = int(item_index)
+    if not 0 <= index < len(items):
+        raise ValueError("item_index out of range")
+    before = int(items[index].get("sets") or 1)
+    after = max(1, min(20, before + int(delta)))
+    if after == before:
+        return workout
+    items[index]["sets"] = after
+    plan = {**(workout.get("plan") or {}), "items": items}
+    return _write_plan(conn, workout_id, plan, "change_sets",
+                       {"item_index": index, "before": before, "after": after})
+
+
 def _comparison(workout: Mapping[str, Any]) -> dict:
     """Compare actual sets with the frozen plan; extra work is explicit."""
     items = list((workout.get("plan") or {}).get("items") or [])
@@ -278,9 +398,7 @@ def _comparison(workout: Mapping[str, Any]) -> dict:
     for index, item in enumerate(items):
         matching = [
             row for row in actual
-            if row.get("prescription_item_index") == index
-            or (row.get("prescription_item_index") is None
-                and row.get("exercise_id") == item.get("exercise_id"))
+            if row.get("exercise_id") == item.get("exercise_id")
         ]
         planned_sets = int(item.get("sets") or 0)
         count = len(matching)
@@ -309,7 +427,6 @@ def _comparison(workout: Mapping[str, Any]) -> dict:
     extra = [
         row for row in actual
         if row.get("exercise_id") not in planned_ids
-        or row.get("prescription_item_index") is None
     ]
     return {"items": rows, "extra": extra}
 

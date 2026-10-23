@@ -130,6 +130,39 @@ function stopWorkoutTimer() {
   workoutTimer = null;
 }
 
+let workoutExerciseList = [];
+
+function workoutExerciseOptions(selected) {
+  return '<option value="">choose…</option>' + workoutExerciseList.map(function (item) {
+    var id = item.id || item.exercise_id;
+    var label = item.display || id;
+    return '<option value="' + esc(id) + '"' + (String(selected) === String(id) ? " selected" : "") +
+      ">" + esc(label) + "</option>";
+  }).join("");
+}
+
+function loadWorkoutExercises() {
+  if (workoutExerciseList.length) return Promise.resolve(workoutExerciseList);
+  return api("/api/exercises").then(function (list) {
+    workoutExerciseList = list || [];
+    if (activeWorkoutId) loadActiveWorkout();
+    return workoutExerciseList;
+  }).catch(function () { return []; });
+}
+
+function planAction(action, body) {
+  if (!activeWorkoutId) return;
+  $("#workout-plan-msg").textContent = "Updating plan…";
+  api("/api/workout/" + activeWorkoutId + "/plan/" + action, {
+    method: "POST", body: JSON.stringify(body)
+  }).then(function (data) {
+    $("#workout-plan-msg").textContent = "";
+    renderWorkout(data.workout);
+  }).catch(function (error) {
+    $("#workout-plan-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>";
+  });
+}
+
 function renderWorkout(w) {
   activeWorkoutId = w.workout_id;
   $("#workout-empty").hidden = true;
@@ -142,13 +175,65 @@ function renderWorkout(w) {
 
   var plan = w.plan || {};
   var items = plan.items || [];
-  var rows = items.map(function (item) {
-    return "<tr><td><strong>" + esc(item.exercise_id) + "</strong></td><td>" + item.sets +
-      "</td><td>" + item.reps_low + "–" + item.reps_high + "</td><td>" + fmt(item.load_kg) +
-      "</td><td>" + (item.rir_target == null ? "—" : item.rir_target) + "</td></tr>";
+  var rows = items.map(function (item, index) {
+    return "<tr><td><strong>" + esc(item.exercise_id) + "</strong>" +
+      (item.substitution_for ? '<div class="muted">swapped from ' + esc(item.substitution_for) + "</div>" : "") +
+      (item.added_during_workout ? '<div class="muted">added during workout</div>' : "") +
+      '</td><td><button class="ghost" type="button" data-plan-set="-1" data-index="' +
+      index + '">−</button> ' + item.sets +
+      ' <button class="ghost" type="button" data-plan-set="1" data-index="' + index + '">+</button></td><td>' +
+      item.reps_low + "–" + item.reps_high + "</td><td>" + fmt(item.load_kg) +
+      "</td><td>" + (item.rir_target == null ? "—" : item.rir_target) + "</td><td>" +
+      '<select data-swap-select="' + index + '">' + workoutExerciseOptions("") + "</select>" +
+      ' <button class="ghost" type="button" data-swap-index="' + index + '">Swap</button></td><td>' +
+      '<button class="ghost" type="button" data-remove-item="' + index + '">Remove</button></td></tr>';
   }).join("");
-  $("#workout-plan").innerHTML = "<table><thead><tr><th>Prescribed</th><th>Sets</th><th>Reps</th>" +
-    "<th>kg</th><th>RIR</th></tr></thead><tbody>" + rows + "</tbody></table>";
+  $("#workout-plan").innerHTML = "<p class='muted'>This is the editable workout plan; the original prescription is kept separately.</p>" +
+    "<table><thead><tr><th>Planned</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th>" +
+    "<th>Swap</th><th></th></tr></thead><tbody>" + rows + "</tbody></table>" +
+    '<div class="form-row" style="margin-top:0.75rem">' +
+    '<label>Add exercise <select id="workout-add-exercise">' + workoutExerciseOptions("") + "</select></label>" +
+    '<label>Sets <input id="workout-add-sets" type="number" min="1" max="20" value="3"></label>' +
+    '<label>Reps low <input id="workout-add-reps-low" type="number" min="1" max="50" value="8"></label>' +
+    '<label>Reps high <input id="workout-add-reps-high" type="number" min="1" max="50" value="12"></label>' +
+    '<label>kg <input id="workout-add-load" type="number" step="0.5"></label>' +
+    '<label>RIR <input id="workout-add-rir" type="number" min="0" max="10" value="2"></label>' +
+    '<button class="ghost" type="button" id="workout-add-exercise-run">Add to plan</button></div>' +
+    '<div id="workout-plan-msg"></div>';
+  document.querySelectorAll("[data-plan-set]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      planAction("set-count", { item_index: Number(button.dataset.index), delta: Number(button.dataset.planSet) });
+    });
+  });
+  document.querySelectorAll("[data-remove-item]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      planAction("remove-exercise", { item_index: Number(button.dataset.removeItem) });
+    });
+  });
+  document.querySelectorAll("[data-swap-index]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var index = Number(button.dataset.swapIndex);
+      var select = document.querySelector('[data-swap-select="' + index + '"]');
+      if (!select || !select.value) {
+        $("#workout-plan-msg").textContent = "Choose an exercise to swap to.";
+        return;
+      }
+      planAction("swap", { item_index: index, exercise_id: select.value });
+    });
+  });
+  var add = document.getElementById("workout-add-exercise-run");
+  if (add) add.addEventListener("click", function () {
+    var select = document.getElementById("workout-add-exercise");
+    if (!select || !select.value) return;
+    planAction("add-exercise", {
+      exercise_id: select.value,
+      sets: Number(document.getElementById("workout-add-sets").value),
+      reps_low: Number(document.getElementById("workout-add-reps-low").value),
+      reps_high: Number(document.getElementById("workout-add-reps-high").value),
+      load_kg: document.getElementById("workout-add-load").value || null,
+      rir_target: document.getElementById("workout-add-rir").value || null
+    });
+  });
 
   var seen = {};
   var options = "";
@@ -188,6 +273,11 @@ function renderWorkoutEnded(w) {
   $("#workout-ended-panel").hidden = false;
   var rpe = w.session_rpe_recorded ? fmt(w.session_rpe) : "not recorded";
   var comparison = w.comparison || { items: [], extra: [] };
+  var original = w.original_comparison || comparison;
+  var origRows = original.items.map(function (row) {
+    return "<tr><td>" + esc(row.exercise_id) + "</td><td>" + esc(row.status) + "</td><td>" +
+      row.actual_sets + " / " + row.planned_sets + "</td></tr>";
+  }).join("");
   var compRows = comparison.items.map(function (row) {
     return "<tr><td>" + esc(row.exercise_id) + "</td><td>" + esc(row.status) + "</td><td>" +
       row.actual_sets + " / " + row.planned_sets + "</td><td>" +
@@ -206,6 +296,11 @@ function renderWorkoutEnded(w) {
     "<table><thead><tr><th>Exercise</th><th>Status</th><th>Sets actual / planned</th>" +
     "<th>Reps</th><th>kg</th><th>RIR</th></tr></thead><tbody>" + compRows + "</tbody></table>" +
     extra +
+    (w.plan_modified
+      ? '<h3>Original prescription</h3><table><thead><tr><th>Exercise</th><th>Status</th>' +
+        '<th>Actual / planned sets</th></tr></thead><tbody>' + origRows + '</tbody></table>' +
+        '<p class="muted">The table above compares against the modified workout plan; this table compares against the original prescription.</p>'
+      : "") +
     '<div class="form-row" style="margin-top:1rem">' +
     '<button class="primary" type="button" id="workout-review">Review workout</button>' +
     '<span class="muted">The deterministic rubric was saved at End workout.</span></div>';
@@ -312,5 +407,6 @@ document.addEventListener("DOMContentLoaded", function () {
   if (notRecorded) notRecorded.addEventListener("change", function () {
     document.getElementById("workout-end-srpe").disabled = notRecorded.checked;
   });
+  loadWorkoutExercises();
   loadActiveWorkout();
 });

@@ -518,7 +518,35 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("workout action is required")
         workout_id = parts[2]
         action = parts[3]
-        if action == "sets":
+        if action == "plan":
+            sub = parts[4] if len(parts) > 4 else ""
+            if sub == "swap":
+                result = workout.swap_exercise(
+                    conn, workout_id, _integer(body.get("item_index")),
+                    str(body.get("exercise_id") or ""),
+                )
+            elif sub == "add-exercise":
+                result = workout.add_exercise(
+                    conn, workout_id,
+                    exercise_id=str(body.get("exercise_id") or ""),
+                    sets=_integer(body.get("sets")) or 3,
+                    reps_low=_integer(body.get("reps_low")) or 8,
+                    reps_high=_integer(body.get("reps_high")) or 12,
+                    load_kg=_number(body.get("load_kg")),
+                    rir_target=_integer(body.get("rir_target")),
+                )
+            elif sub == "remove-exercise":
+                result = workout.remove_exercise(
+                    conn, workout_id, _integer(body.get("item_index"))
+                )
+            elif sub == "set-count":
+                result = workout.change_sets(
+                    conn, workout_id, _integer(body.get("item_index")),
+                    _integer(body.get("delta")),
+                )
+            else:
+                raise ValueError("unknown plan action")
+        elif action == "sets":
             result = workout.add_set(
                 conn, workout_id,
                 exercise_id=str(body.get("exercise_id") or ""),

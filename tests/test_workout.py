@@ -111,3 +111,28 @@ def test_end_scores_rubric_and_review_closes_workout(conn):
     assert workout.mark_reviewed(conn, started["workout_id"]) is True
     assert workout.mark_reviewed(conn, started["workout_id"]) is False
     assert workout.get(conn, started["workout_id"])["reviewed_at"]
+
+
+def test_plan_overrides_keep_the_original_prescription(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    swapped = workout.swap_exercise(
+        conn, started["workout_id"], 0, "conventional_deadlift"
+    )
+    assert swapped["original_plan"]["items"][0]["exercise_id"] == "trap_bar_deadlift"
+    assert swapped["plan"]["items"][0]["exercise_id"] == "conventional_deadlift"
+    assert swapped["plan"]["items"][0]["substitution_for"] == "trap_bar_deadlift"
+    assert swapped["plan"]["items"][0]["load_kg"] is None
+    assert swapped["plan_modified"] is True
+
+    added = workout.add_exercise(
+        conn, started["workout_id"], exercise_id="lat_pulldown", sets=2,
+        reps_low=10, reps_high=12,
+    )
+    assert any(item["exercise_id"] == "lat_pulldown" for item in added["plan"]["items"])
+    assert len(added["original_plan"]["items"]) == 2
+
+    changed = workout.change_sets(conn, started["workout_id"], 0, 1)
+    assert changed["plan"]["items"][0]["sets"] == 6
+    removed = workout.remove_exercise(conn, started["workout_id"], 2)
+    assert all(item["exercise_id"] != "lat_pulldown" for item in removed["plan"]["items"])
+    assert len(removed["plan"]["items"]) == 2

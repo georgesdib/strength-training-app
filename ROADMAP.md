@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.3.1-dev` · **599 public tests** (614 with the 15 private integration tests)
+Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.3.1-dev` · **603 public tests** (618 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progres
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 614 locally, including private integration
+.venv/bin/python -m pytest            # 618 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -955,7 +955,7 @@ deferred items stay listed in §4.19.
 | P2 | Strength-review implementation closeout | **review closed**; future work in §4.20 |
 | P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
 | P2 | Prospective validation of continuity, volume, selection and fatigue models | moved to §4.20 — no candidate; current models failed the retrospective baseline |
-| P1 (v0.3) | Live workout mode | **partial** — start/end/manual sets, materialisation, actual-vs-prescribed and rubric/review done; import, plan overrides pending |
+| P1 (v0.3) | Live workout mode | **partial** — start/end/manual sets, materialisation, plan overrides, comparisons and rubric/review done; import pending |
 | P1 (v0.3) | Manual workout logging and import adapters | not started |
 | P1 (v0.3) | LLM/manual-logging parity | not started |
 | P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
@@ -999,13 +999,14 @@ Phased implementation of the approved workout flow:
 | 1 | Schema/state machine, Start form with required readiness, manual sets, timer, duration/sRPE, End/Abandon, API/UI | **done** |
 | 2 | Materialise workout sets into `clean_set`/`session`; actual-vs-prescribed comparison | **done** |
 | 3 | Import staging inside workout; overwrite/preview/undo; Exercise catalogue completeness | next |
-| 4 | Plan overrides: swap/add/remove exercise and sets | next |
+| 4 | Plan overrides: swap/add/remove exercise and sets | **done** |
 | 5 | Deterministic rubric review + human marks; post-processing pipeline | **done** |
 | 6 | Backfill import handling; duplicate/overlap warnings | pending |
 
 Workout sets now materialise into `session`/`clean_set` on completion, so reports, e1RM and
-volume see them. The end screen compares actual vs prescribed and runs the deterministic rubric;
-review marks close the workout. Import and plan overrides remain.
+volume see them. The end screen compares actual vs the modified plan and the original
+prescription, runs the deterministic rubric, and closes on review marks. Plan overrides are done;
+import remains.
 
 ## 5. Known gaps and risks
 

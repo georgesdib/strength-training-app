@@ -403,6 +403,7 @@ until completion.
 | for_date / session_type / session_day | copied from the plan |
 | status | `in_progress` \| `completed` \| `abandoned` |
 | plan_json | frozen prescription payload; later regeneration cannot rewrite it |
+| plan_modified_json | latest in-workout plan after swaps/adds/removes/set edits; null until changed |
 | readiness_json | validated seven required fields plus optional device fields |
 | started_at / ended_at | ISO timestamps |
 | duration_measured_s / duration_min / duration_source | measured timer and optional manual override |

@@ -568,3 +568,39 @@ def test_review_marks_close_the_workout(server):
     assert saved["written"] == 1
     assert saved["reviewed_workout"] is True
     assert saved["postprocess"]["workout_closed"] is True
+
+
+def test_workout_plan_overrides_api(server):
+    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
+    readiness = {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+    data = post(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": plan, "readiness": readiness,
+    })
+    workout_id = data["workout"]["workout_id"]
+    swapped = post(server, f"/api/workout/{workout_id}/plan/swap", {
+        "item_index": 0, "exercise_id": "conventional_deadlift",
+    })
+    assert swapped["workout"]["plan"]["items"][0]["exercise_id"] == "conventional_deadlift"
+    assert swapped["workout"]["original_plan"]["items"][0]["exercise_id"] == "trap_bar_deadlift"
+
+    added = post(server, f"/api/workout/{workout_id}/plan/add-exercise", {
+        "exercise_id": "lat_pulldown", "sets": 2, "reps_low": 10, "reps_high": 12,
+    })
+    assert any(item["exercise_id"] == "lat_pulldown" for item in added["workout"]["plan"]["items"])
+
+    changed = post(server, f"/api/workout/{workout_id}/plan/set-count", {
+        "item_index": 0, "delta": 1,
+    })
+    assert changed["workout"]["plan"]["items"][0]["sets"] == 6
+
+    index = next(
+        i for i, item in enumerate(changed["workout"]["plan"]["items"])
+        if item["exercise_id"] == "lat_pulldown"
+    )
+    removed = post(server, f"/api/workout/{workout_id}/plan/remove-exercise", {
+        "item_index": index,
+    })
+    assert all(item["exercise_id"] != "lat_pulldown" for item in removed["workout"]["plan"]["items"])
