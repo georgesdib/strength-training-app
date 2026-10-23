@@ -72,3 +72,27 @@ def test_end_requires_srpe_or_explicit_not_recorded(conn):
     ended = workout.end(conn, started["workout_id"], session_rpe=None, not_recorded=True)
     assert ended["session_rpe_recorded"] == 0
     assert ended["session_rpe"] is None
+
+
+def test_end_materialises_session_and_comparison(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    workout.add_set(conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+                    load_kg=100, reps=5, rir=2)
+    ended = workout.end(conn, started["workout_id"], session_rpe=7, duration_min=55)
+
+    session = conn.execute(
+        "SELECT session_id, source, workout_id, prescription_id, set_count,"
+        " working_set_count, session_rpe FROM session WHERE session_id = ?",
+        (started["workout_id"],),
+    ).fetchone()
+    assert session["source"] == "workout"
+    assert session["workout_id"] == started["workout_id"]
+    assert session["set_count"] == 1
+    assert session["working_set_count"] == 1
+    assert session["session_rpe"] == 7
+    assert conn.execute(
+        "SELECT COUNT(*) AS c FROM clean_set WHERE session_id = ?",
+        (started["workout_id"],),
+    ).fetchone()["c"] == 1
+    assert ended["comparison"]["items"][0]["status"] == "under"
+    assert ended["comparison"]["items"][1]["status"] == "missing"

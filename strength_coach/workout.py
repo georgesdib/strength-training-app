@@ -12,6 +12,9 @@ import json
 import uuid
 from typing import Any, Mapping
 
+from strength_coach.store import repositories
+from strength_coach.utils import exercises
+
 REQUIRED_READINESS = (
     "sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration",
 )
@@ -115,6 +118,7 @@ def get(conn, workout_id: str) -> dict | None:
     data["readiness"] = json.loads(data.pop("readiness_json"))
     data["sets"] = _sets(conn, workout_id)
     data["elapsed_seconds"] = _elapsed(data)
+    data["comparison"] = _comparison(data)
     return data
 
 
@@ -218,6 +222,150 @@ def remove_set(conn, workout_id: str, set_id: int) -> dict:
     return get(conn, workout_id)
 
 
+def _comparison(workout: Mapping[str, Any]) -> dict:
+    """Compare actual sets with the frozen plan; extra work is explicit."""
+    items = list((workout.get("plan") or {}).get("items") or [])
+    actual = list(workout.get("sets") or [])
+    rows = []
+    for index, item in enumerate(items):
+        matching = [
+            row for row in actual
+            if row.get("prescription_item_index") == index
+            or (row.get("prescription_item_index") is None
+                and row.get("exercise_id") == item.get("exercise_id"))
+        ]
+        planned_sets = int(item.get("sets") or 0)
+        count = len(matching)
+        if count == 0:
+            status = "missing"
+        elif count < planned_sets:
+            status = "under"
+        elif count == planned_sets:
+            status = "complete"
+        else:
+            status = "over"
+        rows.append({
+            "index": index,
+            "exercise_id": item.get("exercise_id"),
+            "status": status,
+            "planned_sets": planned_sets,
+            "actual_sets": count,
+            "planned_reps": [item.get("reps_low"), item.get("reps_high")],
+            "actual_reps": [row.get("reps") for row in matching],
+            "planned_load_kg": item.get("load_kg"),
+            "actual_load_kg": [row.get("load_kg") for row in matching],
+            "planned_rir": item.get("rir_target"),
+            "actual_rir": [row.get("rir") for row in matching],
+        })
+    planned_ids = {str(item.get("exercise_id")) for item in items}
+    extra = [
+        row for row in actual
+        if row.get("exercise_id") not in planned_ids
+        or row.get("prescription_item_index") is None
+    ]
+    return {"items": rows, "extra": extra}
+
+
+def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: float,
+                 duration_source: str, session_rpe: float | None,
+                 session_rpe_recorded: bool, notes: str | None) -> None:
+    """Write the completed workout into session/clean_set once.
+
+    The workout is the draft; the normal session is the durable record that reports and
+    review already understand. Refuses to duplicate if completion is retried.
+    """
+    workout_id = str(workout["workout_id"])
+    existing = conn.execute(
+        "SELECT session_id FROM session WHERE session_id = ?", (workout_id,)
+    ).fetchone()
+    if existing is not None:
+        return
+    sets = _sets(conn, workout_id)
+    plan = workout.get("plan") or {}
+    items = plan.get("items") or []
+    entities = exercises.taxonomy().entities
+    main_lifts = []
+    for item in items:
+        exercise_id = str(item.get("exercise_id"))
+        if exercise_id not in main_lifts:
+            main_lifts.append(exercise_id)
+    working = [row for row in sets if row.get("rir") != 6]
+    tonnage = 0.0
+    tonnage_present = False
+    for row in working:
+        load = row.get("load_kg")
+        reps = row.get("reps")
+        if load is not None and reps is not None:
+            tonnage += float(load) * int(reps)
+            tonnage_present = True
+    conn.execute(
+        """
+        INSERT INTO session
+            (session_id, occurred_on, workout_label, set_count, working_set_count,
+             exercise_count, main_lifts, day_guess, day_confidence, day_reason,
+             tonnage_kg, duration_min, duration_basis, flags, prescription_id, source,
+             workout_id, session_rpe, session_rpe_recorded)
+        VALUES (?, ?, 'workout mode', ?, ?, ?, ?, ?, 1.0, 'live workout',
+                ?, ?, 'measured', '[]', ?, 'workout', ?, ?, ?)
+        """,
+        (
+            workout_id, workout["for_date"], len(sets), len(working),
+            len({row["exercise_id"] for row in sets}), json.dumps(main_lifts),
+            workout["session_day"], tonnage if tonnage_present else None, duration,
+            workout.get("prescription_id"), workout_id, session_rpe,
+            1 if session_rpe_recorded else 0,
+        ),
+    )
+    import hashlib
+    file_sha = "workout:" + hashlib.sha256(workout_id.encode("utf-8")).hexdigest()
+    for row in sets:
+        exercise_id = str(row["exercise_id"])
+        props = entities.get(exercise_id, {})
+        bodyweight = bool(props.get("bodyweight_type"))
+        load = row.get("load_kg")
+        if load is None:
+            load_basis = "unknown"
+            external = None
+        elif bodyweight and float(load) == 0:
+            load_basis = "bodyweight_total"
+            external = None
+        else:
+            load_basis = "external"
+            external = load
+        reps_unit = "seconds" if props.get("time_based") else "reps"
+        is_working = 0 if row.get("rir") == 6 else 1
+        payload = json.dumps(dict(row), separators=(",", ":"))
+        cursor = conn.execute(
+            "INSERT INTO raw_row (table_name, source_row, file_sha256, payload) "
+            "VALUES ('training', ?, ?, ?)",
+            (int(row["set_id"]), file_sha, payload),
+        )
+        raw_id = int(cursor.lastrowid)
+        conn.execute(
+            """
+            INSERT INTO clean_set
+                (raw_id, session_id, occurred_on, exercise_id, raw_exercise, load_kg,
+                 load_basis, external_load_kg, reps, reps_unit, rir, rir_source,
+                 velocity_mps, velocity_present, tonnage_kg, is_working_set, flags,
+                 prescription_item_index)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?)
+            """,
+            (
+                raw_id, workout_id, workout["for_date"], exercise_id, exercise_id,
+                load, load_basis, external, row.get("reps"), reps_unit, row.get("rir"),
+                "logged" if row.get("rir") is not None else "missing", row.get("velocity"),
+                1 if row.get("velocity") is not None else 0,
+                (float(load) * int(row["reps"])) if load is not None and row.get("reps") is not None else None,
+                is_working, row.get("prescription_item_index"),
+            ),
+        )
+    if session_rpe is not None or notes:
+        repositories.append_session_feedback(
+            conn, session_id=workout_id, srpe=session_rpe,
+            duration_min=duration if duration > 0 else None, note=notes,
+        )
+
+
 def end(
     conn,
     workout_id: str,
@@ -249,6 +397,10 @@ def end(
     else:
         raise ValueError("session_rpe is required, or mark it not recorded")
     ended = _now()
+    _materialise(
+        conn, workout, ended=ended, duration=duration, duration_source=source,
+        session_rpe=rpe, session_rpe_recorded=not not_recorded, notes=notes,
+    )
     conn.execute(
         """
         UPDATE workout_session

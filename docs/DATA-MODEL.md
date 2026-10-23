@@ -421,5 +421,14 @@ until completion.
 | prescription_item_index | index into the frozen plan, when matched |
 
 `workout_event` records `start`, `add_set`, `remove_set`, `end` and `abandon` with an
-optional `target_set_id`; it is append-only. This chunk does not yet materialise workout sets
-into `session`/`clean_set`; that integration and import merge are the next slice.
+optional `target_set_id`; it is append-only.
+
+On completion, `workout.py` materialises the workout into the normal pipeline once:
+
+- a `session` row with `session_id = workout_id`, `source = 'workout'`, `prescription_id`,
+  `workout_id`, measured duration and sRPE;
+- one `raw_row` + `clean_set` row per actual set, preserving `prescription_item_index`;
+- optional `session_feedback`.
+
+This keeps e1RM, volume and review on one actual-session source of truth. Import merge, plan
+overrides and review/rubric are still pending.

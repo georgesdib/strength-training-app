@@ -187,9 +187,25 @@ function renderWorkoutEnded(w) {
   $("#workout-empty").hidden = true;
   $("#workout-ended-panel").hidden = false;
   var rpe = w.session_rpe_recorded ? fmt(w.session_rpe) : "not recorded";
+  var comparison = w.comparison || { items: [], extra: [] };
+  var compRows = comparison.items.map(function (row) {
+    return "<tr><td>" + esc(row.exercise_id) + "</td><td>" + esc(row.status) + "</td><td>" +
+      row.actual_sets + " / " + row.planned_sets + "</td><td>" +
+      (row.actual_reps.length ? row.actual_reps.join(", ") : "—") + "</td><td>" +
+      (row.actual_load_kg.length ? row.actual_load_kg.join(", ") : "—") + "</td><td>" +
+      (row.actual_rir.length ? row.actual_rir.join(", ") : "—") + "</td></tr>";
+  }).join("");
+  var extra = comparison.extra.length
+    ? "<p class='muted'>Extra sets: " + comparison.extra.map(function (row) {
+        return esc(row.exercise_id) + " #" + row.set_index;
+      }).join(", ") + "</p>"
+    : "";
   $("#workout-ended").innerHTML = "<p><strong>" + esc(w.for_date) + "</strong> ended. Duration <strong>" +
     fmt(w.duration_min) + " min</strong> (" + esc(w.duration_source || "measured") +
     "), session RPE <strong>" + rpe + "</strong>.</p>" +
+    "<table><thead><tr><th>Exercise</th><th>Status</th><th>Sets actual / planned</th>" +
+    "<th>Reps</th><th>kg</th><th>RIR</th></tr></thead><tbody>" + compRows + "</tbody></table>" +
+    extra +
     '<p class="muted">Review and post-processing are the next implementation slice.</p>';
 }
 

@@ -541,4 +541,6 @@ def test_workout_start_active_and_end(server):
     })
     assert ended["workout"]["status"] == "completed"
     assert ended["workout"]["duration_min"] == 50
+    assert ended["workout"]["comparison"]["items"][0]["status"] == "under"
+    assert ended["workout"]["comparison"]["items"][0]["actual_sets"] == 1
     assert json.loads(get(server, "/api/workout/active")[1])["workout"] is None

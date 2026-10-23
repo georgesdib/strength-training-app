@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.3.1-dev` · **593 public tests** (608 with the 15 private integration tests)
+Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.3.1-dev` · **594 public tests** (609 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progres
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 608 locally, including private integration
+.venv/bin/python -m pytest            # 609 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -955,7 +955,7 @@ deferred items stay listed in §4.19.
 | P2 | Strength-review implementation closeout | **review closed**; future work in §4.20 |
 | P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
 | P2 | Prospective validation of continuity, volume, selection and fatigue models | moved to §4.20 — no candidate; current models failed the retrospective baseline |
-| P1 (v0.3) | Live workout mode | **partial** — start/end/manual sets/readiness done; import, materialisation, plan overrides, review pending |
+| P1 (v0.3) | Live workout mode | **partial** — start/end/manual sets, materialisation and actual-vs-prescribed done; import, plan overrides, review pending |
 | P1 (v0.3) | Manual workout logging and import adapters | not started |
 | P1 (v0.3) | LLM/manual-logging parity | not started |
 | P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
@@ -997,14 +997,14 @@ Phased implementation of the approved workout flow:
 | slice | scope | status |
 |---|---|---|
 | 1 | Schema/state machine, Start form with required readiness, manual sets, timer, duration/sRPE, End/Abandon, API/UI | **done** |
-| 2 | Materialise workout sets into `clean_set`/`session`; actual-vs-prescribed comparison | pending |
-| 3 | Import staging inside workout; overwrite/preview/undo; Exercise catalogue completeness | pending |
+| 2 | Materialise workout sets into `clean_set`/`session`; actual-vs-prescribed comparison | **done** |
+| 3 | Import staging inside workout; overwrite/preview/undo; Exercise catalogue completeness | next |
 | 4 | Plan overrides: swap/add/remove exercise and sets | pending |
 | 5 | Deterministic rubric review + human marks; post-processing pipeline | pending |
 | 6 | Backfill import handling; duplicate/overlap warnings | pending |
 
-Known gap after slice 1: workout sets live in `workout_set` and are not yet visible to the
-existing reports/e1RM/volume queries until slice 2 materialises them.
+Workout sets now materialise into `session`/`clean_set` on completion, so reports, e1RM and
+volume see them. The end screen compares actual vs prescribed. Import and plan overrides remain.
 
 ## 5. Known gaps and risks
 
@@ -1014,7 +1014,7 @@ existing reports/e1RM/volume queries until slice 2 materialises them.
 | Erector ramp has no anchor | `PRG-EREC-001` returns `unknown`; Day A/C cannot be prescribed safely | rule implemented; `unknown` names both missing inputs (`OPEN-QUESTIONS` Q3, Q4) |
 | No athlete state | no injury, goal or preference can veto a prescription | **resolved** — §11 tables and `state` command |
 | No symptom input | back-flare modifier and the ramp's stability gate cannot run | **resolved** — pre-session 0-3 input, `symptom_log`, `MOD-BACK-001` |
-| No timestamps | session duration unmeasurable; two sessions on one date indistinguishable | flagged as `POSSIBLE_DOUBLE_SESSION`; duration dropped (`OPEN-QUESTIONS` Q5) |
+| Imported sessions have no timestamps | imported duration unmeasurable; two imported sessions on one date indistinguishable | workout mode measures duration; imports remain date-only (`OPEN-QUESTIONS` Q5) |
 | Only Day B can be prescribed | Days A/C are blocked by the erector-ramp anchor (Q3), the SSB question (H1) and the missing §11 tables | **resolved** — Days A/B/C prescribable; the ramp anchor is optional and `unknown` is explicit |
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
 | Velocity is per-set only | within-set velocity loss not computable | labelled decay proxy; `DEC-VELOCITY-01`; post-hoc rep-level decision in `docs/VBT-REP-LEVEL.md` (`DEC-VBT-03`) |

@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 593 public tests
+.venv/bin/python -m pytest          # 594 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -665,8 +665,9 @@ The local UI has a **Workout** tab. Build a prescription on **Prescribe**, then 
   required unless you tick **sRPE not recorded**.
 - **Abandon** keeps the record but does not mark it completed.
 
-The import merge, plan overrides, review/rubric and post-processing are the next slices; this
-chunk is the workout foundation only.
+On **End workout**, the sets are materialised into the normal session/clean_set pipeline, so
+reports, e1RM and volume see them. The end screen shows actual vs prescribed; the import merge,
+plan overrides, review/rubric and post-processing are the next slices.
 
 ### 4.10b `cardio` — capture the other half
 

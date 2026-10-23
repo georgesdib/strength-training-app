@@ -9,6 +9,7 @@
   abandon.
 - Workout session/API/UI; a prescription snapshot is frozen at start so later regeneration
   cannot rewrite what was shown.
+- Completion materialises workout sets into `session`/`clean_set` and shows actual vs prescribed.
 
 ## [0.3.0] — 2026-10-20
 

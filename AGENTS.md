@@ -203,7 +203,7 @@ never read `data/raw`.
 | `docs/LIFT-READINESS.md` | per-lift readiness evidence, components, weights and downward-only rule |
 | `docs/EXERCISE-VARIANTS.md` | how to add a canonical variant, slot wiring, history caveat, selection tuning |
 | `docs/SELECTION-COMPARABILITY.md` | evidence and proposed three-class guard for variant substitution |
-| `docs/READINESS-EXERCISE-SELECTION-PLAN.md` | locked symptom/readiness substitution plan: triggers, tax metadata, tests, rollout |
+| `docs/READINESS-EXERCISE-SELECTION-PLAN.md` | locked symptom/readiness substitution plan plus app-wide readiness policy and periodic-review panel design |
 | `docs/STRENGTH-PROGRAM-REVIEW.md` | evidence check and critique of the strength programme (review only) |
 | `docs/VOLUME-MANAGEMENT.md` | MEV/MAV/MRV evidence, configured landmarks, ledger and MRV cap |
 | `docs/NEXT-PHASE-FATIGUE-PLAN.md` | final lean non-cardio fatigue plan: sRPE/duration backfill, descriptive calibration, optional deload; no experiments |
