@@ -127,4 +127,6 @@ Each of these changes what is prescribed, so each needs a `DEC-` row and an acce
 
 ---
 
+Readiness/injury and scheme selection: [`WORKOUT-TYPE-READINESS-EVIDENCE.md`](WORKOUT-TYPE-READINESS-EVIDENCE.md).
+
 Full bibliography with DOIs: [`docs/REFERENCES.md`](REFERENCES.md).
