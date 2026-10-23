@@ -96,3 +96,18 @@ def test_end_materialises_session_and_comparison(conn):
     ).fetchone()["c"] == 1
     assert ended["comparison"]["items"][0]["status"] == "under"
     assert ended["comparison"]["items"][1]["status"] == "missing"
+
+
+def test_end_scores_rubric_and_review_closes_workout(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    workout.add_set(conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+                    load_kg=100, reps=5, rir=2)
+    ended = workout.end(conn, started["workout_id"], session_rpe=7, duration_min=55)
+    assert ended["critique_id"]
+    assert conn.execute(
+        "SELECT COUNT(*) AS c FROM critique WHERE session_id = ?",
+        (started["workout_id"],),
+    ).fetchone()["c"] == 1
+    assert workout.mark_reviewed(conn, started["workout_id"]) is True
+    assert workout.mark_reviewed(conn, started["workout_id"]) is False
+    assert workout.get(conn, started["workout_id"])["reviewed_at"]

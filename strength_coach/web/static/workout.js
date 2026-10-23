@@ -206,7 +206,11 @@ function renderWorkoutEnded(w) {
     "<table><thead><tr><th>Exercise</th><th>Status</th><th>Sets actual / planned</th>" +
     "<th>Reps</th><th>kg</th><th>RIR</th></tr></thead><tbody>" + compRows + "</tbody></table>" +
     extra +
-    '<p class="muted">Review and post-processing are the next implementation slice.</p>';
+    '<div class="form-row" style="margin-top:1rem">' +
+    '<button class="primary" type="button" id="workout-review">Review workout</button>' +
+    '<span class="muted">The deterministic rubric was saved at End workout.</span></div>';
+  var review = document.getElementById("workout-review");
+  if (review) review.addEventListener("click", function () { openReview(w.workout_id); });
 }
 
 function loadActiveWorkout() {

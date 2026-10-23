@@ -408,6 +408,8 @@ until completion.
 | duration_measured_s / duration_min / duration_source | measured timer and optional manual override |
 | session_rpe / session_rpe_recorded | required unless explicitly not recorded |
 | notes | |
+| critique_id | deterministic rubric persisted at End workout |
+| reviewed_at | set when human review marks are saved |
 
 `workout_set` is append-only. A removed set is an event, not a DELETE:
 

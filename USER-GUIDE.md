@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 594 public tests
+.venv/bin/python -m pytest          # 599 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -666,8 +666,9 @@ The local UI has a **Workout** tab. Build a prescription on **Prescribe**, then 
 - **Abandon** keeps the record but does not mark it completed.
 
 On **End workout**, the sets are materialised into the normal session/clean_set pipeline, so
-reports, e1RM and volume see them. The end screen shows actual vs prescribed; the import merge,
-plan overrides, review/rubric and post-processing are the next slices.
+reports, e1RM and volume see them. The end screen shows actual vs prescribed, persists the
+deterministic rubric, and offers **Review workout**. Saving review marks runs the rubric
+calibration report and closes the workout. Import and plan overrides are the next slices.
 
 ### 4.10b `cardio` — capture the other half
 

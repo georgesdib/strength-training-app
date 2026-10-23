@@ -12,6 +12,9 @@ import json
 import uuid
 from typing import Any, Mapping
 
+from strength_coach import __version__
+from strength_coach.critique import build_facts, score_session
+from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.store import repositories
 from strength_coach.utils import exercises
 
@@ -222,6 +225,51 @@ def remove_set(conn, workout_id: str, set_id: int) -> dict:
     return get(conn, workout_id)
 
 
+def score(conn, workout_id: str) -> str:
+    """Run and persist the deterministic rubric for a materialised workout.
+
+    The critique is append-only and linked to a synthetic run so the end-workout review has
+    the same audit trail as a CLI prescription run. Re-running is a no-op.
+    """
+    workout = get(conn, workout_id)
+    if workout is None:
+        raise ValueError("workout not found")
+    if workout.get("critique_id"):
+        return str(workout["critique_id"])
+    fact = build_facts(conn, workout_id)
+    run = repositories.start_run(
+        conn,
+        input_hash="workout:" + workout_id,
+        code_version=__version__,
+        window_start=workout["for_date"],
+        window_end=workout["for_date"],
+    )
+    critique = score_session(conn, workout_id, facts=fact)
+    critique_id = persist_critique(conn, critique, run_id=run.run_id)
+    repositories.finish_run(conn, run.run_id)
+    conn.execute(
+        "UPDATE workout_session SET critique_id = ? WHERE workout_id = ?",
+        (critique_id, workout_id),
+    )
+    return critique_id
+
+
+def mark_reviewed(conn, session_id: str) -> bool:
+    """Mark the workout reviewed once human marks exist; idempotent."""
+    row = conn.execute(
+        "SELECT workout_id, reviewed_at FROM workout_session WHERE workout_id = ?",
+        (session_id,),
+    ).fetchone()
+    if row is None or row["reviewed_at"]:
+        return False
+    conn.execute(
+        "UPDATE workout_session SET reviewed_at = ? WHERE workout_id = ?",
+        (_now(), session_id),
+    )
+    _event(conn, session_id, "reviewed", {})
+    return True
+
+
 def _comparison(workout: Mapping[str, Any]) -> dict:
     """Compare actual sets with the frozen plan; extra work is explicit."""
     items = list((workout.get("plan") or {}).get("items") or [])
@@ -401,16 +449,17 @@ def end(
         conn, workout, ended=ended, duration=duration, duration_source=source,
         session_rpe=rpe, session_rpe_recorded=not not_recorded, notes=notes,
     )
+    critique_id = score(conn, workout_id)
     conn.execute(
         """
         UPDATE workout_session
         SET status = 'completed', ended_at = ?, duration_measured_s = ?,
             duration_min = ?, duration_source = ?, session_rpe = ?,
-            session_rpe_recorded = ?, notes = COALESCE(?, notes)
+            session_rpe_recorded = ?, notes = COALESCE(?, notes), critique_id = ?
         WHERE workout_id = ?
         """,
         (ended, _elapsed(workout), duration, source, rpe, 0 if not_recorded else 1,
-         notes, workout_id),
+         notes, critique_id, workout_id),
     )
     _event(conn, workout_id, "end", {"duration_min": duration,
                                       "session_rpe": rpe,

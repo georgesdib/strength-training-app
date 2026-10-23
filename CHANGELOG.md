@@ -9,7 +9,8 @@
   abandon.
 - Workout session/API/UI; a prescription snapshot is frozen at start so later regeneration
   cannot rewrite what was shown.
-- Completion materialises workout sets into `session`/`clean_set` and shows actual vs prescribed.
+- Completion materialises workout sets into `session`/`clean_set`, shows actual vs prescribed,
+  persists the deterministic rubric, and closes the workout when review marks are saved.
 
 ## [0.3.0] — 2026-10-20
 

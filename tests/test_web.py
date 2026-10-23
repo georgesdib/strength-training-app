@@ -544,3 +544,27 @@ def test_workout_start_active_and_end(server):
     assert ended["workout"]["comparison"]["items"][0]["status"] == "under"
     assert ended["workout"]["comparison"]["items"][0]["actual_sets"] == 1
     assert json.loads(get(server, "/api/workout/active")[1])["workout"] is None
+
+
+def test_review_marks_close_the_workout(server):
+    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
+    readiness = {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+    data = post(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": plan, "readiness": readiness,
+    })
+    workout_id = data["workout"]["workout_id"]
+    post(server, f"/api/workout/{workout_id}/sets", {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
+    })
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 50,
+    })
+    saved = post(server, f"/api/review/{workout_id}", {
+        "scores": {"RIR_ADHERENCE": 0.5}, "confidence": "high",
+    })
+    assert saved["written"] == 1
+    assert saved["reviewed_workout"] is True
+    assert saved["postprocess"]["workout_closed"] is True

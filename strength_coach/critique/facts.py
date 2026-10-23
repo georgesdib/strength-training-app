@@ -79,7 +79,15 @@ def build_facts(
 ) -> CritiqueFacts:
     """Assemble everything the rubric may look at, for one stored session."""
     document = document or load_document()
-    sessions = queries.sessions(conn, end=session_id)
+    # Session IDs are dates for imported rows, but live workouts use a UUID. Resolve the
+    # calendar date first so history is cut at `occurred_on`, not at the identifier.
+    session_row = conn.execute(
+        "SELECT occurred_on FROM session WHERE session_id = ?", (str(session_id),)
+    ).fetchone()
+    if session_row is None:
+        raise UnknownSessionError(f"no session {session_id!r} in the store")
+    occurred_on = str(session_row["occurred_on"])[:10]
+    sessions = queries.sessions(conn, end=occurred_on)
     if sessions.empty:
         raise UnknownSessionError(f"no session {session_id!r} in the store")
     matches = sessions[sessions["session_id"].astype(str) == str(session_id)]
@@ -93,14 +101,14 @@ def build_facts(
 
     # History is cut at the session date: a critique that could see the future would grade
     # the athlete against information they did not have.
-    context = RuleContext.from_store(conn, end=session_id, rep_ranges=rep_ranges)
+    context = RuleContext.from_store(conn, end=occurred_on, rep_ranges=rep_ranges)
 
     sets = context.sets[context.sets["session_id"].astype(str) == str(session_id)]
     prior = context.sets[context.sets["session_id"].astype(str) != str(session_id)]
 
     spine_rule = document.rule("PRG-SPINE-001")
     costs = registry.weekly_spinal_costs(spine_rule, context)
-    week = registry.iso_week(session_id)
+    week = registry.iso_week(occurred_on)
     week_cost = float(costs.get(week, {}).get("cost", 0.0))
 
     essential: list[tuple[str, tuple[str, ...]]] = []
