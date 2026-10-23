@@ -44,7 +44,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
-| v0.3 | Strength/data depth | **in progress** | manual logging via live workout mode (§4.2/§4.21, closed), import adapters closed (§4.3), learned readiness weights evaluated and closed (§4.9), LLM proposal view (§4.11; manual logging done), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), labelled set depth (§4.14), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed) |
+| v0.3 | Strength/data depth | **in progress** | manual logging via live workout mode (§4.2/§4.21, closed), import adapters closed (§4.3), learned readiness weights evaluated and closed (§4.9), LLM proposal view closed as CLI-only (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), labelled set depth (§4.14), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed) |
 | v0.4 | Cardio prescription and model | **planned** | cardio prescription and cardio impulse/fatigue model (§4.13 remaining) |
 | v0.5 | Video analysis | **planned** | video capture/analysis and its UI parity (§4.8, §4.11 video part) |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
@@ -55,7 +55,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | version | boundary | status |
 |---|---|---|
 | v0.2 | readiness, continuity, injury, web UI, cardio capture, measurements, session RPE/length, recent stress, per-lift readiness, e1RM calibration/decay | **done** |
-| v0.3 | everything strength/data-depth that is not cardio or video: manual logging done, adapters closed, LLM proposal view, continuity calibration, deeper labelled set, exercise selection, strength fitness-fatigue model | **in progress** |
+| v0.3 | everything strength/data-depth that is not cardio or video: manual logging done, adapters closed, LLM proposal view CLI-only, continuity calibration, deeper labelled set, exercise selection, strength fitness-fatigue model | **in progress** |
 | v0.4 | everything cardio: prescription, cardio impulse model, cardio fatigue interaction | **planned** |
 | v0.5 | everything video: capture, analysis, UI parity | **planned** |
 | future | LLM-guided suggested programme (§4.18) | **idea only; not scheduled** |
@@ -577,14 +577,15 @@ CLI remains the automation surface.
 - The API only serialises and routes; every load/score/warning still comes from the core.
 - Tests cover the API round trips, docs rendering and the readiness/review writes.
 
-Done: import, state editing, manual logging, Programme, Terminal. Remaining: LLM proposal view
-and video.
+Done: import, state editing, manual logging, Programme, Terminal. LLM proposal view closed as CLI-only; video remains v0.5.
 
-### 4.11 Web UI parity  (v0.3 for LLM/manual logging; video part v0.5)
+### 4.11 Web UI parity  (CLOSED for v0.3; video part v0.5)
 
-**Workout mode exception:** start is UI-only because it requires the full pre-workout readiness form
-and displayed prescription. CLI covers status, add/update/remove set, end, abandon and import;
-this exception is recorded in §4.21 and is not an open plan item.
+**Status: closed 2026-10-23.** Manual logging, state editing, import, Programme, Terminal,
+exercise editing and calibration are in the UI. The LLM proposal view is deliberately **not**
+built: `run --propose` stays CLI-only, and the deterministic prescription, warnings and review
+remain the UI path. `workout start` is UI-only because it needs the full readiness form. Both are
+documented exceptions, not open items.
 
 The local UI covers Today, Prescribe (rolling session types), Programme, Review, Readiness, Import, an editable
 Athlete page, an editable **Exercises** catalogue, Terminal and Docs. This item brings the remaining interactive CLI actions into the browser. The CLI stays
@@ -592,14 +593,12 @@ as the automation interface; the UI must call the same core functions, never re-
 
 Planned surfaces, in suggested order:
 
-1. **Import** — **done**. Upload the training and readiness CSVs, show inserted/existing/
-   quarantined counts; files stay in memory and are stored in SQLite.
+1. **Import** — **done**. Standard dated training/readiness CSVs and the in-workout workout CSV.
 2. **State editing** — **done**. Profile, constraints, suitability ratings, e1RM overrides,
    strength tests, block start and symptoms; append-only, with an exercise picker and the
    current tables shown beside the forms.
-3. **LLM proposals** — a proposal view for `run --propose`: proposed changes, citations and
-   warnings, explicit accept/reject, never a numeric field. The engine still validates and may
-   veto. Proposal history stays visible.
+3. **LLM proposals** — **closed as CLI-only.** `run --propose` keeps the proposal view, citations,
+   warnings and policy veto in the terminal; the web UI does not duplicate it.
 4. **Manual workout logging** (4.2) — **done** via Workout mode: per-set entry, plan overrides,
    import, end, review and calibration.
 5. **Programme view** (4.4) — **done**. Rolling session-type horizon with recomputation on the day; legacy A/B/C is context only.
@@ -954,7 +953,7 @@ deferred items stay listed in §4.19.
 | P1 (v0.3) | Live workout mode | **closed** — full UI flow; CLI start remains a documented UI-only exception |
 | P1 (v0.3) | Manual workout logging | **closed** — live Workout mode |
 | P1 (v0.3) | Import adapters | **closed** — standard export + workout CSV cover the paths |
-| P1 (v0.3) | LLM proposal view (manual logging done) | not started |
+| P1 (v0.3) | LLM proposal view | **closed** — CLI-only by decision |
 | P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
 | P1 (v0.3) | Deeper labelled calibration set | in progress |
 | v0.4 | Cardio prescription and cardio fatigue interaction | planned |
