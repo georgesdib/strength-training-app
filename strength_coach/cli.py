@@ -24,7 +24,7 @@ from pathlib import Path
 
 import yaml
 
-from strength_coach import __version__
+from strength_coach import __version__, workout
 from strength_coach.agents import (
     LLMError,
     build_client,
@@ -250,6 +250,33 @@ def main(argv: list[str] | None = None) -> int:
     cardio.add_argument("--weeks", type=int, default=12,
                         help="summary window in weeks (default 12)")
 
+    workout_parser = sub.add_parser("workout", help="inspect or finish the active live workout")
+    workout_sub = workout_parser.add_subparsers(dest="action", required=True)
+    workout_sub.add_parser("status", help="show the active workout")
+    ws = workout_sub.add_parser("add-set", help="add a manual set to the active workout")
+    ws.add_argument("--exercise", required=True)
+    ws.add_argument("--load", type=float, default=None)
+    ws.add_argument("--reps", type=int, default=None)
+    ws.add_argument("--rir", type=int, default=None)
+    ws.add_argument("--velocity", type=float, default=None)
+    wu = workout_sub.add_parser("update-set", help="correct an actual set")
+    wu.add_argument("--set-id", type=int, required=True)
+    wu.add_argument("--load", type=float, default=None)
+    wu.add_argument("--reps", type=int, default=None)
+    wu.add_argument("--rir", type=int, default=None)
+    wu.add_argument("--velocity", type=float, default=None)
+    wr = workout_sub.add_parser("remove-set", help="remove an actual set")
+    wr.add_argument("--set-id", type=int, required=True)
+    we = workout_sub.add_parser("end", help="end the active workout")
+    we.add_argument("--session-rpe", type=float, default=None)
+    we.add_argument("--duration-min", type=float, default=None)
+    we.add_argument("--not-recorded", action="store_true")
+    we.add_argument("--note", default=None)
+    workout_sub.add_parser("abandon", help="abandon the active workout")
+    wi = workout_sub.add_parser("import", help="preview/apply the workout CSV to the active workout")
+    wi.add_argument("--file", required=True)
+    wi.add_argument("--apply", action="store_true")
+
     validate = sub.add_parser("validate", help="retrospective walk-forward model checks")
     validate.add_argument("--max-dates", type=int, default=12,
                           help="number of evaluation dates (default 12)")
@@ -313,6 +340,7 @@ def main(argv: list[str] | None = None) -> int:
         "fatigue": _cmd_fatigue,
         "select": _cmd_select,
         "validate": _cmd_validate,
+        "workout": _cmd_workout,
         "exercise": _cmd_exercise,
         "block": _cmd_block,
         "readiness": _cmd_readiness,
@@ -1099,6 +1127,54 @@ def _cmd_exercise(args) -> int:
     row = next(r for r in result["entities"] if r["id"] == args.id)
     print(f"exercise {args.id}: {row['display']} ({row['pattern']}, {row['source']})")
     return 0
+
+
+def _cmd_workout(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        active = workout.active_workout(conn)
+        if args.action == "status":
+            print(json.dumps(active, indent=2, default=str))
+            return 0
+        if active is None:
+            print("no active workout")
+            return 2
+        identifier = active["workout_id"]
+        if args.action == "add-set":
+            result = workout.add_set(
+                conn, identifier, exercise_id=args.exercise, load_kg=args.load,
+                reps=args.reps, rir=args.rir, velocity=args.velocity,
+            )
+        elif args.action == "update-set":
+            result = workout.update_set(
+                conn, identifier, args.set_id, load_kg=args.load, reps=args.reps,
+                rir=args.rir, velocity=args.velocity,
+            )
+        elif args.action == "remove-set":
+            result = workout.remove_set(conn, identifier, args.set_id)
+        elif args.action == "end":
+            result = workout.end(
+                conn, identifier, session_rpe=args.session_rpe,
+                not_recorded=args.not_recorded, duration_min=args.duration_min,
+                notes=args.note,
+            )
+        elif args.action == "abandon":
+            result = workout.abandon(conn, identifier)
+        elif args.action == "import":
+            text = Path(args.file).read_text(encoding="utf-8")
+            imported = workout.import_csv(conn, identifier, text, apply=args.apply)
+            print(json.dumps(imported["preview"], indent=2, default=str))
+            if not args.apply:
+                return 0
+            result = imported["workout"]
+        else:
+            print(f"unknown workout action: {args.action}")
+            return 2
+        print(json.dumps(result, indent=2, default=str))
+        return 0
+    finally:
+        store.close()
 
 
 def _cmd_validate(args) -> int:

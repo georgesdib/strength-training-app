@@ -193,6 +193,25 @@ function renderRecent(sessions) {
     + "</tbody></table>";
 }
 
+function reviewWorkoutSummary(workout) {
+  if (!workout) return "";
+  const comp = workout.comparison || { items: [], extra: [] };
+  const rows = (comp.items || []).map((row) => `<tr><td>${esc(row.exercise_id)}</td>
+    <td>${esc(row.status)}</td><td>${row.actual_sets} / ${row.planned_sets}</td>
+    <td>${row.actual_reps.length ? row.actual_reps.join(", ") : "—"}</td>
+    <td>${row.actual_load_kg.length ? row.actual_load_kg.join(", ") : "—"}</td></tr>`).join("");
+  const original = workout.plan_modified && workout.original_comparison
+    ? `<h3>Original prescription</h3><table><thead><tr><th>Exercise</th><th>Status</th>
+       <th>Actual / planned</th></tr></thead><tbody>${(workout.original_comparison.items || [])
+       .map((row) => `<tr><td>${esc(row.exercise_id)}</td><td>${esc(row.status)}</td>
+       <td>${row.actual_sets} / ${row.planned_sets}</td></tr>`).join("")}</tbody></table>`
+    : "";
+  return `<details open><summary><strong>Actual vs planned</strong></summary>
+    <table><thead><tr><th>Exercise</th><th>Status</th><th>Sets actual / planned</th>
+    <th>Reps</th><th>kg</th></tr></thead><tbody>${rows}</tbody></table>
+    ${original}</details>`;
+}
+
 function openReview(session) {
   setView("review");
   $("#review-session").value = session;
@@ -355,6 +374,7 @@ async function loadReview(session) {
       <div class="panel-head"><h2>${esc(data.session)} · Day ${esc(data.day)}</h2>
         <span class="badge">composite ${fmt(data.composite, 2)}</span></div>
       <p class="muted">Week ${esc(data.week)} · spinal cost ${fmt(data.week_cost, 2)}</p>
+      ${reviewWorkoutSummary(data.workout)}
       <table><thead><tr><th>Item</th><th>engine</th><th>your score</th><th>why</th></tr></thead>
       <tbody>${items}</tbody></table>
       <div class="form-row">
@@ -1084,6 +1104,86 @@ function openExerciseEditor(row) {
   $("#exercise-editor").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function openExerciseDetails(row) {
+  const props = JSON.parse(JSON.stringify(row.props || {}));
+  window.__exerciseDetailsId = row.id;
+  $("#exercise-details-title").textContent = row.id + " · " + (row.display || "");
+  $("#exercise-detail-display").value = props.display || row.display || "";
+  $("#exercise-detail-pattern").value = props.pattern || row.pattern || "";
+  $("#exercise-detail-vbt").value = props.vbt_family || "";
+  $("#exercise-detail-spinal-cost").value = props.spinal_cost == null ? "" : props.spinal_cost;
+  $("#exercise-detail-log-names").value = (props.log_names || []).join("\n");
+  $("#exercise-detail-muscles").value = (props.primary_muscles || []).join(", ");
+  $("#exercise-detail-compound").checked = !!props.primary_compound;
+  $("#exercise-detail-loadable").checked = props.loadable !== false;
+  $("#exercise-detail-bodyweight").checked = !!props.bodyweight_type;
+  $("#exercise-detail-timed").checked = !!props.time_based;
+  $("#exercise-detail-e1rm").checked = props.e1rm_applicable !== undefined
+    ? !!props.e1rm_applicable
+    : (props.loadable !== false && !props.time_based && !props.bodyweight_type);
+  $("#exercise-detail-main").checked = !!props.main_lift;
+  $("#exercise-detail-spinal").checked = !!props.high_fatigue_spinal;
+  $("#exercise-detail-erector").checked = !!props.erector_family;
+  $("#exercise-detail-direct-erector").checked = !!props.direct_erector;
+  $("#exercise-detail-day-roles").value = (props.day_roles || []).join(", ");
+  const extra = { ...props };
+  EXERCISE_KNOWN.forEach((key) => delete extra[key]);
+  delete extra.spinal_cost;
+  delete extra.day_roles;
+  $("#exercise-detail-extra").value = Object.keys(extra).length
+    ? JSON.stringify(extra, null, 2) : "{}";
+  $("#exercise-details-msg").textContent = "source: " + row.source;
+  $("#exercise-details-dialog").showModal();
+}
+
+function saveExerciseDetails(event) {
+  event.preventDefault();
+  const id = window.__exerciseDetailsId;
+  if (!id) return;
+  let extra;
+  try {
+    extra = JSON.parse($("#exercise-detail-extra").value.trim() || "{}");
+  } catch (error) {
+    $("#exercise-details-msg").textContent = "Additional properties must be valid JSON.";
+    return;
+  }
+  const props = Object.assign({}, extra, {
+    display: $("#exercise-detail-display").value.trim(),
+    log_names: $("#exercise-detail-log-names").value.split("\n").filter((line) => line.length > 0),
+    pattern: $("#exercise-detail-pattern").value.trim(),
+    primary_muscles: $("#exercise-detail-muscles").value.split(",").map((m) => m.trim()).filter(Boolean),
+    primary_compound: $("#exercise-detail-compound").checked,
+    loadable: $("#exercise-detail-loadable").checked,
+    bodyweight_type: $("#exercise-detail-bodyweight").checked,
+    time_based: $("#exercise-detail-timed").checked,
+    e1rm_applicable: $("#exercise-detail-e1rm").checked,
+    main_lift: $("#exercise-detail-main").checked,
+    high_fatigue_spinal: $("#exercise-detail-spinal").checked,
+    erector_family: $("#exercise-detail-erector").checked,
+    direct_erector: $("#exercise-detail-direct-erector").checked,
+    day_roles: $("#exercise-detail-day-roles").value.split(",").map((v) => v.trim()).filter(Boolean),
+  });
+  if ($("#exercise-detail-vbt").value.trim()) props.vbt_family = $("#exercise-detail-vbt").value.trim();
+  else delete props.vbt_family;
+  if ($("#exercise-detail-spinal-cost").value !== "") {
+    props.spinal_cost = Number($("#exercise-detail-spinal-cost").value);
+  } else {
+    delete props.spinal_cost;
+  }
+  if (!props.day_roles.length) delete props.day_roles;
+  $("#exercise-details-msg").textContent = "Saving…";
+  api("/api/exercises", { method: "POST", body: JSON.stringify({ id, props }) })
+    .then((data) => {
+      window.__exerciseCatalog = data;
+      $("#exercise-details-dialog").close();
+      loadExerciseCatalog();
+      loadExercises();
+    })
+    .catch((error) => { $("#exercise-details-msg").textContent = error.message; });
+}
+
+$("#exercise-details-cancel").addEventListener("click", () => $("#exercise-details-dialog").close());
+$("#exercise-details-form").addEventListener("submit", saveExerciseDetails);
 function renderExerciseCatalog() {
   const data = window.__exerciseCatalog;
   if (!data) return;
@@ -1117,7 +1217,8 @@ function renderExerciseCatalog() {
       <td>${(p.primary_muscles || []).map((m) => `<span class="pill">${esc(m)}</span>`).join("") || "—"}</td>
       <td>${flags || "—"}</td>
       <td>${names || "—"}</td>
-      <td><button class="ghost" data-edit-exercise="${esc(row.id)}">Edit</button>
+      <td><button class="ghost" data-details-exercise="${esc(row.id)}">Details</button>
+        <button class="ghost" data-edit-exercise="${esc(row.id)}">Edit</button>
         <details><summary class="muted">all fields</summary>
         <pre class="props">${esc(JSON.stringify(p, null, 2))}</pre></details></td>
     </tr>`;
@@ -1129,6 +1230,12 @@ function renderExerciseCatalog() {
     button.addEventListener("click", () => {
       const row = window.__exerciseCatalog.entities.find((e) => e.id === button.dataset.editExercise);
       if (row) openExerciseEditor(row);
+    });
+  });
+  document.querySelectorAll("[data-details-exercise]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = window.__exerciseCatalog.entities.find((e) => e.id === button.dataset.detailsExercise);
+      if (row) openExerciseDetails(row);
     });
   });
 }

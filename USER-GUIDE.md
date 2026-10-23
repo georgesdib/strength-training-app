@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 608 public tests
+.venv/bin/python -m pytest          # 610 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -667,7 +667,8 @@ The local UI has a **Workout** tab. Build a prescription on **Prescribe**, then 
 
 During the workout, the plan is editable: adjust planned sets, swap an exercise, add or remove
 an exercise. The original prescription is frozen; every override is an event and the modified
-plan is shown separately.
+plan is shown separately. Actual sets can be edited inline after import; imported values show
+field-level conflicts and the last import can be undone.
 
 **CSV import:** in Workout mode, paste or choose a file with columns
 `Exercise,Set,RPE,Value,Weight,Reps`. Preview first. RPE is converted with `RIR = 10 − RPE`,
@@ -676,7 +677,9 @@ missing. Import replaces the same exercise/set and leaves other manual sets alon
 no date, so it only imports into the active workout. On **End workout**, sets are materialised, actual vs modified plan and
 actual vs original prescription are shown, the deterministic rubric is persisted, and
 **Review workout** opens the rubric sheet. Saving marks runs calibration and closes the workout.
-Import is the remaining slice.
+The standard dated training export remains the Import-page backfill path. Workout CSV import is
+in-workout only. CLI workout commands cover status/add/update/remove/end/import; starting a
+workout remains UI-only.
 
 ### 4.10b `cardio` — capture the other half
 

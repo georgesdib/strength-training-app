@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.3.1-dev` · **604 public tests** (619 with the 15 private integration tests)
+Last updated: 2026-10-23 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.3.1-dev` · **610 public tests** (625 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progres
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 619 locally, including private integration
+.venv/bin/python -m pytest            # 625 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -955,7 +955,7 @@ deferred items stay listed in §4.19.
 | P2 | Strength-review implementation closeout | **review closed**; future work in §4.20 |
 | P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
 | P2 | Prospective validation of continuity, volume, selection and fatigue models | moved to §4.20 — no candidate; current models failed the retrospective baseline |
-| P1 (v0.3) | Live workout mode | **partial** — start/end/manual sets, materialisation, plan overrides, in-workout CSV import, comparisons and rubric/review done; date-less backfill pending |
+| P1 (v0.3) | Live workout mode | **mostly done** — start/end/manual+import sets, actual edit, materialisation, plan overrides, comparisons, rubric/review, CSV conflict/undo; CLI start missing |
 | P1 (v0.3) | Manual workout logging and import adapters | not started |
 | P1 (v0.3) | LLM/manual-logging parity | not started |
 | P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
@@ -998,15 +998,16 @@ Phased implementation of the approved workout flow:
 |---|---|---|
 | 1 | Schema/state machine, Start form with required readiness, manual sets, timer, duration/sRPE, End/Abandon, API/UI | **done** |
 | 2 | Materialise workout sets into `clean_set`/`session`; actual-vs-prescribed comparison | **done** |
-| 3 | CSV import inside workout: paste/file, preview, RPE→RIR mapping, replace matching sets | **done** |
+| 3 | CSV import inside workout: paste/file, preview, conflicts, RPE→RIR, replace/undo | **done** |
 | 4 | Plan overrides: swap/add/remove exercise and sets | **done** |
 | 5 | Deterministic rubric review + human marks; post-processing pipeline | **done** |
-| 6 | Date-less backfill import; duplicate/overlap warnings | pending — this CSV has no date |
+| 6 | Workout-CSV backfill; duplicate/overlap warnings | not needed — backfill uses the standard dated training export |
 
-Workout sets now materialise into `session`/`clean_set` on completion, so reports, e1RM and
-volume see them. The end screen compares actual vs the modified plan and the original
-prescription, runs the deterministic rubric, and closes on review marks. Plan overrides and
-in-workout CSV import are done; date-less backfill remains.
+Workout sets materialise into `session`/`clean_set` on completion. The end screen compares actual
+vs the modified plan and the original prescription, runs the deterministic rubric, and closes on
+review marks. Actual-set edit, plan overrides, in-workout CSV import with conflict preview/undo,
+and the exercise-details popup are done. The standard dated training export remains the backfill
+path. CLI workout commands are partial (no start).
 
 ## 5. Known gaps and risks
 

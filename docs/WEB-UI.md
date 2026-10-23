@@ -78,7 +78,9 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `POST /api/workout/<id>/sets` | `{exercise_id, load_kg, reps, rir, velocity?}` -> add manual set |
 | `POST /api/workout/<id>/remove-set` | `{set_id}` -> append a removal event |
 | `POST /api/workout/<id>/end` | `{session_rpe?, not_recorded?, duration_min?, notes?}` -> completed |
+| `POST /api/workout/<id>/update-set` | `{set_id, load_kg, reps, rir, velocity}` -> append correction event |
 | `POST /api/workout/<id>/import` | `{text, apply}` -> parse/preview/apply workout CSV; no date column |
+| `POST /api/workout/<id>/import/undo` | undo the latest import batch |
 | `POST /api/workout/<id>/abandon` | abandon the active workout |
 | `GET /api/review/<session>` | session sheet |
 | `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes}` -> marks + optional session detail |
@@ -117,6 +119,6 @@ The web layer is serialisation and routing only. It calls the same functions as 
 ## Limitations
 
 - No LLM proposal/chat UI (the CLI `run --propose` remains the path).
-- Workout mode is currently UI/API first; the CLI workout commands are not built yet. Completed workouts do materialise into `session`/`clean_set`; import and review are pending.
+- Workout mode is UI-first for start; CLI covers status/add/update/remove/end/import. Completed workouts materialise into `session`/`clean_set`; review/rubric is built.
 - State editing is available; the taxonomy itself and programme rules remain config/CLI.
 - No authentication; never expose beyond localhost.

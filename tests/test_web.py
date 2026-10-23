@@ -568,6 +568,8 @@ def test_review_marks_close_the_workout(server):
     assert saved["written"] == 1
     assert saved["reviewed_workout"] is True
     assert saved["postprocess"]["workout_closed"] is True
+    sheet = json.loads(get(server, f"/api/review/{workout_id}")[1])
+    assert sheet["workout"]["comparison"]["items"][0]["actual_sets"] == 1
 
 
 def test_workout_plan_overrides_api(server):

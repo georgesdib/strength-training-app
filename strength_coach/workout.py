@@ -233,6 +233,32 @@ def add_set(
     return get(conn, workout_id)
 
 
+def update_set(
+    conn,
+    workout_id: str,
+    set_id: int,
+    *,
+    load_kg: float | None = None,
+    reps: int | None = None,
+    rir: int | None = None,
+    velocity: float | None = None,
+) -> dict:
+    """Append a correction event for an actual set; the base row is never mutated."""
+    workout = get(conn, workout_id)
+    if workout is None:
+        raise ValueError("workout not found")
+    if workout["status"] != "in_progress":
+        raise ValueError("workout is not in progress")
+    if not any(int(item["set_id"]) == int(set_id) for item in _sets(conn, workout_id)):
+        raise ValueError("set not found")
+    _event(
+        conn, workout_id, "update_set",
+        {"load_kg": load_kg, "reps": reps, "rir": rir, "velocity": velocity},
+        target_set_id=int(set_id),
+    )
+    return get(conn, workout_id)
+
+
 def remove_set(conn, workout_id: str, set_id: int) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
@@ -507,10 +533,32 @@ def import_csv(conn, workout_id: str, text: str, *, apply: bool = False) -> dict
     if workout["status"] != "in_progress" and apply:
         raise ValueError("workout is not in progress")
     parsed = parse_import(text)
+    active_sets = _sets(conn, workout_id)
+    for row in parsed["rows"]:
+        existing = next(
+            (item for item in active_sets
+             if item.get("exercise_id") == row["exercise_id"]
+             and int(item.get("set_index") or 0) == int(row["set_index"])),
+            None,
+        )
+        if existing is not None:
+            row["existing"] = {
+                "load_kg": existing.get("load_kg"),
+                "reps": existing.get("reps"),
+                "rir": existing.get("rir"),
+                "velocity": existing.get("velocity"),
+            }
+            row["conflicts"] = {
+                key: [row[key], existing.get(key)]
+                for key in ("load_kg", "reps", "rir")
+                if row.get(key) != existing.get(key)
+            }
     if not apply:
         return {"preview": parsed, "workout": workout}
     if parsed["errors"]:
         raise ValueError("import has errors; preview and fix them first")
+    batch_id = uuid.uuid4().hex
+    undo: list[dict] = []
     for row in parsed["rows"]:
         base = conn.execute(
             "SELECT set_id FROM workout_set WHERE workout_id = ? AND exercise_id = ? "
@@ -522,7 +570,7 @@ def import_csv(conn, workout_id: str, text: str, *, apply: bool = False) -> dict
             "velocity": row["velocity_mps"], "source": "import",
         }
         if base is None:
-            add_set(
+            after = add_set(
                 conn, workout_id,
                 exercise_id=row["exercise_id"],
                 load_kg=row["load_kg"],
@@ -532,15 +580,61 @@ def import_csv(conn, workout_id: str, text: str, *, apply: bool = False) -> dict
                 source="import",
                 set_index=row["set_index"],
             )
+            created = next(
+                item for item in after["sets"]
+                if item.get("exercise_id") == row["exercise_id"]
+                and int(item.get("set_index") or 0) == int(row["set_index"])
+            )
+            undo.append({"action": "remove", "set_id": int(created["set_id"])})
         else:
             # The base row is immutable; restore if removed, then append the corrected values.
-            active = any(item["set_id"] == base["set_id"] for item in _sets(conn, workout_id))
-            if not active:
+            current = next(
+                (item for item in _sets(conn, workout_id)
+                 if int(item["set_id"]) == int(base["set_id"])),
+                None,
+            )
+            if current is None:
                 _event(conn, workout_id, "restore_set", {},
                        target_set_id=int(base["set_id"]))
+            before = {
+                key: (current or {}).get(key)
+                for key in ("load_kg", "reps", "rir", "velocity", "source")
+            }
+            undo.append({"action": "update", "set_id": int(base["set_id"]),
+                         "before": before})
             _event(conn, workout_id, "update_set", payload,
                    target_set_id=int(base["set_id"]))
+    _event(conn, workout_id, "import_applied",
+           {"batch_id": batch_id, "undo": undo})
     return {"preview": parsed, "workout": get(conn, workout_id)}
+
+
+def undo_import(conn, workout_id: str) -> dict:
+    """Undo the latest import batch, without deleting its audit events."""
+    row = conn.execute(
+        "SELECT event_id, payload_json FROM workout_event WHERE workout_id = ? "
+        "AND event_type = 'import_applied' ORDER BY event_id DESC LIMIT 1",
+        (workout_id,),
+    ).fetchone()
+    if row is None:
+        raise ValueError("no import to undo")
+    payload = json.loads(row["payload_json"] or "{}")
+    undone = conn.execute(
+        "SELECT 1 FROM workout_event WHERE workout_id = ? AND event_type = 'import_undone' "
+        "AND json_extract(payload_json, '$.batch_id') = ? LIMIT 1",
+        (workout_id, payload.get("batch_id")),
+    ).fetchone()
+    if undone is not None:
+        raise ValueError("latest import is already undone")
+    for item in reversed(payload.get("undo", [])):
+        if item.get("action") == "remove":
+            _event(conn, workout_id, "remove_set", {"set_id": item["set_id"]},
+                   target_set_id=int(item["set_id"]))
+        elif item.get("action") == "update":
+            _event(conn, workout_id, "update_set", item.get("before") or {},
+                   target_set_id=int(item["set_id"]))
+    _event(conn, workout_id, "import_undone", {"batch_id": payload.get("batch_id")})
+    return get(conn, workout_id)
 
 
 def _comparison(workout: Mapping[str, Any]) -> dict:

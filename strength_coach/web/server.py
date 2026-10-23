@@ -519,6 +519,8 @@ class Handler(BaseHTTPRequestHandler):
         workout_id = parts[2]
         action = parts[3]
         if action == "import":
+            if len(parts) > 4 and parts[4] == "undo":
+                return {"workout": workout.undo_import(conn, workout_id)}
             imported = workout.import_csv(
                 conn, workout_id, str(body.get("text") or ""),
                 apply=_truth(body.get("apply")),
@@ -561,6 +563,14 @@ class Handler(BaseHTTPRequestHandler):
                 rir=_integer(body.get("rir")),
                 velocity=_number(body.get("velocity")),
                 source=str(body.get("source") or "manual"),
+            )
+        elif action == "update-set":
+            result = workout.update_set(
+                conn, workout_id, _integer(body.get("set_id")),
+                load_kg=_number(body.get("load_kg")),
+                reps=_integer(body.get("reps")),
+                rir=_integer(body.get("rir")),
+                velocity=_number(body.get("velocity")),
             )
         elif action == "remove-set":
             result = workout.remove_set(conn, workout_id, _integer(body.get("set_id")))
@@ -651,8 +661,15 @@ class Handler(BaseHTTPRequestHandler):
         critique = score_session(conn, session, facts=facts)
         marks = load_marks(conn).sessions.get(session)
         existing = dict(marks.scores) if marks else {}
+        workout_data = workout.get(conn, session)
         return {
             "session": session,
+            "workout": ({
+                "workout_id": workout_data["workout_id"],
+                "plan_modified": workout_data.get("plan_modified"),
+                "comparison": workout_data.get("comparison"),
+                "original_comparison": workout_data.get("original_comparison"),
+            } if workout_data else None),
             "occurred_on": facts.occurred_on,
             "day": facts.day,
             "week": facts.week,

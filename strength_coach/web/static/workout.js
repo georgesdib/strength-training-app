@@ -170,7 +170,12 @@ function renderImportPreview(preview) {
       "</td><td>" + row.set_index + "</td><td>" + (row.rpe == null ? "—" : row.rpe) +
       "</td><td>" + (row.rir == null ? "—" : row.rir) + (row.warmup ? " (warm-up)" : "") +
       "</td><td>" + fmt(row.load_kg) + "</td><td>" + row.reps + "</td><td>" +
-      (row.velocity_mps == null ? "—" : row.velocity_mps) + "</td></tr>";
+      (row.velocity_mps == null ? "—" : row.velocity_mps) + "</td><td>" +
+      (row.conflicts && Object.keys(row.conflicts).length
+        ? Object.keys(row.conflicts).map(function (key) {
+            return key + ": " + row.conflicts[key][1] + " → " + row.conflicts[key][0];
+          }).join("; ")
+        : "—") + "</td></tr>";
   }).join("");
   var errors = (preview.errors || []).map(function (error) {
     return "<li>line " + error.line + ": " + esc(error.error) + "</li>";
@@ -178,7 +183,7 @@ function renderImportPreview(preview) {
   $("#workout-import-preview-area").innerHTML =
     (errors ? '<div class="warnbox"><strong>Errors</strong><ul class="list">' + errors + "</ul></div>" : "") +
     (rows ? "<table><thead><tr><th>line</th><th>exercise</th><th>canonical</th><th>set</th>" +
-      "<th>RPE</th><th>RIR</th><th>kg</th><th>reps</th><th>m/s</th></tr></thead><tbody>" +
+      "<th>RPE</th><th>RIR</th><th>kg</th><th>reps</th><th>m/s</th><th>manual → import</th></tr></thead><tbody>" +
       rows + "</tbody></table>" : "<p class='empty'>No rows parsed.</p>");
 }
 
@@ -205,8 +210,45 @@ function submitImport(apply) {
   });
 }
 
+function editWorkoutSet(setId) {
+  if (!window.__workoutData) return;
+  var set = (window.__workoutData.sets || []).filter(function (item) {
+    return String(item.set_id) === String(setId);
+  })[0];
+  if (!set) return;
+  window.__editingSetId = setId;
+  $("#workout-edit-load").value = set.load_kg == null ? "" : set.load_kg;
+  $("#workout-edit-reps").value = set.reps == null ? "" : set.reps;
+  $("#workout-edit-rir").value = set.rir == null ? "" : set.rir;
+  $("#workout-edit-velocity").value = set.velocity == null ? "" : set.velocity;
+  $("#workout-set-edit").hidden = false;
+  $("#workout-set-edit-msg").textContent = set.exercise_id + " · set " + set.set_index;
+  $("#workout-set-edit").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function saveWorkoutSetEdit() {
+  if (!activeWorkoutId || !window.__editingSetId) return;
+  api("/api/workout/" + activeWorkoutId + "/update-set", {
+    method: "POST",
+    body: JSON.stringify({
+      set_id: Number(window.__editingSetId),
+      load_kg: $("#workout-edit-load").value || null,
+      reps: $("#workout-edit-reps").value || null,
+      rir: $("#workout-edit-rir").value || null,
+      velocity: $("#workout-edit-velocity").value || null
+    })
+  }).then(function (data) {
+    $("#workout-set-edit").hidden = true;
+    window.__editingSetId = null;
+    renderWorkout(data.workout);
+  }).catch(function (error) {
+    $("#workout-set-edit-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>";
+  });
+}
+
 function renderWorkout(w) {
   activeWorkoutId = w.workout_id;
+  window.__workoutData = w;
   $("#workout-empty").hidden = true;
   $("#workout-start-panel").hidden = true;
   $("#workout-ended-panel").hidden = true;
@@ -291,6 +333,7 @@ function renderWorkout(w) {
       fmt(set.load_kg) + "</td><td>" + (set.reps == null ? "—" : set.reps) + "</td><td>" +
       (set.rir == null ? "—" : set.rir) + "</td><td>" +
       (set.velocity == null ? "—" : set.velocity) + "</td><td>" +
+      '<button class="ghost" type="button" data-edit-set="' + set.set_id + '">Edit</button> ' +
       '<button class="ghost" type="button" data-remove-set="' + set.set_id + '">Remove</button>' +
       "</td></tr>";
   }).join("");
@@ -300,6 +343,9 @@ function renderWorkout(w) {
     : "<p class='empty'>No sets logged yet.</p>";
   document.querySelectorAll("[data-remove-set]").forEach(function (button) {
     button.addEventListener("click", function () { removeWorkoutSet(button.dataset.removeSet); });
+  });
+  document.querySelectorAll("[data-edit-set]").forEach(function (button) {
+    button.addEventListener("click", function () { editWorkoutSet(button.dataset.editSet); });
   });
   var measured = Math.max(1, Math.round((w.elapsed_seconds || 0) / 60));
   $("#workout-end-duration").placeholder = "measured ~" + measured + " min";
@@ -445,6 +491,10 @@ document.addEventListener("DOMContentLoaded", function () {
   if (endForm) endForm.addEventListener("submit", submitWorkoutEnd);
   var abandon = document.getElementById("workout-abandon");
   if (abandon) abandon.addEventListener("click", abandonWorkout);
+  var editCancel = document.getElementById("workout-set-edit-cancel");
+  if (editCancel) editCancel.addEventListener("click", function () { $("#workout-set-edit").hidden = true; });
+  var editSave = document.getElementById("workout-set-edit-save");
+  if (editSave) editSave.addEventListener("click", saveWorkoutSetEdit);
   var importFile = document.getElementById("workout-import-file");
   if (importFile) importFile.addEventListener("change", function () {
     var file = importFile.files && importFile.files[0];
@@ -455,6 +505,13 @@ document.addEventListener("DOMContentLoaded", function () {
   if (importPreview) importPreview.addEventListener("click", function () { submitImport(false); });
   var importApply = document.getElementById("workout-import-apply");
   if (importApply) importApply.addEventListener("click", function () { submitImport(true); });
+  var importUndo = document.getElementById("workout-import-undo");
+  if (importUndo) importUndo.addEventListener("click", function () {
+    if (!activeWorkoutId) return;
+    api("/api/workout/" + activeWorkoutId + "/import/undo", { method: "POST", body: "{}" })
+      .then(function (data) { $("#workout-import-msg").textContent = "Last import undone."; renderWorkout(data.workout); })
+      .catch(function (error) { $("#workout-import-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>"; });
+  });
   var notRecorded = document.getElementById("workout-end-not-recorded");
   if (notRecorded) notRecorded.addEventListener("change", function () {
     document.getElementById("workout-end-srpe").disabled = notRecorded.checked;

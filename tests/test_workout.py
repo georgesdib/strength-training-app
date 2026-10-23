@@ -177,3 +177,32 @@ def test_import_rejects_unknown_exercise(conn):
     assert preview["errors"]
     with pytest.raises(ValueError, match="errors"):
         workout.import_csv(conn, started["workout_id"], text, apply=True)
+
+
+def test_update_actual_set_appends_correction(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    added = workout.add_set(conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+                            load_kg=100, reps=5, rir=2)
+    set_id = added["sets"][0]["set_id"]
+    updated = workout.update_set(
+        conn, started["workout_id"], set_id, load_kg=105, reps=4, rir=3, velocity=0.42
+    )
+    row = updated["sets"][0]
+    assert (row["load_kg"], row["reps"], row["rir"], row["velocity"]) == (105, 4, 3, 0.42)
+    assert conn.execute(
+        "SELECT COUNT(*) AS c FROM workout_event WHERE event_type = 'update_set'"
+    ).fetchone()["c"] == 1
+
+
+def test_import_preview_reports_conflicts_and_undo_restores(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    first = workout.import_csv(conn, started["workout_id"], CSV, apply=True)
+    assert first["workout"]["sets"][0]["load_kg"] == 20.0
+    changed = CSV.replace("Push Press,1,4,???,20.0kg,4", "Push Press,1,4,???,25.0kg,4")
+    preview = workout.import_csv(conn, started["workout_id"], changed, apply=False)
+    row = next(item for item in preview["preview"]["rows"] if item["exercise"] == "Push Press" and item["set_index"] == 1)
+    assert row["conflicts"]["load_kg"] == [25.0, 20.0]
+    workout.import_csv(conn, started["workout_id"], changed, apply=True)
+    assert workout.get(conn, started["workout_id"])["sets"][0]["load_kg"] == 25.0
+    restored = workout.undo_import(conn, started["workout_id"])
+    assert restored["sets"][0]["load_kg"] == 20.0

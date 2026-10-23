@@ -423,8 +423,10 @@ until completion.
 | source | `manual` \| `import` \| `device` |
 | prescription_item_index | index into the frozen plan, when matched |
 
-`workout_event` records `start`, `add_set`, `remove_set`, `end` and `abandon` with an
-optional `target_set_id`; it is append-only.
+`workout_event` records `start`, `add_set`, `update_set`, `remove_set`, `restore_set`, `end`,
+`abandon`, `reviewed`, `import_applied` and `import_undone` with an optional `target_set_id`;
+it is append-only. Actual-set corrections and imports replay these events rather than mutating
+`workout_set`.
 
 On completion, `workout.py` materialises the workout into the normal pipeline once:
 
