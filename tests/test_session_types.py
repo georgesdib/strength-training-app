@@ -34,3 +34,17 @@ def test_plan_a_restores_squat_and_raises_hinge_volume():
     assert next(s.sets for s in squat.slots if s.id == "squat_main") == 5
     assert next(s.sets for s in hinge.slots if s.id == "hinge_main") == 5
     assert next(s.sets for s in bench_squat.slots if s.id == "squat_support") == 4
+
+
+def test_history_without_squat_rotates_instead_of_three_squats():
+    # A recent block of four hinge and two bench sessions used to produce squat x3 because
+    # the old tie-break always chose the first family. The scheduler must rotate.
+    history = ["hinge", "hinge", "hinge", "hinge", "bench_squat", "bench_squat"]
+    prior: list[str] = []
+    for _ in range(6):
+        family = schedule._choose_family(history + prior)
+        prior.append("bench_squat" if family == "bench" else family)
+    assert prior != ["squat", "squat", "squat", "bench_hinge", "squat", "bench_squat"]
+    assert prior.count("squat") == 2
+    assert prior.count("hinge") == 2
+    assert sum(1 for value in prior if value.startswith("bench")) == 2
