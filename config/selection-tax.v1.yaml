@@ -1,0 +1,298 @@
+# Ordinal exercise-tax metadata for selection suggestions.
+#
+# 1 = low, 3 = high. These are ASSUMPTIONS, not measured biomechanics; they are seeded for
+# review and must not be presented as precise. Missing/unknown metadata blocks a "less taxing"
+# claim. spinal_cost remains the safety input.
+schema_version: "1.0.0"
+schema_version: 1.0.0
+exercises:
+  1_arm_row:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  ab_wheel:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 1
+  back_extension:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 1
+  belt_squat:
+    axial: 1
+    systemic: 2
+    skill: 1
+    rom: 2
+  bench_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_elevated_legs:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_explosive:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_from_pins:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_medium_grip:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_narrow:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_negative:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_pause:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_reverse_grip:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_w_bands:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_w_cambered_bar:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_w_chains:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_wide_grip:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bent_over_row:
+    axial: 1
+    systemic: 2
+    skill: 2
+    rom: 2
+  board_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  close_grip_pulldown:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  competition_squat:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  decline_bench_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  deep_squat:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 3
+  dumbbell_bench_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  dumbbell_chest_supported_row:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  dumbbell_press_alternating:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  dumbbell_row:
+    axial: 1
+    systemic: 2
+    skill: 2
+    rom: 2
+  floor_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  front_squat:
+    axial: 2
+    systemic: 3
+    skill: 3
+    rom: 2
+  front_squat_to_box:
+    axial: 2
+    systemic: 3
+    skill: 3
+    rom: 1
+  hack_squat:
+    axial: 1
+    systemic: 2
+    skill: 1
+    rom: 2
+  hanging_leg_raise:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 1
+  high_bar_squat:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  hyperextension:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 1
+  incline_db_bench_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  incline_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  landmine_press:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  landmine_squat:
+    axial: 1
+    systemic: 2
+    skill: 1
+    rom: 2
+  lat_pulldown:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  overhead_press_behind_the_neck:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  overhead_press_seated:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  pull_up:
+    axial: 1
+    systemic: 2
+    skill: 2
+    rom: 2
+  reverse_hyperextension:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 1
+  seal_row:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  seated_cable_row:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  side_lunges:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  split_squat:
+    axial: 1
+    systemic: 2
+    skill: 2
+    rom: 2
+  squat_2s_pause:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  squat_2s_pause_halfway_down:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  squat_2s_pause_halfway_up:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  squat_from_pins:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  squat_narrow_stance:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  squat_partial_range_of_motion:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 1
+  squat_to_box:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 1
+  squat_w_bands:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  squat_w_chains:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  ssb_squat:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  t_bar_row:
+    axial: 1
+    systemic: 2
+    skill: 2
+    rom: 2

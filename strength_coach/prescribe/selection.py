@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+import statistics
+
 import pandas as pd
 import yaml
 
@@ -19,6 +21,7 @@ from strength_coach.features import fatigue_fitness, injury_signal, recent_stres
 from strength_coach.features import readiness_score
 from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.prescribe import templates
+from strength_coach.prescribe import selection_tax
 from strength_coach.rules import RuleContext
 from strength_coach.store import queries
 
@@ -142,6 +145,7 @@ class Candidate:
     comparison_class: str
     comparison_reason: str
     history_context: HistoryContext | None = None
+    tax: selection_tax.Tax | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -153,6 +157,7 @@ class Candidate:
             "history_context": (
                 self.history_context.as_dict() if self.history_context else None
             ),
+            "tax": self.tax.as_dict() if self.tax else None,
         }
 
 
@@ -167,6 +172,11 @@ class SlotSelection:
     candidates: tuple[Candidate, ...]
     comparison_class: str
     requires_confirmation: bool
+    trigger: str = "none"
+    safety_blocked: bool = False
+    tax_reason: str | None = None
+    current_tax: dict[str, int] | None = None
+    candidate_tax: dict[str, int] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -179,6 +189,11 @@ class SlotSelection:
             "candidates": [candidate.as_dict() for candidate in self.candidates],
             "comparison_class": self.comparison_class,
             "requires_confirmation": self.requires_confirmation,
+            "trigger": self.trigger,
+            "safety_blocked": self.safety_blocked,
+            "tax_reason": self.tax_reason,
+            "current_tax": self.current_tax,
+            "candidate_tax": self.candidate_tax,
             "applied": False,
             "blocked_reason": None,
         }
@@ -261,6 +276,22 @@ def _light_context(conn, on_date: str, exercise_ids: tuple[str, ...]) -> RuleCon
     )
 
 
+def _readiness_baseline(conn, on_date: str) -> tuple[float | None, int]:
+    """Median of the prior 28 days' computed readiness, minimum 10 readings."""
+    rows = queries.readiness_history(conn, on_date, days=28)
+    scores = []
+    for row in rows:
+        try:
+            score = readiness_score.compute(conn, str(row["on_date"])).score
+        except Exception:
+            score = None
+        if score is not None:
+            scores.append(float(score))
+    if len(scores) < 10:
+        return None, len(scores)
+    return float(statistics.median(scores)), len(scores)
+
+
 def select(
     conn,
     context: RuleContext | None,
@@ -304,6 +335,8 @@ def select(
     except Exception:
         models = {}
     suitability = queries.exercise_suitability(conn)
+    taxes = selection_tax.TaxConfig.load()
+    readiness_baseline, baseline_n = _readiness_baseline(conn, on_date)
     all_ids = sorted({item for ids in slot_ids.values() for item in ids})
     veto_report = constraints_mod.evaluate(conn, all_ids)
     vetoed = {exercise_id for exercise_id, _ in veto_report.vetoes}
@@ -369,15 +402,78 @@ def select(
                 exercise_id, _clamp(score), tuple(reasons),
                 comparison_class, comparison_reason,
                 _history_context(context, exercise_id),
+                taxes.for_exercise(exercise_id),
             ))
 
         if not candidates:
             continue
         ranked = tuple(sorted(candidates, key=lambda c: (-c.score, c.exercise_id)))
+        current_tax = taxes.for_exercise(current)
+        linked = set().union(*active_regions.values()) if active_regions else set()
+        symptom_trigger = bool(
+            (context.symptom_flare and current_tax is not None and current_tax.high)
+            or (current in linked and current_tax is not None)
+        )
+        current_stress = stress.get(current)
+        low_readiness = False
+        relative_note = ""
+        if assessment.score is not None:
+            if readiness_baseline is None:
+                low_readiness = assessment.score < 0.65
+                relative_note = f"fallback absolute <0.65; baseline n={baseline_n}"
+            else:
+                low_readiness = (
+                    assessment.score < 0.70
+                    and readiness_baseline - assessment.score >= 0.10
+                )
+                relative_note = (
+                    f"absolute <0.70 and {assessment.score - readiness_baseline:+.2f} "
+                    f"vs 28d median {readiness_baseline:.2f}"
+                )
+        stress_trigger = bool(
+            not symptom_trigger
+            and current_stress is not None
+            and current_stress.status == "high"
+            and current_tax is not None and current_tax.high
+            and low_readiness
+        )
+        trigger = "symptom" if symptom_trigger else (
+            "stress_readiness" if stress_trigger else "none"
+        )
+        trigger_reason = ""
+        if symptom_trigger:
+            trigger_reason = "symptom/active-region protective suggestion"
+        elif stress_trigger:
+            trigger_reason = f"high recent stress + readiness: {relative_note}"
         suggested = ranked[0].exercise_id
         source = "python"
         reason = "highest deterministic score"
-        if chooser is not None:
+        tax_reason = None
+        candidate_tax = None
+        if trigger != "none":
+            eligible = []
+            for candidate in ranked:
+                if candidate.exercise_id == current:
+                    continue
+                if candidate.comparison_class not in {"A", "B"}:
+                    continue
+                if symptom_trigger and candidate.exercise_id in linked:
+                    continue
+                lower, why = selection_tax.lower_tax(
+                    current_tax, candidate.tax, essential=bool(slot.essential),
+                )
+                if lower:
+                    eligible.append((candidate, why))
+            if eligible:
+                suggested, tax_reason = eligible[0][0].exercise_id, eligible[0][1]
+                candidate_tax = eligible[0][0].tax.as_dict()
+                reason = f"{trigger_reason}; {tax_reason}"
+            else:
+                suggested = current
+                reason = f"{trigger_reason}; no lower-tax same-pattern candidate"
+                tax_reason = "no lower-tax candidate"
+            source = "python"
+        elif chooser is not None:
             try:
                 chosen = chooser(slot, ranked)
             except Exception as exc:  # LLM failure must fall back, never break the page
@@ -413,6 +509,11 @@ def select(
                     c.comparison_class for c in ranked if c.exercise_id == suggested
                 ) != "A"
             ),
+            trigger=trigger,
+            safety_blocked=symptom_trigger,
+            tax_reason=tax_reason,
+            current_tax=current_tax.as_dict() if current_tax else None,
+            candidate_tax=candidate_tax,
         ))
     return out
 

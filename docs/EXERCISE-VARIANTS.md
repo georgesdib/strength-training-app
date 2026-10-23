@@ -106,7 +106,9 @@ and re-solves the load from the selected lift (`MOD-SELECT-001`).
 window. The selector uses readiness, recent stress, rotation, suitability preference and the
 fitness-fatigue state. The model is **cached per database version** (file mtime/size), so the
 selector does not pay the fit cost on every request. Selection comparability is implemented as A/B/C classes
-(`DEC-SELECT-03`); see [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md). Per-exercise preference comes from Athlete
+(`DEC-SELECT-03`); see [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md). Symptom and
+stress/readiness suggestions add tax metadata and a trigger, but remain explicit; see
+[READINESS-EXERCISE-SELECTION-PLAN.md](READINESS-EXERCISE-SELECTION-PLAN.md). Per-exercise preference comes from Athlete
 suitability, not config.
 
 ## 6. Validation checklist

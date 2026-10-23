@@ -1,11 +1,10 @@
-# Additional selection candidates per slot (explicit apply; the template still decides the default).
+# Additional selection candidates per slot (explicit apply; the template decides the default).
 #
-# New session types use the same candidate lists as the legacy A/B/C shapes:
-# squat, hinge, bench_squat, bench_hinge. The catalogue only feeds the selector; applying a
-# substitution is an explicit UI/CLI opt-in.
+# New session types use the same candidate lists as the legacy A/B/C shapes. The catalogue
+# only feeds the selector; applying a substitution is an explicit UI/CLI opt-in.
 slots:
   A:
-    squat_main: &id001
+    squat_main: &id008
     - ssb_squat
     - competition_squat
     - front_squat
@@ -24,7 +23,7 @@ slots:
     - squat_partial_range_of_motion
     - squat_w_chains
     - squat_w_bands
-    bench_support: &id002
+    bench_support: &id009
     - bench_press
     - bench_press_narrow
     - bench_press_pause
@@ -44,16 +43,47 @@ slots:
     - decline_bench_press
     - incline_db_bench_press
     - dumbbell_bench_press
-  B:
-    bench_main: &id003
-    - bench_press_narrow
-    - bench_press_pause
-    accessory_pull_up: &id004
+    accessory_row: &id002
+    - dumbbell_row
+    - bent_over_row
+    - seated_cable_row
+    - dumbbell_chest_supported_row
+    - t_bar_row
+    - seal_row
+    - 1_arm_row
+    accessory_pull_up: &id001
     - pull_up
     - lat_pulldown
     - close_grip_pulldown
+    erector: &id003
+    - back_extension
+    - hyperextension
+    - reverse_hyperextension
+    accessory_vertical_press: &id004
+    - overhead_press_seated
+    - landmine_press
+    - dumbbell_press_alternating
+    - overhead_press_behind_the_neck
+    accessory_split_squat: &id005
+    - split_squat
+    - side_lunges
+    core_anti_extension: &id006
+    - ab_wheel
+    core_flexion: &id007
+    - hanging_leg_raise
+  B:
+    bench_main: &id010
+    - bench_press_narrow
+    - bench_press_pause
+    accessory_pull_up: *id001
+    accessory_row: *id002
+    erector: *id003
+    accessory_vertical_press: *id004
+    accessory_split_squat: *id005
+    core_anti_extension: *id006
+    core_flexion: *id007
   C:
-    bench_main: &id005
+    bench_main: &id011
     - bench_press
     - bench_press_narrow
     - bench_press_pause
@@ -73,7 +103,7 @@ slots:
     - decline_bench_press
     - incline_db_bench_press
     - dumbbell_bench_press
-    squat_support: &id006
+    squat_support: &id012
     - ssb_squat
     - competition_squat
     - front_squat
@@ -92,14 +122,48 @@ slots:
     - squat_partial_range_of_motion
     - squat_w_chains
     - squat_w_bands
+    accessory_row: *id002
+    accessory_pull_up: *id001
+    erector: *id003
+    accessory_vertical_press: *id004
+    accessory_split_squat: *id005
+    core_anti_extension: *id006
+    core_flexion: *id007
   squat:
-    squat_main: *id001
-    bench_support: *id002
+    squat_main: *id008
+    bench_support: *id009
+    accessory_row: *id002
+    accessory_pull_up: *id001
+    erector: *id003
+    accessory_vertical_press: *id004
+    accessory_split_squat: *id005
+    core_anti_extension: *id006
+    core_flexion: *id007
   hinge:
-    bench_main: *id003
-    accessory_pull_up: *id004
+    bench_main: *id010
+    accessory_pull_up: *id001
+    accessory_row: *id002
+    erector: *id003
+    accessory_vertical_press: *id004
+    accessory_split_squat: *id005
+    core_anti_extension: *id006
+    core_flexion: *id007
   bench_squat:
-    bench_main: *id005
-    squat_support: *id006
+    bench_main: *id011
+    squat_support: *id012
+    accessory_row: *id002
+    accessory_pull_up: *id001
+    erector: *id003
+    accessory_vertical_press: *id004
+    accessory_split_squat: *id005
+    core_anti_extension: *id006
+    core_flexion: *id007
   bench_hinge:
-    bench_main: *id005
+    bench_main: *id011
+    accessory_row: *id002
+    accessory_pull_up: *id001
+    erector: *id003
+    accessory_vertical_press: *id004
+    accessory_split_squat: *id005
+    core_anti_extension: *id006
+    core_flexion: *id007
