@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-23 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.3.1-dev` · **610 public tests** (625 with the 15 private integration tests)
+Last updated: 2026-10-23 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **610 public tests** (625 with the 15 private integration tests)
 
 ---
 
@@ -44,24 +44,24 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
-| v0.3 | Strength/data depth | **in progress** | manual logging via live workout mode (§4.2/§4.21, closed), import adapters closed (§4.3), learned readiness weights evaluated and closed (§4.9), LLM proposal view closed as CLI-only (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), labelled set depth (§4.14), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed) |
-| v0.4 | Cardio prescription and model | **planned** | cardio prescription and cardio impulse/fatigue model (§4.13 remaining) |
+| v0.3 | Strength/data depth | **done** | manual logging via live workout mode (§4.2/§4.21, closed), import adapters closed (§4.3), learned readiness weights evaluated and closed (§4.9), LLM proposal view closed as CLI-only (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed) |
+| v0.4 | Cardio + calibration depth | **planned** | cardio prescription and cardio impulse/fatigue model (§4.13 remaining); deeper labelled calibration set (§4.14) |
 | v0.5 | Video analysis | **planned** | video capture/analysis and its UI parity (§4.8, §4.11 video part) |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000` |
 
-### Version plan (2026-10-20)
+### Version plan (2026-10-23)
 
 | version | boundary | status |
 |---|---|---|
 | v0.2 | readiness, continuity, injury, web UI, cardio capture, measurements, session RPE/length, recent stress, per-lift readiness, e1RM calibration/decay | **done** |
-| v0.3 | everything strength/data-depth that is not cardio or video: manual logging done, adapters closed, LLM proposal view CLI-only, continuity calibration, deeper labelled set, exercise selection, strength fitness-fatigue model | **in progress** |
-| v0.4 | everything cardio: prescription, cardio impulse model, cardio fatigue interaction | **planned** |
+| v0.3 | everything strength/data-depth that is not cardio or video: manual logging, adapters closed, LLM proposal view CLI-only, continuity calibration, exercise selection, strength fitness-fatigue model | **done** |
+| v0.4 | cardio prescription/model plus the deeper labelled calibration set moved from v0.3 | **planned** |
 | v0.5 | everything video: capture, analysis, UI parity | **planned** |
 | future | LLM-guided suggested programme (§4.18) | **idea only; not scheduled** |
 
 **Rule:** cardio work does not enter v0.3; video work does not enter v0.3 or v0.4. The strength
-model (§4.16) is strength-only and stays in v0.3.
+model (§4.16) is strength-only and closed with v0.3. The labelled calibration depth moves to v0.4.
 
 ### What works end to end today
 
@@ -735,7 +735,7 @@ method; the fatigue state is displayed with inputs and time constants; a shadow 
 no prescription; constraints and injury ceilings remain vetoes; no cardio session silently
 counts as resistance volume or vice versa.
 
-### 4.14 Labelled calibration set  (v0.3; moved from v0.1 3.8)
+### 4.14 Labelled calibration set  (v0.4; moved from v0.3)
 
 No code. Continue reviewing sessions while they are fresh; the rubric report needs roughly ten
 *remembered* sessions per item before changing a definition or weight (DEC-EVAL-03,
@@ -955,7 +955,7 @@ deferred items stay listed in §4.19.
 | P1 (v0.3) | Import adapters | **closed** — standard export + workout CSV cover the paths |
 | P1 (v0.3) | LLM proposal view | **closed** — CLI-only by decision |
 | P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
-| P1 (v0.3) | Deeper labelled calibration set | in progress |
+| v0.4 | Deeper labelled calibration set | moved to v0.4 |
 | v0.4 | Cardio prescription and cardio fatigue interaction | planned |
 | v0.5 | Video capture/analysis and UI parity | planned |
 | future | LLM-guided suggested programme (§4.18) | idea only |

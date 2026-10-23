@@ -13,7 +13,7 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**v0, v0.1 and v0.2 are complete; v0.3 is in progress.** Cardio is v0.4, video v0.5 (see ROADMAP). The labelled calibration set is §4.14.
+**v0, v0.1, v0.2 and v0.3 are complete; v0.4 is next.** Cardio is v0.4, video v0.5 (see ROADMAP). The deeper labelled calibration set moves to v0.4 (§4.14).
 
 **Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
