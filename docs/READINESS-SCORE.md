@@ -475,6 +475,9 @@ Closed:
 
 ## 5. Decisions and open questions
 
+Periodic review and the app-wide threshold policy are specified in
+[`READINESS-EXERCISE-SELECTION-PLAN.md`](READINESS-EXERCISE-SELECTION-PLAN.md) §11–13.
+
 Decided:
 
 - **Equal weights retained**; explicit per-athlete weights and learned weights are not adopted;

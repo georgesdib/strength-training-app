@@ -346,3 +346,173 @@ These values are policy assumptions, not validated cut-points. Changes require u
 document, the config, tests and the decision log.
 
 No implementation until the user starts the implementation phase.
+
+---
+
+## 11. App-wide readiness threshold policy
+
+The exercise-substitution plan is one consumer of a broader rule:
+
+> **Personal baseline for context and high-cost, reversible choices; fixed absolute thresholds
+> for safety and load.**
+
+### 11.1 What stays absolute
+
+| threshold | treatment |
+|---|---|
+| sleep/energy ≤ 2 | fixed safety floor |
+| load factor bands (`0.80 / 0.60 / 0.40`) | fixed intervention dose |
+| set-reduction score `< 0.50` | fixed volume valve |
+| injury/symptom rules | fixed safety rules |
+| deload triggers | separate policy; never readiness-relative |
+
+A rolling baseline must never normalise a poor absolute state.
+
+### 11.2 What may use a rolling baseline
+
+| decision | use |
+|---|---|
+| HRV/RHR components | existing 28-day baseline, minimum 7 readings |
+| readiness warnings | absolute score **and** deviation from 28-day median |
+| exercise substitution Tier 2 | absolute `< 0.70` **and** at least `0.10` below the median |
+| “falling readiness” display | relative trend only |
+| per-lift readiness | show own-history context; keep action thresholds fixed |
+
+Per-lift readiness is already relative (global base, e1RM trend, RIR, VBT). Do not add a second
+rolling baseline to its action thresholds; that would make it difficult to interpret.
+
+### 11.3 Periodic review, not daily tuning
+
+Thresholds are reviewed at a pre-specified cadence:
+
+- every **12–16 weeks**, or
+- after roughly **40–50 new sessions**, whichever comes first;
+- plus after a material programme change or a new back pattern.
+
+The review may:
+
+1. re-run readiness–performance and readiness–sRPE associations;
+2. compare the current absolute threshold with the absolute + relative gate;
+3. use held-out sessions;
+4. change a threshold only if it beats the current one out of sample and does not increase
+   symptoms or missed sessions;
+5. otherwise keep the fixed value and record why.
+
+The review must not:
+
+- refit weekly;
+- change thresholds automatically;
+- use the same data to choose and validate a cutoff;
+- turn a weak association into a rule.
+
+### 11.4 Baseline rules
+
+- window: previous **28 days**, excluding today;
+- minimum: **10** readiness readings;
+- insufficient baseline → use the fixed fallback and mark it;
+- slow update; no re-centring on the last few days.
+
+---
+
+## 12. Website: periodic review reminders
+
+The app should not rely on the athlete remembering reviews. Add a small **Periodic reviews**
+section to Today (or a “Maintenance” panel) that is local-only and non-intrusive.
+
+### 12.1 Purpose
+
+Tell the athlete:
+
+- what is due;
+- why it is due;
+- what to do;
+- what **not** to do;
+- how to mark it reviewed.
+
+No automatic threshold changes. The panel is a prompt, not a controller.
+
+### 12.2 Suggested task cards
+
+| task | due calculation | suggested action |
+|---|---|---|
+| **Readiness threshold review** | 12 weeks or 40 new sessions since last completion | Re-run readiness associations, compare absolute vs relative gates, keep unless held-out improvement |
+| **Rubric labels** | show count; target 10 high-confidence marks per measurable item | Review recent sessions; current coverage 5–6 per item |
+| **3RM/5RM test** | 10 weeks from last measured test | Run `strength-coach test --status`; schedule a test if due |
+| **sRPE/duration coverage** | monthly check; target 80% of recent sessions | Review recent sessions with missing sRPE/duration |
+| **Back-pattern review** | after a new low-back episode or a pattern that does not fit the existing case series | Review the episode against the three known tweaks; do not auto-change rules |
+| **Readiness baseline sufficiency** | fewer than 10 readings in the 28-day window | Keep the fixed fallback; record the gap |
+
+### 12.3 Card content
+
+Each card should show:
+
+- **status:** due / due soon / not yet / insufficient data;
+- **last completed** (or “never”);
+- **why:** one sentence;
+- **what to do:** 2–4 concrete steps;
+- **what not to do:** e.g. “do not change the threshold without held-out evidence”;
+- **links:** the relevant doc/section;
+- **actions:** `Mark reviewed` and optionally `Snooze 2 weeks`.
+
+No card should apply a programme change itself.
+
+### 12.4 Data model
+
+No implementation yet. The minimal design is an append-only table:
+
+```text
+maintenance_review
+  review_id
+  task_key          -- readiness_thresholds | rubric_labels | strength_test | srpe_coverage | back_case
+  completed_on
+  decision          -- kept | changed | insufficient | not_applicable
+  note
+  created_at
+```
+
+Rules:
+
+- latest row per `task_key` is the completion record;
+- corrections append;
+- due dates are computed from the latest completion plus the interval;
+- task definitions and intervals live in config, not code;
+- no external notifications; the local UI is the reminder.
+
+### 12.5 Behaviour
+
+- The panel is visible on Today, collapsed when nothing is due.
+- Due items are not modal; they do not block a workout.
+- “Mark reviewed” records a decision and note; it does not silently change a threshold.
+- “Snooze 2 weeks” records a snooze, not a completion.
+- If data are insufficient, the card says so and does not manufacture a due date.
+- The panel must not turn into a dashboard of unstable rolling correlations.
+
+### 12.6 Review checklist content
+
+When a readiness threshold review is opened, show:
+
+1. current absolute threshold and fallback;
+2. current 28-day baseline and reading count;
+3. readiness–performance association on held-out sessions;
+4. readiness–sRPE association;
+5. how many sessions would have triggered the current vs proposed rule;
+6. decision:
+   - keep;
+   - change with a pre-specified rationale;
+   - insufficient data.
+7. record the decision in `maintenance_review`.
+
+This makes the reminder useful and auditable, rather than a generic “review due” badge.
+
+---
+
+## 13. Implementation gates
+
+Before the review panel is built:
+
+1. decide whether `maintenance_review` is the right persistence;
+2. define intervals and snooze behaviour in config;
+3. decide where the panel lives (Today vs a separate Maintenance page);
+4. keep all actions non-prescriptive.
+
+No code has been written for this section.
