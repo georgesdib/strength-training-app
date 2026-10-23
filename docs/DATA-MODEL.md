@@ -433,5 +433,7 @@ On completion, `workout.py` materialises the workout into the normal pipeline on
 - one `raw_row` + `clean_set` row per actual set, preserving `prescription_item_index`;
 - optional `session_feedback`.
 
-This keeps e1RM, volume and review on one actual-session source of truth. Import merge, plan
-overrides and review/rubric are still pending.
+This keeps e1RM, volume and review on one actual-session source of truth. In-workout CSV
+import writes `workout_set` rows (or append-only `update_set` events when replacing a set);
+RPE is converted to RIR at import, with RIR 6 marking a warm-up. Date-less backfill is not
+supported.

@@ -7,8 +7,11 @@ delete, so the audit trail survives an in-session correction.
 
 from __future__ import annotations
 
+import csv
 import datetime as dt
+import io
 import json
+import math
 import uuid
 from typing import Any, Mapping
 
@@ -132,21 +135,32 @@ def get(conn, workout_id: str) -> dict | None:
 
 
 def _sets(conn, workout_id: str) -> list[dict]:
+    """Replay append-only set events so an import can correct a set without mutating it."""
     rows = conn.execute(
-        """
-        SELECT s.* FROM workout_set s
-        WHERE s.workout_id = ?
-          AND NOT EXISTS (
-            SELECT 1 FROM workout_event e
-            WHERE e.workout_id = s.workout_id
-              AND e.event_type = 'remove_set'
-              AND e.target_set_id = s.set_id
-          )
-        ORDER BY s.set_id
-        """,
+        "SELECT * FROM workout_set WHERE workout_id = ? ORDER BY set_id", (workout_id,)
+    ).fetchall()
+    state = {int(row["set_id"]): dict(row) for row in rows}
+    removed: set[int] = set()
+    events = conn.execute(
+        "SELECT event_type, target_set_id, payload_json FROM workout_event "
+        "WHERE workout_id = ? ORDER BY event_id",
         (workout_id,),
     ).fetchall()
-    return [dict(row) for row in rows]
+    for event in events:
+        target = event["target_set_id"]
+        if target is None or int(target) not in state:
+            continue
+        if event["event_type"] == "remove_set":
+            removed.add(int(target))
+        elif event["event_type"] == "restore_set":
+            removed.discard(int(target))
+        elif event["event_type"] == "update_set":
+            payload = json.loads(event["payload_json"] or "{}")
+            state[int(target)].update({
+                key: payload.get(key)
+                for key in ("load_kg", "reps", "rir", "velocity", "source")
+            })
+    return [row for key, row in sorted(state.items()) if key not in removed]
 
 
 def _elapsed(data: Mapping[str, Any]) -> int:
@@ -177,6 +191,7 @@ def add_set(
     rir: int | None = None,
     velocity: float | None = None,
     source: str = "manual",
+    set_index: int | None = None,
 ) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
@@ -187,12 +202,16 @@ def add_set(
         raise ValueError("exercise_id is required")
     if source not in {"manual", "import", "device"}:
         raise ValueError("source must be manual, import or device")
-    row = conn.execute(
-        "SELECT COALESCE(MAX(set_index), 0) AS n FROM workout_set WHERE workout_id = ? "
-        "AND exercise_id = ?",
-        (workout_id, exercise_id),
-    ).fetchone()
-    set_index = int(row["n"]) + 1
+    if set_index is None:
+        row = conn.execute(
+            "SELECT COALESCE(MAX(set_index), 0) AS n FROM workout_set WHERE workout_id = ? "
+            "AND exercise_id = ?",
+            (workout_id, exercise_id),
+        ).fetchone()
+        set_index = int(row["n"]) + 1
+    set_index = int(set_index)
+    if set_index < 1:
+        raise ValueError("set_index must be positive")
     item_index = next(
         (index for index, item in enumerate(workout["plan"]["items"])
          if item.get("exercise_id") == exercise_id),
@@ -390,6 +409,140 @@ def change_sets(conn, workout_id: str, item_index: int, delta: int) -> dict:
                        {"item_index": index, "before": before, "after": after})
 
 
+IMPORT_HEADER = ["exercise", "set", "rpe", "value", "weight", "reps"]
+
+
+def _unit_float(value: str, unit: str) -> float | None:
+    text = str(value or "").strip().lower().replace(" ", "")
+    if text in {"", "???", "?", "nan", "none"}:
+        return None
+    if text.endswith(unit):
+        text = text[:-len(unit)]
+    return float(text)
+
+
+def _rpe_to_rir(value: str) -> tuple[int | None, bool]:
+    """Convert per-set RPE to the app's integer RIR.
+
+    rir = 10 - rpe; floor fractions; cap anything above 6 at 6 and mark it as a warm-up.
+    The cap is deliberate: RIR 6 is the app's warm-up marker (DEC-RIR-01), not a hard set.
+    """
+    text = str(value or "").strip()
+    if text in {"", "???", "?"}:
+        return None, False
+    rpe = float(text)
+    if not 0 <= rpe <= 10:
+        raise ValueError(f"RPE out of range: {value}")
+    raw = 10.0 - rpe
+    capped = raw > 6
+    rir = min(6, int(math.floor(raw)))
+    if rir < 0:
+        raise ValueError(f"RPE out of range: {value}")
+    return rir, capped or rir == 6
+
+
+def parse_import(text: str) -> dict:
+    """Parse the pasted/uploaded CSV into actual-workout rows.
+
+    No date is present: this parser is for an active workout, not historical backfill.
+    Unknown exercises are returned with exercise_id None so the caller can map or add them.
+    """
+    cleaned = text.lstrip("\ufeff").strip()
+    if not cleaned:
+        raise ValueError("CSV is empty")
+    reader = csv.DictReader(io.StringIO(cleaned))
+    fields = [str(name or "").strip().lower() for name in (reader.fieldnames or [])]
+    missing = [name for name in IMPORT_HEADER if name not in fields]
+    if missing:
+        raise ValueError("missing CSV column(s): " + ", ".join(missing))
+    # DictReader keys keep the original spelling; make access case-insensitive.
+    key_map = {str(name).strip().lower(): name for name in (reader.fieldnames or [])}
+    rows = []
+    errors = []
+    for line_no, raw in enumerate(reader, start=2):
+        try:
+            exercise_name = str(raw.get(key_map["exercise"]) or "").strip()
+            exercise_id = exercises.canonical_id(exercise_name)
+            set_index = int(str(raw.get(key_map["set"])).strip())
+            reps = int(str(raw.get(key_map["reps"])).strip())
+            rpe = raw.get(key_map["rpe"])
+            rir, warmup = _rpe_to_rir(str(rpe))
+            value = raw.get(key_map["value"])
+            velocity = _unit_float(value, "m/s")
+            weight = raw.get(key_map["weight"])
+            load = _unit_float(weight, "kg")
+            row = {
+                "line": line_no,
+                "exercise": exercise_name,
+                "exercise_id": exercise_id,
+                "set_index": set_index,
+                "rpe": None if str(rpe).strip() in {"", "???", "?"} else float(rpe),
+                "rir": rir,
+                "warmup": bool(warmup),
+                "velocity_mps": velocity,
+                "load_kg": load,
+                "reps": reps,
+            }
+            if exercise_id is None:
+                errors.append({"line": line_no, "error": f"unknown exercise: {exercise_name}"})
+            if set_index < 1 or reps < 0:
+                errors.append({"line": line_no, "error": "set must be positive and reps non-negative"})
+            rows.append(row)
+        except (TypeError, ValueError) as exc:
+            errors.append({"line": line_no, "error": str(exc)})
+    seen = set()
+    for row in rows:
+        key = (row.get("exercise_id"), row.get("set_index"))
+        if key in seen:
+            errors.append({"line": row["line"], "error": f"duplicate exercise/set: {row['exercise']} set {row['set_index']}"})
+        seen.add(key)
+    return {"rows": rows, "errors": errors}
+
+
+def import_csv(conn, workout_id: str, text: str, *, apply: bool = False) -> dict:
+    """Preview or apply the workout CSV. Apply replaces same exercise/set, never appends a duplicate."""
+    workout = get(conn, workout_id)
+    if workout is None:
+        raise ValueError("workout not found")
+    if workout["status"] != "in_progress" and apply:
+        raise ValueError("workout is not in progress")
+    parsed = parse_import(text)
+    if not apply:
+        return {"preview": parsed, "workout": workout}
+    if parsed["errors"]:
+        raise ValueError("import has errors; preview and fix them first")
+    for row in parsed["rows"]:
+        base = conn.execute(
+            "SELECT set_id FROM workout_set WHERE workout_id = ? AND exercise_id = ? "
+            "AND set_index = ?",
+            (workout_id, row["exercise_id"], row["set_index"]),
+        ).fetchone()
+        payload = {
+            "load_kg": row["load_kg"], "reps": row["reps"], "rir": row["rir"],
+            "velocity": row["velocity_mps"], "source": "import",
+        }
+        if base is None:
+            add_set(
+                conn, workout_id,
+                exercise_id=row["exercise_id"],
+                load_kg=row["load_kg"],
+                reps=row["reps"],
+                rir=row["rir"],
+                velocity=row["velocity_mps"],
+                source="import",
+                set_index=row["set_index"],
+            )
+        else:
+            # The base row is immutable; restore if removed, then append the corrected values.
+            active = any(item["set_id"] == base["set_id"] for item in _sets(conn, workout_id))
+            if not active:
+                _event(conn, workout_id, "restore_set", {},
+                       target_set_id=int(base["set_id"]))
+            _event(conn, workout_id, "update_set", payload,
+                   target_set_id=int(base["set_id"]))
+    return {"preview": parsed, "workout": get(conn, workout_id)}
+
+
 def _comparison(workout: Mapping[str, Any]) -> dict:
     """Compare actual sets with the frozen plan; extra work is explicit."""
     items = list((workout.get("plan") or {}).get("items") or [])
@@ -518,7 +671,8 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
             (
                 raw_id, workout_id, workout["for_date"], exercise_id, exercise_id,
                 load, load_basis, external, row.get("reps"), reps_unit, row.get("rir"),
-                "logged" if row.get("rir") is not None else "missing", row.get("velocity"),
+                ("logged_warmup" if row.get("rir") == 6 else "logged")
+                if row.get("rir") is not None else "missing", row.get("velocity"),
                 1 if row.get("velocity") is not None else 0,
                 (float(load) * int(row["reps"])) if load is not None and row.get("reps") is not None else None,
                 is_working, row.get("prescription_item_index"),

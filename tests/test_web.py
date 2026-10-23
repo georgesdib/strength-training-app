@@ -604,3 +604,23 @@ def test_workout_plan_overrides_api(server):
         "item_index": index,
     })
     assert all(item["exercise_id"] != "lat_pulldown" for item in removed["workout"]["plan"]["items"])
+
+
+def test_workout_csv_import_preview_and_apply(server):
+    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
+    readiness = {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+    data = post(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": plan, "readiness": readiness,
+    })
+    workout_id = data["workout"]["workout_id"]
+    text = "Exercise,Set,RPE,Value,Weight,Reps\nPush Press,1,4,???,20.0kg,4\nPush Press,2,5.5,0.67m/s,40.0kg,5\n"
+    preview = post(server, f"/api/workout/{workout_id}/import", {"text": text, "apply": False})
+    assert preview["preview"]["errors"] == []
+    assert preview["preview"]["rows"][0]["rir"] == 6
+    applied = post(server, f"/api/workout/{workout_id}/import", {"text": text, "apply": True})
+    assert len(applied["workout"]["sets"]) == 2
+    again = post(server, f"/api/workout/{workout_id}/import", {"text": text, "apply": True})
+    assert len(again["workout"]["sets"]) == 2

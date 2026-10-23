@@ -582,7 +582,7 @@ entities:
 
   bench_press_wide_grip:
     display: "Bench Press (wide grip)"
-    log_names: ["Bench Press (wide grip)"]
+    log_names: ["Bench Press (wide grip)", "Bench Press (Wide-Grip)"]
     pattern: horizontal_push
     primary_compound: true
     primary_muscles: [chest]
@@ -1350,6 +1350,18 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hamstring_eccentric
+    erector_family: false
+
+  push_press:
+    display: "Push Press"
+    log_names: ["Push Press"]
+    pattern: vertical_push
+    primary_compound: true
+    primary_muscles: [front_delts, triceps]
+    bodyweight_type: false
+    loadable: true
+    time_based: false
+    vbt_family: vertical_push
     erector_family: false
 
   overhead_press_behind_the_neck:

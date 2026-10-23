@@ -136,3 +136,44 @@ def test_plan_overrides_keep_the_original_prescription(conn):
     removed = workout.remove_exercise(conn, started["workout_id"], 2)
     assert all(item["exercise_id"] != "lat_pulldown" for item in removed["plan"]["items"])
     assert len(removed["plan"]["items"]) == 2
+
+
+CSV = """Exercise,Set,RPE,Value,Weight,Reps
+Push Press,1,4,???,20.0kg,4
+Push Press,2,5.5,0.67m/s,40.0kg,5
+Push Press,3,6,0.78m/s,50.0kg,4
+Bench Press (Wide-Grip),4,7,0.35m/s,100.0kg,6
+Bench Press (Wide-Grip),5,7.5,0.31m/s,100.0kg,6
+Bench Press (Wide-Grip),6,8,0.35m/s,100.0kg,6
+"""
+
+
+def test_parse_import_maps_exercises_rpe_and_missing_velocity():
+    preview = workout.parse_import(CSV)
+    assert preview["errors"] == []
+    rows = preview["rows"]
+    assert rows[0]["exercise_id"] == "push_press"
+    assert rows[0]["rir"] == 6 and rows[0]["warmup"] is True
+    assert rows[1]["rir"] == 4 and rows[0]["velocity_mps"] is None
+    assert rows[3]["exercise_id"] == "bench_press_wide_grip"
+    assert rows[3]["rir"] == 3
+    assert rows[4]["rir"] == 2
+    assert rows[2]["load_kg"] == 50.0
+
+
+def test_import_applies_and_replaces_without_duplicating(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    first = workout.import_csv(conn, started["workout_id"], CSV, apply=True)
+    assert len(first["workout"]["sets"]) == 6
+    second = workout.import_csv(conn, started["workout_id"], CSV, apply=True)
+    assert len(second["workout"]["sets"]) == 6
+    assert all(row["source"] == "import" for row in second["workout"]["sets"])
+
+
+def test_import_rejects_unknown_exercise(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    text = "Exercise,Set,RPE,Value,Weight,Reps\nUnknown Lift,1,4,0.5m/s,20kg,5\n"
+    preview = workout.parse_import(text)
+    assert preview["errors"]
+    with pytest.raises(ValueError, match="errors"):
+        workout.import_csv(conn, started["workout_id"], text, apply=True)

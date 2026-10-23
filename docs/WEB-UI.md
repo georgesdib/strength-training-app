@@ -45,7 +45,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
   is required for B, and C is hidden unless **show different lifts** is ticked (and can never be
   applied automatically). **Use LLM** appears only when Apply is ticked. Without the toggle the
   prescription is unchanged. The **Retrospective validation** panel runs the walk-forward check. A scheduled deload is shown as a suggestion with an **Apply deload** button; it is not applied until confirmed. Reactive deloads are automatic. Applied deloads cite `MOD-DELOAD-001`. Main lifts show their warm-up ramp; the strength-test cadence is shown in the notes. The volume ledger now applies `MOD-VOL-002` (one accessory set after three weeks below MEV).
-- **Workout** — start from a prescription, confirm the seven required readiness fields (device fields optional), log sets manually, remove a set, end with measured/manual duration and sRPE or mark sRPE not recorded, or abandon. A prescription snapshot is frozen at start. During the workout the plan is editable: adjust planned sets, swap/add/remove exercises; each change is an append-only event and the original prescription stays frozen. On completion the workout materialises, the end screen shows actual vs modified plan and actual vs original prescription, and the deterministic rubric is persisted. **Review workout** opens the rubric sheet; saving marks runs calibration and closes the workout. Import is the remaining slice.
+- **Workout** — start from a prescription, confirm the seven required readiness fields (device fields optional), log sets manually, remove a set, end with measured/manual duration and sRPE or mark sRPE not recorded, or abandon. A prescription snapshot is frozen at start. During the workout the plan is editable: adjust planned sets, swap/add/remove exercises; each change is an append-only event and the original prescription stays frozen. On completion the workout materialises, the end screen shows actual vs modified plan and actual vs original prescription, and the deterministic rubric is persisted. **Review workout** opens the rubric sheet; saving marks runs calibration and closes the workout. In-workout CSV import is available by paste or file with columns `Exercise,Set,RPE,Value,Weight,Reps`; preview first, then apply. The file has no date, so backfill is not supported.
 - **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
   date and first session type (`auto` or a specific type). Legacy A/B/C is shown as context;
   every session is rebuilt on the day and nothing is persisted.
@@ -78,6 +78,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `POST /api/workout/<id>/sets` | `{exercise_id, load_kg, reps, rir, velocity?}` -> add manual set |
 | `POST /api/workout/<id>/remove-set` | `{set_id}` -> append a removal event |
 | `POST /api/workout/<id>/end` | `{session_rpe?, not_recorded?, duration_min?, notes?}` -> completed |
+| `POST /api/workout/<id>/import` | `{text, apply}` -> parse/preview/apply workout CSV; no date column |
 | `POST /api/workout/<id>/abandon` | abandon the active workout |
 | `GET /api/review/<session>` | session sheet |
 | `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes}` -> marks + optional session detail |

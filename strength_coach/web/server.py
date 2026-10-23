@@ -518,6 +518,12 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("workout action is required")
         workout_id = parts[2]
         action = parts[3]
+        if action == "import":
+            imported = workout.import_csv(
+                conn, workout_id, str(body.get("text") or ""),
+                apply=_truth(body.get("apply")),
+            )
+            return {"workout": imported["workout"], "preview": imported["preview"]}
         if action == "plan":
             sub = parts[4] if len(parts) > 4 else ""
             if sub == "swap":

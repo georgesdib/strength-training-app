@@ -13,6 +13,8 @@
   plan and original prescription, persists the deterministic rubric, and closes the workout
   when review marks are saved.
 - In-workout plan overrides: adjust planned sets, swap/add/remove exercises, append-only events.
+- In-workout CSV import (paste or file): `Exercise,Set,RPE,Value,Weight,Reps`; RPE→RIR mapping,
+  preview/apply, replace matching sets, no date-less backfill.
 
 ## [0.3.0] — 2026-10-20
 

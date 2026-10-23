@@ -955,7 +955,7 @@ deferred items stay listed in §4.19.
 | P2 | Strength-review implementation closeout | **review closed**; future work in §4.20 |
 | P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
 | P2 | Prospective validation of continuity, volume, selection and fatigue models | moved to §4.20 — no candidate; current models failed the retrospective baseline |
-| P1 (v0.3) | Live workout mode | **partial** — start/end/manual sets, materialisation, plan overrides, comparisons and rubric/review done; import pending |
+| P1 (v0.3) | Live workout mode | **partial** — start/end/manual sets, materialisation, plan overrides, in-workout CSV import, comparisons and rubric/review done; date-less backfill pending |
 | P1 (v0.3) | Manual workout logging and import adapters | not started |
 | P1 (v0.3) | LLM/manual-logging parity | not started |
 | P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
@@ -998,15 +998,15 @@ Phased implementation of the approved workout flow:
 |---|---|---|
 | 1 | Schema/state machine, Start form with required readiness, manual sets, timer, duration/sRPE, End/Abandon, API/UI | **done** |
 | 2 | Materialise workout sets into `clean_set`/`session`; actual-vs-prescribed comparison | **done** |
-| 3 | Import staging inside workout; overwrite/preview/undo; Exercise catalogue completeness | next |
+| 3 | CSV import inside workout: paste/file, preview, RPE→RIR mapping, replace matching sets | **done** |
 | 4 | Plan overrides: swap/add/remove exercise and sets | **done** |
 | 5 | Deterministic rubric review + human marks; post-processing pipeline | **done** |
-| 6 | Backfill import handling; duplicate/overlap warnings | pending |
+| 6 | Date-less backfill import; duplicate/overlap warnings | pending — this CSV has no date |
 
 Workout sets now materialise into `session`/`clean_set` on completion, so reports, e1RM and
 volume see them. The end screen compares actual vs the modified plan and the original
-prescription, runs the deterministic rubric, and closes on review marks. Plan overrides are done;
-import remains.
+prescription, runs the deterministic rubric, and closes on review marks. Plan overrides and
+in-workout CSV import are done; date-less backfill remains.
 
 ## 5. Known gaps and risks
 

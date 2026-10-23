@@ -163,6 +163,48 @@ function planAction(action, body) {
   });
 }
 
+function renderImportPreview(preview) {
+  var rows = (preview.rows || []).map(function (row) {
+    return "<tr><td>" + row.line + "</td><td>" + esc(row.exercise) + "</td><td>" +
+      (row.exercise_id == null ? "<strong>unknown</strong>" : "<code>" + esc(row.exercise_id) + "</code>") +
+      "</td><td>" + row.set_index + "</td><td>" + (row.rpe == null ? "—" : row.rpe) +
+      "</td><td>" + (row.rir == null ? "—" : row.rir) + (row.warmup ? " (warm-up)" : "") +
+      "</td><td>" + fmt(row.load_kg) + "</td><td>" + row.reps + "</td><td>" +
+      (row.velocity_mps == null ? "—" : row.velocity_mps) + "</td></tr>";
+  }).join("");
+  var errors = (preview.errors || []).map(function (error) {
+    return "<li>line " + error.line + ": " + esc(error.error) + "</li>";
+  }).join("");
+  $("#workout-import-preview-area").innerHTML =
+    (errors ? '<div class="warnbox"><strong>Errors</strong><ul class="list">' + errors + "</ul></div>" : "") +
+    (rows ? "<table><thead><tr><th>line</th><th>exercise</th><th>canonical</th><th>set</th>" +
+      "<th>RPE</th><th>RIR</th><th>kg</th><th>reps</th><th>m/s</th></tr></thead><tbody>" +
+      rows + "</tbody></table>" : "<p class='empty'>No rows parsed.</p>");
+}
+
+function submitImport(apply) {
+  if (!activeWorkoutId) return;
+  var text = $("#workout-import-text").value;
+  if (!text.trim()) {
+    $("#workout-import-msg").textContent = "Paste CSV or choose a file first.";
+    return;
+  }
+  $("#workout-import-msg").textContent = apply ? "Applying…" : "Previewing…";
+  api("/api/workout/" + activeWorkoutId + "/import", {
+    method: "POST", body: JSON.stringify({ text: text, apply: apply })
+  }).then(function (data) {
+    renderImportPreview(data.preview || {});
+    if (apply) {
+      $("#workout-import-msg").textContent = "Imported.";
+      renderWorkout(data.workout);
+    } else {
+      $("#workout-import-msg").textContent = "Preview only; nothing applied.";
+    }
+  }).catch(function (error) {
+    $("#workout-import-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>";
+  });
+}
+
 function renderWorkout(w) {
   activeWorkoutId = w.workout_id;
   $("#workout-empty").hidden = true;
@@ -403,6 +445,16 @@ document.addEventListener("DOMContentLoaded", function () {
   if (endForm) endForm.addEventListener("submit", submitWorkoutEnd);
   var abandon = document.getElementById("workout-abandon");
   if (abandon) abandon.addEventListener("click", abandonWorkout);
+  var importFile = document.getElementById("workout-import-file");
+  if (importFile) importFile.addEventListener("change", function () {
+    var file = importFile.files && importFile.files[0];
+    if (!file) return;
+    file.text().then(function (text) { document.getElementById("workout-import-text").value = text; });
+  });
+  var importPreview = document.getElementById("workout-import-preview");
+  if (importPreview) importPreview.addEventListener("click", function () { submitImport(false); });
+  var importApply = document.getElementById("workout-import-apply");
+  if (importApply) importApply.addEventListener("click", function () { submitImport(true); });
   var notRecorded = document.getElementById("workout-end-not-recorded");
   if (notRecorded) notRecorded.addEventListener("change", function () {
     document.getElementById("workout-end-srpe").disabled = notRecorded.checked;
