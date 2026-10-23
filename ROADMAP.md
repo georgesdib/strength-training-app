@@ -984,7 +984,6 @@ Moved out of the strength-programme review so it can close. These are **not** v0
 | Weakness targeting | deferred to after v0.5 / ~April 2027 | §4.20.3, Q22, DEC-SELECT-05 |
 | Selection A/B boundary (pause/narrow, SSB/high-bar) | dormant policy decision; current default is conservative (A only same exercise) | Q21, docs/SELECTION-COMPARABILITY.md |
 | Cardio model | v0.4 | §4.13, Q14 |
-| Fatigue-plan backfill UI, phase cutoff, report format, one-month check | open; decide when that plan resumes | docs/NEXT-PHASE-FATIGUE-PLAN.md §9 |
 
 ### 4.21 Live workout mode  (v0.3, CLOSED 2026-10-23)
 
