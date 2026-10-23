@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.3.0` · **589 public tests** (604 with the 15 private integration tests)
+Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progress** · version `0.3.1-dev` · **593 public tests** (608 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-20 · **v0 complete, v0.1 done, v0.2 done, v0.3 in progres
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 604 locally, including private integration
+.venv/bin/python -m pytest            # 608 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -44,7 +44,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
-| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights evaluated and closed (§4.9), LLM/manual-logging parity (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), labelled set depth (§4.14), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17) |
+| v0.3 | Strength/data depth | **in progress** | manual logging (§4.2), adapters (§4.3), learned readiness weights evaluated and closed (§4.9), LLM/manual-logging parity (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), labelled set depth (§4.14), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout foundation (§4.21) |
 | v0.4 | Cardio prescription and model | **planned** | cardio prescription and cardio impulse/fatigue model (§4.13 remaining) |
 | v0.5 | Video analysis | **planned** | video capture/analysis and its UI parity (§4.8, §4.11 video part) |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
@@ -336,7 +336,7 @@ and the explicit *readiness unknown* warning. The derivation is in
 [`docs/READINESS.md`](READINESS.md); the changeable parts are config in
 `config/readiness.v1.yaml` (`DEC-READINESS-04`).
 
-### 4.2 Logging workouts three ways  (v0.3)
+### 4.2 Logging workouts three ways  (v0.3, partial: workout foundation)
 
 Three input paths, one downstream shape:
 
@@ -356,6 +356,11 @@ Manual entry must pass the same gates as cleaning: unknown exercise names are qu
 reported (never dropped), `RIR 6` is a warm-up, and seconds-vs-reps follows the taxonomy.
 
 Capture post-session fatigue (1-5) with the session; it feeds §4.12 and is not a rubric item.
+
+**Status 2026-10-20:** the live workout foundation exists — Start from a prescription with the
+seven required readiness fields, manual set add/remove, measured/editable duration, sRPE or
+not-recorded, end/abandon, and API/UI. It stores draft `workout_set` rows; **materialising them
+into `clean_set`/`session`, import merge, plan overrides and review/rubric are still pending**.
 
 Acceptance: a manually logged session is indistinguishable downstream from an imported one
 (same tables, same critique); concluding a workout also catches up unreviewed sessions via
@@ -581,6 +586,9 @@ Done: import, state editing, Programme, Terminal. Remaining: LLM proposals/chat,
 logging, video.
 
 ### 4.11 Web UI parity  (v0.3 for LLM/manual logging; video part v0.5)
+
+**Workout mode exception:** the live workout flow is UI/API first (§4.21); CLI commands for
+start/add-set/end are not built yet and must be added before parity is claimed.
 
 The local UI covers Today, Prescribe (rolling session types), Programme, Review, Readiness, Import, an editable
 Athlete page, an editable **Exercises** catalogue, Terminal and Docs. This item brings the remaining interactive CLI actions into the browser. The CLI stays
@@ -945,6 +953,7 @@ deferred items stay listed in §4.19.
 | P2 | Strength-review implementation closeout | **review closed**; future work in §4.20 |
 | P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
 | P2 | Prospective validation of continuity, volume, selection and fatigue models | moved to §4.20 — no candidate; current models failed the retrospective baseline |
+| P1 (v0.3) | Live workout mode | **partial** — start/end/manual sets/readiness done; import, materialisation, plan overrides, review pending |
 | P1 (v0.3) | Manual workout logging and import adapters | not started |
 | P1 (v0.3) | LLM/manual-logging parity | not started |
 | P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
@@ -978,6 +987,22 @@ Moved out of the strength-programme review so it can close. These are **not** v0
 | Selection A/B boundary (pause/narrow, SSB/high-bar) | dormant policy decision; current default is conservative (A only same exercise) | Q21, docs/SELECTION-COMPARABILITY.md |
 | Cardio model | v0.4 | §4.13, Q14 |
 | Fatigue-plan backfill UI, phase cutoff, report format, one-month check | open; decide when that plan resumes | docs/NEXT-PHASE-FATIGUE-PLAN.md §9 |
+
+### 4.21 Live workout mode  (v0.3, in progress)
+
+Phased implementation of the approved workout flow:
+
+| slice | scope | status |
+|---|---|---|
+| 1 | Schema/state machine, Start form with required readiness, manual sets, timer, duration/sRPE, End/Abandon, API/UI | **done** |
+| 2 | Materialise workout sets into `clean_set`/`session`; actual-vs-prescribed comparison | pending |
+| 3 | Import staging inside workout; overwrite/preview/undo; Exercise catalogue completeness | pending |
+| 4 | Plan overrides: swap/add/remove exercise and sets | pending |
+| 5 | Deterministic rubric review + human marks; post-processing pipeline | pending |
+| 6 | Backfill import handling; duplicate/overlap warnings | pending |
+
+Known gap after slice 1: workout sets live in `workout_set` and are not yet visible to the
+existing reports/e1RM/volume queries until slice 2 materialises them.
 
 ## 5. Known gaps and risks
 

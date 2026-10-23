@@ -34,7 +34,8 @@ What exists today is:
 - `strength_coach/ingest/` — cleaning, flags, quarantine, session reconstruction.
 - `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, per-region injury signal, cardio capture summary, periodic measurement log, optional session RPE/length, e1RM calibration/decay, per-lift readiness, strength fitness-fatigue shadow model, scheduled/reactive deload policy, standardised warm-up ramps, 3RM/5RM cadence, under-MEV accessory progression, main-lift readiness set reduction and a descriptive progress dashboard.
 - `strength_coach/store/` — SQLite migrations, append-only repositories, import orchestration.
-  `data/coach.db` is created on demand and is git-ignored.
+- `strength_coach/workout.py` — live workout session, linked prescription snapshot, manual sets, timed/manual end.
+- `data/coach.db` is created on demand and is git-ignored.
 - `strength_coach/rules/` — constitution loader, one predicate per `check.fn`, policy verdicts.
 - `strength_coach/prescribe/` — deterministic Day A/B/C engine, load solver, fallback, and the constraint check that applies stored athlete state. `config/thresholds.v1.yaml` holds the increments and e1RM window.
 - Athlete state lives in the §11 tables (`athlete_profile`, `athlete_constraint`, `exercise_suitability`, `metric_definition`, `symptom_log`), entered with `strength-coach state`.
@@ -202,6 +203,7 @@ never read `data/raw`.
 | `docs/LIFT-READINESS.md` | per-lift readiness evidence, components, weights and downward-only rule |
 | `docs/EXERCISE-VARIANTS.md` | how to add a canonical variant, slot wiring, history caveat, selection tuning |
 | `docs/SELECTION-COMPARABILITY.md` | evidence and proposed three-class guard for variant substitution |
+| `docs/READINESS-EXERCISE-SELECTION-PLAN.md` | proposed symptom/readiness-driven exercise substitution; tax metadata, triggers, tests, rollout |
 | `docs/STRENGTH-PROGRAM-REVIEW.md` | evidence check and critique of the strength programme (review only) |
 | `docs/VOLUME-MANAGEMENT.md` | MEV/MAV/MRV evidence, configured landmarks, ledger and MRV cap |
 | `docs/NEXT-PHASE-FATIGUE-PLAN.md` | final lean non-cardio fatigue plan: sRPE/duration backfill, descriptive calibration, optional deload; no experiments |

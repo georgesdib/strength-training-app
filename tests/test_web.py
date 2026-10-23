@@ -76,6 +76,8 @@ def test_the_page_and_overview_are_served(server):
     assert "prescribe-selection-confirm" in page
     assert "selection-include-different" in page
     assert "validation-run" in page
+    assert "view-workout" in page
+    assert "workout.js" in page
     # CLI/UI parity: the recent capture surfaces are reachable from the shell.
     assert "Cardio" in page and "Measures" in page
     assert "cardio-weeks" in page
@@ -512,3 +514,31 @@ def test_retrospective_validation_endpoint(server):
     status, body = get(server, "/api/validation?max_dates=2")
     assert status == 200
     assert "RETROSPECTIVE WALK-FORWARD" in json.loads(body)["text"]
+
+
+def test_workout_start_active_and_end(server):
+    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
+    readiness = {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+    data = post(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": plan, "readiness": readiness,
+    })
+    workout_id = data["workout"]["workout_id"]
+    assert data["workout"]["status"] == "in_progress"
+
+    active = json.loads(get(server, "/api/workout/active")[1])
+    assert active["workout"]["workout_id"] == workout_id
+
+    added = post(server, f"/api/workout/{workout_id}/sets", {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
+    })
+    assert len(added["workout"]["sets"]) == 1
+
+    ended = post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 50,
+    })
+    assert ended["workout"]["status"] == "completed"
+    assert ended["workout"]["duration_min"] == 50
+    assert json.loads(get(server, "/api/workout/active")[1])["workout"] is None

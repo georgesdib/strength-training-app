@@ -385,3 +385,41 @@ update trigger, records every change here, then recreates the trigger. Raw rows 
 Exceptions: `Competition Deadlift` keeps date-scoped sumo/trap-bar resolution; `Hyperextensions`
 keeps its own id and remains `history_equivalent_of: back_extension`. Migration `0015` later
 split `close_grip_pulldown` from `lat_pulldown` using the same audit table.
+
+---
+
+## 16. `workout_session`, `workout_set`, `workout_event` — live workout mode
+
+Migration `0017_workout` adds the live workout lifecycle. A workout is operational state: the
+prescription and the sets are immutable, while the workout status and end fields are updated
+until completion.
+
+`workout_session`:
+
+| column | notes |
+|---|---|
+| workout_id | UUID |
+| prescription_id | nullable link; the snapshot is `plan_json` because the displayed prescription is frozen at start |
+| for_date / session_type / session_day | copied from the plan |
+| status | `in_progress` \| `completed` \| `abandoned` |
+| plan_json | frozen prescription payload; later regeneration cannot rewrite it |
+| readiness_json | validated seven required fields plus optional device fields |
+| started_at / ended_at | ISO timestamps |
+| duration_measured_s / duration_min / duration_source | measured timer and optional manual override |
+| session_rpe / session_rpe_recorded | required unless explicitly not recorded |
+| notes | |
+
+`workout_set` is append-only. A removed set is an event, not a DELETE:
+
+| column | notes |
+|---|---|
+| set_id | autoincrement |
+| workout_id | parent |
+| exercise_id / set_index | one set per exercise per index |
+| load_kg / reps / rir / velocity | actual values |
+| source | `manual` \| `import` \| `device` |
+| prescription_item_index | index into the frozen plan, when matched |
+
+`workout_event` records `start`, `add_set`, `remove_set`, `end` and `abandon` with an
+optional `target_set_id`; it is append-only. This chunk does not yet materialise workout sets
+into `session`/`clean_set`; that integration and import merge are the next slice.

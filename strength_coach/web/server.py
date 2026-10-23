@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
+from strength_coach import workout
 from strength_coach.agents.config import build_client, load_settings
 from strength_coach.agents import selection as agent_selection
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
@@ -143,6 +144,21 @@ def _docs() -> list[dict]:
     return out
 
 
+def _number(value):
+    if value in (None, ""):
+        return None
+    return float(value)
+
+
+def _integer(value):
+    if value in (None, ""):
+        return None
+    number = float(value)
+    if number != int(number):
+        raise ValueError("integer value expected")
+    return int(number)
+
+
 def _list(value, default=None) -> list[str]:
     if isinstance(value, list):
         return [str(item).strip() for item in value if str(item).strip()]
@@ -222,6 +238,15 @@ class Handler(BaseHTTPRequestHandler):
                                  mimetypes.guess_type(path)[0] or "application/octet-stream")
             elif path == "/api/overview":
                 self._json(200, self._with_conn(self._overview))
+            elif path == "/api/workout/active":
+                self._json(200, self._with_conn(
+                    lambda c: {"workout": workout.active_workout(c)}
+                ))
+            elif path.startswith("/api/workout/"):
+                workout_id = path.rsplit("/", 1)[-1]
+                self._json(200, self._with_conn(
+                    lambda c: {"workout": self._workout_or_404(c, workout_id)}
+                ))
             elif path == "/api/sessions":
                 self._json(200, self._with_conn(lambda c: _session_rows(c, 40)))
             elif path == "/api/calibrate":
@@ -323,6 +348,10 @@ class Handler(BaseHTTPRequestHandler):
             body = self._body()
             if path == "/api/import":
                 self._json(200, self._with_conn(lambda c: self._import(c, body)))
+            elif path == "/api/workout/start":
+                self._json(200, self._with_conn(lambda c: self._workout_start(c, body)))
+            elif path.startswith("/api/workout/"):
+                self._json(200, self._with_conn(lambda c: self._workout_action(c, path, body)))
             elif path == "/api/prescribe":
                 self._json(200, self._with_conn(lambda c: self._prescribe(c, body)))
             elif path == "/api/readiness":
@@ -447,6 +476,64 @@ class Handler(BaseHTTPRequestHandler):
             "window_start": report.window_start,
             "window_end": report.window_end,
         }
+
+    def _workout_or_404(self, conn, workout_id: str) -> dict:
+        result = workout.get(conn, workout_id)
+        if result is None:
+            raise ValueError("workout not found")
+        return result
+
+    def _workout_start(self, conn, body: dict) -> dict:
+        for_date = str(body.get("date") or datetime.date.today().isoformat())
+        plan = body.get("plan")
+        readiness = body.get("readiness")
+        if not isinstance(readiness, dict):
+            raise ValueError("readiness must be an object")
+        clean = workout.validate_readiness(readiness)
+        readiness_feature.record_manual(
+            conn, for_date, clean, note=body.get("readiness_note") or None
+        )
+        result = workout.start(
+            conn,
+            for_date=for_date,
+            plan=plan,
+            readiness=clean,
+            session_type=(plan or {}).get("session_type") if isinstance(plan, dict) else None,
+            note=body.get("note") or None,
+        )
+        return {"workout": result}
+
+    def _workout_action(self, conn, path: str, body: dict) -> dict:
+        parts = [part for part in path.split("/") if part]
+        if len(parts) < 4:
+            raise ValueError("workout action is required")
+        workout_id = parts[2]
+        action = parts[3]
+        if action == "sets":
+            result = workout.add_set(
+                conn, workout_id,
+                exercise_id=str(body.get("exercise_id") or ""),
+                load_kg=_number(body.get("load_kg")),
+                reps=_integer(body.get("reps")),
+                rir=_integer(body.get("rir")),
+                velocity=_number(body.get("velocity")),
+                source=str(body.get("source") or "manual"),
+            )
+        elif action == "remove-set":
+            result = workout.remove_set(conn, workout_id, _integer(body.get("set_id")))
+        elif action == "end":
+            result = workout.end(
+                conn, workout_id,
+                session_rpe=_number(body.get("session_rpe")),
+                not_recorded=_truth(body.get("not_recorded")),
+                duration_min=_number(body.get("duration_min")),
+                notes=body.get("notes") or None,
+            )
+        elif action == "abandon":
+            result = workout.abandon(conn, workout_id)
+        else:
+            raise ValueError("unknown workout action")
+        return {"workout": result}
 
     def _prescribe(self, conn, body: dict) -> dict:
         for_date = str(body.get("date") or datetime.date.today().isoformat())

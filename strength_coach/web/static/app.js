@@ -183,6 +183,7 @@ async function applySuggestedDeload() {
 }
 
 function renderPrescription(p) {
+  window.__lastPrescription = p;
   const stress = p.notes?.recent_stress || {};
   const liftReady = p.notes?.per_lift_readiness || {};
   const rows = p.items.map((item) => {

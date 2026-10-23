@@ -12,6 +12,7 @@
     <nav id="nav">
       <button data-view="dashboard" class="active">Today</button>
       <button data-view="prescribe">Prescribe</button>
+      <button data-view="workout">Workout</button>
       <button data-view="programme">Programme</button>
       <button data-view="review">Review</button>
       <button data-view="readiness">Readiness</button>
@@ -131,6 +132,67 @@
       </div>
     </section>
 
+
+    <section id="view-workout" class="view">
+      <div class="panel" id="workout-empty">
+        <div class="panel-head"><h2>Workout</h2><span class="muted">no active workout</span></div>
+        <p class="muted">Build a prescription on the Prescribe page, then choose <strong>Start workout</strong>.
+          The prescription is frozen and the workout becomes the actual record.</p>
+      </div>
+
+      <div class="panel" id="workout-start-panel" hidden>
+        <div class="panel-head"><h2>Start workout</h2><span class="muted" id="workout-start-summary"></span></div>
+        <p class="muted">The seven self-report readiness fields are required. Device fields are optional.
+          Values are prefilled from today's readiness where available.</p>
+        <form id="workout-start-form">
+          <div id="workout-readiness-required" class="grid-fields"></div>
+          <div class="panel-head" style="margin-top:1rem"><h3>Optional device data</h3></div>
+          <div id="workout-readiness-optional" class="grid-fields"></div>
+          <label>Readiness note <input type="text" id="workout-readiness-note" placeholder="optional"></label>
+          <label>Workout note <input type="text" id="workout-start-note" placeholder="optional"></label>
+          <div class="form-row">
+            <button class="primary" type="submit">Start workout</button>
+            <button class="ghost" type="button" id="workout-start-cancel">Cancel</button>
+          </div>
+          <div id="workout-start-msg"></div>
+        </form>
+      </div>
+
+      <div class="panel" id="workout-active-panel" hidden>
+        <div class="panel-head"><h2 id="workout-title">Workout in progress</h2>
+          <span class="badge" id="workout-timer">00:00</span></div>
+        <div id="workout-meta" class="muted"></div>
+        <div id="workout-plan"></div>
+
+        <div class="panel-head" style="margin-top:1rem"><h3>Log a set</h3></div>
+        <form id="workout-set-form" class="form-row">
+          <label>Exercise <select id="workout-set-exercise" required></select></label>
+          <label>Load kg <input type="number" step="0.5" id="workout-set-load"></label>
+          <label>Reps <input type="number" step="1" min="0" id="workout-set-reps"></label>
+          <label>RIR <input type="number" step="1" min="0" max="10" id="workout-set-rir"></label>
+          <label>Velocity <input type="number" step="0.01" id="workout-set-velocity" placeholder="optional"></label>
+          <button class="primary" type="submit">Add set</button>
+        </form>
+        <div id="workout-set-msg"></div>
+        <div id="workout-sets"></div>
+
+        <div class="panel-head" style="margin-top:1rem"><h3>End workout</h3></div>
+        <form id="workout-end-form" class="form-row">
+          <label>Duration min <input type="number" step="1" min="1" id="workout-end-duration" placeholder="measured if blank"></label>
+          <label>Session RPE <input type="number" step="0.5" min="1" max="10" id="workout-end-srpe"></label>
+          <label><input type="checkbox" id="workout-end-not-recorded"> sRPE not recorded</label>
+          <label>Note <input type="text" id="workout-end-note" placeholder="optional"></label>
+          <button class="primary" type="submit">End workout</button>
+        </form>
+        <div id="workout-end-msg"></div>
+        <p><button class="ghost" type="button" id="workout-abandon">Abandon workout</button></p>
+      </div>
+
+      <div class="panel" id="workout-ended-panel" hidden>
+        <div class="panel-head"><h2>Workout ended</h2><span class="muted">review is the next step</span></div>
+        <div id="workout-ended"></div>
+      </div>
+    </section>
     <section id="view-programme" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Programme forecast</h2><span class="muted">forecast only; rebuilt on the day</span></div>
@@ -430,5 +492,6 @@
 
   <footer class="foot">Same core as <code>strength-coach</code>. The CLI remains the automation interface.</footer>
   <script src="/static/app.js"></script>
+  <script src="/static/workout.js"></script>
 </body>
 </html>

@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 589 public tests
+.venv/bin/python -m pytest          # 593 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -649,6 +649,24 @@ says: *"Not medical clearance. A symptom-free streak is weak evidence; the athle
 Readiness is not part of it. The regions and the lifts that load them are config
 (`config/injuries.v1.yaml`); the full definitions and evidence are in
 [INJURY-SIGNAL.md](docs/INJURY-SIGNAL.md).
+
+### 4.10i Workout mode — start, log, end
+
+The local UI has a **Workout** tab. Build a prescription on **Prescribe**, then choose
+**Start workout**.
+
+- The seven self-report readiness fields are required; HRV, resting HR, bodyweight, body-fat
+  and wearable score are optional.
+- If readiness changed after the prescription was built, the UI asks before starting with the
+  old plan; cancel and rebuild if you want a new prescription.
+- The prescription snapshot is frozen. Manual sets are added against it; remove a set with the
+  **Remove** button (a removal event, not a delete).
+- **End workout** uses the measured timer unless you enter a duration override. Session RPE is
+  required unless you tick **sRPE not recorded**.
+- **Abandon** keeps the record but does not mark it completed.
+
+The import merge, plan overrides, review/rubric and post-processing are the next slices; this
+chunk is the workout foundation only.
 
 ### 4.10b `cardio` — capture the other half
 

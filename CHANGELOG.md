@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.1] — unreleased
+
+### Added
+
+- Workout mode foundation: start a workout from a prescription, required pre-workout readiness,
+  manual set entry, removable sets, timer, editable measured duration, session RPE, end and
+  abandon.
+- Workout session/API/UI; a prescription snapshot is frozen at start so later regeneration
+  cannot rewrite what was shown.
+
 ## [0.3.0] — 2026-10-20
 
 ### Added

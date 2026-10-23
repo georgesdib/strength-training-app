@@ -45,6 +45,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
   is required for B, and C is hidden unless **show different lifts** is ticked (and can never be
   applied automatically). **Use LLM** appears only when Apply is ticked. Without the toggle the
   prescription is unchanged. The **Retrospective validation** panel runs the walk-forward check. A scheduled deload is shown as a suggestion with an **Apply deload** button; it is not applied until confirmed. Reactive deloads are automatic. Applied deloads cite `MOD-DELOAD-001`. Main lifts show their warm-up ramp; the strength-test cadence is shown in the notes. The volume ledger now applies `MOD-VOL-002` (one accessory set after three weeks below MEV).
+- **Workout** — start from a prescription, confirm the seven required readiness fields (device fields optional), log sets manually, remove a set, end with measured/manual duration and sRPE or mark sRPE not recorded, or abandon. A prescription snapshot is frozen at start; imports and review are the next slices.
 - **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
   date and first session type (`auto` or a specific type). Legacy A/B/C is shown as context;
   every session is rebuilt on the day and nothing is persisted.
@@ -71,6 +72,13 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `GET /api/overview` | dashboard data |
 | `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
 | `POST /api/prescribe` | `{date, session_type?, day?, apply_selection?, selection_confirmed?, selection_llm?}` -> prescription; `session_type=auto` uses the rolling rule |
+| `POST /api/workout/start` | `{date, plan, readiness, note?}` -> live workout; seven readiness fields required |
+| `GET /api/workout/active` | active workout, or `{workout: null}` |
+| `GET /api/workout/<id>` | workout detail |
+| `POST /api/workout/<id>/sets` | `{exercise_id, load_kg, reps, rir, velocity?}` -> add manual set |
+| `POST /api/workout/<id>/remove-set` | `{set_id}` -> append a removal event |
+| `POST /api/workout/<id>/end` | `{session_rpe?, not_recorded?, duration_min?, notes?}` -> completed |
+| `POST /api/workout/<id>/abandon` | abandon the active workout |
 | `GET /api/review/<session>` | session sheet |
 | `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes}` -> marks + optional session detail |
 | `GET /api/readiness/<date>` | merged readiness |
@@ -108,5 +116,6 @@ The web layer is serialisation and routing only. It calls the same functions as 
 ## Limitations
 
 - No LLM proposal/chat UI (the CLI `run --propose` remains the path).
+- Workout mode is currently UI/API first; the CLI workout commands and actual-session materialisation are not built yet.
 - State editing is available; the taxonomy itself and programme rules remain config/CLI.
 - No authentication; never expose beyond localhost.
