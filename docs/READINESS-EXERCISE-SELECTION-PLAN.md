@@ -1,7 +1,7 @@
 # Readiness- and symptom-driven exercise selection — implementation plan
 
-**Status:** proposed. No code or configuration has been changed.
-**Date:** 2026-10-20
+**Status:** locked 2026-10-20. No code or configuration has been changed; this is the approved
+implementation plan.
 **Scope:** exercise substitution inside an already-prescribed session. Load/RIR/set adjustment
 stays the first response to fatigue.
 
@@ -110,6 +110,16 @@ Rules:
 - `spinal_cost` remains the safety input, not replaced by this map;
 - the map is reviewed when exercises are added.
 
+Mandatory dimensions for a lower-tax claim:
+
+- **main lifts:** axial, systemic, skill;
+- **accessories:** axial, skill;
+- **ROM:** record and flag material changes, but do not require it. It is a stimulus
+  dimension, not a simple fatigue score.
+
+A candidate is lower-tax only if it is **not higher on any mandatory dimension** and is lower on
+at least one.
+
 ### 5.2 Trigger tiers
 
 #### Tier 1 — symptom/injury (strongest)
@@ -121,25 +131,41 @@ Trigger when:
 
 Behaviour:
 
-- exclude the current exercise if it is a hard constraint;
-- otherwise suggest a same-pattern candidate with:
+- a hard constraint veto is **automatic** — the exercise is not prescribed;
+- a symptom-linked exercise that is not a hard constraint is marked **safety-blocked** by
+  default and requires an explicit override to keep it;
+- a same-pattern candidate is suggested when it has:
   - no link to the active region;
   - lower axial/erector cost;
   - class A or B only;
-  - executable load from its own history.
+  - an executable load from its own history;
 - if no safe candidate exists, **do not invent one**; show “no safe substitution” and leave the
   decision to the athlete/clinician.
 
-No automatic application. The suggestion is prominent because the safety case is stronger.
+The exclusion is automatic; the **replacement is explicit**. The suggestion is prominent
+because the safety case is stronger.
 
-#### Tier 2 — recent stress + low readiness
+#### Tier 2 — recent stress + a meaningful readiness drop
 
-Trigger when **both**:
+Trigger when **all**:
 
-- the current lift has high recent stress; and
-- readiness is low or falling;
+- the current lift has high recent stress (`recent_stress.status == "high"`); and
+- readiness is below **0.70** in absolute terms; and
+- readiness is at least **0.10 below the rolling 28-day median**; and
 - the current lift is high tax (axial/systemic/skill); and
-- a same-pattern candidate is lower-tax on at least one dimension and not higher on the others.
+- a same-pattern candidate is lower-tax on at least one mandatory dimension and not higher on
+  the others.
+
+Baseline rules:
+
+- use the previous 28 days, excluding today;
+- require at least **10 prior readings**;
+- if the baseline is insufficient, fall back to a fixed **0.65** and mark the fallback in the
+  notes;
+- update slowly; never re-centre on the last few days.
+
+The absolute guard prevents a chronically low baseline from normalising poor readiness; the
+relative drop prevents reacting to a normal day that is merely below 0.70.
 
 Behaviour:
 
@@ -305,15 +331,18 @@ No automatic promotion to a rule.
 
 ---
 
-## 10. Open decisions before implementation
+## 10. Locked decisions
 
-1. Exact readiness threshold for Tier 2; default candidate 0.60, but it is an assumption.
-2. Which recent-stress status counts as “high” (current `recent_stress` status or a stricter
-   threshold).
-3. Whether Tier 1 symptom suggestions may skip confirmation for a **hard exclusion**; the plan
-   says no automatic replacement, but allow a veto.
-4. Which candidate tax dimensions are mandatory before a “less taxing” claim: axial + skill, or
-   all four.
-5. Whether to add a new rule ID for protective substitution or cite `MOD-SELECT-001` only.
+| decision | locked choice |
+|---|---|
+| Tier 2 readiness | `< 0.70` absolute **and** at least `0.10` below the 28-day median |
+| Baseline | previous 28 days, excluding today, minimum 10 readings; fallback to `0.65` |
+| High stress | existing `recent_stress.status == "high"` for the current lift |
+| Symptom | automatic exclusion of unsafe/vetoed exercise; replacement explicit |
+| Mandatory tax dimensions | main: axial + systemic + skill; accessories: axial + skill; ROM optional |
+| Rule ID | no new rule; applied substitutions cite `MOD-SELECT-001`; exclusions cite existing injury/constraint rules; trigger recorded in notes |
 
-No implementation until those are settled.
+These values are policy assumptions, not validated cut-points. Changes require updating this
+document, the config, tests and the decision log.
+
+No implementation until the user starts the implementation phase.

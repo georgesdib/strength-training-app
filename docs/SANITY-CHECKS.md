@@ -123,6 +123,11 @@ without conditioning on provenance penalises the athlete for following the presc
   anti-extension + anti-rotation/lateral, progressed by load/leverage) is a synthesis of the
   evidence, not a validated minimum. The evidence gives no dose-response for this population
   (`docs/CORE-TRAINING.md`).
+- **ASSUMPTION-34** — the readiness-drop gate for exercise substitution uses the prior 28 days,
+  a 10-reading minimum, an absolute 0.70 guard, a 0.10 median drop, and a 0.65 fallback; these
+  are policy choices, not validated cut-points (`DEC-SELECT-06`).
+- **ASSUMPTION-35** — selection tax metadata (axial/systemic/skill/ROM) is ordinal and
+  config-authoritative; unknown metadata blocks a “less taxing” claim (`DEC-SELECT-06`).
 - **ASSUMPTION-33** — the under-MEV accessory progression uses a three-week window and one-set
   increments; the MEV landmarks remain coaching defaults, not measured thresholds
   (`DEC-VOLUME-03`).
