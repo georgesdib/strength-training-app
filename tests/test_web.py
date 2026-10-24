@@ -699,6 +699,13 @@ def test_workout_csv_import_preview_and_apply(server):
     assert report["available"] is True
     assert report["sets"][0]["summary"]["count"] == 4
 
+    status, body = get(server, "/api/rep-velocity/analysis?date=2024-01-10&weeks=4")
+    assert status == 200
+    analysis = json.loads(body)
+    assert analysis["available"] is True
+    assert analysis["set_count"] == 1
+    assert all(row["status"] == "insufficient" for row in analysis["correlations"])
+
 
 def test_test_recording_auto_registers_an_exposure_and_blocks_a_second(server):
     data = post(server, "/api/state/test", {

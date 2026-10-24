@@ -89,6 +89,7 @@ async function loadOverview() {
     renderRecent(data.sessions);
     fillSessionSelect();
     loadProgress();
+    loadRepVelocityProgress();
     loadReviews();
   } catch (error) {
     $("#today-title").textContent = "Could not load";
@@ -121,6 +122,41 @@ async function loadProgress() {
       <p class="muted">${esc(data.note)}</p>`;
   } catch (error) {
     $("#progress").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function loadRepVelocityProgress() {
+  try {
+    const data = await api("/api/rep-velocity/analysis?weeks=12");
+    if (!data.available) {
+      $("#rep-velocity-progress").innerHTML =
+        "<p class='muted'>No per-rep data yet. Import an optional per-rep CSV in Workout mode.</p>";
+      return;
+    }
+    const corr = (data.correlations || []).map((row) =>
+      "<tr><td>" + esc(row.label) + "</td><td>" + row.n + "</td><td>" +
+      (row.r == null ? "—" : row.r) + "</td><td>" + esc(row.status) + "</td></tr>").join("");
+    const sessionRows = (data.sessions || []).slice(-12).reverse().map((row) =>
+      "<tr><td>" + esc(row.date) + "</td><td>" + esc(row.exercise_id) + "</td><td>" +
+      (row.mean_loss_pct == null ? "—" : row.mean_loss_pct) + "</td><td>" +
+      (row.srpe == null ? "—" : row.srpe) + "</td><td>" +
+      (row.readiness == null ? "—" : row.readiness) + "</td><td>" +
+      (row.next ? (row.next.delta_pct + "% / " + row.next.days + "d") : "—") +
+      "</td></tr>").join("");
+    $("#rep-velocity-progress").innerHTML =
+      "<p class='muted'>" + esc(data.from) + " to " + esc(data.to) + " · " +
+      data.set_count + " sets across " + data.session_count + " sessions. " +
+      "Minimum " + data.min_pairs + " pairs for a correlation.</p>" +
+      "<table><thead><tr><th>Association</th><th>n</th><th>r</th><th>status</th></tr></thead>" +
+      "<tbody>" + corr + "</tbody></table>" +
+      "<details><summary>Recent session/exercise rows</summary>" +
+      "<table><thead><tr><th>Date</th><th>Exercise</th><th>Mean loss %</th><th>sRPE</th>" +
+      "<th>Readiness</th><th>Next e1RM</th></tr></thead><tbody>" +
+      (sessionRows || "<tr><td colspan='6' class='muted'>none</td></tr>") +
+      "</tbody></table></details>" +
+      "<p class='muted'>" + esc(data.note) + "</p>";
+  } catch (error) {
+    $("#rep-velocity-progress").innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
   }
 }
 

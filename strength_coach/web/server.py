@@ -322,6 +322,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: rep_velocity.session_report(c, session_id)
                 ))
+            elif path == "/api/rep-velocity/analysis":
+                query = parse_qs(urlparse(self.path).query)
+                weeks = int(query.get("weeks", ["12"])[0])
+                day = query.get("date", [None])[0]
+                self._json(200, self._with_conn(
+                    lambda c: rep_velocity.analysis_report(c, on_date=day, weeks=weeks)
+                ))
             elif path == "/api/progress":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0]

@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-24 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **675 public tests** (690 with the 15 private integration tests)
+Last updated: 2026-10-24 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **677 public tests** (692 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-24 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 690 locally, including private integration
+.venv/bin/python -m pytest            # 692 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -959,7 +959,7 @@ deferred items stay listed in §4.19.
 | P1 (v0.3) | LLM proposal view | **closed** — CLI-only by decision |
 | P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
 | v0.4 | Deeper labelled calibration set | moved to v0.4 |
-| P3 | Per-rep velocity: cross-session analysis and evidence review | capture done; analysis/evidence pending |
+| P3 | Per-rep velocity: cross-session analysis and evidence review | **done** — descriptive report; no rule (`DEC-VBT-05`) |
 | v0.4 | Cardio prescription and cardio fatigue interaction | planned |
 | v0.5 | Video capture/analysis and UI parity | planned |
 | future | LLM-guided suggested programme (§4.18) | idea only |
@@ -1020,7 +1020,7 @@ path. CLI workout commands are partial (no start).
 | Imported sessions have no timestamps | imported duration unmeasurable; two imported sessions on one date indistinguishable | workout mode measures duration; imports remain date-only (`OPEN-QUESTIONS` Q5) |
 | Only one session type can be prescribed | The other templates are blocked by the erector-ramp anchor (Q3), the SSB question (H1) and the missing §11 tables | **resolved** — all four session types prescribable; the ramp anchor is optional and `unknown` is explicit |
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
-| Velocity detail was per-set only | within-set velocity loss was unavailable from the standard export | **capture done; analysis/evidence review pending** — optional per-rep CSV writes `clean_rep`; set-level remains primary; no VBT rule reads it (`DEC-VBT-04`); trap-bar targets stay withheld |
+| Velocity detail was per-set only | within-set velocity loss was unavailable from the standard export | **resolved for capture and descriptive analysis** — optional per-rep CSV writes `clean_rep`; set-level remains primary; the report is stratified and sample-size-aware; no VBT rule reads it (`DEC-VBT-04/05`); trap-bar targets stay withheld |
 | Rubric calibrated on a small number of high-confidence sessions | agreement is limited and rotation is the weak item; some old marks are reconstructed and excluded | `DEC-EVAL-04`; needs ~10 remembered marks per item before changing weights; exact counts are private |
 | Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one | Reviewed 2026-10-23: keep ordinal; separate heavy-set advisory (RIR ≤ 1) is context only; see docs/SPINAL-LOAD-EVIDENCE.md |
 | VBT targets not prescribed | a prescription carries no `velocity_target` | **resolved** — 22 targets where trustworthy; trap bar withheld; `DEC-VBT-02` |

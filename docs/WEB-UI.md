@@ -41,7 +41,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
   as configurable landmarks, the spinal cap as ordinal, and deload/minimum-session evidence
   limits. A `recent stress` column, a `readiness` column, the **strength fatigue model**
   panel (shadow: per-lift + overall fitness/fatigue/state with approximate 95% intervals,
-  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only), the **continuity calibration** panel (per-band returns/fixed/applied and the
+  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only), the **per-rep velocity** panel (descriptive loss and associations; n ≥ 10 for correlations), the **continuity calibration** panel (per-band returns/fixed/applied and the
   `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings with A/B/C
   comparison classes and a display-only own-history e1RM ratio; optional LLM chooser). The session is chosen by the rolling emphasis rule;
   **Minimum session** is an explicit volume-only fallback (30/45/60 minutes); it never changes load/RIR, preserves main lifts by default, and has a separate deeper tier for main-lift floors. **Apply selection** makes A candidates replace the slot exercises, **Confirm near-comparable**
@@ -90,6 +90,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `POST /api/workout/<id>/import` | `{text, rep_text?, apply}` -> parse/preview/apply workout CSV; optional per-rep table; no date column |
 | `POST /api/workout/<id>/import/undo` | undo the latest import batch, including rep detail |
 | `GET /api/rep-velocity?session=<id>` | descriptive per-rep report after completion |
+| `GET /api/rep-velocity/analysis?weeks=&date=` | stratified cross-session descriptive report |
 | `POST /api/workout/<id>/abandon` | abandon the active workout |
 | `GET /api/review/<session>` | session sheet |
 | `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes}` -> marks + optional session detail |

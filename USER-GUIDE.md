@@ -873,6 +873,11 @@ The weekly volume panel also shows **heavy spinal sets** — high-fatigue spinal
 RIR ≤ 1 — as context only. This is deliberately not load-weighted and does not change the cap
 or prescription.
 
+The **Per-rep velocity** panel is descriptive only. It shows per-set first/last/loss, and
+cross-session associations with RIR/RPE, sRPE, readiness, symptoms and next same-exercise e1RM.
+Correlations appear only at n ≥ 10; smaller samples say “insufficient”. It never changes a
+prescription.
+
 The Readiness page's **Volume valve** sets whether poor readiness removes sets and how many.
 
 ### 4.10g `continuity` — return-to-training calibration

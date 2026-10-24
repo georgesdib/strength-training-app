@@ -32,7 +32,7 @@ What exists today is:
 - `tools/baseline.py` — regenerates the numbers in `private/docs/BASELINE.md`.
 - `strength_coach/domain/` — e1RM, load arithmetic, RIR classes (tested).
 - `strength_coach/ingest/` — cleaning, flags, quarantine, session reconstruction.
-- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, per-region injury signal, cardio capture summary, periodic measurement log, optional session RPE/length, e1RM calibration/decay, per-lift readiness, high-intensity exposure guard, strength fitness-fatigue shadow model, scheduled/reactive deload policy, standardised warm-up ramps, 3RM/5RM cadence, under-MEV accessory progression, optional main-lift readiness set reduction, a user-selected volume-only minimum session, a descriptive progress dashboard, a read-only outcomes review, prescription-modifier provenance, quick readiness presets, context flags, a read-only readiness feedback report, a shared attendance summary and an optional per-rep velocity report.
+- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, per-region injury signal, cardio capture summary, periodic measurement log, optional session RPE/length, e1RM calibration/decay, per-lift readiness, high-intensity exposure guard, strength fitness-fatigue shadow model, scheduled/reactive deload policy, standardised warm-up ramps, 3RM/5RM cadence, under-MEV accessory progression, optional main-lift readiness set reduction, a user-selected volume-only minimum session, a descriptive progress dashboard, a read-only outcomes review, prescription-modifier provenance, quick readiness presets, context flags, a read-only readiness feedback report, a shared attendance summary and an optional per-rep velocity report and a stratified, descriptive velocity-loss analysis.
 - `strength_coach/store/` — SQLite migrations, append-only repositories, import orchestration.
 - `strength_coach/workout.py` — live workout session, linked prescription snapshot, manual/imported sets, plan overrides, timed/manual end and rubric link.
 - `data/coach.db` is created on demand and is git-ignored.
@@ -243,6 +243,7 @@ never read `data/raw`.
 | `docs/VBT-EVIDENCE.md` | VBT evidence, best practices, what our data can and cannot support |
 | `docs/VBT-REP-LEVEL.md` | post-hoc rep-level VBT: benefits, limitations and optional device-CSV capture |
 | `docs/REP-VELOCITY.md` | optional per-rep CSV contract, storage, analyses and limits |
+| `docs/REP-VELOCITY-EVIDENCE.md` | velocity-loss evidence; descriptive only, no RIR/injury prediction |
 | `docs/MODULE-LAYOUT.md` | file layout and test strategy |
 | `docs/V0-SCOPE.md` | smallest end-to-end slice and its exclusions |
 | `docs/OPEN-QUESTIONS.md` | ranked design questions blocking the build |

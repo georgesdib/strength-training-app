@@ -1,7 +1,7 @@
 # Rep-level velocity — optional post-workout detail
 
-**Status:** capture implemented as an optional second CSV in workout mode. Cross-session
-analysis and the evidence review are **not yet done**; do not treat the feature as complete.
+**Status:** capture, descriptive cross-session analysis and the evidence review are implemented.
+The review supports descriptive use only; no rule or prescription change.
 
 The set-level CSV remains required and unchanged. The per-rep table is optional: if it is
 absent, every existing path behaves exactly as before.
@@ -60,8 +60,8 @@ warning rather than an overwrite.
 | materialisation into `clean_rep` | done |
 | optional Workout UI / CLI / API input | done |
 | per-set first/last/loss report | done |
-| cross-session descriptive analyses | **pending** |
-| evidence review: does this add information beyond existing signals? | **pending** |
+| cross-session descriptive analyses | done |
+| evidence review: "does this add information beyond existing signals?" | done — descriptive only |
 
 ## 4. What it unlocks
 
@@ -94,9 +94,12 @@ workout, it is descriptive.
 ## 6. Surfaces
 
 - Workout mode: optional per-rep file/paste box, preview table and rep summary.
-- `GET /api/rep-velocity?session=...`: descriptive report.
+- `GET /api/rep-velocity?session=...`: per-session report.
+- `GET /api/rep-velocity/analysis?weeks=...`: stratified cross-session report.
+- **Progress → Per-rep velocity**: correlations (n >= 10), recent session rows and missing-data context.
 - CLI: `workout import --rep-file ...`.
 - End screen: per-set first/last/loss table.
+- Evidence: [REP-VELOCITY-EVIDENCE.md](REP-VELOCITY-EVIDENCE.md).
 
 ## 7. Tests
 

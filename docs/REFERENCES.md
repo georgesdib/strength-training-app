@@ -257,6 +257,22 @@ conclusion is weaker than it looks.
 | 141 | Keogh J, Winwood P. *The Epidemiology of Injuries Across the Weight-Training Sports.* Sports Med, 2016. | 10.1007/s40279-016-0575-0 | Epidemiology context; no load-weighted spinal-risk model. |
 | 142 | Fischer SC, Calley DQ, Hollman JH. *Effect of an Exercise Program That Includes Deadlifts on Low Back Pain.* J Sport Rehabil, 2021. | 10.1123/jsr.2020-0324 | Deadlift-inclusive programmes improve pain/function but not more than low-load motor control; small evidence base. |
 
+## 21. Per-rep velocity, fatigue and RIR
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 143 | Sánchez-Medina L, González-Badillo JJ. *Velocity Loss as an Indicator of Neuromuscular Fatigue during Resistance Training.* Med Sci Sports Exerc, 2011;43(9):1725-1734. | 10.1249/MSS.0b013e318213f880 | Velocity loss correlates with mechanical/metabolic fatigue within bench press and squat. |
+| 144 | Pareja-Blanco F, Rodríguez-Rosell D, Sánchez-Medina L, et al. *Effects of velocity loss during resistance training on athletic performance, strength gains and muscle adaptations.* Scand J Med Sci Sports, 2017;27(7):724-735. | 10.1111/sms.12678 | 20% vs 40% velocity loss: similar strength, greater jump gains and fewer reps at 20%. |
+| 145 | Pareja-Blanco F, Alcazar J, Cornejo-Daza PJ, et al. *Effect of velocity loss during squat training on neuromuscular performance.* Scand J Med Sci Sports, 2021;31(8):1621-1631. | 10.1111/sms.13967 | 10% vs 30% vs 45% velocity loss; similar strength, better jump/sprint at 10%. |
+| 146 | Rodríguez-Rosell D, Yáñez-García JM, Sánchez-Medina L, Mora-Custodio R, González-Badillo JJ. *Relationship Between Velocity Loss and Repetitions in Reserve in the Bench Press and Back Squat Exercises.* J Strength Cond Res, 2020;34(9):2537-2547. | 10.1519/JSC.0000000000002881 | Velocity loss strongly relates to % reps performed; lift-specific differences. |
+| 147 | Jukić I, Prnjak K, Helms ER, McGuigan MR. *Modeling the repetitions-in-reserve-velocity relationship: a valid method for resistance training monitoring and prescription, and fatigue management.* Physiol Rep, 2024;12(5):e15955. | 10.14814/phy2.15955 | Individual RIR–velocity models predict acceptably; general models do not. |
+| 148 | Jukić I, Prnjak K, McGuigan MR, Helms ER. *One Velocity Loss Threshold Does Not Fit All: Consideration of Sex, Training Status, History, and Personality Traits When Monitoring and Controlling Fatigue During Resistance Training.* Sports Med Open, 2023;9:80. | 10.1186/s40798-023-00626-z | Velocity-loss threshold reliability across sessions is not acceptable; do not universalise. |
+| 149 | Varela-Olalla D, del Campo-Vecino J, Leytón-Román M, Pérez-Castilla A, Balsalobre-Fernández C. *Rating of perceived exertion and velocity loss as variables for controlling the level of effort in the bench press exercise.* Sports Biomech, 2019. | 10.1080/14763141.2019.1640278 | RPE and velocity loss overlap but are not interchangeable; combined prediction is better. |
+| 150 | Zhao H, Kurokawa T, Tajima M, Liu Z, Okada J. *Can Perceived Exertion and Velocity Loss Serve as Indirect Indicators of Muscle Fatigue During Explosive Back Squat Exercise?* J Funct Morphol Kinesiol, 2024;9(4):238. | 10.3390/jfmk9040238 | Velocity loss–fatigue relationship is weak in explosive squat; context-dependent. |
+| 151 | Medellín JP, Abellán-Aynés O, García DP, Martínez-Aranda LM. *Delayed Effects of Different Velocity Loss-Based Resistance Training on Autonomic Regulation, Sleep Quality and Muscle Soreness.* J Hum Kinet, 2024;93:89-101. | 10.5114/jhk/189703 | Higher velocity loss can increase delayed DOMS/HRV response at group level. |
+| 152 | Alarcón-Rivera M, Poblete-Sánchez L, Salazar-Orellana C, Guzmán-Muñoz E, García-Carrillo E. *Comparison of Velocity-Based Performance and Velocity Loss Between Traditional and Safety Squat Barbells During the Squat Exercise.* Sports, 2026;14(4):146. | 10.3390/sports14040146 | Barbell type changes velocity and velocity loss; stratify by lift/barbell. |
+| 153 | Martínez-Cava A, Hernández-Belmonte A, Courel-Ibáñez J, Morán-Navarro R, González-Badillo JJ. *Reliability of technologies to measure the barbell velocity: Implications for monitoring resistance training.* PLoS One, 2020;15(6):e0232465. | 10.1371/journal.pone.0232465 | Device reliability differs; mean velocity has meaningful measurement error. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow

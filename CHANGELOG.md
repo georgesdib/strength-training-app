@@ -5,8 +5,9 @@
 ### Added
 
 - Optional per-rep velocity CSV in Workout mode, joined to set-level rows by exercise + set;
-  append-only rep detail, per-set first/last/loss display and a descriptive `/api/rep-velocity`
-  report. Missing table leaves the existing import unchanged.
+  append-only rep detail, per-set first/last/loss display, a descriptive `/api/rep-velocity`
+  session report and a stratified `/api/rep-velocity/analysis` report. Missing table leaves the
+  existing import unchanged. Evidence review: descriptive only, no RIR or injury prediction.
 - Explicit `spinal_cost` for every high-fatigue entity; `single_leg_db_rdl` documented as
   non-counting; at-cap/headroom display in prescriptions. Cap unchanged.
 
