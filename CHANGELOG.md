@@ -9,6 +9,8 @@
 
 ### Documented
 
+- W2 load-lineage audit: bodyweight added-load misclassification, incomplete-workout
+  provenance and e1RM coverage gaps.
 - W9 spinal-cap audit: zero-headroom normal week, exact-cap trigger behaviour, missing
   high-fatigue costs and cap/headroom options.
 - W1/W7 attendance audit and implementation: schedule simulations, shared attendance summary,

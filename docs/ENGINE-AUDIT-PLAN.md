@@ -151,6 +151,9 @@ Exit criteria:
 
 ### W2 — Load lineage and incomplete sessions
 
+**Status:** audit complete 2026-10-23; two confirmed defects and two provenance gaps. See
+[`W2-LOAD-LINEAGE.md`](W2-LOAD-LINEAGE.md).
+
 **Question:** can a stale, missing or changed input produce a misleading load?
 
 Trace:
