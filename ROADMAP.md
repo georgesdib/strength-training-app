@@ -20,10 +20,10 @@ Then read, in order:
 
 1. [`USER-GUIDE.md`](USER-GUIDE.md) — how to use what exists
 2. **this file** — where we are and what is next
-2. [`docs/DECISIONS.md`](docs/DECISIONS.md) — decisions that are expensive to reverse
-3. [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md) — what is still ambiguous, with defaults
-4. [`docs/V0-SCOPE.md`](docs/V0-SCOPE.md) — the agreed scope and its exclusions
-5. [`AGENTS.md`](AGENTS.md) — invariants, layering, definition of done
+3. [`docs/DECISIONS.md`](docs/DECISIONS.md) — decisions that are expensive to reverse
+4. [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md) — what is still ambiguous, with defaults
+5. [`docs/V0-SCOPE.md`](docs/V0-SCOPE.md) — the agreed scope and its exclusions
+6. [`AGENTS.md`](AGENTS.md) — invariants, layering, definition of done
 
 **Resume rule:** update the status table below in the same commit as any phase change. If the
 table disagrees with the code, the table is wrong — fix it before adding features.
@@ -39,9 +39,9 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 4 | Rules loader + policy engine | **done** | `rules/loader.py`, `registry.py`, `context.py`, `policy.py`; predicates for all five rules |
 | 5 | Prescription engine (four session types) + deterministic fallback | **done** | `prescribe/templates.py`, `config.py`, `loads.py`, `engine.py`, `fallback.py`; `config/thresholds.v1.yaml` |
 | 5.5 | Athlete state — DATA-MODEL §11 tables | **done** | `store/migrations/0003_athlete_state.sql`, `prescribe/constraints.py`, `cli state` / `cli block`; hard constraints veto |
-| 6 | Critique rubric + trace | **done** | `critique/facts.py`, `critique/rubric.py`, `trace/run.py`; 6 measurable items + 2 unmeasured |
+| 6 | Critique rubric + trace | **done** | `critique/facts.py`, `critique/rubric.py`, `trace/run.py`; 7 measurable items; velocity loss remains unmeasured, imported duration unavailable |
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
-| 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; 5 high-confidence sessions, 75% agreement, MAE 0.20 |
+| 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; small high-confidence labelled set; exact counts private |
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
 | v0.3 | Strength/data depth | **done** | manual logging via live workout mode (§4.2/§4.21, closed), import adapters closed (§4.3), learned readiness weights evaluated and closed (§4.9), LLM proposal view closed as CLI-only (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed), read-only 4/8/12-week outcomes review, longevity context, prescription-modifier provenance and quick readiness presets/context and readiness feedback, UI prescription persistence (A0/A/B/C/E), minimum effective sessions (D) the methodology/privacy docs (F), W1/W7 attendance metrics and the session-time cap |
@@ -72,7 +72,7 @@ day guess, calibrated for velocity targets, and **persisted**: one import writes
 re-importing the same file writes no duplicate rows. The constitution can now be evaluated
 against that history: `rules` parses the YAML into hash-bearing `Rule` objects, the registry
 supplies one predicate per `check.fn`, and `policy` returns a verdict per rule with citable
-evidence. A session for **any programme day (A, B or C) is now generated**: loads solved from recent e1RM (or double
+evidence. A session for **each of the four rolling session types is now generated**: loads solved from recent e1RM (or double
 progression for accessories), rounded down to the athlete's 0.5 kg microplates, with
 MOD-FAT-001 reducing loads when sleep or energy is <= 2. Every item cites a rule id and a
 stored set, and the prescription refuses to be executable if a load, the RIR window, the
@@ -89,7 +89,7 @@ last session, prescribes the date, persists both inside a run trace, and prints 
 that cites a rule or a stored fact. `review` is the calibration loop: it shows the session
 beside the rubric's scores, takes marks, stores them append-only, and reports running
 agreement immediately. Two of the three marks are reconstructed from memory and excluded;
-on the one remembered session, 60% of items agree within ±0.25 (`DEC-EVAL-03/04`).
+agreement is reported against the remembered marks; exact counts are private (`DEC-EVAL-03/04`).
 
 ## 3. v0.1 — complete
 
