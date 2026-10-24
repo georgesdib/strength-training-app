@@ -1299,6 +1299,35 @@ async function loadVolume() {
   }
 }
 
+/* --- regime change ------------------------------------------------------ */
+async function loadRegime() {
+  const date = $("#prescribe-date").value;
+  if (!date) { $("#regime-result").innerHTML = "<p class='empty'>Choose a date.</p>"; return; }
+  $("#regime-msg").textContent = "Checking…";
+  try {
+    const data = await api(`/api/regime?date=${encodeURIComponent(date)}&weeks=8`);
+    const rows = (data.findings || []).map((finding) => {
+      const subs = (finding.substitutes || []).map((sub) =>
+        `<div>${esc(sub.exercise_id)}: ${sub.baseline_sets} → ${sub.current_sets} sets
+         (+${sub.increase})</div>`).join("") || "<span class='muted'>no same-category substitute</span>";
+      return `<tr><td><strong>${esc(finding.main_lift)}</strong>
+        <div class="muted">${esc(finding.category || "—")} · ${esc(finding.kind)}</div></td>
+        <td>${finding.baseline_sets} → ${finding.current_sets}<div class="muted">sets</div></td>
+        <td>${finding.drop_pct}%</td><td>${subs}</td></tr>`;
+    }).join("");
+    $("#regime-result").innerHTML = rows
+      ? `<table><thead><tr><th>Main lift</th><th>Volume</th><th>drop</th>
+         <th>Same-category rise</th></tr></thead><tbody>${rows}</tbody></table>
+         <p class="muted">${esc(data.note)}</p>`
+      : `<p class="empty">${esc(data.note)} No main-lift collapse with a same-category rise in this window.</p>`;
+    $("#regime-msg").textContent = "Checked " + data.coverage.main_lifts_checked + " main lift(s).";
+  } catch (error) {
+    $("#regime-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+    $("#regime-msg").textContent = "";
+  }
+}
+$("#regime-run").addEventListener("click", loadRegime);
+
 /* --- continuity calibration --------------------------------------------- */
 async function loadContinuity() {
   const date = $("#prescribe-date").value;

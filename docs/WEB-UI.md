@@ -65,6 +65,8 @@ global option in the CLI). It is convenience only: it ends in the same `strength
   **e1RM calibration** report (current formula e1RM and last set for every lift, plus
   measured tests vs formula; a bounded correction is applied only when the confidence interval
   excludes 1.0).
+- **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
+  same-category substitute rises; a review question, never an action.
 - **Settings** — optional LLM configuration (enable/disable, model, endpoint, write-only key,
   temperature/tokens/timeout), browser-only Prescribe defaults, and read-only app/database paths.
   The key is masked and lives in git-ignored `config/llm.local.toml`.
@@ -106,6 +108,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `GET /api/progress?date=N` | descriptive progress: sRPE coverage, performance ratio, volume status, latest back symptom |
 | `GET /api/outcomes?weeks=N&date=N` | read-only 4/8/12-week strength, longevity and coverage review |
 | `GET /api/prospective?weeks=N&date=N` | W5 read-only prospective summary: statuses, attendance, work, RIR, duration, flags |
+| `GET /api/regime?weeks=N&date=N` | read-only main-lift/substitute regime check |
 | `GET /api/settings` | masked LLM settings, config/database paths and app version |
 | `POST /api/settings/llm` | save local LLM settings; blank key keeps the stored key |
 | `POST /api/settings/llm/test` | call the configured model with a tiny connectivity prompt |

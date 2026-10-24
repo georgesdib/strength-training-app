@@ -124,4 +124,5 @@ Programme audits should look for *regime changes* rather than judging individual
 - near-empty months that are breaks rather than missed sessions.
 
 These are questions to ask the athlete, not verdicts. A substitution pattern that looks like
-avoidance may be a correct clinical decision.
+avoidance may be a correct clinical decision. The main-lift/substitute check is implemented as
+the read-only [`regime` command and Prescribe panel](REGIME-CHANGE.md).

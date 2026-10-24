@@ -45,6 +45,7 @@ from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import outcomes as outcomes_feature
 from strength_coach.features import prospective as prospective_feature
+from strength_coach.features import regime_change as regime_feature
 from strength_coach.features import readiness_feedback
 from strength_coach.features import heavy_spinal
 from strength_coach.features import injury_signal, readiness as readiness_feature
@@ -254,6 +255,13 @@ class Handler(BaseHTTPRequestHandler):
                                  mimetypes.guess_type(path)[0] or "application/octet-stream")
             elif path == "/api/settings":
                 self._json(200, self._settings())
+            elif path == "/api/regime":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(lambda c: regime_feature.detect(
+                    c,
+                    weeks=int(query.get("weeks", ["8"])[0]),
+                    on_date=query.get("date", [None])[0],
+                )))
             elif path == "/api/overview":
                 self._json(200, self._with_conn(self._overview))
             elif path == "/api/workout/active":

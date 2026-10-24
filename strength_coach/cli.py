@@ -46,6 +46,7 @@ from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import heavy_spinal
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import outcomes as outcomes_feature
+from strength_coach.features import regime_change as regime_feature
 from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import readiness_feedback
 from strength_coach.features import prescription_provenance
@@ -328,6 +329,11 @@ def main(argv: list[str] | None = None) -> int:
     prospective.add_argument("--date", default=None)
     prospective.add_argument("--json", action="store_true")
 
+    regime = sub.add_parser("regime", help="read-only regime-change review")
+    regime.add_argument("--weeks", type=int, choices=(8, 12), default=8)
+    regime.add_argument("--date", default=None)
+    regime.add_argument("--json", action="store_true")
+
     volume = sub.add_parser("volume", help="show weekly hard-set volume by movement pattern")
     volume.add_argument("--weeks", type=int, default=4)
     volume.add_argument("--date", default=None, help="as-of date (default: today)")
@@ -381,6 +387,7 @@ def main(argv: list[str] | None = None) -> int:
         "exposure": _cmd_exposure,
         "outcomes": _cmd_outcomes,
         "prospective": _cmd_prospective,
+        "regime": _cmd_regime,
         "validate": _cmd_validate,
         "workout": _cmd_workout,
         "exercise": _cmd_exercise,
@@ -1417,6 +1424,34 @@ def _cmd_prospective(args) -> int:
         print(f"  duration: {report['duration']['median_min']} min "
               f"({report['duration']['measured_n']} measured)")
         print(f"  flags: {', '.join(f['code'] for f in report['flags']) or 'none'}")
+        print(report["note"])
+        return 0
+    finally:
+        store.close()
+
+
+def _cmd_regime(args) -> int:
+    store = db.Store(args.db)
+    try:
+        report = regime_feature.detect(
+            store.connection, on_date=args.date, weeks=args.weeks
+        )
+        if args.json:
+            print(json.dumps(report, indent=2, default=str))
+            return 0
+        window = report["window"]
+        print(f"regime check: {window['current_from']} to {window['current_to']} "
+              f"({window['weeks']} weeks; baseline {window['baseline_from']} to "
+              f"{window['baseline_to']})")
+        if not report["findings"]:
+            print("  no main-lift collapse detected")
+        for finding in report["findings"]:
+            subs = ", ".join(
+                f"{row['exercise_id']} {row['baseline_sets']}->{row['current_sets']}"
+                for row in finding["substitutes"]
+            ) or "no same-category substitute"
+            print(f"  {finding['main_lift']}: {finding['baseline_sets']}->"
+                  f"{finding['current_sets']} sets ({finding['drop_pct']}% drop; {subs})")
         print(report["note"])
         return 0
     finally:

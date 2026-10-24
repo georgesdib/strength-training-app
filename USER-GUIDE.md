@@ -488,6 +488,17 @@ not bypass the readiness gate or the minimum-data rule. Context flags are displa
 readiness and do not change the score by default. The Readiness page exposes the same
 buttons and checkboxes.
 
+### 4.4f `regime` — read-only regime check
+
+```bash
+strength-coach regime --weeks 8
+strength-coach regime --weeks 12 --json
+```
+
+Flags a main lift whose working volume fell sharply while a same-category substitute
+rose. It is a review question, not a verdict and never a prescription change. See
+[REGIME-CHANGE.md](docs/REGIME-CHANGE.md).
+
 ### 4.4e `prospective` — W5 review
 
 ```bash

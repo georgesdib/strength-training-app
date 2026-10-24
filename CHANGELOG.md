@@ -15,6 +15,8 @@
 
 ### Added
 
+- Read-only regime-change check: `regime` CLI, `/api/regime` and Prescribe panel for a main
+  lift collapsing while a same-category substitute rises.
 - Web **Settings** tab: enable/disable and configure the local LLM (write-only key), browser-only
   Prescribe defaults, and read-only app paths. New `/api/settings` endpoints.
 - Rubric 1.1.0 scores measured live-workout duration; imported sessions remain

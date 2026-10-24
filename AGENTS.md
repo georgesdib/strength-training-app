@@ -43,7 +43,7 @@ What exists today is:
 - `strength_coach/trace/` — run lifecycle around `run` / `run_event`.
 - `strength_coach/eval/` — backtest harness, labelled-set comparison, and the database-backed
   marks that make calibration continuous (`rubric_mark`, append-only).
-- `strength_coach/cli.py` — `import`, `run`, `review`, `calibrate`, `state`, `block`, `e1rm`,
+- `strength_coach/cli.py` — `import`, `run`, `review`, `calibrate`, `state`, `block`, `regime`, `e1rm`,
   `test`, `symptom`, `cardio`, `measure`, `fatigue`, `select`, `exercise`, `readiness`, `programme`, `validate`, `workout`, `web`. `review` (with `--pending`) is the routine that keeps calibration current.
 - `strength_coach/web/` — local-only HTTP UI and JSON API over the same core; no authentication, bind 127.0.0.1.
 - `strength_coach/agents/` — LLM interface, config, narrative and structured proposals.
@@ -187,6 +187,7 @@ never read `data/raw`.
 |---|---|
 | `USER-GUIDE.md` | how to install, run and read the output (the human-facing entry point) |
 | `ROADMAP.md` | live phase status, next actions, resume checklist |
+| `docs/REGIME-CHANGE.md` | read-only main-lift/substitute regime check; thresholds and limits |
 | `docs/AUDIT-CLOSEOUT.md` | final W0–W12 audit outcome, implemented fixes and remaining limitations |
 | `docs/W11-W12-CLOSEOUT.md` | W11 documentation consistency (including rubric 1.1.0 duration) and W12 public-data inventory/history decision |
 | `docs/W10-AGE.md` | W10 age-in-state audit; optional birth-year, wording and no age-based load rule |

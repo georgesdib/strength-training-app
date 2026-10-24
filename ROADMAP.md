@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-23 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **665 public tests** (680 with the 15 private integration tests)
+Last updated: 2026-10-23 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **668 public tests** (683 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-23 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 680 locally, including private integration
+.venv/bin/python -m pytest            # 683 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -1035,7 +1035,8 @@ Recorded so good ideas are not lost, explicitly **not** commitments:
 - Rotation scoring split by session provenance (app-assigned vs self-directed).
 - Grip-strength left/right asymmetry as a readiness input and a unilateral-work trigger.
 - Per-lift manual velocity overrides with expiry.
-- Regime-change detection (a lift's volume collapsing while a substitute rises).
+- ~~Regime-change detection (a lift's volume collapsing while a substitute rises).~~ **Delivered
+  2026-10-24** as a read-only 8/12-week check (`regime`, Prescribe panel).
 - LLM-guided suggested programme under the §4.18 guardrails (idea only).
 - Wider proposal licence (more than one increment on the menu) once the menu has proved itself
   in real sessions.
