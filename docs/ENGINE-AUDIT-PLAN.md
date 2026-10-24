@@ -237,6 +237,8 @@ Exit criteria:
 
 ### W4 — Programme quality and evidence
 
+**Status:** audit complete 2026-10-23. See [`W4-PROGRAMME-EVIDENCE.md`](W4-PROGRAMME-EVIDENCE.md).
+
 **Question:** is the programme a coherent strength stimulus, and which rules are evidence,
 heuristic, hypothesis, constraint or unvalidated model?
 

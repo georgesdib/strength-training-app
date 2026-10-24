@@ -15,6 +15,8 @@
 
 ### Documented
 
+- W4 programme-evidence audit: rule classes, confidence, qualified claims and no new model.
+- Limitations register indexing all open, mitigated and accepted audit limitations.
 - W2 load-lineage audit: bodyweight added-load misclassification, incomplete-workout
   provenance and e1RM coverage gaps.
 - W9 spinal-cap audit: zero-headroom normal week, exact-cap trigger behaviour, missing
