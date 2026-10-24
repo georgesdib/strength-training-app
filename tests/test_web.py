@@ -655,3 +655,17 @@ def test_outcomes_endpoint_is_read_only(server):
     assert data["window"]["weeks"] == 4
     assert "strength" in data and "longevity" in data
     assert data["note"].startswith("Descriptive")
+
+
+def test_quick_readiness_preset_and_context_endpoints(server):
+    data = post(server, "/api/readiness/preset", {
+        "date": "2024-01-08", "name": "good_to_train",
+    })
+    assert data["score"]["status"] == "ready"
+    assert data["context_flags"] == []
+
+    data = post(server, "/api/readiness/context", {
+        "date": "2024-01-08", "flags": ["travel", "alcohol"],
+    })
+    assert set(data["context_flags"]) == {"travel", "alcohol"}
+    assert data["score"]["status"] == "ready"

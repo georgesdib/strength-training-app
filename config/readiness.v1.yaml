@@ -17,6 +17,13 @@ merge:
   strategy: most_complete
   tie_break: latest
 
+context:
+  # Displayed beside readiness; they do not alter the score by default.
+  flags: [travel, timezone_change, illness, alcohol, poor_sleep_environment, high_work_stress]
+  # Optional: suppress HRV/RHR from the headline score when one of these flags is present.
+  # Empty by default; enabling this changes a load and needs a decision record.
+  device_suppression_flags: []
+
 modifier:
   # MOD-FAT-001 reads these fields only. Keeping the list here means adding a field is a config
   # change, not a code change -- and adding one widens what can downgrade a session, so it

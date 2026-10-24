@@ -301,6 +301,14 @@
             <span class="muted">Any subset is valid. Manual values win per field.</span>
           </div>
         </form>
+        <div class="panel">
+          <div class="panel-head"><h2>Quick readiness</h2><span class="muted">presets write ordinary fields; no shortcut around the gate</span></div>
+          <div id="readiness-presets" class="form-row"></div>
+          <p class="muted">Context flags are displayed beside readiness and do not change the score by default.</p>
+          <div id="readiness-context" class="form-row"></div>
+          <button class="ghost" type="button" onclick="saveReadinessContext()">Save context flags</button>
+          <span id="context-msg" class="muted"></span>
+        </div>
         <div id="readiness-score"></div>
         <div class="panel">
           <div class="panel-head"><h2>Baseline settings</h2><span class="muted">athlete overrides config</span></div>

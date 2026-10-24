@@ -452,6 +452,19 @@ strength-coach state --rate EXERCISE_ID --can-do yes --will-do yes --feels-bad n
 An unrated exercise is "unknown", which is why a main-lift substitution (see §4.8) is refused
 until its replacement has a rating.
 
+### 4.9a Quick readiness presets and context
+
+```bash
+strength-coach readiness preset --name good_to_train
+strength-coach readiness context --flags travel,alcohol
+strength-coach readiness context
+```
+
+Presets write ordinary sleep/energy/soreness/stress readings with `source=preset`; they do
+not bypass the readiness gate or the minimum-data rule. Context flags are displayed beside
+readiness and do not change the score by default. The Readiness page exposes the same
+buttons and checkboxes.
+
 ### 4.4c `outcomes` — a descriptive multi-week review
 
 ```bash

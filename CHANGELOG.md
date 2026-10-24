@@ -17,6 +17,8 @@
 
 ### Added
 
+- Quick readiness presets and display-only context flags, with ordinary `preset` entries and
+  an explicit empty-by-default HRV/RHR suppression config.
 - High-intensity exposure tracking: tests auto-register a non-volume exposure, near-max
   attempts/competition/unplanned work can be logged, and a conservative recovery guard warns or
   blocks another maximal exposure without changing loads. See `docs/HIGH-INTENSITY-EXPOSURE-PLAN.md`.

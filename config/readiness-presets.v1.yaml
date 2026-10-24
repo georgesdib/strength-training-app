@@ -1,0 +1,29 @@
+# Quick readiness presets. Values are ordinary 1-5 readiness readings; higher is better.
+# A preset writes four fields (sleep, energy, soreness, stress) with source=preset and never
+# bypasses the minimum-data rule or the readiness gate.
+schema_version: "1.0.0"
+presets:
+  good_to_train:
+    label: "Good to train"
+    values: {sleep: 4, energy: 4, soreness: 5, stress: 4}
+    context_flags: []
+  slightly_tired:
+    label: "Slightly tired"
+    values: {sleep: 3, energy: 3, soreness: 4, stress: 3}
+    context_flags: []
+  poor_sleep:
+    label: "Poor sleep"
+    values: {sleep: 2, energy: 3, soreness: 4, stress: 3}
+    context_flags: [poor_sleep_environment]
+  high_stress:
+    label: "High stress"
+    values: {sleep: 3, energy: 3, soreness: 4, stress: 2}
+    context_flags: [high_work_stress]
+  sore_cautious:
+    label: "Sore / cautious"
+    values: {sleep: 3, energy: 3, soreness: 2, stress: 3}
+    context_flags: []
+  unwell_do_not_train:
+    label: "Unwell / do not train"
+    values: {sleep: 1, energy: 1, soreness: 2, stress: 3}
+    context_flags: [illness]

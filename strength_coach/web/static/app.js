@@ -615,6 +615,15 @@ async function loadReadiness(date) {
       const value = data[input.dataset.field];
       input.value = value ?? "";
     });
+    const presets = data.presets || {};
+    $("#readiness-presets").innerHTML = Object.entries(presets).map(([name, preset]) =>
+      `<button type="button" class="ghost" onclick="applyReadinessPreset('${esc(name)}')">${esc(preset.label || name)}</button>`
+    ).join("");
+    const flags = ["travel", "timezone_change", "illness", "alcohol", "poor_sleep_environment", "high_work_stress"];
+    const active = new Set(data.context_flags || []);
+    $("#readiness-context").innerHTML = flags.map((flag) =>
+      `<label><input type="checkbox" data-context="${esc(flag)}" ${active.has(flag) ? "checked" : ""}> ${esc(flag.replaceAll("_", " "))}</label>`
+    ).join("");
     if (data.settings) {
       const s = data.settings;
       $("#setting-baseline-days").value = s.baseline_days;
@@ -635,6 +644,29 @@ async function loadReadiness(date) {
     renderReadiness(data);
   } catch (error) {
     $("#readiness-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function applyReadinessPreset(name) {
+  const day = $("#readiness-date").value;
+  try {
+    await api("/api/readiness/preset", { method: "POST", body: JSON.stringify({ date: day, name }) });
+    await loadReadiness(day);
+  } catch (error) {
+    $("#readiness-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function saveReadinessContext() {
+  const day = $("#readiness-date").value;
+  const flags = [...document.querySelectorAll("#readiness-context [data-context]")]
+    .filter((input) => input.checked).map((input) => input.dataset.context);
+  try {
+    await api("/api/readiness/context", { method: "POST", body: JSON.stringify({ date: day, flags }) });
+    $("#context-msg").textContent = "Saved";
+    await loadReadiness(day);
+  } catch (error) {
+    $("#context-msg").textContent = error.message;
   }
 }
 
@@ -818,6 +850,7 @@ function renderReadinessScore(score) {
     <div class="panel-head"><h2>Computed readiness</h2>
       <span class="badge ${score.status === "ready" ? "" : "warn"}">${esc(score.status)}</span></div>
     <p><strong>${score.score == null ? "—" : fmt(score.score, 2)}</strong> <span class="muted">${esc(score.basis || "")}</span></p>
+    ${(score.context_flags || []).length ? `<p class="muted">Context: ${(score.context_flags || []).map((f) => esc(f.replaceAll("_", " "))).join(", ")}${score.device_suppressed ? " · HRV/RHR suppressed" : ""}</p>` : ""}
     ${components ? `<table><thead><tr><th>Input</th><th>value</th><th>normalised</th></tr></thead><tbody>${components}</tbody></table>` : ""}
     ${categories ? `<h3>Categories</h3><table><thead><tr><th>Category</th><th>score</th></tr></thead><tbody>${categories}</tbody></table>` : ""}
     ${overrides ? `<h3>Overrides</h3><table><thead><tr><th>Scope</th><th>value</th><th>reason</th></tr></thead><tbody>${overrides}</tbody></table>` : ""}

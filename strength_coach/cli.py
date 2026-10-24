@@ -201,7 +201,10 @@ def main(argv: list[str] | None = None) -> int:
                         help='JSON object of properties, e.g. {"pattern":"squat"}')
 
     readiness = sub.add_parser("readiness", help="record a readiness day")
-    readiness.add_argument("action", choices=("set", "override", "calibrate", "settings", "shadow"))
+    readiness.add_argument("action", choices=("set", "override", "calibrate", "settings", "shadow", "preset", "context"))
+    readiness.add_argument("--name", default=None, help="readiness preset key")
+    readiness.add_argument("--flags", default=None,
+                           help="comma-separated context flags; empty shows current flags")
     readiness.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
     readiness.add_argument("--sleep", type=int, default=None)
     readiness.add_argument("--energy", type=int, default=None)
@@ -701,6 +704,32 @@ def _cmd_readiness(args) -> int:
             print(readiness_baseline.report(conn, end=args.date))
             return 0
         args.date = args.date or datetime.date.today().isoformat()
+        if args.action == "preset":
+            if not args.name:
+                print("readiness preset: --name is required")
+                return 2
+            try:
+                readiness_feature.record_preset(conn, args.date, args.name, note=args.note)
+            except ValueError as exc:
+                print(f"readiness preset: {exc}")
+                return 2
+            print(f"readiness preset {args.name} recorded on {args.date}")
+            _print_readiness_score(readiness_score.compute(conn, args.date))
+            return 0
+        if args.action == "context":
+            flags = [flag.strip() for flag in (args.flags or "").split(",") if flag.strip()]
+            if flags:
+                try:
+                    readiness_feature.record_context(conn, args.date, flags, note=args.note)
+                except ValueError as exc:
+                    print(f"readiness context: {exc}")
+                    return 2
+                print(f"readiness context recorded on {args.date}: {', '.join(flags)}")
+            else:
+                current = queries.readiness_context(conn, args.date)
+                print(f"readiness context {args.date}: {', '.join(current) or 'none'}")
+            _print_readiness_score(readiness_score.compute(conn, args.date))
+            return 0
         if args.action == "settings":
             effective = readiness_score.effective_settings(conn, args.date)
             supplied = {

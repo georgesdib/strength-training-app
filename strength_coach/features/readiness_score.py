@@ -70,6 +70,8 @@ class ReadinessAssessment:
     overrides: Mapping[str, dict]
     category_scores: Mapping[str, float]
     category_factors: Mapping[str, tuple[float, int]]
+    context_flags: tuple[str, ...] = ()
+    device_suppressed: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -86,6 +88,8 @@ class ReadinessAssessment:
             "category_scores": dict(self.category_scores),
             "category_factors": {k: {"factor": v[0], "rir_bump": v[1]}
                                  for k, v in self.category_factors.items()},
+            "context_flags": list(self.context_flags),
+            "device_suppressed": self.device_suppressed,
         }
 
 
@@ -131,8 +135,11 @@ def _clamp(value: float) -> float:
 
 
 def _device_components(conn, data: Mapping[str, Any], on_date: str,
-                       config: readiness_config.ReadinessConfig):
+                       config: readiness_config.ReadinessConfig,
+                       context_flags: tuple[str, ...] = ()):
     """Baseline-relative HRV/RHR components, with an explicit missing-baseline note."""
+    if any(flag in config.device_suppression_flags for flag in context_flags):
+        return [], ["HRV/RHR suppressed by readiness context flag"]
     history = queries.readiness_history(conn, on_date, config.baseline_days)
     components: list[Component] = []
     notes: list[str] = []
@@ -217,21 +224,26 @@ def effective_settings(conn, on_date: str,
 def compute(conn, on_date: str, config: readiness_config.ReadinessConfig | None = None) -> ReadinessAssessment:
     config = effective_settings(conn, on_date, config)
     data = queries.readiness_day(conn, on_date)
+    context_flags = tuple(queries.readiness_context(conn, on_date))
     components = _core_values(data)
     overrides = queries.readiness_overrides(conn, on_date)
     present = {c.field for c in components}
     if data is None:
         return ReadinessAssessment(
-            on_date, "unknown", None, (), "no readiness entry", overrides, {}, {}
+            on_date, "unknown", None, (), "no readiness entry", overrides, {}, {},
+            context_flags=context_flags,
         )
     if len(components) < MIN_CORE_FIELDS or not ({"sleep", "energy"} & present):
         return ReadinessAssessment(
             on_date, "insufficient", None, tuple(components),
             f"{len(components)} core field(s); need {MIN_CORE_FIELDS} and sleep or energy",
-            overrides, {}, {},
+            overrides, {}, {}, context_flags=context_flags,
         )
 
-    device_components, device_notes = _device_components(conn, data, on_date, config)
+    device_components, device_notes = _device_components(
+        conn, data, on_date, config, context_flags
+    )
+    suppressed = any(flag in config.device_suppression_flags for flag in context_flags)
     components.extend(device_components)
     wearable = _wearable(data, config.wearable_weight)
     if wearable is not None:
@@ -267,6 +279,8 @@ def compute(conn, on_date: str, config: readiness_config.ReadinessConfig | None 
         overrides=overrides,
         category_scores=categories,
         category_factors=factors,
+        context_flags=context_flags,
+        device_suppressed=suppressed,
     )
 
 

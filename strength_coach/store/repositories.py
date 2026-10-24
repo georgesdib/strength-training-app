@@ -691,7 +691,7 @@ def append_readiness_entry(
     This is the manual counterpart to the imported `readiness_day` row. Append-only is the
     point: re-logging a date is a correction, not an edit (DEC-READINESS-03).
     """
-    if source not in {"manual", "import"}:
+    if source not in {"manual", "import", "preset"}:
         raise ValueError(f"unknown readiness source {source!r}")
     readiness_utils.validate(field, value)
     entry_id = uuid.uuid4().hex
@@ -1230,3 +1230,23 @@ def append_prescription_modifier(
         ),
     )
     return modifier_id
+
+
+def append_readiness_context(
+    conn: sqlite3.Connection,
+    *,
+    on_date: str,
+    flag: str,
+    note: str | None = None,
+) -> str:
+    """Append a context flag. It is displayed, not scored by default."""
+    from strength_coach.features.readiness import CONTEXT_FLAGS
+
+    if flag not in CONTEXT_FLAGS:
+        raise ValueError(f"unknown readiness context flag {flag!r}")
+    context_id = uuid.uuid4().hex
+    conn.execute(
+        "INSERT INTO readiness_context (context_id, on_date, flag, note) VALUES (?, ?, ?, ?)",
+        (context_id, str(on_date), flag, (note or "").strip() or None),
+    )
+    return context_id

@@ -33,6 +33,12 @@ MERGE_STRATEGIES = ("most_complete",)
 TIE_BREAKS = ("latest",)
 
 
+CONTEXT_FLAGS = (
+    "travel", "timezone_change", "illness", "alcohol",
+    "poor_sleep_environment", "high_work_stress",
+)
+
+
 class ReadinessConfigError(ValueError):
     """The readiness configuration is invalid or asks for something unimplemented."""
 
@@ -51,6 +57,11 @@ class ReadinessConfig:
     hrv_weight: float = 0.5
     rhr_weight: float = 0.5
     wearable_weight: float = 0.10
+    context_flags: tuple[str, ...] = (
+        "travel", "timezone_change", "illness", "alcohol",
+        "poor_sleep_environment", "high_work_stress",
+    )
+    device_suppression_flags: tuple[str, ...] = ()
     set_reduction_enabled: bool = True
     set_reduction_score_below: float = 0.50
     set_reduction_sets: int = 1
@@ -103,6 +114,13 @@ class ReadinessConfig:
         if unknown:
             raise ReadinessConfigError(f"modifier.fields: unknown readiness fields {unknown}")
 
+        context = raw.get("context") or {}
+        context_flags = tuple(str(v) for v in (context.get("flags") or ()))
+        suppression = tuple(str(v) for v in (context.get("device_suppression_flags") or ()))
+        unknown_context = [f for f in (*context_flags, *suppression) if f not in CONTEXT_FLAGS]
+        if unknown_context:
+            raise ReadinessConfigError(f"context: unknown flags {unknown_context}")
+
         composite = raw.get("composite") or {}
         score = raw.get("score") or {}
         baseline_days = int(score.get("baseline_days", 28))
@@ -135,6 +153,8 @@ class ReadinessConfig:
             hrv_weight=hrv_weight,
             rhr_weight=rhr_weight,
             wearable_weight=wearable_weight,
+            context_flags=context_flags,
+            device_suppression_flags=suppression,
             set_reduction_enabled=bool(set_reduction.get("enabled", True)),
             set_reduction_score_below=float(set_reduction.get("score_below", 0.50)),
             set_reduction_sets=max(0, int(set_reduction.get("sets", 1))),
@@ -198,6 +218,8 @@ def as_dict(config: ReadinessConfig) -> dict[str, Any]:
         "hrv_weight": config.hrv_weight,
         "rhr_weight": config.rhr_weight,
         "wearable_weight": config.wearable_weight,
+        "context_flags": list(config.context_flags),
+        "device_suppression_flags": list(config.device_suppression_flags),
         "set_reduction_enabled": config.set_reduction_enabled,
         "set_reduction_score_below": config.set_reduction_score_below,
         "set_reduction_sets": config.set_reduction_sets,
@@ -228,3 +250,59 @@ def record_manual(conn, on_date: str, values: Mapping[str, float],
             conn, on_date=on_date, field=field, value=float(values[field]), note=note,
         )
     return len(values)
+
+
+PRESET_FIELDS = ("sleep", "energy", "soreness", "stress")
+
+
+def presets(path: str | Path | None = None) -> dict[str, dict]:
+    """Configured quick-readiness presets. Values are ordinary 1-5 readings."""
+    source = Path(path or paths.config_dir("readiness-presets.v1.yaml"))
+    raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+    out = {}
+    for name, body in (raw.get("presets") or {}).items():
+        values = body.get("values") or {}
+        if not all(field in values for field in PRESET_FIELDS):
+            raise ValueError(f"preset {name!r} must define {PRESET_FIELDS}")
+        clean = {field: int(values[field]) for field in PRESET_FIELDS}
+        if not all(1 <= value <= 5 for value in clean.values()):
+            raise ValueError(f"preset {name!r} values must be 1-5")
+        out[str(name)] = {
+            "label": str(body.get("label") or name),
+            "values": clean,
+            "context_flags": tuple(str(v) for v in (body.get("context_flags") or ())),
+        }
+    return out
+
+
+def record_preset(conn, on_date: str, name: str, note: str | None = None) -> int:
+    """Write the four ordinary readings and any preset context flags.
+
+    This does not bypass the gate or the minimum-data rule: it writes fields, and the normal
+    readiness compute decides whether they are sufficient.
+    """
+    choices = presets()
+    if name not in choices:
+        raise ValueError(f"unknown readiness preset {name!r}; choose {sorted(choices)}")
+    preset = choices[name]
+    for field in PRESET_FIELDS:
+        repositories.append_readiness_entry(
+            conn, on_date=on_date, field=field, value=preset["values"][field],
+            source="preset", note=note or f"preset:{name}",
+        )
+    for flag in preset["context_flags"]:
+        repositories.append_readiness_context(
+            conn, on_date=on_date, flag=flag, note=note or f"preset:{name}",
+        )
+    return len(PRESET_FIELDS)
+
+
+def record_context(conn, on_date: str, flags: list[str] | tuple[str, ...],
+                   note: str | None = None) -> int:
+    """Append context flags; they are displayed, not scored by default."""
+    unknown = [flag for flag in flags if flag not in CONTEXT_FLAGS]
+    if unknown:
+        raise ValueError(f"unknown readiness context flags {unknown}")
+    for flag in dict.fromkeys(flags):
+        repositories.append_readiness_context(conn, on_date=on_date, flag=flag, note=note)
+    return len(dict.fromkeys(flags))

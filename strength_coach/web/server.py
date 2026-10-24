@@ -390,6 +390,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._set_readiness(c, body)))
             elif path == "/api/readiness/override":
                 self._json(200, self._with_conn(lambda c: self._set_readiness_override(c, body)))
+            elif path == "/api/readiness/preset":
+                self._json(200, self._with_conn(lambda c: self._set_readiness_preset(c, body)))
+            elif path == "/api/readiness/context":
+                self._json(200, self._with_conn(lambda c: self._set_readiness_context(c, body)))
             elif path == "/api/readiness/settings":
                 self._json(200, self._with_conn(lambda c: self._set_readiness_settings(c, body)))
             elif path == "/api/readiness/volume":
@@ -754,6 +758,8 @@ class Handler(BaseHTTPRequestHandler):
         # Legacy column kept for historical rows; grip is a measurement now (DEC-GRIP-01).
         data.pop("grip_strength_kg", None)
         data["score"] = readiness_score.compute(conn, day).as_dict()
+        data["context_flags"] = queries.readiness_context(conn, day)
+        data["presets"] = readiness_feature.presets()
         data["settings"] = readiness_feature.as_dict(
             readiness_score.effective_settings(conn, day)
         )
@@ -773,6 +779,26 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("values must be an object")
         clean = {key: value for key, value in values.items() if value not in (None, "")}
         readiness_feature.record_manual(conn, day, clean, note=body.get("note") or None)
+        return self._readiness(conn, day)
+
+    def _set_readiness_preset(self, conn, body: dict) -> dict:
+        day = str(body.get("date") or datetime.date.today().isoformat())
+        name = str(body.get("name") or "").strip()
+        if not name:
+            raise ValueError("preset name is required")
+        readiness_feature.record_preset(conn, day, name, note=body.get("note") or None)
+        return self._readiness(conn, day)
+
+    def _set_readiness_context(self, conn, body: dict) -> dict:
+        day = str(body.get("date") or datetime.date.today().isoformat())
+        flags = body.get("flags")
+        if isinstance(flags, str):
+            flags = [flags]
+        if not isinstance(flags, list):
+            raise ValueError("flags must be a list")
+        readiness_feature.record_context(
+            conn, day, [str(flag) for flag in flags], note=body.get("note") or None,
+        )
         return self._readiness(conn, day)
 
     def _set_readiness_settings(self, conn, body: dict) -> dict:

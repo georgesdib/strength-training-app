@@ -34,7 +34,7 @@ Today readiness arrives only from the exported `readiness.csv`: one row per reco
 several rows can share a date. Every cell is read as text and stored verbatim in `raw_row`
 before anything is interpreted.
 
-Manual entry (daily, occasional, or partial) feeds the same merge. A manual value wins **per
+Manual entry (daily, occasional, or partial) feeds the same merge. Quick presets write the same ordinary fields with `source=preset`; they do not bypass the gate or the minimum-data rule. Context flags (`travel`, `timezone_change`, `illness`, `alcohol`, `poor_sleep_environment`, `high_work_stress`) are stored separately and are displayed, not scored by default. A manual value wins **per
 field**; the imported row fills the fields it does not provide (`DEC-READINESS-03`). The old
 `squat_readiness`/`bench_readiness`/`deadlift_readiness` columns are retained only as
 calibration labels; they are not accepted as manual input (`DEC-READINESS-06`). Manual

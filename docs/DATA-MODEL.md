@@ -108,6 +108,20 @@ Append-only. Provenance only; it does not change a prescription. The web prescri
 does not persist prescriptions, so provenance is currently available for CLI-stored
 prescriptions.
 
+## 3d. `readiness_context` — display-only context flags
+
+| column | notes |
+|---|---|
+| context_id PK | UUID |
+| on_date | date |
+| flag | `travel`, `timezone_change`, `illness`, `alcohol`, `poor_sleep_environment`, `high_work_stress` |
+| note | optional |
+| created_at | timestamp |
+
+Append-only. Flags are displayed beside readiness and do not alter the score by default.
+`device_suppression_flags` in `config/readiness.v1.yaml` can explicitly suppress HRV/RHR for
+selected flags; the default list is empty. `readiness_entry.source` now includes `preset`.
+
 ## 4. Quarantine
 
 `raw_row` rows that cannot be placed (rows with a null date) stay in `raw_row` and get a

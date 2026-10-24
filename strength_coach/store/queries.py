@@ -539,3 +539,18 @@ def high_intensity_exposures(conn, end: str | None = None,
         params,
     ).fetchall()
     return [dict(row) for row in rows]
+
+
+def readiness_context(conn, on_date: str) -> list[str]:
+    """Current context flags for a date, latest occurrence first."""
+    rows = conn.execute(
+        "SELECT flag FROM readiness_context WHERE on_date = ? "
+        "ORDER BY created_at DESC, context_id DESC",
+        (str(on_date),),
+    ).fetchall()
+    seen = []
+    for row in rows:
+        flag = str(row["flag"])
+        if flag not in seen:
+            seen.append(flag)
+    return seen
