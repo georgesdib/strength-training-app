@@ -32,7 +32,7 @@ What exists today is:
 - `tools/baseline.py` — regenerates the numbers in `private/docs/BASELINE.md`.
 - `strength_coach/domain/` — e1RM, load arithmetic, RIR classes (tested).
 - `strength_coach/ingest/` — cleaning, flags, quarantine, session reconstruction.
-- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, per-region injury signal, cardio capture summary, periodic measurement log, optional session RPE/length, e1RM calibration/decay, per-lift readiness, high-intensity exposure guard, strength fitness-fatigue shadow model, scheduled/reactive deload policy, standardised warm-up ramps, 3RM/5RM cadence, under-MEV accessory progression, optional main-lift readiness set reduction, a user-selected volume-only minimum session, a descriptive progress dashboard, a read-only outcomes review, prescription-modifier provenance, quick readiness presets, context flags and a read-only readiness feedback report.
+- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, per-region injury signal, cardio capture summary, periodic measurement log, optional session RPE/length, e1RM calibration/decay, per-lift readiness, high-intensity exposure guard, strength fitness-fatigue shadow model, scheduled/reactive deload policy, standardised warm-up ramps, 3RM/5RM cadence, under-MEV accessory progression, optional main-lift readiness set reduction, a user-selected volume-only minimum session, a descriptive progress dashboard, a read-only outcomes review, prescription-modifier provenance, quick readiness presets, context flags, a read-only readiness feedback report and a shared attendance summary.
 - `strength_coach/store/` — SQLite migrations, append-only repositories, import orchestration.
 - `strength_coach/workout.py` — live workout session, linked prescription snapshot, manual/imported sets, plan overrides, timed/manual end and rubric link.
 - `data/coach.db` is created on demand and is git-ignored.
@@ -222,7 +222,7 @@ never read `data/raw`.
 | `docs/HIGH-INTENSITY-EXPOSURE-PLAN.md` | detailed proposal: tests/max attempts/competition exposures, guard windows, evidence and phased evaluation |
 | `docs/ENGINE-AUDIT-PLAN.md` | living audit plan: execution map, attendance, load lineage, modifier interactions, evidence review and prospective evaluation; no implementation |
 | `docs/READINESS-AUDIT.md` | W6 audit: readiness vs no readiness is not identifiable retrospectively; descriptive associations and policy options |
-| `docs/W1-W7-ATTENDANCE.md` | W1 schedule simulations and W7 attendance-metric definitions; forecast-deload and max-session gaps |
+| `docs/W1-W7-ATTENDANCE.md` | W1 schedule audit and W7 attendance metrics; forecast-deload path and session cap implemented |
 | `docs/W0-EXECUTION-MAP.md` | W0 execution map, modifier ownership/order, input risks, test coverage and candidate findings |
 | `docs/W3-MODIFIER-MATRIX.md` | W3 audit: six confirmed deload/order/floor/RIR defects, fixed and tested |
 | `docs/MINIMUM-SESSION.md` | `MOD-MIN-001` user-selected volume-only fallback: targets, floors, precedence, refusal and provenance |

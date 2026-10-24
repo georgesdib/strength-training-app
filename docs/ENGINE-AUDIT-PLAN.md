@@ -106,7 +106,7 @@ Exit criteria:
 
 ### W1 — Attendance and rolling schedule
 
-**Status:** complete 2026-10-23. See [`W1-W7-ATTENDANCE.md`](W1-W7-ATTENDANCE.md).
+**Status:** complete 2026-10-23; W1/W7 recommendations implemented. See [`W1-W7-ATTENDANCE.md`](W1-W7-ATTENDANCE.md).
 
 **Question:** does the rolling programme remain coherent when attendance is imperfect?
 
@@ -626,7 +626,7 @@ history remains public. Do not rewrite history without separate approval.
 | ID | workstream | depends on | deliverable |
 |---|---|---|---|
 | W6 | Readiness vs no readiness | W0 | audit complete; no-readiness counterfactual not identifiable; Option B (main-lift set reduction opt-in) accepted |
-| W7 | Attendance metrics | W0 | audit complete; definitions and gaps documented |
+| W7 | Attendance metrics | W0 | implemented in shared `features/attendance.py`; Today and Outcomes display |
 | W8 | Volume balance | W1/W4 | options with sets, spinal cost, time and rationale |
 | W9 | Spinal cap headroom | W1/W3 | frequency table and cap/ordinality options |
 | W10 | Age in athlete state | W0 | schema/state proposal and wording changes |

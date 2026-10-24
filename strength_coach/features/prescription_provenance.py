@@ -16,6 +16,13 @@ MODIFIER_KEYS = (
 )
 
 
+def _include_minimum_from_note(refs: set[str], notes: dict) -> None:
+    """A minimum that removes every affected item has no remaining item ref to cite."""
+    minimum = notes.get("minimum_session") or {}
+    if minimum.get("requested") and minimum.get("applied"):
+        refs.add("MOD-MIN-001")
+
+
 def extract(prescription) -> list[tuple[str, dict]]:
     """Return (modifier_key, detail) pairs for modifiers actually cited by items/notes."""
     refs: set[str] = set()
@@ -25,12 +32,13 @@ def extract(prescription) -> list[tuple[str, dict]]:
             if ref in MODIFIER_KEYS:
                 refs.add(ref)
                 changed.setdefault(ref, []).append(item.exercise_id)
+    notes = prescription.notes or {}
+    _include_minimum_from_note(refs, notes)
     out: list[tuple[str, dict]] = []
     for key in MODIFIER_KEYS:
         if key not in refs:
             continue
         detail: dict = {"items": sorted(set(changed.get(key, ())))}
-        notes = prescription.notes or {}
         if key == "MOD-FAT-001":
             detail["readiness_trigger"] = notes.get("fatigue_trigger")
             detail["per_lift_readiness"] = notes.get("per_lift_readiness")
@@ -60,6 +68,7 @@ def extract_plan(plan: dict) -> list[tuple[str, dict]]:
                 refs.add(str(ref))
                 changed.setdefault(str(ref), []).append(exercise_id)
     notes = plan.get("notes") or {}
+    _include_minimum_from_note(refs, notes)
     out: list[tuple[str, dict]] = []
     for key in MODIFIER_KEYS:
         if key not in refs:

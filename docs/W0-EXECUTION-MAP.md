@@ -167,16 +167,16 @@ These are questions for later workstreams, not defects established by W0.
 
 | ID | candidate | next workstream |
 |---|---|---|
-| W0-C1 | `athlete_profile.max_session_minutes` is stored/displayed but not consumed by the prescription engine; templates use a fixed `time_cap_s` | W1 |
+| W0-C1 | `athlete_profile.max_session_minutes` was stored/displayed but not consumed by the engine | **Resolved in W1:** planned-cap metadata + warning; no automatic set cut |
 | W0-C2 | `SESSION_DURATION` in the rubric remains unmeasurable for imported sessions even though live workouts have measured duration | W11 |
-| W0-C3 | `MOD-MIN-001` can remove all non-essential items; if no remaining item carries the ref, `prescription_modifier` may have no row even though the note records the mode | W3 follow-up / provenance |
+| W0-C3 | `MOD-MIN-001` could remove all non-essential items with no remaining citing item | **Resolved:** provenance now includes an applied minimum from its note even when every affected item was removed |
 | W0-C4 | Deload and minimum estimates use planning seconds, not measured duration; the note is an estimate | W11 |
 | W0-C5 | The UI prescribe preview and the committed workout artifact are different states; this is intentional but should stay explicit | W11/parity |
-| W0-C6 | The rolling schedule and attendance are not measured by the progress dashboard | W1/W7 |
+| W0-C6 | The rolling schedule and attendance were not measured by the progress dashboard | **Resolved by W7:** shared attendance summary on Today and Outcomes |
 | W0-C7 | Imported logs have no reliable timestamps, so session duration and late entry remain weak | W2/W11 |
 | W0-C8 | The minimum-session deep tier can reduce a main lift to 2 sets; the evidence for that dose is a heuristic, not a trial | W4 |
 
-None of these is confirmed as a defect by this map.
+Candidate statuses are updated above; C2, C4, C5, C7 and C8 remain limitations or open items.
 
 ## 8. Exit-criteria assessment
 

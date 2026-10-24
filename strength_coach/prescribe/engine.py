@@ -328,13 +328,36 @@ def build_prescription(
         stress, tuple(item.exercise_id for item in items)
     ))
 
+    # The profile ceiling is informational/constraining metadata, not a silent set cut.
+    # Planned target stays 80 min; the athlete's lower value can tighten it; 90 is the hard cap.
+    profile = queries.athlete_profile(conn) or {}
+    configured = profile.get("max_session_minutes")
+    hard_minutes = 90
+    planned_minutes = 80
+    if configured is not None:
+        planned_minutes = min(planned_minutes, hard_minutes, max(1, int(configured)))
+    time_cap_s = planned_minutes * 60
+    estimated_minutes = minimum_session_mod.estimate_minutes(tuple(items))
+    if estimated_minutes > planned_minutes:
+        warnings.append(
+            f"session time: estimated {estimated_minutes:g} min exceeds the planned "
+            f"{planned_minutes} min ceiling; use the minimum-session option or shorten it"
+        )
+    session_time = {
+        "planned_minutes": planned_minutes,
+        "hard_ceiling_minutes": hard_minutes,
+        "estimated_minutes": estimated_minutes,
+        "over_planned": estimated_minutes > planned_minutes,
+        "configured_max_minutes": configured,
+    }
+
     return Prescription(
         for_date=for_date,
         session_type=session_type,
         fallback_level=fallback_level,
         rule_document_version=document.version,
         items=tuple(items),
-        time_cap_s=template.time_cap_s,
+        time_cap_s=time_cap_s,
         warnings=tuple(warnings),
         issues=tuple(issues),
         calibration_ids=tuple(calibration_ids),
@@ -378,6 +401,7 @@ def build_prescription(
             "high_intensity_exposure": exposure_status.as_dict(),
             "volume_management": volume_note,
             "minimum_session": minimum_note,
+        "session_time": session_time,
         **({"deload": deload_note} if deload_note is not None else {}),
             "selection": {
                 "requested": bool(apply_selection),

@@ -15,6 +15,7 @@ import pandas as pd
 
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.domain.symptoms import flare_from
+from strength_coach.features import attendance as attendance_feature
 from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import measurements as measurements_feature
 from strength_coach.features import readiness_score
@@ -141,22 +142,7 @@ def _weekly_pattern_volume(frame: pd.DataFrame, start: dt.date, end: dt.date) ->
 
 
 def _attendance(conn, start: dt.date, end: dt.date, weeks: int) -> dict:
-    profile = queries.athlete_profile(conn) or {}
-    target_per_week = profile.get("sessions_per_week_target")
-    sessions = conn.execute(
-        "SELECT COUNT(*) FROM session WHERE occurred_on BETWEEN ? AND ?",
-        (start.isoformat(), end.isoformat()),
-    ).fetchone()[0]
-    if target_per_week is None:
-        return {"completed": int(sessions), "target": None, "pct": None,
-                "note": "no sessions_per_week_target; attendance unknown"}
-    target = int(target_per_week) * weeks
-    return {
-        "completed": int(sessions),
-        "target": target,
-        "pct": round(100 * sessions / target, 1) if target else None,
-        "note": "target-based attendance, not a stored plan",
-    }
+    return attendance_feature.summary(conn, start=start, end=end, weeks=weeks)
 
 
 def _readiness(conn, start: dt.date, end: dt.date) -> dict:

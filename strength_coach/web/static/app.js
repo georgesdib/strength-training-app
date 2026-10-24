@@ -105,14 +105,19 @@ async function loadProgress() {
         <td>${esc(row.status)}</td></tr>`).join("");
     const back = data.back?.level == null ? "none logged" :
       `${data.back.level}/3 on ${data.back.date}`;
+    const attendance = data.attendance || {};
+    const families = attendance.families || {};
     $("#progress").innerHTML = `
       <p class="muted">sRPE coverage: ${data.coverage.with_srpe}/${data.coverage.sessions}
         (${data.coverage.pct}%). Performance ratio: <strong>${esc(latest)}</strong>;
         median ${p.median_ratio ?? "—"} across ${p.n} sessions. Back: ${esc(back)}.</p>
+      <p>Attendance: <strong>${attendance.completed ?? "unknown"}</strong> /
+        ${attendance.target ?? "unknown"} (${attendance.pct ?? "unknown"}%). Shortfall:
+        ${attendance.target_shortfall ?? "unknown"}. Families:
+        squat ${families.squat ?? 0} · hinge ${families.hinge ?? 0} · bench ${families.bench ?? 0}.</p>
       <table><thead><tr><th>Pattern</th><th>avg sets/week</th><th>status</th></tr></thead>
       <tbody>${rows || "<tr><td colspan='3' class='muted'>no targeted volume</td></tr>"}</tbody></table>
       <p class="muted">${esc(data.note)}</p>`;
-    await loadReadinessFeedback(weeks, day);
   } catch (error) {
     $("#progress").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
@@ -262,8 +267,15 @@ async function loadOutcomes() {
       <h3>Strength</h3>
       <table><thead><tr><th>Lift</th><th>First → last e1RM</th><th>Change</th><th>Best</th></tr></thead>
       <tbody>${lifts || "<tr><td colspan='4' class='muted'>no main-lift e1RM observations</td></tr>"}</tbody></table>
-      <p class="muted">Target-based attendance: ${attendance.completed ?? "unknown"} /
-        ${attendance.target ?? "unknown"} (${attendance.pct ?? "unknown"}%). ${esc(attendance.note || "")}</p>
+      <p class="muted">Attendance: ${attendance.completed ?? "unknown"} /
+        ${attendance.target ?? "unknown"} (${attendance.pct ?? "unknown"}%).
+        Shortfall: ${attendance.target_shortfall ?? "unknown"}.
+        Families: squat ${attendance.families?.squat ?? 0} · hinge ${attendance.families?.hinge ?? 0}
+        · bench ${attendance.families?.bench ?? 0}.
+        Duration: ${attendance.duration?.mean_min ?? "unknown"} min
+        (${attendance.duration?.measured_n ?? 0} measured).
+        Injury-free weeks: ${attendance.injury_free_weeks ?? "unknown"}.
+        ${esc(attendance.note || "")}</p>
       <h3>Volume</h3>
       <table><thead><tr><th>Pattern</th><th>avg sets/week</th><th>total sets</th><th>weeks present</th></tr></thead>
       <tbody>${volume || "<tr><td colspan='4' class='muted'>no working-set volume</td></tr>"}</tbody></table>

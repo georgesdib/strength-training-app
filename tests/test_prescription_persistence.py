@@ -62,3 +62,23 @@ def test_rollback_leaves_no_artifact():
         assert conn.execute("SELECT COUNT(*) FROM prescription_modifier").fetchone()[0] == 0
     finally:
         store.close()
+
+
+def test_minimum_provenance_survives_removal_of_all_affected_items():
+    plan = {
+        **PLAN,
+        "items": [{**PLAN["items"][0], "refs": []}],
+        "notes": {"minimum_session": {"requested": True, "applied": True}},
+    }
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        conn.execute("BEGIN IMMEDIATE")
+        persistence.store_plan(conn, plan)
+        conn.execute("COMMIT")
+        rows = conn.execute(
+            "SELECT modifier_key FROM prescription_modifier"
+        ).fetchall()
+        assert [row["modifier_key"] for row in rows] == ["MOD-MIN-001"]
+    finally:
+        store.close()

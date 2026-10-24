@@ -628,3 +628,21 @@ def test_minimum_session_refuses_a_hard_constraint_veto():
     assert note["status"] == "unavailable"
     assert note["applied"] is False
     assert "CONSTRAINT_VETO" in note["reason"]
+
+
+def test_profile_max_session_minutes_consumes_planned_cap_without_cutting_sets():
+    from strength_coach.store import repositories
+
+    with store_with(BASE_HISTORY) as store:
+        repositories.append_athlete_profile(
+            store.connection, effective_from="2024-01-01", primary_goal="strength",
+            goal_rank=["strength"], focus_lifts=["ssb_squat"],
+            sessions_per_week_target=3, max_session_minutes=45,
+        )
+        prescription = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="hinge",
+        )
+    assert prescription.time_cap_s == 45 * 60
+    assert prescription.notes["session_time"]["planned_minutes"] == 45
+    assert prescription.notes["session_time"]["hard_ceiling_minutes"] == 90
+    assert any("session time" in warning for warning in prescription.warnings)

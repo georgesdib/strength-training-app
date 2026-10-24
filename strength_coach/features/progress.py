@@ -11,6 +11,7 @@ import statistics
 from collections import defaultdict
 
 from strength_coach.domain import e1rm as e1rm_mod
+from strength_coach.features import attendance as attendance_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.store import queries
 
@@ -93,6 +94,10 @@ def dashboard(conn, on_date: str | None = None, *, weeks: int = 8) -> dict:
     median = statistics.median([p["ratio"] for p in points]) if points else None
     volume = volume_feature.compute(_sets(conn), on_date=day)
     symptom = queries.latest_symptom(conn, day)
+    end = dt.date.fromisoformat(day)
+    attendance = attendance_feature.summary(
+        conn, start=end - dt.timedelta(days=7 * weeks - 1), end=end, weeks=weeks,
+    )
     return {
         "on_date": day,
         "coverage": {
@@ -115,6 +120,7 @@ def dashboard(conn, on_date: str | None = None, *, weeks: int = 8) -> dict:
             "level": symptom["level"] if symptom else None,
             "date": symptom["logged_on"] if symptom else None,
         },
+        "attendance": attendance,
         "note": "Descriptive monitoring only; no prescription change.",
     }
 

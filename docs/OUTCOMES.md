@@ -30,7 +30,8 @@ GET /api/outcomes?weeks=8&date=YYYY-MM-DD
 
 - main-lift e1RM first/last/change, with observation count;
 - weekly hard-set volume by movement pattern;
-- target-based attendance (`sessions_per_week_target` × weeks);
+- target-based attendance (`sessions_per_week_target` × weeks), with shortfall, family
+  exposures, session types, duration and observed symptom coverage;
 - average sRPE and duration where recorded;
 - readiness trend;
 - low-back and other-region symptom entries and flares;

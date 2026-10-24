@@ -89,18 +89,6 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
     out: list[ProgrammeEntry] = []
     current_type = start_type
     for index, date in enumerate(dates):
-        prescription = build_prescription(
-            conn,
-            for_date=date.isoformat(),
-            session_type=current_type,
-            document=document,
-            thresholds=thresholds,
-            template=session_types[current_type],
-            readiness_config=readiness_config,
-            undulation=undulation,
-            history=history,
-            vbt=vbt,
-        )
         # Reactive triggers are automatic and are evaluated once against current state.
         # A scheduled deload is only a suggestion in the forecast; it is never applied here.
         reactive = None
@@ -115,9 +103,20 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
             scheduled = deload_feature.scheduled_decision(
                 conn, date.isoformat(), config=deload_cfg,
             )
-        if reactive is not None:
-            prescription = deload_mod.apply(prescription, reactive, config=deload_cfg)
-        elif scheduled is not None:
+        prescription = build_prescription(
+            conn,
+            for_date=date.isoformat(),
+            session_type=current_type,
+            document=document,
+            thresholds=thresholds,
+            template=session_types[current_type],
+            readiness_config=readiness_config,
+            undulation=undulation,
+            history=history,
+            vbt=vbt,
+            deload_decision=reactive,
+        )
+        if reactive is None and scheduled is not None:
             prescription = deload_mod.suggest(prescription, scheduled)
         out.append(ProgrammeEntry(
             date.isoformat(), prescription, current_type,

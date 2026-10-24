@@ -4,8 +4,8 @@
 
 ### Documented
 
-- W1/W7 attendance and rolling-schedule audit: simulation table, metric definitions and
-  forecast-deload/max-session gaps.
+- W1/W7 attendance audit and implementation: schedule simulations, shared attendance summary,
+  Today/Outcomes display, forecast-deload fix and session-time cap.
 - W0 execution-path map: complete flow, modifier ownership/order, input risks, test
   coverage and candidate findings.
 - W3 modifier-interaction audit: six deload-order, set-floor, load-stack and RIR defects
@@ -25,6 +25,9 @@
 
 ### Added
 
+- Attendance summary shared by Today and Outcomes: completed/target, shortfall, family and
+  session-type exposures, measured duration and symptom coverage; no prescription effect.
+- `max_session_minutes` now tightens the planned cap and warns; it does not cut sets.
 - Minimum effective session (`MOD-MIN-001`): an explicit, volume-only 30/45/60-minute fallback
   that preserves main lifts by default and offers a separate deeper tier. No load/RIR change;
   provenance and UI/CLI controls included.

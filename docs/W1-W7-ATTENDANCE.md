@@ -1,6 +1,7 @@
 # W1 / W7 — ATTENDANCE AND ROLLING SCHEDULE
 
-**Status:** W1 and W7 audits complete 2026-10-23. No behaviour changed.
+**Status:** W1 and W7 audits complete 2026-10-23; W1/W7 recommendations implemented
+2026-10-23. No loads changed.
 **Method:** deterministic synthetic attendance simulations plus a code-path review of the
 attendance reports. No personal training data.
 
@@ -69,28 +70,30 @@ stall; permanent unavailability does. Constraints/selection handle the exercise 
 schedule has no family-level fallback.
 
 **W1-06 — The programme forecast still applies deload after the build.**  
-Classification: confirmed code-path inconsistency.
+Classification: confirmed code-path inconsistency; **fixed**.
 
 `features/programme.build_programme` calls `deload_mod.apply` after `build_prescription`. The CLI
 and web paths now pass the deload decision into the build, but the forecast path still applies
 it after validation. A forecast can therefore show the same stale/post-validation interaction
 that W3 fixed in the main path, including an uncapped primary RIR.
 
-The forecast is not persisted, but it is user-visible. It should use the same build-time path.
+The forecast now passes `deload_decision` into `build_prescription` and uses the same ordered
+pipeline as the CLI/web paths.
 
 **W1-07 — `max_session_minutes` is not consumed.**  
-Classification: confirmed documentation/engine gap.
+Classification: resolved as an explicit metadata/planned-cap rule.
 
-`athlete_profile.max_session_minutes` is stored and displayed, but the prescription engine uses
-the template's fixed `time_cap_s` (80 minutes). Changing the profile value does not change the
-session or the warning; it is informational only.
+`athlete_profile.max_session_minutes` now tightens the planned cap (default 80 minutes, maximum
+90) and adds a `notes.session_time` estimate plus a warning when the estimate exceeds it. It
+does **not** silently cut sets or load; the optional minimum session remains the explicit
+reduction. The hard ceiling is 90 minutes.
 
 **W1-08 — Session duration is not enforced.**  
 Classification: confirmed limitation.
 
-The schedule does not estimate or enforce duration. Templates carry an 80-minute cap, but no
-actual duration is available for imported sessions. Live workouts can measure duration; the
-engine does not consume it.
+The engine now estimates and warns against the planned cap, but imported sessions still have no
+reliable measured duration. Live workouts measure duration; the rubric duration item remains
+unmeasurable for imported sessions.
 
 ---
 
@@ -135,7 +138,8 @@ Do **not** call the target shortfall “missed planned sessions”; there is no 
 ### W7 findings
 
 **W7-01 — Attendance is visible in Outcomes but not on Today.**  
-Classification: confirmed UX gap.
+Classification: resolved. Today now shows completed/target, shortfall, family exposures and
+session-type data; Outcomes shows the fuller block.
 
 **W7-02 — There is no planned-session calendar.**  
 Classification: confirmed data limitation.
@@ -150,16 +154,17 @@ Use `unknown`; do not infer “no flare” from no entry.
 
 **W7-04 — Session-type balance is already available in Outcomes but not in the progress
 dashboard.**  
-Classification: confirmed reporting gap.
+Classification: resolved. The shared attendance summary feeds both surfaces.
 
 ---
 
-## Recommended next actions
+## Implemented follow-up
 
-1. Fix the programme forecast to pass `deload_decision` into `build_prescription`.
-2. Decide whether `max_session_minutes` should constrain generation or be relabelled
-   informational.
-3. Implement W7 attendance metrics in one shared function; no load effect.
-4. Do not add a stored plan or a catch-up/backlog mechanism without a separate decision.
+- Forecast deload now uses the build-time path.
+- `max_session_minutes` now sets the planned cap and emits a warning; it does not cut sets.
+- `features/attendance.py` is the single attendance summary.
+- Today and Outcomes render it.
+- No stored plan, backlog or catch-up mechanism was added.
 
-No code was changed by W1/W7.
+Remaining limitations: permanent family unavailability can stall the selector; imported
+duration remains unmeasured.
