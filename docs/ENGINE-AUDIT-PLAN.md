@@ -1,6 +1,7 @@
 # STRENGTH-FIRST ENGINE AUDIT — living plan
 
 **Status:** living audit plan. No implementation. Refined as further audits are completed.
+**Companion:** [`IMPLEMENTATION-PLAN-2026-10.md`](IMPLEMENTATION-PLAN-2026-10.md) records the approved product direction and implementation order.
 **Date:** 2026-10-23
 **Scope:** the deterministic coaching engine, its prescription behaviour and its evaluation.
 **Not in scope:** rewriting the architecture, adding commercial infrastructure, Olympic
