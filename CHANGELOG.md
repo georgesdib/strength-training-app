@@ -22,7 +22,7 @@
   when review marks are saved.
 - In-workout plan overrides: adjust planned sets, swap/add/remove exercises, append-only events.
 - In-workout CSV import (paste or file): `Exercise,Set,RPE,Value,Weight,Reps`; RPE→RIR mapping,
-  preview/conflicts/apply/undo, replace matching sets.
+  preview/conflicts/apply/undo, replace matching sets, and add recognised new exercises to the plan.
 - Inline actual-set edit, review-page planned-vs-actual summary, exercise details popup, and
   partial workout CLI (status/add/update/remove/end/import).
 

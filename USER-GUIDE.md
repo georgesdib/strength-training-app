@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 610 public tests
+.venv/bin/python -m pytest          # 612 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -673,8 +673,10 @@ field-level conflicts and the last import can be undone.
 **CSV import:** in Workout mode, paste or choose a file with columns
 `Exercise,Set,RPE,Value,Weight,Reps`. Preview first. RPE is converted with `RIR = 10 − RPE`,
 fractions round down, and RIR above 6 is capped at 6 and treated as a warm-up. `???` is
-missing. Import replaces the same exercise/set and leaves other manual sets alone. The file has
-no date, so it only imports into the active workout. On **End workout**, sets are materialised, actual vs modified plan and
+missing. A recognised exercise that is not in the prescription is added to the workout plan as a
+new item; an unrecognised exercise is reported and the import is not applied. Import replaces the
+same exercise/set and leaves other manual sets alone. The file has no date, so it only imports
+into the active workout. On **End workout**, sets are materialised, actual vs modified plan and
 actual vs original prescription are shown, the deterministic rubric is persisted, and
 **Review workout** opens the rubric sheet. Saving marks runs calibration and closes the workout.
 The standard dated training export remains the Import-page backfill path. Workout CSV import is

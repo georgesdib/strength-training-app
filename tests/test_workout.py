@@ -197,8 +197,11 @@ def test_import_preview_reports_conflicts_and_undo_restores(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
     first = workout.import_csv(conn, started["workout_id"], CSV, apply=True)
     assert first["workout"]["sets"][0]["load_kg"] == 20.0
+    assert any(item["exercise_id"] == "push_press"
+               for item in first["workout"]["plan"]["items"])
     changed = CSV.replace("Push Press,1,4,???,20.0kg,4", "Push Press,1,4,???,25.0kg,4")
     preview = workout.import_csv(conn, started["workout_id"], changed, apply=False)
+    assert preview["preview"]["rows"][0]["plan_new"] is False
     row = next(item for item in preview["preview"]["rows"] if item["exercise"] == "Push Press" and item["set_index"] == 1)
     assert row["conflicts"]["load_kg"] == [25.0, 20.0]
     workout.import_csv(conn, started["workout_id"], changed, apply=True)

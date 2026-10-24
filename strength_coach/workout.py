@@ -533,7 +533,12 @@ def import_csv(conn, workout_id: str, text: str, *, apply: bool = False) -> dict
         raise ValueError("workout is not in progress")
     parsed = parse_import(text)
     active_sets = _sets(conn, workout_id)
+    plan_ids = {
+        str(item.get("exercise_id"))
+        for item in (workout.get("plan") or {}).get("items") or []
+    }
     for row in parsed["rows"]:
+        row["plan_new"] = bool(row["exercise_id"] and row["exercise_id"] not in plan_ids)
         existing = next(
             (item for item in active_sets
              if item.get("exercise_id") == row["exercise_id"]
@@ -556,6 +561,19 @@ def import_csv(conn, workout_id: str, text: str, *, apply: bool = False) -> dict
         return {"preview": parsed, "workout": workout}
     if parsed["errors"]:
         raise ValueError("import has errors; preview and fix them first")
+    # The prescription can be extended by the file; the original snapshot stays frozen.
+    for exercise_id in sorted({row["exercise_id"] for row in parsed["rows"]
+                               if row.get("plan_new") and row["exercise_id"]}):
+        rows = [row for row in parsed["rows"] if row["exercise_id"] == exercise_id]
+        add_exercise(
+            conn, workout_id,
+            exercise_id=exercise_id,
+            sets=max(int(row["set_index"]) for row in rows),
+            reps_low=min(int(row["reps"]) for row in rows),
+            reps_high=max(int(row["reps"]) for row in rows),
+            load_kg=None,
+            rir_target=None,
+        )
     batch_id = uuid.uuid4().hex
     undo: list[dict] = []
     for row in parsed["rows"]:

@@ -166,7 +166,7 @@ function planAction(action, body) {
 function renderImportPreview(preview) {
   var rows = (preview.rows || []).map(function (row) {
     return "<tr><td>" + row.line + "</td><td>" + esc(row.exercise) + "</td><td>" +
-      (row.exercise_id == null ? "<strong>unknown</strong>" : "<code>" + esc(row.exercise_id) + "</code>") +
+      (row.exercise_id == null ? "<strong>unknown</strong>" : "<code>" + esc(row.exercise_id) + "</code>" + (row.plan_new ? ' <span class="badge">new to plan</span>' : "")) +
       "</td><td>" + row.set_index + "</td><td>" + (row.rpe == null ? "—" : row.rpe) +
       "</td><td>" + (row.rir == null ? "—" : row.rir) + (row.warmup ? " (warm-up)" : "") +
       "</td><td>" + fmt(row.load_kg) + "</td><td>" + row.reps + "</td><td>" +
