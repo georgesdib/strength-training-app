@@ -77,6 +77,7 @@ def test_the_page_and_overview_are_served(server):
     assert "prescribe-minimum-options" in page
     assert "Only used when minimum session is ticked" in page
     assert "A/B/C remains" not in page
+    assert "Language model" in page
     assert "selection-include-different" in page
     assert "validation-run" in page
     assert "view-workout" in page
@@ -110,6 +111,35 @@ def test_prescribe_and_state_endpoints(server):
     }
     assert state["constraints"][0]["forbidden_exercises"] == ["back_extension"]
     assert isinstance(state["e1rm_calibration"], list)
+
+
+def test_settings_endpoint_masks_the_key(server):
+    status, body = get(server, "/api/settings")
+    assert status == 200
+    data = json.loads(body)
+    assert "llm" in data and "llm_config_path" in data
+    assert data["local_only"] is True
+    assert "secret" not in body.lower()
+
+
+def test_settings_save_and_disable_round_trip(server, tmp_path, monkeypatch):
+    path = tmp_path / "llm.local.toml"
+    monkeypatch.setenv("STRENGTH_COACH_LLM_CONFIG", str(path))
+    monkeypatch.delenv("STRENGTH_COACH_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("STRENGTH_COACH_LLM_API_KEY", raising=False)
+    data = post(server, "/api/settings/llm", {
+        "enabled": True, "model": "test-model", "base_url": "http://127.0.0.1:1/v1",
+        "api_key": "secret-key", "temperature": 0.2, "max_tokens": 700, "timeout_s": 10,
+    })
+    assert data["enabled"] is True
+    assert data["api_key"] == "secr…-key"
+    assert "secret-key" not in json.dumps(data)
+    disabled = post(server, "/api/settings/llm", {
+        "enabled": False, "model": "test-model", "base_url": "http://127.0.0.1:1/v1",
+        "temperature": 0.2, "max_tokens": 700, "timeout_s": 10,
+    })
+    assert disabled["enabled"] is False
+    assert disabled["provider"] == "null"
 
 
 def test_readiness_round_trip_uses_manual_source(server):

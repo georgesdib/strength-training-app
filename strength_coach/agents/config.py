@@ -13,6 +13,7 @@ narration needs only a provider and a key.
 
 from __future__ import annotations
 
+import json
 import os
 import tomllib
 from dataclasses import dataclass, replace
@@ -179,3 +180,84 @@ def describe(settings: LLMSettings | None = None) -> dict[str, Any]:
 
 def _optional_str(value: Any) -> str | None:
     return None if value is None or value == "" else str(value)
+
+
+def save_settings(settings: LLMSettings, path: str | Path | None = None) -> Path:
+    """Write the local LLM settings atomically, with owner-only permissions.
+
+    The file is git-ignored by contract. Writing a minimal TOML intentionally drops comments:
+    the UI owns this file; the committed example remains the documented template.
+    """
+    target = config_path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# LLM settings written by the local Settings page.",
+        "# config/llm.local.toml is git-ignored. Never commit an API key.",
+        "",
+        "[llm]",
+        f"provider = {json.dumps(settings.provider)}",
+    ]
+    if settings.model is not None:
+        lines.append(f"model = {json.dumps(str(settings.model))}")
+    if settings.base_url is not None:
+        lines.append(f"base_url = {json.dumps(str(settings.base_url))}")
+    if settings.api_key:
+        lines.append(f"api_key = {json.dumps(str(settings.api_key))}")
+    lines.extend([
+        f"temperature = {float(settings.temperature)}",
+        f"max_tokens = {int(settings.max_tokens)}",
+        f"timeout_s = {float(settings.timeout_s)}",
+        "",
+    ])
+    temp = target.with_name(target.name + ".tmp")
+    temp.write_text("\n".join(lines), encoding="utf-8")
+    temp.chmod(0o600)
+    temp.replace(target)
+    return target
+
+
+def update_llm_settings(
+    *,
+    enabled: bool,
+    model: str,
+    base_url: str,
+    api_key: str | None = None,
+    clear_api_key: bool = False,
+    temperature: float = 0.2,
+    max_tokens: int = 700,
+    timeout_s: float = 30.0,
+    path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Update the local file, preserving an existing key when the field is left blank."""
+    target = config_path(path)
+    # Read the file only: an environment key must not be copied into the local file by a
+    # blank save, because that would move a secret the user deliberately kept out of disk.
+    existing = _from_file(target) if target.exists() else LLMSettings()
+    key = None if clear_api_key else (str(api_key).strip() or existing.api_key)
+    if enabled:
+        if not str(model).strip():
+            raise LLMConfigError("model is required when the LLM is enabled")
+        if not str(base_url).strip().startswith(("http://", "https://")):
+            raise LLMConfigError("base_url must start with http:// or https://")
+        if not 0 <= float(temperature) <= 2:
+            raise LLMConfigError("temperature must be between 0 and 2")
+        if int(max_tokens) <= 0:
+            raise LLMConfigError("max_tokens must be positive")
+        if float(timeout_s) <= 0:
+            raise LLMConfigError("timeout_s must be positive")
+    settings = LLMSettings(
+        provider="openai_compatible" if enabled else "null",
+        model=str(model).strip() or DEFAULT_MODEL,
+        base_url=str(base_url).strip() or DEFAULT_BASE_URL,
+        api_key=key,
+        temperature=float(temperature),
+        max_tokens=int(max_tokens),
+        timeout_s=float(timeout_s),
+    )
+    save_settings(settings, path)
+    effective = load_settings(path)
+    return {
+        **describe(effective),
+        "config_path": str(config_path(path)),
+        "environment_override": "environment" in effective.source,
+    }

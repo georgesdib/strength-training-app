@@ -41,6 +41,7 @@ function setView(name) {
   if (name === "prescribe") { loadFatigue(); loadContinuity(); loadVolume(); }
   if (name === "docs" && !$("#docs-list").dataset.loaded) loadDocs();
   if (name === "state") loadState();
+  if (name === "settings") loadSettings();
   if (name === "outcomes") loadOutcomes();
   if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
 }
@@ -1832,7 +1833,119 @@ $("#terminal-command").addEventListener("keydown", (event) => {
   }
 });
 
+/* --- settings ----------------------------------------------------------- */
+const SETTINGS_TARGET_KEY = "strength-coach.minimumTarget";
+const SETTINGS_CLASS_C_KEY = "strength-coach.showClassC";
+
+function storedUiDefaults() {
+  const target = localStorage.getItem(SETTINGS_TARGET_KEY) || "45";
+  return {
+    target: ["30", "45", "60"].includes(target) ? target : "45",
+    classC: localStorage.getItem(SETTINGS_CLASS_C_KEY) === "1",
+  };
+}
+
+function applyStoredUiDefaults() {
+  const defaults = storedUiDefaults();
+  const target = $("#prescribe-target");
+  if (target) target.value = defaults.target;
+  const classC = $("#selection-include-different");
+  if (classC) classC.checked = defaults.classC;
+  const settingsTarget = $("#settings-default-target");
+  if (settingsTarget) settingsTarget.value = defaults.target;
+  const settingsClassC = $("#settings-default-class-c");
+  if (settingsClassC) settingsClassC.checked = defaults.classC;
+}
+
+function syncLlmFields() {
+  const on = $("#settings-llm-enabled").checked;
+  ["#settings-llm-model", "#settings-llm-base-url", "#settings-llm-api-key",
+   "#settings-llm-clear-key", "#settings-llm-temperature", "#settings-llm-max-tokens",
+   "#settings-llm-timeout", "#settings-llm-test"]
+    .forEach((selector) => { const node = $(selector); if (node) node.disabled = !on; });
+}
+
+function renderSettings(data) {
+  const llm = data.llm || {};
+  window.__llmSettings = llm;
+  $("#settings-llm-enabled").checked = !!llm.enabled;
+  $("#settings-llm-model").value = llm.model || "";
+  $("#settings-llm-base-url").value = llm.base_url || "";
+  $("#settings-llm-temperature").value = llm.temperature ?? 0.2;
+  $("#settings-llm-max-tokens").value = llm.max_tokens ?? 700;
+  $("#settings-llm-timeout").value = llm.timeout_s ?? 30;
+  $("#settings-llm-api-key").value = "";
+  $("#settings-llm-api-key").placeholder = llm.api_key
+    ? "stored: " + llm.api_key + " (leave blank to keep)"
+    : "not set";
+  $("#settings-llm-clear-key").checked = false;
+  const status = $("#settings-llm-status");
+  status.textContent = llm.enabled ? "enabled" : "off";
+  status.className = "badge " + (llm.enabled ? "" : "warn");
+  $("#settings-llm-source").textContent = "Source: " + (llm.source || "unknown")
+    + (llm.enabled ? "" : " · deterministic mode; no model calls");
+  $("#settings-version").textContent = data.version || "—";
+  $("#settings-database").textContent = data.database || "—";
+  $("#settings-config-path").textContent = data.llm_config_path || "—";
+  applyStoredUiDefaults();
+  syncLlmFields();
+}
+
+async function loadSettings() {
+  try {
+    renderSettings(await api("/api/settings"));
+  } catch (error) {
+    $("#settings-llm-status").textContent = "error";
+    $("#settings-llm-msg").textContent = error.message;
+  }
+}
+
+function llmPayload() {
+  return {
+    enabled: $("#settings-llm-enabled").checked,
+    model: $("#settings-llm-model").value.trim(),
+    base_url: $("#settings-llm-base-url").value.trim(),
+    api_key: $("#settings-llm-api-key").value,
+    clear_api_key: $("#settings-llm-clear-key").checked,
+    temperature: Number($("#settings-llm-temperature").value || 0.2),
+    max_tokens: Number($("#settings-llm-max-tokens").value || 700),
+    timeout_s: Number($("#settings-llm-timeout").value || 30),
+  };
+}
+
+$("#settings-llm-enabled").addEventListener("change", syncLlmFields);
+$("#settings-llm-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  $("#settings-llm-msg").textContent = "Saving…";
+  try {
+    renderSettings(await api("/api/settings/llm", {
+      method: "POST", body: JSON.stringify(llmPayload()),
+    }));
+    $("#settings-llm-msg").textContent = "Saved.";
+  } catch (error) {
+    $("#settings-llm-msg").textContent = error.message;
+  }
+});
+$("#settings-llm-test").addEventListener("click", async () => {
+  $("#settings-llm-msg").textContent = "Testing…";
+  try {
+    const result = await api("/api/settings/llm/test", { method: "POST", body: "{}" });
+    $("#settings-llm-msg").textContent = "OK: " + result.model
+      + (result.tokens == null ? "" : " · " + result.tokens + " tokens");
+  } catch (error) {
+    $("#settings-llm-msg").textContent = "Test failed: " + error.message;
+  }
+});
+$("#settings-defaults-save").addEventListener("click", () => {
+  const target = $("#settings-default-target").value;
+  localStorage.setItem(SETTINGS_TARGET_KEY, target);
+  localStorage.setItem(SETTINGS_CLASS_C_KEY, $("#settings-default-class-c").checked ? "1" : "0");
+  applyStoredUiDefaults();
+  $("#settings-defaults-msg").textContent = "Saved in this browser.";
+});
+
 /* --- boot --------------------------------------------------------------- */
+applyStoredUiDefaults();
 fillSessionSelect();
 loadExercises();
 loadOverview();

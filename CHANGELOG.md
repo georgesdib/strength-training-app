@@ -15,6 +15,8 @@
 
 ### Added
 
+- Web **Settings** tab: enable/disable and configure the local LLM (write-only key), browser-only
+  Prescribe defaults, and read-only app paths. New `/api/settings` endpoints.
 - Rubric 1.1.0 scores measured live-workout duration; imported sessions remain
   unmeasurable. Prescription items expose `e1rm_source_sets` (migration 0027).
 

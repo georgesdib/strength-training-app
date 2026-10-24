@@ -70,7 +70,7 @@ strength-coach web --port 8001
 ```
 
 It binds to **127.0.0.1 only** and has **no authentication**; do not expose it on a network.
-The pages are Today, Prescribe, Programme, Review, Readiness, Cardio, Import, Athlete, Terminal and Docs. Every load, RIR, warning
+The pages are Today, Outcomes, Prescribe, Workout, Programme, Review, Readiness, Cardio, Measures, Import, Exercises, Athlete, Settings, Terminal and Docs. Every load, RIR, warning
 and calibration number still comes from Python — the browser only displays and submits forms.
 Docs are rendered locally, so the UI works offline. **Import** accepts the training and
 readiness CSVs in the browser; the files are parsed in memory and stored in SQLite, not written
@@ -386,6 +386,20 @@ You can also supply marks from a file instead of typing:
 ```bash
 strength-coach review --session 2026-10-15 --scores private/eval/labelled.yaml
 ```
+
+### 4.2a Settings
+
+The **Settings** page configures the optional model and browser-only defaults.
+
+- **Language model** — enable/disable narration and selection, set model, endpoint, temperature,
+  max tokens and timeout; the API key is write-only and masked after saving. Settings live in
+  the git-ignored `config/llm.local.toml`; environment variables override the file.
+- **Prescribe defaults** — default minimum-session target and whether to show different lifts
+  (C) by default. These only pre-fill the Prescribe page.
+- **App** — version, database path and LLM config path, all local-only.
+
+With the model disabled, every deterministic feature still works; only the prose/selection
+choice is unavailable.
 
 ### 4.3 `calibrate` — the running picture
 

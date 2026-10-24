@@ -65,6 +65,9 @@ global option in the CLI). It is convenience only: it ends in the same `strength
   **e1RM calibration** report (current formula e1RM and last set for every lift, plus
   measured tests vs formula; a bounded correction is applied only when the confidence interval
   excludes 1.0).
+- **Settings** — optional LLM configuration (enable/disable, model, endpoint, write-only key,
+  temperature/tokens/timeout), browser-only Prescribe defaults, and read-only app/database paths.
+  The key is masked and lives in git-ignored `config/llm.local.toml`.
 - **Terminal** — restricted `strength-coach` command runner bound to the UI database.
 - **Docs** — local Markdown rendered without external assets.
 
@@ -103,6 +106,9 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `GET /api/progress?date=N` | descriptive progress: sRPE coverage, performance ratio, volume status, latest back symptom |
 | `GET /api/outcomes?weeks=N&date=N` | read-only 4/8/12-week strength, longevity and coverage review |
 | `GET /api/prospective?weeks=N&date=N` | W5 read-only prospective summary: statuses, attendance, work, RIR, duration, flags |
+| `GET /api/settings` | masked LLM settings, config/database paths and app version |
+| `POST /api/settings/llm` | save local LLM settings; blank key keeps the stored key |
+| `POST /api/settings/llm/test` | call the configured model with a tiny connectivity prompt |
 | `GET /api/exposures?date=N` | recent high-intensity exposures and recovery guard |
 | `POST /api/exposures` | log a manual max/competition/unplanned exposure; tests use the test endpoint |
 | `POST /api/continuity/settings` | `{allow_relax_fixed}` -> update the calibration policy |

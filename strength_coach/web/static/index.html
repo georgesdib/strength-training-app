@@ -22,6 +22,7 @@
       <button data-view="import">Import</button>
       <button data-view="exercises">Exercises</button>
       <button data-view="state">Athlete</button>
+      <button data-view="settings">Settings</button>
       <button data-view="terminal">Terminal</button>
       <button data-view="docs">Docs</button>
     </nav>
@@ -544,6 +545,67 @@
         <div id="state-result" class="state-grid"></div>
         <div id="state-forms" class="state-grid" style="margin-top:16px"></div>
         <datalist id="exercise-options"></datalist>
+      </div>
+    </section>
+
+    <section id="view-settings" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Language model</h2>
+          <span class="badge" id="settings-llm-status">loading…</span></div>
+        <p class="muted">The model writes narrative and may choose among precomputed options. It
+          never calculates a load, RIR or set. Disable it to run fully deterministically; all
+          features continue to work with no model configured.</p>
+        <form id="settings-llm-form">
+          <label><input type="checkbox" id="settings-llm-enabled"> Enable LLM narration and selection</label>
+          <div class="form-row">
+            <label class="grow">Model <input id="settings-llm-model" placeholder="deepseek-chat"></label>
+            <label class="grow">Base URL <input id="settings-llm-base-url" placeholder="https://api.deepseek.com/v1"></label>
+          </div>
+          <div class="form-row">
+            <label class="grow">API key <input type="password" id="settings-llm-api-key" autocomplete="new-password" placeholder="leave blank to keep the stored key"></label>
+            <label><input type="checkbox" id="settings-llm-clear-key"> Clear stored key</label>
+          </div>
+          <div class="form-row">
+            <label>Temperature <input type="number" step="0.1" min="0" max="2" id="settings-llm-temperature"></label>
+            <label>Max tokens <input type="number" step="1" min="1" id="settings-llm-max-tokens"></label>
+            <label>Timeout s <input type="number" step="1" min="1" id="settings-llm-timeout"></label>
+          </div>
+          <div class="form-row">
+            <button class="primary" type="submit">Save LLM settings</button>
+            <button class="ghost" type="button" id="settings-llm-test">Test connection</button>
+            <span class="muted" id="settings-llm-msg"></span>
+          </div>
+        </form>
+        <p class="muted" id="settings-llm-source"></p>
+        <p class="muted">The key is write-only here and masked after saving. Settings live in
+          <code>config/llm.local.toml</code>, which is git-ignored. Environment variables override
+          the file; if they do, the status says so.</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Prescribe defaults</h2><span class="muted">browser-only preferences</span></div>
+        <div class="form-row">
+          <label>Minimum-session target
+            <select id="settings-default-target">
+              <option value="30">30 min</option>
+              <option value="45">45 min</option>
+              <option value="60">60 min</option>
+            </select>
+          </label>
+          <label><input type="checkbox" id="settings-default-class-c"> Show different lifts (C) by default</label>
+          <button class="ghost" type="button" id="settings-defaults-save">Save defaults</button>
+          <span class="muted" id="settings-defaults-msg"></span>
+        </div>
+        <p class="muted">These only pre-fill the Prescribe page; they do not change the engine.</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>App</h2><span class="muted">local only</span></div>
+        <p>Version <code id="settings-version">—</code></p>
+        <p>Database <code id="settings-database">—</code></p>
+        <p>LLM file <code id="settings-config-path">—</code></p>
+        <p class="muted">The server binds to <code>127.0.0.1</code> and has no authentication. Do
+          not expose it to a network. Raw exports and the database stay git-ignored.</p>
       </div>
     </section>
 

@@ -24,8 +24,11 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
-from strength_coach import workout
-from strength_coach.agents.config import build_client, load_settings
+from strength_coach import __version__, workout
+from strength_coach.agents.client import LLMError
+from strength_coach.agents.config import (
+    PROVIDERS, build_client, config_path, describe, load_settings, update_llm_settings,
+)
 from strength_coach.agents import selection as agent_selection
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
 from strength_coach.critique.rubric import RUBRIC_VERSION
@@ -249,6 +252,8 @@ class Handler(BaseHTTPRequestHandler):
             elif path.startswith("/static/"):
                 self._serve_file(STATIC / Path(path).name,
                                  mimetypes.guess_type(path)[0] or "application/octet-stream")
+            elif path == "/api/settings":
+                self._json(200, self._settings())
             elif path == "/api/overview":
                 self._json(200, self._with_conn(self._overview))
             elif path == "/api/workout/active":
@@ -422,6 +427,10 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             elif path == "/api/exposures":
                 self._json(200, self._with_conn(lambda c: self._save_exposure(c, body)))
+            elif path == "/api/settings/llm":
+                self._json(200, self._save_llm_settings(body))
+            elif path == "/api/settings/llm/test":
+                self._json(200, self._test_llm())
             elif path == "/api/prescribe":
                 self._json(200, self._with_conn(lambda c: self._prescribe(c, body)))
             elif path == "/api/readiness":
@@ -487,6 +496,47 @@ class Handler(BaseHTTPRequestHandler):
             self._error(404, "not found")
             return
         self._send(200, path.read_bytes(), content_type)
+
+    def _settings(self) -> dict:
+        return {
+            "llm": describe(),
+            "llm_config_path": str(config_path()),
+            "database": str(self.db_path or db.default_db_path()),
+            "version": __version__,
+            "providers": list(PROVIDERS),
+            "local_only": True,
+        }
+
+    def _save_llm_settings(self, body: dict) -> dict:
+        return update_llm_settings(
+            enabled=_truth(body.get("enabled")),
+            model=str(body.get("model") or ""),
+            base_url=str(body.get("base_url") or ""),
+            api_key=(str(body["api_key"]) if body.get("api_key") else None),
+            clear_api_key=_truth(body.get("clear_api_key")),
+            temperature=float(body.get("temperature", 0.2)),
+            max_tokens=int(body.get("max_tokens", 700)),
+            timeout_s=float(body.get("timeout_s", 30.0)),
+        )
+
+    def _test_llm(self) -> dict:
+        settings = load_settings()
+        if not settings.enabled:
+            raise ValueError("LLM is disabled or incomplete")
+        client = build_client(settings)
+        try:
+            response = client.complete(
+                "Reply with the single word: ready.",
+                system="You are a connection test. Reply only with the requested word.",
+            )
+        except LLMError as exc:
+            raise ValueError(str(exc)) from exc
+        return {
+            "ok": True,
+            "model": response.model,
+            "tokens": response.tokens,
+            "text": response.text[:200],
+        }
 
     # --- data -------------------------------------------------------------
     def _overview(self, conn) -> dict:
