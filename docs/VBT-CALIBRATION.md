@@ -104,10 +104,11 @@ to any of those is visible as a different calibration even if the numbers coinci
 See [`VBT-REP-LEVEL.md`](VBT-REP-LEVEL.md) for the post-hoc cost/benefit and the decision not
 to add manual rep-level entry.
 
-Within-set velocity loss requires a **per-rep velocity series**. The export has one
-`Avg_velocity` per set, so within-set loss is arithmetically unavailable
-(`docs/SANITY-CHECKS.md` §C). It remains deferred (`DEC-VBT-02`, `DEC-VBT-03`), and the prescription does
-not pretend otherwise.
+Within-set velocity loss requires a **per-rep velocity series**. The standard export has one
+`Avg_velocity` per set, so set-level calibration still uses the mean only. An optional per-rep
+CSV can now supply the series (`DEC-VBT-04`); it is stored as descriptive detail and does **not**
+enter the VBT calibration, targets or prescription. Set-level capture is complete for the
+workout path.
 
 Two options, and the choice is Q4:
 
