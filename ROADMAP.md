@@ -959,6 +959,7 @@ deferred items stay listed in §4.19.
 | P1 (v0.3) | LLM proposal view | **closed** — CLI-only by decision |
 | P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
 | v0.4 | Deeper labelled calibration set | moved to v0.4 |
+| P3 | Per-rep velocity: cross-session analysis and evidence review | capture done; analysis/evidence pending |
 | v0.4 | Cardio prescription and cardio fatigue interaction | planned |
 | v0.5 | Video capture/analysis and UI parity | planned |
 | future | LLM-guided suggested programme (§4.18) | idea only |
@@ -1019,7 +1020,7 @@ path. CLI workout commands are partial (no start).
 | Imported sessions have no timestamps | imported duration unmeasurable; two imported sessions on one date indistinguishable | workout mode measures duration; imports remain date-only (`OPEN-QUESTIONS` Q5) |
 | Only one session type can be prescribed | The other templates are blocked by the erector-ramp anchor (Q3), the SSB question (H1) and the missing §11 tables | **resolved** — all four session types prescribable; the ramp anchor is optional and `unknown` is explicit |
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
-| Velocity detail was per-set only | within-set velocity loss was unavailable from the standard export | **resolved for capture** — set-level remains primary; optional per-rep CSV writes `clean_rep`, descriptive only; no VBT rule reads it (`DEC-VBT-04`); trap-bar targets stay withheld |
+| Velocity detail was per-set only | within-set velocity loss was unavailable from the standard export | **capture done; analysis/evidence review pending** — optional per-rep CSV writes `clean_rep`; set-level remains primary; no VBT rule reads it (`DEC-VBT-04`); trap-bar targets stay withheld |
 | Rubric calibrated on a small number of high-confidence sessions | agreement is limited and rotation is the weak item; some old marks are reconstructed and excluded | `DEC-EVAL-04`; needs ~10 remembered marks per item before changing weights; exact counts are private |
 | Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one | Reviewed 2026-10-23: keep ordinal; separate heavy-set advisory (RIR ≤ 1) is context only; see docs/SPINAL-LOAD-EVIDENCE.md |
 | VBT targets not prescribed | a prescription carries no `velocity_target` | **resolved** — 22 targets where trustworthy; trap bar withheld; `DEC-VBT-02` |

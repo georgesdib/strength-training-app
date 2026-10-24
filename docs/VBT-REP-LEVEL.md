@@ -1,9 +1,10 @@
 # Rep-level VBT — post-hoc value, cost and decision
 
-**Status:** optional post-workout capture implemented (2026-10-24). A device's per-rep CSV can
-be supplied as a second, optional table in Workout mode; the set-level path is unchanged. The
-feature remains descriptive: no live termination, no load/volume adjustment and no prescription
-input. See [REP-VELOCITY.md](REP-VELOCITY.md).
+**Status:** optional post-workout **capture** implemented (2026-10-24); cross-session analysis
+and evidence review are still pending. A device's per-rep CSV can be supplied as a second,
+optional table in Workout mode; the set-level path is unchanged. The feature remains descriptive:
+no live termination, no load/volume adjustment and no prescription input. See
+[REP-VELOCITY.md](REP-VELOCITY.md).
 
 ---
 

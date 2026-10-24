@@ -1,6 +1,7 @@
 # Rep-level velocity — optional post-workout detail
 
-**Status:** implemented as an optional second CSV in workout mode.
+**Status:** capture implemented as an optional second CSV in workout mode. Cross-session
+analysis and the evidence review are **not yet done**; do not treat the feature as complete.
 
 The set-level CSV remains required and unchanged. The per-rep table is optional: if it is
 absent, every existing path behaves exactly as before.
@@ -51,7 +52,18 @@ warning rather than an overwrite.
 - `clean_set.velocity_mps` remains the set mean.
 - Import undo restores the previous rep snapshot.
 
-## 3. What it unlocks
+## 3. Status
+
+| phase | status |
+|---|---|
+| schema, parser, preview/apply, undo | done |
+| materialisation into `clean_rep` | done |
+| optional Workout UI / CLI / API input | done |
+| per-set first/last/loss report | done |
+| cross-session descriptive analyses | **pending** |
+| evidence review: does this add information beyond existing signals? | **pending** |
+
+## 4. What it unlocks
 
 Per set:
 
@@ -68,7 +80,7 @@ Per session and across sessions:
   back symptoms;
 - data-quality review.
 
-## 4. What it does not do
+## 5. What it does not do
 
 - no live set termination;
 - no load or volume adjustment;
@@ -79,14 +91,14 @@ Per session and across sessions:
 The evidence-supported use of velocity loss is live set termination. Captured after the
 workout, it is descriptive.
 
-## 5. Surfaces
+## 6. Surfaces
 
 - Workout mode: optional per-rep file/paste box, preview table and rep summary.
 - `GET /api/rep-velocity?session=...`: descriptive report.
 - CLI: `workout import --rep-file ...`.
 - End screen: per-set first/last/loss table.
 
-## 6. Tests
+## 7. Tests
 
 - no per-rep table → current import unchanged;
 - blank mean only;
