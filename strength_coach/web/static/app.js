@@ -327,6 +327,11 @@ async function loadReadinessFeedback(weeks, day) {
 
 /* --- prescribe ---------------------------------------------------------- */
 $("#prescribe-date").value = today();
+$("#prescribe-minimum").addEventListener("change", () => {
+  $("#prescribe-minimum-main").disabled = !$("#prescribe-minimum").checked;
+  if (!$("#prescribe-minimum").checked) $("#prescribe-minimum-main").checked = false;
+});
+
 $("#prescribe-apply-selection").addEventListener("change", () => {
   const llmWrap = $("#prescribe-selection-llm-wrap");
   const confirmWrap = $("#prescribe-selection-confirm-wrap");
@@ -353,6 +358,9 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
     date, session_type: sessionType,
     apply_selection: applySelection, selection_llm: selectionLlm,
     selection_confirmed: selectionConfirmed,
+    minimum_session: $("#prescribe-minimum").checked,
+    target_minutes: Number($("#prescribe-target").value),
+    minimum_include_main: $("#prescribe-minimum-main").checked,
   };
   try {
     const data = await api("/api/prescribe", { method: "POST", body: JSON.stringify(lastPrescribePayload) });
@@ -424,6 +432,12 @@ function renderPrescription(p) {
   const deloadBox = deload ? `<p class="warnbox"><strong>Deload (${esc(deload.trigger)})</strong>
     — ${esc(deload.reason)}. Sets -${deload.set_reduction}, load
     ${Math.round(deload.load_multiplier * 100)}%, RIR +${deload.rir_add}.</p>` : "";
+  const minimum = p.notes?.minimum_session;
+  const minimumBox = minimum ? `<p class="warnbox"><strong>Minimum session</strong>
+    — ${esc(minimum.status)}: ${esc(minimum.reason)}.
+    ${minimum.removed_sets ? `Removed ${minimum.removed_sets} set(s).` : ""}
+    ${minimum.removed_exercises?.length ? `Removed exercises: ${esc(minimum.removed_exercises.join(", "))}.` : ""}
+    Load and RIR unchanged.</p>` : "";
   const suggestion = p.notes?.deload_suggestion;
   const suggestionBox = suggestion ? `<div class="warnbox"><strong>Deload suggested</strong>
     — ${esc(suggestion.reason)}.<br>
@@ -432,7 +446,7 @@ function renderPrescription(p) {
   $("#prescribe-result").innerHTML = `<div class="panel">
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_type || "unknown")}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
-    ${warnings}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
+    ${warnings}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table>
     <details><summary class="muted">notes (JSON)</summary><pre>${esc(JSON.stringify(p.notes, null, 2))}</pre></details>

@@ -32,6 +32,7 @@ from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import continuity_calibration
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import test_cadence, volume as volume_feature
+from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import warmup
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
 from strength_coach.features import lift_readiness as lift_readiness_feature
@@ -67,6 +68,9 @@ def build_prescription(
     apply_selection: bool = False,
     selection_chooser: Callable | None = None,
     selection_confirmed: bool = False,
+    minimum_session: bool = False,
+    minimum_target_minutes: int | None = None,
+    minimum_include_main: bool = False,
 ) -> Prescription:
     """Generate the deterministic session for `for_date`.
 
@@ -231,7 +235,49 @@ def build_prescription(
         context, tuple(items), for_date
     )
     warnings.extend(volume_warnings)
+    # Attach the ramp before estimating a minimum session so its warm-up cost is not hidden.
     items = warmup.attach(tuple(items))
+
+    # Constraint evaluation is needed before the optional minimum-session tier: a hard veto
+    # must refuse volume reduction rather than hide it behind a non-executable prescription.
+    constraint_report = constraints_mod.evaluate(
+        conn, [item.exercise_id for item in items]
+    )
+    minimum_note = None
+    if minimum_session:
+        minimum_cfg = minimum_session_mod.MinimumSessionConfig.load()
+        target = minimum_target_minutes or minimum_cfg.default_target_minutes
+        pre_issues = validate_prescription(
+            tuple(items), context, document, session_type, for_date
+        )
+        for exercise_id, reason in constraint_report.vetoes:
+            pre_issues.append(f"CONSTRAINT_VETO:{exercise_id}:{reason}")
+        if pre_issues:
+            minimum_note = {
+                "requested": True, "applied": False, "status": "unavailable",
+                "reason": "prescription is not executable: " + "; ".join(pre_issues),
+                "target_minutes": target,
+                "include_main": minimum_include_main,
+            }
+            warnings.append(f"MOD-MIN-001 not applied: {minimum_note['reason']}")
+        else:
+            result = minimum_session_mod.apply(
+                tuple(items), target_minutes=target,
+                include_main=minimum_include_main, config=minimum_cfg,
+            )
+            if result["applied"]:
+                items = list(result["items"])
+                warnings.append(
+                    f"MOD-MIN-001: {result['status']}; {result['reason']}; "
+                    "load and RIR unchanged"
+                )
+            else:
+                warnings.append(
+                    f"MOD-MIN-001 not applied: {result['status']}; {result['reason']}"
+                )
+            minimum_note = {
+                key: value for key, value in result.items() if key != "items"
+            }
 
     # Injury signals are context, never policy: a flaring region adds a warning naming the
     # lifts that load it, but never vetoes or edits a load (DEC-INJURY-01).
@@ -239,7 +285,6 @@ def build_prescription(
 
     # Stored athlete state is applied deterministically: a hard constraint vetoes, a
     # suitability rating is surfaced. Unrecorded state is reported, never read as permission.
-    constraint_report = constraints_mod.evaluate(conn, [item.exercise_id for item in items])
     if not constraint_report.recorded:
         warnings.append(
             "athlete state not recorded: constraints were not evaluated (they are unknown, "
@@ -311,6 +356,7 @@ def build_prescription(
             "test_cadence": test_cadence.status(conn, for_date),
             "high_intensity_exposure": exposure_status.as_dict(),
             "volume_management": volume_note,
+            "minimum_session": minimum_note,
             "selection": {
                 "requested": bool(apply_selection),
                 "applied": any(row.get("applied") for row in selection_notes),

@@ -99,7 +99,7 @@ set-linked PR stays in volume and uses the exposure only for the recovery guard.
 |---|---|
 | modifier_id PK | UUID |
 | prescription_id | stored prescription |
-| modifier_key | `MOD-FAT-001`, `MOD-GAP-001`, `MOD-DELOAD-001`, `MOD-VOL-001/002`, `MOD-SELECT-001` |
+| modifier_key | `MOD-FAT-001`, `MOD-GAP-001`, `MOD-DELOAD-001`, `MOD-VOL-001/002`, `MOD-SELECT-001`, `MOD-MIN-001` |
 | applied_on | date |
 | detail_json | before/after and reason references |
 | created_at | timestamp |

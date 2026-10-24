@@ -42,7 +42,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
   R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only), the **continuity calibration** panel (per-band returns/fixed/applied and the
   `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings with A/B/C
   comparison classes and a display-only own-history e1RM ratio; optional LLM chooser). The session is chosen by the rolling emphasis rule;
-  **Apply selection** makes A candidates replace the slot exercises, **Confirm near-comparable**
+  **Minimum session** is an explicit volume-only fallback (30/45/60 minutes); it never changes load/RIR, preserves main lifts by default, and has a separate deeper tier for main-lift floors. **Apply selection** makes A candidates replace the slot exercises, **Confirm near-comparable**
   is required for B, and C is hidden unless **show different lifts** is ticked (and can never be
   applied automatically). **Use LLM** appears only when Apply is ticked. Without the toggle the
   prescription is unchanged. The **Retrospective validation** panel runs the walk-forward check. A scheduled deload is shown as a suggestion with an **Apply deload** button; it is not applied until confirmed. Reactive deloads are automatic. Applied deloads cite `MOD-DELOAD-001`. Main lifts show their warm-up ramp; the strength-test cadence is shown in the notes. The volume ledger now applies `MOD-VOL-002` (one accessory set after three weeks below MEV).
@@ -72,7 +72,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 |---|---|
 | `GET /api/overview` | dashboard data |
 | `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
-| `POST /api/prescribe` | `{date, session_type?, apply_selection?, selection_confirmed?, selection_llm?}` -> prescription; `session_type=auto` uses the rolling rule |
+| `POST /api/prescribe` | `{date, session_type?, apply_selection?, selection_confirmed?, selection_llm?, minimum_session?, target_minutes?, minimum_include_main?}` -> prescription; `session_type=auto` uses the rolling rule; minimum mode is volume-only |
 | `POST /api/workout/start` | `{date, plan, readiness, note?}` -> live workout; seven readiness fields required |
 | `GET /api/workout/active` | active workout, or `{workout: null}` |
 | `GET /api/workout/<id>` | workout detail |

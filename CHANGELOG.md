@@ -17,6 +17,9 @@
 
 ### Added
 
+- Minimum effective session (`MOD-MIN-001`): an explicit, volume-only 30/45/60-minute fallback
+  that preserves main lifts by default and offers a separate deeper tier. No load/RIR change;
+  provenance and UI/CLI controls included.
 - UI start-workout now commits the plan as a stored prescription with item and modifier
   provenance in one transaction; the UI prescribe preview remains read-only.
 - Readiness feedback: a read-only follow-up of `MOD-FAT-001` reductions from completed workout

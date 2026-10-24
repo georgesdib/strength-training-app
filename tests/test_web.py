@@ -679,3 +679,14 @@ def test_readiness_feedback_endpoint_is_descriptive(server):
     assert data["events"] == []
     assert data["aggregate"]["n_events"] == 0
     assert data["note"].startswith("Association only")
+
+
+def test_minimum_session_prescription_is_explicit_and_volume_only(server):
+    data = post(server, "/api/prescribe", {
+        "date": "2024-01-01", "session_type": "hinge",
+        "minimum_session": True, "target_minutes": 30,
+    })
+    note = data["notes"]["minimum_session"]
+    assert note["requested"] is True
+    assert note["target_minutes"] == 30
+    assert "MOD-MIN-001" in " ".join(data["warnings"])

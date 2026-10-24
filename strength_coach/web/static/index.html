@@ -98,11 +98,21 @@
           <label><input type="checkbox" id="prescribe-apply-selection"> Apply selection</label>
           <label id="prescribe-selection-confirm-wrap" hidden><input type="checkbox" id="prescribe-selection-confirm"> Confirm near-comparable (B)</label>
           <label id="prescribe-selection-llm-wrap" hidden><input type="checkbox" id="prescribe-selection-llm"> Use LLM</label>
+          <label><input type="checkbox" id="prescribe-minimum"> Minimum session</label>
+          <label>Target
+            <select id="prescribe-target">
+              <option value="30">30 min</option>
+              <option value="45" selected>45 min</option>
+              <option value="60">60 min</option>
+            </select>
+          </label>
+          <label><input type="checkbox" id="prescribe-minimum-main" disabled> also reduce main lifts</label>
           <button class="primary" type="submit">Build prescription</button>
         </form>
         <p class="muted">The prescription is deterministic and cites rule ids. Warnings are part of the
           answer, not noise: a missing readiness or an unknown load appears here. Poor readiness
-          reduces accessory sets by one (config/readiness.v1.yaml) as well as load/RIR.</p>
+          reduces accessory sets by one (config/readiness.v1.yaml) as well as load/RIR.
+          A minimum session is explicit, volume-only, and leaves load/RIR unchanged.</p>
       </div>
       <div id="prescribe-result"></div>
       <div class="panel" id="continuity-panel">

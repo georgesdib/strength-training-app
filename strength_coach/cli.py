@@ -105,6 +105,12 @@ def main(argv: list[str] | None = None) -> int:
                      help="confirm a near-comparable (class B) substitution; class C is never automatic")
     run.add_argument("--yes", action="store_true",
                      help="apply an accepted proposal without asking")
+    run.add_argument("--minimum-session", action="store_true",
+                     help="user-selected volume-only minimum session (MOD-MIN-001)")
+    run.add_argument("--target-minutes", type=int, choices=(30, 45, 60), default=None,
+                     help="minimum-session target; default from config (45)")
+    run.add_argument("--minimum-include-main", action="store_true",
+                     help="deeper tier: also reduce main-lift sets to the floor")
 
     review = sub.add_parser("review", help="mark a session and update calibration")
     review.add_argument("--session", default=None, help="session id (YYYY-MM-DD)")
@@ -429,6 +435,9 @@ def _cmd_run(args) -> int:
 
         facts = build_facts(conn, session_id)
         critique = score_session(conn, session_id, facts=facts)
+        if args.minimum_include_main and not args.minimum_session:
+            print("--minimum-include-main requires --minimum-session")
+            return 2
         if args.selection_llm and not args.apply_selection:
             print("--selection-llm requires --apply-selection")
             return 2
@@ -447,6 +456,9 @@ def _cmd_run(args) -> int:
             conn, for_date=args.date, session_type=session_type,
             apply_selection=args.apply_selection, selection_chooser=chooser,
             selection_confirmed=args.selection_confirm,
+            minimum_session=args.minimum_session,
+            minimum_target_minutes=args.target_minutes,
+            minimum_include_main=args.minimum_include_main,
         )
 
         with RunTrace.start(conn, input_hash=f"{session_id}:{args.date}",

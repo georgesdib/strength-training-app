@@ -1,0 +1,13 @@
+# Minimum effective session (MOD-MIN-001).
+#
+# User-selected, volume-only fallback. It never changes load, RIR or exercise identity.
+# Default: remove non-essential accessory work first. The deeper tier is never automatic.
+schema_version: "1.0.0"
+
+targets_minutes: [30, 45, 60]
+default_target_minutes: 45
+accessory_floor_sets: 1
+main_lift_floor_sets: 2
+# Estimated seconds per working set; this is a planning estimate, not a measurement.
+set_seconds: 30
+warmup_set_seconds: 30

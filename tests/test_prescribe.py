@@ -587,3 +587,44 @@ def test_main_lifts_carry_a_standardised_warmup_ramp():
     assert all(0 < w.load_kg <= main.load_kg for w in main.warmup)
     accessory = next(item for item in prescription.items if not item.essential)
     assert accessory.warmup == ()
+
+
+def test_minimum_session_is_optional_volume_only_and_keeps_main_lifts_by_default():
+    with store_with(BASE_HISTORY) as store:
+        normal = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="hinge",
+        )
+    with store_with(BASE_HISTORY) as store:
+        minimum = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="hinge",
+            minimum_session=True, minimum_target_minutes=30,
+        )
+    note = minimum.notes.get("minimum_session")
+    assert note is not None
+    assert note["requested"] is True
+    by_normal = {item.exercise_id: item for item in normal.items}
+    for item in minimum.items:
+        original = by_normal[item.exercise_id]
+        assert item.load_kg == original.load_kg
+        assert item.rir_target == original.rir_target
+        if item.essential:
+            assert item.sets == original.sets
+    assert "MOD-MIN-001" in " ".join(minimum.warnings)
+
+
+def test_minimum_session_refuses_a_hard_constraint_veto():
+    from strength_coach.store import repositories
+
+    with store_with(BASE_HISTORY) as store:
+        repositories.append_athlete_constraint(
+            store.connection, kind="injury", region="low_back", severity="hard_exclude",
+            forbidden_exercises=["trap_bar_deadlift"],
+        )
+        minimum = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="hinge",
+            minimum_session=True, minimum_target_minutes=30,
+        )
+    note = minimum.notes["minimum_session"]
+    assert note["status"] == "unavailable"
+    assert note["applied"] is False
+    assert "CONSTRAINT_VETO" in note["reason"]

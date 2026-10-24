@@ -12,7 +12,7 @@ from strength_coach.store import repositories
 
 MODIFIER_KEYS = (
     "MOD-FAT-001", "MOD-GAP-001", "MOD-DELOAD-001",
-    "MOD-VOL-001", "MOD-VOL-002", "MOD-SELECT-001",
+    "MOD-VOL-001", "MOD-VOL-002", "MOD-SELECT-001", "MOD-MIN-001",
 )
 
 
@@ -43,6 +43,8 @@ def extract(prescription) -> list[tuple[str, dict]]:
             detail["volume_management"] = notes.get("volume_management")
         elif key == "MOD-SELECT-001":
             detail["selection"] = notes.get("selection")
+        elif key == "MOD-MIN-001":
+            detail["minimum_session"] = notes.get("minimum_session")
         out.append((key, detail))
     return out
 
@@ -75,6 +77,8 @@ def extract_plan(plan: dict) -> list[tuple[str, dict]]:
             detail["volume_management"] = notes.get("volume_management")
         elif key == "MOD-SELECT-001":
             detail["selection"] = notes.get("selection")
+        elif key == "MOD-MIN-001":
+            detail["minimum_session"] = notes.get("minimum_session")
         out.append((key, detail))
     return out
 

@@ -474,6 +474,18 @@ not bypass the readiness gate or the minimum-data rule. Context flags are displa
 readiness and do not change the score by default. The Readiness page exposes the same
 buttons and checkboxes.
 
+### 4.4d `run --minimum-session`
+
+```bash
+strength-coach run --date 2026-10-23 --minimum-session --target-minutes 45
+strength-coach run --date 2026-10-23 --minimum-session --target-minutes 30 --minimum-include-main
+```
+
+A user-selected, volume-only fallback. The default tier reduces non-essential accessory work
+and preserves main lifts; the deeper tier reduces main-lift sets to a floor of two. Load,
+RIR, reps and exercise identity are unchanged. It is never automatic. The UI has the same
+controls on the Prescribe page.
+
 ### 4.4c `outcomes` — a descriptive multi-week review
 
 ```bash

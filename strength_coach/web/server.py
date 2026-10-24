@@ -688,10 +688,17 @@ class Handler(BaseHTTPRequestHandler):
             agent_selection.chooser(build_client(load_settings()))
             if selection_llm else None
         )
+        minimum_session = _truth(body.get("minimum_session"))
+        minimum_include_main = _truth(body.get("minimum_include_main")) and minimum_session
+        target = body.get("target_minutes")
+        target_minutes = int(target) if target not in (None, "") else None
         prescription = build_prescription(
             conn, for_date=for_date, session_type=session_type,
             apply_selection=apply_selection, selection_chooser=chooser,
             selection_confirmed=selection_confirmed,
+            minimum_session=minimum_session,
+            minimum_target_minutes=target_minutes,
+            minimum_include_main=minimum_include_main,
         )
         # Reactive triggers are automatic. A scheduled deload is only a suggestion and
         # requires an explicit deload_confirmed=true in the request.
