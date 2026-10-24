@@ -1,6 +1,6 @@
 # STRENGTH-FIRST ENGINE AUDIT — living plan
 
-**Status:** living audit plan. No implementation. Refined as further audits are completed.
+**Status:** CLOSED 2026-10-23. All W0–W12 workstreams complete. See [`AUDIT-CLOSEOUT.md`](AUDIT-CLOSEOUT.md).
 **Companion:** [`IMPLEMENTATION-PLAN-2026-10.md`](IMPLEMENTATION-PLAN-2026-10.md) records the approved product direction and implementation order.
 **Date:** 2026-10-23
 **Scope:** the deterministic coaching engine, its prescription behaviour and its evaluation.
@@ -23,8 +23,8 @@ the engine:
 - distinguishes evidence from assumptions;
 - collects enough prospective data to evaluate itself.
 
-Each audit ends with **findings and recommendations**, not code changes. Implementation needs
-separate approval.
+Each audit ends with **findings and recommendations**. Fixes were applied only where separately
+approved and are recorded in the closeout.
 
 ---
 
@@ -429,7 +429,7 @@ Deliverable for the first slice:
 
 ## 9. What this plan does not do
 
-- no implementation;
+- no unapproved implementation (separately approved fixes are recorded in the closeout);
 - no constitution change;
 - no threshold change;
 - no new model;
@@ -685,4 +685,5 @@ For A3/A4/A5:
 - No Git-history rewrite.
 - No cardio expansion.
 
-W11/W12 documentation closes the audit plan. No code or training policy changed.
+W11/W12 documentation closes the audit plan. No code or training policy changed. The final
+outcome and the open limitations are consolidated in [`AUDIT-CLOSEOUT.md`](AUDIT-CLOSEOUT.md).

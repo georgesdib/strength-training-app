@@ -187,6 +187,7 @@ never read `data/raw`.
 |---|---|
 | `USER-GUIDE.md` | how to install, run and read the output (the human-facing entry point) |
 | `ROADMAP.md` | live phase status, next actions, resume checklist |
+| `docs/AUDIT-CLOSEOUT.md` | final W0–W12 audit outcome, implemented fixes and remaining limitations |
 | `docs/W11-W12-CLOSEOUT.md` | W11 documentation consistency (including rubric 1.1.0 duration) and W12 public-data inventory/history decision |
 | `docs/W10-AGE.md` | W10 age-in-state audit; optional birth-year, wording and no age-based load rule |
 | `docs/W8-VOLUME-BALANCE.md` | W8 weekly set/spinal/time balance and four options; no change |
@@ -226,7 +227,7 @@ never read `data/raw`.
 | `docs/TRAINING-DYNAMICS.md` | evidence on 1RM testing, rep ranges and DUP; proposal, not decision |
 | `docs/WORKOUT-TYPE-READINESS-EVIDENCE.md` | evidence/decision: readiness and injury adjust load/sets, not the planned rep scheme |
 | `docs/HIGH-INTENSITY-EXPOSURE-PLAN.md` | detailed proposal: tests/max attempts/competition exposures, guard windows, evidence and phased evaluation |
-| `docs/ENGINE-AUDIT-PLAN.md` | living audit plan: execution map, attendance, load lineage, modifier interactions, evidence review and prospective evaluation; no implementation |
+| `docs/ENGINE-AUDIT-PLAN.md` | closed W0–W12 audit plan; outcome in `AUDIT-CLOSEOUT.md` |
 | `docs/READINESS-AUDIT.md` | W6 audit: readiness vs no readiness is not identifiable retrospectively; descriptive associations and policy options |
 | `docs/W2-LOAD-LINEAGE.md` | W2 audit: load lineage; bodyweight-basis and incomplete-workout defects fixed |
 | `docs/W9-SPINAL-CAP.md` | W9 audit: explicit high-fatigue costs, at-cap display, cap unchanged |

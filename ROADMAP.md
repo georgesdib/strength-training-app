@@ -49,6 +49,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v0.5 | Video analysis | **planned** | video capture/analysis and its UI parity (§4.8, §4.11 video part) |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video moved to v0.2; 3.8 labelled set moved to §4.14 |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000` |
+| — | Engine audit W0–W12 | **closed 2026-10-23** | `docs/AUDIT-CLOSEOUT.md`; open items in `docs/LIMITATIONS-REGISTER.md` |
 
 ### Version plan (2026-10-23)
 
@@ -76,10 +77,10 @@ progression for accessories), rounded down to the athlete's 0.5 kg microplates, 
 MOD-FAT-001 reducing loads when sleep or energy is <= 2. Every item cites a rule id and a
 stored set, and the prescription refuses to be executable if a load, the RIR window, the
 erector-day rule or the weekly spinal cap would be broken. A performed session can now be
-**critiqued**: six rubric items score it (RIR adherence, progression adherence, weekly spinal
-cost, essential work, redundancy, rotation) with evidence references, and two are stored as
-`measurable = 0` because the export cannot support them (session duration, within-set velocity
-loss). The critique is persisted append-only inside a `run` trace. An **optional narrative** can explain
+**critiqued**: seven rubric items score it (RIR adherence, progression adherence, weekly spinal
+cost, essential work, redundancy, rotation and measured live-session duration) with evidence
+references. Imported-session duration and within-set velocity loss remain `measurable = 0`
+because the export cannot support them. The critique is persisted append-only inside a `run` trace. An **optional narrative** can explain
 either artifact: the model receives the facts as JSON, may not compute, and its output is
 recorded as a `run_event` rather than written into a prescription or a score. With no model
 configured (`NullLLM`) the run is structurally identical and loses only the prose. There is
@@ -1019,7 +1020,7 @@ path. CLI workout commands are partial (no start).
 | Only one session type can be prescribed | The other templates are blocked by the erector-ramp anchor (Q3), the SSB question (H1) and the missing §11 tables | **resolved** — all four session types prescribable; the ramp anchor is optional and `unknown` is explicit |
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
 | Velocity is per-set only | within-set velocity loss not computable | labelled decay proxy; `DEC-VELOCITY-01`; post-hoc rep-level decision in `docs/VBT-REP-LEVEL.md` (`DEC-VBT-03`) |
-| Rubric calibrated on **five high-confidence sessions** | 75% agreement, MAE 0.20; rotation is the weak item (40%, n=5); two old marks are reconstructed and excluded | `DEC-EVAL-04`; needs ~10 remembered marks per item before changing weights |
+| Rubric calibrated on a small number of high-confidence sessions | agreement is limited and rotation is the weak item; some old marks are reconstructed and excluded | `DEC-EVAL-04`; needs ~10 remembered marks per item before changing weights; exact counts are private |
 | Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one | Reviewed 2026-10-23: keep ordinal; separate heavy-set advisory (RIR ≤ 1) is context only; see docs/SPINAL-LOAD-EVIDENCE.md |
 | VBT targets not prescribed | a prescription carries no `velocity_target` | **resolved** — 22 targets where trustworthy; trap bar withheld; `DEC-VBT-02` |
 | ACWR contested | cannot be a hard rule | advisory only; `DEC-ACWR-01` |

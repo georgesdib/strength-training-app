@@ -25,6 +25,8 @@
 
 ### Documented
 
+- Engine audit W0–W12 closed; implemented fixes, deferred policy choices and 36 open
+  limitations consolidated.
 - W11/W12 closeout: one test-count source, duration wording, public-data inventory,
   exact sample counts generalised and Git-history decision recorded.
 - W10 age-in-state audit: optional `birth_year` proposal, age-conditional wording and no
