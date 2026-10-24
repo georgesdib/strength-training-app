@@ -222,7 +222,7 @@ never read `data/raw`.
 | `docs/HIGH-INTENSITY-EXPOSURE-PLAN.md` | detailed proposal: tests/max attempts/competition exposures, guard windows, evidence and phased evaluation |
 | `docs/ENGINE-AUDIT-PLAN.md` | living audit plan: execution map, attendance, load lineage, modifier interactions, evidence review and prospective evaluation; no implementation |
 | `docs/READINESS-AUDIT.md` | W6 audit: readiness vs no readiness is not identifiable retrospectively; descriptive associations and policy options |
-| `docs/W3-MODIFIER-MATRIX.md` | W3 audit: six confirmed deload/order/floor/RIR defects; fixes pending |
+| `docs/W3-MODIFIER-MATRIX.md` | W3 audit: six confirmed deload/order/floor/RIR defects, fixed and tested |
 | `docs/MINIMUM-SESSION.md` | `MOD-MIN-001` user-selected volume-only fallback: targets, floors, precedence, refusal and provenance |
 | `docs/IMPLEMENTATION-PLAN-2026-10.md` | approved direction and phased implementation plan; A0–F implemented |
 | `docs/TEST-FATIGUE-PLAN.md` | superseded narrow test-fatigue proposal; points to the broader plan |

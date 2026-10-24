@@ -32,6 +32,7 @@ from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import continuity_calibration
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import test_cadence, volume as volume_feature
+from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import warmup
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
@@ -71,6 +72,7 @@ def build_prescription(
     minimum_session: bool = False,
     minimum_target_minutes: int | None = None,
     minimum_include_main: bool = False,
+    deload_decision: Any | None = None,
 ) -> Prescription:
     """Generate the deterministic session for `for_date`.
 
@@ -215,7 +217,7 @@ def build_prescription(
             medium_multiplier=thresholds.continuity_medium_multiplier,
             long_multiplier=thresholds.continuity_long_multiplier,
         )
-    items, gap_level, gap_warnings = _apply_continuity(
+    items, gap_level, gap_warnings, load_factors = _apply_continuity(
         context, tuple(items), thresholds, prior_factors=readiness_factors,
         calibration=continuity_cal,
     )
@@ -235,6 +237,25 @@ def build_prescription(
         context, tuple(items), for_date
     )
     warnings.extend(volume_warnings)
+
+    # Deload runs before the minimum session and before final validation. Its load factor is
+    # compared with the cumulative readiness/continuity factor, never multiplied on top.
+    deload_note = None
+    if deload_decision is not None:
+        primary = {
+            item.exercise_id for item in items
+            if context.entity(item.exercise_id).get("primary_compound", False)
+        }
+        items, deload_warning, deload_note, deload_level = deload_mod.apply_items(
+            tuple(items), deload_decision,
+            prior_load_factors=load_factors,
+            primary_compounds=primary,
+        )
+        if deload_warning:
+            warnings.append(deload_warning)
+        if deload_note is not None:
+            fallback_level = deload_level
+
     # Attach the ramp before estimating a minimum session so its warm-up cost is not hidden.
     items = warmup.attach(tuple(items))
 
@@ -357,6 +378,7 @@ def build_prescription(
             "high_intensity_exposure": exposure_status.as_dict(),
             "volume_management": volume_note,
             "minimum_session": minimum_note,
+        **({"deload": deload_note} if deload_note is not None else {}),
             "selection": {
                 "requested": bool(apply_selection),
                 "applied": any(row.get("applied") for row in selection_notes),
@@ -686,7 +708,7 @@ def _apply_continuity(
     *,
     prior_factors: Mapping[str, float] | None = None,
     calibration: continuity_calibration.Calibration | None = None,
-) -> tuple[tuple[PrescriptionItem, ...], str, tuple[str, ...]]:
+) -> tuple[tuple[PrescriptionItem, ...], str, tuple[str, ...], dict[str, float]]:
     """Return-to-training adjustment after a gap (DEC-CONTINUITY-01).
 
     The gap is detected from stored history; a declared break is optional. Short gaps add one
@@ -696,7 +718,7 @@ def _apply_continuity(
     """
     band = _gap_band(context.gap_days, thresholds)
     if band is None:
-        return items, "full", ()
+        return items, "full", (), dict(prior_factors or {})
 
     if band == "long":
         multiplier = thresholds.continuity_long_multiplier
@@ -715,6 +737,7 @@ def _apply_continuity(
     prior_factors = prior_factors or {}
     capped = False
     out: list[PrescriptionItem] = []
+    factors_out = dict(prior_factors or {})
     for item in items:
         refs = item.rationale_refs + ("MOD-GAP-001",)
         rir = min(4, item.rir_target + bump)
@@ -726,6 +749,7 @@ def _apply_continuity(
                 # 20% combined cap. If readiness alone is beyond it, add nothing further.
                 applied = min(1.0, 0.80 / prior)
                 capped = capped or applied > multiplier
+            factors_out[item.exercise_id] = prior * applied
             out.append(replace(
                 item,
                 load_kg=loads.round_down(
@@ -756,7 +780,8 @@ def _apply_continuity(
         f"{'; combined readiness+continuity capped at 20%' if capped else ''}"
         f"{calibration_note})",
     )
-    return tuple(out), "fatigue_reduced" if multiplier < 1 else "full", warnings
+    return (tuple(out), "fatigue_reduced" if multiplier < 1 else "full", warnings,
+            factors_out)
 
 
 def _attach_vbt_targets(

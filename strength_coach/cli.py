@@ -452,6 +452,33 @@ def _cmd_run(args) -> int:
             agent_selection.chooser(build_client(load_settings()))
             if args.selection_llm else None
         )
+        # Resolve deload before building: the engine must apply it before minimum session and
+        # final validation, not after validation.
+        reactive = deload_feature.reactive_decision(conn, args.date)
+        scheduled = deload_feature.scheduled_decision(conn, args.date)
+        deload_decision = None
+        scheduled_suggestion = None
+        if reactive is not None:
+            # Reactive safety trigger: always applied, even when a scheduled suggestion
+            # was also due.
+            deload_decision = reactive
+            print(f"deload applied: {reactive.reason}")
+        elif scheduled is not None:
+            confirmed = False
+            if args.deload == "yes":
+                confirmed = True
+            elif args.deload == "ask" and sys.stdin.isatty():
+                print(f"deload suggested: {scheduled.reason}")
+                answer = input("Apply deload for this workout? [y/N] ").strip().lower()
+                confirmed = answer in {"y", "yes"}
+            if confirmed:
+                deload_decision = scheduled
+                print(f"deload applied: {scheduled.reason}")
+            else:
+                scheduled_suggestion = scheduled
+                if args.deload == "ask" and not sys.stdin.isatty():
+                    print("deload suggested; non-interactive run trains as planned "
+                          "(use --deload yes to apply)")
         prescription = build_prescription(
             conn, for_date=args.date, session_type=session_type,
             apply_selection=args.apply_selection, selection_chooser=chooser,
@@ -459,7 +486,10 @@ def _cmd_run(args) -> int:
             minimum_session=args.minimum_session,
             minimum_target_minutes=args.target_minutes,
             minimum_include_main=args.minimum_include_main,
+            deload_decision=deload_decision,
         )
+        if scheduled_suggestion is not None:
+            prescription = deload_mod.suggest(prescription, scheduled_suggestion)
 
         with RunTrace.start(conn, input_hash=f"{session_id}:{args.date}",
                             window_end=args.date) as trace:
@@ -470,29 +500,6 @@ def _cmd_run(args) -> int:
                     print("--propose requires --llm on")
                     return 2
                 prescription, approved_by = _propose(conn, trace, prescription, args)
-            reactive = deload_feature.reactive_decision(conn, args.date)
-            scheduled = deload_feature.scheduled_decision(conn, args.date)
-            if reactive is not None:
-                # Reactive safety trigger: always applied, even when a scheduled suggestion
-                # was also due.
-                prescription = deload_mod.apply(prescription, reactive)
-                print(f"deload applied: {reactive.reason}")
-            elif scheduled is not None:
-                confirmed = False
-                if args.deload == "yes":
-                    confirmed = True
-                elif args.deload == "ask" and sys.stdin.isatty():
-                    print(f"deload suggested: {scheduled.reason}")
-                    answer = input("Apply deload for this workout? [y/N] ").strip().lower()
-                    confirmed = answer in {"y", "yes"}
-                if confirmed:
-                    prescription = deload_mod.apply(prescription, scheduled)
-                    print(f"deload applied: {scheduled.reason}")
-                else:
-                    prescription = deload_mod.suggest(prescription, scheduled)
-                    if args.deload == "ask" and not sys.stdin.isatty():
-                        print("deload suggested; non-interactive run trains as planned "
-                              "(use --deload yes to apply)")
             prescription_id = repositories.append_prescription(
                 conn,
                 prescription_id=_new_id(),

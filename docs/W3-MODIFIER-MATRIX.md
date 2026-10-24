@@ -1,6 +1,7 @@
 # W3 — MODIFIER INTERACTION MATRIX
 
-**Status:** audit completed 2026-10-23. Confirmed defects found; no fixes applied.
+**Status:** audit completed and all six confirmed defects fixed 2026-10-23. Regression tests
+in `tests/test_w3_interactions.py`.
 **Scope:** readiness, continuity, deload, MRV/volume, constraints, back flare, selection and
 minimum session.
 **Method:** synthetic fixtures; no personal training data.
@@ -20,11 +21,12 @@ The audit used the approved defaults:
 6. essential/main-lift exercises are never removed; only sets can be reduced;
 7. revalidate after every reduction path; the most restrictive safety rule wins.
 
-The current implementation does not yet follow this order.
+The implementation now follows this order; the findings below record what the audit found
+before the fix.
 
 ## 2. Confirmed findings
 
-### W3-01 — Deload is applied after minimum session and after validation
+### W3-01 — RESOLVED — Deload is applied after minimum session and after validation
 
 **Classification:** confirmed defect.
 
@@ -49,7 +51,7 @@ caller (CLI/Web):
 recompute the rubric/RIR/spinal validation. A deload can therefore leave a prescription that
 was never validated in its shown form.
 
-### W3-02 — Deload can add sets to a 1-set accessory
+### W3-02 — RESOLVED — Deload can add sets to a 1-set accessory
 
 **Classification:** confirmed defect.
 
@@ -70,7 +72,7 @@ deload:           accessory 2 sets
 That violates the approved floors and the rule that a modifier never adds work. The same
 mechanism can undo an MRV cap.
 
-### W3-03 — Deload multiplies an already reduced load and exceeds the 20% guardrail
+### W3-03 — RESOLVED — Deload multiplies an already reduced load and exceeds the 20% guardrail
 
 **Classification:** confirmed defect under the approved policy.
 
@@ -85,7 +87,7 @@ low readiness + deload:           121.0 kg   (~24% cut from normal)
 The readiness/continuity cap is 20%, but the deload multiplier is applied afterwards. The
 result is a second independent load reduction, not “the most restrictive single factor”.
 
-### W3-04 — Deload can push a main-lift RIR outside 1–4
+### W3-04 — RESOLVED — Deload can push a main-lift RIR outside 1–4
 
 **Classification:** confirmed defect.
 
@@ -97,14 +99,14 @@ deload: main-lift RIR target = 5
 
 `PRG-RIR-001` allows 1–4. No revalidation occurs, and the stored `issues` remain empty.
 
-### W3-05 — Deload can undo the MRV cap
+### W3-05 — RESOLVED — Deload can undo the MRV cap
 
 **Classification:** confirmed defect.
 
 With a high pull-up history, the MRV cap reduced `pull_up` to 1 set. A later deload raised it
 back to 2. The final session exceeded the cap that had already been enforced.
 
-### W3-06 — Minimum-session note is stale after deload
+### W3-06 — RESOLVED — Minimum-session note is stale after deload
 
 **Classification:** confirmed defect.
 
@@ -152,7 +154,7 @@ criteria.
 | P1 | W3-03 double load / cap | exceeds the intended single-factor/cap policy |
 | P1 | W3-06 stale note | contradicts what is displayed |
 
-## 6. Recommended fixes — not implemented
+## 6. Fixes implemented
 
 1. Apply the deload **before** minimum session and final validation, or move both into one
    ordered pipeline.
@@ -169,4 +171,15 @@ criteria.
 6. Mark the minimum note superseded or recompute it after deload.
 7. Add regression tests for all six confirmed findings.
 
-No code, config or prescription was changed by this audit.
+Implemented in `prescribe/deload.py`, `prescribe/engine.py`, `prescribe/minimum_session.py`,
+the CLI/server prescription callers and `tests/test_w3_interactions.py`.
+
+Verification:
+
+- `test_deload_never_increases_a_one_set_item`
+- `test_deload_uses_one_load_factor_not_a_product`
+- `test_deload_rir_cap_keeps_primary_compounds_in_window`
+- `test_deload_does_not_undo_mrv_cap`
+- `test_minimum_note_is_after_deload_not_before_it`
+
+Full suite: 662 tests passed.

@@ -692,6 +692,19 @@ class Handler(BaseHTTPRequestHandler):
         minimum_include_main = _truth(body.get("minimum_include_main")) and minimum_session
         target = body.get("target_minutes")
         target_minutes = int(target) if target not in (None, "") else None
+        # Resolve deload before building: it must run before minimum session and final
+        # validation, not after validation.
+        reactive = deload_feature.reactive_decision(conn, for_date)
+        scheduled = deload_feature.scheduled_decision(conn, for_date)
+        deload_decision = None
+        scheduled_suggestion = None
+        if reactive is not None:
+            deload_decision = reactive
+        elif scheduled is not None:
+            if _truth(body.get("deload_confirmed")):
+                deload_decision = scheduled
+            else:
+                scheduled_suggestion = scheduled
         prescription = build_prescription(
             conn, for_date=for_date, session_type=session_type,
             apply_selection=apply_selection, selection_chooser=chooser,
@@ -699,18 +712,10 @@ class Handler(BaseHTTPRequestHandler):
             minimum_session=minimum_session,
             minimum_target_minutes=target_minutes,
             minimum_include_main=minimum_include_main,
+            deload_decision=deload_decision,
         )
-        # Reactive triggers are automatic. A scheduled deload is only a suggestion and
-        # requires an explicit deload_confirmed=true in the request.
-        reactive = deload_feature.reactive_decision(conn, for_date)
-        scheduled = deload_feature.scheduled_decision(conn, for_date)
-        if reactive is not None:
-            prescription = deload_mod.apply(prescription, reactive)
-        elif scheduled is not None:
-            if _truth(body.get("deload_confirmed")):
-                prescription = deload_mod.apply(prescription, scheduled)
-            else:
-                prescription = deload_mod.suggest(prescription, scheduled)
+        if scheduled_suggestion is not None:
+            prescription = deload_mod.suggest(prescription, scheduled_suggestion)
         return prescription_dict(prescription)
 
     def _review_sheet(self, conn, session: str) -> dict:
