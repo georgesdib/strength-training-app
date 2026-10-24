@@ -1315,11 +1315,18 @@ async function loadRegime() {
         <td>${finding.baseline_sets} → ${finding.current_sets}<div class="muted">sets</div></td>
         <td>${finding.drop_pct}%</td><td>${subs}</td></tr>`;
     }).join("");
-    $("#regime-result").innerHTML = rows
-      ? `<table><thead><tr><th>Main lift</th><th>Volume</th><th>drop</th>
-         <th>Same-category rise</th></tr></thead><tbody>${rows}</tbody></table>
-         <p class="muted">${esc(data.note)}</p>`
-      : `<p class="empty">${esc(data.note)} No main-lift collapse with a same-category rise in this window.</p>`;
+    if (rows) {
+      $("#regime-result").innerHTML = `<table><thead><tr><th>Main lift</th><th>Volume</th>
+        <th>drop</th><th>Same-category rise</th></tr></thead><tbody>${rows}</tbody></table>
+        <p class="muted">${esc(data.note)}</p>`;
+    } else {
+      const coverage = data.coverage || {};
+      $("#regime-result").innerHTML = `<p><strong>No regime change detected.</strong></p>
+        <p class="muted">Checked ${coverage.main_lifts_checked ?? 0} main lift(s) with at least
+        four baseline sets. No main lift fell to 25% or less of its prior volume while a
+        same-category substitute rose by two or more sets in this window.</p>
+        <p class="muted">${esc(data.note)}</p>`;
+    }
     $("#regime-msg").textContent = "Checked " + data.coverage.main_lifts_checked + " main lift(s).";
   } catch (error) {
     $("#regime-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
