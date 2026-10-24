@@ -214,6 +214,7 @@ never read `data/raw`.
 | `docs/SPINAL-COST.md` | evidence behind the ordinal spinal-cost ratings |
 | `docs/TRAINING-DYNAMICS.md` | evidence on 1RM testing, rep ranges and DUP; proposal, not decision |
 | `docs/WORKOUT-TYPE-READINESS-EVIDENCE.md` | evidence/decision: readiness and injury adjust load/sets, not the planned rep scheme |
+| `docs/TEST-FATIGUE-PLAN.md` | proposal: tests are high-intensity exposures, not volume; recovery guard and prospective evaluation |
 | `docs/RULES-FORMAT.md` | citable rule IDs + 5 encoded rules |
 | `docs/VBT-CALIBRATION.md` | clean set, sparsity, overrides, versioning, current wiring |
 | `docs/VBT-EVIDENCE.md` | VBT evidence, best practices, what our data can and cannot support |

@@ -127,6 +127,8 @@ Each of these changes what is prescribed, so each needs a `DEC-` row and an acce
 
 ---
 
+Test fatigue: [`TEST-FATIGUE-PLAN.md`](TEST-FATIGUE-PLAN.md).
+
 Readiness/injury and scheme selection: [`WORKOUT-TYPE-READINESS-EVIDENCE.md`](WORKOUT-TYPE-READINESS-EVIDENCE.md).
 
 Full bibliography with DOIs: [`docs/REFERENCES.md`](REFERENCES.md).
