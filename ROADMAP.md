@@ -125,25 +125,26 @@ history, suitability, equipment, schedule). Two consequences are already decided
 joins the `primary_goal` enum, and training-log gaps are recorded as **non-adherence**, never
 as symptoms.
 
-### 3.2 Days A and C  (done)
+### 3.2 Squat-led and bench-led templates (legacy Days A/C)  (done)
 
 Depends on 3.1. The SSB question (H1) is answered: the bar is available. The erector-ramp
 anchor is also settled in principle — **the athlete declares the official start, and can reset
 it at any time** (`DEC-RAMP-01`), so the anchor is stored, never inferred.
 
-Scope: Day A and Day C templates; `block start [--date]` command that sets or resets week 1 as
+Scope: squat-led and bench-led templates; `block start [--date]` command that sets or resets week 1 as
 a new profile row (never an edit); **a reset restarts the ramp at week 1** (`DEC-RAMP-02`), not
 just the calendar; the ramp reads that row.
 
-Acceptance: a template per day with its own essential lifts; `PRG-SCHED-001` enforced on both
-(no erector work on the hinge day, erector work allowed on A/C); a golden prescription per
-day, in the same style as `tests/fixtures/golden_day_b.yaml`.
+Acceptance: a template per session type with its own essential lifts; `PRG-SCHED-001` enforced
+(no erector work on the hinge session, erector work allowed on squat-led/bench-led); a golden
+prescription per canonical type (`tests/fixtures/golden_session_types.yaml`).
 
-Delivered: Day A (squat-led) and Day C (bench-led) templates with erector + accessory work;
-`run --session-type T`; golden fixtures for the canonical types. Core work was added on 2026-10-20
-(`ab_wheel` on A, `hanging_leg_raise` on C, `DEC-CORE-01`; `docs/CORE-TRAINING.md`). Day A
-opens with a power slot (`box_jump`, `DEC-POWER-01`) and Day B with a vertical-pull variant
-slot (`pull_up` / `lat_pulldown`, `DEC-PULL-01/02`; `docs/LONGEVITY-REVIEW.md`).
+Delivered: squat-led and bench-led templates with erector + accessory work; `run --session-type T`;
+golden fixtures for the canonical types. Core work was added on 2026-10-20 (`ab_wheel` on the
+squat-led type, `hanging_leg_raise` on the bench-led type, `DEC-CORE-01`;
+`docs/CORE-TRAINING.md`). The squat-led type opens with a power slot (`box_jump`,
+`DEC-POWER-01`); the hinge type carries the vertical-pull variant slot (`pull_up` /
+`lat_pulldown`, `DEC-PULL-01/02`; `docs/LONGEVITY-REVIEW.md`).
 Bodyweight erector work is prescribed at load 0 with an explicit warning, never as a 0.5 kg
 "progression". The athlete declares the block start whenever they choose, so the ramp stays
 `unknown` until then.
@@ -173,7 +174,7 @@ entries per day are allowed, latest wins (migration 0005).
 ### 3.4 The LLM may tweak the prescription — within the rules  (done)
 
 Today the model only narrates. In the next version, with `--llm on`, it may also *propose* a
-modified Day B session, subject to the same policy engine that judges a performed one. The
+modified hinge session, subject to the same policy engine that judges a performed one. The
 standing rule (AGENTS.md §3.3) is what makes this safe: **the policy engine may veto or
 downgrade the model; the model may never veto the rules.**
 
@@ -1010,7 +1011,7 @@ path. CLI workout commands are partial (no start).
 | gap | impact | mitigation / status |
 |---|---|---|
 | No persistence | cannot replay a past day; work is lost between runs | **resolved** — `run`/`run_event` trace + append-only tables (phase 3) |
-| Erector ramp has no anchor | `PRG-EREC-001` returns `unknown`; Day A/C cannot be prescribed safely | rule implemented; `unknown` names both missing inputs (`OPEN-QUESTIONS` Q3, Q4) |
+| Erector ramp has no anchor | `PRG-EREC-001` returns `unknown`; squat-led/bench-led sessions lack a ramp verdict | rule implemented; `unknown` names both missing inputs (`OPEN-QUESTIONS` Q3, Q4) |
 | No athlete state | no injury, goal or preference can veto a prescription | **resolved** — §11 tables and `state` command |
 | No symptom input | back-flare modifier and the ramp's stability gate cannot run | **resolved** — pre-session 0-3 input, `symptom_log`, `MOD-BACK-001` |
 | Imported sessions have no timestamps | imported duration unmeasurable; two imported sessions on one date indistinguishable | workout mode measures duration; imports remain date-only (`OPEN-QUESTIONS` Q5) |

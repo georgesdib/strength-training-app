@@ -284,7 +284,7 @@ justifies every number.
 Sample output (numbers are illustrative):
 
 ```
-prescription 2026-10-20  (day B, full)
+prescription 2026-10-20  (hinge, full)
   exercise                 sets    reps     load  rir  refs
   ---------------------------------------------------------
   trap_bar_deadlift           4     3-5      158.5    2  PRG-RIR-001, set:2026-10-05/7821
@@ -725,8 +725,8 @@ taxonomy is not rewritten. The web **Exercises** tab is the form-based version.
 
 ### 4.10d Session types and rolling selection
 
-`run` and the Prescribe page default to a rolling session type rather than a fixed A/B/C
-calendar. The types are `squat`, `hinge`, `bench_squat` and `bench_hinge`; the rule balances
+`run` and the Prescribe page default to a rolling session type rather than the legacy fixed
+A/B/C calendar (removed by migration 0023). The types are `squat`, `hinge`, `bench_squat` and `bench_hinge`; the rule balances
 squat/hinge/bench emphasis over recent sessions. The four types are the only override labels:
 
 ```bash
