@@ -13,6 +13,11 @@
   derives session main lifts from actual sets; incomplete workouts carry a flag. Single-set
   e1RM sources emit a confidence warning.
 
+### Changed
+
+- Evidence labels in the UI: e1RM estimate, readiness heuristic, configurable volume
+  landmarks, ordinal spinal cap, weak deload evidence and heuristic minimum session.
+
 ### Documented
 
 - W4 programme-evidence audit: rule classes, confidence, qualified claims and no new model.

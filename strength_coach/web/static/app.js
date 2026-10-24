@@ -265,6 +265,7 @@ async function loadOutcomes() {
     $("#outcomes-result").innerHTML = `
       <p class="muted">${esc(data.window.from)} to ${esc(data.window.to)} · ${data.window.weeks} weeks</p>
       <h3>Strength</h3>
+      <p class="muted">e1RM values are estimates from working sets, not measured maximums.</p>
       <table><thead><tr><th>Lift</th><th>First → last e1RM</th><th>Change</th><th>Best</th></tr></thead>
       <tbody>${lifts || "<tr><td colspan='4' class='muted'>no main-lift e1RM observations</td></tr>"}</tbody></table>
       <p class="muted">Attendance: ${attendance.completed ?? "unknown"} /
@@ -443,17 +444,19 @@ function renderPrescription(p) {
   const deload = p.notes?.deload;
   const deloadBox = deload ? `<p class="warnbox"><strong>Deload (${esc(deload.trigger)})</strong>
     — ${esc(deload.reason)}. Sets -${deload.set_reduction}, load
-    ${Math.round(deload.load_multiplier * 100)}%, RIR +${deload.rir_add}.</p>` : "";
+    ${Math.round(deload.load_multiplier * 100)}%, RIR +${deload.rir_add}.
+    <span class="muted">Policy heuristic; comparative evidence is weak.</span></p>` : "";
   const spinal = p.notes?.spinal_cap;
   const spinalBox = spinal ? `<p class="muted">Weekly spinal cost:
     <strong>${fmt(spinal.cost, 1)} / ${fmt(spinal.cap, 1)}</strong>
-    ${spinal.at_cap ? "· at cap, no headroom" : spinal.over_cap ? "· over cap" : `· ${fmt(spinal.headroom, 1)} headroom`}.</p>` : "";
+    ${spinal.at_cap ? "· at cap, no headroom" : spinal.over_cap ? "· over cap" : `· ${fmt(spinal.headroom, 1)} headroom`}.
+    Ordinal exposure guard, not a measured injury threshold.</p>` : "";
   const minimum = p.notes?.minimum_session;
   const minimumBox = minimum ? `<p class="warnbox"><strong>Minimum session</strong>
     — ${esc(minimum.status)}: ${esc(minimum.reason)}.
     ${minimum.removed_sets ? `Removed ${minimum.removed_sets} set(s).` : ""}
     ${minimum.removed_exercises?.length ? `Removed exercises: ${esc(minimum.removed_exercises.join(", "))}.` : ""}
-    Load and RIR unchanged.</p>` : "";
+    Load and RIR unchanged. Heuristic, not a validated minimum dose.</p>` : "";
   const suggestion = p.notes?.deload_suggestion;
   const suggestionBox = suggestion ? `<div class="warnbox"><strong>Deload suggested</strong>
     — ${esc(suggestion.reason)}.<br>
@@ -465,6 +468,7 @@ function renderPrescription(p) {
     ${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table>
+    <p class="muted">Loads are solved from estimated e1RM, not a measured maximum; treat the kg as a starting estimate.</p>
     <details><summary class="muted">notes (JSON)</summary><pre>${esc(JSON.stringify(p.notes, null, 2))}</pre></details>
   </div>`;
 }
@@ -911,6 +915,7 @@ function renderReadinessScore(score) {
     <div class="panel-head"><h2>Computed readiness</h2>
       <span class="badge ${score.status === "ready" ? "" : "warn"}">${esc(score.status)}</span></div>
     <p><strong>${score.score == null ? "—" : fmt(score.score, 2)}</strong> <span class="muted">${esc(score.basis || "")}</span></p>
+    <p class="muted">Bounded readiness heuristic; the no-readiness counterfactual is not validated.</p>
     ${(score.context_flags || []).length ? `<p class="muted">Context: ${(score.context_flags || []).map((f) => esc(f.replaceAll("_", " "))).join(", ")}${score.device_suppressed ? " · HRV/RHR suppressed" : ""}</p>` : ""}
     ${components ? `<table><thead><tr><th>Input</th><th>value</th><th>normalised</th></tr></thead><tbody>${components}</tbody></table>` : ""}
     ${categories ? `<h3>Categories</h3><table><thead><tr><th>Category</th><th>score</th></tr></thead><tbody>${categories}</tbody></table>` : ""}
@@ -987,7 +992,7 @@ async function loadState() {
           <tbody>${calibrationRows}</tbody></table></div>
           <p class="muted">A bounded correction is applied only when the 95% CI excludes 1.0;
           measured tests still override the formula. Formula-only rows show the current
-          estimate and last set.</p>`
+          estimate and last set. e1RM is an estimate, not a measured maximum.</p>`
           : "<p class='empty'>no measured tests with a prior estimate yet.</p>"}</div>
       <div class="panel state-wide"><div class="panel-head"><h2>Injury signal</h2></div>
         <p>${esc(data.injury_signal?.summary || "")}</p>
@@ -1243,7 +1248,8 @@ async function loadVolume() {
       : "";
     $("#volume-ledger").innerHTML = `<p class="muted">${esc(data.from)} to ${esc(data.to)}</p>${heavyLine}
       <table><thead><tr><th>pattern</th><th>avg sets/week</th><th>total</th>
-      <th>MEV</th><th>MAV</th><th>MRV</th><th>status</th></tr></thead><tbody>${rows}</tbody></table>`;
+      <th>MEV</th><th>MAV</th><th>MRV</th><th>status</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="muted">MEV/MAV/MRV are configurable coaching landmarks, not measured individual thresholds.</p>`;
   } catch (error) {
     $("#volume-ledger").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }

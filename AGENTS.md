@@ -187,7 +187,7 @@ never read `data/raw`.
 |---|---|
 | `USER-GUIDE.md` | how to install, run and read the output (the human-facing entry point) |
 | `ROADMAP.md` | live phase status, next actions, resume checklist |
-| `docs/W4-PROGRAMME-EVIDENCE.md` | W4 evidence classification of every controlling strength rule and qualified claims |
+| `docs/W4-PROGRAMME-EVIDENCE.md` | W4 evidence classification and user-facing evidence labels |
 | `docs/LIMITATIONS-REGISTER.md` | living index of known limitations from all audits |
 | `docs/METHODOLOGY.md` | canonical versioned decision flow, limitations, never-do list and change control |
 | `docs/PRIVACY.md` | public/private documentation boundary; no new personal health/performance data |

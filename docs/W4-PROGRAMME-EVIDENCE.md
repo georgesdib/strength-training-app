@@ -1,6 +1,6 @@
 # W4 — PROGRAMME QUALITY AND EVIDENCE
 
-**Status:** audit complete 2026-10-23. No programme change.
+**Status:** audit complete 2026-10-23; evidence labels implemented in the UI. No programme change.
 **Scope:** the controlling strength rules, their evidence class and their weakest claims.
 **Related:** [`STRENGTH-PROGRAM-REVIEW.md`](STRENGTH-PROGRAM-REVIEW.md),
 [`RIR-EVIDENCE.md`](RIR-EVIDENCE.md), [`VOLUME-MANAGEMENT.md`](VOLUME-MANAGEMENT.md),
@@ -140,12 +140,17 @@ Neither has beaten a simple fixed alternative in the available data. Keep them n
 - No assumption is presented as established evidence: **yes**, qualifications in §2–3.
 - No new model is proposed unless it beats a simple baseline: **yes**, no new model.
 
-## 7. Recommended follow-up
+## 7. Implemented follow-up
 
-1. Keep the evidence table and qualifications visible in the user-facing methodology.
-2. Do not change the strength dose on the basis of this audit.
-3. The next high-value work is **W5 — prospective evaluation design**, not another model.
-4. Keep W8 (volume split) and W10 (age) as explicit policy decisions rather than implicit
-   evidence.
+The user-facing UI now labels the main qualifications:
 
-No code, config or prescription was changed by W4.
+- e1RM is an estimate, not a measured maximum;
+- readiness is a bounded heuristic with no validated no-readiness counterfactual;
+- MEV/MAV/MRV are configurable coaching landmarks;
+- the spinal cap is an ordinal exposure guard;
+- deload evidence is weak and the scheduled deload is a policy suggestion;
+- minimum session is a heuristic, not a validated minimum dose.
+
+No load, set, threshold or prescription changed. The next high-value work is **W5 —
+prospective evaluation design**, not another model. W8 (volume split) and W10 (age) remain
+explicit policy decisions.

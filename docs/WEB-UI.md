@@ -37,7 +37,9 @@ global option in the CLI). It is convenience only: it ends in the same `strength
   baseline settings and the shadow baseline report are available; overrides take 0.00–1.00
   with a reason; the **Volume valve** sets the poor-readiness accessory set reduction; the volume ledger and MRV cap are on Prescribe. A current workout is refused until readiness is ready.
 - **Prescribe** — date + session type (`auto` rolling, squat, hinge, bench+squat, bench+hinge); deterministic prescription, warnings and notes; every item cites
-  rule ids. A `recent stress` column, a `readiness` column, the **strength fatigue model**
+  rule ids. The page labels e1RM as an estimate, readiness as a bounded heuristic, MEV/MAV/MRV
+  as configurable landmarks, the spinal cap as ordinal, and deload/minimum-session evidence
+  limits. A `recent stress` column, a `readiness` column, the **strength fatigue model**
   panel (shadow: per-lift + overall fitness/fatigue/state with approximate 95% intervals,
   R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only), the **continuity calibration** panel (per-band returns/fixed/applied and the
   `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings with A/B/C
