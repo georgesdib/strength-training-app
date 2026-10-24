@@ -22,6 +22,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 
 ## Pages
 
+- **Outcomes** — read-only 4/8/12-week strength and longevity review, with data coverage and no prescription effect.
 - **Today** — goal, block week, readiness, injury signal, unreviewed count, recent sessions, and a **Descriptive progress** panel (sRPE coverage, performance ratio, weekly volume status, latest back symptom; monitoring only).
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
   SQLite, never written to the repository. New cumulative exports are overlap-matched against
@@ -98,6 +99,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `GET /api/continuity?date=N` | return-to-training calibration: per-band n/median/CI/fixed/applied and `allow_relax_fixed` |
 | `GET /api/volume?date=N&weeks=4` | weekly hard-set ledger by movement pattern (advisory) |
 | `GET /api/progress?date=N` | descriptive progress: sRPE coverage, performance ratio, volume status, latest back symptom |
+| `GET /api/outcomes?weeks=N&date=N` | read-only 4/8/12-week strength, longevity and coverage review |
 | `GET /api/exposures?date=N` | recent high-intensity exposures and recovery guard |
 | `POST /api/exposures` | log a manual max/competition/unplanned exposure; tests use the test endpoint |
 | `POST /api/continuity/settings` | `{allow_relax_fixed}` -> update the calibration policy |

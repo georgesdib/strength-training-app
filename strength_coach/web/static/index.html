@@ -11,6 +11,7 @@
     <div class="brand">Strength<span>Coach</span></div>
     <nav id="nav">
       <button data-view="dashboard" class="active">Today</button>
+      <button data-view="outcomes">Outcomes</button>
       <button data-view="prescribe">Prescribe</button>
       <button data-view="workout">Workout</button>
       <button data-view="programme">Programme</button>
@@ -55,6 +56,24 @@
         <p class="muted">Python computes every load, RIR and warning. The web page is a view over the same
           core as the CLI; nothing is inferred from a missing value. Docs are linked under
           <a href="#docs" data-view-link="docs">Docs</a>.</p>
+      </div>
+    </section>
+
+    <section id="view-outcomes" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Outcome review</h2><span class="muted">descriptive only; no prescription change</span></div>
+        <form id="outcomes-form" class="form-row">
+          <label>Period
+            <select id="outcomes-weeks">
+              <option value="4">4 weeks</option>
+              <option value="8" selected>8 weeks</option>
+              <option value="12">12 weeks</option>
+            </select>
+          </label>
+          <label>As of <input type="date" id="outcomes-date"></label>
+          <button class="primary" type="submit">Build review</button>
+        </form>
+        <div id="outcomes-result"></div>
       </div>
     </section>
 

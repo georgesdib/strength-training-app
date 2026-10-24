@@ -45,6 +45,8 @@ from strength_coach.features import measurements as measurements_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import heavy_spinal
 from strength_coach.features import high_intensity_exposure as exposure_feature
+from strength_coach.features import outcomes as outcomes_feature
+from strength_coach.features import prescription_provenance
 from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import readiness_baseline
@@ -304,6 +306,11 @@ def main(argv: list[str] | None = None) -> int:
     exposure_status = exposure_sub.add_parser("status", help="show the recovery guard")
     exposure_status.add_argument("--date", default=None)
 
+    outcomes = sub.add_parser("outcomes", help="descriptive 4/8/12-week outcome review")
+    outcomes.add_argument("--weeks", type=int, choices=(4, 8, 12), default=8)
+    outcomes.add_argument("--date", default=None)
+    outcomes.add_argument("--json", action="store_true")
+
     volume = sub.add_parser("volume", help="show weekly hard-set volume by movement pattern")
     volume.add_argument("--weeks", type=int, default=4)
     volume.add_argument("--date", default=None, help="as-of date (default: today)")
@@ -355,6 +362,7 @@ def main(argv: list[str] | None = None) -> int:
         "fatigue": _cmd_fatigue,
         "select": _cmd_select,
         "exposure": _cmd_exposure,
+        "outcomes": _cmd_outcomes,
         "validate": _cmd_validate,
         "workout": _cmd_workout,
         "exercise": _cmd_exercise,
@@ -480,6 +488,7 @@ def _cmd_run(args) -> int:
                 approved_by=approved_by,
                 items=prescription.as_rows(),
             )
+            prescription_provenance.record(conn, prescription_id, prescription)
             trace.event("artifact", {
                 "critique": critique_id,
                 "prescription": prescription_id,
@@ -1266,6 +1275,44 @@ def _cmd_exposure(args) -> int:
             print(f"  {row['performed_on']} {row['kind']} "
                   f"{row.get('exercise_id') or ''} {row['region_load']} "
                   f"{row['intensity_class']}")
+        return 0
+    finally:
+        store.close()
+
+
+def _cmd_outcomes(args) -> int:
+    store = db.Store(args.db)
+    try:
+        report = outcomes_feature.report(
+            store.connection, weeks=args.weeks, on_date=args.date
+        )
+        if args.json:
+            print(json.dumps(report, indent=2, default=str))
+            return 0
+        window = report["window"]
+        print(f"outcomes: {window['from']} to {window['to']} ({window['weeks']} weeks)")
+        print("\nstrength")
+        for lift in report["strength"]["main_lifts"]:
+            print(f"  {lift['exercise_id']:<28} {lift['first_e1rm']:>7} -> {lift['last_e1rm']:>7} kg"
+                  f"  ({lift['change_kg']:+g}, n={lift['n']})")
+        attendance = report["strength"]["attendance"]
+        print(f"  attendance: {attendance['completed']}/{attendance['target']} "
+              f"({attendance['pct']}%) — {attendance['note']}")
+        print(f"  sRPE: {report['strength']['sRPE']}")
+        print(f"  duration: {report['strength']['duration']}")
+        print("\nlongevity")
+        cardio = report["longevity"]["cardio"]
+        print(f"  cardio: {cardio['average_weekly_minutes']} min/week average; "
+              f"{cardio['sessions']} session(s)")
+        measured = [
+            key for key, row in report["longevity"]["measurements"].items()
+            if row.get("latest_value") is not None
+        ]
+        print(f"  measurements: {', '.join(measured) or 'none measured'}")
+        print("\ncoverage")
+        for key, value in report["coverage"].items():
+            print(f"  {key}: {value}")
+        print(f"\n{report['note']}")
         return 0
     finally:
         store.close()

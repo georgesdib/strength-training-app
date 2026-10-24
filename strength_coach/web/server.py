@@ -40,6 +40,7 @@ from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import measurements as measurements_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
+from strength_coach.features import outcomes as outcomes_feature
 from strength_coach.features import heavy_spinal
 from strength_coach.features import injury_signal, readiness as readiness_feature
 from strength_coach.features import programme as programme_feature
@@ -307,6 +308,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: reviews_feature.status(c, day or datetime.date.today().isoformat())
                 ))
+            elif path == "/api/outcomes":
+                query = parse_qs(urlparse(self.path).query)
+                weeks = int(query.get("weeks", ["8"])[0])
+                day = query.get("date", [None])[0]
+                self._json(200, self._with_conn(
+                    lambda c: outcomes_feature.report(c, weeks=weeks, on_date=day)
+                ))
             elif path == "/api/exposures":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0] or datetime.date.today().isoformat()
@@ -367,6 +375,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._workout_action(c, path, body)))
             elif path == "/api/reviews":
                 self._json(200, self._with_conn(lambda c: self._save_review_task(c, body)))
+            elif path == "/api/outcomes":
+                query = parse_qs(urlparse(self.path).query)
+                weeks = int(query.get("weeks", ["8"])[0])
+                day = query.get("date", [None])[0]
+                self._json(200, self._with_conn(
+                    lambda c: outcomes_feature.report(c, weeks=weeks, on_date=day)
+                ))
             elif path == "/api/exposures":
                 self._json(200, self._with_conn(lambda c: self._save_exposure(c, body)))
             elif path == "/api/prescribe":

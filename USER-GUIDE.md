@@ -452,6 +452,18 @@ strength-coach state --rate EXERCISE_ID --can-do yes --will-do yes --feels-bad n
 An unrated exercise is "unknown", which is why a main-lift substitution (see §4.8) is refused
 until its replacement has a rating.
 
+### 4.4c `outcomes` — a descriptive multi-week review
+
+```bash
+strength-coach outcomes --weeks 8
+strength-coach outcomes --weeks 12 --json
+```
+
+Read-only 4/8/12-week review of main-lift e1RM change, weekly volume, target-based
+attendance, sRPE/duration, readiness, symptoms, spinal-cap weeks, deload provenance, cardio
+and measurements. Missing data is shown as unknown; the report makes no causal claim and
+never changes a prescription.
+
 ### 4.4b `programme` — a rolling forecast
 
 ```bash

@@ -41,6 +41,7 @@ function setView(name) {
   if (name === "prescribe") { loadFatigue(); loadContinuity(); loadVolume(); }
   if (name === "docs" && !$("#docs-list").dataset.loaded) loadDocs();
   if (name === "state") loadState();
+  if (name === "outcomes") loadOutcomes();
   if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
 }
 
@@ -217,6 +218,67 @@ function openReview(session) {
   $("#review-session").value = session;
   loadReview(session);
 }
+
+/* --- outcomes ------------------------------------------------------------ */
+async function loadOutcomes() {
+  const weeks = $("#outcomes-weeks").value;
+  const day = $("#outcomes-date").value;
+  $("#outcomes-result").innerHTML = "<p class='empty'>Building review…</p>";
+  try {
+    const query = new URLSearchParams({ weeks });
+    if (day) query.set("date", day);
+    const data = await api("/api/outcomes?" + query.toString());
+    const strength = data.strength || {};
+    const lifts = (strength.main_lifts || []).map((lift) => `
+      <tr><td><strong>${esc(lift.exercise_id)}</strong><div class="muted">n=${lift.n}</div></td>
+      <td>${fmt(lift.first_e1rm, 1)} → ${fmt(lift.last_e1rm, 1)} kg</td>
+      <td>${lift.change_kg > 0 ? "+" : ""}${fmt(lift.change_kg, 1)} kg
+        ${lift.change_pct == null ? "" : "(" + lift.change_pct + "%)"}</td>
+      <td>${fmt(lift.best_e1rm, 1)} kg</td></tr>`).join("");
+    const volume = (strength.volume || []).map((row) => `
+      <tr><td>${esc(row.pattern)}</td><td>${row.average_per_week}</td>
+      <td>${row.total_sets}</td><td>${row.weeks_present}</td></tr>`).join("");
+    const attendance = strength.attendance || {};
+    const longevity = data.longevity || {};
+    const cardio = longevity.cardio || {};
+    const metrics = Object.entries(longevity.measurements || {}).map(([key, row]) => `
+      <tr><td>${esc(key)}</td><td>${row.latest_value ?? "—"}</td>
+      <td>${row.change == null ? "—" : (row.change > 0 ? "+" : "") + row.change}</td>
+      <td>${row.latest_on ?? "—"}</td></tr>`).join("");
+    const symptoms = (strength.symptoms?.regions || {});
+    const symptomRows = Object.entries(symptoms).map(([region, row]) => `
+      <tr><td>${esc(region)}</td><td>${row.flares}</td><td>${row.readings}</td>
+      <td>${esc(row.latest_on)} · level ${row.latest_level}</td></tr>`).join("");
+    $("#outcomes-result").innerHTML = `
+      <p class="muted">${esc(data.window.from)} to ${esc(data.window.to)} · ${data.window.weeks} weeks</p>
+      <h3>Strength</h3>
+      <table><thead><tr><th>Lift</th><th>First → last e1RM</th><th>Change</th><th>Best</th></tr></thead>
+      <tbody>${lifts || "<tr><td colspan='4' class='muted'>no main-lift e1RM observations</td></tr>"}</tbody></table>
+      <p class="muted">Target-based attendance: ${attendance.completed ?? "unknown"} /
+        ${attendance.target ?? "unknown"} (${attendance.pct ?? "unknown"}%). ${esc(attendance.note || "")}</p>
+      <h3>Volume</h3>
+      <table><thead><tr><th>Pattern</th><th>avg sets/week</th><th>total sets</th><th>weeks present</th></tr></thead>
+      <tbody>${volume || "<tr><td colspan='4' class='muted'>no working-set volume</td></tr>"}</tbody></table>
+      <h3>Longevity context</h3>
+      <p class="muted">Captured, not prescribed. ${esc(longevity.note || "")}</p>
+      <p>Cardio: ${cardio.average_weekly_minutes ?? "unknown"} min/week average
+        (${cardio.sessions ?? 0} sessions). Reference: ${cardio.reference_min}–${cardio.reference_max}
+        min/week, general context only.</p>
+      <table><thead><tr><th>Measurement</th><th>latest</th><th>change</th><th>date</th></tr></thead>
+      <tbody>${metrics || "<tr><td colspan='4' class='muted'>none measured in this catalogue</td></tr>"}</tbody></table>
+      <h3>Symptoms</h3>
+      <table><thead><tr><th>Region</th><th>flares</th><th>readings</th><th>latest</th></tr></thead>
+      <tbody>${symptomRows || "<tr><td colspan='4' class='muted'>no symptom entries — unknown, not “no flare”</td></tr>"}</tbody></table>
+      <p class="muted">${esc(data.note)}</p>`;
+  } catch (error) {
+    $("#outcomes-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+$("#outcomes-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  loadOutcomes();
+});
 
 /* --- prescribe ---------------------------------------------------------- */
 $("#prescribe-date").value = today();

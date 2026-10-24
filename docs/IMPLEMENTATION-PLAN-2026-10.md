@@ -1,6 +1,7 @@
 # IMPLEMENTATION PLAN — outcomes, longevity, readiness and minimum sessions
 
-**Status:** approved direction, implementation not started.
+**Status:** approved direction. A0 (modifier provenance) and A (outcome review) are implemented
+2026-10-23. B–F are pending.
 **Date:** 2026-10-23
 **Scope:** A–F from the final review, constrained by the existing deterministic architecture.
 **Related:** [`ENGINE-AUDIT-PLAN.md`](ENGINE-AUDIT-PLAN.md),

@@ -93,6 +93,21 @@ meaningless and must not be summed.
 This table is not part of the volume ledger. Tests auto-create a `test_record` exposure; a
 set-linked PR stays in volume and uses the exposure only for the recovery guard.
 
+## 3c. `prescription_modifier` — modifier provenance
+
+| column | notes |
+|---|---|
+| modifier_id PK | UUID |
+| prescription_id | stored prescription |
+| modifier_key | `MOD-FAT-001`, `MOD-GAP-001`, `MOD-DELOAD-001`, `MOD-VOL-001/002`, `MOD-SELECT-001` |
+| applied_on | date |
+| detail_json | before/after and reason references |
+| created_at | timestamp |
+
+Append-only. Provenance only; it does not change a prescription. The web prescribe endpoint
+does not persist prescriptions, so provenance is currently available for CLI-stored
+prescriptions.
+
 ## 4. Quarantine
 
 `raw_row` rows that cannot be placed (rows with a null date) stay in `raw_row` and get a

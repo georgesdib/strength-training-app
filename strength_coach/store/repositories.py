@@ -1206,3 +1206,27 @@ def append_high_intensity_exposure(
         ),
     )
     return exposure_id
+
+
+def append_prescription_modifier(
+    conn: sqlite3.Connection,
+    *,
+    prescription_id: str,
+    modifier_key: str,
+    applied_on: str,
+    detail: Mapping[str, object] | None = None,
+) -> str:
+    """Record that a modifier changed a stored prescription. Provenance only."""
+    modifier_id = uuid.uuid4().hex
+    conn.execute(
+        """
+        INSERT INTO prescription_modifier (
+            modifier_id, prescription_id, modifier_key, applied_on, detail_json
+        ) VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            modifier_id, str(prescription_id), str(modifier_key), str(applied_on),
+            _json(dict(detail or {})),
+        ),
+    )
+    return modifier_id

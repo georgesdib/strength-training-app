@@ -646,3 +646,12 @@ def test_test_recording_auto_registers_an_exposure_and_blocks_a_second(server):
         "exercise_id": "bench_press", "kg": 95, "reps": 5, "date": "2024-01-08",
     })
     assert code == 400
+
+
+def test_outcomes_endpoint_is_read_only(server):
+    status, body = get(server, "/api/outcomes?weeks=4&date=2024-01-31")
+    assert status == 200
+    data = json.loads(body)
+    assert data["window"]["weeks"] == 4
+    assert "strength" in data and "longevity" in data
+    assert data["note"].startswith("Descriptive")
