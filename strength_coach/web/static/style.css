@@ -34,7 +34,7 @@ h2 { font-size: 20px; margin: 0; }
 .card .sub { color: var(--muted); font-size: 12px; margin-top: 5px; }
 .panel { background: var(--paper); border: 1px solid var(--line); border-radius: 16px;
   padding: 18px 20px; margin-bottom: 16px; }
-.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .form-row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; margin: 10px 0; }
 label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
 input, select, textarea { font: inherit; color: var(--ink); background: #fff; border: 1px solid var(--line);
@@ -128,4 +128,26 @@ details summary { cursor: pointer; color: var(--muted); }
   .exercise-table th:nth-child(2), .exercise-table td:nth-child(2) { width: 18%; }
   .exercise-table th:nth-child(4), .exercise-table td:nth-child(4) { width: 27%; }
   .exercise-table th:nth-child(6), .exercise-table td:nth-child(6) { width: 27%; }
+}
+
+/* Panels with wide generated tables scroll inside the card instead of pushing the page. */
+#recent, #continuity-model, #volume-ledger, #fatigue-model, #selection-result,
+#outcomes-result, #prospective-result, #readiness-feedback-result {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-gutter: stable;
+}
+#recent table, #continuity-model table, #volume-ledger table,
+#fatigue-model table, #selection-result table,
+#outcomes-result table, #prospective-result table, #readiness-feedback-result table {
+  min-width: 620px;
+}
+#selection-result table, #outcomes-result table, #readiness-feedback-result table { min-width: 760px; }
+#selection-result td { overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  #recent, #continuity-model, #volume-ledger, #fatigue-model, #selection-result,
+  #outcomes-result, #prospective-result, #readiness-feedback-result {
+    margin-right: -6px;
+  }
 }

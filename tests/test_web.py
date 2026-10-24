@@ -74,6 +74,8 @@ def test_the_page_and_overview_are_served(server):
     assert "Strength" in page
     assert "Programme" in page and "Terminal" in page
     assert "prescribe-selection-confirm" in page
+    assert "Apply selection:" in page
+    assert "class A" in page and "class B" in page and "class C" in page
     assert "prescribe-minimum-options" in page
     assert "Only used when minimum session is ticked" in page
     assert "A/B/C remains" not in page
