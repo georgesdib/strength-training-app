@@ -11,5 +11,5 @@ exposures, while keeping the same principle:
 - a conservative time-window guard is preferable to a fabricated fatigue score;
 - no automatic load/RIR change.
 
-The broader plan records the accepted decisions (auto-registration and guard windows).
-No implementation has been done.
+The broader plan records the accepted decisions (auto-registration and guard windows) and
+Phase 1 + Phase 2 are now implemented.

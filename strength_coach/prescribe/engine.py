@@ -30,6 +30,7 @@ from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import continuity_calibration
+from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import test_cadence, volume as volume_feature
 from strength_coach.prescribe import warmup
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
@@ -85,9 +86,16 @@ def build_prescription(
     )
     policy_result = evaluate(document, context)
     decisions = policy_result.verdict("PRG-DP-001").details.get("decisions", {})
+    exposure_status = exposure_feature.status(conn, for_date)
 
     items: list[PrescriptionItem] = []
     warnings: list[str] = []
+    if exposure_status.status != "clear":
+        warnings.append(
+            f"high-intensity exposure: {exposure_status.reason}"
+            + (f"; next maximal exposure allowed on {exposure_status.next_maximal_on}"
+               if exposure_status.next_maximal_on else "")
+        )
     selection_rows: dict[str, selection_mod.SlotSelection] = {}
     selection_notes: list[dict] = []
     if apply_selection:
@@ -301,6 +309,7 @@ def build_prescription(
             "session_type": session_type,
             "under_mev": under_note,
             "test_cadence": test_cadence.status(conn, for_date),
+            "high_intensity_exposure": exposure_status.as_dict(),
             "volume_management": volume_note,
             "selection": {
                 "requested": bool(apply_selection),

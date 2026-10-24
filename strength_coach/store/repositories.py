@@ -1143,3 +1143,66 @@ def append_maintenance_review(
         ),
     )
     return review_id
+
+
+def append_high_intensity_exposure(
+    conn: sqlite3.Connection,
+    *,
+    performed_on: str,
+    kind: str,
+    region_load: str,
+    intensity_class: str = "near_max",
+    exercise_id: str | None = None,
+    session_id: str | None = None,
+    set_id: int | None = None,
+    axial_cost: int | None = None,
+    novelty: str = "unknown",
+    test_type: str | None = None,
+    source: str = "manual",
+    source_id: str | None = None,
+    supersedes_id: str | None = None,
+    note: str | None = None,
+) -> str:
+    """Append a high-intensity exposure without touching the volume ledger."""
+    if not str(performed_on).strip():
+        raise ValueError("performed_on is required")
+    if kind not in {"test", "max_attempt", "competition", "unplanned", "other"}:
+        raise ValueError(f"unknown exposure kind {kind!r}")
+    if region_load not in {"upper", "lower", "axial", "mixed", "unknown"}:
+        raise ValueError(f"unknown region_load {region_load!r}")
+    if intensity_class not in {"near_max", "high", "moderate", "unknown"}:
+        raise ValueError(f"unknown intensity_class {intensity_class!r}")
+    if source not in {"test_record", "set_link", "manual"}:
+        raise ValueError(f"unknown exposure source {source!r}")
+    if set_id is not None and not session_id:
+        raise ValueError("a set-linked exposure needs session_id")
+    if kind == "test" and set_id is not None:
+        raise ValueError("a test exposure cannot link to a set")
+    if test_type is not None and test_type not in {"1RM", "3RM", "5RM", "other"}:
+        raise ValueError(f"unknown test_type {test_type!r}")
+
+    if source_id is not None:
+        existing = conn.execute(
+            "SELECT exposure_id FROM high_intensity_exposure "
+            " WHERE source = ? AND source_id = ?",
+            (source, str(source_id)),
+        ).fetchone()
+        if existing is not None:
+            return str(existing["exposure_id"])
+
+    exposure_id = uuid.uuid4().hex
+    conn.execute(
+        """
+        INSERT INTO high_intensity_exposure (
+            exposure_id, performed_on, kind, exercise_id, session_id, set_id,
+            region_load, intensity_class, axial_cost, novelty, test_type,
+            source, source_id, supersedes_id, note
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            exposure_id, str(performed_on), kind, exercise_id, session_id, set_id,
+            region_load, intensity_class, axial_cost, novelty, test_type,
+            source, source_id, supersedes_id, (note or "").strip() or None,
+        ),
+    )
+    return exposure_id

@@ -39,6 +39,8 @@ from strength_coach.features import volume as volume_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import measurements as measurements_feature
 from strength_coach.features import session_feedback as session_feedback_feature
+from strength_coach.features import high_intensity_exposure as exposure_feature
+from strength_coach.features import heavy_spinal
 from strength_coach.features import injury_signal, readiness as readiness_feature
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import progress as progress_feature
@@ -305,6 +307,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: reviews_feature.status(c, day or datetime.date.today().isoformat())
                 ))
+            elif path == "/api/exposures":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0] or datetime.date.today().isoformat()
+                self._json(200, self._with_conn(
+                    lambda c: exposure_feature.status(c, day).as_dict()
+                ))
             elif path == "/api/selection":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [datetime.date.today().isoformat()])[0]
@@ -359,6 +367,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._workout_action(c, path, body)))
             elif path == "/api/reviews":
                 self._json(200, self._with_conn(lambda c: self._save_review_task(c, body)))
+            elif path == "/api/exposures":
+                self._json(200, self._with_conn(lambda c: self._save_exposure(c, body)))
             elif path == "/api/prescribe":
                 self._json(200, self._with_conn(lambda c: self._prescribe(c, body)))
             elif path == "/api/readiness":
@@ -881,6 +891,14 @@ class Handler(BaseHTTPRequestHandler):
             source_path=cfg.source_path,
         )
         report = volume_feature.compute(context.sets, on_date=on_date, config=cfg)
+        heavy_cfg = heavy_spinal.HeavySpinalConfig.load()
+        heavy_cfg = heavy_spinal.HeavySpinalConfig(
+            window_weeks=weeks, rir_max=heavy_cfg.rir_max,
+            source_path=heavy_cfg.source_path,
+        )
+        report["heavy_spinal"] = heavy_spinal.compute(
+            context.sets, on_date=on_date, config=heavy_cfg
+        )
         return {"on_date": on_date, "window_weeks": weeks, **report}
 
     def _continuity(self, conn, day: str | None = None) -> dict:
@@ -1098,13 +1116,46 @@ class Handler(BaseHTTPRequestHandler):
                     f"a 1RM for {exercise_id} was recorded {days} days ago; "
                     f"minimum interval is {thresholds.test_max_single_min_interval_days}"
                 )
+        guard = exposure_feature.status(conn, on_date)
+        if guard.status == "blocked":
+            raise ValueError(
+                f"{guard.reason}; next maximal exposure allowed on {guard.next_maximal_on}"
+            )
         value = e1rm_mod.epley_rir_adjusted(kg, reps, 0)
-        repositories.append_e1rm_override(
+        override_id = repositories.append_e1rm_override(
             conn, exercise_id=exercise_id, e1rm_kg=float(value),
             effective_from=on_date, reason=body.get("reason") or f"{reps}RM test",
             source="measured",
         )
+        exposure_feature.register_test(
+            conn, override_id=override_id, exercise_id=exercise_id,
+            performed_on=on_date,
+            test_type=exposure_feature.test_type_for_reps(reps),
+            note=body.get("reason") or f"{reps}RM test",
+        )
         return self._state(conn)
+
+    def _save_exposure(self, conn, body: dict) -> dict:
+        day = str(body.get("date") or datetime.date.today().isoformat())
+        kind = str(body.get("kind") or "unplanned")
+        region = str(body.get("region_load") or "unknown")
+        intensity = str(body.get("intensity_class") or "near_max")
+        if kind == "test":
+            raise ValueError("use the test form to record a test")
+        exposure_feature.log_manual(
+            conn,
+            performed_on=day,
+            kind=kind,
+            region_load=region,
+            exercise_id=body.get("exercise_id") or None,
+            intensity_class=intensity,
+            axial_cost=body.get("axial_cost"),
+            test_type=body.get("test_type") or None,
+            session_id=body.get("session_id") or None,
+            set_id=body.get("set_id") or None,
+            note=body.get("note") or None,
+        )
+        return exposure_feature.status(conn, day).as_dict()
 
     def _save_block(self, conn, body: dict) -> dict:
         current = queries.athlete_profile(conn)

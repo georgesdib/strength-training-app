@@ -467,6 +467,8 @@ def test_volume_ledger_endpoint(server):
     assert "patterns" in data
     assert data["window_weeks"] == 4
     assert any(row["mrv"] is not None for row in data["patterns"])
+    assert "heavy_spinal" in data
+    assert data["heavy_spinal"]["rir_max"] == 1
 
 
 def test_programme_accepts_a_start_session_type(server):
@@ -626,3 +628,21 @@ def test_workout_csv_import_preview_and_apply(server):
     assert len(applied["workout"]["sets"]) == 2
     again = post(server, f"/api/workout/{workout_id}/import", {"text": text, "apply": True})
     assert len(again["workout"]["sets"]) == 2
+
+
+def test_test_recording_auto_registers_an_exposure_and_blocks_a_second(server):
+    data = post(server, "/api/state/test", {
+        "exercise_id": "bench_press", "kg": 100, "reps": 3, "date": "2024-01-08",
+    })
+    assert data["profile"] is not None or data["injury_signal"]
+
+    status, body = get(server, "/api/exposures?date=2024-01-08")
+    assert status == 200
+    report = json.loads(body)
+    assert report["status"] == "blocked"
+    assert any(row["kind"] == "test" for row in report["exposures"])
+
+    code, _ = post_status(server, "/api/state/test", {
+        "exercise_id": "bench_press", "kg": 95, "reps": 5, "date": "2024-01-08",
+    })
+    assert code == 400

@@ -1,0 +1,7 @@
+# Heavy spinal exposure advisory. This is a display-only context window, not a cap and not
+# a prescription input. RIR <= 1 is the only "heavy" signal available without inventing a
+# load-weighted spinal model; see docs/SPINAL-LOAD-EVIDENCE.md.
+schema_version: "1.0.0"
+
+window_weeks: 4
+rir_max: 1

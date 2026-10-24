@@ -68,5 +68,6 @@ kg/%1RM/RIR/sets to a weekly spinal-risk unit. The ordinal variant ranking stays
 weighting is **not** added. The best-supported load principle is progressive loading and
 avoiding abrupt spikes, not a precise per-session cost.
 
-If a heavy-exposure signal is wanted later, it should be a separate observational advisory, not
-a change to the cap.
+A separate observational advisory is now implemented: working sets on high-fatigue spinal
+exercises at RIR ≤ 1 are counted over the volume window and shown as context. It is not
+load-weighted and does not change the cap or prescription.

@@ -5,6 +5,7 @@
 ### Documented
 
 - Focused spinal-load review: keep the ordinal cap; no load/RIR/set weighting.
+- Heavy spinal advisory: RIR ≤ 1 sets on high-fatigue spinal exercises shown as context only.
 
 ### Changed
 
@@ -16,6 +17,9 @@
 
 ### Added
 
+- High-intensity exposure tracking: tests auto-register a non-volume exposure, near-max
+  attempts/competition/unplanned work can be logged, and a conservative recovery guard warns or
+  blocks another maximal exposure without changing loads. See `docs/HIGH-INTENSITY-EXPOSURE-PLAN.md`.
 - Workout mode foundation: start a workout from a prescription, required pre-workout readiness,
   manual set entry, removable sets, timer, editable measured duration, session RPE, end and
   abandon.

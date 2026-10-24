@@ -27,7 +27,7 @@ the data cannot support a judgement it says `unknown` or `n/a`, never a guess.
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/python -m pytest          # 612 public tests
+.venv/bin/python -m pytest          # 620 public tests
 ```
 
 **Activate the environment before using the command:**
@@ -780,6 +780,10 @@ strength-coach volume --weeks 4 --date 2026-10-20
 Working sets by movement pattern, average per week, total and target status. It reports drift.
 When a pattern is below MEV for three weeks, the engine adds **one accessory set** to that
 pattern (`MOD-VOL-002`); main lifts are never increased by this rule. The MRV cap still applies.
+The weekly volume panel also shows **heavy spinal sets** — high-fatigue spinal exercises at
+RIR ≤ 1 — as context only. This is deliberately not load-weighted and does not change the cap
+or prescription.
+
 The Readiness page's **Volume valve** sets whether poor readiness removes sets and how many.
 
 ### 4.10g `continuity` — return-to-training calibration

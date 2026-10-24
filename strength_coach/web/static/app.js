@@ -749,6 +749,24 @@ function renderReadinessScore(score) {
 }
 
 /* --- state -------------------------------------------------------------- */
+async function loadExposureStatus() {
+  try {
+    const data = await api("/api/exposures");
+    const exposures = data.exposures || [];
+    const badge = data.status === "blocked" ? "bad" : data.status === "caution" ? "warn" : "";
+    const rows = exposures.length ? `<table><thead><tr><th>Date</th><th>Kind</th><th>Region</th>
+      <th>Intensity</th><th>Exercise</th></tr></thead><tbody>` + exposures.map((row) => `
+      <tr><td>${esc(row.performed_on)}</td><td>${esc(row.kind)}</td>
+      <td>${esc(row.region_load)}</td><td>${esc(row.intensity_class)}</td>
+      <td>${esc(row.exercise_id || "—")}</td></tr>`).join("") + "</tbody></table>" :
+      "<p class='muted'>No recent exposure.</p>";
+    $("#exposure-status").innerHTML = `<p><span class="badge ${badge}">${esc(data.status)}</span>
+      ${esc(data.reason)}${data.next_maximal_on ? " · next maximal " + esc(data.next_maximal_on) : ""}</p>${rows}`;
+  } catch (error) {
+    $("#exposure-status").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
 async function loadState() {
   $("#state-result").innerHTML = "<p class='empty'>Loading…</p>";
   try {
@@ -784,6 +802,7 @@ async function loadState() {
       <td>${row.n}</td><td>${row.median_ratio ?? "—"}</td>
       <td>${row.ci_low == null ? "—" : row.ci_low + "–" + row.ci_high}</td></tr>`).join("");
     renderStateForms(data);
+    loadExposureStatus();
     $("#state-result").innerHTML = `
       <div class="panel"><div class="panel-head"><h2>Profile</h2></div>
         <table><tbody>${profileRows}</tbody></table></div>
@@ -868,7 +887,7 @@ function renderStateForms(data) {
       </form>
     </div>
 
-    <div class="panel"><div class="panel-head"><h2>Strength test</h2><span class="muted">records a measured e1RM</span></div>
+    <div class="panel"><div class="panel-head"><h2>Strength test</h2><span class="muted">records a measured e1RM; exposure is automatic</span></div>
       <form id="test-form" class="grid-fields">
         <label>Exercise<input data-test="exercise_id" list="exercise-options" placeholder="canonical id"></label>
         <label>kg<input data-test="kg" type="number" step="0.5"></label>
@@ -877,6 +896,32 @@ function renderStateForms(data) {
         <label><input data-test="max" type="checkbox"> confirm true 1RM</label>
         <label class="grow">Reason<input data-test="reason"></label>
         <button class="primary" type="submit">Record test</button>
+      </form>
+      <p class="muted">Recording a test also registers a high-intensity exposure. It is not volume.</p>
+    </div>
+
+    <div class="panel"><div class="panel-head"><h2>High-intensity exposure</h2><span class="muted">max attempts, competition, unplanned work</span></div>
+      <div id="exposure-status"><p class="muted">Loading…</p></div>
+      <form id="exposure-form" class="grid-fields">
+        <label>Date<input data-exposure="date" type="date"></label>
+        <label>Kind<select data-exposure="kind">
+          <option value="max_attempt">max attempt</option>
+          <option value="competition">competition</option>
+          <option value="unplanned">unplanned</option>
+          <option value="other">other</option>
+        </select></label>
+        <label>Region<select data-exposure="region_load">
+          <option value="axial">axial</option><option value="lower">lower</option>
+          <option value="upper">upper</option><option value="mixed">mixed</option>
+          <option value="unknown">unknown</option>
+        </select></label>
+        <label>Exercise<input data-exposure="exercise_id" list="exercise-options" placeholder="optional"></label>
+        <label>Intensity<select data-exposure="intensity_class">
+          <option value="near_max">near max</option><option value="high">high</option>
+          <option value="moderate">moderate</option><option value="unknown">unknown</option>
+        </select></label>
+        <label class="grow">Note<input data-exposure="note"></label>
+        <button class="primary" type="submit">Log exposure</button>
       </form>
     </div>
 
@@ -942,6 +987,16 @@ function renderStateForms(data) {
     event.preventDefault();
     const values = collect("test");
     save("/api/state/test", { ...values, max: Boolean(values.max) });
+  });
+  $("#exposure-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const values = collect("exposure");
+    try {
+      await api("/api/exposures", { method: "POST", body: JSON.stringify(values) });
+      await loadExposureStatus();
+    } catch (error) {
+      $("#exposure-status").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+    }
   });
   $("#symptom-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -1011,7 +1066,12 @@ async function loadVolume() {
       <td>${row.mav ? row.mav[0] + "–" + row.mav[1] : "—"}</td>
       <td>${row.mrv ?? "—"}</td>
       <td>${esc(row.status)}</td></tr>`).join("");
-    $("#volume-ledger").innerHTML = `<p class="muted">${esc(data.from)} to ${esc(data.to)}</p>
+    const heavy = data.heavy_spinal;
+    const heavyLine = heavy
+      ? `<p class="muted">Heavy spinal sets (RIR ≤ ${heavy.rir_max}): <strong>${heavy.total_sets}</strong>
+         in the last ${heavy.window_weeks} weeks. Context only; not load-weighted and not part of the cap.</p>`
+      : "";
+    $("#volume-ledger").innerHTML = `<p class="muted">${esc(data.from)} to ${esc(data.to)}</p>${heavyLine}
       <table><thead><tr><th>pattern</th><th>avg sets/week</th><th>total</th>
       <th>MEV</th><th>MAV</th><th>MRV</th><th>status</th></tr></thead><tbody>${rows}</tbody></table>`;
   } catch (error) {

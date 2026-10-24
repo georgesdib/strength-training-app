@@ -72,6 +72,27 @@ meaningless and must not be summed.
 | duration_basis | TEXT | `measured` \| `unavailable` |
 | flags | TEXT | `POSSIBLE_DOUBLE_SESSION`, `NO_MAIN_LIFT`, … |
 
+## 3b. `high_intensity_exposure` — near-max work outside volume
+
+| column | notes |
+|---|---|
+| exposure_id PK | UUID |
+| performed_on | date |
+| kind | `test` \| `max_attempt` \| `competition` \| `unplanned` \| `other` |
+| exercise_id | nullable for mixed/unknown events |
+| session_id / set_id | optional link to an already-counted set; never double-counted |
+| region_load | `upper` \| `lower` \| `axial` \| `mixed` \| `unknown` |
+| intensity_class | `near_max` \| `high` \| `moderate` \| `unknown` |
+| axial_cost | existing taxonomy `spinal_cost` where available |
+| novelty | `familiar` \| `novel` \| `unknown` |
+| test_type | `1RM` \| `3RM` \| `5RM` \| `other`; tests only |
+| source | `test_record` \| `set_link` \| `manual` |
+| source_id / supersedes_id | idempotency and append-only correction |
+| note | optional |
+
+This table is not part of the volume ledger. Tests auto-create a `test_record` exposure; a
+set-linked PR stays in volume and uses the exposure only for the recovery guard.
+
 ## 4. Quarantine
 
 `raw_row` rows that cannot be placed (rows with a null date) stay in `raw_row` and get a

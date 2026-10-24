@@ -1,0 +1,18 @@
+# High-intensity exposure guard. These are policy assumptions, not measured recovery constants.
+# The guard only blocks another test/near-max and warns about heavy axial work; it never changes
+# a load, RIR or set count automatically.
+schema_version: "1.0.0"
+
+lookback_days: 7
+active_back_symptom_days: 14
+
+windows_hours:
+  upper: 24
+  lower_3rm_5rm: 24
+  lower_1rm: 48
+  axial_3rm_5rm: 24
+  axial_1rm: 48
+  competition: 72
+  unplanned_upper: 24
+  unplanned_lower: 72
+  active_back_symptom: 72

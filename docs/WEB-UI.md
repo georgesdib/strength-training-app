@@ -38,7 +38,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 - **Prescribe** — date + session type (`auto` rolling, squat, hinge, bench+squat, bench+hinge); deterministic prescription, warnings and notes; every item cites
   rule ids. A `recent stress` column, a `readiness` column, the **strength fatigue model**
   panel (shadow: per-lift + overall fitness/fatigue/state with approximate 95% intervals,
-  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets), the **continuity calibration** panel (per-band returns/fixed/applied and the
+  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only), the **continuity calibration** panel (per-band returns/fixed/applied and the
   `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings with A/B/C
   comparison classes and a display-only own-history e1RM ratio; optional LLM chooser). The session is chosen by the rolling emphasis rule;
   **Apply selection** makes A candidates replace the slot exercises, **Confirm near-comparable**
@@ -98,6 +98,8 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `GET /api/continuity?date=N` | return-to-training calibration: per-band n/median/CI/fixed/applied and `allow_relax_fixed` |
 | `GET /api/volume?date=N&weeks=4` | weekly hard-set ledger by movement pattern (advisory) |
 | `GET /api/progress?date=N` | descriptive progress: sRPE coverage, performance ratio, volume status, latest back symptom |
+| `GET /api/exposures?date=N` | recent high-intensity exposures and recovery guard |
+| `POST /api/exposures` | log a manual max/competition/unplanned exposure; tests use the test endpoint |
 | `POST /api/continuity/settings` | `{allow_relax_fixed}` -> update the calibration policy |
 | `POST /api/readiness/volume` | update the readiness volume valve (enabled, score below, sets, include essentials) |
 | `GET /api/selection?date=N&session_type=X&llm=0\|1&include_different=0\|1` | exercise-selection rankings with A/B/C comparability classes |

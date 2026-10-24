@@ -1,8 +1,7 @@
 # HIGH-INTENSITY EXPOSURE — evidence, model and implementation plan
 
-**Status:** decisions accepted 2026-10-23. No schema change, no API, no UI, no prescription change
-has been made. This document is the approved implementation plan, not a request for further
-choices.
+**Status:** Phase 1 (record/display) and Phase 2 (deterministic guard) implemented 2026-10-23.
+Phase 3 (prospective review) is pending. No automatic load, RIR or set change was added.
 **Supersedes:** the narrower [`TEST-FATIGUE-PLAN.md`](TEST-FATIGUE-PLAN.md) proposal.
 **Question:** how should the app represent a very hard exposure that is not ordinary working
 volume — a test, a max attempt, a competition lift, or unplanned heavy work — without inventing
@@ -460,4 +459,4 @@ The evidence does **not** support:
 - counting tests as working sets;
 - letting the LLM decide recovery.
 
-No implementation has been done.
+Phase 1 and Phase 2 are implemented. Phase 3 is a prospective review, not code.

@@ -523,3 +523,19 @@ def latest_maintenance_review(conn, task_key: str) -> dict | None:
         (str(task_key),),
     ).fetchone()
     return dict(row) if row is not None else None
+
+
+def high_intensity_exposures(conn, end: str | None = None,
+                            days: int = 7) -> list[dict]:
+    """Recent exposures, newest first, within a calendar-day lookback."""
+    params: list[object] = []
+    where = ""
+    if end is not None:
+        where = "WHERE performed_on <= ? AND performed_on >= date(?, ?)"
+        params.extend((str(end), str(end), f"-{int(days)} day"))
+    rows = conn.execute(
+        f"SELECT * FROM high_intensity_exposure {where} "
+        "ORDER BY performed_on DESC, created_at DESC",
+        params,
+    ).fetchall()
+    return [dict(row) for row in rows]

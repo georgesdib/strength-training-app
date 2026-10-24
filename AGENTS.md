@@ -32,7 +32,7 @@ What exists today is:
 - `tools/baseline.py` — regenerates the numbers in `private/docs/BASELINE.md`.
 - `strength_coach/domain/` — e1RM, load arithmetic, RIR classes (tested).
 - `strength_coach/ingest/` — cleaning, flags, quarantine, session reconstruction.
-- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, per-region injury signal, cardio capture summary, periodic measurement log, optional session RPE/length, e1RM calibration/decay, per-lift readiness, strength fitness-fatigue shadow model, scheduled/reactive deload policy, standardised warm-up ramps, 3RM/5RM cadence, under-MEV accessory progression, main-lift readiness set reduction and a descriptive progress dashboard.
+- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, per-region injury signal, cardio capture summary, periodic measurement log, optional session RPE/length, e1RM calibration/decay, per-lift readiness, high-intensity exposure guard, strength fitness-fatigue shadow model, scheduled/reactive deload policy, standardised warm-up ramps, 3RM/5RM cadence, under-MEV accessory progression, main-lift readiness set reduction and a descriptive progress dashboard.
 - `strength_coach/store/` — SQLite migrations, append-only repositories, import orchestration.
 - `strength_coach/workout.py` — live workout session, linked prescription snapshot, manual/imported sets, plan overrides, timed/manual end and rubric link.
 - `data/coach.db` is created on demand and is git-ignored.
@@ -213,6 +213,7 @@ never read `data/raw`.
 | `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |
 | `docs/SPINAL-COST.md` | evidence behind the ordinal spinal-cost ratings |
 | `docs/SPINAL-LOAD-EVIDENCE.md` | focused review of load-weighting; keep ordinal, no load/RIR weighting |
+| `config/spinal-heavy-exposure.v1.yaml` | heavy-set advisory threshold/window; display only |
 | `docs/TRAINING-DYNAMICS.md` | evidence on 1RM testing, rep ranges and DUP; proposal, not decision |
 | `docs/WORKOUT-TYPE-READINESS-EVIDENCE.md` | evidence/decision: readiness and injury adjust load/sets, not the planned rep scheme |
 | `docs/HIGH-INTENSITY-EXPOSURE-PLAN.md` | detailed proposal: tests/max attempts/competition exposures, guard windows, evidence and phased evaluation |

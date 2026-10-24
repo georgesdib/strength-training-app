@@ -43,6 +43,8 @@ from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import measurements as measurements_feature
 from strength_coach.features import session_feedback as session_feedback_feature
+from strength_coach.features import heavy_spinal
+from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import readiness_baseline
@@ -286,6 +288,22 @@ def main(argv: list[str] | None = None) -> int:
     select.add_argument("--llm", action="store_true",
                         help="let the configured model choose from the filtered candidates")
 
+    exposure = sub.add_parser("exposure", help="log or inspect high-intensity exposures")
+    exposure_sub = exposure.add_subparsers(dest="action", required=True)
+    exposure_log = exposure_sub.add_parser("log", help="record a non-test exposure")
+    exposure_log.add_argument("--date", required=True)
+    exposure_log.add_argument("--kind", choices=("max_attempt", "competition", "unplanned", "other"),
+                              required=True)
+    exposure_log.add_argument("--region", choices=("upper", "lower", "axial", "mixed", "unknown"),
+                              required=True)
+    exposure_log.add_argument("--exercise", default=None)
+    exposure_log.add_argument("--intensity", choices=("near_max", "high", "moderate", "unknown"),
+                              default="near_max")
+    exposure_log.add_argument("--axial-cost", type=int, default=None)
+    exposure_log.add_argument("--note", default=None)
+    exposure_status = exposure_sub.add_parser("status", help="show the recovery guard")
+    exposure_status.add_argument("--date", default=None)
+
     volume = sub.add_parser("volume", help="show weekly hard-set volume by movement pattern")
     volume.add_argument("--weeks", type=int, default=4)
     volume.add_argument("--date", default=None, help="as-of date (default: today)")
@@ -336,6 +354,7 @@ def main(argv: list[str] | None = None) -> int:
         "continuity": _cmd_continuity,
         "fatigue": _cmd_fatigue,
         "select": _cmd_select,
+        "exposure": _cmd_exposure,
         "validate": _cmd_validate,
         "workout": _cmd_workout,
         "exercise": _cmd_exercise,
@@ -913,6 +932,10 @@ def _cmd_test(args) -> int:
             print(f"  next        {report['next_scheme']} by {report['next_due']}")
             print(f"  last test   {report['last_test'] or 'none'}")
             print(f"  basis       {report['reason']}")
+            guard = exposure_feature.status(conn, args.date or datetime.date.today().isoformat())
+            print(f"  exposure    {guard.status} ({guard.reason})")
+            if guard.next_maximal_on:
+                print(f"  next max    {guard.next_maximal_on}")
             return 0
         if not args.exercise or args.kg is None or args.reps is None:
             print("--exercise, --kg and --reps are required unless --status is used")
@@ -928,6 +951,11 @@ def _cmd_test(args) -> int:
             return 2
 
         on_date = args.date or datetime.date.today().isoformat()
+        guard = exposure_feature.status(conn, on_date)
+        if guard.status == "blocked":
+            print(f"test blocked: {guard.reason}")
+            print(f"next maximal exposure allowed on {guard.next_maximal_on}")
+            return 2
         computed = e1rm_mod.epley_rir_adjusted(args.kg, args.reps, 0)
         value = float(args.e1rm) if args.e1rm is not None else computed
         if value <= 0:
@@ -983,8 +1011,17 @@ def _cmd_test(args) -> int:
             reason=reason,
             source="measured",
         )
+        exposure_id = exposure_feature.register_test(
+            conn,
+            override_id=override_id,
+            exercise_id=args.exercise,
+            performed_on=on_date,
+            test_type=exposure_feature.test_type_for_reps(args.reps),
+            note=reason,
+        )
         print(f"recorded e1rm_override:{override_id}: {args.exercise} = {value:g} kg "
               f"from {on_date}")
+        print(f"high-intensity exposure: {exposure_id} (test, no volume)")
         print("the next prescription uses it and cites the override")
         return 0
     finally:
@@ -1209,6 +1246,31 @@ def _cmd_select(args) -> int:
     return 0
 
 
+def _cmd_exposure(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        on_date = args.date or datetime.date.today().isoformat()
+        if args.action == "log":
+            exposure_id = exposure_feature.log_manual(
+                conn, performed_on=on_date, kind=args.kind, region_load=args.region,
+                exercise_id=args.exercise, intensity_class=args.intensity,
+                axial_cost=args.axial_cost, note=args.note,
+            )
+            print(f"high-intensity exposure: {exposure_id}")
+        report = exposure_feature.status(conn, on_date)
+        print(f"status: {report.status} — {report.reason}")
+        if report.next_maximal_on:
+            print(f"next maximal exposure allowed on {report.next_maximal_on}")
+        for row in report.exposures:
+            print(f"  {row['performed_on']} {row['kind']} "
+                  f"{row.get('exercise_id') or ''} {row['region_load']} "
+                  f"{row['intensity_class']}")
+        return 0
+    finally:
+        store.close()
+
+
 def _cmd_volume(args) -> int:
     store = db.Store(args.db)
     try:
@@ -1230,6 +1292,15 @@ def _cmd_volume(args) -> int:
         target = "-" if row["target"] is None else f"{row['target'][0]:g}-{row['target'][1]:g}"
         print(f"  {row['pattern']:<28}{row['average']:>8.1f}{row['total']:>8}"
               f"{target:>12}  {row['status']}")
+    heavy = heavy_spinal.compute(
+        context.sets, on_date=on_date,
+        config=heavy_spinal.HeavySpinalConfig(
+            window_weeks=args.weeks,
+            rir_max=heavy_spinal.HeavySpinalConfig.load().rir_max,
+        ),
+    )
+    print(f"  heavy spinal sets (RIR <= {heavy['rir_max']}): {heavy['total_sets']}; "
+          "context only, not in the cap")
     return 0
 
 
