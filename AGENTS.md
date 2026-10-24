@@ -222,6 +222,7 @@ never read `data/raw`.
 | `docs/HIGH-INTENSITY-EXPOSURE-PLAN.md` | detailed proposal: tests/max attempts/competition exposures, guard windows, evidence and phased evaluation |
 | `docs/ENGINE-AUDIT-PLAN.md` | living audit plan: execution map, attendance, load lineage, modifier interactions, evidence review and prospective evaluation; no implementation |
 | `docs/READINESS-AUDIT.md` | W6 audit: readiness vs no readiness is not identifiable retrospectively; descriptive associations and policy options |
+| `docs/W9-SPINAL-CAP.md` | W9 audit: zero-headroom normal week, missing high-fatigue costs and cap options |
 | `docs/W1-W7-ATTENDANCE.md` | W1 schedule audit and W7 attendance metrics; forecast-deload path and session cap implemented |
 | `docs/W0-EXECUTION-MAP.md` | W0 execution map, modifier ownership/order, input risks, test coverage and candidate findings |
 | `docs/W3-MODIFIER-MATRIX.md` | W3 audit: six confirmed deload/order/floor/RIR defects, fixed and tested |

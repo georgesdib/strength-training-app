@@ -4,6 +4,8 @@
 
 ### Documented
 
+- W9 spinal-cap audit: zero-headroom normal week, exact-cap trigger behaviour, missing
+  high-fatigue costs and cap/headroom options.
 - W1/W7 attendance audit and implementation: schedule simulations, shared attendance summary,
   Today/Outcomes display, forecast-deload fix and session-time cap.
 - W0 execution-path map: complete flow, modifier ownership/order, input risks, test

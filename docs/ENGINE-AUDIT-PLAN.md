@@ -628,7 +628,7 @@ history remains public. Do not rewrite history without separate approval.
 | W6 | Readiness vs no readiness | W0 | audit complete; no-readiness counterfactual not identifiable; Option B (main-lift set reduction opt-in) accepted |
 | W7 | Attendance metrics | W0 | implemented in shared `features/attendance.py`; Today and Outcomes display |
 | W8 | Volume balance | W1/W4 | options with sets, spinal cost, time and rationale |
-| W9 | Spinal cap headroom | W1/W3 | frequency table and cap/ordinality options |
+| W9 | Spinal cap headroom | W1/W3 | audit complete; zero-headroom normal week, missing cost config and cap options documented |
 | W10 | Age in athlete state | W0 | schema/state proposal and wording changes |
 | W11 | Documentation consistency | W0 | one cap, duration policy, test-count source, architecture contract |
 | W12 | Public-data audit | none | inventory, generalisation plan and Git-history decision |
@@ -640,7 +640,7 @@ history remains public. Do not rewrite history without separate approval.
 1. W0 execution map
 2. W6 readiness vs no readiness
 3. W1 attendance and rolling schedule
-4. W9 spinal-cap headroom
+4. W9 spinal-cap headroom (audit complete; config decision pending)
 5. W2 load lineage and incomplete sessions
 6. W3 modifier interaction matrix
 7. W8 volume balance
