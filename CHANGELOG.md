@@ -25,6 +25,8 @@
 
 ### Documented
 
+- W8 volume-balance audit: current 57-set split, spinal/time accounting and four
+  options; no change.
 - W5 prospective evaluation protocol: stable-lift e1RM, attendance, planned-vs-completed,
   RIR, duration, symptoms and sRPE definitions; no model or policy change.
 - W4 programme-evidence audit: rule classes, confidence, qualified claims and no new model.

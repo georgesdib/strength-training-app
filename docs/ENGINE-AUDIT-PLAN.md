@@ -634,7 +634,7 @@ history remains public. Do not rewrite history without separate approval.
 |---|---|---|---|
 | W6 | Readiness vs no readiness | W0 | audit complete; no-readiness counterfactual not identifiable; Option B (main-lift set reduction opt-in) accepted |
 | W7 | Attendance metrics | W0 | implemented in shared `features/attendance.py`; Today and Outcomes display |
-| W8 | Volume balance | W1/W4 | options with sets, spinal cost, time and rationale |
+| W8 | Volume balance | W1/W4 | audit complete; options with sets, spinal cost, time and rationale |
 | W9 | Spinal cap headroom | W1/W3 | audit complete; explicit high-fatigue costs, at-cap display, cap unchanged |
 | W10 | Age in athlete state | W0 | schema/state proposal and wording changes |
 | W11 | Documentation consistency | W0 | one cap, duration policy, test-count source, architecture contract |
