@@ -436,3 +436,242 @@ These are intentionally left open for the next audit pass:
 6. What is the minimum prospective sample before a policy review?
 
 The plan will be refined after each audit report, not by adding more scope in advance.
+
+
+---
+
+## 11. Round 2 review intake
+
+This section records a second review of the docs and proposed changes. It does not imply that
+every item is a confirmed defect.
+
+### 11.1 Substantive findings
+
+| ID | item | finding | classification | action |
+|---|---|---|---|---|
+| A1 | Readiness never tested against no readiness | **Confirmed evidence gap.** The readiness-weight report compares only weight variants; it has no no-readiness baseline. The late held-out association is essentially zero (ρ −0.004, n=100). Readiness still changes load/RIR/sets and gates current/future prescriptions. | Confirmed audit gap + policy question | New **W6**; no change until the walk-forward and user decision |
+| A2 | Attendance not measured | **Confirmed.** The progress dashboard reports sRPE coverage, performance ratio, volume and back symptom; it does not report sessions completed vs planned or injury-free weeks. “Adherence” in existing docs refers to RIR/progression compliance, not attendance. | Confirmed missing metric | New **W7**; descriptive only, no load effect |
+| A3 | Volume split vs longevity | **Arithmetic confirmed.** The current templates produce squat ≈7, bench ≈12 and trap-bar ≈5 sets/week; total ≈57 reconciles. The imbalance is a programme decision, not a calculation bug. | Design trade-off requiring user choice | New **W8**; present options, no change |
+| A4 | Spinal cap has no headroom | **Structural finding confirmed.** A normal week is designed to reach cost 3 against cap 3. The reactive trigger fires only when cost is **greater than** cap, so an exact-cap week does not trigger it; however the ordinal costs are summed as cardinal values and the sumo 2.5 is an assumption. Frequency of >3 weeks needs measurement. | Confirmed structural risk + open data question | New **W9**; measure, do not change cap |
+| A5 | Age not recorded | **Confirmed.** `athlete_profile` has no age field. The longevity review's power/balance advice is age-conditional. | Confirmed state gap | New **W10**; requires schema/state decision |
+
+#### A1 detail — readiness baseline
+
+The existing report says:
+
+- fixed weights are retained after the weight comparison;
+- the late held-out association is effectively zero;
+- readiness is used to change the prescription, creating circularity;
+- no learned weights are justified.
+
+What it does **not** answer:
+
+```text
+Does the readiness-modified prescription beat “repeat the last session plus simple rules”
+when both are evaluated walk-forward?
+```
+
+The audit must compare:
+
+- current readiness-modified prescription;
+- no-readiness baseline (repeat last comparable session + normal progression/continuity);
+- safety floor only (sleep/energy + symptoms), with other readiness effects advisory;
+- the same held-out dates and outcome definition used for the fatigue/continuity audits.
+
+Policy options after the result:
+
+1. keep readiness as-is if it wins;
+2. make main-lift set reduction opt-in and keep load/RIR advisory if it does not;
+3. make the readiness gate skippable with an explicit neutral default;
+4. keep the sleep/energy and symptom floor even if the score becomes advisory.
+
+These are user-owned decisions. No change in this audit plan.
+
+**Also confirmed:** `READINESS-WEIGHT-EVIDENCE.md` says “No automatic main-lift volume
+change from readiness,” while `config/readiness.v1.yaml` has `include_essential: true` and
+the engine reduces essential sets. That is a documentation/implementation conflict that must
+be resolved whichever policy wins.
+
+#### A2 detail — attendance metrics
+
+Proposed descriptive metrics:
+
+```text
+sessions_completed / sessions_planned
+attendance_pct
+injury_free_weeks
+```
+
+Requirements:
+
+- no load, RIR or set effect;
+- declared direction and aggregation in `metric_definition`;
+- planned sessions derived from the rolling forecast/calendar, with a documented definition;
+- missing data reported as unknown, never zero.
+
+#### A3 detail — volume options
+
+Do not change sets yet. Present options within:
+
+- the spinal cap;
+- the session-duration cap;
+- the existing upper-body coverage;
+- the athlete's preference for strength first.
+
+Candidate directions:
+
+1. shift one bench/support set to a squat or single-leg exposure;
+2. reduce redundant pressing volume without removing the main bench exposure;
+3. add low-axial-cost lower-body work (e.g. single-leg/hip support);
+4. leave the split unchanged and document it as a deliberate strength-first choice.
+
+Each option needs expected weekly sets, spinal cost, session time and a rationale.
+
+#### A4 detail — spinal-cap headroom
+
+The audit must report:
+
+- how often a normal prescription week has cost exactly 3;
+- how often it exceeds 3;
+- which exercise/set causes the excess;
+- how often two consecutive weeks exceed 3 and trigger the reactive deload;
+- whether the 2.5 sumo half-step makes a meaningful difference to those counts.
+
+Do not silently convert the cap to a cardinal scale or add headroom. Options for later:
+
+- treat the cap as an ordinal exposure count, not a fractional sum;
+- keep the fractional sum but add explicit headroom;
+- leave it and accept that a normal week is at the ceiling;
+- change the template/exercise selection.
+
+#### A5 detail — age
+
+Age is not in the athlete state. Adding it requires:
+
+- a profile/schema field and a migration;
+- an explicit purpose (power/balance optional slots, not a load multiplier);
+- a wording change from age-conditional evidence to an athlete-specific rationale;
+- no automatic age-based load reduction.
+
+Recommended wording for the box jump:
+
+> “Plausible, cheap and low-fatigue at this age; not established as a necessary
+> age-specific intervention.”
+
+### 11.2 Documentation defects
+
+| ID | item | finding | classification |
+|---|---|---|---|
+| B6 | Session-length cap inconsistent | **Confirmed.** `LONGEVITY-REVIEW.md` mentions a 90-minute ceiling and also 60–80 minutes; Q5 and the sanity check use 60–80; the templates use 80 minutes. | Documentation conflict + undecided policy |
+| B7 | Duration marked unmeasurable | **Confirmed for imported sessions; outdated for live workouts.** Live workout materialisation stores measured duration, but the rubric still marks `SESSION_DURATION` unmeasurable and does not score it. | Documentation + rubric gap |
+| B8 | Test counts conflict | **Confirmed.** Historical counts appear in different docs; `CHANGELOG` still contains 604/589 while `ROADMAP` has a newer count. | Documentation maintenance |
+| B9 | Architecture says no UI / no LLM numbers | **Confirmed contradictions.** `ARCHITECTURE.md` says “No UI (explicitly deferred)” while the local web UI exists. It also says the LLM never touches numbers, while proposals may change set counts and choose precomputed menu options. | Documentation contract drift |
+| B10 | Public docs contain athlete-specific data | **Confirmed.** Public docs contain low-back episode history, a manual 160 kg e1RM example/value, the trap-bar date switch, and derived n=349/n=100 statistics. | Privacy issue; separate from programming |
+
+#### B6 detail — pick one cap
+
+Decision needed; recommended framing:
+
+- **planned session target: 80 minutes** (matches templates);
+- **hard ceiling: 90 minutes** only if the athlete explicitly chooses it;
+- remove “60–80” or define it as the typical range, not the cap.
+
+The exact choice requires user approval. Do not change the template until then.
+
+#### B7 detail — duration
+
+The rubric should distinguish:
+
+- imported/manual session with no measured duration → unmeasurable, as today;
+- live workout with `duration_basis=measured` → score duration against the chosen cap;
+- manual duration without timestamps → score or label as manual, with provenance.
+
+This requires a rubric-version bump and tests. It does not change loads.
+
+#### B8 detail — counts
+
+Use one authoritative location, preferably the `ROADMAP` header, and remove test counts from
+narrative docs. Historical changelog entries may keep their historical counts if clearly
+labelled historical. Auto-generation is optional; a single source is sufficient.
+
+#### B9 detail — architecture contract
+
+Reconcile to the actual contract:
+
+- the local web UI is part of the architecture, not a deferred omission;
+- the LLM never performs arithmetic, writes a load/RIR/velocity, or vetoes a rule;
+- the LLM may choose precomputed menu options and propose structural set-count changes
+  within the bounds enforced by Python.
+
+#### B10 detail — public data and Git history
+
+Move or generalise:
+
+- low-back episode count/case series;
+- manual e1RM values;
+- the date-scoped trap-bar switch if it identifies the athlete;
+- derived n=349/n=100 statistics and any other single-athlete sample sizes;
+- personal dates, competition dates and unique history details.
+
+Important: deleting text from current docs does **not** remove it from Git history. A public
+repository requires an explicit decision about history rewriting, or accepting that the
+history remains public. Do not rewrite history without separate approval.
+
+### 11.3 New workstreams
+
+| ID | workstream | depends on | deliverable |
+|---|---|---|---|
+| W6 | Readiness vs no readiness | W0 | walk-forward comparison and policy options |
+| W7 | Attendance metrics | W0 | metric definitions and descriptive dashboard proposal |
+| W8 | Volume balance | W1/W4 | options with sets, spinal cost, time and rationale |
+| W9 | Spinal cap headroom | W1/W3 | frequency table and cap/ordinality options |
+| W10 | Age in athlete state | W0 | schema/state proposal and wording changes |
+| W11 | Documentation consistency | W0 | one cap, duration policy, test-count source, architecture contract |
+| W12 | Public-data audit | none | inventory, generalisation plan and Git-history decision |
+
+### 11.4 Revised priority order
+
+```text
+0. W12 public-data audit (decision only; privacy is time-sensitive)
+1. W0 execution map
+2. W6 readiness vs no readiness
+3. W1 attendance and rolling schedule
+4. W9 spinal-cap headroom
+5. W2 load lineage and incomplete sessions
+6. W3 modifier interaction matrix
+7. W8 volume balance
+8. W10 age
+9. W11 documentation consistency
+10. W5 prospective evaluation design
+```
+
+W4 (programme quality/evidence) runs alongside W6/W8/W9 as the evidence classifier.
+
+### 11.5 What would count as confirmed
+
+For A1:
+
+- a reproducible walk-forward where the no-readiness baseline beats or ties the current
+  readiness-modified path on the same dates and outcome;
+- a documented outcome definition and missing-data handling.
+
+For A2:
+
+- a metric that can be computed from stored sessions and the planned rolling calendar;
+- no path from the metric into a prescription.
+
+For A3/A4/A5:
+
+- arithmetic and observed counts, not just a design opinion.
+
+### 11.6 Items explicitly deferred
+
+- No change to readiness weights, thresholds or gate in this plan.
+- No change to MEV/MAV/MRV or the spinal cap.
+- No change to session templates or volume split.
+- No new age-based load rule.
+- No new fatigue model.
+- No Git-history rewrite.
+- No cardio expansion.
+
+No implementation has been done.
