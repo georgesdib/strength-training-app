@@ -282,6 +282,8 @@ Exit criteria:
 
 ### W5 — Prospective evaluation design
 
+**Status:** protocol complete 2026-10-23. See [`W5-PROSPECTIVE-EVALUATION.md`](W5-PROSPECTIVE-EVALUATION.md).
+
 **Question:** what is the smallest evaluation that can distinguish real progress from noise?
 
 Measurements:

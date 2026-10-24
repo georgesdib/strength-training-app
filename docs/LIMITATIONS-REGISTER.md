@@ -38,6 +38,9 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-28 | The engine does not enforce measured session duration; it only warns against the planned cap | open | W1, DEC-W1-01 | duration becomes a hard input |
 | LIM-29 | Forecast deload is now build-time, but a forecast is still not a persisted plan | documented | W1 | a persisted plan is introduced |
 | LIM-30 | W3 interaction fixes are regression-tested for the audited cases, not every imaginable combination | open | W3 | a broader property matrix is run |
+| LIM-31 | The prospective evaluation protocol has not yet been run for a new block | open | W5 | 8–12 weeks of prospective data |
+| LIM-32 | A stable-lift ±2.5% change threshold is a practical noise guard, not a validated minimal important difference | open | W5 | a defensible individual change threshold exists |
+| LIM-33 | Prospective review remains observational; it cannot establish causation | open | W5, W6 | a controlled or natural-experiment design |
 
 ## Rules
 

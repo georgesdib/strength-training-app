@@ -20,6 +20,8 @@
 
 ### Documented
 
+- W5 prospective evaluation protocol: stable-lift e1RM, attendance, planned-vs-completed,
+  RIR, duration, symptoms and sRPE definitions; no model or policy change.
 - W4 programme-evidence audit: rule classes, confidence, qualified claims and no new model.
 - Limitations register indexing all open, mitigated and accepted audit limitations.
 - W2 load-lineage audit: bodyweight added-load misclassification, incomplete-workout
