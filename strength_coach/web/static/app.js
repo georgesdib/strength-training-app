@@ -546,6 +546,12 @@ function renderPrescription(p) {
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_type || "unknown")}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
     ${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
+    <div class="form-row">
+      ${p.executable
+        ? '<button class="primary" type="button" onclick="openWorkoutStart()">Start workout</button>'
+        : '<button class="primary" type="button" disabled>Start workout</button>'}
+      <span class="muted">${p.executable ? "Freezes this plan and opens the readiness form." : "Fix the warnings above before starting."}</span>
+    </div>
     <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>e1RM n</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table>
     <p class="muted">Loads are solved from estimated e1RM, not a measured maximum; treat the kg as a starting estimate.</p>

@@ -132,22 +132,22 @@ details summary { cursor: pointer; color: var(--muted); }
 
 /* Panels with wide generated tables scroll inside the card instead of pushing the page. */
 #recent, #continuity-model, #volume-ledger, #fatigue-model, #selection-result,
-#outcomes-result, #prospective-result, #readiness-feedback-result {
+#prescribe-result, #outcomes-result, #prospective-result, #readiness-feedback-result {
   min-width: 0;
   max-width: 100%;
   overflow-x: auto;
   scrollbar-gutter: stable;
 }
 #recent table, #continuity-model table, #volume-ledger table,
-#fatigue-model table, #selection-result table,
+#fatigue-model table, #selection-result table, #prescribe-result table,
 #outcomes-result table, #prospective-result table, #readiness-feedback-result table {
   min-width: 620px;
 }
-#selection-result table, #outcomes-result table, #readiness-feedback-result table { min-width: 760px; }
+#selection-result table, #prescribe-result table, #outcomes-result table, #readiness-feedback-result table { min-width: 760px; }
 #selection-result td { overflow-wrap: anywhere; }
 @media (max-width: 760px) {
   #recent, #continuity-model, #volume-ledger, #fatigue-model, #selection-result,
-  #outcomes-result, #prospective-result, #readiness-feedback-result {
+  #prescribe-result, #outcomes-result, #prospective-result, #readiness-feedback-result {
     margin-right: -6px;
   }
 }
