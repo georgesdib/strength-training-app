@@ -998,7 +998,7 @@ displayed prescription. That is not part of this plan.
 |---|---|---|
 | 1 | Schema/state machine, Start form with required readiness, manual sets, timer, duration/sRPE, End/Abandon, API/UI | **done** |
 | 2 | Materialise workout sets into `clean_set`/`session`; actual-vs-prescribed comparison | **done** |
-| 3 | CSV import inside workout: paste/file, preview, conflicts, RPE→RIR, replace/undo; add recognised new exercises to the plan | **done** |
+| 3 | CSV import inside workout: paste/file, preview, conflicts, RPE→RIR, replace/undo; add recognised new exercises to the plan; optional per-rep CSV detail | **done** |
 | 4 | Plan overrides: swap/add/remove exercise and sets | **done** |
 | 5 | Deterministic rubric review + human marks; post-processing pipeline | **done** |
 

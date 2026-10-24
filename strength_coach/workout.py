@@ -128,6 +128,12 @@ def get(conn, workout_id: str) -> dict | None:
     data["plan_modified"] = bool(modified_raw)
     data["readiness"] = json.loads(data.pop("readiness_json"))
     data["sets"] = _sets(conn, workout_id)
+    rep_state = _current_reps(conn, workout_id)
+    for row in data["sets"]:
+        detail = rep_state.get(int(row["set_id"]))
+        detail = detail if detail and detail.get("reps") else None
+        row["reps_detail"] = detail
+        row["rep_summary"] = _rep_summary(detail["reps"]) if detail else None
     data["elapsed_seconds"] = _elapsed(data)
     data["comparison"] = _comparison(data)
     data["original_comparison"] = _comparison({**data, "plan": original})
@@ -161,6 +167,62 @@ def _sets(conn, workout_id: str) -> list[dict]:
                 for key in ("load_kg", "reps", "rir", "velocity", "source")
             })
     return [row for key, row in sorted(state.items()) if key not in removed]
+
+
+def _current_reps(conn, workout_id: str) -> dict[int, dict]:
+    """Return the latest per-rep snapshot for each set; empty means no detail."""
+    rows = conn.execute(
+        "SELECT * FROM workout_rep_event WHERE workout_id = ? ORDER BY event_id",
+        (workout_id,),
+    ).fetchall()
+    state: dict[int, dict] = {}
+    for row in rows:
+        try:
+            reps = json.loads(row["reps_json"] or "[]")
+        except (TypeError, ValueError):
+            reps = []
+        state[int(row["set_id"])] = {
+            "reps": reps,
+            "source": row["source"],
+            "batch_id": row["batch_id"],
+        }
+    return state
+
+
+def _append_reps(conn, workout_id: str, set_id: int, reps: list[dict], *,
+                 source: str, batch_id: str | None = None) -> dict | None:
+    """Append a rep snapshot and return the prior one, for undo."""
+    prior = _current_reps(conn, workout_id).get(int(set_id))
+    clean = [
+        {"rep_index": int(item["rep_index"]),
+         "velocity_mps": float(item["velocity_mps"])}
+        for item in sorted(reps, key=lambda item: int(item["rep_index"]))
+    ]
+    conn.execute(
+        "INSERT INTO workout_rep_event (workout_id, set_id, reps_json, source, batch_id) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (workout_id, int(set_id), json.dumps(clean, separators=(",", ":")), source, batch_id),
+    )
+    return prior
+
+
+def _rep_summary(reps: list[dict]) -> dict | None:
+    if not reps:
+        return None
+    ordered = sorted(reps, key=lambda item: int(item["rep_index"]))
+    first = float(ordered[0]["velocity_mps"])
+    last = float(ordered[-1]["velocity_mps"])
+    values = [float(item["velocity_mps"]) for item in ordered]
+    return {
+        "count": len(ordered),
+        "first": round(first, 3),
+        "last": round(last, 3),
+        "mean": round(sum(values) / len(values), 3),
+        "min": round(min(values), 3),
+        "max": round(max(values), 3),
+        "loss_abs": round(first - last, 3),
+        "loss_pct": round((first - last) / first * 100, 2) if first else None,
+    }
 
 
 def _elapsed(data: Mapping[str, Any]) -> int:
@@ -436,6 +498,8 @@ def change_sets(conn, workout_id: str, item_index: int, delta: int) -> dict:
 
 
 IMPORT_HEADER = ["exercise", "set", "rpe", "value", "weight", "reps"]
+REP_HEADER = ["exercise name", "set number", "metric name", "rep number", "velocity"]
+REP_METRIC = "mean concentric velocity"
 
 
 def _unit_float(value: str, unit: str) -> float | None:
@@ -525,7 +589,100 @@ def parse_import(text: str) -> dict:
     return {"rows": rows, "errors": errors}
 
 
-def import_csv(conn, workout_id: str, text: str, *, apply: bool = False) -> dict:
+def parse_rep_import(text: str) -> dict:
+    """Parse the optional per-rep CSV without requiring it.
+
+    One blank Rep Number row is the set mean; numbered rows are rep samples. The table is
+    joined to the main CSV by canonical exercise + set index; it never creates a set on its own.
+    """
+    cleaned = (text or "").lstrip("﻿").strip()
+    if not cleaned:
+        return {"sets": [], "errors": []}
+    reader = csv.DictReader(io.StringIO(cleaned))
+    fields = [str(name or "").strip().lower() for name in (reader.fieldnames or [])]
+    missing = [name for name in REP_HEADER if name not in fields]
+    if missing:
+        raise ValueError("missing per-rep column(s): " + ", ".join(missing))
+    key_map = {str(name).strip().lower(): name for name in (reader.fieldnames or [])}
+    grouped: dict[tuple[str, int], dict] = {}
+    errors: list[dict] = []
+    for line_no, raw in enumerate(reader, start=2):
+        try:
+            exercise_name = str(raw.get(key_map["exercise name"]) or "").strip()
+            exercise_id = exercises.canonical_id(exercise_name)
+            set_index = int(str(raw.get(key_map["set number"])).strip())
+            metric = str(raw.get(key_map["metric name"]) or "").strip().lower()
+            rep_text = str(raw.get(key_map["rep number"]) or "").strip()
+            velocity = _unit_float(raw.get(key_map["velocity"]), "m/s")
+            if exercise_id is None:
+                errors.append({"line": line_no, "error": f"unknown exercise: {exercise_name}"})
+                continue
+            if set_index < 1:
+                errors.append({"line": line_no, "error": "set number must be positive"})
+                continue
+            if metric != REP_METRIC:
+                errors.append({
+                    "line": line_no,
+                    "error": f"unsupported metric: {metric or '(blank)'}; expected {REP_METRIC}",
+                })
+                continue
+            if velocity is None:
+                errors.append({"line": line_no, "error": "velocity is required"})
+                continue
+            key = (str(exercise_id), set_index)
+            group = grouped.setdefault(key, {
+                "line": line_no,
+                "exercise": exercise_name,
+                "exercise_id": str(exercise_id),
+                "set_index": set_index,
+                "mean": None,
+                "reps": {},
+                "metrics": set(),
+            })
+            group["metrics"].add(metric)
+            if rep_text in {"", "???", "?"}:
+                if group["mean"] is not None:
+                    errors.append({"line": line_no, "error": "duplicate set-mean row"})
+                else:
+                    group["mean"] = velocity
+                continue
+            rep_index = int(rep_text)
+            if rep_index < 1:
+                errors.append({"line": line_no, "error": "rep number must be positive"})
+                continue
+            if rep_index in group["reps"]:
+                errors.append({
+                    "line": line_no,
+                    "error": f"duplicate rep {rep_index} for {exercise_name} set {set_index}",
+                })
+                continue
+            group["reps"][rep_index] = velocity
+        except (TypeError, ValueError) as exc:
+            errors.append({"line": line_no, "error": str(exc)})
+    sets = []
+    for group in grouped.values():
+        if len(group["metrics"]) > 1:
+            errors.append({
+                "line": group["line"],
+                "error": f"mixed metrics for {group['exercise']} set {group['set_index']}",
+            })
+        sets.append({
+            "line": group["line"],
+            "exercise": group["exercise"],
+            "exercise_id": group["exercise_id"],
+            "set_index": group["set_index"],
+            "mean": group["mean"],
+            "reps": [
+                {"rep_index": index, "velocity_mps": velocity}
+                for index, velocity in sorted(group["reps"].items())
+            ],
+        })
+    sets.sort(key=lambda item: (item["exercise_id"], item["set_index"]))
+    return {"sets": sets, "errors": errors}
+
+
+def import_csv(conn, workout_id: str, text: str, *, apply: bool = False,
+               rep_text: str | None = None) -> dict:
     """Preview or apply the workout CSV. Apply replaces same exercise/set, never appends a duplicate."""
     workout = get(conn, workout_id)
     if workout is None:
@@ -533,11 +690,63 @@ def import_csv(conn, workout_id: str, text: str, *, apply: bool = False) -> dict
     if workout["status"] != "in_progress" and apply:
         raise ValueError("workout is not in progress")
     parsed = parse_import(text)
+    rep_parsed = parse_rep_import(rep_text or "")
+    parsed["rep"] = rep_parsed
+    parsed["errors"].extend(rep_parsed["errors"])
     active_sets = _sets(conn, workout_id)
     plan_ids = {
         str(item.get("exercise_id"))
         for item in (workout.get("plan") or {}).get("items") or []
     }
+    main_by_key = {
+        (str(row["exercise_id"]), int(row["set_index"])): row
+        for row in parsed["rows"]
+        if row.get("exercise_id")
+    }
+    for rep_set in rep_parsed["sets"]:
+        match = main_by_key.get((rep_set["exercise_id"], int(rep_set["set_index"])))
+        label = f"{rep_set['exercise']} set {rep_set['set_index']}"
+        if match is None:
+            parsed["errors"].append({
+                "line": rep_set["line"],
+                "error": f"per-rep set has no matching set row: {label}",
+            })
+            continue
+        if len(rep_set["reps"]) > int(match["reps"]):
+            parsed["errors"].append({
+                "line": rep_set["line"],
+                "error": f"per-rep count exceeds Reps for {label}",
+            })
+            continue
+        too_high = [
+            item["rep_index"] for item in rep_set["reps"]
+            if int(item["rep_index"]) > int(match["reps"])
+        ]
+        if too_high:
+            parsed["errors"].append({
+                "line": rep_set["line"],
+                "error": f"rep number {max(too_high)} exceeds Reps for {label}",
+            })
+            continue
+        reps = list(rep_set["reps"])
+        mean = rep_set["mean"]
+        if reps and mean is None:
+            mean = sum(item["velocity_mps"] for item in reps) / len(reps)
+            mean_source = "derived"
+        else:
+            mean_source = "logged_mean"
+        if match.get("velocity_mps") is None and mean is not None:
+            match["velocity_mps"] = round(float(mean), 3)
+            match["velocity_source"] = mean_source
+        elif (match.get("velocity_mps") is not None and mean is not None
+              and abs(float(match["velocity_mps"]) - float(mean)) > 0.01):
+            match.setdefault("warnings", []).append(
+                f"set mean {match['velocity_mps']:.3f} differs from per-rep mean {mean:.3f}"
+            )
+        if reps:
+            match["rep_velocities"] = reps
+            match["rep_mean"] = round(float(mean), 3) if mean is not None else None
+            match["rep_mean_source"] = mean_source
     for row in parsed["rows"]:
         row["plan_new"] = bool(row["exercise_id"] and row["exercise_id"] not in plan_ids)
         existing = next(
@@ -587,6 +796,7 @@ def import_csv(conn, workout_id: str, text: str, *, apply: bool = False) -> dict
             "load_kg": row["load_kg"], "reps": row["reps"], "rir": row["rir"],
             "velocity": row["velocity_mps"], "source": "import",
         }
+        target_set_id: int
         if base is None:
             after = add_set(
                 conn, workout_id,
@@ -603,7 +813,8 @@ def import_csv(conn, workout_id: str, text: str, *, apply: bool = False) -> dict
                 if item.get("exercise_id") == row["exercise_id"]
                 and int(item.get("set_index") or 0) == int(row["set_index"])
             )
-            undo.append({"action": "remove", "set_id": int(created["set_id"])})
+            target_set_id = int(created["set_id"])
+            undo.append({"action": "remove", "set_id": target_set_id})
         else:
             # The base row is immutable; restore if removed, then append the corrected values.
             current = next(
@@ -618,10 +829,20 @@ def import_csv(conn, workout_id: str, text: str, *, apply: bool = False) -> dict
                 key: (current or {}).get(key)
                 for key in ("load_kg", "reps", "rir", "velocity", "source")
             }
-            undo.append({"action": "update", "set_id": int(base["set_id"]),
+            target_set_id = int(base["set_id"])
+            undo.append({"action": "update", "set_id": target_set_id,
                          "before": before})
             _event(conn, workout_id, "update_set", payload,
-                   target_set_id=int(base["set_id"]))
+                   target_set_id=target_set_id)
+        if row.get("rep_velocities"):
+            prior = _append_reps(
+                conn, workout_id, target_set_id, row["rep_velocities"],
+                source="import", batch_id=batch_id,
+            )
+            undo.append({
+                "action": "reps", "set_id": target_set_id,
+                "before": (prior or {}).get("reps") or [],
+            })
     _event(conn, workout_id, "import_applied",
            {"batch_id": batch_id, "undo": undo})
     return {"preview": parsed, "workout": get(conn, workout_id)}
@@ -651,6 +872,11 @@ def undo_import(conn, workout_id: str) -> dict:
         elif item.get("action") == "update":
             _event(conn, workout_id, "update_set", item.get("before") or {},
                    target_set_id=int(item["set_id"]))
+        elif item.get("action") == "reps":
+            _append_reps(
+                conn, workout_id, int(item["set_id"]), item.get("before") or [],
+                source="import", batch_id=payload.get("batch_id"),
+            )
     _event(conn, workout_id, "import_undone", {"batch_id": payload.get("batch_id")})
     return get(conn, workout_id)
 
@@ -762,6 +988,7 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
     )
     import hashlib
     file_sha = "workout:" + hashlib.sha256(workout_id.encode("utf-8")).hexdigest()
+    rep_state = _current_reps(conn, workout_id)
     for row in sets:
         exercise_id = str(row["exercise_id"])
         props = entities.get(exercise_id, {})
@@ -785,7 +1012,7 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
             (int(row["set_id"]), file_sha, payload),
         )
         raw_id = int(cursor.lastrowid)
-        conn.execute(
+        clean_cursor = conn.execute(
             """
             INSERT INTO clean_set
                 (raw_id, session_id, occurred_on, exercise_id, raw_exercise, load_kg,
@@ -805,6 +1032,14 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
                 is_working, json.dumps(row_flags), row.get("prescription_item_index"),
             ),
         )
+        detail = rep_state.get(int(row["set_id"]))
+        for rep in (detail or {}).get("reps") or []:
+            conn.execute(
+                "INSERT INTO clean_rep (clean_set_id, rep_index, velocity_mps, source) "
+                "VALUES (?, ?, ?, ?)",
+                (int(clean_cursor.lastrowid), int(rep["rep_index"]),
+                 float(rep["velocity_mps"]), str((detail or {}).get("source") or "import")),
+            )
     if session_rpe is not None or notes:
         repositories.append_session_feedback(
             conn, session_id=workout_id, srpe=session_rpe,

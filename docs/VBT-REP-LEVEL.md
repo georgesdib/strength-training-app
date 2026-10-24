@@ -1,10 +1,9 @@
 # Rep-level VBT — post-hoc value, cost and decision
 
-**Status:** not adopted. Rep-level velocity logging is not implemented, and manual per-rep
-entry after every workout is not justified. If a device already exports per-rep samples, keep
-the raw data for a possible retrospective analysis.
-
-This note records why the feature is not being built now.
+**Status:** optional post-workout capture implemented (2026-10-24). A device's per-rep CSV can
+be supplied as a second, optional table in Workout mode; the set-level path is unchanged. The
+feature remains descriptive: no live termination, no load/volume adjustment and no prescription
+input. See [REP-VELOCITY.md](REP-VELOCITY.md).
 
 ---
 
@@ -68,7 +67,8 @@ For **manual per-rep entry after every workout**:
 - marginal information beyond sRPE, actual-vs-expected reps, readiness and back symptoms;
 - one athlete cannot support a validated individual threshold.
 
-**Not worth building.**
+**Accepted only as an optional device CSV**, because the device already exports it and the
+import costs no extra typing. Manual per-rep entry is still not a required workflow.
 
 For **automatic device export that already contains per-rep samples**:
 
@@ -82,16 +82,13 @@ The difference is whether the data arrives automatically or has to be typed.
 
 ## 5. Decision
 
-1. **No rep-level VBT logging UI, schema or import path now.**
-2. **Keep set-level VBT** as the usable input; existing calibration and targets remain.
-3. **Do not add manual per-rep entry.**
-4. If a device already exports per-rep velocity, **preserve the raw export** outside the normal
-   ingestion path. Do not contort the current schema for data with no current use.
-5. Revisit only if:
-   - per-rep data can be captured automatically;
-   - there is a specific question it can answer better than sRPE/performance/readiness;
-   - a retrospective baseline shows velocity loss adds information;
-   - any future use is descriptive first, not a live stop rule.
+1. **Optional per-rep import** exists as a second CSV in Workout mode; it is not required.
+2. **Keep set-level VBT** as the primary input; existing calibration and targets remain.
+3. **Do not add mandatory manual per-rep entry.**
+4. Device exports are stored as optional `clean_rep` detail; no rule reads them.
+5. Revisit only if there is a specific question it can answer better than sRPE/performance/
+   readiness, a retrospective baseline shows velocity loss adds information, and any future use
+   is descriptive first, not a live stop rule.
 
 This is consistent with:
 
@@ -102,15 +99,15 @@ This is consistent with:
 
 ---
 
-## 6. What would change the decision
+## 6. What would make it more than descriptive
 
-A future phase could revisit rep-level VBT if:
+A future phase could use rep-level VBT for a decision only if:
 
-- a device provides per-rep samples automatically;
-- the data include load, reps and RIR;
+- the optional import has produced enough complete sessions;
 - the athlete wants a specific question answered, for example:
   - does velocity loss predict next-session performance better than sRPE?
   - does velocity loss flag a back-flare prodrome?
-- the analysis is pre-specified and descriptive, with no automatic programme change.
+- the analysis is pre-specified, held out where possible, and descriptive first;
+- any rule change remains policy-controlled, never a live stop rule derived from one athlete.
 
-Until then, the honest position is: **no rep-level VBT feature.**
+The current position is: **capture is optional and descriptive; no rep-level rule.**

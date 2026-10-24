@@ -761,6 +761,13 @@ same exercise/set and leaves other manual sets alone. The file has no date, so i
 into the active workout. On **End workout**, sets are materialised, actual vs modified plan and
 actual vs original prescription are shown, the deterministic rubric is persisted, and
 **Review workout** opens the rubric sheet. Saving marks runs calibration and closes the workout.
+**Optional per-rep velocity:** a second CSV can be pasted or chosen in the same import panel:
+`Exercise Name,Set Number,Metric Name,Rep Number,Velocity`. A blank `Rep Number` is the set mean;
+numbered rows are reps. It must match an existing exercise/set in the main CSV and only
+`Mean Concentric Velocity` is accepted. The main CSV `Value` wins if both means exist; a mismatch
+is shown as a warning. The table is optional and never creates a set. After ending the workout,
+the end screen shows first/last velocity and loss per set; this is descriptive only.
+
 The standard dated training export remains the Import-page backfill path. Workout CSV import is
 in-workout only. This plan is **closed**; CLI workout commands cover
 status/add/update/remove/end/import, while starting a workout remains UI-only.

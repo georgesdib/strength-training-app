@@ -673,6 +673,32 @@ def test_workout_csv_import_preview_and_apply(server):
     again = post(server, f"/api/workout/{workout_id}/import", {"text": text, "apply": True})
     assert len(again["workout"]["sets"]) == 2
 
+    rep_text = (
+        "Exercise Name,Set Number,Metric Name,Rep Number,Velocity\n"
+        "Push Press,1,Mean Concentric Velocity,,0.780\n"
+        "Push Press,1,Mean Concentric Velocity,1,0.740\n"
+        "Push Press,1,Mean Concentric Velocity,2,0.740\n"
+        "Push Press,1,Mean Concentric Velocity,3,0.750\n"
+        "Push Press,1,Mean Concentric Velocity,4,0.880\n"
+    )
+    with_rep = post(server, f"/api/workout/{workout_id}/import", {
+        "text": text, "rep_text": rep_text, "apply": False,
+    })
+    assert with_rep["preview"]["rep"]["sets"][0]["reps"][0]["rep_index"] == 1
+    applied = post(server, f"/api/workout/{workout_id}/import", {
+        "text": text, "rep_text": rep_text, "apply": True,
+    })
+    row = next(item for item in applied["workout"]["sets"]
+               if item["exercise_id"] == "push_press" and item["set_index"] == 1)
+    assert row["rep_summary"]["count"] == 4
+
+    post(server, f"/api/workout/{workout_id}/end", {"session_rpe": 7})
+    status, body = get(server, f"/api/rep-velocity?session={workout_id}")
+    assert status == 200
+    report = json.loads(body)
+    assert report["available"] is True
+    assert report["sets"][0]["summary"]["count"] == 4
+
 
 def test_test_recording_auto_registers_an_exposure_and_blocks_a_second(server):
     data = post(server, "/api/state/test", {

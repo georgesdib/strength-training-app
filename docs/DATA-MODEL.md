@@ -492,6 +492,13 @@ until completion.
 it is append-only. Actual-set corrections and imports replay these events rather than mutating
 `workout_set`.
 
+Optional per-rep velocity detail has its own append-only tables:
+
+- `workout_rep_event` — per-set snapshot while the workout is in progress (`reps_json`, source,
+batch); a correction is a new event, not an update;
+- `clean_rep` — one row per rep after materialisation, linked to `clean_set.set_id`; the set mean
+remains `clean_set.velocity_mps`.
+
 On completion, `workout.py` materialises the workout into the normal pipeline once:
 
 - a `session` row with `session_id = workout_id`, `source = 'workout'`, `prescription_id`,
@@ -501,7 +508,8 @@ On completion, `workout.py` materialises the workout into the normal pipeline on
 
 This keeps e1RM, volume and review on one actual-session source of truth. In-workout CSV
 import writes `workout_set` rows (or append-only `update_set` events when replacing a set);
-RPE is converted to RIR at import, with RIR 6 marking a warm-up. Date-less backfill is not
+RPE is converted to RIR at import, with RIR 6 marking a warm-up. A second optional per-rep CSV
+can attach rep velocities by exercise + set; it never creates a set. Date-less backfill is not
 supported.
 
 ---

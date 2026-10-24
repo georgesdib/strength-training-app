@@ -48,6 +48,7 @@ from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import regime_change as regime_feature
 from strength_coach.features import readiness_feedback
 from strength_coach.features import heavy_spinal
+from strength_coach.features import rep_velocity
 from strength_coach.features import injury_signal, readiness as readiness_feature
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import progress as progress_feature
@@ -312,6 +313,14 @@ class Handler(BaseHTTPRequestHandler):
                 weeks = int(query.get("weeks", ["4"])[0])
                 self._json(200, self._with_conn(
                     lambda c: self._volume(c, day, weeks)
+                ))
+            elif path == "/api/rep-velocity":
+                query = parse_qs(urlparse(self.path).query)
+                session_id = query.get("session", [None])[0]
+                if not session_id:
+                    raise ValueError("session is required")
+                self._json(200, self._with_conn(
+                    lambda c: rep_velocity.session_report(c, session_id)
                 ))
             elif path == "/api/progress":
                 query = parse_qs(urlparse(self.path).query)
@@ -657,6 +666,7 @@ class Handler(BaseHTTPRequestHandler):
             imported = workout.import_csv(
                 conn, workout_id, str(body.get("text") or ""),
                 apply=_truth(body.get("apply")),
+                rep_text=str(body.get("rep_text") or "") or None,
             )
             return {"workout": imported["workout"], "preview": imported["preview"]}
         if action == "plan":

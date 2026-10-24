@@ -180,23 +180,42 @@ function renderImportPreview(preview) {
   var errors = (preview.errors || []).map(function (error) {
     return "<li>line " + error.line + ": " + esc(error.error) + "</li>";
   }).join("");
+  var warnings = (preview.rows || []).reduce(function (out, row) {
+    (row.warnings || []).forEach(function (text) {
+      out.push("<li>" + esc(row.exercise) + " set " + row.set_index + ": " + esc(text) + "</li>");
+    });
+    return out;
+  }, []).join("");
+  var rep = preview.rep || {};
+  var repRows = (rep.sets || []).map(function (item) {
+    var count = (item.reps || []).length;
+    return "<tr><td>" + esc(item.exercise) + "</td><td>" + item.set_index + "</td><td>" +
+      (item.mean == null ? "—" : item.mean) + "</td><td>" + count + "</td><td>" +
+      (count ? item.reps[0].velocity_mps + " → " + item.reps[count - 1].velocity_mps : "—") +
+      "</td></tr>";
+  }).join("");
   $("#workout-import-preview-area").innerHTML =
     (errors ? '<div class="warnbox"><strong>Errors</strong><ul class="list">' + errors + "</ul></div>" : "") +
+    (warnings ? '<div class="warnbox"><strong>Warnings</strong><ul class="list">' + warnings + "</ul></div>" : "") +
     (rows ? "<table><thead><tr><th>line</th><th>exercise</th><th>canonical</th><th>set</th>" +
       "<th>RPE</th><th>RIR</th><th>kg</th><th>reps</th><th>m/s</th><th>manual → import</th></tr></thead><tbody>" +
-      rows + "</tbody></table>" : "<p class='empty'>No rows parsed.</p>");
+      rows + "</tbody></table>" : "<p class='empty'>No rows parsed.</p>") +
+    (repRows ? "<h4>Per-rep detail</h4><table><thead><tr><th>exercise</th><th>set</th>" +
+      "<th>mean</th><th>reps</th><th>first → last</th></tr></thead><tbody>" +
+      repRows + "</tbody></table>" : "");
 }
 
 function submitImport(apply) {
   if (!activeWorkoutId) return;
   var text = $("#workout-import-text").value;
+  var repText = ($("#workout-rep-import-text") || {}).value || "";
   if (!text.trim()) {
     $("#workout-import-msg").textContent = "Paste CSV or choose a file first.";
     return;
   }
   $("#workout-import-msg").textContent = apply ? "Applying…" : "Previewing…";
   api("/api/workout/" + activeWorkoutId + "/import", {
-    method: "POST", body: JSON.stringify({ text: text, apply: apply })
+    method: "POST", body: JSON.stringify({ text: text, rep_text: repText, apply: apply })
   }).then(function (data) {
     renderImportPreview(data.preview || {});
     if (apply) {
@@ -332,7 +351,8 @@ function renderWorkout(w) {
     return "<tr><td>" + esc(set.exercise_id) + "</td><td>" + set.set_index + "</td><td>" +
       fmt(set.load_kg) + "</td><td>" + (set.reps == null ? "—" : set.reps) + "</td><td>" +
       (set.rir == null ? "—" : set.rir) + "</td><td>" +
-      (set.velocity == null ? "—" : set.velocity) + "</td><td>" +
+      (set.velocity == null ? "—" : set.velocity) +
+      (set.rep_summary ? '<div class="muted">loss ' + set.rep_summary.loss_pct + '%</div>' : "") + "</td><td>" +
       '<button class="ghost" type="button" data-edit-set="' + set.set_id + '">Edit</button> ' +
       '<button class="ghost" type="button" data-remove-set="' + set.set_id + '">Remove</button>' +
       "</td></tr>";
@@ -373,6 +393,17 @@ function renderWorkoutEnded(w) {
       (row.actual_load_kg.length ? row.actual_load_kg.join(", ") : "—") + "</td><td>" +
       (row.actual_rir.length ? row.actual_rir.join(", ") : "—") + "</td></tr>";
   }).join("");
+  var repRows = (w.sets || []).filter(function (set) { return set.rep_summary; }).map(function (set) {
+    var summary = set.rep_summary;
+    return "<tr><td>" + esc(set.exercise_id) + "</td><td>" + set.set_index + "</td><td>" +
+      summary.count + "</td><td>" + summary.first + "</td><td>" + summary.last + "</td><td>" +
+      summary.loss_abs + " (" + summary.loss_pct + "%)</td></tr>";
+  }).join("");
+  var repBlock = repRows
+    ? "<h3>Per-rep velocity</h3><table><thead><tr><th>Exercise</th><th>Set</th><th>Reps</th>" +
+      "<th>First</th><th>Last</th><th>Loss</th></tr></thead><tbody>" + repRows +
+      "</tbody></table><p class=\"muted\">Descriptive only; no prescription or autoregulation reads this.</p>"
+    : "";
   var extra = comparison.extra.length
     ? "<p class='muted'>Extra sets: " + comparison.extra.map(function (row) {
         return esc(row.exercise_id) + " #" + row.set_index;
@@ -384,6 +415,7 @@ function renderWorkoutEnded(w) {
     "<table><thead><tr><th>Exercise</th><th>Status</th><th>Sets actual / planned</th>" +
     "<th>Reps</th><th>kg</th><th>RIR</th></tr></thead><tbody>" + compRows + "</tbody></table>" +
     extra +
+    repBlock +
     (w.plan_modified
       ? '<h3>Original prescription</h3><table><thead><tr><th>Exercise</th><th>Status</th>' +
         '<th>Actual / planned sets</th></tr></thead><tbody>' + origRows + '</tbody></table>' +
@@ -500,6 +532,12 @@ document.addEventListener("DOMContentLoaded", function () {
     var file = importFile.files && importFile.files[0];
     if (!file) return;
     file.text().then(function (text) { document.getElementById("workout-import-text").value = text; });
+  });
+  var repImportFile = document.getElementById("workout-rep-import-file");
+  if (repImportFile) repImportFile.addEventListener("change", function () {
+    var file = repImportFile.files && repImportFile.files[0];
+    if (!file) return;
+    file.text().then(function (text) { document.getElementById("workout-rep-import-text").value = text; });
   });
   var importPreview = document.getElementById("workout-import-preview");
   if (importPreview) importPreview.addEventListener("click", function () { submitImport(false); });

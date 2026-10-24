@@ -250,6 +250,11 @@
         <p class="muted">Columns: Exercise, Set, RPE, Value, Weight, Reps. No date column; import goes into this active workout. Preview first; apply replaces the same exercise/set and leaves other manual sets alone.</p>
         <label>CSV file <input type="file" id="workout-import-file" accept=".csv,text/csv"></label>
         <textarea id="workout-import-text" rows="6" style="width:100%" placeholder="Or paste the CSV here..."></textarea>
+        <div class="panel-head" style="margin-top:1rem"><h3>Per-rep velocity (optional)</h3></div>
+        <p class="muted">Optional second CSV: Exercise Name, Set Number, Metric Name, Rep Number, Velocity. A blank Rep Number is the set mean. It is joined to the matching exercise/set above; it never creates a set.</p>
+        <label>Per-rep CSV file <input type="file" id="workout-rep-import-file" accept=".csv,text/csv"></label>
+        <textarea id="workout-rep-import-text" rows="4" style="width:100%" placeholder="Or paste per-rep rows here (optional)..."></textarea>
+        <div id="workout-rep-import-msg" class="muted"></div>
         <div class="form-row">
           <button class="ghost" type="button" id="workout-import-preview">Preview import</button>
           <button class="primary" type="button" id="workout-import-apply">Apply import</button>

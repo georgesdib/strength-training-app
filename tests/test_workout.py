@@ -250,3 +250,96 @@ def test_workout_materialisation_keeps_added_bodyweight_load_basis(conn):
     ).fetchone()
     assert row["load_basis"] == "added"
     assert row["external_load_kg"] == 5.0
+
+
+REP_CSV = """Exercise Name,Set Number,Metric Name,Rep Number,Velocity
+Push Press,1,Mean Concentric Velocity,,0.780
+Push Press,1,Mean Concentric Velocity,1,0.740
+Push Press,1,Mean Concentric Velocity,2,0.740
+Push Press,1,Mean Concentric Velocity,3,0.750
+Push Press,1,Mean Concentric Velocity,4,0.880
+"""
+
+
+def test_parse_rep_import_reads_mean_and_samples():
+    parsed = workout.parse_rep_import(REP_CSV)
+    assert parsed["errors"] == []
+    item = parsed["sets"][0]
+    assert item["exercise_id"] == "push_press"
+    assert item["mean"] == 0.780
+    assert [rep["rep_index"] for rep in item["reps"]] == [1, 2, 3, 4]
+
+
+def test_optional_rep_import_attaches_to_set_and_undo_restores(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    workout.import_csv(conn, started["workout_id"], CSV, apply=True)
+    preview = workout.import_csv(
+        conn, started["workout_id"], CSV, apply=False, rep_text=REP_CSV
+    )
+    assert preview["preview"]["errors"] == []
+    row = next(item for item in preview["preview"]["rows"]
+               if item["exercise"] == "Push Press" and item["set_index"] == 1)
+    assert row["velocity_mps"] == 0.78
+    assert row["rep_mean"] == 0.78
+    assert row["rep_velocities"][0]["rep_index"] == 1
+
+    applied = workout.import_csv(
+        conn, started["workout_id"], CSV, apply=True, rep_text=REP_CSV
+    )
+    set_row = next(item for item in applied["workout"]["sets"]
+                   if item["exercise_id"] == "push_press" and item["set_index"] == 1)
+    assert set_row["rep_summary"]["count"] == 4
+    assert abs(set_row["rep_summary"]["loss_pct"]) > 0
+    workout.undo_import(conn, started["workout_id"])
+    restored = workout.get(conn, started["workout_id"])
+    set_row = next(item for item in restored["sets"]
+                   if item["exercise_id"] == "push_press" and item["set_index"] == 1)
+    assert set_row["reps_detail"] is None
+
+
+def test_per_rep_rows_must_match_a_main_set(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    rep_text = REP_CSV.replace("Push Press,1", "Push Press,9")
+    preview = workout.import_csv(
+        conn, started["workout_id"], CSV, apply=False, rep_text=rep_text
+    )
+    assert any("no matching set" in error["error"] for error in preview["preview"]["errors"])
+    with pytest.raises(ValueError, match="errors"):
+        workout.import_csv(
+            conn, started["workout_id"], CSV, apply=True, rep_text=rep_text
+        )
+
+
+def test_rep_import_materialises_clean_rep_rows(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    workout.import_csv(
+        conn, started["workout_id"], CSV, apply=True, rep_text=REP_CSV
+    )
+    workout.end(conn, started["workout_id"], session_rpe=7, duration_min=30)
+    rows = conn.execute(
+        "SELECT rep_index, velocity_mps FROM clean_rep ORDER BY rep_index"
+    ).fetchall()
+    assert [row["rep_index"] for row in rows] == [1, 2, 3, 4]
+    assert rows[0]["velocity_mps"] == 0.74
+
+
+def test_rep_import_prefers_main_value_and_warns_on_mismatch(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    main = CSV.replace("Push Press,1,4,???,20.0kg,4", "Push Press,1,4,0.90m/s,20.0kg,4")
+    preview = workout.import_csv(
+        conn, started["workout_id"], main, apply=False, rep_text=REP_CSV
+    )
+    row = next(item for item in preview["preview"]["rows"]
+               if item["exercise"] == "Push Press" and item["set_index"] == 1)
+    assert row["velocity_mps"] == 0.90
+    assert any("differs" in warning for warning in row["warnings"])
+
+
+def test_rep_import_rejects_unknown_metric(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    bad = REP_CSV.replace("Mean Concentric Velocity", "Peak Velocity")
+    preview = workout.import_csv(
+        conn, started["workout_id"], CSV, apply=False, rep_text=bad
+    )
+    assert any("unsupported metric" in error["error"]
+               for error in preview["preview"]["errors"])

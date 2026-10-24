@@ -288,6 +288,8 @@ def main(argv: list[str] | None = None) -> int:
     workout_sub.add_parser("abandon", help="abandon the active workout")
     wi = workout_sub.add_parser("import", help="preview/apply the workout CSV to the active workout")
     wi.add_argument("--file", required=True)
+    wi.add_argument("--rep-file", default=None,
+                    help="optional per-rep CSV (Exercise Name, Set Number, Metric Name, Rep Number, Velocity)")
     wi.add_argument("--apply", action="store_true")
 
     validate = sub.add_parser("validate", help="retrospective walk-forward model checks")
@@ -1279,7 +1281,11 @@ def _cmd_workout(args) -> int:
             result = workout.abandon(conn, identifier)
         elif args.action == "import":
             text = Path(args.file).read_text(encoding="utf-8")
-            imported = workout.import_csv(conn, identifier, text, apply=args.apply)
+            rep_text = (Path(args.rep_file).read_text(encoding="utf-8")
+                        if args.rep_file else None)
+            imported = workout.import_csv(
+                conn, identifier, text, apply=args.apply, rep_text=rep_text
+            )
             print(json.dumps(imported["preview"], indent=2, default=str))
             if not args.apply:
                 return 0
