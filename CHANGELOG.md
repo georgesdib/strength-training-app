@@ -4,6 +4,8 @@
 
 ### Documented
 
+- W0 execution-path map: complete flow, modifier ownership/order, input risks, test
+  coverage and candidate findings.
 - W3 modifier-interaction audit: six deload-order, set-floor, load-stack and RIR defects
   fixed with regression tests.
 - Canonical `METHODOLOGY.md`, `PRIVACY.md`, generalised public examples and the public/private

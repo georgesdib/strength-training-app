@@ -70,6 +70,8 @@ argument.
 
 ### W0 — Execution-path map and baseline
 
+**Status:** complete 2026-10-23. See [`W0-EXECUTION-MAP.md`](W0-EXECUTION-MAP.md).
+
 **Question:** what actually happens, in order, from import to the next prescription?
 
 Trace and document:
