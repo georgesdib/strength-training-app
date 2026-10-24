@@ -209,6 +209,13 @@ def analysis_report(conn, *, on_date: str | None = None, weeks: int = 12,
         (item["session_id"], item["exercise_id"]): item["date"]
         for item in aggregate.values()
     }
+    for item in sets:
+        current_e1rm = e1rm_by_key.get((item["session_id"], item["exercise_id"]))
+        item["e1rm_kg"] = round(current_e1rm, 1) if current_e1rm else None
+        item["pct_e1rm"] = (
+            round(item["load_kg"] / current_e1rm * 100, 1)
+            if current_e1rm and item["load_kg"] is not None else None
+        )
     next_delta = {}
     for (session_id, exercise_id), current in e1rm_by_key.items():
         if (session_id, exercise_id) not in date_by_key:
@@ -242,36 +249,47 @@ def analysis_report(conn, *, on_date: str | None = None, weeks: int = 12,
     aggregates = sorted(aggregate.values(), key=lambda item: (item["date"], item["session_id"],
                                                               item["exercise_id"]))
 
-    def corr(x_key: str, y_key: str, rows_in: list[dict], label: str) -> dict:
+    def corr(x_key: str, y_key: str, rows_in: list[dict], label: str,
+             exercise_id: str) -> dict:
         pairs = [(row[x_key], row[y_key]) for row in rows_in
                  if row.get(x_key) is not None and row.get(y_key) is not None]
         n = len(pairs)
         r = _pearson([p[0] for p in pairs], [p[1] for p in pairs]) if n >= min_pairs else None
         return {
-            "x": x_key, "y": y_key, "n": n, "r": r, "label": label,
+            "x": x_key, "y": y_key, "n": n, "r": r,
+            "exercise_id": exercise_id, "label": f"{exercise_id}: {label}",
             "status": "descriptive" if n >= min_pairs and r is not None
             else "insufficient" if n < min_pairs else "no variance",
         }
 
     set_rows = [item for item in sets if item["is_working_set"] and item["summary"]]
-    correlations = [
-        corr("loss_pct", "rir", [
-            {"loss_pct": item["summary"]["loss_pct"], "rir": item["rir"]}
-            for item in set_rows
-        ], "within-set loss vs RIR"),
-        corr("loss_pct", "rpe", [
-            {"loss_pct": item["summary"]["loss_pct"], "rpe": item["rpe"]}
-            for item in set_rows
-        ], "within-set loss vs RPE"),
-        corr("mean_loss_pct", "srpe", aggregates, "session mean loss vs sRPE"),
-        corr("mean_loss_pct", "readiness", aggregates, "session mean loss vs readiness"),
-        corr("mean_loss_pct", "symptom_level", aggregates, "session mean loss vs pre-session symptom"),
-        corr("mean_loss_pct", "next_delta", [
-            {"mean_loss_pct": item["mean_loss_pct"],
-             "next_delta": (item["next"] or {}).get("delta_pct")}
-            for item in aggregates
-        ], "session mean loss vs next same-exercise e1RM change"),
-    ]
+    correlations = []
+    exercise_ids = sorted({item["exercise_id"] for item in set_rows}
+                          | {item["exercise_id"] for item in aggregates})
+    for exercise_id in exercise_ids:
+        ex_sets = [item for item in set_rows if item["exercise_id"] == exercise_id]
+        ex_sessions = [item for item in aggregates if item["exercise_id"] == exercise_id]
+        correlations.extend([
+            corr("loss_pct", "rir", [
+                {"loss_pct": item["summary"]["loss_pct"], "rir": item["rir"]}
+                for item in ex_sets
+            ], "within-set loss vs RIR", exercise_id),
+            corr("loss_pct", "rpe", [
+                {"loss_pct": item["summary"]["loss_pct"], "rpe": item["rpe"]}
+                for item in ex_sets
+            ], "within-set loss vs RPE", exercise_id),
+            corr("mean_loss_pct", "srpe", ex_sessions,
+                 "session mean loss vs sRPE", exercise_id),
+            corr("mean_loss_pct", "readiness", ex_sessions,
+                 "session mean loss vs readiness", exercise_id),
+            corr("mean_loss_pct", "symptom_level", ex_sessions,
+                 "session mean loss vs pre-session symptom", exercise_id),
+            corr("mean_loss_pct", "next_delta", [
+                {"mean_loss_pct": item["mean_loss_pct"],
+                 "next_delta": (item["next"] or {}).get("delta_pct")}
+                for item in ex_sessions
+            ], "session mean loss vs next same-exercise e1RM change", exercise_id),
+        ])
     return {
         "from": cutoff,
         "to": end,
@@ -291,6 +309,8 @@ def analysis_report(conn, *, on_date: str | None = None, weeks: int = 12,
                 "rpe": item["rpe"],
                 "load_kg": item["load_kg"],
                 "reps": item["reps"],
+                "e1rm_kg": item["e1rm_kg"],
+                "pct_e1rm": item["pct_e1rm"],
                 "summary": item["summary"],
             }
             for item in sets

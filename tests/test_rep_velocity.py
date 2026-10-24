@@ -69,6 +69,7 @@ def test_analysis_links_sessions_and_marks_small_samples():
         assert report["sessions"][0]["next"]["days"] == 4
         assert report["sessions"][0]["next"]["delta_pct"] is not None
         assert all(row["status"] == "insufficient" for row in report["correlations"])
+        assert {row["exercise_id"] for row in report["correlations"]} == {"trap_bar_deadlift"}
         assert report["missing"]["srpe"] == 0
         assert "Descriptive only" in report["note"]
     finally:
@@ -81,9 +82,7 @@ def test_analysis_is_empty_and_honest_without_rep_data():
         report = rep_velocity.analysis_report(store.connection, on_date="2024-01-10", weeks=4)
         assert report["available"] is False
         assert report["set_count"] == 0
-        assert report["correlations"]
-        assert all(row["n"] == 0 and row["status"] == "insufficient"
-                   for row in report["correlations"])
+        assert report["correlations"] == []
         assert "Descriptive only" in report["note"]
     finally:
         store.close()
