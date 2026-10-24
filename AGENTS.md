@@ -212,6 +212,7 @@ never read `data/raw`.
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |
 | `docs/SPINAL-COST.md` | evidence behind the ordinal spinal-cost ratings |
+| `docs/SPINAL-LOAD-EVIDENCE.md` | focused review of load-weighting; keep ordinal, no load/RIR weighting |
 | `docs/TRAINING-DYNAMICS.md` | evidence on 1RM testing, rep ranges and DUP; proposal, not decision |
 | `docs/WORKOUT-TYPE-READINESS-EVIDENCE.md` | evidence/decision: readiness and injury adjust load/sets, not the planned rep scheme |
 | `docs/HIGH-INTENSITY-EXPOSURE-PLAN.md` | detailed proposal: tests/max attempts/competition exposures, guard windows, evidence and phased evaluation |

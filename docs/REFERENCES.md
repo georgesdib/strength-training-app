@@ -245,6 +245,18 @@ conclusion is weaker than it looks.
 | 134 | Hagerupsen K, Pedersen S, Giller NB, et al. *Comparison of resistance training using barbell half squats and trap bar deadlifts on maximal strength, power performance, and lean mass in recreationally active females: an eight-week randomised trial.* BMC Sports Sci Med Rehabil, 2024;16:124. | 10.1186/s13102-024-00911-8 | Similar adaptations when loads are heavy and target muscles are trained; exercise selection is secondary. |
 | 135 | Weakley J, Cowley N, Schoenfeld BJ, et al. *The Effect of Feedback on Resistance Training Performance and Adaptations: A Systematic Review and Meta-analysis.* Sports Med, 2023;53(9):1789-1803. | 10.1007/s40279-023-01877-2 | Feedback improves acute performance and technical competency; does not mandate routine post-session review. |
 
+## 20. Spinal load and load weighting
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 136 | Shoji K, Nakayama K, Shiouchi M, Manabe Y. *Load-dependent increase in lumbar kyphosis is associated with posterior pelvic tilt during deadlift.* Front Sports Act Living, 2025. | 10.3389/fspor.2025.1682991 | Load increases lower-thoracic/upper-lumbar flexion and posterior pelvic tilt from 60–90% 1RM. |
+| 137 | Yanagisawa O, Oshikawa T, Matsunaga N, Adachi G, Kaneoka K. *Acute Physiological Response of Lumbar Intervertebral Discs to High-load Deadlift Exercise.* Magn Reson Med Sci, 2020. | 10.2463/mrms.mp.2020-0052 | Acute disc ADC reduction after 70% 1RM deadlift; mechanical stress signal, not injury risk. |
+| 138 | Cholewicki J, McGill SM, Norman RW. *Lumbar spine loads during the lifting of extremely heavy weights.* Med Sci Sports Exerc, 1991. | 10.1249/00005768-199110000-00012 | Sumo reduced L4/L5 moment/shear versus conventional at maximal attempts; no direct trap-bar comparison. |
+| 139 | Cherni B, Marzouki H, Selmi O, Al Attar WSA, Chamari K. *Beyond the Neutral Spine: A Narrative Review and Modern Framework for Low Back Injury Prevention in Deadlifting.* Sports, 2026. | 10.3390/sports14040151 | Abrupt load increases associate with injury; isolated posture deviations lack prospective risk evidence. |
+| 140 | Bengtsson V, Berglund L, Aasa U. *Narrative review of injuries in powerlifting with special reference to their association to the squat, bench press and deadlift.* BMJ Open Sport Exerc Med, 2018. | 10.1136/bmjsem-2018-000382 | Injury review; no per-load/per-RIR risk function. |
+| 141 | Keogh J, Winwood P. *The Epidemiology of Injuries Across the Weight-Training Sports.* Sports Med, 2016. | 10.1007/s40279-016-0575-0 | Epidemiology context; no load-weighted spinal-risk model. |
+| 142 | Fischer SC, Calley DQ, Hollman JH. *Effect of an Exercise Program That Includes Deadlifts on Low Back Pain.* J Sport Rehabil, 2021. | 10.1123/jsr.2020-0324 | Deadlift-inclusive programmes improve pain/function but not more than low-load motor control; small evidence base. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow

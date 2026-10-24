@@ -2,6 +2,10 @@
 
 ## [0.3.1] — unreleased
 
+### Documented
+
+- Focused spinal-load review: keep the ordinal cap; no load/RIR/set weighting.
+
 ### Changed
 
 - Replaced the legacy A/B/C session fields and overrides with four canonical session types

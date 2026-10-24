@@ -1018,7 +1018,7 @@ path. CLI workout commands are partial (no start).
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
 | Velocity is per-set only | within-set velocity loss not computable | labelled decay proxy; `DEC-VELOCITY-01`; post-hoc rep-level decision in `docs/VBT-REP-LEVEL.md` (`DEC-VBT-03`) |
 | Rubric calibrated on **five high-confidence sessions** | 75% agreement, MAE 0.20; rotation is the weak item (40%, n=5); two old marks are reconstructed and excluded | `DEC-EVAL-04`; needs ~10 remembered marks per item before changing weights |
-| Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one | ASSUMPTION-02 / Q8; a weighted-by-e1RM or RIR version needs the athlete's decision |
+| Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one | Reviewed 2026-10-23: keep ordinal; no validated load/RIR mapping; see docs/SPINAL-LOAD-EVIDENCE.md |
 | VBT targets not prescribed | a prescription carries no `velocity_target` | **resolved** — 22 targets where trustworthy; trap bar withheld; `DEC-VBT-02` |
 | ACWR contested | cannot be a hard rule | advisory only; `DEC-ACWR-01` |
 

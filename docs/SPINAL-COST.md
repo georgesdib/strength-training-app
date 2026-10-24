@@ -54,3 +54,19 @@ Until then, the ratings are a **conservative ordinal prior**, and the corpus rec
 ---
 
 Full bibliography with DOIs: [`docs/REFERENCES.md`](REFERENCES.md).
+
+---
+
+## Focused review: can load be weighted? (2026-10-23)
+
+A focused, non-systematic review of load-dependent spinal kinematics, disc loading, variant
+biomechanics and injury/load-management evidence is in
+[SPINAL-LOAD-EVIDENCE.md](SPINAL-LOAD-EVIDENCE.md).
+
+**Conclusion:** load clearly changes tissue loading, but there is no validated mapping from
+kg/%1RM/RIR/sets to a weekly spinal-risk unit. The ordinal variant ranking stays; load/RIR/set
+weighting is **not** added. The best-supported load principle is progressive loading and
+avoiding abrupt spikes, not a precise per-session cost.
+
+If a heavy-exposure signal is wanted later, it should be a separate observational advisory, not
+a change to the cap.
