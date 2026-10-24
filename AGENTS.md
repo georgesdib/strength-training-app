@@ -218,6 +218,7 @@ never read `data/raw`.
 | `docs/WORKOUT-TYPE-READINESS-EVIDENCE.md` | evidence/decision: readiness and injury adjust load/sets, not the planned rep scheme |
 | `docs/HIGH-INTENSITY-EXPOSURE-PLAN.md` | detailed proposal: tests/max attempts/competition exposures, guard windows, evidence and phased evaluation |
 | `docs/ENGINE-AUDIT-PLAN.md` | living audit plan: execution map, attendance, load lineage, modifier interactions, evidence review and prospective evaluation; no implementation |
+| `docs/READINESS-AUDIT.md` | W6 audit: readiness vs no readiness is not identifiable retrospectively; descriptive associations and policy options |
 | `docs/IMPLEMENTATION-PLAN-2026-10.md` | approved direction and phased implementation plan; A0 outcome provenance and A outcome review implemented, B–F pending |
 | `docs/TEST-FATIGUE-PLAN.md` | superseded narrow test-fatigue proposal; points to the broader plan |
 | `docs/RULES-FORMAT.md` | citable rule IDs + 5 encoded rules |

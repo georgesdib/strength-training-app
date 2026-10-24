@@ -622,7 +622,7 @@ history remains public. Do not rewrite history without separate approval.
 
 | ID | workstream | depends on | deliverable |
 |---|---|---|---|
-| W6 | Readiness vs no readiness | W0 | walk-forward comparison and policy options |
+| W6 | Readiness vs no readiness | W0 | audit report complete 2026-10-23; no-readiness counterfactual not identifiable; policy pending |
 | W7 | Attendance metrics | W0 | metric definitions and descriptive dashboard proposal |
 | W8 | Volume balance | W1/W4 | options with sets, spinal cost, time and rationale |
 | W9 | Spinal cap headroom | W1/W3 | frequency table and cap/ordinality options |
