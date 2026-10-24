@@ -1030,7 +1030,8 @@ path. CLI workout commands are partial (no start).
 Recorded so good ideas are not lost, explicitly **not** commitments:
 
 - `sets_per_muscle_group_per_week` feature, so volume is audited in sets rather than sessions.
-- Readiness composite with a `metric_definition` table so new metrics need no code change.
+- Readiness composite driven by `metric_definition` (not delivered: the table is used for
+  measurements; dynamic readiness needs weight/role/baseline metadata and shadow validation).
 - Rotation scoring split by session provenance (app-assigned vs self-directed).
 - Grip-strength left/right asymmetry as a readiness input and a unilateral-work trigger.
 - Per-lift manual velocity overrides with expiry.

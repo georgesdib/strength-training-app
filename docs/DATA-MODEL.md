@@ -355,14 +355,13 @@ Deliberate distinction: `feels_bad` is a preference the prescription may work ar
 `constraint.severity = hard_exclude` is a safety rule that vetoes. Conflating them would let
 a preference masquerade as a medical restriction, or the reverse.
 
-### 11.4 `metric_definition` — the normalisation layer for new readiness inputs
+### 11.4 `metric_definition` — declared measurement direction
 
-Every readiness metric, existing or future (Bevel score, HRV, RHR, grip strength L/R), is
-declared here before use:
+`metric_definition` stores the metadata needed to interpret a periodic measurement:
 
 | column | notes |
 |---|---|
-| metric_key PK | e.g. `bevel_readiness`, `grip_left_kg` |
+| metric_key PK | e.g. `vo2max`, `grip_kg` |
 | label | human name |
 | scale_min / scale_max | bounds |
 | higher_is_better | **0/1 — mandatory.** The documented trap (stress 5 = good) is exactly this field |
@@ -371,9 +370,23 @@ declared here before use:
 | source | device / app |
 | active_from | |
 
-Adding a new readiness metric therefore requires **no code change and no prompt change**:
-insert a row, and the composite picks it up. A metric with no row is rejected rather than
-assumed to be higher-is-better.
+It is consumed by the periodic **measurement** path (`features/measurements.py`,
+`DEC-MEASURE-01`): a measurement whose key has no row, or whose direction changes, is
+refused rather than reinterpreted.
+
+**It is not a live readiness-composite driver.** The current readiness score uses hardcoded
+core fields plus weights/slopes from `config/readiness.v1.yaml`; `composite.enabled` is false
+and `readiness_day.composite` stays null. Adding a new readiness metric therefore still needs
+code/config work. The table has no weight/role, baseline or slope columns.
+
+A future dynamic composite would need at least:
+
+1. a declared weight/role per metric;
+2. baseline and slope handling for device-derived fields;
+3. a missing-data rule that distinguishes absent from zero;
+4. a shadow mode before any load effect.
+
+A row alone would still not be sufficient.
 
 ### 11.6 `e1rm_override` — a manual estimate that outranks the computed one
 

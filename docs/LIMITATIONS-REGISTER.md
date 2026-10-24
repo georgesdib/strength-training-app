@@ -44,6 +44,7 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-34 | The weekly split is bench-heavy (12 bench vs 7 squat and 5 hinge sets); the exact ratio is a strength-priority choice, not an evidence-derived optimum | open | W8 | a user volume-balance decision |
 | LIM-35 | Age is not recorded in athlete state, so age-conditional power/balance evidence cannot be personalized | open | W10 | `birth_year` is added and used only for wording/priority |
 | LIM-36 | Public guidance says “age-dependent” without a recorded age; this must not read as a personal prescription | open | W10 | age is recorded or wording is generalised |
+| LIM-37 | `metric_definition` is not a live readiness-composite driver; adding readiness metrics still needs code/config work | open | W11 follow-up / DATA-MODEL §11.4 | dynamic composite design with weights/baselines and shadow validation |
 
 ## Rules
 

@@ -36,6 +36,8 @@
 
 ### Documented
 
+- Corrected the `metric_definition` claim: it supports measurements, not a live
+  readiness composite; dynamic readiness metrics still need code/config work.
 - Engine audit W0–W12 closed; implemented fixes, deferred policy choices and 36 open
   limitations consolidated.
 - W11/W12 closeout: one test-count source, duration wording, public-data inventory,

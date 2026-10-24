@@ -90,13 +90,16 @@ Two sub-questions:
    (`DEC-GRIP-01`).
 
 **Blocks:** the readiness composite. The merge half no longer blocks anything.
-**Default:** most-complete-row merge with conflicts logged; new metrics enter as
-`metric_definition` rows with explicit `scale_min`, `scale_max`, `higher_is_better` and
-`aggregation`, and stay dormant until populated.
+**Default:** most-complete-row merge with conflicts logged. `metric_definition` rows carry
+`scale_min`, `scale_max`, `higher_is_better` and `aggregation` for measurements, but they do
+not currently drive the readiness composite. Adding a readiness metric still needs code/config
+work; see `docs/DATA-MODEL.md` §11.4.
 **Status:** the merge default is implemented (`ingest/readiness.py`, `DEC-READINESS-01`);
 every date carries its `merge_note`. The global/category score, HRV/RHR baseline and wearable
 blend are implemented separately (`features/readiness_score.py`); `readiness_day.composite`
-still stays null by design. `ASSUMPTION-04`: completeness is treated as authority.
+still stays null by design. `ASSUMPTION-04`: completeness is treated as authority. The
+"new metric needs no code" claim is **not true for readiness**; it is true only for the
+measurement path.
 
 ---
 

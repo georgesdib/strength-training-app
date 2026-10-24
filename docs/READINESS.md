@@ -138,7 +138,7 @@ Everything a user might reasonably want different is in `config/readiness.v1.yam
 | `score.baseline_days` / `score.baseline_min_readings` | HRV/RHR baseline window and minimum |
 | `score.hrv_weight` / `score.rhr_weight` | device-field weights (default 0.5) |
 | `score.wearable_weight` | optional wearable blend (default 0.10) |
-| `composite.enabled` | reserved; stays off until metrics are declared |
+| `composite.enabled` | reserved; stays off. No implementation consumes it; a dynamic composite needs weight/role/baseline metadata, not just metric rows |
 
 An unimplemented value raises rather than being ignored — a config that silently did nothing
 would leave the athlete believing they had changed the behaviour.
