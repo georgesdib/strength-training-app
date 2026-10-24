@@ -182,4 +182,4 @@ Verification:
 - `test_deload_does_not_undo_mrv_cap`
 - `test_minimum_note_is_after_deload_not_before_it`
 
-Full suite: 662 tests passed.
+Full suite at W3 audit time: 662 tests passed. Current counts live in `ROADMAP.md`.

@@ -362,7 +362,7 @@ old value, which is why it is a useful reference but not ground truth.
 
 What we know from the data:
 
-- 306 days carry all three values;
+- the overlapping window covers most of the available period, so those days carry all three values;
 - all are 1-5, higher better;
 - means: squat 3.53, bench 3.79, deadlift 3.56.
 

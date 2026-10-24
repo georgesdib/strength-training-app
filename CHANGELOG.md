@@ -25,6 +25,8 @@
 
 ### Documented
 
+- W11/W12 closeout: one test-count source, duration wording, public-data inventory,
+  exact sample counts generalised and Git-history decision recorded.
 - W10 age-in-state audit: optional `birth_year` proposal, age-conditional wording and no
   age-based load rule.
 - W8 volume-balance audit: current 57-set split, spinal/time accounting and four

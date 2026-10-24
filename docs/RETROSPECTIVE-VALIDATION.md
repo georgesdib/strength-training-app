@@ -24,14 +24,15 @@ For each evaluation date:
 - **Selection:** no counterfactual exists (one exercise per slot), so it is excluded.
 
 The report uses only earlier data per date, but the candidate models and features were chosen
-with knowledge of the full dataset. That is why it is retrospective.
+with knowledge of the full dataset. That is why it is retrospective. Exact counts and dates are
+kept in the private audit record.
 
-## 2. Result (12 evaluation dates)
+## 2. Result (small retrospective sample)
 
 | model | predictions | relative MAE | baseline MAE | skill |
 |---|---:|---:|---:|---:|
-| Strength fatigue | 25 lift-sessions | 0.158 | 0.074 persistence | **−112%** |
-| Continuity calibration | 12 returns | 0.150 | 0.128 fixed rule | **−17%** |
+| Strength fatigue | a small number of lift-sessions | worse | persistence baseline | **−112%** |
+| Continuity calibration | one per observed return | worse | fixed rule | **−17%** |
 
 Both models are **worse than the simple baseline** in this retrospective check.
 

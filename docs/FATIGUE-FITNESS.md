@@ -135,7 +135,7 @@ whose fatigue half-life is an artefact of the priors.
 
 Why fixed half-lives: fitting four parameters (two half-lives + two coefficients) at once is the
 identifiability trap described in §2–4. Intervals, family shrinkage and a chronological backtest are present. A retrospective
-walk-forward check (2026-10-20) was also run: 25 lift-session predictions had relative MAE
+walk-forward check (2026-10-20) was also run: a small number of lift-session predictions had relative MAE
 0.158 versus 0.074 for persistence (skill −112%), so the model was **not adopted** and remains
 shadow-only. A prospective test is not started because the candidate failed the retrospective
 screen. See [RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md).

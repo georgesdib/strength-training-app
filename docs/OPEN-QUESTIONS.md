@@ -72,8 +72,9 @@ are a set-count proxy or dropping the metric — and a proxy presented as minute
 fabricated score.
 
 **Applied partially:** `session_feedback.duration_min` records optional session length at
-review; there are still no timestamps, so imported sessions cannot be timed automatically. The
-rubric line remains unmeasured.
+review, and live workouts store `duration_basis=measured`. Imported sessions still have no
+timestamps, so they cannot be timed automatically, and the rubric line remains unmeasured for
+both kinds of session. A rubric-version change is a separate decision (W11/B7).
 
 ---
 

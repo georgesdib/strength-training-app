@@ -581,7 +581,7 @@ Recommended wording for the box jump:
 | B7 | Duration marked unmeasurable | **Confirmed for imported sessions; outdated for live workouts.** Live workout materialisation stores measured duration, but the rubric still marks `SESSION_DURATION` unmeasurable and does not score it. | Documentation + rubric gap |
 | B8 | Test counts conflict | **Confirmed.** Historical counts appear in different docs; `CHANGELOG` still contains 604/589 while `ROADMAP` has a newer count. | Documentation maintenance |
 | B9 | Architecture says no UI / no LLM numbers | **Confirmed contradictions.** `ARCHITECTURE.md` says “No UI (explicitly deferred)” while the local web UI exists. It also says the LLM never touches numbers, while proposals may change set counts and choose precomputed menu options. | Documentation contract drift |
-| B10 | Public docs contained athlete-specific data | **Resolved in current tree.** Exact episode history, example performance values, the trap-bar switch date and single-athlete sample sizes were removed from public docs; exact details are in `private/docs/PRIVATE-CONTEXT.md`. Earlier Git history remains public. | Privacy issue; no history rewrite |
+| B10 | Public docs contained athlete-specific data | **Closed by W12.** Current public docs use illustrative examples and qualitative sample descriptions; exact counts/dates remain in the private record. Earlier Git history remains public by explicit decision; no rewrite. | Privacy issue; accepted history; no rewrite |
 
 #### B6 detail — cap resolved
 
@@ -637,8 +637,8 @@ history remains public. Do not rewrite history without separate approval.
 | W8 | Volume balance | W1/W4 | audit complete; options with sets, spinal cost, time and rationale |
 | W9 | Spinal cap headroom | W1/W3 | audit complete; explicit high-fatigue costs, at-cap display, cap unchanged |
 | W10 | Age in athlete state | W0 | audit complete; optional `birth_year` proposal, no automatic age rule |
-| W11 | Documentation consistency | W0 | one cap, duration policy, test-count source, architecture contract |
-| W12 | Public-data audit | none | inventory, generalisation plan and Git-history decision |
+| W11 | Documentation consistency | W0 | complete; cap/count/architecture consistent; duration rubric remains unmeasured |
+| W12 | Public-data audit | none | complete; exact counts generalised; Git history accepted, not rewritten |
 
 ### 11.4 Revised priority order
 
@@ -685,4 +685,4 @@ For A3/A4/A5:
 - No Git-history rewrite.
 - No cardio expansion.
 
-No implementation has been done.
+W11/W12 documentation closes the audit plan. No code or training policy changed.

@@ -158,7 +158,7 @@ old post-build deload path is gone from the CLI and web callers.
 | outcomes/readiness feedback | `test_outcomes.py`, `test_readiness_feedback.py` |
 | web API | `test_web.py`, `test_run_web.py` |
 
-**Current baseline:** 662 tests collected (647 public + 15 private), full suite passing at the
+**Baseline at W0 audit time (2026-10-23; historical):** 662 tests collected (647 public + 15 private), full suite passing at the
 time of this map.
 
 ## 7. Candidate findings — not yet confirmed
@@ -185,6 +185,6 @@ Candidate statuses are updated above; C2, C4, C5, C7 and C8 remain limitations o
   path and its material branches; proposal/LLM and some UI-only branches are summarized, not
   exhaustively traced.
 - **Inputs that can be missing/stale/non-comparable are listed:** met; see §5.
-- **Current test baseline is recorded:** met; 662 tests.
+- **Test baseline is recorded:** met at W0 audit time; 662 tests then. Current counts live in `ROADMAP.md`.
 
 W0 is a map, not a validation result. It does not establish that the programme is effective.

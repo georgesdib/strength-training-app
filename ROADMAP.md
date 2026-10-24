@@ -655,8 +655,9 @@ applied factor and status. The prescription keeps `MOD-GAP-001` and adds the cal
 in its warning/notes. A band with too few returns, a wide interval, or calibration disabled uses
 the fixed factor.
 
-**Retrospective walk-forward (2026-10-20):** 12 returns; calibrated-factor ratio MAE 0.150
-vs fixed-rule 0.128, so the calibrated factor **lost** and the fixed fallback stays in use.
+**Retrospective walk-forward (2026-10-20):** a small number of returns; the calibrated-factor
+ratio error was worse than the fixed rule, so the calibrated factor **lost** and the fixed
+fallback stays in use. Exact counts are in the private audit record.
 This is retrospective, not prospective. See [RETROSPECTIVE-VALIDATION.md](docs/RETROSPECTIVE-VALIDATION.md).
 
 Acceptance: `strength-coach continuity` and `GET /api/continuity` show observed returns versus
@@ -834,7 +835,7 @@ partially pooled; intervals are mandatory. The model must state when it is not i
 2. **Shadow fit — done for this phase**: fixed half-lives + linear fit on stored e1RM series,
    approximate 95% intervals, family-slope shrinkage, and a chronological 80/20 backtest against
    a naive baseline; an **overall** relative-e1RM row pools lifts. No load change. **Still open:**
-   a frozen-parameter prospective test on future sessions. **Retrospective walk-forward:** 25 lift-session predictions, relative MAE 0.158 vs persistence 0.074 (skill −112%); the model lost, so no load or adoption follows. Volume has no predictive model; selection has no counterfactual.
+   a frozen-parameter prospective test on future sessions. **Retrospective walk-forward:** a small number of lift-session predictions; relative error was substantially worse than persistence (skill −112%), so the model lost and no load or adoption follows. Exact counts are private. Volume has no predictive model; selection has no counterfactual.
 3. **Prospective validation**: freeze parameters, predict held-out sessions, compare with a
    fitness-only and a readiness-only baseline.
 4. **Optional use**: only after validation, and only downward (extra caution), never to raise a

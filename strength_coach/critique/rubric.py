@@ -3,7 +3,8 @@
 Six items are measurable from the export; two are not, and they are stored with
 `measurable = 0` rather than a guessed score:
 
-* session duration — there are no timestamps (DQ-SESSION-01, OPEN-QUESTIONS Q5);
+* session duration — imported sessions have no timestamps; live measured duration is not yet
+  scored (DQ-SESSION-01, OPEN-QUESTIONS Q5);
 * within-set velocity loss — the export stores one mean velocity per set (DEC-VELOCITY-01).
 
 Weights are config-free on purpose: they are a product decision, not a measurement, and the

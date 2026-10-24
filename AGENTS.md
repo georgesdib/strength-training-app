@@ -187,6 +187,7 @@ never read `data/raw`.
 |---|---|
 | `USER-GUIDE.md` | how to install, run and read the output (the human-facing entry point) |
 | `ROADMAP.md` | live phase status, next actions, resume checklist |
+| `docs/W11-W12-CLOSEOUT.md` | W11 documentation consistency and W12 public-data inventory/history decision |
 | `docs/W10-AGE.md` | W10 age-in-state audit; optional birth-year, wording and no age-based load rule |
 | `docs/W8-VOLUME-BALANCE.md` | W8 weekly set/spinal/time balance and four options; no change |
 | `docs/W5-PROSPECTIVE-EVALUATION.md` | W5 prospective protocol and implemented read-only summary |
