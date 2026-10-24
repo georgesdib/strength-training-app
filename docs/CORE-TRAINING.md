@@ -6,13 +6,14 @@ was in the templates, not in the athlete's practice or equipment. The evidence s
 adding a *small, progressive* block — but it does **not** support claiming that core work
 prevents back pain, and it does not justify a large isolation circuit.
 
-The amendment was **approved and applied on 2026-10-20** (`DEC-CORE-01`): Day A now carries
-`ab_wheel`, Day C carries `hanging_leg_raise`, both progress through `PRG-DP-001`, and the
+The amendment was **approved and applied on 2026-10-20** (`DEC-CORE-01`). In the current
+four-session-type programme, the squat-led and bench+squat types carry `ab_wheel`; the
+bench+hinge type carries `hanging_leg_raise`. Both progress through `PRG-DP-001`, and the
 constitution is at **1.2.0**. This note keeps the evidence and the reasoning; the sections that
 describe the gap are written in the past tense where the change has landed.
 
 Decisions/assumptions: `DEC-CORE-01`, `ASSUMPTION-23`. Config:
-[`config/templates/days.v1.yaml`](../config/templates/days.v1.yaml),
+[`config/templates/session-types.v1.yaml`](../config/templates/session-types.v1.yaml),
 [`config/rules/programme.v1.yaml`](../config/rules/programme.v1.yaml). Private detail:
 `private/docs/CORE-AUDIT.md` (git-ignored).
 
@@ -126,19 +127,21 @@ For a longevity-first athlete training three days a week, with no current sympto
 | timing | end of session | never before the main lift; it is accessory work |
 | claim | capacity and performance, **not** injury prevention | §3.1-3.2 |
 
-A reasonable instance: **Day A: ab wheel 3×6-10; Day C: hanging leg raise 3×8-12.** Both are
-reps-based, both already exist in the taxonomy, and both can progress by load or lever.
+A reasonable instance: **squat-led/bench+squat: ab wheel 3×6-10; bench+hinge: hanging leg
+raise 3×8-12.** Both are reps-based, both already exist in the taxonomy, and both can progress
+by load or lever.
 Planks and carries stay optional/self-directed until a time-based progression rule exists
 (see §5.3).
 
 ## 5. What changed
 
-### 5.1 Day templates
+### 5.1 Session templates
 
-One core slot was added to Day A and one to Day C (applied 2026-10-20):
+Core slots were added to the current session types (applied 2026-10-20; the legacy A/C labels
+are kept only in the decision history):
 
 ```yaml
-# Day A, after the erector slot
+# squat-led / bench+squat, after the erector slot
 - id: core_anti_extension
   exercise: ab_wheel
   sets: 3
@@ -148,7 +151,7 @@ One core slot was added to Day A and one to Day C (applied 2026-10-20):
   essential: false
   load_source: double_progression
 
-# Day C, after the erector slot
+# bench+hinge, after the erector slot
 - id: core_flexion
   exercise: hanging_leg_raise
   sets: 3
@@ -183,14 +186,13 @@ accessory (A: `split_squat`, B: `back_extension`, C: `lateral_raise`), so the ru
 
 - **Cause:** `DayTemplate.rep_ranges()` (`prescribe/templates.py`) was per-day, while the rule
   scope is the whole collection.
-- **Fix:** `templates.all_rep_ranges()` pools the map across A/B/C; the engine passes it to the
-  rule context. On the current store the decision is still "hold load" for all three original
-  accessories, so no prescribed load changed on the day of the fix.
+- **Fix:** `templates.all_rep_ranges()` pools the map across all four session types; the engine
+  passes it to the rule context.
 
 ## 6. Recommendation (applied)
 
-1. **Added core work** — two reps-based slots (Day A anti-extension, Day C flexion), 6
-   sets/week, framed as capacity/performance.
+1. **Added core work** — two reps-based slots (squat-led/bench+squat anti-extension,
+   bench+hinge flexion), 6 sets/week, framed as capacity/performance.
 2. **Amended the constitution collection** (`accessories_and_back_extension` gains `ab_wheel`
    and `hanging_leg_raise`; version 1.2.0) so progression is governed by the existing rule.
 3. **Fixed the per-day rep-range defect** so `PRG-DP-001` can evaluate.
