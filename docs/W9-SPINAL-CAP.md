@@ -1,6 +1,6 @@
 # W9 — SPINAL-CAP HEADROOM
 
-**Status:** audit complete 2026-10-23. No policy or cap change.
+**Status:** audit complete 2026-10-23; W9 recommendations implemented. No cap/headroom change.
 **Method:** template arithmetic plus stored weekly spinal costs. Exact personal counts are in
 `private/docs/PRIVATE-CONTEXT.md`; this public report gives the shape only.
 **Scope:** `PRG-SPINE-001`, normal weekly programming and the reactive deload trigger.
@@ -94,9 +94,9 @@ The guard requires `> cap`, not `>= cap`. A week at exactly 3.0 is treated as sa
 consistent with a cap as a maximum, but it leaves no signal that the normal week is already at
 the ceiling.
 
-### W9-03 — Several `high_fatigue_spinal` entities have no `spinal_cost`
+### W9-03 — RESOLVED — Several `high_fatigue_spinal` entities had no `spinal_cost`
 
-**Classification:** confirmed config/code inconsistency.
+**Classification:** confirmed config/code inconsistency; resolved.
 
 `spinal_exposures` uses:
 
@@ -115,11 +115,18 @@ The omission of `single_leg_db_rdl` is material: it is currently the reason a be
 still sums to 3 rather than 5. If a cost were assigned without changing the template or cap,
 the normal bench+hinge week would exceed the cap.
 
-This needs an explicit decision:
+Resolution:
 
-1. mark those entities `spinal_cost: 0` with a reason;
-2. assign a cost and adjust the template/cap;
-3. remove `high_fatigue_spinal: true` where it is not meant to count.
+- all deadlift/deficit variants received explicit conservative `spinal_cost: 3`;
+- `kettlebell_swing` received an explicit cost even though its pattern is excluded;
+- `single_leg_db_rdl` is explicitly non-counting (`high_fatigue_spinal: false`,
+  `spinal_cost: 0`) with a reason.
+
+The single-leg decision is an engineering classification, not a measured zero. Unilateral
+loading changes trunk/hip activation versus bilateral work, but there is no direct lumbar-load
+comparison. See [Frontiers 2023](https://www.frontiersin.org/journals/physiology/articles/10.3389/fphys.2023.1264604/full).
+It stays in the bench+hinge template as a hamstring/hip accessory and does not consume a
+spinal slot. If future evidence says otherwise, that is a separate template/cap decision.
 
 ### W9-04 — The 2.5 sumo half-step can change a borderline week
 
@@ -181,18 +188,16 @@ injury threshold.
 - Surface “at cap” and “one exposure of headroom” in the prescription/UI.
 - No load change.
 
-**Low-risk, useful.** Could be added without changing the policy.
+**Implemented.** `notes.spinal_cap` now reports cost, cap, headroom and at/over-cap state;
+Prescribe shows it.
 
-## 6. Recommendation
+## 6. Implemented recommendation
 
-1. **Do not raise the cap or add headroom yet.**
-2. **Fix the configuration ambiguity first:** every `high_fatigue_spinal` entity should have an
-   explicit `spinal_cost` or explicit zero/exclusion with a reason.
-3. Decide whether `single_leg_db_rdl` is meant to consume a spinal slot. If yes, the
-   bench+hinge template must change; if no, mark it zero with a reason.
-4. Add a descriptive “at cap / headroom” display to the prescription and weekly summary.
-5. Keep the reactive trigger at two consecutive over-cap weeks unless a separate decision
-   changes it.
+1. **Cap unchanged at 3; no headroom added.**
+2. Every `high_fatigue_spinal` entity now has an explicit `spinal_cost`.
+3. `single_leg_db_rdl` is explicitly non-counting, with a reason; the template stays unchanged.
+4. `notes.spinal_cap` and the Prescribe UI show cost/cap/headroom and at/over-cap state.
+5. The reactive trigger remains two consecutive strictly over-cap weeks.
 
 ## 7. Exit criteria
 
@@ -201,4 +206,5 @@ injury threshold.
 - ordinality/headroom options presented: **yes**;
 - no silent cap change: **yes**.
 
-No code, config, template or cap was changed by this audit.
+No cap or template change. Config, notes and UI were changed as above; tests cover the
+cost completeness and the cap note.

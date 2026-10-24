@@ -444,6 +444,10 @@ function renderPrescription(p) {
   const deloadBox = deload ? `<p class="warnbox"><strong>Deload (${esc(deload.trigger)})</strong>
     — ${esc(deload.reason)}. Sets -${deload.set_reduction}, load
     ${Math.round(deload.load_multiplier * 100)}%, RIR +${deload.rir_add}.</p>` : "";
+  const spinal = p.notes?.spinal_cap;
+  const spinalBox = spinal ? `<p class="muted">Weekly spinal cost:
+    <strong>${fmt(spinal.cost, 1)} / ${fmt(spinal.cap, 1)}</strong>
+    ${spinal.at_cap ? "· at cap, no headroom" : spinal.over_cap ? "· over cap" : `· ${fmt(spinal.headroom, 1)} headroom`}.</p>` : "";
   const minimum = p.notes?.minimum_session;
   const minimumBox = minimum ? `<p class="warnbox"><strong>Minimum session</strong>
     — ${esc(minimum.status)}: ${esc(minimum.reason)}.
@@ -458,7 +462,7 @@ function renderPrescription(p) {
   $("#prescribe-result").innerHTML = `<div class="panel">
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_type || "unknown")}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
-    ${warnings}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
+    ${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table>
     <details><summary class="muted">notes (JSON)</summary><pre>${esc(JSON.stringify(p.notes, null, 2))}</pre></details>

@@ -677,6 +677,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deadlift_below_knees_off_blocks:
     display: "Deadlift (below knees, off blocks)"
@@ -691,6 +693,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deadlift_below_knees_off_blocks_pause_above:
     display: "Deadlift (below knees, off blocks, pause above)"
@@ -705,6 +709,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deadlift_from_center_block:
     display: "Deadlift (from center block)"
@@ -719,6 +725,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deadlift_pause_above_knees:
     display: "Deadlift (pause above knees)"
@@ -733,6 +741,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deadlift_pause_below_knees:
     display: "Deadlift (pause below knees)"
@@ -747,6 +757,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deadlift_plus_deadlift_from_above_knees:
     display: "Deadlift (plus deadlift from above knees)"
@@ -761,6 +773,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deadlift_plus_deadlift_from_below_knees:
     display: "Deadlift (plus deadlift from below knees)"
@@ -775,6 +789,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deadlift_snatch_grip_slow_descent:
     display: "Deadlift (snatch grip, slow descent)"
@@ -789,6 +805,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deadlift_to_knees:
     display: "Deadlift (to knees)"
@@ -803,6 +821,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deadlift_to_knees_plus_full_deadlift:
     display: "Deadlift (to knees, plus full deadlift)"
@@ -817,6 +837,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deadlift_w_bands:
     display: "Deadlift (w/bands)"
@@ -831,6 +853,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deadlift_w_chains:
     display: "Deadlift (w/chains)"
@@ -845,6 +869,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deadlift_w_chains_off_blocks:
     display: "Deadlift (w/chains, off blocks)"
@@ -859,6 +885,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   decline_bench_press:
     display: "Decline Bench Press"
@@ -897,6 +925,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deficit_deadlift_pause_above_knees:
     display: "Deficit Deadlift (pause above knees)"
@@ -911,6 +941,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deficit_deadlift_pause_below_knees:
     display: "Deficit Deadlift (pause below knees)"
@@ -925,6 +957,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deficit_deadlift_sumo:
     display: "Deficit Deadlift (sumo)"
@@ -939,6 +973,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   deficit_deadlift_w_chains:
     display: "Deficit Deadlift (w/chains)"
@@ -953,6 +989,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Explicit cost: all missing variants default to the conservative conventional cost.
+    spinal_cost: 3
 
   depth_jumps:
     display: "Depth Jumps"
@@ -1291,6 +1329,8 @@ entities:
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
+    # Excluded by hinge_ballistic pattern; explicit cost documents the intent.
+    spinal_cost: 1
 
   landmine_press:
     display: "Landmine Press"
@@ -1581,7 +1621,10 @@ entities:
     vbt_family: hinge_unilateral
     erector_family: true
     direct_erector: false
-    high_fatigue_spinal: true
+    high_fatigue_spinal: false  # unilateral accessory; low axial spinal exposure
+    # Evidence: single-leg RDL changes trunk/hip activation versus bilateral work,
+    # but there is no direct lumbar-load comparison. Classified as non-counting, not zero load.
+    spinal_cost: 0
 
   speed_bench_press:
     display: "Speed Bench Press"

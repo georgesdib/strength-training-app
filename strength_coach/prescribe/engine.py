@@ -351,6 +351,23 @@ def build_prescription(
         "configured_max_minutes": configured,
     }
 
+    spine_rule = document.rule("PRG-SPINE-001")
+    spine_costs = registry.weekly_spinal_costs(
+        spine_rule, context,
+        [(for_date, item.exercise_id, for_date) for item in items],
+    )
+    span_week = registry.iso_week(for_date)
+    spine_cost = float(spine_costs.get(span_week, {}).get("cost", 0.0))
+    spine_cap = float(spine_rule.params.get("cap", 3))
+    spinal_cap = {
+        "week": span_week,
+        "cost": spine_cost,
+        "cap": spine_cap,
+        "headroom": round(spine_cap - spine_cost, 2),
+        "at_cap": abs(spine_cost - spine_cap) < 1e-9,
+        "over_cap": spine_cost > spine_cap,
+    }
+
     return Prescription(
         for_date=for_date,
         session_type=session_type,
@@ -402,6 +419,7 @@ def build_prescription(
             "volume_management": volume_note,
             "minimum_session": minimum_note,
         "session_time": session_time,
+        "spinal_cap": spinal_cap,
         **({"deload": deload_note} if deload_note is not None else {}),
             "selection": {
                 "requested": bool(apply_selection),

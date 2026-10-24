@@ -2,6 +2,11 @@
 
 ## [0.3.1] — unreleased
 
+### Added
+
+- Explicit `spinal_cost` for every high-fatigue entity; `single_leg_db_rdl` documented as
+  non-counting; at-cap/headroom display in prescriptions. Cap unchanged.
+
 ### Documented
 
 - W9 spinal-cap audit: zero-headroom normal week, exact-cap trigger behaviour, missing
