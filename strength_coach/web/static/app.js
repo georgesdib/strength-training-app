@@ -1502,9 +1502,9 @@ function renderExerciseCatalog() {
         <pre class="props">${esc(JSON.stringify(p, null, 2))}</pre></details></td>
     </tr>`;
   }).join("");
-  $("#exercise-catalog").innerHTML = `<table><thead><tr><th>Exercise</th><th>Pattern</th>
-    <th>Primary muscles</th><th>Flags</th><th>Log names</th><th></th></tr></thead>
-    <tbody>${body}</tbody></table>`;
+  $("#exercise-catalog").innerHTML = `<div class="table-scroll"><table class="exercise-table">
+    <thead><tr><th>Exercise</th><th>Pattern</th><th>Primary muscles</th><th>Flags</th>
+    <th>Log names</th><th></th></tr></thead><tbody>${body}</tbody></table></div>`;
   document.querySelectorAll("[data-edit-exercise]").forEach((button) => {
     button.addEventListener("click", () => {
       const row = window.__exerciseCatalog.entities.find((e) => e.id === button.dataset.editExercise);

@@ -20,6 +20,8 @@
 
 ### Changed
 
+- Programme copy no longer mentions legacy A/B/C; the exercise catalogue table now fits its
+  panel with fixed columns and a responsive narrow layout.
 - Minimum-session target and deeper-tier controls are hidden until the mode is ticked, with
   an explanatory note; load/RIR behaviour unchanged.
 - Evidence labels in the UI: e1RM estimate, readiness heuristic, configurable volume
