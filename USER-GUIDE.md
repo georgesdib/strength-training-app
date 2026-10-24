@@ -452,6 +452,15 @@ strength-coach state --rate EXERCISE_ID --can-do yes --will-do yes --feels-bad n
 An unrated exercise is "unknown", which is why a main-lift substitution (see §4.8) is refused
 until its replacement has a rating.
 
+### 4.9b Readiness feedback
+
+```bash
+strength-coach readiness feedback --weeks 12
+```
+
+Read-only follow-up of stored readiness reductions (associations only; no tuning). Available
+as the **Readiness feedback** panel on the Outcomes page.
+
 ### 4.9a Quick readiness presets and context
 
 ```bash

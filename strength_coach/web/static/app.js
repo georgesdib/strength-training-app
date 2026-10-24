@@ -112,6 +112,7 @@ async function loadProgress() {
       <table><thead><tr><th>Pattern</th><th>avg sets/week</th><th>status</th></tr></thead>
       <tbody>${rows || "<tr><td colspan='3' class='muted'>no targeted volume</td></tr>"}</tbody></table>
       <p class="muted">${esc(data.note)}</p>`;
+    await loadReadinessFeedback(weeks, day);
   } catch (error) {
     $("#progress").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
@@ -284,6 +285,7 @@ async function loadOutcomes() {
       <table><thead><tr><th>Region</th><th>flares</th><th>readings</th><th>latest</th></tr></thead>
       <tbody>${symptomRows || "<tr><td colspan='4' class='muted'>no symptom entries — unknown, not “no flare”</td></tr>"}</tbody></table>
       <p class="muted">${esc(data.note)}</p>`;
+    await loadReadinessFeedback(weeks, day);
   } catch (error) {
     $("#outcomes-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
@@ -293,6 +295,33 @@ $("#outcomes-form").addEventListener("submit", (event) => {
   event.preventDefault();
   loadOutcomes();
 });
+
+async function loadReadinessFeedback(weeks, day) {
+  const target = $("#readiness-feedback-result");
+  if (!target) return;
+  try {
+    const query = new URLSearchParams({ weeks });
+    if (day) query.set("date", day);
+    const data = await api("/api/readiness/feedback?" + query.toString());
+    const aggregate = data.aggregate || {};
+    const rows = (data.events || []).map((event) => `
+      <tr><td>${esc(event.applied_on)}</td><td>${esc(event.next_session_on || "—")}</td>
+      <td>${event.next?.srpe ?? "—"}</td><td>${event.next?.rir_adherence ?? "—"}</td>
+      <td>${event.e1rm_change_pct == null ? "—" : event.e1rm_change_pct + "%"}</td>
+      <td>${event.symptom_flare_7d == null ? "unknown" : (event.symptom_flare_7d ? "yes" : "no")}</td></tr>`).join("");
+    target.innerHTML = `<p>Events: ${aggregate.n_events ?? 0}
+      · with next session: ${aggregate.n_with_next_session ?? 0}
+      · mean sRPE: ${aggregate.mean_srpe ?? "unknown"}
+      · mean RIR adherence: ${aggregate.mean_rir_adherence ?? "unknown"}</p>
+      <table><thead><tr><th>Reduction</th><th>next session</th><th>sRPE</th>
+      <th>RIR adherence</th><th>e1RM change</th><th>flare</th></tr></thead>
+      <tbody>${rows || "<tr><td colspan='6' class='muted'>no MOD-FAT-001 provenance</td></tr>"}</tbody></table>
+      ${(data.warnings || []).map((warning) => `<p class="muted">! ${esc(warning)}</p>`).join("")}
+      <p class="muted">${esc(data.note || "")}</p>`;
+  } catch (error) {
+    target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
 
 /* --- prescribe ---------------------------------------------------------- */
 $("#prescribe-date").value = today();

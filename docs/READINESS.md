@@ -119,6 +119,8 @@ sets lose one set, while main-lift set reduction is an explicit opt-in in the vo
 warning names the affected sets, and the prescription notes record the setting. This is fatigue
 management, not a proven strength optimisation.
 
+A separate **readiness feedback** report compares the next observed session with the prior one after a stored readiness reduction. It is association-only and never tunes the weights or valve. Web prescriptions are not persisted, so only CLI-stored modifiers appear.
+
 **Missing is not "fine".** A current/future workout is refused until readiness is "ready";
 missing or insufficient data is reported as such. Historic dates remain reproducible. The old
 sleep/energy floor still applies when a score cannot be formed.

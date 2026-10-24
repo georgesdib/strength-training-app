@@ -76,7 +76,24 @@ prescription. The web `/api/prescribe` endpoint currently returns a prescription
 persisting it, so a deload shown only in the web response is not provenance. The report says
 `unknown` rather than guessing from changed sets or loads.
 
-## 7. What it does not do
+## 7. Readiness feedback report
+
+`strength-coach readiness feedback --weeks 12` or the **Readiness feedback** panel on the
+Outcomes page.
+
+For each stored `MOD-FAT-001` reduction in the window:
+
+- the next session within 14 days;
+- whether it completed within 7 days;
+- next-session sRPE, duration and RIR adherence;
+- e1RM before/after for the first affected lift;
+- any symptom flare within 7 days.
+
+The report is association-only. It does not tune weights, cut-points or the volume valve.
+Events are limited to CLI-stored prescriptions with `prescription_modifier` provenance;
+web-only prescriptions are not persisted and do not appear.
+
+## 8. What it does not do
 
 - no causal claims;
 - no ranking of programme quality;

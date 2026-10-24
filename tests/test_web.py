@@ -669,3 +669,12 @@ def test_quick_readiness_preset_and_context_endpoints(server):
     })
     assert set(data["context_flags"]) == {"travel", "alcohol"}
     assert data["score"]["status"] == "ready"
+
+
+def test_readiness_feedback_endpoint_is_descriptive(server):
+    status, body = get(server, "/api/readiness/feedback?weeks=4&date=2024-01-31")
+    assert status == 200
+    data = json.loads(body)
+    assert data["events"] == []
+    assert data["aggregate"]["n_events"] == 0
+    assert data["note"].startswith("Association only")

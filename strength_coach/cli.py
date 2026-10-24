@@ -46,6 +46,7 @@ from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import heavy_spinal
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import outcomes as outcomes_feature
+from strength_coach.features import readiness_feedback
 from strength_coach.features import prescription_provenance
 from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import readiness as readiness_feature
@@ -201,7 +202,8 @@ def main(argv: list[str] | None = None) -> int:
                         help='JSON object of properties, e.g. {"pattern":"squat"}')
 
     readiness = sub.add_parser("readiness", help="record a readiness day")
-    readiness.add_argument("action", choices=("set", "override", "calibrate", "settings", "shadow", "preset", "context"))
+    readiness.add_argument("action", choices=("set", "override", "calibrate", "settings", "shadow", "preset", "context", "feedback"))
+    readiness.add_argument("--weeks", type=int, default=12)
     readiness.add_argument("--name", default=None, help="readiness preset key")
     readiness.add_argument("--flags", default=None,
                            help="comma-separated context flags; empty shows current flags")
@@ -704,6 +706,23 @@ def _cmd_readiness(args) -> int:
             print(readiness_baseline.report(conn, end=args.date))
             return 0
         args.date = args.date or datetime.date.today().isoformat()
+        if args.action == "feedback":
+            report = readiness_feedback.report(conn, weeks=args.weeks, on_date=args.date)
+            window = report["window"]
+            print(f"readiness feedback: {window['from']} to {window['to']} "
+                  f"({window['weeks']} weeks)")
+            print(f"events: {report['aggregate']['n_events']}")
+            for event in report["events"]:
+                print(f"  {event['applied_on']} -> {event['next_session_on'] or 'no next session'}"
+                      f"  e1RM {event['e1rm_before']} -> {event['e1rm_after']}"
+                      f"  sRPE {event['next'].get('srpe')}"
+                      f"  RIR {event['next'].get('rir_adherence')}"
+                      f"  flare {event['symptom_flare_7d']}")
+            print(f"aggregate: {report['aggregate']}")
+            for warning in report["warnings"]:
+                print(f"  ! {warning}")
+            print(report["note"])
+            return 0
         if args.action == "preset":
             if not args.name:
                 print("readiness preset: --name is required")
