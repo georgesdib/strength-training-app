@@ -5,7 +5,8 @@ One page. The long version is the rest of `docs/`.
 ## 1. Shape
 
 Hybrid by construction: a deterministic Python core, with an LLM layer bolted on the
-outside that may only *explain* and *select among pre-approved options*.
+outside that may *explain*, *select among pre-approved options* and *propose bounded
+structural edits*. Policy validates every edit.
 
 ```
                     ┌─────────────────────────────────────────────┐
@@ -32,8 +33,9 @@ outside that may only *explain* and *select among pre-approved options*.
    └────────┬───────────────┘        └──────────────┬─────────────────┘
             ▼                                       ▼
    ┌──────────────────────────────────────────────────────────────┐
-   │ agents  LLM receives FACTS + CITED RULES, returns prose      │
-   │         and option choices only — never numbers              │
+   │ agents  LLM receives FACTS + CITED RULES, returns prose,      │
+   │         option choices and bounded structural proposals      │
+   │         (never load/RIR/velocity numbers)                    │
    └──────────────────────────────┬───────────────────────────────┘
                                   ▼
    ┌──────────────────────────────────────────────────────────────┐
@@ -64,17 +66,20 @@ outside that may only *explain* and *select among pre-approved options*.
 ## 3. Where the LLM sits (and where it must not)
 
 **Sits:** the *why*. Narrative critique, rubric rationale, rationale sentences that cite
-stable rule IDs, and choosing among a small set of pre-approved session options.
+stable rule IDs, choosing among a small set of pre-approved session options, and bounded
+structural proposals (swap, set count, drop, reorder, scheme) that policy validates.
 
-**Does not sit:** any number. Loads, reps, RIR targets, velocity targets, rest, time
-allocation, tonnage, e1RM, progression decisions, session-type selection logic, or the
-rubric arithmetic. Those are Python, always.
+**Does not sit:** any computed training number. Loads, RIR targets, velocity targets,
+percentages, tonnage, e1RM, progression decisions, session-type selection logic, and rubric
+arithmetic are Python. A bounded set-count proposal is a structural choice, not an arithmetic
+result: Python bounds it (`proposal_max_sets` / `proposal_max_set_change`) and rebuilds the item.
 
 Three hard boundaries:
 
-1. **Numbers arrive by tool call.** If the prescription agent wants a load, it calls
-   `compute_load_from_velocity(...)` or `next_load(...)`; the tool returns the value and
-   the agent may only echo it.
+1. **Computed numbers arrive by tool call.** If the prescription agent wants a load, it
+   calls `compute_load_from_velocity(...)` or `next_load(...)`; the tool returns the value and
+   the agent may only echo it. Set counts are not computed; they are bounded structural
+   proposals.
 2. **Every LLM output is validated.** The policy engine re-checks the composed
    prescription against the hard rules. Failure ⇒ deterministic fallback prescription is
    used, and the run is marked `llm_downgraded`.
@@ -97,13 +102,14 @@ and the replay requirement both want referential integrity and cheap atomic writ
 SQLite is a single local file, needs no server, and keeps the whole audit trail in one
 place. DataFrames are for computation; SQLite is for memory.
 
-## 6. Deliberate omissions
+## 6. Deliberate omissions and current surface
 
-- No UI (explicitly deferred).
+- **No hosted UI, no multi-user, no cloud.** A local-only web UI exists in
+  `strength_coach/web/` and calls the same core; it is not a hosted product.
 - No vector database for v0: the rules document is small and cited by ID, so exact
   retrieval by ID beats semantic search. RAG is planned only for the *programme prose*,
   where chunk IDs must be stable.
-- No multi-user, no cloud, no auth.
+- No multi-user, no cloud, no authentication.
 
 
 ## Local web UI

@@ -4,6 +4,8 @@
 
 ### Documented
 
+- Canonical `METHODOLOGY.md`, `PRIVACY.md`, generalised public examples and the public/private
+  boundary; architecture/LLM contract reconciled with the actual bounded set-count proposal.
 - Focused spinal-load review: keep the ordinal cap; no load/RIR/set weighting.
 - Heavy spinal advisory: RIR ≤ 1 sets on high-fatigue spinal exercises shown as context only.
 

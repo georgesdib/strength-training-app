@@ -67,7 +67,7 @@ gate read it. Missing entries still return `unknown`.
 
 ## Q5. ~~Session duration is unmeasurable.~~ **Answered: manual/optional only**
 
-The rubric wants "session duration vs 60-80 min cap". There are no timestamps. The options
+The rubric wants "session duration vs 80 min planned / 90 min hard cap". There are no timestamps in imported logs. The options
 are a set-count proxy or dropping the metric — and a proxy presented as minutes would be a
 fabricated score.
 
@@ -327,7 +327,7 @@ baseline win, and an opt-in N-of-1/alternating test. See
 - ~~Bodyweight movements: total mass or added load?~~ **Closed** — progression acts on
   **added load** (`DEC-LOAD-02`); total mass is used only for an e1RM.
 - ~~Is there a trap-bar deadlift in the data?~~ **Closed, then corrected** — the log name
-  "Competition Deadlift" meant a **sumo** pull until ~2026-08-17 and the trap bar after that
+  "Competition Deadlift" meant a **sumo** pull until a recorded switch date and the trap bar after that
   (`DEC-TRAPBAR-02`); the history is resolved by date, not relabelled.
 - ~~Which exercise is "back extension"?~~ **Closed** — synonymous with the older
   hyperextension name, **including historical rows**: they keep their own identity but

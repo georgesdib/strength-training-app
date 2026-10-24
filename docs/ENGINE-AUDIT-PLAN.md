@@ -450,7 +450,7 @@ every item is a confirmed defect.
 
 | ID | item | finding | classification | action |
 |---|---|---|---|---|
-| A1 | Readiness never tested against no readiness | **Confirmed evidence gap.** The readiness-weight report compares only weight variants; it has no no-readiness baseline. The late held-out association is essentially zero (ρ −0.004, n=100). Readiness still changes load/RIR/sets and gates current/future prescriptions. | Confirmed audit gap + policy question | New **W6**; no change until the walk-forward and user decision |
+| A1 | Readiness never tested against no readiness | **Confirmed evidence gap.** The readiness-weight report compares only weight variants; it has no no-readiness baseline. The late held-out association is essentially zero (ρ ≈ 0.00). Readiness still changes load/RIR/sets and gates current/future prescriptions. | Confirmed audit gap + policy question | New **W6**; no change until the walk-forward and user decision |
 | A2 | Attendance not measured | **Confirmed.** The progress dashboard reports sRPE coverage, performance ratio, volume and back symptom; it does not report sessions completed vs planned or injury-free weeks. “Adherence” in existing docs refers to RIR/progression compliance, not attendance. | Confirmed missing metric | New **W7**; descriptive only, no load effect |
 | A3 | Volume split vs longevity | **Arithmetic confirmed.** The current templates produce squat ≈7, bench ≈12 and trap-bar ≈5 sets/week; total ≈57 reconciles. The imbalance is a programme decision, not a calculation bug. | Design trade-off requiring user choice | New **W8**; present options, no change |
 | A4 | Spinal cap has no headroom | **Structural finding confirmed.** A normal week is designed to reach cost 3 against cap 3. The reactive trigger fires only when cost is **greater than** cap, so an exact-cap week does not trigger it; however the ordinal costs are summed as cardinal values and the sumo 2.5 is an assumption. Frequency of >3 weeks needs measurement. | Confirmed structural risk + open data question | New **W9**; measure, do not change cap |
@@ -563,21 +563,17 @@ Recommended wording for the box jump:
 
 | ID | item | finding | classification |
 |---|---|---|---|
-| B6 | Session-length cap inconsistent | **Confirmed.** `LONGEVITY-REVIEW.md` mentions a 90-minute ceiling and also 60–80 minutes; Q5 and the sanity check use 60–80; the templates use 80 minutes. | Documentation conflict + undecided policy |
+| B6 | Session-length cap inconsistent | **Resolved in current tree.** The policy is 80 minutes planned / 90 minutes hard; templates use 80; `LONGEVITY-REVIEW` and the rubric docs now match. `max_session_minutes` remains informational until duration is consumed by the engine. | Documentation fixed; engine consumption still open |
 | B7 | Duration marked unmeasurable | **Confirmed for imported sessions; outdated for live workouts.** Live workout materialisation stores measured duration, but the rubric still marks `SESSION_DURATION` unmeasurable and does not score it. | Documentation + rubric gap |
 | B8 | Test counts conflict | **Confirmed.** Historical counts appear in different docs; `CHANGELOG` still contains 604/589 while `ROADMAP` has a newer count. | Documentation maintenance |
 | B9 | Architecture says no UI / no LLM numbers | **Confirmed contradictions.** `ARCHITECTURE.md` says “No UI (explicitly deferred)” while the local web UI exists. It also says the LLM never touches numbers, while proposals may change set counts and choose precomputed menu options. | Documentation contract drift |
-| B10 | Public docs contain athlete-specific data | **Confirmed.** Public docs contain low-back episode history, a manual 160 kg e1RM example/value, the trap-bar date switch, and derived n=349/n=100 statistics. | Privacy issue; separate from programming |
+| B10 | Public docs contained athlete-specific data | **Resolved in current tree.** Exact episode history, example performance values, the trap-bar switch date and single-athlete sample sizes were removed from public docs; exact details are in `private/docs/PRIVATE-CONTEXT.md`. Earlier Git history remains public. | Privacy issue; no history rewrite |
 
-#### B6 detail — pick one cap
+#### B6 detail — cap resolved
 
-Decision needed; recommended framing:
-
-- **planned session target: 80 minutes** (matches templates);
-- **hard ceiling: 90 minutes** only if the athlete explicitly chooses it;
-- remove “60–80” or define it as the typical range, not the cap.
-
-The exact choice requires user approval. Do not change the template until then.
+The policy is **80 minutes planned / 90 minutes hard ceiling**. Templates use 80. The docs
+now match. `max_session_minutes` remains informational until the engine consumes measured
+duration. No template change is needed for this documentation pass.
 
 #### B7 detail — duration
 
@@ -611,7 +607,7 @@ Move or generalise:
 - low-back episode count/case series;
 - manual e1RM values;
 - the date-scoped trap-bar switch if it identifies the athlete;
-- derived n=349/n=100 statistics and any other single-athlete sample sizes;
+- single-athlete sample sizes and exact dates;
 - personal dates, competition dates and unique history details.
 
 Important: deleting text from current docs does **not** remove it from Git history. A public

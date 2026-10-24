@@ -116,7 +116,7 @@ model may not change them. That is a design choice, not an evidence claim.
 2. **Rep scheme menu — implemented (`DEC-REPS-01`).** Named schemes: `maximal` (1-3),
    `strength` (3-5), `volume` (6-8), `accessory` (8-12). The model may name a scheme, never a
    number; Python re-solves the load for it. `maximal` is excluded on hinge lifts: a
-   near-maximal trap-bar pull is the highest-risk exposure for this athlete.
+   near-maximal trap-bar pull is the highest-risk exposure in this programme.
 3. **Weekly undulation — implemented (`DEC-UNDUL-01`).** A 4-week config cycle keyed to the
    declared anchor: week 3 main lifts at `maximal`, weeks 2/4 accessories at `volume`. With no
    anchor there is no cycle. It is variety/fatigue management, not a claimed advantage.

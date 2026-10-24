@@ -59,7 +59,7 @@ the schemes.
 
 ### Results
 
-**All sessions with readiness + performance (n = 349):**
+**All sessions with readiness + performance (full sample):**
 
 | scheme | performance ρ | sRPE ρ |
 |---|---:|---:|
@@ -67,7 +67,7 @@ the schemes.
 | sleep-heavy | 0.107 | -0.040 |
 | HRV-low | 0.118 | -0.054 |
 
-**Held-out late period (n = 100; all with sRPE):**
+**Held-out late period (late subset):**
 
 | scheme | performance ρ | sRPE ρ |
 |---|---:|---:|
@@ -79,9 +79,9 @@ Readiness below vs at/above 0.75 in the late period:
 
 | scheme | low median ratio | high median ratio |
 |---|---:|---:|
-| current | 0.968 (n=37) | 0.981 (n=63) |
-| sleep-heavy | 0.980 (n=54) | 0.961 (n=46) |
-| HRV-low | 0.955 (n=28) | 0.980 (n=72) |
+| current | 0.968 | 0.981 |
+| sleep-heavy | 0.980 | 0.961 |
+| HRV-low | 0.955 | 0.980 |
 
 ### Interpretation
 
@@ -116,8 +116,8 @@ Revisit learned weights only if:
 - Performance ratio is model-derived from e1RM, not a measured test.
 - Readiness is used to change load/sets, creating circularity.
 - HRV/RHR coverage and wearable blending vary by date.
-- sRPE is available for 173 sessions, not all.
-- The late window has only 100 sessions.
+- sRPE is available for a subset of sessions, not all.
+- The late window is a small subset.
 
 This is enough to reject a more complex weighting scheme; it is not enough to validate a
 different one.

@@ -77,7 +77,7 @@ without conditioning on provenance penalises the athlete for following the presc
 
 ## D. Assumptions this file creates or confirms
 
-- **ASSUMPTION-05** — the switch date 2026-08-17 is the athlete's "about two months ago". The
+- **ASSUMPTION-05** — the switch date is the athlete's recorded approximation. The
   identity of "Competition Deadlift" is date-scoped (`DEC-TRAPBAR-02`), and the exact date may
   need correcting.
   Inferred from the log name; not verifiable from data.

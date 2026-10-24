@@ -66,33 +66,36 @@ as validation.
 
 Current database at audit time:
 
+The exact counts and sample sizes are kept in the private audit appendix. The public summary
+reports the shape only:
+
 ```text
-sessions:                 373
-ready readiness scores:   373
-readiness < 0.70:          80
-readiness < 0.60:          16
-readiness < 0.50:           2
-sessions with performance ratio: 349
-symptom readings:           0
+sessions:                 several hundred
+ready readiness scores:   all analyzed sessions
+readiness < 0.70:         a minority
+readiness < 0.60:         a smaller group
+readiness < 0.50:         very few
+sessions with performance ratio: most sessions
+symptom readings:         none
 ```
 
 ### Readiness and performance
 
-| group | n with ratio | median performance ratio |
-|---|---:|---:|
-| readiness < 0.70 | 73 | 0.962 |
-| readiness ≥ 0.70 | 276 | 0.980 |
+| group | median performance ratio |
+|---|---:|
+| readiness < 0.70 | 0.962 |
+| readiness ≥ 0.70 | 0.980 |
 
 Overall rank association:
 
 ```text
-Spearman rho ≈ 0.118 (n=349)
+Spearman rho ≈ 0.12
 ```
 
 The existing late-window result is much weaker:
 
 ```text
-rho ≈ -0.004 (n=100)
+rho ≈ 0.00 in the late subset
 ```
 
 These are associations, not effects. The low-readiness group is slightly lower on the
@@ -102,8 +105,8 @@ performance ratio, but the direction is not stable across the full and late wind
 
 | outcome | readiness < 0.70 | readiness ≥ 0.70 |
 |---|---:|---:|
-| mean sRPE | 7.32 (n=44) | 7.12 (n=129) |
-| mean RIR compliance | 0.862 (n=80) | 0.866 (n=293) |
+| mean sRPE | 7.32 | 7.12 |
+| mean RIR compliance | 0.862 | 0.866 |
 | symptom readings | 0 | 0 |
 
 The sRPE and RIR differences are small. There are no symptom readings, so the back-outcome
@@ -133,7 +136,7 @@ app. A simulated no-readiness prescription has no observed outcome.
 
 **Classification:** confirmed descriptive result.
 
-Full-window rho ≈ 0.118; late-window rho ≈ -0.004. This is consistent with readiness being
+Full-window rho ≈ 0.12; late-window rho ≈ 0.00. This is consistent with readiness being
 context, not a strong predictor. It is not evidence for a specific threshold or weight.
 
 ### F3 — There is no evidence that the current readiness policy improves outcomes

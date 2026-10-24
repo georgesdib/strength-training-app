@@ -14,7 +14,7 @@ The plan now follows these constraints:
 - use the data already available plus a one-time sRPE/duration backfill;
 - use the computed e1RM as the primary observational outcome; 3RM/5RM tests are a reminder
   cadence, not a requirement;
-- treat the three known low-back tweaks as the current back-history evidence; revisit only if
+- treat the private low-back case series as the current back-history evidence; revisit only if
   a future episode does not fit the pattern;
 - do not invent a “bad session” label;
 - do not experiment with or manipulate the training programme;
@@ -40,7 +40,7 @@ Assuming sRPE and duration are backfilled, the usable dataset will contain:
 - actual reps and load;
 - computed e1RM from the existing sets;
 - daily readiness;
-- the three known low-back tweaks;
+- the private low-back case series;
 - future sessions logged normally, if the athlete chooses.
 
 It will **not** contain:
@@ -53,7 +53,7 @@ It will **not** contain:
 
 That is enough for **descriptive calibration**, not for automatic decision rules.
 
-### 2. The three low-back tweaks
+### 2. The private low-back case series
 
 Use them as a **qualitative case series**:
 
@@ -182,7 +182,7 @@ A single editable table, planned for the Review/Import UI:
 - actual reps and loads;
 - computed e1RM;
 - readiness;
-- three known low-back tweaks.
+- private low-back case series (details in `private/docs/`).
 
 ### Not required
 
@@ -317,7 +317,7 @@ programme.
 | Post-session signal | sRPE only |
 | Bad-session label | not needed; derive performance ratio |
 | Measured strength tests | computed e1RM is the primary outcome; 3RM/5RM reminder every 10 weeks |
-| Back episodes | three known low-back tweaks as a case series; revisit only if pattern changes |
+| Back episodes | private low-back case series; revisit only if pattern changes |
 | Scheduled deload | optional suggestion; no trial |
 | Reactive deload | automatic |
 | Volume/MRV work | under-MEV accessory progression implemented; individual MRV deferred |

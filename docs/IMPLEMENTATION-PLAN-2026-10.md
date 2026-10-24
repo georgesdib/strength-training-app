@@ -1,7 +1,7 @@
 # IMPLEMENTATION PLAN — outcomes, longevity, readiness and minimum sessions
 
 **Status:** approved direction. A0, A and B are implemented. W6 readiness audit is complete, Option B is implemented (main-lift set reduction opt-in), and
-C (quick readiness), E (readiness feedback, including workout-start adherence) and D (minimum effective session) are implemented. F remains; the full W3 modifier-interaction audit is still open.
+A0–F are implemented, including the canonical methodology/privacy docs. The full W3 modifier-interaction audit remains open.
 **Date:** 2026-10-23
 **Scope:** A–F from the final review, constrained by the existing deterministic architecture.
 **Related:** [`ENGINE-AUDIT-PLAN.md`](ENGINE-AUDIT-PLAN.md),
@@ -576,7 +576,7 @@ No migration for outcome v1 unless A0 is not approved.
 
 ## 15. First implementation slice acceptance
 
-A is approved as the first slice after Gate 0.
+A was the first slice after Gate 0; all A0–F slices are now implemented.
 
 Acceptance criteria:
 
@@ -592,14 +592,15 @@ Acceptance criteria:
 
 ---
 
-## 16. Open items for later approval
+## 16. Status of earlier open items
 
-1. A0 modifier-provenance table vs accepting “deload unknown” in v1.
-2. Exact readiness preset values.
-3. Whether context flags can suppress HRV/RHR, and under which flags.
-4. Minimum-session floors and whether essential sets can ever be reduced.
-5. Whether “unwell” should be a context flag only or an explicit no-training session mode.
-6. Whether age and balance/carry slots enter this plan or remain separate.
-7. The authoritative test-count source.
+1. A0 modifier provenance — implemented (`prescription_modifier`).
+2. Readiness preset values — implemented in `config/readiness-presets.v1.yaml`.
+3. HRV/RHR suppression — config present, empty by default; enabling remains a decision.
+4. Minimum-session floors — accessory floor 1, main floor 2; deeper tier explicit.
+5. “Unwell” — preset plus `illness` context, not a hidden no-training mode.
+6. Age/balance/carry — remain separate from this plan.
+7. Test-count source — `ROADMAP` header is authoritative.
 
-No implementation has started.
+A0–F are implemented. The full W3 modifier-interaction audit remains open and is documented
+separately.

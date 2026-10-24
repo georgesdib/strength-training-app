@@ -4,7 +4,9 @@ A local-first strength-coaching tool built around a **fixed methodology**. It in
 training and readiness logs, critiques the most recent session against explicit programme
 rules, prescribes the next session, and explains both with citations to the exact rules used.
 
-**New here? Start with the [user guide](USER-GUIDE.md).**
+**New here? Start with the [user guide](USER-GUIDE.md).** The canonical method summary is
+[`docs/METHODOLOGY.md`](docs/METHODOLOGY.md); public/private documentation rules are in
+[`docs/PRIVACY.md`](docs/PRIVACY.md).
 
 **Design principle:** *Python writes the what, the LLM writes the why.* All arithmetic,
 cleaning, calibration and prescription generation is deterministic Python. The LLM layer is
@@ -47,6 +49,8 @@ What runs today:
   hand-made marks, per item and per session.
 
 The CLI that ties these together is `strength-coach`; see the [user guide](USER-GUIDE.md).
+For the decision order, limitations and hard boundaries, read
+[`docs/METHODOLOGY.md`](docs/METHODOLOGY.md).
 
 ## Quickstart
 
@@ -178,15 +182,17 @@ would corrupt every number downstream.
 
 1. [`USER-GUIDE.md`](USER-GUIDE.md) — how to install it, run it and read the output
 2. [`ROADMAP.md`](ROADMAP.md) — where the project is right now, and what is next
-3. [`docs/DECISIONS.md`](docs/DECISIONS.md) — decisions that are expensive to reverse
-4. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — layers, data flow, where the LLM sits
-5. [`docs/DATA-MODEL.md`](docs/DATA-MODEL.md) — schemas, append-only records
-6. [`docs/DATA-QUALITY.md`](docs/DATA-QUALITY.md) — the data-quality ledger (`DQ-*`)
-7. [`docs/RULES-FORMAT.md`](docs/RULES-FORMAT.md) — citable rule IDs
-8. [`docs/VBT-CALIBRATION.md`](docs/VBT-CALIBRATION.md) — velocity targets and sparsity
-9. [`docs/V0-SCOPE.md`](docs/V0-SCOPE.md) — the first end-to-end slice
-10. [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md) — open ambiguities, with defaults
-11. [`docs/SANITY-CHECKS.md`](docs/SANITY-CHECKS.md) — external verification of the model
-12. [`docs/TRAINING-GUIDELINES.md`](docs/TRAINING-GUIDELINES.md) — evidence vs the programme
+3. [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) — canonical decision flow, limitations and
+   what the app will never do; [`docs/PRIVACY.md`](docs/PRIVACY.md) — public/private boundary
+4. [`docs/DECISIONS.md`](docs/DECISIONS.md) — decisions that are expensive to reverse
+5. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — layers, data flow, where the LLM sits
+6. [`docs/DATA-MODEL.md`](docs/DATA-MODEL.md) — schemas, append-only records
+7. [`docs/DATA-QUALITY.md`](docs/DATA-QUALITY.md) — the data-quality ledger (`DQ-*`)
+8. [`docs/RULES-FORMAT.md`](docs/RULES-FORMAT.md) — citable rule IDs
+9. [`docs/VBT-CALIBRATION.md`](docs/VBT-CALIBRATION.md) — velocity targets and sparsity
+10. [`docs/V0-SCOPE.md`](docs/V0-SCOPE.md) — the first end-to-end slice
+11. [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md) — open ambiguities, with defaults
+12. [`docs/SANITY-CHECKS.md`](docs/SANITY-CHECKS.md) — external verification of the model
+13. [`docs/TRAINING-GUIDELINES.md`](docs/TRAINING-GUIDELINES.md) — evidence vs the programme
 
 Contributor and agent instructions: [`AGENTS.md`](AGENTS.md).

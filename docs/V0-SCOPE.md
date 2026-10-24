@@ -81,7 +81,7 @@ v0 is done when all of these are true:
 5. Deleting the LLM entirely (`--llm off` or a raising client) produces the same
    prescription, differing only in narrative fields.
 6. Re-running the same `run` is idempotent in content and appends no duplicate artifacts.
-7. The critique's rubric includes the three known failure patterns from this history:
+7. The critique's rubric includes the documented failure patterns from this history:
    grinding sets (RIR 0–1 on primary compounds), hinge/erector stacking, and exercise
    rotation — with rotation split by workout label.
 8. Every numeric rationale field references a resolvable rule ID or data-point ID.

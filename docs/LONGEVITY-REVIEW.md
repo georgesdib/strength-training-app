@@ -1,7 +1,7 @@
 # LONGEVITY REVIEW — do the training modalities match the goal?
 
-The athlete's primary goal is **longevity**, with **strength** as the tie-breaker, three
-sessions a week under a 90-minute ceiling, and a history of resolved low-back tweaks. This
+The athlete's primary goal is **longevity**, with **strength** as the tie-breaker, a
+configured weekly session count and session ceiling, and a recorded injury history. This
 review asks a different question from the programme audit: not "are the lifts correct?" but
 "are the *modalities* that matter for a long, capable life present at all?"
 
@@ -31,8 +31,8 @@ what has landed.
 
 Two conclusions follow immediately:
 
-1. **The programme's lifting dose is not the problem.** Three sessions of 60-80 minutes is
-   far above the 30-60 min/week associated with the mortality benefit. The J-shape means
+1. **The programme's lifting dose is not the problem.** Three sessions at the 80-minute planned
+   ceiling is far above the 30-60 min/week associated with the mortality benefit. The J-shape means
    adding lifting volume for longevity is not supported; the existing volume is for strength
    and is reasonable for that.
 2. **Cardiorespiratory fitness is the biggest missing lever.** It is the strongest modifiable

@@ -118,7 +118,7 @@ so silently erased genuine `RIR = 0` observations during development.
 - Resolve every raw name through `utils.exercises`; never branch on the raw log string.
 - Recorded decisions are encoded and **must not be reverted**:
   - `DEC-TRAPBAR-02` — "Competition Deadlift" is **date-scoped**: sumo deadlift before
-    ~2026-08-17, trap-bar deadlift from then on and forward. Never relabel the whole history.
+    a recorded switch date (config), trap-bar deadlift from then on and forward. Never relabel the whole history.
     The switch date is config (ASSUMPTION-05) and may change, especially with manual logging.
   - `DEC-BACKEXT-02` (amends `DEC-BACKEXT-01`) — back extension ≡ hyperextension **including
     historical rows**. `Hyperextensions` rows keep their own identity, but they **do** count
@@ -187,6 +187,8 @@ never read `data/raw`.
 |---|---|
 | `USER-GUIDE.md` | how to install, run and read the output (the human-facing entry point) |
 | `ROADMAP.md` | live phase status, next actions, resume checklist |
+| `docs/METHODOLOGY.md` | canonical versioned decision flow, limitations, never-do list and change control |
+| `docs/PRIVACY.md` | public/private documentation boundary; no new personal health/performance data |
 | `docs/DECISIONS.md` | append-only decision log (`DEC-*`) with where each is enforced |
 | `docs/REFERENCES.md` | consolidated scientific bibliography with DOIs and where each is used |
 | `docs/ARCHITECTURE.md` | layers, data flow, where the LLM sits |
@@ -221,7 +223,7 @@ never read `data/raw`.
 | `docs/ENGINE-AUDIT-PLAN.md` | living audit plan: execution map, attendance, load lineage, modifier interactions, evidence review and prospective evaluation; no implementation |
 | `docs/READINESS-AUDIT.md` | W6 audit: readiness vs no readiness is not identifiable retrospectively; descriptive associations and policy options |
 | `docs/MINIMUM-SESSION.md` | `MOD-MIN-001` user-selected volume-only fallback: targets, floors, precedence, refusal and provenance |
-| `docs/IMPLEMENTATION-PLAN-2026-10.md` | approved direction and phased implementation plan; A0/A/B/C/D/E implemented, F pending |
+| `docs/IMPLEMENTATION-PLAN-2026-10.md` | approved direction and phased implementation plan; A0–F implemented |
 | `docs/TEST-FATIGUE-PLAN.md` | superseded narrow test-fatigue proposal; points to the broader plan |
 | `docs/RULES-FORMAT.md` | citable rule IDs + 5 encoded rules |
 | `docs/VBT-CALIBRATION.md` | clean set, sparsity, overrides, versioning, current wiring |

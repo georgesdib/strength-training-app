@@ -442,7 +442,7 @@ No automatic threshold changes. The panel is a prompt, not a controller.
 | **Rubric labels** | show count; target 10 high-confidence marks per measurable item | Review recent sessions; current coverage 5–6 per item |
 | **3RM/5RM test** | 10 weeks from last measured test | Run `strength-coach test --status`; schedule a test if due |
 | **sRPE/duration coverage** | monthly check; target 80% of recent sessions | Review recent sessions with missing sRPE/duration |
-| **Back-pattern review** | after a new low-back episode or a pattern that does not fit the existing case series | Review the episode against the three known tweaks; do not auto-change rules |
+| **Back-pattern review** | after a new low-back episode or a pattern that does not fit the existing case series | Review the episode against the private case series; do not auto-change rules |
 | **Readiness baseline sufficiency** | fewer than 10 readings in the 28-day window | Keep the fixed fallback; record the gap |
 
 ### 12.3 Card content

@@ -291,7 +291,7 @@ prescription 2026-10-20  (hinge, full)
   bench_press_narrow          4     3-5      106.5    2  PRG-RIR-001, set:2026-10-05/7835
   pull_up                     3     6-10         0    2  PRG-DP-001, set:2026-09-20/7012
   lateral_raise               3   10-12       25.0    2  PRG-DP-001, set:2025-11-10/6565
-  split_squat                 3    8-10       67.5    2  PRG-DP-001, set:2026-06-05/7359
+  split_squat                 3    8-10       50.0    2  PRG-DP-001, set:example
   note: bench_main: chose bench_press_narrow from [...]
   note: PRG-EREC-001 not assessable: missing symptom.flare, block.week_index
 
@@ -527,7 +527,7 @@ restart — the ramp goes back to week 1 rather than continuing at week 8 (`DEC-
 ### 4.6 `e1rm` — override the estimated max
 
 ```bash
-strength-coach e1rm set --exercise ssb_squat --kg 160 --from 2026-11-01 \
+strength-coach e1rm set --exercise ssb_squat --kg 120 --from 2026-11-01 \
     --reason "tested single"
 strength-coach e1rm set --exercise ssb_squat --kg 150 --until 2026-12-01   # temporary
 strength-coach e1rm list
@@ -540,7 +540,7 @@ today) until `--until` (or forever), the override outranks the computed e1RM.
 In the prescription it shows up as a normal load, with:
 
 - a citation `e1rm_override:<id>` in its `refs` column, and
-- a note: *"using a manual e1RM override (160 kg)"*.
+- a note: *"using a manual e1RM override"*.
 
 Worth knowing:
 
@@ -625,7 +625,7 @@ fatigue cut or a back flare). The safety decision outranks the suggestion.
 
 ```bash
 strength-coach test --exercise ssb_squat --kg 140 --reps 3 --yes
-strength-coach test --exercise ssb_squat --kg 160 --reps 1 --max
+strength-coach test --exercise ssb_squat --kg 120 --reps 1 --max
 strength-coach test --exercise ssb_squat --kg 140 --reps 3 --e1rm 165 --yes
 strength-coach test --status
 ```
