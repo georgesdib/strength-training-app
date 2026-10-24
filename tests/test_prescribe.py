@@ -533,7 +533,7 @@ def test_apply_selection_rebuilds_the_item_and_cites_mod_select(monkeypatch):
         assert validate_references(prescription, context, store.connection) == []
 
 
-def test_poor_readiness_reduces_accessory_and_main_sets():
+def test_poor_readiness_reduces_accessory_sets_by_default():
     rows = BASE_HISTORY
     readiness = [{"Date": "2024-01-02", "Sleep": "1", "Energy": "1",
                   "Mood": "1", "Soreness": "1", "Stress": "1"}]
@@ -553,8 +553,27 @@ def test_poor_readiness_reduces_accessory_and_main_sets():
     accessory = next(i for i in plain.items if not i.essential)
     main = next(i for i in plain.items if i.essential)
     assert plain_sets[accessory.exercise_id] == control_sets[accessory.exercise_id] - 1
-    assert plain_sets[main.exercise_id] == control_sets[main.exercise_id] - 1
+    assert plain_sets[main.exercise_id] == control_sets[main.exercise_id]
     assert "sets reduced" in " ".join(plain.warnings)
+
+
+def test_main_lift_reduction_requires_explicit_opt_in():
+    rows = BASE_HISTORY
+    readiness = [{"Date": "2024-01-02", "Sleep": "1", "Energy": "1",
+                  "Mood": "1", "Soreness": "1", "Stress": "1"}]
+    with store_with(rows, readiness_rows=readiness) as store:
+        from strength_coach.features import readiness as readiness_mod
+        cfg = replace(
+            readiness_mod.ReadinessConfig.load(),
+            set_reduction_include_essential=True,
+        )
+        opted_in = build_prescription(
+            store.connection, for_date="2024-01-02", session_type="squat",
+            readiness_config=cfg,
+        )
+    main = next(i for i in opted_in.items if i.essential)
+    assert "sets reduced" in " ".join(opted_in.warnings)
+    assert main.sets < 5
 
 
 def test_main_lifts_carry_a_standardised_warmup_ramp():

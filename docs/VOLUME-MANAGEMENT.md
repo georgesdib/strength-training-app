@@ -132,7 +132,7 @@ This is a small deterministic progression, not an individual MRV or an experimen
 ### Readiness valve
 
 The readiness set valve is separate: poor readiness removes one set from accessories and main
-lifts (config `include_essential`), regardless of the weekly landmark. It is editable on the
+lifts only when the athlete explicitly opts in (config `include_essential`, default false); it is editable on the
 Readiness page and recorded in the `MOD-FAT-001` warning.
 
 ---

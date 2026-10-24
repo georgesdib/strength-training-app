@@ -114,8 +114,8 @@ fatigue factor (0.95), rounded down, and every touched item cites `MOD-FAT-001` 
 
 There is also a conservative **set-reduction valve**: when the global score is below
 `set_reduction.score_below`, or the sleep/energy floor fires, each item loses
-`set_reduction.sets` (minimum one set). `include_essential` is now **true** by default, so main
-lifts lose one set as well as accessories; set it false to keep main-lift volume fixed. The
+`set_reduction.sets` (minimum one set). `include_essential` is **false** by default after the 2026-10-23 audit; accessory
+sets lose one set, while main-lift set reduction is an explicit opt-in in the volume-valve settings. The
 warning names the affected sets, and the prescription notes record the setting. This is fatigue
 management, not a proven strength optimisation.
 

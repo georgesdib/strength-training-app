@@ -1,6 +1,7 @@
 # READINESS AUDIT — can the current readiness policy be validated?
 
-**Status:** audit completed 2026-10-23. No policy change. Decision pending.
+**Status:** audit completed 2026-10-23. Option B accepted: main-lift set reduction is now opt-in;
+load/RIR, the safety floor and the gate are unchanged.
 **Scope:** W6 readiness vs no readiness; descriptive association and data availability.
 **Related:** [`READINESS-WEIGHT-EVIDENCE.md`](READINESS-WEIGHT-EVIDENCE.md),
 [`ENGINE-AUDIT-PLAN.md`](ENGINE-AUDIT-PLAN.md),
@@ -144,13 +145,11 @@ heuristic.
 
 ### F4 — Main-lift set reduction is an unvalidated policy choice
 
-**Classification:** confirmed policy gap.
+**Classification:** resolved 2026-10-23 by `DEC-READINESS-12`.
 
-`config/readiness.v1.yaml` has `include_essential: true`; the engine can reduce main-lift
-sets. `READINESS-WEIGHT-EVIDENCE.md` says “No automatic main-lift volume change from
-readiness.” Those statements conflict.
-
-This is a real training decision, not a reporting detail. It needs a decision record.
+At audit time `config/readiness.v1.yaml` had `include_essential: true`; the engine could
+reduce main-lift sets, while `READINESS-WEIGHT-EVIDENCE.md` said there was no automatic
+main-lift volume change. The default is now `false`; main-lift set reduction is opt-in.
 
 ### F5 — The gate has not been evaluated for its consistency cost
 
@@ -204,7 +203,7 @@ without evidence that it is harmful.
 
 ### Recommendation
 
-**Option B is the smallest defensible change**, but it still needs user sign-off.
+**Option B was approved and implemented on 2026-10-23.**
 
 Rationale:
 
@@ -240,5 +239,5 @@ The current data **cannot validate the readiness policy** against no readiness. 
 association is weak and unstable, symptom outcomes are absent, and the main-lift set
 reduction is an unvalidated policy choice with a documentation conflict.
 
-Keep the safety floor and gate for now. Decide separately whether main-lift set reduction
-becomes opt-in. No implementation was performed by this audit.
+Keep the safety floor and gate. Main-lift set reduction is now opt-in. No load/RIR, gate or
+accessory-reduction change was made.

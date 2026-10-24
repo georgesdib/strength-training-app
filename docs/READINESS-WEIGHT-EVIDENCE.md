@@ -130,4 +130,4 @@ different one.
 - Sleep/energy floor.
 - Per-lift readiness as a downward-only advisory.
 - Descriptive readiness–performance monitoring on the progress dashboard.
-- No learned weights, no automatic main-lift volume change from readiness.
+- No learned weights. Main-lift set reduction is opt-in (`DEC-READINESS-12`); it is not automatic.

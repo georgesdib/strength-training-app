@@ -1,7 +1,7 @@
 # IMPLEMENTATION PLAN — outcomes, longevity, readiness and minimum sessions
 
-**Status:** approved direction. A0, A and B are implemented. W6 readiness audit is complete but
-policy is pending; C–F are pending.
+**Status:** approved direction. A0, A and B are implemented. W6 readiness audit is complete and Option B is implemented (main-lift set reduction opt-in);
+C–F are pending.
 **Date:** 2026-10-23
 **Scope:** A–F from the final review, constrained by the existing deterministic architecture.
 **Related:** [`ENGINE-AUDIT-PLAN.md`](ENGINE-AUDIT-PLAN.md),

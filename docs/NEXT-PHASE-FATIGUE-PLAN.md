@@ -221,7 +221,7 @@ These are deterministic programme changes, not experiments:
 | Standardised warm-up | three ramp sets at ~50/70/85% of the working load (5/3/2 reps) on main lifts; not counted as volume (`DEC-PROGRAMME-06`) |
 | 3RM/5RM cadence | a 10-week reminder, alternating schemes; `strength-coach test --status` (`DEC-PROGRAMME-07`) |
 | Under-MEV accessory progression | one accessory set when a pattern is below MEV for three weeks (`MOD-VOL-002`, `DEC-VOLUME-03`) |
-| Main-lift readiness volume | poor readiness can remove one set from main lifts as well as accessories (`include_essential: true`) |
+| Main-lift readiness volume | poor readiness removes one accessory set by default; main-lift set reduction is opt-in (`include_essential: false`) |
 | Volume/MRV | no individual MRV and no experimental volume manipulation |
 
 ### Phase 1 — Optional one-month measurement check  (not triggered; closed)

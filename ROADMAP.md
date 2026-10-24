@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-23 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **624 public tests** (639 with the 15 private integration tests)
+Last updated: 2026-10-23 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **625 public tests** (640 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-23 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 639 locally, including private integration
+.venv/bin/python -m pytest            # 640 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -881,13 +881,13 @@ raises heavy hinge to ~5 sets/week without a second heavy exposure; back extensi
 sets/week. The hinge gets a second exposure through the single-leg RDL support on the
 bench+hinge session, without stacking another high-fatigue spinal lift. Only the squat-emphasis
 session carries direct erector work, keeping a normal week at squat 1 + hinge 2 = 3 against the
-spinal cap. Poor readiness can remove one accessory or main-lift set (`include_essential: true` by default),
+spinal cap. Poor readiness can remove one accessory set; main-lift set reduction is opt-in (`include_essential: false` by default),
 and the Readiness page exposes that **volume valve**.
 A weekly **hard-set ledger** reports sets per movement pattern against broad MEV/MAV/MRV
 landmarks; non-essential sets are trimmed only when the recent week plus the proposed session
 exceeds MRV (`MOD-VOL-001`). Under-MEV adds one accessory set after three weeks below MEV
 (`MOD-VOL-002`), while main lifts are unchanged by that rule; poor readiness can remove one
-main-lift or accessory set. Main lifts carry a 50/70/85 warm-up ramp, and `test --status`
+main-lift set when opted in, or an accessory set. Main lifts carry a 50/70/85 warm-up ramp, and `test --status`
 reports the 10-week 3RM/5RM cadence. Power work is bodyweight/implement-only.
 
 **Acceptance (done):** session templates parse; every session has a row and an upper-body
