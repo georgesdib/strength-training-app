@@ -529,6 +529,7 @@ def test_workout_start_active_and_end(server):
     })
     workout_id = data["workout"]["workout_id"]
     assert data["workout"]["status"] == "in_progress"
+    assert data["workout"]["prescription_id"]
 
     active = json.loads(get(server, "/api/workout/active")[1])
     assert active["workout"]["workout_id"] == workout_id

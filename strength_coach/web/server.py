@@ -51,6 +51,7 @@ from strength_coach.features import readiness_baseline
 from strength_coach.features import retrospective_validation
 from strength_coach.features import readiness_calibration, readiness_score
 from strength_coach.prescribe import build_prescription
+from strength_coach.prescribe import persistence as prescription_persistence
 from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
 from strength_coach.prescribe import selection as selection_mod
@@ -84,6 +85,10 @@ def _item_dict(item) -> dict:
         "rest_s": item.rest_s,
         "essential": item.essential,
         "refs": list(item.rationale_refs),
+        "rounding_increment_kg": item.rounding_increment_kg,
+        "time_cap_s": item.time_cap_s,
+        "substitution_for": item.substitution_for,
+        "vbt_basis": item.vbt_basis,
         "velocity_target": item.velocity_target,
         "unknown_load_reason": item.unknown_load_reason,
         "warmup": [
@@ -98,6 +103,8 @@ def prescription_dict(prescription) -> dict:
         "for_date": prescription.for_date,
         "session_type": prescription.session_type,
         "fallback_level": prescription.fallback_level,
+        "rule_document_version": prescription.rule_document_version,
+        "calibration_ids": list(prescription.calibration_ids),
         "executable": prescription.executable,
         "items": [_item_dict(item) for item in prescription.items],
         "warnings": list(prescription.warnings),
@@ -544,14 +551,24 @@ class Handler(BaseHTTPRequestHandler):
         readiness_feature.record_manual(
             conn, for_date, clean, note=body.get("readiness_note") or None
         )
-        result = workout.start(
-            conn,
-            for_date=for_date,
-            plan=plan,
-            readiness=clean,
-            session_type=(plan or {}).get("session_type") if isinstance(plan, dict) else None,
-            note=body.get("note") or None,
-        )
+        # Persist the committed plan and start the workout in one transaction. A failed start
+        # (including an already-active workout) leaves no orphan prescription.
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            prescription_id = prescription_persistence.store_plan(conn, plan)
+            result = workout.start(
+                conn,
+                for_date=for_date,
+                plan=plan,
+                readiness=clean,
+                session_type=(plan or {}).get("session_type") if isinstance(plan, dict) else None,
+                prescription_id=prescription_id,
+                note=body.get("note") or None,
+            )
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
         return {"workout": result}
 
     def _workout_action(self, conn, path: str, body: dict) -> dict:

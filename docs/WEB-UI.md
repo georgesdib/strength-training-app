@@ -125,7 +125,11 @@ The web layer is serialisation and routing only. It calls the same functions as 
 
 ## Limitations
 
+- UI prescription previews are read-only. Starting a workout commits the plan as a stored
+  prescription, its items and modifier provenance in one transaction. See `docs/UI-CLI-PARITY.md`.
 - No LLM proposal/chat UI; this is closed as CLI-only (`run --propose`), not pending.
+- Remaining first-class parity gaps (bulk review, state YAML import, report window controls)
+  are listed in `docs/UI-CLI-PARITY.md`.
 - Workout mode is UI-first for start; CLI covers status/add/update/remove/end/import. Completed workouts materialise into `session`/`clean_set`; review/rubric is built.
 - State editing is available; the taxonomy itself and programme rules remain config/CLI.
 - No authentication; never expose beyond localhost.

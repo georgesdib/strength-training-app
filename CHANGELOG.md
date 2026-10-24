@@ -17,6 +17,8 @@
 
 ### Added
 
+- UI start-workout now commits the plan as a stored prescription with item and modifier
+  provenance in one transaction; the UI prescribe preview remains read-only.
 - Readiness feedback: a read-only follow-up of `MOD-FAT-001` reductions from completed workout
   snapshots and CLI modifiers, including planned-versus-actual sets, sRPE, RIR, e1RM and
   7-day symptoms; no tuning.

@@ -104,9 +104,9 @@ set-linked PR stays in volume and uses the exposure only for the recovery guard.
 | detail_json | before/after and reason references |
 | created_at | timestamp |
 
-Append-only. Provenance only; it does not change a prescription. The web prescribe endpoint
-does not persist prescriptions, so provenance is currently available for CLI-stored
-prescriptions.
+Append-only. Provenance only; it does not change a prescription. CLI `run` records it after
+storing a prescription. The web start-workout path now stores the committed plan as a
+prescription and records the same provenance in the same transaction.
 
 ## 3d. `readiness_context` — display-only context flags
 
