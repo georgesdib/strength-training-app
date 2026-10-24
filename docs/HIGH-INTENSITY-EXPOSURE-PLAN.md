@@ -1,10 +1,35 @@
 # HIGH-INTENSITY EXPOSURE — evidence, model and implementation plan
 
-**Status:** detailed proposal only. No schema change, no API, no UI, no prescription change.
+**Status:** decisions accepted 2026-10-23. No schema change, no API, no UI, no prescription change
+has been made. This document is the approved implementation plan, not a request for further
+choices.
 **Supersedes:** the narrower [`TEST-FATIGUE-PLAN.md`](TEST-FATIGUE-PLAN.md) proposal.
 **Question:** how should the app represent a very hard exposure that is not ordinary working
 volume — a test, a max attempt, a competition lift, or unplanned heavy work — without inventing
 a fatigue score?
+
+---
+
+## Accepted decisions
+
+The following are settled for the first implementation:
+
+| decision | accepted choice |
+|---|---|
+| upper-body 1RM/3RM/5RM window | **24 h** |
+| lower-body 3RM/5RM window | **24 h** |
+| lower-body 1RM window | **48 h** |
+| competition / axial near-max window | **72 h** |
+| active back symptom after lower/axial exposure | **72 h minimum** for lower-body/axial work |
+| 3RM/5RM vs 1RM | lower-body 3RM/5RM use the shorter 24 h window; lower-body 1RM uses 48 h |
+| auto-registration | a test recorded through the programme **automatically creates the exposure**; the athlete does not re-enter it |
+| set-linked PRs | optional manual “mark as near-max” in the first slice; tests are the only automatic exposure |
+| guard behaviour | **block another test/near-max**; a planned maximal scheme gets a **caution**, not an automatic change |
+| prospective review | at least **12 exposures over at least 12 weeks**, whichever is longer |
+| numeric fatigue model | not implemented |
+
+These are policy assumptions. They are configurable and can be changed after the prospective
+review, but they are the defaults for the build.
 
 ---
 
@@ -194,12 +219,25 @@ high_intensity_exposure (
     axial_cost       INTEGER,
     novelty          TEXT CHECK (novelty IN ('familiar', 'novel', 'unknown')),
     test_type        TEXT CHECK (test_type IN ('1RM', '3RM', '5RM')),
+    source           TEXT NOT NULL CHECK (source IN ('test_record', 'set_link', 'manual')),
+    source_id        TEXT,
+    supersedes_id    TEXT REFERENCES high_intensity_exposure(exposure_id),
     note             TEXT,
     created_at       TEXT NOT NULL DEFAULT (strftime(...))
 )
 ```
 
 No update/delete triggers; corrections append. `test_type` is only for `kind = 'test'`.
+
+`source` and `source_id` make auto-registration idempotent:
+
+- `test_record` points at the measured e1RM override/test record;
+- `set_link` points at the workout set;
+- `manual` has no source id.
+
+A unique index on `(source, source_id)` prevents the same test or set from creating two
+exposures. Tests are auto-created; no second form is required. A correction appends a new
+exposure with `supersedes_id` and leaves the original row intact.
 
 Why not reuse `clean_set`?
 
@@ -227,21 +265,23 @@ It does **not**:
 - replace readiness, injury or constraint rules;
 - apply to `high`/`moderate` exposures in phase 2.
 
-### 6.2 Initial windows
+### 6.2 Accepted guard windows
 
-These are assumptions to validate, not evidence-based constants:
-
-| exposure | suggested guard |
+| exposure | guard |
 |---|---|
-| upper-body 1RM/3RM/5RM test | no second maximal upper-body exposure for 24 h |
-| lower-body 1RM test | no second maximal lower-body/axial exposure for 48 h |
-| lower-body 3RM/5RM test | 24–48 h, configurable |
-| axial max attempt/competition | 48–72 h |
-| unplanned near-max lower/axial | 48–72 h |
+| upper-body 1RM/3RM/5RM test | 24 h |
+| lower-body 3RM/5RM test | 24 h |
+| lower-body 1RM test | 48 h |
+| competition or axial near-max | 72 h |
+| active back symptom with lower/axial exposure | 72 h minimum |
 | upper-body max attempt | 24 h |
+| unplanned near-max lower/axial | 48–72 h, configurable |
 
-The first implementation should expose these in config, not hard-code them.
+The first implementation must expose these in config, not hard-code them. The windows are
+policy assumptions, not measured constants.
 
+When an active back symptom is present, the lower-body/axial window is extended to 72 h. This
+is a conservative extension, not a claim that the test caused the symptom.
 ### 6.3 Output
 
 The guard returns a small deterministic result:
@@ -277,8 +317,13 @@ If `kind = 'test'`:
 
 ### 7.1 Logging
 
-- **Test page**: after recording a test, also create the exposure with `kind=test`,
-  `test_type`, region and axial cost.
+- **Test flow (automatic)**: recording a test through `strength-coach test` or the Test page
+  creates the exposure with `kind=test`, `test_type`, region, axial cost and
+  `source=test_record`. The athlete does **not** enter it again.
+- **Programme-prescribed test**: a test generated from the programme/cadence uses the same
+  test-record path, so it is auto-registered exactly once.
+- **No duplicate form**: the Test page submits the test; the exposure is derived. A correction
+  appends a new exposure with `supersedes_id`, never creates a second independent record.
 - **Workout review**: optional “mark as near-max exposure” for a logged set.
 - **Today/Test**: show recent exposure and the guard state.
 - **Manual**: a small form for competition/unplanned exposure, with a note.
@@ -306,6 +351,8 @@ No LLM involvement in the guard.
 ### Phase 1 — recording
 
 - a test creates a `high_intensity_exposure` with `kind=test`, no `set_id`;
+- a test recorded through the programme creates exactly one exposure (`source=test_record`);
+- re-recording/correcting a test does not create a second independent exposure;
 - a normal set does not create one automatically;
 - a set-linked exposure does not change volume;
 - duplicate exposure is rejected;
@@ -315,8 +362,11 @@ No LLM involvement in the guard.
 
 ### Phase 2 — guard
 
-- `near_max` upper-body exposure blocks another test for 24h;
-- lower/axial exposure blocks maximal test/attempt for 48h;
+- upper-body `near_max` exposure blocks another test for 24 h;
+- lower-body 3RM/5RM blocks another lower-body test for 24 h;
+- lower-body 1RM blocks another lower-body/axial test for 48 h;
+- competition/axial near-max blocks for 72 h;
+- active back symptom extends the lower/axial window to 72 h;
 - a planned heavy hinge after a lower-body exposure gets `caution`, not a veto;
 - a test outside the window is allowed;
 - expired windows are clear;
@@ -326,8 +376,8 @@ No LLM involvement in the guard.
 
 ### Phase 3 — evaluation
 
-- after 8–12 exposures, compare next-session e1RM/performance, readiness, soreness, symptoms
-  and completion;
+- after at least 12 exposures over at least 12 weeks, compare next-session e1RM/performance,
+  readiness, soreness, symptoms and completion;
 - no automatic threshold change from the first data;
 - if the guard is too strict, adjust the window with a recorded decision.
 
@@ -376,19 +426,25 @@ No LLM involvement in the guard.
 | lower-body evidence is thinner | conservative window; prospective review |
 | user ignores warning | warning is visible; test blocking is deterministic; no silent changes |
 
-## 12. Open decisions needed before implementation
+## 12. Decisions resolved
 
-1. Is the upper-body window 24h or 48h?
-2. Is lower-body 1RM 48h or 72h?
-3. Should a 3RM/5RM test be treated differently from a 1RM?
-4. Does a prior back symptom extend the axial window?
-5. Should a set-linked PR be auto-marked, or only by user action?
-6. Should the guard block a test only, or also a prescribed maximal scheme?
-7. What is the minimum prospective sample before changing a window?
+The previously open decisions are settled in the table at the top of this document:
+
+1. upper-body window: **24 h**;
+2. lower-body 1RM: **48 h**;
+3. 3RM/5RM: **24 h**, distinct from a lower-body 1RM;
+4. active back symptom extends the lower/axial window to **72 h**;
+5. tests are **auto-registered**; set-linked PRs remain optional in the first slice;
+6. the guard **blocks another test/near-max**, while a prescribed maximal scheme gets a
+   **caution**;
+7. prospective review requires **12 exposures over at least 12 weeks**.
+
+Implementation may still need ordinary engineering choices (table names, endpoint names,
+config keys), but not further training-policy decisions.
 
 ## 13. Recommendation
 
-Implement **Phase 1 + Phase 2** only after these decisions are settled.
+Implement **Phase 1 + Phase 2** now that these decisions are settled.
 
 The evidence supports:
 
