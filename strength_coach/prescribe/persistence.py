@@ -31,6 +31,7 @@ def _rows(plan: Mapping[str, Any]) -> list[dict]:
             "rir_target": item.get("rir_target"),
             "velocity_target": item.get("velocity_target"),
             "vbt_basis": item.get("vbt_basis"),
+            "e1rm_source_sets": item.get("e1rm_source_sets"),
             "rest_s": item.get("rest_s"),
             "time_cap_s": item.get("time_cap_s"),
             "essential": bool(item.get("essential", True)),

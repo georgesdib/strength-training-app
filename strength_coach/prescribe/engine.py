@@ -1065,6 +1065,7 @@ def build_item(
     load: float | None
     refs: tuple[str, ...] = ()
     unknown_reason: str | None = None
+    e1rm_source_sets: int | None = None
 
     if calibration_factors is None:
         calibration_factors = e1rm_calibration_feature.factors(
@@ -1113,6 +1114,7 @@ def build_item(
                 )
         else:
             e1rm_kg, ref, calibrated, decayed, coverage = found
+            e1rm_source_sets = coverage
             if coverage == 1:
                 warnings.append(
                     f"{exercise_id}: e1RM source has one eligible set; confidence limited"
@@ -1191,6 +1193,7 @@ def build_item(
         rationale_refs=refs,
         time_cap_s=template.time_cap_s if slot.essential else None,
         unknown_load_reason=unknown_reason,
+        e1rm_source_sets=e1rm_source_sets,
     )
     return item, tuple(warnings)
 
@@ -1230,7 +1233,7 @@ def _e1rm_decay(context: RuleContext, age_days: float) -> float:
 def _latest_e1rm(
     conn, context: RuleContext, exercise_id: str, for_date: str, window_days: int,
     calibration_factors: Mapping[str, object] | None = None,
-) -> tuple[float, str, bool, bool, int] | None:
+) -> tuple[float, str, bool, bool, int | None] | None:
     """The e1RM to prescribe from, with a citable reference.
 
     A manual override in force on the date outranks the computed estimate: the athlete may
@@ -1243,7 +1246,7 @@ def _latest_e1rm(
         age = (pd.Timestamp(for_date) - pd.Timestamp(override["effective_from"])).days
         decay = _e1rm_decay(context, age)
         return (float(override["e1rm_kg"]) * decay,
-                f"e1rm_override:{override['override_id']}", False, decay != 1.0, 0)
+                f"e1rm_override:{override['override_id']}", False, decay != 1.0, None)
 
     if context.sets.empty or "e1rm_kg" not in context.sets:
         return None

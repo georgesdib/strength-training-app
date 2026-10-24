@@ -73,8 +73,8 @@ fabricated score.
 
 **Applied partially:** `session_feedback.duration_min` records optional session length at
 review, and live workouts store `duration_basis=measured`. Imported sessions still have no
-timestamps, so they cannot be timed automatically, and the rubric line remains unmeasured for
-both kinds of session. A rubric-version change is a separate decision (W11/B7).
+timestamps and remain unmeasured. Rubric 1.1.0 now scores measured live-workout duration
+against 80 planned / 90 hard; the earlier “unmeasured for both” text is superseded.
 
 ---
 

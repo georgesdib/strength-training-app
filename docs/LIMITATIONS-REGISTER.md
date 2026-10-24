@@ -14,13 +14,13 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-04 | A permanently unavailable session family can stall the rolling selector; one-off misses do not | open | W1 | a family-level fallback is designed |
 | LIM-05 | There is no stored planned-session calendar; attendance is target-based | open | W7 / DEC-W7-01 | a persisted plan is introduced |
 | LIM-06 | Injury-free weeks are only reported when every week has symptom coverage | open | W7 | symptom logging coverage improves |
-| LIM-07 | `SESSION_DURATION` is unmeasurable for imported sessions | open | W0-C2, W11/B7 | a rubric version implements measured-duration scoring |
+| LIM-07 | `SESSION_DURATION` remains unmeasurable for imported sessions | mitigated | W0-C2, W11/B7 | imported timestamps become available |
 | LIM-08 | Session duration outside live workouts is an estimate, not measured | open | W0-C4, W1 | measured duration is available |
 | LIM-09 | UI prescription preview and committed workout artifact are different states | documented | W0-C5, UI-CLI-PARITY | never; it is intentional |
 | LIM-10 | Imported logs lack reliable timestamps and include late/backfilled rows | open | W0-C7 | source data gains timestamps |
 | LIM-11 | Minimum-session deep-tier main floor of 2 is a heuristic, not trial evidence | open | W0-C8, DEC-MIN-01 | evidence for a different minimum dose |
 | LIM-12 | Last-working-load fallback is not decayed; continuity handles the gap separately | open | W2 | evidence for decaying the fallback |
-| LIM-13 | e1RM coverage is only a warning for a single-set source; there is no full coverage field | mitigated | W2 / DEC-W2-01 | e1RM provenance schema is extended |
+| LIM-13 | e1RM coverage is visible as a source-set count; a single-set source still has low confidence | closed | W2 / DEC-E1RM-COVERAGE-01 | reopened if coverage needs a confidence model |
 | LIM-14 | The spinal cap is ordinal and load-blind; normal week sits exactly at cap 3 | open | W9 | cap/ordinality/template decision |
 | LIM-15 | Exact-cap weeks do not trigger the reactive deload; only two consecutive over-cap weeks do | open | W9 | reactive-policy change is approved |
 | LIM-16 | `single_leg_db_rdl` is classified as non-counting by engineering judgement; no direct lumbar-load comparison exists | open | W9 / DEC-W9-01 | direct unilateral spinal-load evidence or a template decision |

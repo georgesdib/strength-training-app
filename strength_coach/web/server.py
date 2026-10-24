@@ -90,6 +90,7 @@ def _item_dict(item) -> dict:
         "time_cap_s": item.time_cap_s,
         "substitution_for": item.substitution_for,
         "vbt_basis": item.vbt_basis,
+        "e1rm_source_sets": item.e1rm_source_sets,
         "velocity_target": item.velocity_target,
         "unknown_load_reason": item.unknown_load_reason,
         "warmup": [

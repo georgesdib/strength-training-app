@@ -945,6 +945,7 @@ not counted as working volume. The Prescribe page shows them under the exercise.
 | rir | target reps in reserve |
 | recent stress | advisory decayed hard sets: `high`, `normal` or `low`; **never changes the load** |
 | readiness | per-lift 0–1 score from global readiness + e1RM trend, RIR and VBT; can only **lower** a load |
+| e1RM n | usable sets behind a formula e1RM; `—` for a manual override, last-load fallback or non-e1RM item |
 | refs | the rule id **and** the stored set that justify the load |
 
 Loads come from the best usable e1RM in the last 84 days, inverted through the same
@@ -979,7 +980,7 @@ substitution rather than blocking the session.
 
 ### The critique
 
-Six items are measured, two are not:
+Seven items are measured, one is not:
 
 | item | measures |
 |---|---|
@@ -989,8 +990,11 @@ Six items are measured, two are not:
 | `ESSENTIAL_WORK` | the day's essential lifts were present |
 | `REDUNDANCY` | no hinge + erector stacking, no two hinge lifts |
 | `ROTATION` | selection stable for self-directed sessions; expected rotation for app-assigned |
-| `SESSION_DURATION` | **not measurable** — the export has no timestamps |
+| `SESSION_DURATION` | measured live-workout duration against 80 planned / 90 hard; imported sessions remain unmeasurable |
 | `VELOCITY_LOSS` | **not measurable** — one mean velocity per set |
+
+The rubric version is `1.1.0`; the six original weights were scaled by 0.95 to make room for a
+0.05 duration weight. The composite still re-normalises over measurable items.
 
 `composite` is the weighted mean over the items that were measurable, re-normalised — a
 missing metric never drags the score to zero.
@@ -1195,7 +1199,8 @@ Tests: `.venv/bin/python -m pytest`, and the markers `-m golden` (locked numbers
 - **Days A, B and C** are all prescribable. The erector ramp still needs a declared block
   start (`block --date`); until then `PRG-EREC-001` is `unknown` on every day.
 - **No symptom input.** Back-symptom rules return `unknown` rather than assuming no flare.
-- **No timestamps.** Session duration is unmeasurable and is stored as such.
+- **No imported timestamps.** Live workouts store measured duration and the rubric scores it;
+  imported sessions remain unmeasurable. Manual review duration is still optional.
 - **VBT targets are not prescribed** (`DEC-VBT-01`): the calibration exists, the step from a
   velocity band to "do this set at X" is not specified, so prescriptions carry no velocity
   target and no calibration id.

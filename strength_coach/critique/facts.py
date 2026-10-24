@@ -35,6 +35,9 @@ class CritiqueFacts:
     workout_label: str | None
     sets: pd.DataFrame
     prior_sets: pd.DataFrame
+    # Duration is only scoreable when the live workout recorded it; imported rows stay unknown.
+    duration_min: float | None
+    duration_basis: str
     sessions: pd.DataFrame
     week: str
     week_cost: float
@@ -61,6 +64,8 @@ class CritiqueFacts:
             "sets": int(len(self.sets)),
             "working_sets": int(self.sets["is_working_set"].sum()),
             "exercises": sorted({str(e) for e in self.sets["exercise_id"].unique()}),
+            "duration_min": self.duration_min,
+            "duration_basis": self.duration_basis,
             "week": self.week,
             "week_cost": round(self.week_cost, 4),
         }
@@ -130,6 +135,8 @@ def build_facts(
         workout_label=(str(row["workout_label"]) if pd.notna(row["workout_label"]) else None),
         sets=sets,
         prior_sets=prior,
+        duration_min=(float(row["duration_min"]) if pd.notna(row.get("duration_min")) else None),
+        duration_basis=str(row.get("duration_basis") or "unavailable"),
         sessions=sessions,
         week=week,
         week_cost=week_cost,

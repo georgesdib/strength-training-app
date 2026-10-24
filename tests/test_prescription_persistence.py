@@ -16,7 +16,7 @@ PLAN = {
         "order_index": 0, "exercise_id": "ssb_squat", "sets": 4, "reps_low": 5,
         "reps_high": 5, "load_kg": 100, "load_basis": "external",
         "rounding_increment_kg": 2.5, "rir_target": 2, "essential": True,
-        "refs": ["MOD-FAT-001", "MOD-MIN-001"], "warmup": [],
+        "e1rm_source_sets": 3, "refs": ["MOD-FAT-001", "MOD-MIN-001"], "warmup": [],
     }],
     "notes": {"fatigue_trigger": "sleep", "minimum_session": {"status": "applied"}},
 }
@@ -35,6 +35,9 @@ def test_store_plan_writes_prescription_and_provenance():
         conn.execute("COMMIT")
         assert conn.execute("SELECT COUNT(*) FROM prescription").fetchone()[0] == 1
         assert conn.execute("SELECT COUNT(*) FROM prescription_item").fetchone()[0] == 1
+        assert conn.execute(
+            "SELECT e1rm_source_sets FROM prescription_item"
+        ).fetchone()[0] == 3
         rows = conn.execute(
             "SELECT modifier_key, applied_on FROM prescription_modifier"
         ).fetchall()

@@ -455,6 +455,7 @@ function renderPrescription(p) {
     <td>${fmt(item.load_kg)}</td><td>${item.rir_target}</td>
     <td>${stressCell}</td>
     <td>${readyCell}</td>
+    <td>${item.e1rm_source_sets == null ? "—" : item.e1rm_source_sets}</td>
     <td class="muted">${esc(item.refs.slice(-2).join(", "))}</td></tr>`;
   }).join("");
   const warnings = p.warnings.length
@@ -503,7 +504,7 @@ function renderPrescription(p) {
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_type || "unknown")}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
     ${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
-    <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>refs</th></tr></thead>
+    <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>e1RM n</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table>
     <p class="muted">Loads are solved from estimated e1RM, not a measured maximum; treat the kg as a starting estimate.</p>
     <details><summary class="muted">notes (JSON)</summary><pre>${esc(JSON.stringify(p.notes, null, 2))}</pre></details>

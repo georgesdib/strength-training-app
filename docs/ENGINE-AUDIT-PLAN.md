@@ -578,9 +578,9 @@ Recommended wording for the box jump:
 | ID | item | finding | classification |
 |---|---|---|---|
 | B6 | Session-length cap inconsistent | **Resolved in current tree.** The policy is 80 minutes planned / 90 minutes hard; templates use 80; `LONGEVITY-REVIEW` and the rubric docs now match. `max_session_minutes` remains informational until duration is consumed by the engine. | Documentation fixed; engine consumption still open |
-| B7 | Duration marked unmeasurable | **Confirmed for imported sessions; outdated for live workouts.** Live workout materialisation stores measured duration, but the rubric still marks `SESSION_DURATION` unmeasurable and does not score it. | Documentation + rubric gap |
-| B8 | Test counts conflict | **Confirmed.** Historical counts appear in different docs; `CHANGELOG` still contains 604/589 while `ROADMAP` has a newer count. | Documentation maintenance |
-| B9 | Architecture says no UI / no LLM numbers | **Confirmed contradictions.** `ARCHITECTURE.md` says “No UI (explicitly deferred)” while the local web UI exists. It also says the LLM never touches numbers, while proposals may change set counts and choose precomputed menu options. | Documentation contract drift |
+| B7 | Duration marked unmeasurable | **Resolved for live workouts; imported sessions remain unmeasurable.** Rubric 1.1.0 scores measured duration against 80/90 and stores imported duration as `measurable=0`. | Rubric version 1.1.0 |
+| B8 | Test counts conflict | **Resolved.** `ROADMAP.md` is the current source; older counts are labelled historical. | Documentation maintenance |
+| B9 | Architecture says no UI / no LLM numbers | **Resolved.** `ARCHITECTURE.md` describes the local web UI and bounded structural proposals; Python still computes all numbers. | Documentation contract fixed |
 | B10 | Public docs contained athlete-specific data | **Closed by W12.** Current public docs use illustrative examples and qualitative sample descriptions; exact counts/dates remain in the private record. Earlier Git history remains public by explicit decision; no rewrite. | Privacy issue; accepted history; no rewrite |
 
 #### B6 detail — cap resolved
@@ -637,7 +637,7 @@ history remains public. Do not rewrite history without separate approval.
 | W8 | Volume balance | W1/W4 | audit complete; options with sets, spinal cost, time and rationale |
 | W9 | Spinal cap headroom | W1/W3 | audit complete; explicit high-fatigue costs, at-cap display, cap unchanged |
 | W10 | Age in athlete state | W0 | audit complete; optional `birth_year` proposal, no automatic age rule |
-| W11 | Documentation consistency | W0 | complete; cap/count/architecture consistent; duration rubric remains unmeasured |
+| W11 | Documentation consistency | W0 | complete; cap/count/architecture consistent; duration rubric 1.1.0 scores live measured duration |
 | W12 | Public-data audit | none | complete; exact counts generalised; Git history accepted, not rewritten |
 
 ### 11.4 Revised priority order

@@ -270,3 +270,28 @@ def test_persist_writes_the_critique_and_its_scores():
         assert scores["SESSION_DURATION"]["measurable"] == 0
         assert scores["SESSION_DURATION"]["score"] is None
         assert trace.status == "ok"
+
+
+def test_measured_live_duration_is_scored_against_the_session_caps():
+    rows = session_rows("2024-01-01")
+    with store_with(rows) as store:
+        conn = store.connection
+        conn.execute(
+            "UPDATE session SET duration_min = ?, duration_basis = 'measured' "
+            "WHERE session_id = '2024-01-01'",
+            (75.0,),
+        )
+        on_plan = score_session(conn, "2024-01-01")
+        conn.execute(
+            "UPDATE session SET duration_min = 85.0 WHERE session_id = '2024-01-01'"
+        )
+        partial = score_session(conn, "2024-01-01")
+        conn.execute(
+            "UPDATE session SET duration_min = 95.0 WHERE session_id = '2024-01-01'"
+        )
+        over = score_session(conn, "2024-01-01")
+    assert on_plan.item("SESSION_DURATION").measurable
+    assert on_plan.item("SESSION_DURATION").score == 1.0
+    assert partial.item("SESSION_DURATION").score == pytest.approx(0.5)
+    assert over.item("SESSION_DURATION").score == 0.0
+    assert "80 planned" in on_plan.item("SESSION_DURATION").detail

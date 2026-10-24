@@ -3,8 +3,8 @@
 Six items are measurable from the export; two are not, and they are stored with
 `measurable = 0` rather than a guessed score:
 
-* session duration — imported sessions have no timestamps; live measured duration is not yet
-  scored (DQ-SESSION-01, OPEN-QUESTIONS Q5);
+* session duration — imported sessions have no timestamps; a measured live-workout duration
+  is scored against the 80-minute planned / 90-minute hard cap;
 * within-set velocity loss — the export stores one mean velocity per set (DEC-VELOCITY-01).
 
 Weights are config-free on purpose: they are a product decision, not a measurement, and the
@@ -23,22 +23,27 @@ from strength_coach.critique import facts as facts_mod
 from strength_coach.critique.facts import CritiqueFacts
 from strength_coach.rules import load_document
 
-# Weights sum to 1.0 across the measurable items. Duration and velocity loss carry 0.0 because
-# they cannot contribute a number today.
+# Weights sum to 1.0 across the measurable items. Duration carries 0.05 now that measured live
+# workouts can be scored; imported sessions still produce measurable=false. Velocity loss
+# carries 0.0 because the export has one mean velocity per set.
 # Bumped whenever an item's definition or weighting changes. Marks record the version they
 # were made against, so a rubric change does not silently invalidate the calibration history.
-RUBRIC_VERSION = "1.0.0"
+RUBRIC_VERSION = "1.1.0"
 
 RUBRIC_WEIGHTS: Mapping[str, float] = {
-    "RIR_ADHERENCE": 0.30,
-    "PROGRESSION_ADHERENCE": 0.20,
-    "WEEKLY_SPINAL_COST": 0.15,
-    "ESSENTIAL_WORK": 0.15,
-    "REDUNDANCY": 0.10,
-    "ROTATION": 0.10,
-    "SESSION_DURATION": 0.00,
-    "VELOCITY_LOSS": 0.00,
+    # The original six weights are scaled by 0.95 to make room for measured duration.
+    "RIR_ADHERENCE": 0.285,
+    "PROGRESSION_ADHERENCE": 0.190,
+    "WEEKLY_SPINAL_COST": 0.1425,
+    "ESSENTIAL_WORK": 0.1425,
+    "REDUNDANCY": 0.095,
+    "ROTATION": 0.095,
+    "SESSION_DURATION": 0.050,
+    "VELOCITY_LOSS": 0.000,
 }
+
+PLANNED_DURATION_MIN = 80
+HARD_DURATION_MAX_MIN = 90
 
 APP_ASSIGNED_LABELS = {"Sheiko"}
 ROTATION_STABILITY_FLOOR = 0.5
@@ -344,8 +349,36 @@ def _rotation(facts: CritiqueFacts) -> RubricItem:
 
 
 def _session_duration(facts: CritiqueFacts) -> RubricItem:
-    return _unmeasurable(
-        "SESSION_DURATION", (), "no timestamps in the export (DQ-SESSION-01, Q5)"
+    """Score measured live-workout duration against the 80/90-minute policy.
+
+    Imported sessions have no timestamps: their duration remains unmeasurable rather than a
+    guessed proxy. At or under 80 minutes is on plan; 80-90 is partial; over 90 is zero.
+    """
+    if facts.duration_basis != "measured" or facts.duration_min is None:
+        return _unmeasurable(
+            "SESSION_DURATION", (),
+            "no measured duration; imported sessions have no timestamps (DQ-SESSION-01, Q5)",
+        )
+    duration = float(facts.duration_min)
+    if duration <= PLANNED_DURATION_MIN:
+        score = 1.0
+    elif duration <= HARD_DURATION_MAX_MIN:
+        score = (HARD_DURATION_MAX_MIN - duration) / (
+            HARD_DURATION_MAX_MIN - PLANNED_DURATION_MIN
+        )
+    else:
+        score = 0.0
+    return RubricItem(
+        key="SESSION_DURATION",
+        weight=RUBRIC_WEIGHTS["SESSION_DURATION"],
+        score=round(score, 4),
+        measurable=True,
+        evidence_refs=(f"session:{facts.session_id}",),
+        rule_ids=(),
+        detail=(
+            f"{duration:g} min against {PLANNED_DURATION_MIN} planned / "
+            f"{HARD_DURATION_MAX_MIN} hard"
+        ),
     )
 
 

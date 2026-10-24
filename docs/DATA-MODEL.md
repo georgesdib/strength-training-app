@@ -68,7 +68,7 @@ meaningless and must not be summed.
 | working_set_count | INTEGER | working sets only (DEC-RIR-01 excludes warm-ups) |
 | session_type | TEXT | `squat` \| `hinge` \| `bench_squat` \| `bench_hinge` \| `unknown` |
 | tonnage_kg | REAL | sum of non-null `tonnage_kg` |
-| duration_min | REAL | **null by default** — no timestamps exist |
+| duration_min | REAL | null by default; measured for live workouts, unavailable for imported rows |
 | duration_basis | TEXT | `measured` \| `unavailable` |
 | flags | TEXT | `POSSIBLE_DOUBLE_SESSION`, `NO_MAIN_LIFT`, … |
 
@@ -270,14 +270,16 @@ document version.
 | rest_s, time_cap_s | |
 | essential | 0/1 |
 | rationale_refs | JSON list of rule IDs + data-point ids |
+| e1rm_source_sets | nullable; usable sets behind a formula e1RM (NULL for overrides/fallbacks) |
 | substitution_for | nullable |
 
 ## 9. `critique` / `rubric_score`
 
 `critique` stores the narrative plus `facts_hash`; `rubric_score` stores one row per
 rubric item (`RIR_ADHERENCE` …) with `score`, `weight`, `evidence_refs`, `rule_ids`, and
-`measurable` (0/1). Metrics that the data cannot support — session duration, within-set
-velocity loss — are stored with `measurable = 0` rather than a guessed score.
+`measurable` (0/1). Metrics that the data cannot support — imported-session duration, within-set velocity loss —
+are stored with `measurable = 0` rather than a guessed score. Measured live-workout duration
+is scored.
 
 ## 10. `run` — the trace
 

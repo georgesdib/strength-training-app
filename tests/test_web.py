@@ -97,6 +97,7 @@ def test_prescribe_and_state_endpoints(server):
     data = post(server, "/api/prescribe", {"date": "2024-01-08", "session_type": "squat"})
     assert data["session_type"] == "squat"
     assert data["items"]
+    assert all("e1rm_source_sets" in item for item in data["items"])
 
     status, body = get(server, "/api/state")
     assert status == 200

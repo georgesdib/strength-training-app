@@ -9,14 +9,13 @@
 | check | result | action |
 |---|---|---|
 | One session cap | Docs consistently say **80 min planned / 90 min hard**; templates use 80 | No change |
-| Duration policy | Live workouts store measured duration; imported sessions are unmeasurable; rubric still marks `SESSION_DURATION` unmeasured | Updated `OPEN-QUESTIONS` Q5 and the rubric docstring to say this precisely; scoring remains a separate rubric-version decision |
-| Test-count source | `ROADMAP.md` is the single current source (657 public / 672 with private) | Removed the stale count from `USER-GUIDE`; labelled the W0 count historical |
+| Duration policy | Live workouts store measured duration; imported sessions are unmeasurable; rubric 1.1.0 now scores measured duration against 80/90 | Updated `OPEN-QUESTIONS` Q5, the rubric docstring and the rubric implementation |
+| Test-count source | `ROADMAP.md` is the single current source | Removed the stale count from `USER-GUIDE`; labelled the W0 count historical |
 | Architecture contract | `ARCHITECTURE.md`, `README.md` and `AGENTS.md` agree: Python computes; LLM narrates or chooses bounded precomputed options; no LLM arithmetic/veto | No change |
 | Readiness/volume/age wording | W4/W8/W10 labels and reports are consistent with the engine | No change |
 
-**W11 finding:** the only real inconsistency was stale narrative counts and an outdated
-duration description. Both are fixed. No rubric behaviour changed, so `SESSION_DURATION` remains
-unmeasured for imported sessions and for live sessions until a rubric version scores it.
+**W11 finding:** stale narrative counts and an outdated duration description were fixed.
+Rubric 1.1.0 now scores measured live-workout duration; imported sessions remain unmeasured.
 
 ---
 

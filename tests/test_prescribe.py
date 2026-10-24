@@ -646,3 +646,14 @@ def test_profile_max_session_minutes_consumes_planned_cap_without_cutting_sets()
     assert prescription.notes["session_time"]["planned_minutes"] == 45
     assert prescription.notes["session_time"]["hard_ceiling_minutes"] == 90
     assert any("session time" in warning for warning in prescription.warnings)
+
+
+def test_e1rm_source_width_is_exposed_on_the_item():
+    rows = week_sessions("2024-01-01", "2024-01-03")
+    with store_with(rows) as store:
+        prescription = build_prescription(
+            store.connection, for_date="2024-01-08", session_type="hinge"
+        )
+    item = next(i for i in prescription.items if i.exercise_id == "trap_bar_deadlift")
+    assert item.e1rm_source_sets == 2
+    assert not any("one eligible set" in warning for warning in prescription.warnings)

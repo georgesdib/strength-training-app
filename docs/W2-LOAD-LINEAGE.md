@@ -99,9 +99,9 @@ sets.
 
 ## 3. Provenance gaps without a wrong load
 
-### W2-03 — A single set can drive the e1RM with only a warning
+### W2-03 — RESOLVED — e1RM source width is recorded
 
-**Classification:** mitigated.
+**Classification:** fixed.
 
 `_latest_e1rm` selects the best effective set; there is no minimum set count, working-set
 coverage or `incomplete` marker. A single hard set from an early-ended workout becomes the
@@ -148,7 +148,7 @@ provenance is visible, so this is not a hidden fallback.
 1. Workout materialisation now uses `resolve_load_basis`; missing bodyweight is `unknown`.
 2. Session `main_lifts` come from performed sets.
 3. `session.flags` carries `incomplete` when performed sets are below the modified plan.
-4. Single-set e1RM sources emit a confidence warning.
+4. Single-set e1RM sources emit a confidence warning and the item records `e1rm_source_sets`.
 5. Regression tests cover bodyweight basis and incomplete main-lift provenance.
 
 Remaining: the last-working-load fallback is still undecayed; continuity handles the gap. A

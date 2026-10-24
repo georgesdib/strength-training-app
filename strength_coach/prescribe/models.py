@@ -40,6 +40,8 @@ class PrescriptionItem:
     # None means "no target", never a guessed velocity (docs/VBT-CALIBRATION.md).
     velocity_target: float | None = None
     vbt_basis: str | None = None
+    # Number of usable sets behind a formula e1RM; None for overrides/fallbacks/accessories.
+    e1rm_source_sets: int | None = None
     # Main-lift ramp sets; empty for accessories and unknown loads.
     warmup: tuple[WarmupSet, ...] = ()
 
@@ -87,6 +89,7 @@ class Prescription:
                 "substitution_for": item.substitution_for,
                 "velocity_target": item.velocity_target,
                 "vbt_basis": item.vbt_basis,
+                "e1rm_source_sets": item.e1rm_source_sets,
                 "warmup": [
                     {"percent": w.percent, "reps": w.reps, "load_kg": w.load_kg}
                     for w in item.warmup
