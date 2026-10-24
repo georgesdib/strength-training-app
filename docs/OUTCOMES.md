@@ -40,11 +40,12 @@ GET /api/outcomes?weeks=8&date=YYYY-MM-DD
 ## 3. Longevity section
 
 - cardio minutes by week and rolling four-week average;
-- cardio sessions by modality;
+- cardio sessions by modality and weeks with data;
 - WHO 150–300 minutes/week as **context only**;
 - steps, sitting, bodyweight, body fat, grip, VO2max estimate, sit-to-stand where measured;
-- readiness/sleep/stress/soreness trends;
-- symptom history.
+- sleep/energy/stress/soreness readiness trends (n, average, first/last);
+- readiness score trend and status counts;
+- symptom history by region.
 
 Cardio and measurements are **captured, not prescribed**.
 

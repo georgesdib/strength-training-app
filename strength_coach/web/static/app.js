@@ -249,6 +249,13 @@ async function loadOutcomes() {
     const symptomRows = Object.entries(symptoms).map(([region, row]) => `
       <tr><td>${esc(region)}</td><td>${row.flares}</td><td>${row.readings}</td>
       <td>${esc(row.latest_on)} · level ${row.latest_level}</td></tr>`).join("");
+    const cardioWeeks = Object.entries(cardio.weekly_minutes || {}).map(([week, minutes]) =>
+      `<tr><td>${esc(week)}</td><td>${fmt(minutes, 1)} min</td></tr>`).join("");
+    const modalities = Object.entries(cardio.by_modality || {}).map(([name, count]) =>
+      `<tr><td>${esc(name)}</td><td>${count}</td></tr>`).join("");
+    const readinessFields = Object.entries(longevity.readiness?.fields || {}).map(([field, row]) => `
+      <tr><td>${esc(field)}</td><td>${row.n}</td><td>${row.average ?? "—"}</td>
+      <td>${row.first ?? "—"} → ${row.last ?? "—"}</td></tr>`).join("");
     $("#outcomes-result").innerHTML = `
       <p class="muted">${esc(data.window.from)} to ${esc(data.window.to)} · ${data.window.weeks} weeks</p>
       <h3>Strength</h3>
@@ -261,9 +268,16 @@ async function loadOutcomes() {
       <tbody>${volume || "<tr><td colspan='4' class='muted'>no working-set volume</td></tr>"}</tbody></table>
       <h3>Longevity context</h3>
       <p class="muted">Captured, not prescribed. ${esc(longevity.note || "")}</p>
-      <p>Cardio: ${cardio.average_weekly_minutes ?? "unknown"} min/week average
-        (${cardio.sessions ?? 0} sessions). Reference: ${cardio.reference_min}–${cardio.reference_max}
-        min/week, general context only.</p>
+      <p>Cardio: ${cardio.average_weekly_minutes ?? "unknown"} min/week average;
+        last four weeks ${cardio.rolling_4w_average ?? "unknown"} min/week
+        (${cardio.sessions ?? 0} sessions, ${cardio.weeks_with_data ?? 0} week(s) with data).
+        Reference: ${cardio.reference_min}–${cardio.reference_max} min/week, general context only.</p>
+      <table><thead><tr><th>Week</th><th>aerobic minutes</th></tr></thead>
+      <tbody>${cardioWeeks || "<tr><td colspan='2' class='muted'>no cardio entries</td></tr>"}</tbody></table>
+      <table><thead><tr><th>Modality</th><th>sessions</th></tr></thead>
+      <tbody>${modalities || "<tr><td colspan='2' class='muted'>none</td></tr>"}</tbody></table>
+      <table><thead><tr><th>Readiness field</th><th>n</th><th>average</th><th>first → last</th></tr></thead>
+      <tbody>${readinessFields || "<tr><td colspan='4' class='muted'>no readiness fields</td></tr>"}</tbody></table>
       <table><thead><tr><th>Measurement</th><th>latest</th><th>change</th><th>date</th></tr></thead>
       <tbody>${metrics || "<tr><td colspan='4' class='muted'>none measured in this catalogue</td></tr>"}</tbody></table>
       <h3>Symptoms</h3>

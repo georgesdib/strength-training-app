@@ -175,8 +175,35 @@ def _readiness(conn, start: dt.date, end: dt.date) -> dict:
         "first": scores[0] if scores else None,
         "last": scores[-1] if scores else None,
         "statuses": dict(statuses),
+        "fields": _readiness_fields(conn, start, end),
         "note": "missing readiness is unknown, not zero",
     }
+
+
+def _readiness_fields(conn, start: dt.date, end: dt.date) -> dict:
+    """Trend for the subjective fields used in the readiness score."""
+    fields = ("sleep", "energy", "stress", "soreness")
+    out = {}
+    day = start
+    values: dict[str, list[float]] = {field: [] for field in fields}
+    while day <= end:
+        data = queries.readiness_day(conn, day.isoformat()) or {}
+        for field in fields:
+            try:
+                number = float(data.get(field))
+            except (TypeError, ValueError):
+                continue
+            if 1 <= number <= 5:
+                values[field].append(number)
+        day += dt.timedelta(days=1)
+    for field, series in values.items():
+        out[field] = {
+            "n": len(series),
+            "first": series[0] if series else None,
+            "last": series[-1] if series else None,
+            "average": round(statistics.mean(series), 2) if series else None,
+        }
+    return out
 
 
 def _symptoms(conn, start: dt.date, end: dt.date) -> dict:
@@ -272,6 +299,10 @@ def report(conn, *, weeks: int = 8, on_date: str | None = None) -> dict:
     spinal = _spinal(conn, start, end)
     deloads = _deloads(conn, start, end)
     cardio = cardio_feature.compute(conn, on_date=end.isoformat(), weeks=weeks).as_dict()
+    weekly = sorted(cardio.get("weekly_minutes", {}).items())
+    last_four = [float(value) for _, value in weekly[-4:]]
+    cardio["rolling_4w_average"] = round(statistics.mean(last_four), 1) if last_four else None
+    cardio["weeks_with_data"] = len(weekly)
     measured = measurements_feature.summary(conn)
     metrics = {row["key"]: row for row in measured if row["key"] in MEASUREMENT_KEYS}
 
@@ -292,7 +323,8 @@ def report(conn, *, weeks: int = 8, on_date: str | None = None) -> dict:
             "measurements": metrics,
             "readiness": readiness,
             "symptoms": symptoms,
-            "note": "cardio and measurements are captured context; not prescribed",
+            "note": ("cardio and measurements are captured context; not prescribed. "
+                     "WHO minutes are a general reference, not a personalised target."),
         },
         "coverage": _coverage(strength, readiness, symptoms, deloads),
         "references": {

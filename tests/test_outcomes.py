@@ -51,6 +51,8 @@ def test_outcome_review_reports_strength_and_coverage():
         assert report["strength"]["attendance"]["completed"] == 3
         assert report["coverage"]["strength_lifts"] == 2
         assert report["longevity"]["cardio"]["sessions"] == 0
+        assert report["longevity"]["readiness"]["fields"]["sleep"]["n"] == 3
+        assert report["longevity"]["cardio"]["rolling_4w_average"] is None
         assert report["note"].startswith("Descriptive")
     finally:
         store.close()
