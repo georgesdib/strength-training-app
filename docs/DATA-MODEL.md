@@ -438,3 +438,25 @@ This keeps e1RM, volume and review on one actual-session source of truth. In-wor
 import writes `workout_set` rows (or append-only `update_set` events when replacing a set);
 RPE is converted to RIR at import, with RIR 6 marking a warm-up. Date-less backfill is not
 supported.
+
+---
+
+## 17. Deleting or voiding a session
+
+**There is no hard-delete path.** `clean_set`, prescriptions, critiques, rubric marks and
+calibrations are append-only; deleting a session would retroactively change e1RM, volume,
+review and future prescriptions. The store's delete triggers enforce this for `clean_set`.
+
+What exists:
+
+| Situation | Action |
+|---|---|
+| Workout still `in_progress` | **Abandon** it; it is not materialised as a completed session |
+| Wrong set during an active workout | **Remove** it, or edit load/reps/RIR/velocity |
+| Completed workout | No delete, edit or void action today |
+| Imported session | No delete action |
+
+**Recommended future operation: void, not delete.** A completed session should keep its rows and
+gain an append-only `session_void` event with a reason; analytics/review/volume/e1RM would filter
+it out, and an unvoid event would restore it. This is **not implemented** and is not scheduled.
+Do not disable the append-only triggers to “clean up” history.

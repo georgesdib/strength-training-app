@@ -122,3 +122,4 @@ The web layer is serialisation and routing only. It calls the same functions as 
 - Workout mode is UI-first for start; CLI covers status/add/update/remove/end/import. Completed workouts materialise into `session`/`clean_set`; review/rubric is built.
 - State editing is available; the taxonomy itself and programme rules remain config/CLI.
 - No authentication; never expose beyond localhost.
+- No delete/void action for a completed workout; only active-workout abandon and set removal/edit. See DATA-MODEL §17 for the recommended void design.
