@@ -4,6 +4,8 @@
 
 ### Documented
 
+- W3 modifier-interaction audit: six confirmed deload-order, set-floor, load-stack and RIR
+  defects; no fixes applied.
 - Canonical `METHODOLOGY.md`, `PRIVACY.md`, generalised public examples and the public/private
   boundary; architecture/LLM contract reconciled with the actual bounded set-count proposal.
 - Focused spinal-load review: keep the ordinal cap; no load/RIR/set weighting.

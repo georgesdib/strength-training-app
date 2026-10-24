@@ -186,6 +186,9 @@ Exit criteria:
 
 ### W3 — Modifier interaction matrix
 
+**Status:** audit complete 2026-10-23. Six confirmed defects; fixes not applied. See
+[`W3-MODIFIER-MATRIX.md`](W3-MODIFIER-MATRIX.md).
+
 **Question:** do readiness, stress, continuity, deload, volume and injury rules stack
 coherently?
 

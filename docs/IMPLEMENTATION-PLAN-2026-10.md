@@ -1,7 +1,7 @@
 # IMPLEMENTATION PLAN — outcomes, longevity, readiness and minimum sessions
 
 **Status:** approved direction. A0, A and B are implemented. W6 readiness audit is complete, Option B is implemented (main-lift set reduction opt-in), and
-A0–F are implemented, including the canonical methodology/privacy docs. The full W3 modifier-interaction audit remains open.
+A0–F are implemented, including the canonical methodology/privacy docs. The full W3 modifier-interaction audit is complete; it found confirmed deload-order defects, and fixes are pending approval.
 **Date:** 2026-10-23
 **Scope:** A–F from the final review, constrained by the existing deterministic architecture.
 **Related:** [`ENGINE-AUDIT-PLAN.md`](ENGINE-AUDIT-PLAN.md),
@@ -602,5 +602,5 @@ Acceptance criteria:
 6. Age/balance/carry — remain separate from this plan.
 7. Test-count source — `ROADMAP` header is authoritative.
 
-A0–F are implemented. The full W3 modifier-interaction audit remains open and is documented
-separately.
+A0–F are implemented. The full W3 modifier-interaction audit is complete; confirmed defects
+are documented in `W3-MODIFIER-MATRIX.md`, with fixes pending approval.
