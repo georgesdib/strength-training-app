@@ -81,17 +81,18 @@ persisting it, so a deload shown only in the web response is not provenance. The
 `strength-coach readiness feedback --weeks 12` or the **Readiness feedback** panel on the
 Outcomes page.
 
-For each stored `MOD-FAT-001` reduction in the window:
+For each `MOD-FAT-001` reduction in the window it includes:
 
-- the next session within 14 days;
-- whether it completed within 7 days;
+- completed **workout snapshots** whose plan cites `MOD-FAT-001` (the UI start-workout path);
+- CLI-stored prescription modifiers when no workout snapshot exists for that date;
+- planned versus actual working sets from the frozen workout plan;
 - next-session sRPE, duration and RIR adherence;
 - e1RM before/after for the first affected lift;
 - any symptom flare within 7 days.
 
-The report is association-only. It does not tune weights, cut-points or the volume valve.
-Events are limited to CLI-stored prescriptions with `prescription_modifier` provenance;
-web-only prescriptions are not persisted and do not appear.
+The UI path therefore records both the prescription and what was actually performed. The
+report is still association-only: it does not know whether the athlete would have done better
+without the reduction, and it does not tune weights, cut-points or the volume valve.
 
 ## 8. What it does not do
 

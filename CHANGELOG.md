@@ -17,8 +17,9 @@
 
 ### Added
 
-- Readiness feedback: a read-only follow-up of stored `MOD-FAT-001` reductions with next-session
-  completion, sRPE, RIR, e1RM and 7-day symptoms; no tuning.
+- Readiness feedback: a read-only follow-up of `MOD-FAT-001` reductions from completed workout
+  snapshots and CLI modifiers, including planned-versus-actual sets, sRPE, RIR, e1RM and
+  7-day symptoms; no tuning.
 - Quick readiness presets and display-only context flags, with ordinary `preset` entries and
   an explicit empty-by-default HRV/RHR suppression config.
 - High-intensity exposure tracking: tests auto-register a non-volume exposure, near-max

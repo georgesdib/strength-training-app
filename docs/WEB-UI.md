@@ -106,7 +106,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 | `POST /api/readiness/volume` | update the readiness volume valve (enabled, score below, sets, include essentials — main lifts opt-in) |
 | `POST /api/readiness/preset` | write a quick-readiness preset as ordinary entries with `source=preset` |
 | `POST /api/readiness/context` | append display-only context flags |
-| `GET /api/readiness/feedback?weeks=N&date=N` | descriptive follow-up of MOD-FAT-001 reductions |
+| `GET /api/readiness/feedback?weeks=N&date=N` | descriptive follow-up of MOD-FAT-001 reductions, including completed workout snapshots and set adherence |
 | `GET /api/selection?date=N&session_type=X&llm=0\|1&include_different=0\|1` | exercise-selection rankings with A/B/C comparability classes |
 | `GET /api/exercises/catalog` | full exercise catalogue with source/properties |
 | `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml` |

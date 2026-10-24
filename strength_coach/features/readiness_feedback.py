@@ -1,8 +1,9 @@
 """Readiness-reduction feedback: descriptive follow-up, never a tuning signal.
 
-Reads `prescription_modifier` rows for MOD-FAT-001 and compares the next observed session with
-the athlete's own previous session. This is association-only: reductions were not randomised,
-the athlete may have ignored them, and the sample is small.
+Reads completed workout snapshots whose frozen plan cites MOD-FAT-001, plus CLI
+prescription_modifier rows when no workout snapshot exists. It compares planned versus actual
+sets and the session with the athlete's own previous session. This is association-only:
+reductions were not randomised, the athlete may have ignored them, and the sample is small.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import statistics
 from typing import Any
 
 from strength_coach.domain import e1rm as e1rm_mod
+from strength_coach import workout
 from strength_coach.domain.symptoms import flare_from
 from strength_coach.store import queries
 
@@ -35,14 +37,24 @@ def _feedback_map(conn) -> dict[str, dict]:
 
 def _session_metrics(conn, session_id: str, feedback: dict[str, dict]) -> dict:
     row = feedback.get(str(session_id)) or {}
+    session = conn.execute(
+        "SELECT session_rpe, duration_min FROM session WHERE session_id = ?",
+        (str(session_id),),
+    ).fetchone()
     sets = conn.execute(
         "SELECT rir FROM clean_set WHERE session_id = ? AND is_working_set = 1",
         (str(session_id),),
     ).fetchall()
     rirs = [float(r["rir"]) for r in sets if r["rir"] is not None]
+    srpe = row.get("srpe")
+    duration = row.get("duration_min")
+    if srpe is None and session is not None:
+        srpe = session["session_rpe"]
+    if duration is None and session is not None:
+        duration = session["duration_min"]
     return {
-        "srpe": None if row.get("srpe") is None else float(row["srpe"]),
-        "duration_min": None if row.get("duration_min") is None else float(row["duration_min"]),
+        "srpe": None if srpe is None else float(srpe),
+        "duration_min": None if duration is None else float(duration),
         "rir_adherence": (
             round(sum(1 for value in rirs if 1 <= value <= 4) / len(rirs), 3)
             if rirs else None
@@ -103,6 +115,66 @@ def _symptom_flare(conn, start: str, end: str) -> bool | None:
     )
 
 
+def _adherence(comparison: dict) -> dict:
+    items = comparison.get("items") or []
+    planned = sum(int(item.get("planned_sets") or 0) for item in items)
+    actual = sum(int(item.get("actual_sets") or 0) for item in items)
+    return {
+        "planned_sets": planned,
+        "actual_sets": actual,
+        "ratio": round(actual / planned, 3) if planned else None,
+        "items": [
+            {
+                "exercise_id": item.get("exercise_id"),
+                "status": item.get("status"),
+                "planned_sets": item.get("planned_sets"),
+                "actual_sets": item.get("actual_sets"),
+                "planned_load_kg": item.get("planned_load_kg"),
+                "actual_load_kg": item.get("actual_load_kg"),
+                "planned_rir": item.get("planned_rir"),
+                "actual_rir": item.get("actual_rir"),
+            }
+            for item in items
+        ],
+    }
+
+
+def _workout_event(conn, workout_id: str, for_date: str, plan: dict,
+                   feedback: dict[str, dict]) -> dict:
+    data = workout.get(conn, workout_id)
+    original = data.get("original_plan") or plan
+    item_ids = [str(item.get("exercise_id")) for item in original.get("items", [])]
+    before = _e1rm_at(conn, item_ids[0], on_or_before=for_date) if item_ids else None
+    after = _e1rm_at(conn, item_ids[0], after=for_date, until=for_date) if item_ids else None
+    previous = conn.execute(
+        "SELECT session_id FROM session WHERE occurred_on < ? "
+        "ORDER BY occurred_on DESC LIMIT 1", (for_date,)
+    ).fetchone()
+    return {
+        "source": "workout",
+        "workout_id": workout_id,
+        "prescription_id": data.get("prescription_id"),
+        "applied_on": for_date,
+        "item_ids": item_ids,
+        "next_session_on": for_date,
+        "completed_within_7d": True,
+        "adherence": None,
+        "previous": _session_metrics(conn, previous["session_id"], feedback) if previous else {},
+        "next": _session_metrics(conn, workout_id, feedback),
+        "adherence": _adherence(data.get("original_comparison") or {}),
+        "e1rm_before": round(before, 1) if before else None,
+        "e1rm_after": round(after, 1) if after else None,
+        "e1rm_change_pct": (
+            round(100 * (after - before) / before, 1) if before and after else None
+        ),
+        "symptom_flare_7d": _symptom_flare(
+            conn, for_date,
+            (dt.date.fromisoformat(for_date)
+             + dt.timedelta(days=WINDOW_DAYS)).isoformat(),
+        ),
+    }
+
+
 def _event(conn, row, feedback) -> dict:
     detail = json.loads(row["detail_json"] or "{}")
     applied_on = str(row["applied_on"])
@@ -121,6 +193,7 @@ def _event(conn, row, feedback) -> dict:
         if before_e1rm and after_e1rm else None
     )
     return {
+        "source": "prescription",
         "modifier_id": row["modifier_id"],
         "prescription_id": row["prescription_id"],
         "applied_on": applied_on,
@@ -131,6 +204,7 @@ def _event(conn, row, feedback) -> dict:
             (dt.date.fromisoformat(next_session["occurred_on"])
              - dt.date.fromisoformat(applied_on)).days <= WINDOW_DAYS
         ),
+        "adherence": None,
         "previous": _session_metrics(conn, previous["session_id"], feedback) if previous else {},
         "next": _session_metrics(conn, next_session["session_id"], feedback) if next_session else {},
         "e1rm_before": round(before_e1rm, 1) if before_e1rm else None,
@@ -157,14 +231,41 @@ def report(conn, *, weeks: int = 12, on_date: str | None = None) -> dict:
         return {"window": {"weeks": weeks, "from": start.isoformat(),
                            "to": end.isoformat()}, "events": [], "aggregate": {},
                 "warnings": ["modifier provenance table absent"]}
+    feedback = _feedback_map(conn)
+    events = []
+    workout_dates: set[str] = set()
+    workouts = conn.execute(
+        "SELECT workout_id, for_date, plan_json FROM workout_session "
+        "WHERE status = 'completed' AND for_date BETWEEN ? AND ? "
+        "ORDER BY for_date",
+        (start.isoformat(), end.isoformat()),
+    ).fetchall()
+    for row in workouts:
+        try:
+            plan = json.loads(row["plan_json"] or "{}")
+        except ValueError:
+            continue
+        refs = {
+            str(ref)
+            for item in (plan.get("items") or [])
+            for ref in (item.get("refs") or ())
+        }
+        if "MOD-FAT-001" not in refs:
+            continue
+        events.append(_workout_event(conn, row["workout_id"], str(row["for_date"]),
+                                     plan, feedback))
+        workout_dates.add(str(row["for_date"]))
     rows = conn.execute(
         "SELECT modifier_id, prescription_id, applied_on, detail_json "
         "FROM prescription_modifier WHERE modifier_key = 'MOD-FAT-001' "
         "AND applied_on BETWEEN ? AND ? ORDER BY applied_on",
         (start.isoformat(), end.isoformat()),
     ).fetchall()
-    feedback = _feedback_map(conn)
-    events = [_event(conn, row, feedback) for row in rows]
+    events.extend(
+        _event(conn, row, feedback) for row in rows
+        if str(row["applied_on"]) not in workout_dates
+    )
+    events.sort(key=lambda event: event["applied_on"])
 
     completed = [e for e in events if e["completed_within_7d"] is not None]
     srpe = [e["next"]["srpe"] for e in events
@@ -174,6 +275,10 @@ def report(conn, *, weeks: int = 12, on_date: str | None = None) -> dict:
     changes = [e["e1rm_change_pct"] for e in events
                if e["e1rm_change_pct"] is not None]
     flares = [e for e in events if e["symptom_flare_7d"] is True]
+    adherence = [
+        e["adherence"]["ratio"] for e in events
+        if e.get("adherence") and e["adherence"].get("ratio") is not None
+    ]
     aggregate = {
         "n_events": len(events),
         "n_with_next_session": sum(1 for e in events if e["next_session_on"]),
@@ -184,6 +289,8 @@ def report(conn, *, weeks: int = 12, on_date: str | None = None) -> dict:
         "mean_srpe": round(statistics.mean(srpe), 2) if srpe else None,
         "mean_rir_adherence": round(statistics.mean(rir), 3) if rir else None,
         "mean_e1rm_change_pct": round(statistics.mean(changes), 1) if changes else None,
+        "mean_set_adherence": round(statistics.mean(adherence), 3) if adherence else None,
+        "n_with_adherence": len(adherence),
         "n_symptom_flares": len(flares) if any(
             e["symptom_flare_7d"] is not None for e in events
         ) else None,
@@ -191,7 +298,7 @@ def report(conn, *, weeks: int = 12, on_date: str | None = None) -> dict:
     warnings = [
         "Observational and confounded: reductions were not randomised and may have been ignored.",
         "Small sample; no causal or validated effect is claimed.",
-        "Web prescriptions are not persisted, so only CLI-stored modifiers appear.",
+        "Workout snapshots are included when the plan cites MOD-FAT-001; CLI-stored prescription modifiers are included when no workout snapshot exists for that date.",
     ]
     if len(events) < 8:
         warnings.append("Fewer than 8 events: descriptive only, not an estimate.")

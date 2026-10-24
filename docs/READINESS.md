@@ -119,7 +119,7 @@ sets lose one set, while main-lift set reduction is an explicit opt-in in the vo
 warning names the affected sets, and the prescription notes record the setting. This is fatigue
 management, not a proven strength optimisation.
 
-A separate **readiness feedback** report compares the next observed session with the prior one after a stored readiness reduction. It is association-only and never tunes the weights or valve. Web prescriptions are not persisted, so only CLI-stored modifiers appear.
+A separate **readiness feedback** report compares a readiness-reduced session with the prior one. It reads completed workout snapshots whose frozen plan cites `MOD-FAT-001`, so the UI start-workout path is included, and compares planned versus actual sets. CLI-stored prescription modifiers fill in when no workout snapshot exists. It is association-only and never tunes the weights or valve.
 
 **Missing is not "fine".** A current/future workout is refused until readiness is "ready";
 missing or insufficient data is reported as such. Historic dates remain reproducible. The old

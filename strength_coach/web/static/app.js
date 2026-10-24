@@ -306,16 +306,18 @@ async function loadReadinessFeedback(weeks, day) {
     const aggregate = data.aggregate || {};
     const rows = (data.events || []).map((event) => `
       <tr><td>${esc(event.applied_on)}</td><td>${esc(event.next_session_on || "—")}</td>
+      <td>${event.adherence ? event.adherence.actual_sets + "/" + event.adherence.planned_sets : "—"}</td>
       <td>${event.next?.srpe ?? "—"}</td><td>${event.next?.rir_adherence ?? "—"}</td>
       <td>${event.e1rm_change_pct == null ? "—" : event.e1rm_change_pct + "%"}</td>
       <td>${event.symptom_flare_7d == null ? "unknown" : (event.symptom_flare_7d ? "yes" : "no")}</td></tr>`).join("");
     target.innerHTML = `<p>Events: ${aggregate.n_events ?? 0}
       · with next session: ${aggregate.n_with_next_session ?? 0}
       · mean sRPE: ${aggregate.mean_srpe ?? "unknown"}
-      · mean RIR adherence: ${aggregate.mean_rir_adherence ?? "unknown"}</p>
-      <table><thead><tr><th>Reduction</th><th>next session</th><th>sRPE</th>
+      · mean RIR adherence: ${aggregate.mean_rir_adherence ?? "unknown"}
+      · mean set adherence: ${aggregate.mean_set_adherence ?? "unknown"}</p>
+      <table><thead><tr><th>Reduction</th><th>next session</th><th>sets done/planned</th><th>sRPE</th>
       <th>RIR adherence</th><th>e1RM change</th><th>flare</th></tr></thead>
-      <tbody>${rows || "<tr><td colspan='6' class='muted'>no MOD-FAT-001 provenance</td></tr>"}</tbody></table>
+      <tbody>${rows || "<tr><td colspan='7' class='muted'>no MOD-FAT-001 provenance</td></tr>"}</tbody></table>
       ${(data.warnings || []).map((warning) => `<p class="muted">! ${esc(warning)}</p>`).join("")}
       <p class="muted">${esc(data.note || "")}</p>`;
   } catch (error) {
