@@ -16,6 +16,7 @@ import uuid
 from typing import Any, Mapping
 
 from strength_coach import __version__
+from strength_coach.domain import load as load_mod
 from strength_coach.critique import build_facts, score_session
 from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.store import repositories
@@ -711,21 +712,35 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
         return
     sets = _sets(conn, workout_id)
     plan = workout.get("plan") or {}
-    items = plan.get("items") or []
     entities = exercises.taxonomy().entities
+    # Main lifts are what was performed, not every item that appeared in the plan.
     main_lifts = []
-    for item in items:
-        exercise_id = str(item.get("exercise_id"))
-        if exercise_id not in main_lifts:
+    for row in sets:
+        exercise_id = str(row["exercise_id"])
+        if exercise_id not in main_lifts and entities.get(exercise_id, {}).get("main_lift"):
             main_lifts.append(exercise_id)
+    comparison = workout.get("comparison") or {}
+    incomplete = any(
+        item.get("status") in {"missing", "under"}
+        for item in (comparison.get("items") or [])
+    )
+    flags = ["incomplete"] if incomplete else []
     working = [row for row in sets if row.get("rir") != 6]
+    bodyweight_kg = (workout.get("readiness") or {}).get("bodyweight_kg")
     tonnage = 0.0
     tonnage_present = False
     for row in working:
         load = row.get("load_kg")
         reps = row.get("reps")
-        if load is not None and reps is not None:
-            tonnage += float(load) * int(reps)
+        props = entities.get(str(row["exercise_id"]), {})
+        resolved = load_mod.resolve_load_basis(
+            None if load is None else float(load),
+            bodyweight_kg=(None if bodyweight_kg in (None, "") else float(bodyweight_kg)),
+            is_bodyweight_type=bool(props.get("bodyweight_type", False)),
+            is_time_based=bool(props.get("time_based", False)),
+        )
+        if resolved.external_load_kg is not None and reps is not None:
+            tonnage += float(resolved.external_load_kg) * int(reps)
             tonnage_present = True
     conn.execute(
         """
@@ -735,13 +750,13 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
              tonnage_kg, duration_min, duration_basis, flags, prescription_id, source,
              workout_id, session_rpe, session_rpe_recorded)
         VALUES (?, ?, 'workout mode', ?, ?, ?, ?, ?,
-                ?, ?, 'measured', '[]', ?, 'workout', ?, ?, ?)
+                ?, ?, 'measured', ?, ?, 'workout', ?, ?, ?)
         """,
         (
             workout_id, workout["for_date"], len(sets), len(working),
             len({row["exercise_id"] for row in sets}), json.dumps(main_lifts),
             workout["session_type"], tonnage if tonnage_present else None, duration,
-            workout.get("prescription_id"), workout_id, session_rpe,
+            json.dumps(flags), workout.get("prescription_id"), workout_id, session_rpe,
             1 if session_rpe_recorded else 0,
         ),
     )
@@ -752,17 +767,17 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
         props = entities.get(exercise_id, {})
         bodyweight = bool(props.get("bodyweight_type"))
         load = row.get("load_kg")
-        if load is None:
-            load_basis = "unknown"
-            external = None
-        elif bodyweight and float(load) == 0:
-            load_basis = "bodyweight_total"
-            external = None
-        else:
-            load_basis = "external"
-            external = load
+        resolved = load_mod.resolve_load_basis(
+            None if load is None else float(load),
+            bodyweight_kg=(None if bodyweight_kg in (None, "") else float(bodyweight_kg)),
+            is_bodyweight_type=bodyweight,
+            is_time_based=bool(props.get("time_based", False)),
+        )
+        load_basis = resolved.basis
+        external = resolved.external_load_kg
         reps_unit = "seconds" if props.get("time_based") else "reps"
         is_working = 0 if row.get("rir") == 6 else 1
+        row_flags = [] if load_basis != "unknown" else ["LOAD_BASIS_UNKNOWN"]
         payload = json.dumps(dict(row), separators=(",", ":"))
         cursor = conn.execute(
             "INSERT INTO raw_row (table_name, source_row, file_sha256, payload) "
@@ -777,7 +792,7 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
                  load_basis, external_load_kg, reps, reps_unit, rir, rir_source,
                  velocity_mps, velocity_present, tonnage_kg, is_working_set, flags,
                  prescription_item_index)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 raw_id, workout_id, workout["for_date"], exercise_id, exercise_id,
@@ -785,8 +800,9 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
                 ("logged_warmup" if row.get("rir") == 6 else "logged")
                 if row.get("rir") is not None else "missing", row.get("velocity"),
                 1 if row.get("velocity") is not None else 0,
-                (float(load) * int(row["reps"])) if load is not None and row.get("reps") is not None else None,
-                is_working, row.get("prescription_item_index"),
+                (float(external) * int(row["reps"]))
+                if external is not None and row.get("reps") is not None else None,
+                is_working, json.dumps(row_flags), row.get("prescription_item_index"),
             ),
         )
     if session_rpe is not None or notes:

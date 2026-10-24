@@ -208,3 +208,45 @@ def test_import_preview_reports_conflicts_and_undo_restores(conn):
     assert workout.get(conn, started["workout_id"])["sets"][0]["load_kg"] == 25.0
     restored = workout.undo_import(conn, started["workout_id"])
     assert restored["sets"][0]["load_kg"] == 20.0
+
+
+def test_workout_materialisation_uses_actual_main_lifts_and_marks_incomplete(conn):
+    started = workout.start(
+        conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS,
+    )
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2,
+    )
+    workout.end(conn, started["workout_id"], session_rpe=7, duration_min=20)
+    row = conn.execute(
+        "SELECT main_lifts, flags, set_count, working_set_count "
+        "FROM session WHERE session_id = ?", (started["workout_id"],),
+    ).fetchone()
+    assert row["main_lifts"] == '["trap_bar_deadlift"]'
+    assert "incomplete" in row["flags"]
+    assert row["set_count"] == 1
+    assert row["working_set_count"] == 1
+
+
+def test_workout_materialisation_keeps_added_bodyweight_load_basis(conn):
+    plan = {
+        "for_date": "2024-01-01", "session_type": "squat",
+        "items": [{
+            "exercise_id": "back_extension", "sets": 3, "reps_low": 10,
+            "reps_high": 12, "load_kg": 0, "rir_target": 2,
+        }],
+    }
+    readiness = {**READINESS, "bodyweight_kg": 80}
+    started = workout.start(conn, for_date="2024-01-01", plan=plan, readiness=readiness)
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="back_extension",
+        load_kg=5, reps=10, rir=2,
+    )
+    workout.end(conn, started["workout_id"], session_rpe=7, duration_min=10)
+    row = conn.execute(
+        "SELECT load_basis, external_load_kg FROM clean_set WHERE session_id = ?",
+        (started["workout_id"],),
+    ).fetchone()
+    assert row["load_basis"] == "added"
+    assert row["external_load_kg"] == 5.0

@@ -7,6 +7,12 @@
 - Explicit `spinal_cost` for every high-fatigue entity; `single_leg_db_rdl` documented as
   non-counting; at-cap/headroom display in prescriptions. Cap unchanged.
 
+### Fixed
+
+- Workout materialisation now classifies added bodyweight load through the domain resolver and
+  derives session main lifts from actual sets; incomplete workouts carry a flag. Single-set
+  e1RM sources emit a confidence warning.
+
 ### Documented
 
 - W2 load-lineage audit: bodyweight added-load misclassification, incomplete-workout

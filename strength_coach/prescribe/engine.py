@@ -1112,7 +1112,11 @@ def build_item(
                     f"{thresholds.e1rm_window_days} days; reused the last working load"
                 )
         else:
-            e1rm_kg, ref, calibrated, decayed = found
+            e1rm_kg, ref, calibrated, decayed, coverage = found
+            if coverage == 1:
+                warnings.append(
+                    f"{exercise_id}: e1RM source has one eligible set; confidence limited"
+                )
             load = loads.solve_load(e1rm_kg, slot.reps_low, slot.rir_low, increment)
             refs = ("PRG-RIR-001", ref)
             if calibrated:
@@ -1226,7 +1230,7 @@ def _e1rm_decay(context: RuleContext, age_days: float) -> float:
 def _latest_e1rm(
     conn, context: RuleContext, exercise_id: str, for_date: str, window_days: int,
     calibration_factors: Mapping[str, object] | None = None,
-) -> tuple[float, str, bool, bool] | None:
+) -> tuple[float, str, bool, bool, int] | None:
     """The e1RM to prescribe from, with a citable reference.
 
     A manual override in force on the date outranks the computed estimate: the athlete may
@@ -1239,7 +1243,7 @@ def _latest_e1rm(
         age = (pd.Timestamp(for_date) - pd.Timestamp(override["effective_from"])).days
         decay = _e1rm_decay(context, age)
         return (float(override["e1rm_kg"]) * decay,
-                f"e1rm_override:{override['override_id']}", False, decay != 1.0)
+                f"e1rm_override:{override['override_id']}", False, decay != 1.0, 0)
 
     if context.sets.empty or "e1rm_kg" not in context.sets:
         return None
@@ -1269,7 +1273,8 @@ def _latest_e1rm(
     return (float(row["e1rm_kg"]) * factor * decay,
             f"set:{row['session_id']}/{int(row['set_id'])}",
             factor != 1.0,
-            decay != 1.0)
+            decay != 1.0,
+            int(len(usable)))
 
 
 def _last_working_set(

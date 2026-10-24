@@ -1,7 +1,6 @@
 # W2 — LOAD LINEAGE AND INCOMPLETE SESSIONS
 
-**Status:** audit complete 2026-10-23. Two confirmed defects and two provenance gaps;
-no fixes applied.
+**Status:** audit complete and fixes implemented 2026-10-23. Regression tests added.
 **Method:** code-path trace, synthetic fixtures and existing tests. No personal data.
 **Scope:** e1RM → load → validation; incomplete workouts; variants and bodyweight work.
 
@@ -38,9 +37,9 @@ Decay is suppressed when continuity already handles a 28+ day gap.
 
 ## 2. Confirmed defects
 
-### W2-01 — Workout materialisation misclassifies added bodyweight load
+### W2-01 — RESOLVED — Workout materialisation misclassified added bodyweight load
 
-**Classification:** confirmed defect.
+**Classification:** confirmed defect; fixed.
 
 `workout._materialise` does not reuse `domain.load.resolve_load_basis`. For a
 `bodyweight_type` exercise with a positive logged load it writes:
@@ -65,13 +64,12 @@ back_extension @ 5 kg
 → expected: added
 ```
 
-This is a single-source-of-truth violation: imported rows go through
-`resolve_load_basis`, live workout rows do not. It can distort tonnage, history equivalence and
-future load interpretation for weighted bodyweight work.
+The workout path now calls `domain.load.resolve_load_basis` with the date's bodyweight when
+available. Missing bodyweight becomes `unknown` with a flag, not a false `external` basis.
 
-### W2-02 — Incomplete workouts look complete and claim unperformed main lifts
+### W2-02 — RESOLVED — Incomplete workouts claimed unperformed main lifts
 
-**Classification:** confirmed defect / provenance gap.
+**Classification:** confirmed defect / provenance gap; fixed.
 
 A workout with a five-set squat and four-set bench plan was ended after one squat set. The
 materialised session contained:
@@ -95,14 +93,15 @@ Effects:
 - volume/under-MEV sees actual sets, but the session-level description is contradictory;
 - the next prescription has no way to know the session was ended early.
 
-The e1RM itself comes from the performed clean set, not the plan, so this is not a phantom
-e1RM. It is a provenance/description defect.
+The session now derives `main_lifts` from performed sets and adds an `incomplete` flag when
+the performed sets are below the modified plan. The e1RM itself still comes from performed
+sets.
 
 ## 3. Provenance gaps without a wrong load
 
-### W2-03 — A single set can drive the e1RM without a quality marker
+### W2-03 — A single set can drive the e1RM with only a warning
 
-**Classification:** confirmed limitation.
+**Classification:** mitigated.
 
 `_latest_e1rm` selects the best effective set; there is no minimum set count, working-set
 coverage or `incomplete` marker. A single hard set from an early-ended workout becomes the
@@ -144,19 +143,13 @@ provenance is visible, so this is not a hidden fallback.
 - **Variant changes never silently reuse incompatible loads:** no confirmed violation in the
   tested paths; selection comparability and history equivalence are explicit.
 
-## 6. Recommended fixes — not implemented
+## 6. Implemented fixes
 
-1. Use `domain.load.resolve_load_basis` in workout materialisation so added bodyweight load is
-   classified once.
-2. Derive session `main_lifts` from performed sets, not the frozen plan.
-3. Add an explicit incomplete/ended-early marker, or a planned-versus-performed completion
-   field, to the session/workout record.
-4. Add a `set_count`/coverage field to the e1RM provenance, or document that a single set is
-   sufficient.
-5. Add regression tests for:
-   - weighted bodyweight workout materialisation;
-   - incomplete workout with unperformed plan items;
-   - single-set e1RM provenance;
-   - last-working-load fallback.
+1. Workout materialisation now uses `resolve_load_basis`; missing bodyweight is `unknown`.
+2. Session `main_lifts` come from performed sets.
+3. `session.flags` carries `incomplete` when performed sets are below the modified plan.
+4. Single-set e1RM sources emit a confidence warning.
+5. Regression tests cover bodyweight basis and incomplete main-lift provenance.
 
-No code, config or prescription was changed by W2.
+Remaining: the last-working-load fallback is still undecayed; continuity handles the gap. A
+full e1RM coverage field was not added; the warning is the visible provenance.
