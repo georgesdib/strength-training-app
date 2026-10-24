@@ -636,7 +636,7 @@ history remains public. Do not rewrite history without separate approval.
 | W7 | Attendance metrics | W0 | implemented in shared `features/attendance.py`; Today and Outcomes display |
 | W8 | Volume balance | W1/W4 | audit complete; options with sets, spinal cost, time and rationale |
 | W9 | Spinal cap headroom | W1/W3 | audit complete; explicit high-fatigue costs, at-cap display, cap unchanged |
-| W10 | Age in athlete state | W0 | schema/state proposal and wording changes |
+| W10 | Age in athlete state | W0 | audit complete; optional `birth_year` proposal, no automatic age rule |
 | W11 | Documentation consistency | W0 | one cap, duration policy, test-count source, architecture contract |
 | W12 | Public-data audit | none | inventory, generalisation plan and Git-history decision |
 
