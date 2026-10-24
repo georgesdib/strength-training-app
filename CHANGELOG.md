@@ -13,8 +13,15 @@
   derives session main lifts from actual sets; incomplete workouts carry a flag. Single-set
   e1RM sources emit a confidence warning.
 
+### Added
+
+- Rubric 1.1.0 scores measured live-workout duration; imported sessions remain
+  unmeasurable. Prescription items expose `e1rm_source_sets` (migration 0027).
+
 ### Changed
 
+- Minimum-session target and deeper-tier controls are hidden until the mode is ticked, with
+  an explanatory note; load/RIR behaviour unchanged.
 - Evidence labels in the UI: e1RM estimate, readiness heuristic, configurable volume
   landmarks, ordinal spinal cap, weak deload evidence and heuristic minimum session.
 

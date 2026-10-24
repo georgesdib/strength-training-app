@@ -103,14 +103,17 @@
           <label id="prescribe-selection-confirm-wrap" hidden><input type="checkbox" id="prescribe-selection-confirm"> Confirm near-comparable (B)</label>
           <label id="prescribe-selection-llm-wrap" hidden><input type="checkbox" id="prescribe-selection-llm"> Use LLM</label>
           <label><input type="checkbox" id="prescribe-minimum"> Minimum session</label>
-          <label>Target
-            <select id="prescribe-target">
-              <option value="30">30 min</option>
-              <option value="45" selected>45 min</option>
-              <option value="60">60 min</option>
-            </select>
-          </label>
-          <label><input type="checkbox" id="prescribe-minimum-main" disabled> also reduce main lifts</label>
+          <span id="prescribe-minimum-options" hidden>
+            <label>Target
+              <select id="prescribe-target" disabled>
+                <option value="30">30 min</option>
+                <option value="45" selected>45 min</option>
+                <option value="60">60 min</option>
+              </select>
+            </label>
+            <label><input type="checkbox" id="prescribe-minimum-main" disabled> also reduce main lifts</label>
+            <span class="muted">Only used when minimum session is ticked: it trims accessory volume to the estimated target, then main-lift sets to a floor of 2 if you opt in. Loads and RIR stay unchanged.</span>
+          </span>
           <button class="primary" type="submit">Build prescription</button>
         </form>
         <p class="muted">The prescription is deterministic and cites rule ids. Warnings are part of the

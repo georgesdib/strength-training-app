@@ -377,10 +377,15 @@ async function loadReadinessFeedback(weeks, day) {
 
 /* --- prescribe ---------------------------------------------------------- */
 $("#prescribe-date").value = today();
-$("#prescribe-minimum").addEventListener("change", () => {
-  $("#prescribe-minimum-main").disabled = !$("#prescribe-minimum").checked;
-  if (!$("#prescribe-minimum").checked) $("#prescribe-minimum-main").checked = false;
-});
+function syncMinimumSession() {
+  const on = $("#prescribe-minimum").checked;
+  $("#prescribe-minimum-options").hidden = !on;
+  $("#prescribe-target").disabled = !on;
+  $("#prescribe-minimum-main").disabled = !on;
+  if (!on) $("#prescribe-minimum-main").checked = false;
+}
+$("#prescribe-minimum").addEventListener("change", syncMinimumSession);
+syncMinimumSession();
 
 $("#prescribe-apply-selection").addEventListener("change", () => {
   const llmWrap = $("#prescribe-selection-llm-wrap");

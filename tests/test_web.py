@@ -74,6 +74,8 @@ def test_the_page_and_overview_are_served(server):
     assert "Strength" in page
     assert "Programme" in page and "Terminal" in page
     assert "prescribe-selection-confirm" in page
+    assert "prescribe-minimum-options" in page
+    assert "Only used when minimum session is ticked" in page
     assert "selection-include-different" in page
     assert "validation-run" in page
     assert "view-workout" in page

@@ -21,7 +21,7 @@ validated dose.
 UI:
 
 ```text
-Prescribe → tick Minimum session → choose 30/45/60 minutes
+Prescribe → tick Minimum session → the 30/45/60 target and deeper-tier options appear (hidden while unticked)
 → optional “also reduce main lifts” (deeper tier)
 → build
 ```
