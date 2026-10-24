@@ -245,10 +245,22 @@ def record_manual(conn, on_date: str, values: Mapping[str, float],
         if field in readiness_utils.LEGACY_FIELDS:
             raise ValueError(f"{field} is a legacy calibration label, not a readiness input")
         readiness_utils.validate(field, value)
-    for field in sorted(values):
-        repositories.append_readiness_entry(
-            conn, on_date=on_date, field=field, value=float(values[field]), note=note,
-        )
+    # A multi-field save must be all-or-nothing: a constraint error halfway through would
+    # leave a partial readiness day that looks like a complete reading.
+    started = not conn.in_transaction
+    if started:
+        conn.execute("BEGIN IMMEDIATE")
+    try:
+        for field in sorted(values):
+            repositories.append_readiness_entry(
+                conn, on_date=on_date, field=field, value=float(values[field]), note=note,
+            )
+    except Exception:
+        if started:
+            conn.execute("ROLLBACK")
+        raise
+    if started:
+        conn.execute("COMMIT")
     return len(values)
 
 

@@ -13,6 +13,8 @@
 
 ### Fixed
 
+- Readiness saves now accept the optional `wearable_score` (migration 0029) and are
+  all-or-nothing, so a rejected field cannot leave a partial readiness day.
 - Workout materialisation now classifies added bodyweight load through the domain resolver and
   derives session main lifts from actual sets; incomplete workouts carry a flag. Single-set
   e1RM sources emit a confidence warning.

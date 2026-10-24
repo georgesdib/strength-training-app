@@ -168,3 +168,22 @@ def test_volume_valve_config_can_be_saved_without_losing_the_file(tmp_path):
     text = path.read_text()
     assert "modifier:" in text
     assert "score_below: 0.40" in text
+
+
+def test_wearable_score_is_an_accepted_readiness_observation():
+    with store_with() as store:
+        conn = store.connection
+        from strength_coach.features import readiness as readiness_feature
+        readiness_feature.record_manual(
+            conn, "2024-01-08", {"sleep": 4, "wearable_score": 78},
+        )
+        row = conn.execute(
+            "SELECT value FROM readiness_entry "
+            "WHERE on_date='2024-01-08' AND field='wearable_score'"
+        ).fetchone()
+        sleep = conn.execute(
+            "SELECT value FROM readiness_entry "
+            "WHERE on_date='2024-01-08' AND field='sleep'"
+        ).fetchone()
+    assert row["value"] == 78
+    assert sleep["value"] == 4
