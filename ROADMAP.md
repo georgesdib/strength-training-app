@@ -1038,6 +1038,9 @@ Recorded so good ideas are not lost, explicitly **not** commitments:
 - Per-lift manual velocity overrides with expiry.
 - ~~Regime-change detection (a lift's volume collapsing while a substitute rises).~~ **Delivered
   2026-10-24** as a read-only 8/12-week check (`regime`, Prescribe panel).
+- Top set + back-off sets — **evidence review only**; no direct trial against the current
+  4-5 × 3-5 @ RIR 2-3 prescription. Do not replace the programme on current evidence
+  ([TOP-SET-BACKOFF-EVIDENCE.md](docs/TOP-SET-BACKOFF-EVIDENCE.md)).
 - LLM-guided suggested programme under the §4.18 guardrails (idea only).
 - Wider proposal licence (more than one increment on the menu) once the menu has proved itself
   in real sessions.

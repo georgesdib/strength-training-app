@@ -273,6 +273,17 @@ conclusion is weaker than it looks.
 | 152 | Alarcón-Rivera M, Poblete-Sánchez L, Salazar-Orellana C, Guzmán-Muñoz E, García-Carrillo E. *Comparison of Velocity-Based Performance and Velocity Loss Between Traditional and Safety Squat Barbells During the Squat Exercise.* Sports, 2026;14(4):146. | 10.3390/sports14040146 | Barbell type changes velocity and velocity loss; stratify by lift/barbell. |
 | 153 | Martínez-Cava A, Hernández-Belmonte A, Courel-Ibáñez J, Morán-Navarro R, González-Badillo JJ. *Reliability of technologies to measure the barbell velocity: Implications for monitoring resistance training.* PLoS One, 2020;15(6):e0232465. | 10.1371/journal.pone.0232465 | Device reliability differs; mean velocity has meaningful measurement error. |
 
+## 22. Top set, back-off sets and set configuration
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 154 | Androulakis-Korakakis P, Michalopoulos N, Fisher JP, Keogh J, Loenneke JP, Helms ER. *The Minimum Effective Training Dose Required for 1RM Strength in Powerlifters.* Front Sports Act Living, 2021;3:713655. | 10.3389/fspor.2021.713655 | 3-6 sets of 1-5 reps/week above 80% 1RM; autoregulated singles plus 2-3 back-offs at ~80% may improve gains vs singles alone. |
+| 155 | Schoenfeld BJ, Contreras B, Krieger J, Grgic J, Delcastillo K, Belliard R, Alto A. *Resistance Training Volume Enhances Muscle Hypertrophy but Not Strength in Trained Men.* Med Sci Sports Exerc, 2018;51(1):94-103. | 10.1249/MSS.0000000000001764 | 1 vs 3 vs 5 sets: similar strength, greater hypertrophy with higher volume. |
+| 156 | Davies TB, Tran DL, Hogan CM, Haff GG, Latella C. *Chronic Effects of Altering Resistance Training Set Configurations Using Cluster Sets: A Systematic Review and Meta-Analysis.* Sports Med, 2021;51(3):449-469. | 10.1007/s40279-020-01408-3 | Cluster vs traditional set configuration; no established 1RM advantage. |
+| 157 | Mang ZA, Beam JR, Vigil ED, Martinez A. *The Acute Effect of Ascending-Pyramid, Descending-Pyramid, and Constant-Load Set Configurations on Repetition Performance, Training Volume, and Barbell Velocity During Bench Press Exercise.* Int J Strength Cond, 2024;4(1). | 10.47206/ijsc.v4i1.268 | Descending pyramid had lower set-RPE acutely; no chronic outcomes. |
+| 158 | Iversen VM, Norum M, Schoenfeld BJ, Fimland MS. *No Time to Lift? Designing Time-Efficient Training Programs for Strength and Hypertrophy: A Narrative Review.* Sports Med, 2021;51(10):2079-2095. | 10.1007/s40279-021-01490-1 | Weekly volume and multi-joint exercise priority; advanced methods can save time. |
+| 159 | Arazi H, Khoshnoud A, Asadi A, Tufano JJ. *The effect of resistance training set configuration on strength and muscular performance adaptations in male powerlifters.* Sci Rep, 2021;11:7844. | 10.1038/s41598-021-87372-y | Cluster vs traditional sets in powerlifters: similar 1RM, cluster better impulsive performance. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow

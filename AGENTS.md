@@ -244,6 +244,7 @@ never read `data/raw`.
 | `docs/VBT-REP-LEVEL.md` | post-hoc rep-level VBT: benefits, limitations and optional device-CSV capture |
 | `docs/REP-VELOCITY.md` | optional per-rep CSV contract, storage, analyses and limits |
 | `docs/REP-VELOCITY-EVIDENCE.md` | velocity-loss evidence; descriptive only, no RIR/injury prediction |
+| `docs/TOP-SET-BACKOFF-EVIDENCE.md` | top set/back-off review; no direct trial, no programme change |
 | `docs/MODULE-LAYOUT.md` | file layout and test strategy |
 | `docs/V0-SCOPE.md` | smallest end-to-end slice and its exclusions |
 | `docs/OPEN-QUESTIONS.md` | ranked design questions blocking the build |

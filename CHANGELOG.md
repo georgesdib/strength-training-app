@@ -4,6 +4,8 @@
 
 ### Added
 
+- Evidence review for top set + back-off sets: no direct trial against the current programme;
+  no change recommended.
 - Optional per-rep velocity CSV in Workout mode, joined to set-level rows by exercise + set;
   append-only rep detail, per-set first/last/loss display, a descriptive `/api/rep-velocity`
   session report and a stratified `/api/rep-velocity/analysis` report. Missing table leaves the
