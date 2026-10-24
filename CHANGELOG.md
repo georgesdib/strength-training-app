@@ -18,6 +18,11 @@
 - Evidence labels in the UI: e1RM estimate, readiness heuristic, configurable volume
   landmarks, ordinal spinal cap, weak deload evidence and heuristic minimum session.
 
+### Added
+
+- W5 read-only prospective review: `prospective` CLI, `/api/prospective` and Outcomes panel
+  with stable-lift status, attendance, work completion, RIR, duration and flags.
+
 ### Documented
 
 - W5 prospective evaluation protocol: stable-lift e1RM, attendance, planned-vs-completed,

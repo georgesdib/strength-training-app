@@ -41,6 +41,7 @@ from strength_coach.features import measurements as measurements_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import outcomes as outcomes_feature
+from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import readiness_feedback
 from strength_coach.features import heavy_spinal
 from strength_coach.features import injury_signal, readiness as readiness_feature
@@ -323,6 +324,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: readiness_feedback.report(c, weeks=weeks, on_date=day)
                 ))
+            elif path == "/api/prospective":
+                query = parse_qs(urlparse(self.path).query)
+                weeks = int(query.get("weeks", ["8"])[0])
+                day = query.get("date", [None])[0]
+                self._json(200, self._with_conn(
+                    lambda c: prospective_feature.report(c, weeks=weeks, on_date=day)
+                ))
             elif path == "/api/outcomes":
                 query = parse_qs(urlparse(self.path).query)
                 weeks = int(query.get("weeks", ["8"])[0])
@@ -396,6 +404,13 @@ class Handler(BaseHTTPRequestHandler):
                 day = query.get("date", [None])[0]
                 self._json(200, self._with_conn(
                     lambda c: readiness_feedback.report(c, weeks=weeks, on_date=day)
+                ))
+            elif path == "/api/prospective":
+                query = parse_qs(urlparse(self.path).query)
+                weeks = int(query.get("weeks", ["8"])[0])
+                day = query.get("date", [None])[0]
+                self._json(200, self._with_conn(
+                    lambda c: prospective_feature.report(c, weeks=weeks, on_date=day)
                 ))
             elif path == "/api/outcomes":
                 query = parse_qs(urlparse(self.path).query)

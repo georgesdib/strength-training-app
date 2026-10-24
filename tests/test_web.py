@@ -690,3 +690,12 @@ def test_minimum_session_prescription_is_explicit_and_volume_only(server):
     assert note["requested"] is True
     assert note["target_minutes"] == 30
     assert "MOD-MIN-001" in " ".join(data["warnings"])
+
+
+def test_prospective_endpoint_is_read_only(server):
+    status, body = get(server, "/api/prospective?weeks=4&date=2024-02-01")
+    assert status == 200
+    data = json.loads(body)
+    assert data["window"]["weeks"] == 4
+    assert "strength" in data and "flags" in data
+    assert data["note"].startswith("Descriptive only")

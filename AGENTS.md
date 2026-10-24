@@ -187,7 +187,7 @@ never read `data/raw`.
 |---|---|
 | `USER-GUIDE.md` | how to install, run and read the output (the human-facing entry point) |
 | `ROADMAP.md` | live phase status, next actions, resume checklist |
-| `docs/W5-PROSPECTIVE-EVALUATION.md` | W5 one-page prospective evaluation protocol; outcomes, missing-data and regression rules |
+| `docs/W5-PROSPECTIVE-EVALUATION.md` | W5 prospective protocol and implemented read-only summary |
 | `docs/W4-PROGRAMME-EVIDENCE.md` | W4 evidence classification and user-facing evidence labels |
 | `docs/LIMITATIONS-REGISTER.md` | living index of known limitations from all audits |
 | `docs/METHODOLOGY.md` | canonical versioned decision flow, limitations, never-do list and change control |

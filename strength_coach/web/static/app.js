@@ -299,6 +299,7 @@ async function loadOutcomes() {
       <tbody>${symptomRows || "<tr><td colspan='4' class='muted'>no symptom entries — unknown, not “no flare”</td></tr>"}</tbody></table>
       <p class="muted">${esc(data.note)}</p>`;
     await loadReadinessFeedback(weeks, day);
+    await loadProspective(weeks, day);
   } catch (error) {
     $("#outcomes-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
@@ -308,6 +309,42 @@ $("#outcomes-form").addEventListener("submit", (event) => {
   event.preventDefault();
   loadOutcomes();
 });
+
+async function loadProspective(weeks, day) {
+  const target = $("#prospective-result");
+  if (!target) return;
+  try {
+    const query = new URLSearchParams({ weeks });
+    if (day) query.set("date", day);
+    const data = await api("/api/prospective?" + query.toString());
+    const lifts = (data.strength?.lifts || []).map((lift) => `
+      <tr><td>${esc(lift.exercise_id)}</td><td>${esc(lift.status)}</td>
+      <td>${lift.baseline_median_e1rm ?? "—"} → ${lift.current_median_e1rm ?? "—"} kg</td>
+      <td>${lift.change_pct == null ? "—" : lift.change_pct + "%"}</td>
+      <td>${lift.baseline_n}/${lift.current_n}</td></tr>`).join("");
+    const flags = (data.flags || []).length
+      ? data.flags.map((flag) => `<li><strong>${esc(flag.code)}</strong> — ${esc(flag.detail)}</li>`).join("")
+      : "<li class='muted'>none</li>";
+    const attendance = data.attendance || {};
+    const work = data.work || {};
+    const rir = data.rir || {};
+    const duration = data.duration || {};
+    target.innerHTML = `
+      <p class="muted">${esc(data.window.current_from)} to ${esc(data.window.current_to)}
+        · baseline ${esc(data.window.baseline_from)} to ${esc(data.window.baseline_to)}</p>
+      <table><thead><tr><th>Lift</th><th>status</th><th>median e1RM</th><th>change</th><th>n base/current</th></tr></thead>
+      <tbody>${lifts || "<tr><td colspan='5' class='muted'>no stable-lift observations</td></tr>"}</tbody></table>
+      <p>Attendance: ${attendance.completed ?? "unknown"} / ${attendance.target ?? "unknown"}
+        (${attendance.pct ?? "unknown"}%). Work: ${esc(work.status || "unknown")}
+        (${work.actual_sets ?? "—"}/${work.planned_sets ?? "—"} sets).
+        RIR adherence: ${rir.adherence ?? "unknown"} (${rir.n ?? 0} sets).
+        Duration: ${duration.median_min ?? "unknown"} min (${duration.measured_n ?? 0} measured).</p>
+      <h3>Review flags</h3><ul class="list">${flags}</ul>
+      <p class="muted">${esc(data.note || "")}</p>`;
+  } catch (error) {
+    target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
 
 async function loadReadinessFeedback(weeks, day) {
   const target = $("#readiness-feedback-result");

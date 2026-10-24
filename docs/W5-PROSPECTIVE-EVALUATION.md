@@ -1,6 +1,6 @@
 # W5 — PROSPECTIVE EVALUATION PROTOCOL
 
-**Status:** protocol complete 2026-10-23. No dashboard, model or policy change.
+**Status:** protocol and read-only summary implemented 2026-10-23. No model or policy change.
 **Purpose:** define, before looking at the next block, what “is this working?” means.
 **Scope:** one athlete, observational, descriptive. No causal claim.
 
@@ -184,11 +184,23 @@ The protocol uses existing data and functions; no new table or model:
 | sRPE | `session_feedback.srpe` |
 | readiness coverage | `readiness_entry` / `readiness_day` |
 
-## 10. Exit criteria
+## 10. Implemented summary
+
+- CLI: `strength-coach prospective --weeks 4|8|12 [--date ...] [--json]`
+- API: `GET /api/prospective?weeks=8&date=...`
+- UI: **Outcomes → Prospective check**
+- The panel shows per-lift status, attendance, planned vs completed work, RIR adherence,
+  measured duration, review flags and coverage.
+- It reads only; it does not create a snapshot, model or prescription.
+
+The protocol has not yet been run for a new prospective block. This is the output definition
+and read-only summary, not evidence that the programme works.
+
+## 11. Exit criteria
 
 - The athlete can answer “is this working?” with a one-page descriptive review: **yes**.
 - Missing data is visibly unknown: **yes**.
 - No threshold is changed from a handful of observations: **yes**.
 - No new model or dashboard is introduced: **yes**.
 
-This is a protocol, not an evaluation result. No training policy changed.
+This is a protocol plus summary, not an evaluation result. No training policy changed.

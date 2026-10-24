@@ -46,6 +46,7 @@ from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import heavy_spinal
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import outcomes as outcomes_feature
+from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import readiness_feedback
 from strength_coach.features import prescription_provenance
 from strength_coach.features import injury_signal as injury_signal_mod
@@ -322,6 +323,11 @@ def main(argv: list[str] | None = None) -> int:
     outcomes.add_argument("--date", default=None)
     outcomes.add_argument("--json", action="store_true")
 
+    prospective = sub.add_parser("prospective", help="W5 read-only prospective review")
+    prospective.add_argument("--weeks", type=int, choices=(4, 8, 12), default=8)
+    prospective.add_argument("--date", default=None)
+    prospective.add_argument("--json", action="store_true")
+
     volume = sub.add_parser("volume", help="show weekly hard-set volume by movement pattern")
     volume.add_argument("--weeks", type=int, default=4)
     volume.add_argument("--date", default=None, help="as-of date (default: today)")
@@ -374,6 +380,7 @@ def main(argv: list[str] | None = None) -> int:
         "select": _cmd_select,
         "exposure": _cmd_exposure,
         "outcomes": _cmd_outcomes,
+        "prospective": _cmd_prospective,
         "validate": _cmd_validate,
         "workout": _cmd_workout,
         "exercise": _cmd_exercise,
@@ -1380,6 +1387,37 @@ def _cmd_outcomes(args) -> int:
         for key, value in report["coverage"].items():
             print(f"  {key}: {value}")
         print(f"\n{report['note']}")
+        return 0
+    finally:
+        store.close()
+
+
+def _cmd_prospective(args) -> int:
+    store = db.Store(args.db)
+    try:
+        report = prospective_feature.report(
+            store.connection, weeks=args.weeks, on_date=args.date
+        )
+        if args.json:
+            print(json.dumps(report, indent=2, default=str))
+            return 0
+        window = report["window"]
+        print(f"prospective: {window['current_from']} to {window['current_to']} "
+              f"({window['weeks']} weeks; baseline {window['baseline_from']} to "
+              f"{window['baseline_to']})")
+        for lift in report["strength"]["lifts"]:
+            print(f"  {lift['exercise_id']:<28} {lift['status']:<8}"
+                  f" change={lift['change_pct']}% n={lift['baseline_n']}/{lift['current_n']}")
+        attendance = report["attendance"]
+        print(f"  attendance: {attendance['completed']}/{attendance['target']} "
+              f"({attendance['pct']}%)")
+        print(f"  work: {report['work']['status']} ({report['work']['actual_sets']}/"
+              f"{report['work']['planned_sets']})")
+        print(f"  RIR: {report['rir']['adherence']} over {report['rir']['n']} sets")
+        print(f"  duration: {report['duration']['median_min']} min "
+              f"({report['duration']['measured_n']} measured)")
+        print(f"  flags: {', '.join(f['code'] for f in report['flags']) or 'none'}")
+        print(report["note"])
         return 0
     finally:
         store.close()

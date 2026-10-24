@@ -474,6 +474,17 @@ not bypass the readiness gate or the minimum-data rule. Context flags are displa
 readiness and do not change the score by default. The Readiness page exposes the same
 buttons and checkboxes.
 
+### 4.4e `prospective` — W5 review
+
+```bash
+strength-coach prospective --weeks 8
+strength-coach prospective --weeks 12 --json
+```
+
+Read-only 8/12-week check defined in `docs/W5-PROSPECTIVE-EVALUATION.md`: stable-lift
+e1RM status, attendance, planned-vs-completed work, RIR adherence, measured duration,
+symptoms, sRPE, coverage and review flags. No model or prescription effect.
+
 ### 4.4d `run --minimum-session`
 
 ```bash
