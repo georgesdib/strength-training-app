@@ -1264,24 +1264,26 @@ Tests: `.venv/bin/python -m pytest`, and the markers `-m golden` (locked numbers
 
 ## 10. Limits you should know
 
-- **Days A, B and C** are all prescribable. The erector ramp still needs a declared block
-  start (`block --date`); until then `PRG-EREC-001` is `unknown` on every day.
-- **No symptom input.** Back-symptom rules return `unknown` rather than assuming no flare.
+- **Four session types, not A/B/C.** Migration 0023 removed the legacy calendar. The types are
+  `squat`, `hinge`, `bench_squat` and `bench_hinge`. The erector ramp still needs a declared
+  block start (`block --date`); until then `PRG-EREC-001` is `unknown`.
+- **Symptoms are per region, not a clearance.** `low_back` has a pre-session 0–3 entry; other
+  regions are config. No entry means `unknown`, never “no flare.” The injury signal can prompt a
+  suitability review; it is not medical clearance.
 - **No imported timestamps.** Live workouts store measured duration and the rubric scores it;
   imported sessions remain unmeasurable. Manual review duration is still optional.
-- **VBT targets are not prescribed** (`DEC-VBT-01`): the calibration exists, the step from a
-  velocity band to "do this set at X" is not specified, so prescriptions carry no velocity
-  target and no calibration id.
+- **VBT targets are selective.** The calibration exists and targets are prescribed where the
+  data is trustworthy; the trap bar is withheld. Velocity is not used to auto-set RIR.
 - **The spinal cost is load-blind.** A light good-morning at RIR 3 counts the same as a heavy
-  one. Known gap, recorded in the roadmap.
-- **Loads are estimates.** e1RM uses Epley with the RIR folded in (`ASSUMPTION-03`); treat the
+  one. This is a known, accepted limitation, not a hidden model.
+- **Loads are estimates.** e1RM uses Epley with RIR folded in (`ASSUMPTION-03`); treat the
   number as a target, not a measurement.
-- **Calibration is thin.** One remembered session so far; the rubric is not tuned to it.
-- **One day at a time, and one input path.** The CLI has a rolling forecast (`programme`); the
-  web programme view is still planned. There is no
-  manual logging or alternative file formats. Those are scoped in
-  [ROADMAP.md](ROADMAP.md) §4 (v0.2), including how missing readiness will be reported rather
-  than assumed.
+- **Calibration has a label gate, not a tuned rubric.** There are 10 high-confidence reviewed
+  sessions and every rubric item is at n=10. Rotation remains the weak item; progression and
+  velocity loss are not comparable in the report. A rubric retune is a separate decision.
+- **One app, several input paths.** Live Workout mode, the dated training/readiness import, an
+  in-workout CSV and the optional per-rep CSV all exist. The web Programme view is implemented.
+  The app remains one local database per person; there is no hosted or multi-athlete service.
 
 ---
 
