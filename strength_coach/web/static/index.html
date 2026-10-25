@@ -243,11 +243,15 @@
         <div id="regime-result"><p class="empty">No regime check run.</p></div>
       </div>
       <div class="panel">
-        <div class="panel-head"><h2>Strength fatigue model</h2>
-          <span class="muted">shadow; no load effect</span></div>
-        <p class="muted">Per-lift and overall fitness/fatigue fit from your own e1RM observations;
-          approximate 95% intervals. It refuses sparse or ill-conditioned fits; nothing here changes
-          the prescription above.</p>
+        <div class="panel-head"><h2>Strength fatigue diagnostic</h2>
+          <span class="badge bad">rejected as predictor</span></div>
+        <div class="warnbox"><strong>Descriptive only.</strong> The Phase-1 diagnostic found the
+          rolling median beat the full model on SSB squat (MAE 9.39 vs 19.18) and bench press
+          (7.23 vs 15.01). Fitness-only and full were identical. Do not use this model as a forecast
+          or a load input; the table below is retained as diagnostic context.</div>
+        <p class="muted">Per-lift fitness/fatigue state from e1RM observations, with approximate
+          95% intervals. It refuses sparse or ill-conditioned fits. Nothing here changes the
+          prescription.</p>
         <div id="fatigue-model"></div>
       </div>
       <div class="panel">
@@ -269,8 +273,8 @@
         <div class="panel-head"><h2>Retrospective validation</h2>
           <span class="muted">walk-forward; no prescription change</span></div>
         <p class="muted">Replays past cutoffs using only earlier data. It checks continuity and the
-          strength fatigue model against simple baselines; volume is descriptive only and
-          selection has no counterfactual. Not prospective validation.</p>
+          fatigue diagnostic against simple baselines; the predictive fatigue model was rejected.
+          Volume is descriptive only and selection has no counterfactual. Not prospective validation.</p>
         <button class="ghost" id="validation-run">Run retrospective check</button>
         <div id="validation-result"></div>
       </div>

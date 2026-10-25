@@ -820,7 +820,8 @@ fallback (done); explicit apply toggle and re-solve (done).
 
 ### 4.16 Strength fitness-fatigue model  (v0.3; shadow only; retrospective rejected)
 
-**Status: shadow prototype implemented 2026-10-20; retrospective check failed 2026-10-20; Phase-1 diagnostic run 2026-10-25.** `features/fatigue_fitness.py` fits a
+**Status: closed 2026-10-25 — rejected as a predictor; descriptive only.** Prototype implemented
+2026-10-20; retrospective check failed 2026-10-20; Phase-1 diagnostic run 2026-10-25. `features/fatigue_fitness.py` fits a
 per-lift linear performance model from fixed fitness/fatigue half-lives and the athlete's own
 e1RM observations; it reports fitness, fatigue, state, R², condition and refuses sparse or
 ill-conditioned fits. It is exposed as `strength-coach fatigue` and on the Prescribe page.
@@ -844,9 +845,8 @@ partially pooled; intervals are mandatory. The model must state when it is not i
    approximate 95% intervals, family-slope shrinkage, and a chronological 80/20 backtest against
    a naive baseline; an **overall** relative-e1RM row pools lifts. No load change. **Still open:**
    a frozen-parameter prospective test on future sessions. **Retrospective walk-forward:** a small number of lift-session predictions; relative error was substantially worse than persistence (skill −112%), so the model lost and no load or adoption follows. Exact counts are private. **Phase-1 diagnostic:** rolling median beat persistence and the full model on SSB squat (MAE 9.39 vs 19.18) and bench (7.23 vs 15.01); fitness-only and full were identical, so the fatigue term added nothing. Keep descriptive only; do not freeze a prospective test for this form. Volume has no predictive model; selection has no counterfactual.
-3. **Prospective validation**: not started after the Phase-1 diagnostic; simplify/abandon the
-   current predictive form first. If a revised model beats the rolling-median baseline
-   retrospectively, freeze it and compare with fitness-only and readiness-only baselines.
+3. **Prospective validation**: **closed** — not started for this form. The Phase-1 diagnostic
+   showed the model loses to rolling median; no candidate is frozen.
 4. **Optional use**: only after validation, and only downward (extra caution), never to raise a
    load from an unvalidated model.
 

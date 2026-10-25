@@ -267,8 +267,10 @@ Grip strength was previously a readiness field; it has since been removed from r
 
 ## Q19. ~~Should a fatigue-fitness model drive strength loads?~~ **Answered: no load effect**
 
-**Answered 2026-10-20.** The model is shadow-only; the retrospective check lost to persistence
-(0.158 vs 0.074), so it does not drive loads. A future candidate must pass §4.20's gate.
+**Answered 2026-10-20; closed 2026-10-25.** The model is shadow-only. The retrospective check
+lost to persistence (0.158 vs 0.074), and the Phase-1 diagnostic found rolling median beat the
+full model on SSB squat (MAE 9.39 vs 19.18) and bench press (7.23 vs 15.01). No prospective
+period is started for this form; a future candidate must pass §4.20's gate.
 
 **Research note:** [`docs/FATIGUE-FITNESS.md`](FATIGUE-FITNESS.md).
 

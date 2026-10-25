@@ -40,8 +40,8 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 - **Prescribe** — date + session type (`auto` rolling, squat, hinge, bench+squat, bench+hinge); deterministic prescription, warnings and notes; every item cites
   rule ids and shows the e1RM source-set count where one exists. The page labels e1RM as an estimate, readiness as a bounded heuristic, MEV/MAV/MRV
   as configurable landmarks, the spinal cap as ordinal, and deload/minimum-session evidence
-  limits. A `recent stress` column, a `readiness` column, the **strength fatigue model**
-  panel (shadow: per-lift + overall fitness/fatigue/state with approximate 95% intervals,
+  limits. A `recent stress` column, a `readiness` column, the **strength fatigue diagnostic**
+  panel (predictive form rejected; per-lift + overall state is descriptive context with 95% intervals,
   R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only), the **per-rep velocity** panel (descriptive loss and associations; n ≥ 10 for correlations), the **continuity calibration** panel (per-band returns/fixed/applied and the
   `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings with A/B/C
   comparison classes and a display-only own-history e1RM ratio; optional LLM chooser). The session is chosen by the rolling emphasis rule;
@@ -117,7 +117,7 @@ also disables while saving and reports the number of marks written.
 | `POST /api/programme` | rolling forecast; returns dated entries and prescriptions |
 | `GET /api/cardio?weeks=N` | cardio summary for the window |
 | `POST /api/cardio` | `{date, modality, minutes, avg_hr, max_hr, distance_km, srpe, note}` -> summary |
-| `GET /api/fatigue?date=N` | strength fitness-fatigue shadow model (per-lift state and status) |
+| `GET /api/fatigue?date=N` | strength fitness-fatigue diagnostic (per-lift state and status; not a predictor) |
 | `GET /api/validation?max_dates=N` | retrospective walk-forward report (not prospective) |
 | `GET /api/continuity?date=N` | return-to-training calibration: per-band n/median/CI/fixed/applied and `allow_relax_fixed` |
 | `GET /api/volume?date=N&weeks=4` | weekly hard-set ledger by movement pattern (advisory) |
