@@ -12,6 +12,42 @@ captures the practical consequence through self-reported readiness.
 
 ---
 
+## Phase-1 diagnostic (2026-10-25)
+
+Run:
+
+```bash
+.venv/bin/python tools/fatigue_diagnostics.py
+```
+
+The diagnostic makes a chronological next-observation forecast per lift and compares:
+
+- persistence;
+- rolling 3-observation median;
+- local linear trend;
+- fitness-only;
+- full fitness-fatigue.
+
+Results on the current database:
+
+| lift | observations | forecasts | persistence MAE | rolling median MAE | full model MAE |
+|---|---:|---:|---:|---:|---:|
+| SSB squat | 39 | 33 | 10.912 | **9.385** | 19.175 |
+| bench press | 161 | 155 | 7.915 | **7.225** | 15.011 |
+| trap-bar deadlift | 4 | 0 | — | — | — |
+
+- The rolling median is the strongest simple baseline.
+- The full model is about twice the MAE of the rolling median.
+- Fitness-only and full are identical to the reported precision, so the fatigue term adds no measurable value in this diagnostic. Treat that as a finding about the current implementation, not proof that fatigue physiology is irrelevant.
+- Median absolute consecutive e1RM change is 11.7 kg for SSB squat and 6.6 kg for bench press; the model error is above that noise floor.
+- Trap-bar has too few observations for a forecast.
+
+**Outcome:** the full model is not a useful predictor on this dataset. Do not freeze a prospective
+test for it. Keep it descriptive only, or replace the forecast with the rolling median; the
+prescription remains deterministic and shadow-free.
+
+---
+
 ## 1. What the app does today
 
 | mechanism | what it does | what it does **not** do |

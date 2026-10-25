@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-24 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **684 public tests** (699 with the 15 private integration tests)
+Last updated: 2026-10-24 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **686 public tests** (701 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-24 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 699 locally, including private integration
+.venv/bin/python -m pytest            # 701 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -820,7 +820,7 @@ fallback (done); explicit apply toggle and re-solve (done).
 
 ### 4.16 Strength fitness-fatigue model  (v0.3; shadow only; retrospective rejected)
 
-**Status: shadow prototype implemented 2026-10-20; retrospective check failed 2026-10-20.** `features/fatigue_fitness.py` fits a
+**Status: shadow prototype implemented 2026-10-20; retrospective check failed 2026-10-20; Phase-1 diagnostic run 2026-10-25.** `features/fatigue_fitness.py` fits a
 per-lift linear performance model from fixed fitness/fatigue half-lives and the athlete's own
 e1RM observations; it reports fitness, fatigue, state, R², condition and refuses sparse or
 ill-conditioned fits. It is exposed as `strength-coach fatigue` and on the Prescribe page.
@@ -843,9 +843,10 @@ partially pooled; intervals are mandatory. The model must state when it is not i
 2. **Shadow fit — done for this phase**: fixed half-lives + linear fit on stored e1RM series,
    approximate 95% intervals, family-slope shrinkage, and a chronological 80/20 backtest against
    a naive baseline; an **overall** relative-e1RM row pools lifts. No load change. **Still open:**
-   a frozen-parameter prospective test on future sessions. **Retrospective walk-forward:** a small number of lift-session predictions; relative error was substantially worse than persistence (skill −112%), so the model lost and no load or adoption follows. Exact counts are private. Volume has no predictive model; selection has no counterfactual.
-3. **Prospective validation**: freeze parameters, predict held-out sessions, compare with a
-   fitness-only and a readiness-only baseline.
+   a frozen-parameter prospective test on future sessions. **Retrospective walk-forward:** a small number of lift-session predictions; relative error was substantially worse than persistence (skill −112%), so the model lost and no load or adoption follows. Exact counts are private. **Phase-1 diagnostic:** rolling median beat persistence and the full model on SSB squat (MAE 9.39 vs 19.18) and bench (7.23 vs 15.01); fitness-only and full were identical, so the fatigue term added nothing. Keep descriptive only; do not freeze a prospective test for this form. Volume has no predictive model; selection has no counterfactual.
+3. **Prospective validation**: not started after the Phase-1 diagnostic; simplify/abandon the
+   current predictive form first. If a revised model beats the rolling-median baseline
+   retrospectively, freeze it and compare with fitness-only and readiness-only baselines.
 4. **Optional use**: only after validation, and only downward (extra caution), never to raise a
    load from an unvalidated model.
 
