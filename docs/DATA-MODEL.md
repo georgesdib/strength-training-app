@@ -47,7 +47,7 @@ One row per *set*, not per exercise or session.
 | power_w | REAL | null |
 | rom_mm | REAL | null |
 | tut_s | REAL | null |
-| form_score | INTEGER | imported per-set Form: 1=best, 5=worst; 0/blank missing; backfilled to session ratings, not read directly by the rubric |
+| form_score | INTEGER | **retired** (migration 0034): historical per-set Form was backfilled to `session_form_rating`; source remains in `raw_row.payload` |
 | tonnage_kg | REAL | null when `load_basis != external` or `reps_unit = seconds` |
 | is_working_set | INTEGER | excludes warm-up ramps |
 | flags | TEXT | JSON list: `REPS_TYPO`, `LOAD_AMBIGUOUS`, `SECONDS_NOT_REPS`… |

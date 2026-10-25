@@ -2,6 +2,11 @@
 
 ## [0.3.1] — unreleased
 
+### Changed
+
+- Retired derived `clean_set.form_score` after the per-exercise backfill; source Form remains in
+  `raw_row.payload`. New `session_form_rating` is authoritative.
+
 ### Added
 
 - Backfilled historical imported Form ratings per exercise (average of valid sets, inverted
