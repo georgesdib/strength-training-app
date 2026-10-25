@@ -133,7 +133,7 @@ also disables while saving and reports the number of marks written.
 | `GET /api/readiness/calibrate` | calibration report text (no auto-apply) |
 | `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, injury signal |
 | `GET /api/exercises` | canonical exercise catalogue for the pickers |
-| `POST /api/programme` | `{weeks, remaining?, start?, sessions_per_week?, start_session_type?, use_llm?}` -> date entries; `use_llm` lets the model choose only among filtered exercise variants |
+| `POST /api/programme` | `{weeks, remaining?, start?, sessions_per_week?, start_session_type?, apply_selection?, selection_llm?, selection_confirmed?}` -> date entries; Apply selection mirrors `/api/prescribe`, and `selection_llm` lets the model choose only among filtered variants |
 | `GET /api/cardio?weeks=N` | cardio summary for the window |
 | `POST /api/cardio` | `{date, modality, minutes, avg_hr, max_hr, distance_km, srpe, note}` -> summary |
 | `GET /api/fatigue?date=N` | strength fitness-fatigue diagnostic (per-lift state and status; not a predictor) |

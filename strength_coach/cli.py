@@ -159,8 +159,12 @@ def main(argv: list[str] | None = None) -> int:
                            choices=("auto", "squat", "hinge", "bench_squat", "bench_hinge"),
                            default=None,
                            help="first session type; default: rolling")
-    programme.add_argument("--use-llm", action="store_true",
-                           help="let the configured model choose among filtered exercise variants")
+    programme.add_argument("--apply-selection", action="store_true",
+                           help="apply the shadow selector's exercise substitutions to each forecast")
+    programme.add_argument("--selection-llm", action="store_true",
+                           help="let the model choose among filtered candidates (requires --apply-selection)")
+    programme.add_argument("--selection-confirm", action="store_true",
+                           help="confirm a near-comparable (class B) substitution")
 
     e1rm = sub.add_parser("e1rm", help="set or list manual e1RM overrides")
     e1rm_sub = e1rm.add_subparsers(dest="action", required=True)
@@ -896,20 +900,27 @@ def _cmd_programme(args) -> int:
         elif start is None:
             profile = queries.athlete_profile(conn)
             start = (profile or {}).get("block_start_date") or datetime.date.today().isoformat()
+        if args.selection_llm and not args.apply_selection:
+            print("--selection-llm requires --apply-selection")
+            return 2
+        if args.selection_confirm and not args.apply_selection:
+            print("--selection-confirm requires --apply-selection")
+            return 2
         chooser = (
             agent_selection.chooser(build_client(load_settings()))
-            if args.use_llm else None
+            if args.selection_llm else None
         )
         entries = programme_feature.build_programme(
             conn, start=start, weeks=args.weeks,
             per_week=args.sessions_per_week,
             start_session_type=args.start_session_type,
-            apply_selection=args.use_llm, selection_chooser=chooser,
+            apply_selection=args.apply_selection, selection_chooser=chooser,
+            selection_confirmed=args.selection_confirm,
         )
         print(f"programme: {args.weeks} week(s) from {start}; forecast only, "
               "recomputed on the day")
-        if args.use_llm:
-            print("selection: LLM requested; it chooses only among Python-filtered variants")
+        if args.apply_selection:
+            print("selection: applied; A automatic, B requires confirmation, C never")
         print(f"{'date':<12}{'type':<14}{'status':<10}loads")
         for entry in entries:
             p = entry.prescription

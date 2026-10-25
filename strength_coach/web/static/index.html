@@ -502,10 +502,13 @@
               <option value="bench_hinge">Bench + hinge</option>
             </select>
           </label>
-          <label><input type="checkbox" id="programme-use-llm"> Use LLM</label>
+          <label><input type="checkbox" id="programme-apply-selection"> Apply selection</label>
+          <label id="programme-selection-confirm-wrap" hidden><input type="checkbox" id="programme-selection-confirm"> Confirm near-comparable (B)</label>
+          <label id="programme-selection-llm-wrap" hidden><input type="checkbox" id="programme-selection-llm"> Use LLM</label>
+          <p class="muted" id="programme-selection-note"><strong>Apply selection:</strong> reruns the per-slot ranking for every forecast session and substitutes only <strong>class A</strong> candidates automatically; <strong>class B</strong> requires <em>Confirm near-comparable</em>; <strong>class C</strong> is never applied. Each applied slot cites <code>MOD-SELECT-001</code> and its load is re-solved from that lift's own history.</p>
           <button class="primary" type="submit">Build forecast</button>
         </form>
-        <p class="muted">Rolling session-type forecast. Loads are projections, and every session is rebuilt when its day arrives. Nothing is persisted. <strong>Use LLM</strong> lets the configured model choose only among Python-filtered exercise variants; it never supplies a load, set or RIR.</p>
+        <p class="muted">Rolling session-type forecast. Loads are projections, and every session is rebuilt when its day arrives. Nothing is persisted. <strong>Use LLM</strong> (available after Apply selection) lets the configured model choose only among Python-filtered exercise variants; it never supplies a load, set or RIR.</p>
       </div>
       <div id="programme-result"></div>
     </section>

@@ -2082,7 +2082,10 @@ function renderProgramme(entries) {
       : "<span class='empty'>none</span>";
     return `<tr>
       <td>${esc(entry.date)}</td>
-      <td><strong>${esc(entry.session_type)}</strong></td>
+      <td><strong>${esc(entry.session_type)}</strong>
+        ${entry.prescription.notes?.selection?.requested
+          ? `<div class="muted">selection ${entry.prescription.notes.selection.applied ? "applied" : "preview"}${entry.prescription.notes.selection.llm_used ? " · LLM" : entry.prescription.notes.selection.llm_requested ? " · LLM fallback" : ""}</div>`
+          : ""}</td>
       <td>${esc(programmeStatus(entry))}</td>
       <td><ul class="plain">${items}</ul>
         ${entry.deload_reason ? `<p class="warnbox">deload applied: ${esc(entry.deload_reason)}</p>` : ""}
@@ -2095,14 +2098,29 @@ function renderProgramme(entries) {
     <tbody>${rows}</tbody></table></div>`;
 }
 
+function syncProgrammeSelection() {
+  const on = $("#programme-apply-selection").checked;
+  $("#programme-selection-llm-wrap").hidden = !on;
+  $("#programme-selection-confirm-wrap").hidden = !on;
+  if (!on) {
+    $("#programme-selection-llm").checked = false;
+    $("#programme-selection-confirm").checked = false;
+  }
+}
+$("#programme-apply-selection")?.addEventListener("change", syncProgrammeSelection);
+syncProgrammeSelection();
+
 async function runProgramme() {
+  const applySelection = $("#programme-apply-selection").checked;
   const payload = {
     weeks: Number($("#programme-weeks").value || 4),
     remaining: $("#programme-remaining").checked,
     start: $("#programme-start").value || null,
     sessions_per_week: Number($("#programme-per-week").value || 3),
     start_session_type: $("#programme-session-type").value || "auto",
-    use_llm: $("#programme-use-llm").checked,
+    apply_selection: applySelection,
+    selection_llm: applySelection && $("#programme-selection-llm").checked,
+    selection_confirmed: applySelection && $("#programme-selection-confirm").checked,
   };
   const button = $("#programme-form button[type='submit']");
   $("#programme-result").innerHTML = "<p class='empty'>Building forecast… each week is three prescriptions, so this takes a few seconds.</p>";
