@@ -78,24 +78,23 @@ against 80 planned / 90 hard; the earlier “unmeasured for both” text is supe
 
 ---
 
-## Q6. Readiness conflicts and new metrics — **merge + score implemented**
+## Q6. Readiness conflicts and new metrics — **merge closed; composite open**
 
 Two sub-questions:
-1. **Merge** — multiple readiness rows per date exist, and most are *conflicting* rather than
-   identical. Proposed rule: most-complete row, tie-break on latest. That assumes
-   completeness equals authority.
+1. **Merge — closed 2026-10-25.** The current most-complete-row merge, tie-broken to the
+   latest row, is accepted as-is. It remains `DEC-READINESS-01` / `ASSUMPTION-04`; no change.
 2. **New metrics** — a composite readiness score, HRV and RHR are planned. Each needs a
    declared scale, direction (does higher mean better?) and aggregation before it can enter
    the composite. Grip strength is a periodic measurement, not a readiness input
    (`DEC-GRIP-01`).
 
-**Blocks:** the readiness composite. The merge half no longer blocks anything.
+**Blocks:** the readiness composite. The merge point is closed.
 **Default:** most-complete-row merge with conflicts logged. `metric_definition` rows carry
 `scale_min`, `scale_max`, `higher_is_better` and `aggregation` for measurements, but they do
 not currently drive the readiness composite. Adding a readiness metric still needs code/config
 work; see `docs/DATA-MODEL.md` §11.4.
-**Status:** the merge default is implemented (`ingest/readiness.py`, `DEC-READINESS-01`);
-every date carries its `merge_note`. The global/category score, HRV/RHR baseline and wearable
+**Status:** the merge default is implemented (`ingest/readiness.py`, `DEC-READINESS-01`) and
+accepted; every date carries its `merge_note`. The global/category score, HRV/RHR baseline and wearable
 blend are implemented separately (`features/readiness_score.py`); `readiness_day.composite`
 still stays null by design. `ASSUMPTION-04`: completeness is treated as authority. The
 "new metric needs no code" claim is **not true for readiness**; it is true only for the
