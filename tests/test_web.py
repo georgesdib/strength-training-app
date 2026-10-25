@@ -106,6 +106,7 @@ def test_the_page_and_overview_are_served(server):
     assert page.index('id="workout-active-panel"') < page.index('id="workout-ended-panel"')
     assert 'data-workflow-step="post"' in page
     assert 'id="readiness-form"' in page and 'id="prescribe-form"' in page
+    assert 'id="workflow-ack"' in page and 'id="workout-start-ack"' in page
     assert "Exercise details" in page  # dialog remains a P2 subsection
     # CLI/UI parity: the recent capture surfaces are reachable from the shell.
     assert "Cardio" in page and "Measures" in page
@@ -285,6 +286,28 @@ def test_prescribe_requires_readiness_for_today(server):
     with pytest.raises(urllib.error.HTTPError) as excinfo:
         post(server, "/api/prescribe", {"date": today, "session_type": "squat"})
     assert excinfo.value.code == 409
+
+
+def test_prescribe_can_proceed_with_acknowledged_unknown_readiness(server):
+    today = date.today().isoformat()
+    data = post(server, "/api/prescribe", {
+        "date": today, "session_type": "squat", "allow_unknown_readiness": True,
+    })
+    assert data["items"]
+    assert any("readiness" in warning.lower() for warning in data["warnings"])
+
+
+def test_start_accepts_acknowledged_partial_readiness(server):
+    today = date.today().isoformat()
+    plan = post(server, "/api/prescribe", {
+        "date": today, "session_type": "squat", "allow_unknown_readiness": True,
+    })
+    data = post(server, "/api/workout/start", {
+        "date": today, "plan": plan, "readiness": {"sleep": 2},
+        "readiness_ack": True,
+    })
+    assert data["workout"]["status"] == "in_progress"
+    assert data["workout"]["readiness"] == {"sleep": 2.0}
 
 
 def test_legacy_readiness_field_is_not_an_input(server):

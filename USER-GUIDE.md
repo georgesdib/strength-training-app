@@ -743,8 +743,9 @@ Readiness is not part of it. The regions and the lifts that load them are config
 The local UI has a **Workout** tab. Build a prescription on **Prescribe**, then choose
 **Start workout**.
 
-- The seven self-report readiness fields are required; HRV, resting HR, bodyweight, body-fat
-  and wearable score are optional.
+- Start when the readiness score is ready, or explicitly acknowledge an unknown/partial
+  score. The score needs at least three core fields plus sleep or energy; missing fields stay
+  unknown and no score-based load modifier is applied. Device fields are optional.
 - If readiness changed after the prescription was built, the UI asks before starting with the
   old plan; cancel and rebuild if you want a new prescription.
 - The prescription snapshot is frozen. Manual sets are added against it; remove a set with the

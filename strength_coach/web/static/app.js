@@ -666,6 +666,7 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
   const applySelection = $("#prescribe-apply-selection").checked;
   const selectionLlm = applySelection && $("#prescribe-selection-llm").checked;
   const selectionConfirmed = applySelection && $("#prescribe-selection-confirm").checked;
+  const scoreReady = window.__workflowReadinessData?.score?.status === "ready";
   lastPrescribePayload = {
     date, session_type: sessionType,
     apply_selection: applySelection, selection_llm: selectionLlm,
@@ -673,6 +674,7 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
     minimum_session: $("#prescribe-minimum").checked,
     target_minutes: Number($("#prescribe-target").value),
     minimum_include_main: $("#prescribe-minimum-main").checked,
+    allow_unknown_readiness: !scoreReady && Boolean(window.__workflowAllowUnknown),
   };
   try {
     const data = await api("/api/prescribe", { method: "POST", body: JSON.stringify(lastPrescribePayload) });
@@ -770,7 +772,7 @@ function renderPrescription(p) {
       ${p.executable
         ? '<button class="primary" type="button" onclick="openWorkoutStart()">Start workout</button>'
         : '<button class="primary" type="button" disabled>Start workout</button>'}
-      <span class="muted">${p.executable ? "Freezes this plan and opens the readiness form." : "Fix the warnings above before starting."}</span>
+      <span class="muted">${p.executable ? "Freezes this plan and opens the start form." : "Fix the warnings above before starting."}</span>
     </div>
     <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>e1RM n</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table>
@@ -1018,30 +1020,44 @@ function updateWorkflowStep() {
 }
 
 function setWorkflowReadiness(data) {
-  const complete = Boolean(data) && data.known !== false &&
-    WORKFLOW_REQUIRED.every((field) => data[field] != null);
+  window.__workflowReadinessData = data || null;
+  const scored = Boolean(data?.score?.status === "ready");
+  const allowed = scored || Boolean(window.__workflowAllowUnknown);
   const preview = $("#workflow-preview");
   const lock = $("#workflow-lock");
   const content = $("#workflow-preview-content");
   if (!preview || !lock || !content) return;
-  preview.classList.toggle("locked", !complete);
-  lock.hidden = complete;
-  content.hidden = !complete;
+  preview.classList.toggle("locked", !allowed);
+  lock.hidden = allowed;
+  content.hidden = !allowed;
+  const ack = $("#workflow-ack");
+  if (ack) ack.hidden = scored;
+  const unknown = $("#workflow-unknown-note");
+  if (unknown) unknown.hidden = !(allowed && !scored);
   const empty = $("#workout-empty");
   if (empty) {
     const active = $("#workout-active-panel");
     const start = $("#workout-start-panel");
     if (!(active && !active.hidden) && !(start && !start.hidden)) {
-      empty.hidden = complete;
+      empty.hidden = allowed;
     }
   }
   updateWorkflowStep();
 }
 
+$("#workflow-ack")?.addEventListener("click", () => {
+  window.__workflowAllowUnknown = true;
+  setWorkflowReadiness(window.__workflowReadinessData);
+  notify("Building without a readiness score; no score-based load modifier will apply.");
+});
+
 $("#readiness-date").value = today();
 $("#readiness-fields").innerHTML = SCORE_FIELDS.map((f) => fieldInput(f)).join("");
 $("#readiness-device").innerHTML = DEVICE_FIELDS.map((f) => fieldInput(f, true)).join("");
-$("#readiness-date").addEventListener("change", () => loadReadiness($("#readiness-date").value));
+$("#readiness-date").addEventListener("change", () => {
+  window.__workflowAllowUnknown = false;
+  loadReadiness($("#readiness-date").value);
+});
 
 async function loadReadiness(date) {
   if (!date) return;

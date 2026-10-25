@@ -684,10 +684,19 @@ class Handler(BaseHTTPRequestHandler):
         readiness = body.get("readiness")
         if not isinstance(readiness, dict):
             raise ValueError("readiness must be an object")
-        clean = workout.validate_readiness(readiness)
+        acknowledge = _truth(body.get("readiness_ack"))
+        # Validate ranges first, then persist what was actually supplied so the score reflects
+        # this form rather than only yesterday’s stored row. Missing fields stay missing.
+        clean = workout.validate_readiness(readiness, allow_partial=True)
         readiness_feature.record_manual(
             conn, for_date, clean, note=body.get("readiness_note") or None
         )
+        assessment = readiness_score.compute(conn, for_date)
+        if assessment.status != "ready" and not acknowledge:
+            raise ValueError(
+                "readiness score unavailable; acknowledge starting without a score"
+            )
+        allow_partial = acknowledge or assessment.status == "ready"
         # Persist the committed plan and start the workout in one transaction. A failed start
         # (including an already-active workout) leaves no orphan prescription.
         conn.execute("BEGIN IMMEDIATE")
@@ -701,6 +710,7 @@ class Handler(BaseHTTPRequestHandler):
                 session_type=(plan or {}).get("session_type") if isinstance(plan, dict) else None,
                 prescription_id=prescription_id,
                 note=body.get("note") or None,
+                allow_partial_readiness=allow_partial,
             )
             conn.execute("COMMIT")
         except Exception:
@@ -819,12 +829,13 @@ class Handler(BaseHTTPRequestHandler):
             schedule_mod.next_session_type(conn, for_date)
             if requested_type in (None, "", "auto") else str(requested_type)
         )
+        allow_unknown = _truth(body.get("allow_unknown_readiness"))
         if for_date >= datetime.date.today().isoformat():
             assessment = readiness_score.compute(conn, for_date)
-            if assessment.status != "ready":
+            if assessment.status != "ready" and not allow_unknown:
                 raise ReadinessRequired(
                     f"readiness required for {for_date}: {assessment.status} — "
-                    f"{assessment.basis}"
+                    f"{assessment.basis}; acknowledge an unknown/partial score to proceed"
                 )
         apply_selection = _truth(body.get("apply_selection"))
         selection_confirmed = _truth(body.get("selection_confirmed")) and apply_selection

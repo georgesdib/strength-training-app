@@ -299,7 +299,7 @@
         </ol>
       </div>
       <div class="workflow-step-block" id="workflow-readiness">
-        <div class="workflow-step-head"><span class="step-number">1</span><div><h2>Readiness</h2><p class="muted">Complete the seven self-report fields to unlock the preview.</p></div></div>
+        <div class="workflow-step-head"><span class="step-number">1</span><div><h2>Readiness</h2><p class="muted">Score-ready unlocks the preview; an unknown/partial score needs explicit acknowledgement.</p></div></div>
         <div class="panel">
         <div class="panel-head"><h2>Log readiness</h2></div>
         <p class="section-help"><span>Records daily readiness; any subset is valid and manual values win per field.</span> <a class="doc-link" href="#docs?doc=docs/READINESS.md">Readiness</a></p>
@@ -324,7 +324,12 @@
       </div>
       <div class="workflow-step-block locked" id="workflow-preview">
         <div class="workflow-step-head"><span class="step-number">2</span><div><h2>Preview and configure</h2><p class="muted">Build the deterministic plan, inspect warnings, then start it.</p></div></div>
-        <div id="workflow-lock" class="workflow-lock">Complete readiness above to unlock the prescription preview.</div>
+        <div id="workflow-lock" class="workflow-lock">
+          <p>Complete readiness above to unlock the prescription preview.</p>
+          <button class="ghost" type="button" id="workflow-ack">Build without a readiness score</button>
+          <p class="muted" id="workflow-ack-note" hidden>No score-based load modifier will be applied; missing fields stay unknown.</p>
+        </div>
+        <p class="warnbox" id="workflow-unknown-note" hidden>Readiness score unavailable. Building with partial/unknown readiness; no score-based load modifier will be applied.</p>
         <div id="workflow-preview-content" hidden>
 <div class="panel">
         <div class="panel-head"><h2>Prescribe a session</h2></div>
@@ -376,11 +381,11 @@
 
       <div class="panel" id="workout-start-panel" hidden>
         <div class="panel-head"><h2>Start workout</h2><span class="muted" id="workout-start-summary"></span></div>
-        <p class="section-help"><span>Requires the seven readiness fields; device fields remain optional.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
-        <p class="muted">The seven self-report readiness fields are required. Device fields are optional.
-          Values are prefilled from today's readiness where available.</p>
+        <p class="section-help"><span>Start with a scored readiness picture, or explicitly acknowledge an unknown/partial one.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
+        <p class="muted">Any subset is valid. Missing fields stay unknown; no readiness score or score-based load modifier is applied unless the minimum data exists.</p>
         <form id="workout-start-form">
           <div id="workout-readiness-required" class="grid-fields"></div>
+          <label id="workout-start-ack-wrap" hidden><input type="checkbox" id="workout-start-ack"> Start without a complete readiness score</label>
           <div class="panel-head" style="margin-top:1rem"><h3>Optional device data</h3></div>
         <p class="section-help"><span>Optional wearable fields are stored alongside the required readiness fields, not instead of them.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md&amp;anchor=4-10i-workout-mode-start-log-end">Workout guide</a></p>
           <div id="workout-readiness-optional" class="grid-fields"></div>

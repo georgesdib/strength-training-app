@@ -41,12 +41,20 @@ def _parse(value: str | None) -> dt.datetime | None:
     return parsed
 
 
-def validate_readiness(values: Mapping[str, Any]) -> dict[str, float]:
-    """The seven self-report fields are required; device fields stay optional."""
+def validate_readiness(values: Mapping[str, Any], *,
+                       allow_partial: bool = False) -> dict[str, float]:
+    """Validate supplied readiness fields; the seven are required only by default.
+
+    ``allow_partial`` is the explicit "start without a complete score" path. Missing fields
+    stay absent, never invented, and the caller must have acknowledged that no readiness
+    score will be applied.
+    """
     clean: dict[str, float] = {}
     for key in REQUIRED_READINESS:
         value = values.get(key)
         if value in (None, ""):
+            if allow_partial:
+                continue
             raise ValueError(f"readiness.{key} is required")
         number = float(value)
         if not 1 <= number <= 5:
@@ -77,12 +85,15 @@ def start(
     session_type: str | None = None,
     prescription_id: str | None = None,
     note: str | None = None,
+    allow_partial_readiness: bool = False,
 ) -> dict:
     active = active_workout(conn)
     if active is not None:
         raise ValueError("a workout is already in progress; end or abandon it first")
     plan_data = _plan(plan)
-    readiness_data = validate_readiness(readiness)
+    readiness_data = validate_readiness(
+        readiness, allow_partial=allow_partial_readiness
+    )
     resolved_type = str(session_type or plan_data.get("session_type") or "")
     if resolved_type not in {"squat", "hinge", "bench_squat", "bench_hinge"}:
         raise ValueError("plan.session_type must be squat, hinge, bench_squat or bench_hinge")

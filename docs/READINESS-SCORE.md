@@ -490,6 +490,8 @@ Decided:
 - **Per-lift mapping accepted**: squat → `squat`/`squat_unilateral`, bench →
   `horizontal_push`/`horizontal_push_bw`, deadlift → `hinge`; unmapped lifts inherit global.
 - **Minimum data**: three core subjective fields, with sleep or energy for a load effect.
+  The guided workflow may proceed with an explicit unknown/partial acknowledgement; it then
+  applies no score-based modifier and stores missing fields as unknown, not guessed.
 - **Grip is capacity only**, never a daily score input.
 - **Injury attention is per movement/muscle category**, not only per region; display only.
 - **The three old per-lift fields are black-box labels**, kept read-only for calibration and

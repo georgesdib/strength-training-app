@@ -39,6 +39,16 @@ def test_start_requires_all_seven_readiness_fields(conn):
     assert workout.active_workout(conn) is None
 
 
+def test_start_accepts_explicitly_acknowledged_partial_readiness(conn):
+    clean = workout.validate_readiness({"sleep": 2}, allow_partial=True)
+    started = workout.start(
+        conn, for_date="2024-01-01", plan=PLAN, readiness=clean,
+        allow_partial_readiness=True,
+    )
+    assert started["readiness"] == {"sleep": 2.0}
+    assert workout.active_workout(conn)["workout_id"] == started["workout_id"]
+
+
 def test_start_add_remove_and_end(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
     assert started["status"] == "in_progress"

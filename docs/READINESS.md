@@ -41,6 +41,11 @@ calibration labels; they are not accepted as manual input (`DEC-READINESS-06`). 
 readings are appended to `readiness_entry`, never written into `readiness_day`, so a
 correction preserves the earlier value.
 
+The guided workflow unlocks the preview when the score is **ready** (three core fields plus
+sleep or energy). With a partial or unknown score, the athlete must explicitly acknowledge
+that no readiness score will be applied; missing fields stay absent, and no score-based load
+modifier is used. The same acknowledgement is required to start a workout without a score.
+
 ## 2. Missing values: the sentinel policy
 
 The export uses `0` for "not measured" in several columns, and a physical zero is impossible

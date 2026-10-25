@@ -144,7 +144,7 @@ Build a **descriptive** report only:
 
 ### Per session
 - mean loss by exercise;
-- sRPE and readiness (mean of the seven self-report fields, or unknown);
+- sRPE and readiness (mean of the available self-report fields, or unknown);
 - pre-session symptom level;
 - next same-exercise session performance within 14 days, as an e1RM change.
 
