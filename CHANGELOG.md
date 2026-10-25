@@ -35,6 +35,7 @@
 
 ### Fixed
 
+- Dynamic form-follow-up docs links used bare filenames; both now use `docs/...`, and the P4 checker scans JavaScript-generated docs links and requires their `Related` footer.
 - Added a partial index on `clean_set(supersedes_id)`; the append-only leaf lookup was
   O(n²) and made Today, Review, rubric calibration and Athlete-state requests slow after
   history growth.

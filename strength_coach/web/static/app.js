@@ -179,8 +179,8 @@ function renderFormFollowup(formEval) {
       was near zero. Historical backfilled ratings are not counted. At the due date, the threshold
       decides whether to analyse, extend, or report insufficient data; it never changes a load.</p>
     <p class="muted">Details:
-      <a href="#docs?doc=FORM-PROSPECTIVE.md">prospective protocol</a> ·
-      <a href="#docs?doc=FORM-USE-EVIDENCE.md">evidence and allowed uses</a> ·
+      <a href="#docs?doc=docs/FORM-PROSPECTIVE.md">prospective protocol</a> ·
+      <a href="#docs?doc=docs/FORM-USE-EVIDENCE.md">evidence and allowed uses</a> ·
       <a href="#outcomes" data-view-link="outcomes">Outcomes → Form trend</a>.</p>`;
 }
 

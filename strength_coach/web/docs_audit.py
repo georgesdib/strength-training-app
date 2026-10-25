@@ -92,6 +92,25 @@ def audit(root: Path | None = None) -> list[Finding]:
                 findings.append(Finding("bad-anchor", where, f"{path.name}#{anchor} missing"))
         docs.add(path)
 
+    # Dynamic strings in JS also emit docs routes; the static HTML scan alone missed one.
+    static = root / "strength_coach/web/static"
+    for script in sorted(static.glob("*.js")):
+        for name in re.findall(r"#docs\?doc=([^\"&]+)", script.read_text(encoding="utf-8")):
+            if "{" in name or "}" in name:
+                continue
+            path, anchor, error = _doc_target(root, "#docs?doc=" + name)
+            if error:
+                findings.append(Finding("bad-js-doc-link", str(script), error))
+                continue
+            assert path is not None
+            if anchor:
+                rendered = markdown.render(path.read_text(encoding="utf-8"),
+                                           docs_root=root, base_dir=path.parent)
+                if f'id="{anchor}"' not in rendered:
+                    findings.append(Finding("bad-js-anchor", str(script),
+                                            f"{path.name}#{anchor} missing"))
+            docs.add(path)
+
     for path in sorted(docs):
         page = path.read_text(encoding="utf-8")
         if "## Related" not in page:

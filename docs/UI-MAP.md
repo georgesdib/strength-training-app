@@ -107,7 +107,8 @@ implementation or parity document.
 - [x] P1: every view-level `h2` panel has the pattern (49 panels).
 - [x] P2: every nested `h3` and the exercise-details dialog has the pattern, with verified anchors.
 - [x] P3: every UI-linked doc has a Related block.
-- [x] P4: `tools/check_ui_docs.py` and `tests/test_ui_docs.py` enforce the contract.
+- [x] P4: `tools/check_ui_docs.py` and `tests/test_ui_docs.py` enforce the contract,
+  including docs links generated inside `app.js`.
 
 ## Related
 

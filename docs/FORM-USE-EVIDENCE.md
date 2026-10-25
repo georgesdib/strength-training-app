@@ -105,3 +105,11 @@ No load, set, selection or e1RM filtering change.
 
 Full bibliography: [`REFERENCES.md`](REFERENCES.md). This note uses references 163–164 plus
 the existing RIR/velocity references 143–149.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)
