@@ -391,6 +391,8 @@ strength-coach review --session 2026-10-15 --scores private/eval/labelled.yaml
 
 The **Settings** page configures the optional model and browser-only defaults.
 
+- **Appearance** — choose System, Light or Dark. System follows the operating system; the
+  choice is stored in this browser and does not affect training data.
 - **Language model** — enable/disable narration and selection, set model, endpoint, temperature,
   max tokens and timeout; the API key is write-only and masked after saving. Settings live in
   the git-ignored `config/llm.local.toml`; environment variables override the file.

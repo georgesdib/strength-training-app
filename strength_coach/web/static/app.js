@@ -1946,6 +1946,41 @@ $("#terminal-command").addEventListener("keydown", (event) => {
 /* --- settings ----------------------------------------------------------- */
 const SETTINGS_TARGET_KEY = "strength-coach.minimumTarget";
 const SETTINGS_CLASS_C_KEY = "strength-coach.showClassC";
+const SETTINGS_THEME_KEY = "strength-coach.theme";
+
+function storedThemeMode() {
+  const mode = localStorage.getItem(SETTINGS_THEME_KEY) || "system";
+  return ["system", "light", "dark"].includes(mode) ? mode : "system";
+}
+
+function resolvedTheme(mode) {
+  if (mode === "system") {
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark" : "light";
+  }
+  return mode;
+}
+
+function applyTheme(mode) {
+  const resolved = resolvedTheme(mode);
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.style.colorScheme = resolved;
+  const select = $("#settings-theme");
+  if (select) select.value = mode;
+}
+
+function setTheme(mode) {
+  localStorage.setItem(SETTINGS_THEME_KEY, mode);
+  applyTheme(mode);
+  notify("Theme set to " + mode + ".");
+}
+
+if (window.matchMedia) {
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  const onChange = () => { if (storedThemeMode() === "system") applyTheme("system"); };
+  if (media.addEventListener) media.addEventListener("change", onChange);
+  else if (media.addListener) media.addListener(onChange);
+}
 
 function storedUiDefaults() {
   const target = localStorage.getItem(SETTINGS_TARGET_KEY) || "45";
@@ -1998,6 +2033,7 @@ function renderSettings(data) {
   $("#settings-database").textContent = data.database || "—";
   $("#settings-config-path").textContent = data.llm_config_path || "—";
   applyStoredUiDefaults();
+  applyTheme(storedThemeMode());
   syncLlmFields();
 }
 
@@ -2047,6 +2083,10 @@ $("#settings-llm-test").addEventListener("click", async () => {
     $("#settings-llm-msg").textContent = "Test failed: " + error.message;
   }
 });
+$("#settings-theme").addEventListener("change", () => {
+  setTheme($("#settings-theme").value);
+});
+
 $("#settings-defaults-save").addEventListener("click", () => {
   const target = $("#settings-default-target").value;
   localStorage.setItem(SETTINGS_TARGET_KEY, target);
@@ -2057,6 +2097,7 @@ $("#settings-defaults-save").addEventListener("click", () => {
 });
 
 /* --- boot --------------------------------------------------------------- */
+applyTheme(storedThemeMode());
 applyStoredUiDefaults();
 fillSessionSelect();
 loadExercises();

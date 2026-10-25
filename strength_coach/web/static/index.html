@@ -4,6 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Strength Coach</title>
+  <script>
+    (function () {
+      try {
+        var mode = localStorage.getItem("strength-coach.theme") || "system";
+        var dark = mode === "dark" || (mode !== "light" &&
+          window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      } catch (error) { /* theme is optional */ }
+    })();
+  </script>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -618,6 +628,18 @@
     </section>
 
     <section id="view-settings" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Appearance</h2><span class="muted">this browser</span></div>
+        <label>Theme
+          <select id="settings-theme">
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+        <p class="muted">System follows your operating system. The choice is stored in this browser
+          and has no effect on training data.</p>
+      </div>
       <div class="panel">
         <div class="panel-head"><h2>Language model</h2>
           <span class="badge" id="settings-llm-status">loading…</span></div>

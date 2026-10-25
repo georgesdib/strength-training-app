@@ -70,7 +70,7 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
   excludes 1.0).
 - **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
   same-category substitute rises; a review question, never an action.
-- **Settings** — optional LLM configuration (enable/disable, model, endpoint, write-only key,
+- **Settings** — appearance (System / Light / Dark), optional LLM configuration (enable/disable, model, endpoint, write-only key,
   temperature/tokens/timeout), browser-only Prescribe defaults, and read-only app/database paths.
   The key is masked and lives in git-ignored `config/llm.local.toml`.
 - **Terminal** — restricted `strength-coach` command runner bound to the UI database.
