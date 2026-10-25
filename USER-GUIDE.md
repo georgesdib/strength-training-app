@@ -70,7 +70,7 @@ strength-coach web --port 8001
 ```
 
 It binds to **127.0.0.1 only** and has **no authentication**; do not expose it on a network.
-The pages are Today, Outcomes, Prescribe, Workout, Programme, Review, Readiness, Cardio, Measures, Import, Exercises, Athlete, Settings, Terminal and Docs. Every load, RIR, warning
+The pages are Today, Workflow, History, Outcomes, Longevity, Prescribe, Programme, Review, Readiness, Cardio, Measures, Import, Exercises, Athlete, Settings, Terminal and Docs. Every load, RIR, warning
 and calibration number still comes from Python — the browser only displays and submits forms.
 Docs are rendered locally, so the UI works offline. **Import** accepts the training and
 readiness CSVs in the browser; the files are parsed in memory and stored in SQLite, not written
@@ -109,13 +109,13 @@ Think in four layers, not one big loop:
 | layer | how often | where |
 |---|---|---|
 | **state** — goals, constraints, suitability, e1RM, block | once, then when life changes | Athlete page / `state` |
-| **readiness** — sleep, energy, soreness, HRV/RHR, optional wearable | before each session | Readiness page / `readiness set` |
-| **training** — prescribe, perform, import | each session | Prescribe / Import |
+| **readiness** — sleep, energy, soreness, HRV/RHR, optional wearable | before each session | Workflow → Readiness / `readiness set` |
+| **training** — preview, start, perform, import | each session | Workflow → Preview / Workout / Import |
 | **review + calibration** — marks, reports, adjustments | after sessions, weekly | Review / Calibrate |
 
-The important rule: **readiness comes first, then the prescription.** A current or future
-workout is refused until readiness is ready enough; that is deliberate, because the readiness
-score changes the load and may trigger a deload.
+The important rule: **readiness comes first, then the prescription.** A score-ready assessment
+unlocks the preview. With partial or unknown readiness you must explicitly acknowledge that no
+score will be applied; missing fields are stored as unknown, not invented.
 
 #### First-time setup
 
@@ -140,16 +140,16 @@ score changes the load and may trigger a deload.
      --sleep 4 --energy 4 --mood 4 --soreness 4 --stress 4
    ```
    Device fields and the optional wearable score can be added in the same command or on the
-   Readiness page. Any subset is valid, but a score needs at least three core fields plus sleep
+   Workflow → Readiness. Any subset is valid, but a score needs at least three core fields plus sleep
    or energy.
-2. **Check the readiness result.** The page/CLI shows the score, components, overrides, injury
-   ceiling and whether a baseline was available. Do not use the old squat/bench/deadlift
+2. **Check the readiness result.** The Workflow/CLI shows the score, components, overrides,
+   injury ceiling and whether a baseline was available. Do not use the old squat/bench/deadlift
    readiness fields; they are labels, not inputs.
 3. **Prescribe the session**:
    ```bash
    strength-coach run --date 2026-10-20 --session-type auto
    ```
-   Or use the Prescribe page. Check the warnings, rule citations, load sources and any
+   Or use the **Workflow → Preview** form. Check the warnings, rule citations, load sources and any
    constraints; a hard constraint or injury ceiling wins over the score. Poor readiness also
    removes one accessory set (main-lift volume is unchanged) in addition to the load/RIR cut.
 4. **Optional:** print the rolling horizon with `strength-coach programme --weeks 4 --remaining`
@@ -158,9 +158,9 @@ score changes the load and may trigger a deload.
 
 #### After the workout
 
-1. **Update the export and import it** (or use the Import page). A new cumulative export is
-   overlap-matched against stored rows, so old history is not duplicated. A genuinely changed
-   row is new, not silently merged.
+1. **End the live workout** in Workflow. If you used an external log instead, update and import
+   it (Import page); a cumulative export is overlap-matched against stored rows, so old history
+   is not duplicated. A genuinely changed row is new, not silently merged.
 2. **Review the session while it is fresh**:
    ```bash
    strength-coach review --session 2026-10-20
@@ -203,8 +203,9 @@ import  →  state (once)  →  readiness  →  prescribe  →  perform
 |---|---|---|
 | import | `import` | Import |
 | athlete state | `state`, `block`, `e1rm`, `test` | Athlete |
-| readiness | `readiness set` | Readiness |
-| prescription | `run --date ... --session-type auto` | Prescribe |
+| readiness | `readiness set` | Workflow → Readiness |
+| prescription | `run --date ... --session-type auto` | Workflow → Preview |
+| workout | `workout status/add/update/remove/end/import` | Workflow → Workout |
 | programme | `programme --weeks N [--start-session-type T]` | Programme |
 | review | `review --session ...` | Review |
 | rubric report | `calibrate` | Review → Run rubric calibration |
@@ -266,10 +267,12 @@ same cadence.
 | readiness calibration | the readiness score vs the old readiness labels | `strength-coach readiness calibrate` / Readiness page |
 
 Neither retunes anything automatically. A rubric change is a separate decision (`DEC-EVAL-03`);
-the report flags an item for review after five marks and is used to decide, not to auto-adjust.
+the report flags an item for review after ten high-confidence marks and is used to decide, not to
+auto-adjust.
 
 First import also needs the one-time setup in §3.1: athlete state, block start, and a readiness
-entry before a current or future prescription.
+entry before a current or future prescription. A score-ready entry or an explicit unknown/partial
+acknowledgement is sufficient.
 
 ### 4.1 `run` — critique the last session, prescribe a date
 
@@ -293,7 +296,7 @@ prescription 2026-10-20  (hinge, full)
   lateral_raise               3   10-12       25.0    2  PRG-DP-001, set:2025-11-10/6565
   split_squat                 3    8-10       50.0    2  PRG-DP-001, set:example
   note: bench_main: chose bench_press_narrow from [...]
-  note: PRG-EREC-001 not assessable: missing symptom.flare, block.week_index
+  note: PRG-EREC-001 not assessable: missing block.week_index
 
 critique 2026-10-15: composite 0.88
   RIR_ADHERENCE             0.75   3/4 rated sets inside the effort window
@@ -370,8 +373,7 @@ strength-coach review --pending --limit 3
 
 `run` prints how many sessions are unreviewed and points at this command, so a new workout
 does not silently leave the backlog behind. It deliberately stops at the last reviewed workout:
-the distant past does not need reconstructing. When manual workout logging lands (v0.2 §4.2), the
-same catch-up runs as part of concluding and logging the session.
+the distant past does not need reconstructing. Live Workout mode closes the loop: end the session, then **Review workout** opens the sheet directly.
 
 **You do not need ten sessions before using the app.** Ten remembered sessions per item is the
 threshold for *retuning* a definition or weight (`DEC-EVAL-03`), not for using the tool. Calibration
@@ -397,7 +399,7 @@ The **Settings** page configures the optional model and browser-only defaults.
   max tokens and timeout; the API key is write-only and masked after saving. Settings live in
   the git-ignored `config/llm.local.toml`; environment variables override the file.
 - **Prescribe defaults** — default minimum-session target and whether to show different lifts
-  (C) by default. These only pre-fill the Prescribe page.
+  (C) by default. These only pre-fill the Workflow preview.
 - **App** — version, database path and LLM config path, all local-only.
 
 With the model disabled, every deterministic feature still works; only the prose/selection
@@ -417,11 +419,11 @@ session       confidence    compared  agreement     mae  disagreements
 2026-10-05    high                 5        60%    0.23  ESSENTIAL_WORK, ROTATION
 2023-12-13    low                  4        25%    0.41  ...
 
-headline (high confidence only): 5 comparable items, agreement 60%, mae 0.23
+headline (high confidence only): 40 comparable items, agreement 75%, mae 0.19
 
 per item (high confidence only)
-  RIR_ADHERENCE              1       100%    0.06
-  ROTATION                   1         0%    0.40   revisit this item's definition or weight
+  RIR_ADHERENCE              7        86%    0.13
+  ROTATION                   9        67%    0.19   revisit this item's definition or weight
 ```
 
 How to read it:
@@ -431,8 +433,8 @@ How to read it:
 - **mae** — mean absolute difference.
 - **compared** — how many items were comparable. An item the engine could not measure
   (`n/a`) is never counted, so it can neither flatter nor punish the result.
-- **"revisit this item"** appears only once an item has **five** marks and still disagrees by
-  more than 0.25.
+- **"revisit this item"** is a prompt; the label gate is **ten** high-confidence marks for the
+  targeted item. It does not retune anything.
 
 Nothing is retuned automatically. A rubric change is a decision, made after reading the
 report, and it bumps `RUBRIC_VERSION` so older marks stay interpretable.
@@ -521,8 +523,7 @@ strength-coach run --date 2026-10-23 --minimum-session --target-minutes 30 --min
 
 A user-selected, volume-only fallback. The default tier reduces non-essential accessory work
 and preserves main lifts; the deeper tier reduces main-lift sets to a floor of two. Load,
-RIR, reps and exercise identity are unchanged. It is never automatic. The UI has the same
-controls on the Prescribe page.
+RIR, reps and exercise identity are unchanged. It is never automatic. The UI has the same controls in the **Workflow → Preview** form.
 
 ### 4.4c `outcomes` — a descriptive multi-week review
 
@@ -536,9 +537,9 @@ strength-coach outcomes --weeks 12 --json
 ```
 
 Read-only 4/8/12-week review of main-lift e1RM change, weekly volume, target-based
-attendance, sRPE/duration, readiness, symptoms, spinal-cap weeks, deload provenance, cardio
-and measurements. Missing data is shown as unknown; the report makes no causal claim and
-never changes a prescription.
+attendance, sRPE/duration, readiness, symptoms, spinal-cap weeks and deload provenance. Cardio
+and measurements are in the **Longevity** tab. Missing data is shown as unknown; the report
+makes no causal claim and never changes a prescription.
 
 ### 4.4b `programme` — a rolling forecast
 
@@ -604,7 +605,7 @@ of the median ratio excludes 1.0: the formula e1RM is multiplied by the median r
 to ±10%, and cited as `MOD-E1RM-001`. Ambiguous evidence or a larger bias applies nothing.
 Measured overrides are never adjusted. The same table is on the Athlete page.
 
-### 4.7 `symptom` — the pre-session back reading
+### 4.7 `symptom` — a pre-session region reading
 
 ```bash
 strength-coach symptom --level 0                          # today, no symptoms
@@ -612,8 +613,9 @@ strength-coach symptom --date 2026-11-03 --level 2 --settled no --note "tight af
 strength-coach symptom --show
 ```
 
-One number for the whole back, recorded **pre-session**: `0` none, `1` awareness, `2`
-annoying, `3` limiting. `--settled` records whether it settled within 48 hours.
+One number per configured region, recorded **pre-session**: `0` none, `1` awareness, `2`
+annoying, `3` limiting. Logging defaults to `low_back`; use `--region biceps` or `--region knee`
+for another configured region. `--settled` records whether it settled within 48 hours.
 
 A reading counts as a **flare** when the level is 2 or more, or when a level of 1 did not
 settle within 48 hours. A flare makes `MOD-BACK-001` apply to the next prescription: erector
@@ -740,7 +742,7 @@ Readiness is not part of it. The regions and the lifts that load them are config
 
 ### 4.10i Workout mode — start, log, end
 
-The local UI has a **Workout** tab. Build a prescription on **Prescribe**, then choose
+The local UI has a **Workflow** tab. Complete readiness, build the preview, then choose
 **Start workout**.
 
 - Start when the readiness score is ready, or explicitly acknowledge an unknown/partial
@@ -805,10 +807,9 @@ marks are append-only, and deleting one would change e1RM, volume and review his
 - A wrong set during an active workout can be removed or edited.
 - A **completed** workout can be corrected in History, but never deleted or overwritten.
 
-The recommended future operation for a wholly invalid session is **void**, not delete: keep the
-rows, add an append-only void reason, exclude the session from reports and prescriptions, and
-allow unvoid. It is documented in [DATA-MODEL.md](docs/DATA-MODEL.md#17-deleting-or-voiding-a-session)
-but not implemented.
+Use **Void**, not delete, for a wholly invalid session: rows stay, an append-only reason is
+recorded, the session is excluded from reports and prescriptions, and **Unvoid** restores it.
+It is implemented in [DATA-MODEL.md](docs/DATA-MODEL.md#17-deleting-or-voiding-a-session).
 
 ### Longevity view
 
@@ -843,7 +844,7 @@ taxonomy is not rewritten. The web **Exercises** tab is the form-based version.
 
 ### 4.10d Session types and rolling selection
 
-`run` and the Prescribe page default to a rolling session type rather than the legacy fixed
+`run` and the Workflow preview default to a rolling session type rather than the legacy fixed
 A/B/C calendar (removed by migration 0023). The types are `squat`, `hinge`, `bench_squat` and `bench_hinge`; the rule balances
 squat/hinge/bench emphasis over recent sessions. The four types are the only override labels:
 
@@ -883,7 +884,7 @@ The selector still re-solves the load from the selected lift's own history. Clas
 only with `--include-different` (or "show different lifts" in the UI) for information.
 A display-only "own-history" ratio (latest e1RM versus that lift's own recent median) appears
 beside each candidate; it does not affect the score, ranking, class or prescription.
-The Prescribe **Apply selection** toggle applies A, and B only when confirmed.
+The **Workflow → Preview** Apply selection toggle applies A, and B only when confirmed.
 
 ### 4.10h `volume` — weekly hard-set ledger
 
@@ -920,7 +921,7 @@ applied factor. Fixed continuity remains the fallback when a band is under-power
 `--allow-relax-fixed on|off` changes whether a well-observed band may remove part of the fixed
 reduction; the same checkbox is in the Prescribe continuity panel.
 
-### 4.10d `fatigue` — the strength model in shadow mode
+### 4.10j `fatigue` — diagnostic only; predictive form rejected
 
 ```bash
 strength-coach fatigue --date 2026-10-20
@@ -928,12 +929,13 @@ strength-coach fatigue --date 2026-10-20
 
 Per-lift fitness/fatigue state fitted from hard sets and your own e1RM observations, plus an
 **overall** relative-e1RM row. It shows R², span, fitness/fatigue/state with approximate 95%
-intervals, and a status (`ok`, `weak fit`, `insufficient`, `unstable`);
-it refuses parameters when the data are sparse or ill-conditioned. **No prescription reads
-it.** The Prescribe page shows the same table under **Strength fatigue model**. See
-[FATIGUE-FITNESS.md](docs/FATIGUE-FITNESS.md) §4a.
+intervals, and a status (`ok`, `weak fit`, `insufficient`, `unstable`); it refuses parameters
+when the data are sparse or ill-conditioned. **No prescription reads it.** The Phase-1
+diagnostic found the rolling median beat the full model on SSQ squat and bench, and
+fitness-only matched full, so the predictive form was rejected. The Prescribe page labels it
+**Strength fatigue diagnostic**. See [FATIGUE-FITNESS.md](docs/FATIGUE-FITNESS.md) §4a.
 
-### 4.10f `validate` — retrospective walk-forward
+### 4.10k `validate` — retrospective walk-forward
 
 ```bash
 strength-coach validate --max-dates 12
@@ -951,7 +953,7 @@ The 12-date result was: fatigue relative MAE 0.158 vs 0.074 persistence; continu
 report under **Retrospective validation**. This is not prospective validation; see
 [RETROSPECTIVE-VALIDATION.md](docs/RETROSPECTIVE-VALIDATION.md).
 
-### 4.10e Deload policy
+### 4.10l Deload policy
 
 A deload is a **low-volume week**, not a new training block:
 
@@ -1000,7 +1002,7 @@ metric.
 ### The prescription
 
 Main lifts carry three **warm-up ramp sets** at roughly 50/70/85% of the working load; they are
-not counted as working volume. The Prescribe page shows them under the exercise.
+not counted as working volume. The Workflow preview shows them under the exercise.
 
 | column | meaning |
 |---|---|
@@ -1011,15 +1013,29 @@ not counted as working volume. The Prescribe page shows them under the exercise.
 | rir | target reps in reserve |
 | recent stress | advisory decayed hard sets: `high`, `normal` or `low`; **never changes the load** |
 | readiness | per-lift 0–1 score from global readiness + e1RM trend, RIR and VBT; can only **lower** a load |
-| e1RM n | usable sets behind a formula e1RM; `—` for a manual override, last-load fallback or non-e1RM item |
+| e1RM n | usable sets the selector saw: the robust-window population for a `median`, the whole window for `best_usable`/`most_recent`; `—` for a manual override, last-load fallback or non-e1RM item |
 | refs | the rule id **and** the stored set that justify the load |
 
-Loads come from the best usable e1RM in the last 84 days, inverted through the same
-Epley+RIR formula that produced it, then rounded down to 0.5 kg (your microplates). Rounding
-up would push the set above the target RIR, so it never happens. An e1RM older than 21 days is
+Loads come from the selected e1RM in the last 84 days, inverted through the same Epley+RIR
+formula that produced it, then rounded down to 0.5 kg (your microplates). Rounding up would
+push the set above the target RIR, so it never happens. By default the selector is a **median
+of the last 28 days** of set-level estimates: the best set in the window is an optimistic
+estimator, and one great day should not set loads for the next twelve weeks. `e1rm_source` in
+`config/thresholds.v1.yaml` can switch it to `best_usable` or `most_recent`; an unknown value
+is an error, not a silent default. If the 28-day window is empty (a layoff) the selector falls
+back to the best estimate in the 84-day window rather than refusing to prescribe. An e1RM older than 21 days is
 decayed by 1% per week (capped at 10%); this applies to measured overrides too, and cites
 `MOD-E1RM-DECAY-001`. If the continuity rule is already handling a 28+ day gap, the age decay
 is skipped to avoid counting the same absence twice.
+
+**One advisory sits outside all of that and changes nothing:** if the e1RM behind a main-lift
+load is more than 5% above the median of your recent working sets on that lift (28 days,
+minimum 3 sets), the prescription says so and asks you to check the source. It appears when
+a measured override is far above your history, or when a best-of-window estimate was chosen,
+or when the median had to fall back to the older window. The load is left as it is — this is
+the guard that does not become a controller (`DEC-E1RM-PLAUS-01`). Under the default `median`
+selector with ordinary history it stays silent, because the two numbers are the same. It is
+shown when the prescription is generated and is not stored with it.
 
 `readiness` is the per-lift score: it starts from the global/category readiness and nudges it
 by recent e1RM, mean RIR and velocity-vs-calibration. A lower score can reduce this lift's load
@@ -1031,10 +1047,13 @@ at 6 decayed sets). A lift prescribed within 48 h of high stress gets a warning 
 the load and RIR are unchanged — it is context for your judgement, not a fatigue model. The
 constants are in `config/stress.v1.yaml` and are assumptions (`ASSUMPTION-24`).
 
-That e1RM is an **estimate, not a calibrated measurement**: Epley with RIR folded in is an
-approximation, and no bias correction is applied. A measured `test` writes an override and the
-next prescription cites it. A calibration report (measured vs predicted, bias/MAE per lift) is
-proposed but not implemented; see [FATIGUE-FITNESS.md](docs/FATIGUE-FITNESS.md) §6.
+That e1RM is an **estimate, not a measured maximum**: Epley with RIR folded in is an
+approximation (`ASSUMPTION-03`). When at least three measured tests for a lift show a
+measured/formula ratio whose 95% confidence interval excludes 1.0, the formula estimate is
+scaled by that median ratio, bounded to ±10% (`MOD-E1RM-001`), and the item cites the
+modifier. A measured `test` writes an override and the next prescription cites it. The
+per-lift ratios, confidence intervals and every measured point are shown by
+`strength-coach e1rm calibrate`; see [FATIGUE-FITNESS.md](docs/FATIGUE-FITNESS.md) §6.
 
 If a load is `-` and the output says `NO_LOAD`, there was no usable e1RM in the window. The
 prescription is then **not executable**, and it says so instead of inventing a number.
@@ -1046,7 +1065,8 @@ substitution rather than blocking the session.
 
 ### The critique
 
-Eight items are measured when their inputs exist, one is not:
+Eight items are weighted and measurable when their inputs exist; `VELOCITY_LOSS` is a ninth,
+zero-weight diagnostic:
 
 | item | measures |
 |---|---|
@@ -1081,8 +1101,8 @@ Readiness can only *reduce* a prescribed load, so its derivation is written down
 - HRV and RHR enter at half weight only with a 28-day baseline (7 readings); an optional
   **wearable readiness score (0–100)** is a 10% blend, never a replacement;
 - the old sleep/energy rule remains a floor (at or below 2 still cuts loads by 5%);
-- missing or insufficient readiness blocks a current/future workout rather than silently
-  omitting the modifier;
+- a score-ready assessment unlocks the workout; partial/unknown readiness requires an explicit
+  acknowledgement and applies no score-based modifier;
 - the three old per-lift readiness values are calibration labels, not inputs;
 - readiness is **not per lift**: there is one global score plus manual **category** overrides
   (squat, hinge, horizontal push, …). An exercise inherits its category's factor. A validated
@@ -1095,8 +1115,8 @@ strength-coach readiness set --date 2026-10-20 --sleep 2 --energy 3 --soreness 1
 strength-coach readiness set --date 2026-10-20 --energy 4 --note "slept badly"
 ```
 
-The 1-5 fields and the device fields (HRV, resting HR, bodyweight, body fat, grip strength in kg,
-wearable readiness 0–100) are accepted in any combination. The old squat/bench/deadlift readiness fields are not. A manual value wins
+The 1-5 fields and the device fields (HRV, resting HR, bodyweight, body fat, wearable readiness
+0–100) are accepted in any combination; grip is a measurement, not a readiness input. The old squat/bench/deadlift readiness fields are not. A manual value wins
 **per field**; an imported row fills the fields you did not provide. Re-logging a date appends
 a new version and the latest value wins — nothing is edited or overwritten. The command prints
 each field with its source (`manual` or `import`).
@@ -1118,9 +1138,11 @@ strength-coach readiness override --date 2026-10-20 --scope global \
 strength-coach readiness calibrate     # report only; never auto-applies weights
 ```
 
-A **current or future workout requires a ready assessment**; otherwise `run`/the web page
-refuses and tells you what is missing. Historic prescriptions remain reproducible. The web
-Readiness page also shows the computed score and has a **Run calibration** button.
+A **current or future prescription or workout requires a score-ready assessment**, or an
+explicit unknown/partial acknowledgement. In that acknowledged state no score-based modifier
+is applied and missing fields stay unknown. Historic prescriptions remain reproducible. The
+computed score is shown in **Workflow → Readiness**; the Readiness page keeps the calibration
+and baseline controls.
 
 To change which fields matter, the threshold, or the merge tie-break, edit
 `config/readiness.v1.yaml`. Only implemented values are accepted — anything else raises
@@ -1156,7 +1178,8 @@ family), and the basis next to it records the scope and sample size.
 
 How to use it: the first working set should move at roughly the target. Noticeably faster means
 the load is light for the day; noticeably slower means accumulated fatigue or a heavy day. It is
-a reference, not a stop rule — the app does not yet measure within-set velocity loss.
+a reference, not a stop rule. Optional per-rep data can measure within-set velocity loss
+descriptively; it does not set a VBT target, RIR or load.
 
 What is deliberately not shown:
 
