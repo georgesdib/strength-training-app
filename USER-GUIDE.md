@@ -526,6 +526,10 @@ controls on the Prescribe page.
 
 ### 4.4c `outcomes` — a descriptive multi-week review
 
+The Outcomes page also shows a descriptive **Form trend** (current vs previous equal window).
+Review shows the current per-lift form rating beside prior ratings; neither affects a
+prescription.
+
 ```bash
 strength-coach outcomes --weeks 8
 strength-coach outcomes --weeks 12 --json

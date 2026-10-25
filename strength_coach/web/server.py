@@ -45,6 +45,7 @@ from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import outcomes as outcomes_feature
 from strength_coach.features import prospective as prospective_feature
+from strength_coach.features import form_assessment as form_assessment_feature
 from strength_coach.features import regime_change as regime_feature
 from strength_coach.features import readiness_feedback
 from strength_coach.features import heavy_spinal
@@ -375,6 +376,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: prospective_feature.report(c, weeks=weeks, on_date=day)
                 ))
+            elif path == "/api/form-trend":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(lambda c: form_assessment_feature.report(
+                    c,
+                    weeks=int(query.get("weeks", ["12"])[0]),
+                    on_date=query.get("date", [None])[0],
+                )))
             elif path == "/api/outcomes":
                 query = parse_qs(urlparse(self.path).query)
                 weeks = int(query.get("weeks", ["8"])[0])
@@ -472,6 +480,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: prospective_feature.report(c, weeks=weeks, on_date=day)
                 ))
+            elif path == "/api/form-trend":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(lambda c: form_assessment_feature.report(
+                    c,
+                    weeks=int(query.get("weeks", ["12"])[0]),
+                    on_date=query.get("date", [None])[0],
+                )))
             elif path == "/api/outcomes":
                 query = parse_qs(urlparse(self.path).query)
                 weeks = int(query.get("weeks", ["8"])[0])
@@ -868,6 +883,7 @@ class Handler(BaseHTTPRequestHandler):
             "composite": critique.composite,
             "confidence": marks.confidence if marks else "unknown",
             "feedback": queries.session_feedback(conn, session),
+            "form_context": form_assessment_feature.review_context(conn, session),
             "items": [
                 {
                     "key": item.key,

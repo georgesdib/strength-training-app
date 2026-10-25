@@ -53,7 +53,7 @@ Only fixes with separate approval were applied:
 
 ## 4. Remaining limitations
 
-The register has **39 entries**. The important open ones are:
+The register has **40 entries**. The important open ones are:
 
 - readiness has no validated no-readiness counterfactual;
 - no stored plan calendar;

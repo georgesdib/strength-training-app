@@ -72,15 +72,28 @@ The exact source `Form` value remains in `raw_row.payload` for audit. The new
 `session_form_rating` rows are authoritative; a post-lift rating is still a separate,
 explicitly directed measure.
 
-## 5. Limits
+## 5. Descriptive uses
+
+- **Outcomes → Form trend** — current vs previous equal window, latest rating, change and
+  session counts. The ±0.5 status threshold is a display heuristic, not a validated cut-point.
+- **Review → Form context** — this session's rating beside up to five prior ratings for the
+  same lift. It is context for the human mark; it does not auto-score anything.
+- **History** — the edit sheet shows and amends per-lift ratings.
+
+`GET /api/form-trend?weeks=4|8|12&date=YYYY-MM-DD` returns the descriptive trend.
+No load, set or prescription use.
+
+## 6. Limits
 
 - Self-reported and subjective.
 - Not validated against a coach or injury outcomes.
 - One number per lift loses within-lift variation.
 - The rubric weight is a policy choice, not a measurement.
 - Unrated lifts are ignored; a partially rated session can look cleaner than it was.
+- The trend's ±0.5 display threshold is not validated.
+- Ratings are not available per set, so they cannot identify the exact rep where form broke.
 
-## 6. Files
+## 7. Files
 
 - migration `0033_form_ratings.sql`
 - `workout.py` (`set_form_rating`, materialisation)

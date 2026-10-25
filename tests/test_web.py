@@ -84,6 +84,7 @@ def test_the_page_and_overview_are_served(server):
     assert "rejected as predictor" in page
     assert 'id="toast"' in page
     assert 'id="settings-theme"' in page
+    assert 'id="form-trend-result"' in page
     assert "selection-include-different" in page
     assert "validation-run" in page
     assert "view-workout" in page
@@ -120,6 +121,14 @@ def test_prescribe_and_state_endpoints(server):
     }
     assert state["constraints"][0]["forbidden_exercises"] == ["back_extension"]
     assert isinstance(state["e1rm_calibration"], list)
+
+
+def test_form_trend_endpoint_is_read_only(server):
+    status, body = get(server, "/api/form-trend?weeks=4&date=2024-02-01")
+    assert status == 200
+    data = json.loads(body)
+    assert data["window"]["weeks"] == 4
+    assert "forms" in data
 
 
 def test_regime_endpoint_is_read_only(server):

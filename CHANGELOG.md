@@ -9,6 +9,7 @@
 
 ### Added
 
+- Descriptive form trend in Outcomes and prior-form context in Review; no prescription use.
 - Backfilled historical imported Form ratings per exercise (average of valid sets, inverted
   1=best → 5=worst, rounded half-up) into the new session form table.
 - Optional post-lift form assessment, one 1–5 rating per exercise, editable in Workout and

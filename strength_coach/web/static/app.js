@@ -400,6 +400,32 @@ $("#longevity-form").addEventListener("submit", (event) => {
   loadLongevity();
 });
 
+async function loadFormTrend(weeks, day) {
+  const target = $("#form-trend-result");
+  if (!target) return;
+  try {
+    const query = new URLSearchParams({ weeks });
+    if (day) query.set("date", day);
+    const data = await api("/api/form-trend?" + query.toString());
+    const rows = (data.forms || []).map((row) => `
+      <tr><td><strong>${esc(row.exercise_id)}</strong></td>
+      <td>${row.latest_rating}/5 <span class="muted">${esc(row.latest_on)}</span></td>
+      <td>${row.current_avg ?? "—"} / ${row.baseline_avg ?? "—"}</td>
+      <td>${row.change == null ? "—" : (row.change > 0 ? "+" : "") + row.change}</td>
+      <td><span class="badge ${row.status === "down" ? "warn" : ""}">${esc(row.status)}</span></td>
+      <td class="muted">n ${row.current_n}/${row.baseline_n}</td></tr>`).join("");
+    target.innerHTML = rows
+      ? `<p class="muted">${esc(data.window.current_from)} to ${esc(data.window.current_to)}
+         · baseline ${esc(data.window.baseline_from)} to ${esc(data.window.baseline_to)}</p>
+         <table><thead><tr><th>Lift</th><th>latest</th><th>current / baseline avg</th>
+         <th>change</th><th>status</th><th>sessions</th></tr></thead>
+         <tbody>${rows}</tbody></table><p class="muted">${esc(data.note)}</p>`
+      : `<p class="empty">No form ratings in this window.</p>`;
+  } catch (error) {
+    target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
 async function loadProspective(weeks, day) {
   const target = $("#prospective-result");
   if (!target) return;
@@ -739,11 +765,20 @@ async function loadReview(session) {
       <td><input type="number" min="0" max="1" step="0.05" data-key="${esc(item.key)}"
         value="${item.existing ?? ""}" placeholder="skip"></td>
       <td class="muted">${esc(item.detail)}</td></tr>`).join("");
+    const formRows = (data.form_context?.forms || []).map((form) => `
+      <tr><td><code>${esc(form.exercise_id)}</code></td><td>${form.rating}/5</td>
+      <td>${form.prior_avg ?? "—"} <span class="muted">(n=${form.prior_n})</span></td>
+      <td>${form.prior_latest == null ? "—" : form.prior_latest + "/5"}</td></tr>`).join("");
+    const formContext = formRows
+      ? `<h3>Form context</h3><table><thead><tr><th>Lift</th><th>this session</th>
+         <th>prior average</th><th>prior latest</th></tr></thead><tbody>${formRows}</tbody></table>`
+      : "";
     $("#review-result").innerHTML = `<div class="panel">
       <div class="panel-head"><h2>${esc(data.session)} · ${esc(data.session_type)}</h2>
         <span class="badge">composite ${fmt(data.composite, 2)}</span></div>
       <p class="muted">Week ${esc(data.week)} · spinal cost ${fmt(data.week_cost, 2)}</p>
       ${reviewWorkoutSummary(data.workout)}
+      ${formContext}
       <table><thead><tr><th>Item</th><th>engine</th><th>your score</th><th>why</th></tr></thead>
       <tbody>${items}</tbody></table>
       <div class="form-row">
