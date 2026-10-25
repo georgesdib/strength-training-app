@@ -174,7 +174,13 @@ function renderFormFollowup(formEval) {
       · extension ${esc(formEval.extension_end)}${formEval.due_on ? " · due " + esc(formEval.due_on) : ""}</p>
     <p>Low-form events: <strong>${formEval.low_events}</strong> / ${formEval.target_events}
       · lifts: <strong>${formEval.low_lifts}</strong> / ${formEval.target_lifts}</p>
-    <p class="muted">${esc(formEval.note || "")} See
+    <p class="muted">${esc(formEval.note || "")}</p>
+    <p class="muted">This is a prospective follow-up because the earlier retrospective association
+      was near zero. Historical backfilled ratings are not counted. At the due date, the threshold
+      decides whether to analyse, extend, or report insufficient data; it never changes a load.</p>
+    <p class="muted">Details:
+      <a href="#docs?doc=FORM-PROSPECTIVE.md">prospective protocol</a> ·
+      <a href="#docs?doc=FORM-USE-EVIDENCE.md">evidence and allowed uses</a> ·
       <a href="#outcomes" data-view-link="outcomes">Outcomes → Form trend</a>.</p>`;
 }
 

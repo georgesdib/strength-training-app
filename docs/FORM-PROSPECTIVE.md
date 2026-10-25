@@ -1,6 +1,6 @@
 # FORM RATING — PROSPECTIVE EVALUATION
 
-**Status:** open; started 2026-10-25. No result yet. Descriptive only.
+**Status:** documentation and implementation complete 2026-10-25; prospective data collection open. No result yet. Descriptive only.
 **Purpose:** test whether repeated low post-lift form ratings predict a worse next performance,
 higher sRPE or a symptom flare — without changing training.
 
