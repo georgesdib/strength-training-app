@@ -9,16 +9,23 @@ produces an `unknown` verdict rather than a silent guess.
 
 ---
 
-## Q1. Sessions have no timestamps — **accepted: date-only, manual duration only**
+## Q1. Sessions have no timestamps — **closed 2026-10-25: date-only accepted**
 
-The date column is calendar-date only. So "same date + time gap" is impossible, two sessions
-on one day are indistinguishable, and a squat-plus-bench day is ambiguous between the squat
-day and the bench-plus-squat day unless erector or power work is present.
+The date column is calendar-date only. There is no time, so two sessions on one date are
+indistinguishable, and a squat-plus-bench day is ambiguous between the squat-emphasis and
+bench-plus-squat types unless erector or power content separates them.
 
-**Blocks:** session/day identity, scheduling rules, duration scoring.
-**Default:** one session per date; day inferred from the main lift present, with the
-ambiguous pair separated by erector/power content; ambiguous -> `unknown`, and no
-day-specific rule is scored when the day is unknown.
+**Closed by owner acceptance.** This is a data limitation, not an open design question:
+
+- one session per calendar date;
+- session type inferred from the main lift and support work;
+- ambiguous composition stays `unknown`, and no type-specific rule is scored;
+- imported duration stays unmeasured; manual/optional duration is recorded separately;
+- no timestamp backfill or inferred duration.
+
+Any future timestamped source would be a new data decision, not a reopening of Q1.
+
+**Blocks:** nothing.
 
 ---
 

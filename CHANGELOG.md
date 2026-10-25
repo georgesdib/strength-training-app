@@ -21,6 +21,7 @@ documentation contract, form assessment and calibration milestone. Cardio depth 
 
 ### Changed
 
+- Closed Q1: date-only imported sessions accepted; no timestamp backfill or inferred duration.
 - Closed Q21: the current A/B/C exercise-comparability guard is accepted as-is.
 - Closed Q6: current readiness merge and non-authoritative composite architecture accepted;
   Q3 documented as a manual anchor plus symptom input.
