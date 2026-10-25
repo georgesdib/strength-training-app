@@ -67,8 +67,8 @@ model may not change them. That is a design choice, not an evidence claim.
 
 **Recommendation**
 
-- Keep the current day character (A squat-led, B hinge, C bench-led) but make the rep range a
-  **menu of validated schemes** rather than a single fixed pair, e.g. `strength` (3-5),
+- Keep the current session character (`squat`, `hinge`, `bench_squat`, `bench_hinge`) but make
+  the rep range a **menu of validated schemes** rather than a single fixed pair, e.g. `strength` (3-5),
   `volume` (6-8), `accessory` (8-12), each with a solver-computed load.
 - The model may **choose a scheme** (menu), never write a rep number; Python computes the
   matching load.
@@ -132,3 +132,11 @@ Test/high-intensity exposure: [`HIGH-INTENSITY-EXPOSURE-PLAN.md`](HIGH-INTENSITY
 Readiness/injury and scheme selection: [`WORKOUT-TYPE-READINESS-EVIDENCE.md`](WORKOUT-TYPE-READINESS-EVIDENCE.md).
 
 Full bibliography with DOIs: [`docs/REFERENCES.md`](REFERENCES.md).
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)
