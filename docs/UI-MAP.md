@@ -1,6 +1,6 @@
 # UI documentation map
 
-**Status:** P0 + P1 + P2 + P3 (2026-10-25). Every view/panel gets a short explanation and a
+**Status:** P0–P4 complete (2026-10-25). Every view/panel gets a short explanation and a
 documentation deep-link; this file is the canonical map used to build and audit those links.
 
 ## Link contract
@@ -107,7 +107,7 @@ implementation or parity document.
 - [x] P1: every view-level `h2` panel has the pattern (49; Exercise details dialog is P2).
 - [x] P2: every nested `h3` and the exercise-details dialog has the pattern, with verified anchors.
 - [x] P3: every UI-linked doc has a Related block.
-- [ ] P4: automated coverage/link checker.
+- [x] P4: `tools/check_ui_docs.py` and `tests/test_ui_docs.py` enforce the contract.
 
 ## Related
 

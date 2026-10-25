@@ -575,7 +575,8 @@ Markdown headings have stable IDs and duplicate handling, and [`docs/UI-MAP.md`]
 is the canonical view/panel → doc/evidence/decision/question/roadmap map. The reusable
 `.section-help` pattern is applied to every view-level `h2` panel (P1) and every nested
 `h3`/dialog (P2, 2026-10-25), with verified deep-link anchors. Every UI-linked doc now has a
-`Related` footer (P3, 2026-10-25). **P4 remains:** the automated coverage/link checker.
+`Related` footer (P3) and an automated coverage/link checker (P4, 2026-10-25) now enforce
+the documentation contract.
 
 ### 4.11 Web UI parity  (CLOSED for v0.3)
 
