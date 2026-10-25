@@ -61,30 +61,37 @@
       <div class="panel">
         <div class="panel-head"><h2>Form evaluation follow-up</h2>
           <span class="muted">manual review; no automatic change</span></div>
+        <p class="section-help"><span>Tracks the open low-form follow-up; it never changes a load or prescription.</span> <a class="doc-link" href="#docs?doc=docs/FORM-PROSPECTIVE.md">Form evaluation protocol</a></p>
         <div id="form-followup"></div>
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Recent sessions</h2><span class="muted">newest first</span></div>
+        <p class="section-help"><span>Lists stored sessions; Details is read-only and Edit uses append-only correction.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI and API</a></p>
         <div id="recent"></div>
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Descriptive progress</h2><span class="muted">monitoring only; no prescription change</span></div>
+        <p class="section-help"><span>Monitoring-only trends for sRPE coverage, attendance, volume and performance.</span> <a class="doc-link" href="#docs?doc=docs/OUTCOMES.md">Outcomes review</a></p>
         <div id="progress"></div>
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Rubric calibration</h2><span class="muted">human marks vs engine</span></div>
+        <p class="section-help"><span>Compares human rubric marks with engine scores; gaps are prompts, not automatic rubric changes.</span> <a class="doc-link" href="#docs?doc=docs/STRENGTH-PROGRAM-REVIEW.md">Strength programme review</a></p>
         <div id="calibration"></div>
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Per-rep velocity</h2><span class="muted">descriptive only; no prescription change</span></div>
+        <p class="section-help"><span>Summarises optional device velocity data; descriptive only, never a load input.</span> <a class="doc-link" href="#docs?doc=docs/REP-VELOCITY.md">Per-rep velocity</a></p>
         <div id="rep-velocity-progress"></div>
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Periodic reviews</h2><span class="muted">prompts, not automatic changes</span></div>
+        <p class="section-help"><span>Shows configured review prompts; they never apply automatic changes.</span> <a class="doc-link" href="#docs?doc=ROADMAP.md">Roadmap and review prompts</a></p>
         <div id="reviews"></div>
       </div>
       <div class="panel">
         <div class="panel-head"><h2>How this works</h2></div>
+        <p class="section-help"><span>Explains the Python-computes/UI-routes boundary and how to find the design record.</span> <a class="doc-link" href="#docs?doc=docs/UI-MAP.md">UI documentation map</a></p>
         <p class="muted">Python computes every load, RIR and warning. The web page is a view over the same
           core as the CLI; nothing is inferred from a missing value. Docs are linked under
           <a href="#docs" data-view-link="docs">Docs</a>.</p>
@@ -94,6 +101,7 @@
     <section id="view-history" class="view">
       <div class="panel">
         <div class="panel-head"><h2>History</h2><span class="muted">all completed and imported sessions</span></div>
+        <p class="section-help"><span>Filterable append-only measurement history; no values are deleted.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md">Measurement model</a></p>
         <div class="form-row">
           <label>From <input type="date" id="history-start"></label>
           <label>To <input type="date" id="history-end"></label>
@@ -110,6 +118,7 @@
       <div class="panel" id="history-detail-panel" hidden>
         <div class="panel-head"><h2 id="history-detail-title">Session details</h2>
           <span class="muted">read only</span></div>
+        <p class="section-help"><span>Read-only stored sets, RIR, VBT and notes for the selected session.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md">Session data model</a></p>
         <div id="history-details"></div>
         <div class="form-row"><button class="ghost" type="button" id="history-details-close">Close</button></div>
       </div>
@@ -117,6 +126,7 @@
       <div class="panel" id="history-edit-panel" hidden>
         <div class="panel-head"><h2 id="history-edit-title">Edit session</h2>
           <span class="muted">append-only correction; date and session type stay fixed</span></div>
+        <p class="section-help"><span>Append-only correction: supersedes or tombstones sets and triggers re-review.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md">Append-only corrections</a></p>
         <div id="history-edit-note" class="warnbox" hidden></div>
         <div id="history-edit-sets" class="history-sets"></div>
         <div class="form-row">
@@ -141,6 +151,7 @@
     <section id="view-outcomes" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Outcome review</h2><span class="muted">descriptive only; no prescription change</span></div>
+        <p class="section-help"><span>Read-only 4/8/12-week strength, attendance and volume review.</span> <a class="doc-link" href="#docs?doc=docs/OUTCOMES.md">Outcomes review</a></p>
         <form id="outcomes-form" class="form-row">
           <label>Period
             <select id="outcomes-weeks">
@@ -155,14 +166,17 @@
         <div id="outcomes-result"></div>
         <div class="panel">
           <div class="panel-head"><h2>Prospective check</h2><span class="muted">W5 protocol; descriptive only</span></div>
+        <p class="section-help"><span>Programme-level W5 check; descriptive only and not a model forecast.</span> <a class="doc-link" href="#docs?doc=docs/W5-PROSPECTIVE-EVALUATION.md">W5 protocol</a></p>
           <div id="prospective-result"><p class="empty">No prospective review loaded.</p></div>
         </div>
         <div class="panel">
           <div class="panel-head"><h2>Form trend</h2><span class="muted">descriptive; no prescription change</span></div>
+        <p class="section-help"><span>Descriptive form observations; no prescription change.</span> <a class="doc-link" href="#docs?doc=docs/FORM-PROSPECTIVE.md">Form evaluation protocol</a></p>
           <div id="form-trend-result"><p class="empty">No form review loaded.</p></div>
         </div>
         <div class="panel">
           <div class="panel-head"><h2>Readiness feedback</h2><span class="muted">association only; no tuning</span></div>
+        <p class="section-help"><span>Associates readiness reductions with the next session; no tuning.</span> <a class="doc-link" href="#docs?doc=docs/READINESS.md">Readiness</a></p>
           <div id="readiness-feedback-result"><p class="empty">No readiness reductions in this window.</p></div>
         </div>
       </div>
@@ -171,6 +185,7 @@
     <section id="view-longevity" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Longevity context</h2><span class="muted">descriptive; not medical advice</span></div>
+        <p class="section-help"><span>Consolidated cardio, measurement, readiness and symptom context; status labels are descriptive.</span> <a class="doc-link" href="#docs?doc=docs/LONGEVITY-REVIEW.md">Longevity review</a></p>
         <p class="muted">Cardio, measurements, readiness and symptoms in one view. Status labels are deterministic context, not targets for every metric.</p>
         <form id="longevity-form" class="form-row">
           <label>Period
@@ -190,7 +205,8 @@
 
     <section id="view-prescribe" class="view">
       <div class="panel">
-        <div class="panel-head"><h2>Prescribe a session</h2><a href="#docs" data-view-link="docs">read the rules</a></div>
+        <div class="panel-head"><h2>Prescribe a session</h2></div>
+        <p class="section-help"><span>Builds the deterministic prescription with hard constraints, fallback and provenance.</span> <a class="doc-link" href="#docs?doc=docs/METHODOLOGY.md">Methodology</a></p>
         <form id="prescribe-form" class="form-row">
           <label>Date <input type="date" id="prescribe-date" required></label>
           <label>Session
@@ -229,6 +245,7 @@
       <div class="panel" id="continuity-panel">
         <div class="panel-head"><h2>Continuity calibration</h2>
           <span class="muted" id="continuity-status">loading…</span></div>
+        <p class="section-help"><span>Shows return-to-training continuity evidence and the fixed fallback; no calibrated factor.</span> <a class="doc-link" href="#docs?doc=docs/CONTINUITY.md">Continuity</a></p>
         <p class="muted">Return-to-training retention from actual gaps. Each band uses a calibrated
           factor only when it has enough returns and a tight bootstrap interval; otherwise the
           fixed −5%/−10% rule remains. This is not the e1RM age decay.</p>
@@ -242,12 +259,14 @@
       <div class="panel">
         <div class="panel-head"><h2>Weekly volume</h2>
           <span class="muted">advisory hard-set ledger</span></div>
+        <p class="section-help"><span>Advisory hard-set ledger against MEV/MAV/MRV; no automatic volume change.</span> <a class="doc-link" href="#docs?doc=docs/VOLUME-MANAGEMENT.md">Volume management</a></p>
         <p class="muted">Working sets per movement pattern over the last four weeks, compared with
           broad config targets. It reports drift; it does not change the prescription.</p>
         <div id="volume-ledger"></div>
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Regime change</h2><span class="muted">review question; no action</span></div>
+        <p class="section-help"><span>Checks whether a main lift fell while a substitute rose; a review question, not an action.</span> <a class="doc-link" href="#docs?doc=docs/REGIME-CHANGE.md">Regime change</a></p>
         <p class="muted">Checks whether a main lift's working volume fell sharply while a
           same-category substitute rose. This is a prompt to ask what changed, not proof of
           avoidance and not a prescription change.</p>
@@ -260,6 +279,7 @@
       <div class="panel">
         <div class="panel-head"><h2>Strength fatigue diagnostic</h2>
           <span class="badge bad">rejected as predictor</span></div>
+        <p class="section-help"><span>Rejected as a predictor; the table is descriptive state only and no load reads it.</span> <a class="doc-link" href="#docs?doc=docs/FATIGUE-FITNESS.md">Fatigue-fitness evidence</a></p>
         <div class="warnbox"><strong>Descriptive only.</strong> The Phase-1 diagnostic found the
           rolling median beat the full model on SSB squat (MAE 9.39 vs 19.18) and bench press
           (7.23 vs 15.01). Fitness-only and full were identical. Do not use this model as a forecast
@@ -272,6 +292,7 @@
       <div class="panel">
         <div class="panel-head"><h2>Exercise selection</h2>
           <span class="muted">preview; applies only when ticked above</span></div>
+        <p class="section-help"><span>Ranks variants for a slot; applying one is explicit and the load is re-solved.</span> <a class="doc-link" href="#docs?doc=docs/SELECTION-COMPARABILITY.md">Selection comparability</a></p>
         <p class="muted">Ranks the configured variants for each slot using readiness, recent
           stress, rotation and preference. Tick <strong>Apply selection</strong> above to let the
           chosen candidates replace the slot exercise; the load is then re-solved from the
@@ -287,6 +308,7 @@
       <div class="panel">
         <div class="panel-head"><h2>Retrospective validation</h2>
           <span class="muted">walk-forward; no prescription change</span></div>
+        <p class="section-help"><span>Walk-forward check against simple baselines; not prospective validation.</span> <a class="doc-link" href="#docs?doc=docs/RETROSPECTIVE-VALIDATION.md">Retrospective validation</a></p>
         <p class="muted">Replays past cutoffs using only earlier data. It checks continuity and the
           fatigue diagnostic against simple baselines; the predictive fatigue model was rejected.
           Volume is descriptive only and selection has no counterfactual. Not prospective validation.</p>
@@ -299,12 +321,14 @@
     <section id="view-workout" class="view">
       <div class="panel" id="workout-empty">
         <div class="panel-head"><h2>Workout</h2><span class="muted">no active workout</span></div>
+        <p class="section-help"><span>Start, log, edit and end a live workout linked to a frozen plan.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
         <p class="muted">Build a prescription on the Prescribe page, then choose <strong>Start workout</strong>.
           The prescription is frozen and the workout becomes the actual record.</p>
       </div>
 
       <div class="panel" id="workout-start-panel" hidden>
         <div class="panel-head"><h2>Start workout</h2><span class="muted" id="workout-start-summary"></span></div>
+        <p class="section-help"><span>Requires the seven readiness fields; device fields remain optional.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
         <p class="muted">The seven self-report readiness fields are required. Device fields are optional.
           Values are prefilled from today's readiness where available.</p>
         <form id="workout-start-form">
@@ -324,6 +348,7 @@
       <div class="panel" id="workout-active-panel" hidden>
         <div class="panel-head"><h2 id="workout-title">Workout in progress</h2>
           <span class="badge" id="workout-timer">00:00</span></div>
+        <p class="section-help"><span>Log actual sets, edit them, add optional device data, and end from here.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
         <div id="workout-meta" class="muted"></div>
         <div id="workout-plan"></div>
 
@@ -383,12 +408,14 @@
 
       <div class="panel" id="workout-ended-panel" hidden>
         <div class="panel-head"><h2>Workout ended</h2><span class="muted">review is the next step</span></div>
+        <p class="section-help"><span>The session is stored; Review is the next step and calibration is separate.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
         <div id="workout-ended"></div>
       </div>
     </section>
     <section id="view-programme" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Programme forecast</h2><span class="muted">forecast only; rebuilt on the day</span></div>
+        <p class="section-help"><span>Read-only projected sessions rebuilt on the day; no stored programme change.</span> <a class="doc-link" href="#docs?doc=docs/TRAINING-DYNAMICS.md">Training dynamics</a></p>
         <form id="programme-form" class="form-row">
           <label>Weeks <input id="programme-weeks" type="number" min="1" max="26" value="4" required></label>
           <label><input id="programme-remaining" type="checkbox"> from today</label>
@@ -413,6 +440,7 @@
     <section id="view-review" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Review a session</h2><span class="muted">human marks, engine scores shown</span></div>
+        <p class="section-help"><span>Human rubric marks; engine values are shown for context and never copied.</span> <a class="doc-link" href="#docs?doc=docs/STRENGTH-PROGRAM-REVIEW.md">Rubric review</a></p>
         <form id="review-form" class="form-row">
           <label>Session <select id="review-session"></select></label>
           <button type="submit">Load sheet</button>
@@ -423,6 +451,7 @@
       <div id="review-result"></div>
       <div class="panel">
         <div class="panel-head"><h2>Rubric agreement</h2><span class="muted">the <code>calibrate</code> report</span></div>
+        <p class="section-help"><span>Runs the calibration report; only high-confidence marks count.</span> <a class="doc-link" href="#docs?doc=docs/STRENGTH-PROGRAM-REVIEW.md">Calibration</a></p>
         <button class="ghost" id="rubric-calibration-run">Run rubric calibration</button>
         <div id="rubric-calibration"></div>
       </div>
@@ -430,7 +459,8 @@
 
     <section id="view-readiness" class="view">
       <div class="panel">
-        <div class="panel-head"><h2>Log readiness</h2><a href="#docs" data-view-link="docs">what moves a load</a></div>
+        <div class="panel-head"><h2>Log readiness</h2></div>
+        <p class="section-help"><span>Records daily readiness; any subset is valid and manual values win per field.</span> <a class="doc-link" href="#docs?doc=docs/READINESS.md">Readiness</a></p>
         <form id="readiness-form">
           <div class="form-row">
             <label>Date <input type="date" id="readiness-date" required></label>
@@ -448,6 +478,7 @@
         </form>
         <div class="panel">
           <div class="panel-head"><h2>Quick readiness</h2><span class="muted">presets write ordinary fields; no shortcut around the gate</span></div>
+        <p class="section-help"><span>Presets write ordinary fields; they do not bypass the readiness gate.</span> <a class="doc-link" href="#docs?doc=docs/READINESS.md">Readiness</a></p>
           <div id="readiness-presets" class="form-row"></div>
           <p class="muted">Context flags are displayed beside readiness and do not change the score by default.</p>
           <div id="readiness-context" class="form-row"></div>
@@ -457,6 +488,7 @@
         <div id="readiness-score"></div>
         <div class="panel">
           <div class="panel-head"><h2>Baseline settings</h2><span class="muted">athlete overrides config</span></div>
+        <p class="section-help"><span>Athlete-specific readiness baseline and weighting overrides.</span> <a class="doc-link" href="#docs?doc=docs/READINESS-SCORE.md">Readiness score</a></p>
           <form id="settings-form" class="grid-fields">
             <label>Baseline days <input id="setting-baseline-days" type="number" min="1" max="365"></label>
             <label>Minimum readings <input id="setting-min-readings" type="number" min="1"></label>
@@ -471,6 +503,7 @@
         </div>
         <div class="panel">
           <div class="panel-head"><h2>Volume valve</h2><span class="muted">poor-readiness set reduction; main lifts opt-in</span></div>
+        <p class="section-help"><span>Optional poor-readiness set reduction; main-lift reduction is opt-in.</span> <a class="doc-link" href="#docs?doc=docs/READINESS.md">Readiness policy</a></p>
           <form id="volume-form" class="grid-fields">
             <label><input type="checkbox" id="volume-enabled"> enabled</label>
             <label>Score below <input id="volume-score" type="number" min="0" max="1" step="0.05"></label>
@@ -482,6 +515,7 @@
         </div>
         <div class="panel">
           <div class="panel-head"><h2>Calibration report</h2><span class="muted">mimicry of the old labels</span></div>
+        <p class="section-help"><span>Descriptive readiness-weight and baseline report; no automatic tuning.</span> <a class="doc-link" href="#docs?doc=docs/READINESS-WEIGHT-EVIDENCE.md">Readiness weight evidence</a></p>
           <button class="ghost" id="calibration-run">Run calibration</button>
           <button class="ghost" id="shadow-run">Run baseline shadow</button>
           <div id="calibration-result"></div>
@@ -489,6 +523,7 @@
         </div>
         <div class="panel" style="margin-top:14px">
           <div class="panel-head"><h2>Override the score</h2><span class="muted">0.00–1.00, same as the score</span></div>
+        <p class="section-help"><span>Explicit readiness override on a 0–1 scale; the old value remains auditable.</span> <a class="doc-link" href="#docs?doc=docs/READINESS-SCORE.md">Readiness score</a></p>
           <form id="override-form" class="form-row">
             <label>Scope
               <select id="override-scope">
@@ -520,6 +555,7 @@
     <section id="view-cardio" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Cardio</h2><span class="muted">separate exposure; no prescription yet</span></div>
+        <p class="section-help"><span>Captures aerobic exposure as a separate item; no prescription yet.</span> <a class="doc-link" href="#docs?doc=docs/LONGEVITY-REVIEW.md">Longevity review</a></p>
         <form id="cardio-form" class="form-row">
           <label>Date <input id="cardio-date" type="date"></label>
           <label>Modality <input id="cardio-modality" type="text" placeholder="walk / run / bike" required></label>
@@ -550,6 +586,7 @@
     <section id="view-measures" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Measurements</h2><span class="muted">periodic outcomes; never a load change</span></div>
+        <p class="section-help"><span>Records periodic outcome metrics; never a load change.</span> <a class="doc-link" href="#docs?doc=docs/OUTCOMES.md">Outcomes review</a></p>
         <form id="measure-form" class="form-row">
           <label>Metric <select id="measure-metric"></select></label>
           <label>Date <input id="measure-date" type="date"></label>
@@ -564,6 +601,7 @@
       </div>
       <div class="panel">
         <div class="panel-head"><h2>History</h2><span class="muted">filter by metric</span></div>
+        <p class="section-help"><span>Filterable append-only measurement history; no values are deleted.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md">Measurement model</a></p>
         <div class="form-row">
           <label>Metric <select id="measure-filter"><option value="">all metrics</option></select></label>
         </div>
@@ -574,6 +612,7 @@
     <section id="view-import" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Import training and readiness</h2><span class="muted">both CSVs</span></div>
+        <p class="section-help"><span>Uploads two CSVs, overlap-matches rows and never writes to the repository.</span> <a class="doc-link" href="#docs?doc=docs/DATA-QUALITY.md">Data quality</a></p>
         <p class="muted">Upload the two exports. The browser sends the file text to this local process;
           the bytes are parsed, hashed and stored as raw rows in <code>data/coach.db</code>. Nothing is
           saved as a file in the repository.</p>
@@ -589,6 +628,7 @@
       <div class="panel" id="import-next">
         <div class="panel-head"><h2>After the import</h2>
           <span class="muted">calibration is not an import step</span></div>
+        <p class="section-help"><span>Reports counts, warnings and the next step; calibration is not an import step.</span> <a class="doc-link" href="#docs?doc=docs/DATA-QUALITY.md">Import behaviour</a></p>
         <p class="muted">The short answer: <strong>do not run a calibration because you imported.</strong>
           Import adds sessions; calibration compares the engine's rubric with <em>your marks</em>.
           With no marks, <code>calibrate</code> says <code>no marks yet</code>.</p>
@@ -614,6 +654,7 @@
     <section id="view-exercises" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Exercise catalogue</h2><span class="muted">base taxonomy + local overrides</span></div>
+        <p class="section-help"><span>Shows canonical taxonomy plus local overrides; ids are immutable.</span> <a class="doc-link" href="#docs?doc=docs/EXERCISE-VARIANTS.md">Exercise variants</a></p>
         <p class="muted">Every canonical exercise and its properties. Edits are written to
           <code>config/exercises/overrides.v1.yaml</code>; the checked-in taxonomy stays intact.
           IDs are immutable because history is keyed by them.</p>
@@ -629,6 +670,7 @@
       <div class="panel" id="exercise-editor" hidden>
         <div class="panel-head"><h2 id="exercise-editor-title">Edit exercise</h2>
           <button class="ghost" id="exercise-cancel" type="button">Close</button></div>
+        <p class="section-help"><span>Edits local display/property overrides without rewriting history.</span> <a class="doc-link" href="#docs?doc=docs/EXERCISE-VARIANTS.md">Exercise editing</a></p>
         <form id="exercise-form">
           <div class="form-row">
             <label>ID <input id="exercise-id" required pattern="[a-z][a-z0-9_]*"></label>
@@ -665,6 +707,7 @@
     <section id="view-state" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Athlete state</h2><span class="muted">stored in the database, not prompt text</span></div>
+        <p class="section-help"><span>Stores goals, constraints, suitability and symptoms as state, not prompt text.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md">Athlete state</a></p>
         <div id="state-result" class="state-grid"></div>
         <div id="state-forms" class="state-grid" style="margin-top:16px"></div>
         <datalist id="exercise-options"></datalist>
@@ -674,6 +717,7 @@
     <section id="view-settings" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Appearance</h2><span class="muted">this browser</span></div>
+        <p class="section-help"><span>Stores the theme in this browser only.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI</a></p>
         <label>Theme
           <select id="settings-theme">
             <option value="system">System</option>
@@ -687,6 +731,7 @@
       <div class="panel">
         <div class="panel-head"><h2>Language model</h2>
           <span class="badge" id="settings-llm-status">loading…</span></div>
+        <p class="section-help"><span>Optional narrator/proposer; it never computes loads or overrides rules.</span> <a class="doc-link" href="#docs?doc=docs/ARCHITECTURE.md">Architecture</a></p>
         <p class="muted">The model writes narrative and may choose among precomputed options. It
           never calculates a load, RIR or set. Disable it to run fully deterministically; all
           features continue to work with no model configured.</p>
@@ -719,6 +764,7 @@
 
       <div class="panel">
         <div class="panel-head"><h2>Prescribe defaults</h2><span class="muted">browser-only preferences</span></div>
+        <p class="section-help"><span>Browser-only form preferences; they do not change server rules.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI</a></p>
         <div class="form-row">
           <label>Minimum-session target
             <select id="settings-default-target">
@@ -736,6 +782,7 @@
 
       <div class="panel">
         <div class="panel-head"><h2>App</h2><span class="muted">local only</span></div>
+        <p class="section-help"><span>Shows local-only runtime and storage facts; no hosted service.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI</a></p>
         <p>Version <code id="settings-version">—</code></p>
         <p>Database <code id="settings-database">—</code></p>
         <p>LLM file <code id="settings-config-path">—</code></p>
@@ -747,6 +794,7 @@
     <section id="view-terminal" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Terminal</h2><span class="muted">strength-coach only</span></div>
+        <p class="section-help"><span>Runs one restricted strength-coach command, never a shell.</span> <a class="doc-link" href="#docs?doc=docs/UI-CLI-PARITY.md">CLI/UI parity</a></p>
         <form id="terminal-form" class="form-row">
           <label class="grow">Command <input id="terminal-command" autocomplete="off" spellcheck="false" placeholder="strength-coach programme --weeks 4"></label>
           <button class="primary" type="submit">Run</button>
@@ -760,8 +808,7 @@
     <section id="view-docs" class="view">
       <div class="docs-layout">
         <aside class="panel docs-list"><div class="panel-head"><h2>Docs</h2></div>
-          <p class="section-help"><span>Browse the local design record.</span>
-            <a class="doc-link" href="#docs?doc=docs/UI-MAP.md">UI documentation map</a></p>
+        <p class="section-help"><span>Browses the local design record; each panel links to its detailed notes.</span> <a class="doc-link" href="#docs?doc=docs/UI-MAP.md">UI documentation map</a></p>
           <div id="docs-list"></div></aside>
         <article class="panel doc" id="doc-body"><p class="muted">Choose a document.</p></article>
       </div>

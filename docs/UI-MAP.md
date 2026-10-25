@@ -1,6 +1,6 @@
 # UI documentation map
 
-**Status:** P0 infrastructure (2026-10-25). Every view/panel gets a short explanation and a
+**Status:** P0 + P1 (2026-10-25). Every view/panel gets a short explanation and a
 documentation deep-link; this file is the canonical map used to build and audit those links.
 
 ## Link contract
@@ -104,7 +104,7 @@ implementation or parity document.
 - [x] Deep-link route (`#docs?doc=...&anchor=...`), heading IDs, duplicate-slug handling.
 - [x] Canonical view/panel map and relationship fields.
 - [x] Reusable `.section-help` style.
-- [ ] P1: every view-level panel has the pattern.
+- [x] P1: every view-level `h2` panel has the pattern (49; Exercise details dialog is P2).
 - [ ] P2: every subsection/dialog has the pattern.
 - [ ] P3: every linked doc has a Related block.
 - [ ] P4: automated coverage/link checker.

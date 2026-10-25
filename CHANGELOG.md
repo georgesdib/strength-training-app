@@ -9,8 +9,8 @@
 
 ### Added
 
-- UI documentation P0: deep-linkable docs (`#docs?doc=...&anchor=...`), stable heading IDs,
-  a canonical `docs/UI-MAP.md`, and a reusable `.section-help` pattern.
+- UI documentation P0/P1: deep-linkable docs (`#docs?doc=...&anchor=...`), stable heading IDs,
+  a canonical `docs/UI-MAP.md`, and one explanation + link on every view-level panel.
 - Descriptive form trend in Outcomes and prior-form context in Review; no prescription use.
 - Backfilled historical imported Form ratings per exercise (average of valid sets, inverted
   1=best → 5=worst, rounded half-up) into the new session form table.

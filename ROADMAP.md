@@ -573,8 +573,9 @@ Done: import, state editing, manual logging, Programme, Terminal. LLM proposal v
 **Documentation layer P0 (2026-10-25).** Docs support deep links (`#docs?doc=...&anchor=...`),
 Markdown headings have stable IDs and duplicate handling, and [`docs/UI-MAP.md`](docs/UI-MAP.md)
 is the canonical view/panel → doc/evidence/decision/question/roadmap map. The reusable
-`.section-help` pattern is demonstrated on Docs. **P1/P2 remain:** every view and panel needs
-its own short explanation and link; then the doc-side `Related` footer and coverage checker.
+`.section-help` pattern is applied to every view-level `h2` panel (P1, 2026-10-25). **P2
+remains:** nested `h3`/dialogs need their own explanations and anchors; then the doc-side
+`Related` footer and coverage checker.
 
 ### 4.11 Web UI parity  (CLOSED for v0.3)
 
