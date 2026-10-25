@@ -294,6 +294,13 @@ conclusion is weaker than it looks.
 | 164 | Maleki AA, Mousavi SH, Biabangard MA, Minoonejad H. *Influence of exercise interventions on functional movement screen scores in athletes: a systematic review and meta-analysis.* Sci Rep, 2025;15:26335. PMID 40685485. | 10.1038/s41598-025-12371-2 | Exercise improves FMS scores; the authors caution against directly linking FMS improvement to performance or injury. |
 | 162 | Huang Z, Jian S, Li D, Chen C, Wang D. *Autoregulated resistance training for maximal strength enhancement: A systematic review and network meta-analysis.* J Exerc Sci Fit, 2025;23(4):281-290. | 10.1016/j.jesf.2025.07.006 | APRE ranked above percentage-based training for squat/bench 1RM; indirect support for autoregulation, not top-set/back-off specifically. |
 
+## 24. Parent-variant ratios and weakness assessment
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 165 | Bahr R. *Why screening tests to predict injury do not work—and probably never will…: a critical review.* Br J Sports Med, 2016;50(13):776-780. | 10.1136/bjsports-2016-096256 | Screening needs a prospective marker, adequate test properties and a treatment benefit; no sports-injury screen meets that standard. |
+| 166 | Seiler J, Haas A, Gnädinger D, Bode G, de la Rosa M, Prill R, Schmal H, Bode L. *Limited predictive value of preseason isokinetic strength testing for noncontact lower extremity injuries in elite female football players: a 5-year prospective cohort study.* Knee Surg Sports Traumatol Arthrosc, 2026. | 10.1002/ksa.70623 | Isokinetic strength and H:Q ratios had limited independent injury prediction; not a stand-alone screen. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow
@@ -311,3 +318,4 @@ claim that the study is definitive; the evidence notes state the limitations.
 - `docs/CORE-TRAINING.md` — core/trunk training evidence and the programme gap
 - `docs/LONGEVITY-REVIEW.md` — modality review against a longevity-first goal
 - `ROADMAP.md` §4.13 — cardio load and impulse-fatigue model plan
+- `docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md` — variant ratios, weakness assessment and screening

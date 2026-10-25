@@ -100,6 +100,12 @@ selection candidates. The template still decides the default prescription; ticki
 selection** in Prescribe (or `run --apply-selection`) applies at most one substitution per slot
 and re-solves the load from the selected lift (`MOD-SELECT-001`).
 
+## 4a. Ratios are not weakness
+
+A ratio between variant e1RMs is a relative performance profile, not a muscle diagnosis. See
+[PARENT-VARIANT-WEAKNESS-EVIDENCE.md](PARENT-VARIANT-WEAKNESS-EVIDENCE.md); do not use a ratio
+to auto-select a lift or infer injury risk.
+
 ## 5. Selection tuning
 
 [`config/selection.v1.yaml`](../config/selection.v1.yaml) holds the weights and rotation

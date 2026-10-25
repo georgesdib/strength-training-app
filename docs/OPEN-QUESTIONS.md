@@ -314,7 +314,10 @@ be used.
 
 Proposed in [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md): class A load-comparable,
 class B near-comparable (confirmation required), class C different lift (never automatic).
-**Implemented 2026-10-20**; the exact A/B boundary remains open.
+**Implemented 2026-10-20**; the exact A/B boundary remains open. Parent-variant e1RM ratios
+are **not** a weakness measure; see
+[PARENT-VARIANT-WEAKNESS-EVIDENCE.md](PARENT-VARIANT-WEAKNESS-EVIDENCE.md). Any future ratio is a
+display-only relative-performance profile, never a silent load conversion.
 
 ## Q22. Should selection target weakness or injury?
 

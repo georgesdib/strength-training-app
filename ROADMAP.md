@@ -977,9 +977,11 @@ Moved out of the strength-programme review so it can close. These are **not** v0
    period only after it beats the fixed/persistence baseline in a retrospective walk-forward.
    The current continuity and fatigue models failed; they remain fixed/shadow-only. A prospective
    run is 8–12 weeks / 24–36 sessions with no retuning and no load effect.
-2. **Parent-variant e1RM ratios.** Needs a formal parent relation, enough paired sessions and a
-   validated ratio with uncertainty. It is a prior/display aid, never a silent load conversion.
-   No schedule.
+2. **Parent-variant e1RM ratios.** Evidence review 2026-10-25: a ratio is a relative performance
+   profile, **not** a weakness or injury measure. It may later be a descriptive prior/display
+   aid with uncertainty, never a silent load conversion or targeting rule. Needs a formal parent
+   relation and paired data. No schedule. See
+   [PARENT-VARIANT-WEAKNESS-EVIDENCE.md](docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md).
 3. **Weakness/injury targeting.** No positive targeting. A display-only own-history context is
    implemented. Weakness targeting is gated by DEC-SELECT-05 (earliest after v0.4 / ~April
    2027); injury targeting is unscheduled and remains constraint/penalty/ceiling only.
@@ -989,7 +991,7 @@ Moved out of the strength-programme review so it can close. These are **not** v0
 | decision | state | where |
 |---|---|---|
 | Prospective validation of a future continuity/fatigue candidate | gate only; current candidates rejected | §4.20.1, DEC-VALIDATION-01 |
-| Parent-variant e1RM ratios | unscheduled; needs paired data and validation | §4.20.2 |
+| Parent-variant e1RM ratios | unscheduled; display-only profile/prior, not weakness | §4.20.2; `PARENT-VARIANT-WEAKNESS-EVIDENCE.md` |
 | Weakness targeting | deferred to after v0.4 / ~April 2027 | §4.20.3, Q22, DEC-SELECT-05 |
 | Selection A/B boundary (pause/narrow, SSB/high-bar) | dormant policy decision; current default is conservative (A only same exercise) | Q21, docs/SELECTION-COMPARABILITY.md |
 | Cardio model | v0.4 | §4.13, Q14 |

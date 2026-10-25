@@ -62,6 +62,15 @@ test treatment programmes, not algorithm-selected substitutions.
 Prior injury is a strong recurrence marker; that supports **caution and exposure management**,
 not “train the weak area to prevent recurrence.”
 
+### Parent-variant e1RM ratios are not a weakness measure
+
+A ratio between two exercise variants (for example, front squat ÷ back squat) is a relative
+performance ratio, not a muscle diagnosis. It mixes load basis, technique, familiarity, range
+of motion and e1RM noise. A low ratio is a prompt to check specificity/technique before calling
+it weakness. See
+[PARENT-VARIANT-WEAKNESS-EVIDENCE.md](PARENT-VARIANT-WEAKNESS-EVIDENCE.md).
+
+
 ## 3. Decision
 
 1. **No weakness-targeted selection now.**
@@ -132,3 +141,11 @@ feature. Injury targeting remains unscheduled at every phase.
 - no automatic application until the comparison is positive.
 
 No targeting implementation in this change.
+
+## Related
+
+- **Evidence review:** [PARENT-VARIANT-WEAKNESS-EVIDENCE.md](PARENT-VARIANT-WEAKNESS-EVIDENCE.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

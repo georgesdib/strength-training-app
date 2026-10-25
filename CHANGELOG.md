@@ -11,6 +11,8 @@
 
 ### Added
 
+- Evidence review for parent-variant e1RM ratios: they are relative performance profiles, not
+  weakness or injury measures. Display-only prior at most; no targeting (`DEC-SELECT-09`).
 - UI documentation P0–P4: deep-linkable docs (`#docs?doc=...&anchor=...`), stable heading IDs,
   a canonical `docs/UI-MAP.md`, help + link on every panel, a Related footer on every UI-linked
   document, and `tools/check_ui_docs.py` coverage/link checks.
