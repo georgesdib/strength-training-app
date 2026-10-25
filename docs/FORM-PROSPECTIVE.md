@@ -22,7 +22,7 @@ Compare only within the same lift. A 3/5 on a squat is not the same as 3/5 on a 
 
 ## 2. Sampling
 
-- Window: **12 weeks** from the start date.
+- Window: **12 weeks** from the start date. Historical backfilled ratings before the start date do not count as prospective events.
 - Minimum before analysis: **10 low-form events (≤2)** across at least **4 lifts**.
 - If fewer, extend to 24 weeks; do not analyse a handful of events.
 - One rating per exercise/session; latest correction wins.

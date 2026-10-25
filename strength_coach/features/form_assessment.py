@@ -152,7 +152,7 @@ def followup(conn, *, as_of: str | None = None) -> dict:
         "low_lifts": lifts,
         "target_events": LOW_FORM_TARGET,
         "target_lifts": LOW_FORM_LIFT_TARGET,
-        "note": "Follow-up only; form does not change a load or prescription.",
+        "note": "Prospective count only; historical backfilled ratings before 2026-10-25 are excluded. Follow-up only; form does not change a load or prescription.",
     }
 
 
