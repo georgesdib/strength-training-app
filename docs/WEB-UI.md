@@ -22,6 +22,8 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 
 ## Pages
 
+The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the backdrop or Escape closes it. The main content stays full width.
+
 - **Outcomes** — read-only 4/8/12-week strength review, attendance, volume and **Prospective check**; no prescription effect.
 - **Longevity** — consolidated cardio, measurement, readiness and symptom context with deterministic **Going well / Needs attention** labels; no targets beyond the WHO cardio reference and no prescription effect.
 - **Today** — goal, block week, readiness, injury signal, unreviewed count, **rubric calibration** (high-confidence sessions, agreement, per-item marks/comparable counts, gaps), recent sessions, and a **Descriptive progress** panel (sRPE coverage, attendance, family exposures, performance ratio, weekly volume status, latest back symptom; monitoring only).
