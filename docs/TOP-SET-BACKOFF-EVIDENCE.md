@@ -3,8 +3,9 @@
 **Date:** 2026-10-24  
 **Question:** Is a top set followed by back-off sets more effective than the current programme
 for strength, hypertrophy and longevity?  
-**Decision:** No programme change. Keep the current straight-set prescription. Documented
-review only; no implementation.
+**Decision:** No programme change. Keep the current straight-set prescription. The evidence is
+more supportive than an earlier version of this note implied, but it is still indirect and does
+not establish superiority over the current prescription. Documented review only; no implementation.
 
 ---
 
@@ -33,8 +34,9 @@ strategy, not a different exercise or a validated programme.
 ## 2. Direct evidence
 
 **No head-to-head trial of top set + back-off versus the current 4-5 × 3-5 @ RIR 2-3
-prescription was found.** The term is used mainly in coaching practice, and the studies that
-come closest test:
+prescription was found.** There is, however, a specific narrative overview of back-off sets
+(Rodriguez et al. 2021), plus indirect randomised/network-meta-analytic evidence. The studies
+that come closest test:
 
 - autoregulated heavy singles with or without back-off sets;
 - ascending vs descending vs constant-load pyramids;
@@ -42,6 +44,38 @@ come closest test:
 - low vs moderate vs high weekly volume.
 
 Those are adjacent, not direct, comparisons.
+
+### 2.1 Specific back-off-set review
+
+Rodriguez et al. describe back-off sets as an initial heavy loaded set followed by a planned
+load reduction for subsequent sets. Their overview argues that back-offs can maintain or increase
+training volume, may benefit from a potentiation effect, and can reduce required interset rest.
+They explicitly say utility depends on training goal, training age, exercise type,
+individualisation, loading and load-reduction strategy, and autoregulation. This is a narrative
+overview, not a controlled trial, so it supports plausibility and a rationale for volume, not
+superiority over the current programme.
+
+[Rodriguez et al. 2021](https://doi.org/10.1519/SSC.0000000000000623)
+
+### 2.2 Network meta-analysis of load, sets and frequency
+
+Currier et al. pooled 178 strength trials and 119 hypertrophy trials. Higher-load prescriptions
+(>80% 1RM) maximised strength; all prescriptions produced comparable hypertrophy; multiple sets
+ranked highest for hypertrophy. Higher-load, multiset, thrice-weekly training ranked first for
+strength. A heavy top set followed by back-offs is a plausible way to combine a high-load set
+with multiset volume, but the analysis did not test that structure.
+
+[Currier et al. 2023](https://doi.org/10.1136/bjsports-2023-106807)
+
+### 2.3 Autoregulated training network meta-analysis
+
+Huang et al. compared autoregulated progressive resistance exercise (APRE), RPE-based training,
+velocity-based training and percentage-based training. APRE ranked first for both squat and bench
+press 1RM; all three autoregulated approaches were more effective than percentage-based training.
+This supports autoregulated loading generally. It does not isolate a top set plus back-off
+structure.
+
+[Huang et al. 2025](https://doi.org/10.1016/j.jesf.2025.07.006)
 
 ---
 
@@ -104,8 +138,8 @@ adaptation.
 
 | goal | likely effect of top set + back-off | confidence |
 |---|---|---|
-| 1RM strength | heavy top set adds specificity; back-offs add volume. Could be similar or slightly better than straight sets, but no direct trial | low |
-| hypertrophy | back-offs add volume; current volume already adequate; no clear advantage | low |
+| 1RM strength | heavy top set adds specificity; back-offs add volume. Indirectly supported by high-load/multiset and APRE evidence; no direct trial against current prescription | moderate indirect, low direct |
+| hypertrophy | back-offs add volume; multiple sets are supported, but current volume is already adequate; no direct advantage shown | moderate indirect, low direct |
 | longevity / health | no demonstrated benefit; heavy top sets add spinal and recovery cost | very low |
 | back symptoms | heavier top sets are the opposite of the current conservative RIR 2-3 approach; no evidence of benefit | very low |
 | time efficiency | plausible reduction in session time; not unique | moderate |
@@ -152,9 +186,10 @@ A positive N-of-1 result would be a reason to discuss a change, not proof for th
 
 ## 7. Recommendation
 
-**Do not replace the current programme with top set + back-off based on the available
-evidence.** The current straight-set prescription is at least as well supported, and it fits
-the longevity/back constraints better.
+**Do not replace the current programme yet.** The evidence supports a fair trial of top set +
+back-off, especially for strength, but it does not show superiority over the current 4-5 × 3-5
+@ RIR 2-3 prescription. The current programme remains at least as well supported and fits the
+longevity/back constraints better.
 
 Reasonable uses that do **not** require a programme change:
 
@@ -169,4 +204,4 @@ No code, config or prescription change is proposed.
 
 ## 8. References
 
-See [REFERENCES.md](REFERENCES.md) entries 154-159.
+See [REFERENCES.md](REFERENCES.md) entries 154-162.

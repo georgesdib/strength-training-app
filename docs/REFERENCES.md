@@ -284,6 +284,14 @@ conclusion is weaker than it looks.
 | 158 | Iversen VM, Norum M, Schoenfeld BJ, Fimland MS. *No Time to Lift? Designing Time-Efficient Training Programs for Strength and Hypertrophy: A Narrative Review.* Sports Med, 2021;51(10):2079-2095. | 10.1007/s40279-021-01490-1 | Weekly volume and multi-joint exercise priority; advanced methods can save time. |
 | 159 | Arazi H, Khoshnoud A, Asadi A, Tufano JJ. *The effect of resistance training set configuration on strength and muscular performance adaptations in male powerlifters.* Sci Rep, 2021;11:7844. | 10.1038/s41598-021-87372-y | Cluster vs traditional sets in powerlifters: similar 1RM, cluster better impulsive performance. |
 
+## 23. Back-off sets and autoregulated loading
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 160 | Rodriguez J, Hanney WJ, Kolber MJ, Cheatham SW. *Utility of Back-Off Sets: An Overview.* Strength Cond J, 2021;43(5):65-76. | 10.1519/SSC.0000000000000623 | Narrative overview: back-offs can maintain/increase volume, possible potentiation, shorter rest; not a trial. |
+| 161 | Currier BS, McLeod JC, Banfield LE, Beyene J, Welton NJ, D'Souza AC, et al. *Resistance training prescription for muscle strength and hypertrophy in healthy adults: a systematic review and Bayesian network meta-analysis.* Br J Sports Med, 2023;57(18):1211-1220. | 10.1136/bjsports-2023-106807 | Higher load + multiple sets ranked best for strength; multiple sets for hypertrophy; not a top-set/back-off trial. |
+| 162 | Huang Z, Jian S, Li D, Chen C, Wang D. *Autoregulated resistance training for maximal strength enhancement: A systematic review and network meta-analysis.* J Exerc Sci Fit, 2025;23(4):281-290. | 10.1016/j.jesf.2025.07.006 | APRE ranked above percentage-based training for squat/bench 1RM; indirect support for autoregulation, not top-set/back-off specifically. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow

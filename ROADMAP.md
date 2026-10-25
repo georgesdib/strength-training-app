@@ -1047,8 +1047,9 @@ Recorded so good ideas are not lost, explicitly **not** commitments:
   2026-10-24** as a read-only 8/12-week check (`regime`, Prescribe panel).
 - History page with audited correction of completed/imported sessions (append-only supersession,
   critique rebuild, re-review flag), whole-session void/unvoid and VBT overrides — **delivered 2026-10-24**.
-- Top set + back-off sets — **evidence review only**; no direct trial against the current
-  4-5 × 3-5 @ RIR 2-3 prescription. Do not replace the programme on current evidence
+- Top set + back-off sets — **evidence review only**; a specific overview plus indirect
+  high-load/multiset and autoregulation evidence, but no direct trial against the current
+  4-5 × 3-5 @ RIR 2-3 prescription. Do not replace the programme yet
   ([TOP-SET-BACKOFF-EVIDENCE.md](docs/TOP-SET-BACKOFF-EVIDENCE.md)).
 - LLM-guided suggested programme under the §4.18 guardrails (idea only).
 - Wider proposal licence (more than one increment on the menu) once the menu has proved itself
