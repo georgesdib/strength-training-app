@@ -48,3 +48,19 @@ def test_history_without_squat_rotates_instead_of_three_squats():
     assert prior.count("squat") == 2
     assert prior.count("hinge") == 2
     assert sum(1 for value in prior if value.startswith("bench")) == 2
+
+def test_bench_squat_does_not_repeat_the_squat_sessions_main_lift():
+    # DEC-PROGRAMME-08: bench+squat used to program the same SSB squat as the squat session,
+    # so the same movement landed on two sessions two days apart and the emphasis alternation
+    # was invisible in the actual lifts.
+    squat_main = next(
+        slot.exercise for slot in templates.SessionTemplate.load("squat").slots
+        if slot.id == "squat_main"
+    )
+    support = next(
+        slot.exercise for slot in templates.SessionTemplate.load("bench_squat").slots
+        if slot.id == "squat_support"
+    )
+    assert squat_main == "ssb_squat"
+    assert support is not None
+    assert support != squat_main

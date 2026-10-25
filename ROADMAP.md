@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-26 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 done, v0.5 in progress** · version `0.5.0-dev` · **749 public tests** (764 with the 15 private integration tests)
+Last updated: 2026-10-25 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 done, v0.5 in progress** · version `0.5.0-dev` · **749 public tests** (764 with the 15 private integration tests)
 
 ---
 
@@ -47,7 +47,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v0.3 | Strength/data depth | **done** | manual logging via live workout mode (§4.2/§4.21, closed), import adapters closed (§4.3), learned readiness weights evaluated and closed (§4.9), LLM proposal view closed as CLI-only (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed), read-only 4/8/12-week outcomes review, longevity context, prescription-modifier provenance and quick readiness presets/context and readiness feedback, UI prescription persistence (A0/A/B/C/E), minimum effective sessions (D) the methodology/privacy docs (F), W1/W7 attendance metrics and the session-time cap |
 | v0.4 | Audit, documentation and form closeout | **done 2026-10-25** | form assessment/prospective follow-up, fatigue diagnostic closure, UI documentation P0–P4, parent-ratio evidence review, weakness test plan, calibration milestone (§4.22) |
 | v0.5 | Cardio + calibration depth | **in progress; plan at §4.13a** | guided Workflow UI (readiness → preview → workout → post-workout); cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
-| — | 2026-10-26 corrective pass | **done 2026-10-26** | e1RM selector + plausibility advisory (`DEC-E1RM-SOURCE-01`, `DEC-E1RM-PLAUS-01`), `MOD-SPINE-001` spinal trim, group-level volume status (`DEC-VOLUME-05`), technique throttle in the API and Prescribe form (`MOD-TECH-001`), e1RM overrides in Exercises and post-workout; constitution 1.13.0 (`DEC-RIR-04`) |
+| — | 2026-10-25 corrective pass | **done 2026-10-25** | e1RM selector + plausibility advisory (`DEC-E1RM-SOURCE-01`, `DEC-E1RM-PLAUS-01`), `MOD-SPINE-001` spinal trim, group-level volume status (`DEC-VOLUME-05`), technique throttle in the API and Prescribe form (`MOD-TECH-001`), e1RM overrides in Exercises and post-workout; constitution 1.13.0 (`DEC-RIR-04`) |
 | — | Post-workout form assessment | **done 2026-10-25** | optional per-lift 1–5; Workout + History edit; rubric 1.2.0 |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video descoped; 3.8 labelled set moved to §4.14 |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000`; Settings tab for LLM and browser defaults |
@@ -970,7 +970,8 @@ calendar. The legacy A/B/C fields and overrides were removed by migration 0023 (
 
 **Balance changes:** every session includes bench or another upper-body press/pull, plus a
 horizontal row. After the 2026-10-20 review, squat-emphasis SSB is 5×3–5, the bench+squat
-squat support is 4×3–5, and the trap-bar hinge is 5×3–5. This restores ~7 squat sets/week and
+squat support is 4×3–5 of **competition squat** (`DEC-PROGRAMME-08`: a second SSB exposure
+repeated the squat session's main lift), and the trap-bar hinge is 5×3–5. This restores ~7 squat sets/week and
 raises heavy hinge to ~5 sets/week without a second heavy exposure; back extension stays at 3
 sets/week. The hinge gets a second exposure through the single-leg RDL support on the
 bench+hinge session, without stacking another high-fatigue spinal lift. Only the squat-emphasis

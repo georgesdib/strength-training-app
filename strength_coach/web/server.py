@@ -1259,6 +1259,12 @@ class Handler(BaseHTTPRequestHandler):
         start = body.get("start") or None
         if body.get("remaining"):
             start = datetime.date.today().isoformat()
+        use_llm = _truth(body.get("use_llm"))
+        # The model may choose only among the Python-filtered candidates; it never supplies a
+        # load, set or RIR. Without the flag the forecast stays the fixed deterministic plan.
+        chooser = (
+            agent_selection.chooser(build_client(load_settings())) if use_llm else None
+        )
         pages = programme_feature.build_programme(
             conn,
             start=start,
@@ -1266,6 +1272,8 @@ class Handler(BaseHTTPRequestHandler):
             per_week=int(body.get("sessions_per_week") or 3),
             start_session_type=body.get("start_session_type") or None,
             apply_deload=True,
+            apply_selection=use_llm,
+            selection_chooser=chooser,
         )
         return {"entries": [
             {"date": entry.on_date,

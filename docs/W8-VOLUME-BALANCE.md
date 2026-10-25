@@ -12,7 +12,7 @@ Average over the six-session cycle (two weeks, three sessions per week):
 
 | pattern / lift | sets/week | counted spinal cost/week | estimated set+rest min/week |
 |---|---:|---:|---:|
-| squat (SSB main + support) | 7 | 0 | 35.0 |
+| squat (SSB main; competition-squat support in bench+squat) | 7 | 0 | 35.0 |
 | trap-bar hinge | 5 | 2 | 17.5 |
 | bench (main + support) | 12 | 0 | 42.0 |
 | overhead press | 3 | 0 | 6.0 |

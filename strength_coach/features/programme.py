@@ -56,11 +56,13 @@ def reactive_deload_reason(conn, as_of: str, *,
 
 def build_programme(conn, *, start: str | None = None, weeks: int = 4,
                     per_week: int = 3, start_session_type: str | None = None,
-                    apply_deload: bool = True) -> list[ProgrammeEntry]:
+                    apply_deload: bool = True, apply_selection: bool = False,
+                    selection_chooser=None,
+                    selection_confirmed: bool = False) -> list[ProgrammeEntry]:
     if weeks <= 0:
         raise ValueError("weeks must be positive")
     if not 1 <= per_week <= len(WEEKDAYS):
-        raise ValueError("per_week must be 1-3 for the A/B/C programme")
+        raise ValueError("per_week must be 1-3 for the programme forecast")
     first = dt.date.fromisoformat(start) if start else dt.date.today()
     dates = _dates(first, weeks, per_week)
     prior: list[str] = []
@@ -114,6 +116,9 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
             undulation=undulation,
             history=history,
             vbt=vbt,
+            apply_selection=apply_selection,
+            selection_chooser=selection_chooser,
+            selection_confirmed=selection_confirmed,
             deload_decision=reactive,
         )
         if reactive is None and scheduled is not None:

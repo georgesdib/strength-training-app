@@ -113,6 +113,7 @@ def test_the_page_and_overview_are_served(server):
     assert "cardio-weeks" in page
     assert "fatigue-model" in page
     assert "selection-result" in page
+    assert 'id="programme-use-llm"' in page
     # Import page explains that calibration is a later, separate step.
     assert "After the import" in page and "import-next" in page
     assert "calibration is not an import step" in page
@@ -391,6 +392,15 @@ def test_programme_endpoint(server):
     assert data["entries"][0]["date"] == "2024-01-03"
     assert data["entries"][0]["session_type"] == "squat"
     assert data["entries"][0]["prescription"]["items"]
+
+
+def test_programme_endpoint_accepts_use_llm(server):
+    data = post(server, "/api/programme", {
+        "weeks": 1, "start": "2024-01-02", "start_session_type": "squat",
+        "use_llm": True,
+    })
+    assert data["entries"]
+    assert data["entries"][0]["prescription"]["notes"]["selection"]["llm_requested"] is True
 
 
 def test_terminal_accepts_only_strength_coach(server):

@@ -206,7 +206,7 @@ import  →  state (once)  →  readiness  →  prescribe  →  perform
 | readiness | `readiness set` | Workflow → Readiness |
 | prescription | `run --date ... --session-type auto` | Workflow → Preview |
 | workout | `workout status/add/update/remove/end/import` | Workflow → Workout |
-| programme | `programme --weeks N [--start-session-type T]` | Programme |
+| programme | `programme --weeks N [--start-session-type T] [--use-llm]` | Programme |
 | review | `review --session ...` | Review |
 | rubric report | `calibrate` | Review → Run rubric calibration |
 | readiness report | `readiness calibrate` | Readiness → Run calibration |
@@ -548,6 +548,7 @@ makes no causal claim and never changes a prescription.
 ```bash
 strength-coach programme --weeks 4
 strength-coach programme --weeks 4 --remaining
+strength-coach programme --weeks 4 --use-llm
 ```
 
 It prints a dated rolling session-type forecast for the next N weeks, three sessions per week
@@ -555,8 +556,11 @@ on Monday/Wednesday/Friday. Use
 `--start-session-type squat|hinge|bench_squat|bench_hinge|auto` to force the first session; the
 default is the rolling rule. This is a **forecast**: the day's prescription is rebuilt when the
 day arrives, using current e1RM, readiness and symptoms. It is not a fixed block and persists
-nothing. The first session is marked `fatigue_reduced` if the last two weeks exceeded the
-spinal cap or the last two sessions both flared.
+nothing. **Use LLM** lets the configured model choose only among the Python-filtered exercise
+variants; it never supplies a load, set or RIR. A-class substitutions can apply, B-class stays
+blocked without confirmation, and a missing model falls back to the deterministic choice. The
+first session is marked `fatigue_reduced` if the last two weeks exceeded the spinal cap or the
+last two sessions both flared.
 
 ### 4.5 `block` — declare or reset week 1
 

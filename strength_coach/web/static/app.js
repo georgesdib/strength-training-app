@@ -2102,6 +2102,7 @@ async function runProgramme() {
     start: $("#programme-start").value || null,
     sessions_per_week: Number($("#programme-per-week").value || 3),
     start_session_type: $("#programme-session-type").value || "auto",
+    use_llm: $("#programme-use-llm").checked,
   };
   const button = $("#programme-form button[type='submit']");
   $("#programme-result").innerHTML = "<p class='empty'>Building forecast… each week is three prescriptions, so this takes a few seconds.</p>";

@@ -32,6 +32,10 @@
   essential work is the cause (`MOD-SPINE-001`, `DEC-SPINE-03`). Cap unchanged.
 - Volume `under`/`high`/`over` status is judged per **landmark group**; the ledger exposes
   `group` and `group_average` per row (`DEC-VOLUME-05`).
+- **bench+squat no longer repeats the squat session's main lift.** Its 4-set squat support is
+  the **competition squat** — a different bar, and the squat with real recent data — instead of
+  a second SSB exposure two days later. Set count and squat-pattern volume are unchanged
+  (`DEC-PROGRAMME-08`).
 
 ### Fixed
 

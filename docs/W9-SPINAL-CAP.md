@@ -1,7 +1,7 @@
 # W9 — SPINAL-CAP HEADROOM
 
 **Status:** audit complete 2026-10-23; W9 recommendations implemented. No cap/headroom change.
-**Follow-up 2026-10-26:** the cap and the template arithmetic are unchanged, but the engine now
+**Follow-up 2026-10-25:** the cap and the template arithmetic are unchanged, but the engine now
 has a one-directional remedy for the at-cap week it documents below. `MOD-SPINE-001` removes a
 non-essential high-fatigue spinal item (in practice the erector slot) when that alone brings the
 week to the cap; when the overage is carried by essential lifts the veto stands and the issue

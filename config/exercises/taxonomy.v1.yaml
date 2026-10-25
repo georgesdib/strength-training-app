@@ -85,7 +85,7 @@ entities:
     # A rule scoped to main_lift alone would ignore whichever squat is actually
     # performed most, which is often not one of the constitution's named lifts.
     primary_compound: true
-    programme_slot_of: ssb_squat   # using it where SSB was programmed is a deviation
+    programme_slot_of: ssb_squat   # substitute for SSB elsewhere; bench_squat programs it directly (DEC-PROGRAMME-08)
     erector_family: false
     vbt_family: squat
     loadable: true

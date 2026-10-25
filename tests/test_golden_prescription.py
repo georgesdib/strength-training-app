@@ -25,6 +25,10 @@ def history_rows_all_days() -> list[dict]:
         rows += [
             {"Date": day, "Exercise": "Safety Squat Bar", "Weight_Used": "100",
              "RIR": "2", "Reps_Done": "5"},
+            # DEC-PROGRAMME-08: the bench+squat support is the competition squat, so the
+            # fixture must hold its history or the session is not executable.
+            {"Date": day, "Exercise": "Competition Squat", "Weight_Used": "105",
+             "RIR": "2", "Reps_Done": "5"},
             {"Date": day, "Exercise": "Competition Bench Press", "Weight_Used": "80",
              "RIR": "2", "Reps_Done": "5"},
             {"Date": day, "Exercise": "Box Jumps", "Weight_Used": "0",

@@ -102,6 +102,26 @@ def test_a_forecast_entry_equals_a_freshly_built_prescription():
     assert entry.prescription.notes == direct.notes
 
 
+def test_programme_can_use_a_selection_chooser():
+    calls = []
+
+    def chooser(slot, candidates):
+        calls.append(slot.id)
+        return None
+
+    with store_with() as store:
+        entries = programme.build_programme(
+            store.connection, start="2024-01-02", weeks=1, per_week=1,
+            start_session_type="squat", apply_selection=True,
+            selection_chooser=chooser,
+        )
+
+    assert calls
+    selection = entries[0].prescription.notes["selection"]
+    assert selection["requested"] is True
+    assert selection["llm_requested"] is True
+
+
 def test_a_forecast_on_an_empty_store_is_empty_not_a_crash():
     # A new athlete clicking "Build forecast" before importing must get a plan with unknown
     # loads, not a 500. The VBT calibration and the spinal-cost helper both assume columns

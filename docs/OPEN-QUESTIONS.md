@@ -359,7 +359,7 @@ baseline win, and an opt-in N-of-1/alternating test. See
 [WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md) and the gated
 [WEAKNESS-TARGETING-PLAN.md](WEAKNESS-TARGETING-PLAN.md).
 
-## Q23. Should a first-set RIR drop trigger a load reduction? — **Closed 2026-10-26: no**
+## Q23. Should a first-set RIR drop trigger a load reduction? — **Closed 2026-10-25: no**
 
 `MOD-FAT-001` carried a fourth OR-branch — "the first working set is RIR 0-1 at a load that
 was RIR 2-3 last session" — that **was never implemented**: no predicate, no engine input, no

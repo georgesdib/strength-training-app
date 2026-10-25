@@ -124,7 +124,11 @@ session_types:
           essential: true
           load_source: e1rm
         - id: squat_support
-          exercise: ssb_squat
+          # DEC-PROGRAMME-08: a second SSB exposure here made bench+squat a repeat of the
+          # squat session's main lift two days apart. The competition squat keeps the squat
+          # pattern and the 4-set volume while changing the bar, and it is the squat the
+          # athlete actually trains, so the load comes from real recent sets.
+          exercise: competition_squat
           sets: 4
           reps: {low: 3, high: 5}
           rir: {low: 2, high: 3}

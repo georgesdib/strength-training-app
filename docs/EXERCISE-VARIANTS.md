@@ -20,7 +20,8 @@ taxonomy stays intact, so comments and the base audit trail survive. IDs are imm
     pattern: squat
     main_lift: false
     primary_compound: true          # the RIR window applies
-    programme_slot_of: ssb_squat    # informational: used where SSB was programmed
+    programme_slot_of: ssb_squat    # informational: substitutes for SSB; a lift may also be
+                                    # programmed directly in its own slot (DEC-PROGRAMME-08)
     vbt_family: squat
     loadable: true
     time_based: false

@@ -502,9 +502,10 @@
               <option value="bench_hinge">Bench + hinge</option>
             </select>
           </label>
+          <label><input type="checkbox" id="programme-use-llm"> Use LLM</label>
           <button class="primary" type="submit">Build forecast</button>
         </form>
-        <p class="muted">Rolling session-type forecast. Loads are projections, and every session is rebuilt when its day arrives. Nothing is persisted.</p>
+        <p class="muted">Rolling session-type forecast. Loads are projections, and every session is rebuilt when its day arrives. Nothing is persisted. <strong>Use LLM</strong> lets the configured model choose only among Python-filtered exercise variants; it never supplies a load, set or RIR.</p>
       </div>
       <div id="programme-result"></div>
     </section>

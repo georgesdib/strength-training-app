@@ -118,11 +118,11 @@ bench_squat:
     rir_target: 2
     rest_s: 180
     essential: true
-  - exercise_id: ssb_squat
+  - exercise_id: competition_squat
     sets: 4
     reps_low: 3
     reps_high: 5
-    load_kg: 105.5
+    load_kg: 111.0
     load_basis: external
     rir_target: 2
     rest_s: 180
