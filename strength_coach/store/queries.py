@@ -62,7 +62,8 @@ def clean_sets(
         " s.rir_source, s.velocity_mps, s.velocity_present, s.rom_mm, s.tut_s,"
         " s.form_score, s.tonnage_kg, s.is_working_set, s.flags, r.source_row"
         " FROM clean_set s JOIN raw_row r ON r.raw_id = s.raw_id"
-        " WHERE s.voided = 0 AND NOT EXISTS ("
+        " JOIN session sess ON sess.session_id = s.session_id"
+        " WHERE s.voided = 0 AND sess.voided = 0 AND NOT EXISTS ("
         "SELECT 1 FROM clean_set child WHERE child.supersedes_id = s.set_id)"
     )
     params: list[object] = []
@@ -251,7 +252,7 @@ def latest_rubric_marks(conn) -> list[dict]:
               GROUP BY session_id, item
                ) latest
             ON latest.keep_id = m.mark_id
-         WHERE s.needs_review = 0
+         WHERE s.needs_review = 0 AND s.voided = 0
       ORDER BY m.session_id DESC, m.item
         """
     ).fetchall()
@@ -417,13 +418,13 @@ def unreviewed_sessions(conn, *, limit: int = 50) -> list[str]:
 
 def sessions(conn, *, start: str | None = None, end: str | None = None) -> pd.DataFrame:
     """Reconstructed sessions, one row per date."""
-    sql = "SELECT * FROM session"
+    sql = "SELECT * FROM session WHERE voided = 0"
     params: list[object] = []
     if start is not None:
-        sql += " WHERE occurred_on >= ?"
+        sql += " AND occurred_on >= ?"
         params.append(start)
     if end is not None:
-        sql += (" WHERE occurred_on <= ?" if start is None else " AND occurred_on <= ?")
+        sql += " AND occurred_on <= ?"
         params.append(end)
     sql += " ORDER BY occurred_on"
     rows = [dict(row) for row in conn.execute(sql, params)]

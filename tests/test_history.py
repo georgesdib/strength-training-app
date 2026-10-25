@@ -79,3 +79,40 @@ def test_history_removal_is_a_tombstone():
         assert voided == 1
     finally:
         store.close()
+
+
+def test_void_and_unvoid_remove_the_session_from_metrics():
+    store = _store()
+    try:
+        conn = store.connection
+        session_id = history.list_sessions(conn)["sessions"][0]["session_id"]
+        voided = history.void_session(conn, session_id, reason="test")
+        assert voided["voided"] == 1
+        assert queries.sessions(conn).empty
+        assert queries.clean_sets(conn).empty
+        assert history.list_sessions(conn)["total"] == 1
+        restored = history.void_session(conn, session_id, unvoid=True)
+        assert restored["voided"] == 0
+        assert len(queries.clean_sets(conn)) == 2
+    finally:
+        store.close()
+
+
+def test_apply_vbt_set_and_rep_overrides():
+    store = _store()
+    try:
+        conn = store.connection
+        session_id = history.list_sessions(conn)["sessions"][0]["session_id"]
+        detail = history.detail(conn, session_id)
+        set_id = detail["sets"][0]["set_id"]
+        result = history.apply_vbt(conn, session_id, [{
+            "set_id": set_id, "mean": 0.81,
+            "reps": [{"rep_index": 1, "velocity_mps": 0.84},
+                     {"rep_index": 5, "velocity_mps": 0.76}],
+        }])
+        items = {item["set_id"]: item for item in result["session"]["sets"]}
+        assert items[set_id]["vbt_mean"] == 0.81
+        assert items[set_id]["vbt_reps"][0]["rep_index"] == 1
+        assert len(result["session"]["sets"]) == 2
+    finally:
+        store.close()

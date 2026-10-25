@@ -801,3 +801,34 @@ def test_history_endpoint_lists_and_edits_a_session(server):
     assert result["edit_id"]
     assert result["session"]["needs_review"] == 1
     assert result["session"]["edited_at"]
+
+
+def test_history_void_and_vbt_endpoints(server):
+    _, body = get(server, "/api/history?limit=5")
+    session_id = json.loads(body)["sessions"][0]["session_id"]
+    _, body = get(server, f"/api/history/{session_id}")
+    detail = json.loads(body)
+    set_id = detail["sets"][0]["set_id"]
+
+    result = post(server, f"/api/history/{session_id}/vbt", {
+        "sets": [{"set_id": set_id, "mean": 0.81,
+                  "reps": [{"rep_index": 1, "velocity_mps": 0.84}]}],
+    })
+    assert result["session"]["vbt_override_count"] >= 1
+
+    edited = post(server, f"/api/history/{session_id}/edit", {
+        "sets": [{"set_id": set_id, "exercise_id": detail["sets"][0]["exercise_id"],
+                  "load_kg": detail["sets"][0]["load_kg"],
+                  "reps": detail["sets"][0]["reps"],
+                  "rir": detail["sets"][0]["rir"],
+                  "vbt_mean": 0.82,
+                  "vbt_reps": [{"rep_index": 1, "velocity_mps": 0.85}]}],
+    })
+    assert edited["session"]["sets"][0]["vbt_mean"] == 0.82
+
+    voided = post(server, f"/api/history/{session_id}/void", {"reason": "test"})
+    assert voided["voided"] == 1
+    status, body = get(server, f"/api/history/{session_id}")
+    assert json.loads(body)["voided"] == 1
+    restored = post(server, f"/api/history/{session_id}/void", {"unvoid": True})
+    assert restored["voided"] == 0

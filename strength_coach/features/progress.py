@@ -23,7 +23,7 @@ def _session_lift_e1rms(conn) -> tuple[dict[str, dict[str, float]], dict[str, st
           FROM clean_set
          WHERE is_working_set = 1 AND load_kg IS NOT NULL AND load_kg > 0
            AND reps BETWEEN 1 AND 20
-           AND voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child WHERE child.supersedes_id = clean_set.set_id)
+           AND voided = 0 AND NOT EXISTS (SELECT 1 FROM session sess WHERE sess.session_id = clean_set.session_id AND sess.voided = 1) AND NOT EXISTS (SELECT 1 FROM clean_set child WHERE child.supersedes_id = clean_set.set_id)
         """
     )
     columns = [description[0] for description in cursor.description]
@@ -81,7 +81,7 @@ def performance_points(conn, on_date: str, *, lookback_days: int = 56) -> list[d
 def dashboard(conn, on_date: str | None = None, *, weeks: int = 8) -> dict:
     day = on_date or dt.date.today().isoformat()
     sessions = conn.execute(
-        "SELECT COUNT(*) AS n FROM session WHERE occurred_on <= ?", (day,)
+        "SELECT COUNT(*) AS n FROM session WHERE occurred_on <= ? AND voided = 0", (day,)
     ).fetchone()[0]
     feedback = conn.execute(
         """
@@ -133,7 +133,7 @@ def _sets(conn):
         SELECT occurred_on AS date, session_id, exercise_id, load_kg, reps, rir,
                is_working_set
           FROM clean_set
-         WHERE voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child WHERE child.supersedes_id = clean_set.set_id)
+         WHERE voided = 0 AND NOT EXISTS (SELECT 1 FROM session sess WHERE sess.session_id = clean_set.session_id AND sess.voided = 1) AND NOT EXISTS (SELECT 1 FROM clean_set child WHERE child.supersedes_id = clean_set.set_id)
         """
     )
     columns = [description[0] for description in cursor.description]

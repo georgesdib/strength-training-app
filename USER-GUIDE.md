@@ -774,11 +774,18 @@ status/add/update/remove/end/import, while starting a workout remains UI-only.
 
 ### Where are past workouts?
 
-**History** in the web UI lists every completed or imported session, with date filters and
-pagination. **Edit** opens the session's current sets and metadata. A correction is append-only:
-the old set remains, a new current row supersedes it, the session totals and deterministic
-critique are rebuilt, and the session is marked **re-review**. Old review marks stay for audit
-but are excluded from calibration until the session is re-marked.
+**History** lists every completed or imported session, with date filters and pagination. **Edit**
+opens the current sets, metadata and VBT overrides. A correction is append-only: the old set
+remains, a new current row supersedes it, the session totals and deterministic critique are
+rebuilt, and the session is marked **re-review**. Old review marks stay for audit but are excluded
+from calibration until the session is re-marked.
+
+**VBT overrides** are edited in place on each set: change the set's VBT m/s value directly, or
+click **Show reps** to override individual reps. They can add missing values or replace device
+values; they do not mutate `clean_set`.
+
+**Void** keeps the session rows for audit but removes it from metrics, prescriptions and
+calibration; **Unvoid** restores it and marks it re-review.
 
 ### Can I delete a past workout?
 

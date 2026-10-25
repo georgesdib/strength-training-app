@@ -103,7 +103,7 @@ def _periodic_task(
     sessions_since = None
     if completed is not None:
         sessions_since = conn.execute(
-            "SELECT COUNT(*) AS n FROM session WHERE occurred_on > ? AND occurred_on <= ?",
+            "SELECT COUNT(*) AS n FROM session WHERE occurred_on > ? AND occurred_on <= ? AND voided = 0",
             (completed, on_date),
         ).fetchone()[0]
     if completed is None:
@@ -178,7 +178,7 @@ def _srpe_task(conn, on_date: str, cfg: dict) -> ReviewTask:
     days = int(cfg.get("window_days", 56))
     start = (dt.date.fromisoformat(on_date) - dt.timedelta(days=days)).isoformat()
     sessions = conn.execute(
-        "SELECT COUNT(*) AS n FROM session WHERE occurred_on BETWEEN ? AND ?",
+        "SELECT COUNT(*) AS n FROM session WHERE occurred_on BETWEEN ? AND ? AND voided = 0",
         (start, on_date),
     ).fetchone()[0]
     covered = conn.execute(

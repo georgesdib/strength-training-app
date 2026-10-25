@@ -79,6 +79,19 @@ def detail(conn, session_id: str) -> dict:
         raise ValueError("session not found")
     data = dict(row)
     data["main_lifts"] = json.loads(data.get("main_lifts") or "[]")
+    rep_rows = conn.execute(
+        "SELECT r.clean_set_id, r.rep_index, r.velocity_mps FROM clean_rep r "
+        "JOIN clean_set s ON s.set_id = r.clean_set_id "
+        "WHERE s.session_id = ? AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "WHERE child.supersedes_id = s.set_id) ORDER BY r.rep_index",
+        (str(session_id),),
+    ).fetchall()
+    device_reps: dict[int, list[dict]] = {}
+    for row in rep_rows:
+        device_reps.setdefault(int(row["clean_set_id"]), []).append({
+            "rep_index": int(row["rep_index"]),
+            "velocity_mps": float(row["velocity_mps"]),
+        })
     data["sets"] = [
         {
             "set_id": item["set_id"],
@@ -89,9 +102,21 @@ def detail(conn, session_id: str) -> dict:
             "velocity_mps": item["velocity_mps"],
             "reps_unit": item["reps_unit"],
             "flags": json.loads(item["flags"] or "[]"),
+            "device_reps": device_reps.get(int(item["set_id"]), []),
         }
         for item in current_sets(conn, session_id)
     ]
+    vbt = current_vbt(conn, session_id)
+    for item in data["sets"]:
+        override = vbt.get(int(item["set_id"]), {"mean": None, "reps": {}})
+        item["vbt_mean"] = override["mean"]
+        item["vbt_reps"] = [
+            {"rep_index": index, "velocity_mps": value}
+            for index, value in sorted(override["reps"].items())
+        ]
+    data["vbt_override_count"] = sum(
+        1 for value in vbt.values() if value["mean"] is not None or value["reps"]
+    )
     data["feedback"] = queries.session_feedback(conn, session_id)
     return data
 
@@ -191,6 +216,8 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
                  notes: str | None = None,
                  reason: str | None = None) -> dict:
     session = detail(conn, session_id)
+    if session.get("voided"):
+        raise ValueError("unvoid the session before editing it")
     before = {"sets": session["sets"], "session_rpe": session.get("session_rpe"),
               "duration_min": session.get("duration_min"), "notes": (session.get("feedback") or {}).get("note")}
     existing = {int(item["set_id"]): item for item in session["sets"]}
@@ -203,6 +230,9 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
             load_kg = None if item.get("load_kg") in (None, "") else float(item["load_kg"])
             velocity = (None if item.get("velocity_mps") in (None, "")
                         else float(item["velocity_mps"]))
+            vbt_mean = (None if item.get("vbt_mean") in (None, "")
+                        else float(item["vbt_mean"]))
+            vbt_reps = item.get("vbt_reps") or []
         except (TypeError, ValueError) as exc:
             raise ValueError(f"set {index + 1}: {exc}") from exc
         if not exercise_id:
@@ -214,6 +244,8 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
             "reps": reps,
             "rir": rir,
             "velocity_mps": velocity,
+            "vbt_mean": vbt_mean,
+            "vbt_reps": vbt_reps,
         })
     edit_id = uuid.uuid4().hex
     kept = set()
@@ -224,6 +256,7 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
             same = all(item[key] == old[key] for key in
                        ("load_kg", "reps", "rir", "velocity_mps")) and                 item["exercise_id"] == old["exercise_id"]
             if same:
+                item["_target_set_id"] = int(old["set_id"])
                 continue
             item["_supersedes"] = int(old["set_id"])
         item["_source_row"] = index + 1
@@ -239,7 +272,7 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
             )
     for item in incoming:
         if item.get("_supersedes") or not item.get("set_id"):
-            _insert_set(
+            item["_target_set_id"] = _insert_set(
                 conn, session_id=session_id, occurred_on=session["occurred_on"],
                 edit_id=edit_id, exercise_id=item["exercise_id"],
                 load_kg=item["load_kg"], reps=item["reps"], rir=item["rir"],
@@ -248,6 +281,20 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
                 voided=False, source_row=int(item["_source_row"]),
                 old=existing.get(int(item["set_id"])) if item.get("set_id") else None,
             )
+    vbt_entries = []
+    for item in incoming:
+        target = item.get("_target_set_id")
+        if not target:
+            continue
+        reps = item.get("vbt_reps") or []
+        if item.get("vbt_mean") not in (None, "") or reps:
+            vbt_entries.append({
+                "set_id": int(target),
+                "mean": item.get("vbt_mean"),
+                "reps": reps,
+            })
+    if vbt_entries:
+        apply_vbt(conn, session_id, vbt_entries, reason="VBT override with correction")
     _refresh_session(conn, session_id)
     if session_rpe is not None or duration_min is not None or notes:
         repositories.append_session_feedback(
@@ -302,3 +349,92 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
         warnings.append(f"critique not rebuilt: {type(exc).__name__}: {exc}")
     return {"session": detail(conn, session_id), "edit_id": edit_id,
             "warnings": warnings}
+
+def void_session(conn, session_id: str, *, reason: str | None = None,
+                 unvoid: bool = False) -> dict:
+    """Mark a session excluded from metrics/calibration; never delete its rows."""
+    detail(conn, session_id)
+    action = "unvoid" if unvoid else "void"
+    conn.execute(
+        "INSERT INTO session_void (session_id, action, reason) VALUES (?, ?, ?)",
+        (session_id, action, reason),
+    )
+    conn.execute(
+        "UPDATE session SET voided = ?, voided_at = ?, void_reason = ?, "
+        "needs_review = 1, updated_at = ? WHERE session_id = ?",
+        (0 if unvoid else 1, _now(), None if unvoid else reason, _now(), session_id),
+    )
+    return detail(conn, session_id)
+
+def _latest_vbt(conn, set_id: int, rep_index: int | None) -> dict | None:
+    row = conn.execute(
+        "SELECT * FROM vbt_override o WHERE o.set_id = ? "
+        "AND ((? IS NULL AND o.rep_index IS NULL) OR o.rep_index = ?) "
+        "AND NOT EXISTS (SELECT 1 FROM vbt_override child "
+        "WHERE child.supersedes_id = o.override_id) "
+        "ORDER BY o.override_id DESC LIMIT 1",
+        (int(set_id), rep_index, rep_index),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def current_vbt(conn, session_id: str) -> dict:
+    sets = current_sets(conn, session_id)
+    out = {}
+    for item in sets:
+        set_id = int(item["set_id"])
+        mean = _latest_vbt(conn, set_id, None)
+        reps = conn.execute(
+            "SELECT o.* FROM vbt_override o WHERE o.set_id = ? AND o.rep_index IS NOT NULL "
+            "AND NOT EXISTS (SELECT 1 FROM vbt_override child "
+            "WHERE child.supersedes_id = o.override_id) ORDER BY o.rep_index",
+            (set_id,),
+        ).fetchall()
+        out[set_id] = {
+            "mean": mean["velocity_mps"] if mean else None,
+            "reps": {int(row["rep_index"]): float(row["velocity_mps"]) for row in reps},
+        }
+    return out
+
+def apply_vbt(conn, session_id: str, entries: list[dict], *, reason: str | None = None) -> dict:
+    """Append set-mean and/or per-rep VBT values; missing values are allowed."""
+    detail(conn, session_id)
+    current = {int(item["set_id"]): item for item in current_sets(conn, session_id)}
+    edit_id = uuid.uuid4().hex
+    for entry in entries:
+        set_id = int(entry.get("set_id"))
+        if set_id not in current:
+            raise ValueError(f"set {set_id} is not current in this session")
+        mean = entry.get("mean")
+        if mean not in (None, ""):
+            mean = float(mean)
+            if mean <= 0:
+                raise ValueError("VBT mean must be positive")
+            previous = _latest_vbt(conn, set_id, None)
+            conn.execute(
+                "INSERT INTO vbt_override (session_id, set_id, rep_index, velocity_mps, "
+                "source, supersedes_id) VALUES (?, ?, NULL, ?, 'manual', ?)",
+                (session_id, set_id, mean,
+                 previous["override_id"] if previous else None),
+            )
+        for rep in entry.get("reps") or []:
+            rep_index = int(rep.get("rep_index"))
+            velocity = float(rep.get("velocity_mps"))
+            if rep_index < 1 or velocity <= 0:
+                raise ValueError("rep VBT values must be positive")
+            previous = _latest_vbt(conn, set_id, rep_index)
+            conn.execute(
+                "INSERT INTO vbt_override (session_id, set_id, rep_index, velocity_mps, "
+                "source, supersedes_id) VALUES (?, ?, ?, ?, 'manual', ?)",
+                (session_id, set_id, rep_index, velocity,
+                 previous["override_id"] if previous else None),
+            )
+    conn.execute("UPDATE session SET needs_review = 1 WHERE session_id = ?", (session_id,))
+    after = current_vbt(conn, session_id)
+    conn.execute(
+        "INSERT INTO session_edit (edit_id, session_id, reason, before_json, after_json) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (edit_id, session_id, reason or "VBT override", "{}",
+         json.dumps({str(k): v for k, v in after.items()}, separators=(",", ":"))),
+    )
+    return {"session": detail(conn, session_id), "edit_id": edit_id}

@@ -58,7 +58,7 @@ def _load_sets(conn) -> list[dict]:
         SELECT occurred_on, exercise_id, load_kg, reps
           FROM clean_set
          WHERE is_working_set = 1
-           AND voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child WHERE child.supersedes_id = clean_set.set_id)
+           AND voided = 0 AND NOT EXISTS (SELECT 1 FROM session sess WHERE sess.session_id = clean_set.session_id AND sess.voided = 1) AND NOT EXISTS (SELECT 1 FROM clean_set child WHERE child.supersedes_id = clean_set.set_id)
          ORDER BY occurred_on
         """
     ).fetchall()

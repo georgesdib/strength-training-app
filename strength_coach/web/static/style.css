@@ -169,3 +169,19 @@ details summary { cursor: pointer; color: var(--muted); }
 #history-list table, #history-edit-sets table { min-width: 720px; }
 #history-list td, #history-edit-sets td { white-space: nowrap; }
 #history-edit-sets input { min-width: 0; width: 100%; }
+
+/* History editor: one card per set, explicit labels and a separate session-details block. */
+.history-sets { display: grid; gap: 10px; margin: 10px 0; }
+.history-set { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fff; }
+.history-set-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.history-set-head strong { min-width: 52px; }
+.history-set-head input { flex: 1; min-width: 180px; }
+.history-set-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.history-set-grid label, .history-meta label { min-width: 0; }
+.history-set-grid input, .history-meta input { width: 100%; min-width: 0; }
+.history-set-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.history-reps { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.history-rep-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.rep-field { font-size: 11px; }
+.history-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+#history-edit-panel .form-row { margin-top: 12px; }

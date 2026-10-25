@@ -95,6 +95,8 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 | `GET /api/history?limit=&offset=&start=&end=` | paginated session history |
 | `GET /api/history/<id>` | current session sets and feedback |
 | `POST /api/history/<id>/edit` | append-only correction of sets and session metadata |
+| `POST /api/history/<id>/vbt` | set/rep VBT overrides (also accepted inside `/edit`) |
+| `POST /api/history/<id>/void` | void or unvoid a whole session |
 | `GET /api/rep-velocity?session=<id>` | descriptive per-rep report after completion |
 | `GET /api/rep-velocity/analysis?weeks=&date=` | stratified cross-session descriptive report |
 | `POST /api/workout/<id>/abandon` | abandon the active workout |

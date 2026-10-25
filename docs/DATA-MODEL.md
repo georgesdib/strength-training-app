@@ -552,3 +552,11 @@ A correction does **not** update `clean_set`:
 
 Date and session type are read-only in this first version. The correction stores before/after JSON
 in `session_edit`, so the edit itself is auditable.
+
+Whole-session **void/unvoid** is separate: `session.voided` is the operational flag and
+`session_void` is the append-only event log. A void keeps every row, excludes the session from
+set/session reads and calibration, and can be reversed. It is not a delete.
+
+`vbt_override` stores append-only set-mean and per-rep velocities. A NULL `rep_index` is the set
+mean; a numbered row is that rep. Overrides can fill a missing value or supersede a device value;
+they never mutate `clean_set` or `clean_rep`.

@@ -27,46 +27,81 @@ def summarize(values: list[float]) -> dict | None:
 
 
 def session_report(conn, session_id: str) -> dict:
-    rows = conn.execute(
+    sets_rows = conn.execute(
         """
-        SELECT r.clean_set_id, r.rep_index, r.velocity_mps, r.source,
-               s.exercise_id, s.session_id
-        FROM clean_rep r
-        JOIN clean_set s ON s.set_id = r.clean_set_id
-        WHERE s.session_id = ? AND s.voided = 0 AND NOT EXISTS (
-            SELECT 1 FROM clean_set child WHERE child.supersedes_id = s.set_id)
+        SELECT s.set_id, s.exercise_id, s.velocity_mps
+        FROM clean_set s
+        WHERE s.session_id = ? AND s.voided = 0
+          AND NOT EXISTS (SELECT 1 FROM session sess
+                          WHERE sess.session_id = s.session_id AND sess.voided = 1)
+          AND NOT EXISTS (SELECT 1 FROM clean_set child
+                          WHERE child.supersedes_id = s.set_id)
+        ORDER BY s.set_id
+        """,
+        (session_id,),
+    ).fetchall()
+    rep_rows = conn.execute(
+        """
+        SELECT r.clean_set_id, r.rep_index, r.velocity_mps, r.source
+        FROM clean_rep r JOIN clean_set s ON s.set_id = r.clean_set_id
+        WHERE s.session_id = ? AND s.voided = 0
+          AND NOT EXISTS (SELECT 1 FROM session sess
+                          WHERE sess.session_id = s.session_id AND sess.voided = 1)
+          AND NOT EXISTS (SELECT 1 FROM clean_set child
+                          WHERE child.supersedes_id = s.set_id)
         ORDER BY r.clean_set_id, r.rep_index
         """,
         (session_id,),
     ).fetchall()
-    grouped: dict[int, dict] = {}
-    for row in rows:
-        item = grouped.setdefault(int(row["clean_set_id"]), {
-            "clean_set_id": int(row["clean_set_id"]),
+    overrides = conn.execute(
+        """
+        SELECT o.* FROM vbt_override o JOIN clean_set s ON s.set_id = o.set_id
+        WHERE o.session_id = ? AND NOT EXISTS (SELECT 1 FROM vbt_override child
+            WHERE child.supersedes_id = o.override_id)
+        ORDER BY o.override_id
+        """,
+        (session_id,),
+    ).fetchall()
+    grouped = {
+        int(row["set_id"]): {
+            "clean_set_id": int(row["set_id"]),
             "exercise_id": row["exercise_id"],
-            "source": row["source"],
-            "reps": [],
+            "source": "device",
+            "vbt_mean": None,
+            "reps": {},
+        }
+        for row in sets_rows
+    }
+    for row in rep_rows:
+        item = grouped.setdefault(int(row["clean_set_id"]), {
+            "clean_set_id": int(row["clean_set_id"]), "exercise_id": None,
+            "source": "device", "vbt_mean": None, "reps": {},
         })
-        item["reps"].append({
-            "rep_index": int(row["rep_index"]),
-            "velocity_mps": float(row["velocity_mps"]),
-        })
+        item["reps"][int(row["rep_index"])] = float(row["velocity_mps"])
+    for row in overrides:
+        item = grouped.get(int(row["set_id"]))
+        if item is None:
+            continue
+        if row["rep_index"] is None:
+            item["vbt_mean"] = float(row["velocity_mps"])
+        else:
+            item["reps"][int(row["rep_index"])] = float(row["velocity_mps"])
     sets = []
     for item in grouped.values():
-        summary = summarize([rep["velocity_mps"] for rep in item["reps"]])
-        sets.append({**item, "summary": summary})
+        reps = [{"rep_index": index, "velocity_mps": value}
+                for index, value in sorted(item["reps"].items())]
+        sets.append({**item, "reps": reps,
+                     "summary": summarize([rep["velocity_mps"] for rep in reps])})
     return {
         "session_id": session_id,
         "available": bool(sets),
         "set_count": len(sets),
         "summary": summarize([
-            rep["velocity_mps"]
-            for item in sets for rep in item["reps"]
+            rep["velocity_mps"] for item in sets for rep in item["reps"]
         ]) if sets else None,
         "sets": sets,
-        "note": "Descriptive only; not used for autoregulation or prescription.",
+        "note": "Descriptive only; manual VBT overrides are included; not used for autoregulation or prescription.",
     }
-
 
 # --- cross-session descriptive analysis ---------------------------------------
 
@@ -145,7 +180,7 @@ def analysis_report(conn, *, on_date: str | None = None, weeks: int = 12,
         FROM clean_rep r
         JOIN clean_set s ON s.set_id = r.clean_set_id
         WHERE s.occurred_on >= ? AND s.occurred_on <= ?
-          AND s.voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child
+          AND s.voided = 0 AND NOT EXISTS (SELECT 1 FROM session sess WHERE sess.session_id = s.session_id AND sess.voided = 1) AND NOT EXISTS (SELECT 1 FROM clean_set child
             WHERE child.supersedes_id = s.set_id)
         ORDER BY s.session_id, s.exercise_id, r.clean_set_id, r.rep_index
         """,
@@ -198,7 +233,7 @@ def analysis_report(conn, *, on_date: str | None = None, weeks: int = 12,
     all_sets = conn.execute(
         "SELECT session_id, occurred_on, exercise_id, load_kg, reps, rir "
         "FROM clean_set WHERE occurred_on >= ? AND occurred_on <= ? AND is_working_set = 1 "
-        "AND voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "AND voided = 0 AND NOT EXISTS (SELECT 1 FROM session sess WHERE sess.session_id = clean_set.session_id AND sess.voided = 1) AND NOT EXISTS (SELECT 1 FROM clean_set child "
         "WHERE child.supersedes_id = clean_set.set_id) "
         "ORDER BY occurred_on",
         (cutoff, end),

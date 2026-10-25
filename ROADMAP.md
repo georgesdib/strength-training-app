@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-24 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **681 public tests** (696 with the 15 private integration tests)
+Last updated: 2026-10-24 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **684 public tests** (699 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-24 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 696 locally, including private integration
+.venv/bin/python -m pytest            # 699 locally, including private integration
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -1039,7 +1039,7 @@ Recorded so good ideas are not lost, explicitly **not** commitments:
 - ~~Regime-change detection (a lift's volume collapsing while a substitute rises).~~ **Delivered
   2026-10-24** as a read-only 8/12-week check (`regime`, Prescribe panel).
 - History page with audited correction of completed/imported sessions (append-only supersession,
-  critique rebuild, re-review flag) — **delivered 2026-10-24**.
+  critique rebuild, re-review flag), whole-session void/unvoid and VBT overrides — **delivered 2026-10-24**.
 - Top set + back-off sets — **evidence review only**; no direct trial against the current
   4-5 × 3-5 @ RIR 2-3 prescription. Do not replace the programme on current evidence
   ([TOP-SET-BACKOFF-EVIDENCE.md](docs/TOP-SET-BACKOFF-EVIDENCE.md)).

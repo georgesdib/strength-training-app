@@ -38,12 +38,12 @@ def _feedback_map(conn) -> dict[str, dict]:
 def _session_metrics(conn, session_id: str, feedback: dict[str, dict]) -> dict:
     row = feedback.get(str(session_id)) or {}
     session = conn.execute(
-        "SELECT session_rpe, duration_min FROM session WHERE session_id = ?",
+        "SELECT session_rpe, duration_min FROM session WHERE session_id = ? AND voided = 0",
         (str(session_id),),
     ).fetchone()
     sets = conn.execute(
         "SELECT rir FROM clean_set WHERE session_id = ? AND is_working_set = 1 "
-        "AND voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "AND voided = 0 AND NOT EXISTS (SELECT 1 FROM session sess WHERE sess.session_id = clean_set.session_id AND sess.voided = 1) AND NOT EXISTS (SELECT 1 FROM clean_set child "
         "WHERE child.supersedes_id = clean_set.set_id)",
         (str(session_id),),
     ).fetchall()
@@ -67,7 +67,7 @@ def _session_metrics(conn, session_id: str, feedback: dict[str, dict]) -> dict:
 def _e1rm_at(conn, exercise_id: str, on_or_before: str | None = None,
              after: str | None = None, until: str | None = None) -> float | None:
     sql = ("SELECT load_kg, reps, rir FROM clean_set WHERE exercise_id = ? "
-           "AND is_working_set = 1 AND voided = 0 AND NOT EXISTS "
+           "AND is_working_set = 1 AND voided = 0 AND NOT EXISTS (SELECT 1 FROM session sess WHERE sess.session_id = clean_set.session_id AND sess.voided = 1) AND NOT EXISTS "
            "(SELECT 1 FROM clean_set child WHERE child.supersedes_id = clean_set.set_id)")
     params: list[Any] = [str(exercise_id)]
     if on_or_before is not None:
@@ -92,8 +92,8 @@ def _e1rm_at(conn, exercise_id: str, on_or_before: str | None = None,
 
 def _next_session(conn, applied_on: str, until: str):
     row = conn.execute(
-        "SELECT session_id, occurred_on FROM session "
-        "WHERE occurred_on > ? AND occurred_on <= ? ORDER BY occurred_on LIMIT 1",
+        "SELECT session_id, occurred_on FROM session WHERE voided = 0 "
+        "AND occurred_on > ? AND occurred_on <= ? ORDER BY occurred_on LIMIT 1",
         (applied_on, until),
     ).fetchone()
     return dict(row) if row else None
@@ -101,8 +101,8 @@ def _next_session(conn, applied_on: str, until: str):
 
 def _previous_session(conn, applied_on: str):
     row = conn.execute(
-        "SELECT session_id, occurred_on FROM session "
-        "WHERE occurred_on < ? ORDER BY occurred_on DESC LIMIT 1",
+        "SELECT session_id, occurred_on FROM session WHERE voided = 0 "
+        "AND occurred_on < ? ORDER BY occurred_on DESC LIMIT 1",
         (applied_on,),
     ).fetchone()
     return dict(row) if row else None
@@ -151,7 +151,7 @@ def _workout_event(conn, workout_id: str, for_date: str, plan: dict,
     before = _e1rm_at(conn, item_ids[0], on_or_before=for_date) if item_ids else None
     after = _e1rm_at(conn, item_ids[0], after=for_date, until=for_date) if item_ids else None
     previous = conn.execute(
-        "SELECT session_id FROM session WHERE occurred_on < ? "
+        "SELECT session_id FROM session WHERE occurred_on < ? AND voided = 0 "
         "ORDER BY occurred_on DESC LIMIT 1", (for_date,)
     ).fetchone()
     return {

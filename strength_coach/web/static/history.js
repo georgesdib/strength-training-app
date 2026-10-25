@@ -24,13 +24,15 @@ async function loadHistory() {
     var rows = (data.sessions || []).map(function (s) {
       var edited = s.edited_at ? '<span class="badge warn">edited</span>' : "";
       var review = s.needs_review ? '<span class="badge bad">re-review</span>' : "";
+      var voided = s.voided ? '<span class="badge bad">voided</span>' : "";
       return "<tr><td>" + esc(s.occurred_on) + "</td><td>" + esc(s.session_id) +
         "</td><td>" + esc(s.session_type) + "</td><td>" + s.working_set_count + "/" + s.set_count +
         "</td><td>" + esc((s.main_lifts || []).join(", ")) + "</td><td>" +
         (s.marks ? '<span class="badge">' + s.marks + "</span>" : '<span class="badge warn">none</span>') +
-        " " + edited + " " + review + "</td><td>" +
+        " " + edited + " " + review + " " + voided + "</td><td>" +
         '<button class="ghost" type="button" data-history-edit="' + esc(s.session_id) + '">Edit</button> ' +
-        '<button class="ghost" type="button" data-history-review="' + esc(s.session_id) + '">Review</button>' +
+        '<button class="ghost" type="button" data-history-review="' + esc(s.session_id) + '">Review</button> ' +
+        '<button class="ghost" type="button" data-history-void="' + esc(s.session_id) + '">' + (s.voided ? "Unvoid" : "Void") + "</button>" +
         "</td></tr>";
     }).join("");
     target.innerHTML = rows
@@ -45,24 +47,89 @@ async function loadHistory() {
     document.querySelectorAll("[data-history-review]").forEach(function (button) {
       button.addEventListener("click", function () { openReview(button.dataset.historyReview); });
     });
+    document.querySelectorAll("[data-history-void]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var id = button.dataset.historyVoid;
+        var voided = button.textContent.trim() === "Unvoid";
+        var reason = voided ? null : prompt("Reason for voiding this session (optional):");
+        if (!voided && reason === null) return;
+        api("/api/history/" + encodeURIComponent(id) + "/void", {
+          method: "POST", body: JSON.stringify({ unvoid: voided, reason: reason })
+        }).then(function (data) {
+          loadHistory();
+          if (historyDetail && historyDetail.session_id === id) openHistoryEdit(id);
+        }).catch(function (error) { alert(error.message); });
+      });
+    });
   } catch (error) {
     target.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
   }
 }
 
-function historySetRow(item) {
-  return '<tr data-history-set data-set-id="' + (item && item.set_id ? item.set_id : "") + '">' +
-    '<td><input list="exercise-options" data-h-exercise value="' + esc(item ? item.exercise_id : "") + '"></td>' +
-    '<td><input type="number" step="0.5" data-h-load value="' + (item && item.load_kg != null ? item.load_kg : "") + '"></td>' +
-    '<td><input type="number" min="0" data-h-reps value="' + (item && item.reps != null ? item.reps : "") + '"></td>' +
-    '<td><input type="number" min="0" max="6" data-h-rir value="' + (item && item.rir != null ? item.rir : "") + '"></td>' +
-    '<td><input type="number" step="0.01" min="0" data-h-velocity value="' + (item && item.velocity_mps != null ? item.velocity_mps : "") + '"></td>' +
-    '<td><button class="ghost" type="button" data-h-remove>Remove</button></td></tr>';
+function historyRepValues(item) {
+  var values = {};
+  ((item && item.device_reps) || []).forEach(function (rep) {
+    values[rep.rep_index] = rep.velocity_mps;
+  });
+  ((item && item.vbt_reps) || []).forEach(function (rep) {
+    values[rep.rep_index] = rep.velocity_mps;
+  });
+  return Object.keys(values).sort(function (a, b) { return Number(a) - Number(b); })
+    .map(function (index) {
+      return { rep_index: Number(index), velocity_mps: values[index] };
+    });
 }
 
-function wireHistoryRemoveButtons() {
+function historySetRow(item, index) {
+  var reps = historyRepValues(item);
+  var repRows = reps.map(function (rep, repIndex) {
+    return '<label class="rep-field">Rep ' + (repIndex + 1) +
+      ' <input type="number" step="0.01" min="0" data-h-rep value="' +
+      (rep.velocity_mps == null ? "" : rep.velocity_mps) + '"></label>';
+  }).join("");
+  var device = item && item.velocity_mps != null ? " (device " + item.velocity_mps + ")" : "";
+  return '<div class="history-set" data-history-set data-set-id="' +
+    (item && item.set_id ? item.set_id : "") + '" data-original-velocity="' +
+    (item && item.velocity_mps != null ? item.velocity_mps : "") + '">' +
+    '<div class="history-set-head"><strong>Set ' + (index + 1) + '</strong>' +
+    '<input list="exercise-options" data-h-exercise value="' +
+    esc(item ? item.exercise_id : "") + '"></div>' +
+    '<div class="history-set-grid">' +
+    '<label>Load kg <input type="number" step="0.5" data-h-load value="' +
+    (item && item.load_kg != null ? item.load_kg : "") + '"></label>' +
+    '<label>Reps <input type="number" min="0" data-h-reps value="' +
+    (item && item.reps != null ? item.reps : "") + '"></label>' +
+    '<label>RIR <input type="number" min="0" max="6" data-h-rir value="' +
+    (item && item.rir != null ? item.rir : "") + '"></label>' +
+    '<label>VBT m/s override' + device + ' <input type="number" step="0.01" min="0" data-h-vbt value="' +
+    (item && item.vbt_mean != null ? item.vbt_mean : "") + '"></label>' +
+    '</div>' +
+    '<div class="history-set-actions">' +
+    '<button class="ghost" type="button" data-h-show-reps>Show reps</button>' +
+    '<button class="ghost" type="button" data-h-remove>Remove set</button></div>' +
+    '<div class="history-reps" hidden><div class="history-rep-grid">' + repRows +
+    '</div><button class="ghost" type="button" data-h-add-rep>Add rep</button></div></div>';
+}
+
+function wireHistorySetButtons() {
   document.querySelectorAll("[data-h-remove]").forEach(function (button) {
-    button.onclick = function () { button.closest("tr").remove(); };
+    button.onclick = function () { button.closest("[data-history-set]").remove(); };
+  });
+  document.querySelectorAll("[data-h-show-reps]").forEach(function (button) {
+    button.onclick = function () {
+      var editor = button.closest("[data-history-set]").querySelector(".history-reps");
+      editor.hidden = !editor.hidden;
+      button.textContent = editor.hidden ? "Show reps" : "Hide reps";
+    };
+  });
+  document.querySelectorAll("[data-h-add-rep]").forEach(function (button) {
+    button.onclick = function () {
+      var grid = button.closest("[data-history-set]").querySelector(".history-rep-grid");
+      var index = grid.querySelectorAll("[data-h-rep]").length + 1;
+      grid.insertAdjacentHTML("beforeend",
+        '<label class="rep-field">Rep ' + index +
+        ' <input type="number" step="0.01" min="0" data-h-rep value=""></label>');
+    };
   });
 }
 
@@ -76,9 +143,9 @@ async function openHistoryEdit(sessionId) {
     document.getElementById("history-edit-title").textContent =
       "Edit " + data.occurred_on + " · " + data.session_type;
     document.getElementById("history-edit-sets").innerHTML =
-      "<table><thead><tr><th>Exercise</th><th>kg</th><th>Reps</th><th>RIR</th><th>m/s</th><th></th></tr></thead><tbody>" +
-      (data.sets || []).map(historySetRow).join("") + "</tbody></table>";
-    wireHistoryRemoveButtons();
+      (data.sets || []).map(historySetRow).join("") ||
+      "<p class='muted'>No current sets.</p>";
+    wireHistorySetButtons();
     document.getElementById("history-edit-srpe").value =
       data.session_rpe == null ? "" : data.session_rpe;
     document.getElementById("history-edit-duration").value =
@@ -96,13 +163,18 @@ async function openHistoryEdit(sessionId) {
 
 function collectHistorySets() {
   return Array.from(document.querySelectorAll("[data-history-set]")).map(function (row) {
+    var reps = Array.from(row.querySelectorAll("[data-h-rep]")).map(function (input, index) {
+      return input.value === "" ? null : { rep_index: index + 1, velocity_mps: input.value };
+    }).filter(function (rep) { return rep !== null; });
     return {
       set_id: row.dataset.setId ? Number(row.dataset.setId) : undefined,
       exercise_id: row.querySelector("[data-h-exercise]").value.trim(),
       load_kg: row.querySelector("[data-h-load]").value || null,
       reps: row.querySelector("[data-h-reps]").value || null,
       rir: row.querySelector("[data-h-rir]").value || null,
-      velocity_mps: row.querySelector("[data-h-velocity]").value || null
+      velocity_mps: row.dataset.originalVelocity || null,
+      vbt_mean: row.querySelector("[data-h-vbt]").value || null,
+      vbt_reps: reps
     };
   });
 }
@@ -149,3 +221,46 @@ document.getElementById("history-save").addEventListener("click", saveHistoryEdi
 document.getElementById("history-cancel").addEventListener("click", function () {
   document.getElementById("history-edit-panel").hidden = true;
 });
+
+function renderHistoryVbt(data) {
+  var rows = (data.sets || []).map(function (item) {
+    var reps = (item.vbt_reps || []).map(function (rep) { return rep.velocity_mps; }).join(", ");
+    return '<tr data-vbt-set data-set-id="' + item.set_id + '"><td>' + esc(item.exercise_id) +
+      '</td><td><input type="number" step="0.01" data-vbt-mean value="' +
+      (item.vbt_mean == null ? "" : item.vbt_mean) + '"></td><td><input data-vbt-reps value="' +
+      esc(reps) + '" placeholder="e.g. 0.74, 0.72, 0.68"></td></tr>';
+  }).join("");
+  document.getElementById("history-vbt").innerHTML = rows
+    ? "<table><thead><tr><th>Set</th><th>Mean m/s</th><th>Rep velocities</th></tr></thead><tbody>" +
+      rows + "</tbody></table>"
+    : "<p class='muted'>No current sets.</p>";
+  document.getElementById("history-vbt-msg").textContent = "";
+}
+
+async function saveHistoryVbt() {
+  if (!historyDetail) return;
+  var entries = Array.from(document.querySelectorAll("[data-vbt-set]")).map(function (row) {
+    var text = row.querySelector("[data-vbt-reps]").value.trim();
+    var reps = text ? text.split(",").map(function (value, index) {
+      return { rep_index: index + 1, velocity_mps: value.trim() };
+    }).filter(function (rep) { return rep.velocity_mps !== ""; }) : [];
+    return {
+      set_id: Number(row.dataset.setId),
+      mean: row.querySelector("[data-vbt-mean]").value || null,
+      reps: reps
+    };
+  });
+  document.getElementById("history-vbt-msg").textContent = "Saving VBT overrides…";
+  try {
+    var data = await api("/api/history/" + encodeURIComponent(historyDetail.session_id) + "/vbt", {
+      method: "POST",
+      body: JSON.stringify({ sets: entries, reason: "VBT override" })
+    });
+    historyDetail = data.session;
+    renderHistoryVbt(data.session);
+    document.getElementById("history-vbt-msg").textContent = "VBT overrides saved.";
+    loadHistory();
+  } catch (error) {
+    document.getElementById("history-vbt-msg").innerHTML = "<span class='warnbox'>" + esc(error.message) + "</span>";
+  }
+}

@@ -127,6 +127,7 @@ def _session_rows(conn, limit: int = 20) -> list[dict]:
                s.main_lifts, s.tonnage_kg, s.needs_review, s.edited_at,
                (SELECT COUNT(*) FROM rubric_mark m WHERE m.session_id = s.session_id) AS marks
           FROM session s
+         WHERE s.voided = 0
          ORDER BY s.occurred_on DESC
          LIMIT ?
         """,
@@ -444,6 +445,17 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: self._edit_history(c, session_id, body)
                 ))
+            elif path.startswith("/api/history/") and path.endswith("/void"):
+                session_id = path[len("/api/history/"):-len("/void")].strip("/")
+                self._json(200, self._with_conn(lambda c: history.void_session(
+                    c, session_id, reason=body.get("reason"),
+                    unvoid=bool(body.get("unvoid", False)),
+                )))
+            elif path.startswith("/api/history/") and path.endswith("/vbt"):
+                session_id = path[len("/api/history/"):-len("/vbt")].strip("/")
+                self._json(200, self._with_conn(lambda c: history.apply_vbt(
+                    c, session_id, body.get("sets") or [], reason=body.get("reason"),
+                )))
             elif path == "/api/reviews":
                 self._json(200, self._with_conn(lambda c: self._save_review_task(c, body)))
             elif path == "/api/readiness/feedback":

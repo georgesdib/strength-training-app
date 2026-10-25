@@ -174,7 +174,7 @@ def _gap_days(conn, on_date: str | None) -> int | None:
     if on_date is None:
         return None
     row = conn.execute(
-        "SELECT MAX(occurred_on) AS last FROM session WHERE occurred_on < ?", (on_date,)
+        "SELECT MAX(occurred_on) AS last FROM session WHERE occurred_on < ? AND voided = 0", (on_date,)
     ).fetchone()
     if row is None or row["last"] is None:
         return None
@@ -199,7 +199,7 @@ def trained_week_index(conn, start: str, on_date: str) -> int | None:
 
     weeks: set[tuple[int, int]] = set()
     for row in conn.execute(
-        "SELECT occurred_on FROM session WHERE occurred_on >= ? AND occurred_on <= ?",
+        "SELECT occurred_on FROM session WHERE occurred_on >= ? AND occurred_on <= ? AND voided = 0",
         (str(first), str(when)),
     ):
         try:

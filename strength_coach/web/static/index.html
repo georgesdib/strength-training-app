@@ -85,13 +85,16 @@
         <div class="panel-head"><h2 id="history-edit-title">Edit session</h2>
           <span class="muted">append-only correction; date and session type stay fixed</span></div>
         <div id="history-edit-note" class="warnbox" hidden></div>
-        <div id="history-edit-sets"></div>
+        <div id="history-edit-sets" class="history-sets"></div>
         <div class="form-row">
           <button class="ghost" type="button" id="history-add-set">Add set</button>
-          <label>Session RPE <input type="number" min="1" max="10" step="0.5" id="history-edit-srpe"></label>
-          <label>Duration min <input type="number" min="1" max="600" id="history-edit-duration"></label>
+        </div>
+        <div class="panel-head" style="margin-top:1rem"><h3>Session details</h3></div>
+        <div class="history-meta">
+          <label>Session RPE (1-10) <input type="number" min="1" max="10" step="0.5" id="history-edit-srpe"></label>
+          <label>Duration (min) <input type="number" min="1" max="600" id="history-edit-duration"></label>
           <label class="grow">Note <input type="text" id="history-edit-notes"></label>
-          <label class="grow">Reason <input type="text" id="history-edit-reason" placeholder="e.g. typo"></label>
+          <label class="grow">Edit reason <input type="text" id="history-edit-reason" placeholder="e.g. typo"></label>
         </div>
         <div class="form-row">
           <button class="primary" type="button" id="history-save">Save correction</button>
