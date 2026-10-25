@@ -160,14 +160,14 @@ rules:
 
   # ---------------------------------------------------------------------------
   - id: PRG-SCHED-001
-    title: "Direct erector work only on Days A and C, never stacked with a hinge"
+    title: "Direct erector work only on squat-emphasis sessions, never stacked with a hinge"
     severity: veto
     scope:
-      sessions: [A, B, C]
+      sessions: [squat, hinge, bench_squat, bench_hinge]
     statement: >
-      Back extensions on Days A and C only, never on the hinge day. Do not stack a hinge
-      plus direct erector work in the same session. Do not substitute RDLs, good
-      mornings, rack pulls or Jefferson curls for the back extension.
+      Back extensions on squat-emphasis sessions only, never on the hinge day. Do not
+      stack a hinge plus direct erector work in the same session. Do not substitute RDLs,
+      good mornings, rack pulls or Jefferson curls for the back extension.
     params:
       allowed_session_types: [squat, bench_squat]
       direct_erector_property: direct_erector

@@ -133,17 +133,19 @@ notes: >
   toward "all sets".
 ```
 
-### PRG-SCHED-001 — Erector work is exclusive to Days A and C  (severity: `veto`)
+### PRG-SCHED-001 — Erector work is exclusive to squat-emphasis sessions (severity: `veto`)
 
-> "Back extensions (Days A, C only — never on the hinge day)… do not stack a hinge plus
-> direct erector work in the same session."
+> "Back extensions on squat-emphasis sessions only — never on the hinge day. Do not stack
+> a hinge plus direct erector work in the same session."
 
 ```yaml
 scope: {sessions: [squat, hinge, bench_squat, bench_hinge]}
 params:
-  allowed_days: [A, C]
-  forbid_with_patterns: [hinge]
-  direct_erector_flag: true
+  allowed_session_types: [squat, bench_squat]
+  direct_erector_property: direct_erector
+  forbid_same_session_as_patterns: [hinge]
+  forbid_substitution: true
+  substitutable_property: substitutable_for_back_extension
 check: {fn: direct_erector_scheduling}
 on_fail: {action: veto, code: ERECTOR_STACKING}
 notes: >
@@ -207,7 +209,7 @@ notes: >
   `PRG-RIR-001`; the override map remains, empty, so re-adding a per-lift window stays a
   config change rather than a code change.
 - Power work (3–5 reps, full recovery, stop on decline) — **prescribed since 2026-10-20**
-  (`DEC-POWER-01`, Day A `box_jump`), but still **not a rule**: the log has no rep-level power
+  (`DEC-POWER-01`, squat-emphasis session `box_jump`), but still **not a rule**: the log has no rep-level power
   data, so compliance cannot be scored (Q4). The slot is excluded from rep-scheme undulation
   and carries no rule citation; the prescription warns to stop when height or quality drops.
 - Session time cap: **80 minutes planned / 90 minutes hard ceiling** — cannot be measured

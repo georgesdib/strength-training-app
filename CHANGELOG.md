@@ -4,6 +4,8 @@
 
 ### Changed
 
+- PRG-SCHED-001 wording/scope now uses canonical session types (`squat`, `bench_squat`),
+  not legacy Day A/C labels. No behaviour change.
 - Retired derived `clean_set.form_score` after the per-exercise backfill; source Form remains in
   `raw_row.payload`. New `session_form_rating` is authoritative.
 
