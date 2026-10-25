@@ -9,12 +9,14 @@ Two properties matter more than any individual number:
 from __future__ import annotations
 
 from contextlib import contextmanager
+from dataclasses import replace
 
 import pytest
 
 from conftest import make_readiness, make_training
 from strength_coach.critique import UnknownSessionError, persist, score_session
 from strength_coach.critique.facts import build_facts
+from strength_coach.critique.rubric import Critique, RUBRIC_WEIGHTS
 from strength_coach.rules import load_document
 from strength_coach.rules import policy as policy_mod
 from strength_coach.store import db, importer
@@ -310,3 +312,19 @@ def test_form_assessment_is_optional_and_scored_when_present():
     assert item.measurable
     assert item.score == pytest.approx(0.9)
     assert "2 lift(s)" in item.detail
+
+
+def test_rubric_has_eight_weighted_items_plus_one_zero_weight_diagnostic():
+    assert len(RUBRIC_WEIGHTS) == 9
+    assert sum(RUBRIC_WEIGHTS.values()) == pytest.approx(1.0)
+    assert [key for key, weight in RUBRIC_WEIGHTS.items() if weight == 0] == ["VELOCITY_LOSS"]
+
+
+def test_a_zero_weight_item_becoming_measurable_does_not_change_the_composite():
+    rows = session_rows("2024-01-01")
+    with store_with(rows) as store:
+        critique = score_session(store.connection, "2024-01-01")
+    velocity = replace(critique.item("VELOCITY_LOSS"), measurable=True, score=0.0)
+    items = tuple(velocity if item.key == "VELOCITY_LOSS" else item for item in critique.items)
+    augmented = Critique(critique.session_id, critique.facts_hash, items, critique.narrative)
+    assert augmented.composite == pytest.approx(critique.composite)

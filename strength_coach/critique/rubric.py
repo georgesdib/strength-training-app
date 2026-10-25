@@ -1,16 +1,21 @@
 """The deterministic critique rubric.
 
-Eight items are measurable when their inputs exist; missing inputs are stored with
-`measurable = 0` rather than a guessed score:
+The rubric has **nine item entries**: eight weighted items plus one zero-weight diagnostic.
+Missing inputs are stored with `measurable = 0` rather than a guessed score.
+
+Three data-limited cases are called out here:
 
 * session duration — imported sessions have no timestamps; a measured live-workout duration
   is scored against the 80-minute planned / 90-minute hard cap;
 * post-lift form — optional 1–5 ratings per exercise, averaged; absent ratings do not penalise;
-* within-set velocity loss — the export stores one mean velocity per set (DEC-VELOCITY-01).
+* within-set velocity loss — the export stores one mean velocity per set (DEC-VELOCITY-01);
+  the item exists so the gap is visible, but its weight is zero and it never enters the score.
 
 Weights are config-free on purpose: they are a product decision, not a measurement, and the
 composite is a weighted mean over the items that were actually measurable. An item with
-`measurable = 0` never drags the score toward zero.
+`measurable = 0` never drags the score toward zero. A zero-weight item can become measurable
+without changing the composite; adding a nonzero weight requires rebalancing and a version
+bump.
 """
 
 from __future__ import annotations
@@ -24,9 +29,9 @@ from strength_coach.critique import facts as facts_mod
 from strength_coach.critique.facts import CritiqueFacts
 from strength_coach.rules import load_document
 
-# Weights sum to 1.0 across the measurable items. Duration carries 0.05 now that measured live
-# workouts can be scored; imported sessions still produce measurable=false. Velocity loss
-# carries 0.0 because the export has one mean velocity per set.
+# Eight nonzero weights sum to 1.0. VELOCITY_LOSS is the ninth item and deliberately carries
+# 0.0: it is a visible diagnostic, not a scored signal. Duration carries 0.05 now that measured
+# live workouts can be scored; imported sessions still produce measurable=false.
 # Bumped whenever an item's definition or weighting changes. Marks record the version they
 # were made against, so a rubric change does not silently invalidate the calibration history.
 RUBRIC_VERSION = "1.2.0"
@@ -43,6 +48,11 @@ RUBRIC_WEIGHTS: Mapping[str, float] = {
     "FORM_ASSESSMENT": 0.050,
     "VELOCITY_LOSS": 0.000,
 }
+
+# The composite divides by the sum of measurable weights, so a broken sum silently changes every
+# score. Fail loudly at import rather than drifting.
+if abs(sum(RUBRIC_WEIGHTS.values()) - 1.0) > 1e-9:
+    raise RuntimeError("RUBRIC_WEIGHTS must sum to 1.0; rebalance before changing a weight")
 
 PLANNED_DURATION_MIN = 80
 HARD_DURATION_MAX_MIN = 90
@@ -166,6 +176,12 @@ def _rir_adherence(facts: CritiqueFacts, document) -> RubricItem:
         rule_ids=("PRG-RIR-001",),
         detail=f"{compliant}/{len(rated)} rated sets inside the effort window",
     )
+
+
+# PRG-DP-001's prescription rule looks at the last four sessions containing the lift. This
+# rubric reviews the decision made in one session, so its reference is the immediately previous
+# session; the two windows are intentionally not borrowed from each other.
+PROGRESSION_REFERENCE_SESSIONS = 1
 
 
 def _progression_adherence(facts: CritiqueFacts) -> RubricItem:

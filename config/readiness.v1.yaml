@@ -34,8 +34,10 @@ modifier:
   at_or_below: 2
 
 composite:
-  # A 0-1 readiness composite needs every metric's scale and direction declared first
-  # (metric_definition rows). Until then it stays off and readiness_day.composite stays null.
+  # Legacy imported readiness_day.composite only. This is NOT readiness.score:
+  # readiness_score.compute(...) always derives the score from the subjective core, and
+  # MOD-FAT-001 reads that score. A 0-1 imported composite needs every metric's scale and
+  # direction declared first; until then this stays off and readiness_day.composite stays null.
   enabled: false
 
 set_reduction:

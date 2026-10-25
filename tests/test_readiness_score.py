@@ -298,3 +298,14 @@ def test_baseline_shadow_report_does_not_apply_a_baseline():
     assert "SHADOW BASELINE" in report
     assert "No prescription uses" in report
     assert before == after
+
+
+def test_score_is_independent_of_the_legacy_composite_flag():
+    with store_with() as store:
+        config = readiness_feature.ReadinessConfig.load()
+        day = queries.readiness_day(store.connection, TODAY)
+        assessment = readiness_score.compute(store.connection, TODAY)
+    assert config.composite_enabled is False
+    assert day["composite"] is None
+    assert assessment.status == "ready"
+    assert assessment.score == pytest.approx(0.8)

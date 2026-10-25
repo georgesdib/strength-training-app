@@ -52,7 +52,9 @@ Current main-lift volume:
 - Main lifts: **RIR 2** target, allowed window **RIR 1–4**; RIR 0, max singles and 1RM testing
   inside a block are forbidden.
 - Accessories: double progression, hold load until the top of the range on all sets at RIR ≥ 2,
-  then add the smallest increment.
+  then add one increment. The prescription rule (`PRG-DP-001`) considers the last four sessions
+  containing the lift; the rubric item `PROGRESSION_ADHERENCE` is a **one-session review** using
+  the immediately previous session. That difference is intentional and documented in `rubric.py`.
 - Main-lift load: solved from the lift's own e1RM (Epley + RIR) with a bounded measured-test
   calibration and age decay.
 - Undulation: 4-week cycle (strength / strength / maximal / strength; accessory / volume /

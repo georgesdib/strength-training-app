@@ -79,6 +79,10 @@ For a field present on the date:
 global = sum(weight_i * normalised_i) / sum(weight_i)   over present, eligible fields
 ```
 
+`readiness.score` is independent of the legacy `readiness.composite.enabled` flag. The flag
+only controls the imported `readiness_day.composite`; `MOD-FAT-001` reads the computed score
+from `readiness_score.compute(...)` and can fire with the composite disabled.
+
 Defaults (config, not code): weight 1 for the five subjective fields; weight 0.5 for HRV and
 RHR when a baseline exists; no score with fewer than **three** subjective fields (report
 "insufficient", not a number). Missing fields are excluded, never zero. If a wearable score is
