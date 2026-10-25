@@ -627,6 +627,7 @@ class Handler(BaseHTTPRequestHandler):
             "unreviewed": queries.unreviewed_sessions(conn, limit=50),
             "sessions": _session_rows(conn, 12),
             "calibration": self._calibration_status(conn),
+            "form_evaluation": form_assessment_feature.followup(conn, as_of=today),
         }
 
     def _import(self, conn, body: dict) -> dict:

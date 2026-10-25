@@ -66,3 +66,38 @@ def test_review_context_lists_prior_form_only():
     assert form["prior_n"] == 3
     assert form["prior_latest"] == 4
     assert form["prior_avg"] == 2.67
+
+
+def test_followup_counts_cumulative_low_form_events_and_due_date():
+    rows = []
+    for day in ("2026-11-01", "2026-11-08", "2026-11-15", "2026-11-22"):
+        for exercise in ("Safety Squat Bar", "Competition Bench Press",
+                         "Trap Bar Deadlift", "Back Extension"):
+            rows.append({"Date": day, "Exercise": exercise, "Weight_Used": "50",
+                         "RIR": "2", "Reps_Done": "5"})
+    training = make_training(rows)
+    readiness = make_readiness([{"Date": "2026-11-01"}])
+    store = db.Store(":memory:")
+    try:
+        importer.import_export(
+            store.connection, training, readiness,
+            training_sha256=importer.sha256_frame(training),
+            readiness_sha256=importer.sha256_frame(readiness),
+        )
+        for day in ("2026-11-01", "2026-11-08", "2026-11-15", "2026-11-22"):
+            for exercise in ("ssb_squat", "bench_press", "trap_bar_deadlift", "back_extension"):
+                store.connection.execute(
+                    "INSERT INTO session_form_rating (session_id, exercise_id, rating) "
+                    "VALUES (?, ?, 2)", (day, exercise),
+                )
+        early = form_assessment.followup(store.connection, as_of="2026-11-23")
+        ready = form_assessment.followup(store.connection, as_of="2027-01-20")
+        late = form_assessment.followup(store.connection, as_of="2027-04-20")
+    finally:
+        store.close()
+    assert early["status"] == "threshold_met_waiting"
+    assert early["low_events"] == 16
+    assert early["low_lifts"] == 4
+    assert ready["status"] == "ready"
+    assert ready["due_on"] == "2027-01-17"
+    assert late["status"] == "ready"

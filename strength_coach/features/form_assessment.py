@@ -13,6 +13,11 @@ from typing import Any
 
 WEEKS = (4, 8, 12)
 CHANGE_THRESHOLD = 0.5   # practical display threshold, not a validated cut-point
+EVALUATION_START = dt.date(2026, 10, 25)
+EVALUATION_WEEKS = 12
+EVALUATION_EXTENSION_WEEKS = 24
+LOW_FORM_TARGET = 10
+LOW_FORM_LIFT_TARGET = 4
 
 
 def _window(on_date: str | None, weeks: int) -> tuple[dt.date, dt.date, dt.date, dt.date]:
@@ -93,6 +98,61 @@ def report(conn, *, weeks: int = 12, on_date: str | None = None) -> dict:
         "low_form_events": sum(row["low_current"] for row in rows),
         "low_form_lifts": sum(1 for row in rows if row["low_current"] > 0),
         "note": "Descriptive form ratings (1=worst, 5=best). No load or prescription effect.",
+    }
+
+
+def followup(conn, *, as_of: str | None = None) -> dict:
+    """Cumulative status of the prospective form evaluation, for the Today page."""
+    day = dt.date.fromisoformat(as_of) if as_of else dt.date.today()
+    window_end = EVALUATION_START + dt.timedelta(days=7 * EVALUATION_WEEKS)
+    extension_end = EVALUATION_START + dt.timedelta(days=7 * EVALUATION_EXTENSION_WEEKS)
+    rows = conn.execute(
+        "SELECT f.exercise_id, f.rating FROM session_form_rating f "
+        "JOIN session s ON s.session_id = f.session_id "
+        "WHERE s.occurred_on BETWEEN ? AND ? AND NOT EXISTS ("
+        "SELECT 1 FROM session_form_rating child WHERE child.supersedes_id = f.form_id)",
+        (EVALUATION_START.isoformat(), min(day, extension_end).isoformat()),
+    ).fetchall()
+    low = [row for row in rows if int(row["rating"]) <= 2]
+    events = len(low)
+    lifts = len({str(row["exercise_id"]) for row in low})
+    if day < window_end:
+        due = window_end
+        if events >= LOW_FORM_TARGET and lifts >= LOW_FORM_LIFT_TARGET:
+            status = "threshold_met_waiting"
+            message = "Threshold met; wait for the 12-week window to close before analysis."
+        else:
+            status = "collecting"
+            message = "Collecting low-form events."
+    elif day < extension_end:
+        if events >= LOW_FORM_TARGET and lifts >= LOW_FORM_LIFT_TARGET:
+            due = window_end
+            status = "ready"
+            message = "Threshold met; run the descriptive analysis."
+        else:
+            due = extension_end
+            status = "extended"
+            message = "Below threshold at 12 weeks; extended to 24 weeks."
+    else:
+        due = None
+        if events >= LOW_FORM_TARGET and lifts >= LOW_FORM_LIFT_TARGET:
+            status = "ready"
+            message = "Threshold met; run the descriptive analysis."
+        else:
+            status = "insufficient"
+            message = "Insufficient low-form events; keep descriptive and do not analyse a handful."
+    return {
+        "status": status,
+        "message": message,
+        "started_on": EVALUATION_START.isoformat(),
+        "window_end": window_end.isoformat(),
+        "extension_end": extension_end.isoformat(),
+        "due_on": due.isoformat() if due else None,
+        "low_events": events,
+        "low_lifts": lifts,
+        "target_events": LOW_FORM_TARGET,
+        "target_lifts": LOW_FORM_LIFT_TARGET,
+        "note": "Follow-up only; form does not change a load or prescription.",
     }
 
 
