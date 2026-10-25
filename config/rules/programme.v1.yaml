@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.13.0"
+  version: "1.13.1"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -43,6 +43,8 @@ document:
       change: "Canonical session types replace the legacy A/B/C label everywhere, including PRG-RIR-001's scope (its predicate was always session-agnostic). Direct-erector scheduling reads session.session_type and allows squat/bench_squat only (DEC-SESSION-01)."
     - version: "1.13.0"
       change: "MOD-FAT-001's first-set RIR-drop trigger is removed: it was never implemented and a one-RIR drop is inside the measurement's own error (DEC-RIR-04, OPEN-QUESTIONS Q23). MOD-SPINE-001 trims non-essential spinal work when a proposed session would exceed the weekly cap (DEC-SPINE-03). Every modifier now declares implemented_by, so a documented trigger can be traced to the code that runs it."
+    - version: "1.13.1"
+      change: "MOD-TECH-001 and MOD-MIN-001 are now declared. Both were already implemented and cited but absent from the document; both are explicit user requests for one session and are never automatic (DEC-TECH-01, DEC-MIN-01)."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -463,3 +465,47 @@ modifiers:
     availability:
       status: available
       reason: "Projected week cost uses the rule's own exposure function (DEC-SPINE-03)."
+
+  # User-request modifiers: they only run when the athlete asks for them, never on a schedule.
+  - id: MOD-TECH-001
+    implemented_by: "strength_coach/prescribe/technique_throttle.py::apply"
+    title: "User-declared technique throttle for one session"
+    statement: >
+      When the athlete explicitly says technique is off, cap the session's essential items
+      (or one named movement pattern) at 90% of the solved load and floor their RIR at 3.
+      The load cap is compared with the automatic factors, never multiplied on top;
+      bodyweight work keeps its load and takes only the RIR floor. Nothing is stored, so the
+      next session is normal unless the athlete asks again.
+    when:
+      any:
+        - {input: technique_throttle.requested, op: "==", value: true}
+    then:
+      load_cap: 0.90          # applied as a comparison against the cumulative factor
+      rir_floor: 3
+      rir_cap: 4
+      scope: essential_or_named_pattern
+      duration: one_session
+    availability:
+      status: available
+      reason: "Explicit user request only; no form rating is read and no state is stored (DEC-TECH-01, ASSUMPTION-36)."
+
+  - id: MOD-MIN-001
+    implemented_by: "strength_coach/prescribe/minimum_session.py::apply"
+    title: "User-selected minimum effective session"
+    statement: >
+      When the athlete asks for a shorter session (30/45/60 minutes), cut non-essential
+      accessory work first; the explicit deeper tier may reduce main-lift sets to a floor of
+      2. Load, RIR, reps and exercise identity never change, and no work is ever added. It is
+      refused when the prescription is not executable or a hard constraint vetoes an item.
+    when:
+      any:
+        - {input: minimum_session.requested, op: "==", value: true}
+    then:
+      set_reduction: volume_only_accessory_first
+      accessory_floor_sets: 1
+      main_lift_floor_sets: 2
+      targets_minutes: [30, 45, 60]
+      duration: one_session
+    availability:
+      status: available
+      reason: "Explicit user request only; the duration target is a planning estimate, not a measurement (DEC-MIN-01)."

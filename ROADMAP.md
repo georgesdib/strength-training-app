@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-25 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 done, v0.5 in progress** · version `0.5.0-dev` · **749 public tests** (764 with the 15 private integration tests)
+Last updated: 2026-10-25 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 done, v0.5 in progress** · version `0.5.0-dev` · **752 public tests** (767 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-25 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 711 locally, including private integration
+.venv/bin/python -m pytest            # 767 locally, including the 15 private integration tests
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -46,8 +46,8 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
 | v0.3 | Strength/data depth | **done** | manual logging via live workout mode (§4.2/§4.21, closed), import adapters closed (§4.3), learned readiness weights evaluated and closed (§4.9), LLM proposal view closed as CLI-only (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed), read-only 4/8/12-week outcomes review, longevity context, prescription-modifier provenance and quick readiness presets/context and readiness feedback, UI prescription persistence (A0/A/B/C/E), minimum effective sessions (D) the methodology/privacy docs (F), W1/W7 attendance metrics and the session-time cap |
 | v0.4 | Audit, documentation and form closeout | **done 2026-10-25** | form assessment/prospective follow-up, fatigue diagnostic closure, UI documentation P0–P4, parent-ratio evidence review, weakness test plan, calibration milestone (§4.22) |
-| v0.5 | Cardio + calibration depth | **in progress; plan at §4.13a** | guided Workflow UI (readiness → preview → workout → post-workout); cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
-| — | 2026-10-25 corrective pass | **done 2026-10-25** | e1RM selector + plausibility advisory (`DEC-E1RM-SOURCE-01`, `DEC-E1RM-PLAUS-01`), `MOD-SPINE-001` spinal trim, group-level volume status (`DEC-VOLUME-05`), technique throttle in the API and Prescribe form (`MOD-TECH-001`), e1RM overrides in Exercises and post-workout; constitution 1.13.0 (`DEC-RIR-04`) |
+| v0.5 | Cardio + calibration depth | **in progress; plan at §4.13a** | guided Workflow UI **delivered** (readiness → preview → workout → post-workout); pending: cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
+| — | 2026-10-25 corrective pass | **done 2026-10-25** | e1RM selector + plausibility advisory (`DEC-E1RM-SOURCE-01`, `DEC-E1RM-PLAUS-01`), `MOD-SPINE-001` spinal trim, group-level volume status (`DEC-VOLUME-05`), technique throttle in the API and Prescribe form (`MOD-TECH-001`), e1RM overrides in Exercises and post-workout; legacy A/B/C labels removed from rule scopes and taxonomy `day_roles`; squat loading kept out of the spinal cap as a recorded scope decision (`DEC-SPINE-04`); constitution 1.13.1 (`DEC-RIR-04`; `MOD-TECH-001`/`MOD-MIN-001` declared) |
 | — | Post-workout form assessment | **done 2026-10-25** | optional per-lift 1–5; Workout + History edit; rubric 1.2.0 |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video descoped; 3.8 labelled set moved to §4.14 |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000`; Settings tab for LLM and browser defaults |
@@ -1035,29 +1035,20 @@ deload plus four deterministic programme changes, and closed individual MRV as n
 No programme experiments, no individualised MRV and no randomised deload trial. The remaining
 deferred items stay listed in §4.19.
 
-### 4.19 Consolidated next actions
+### 4.19 Open next actions
+
+Completed and closed items were removed from this list on 2026-10-25; the status table,
+[`CHANGELOG.md`](CHANGELOG.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) keep the record.
 
 | priority | action | status |
 |---|---|---|
 | P1 | Record **≥3 measured tests per main lift** so `MOD-E1RM-001` can calibrate the formula (the bias question is data-starved, not mechanism-starved) | **next** — `e1rm calibrate` shows the ratio and CI; record from the Athlete page, an Exercises row or the post-workout panel |
-| P1 | Scheduled deload / broader fatigue-management policy | done — `DEC-PROGRAMME-05` |
-| P1 | 3RM/5RM calibration cadence and explicit warm-up prescription | done — 10-week reminder + 50/70/85 ramp |
-| P2 | Parent-variant e1RM ratios | moved to §4.20, unscheduled |
-| P2 | Weakness/injury-targeted selection | display-only context done; targeting deferred — earliest after v0.5 / ~April 2027; gates in `DEC-SELECT-05` |
-| P2 | Strength-review implementation closeout | **review closed**; future work in §4.20 |
-| P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
-| P2 | Prospective validation of continuity, volume, selection and fatigue models | moved to §4.20 — no candidate; current models failed the retrospective baseline |
-| P1 (v0.3) | Live workout mode | **closed** — full UI flow; CLI start remains a documented UI-only exception |
-| P1 (v0.3) | Manual workout logging | **closed** — live Workout mode |
-| P1 (v0.3) | Import adapters | **closed** — standard export + workout CSV cover the paths |
-| P1 (v0.3) | LLM proposal view | **closed** — CLI-only by decision |
-| P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
-| P2 | Main-lift upward-revision ratchet (cap the e1RM's per-session increase) | **deferred, not scheduled** — rejected as a controller in `DEC-E1RM-PLAUS-01` (bounds change, not level); revisit only if calibration cannot close the bias |
-| v0.5 | Deeper labelled calibration set | moved to v0.5 |
-| P3 | Per-rep velocity: cross-session analysis and evidence review | **done** — descriptive report; no rule (`DEC-VBT-05`) |
-| v0.5 | Cardio depth and shadow cardio load | planned |
-| — | Post-workout form assessment | done 2026-10-25 |
-| future | LLM-guided suggested programme (§4.18) | idea only |
+| P2 | Parent-variant e1RM ratios | unscheduled; display-only at most (§4.20.2) |
+| P2 | Weakness/injury-targeted selection | deferred to after v0.5 / ~April 2027; gates in §4.20.3 and `DEC-SELECT-05` |
+| P2 | Main-lift upward-revision ratchet | **deferred, not scheduled** — rejected as a controller in `DEC-E1RM-PLAUS-01`; revisit only if calibration cannot close the bias |
+| v0.5 | Cardio depth and shadow cardio load | planned (§4.13a, Q14) |
+| v0.5 | Deeper labelled calibration set | in progress (§4.14) |
+| future | LLM-guided suggested programme | idea only (§4.18) |
 
 ### 4.20 Post-review follow-ups  (unscheduled)
 
@@ -1103,6 +1094,7 @@ No implementation, no automatic substitution and no load effect follows from thi
 | Weakness targeting | plan only; deferred to after v0.5 / ~April 2027 | §4.20.3, `WEAKNESS-TARGETING-PLAN.md`, Q22, DEC-SELECT-05 |
 | Selection A/B boundary (pause/narrow, SSB/high-bar) | dormant policy decision; current default is conservative (A only same exercise) | Q21, docs/SELECTION-COMPARABILITY.md |
 | Cardio model | v0.5 | §4.13, Q14 |
+| Low-bar competition squat and the weekly spinal cap | open; default keeps the cap hinge-only | Q24, `DEC-SPINE-04`, LIM-44 |
 
 ### 4.21 Live workout mode  (v0.3, CLOSED 2026-10-23)
 
@@ -1148,25 +1140,26 @@ contract, and comparable workout data collection.
 
 ## 5. Known gaps and risks
 
+Resolved items were removed on 2026-10-25; the status table and `CHANGELOG.md` keep the record.
+
 | gap | impact | mitigation / status |
 |---|---|---|
-| No persistence | cannot replay a past day; work is lost between runs | **resolved** — `run`/`run_event` trace + append-only tables (phase 3) |
 | Erector ramp has no anchor | `PRG-EREC-001` returns `unknown`; squat-led/bench-led sessions lack a ramp verdict | rule implemented; `unknown` names both missing inputs (`OPEN-QUESTIONS` Q3, Q4) |
-| No athlete state | no injury, goal or preference can veto a prescription | **resolved** — §11 tables and `state` command |
-| No symptom input | back-flare modifier and the ramp's stability gate cannot run | **resolved** — pre-session 0-3 input, `symptom_log`, `MOD-BACK-001` |
 | Imported sessions have no timestamps | imported duration unmeasurable; two imported sessions on one date indistinguishable | workout mode measures duration; imports remain date-only (`OPEN-QUESTIONS` Q5) |
-| Only one session type can be prescribed | The other templates are blocked by the erector-ramp anchor (Q3), the SSB question (H1) and the missing §11 tables | **resolved** — all four session types prescribable; the ramp anchor is optional and `unknown` is explicit |
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
-| Velocity detail was per-set only | within-set velocity loss was unavailable from the standard export | **resolved for capture and descriptive analysis** — optional per-rep CSV writes `clean_rep`; set-level remains primary; the report is stratified and sample-size-aware; no VBT rule reads it (`DEC-VBT-04/05`); trap-bar targets stay withheld |
 | Rubric calibration milestone | 10 high-confidence reviewed sessions; every rubric item at n=10; rotation weak; progression/velocity not comparable in the report; some old marks reconstructed and excluded | label gate met 2026-10-25; rubric retune remains a separate decision; `DEC-EVAL-04`; exact counts private |
 | Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one, and set count is invisible (one exposure per session/exercise) | Reviewed 2026-10-23: keep ordinal; separate heavy-set advisory (RIR ≤ 1) is context only; `MOD-SPINE-001` now trims a non-essential exposure when it alone reaches the cap, but the weights are unchanged (`DEC-SPINE-03`, `LIM-14`, `docs/SPINAL-LOAD-EVIDENCE.md`) |
+| Spinal cap excludes squat loading | the low-bar competition squat adds erector demand but consumes no weekly exposure | scope decision recorded; Q24 open, `DEC-SPINE-04`, LIM-44 |
 | e1RM formula bias is only correctable with measured tests | an optimistic RIR fold shifts every load, and the shift is invisible inside the distribution | bounded correction ±10% from ≥3 tests (`MOD-E1RM-001`); the 28-day median and the plausibility advisory limit the damage meanwhile (`DEC-E1RM-SOURCE-01`, `DEC-E1RM-PLAUS-01`, `LIM-24`, `LIM-43`) |
-| VBT targets not prescribed | a prescription carries no `velocity_target` | **resolved** — 22 targets where trustworthy; trap bar withheld; `DEC-VBT-02` |
+| Cardio has no impulse or fatigue model | cardio is captured but invisible to load and readiness modelling | v0.5 §4.13a A2/A3; shadow only, no load effect until the A4 gate |
+| Minimum-session duration is a planning estimate | the 30/45/60 target comes from a per-set estimate, not measured time | labelled a heuristic; `DEC-MIN-01`, `docs/MINIMUM-SESSION.md` |
+| Technique-throttle values are design choices | 90% load / RIR 3 are not measured optima | explicit user request only; `DEC-TECH-01`, `ASSUMPTION-36` |
 | ACWR contested | cannot be a hard rule | advisory only; `DEC-ACWR-01` |
 
 ## 6. Idea backlog (not approved, not scheduled)
 
-Recorded so good ideas are not lost, explicitly **not** commitments:
+Recorded so good ideas are not lost, explicitly **not** commitments. Delivered ideas were
+removed on 2026-10-25; their record is in `CHANGELOG.md`.
 
 - `sets_per_muscle_group_per_week` feature, so volume is audited in sets rather than sessions.
 - Readiness composite driven by `metric_definition` (not delivered: the table is used for
@@ -1174,10 +1167,6 @@ Recorded so good ideas are not lost, explicitly **not** commitments:
 - Rotation scoring split by session provenance (app-assigned vs self-directed).
 - Grip-strength left/right asymmetry as a readiness input and a unilateral-work trigger.
 - Per-lift manual velocity overrides with expiry.
-- ~~Regime-change detection (a lift's volume collapsing while a substitute rises).~~ **Delivered
-  2026-10-24** as a read-only 8/12-week check (`regime`, Prescribe panel).
-- History page with audited correction of completed/imported sessions (append-only supersession,
-  critique rebuild, re-review flag), whole-session void/unvoid and VBT overrides — **delivered 2026-10-24**.
 - Top set + back-off sets — **evidence review only**; a specific overview plus indirect
   high-load/multiset and autoregulation evidence, but no direct trial against the current
   4-5 × 3-5 @ RIR 2-3 prescription. Do not replace the programme yet
@@ -1185,12 +1174,6 @@ Recorded so good ideas are not lost, explicitly **not** commitments:
 - LLM-guided suggested programme under the §4.18 guardrails (idea only).
 - Wider proposal licence (more than one increment on the menu) once the menu has proved itself
   in real sessions.
-- ~~A declared 3RM/5RM test session.~~ **Delivered in v0.1** (`DEC-TEST-01`): `strength-coach
-  test`, 3RM/5RM by default, `--max` for a confirmed 1RM. Evidence in `docs/TRAINING-DYNAMICS.md`.
-- ~~Rep-scheme menu.~~ **Delivered** (`DEC-REPS-01`): named schemes including `maximal`
-  1-3 (main lifts only, not the hinge).
-- ~~Weekly undulation (DUP).~~ **Delivered** (`DEC-UNDUL-01`): 4-week cycle keyed to the
-  declared anchor, config-disabled by default when no anchor exists.
 
 ## 7. How to change this roadmap
 

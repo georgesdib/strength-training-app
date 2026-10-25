@@ -70,7 +70,10 @@ rather than judging one. Modifiers live in the same document under `modifiers:` 
 applied in order by the prescription engine before the policy engine evaluates the result.
 `MOD-FAT-001` now uses the computed readiness score (with the sleep/energy floor), global or
 category overrides, and a 20% combined readiness + continuity cap; the details are in
-[`READINESS-SCORE.md`](READINESS-SCORE.md).
+[`READINESS-SCORE.md`](READINESS-SCORE.md). Two declared modifiers are **user requests**
+rather than automatic transformations: `MOD-TECH-001` (one-session load cap and RIR floor) and
+`MOD-MIN-001` (volume-only shorter session). They are declared here so their citations
+resolve, but they run only when the athlete asks and store no state.
 
 **A modifier's `when:` block is documentation, not an executed expression.** Python decides
 the trigger, so every modifier must declare

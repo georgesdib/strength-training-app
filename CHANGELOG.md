@@ -32,6 +32,15 @@
   essential work is the cause (`MOD-SPINE-001`, `DEC-SPINE-03`). Cap unchanged.
 - Volume `under`/`high`/`over` status is judged per **landmark group**; the ledger exposes
   `group` and `group_average` per row (`DEC-VOLUME-05`).
+- The weekly spinal cap's **squat exclusion is now documented as a scope decision** with the
+  evidence that ranks the variants: the low-bar competition squat has the most forward lean and
+  erector demand, the safety-squat bar the most upright trunk. Behaviour is unchanged; the
+  classification question is open as Q24 (`DEC-SPINE-04`, `ASSUMPTION-39`, `LIM-44`).
+- **Two implemented modifiers are now declared in the constitution**: `MOD-TECH-001` and
+  `MOD-MIN-001` were cited by the engine and the UI but absent from the document. Both are
+  explicit one-session user requests, never automatic (constitution 1.13.1). The
+  closed-question register and the roadmap's completed next-actions/gaps were also pruned to
+  live items.
 - **bench+squat no longer repeats the squat session's main lift.** Its 4-set squat support is
   the **competition squat** — a different bar, and the squat with real recent data — instead of
   a second SSB exposure two days later. Set count and squat-pattern volume are unchanged

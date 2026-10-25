@@ -40,6 +40,41 @@ against the trap bar. The half-step is the programme owner's decision: it record
 and conventional" without pretending to a measured value. Whether a half-step is meaningful on
 an ordinal scale is an open question (`OPEN-QUESTIONS.md` Q11).
 
+
+## Squats are outside the cap — and the variants are not equal
+
+`PRG-SPINE-001` counts hip-hinge and erector-extension work. **No squat variant carries
+`high_fatigue_spinal`**, so a squat never consumes one of the three weekly exposures. That is a
+**scope decision**, not a finding that a squat loads the spine lightly — and the evidence
+available does not rank squat against hinge on lumbar load directly:
+
+- **Back squat vs hexagonal-bar deadlift** (Stahl 2024, n=16). The hex bar allowed a greater
+  1RM and produced **greater maximum forward trunk lean** than the back squat; the back squat
+  produced higher hip extension moments, with no difference at the knee. Lumbar-spine moments
+  were not reported. The finding supports the hinge as the more flexion-loaded pattern — which
+  is what the cap targets — but it compares trunk lean and hip/knee moments, not lumbar load.
+- **Low-bar vs high-bar** (Glassbrook 2017 review). The low-bar squat has greater hip flexion,
+  **greater forward lean** and **greater erector spinae activity**; the high-bar squat is more
+  upright, with greater knee flexion and quadriceps activity.
+- **Safety-squat bar vs standard bar** (Hecker 2019, n=12 powerlifters). The SSB produced a
+  **more upright trunk** (trunk flexion −7.3°, hip flexion −5.7°) at an 11.3% lower 3RM, and
+  the authors describe it as placing *less* stress on the lower back.
+
+So the variants sort the opposite way from what a single "squat" flag implies:
+
+| variant | forward lean / erector demand | in the cap? |
+|---|---|---|
+| safety-squat bar | lowest of the three (more upright) | no — the exclusion is well supported |
+| high-bar | intermediate (upright, knee-dominant) | no |
+| **low-bar competition squat** | **highest of the three** | **no — this is the questionable one** |
+
+The athlete's competition squat is a **low-bar** squat (athlete statement; the taxonomy has no
+bar-position field, so the rating cannot read it). Counting it at cost 1 would put a standard
+week — back extension (1) + trap bar (2) + a bench+squat session (1) — at 4 against a cap of 3,
+so `MOD-SPINE-001` would drop the erector slot in every week that holds both a hinge and a
+bench+squat, or the cap would have to move to 4. That is a programme decision, not a code fix:
+see `OPEN-QUESTIONS.md` Q24 and `LIM-44`.
+
 ## What would change a rating
 
 - A direct biomechanical comparison of sumo and trap bar at matched relative loads (lumbar

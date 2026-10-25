@@ -71,6 +71,8 @@ entities:
     day_roles: [squat, bench_squat]
     primary_muscles: [quadriceps, glutes, erectors]
     erector_family: false          # loaded but not *direct* erector work
+    # Not counted toward the weekly spinal cap: the SSB is the most upright squat variant
+    # (Hecker 2019: trunk flexion -7.3 deg vs a standard bar). See docs/SPINAL-COST.md.
     vbt_family: squat
     default_rir_target: [2, 3]
     loadable: true
@@ -86,6 +88,9 @@ entities:
     # performed most, which is often not one of the constitution's named lifts.
     primary_compound: true
     programme_slot_of: ssb_squat   # substitute for SSB elsewhere; bench_squat programs it directly (DEC-PROGRAMME-08)
+    # Not counted toward the weekly spinal cap even though it is a low-bar squat - the variant
+    # with the greatest forward lean and erector activity (Glassbrook 2017). The cap counts
+    # hinge-type exposures by scope; counting this takes a standard week to 4/3 (LIM-44, Q24).
     erector_family: false
     vbt_family: squat
     loadable: true

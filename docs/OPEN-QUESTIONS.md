@@ -7,223 +7,12 @@ produces an `unknown` verdict rather than a silent guess.
 > Quantitative evidence for each question is kept out of this public repository. The
 > questions themselves are methodology questions and apply to any athlete using the system.
 
----
-
-## Q1. Sessions have no timestamps — **closed 2026-10-25: date-only accepted**
-
-The date column is calendar-date only. There is no time, so two sessions on one date are
-indistinguishable, and a squat-plus-bench day is ambiguous between the squat-emphasis and
-bench-plus-squat types unless erector or power content separates them.
-
-**Closed by owner acceptance.** This is a data limitation, not an open design question:
-
-- one session per calendar date;
-- session type inferred from the main lift and support work;
-- ambiguous composition stays `unknown`, and no type-specific rule is scored;
-- imported duration stays unmeasured; manual/optional duration is recorded separately;
-- no timestamp backfill or inferred duration.
-
-Any future timestamped source would be a new data decision, not a reopening of Q1.
-
-**Blocks:** nothing.
+**Live register (2026-10-25):** two open questions (Q14, Q24) and one deferred decision (Q22).
+The 21 questions decided since the register was created were removed from the live text on
+2026-10-25; each outcome and decision record is indexed under
+[Closed](#closed--index-only). Reopening a closed question is a new decision, not an edit.
 
 ---
-
-## Q2. What is a "high-fatigue spinal exposure"? — **closed 2026-10-25: weighted one-exercise-per-session**
-
-**Closed by owner acceptance of the current rule.** Q8 is merged into this answer.
-
-`PRG-SPINE-001` caps a **weighted spinal cost of 3 per ISO week**. An exposure is:
-
-> **one high-fatigue exercise in one session**, weighted by its configured `spinal_cost`.
-
-It is not one set. A 12-set trap-bar session is one trap-bar exposure. Only working sets count;
-the same exercise repeated in one session still counts once. Two sessions in one week count
-twice.
-
-| exercise | cost |
-|---|---:|
-| back extension / reverse hyperextension | 1 |
-| trap-bar deadlift / RDL / Jefferson curl | 2 |
-| rack pull / good morning / conventional deadlift | 3 |
-
-Kettlebell swings (`hinge_ballistic`) are excluded. A new high-fatigue exercise falls back to
-its taxonomy `spinal_cost`. More than 3 fails the veto; exactly 3 passes.
-
-Why this unit:
-
-- **per set** makes a 12-set trap-bar session twelve exposures and fires almost every week;
-- **distinct exercise types per week** almost never fires and ignores dose;
-- **one exercise per session, weighted** is the middle reading.
-
-The weighting is `ASSUMPTION-02`: ordinal, not load/reps/RIR or measured spinal compression.
-
-**Blocks:** nothing. No further Q2/Q8 decision is open.
-
----
-
-## Q3. The erector ramp needs an anchor — **closed: manual anchor + symptom input**
-
-The 8-12 week dose ramp (bodyweight -> add load -> add a set -> consolidate) needs to know
-which week of the block today is. Nothing in the source export marks a block boundary.
-
-**Closed 2026-10-25.** The anchor is explicit, not inferred: the athlete sets
-`athlete_profile.block_start_date` with `strength-coach block --date`; `--force` resets it and
-restarts the ramp at week 1 (`DEC-RAMP-02`). The UI exposes the same field. This is an
-operational input, not an open design question.
-
-The rule separately needs a pre-session low-back symptom reading. **0 is a valid reading and
-means no symptoms**; it satisfies the gate. A missing reading is `unknown`, not "no flare" —
-absence of a record is not evidence of absence. Historical erector rows count as training
-history but cannot establish the block week.
-
-**Blocks:** nothing design-level. Until both inputs exist, `PRG-EREC-001` returns `unknown`;
-the prescription can still start erector work at bodyweight, and main loads are unaffected.
-**Default:** no anchor -> `unknown`; bodyweight start; no automatic "first Monday" anchor.
-
----
-
-## Q4. ~~There is no symptom field.~~ **Answered: symptom_log exists**
-
-The most safety-relevant rules — "if back symptoms rise and do not settle in 24-48 h",
-"progress only if no symptom flare" — depend on data that does not exist in either export.
-The form-quality column is the only candidate and its direction is unknown, so it is not used
-as a proxy.
-
-**Blocks:** the back-flare modifier, the erector stability gate, the "symptoms reported"
-rubric line.
-**Applied:** manual pre-session 0-3 entries in `symptom_log`; `MOD-BACK-001` and the stability
-gate read it. Missing entries still return `unknown`.
-
----
-
-## Q5. ~~Session duration is unmeasurable.~~ **Answered: manual/optional only**
-
-The rubric wants "session duration vs 80 min planned / 90 min hard cap". There are no timestamps in imported logs. The options
-are a set-count proxy or dropping the metric — and a proxy presented as minutes would be a
-fabricated score.
-
-**Applied partially:** `session_feedback.duration_min` records optional session length at
-review, and live workouts store `duration_basis=measured`. Imported sessions still have no
-timestamps and remain unmeasured. Rubric 1.1.0 now scores measured live-workout duration
-against 80 planned / 90 hard; the earlier “unmeasured for both” text is superseded.
-
----
-
-## Q6. Readiness conflicts and new metrics — **closed 2026-10-25**
-
-**Closed by owner acceptance of the current state.** No further design change is open under Q6.
-
-1. **Merge** — most-complete row, tie-broken to the latest; manual values win per field;
-   `merge_note` records the choice (`DEC-READINESS-01`, `ASSUMPTION-04`). Accepted as-is.
-2. **Composite** — `readiness_day.composite` remains **null**; the global/category score is a
-   separate computed assessment (`features/readiness_score.py`). It is not the authoritative
-   source for load changes; the raw sleep/energy floor remains.
-3. **New metrics** — none are being added under Q6. Adding a readiness input or changing the
-   composite's authority is a new decision with code/config work, not an open Q6 item.
-
-**Blocks:** nothing.
-**Status:** current architecture accepted; docs and code unchanged by this closure.
-
----
-
-## Q7. Does "main lifts at RIR 2-3" forbid sets *easier*? — **closed 2026-10-25: floor-only veto**
-
-**Closed by owner acceptance of the current behaviour.** No config or code change.
-
-`PRG-RIR-001` vetoes only the hard side:
-
-- RIR 0;
-- below the RIR 1–4 window;
-- near-max singles at ≥90% of the multi-rep e1RM.
-
-A set above the window (RIR 5+) is counted and reported as `above_ceiling`, but does **not**
-fail the rule. RIR 6 remains a warm-up marker (`DEC-RIR-01`), excluded from compliance.
-
-Why: the danger named by the rule is the grinding set, not an easy one; RIR self-report carries
-roughly ±1–2 reps of error; and a tight two-sided veto would fire on estimation noise and bury
-the real violations. The rubric/review can still judge poor effort quality.
-
-**Blocks:** nothing. No further Q7 decision is open.
-
----
-
-## Q8. ~~What counts as one "high-fatigue spinal exposure"?~~ **Closed — merged into Q2**
-
-The unit is one high-fatigue exercise per session, weighted by `spinal_cost`, capped at 3 per
-ISO week. See Q2.
-
----
-
-## Q9. ~~Can the RIR window itself be widened?~~
-
-**Closed** by `DEC-RIR-02`: the window is now RIR 1-4 with a 2-3 target, based on the
-evidence collected in `docs/RIR-EVIDENCE.md`. Changing it again is still a constitution change.
-
-## Q10. ~~Can the sumo deadlift be an accessory?~~ **Closed**
-
-**Replacement only** (`DEC-TRAPBAR-03`). Sumo may replace the trap bar as the Day B hinge, but it
-is not added alongside it or as an accessory: a second hinge violates the no-stacking rule
-(`PRG-RED-001`), and on A/C it would sit next to direct erector work. No hinge-variant slot and
-no rotation are planned. The path is main-lift substitution (`DEC-LLM-06`), once sumo is rated.
-
-## Q11. Sumo replacement and the 2.5 cost — **Closed**
-
-**Closed 2026-10-20.** Sumo is a replacement for the trap-bar hinge
-(`DEC-TRAPBAR-03`), not a rotation or accessory. The 2.5 spinal cost is accepted as the
-owner's ordinal design choice (`DEC-SPINE-01`); it is not a measured value and will not be
-recalibrated.
-
-There is **no formal trial and no open question**. If you want to use sumo, run it as the hinge
-for a normal 4–6 week block, using ordinary training judgement:
-
-- normal working-set/RIR rules, conservative progression;
-- log a symptom reading only when the back actually feels different;
-- continue at 0–1, or level 2 that settles within about 48 hours;
-- reduce or stop at level 3, persistent level 2, or new neurological symptoms;
-- one coach check in the first 1–2 sessions; not every session.
-
-Evidence: no RCT ranks sumo against trap bar for injury; they differ in muscle activity and joint
-moments, and trap-bar/squat selection matters less than heavy loading and target muscles. See
-references 132–135 and `docs/SPINAL-COST.md`.
-
-## Q12. ~~How should re-entry be calibrated from real returns?~~ **Implemented; calibrated factor rejected**
-
-**Now rejected for use; the fixed arithmetic stays.** 14/28/56 days, +1 RIR and −5%/−10% remain
-the defaults. They are evidence-informed assumptions, not measured cut-points; the calibrated
-factor was tested and lost.
-
-The plan is to calibrate them on the athlete's own returns (ROADMAP §4.12):
-
-- record each gap and the first sessions back, with load, reps, RIR, completion, symptoms,
-  readiness and **post-session fatigue**;
-- estimate how strength (load at a fixed RIR) and capacity (work tolerated without a flare)
-  taper with time away;
-- replace a fixed band only when there are enough returns to support it, and only as a
-  configurable, cited change.
-
-**Applied then rejected:** the calibration exists, but the 2026-10-20 retrospective walk-forward
-had ratio MAE 0.150 vs 0.128 for the fixed rule. The calibrated factor is not adopted; fixed
-bands remain. See [RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md).
-
-## Q13. ~~Is four weeks the right back-signal window?~~ **Answered (2026-10-19)**
-
-The owner answered all three parts, and the signal is now per region
-(`DEC-INJURY-01/02/03`; [`docs/INJURY-SIGNAL.md`](INJURY-SIGNAL.md)):
-
-1. **The window scales** with prior flares: 28 days + 14 per prior flare (cap 84), with
-   4 + 2 tolerated sessions per flare (cap 12). More than two previous episodes predict
-   recurrence (da Silva 2019), so a fixed certificate over-states recovery for someone who
-   flares repeatedly.
-2. **"Tolerated" means loaded and followed by a clean reading**, not merely loaded. A session
-   with no post-session reading is counted but `unverified`, and never satisfies the review
-   requirement — missing input is `unknown`, not `pass`.
-3. **The signal names lifts.** A general signal plus one per region (low back, biceps, knee),
-   with the exercise links in `config/injuries.v1.yaml`; adding an injury is a config change.
-
-Residual uncertainty is calibration, not design: the step sizes and the 7-day verification
-window are assumptions (`ASSUMPTION-08`, `ASSUMPTION-09`), and the injury-to-lift link is
-exposure, not causation (`ASSUMPTION-10`).
 
 ## Q14. What cardio load and fatigue model should the app use?
 
@@ -231,123 +20,7 @@ Planned in ROADMAP §4.13. Open: which modalities, whether TRIMP or sRPE is the 
 two vs three fatigue systems, whether cardio modifies load or only readiness context, and how
 many weeks of individual data are needed before showing a time constant. No implementation.
 
-## Q15. ~~Should the programme prescribe dedicated core work, and at what dose?~~ **Answered (2026-10-20)**
-
-Before the answer, the prescribed days contained **no dedicated core work**: four slots per day
-(main lifts, back extension, lateral raise, split squat), with six sets of spinal-extension work
-per week. The taxonomy and rules already knew the movements — `PRG-DP-001` even carried an
-`ab_wheel` increment — but no template or collection referenced them, so the config was dead.
-
-The evidence supports a **small** block, not a large one: core exercise is not superior to
-other exercise for low back pain at six months (Wang 2012; Saragiotto 2016), exercise did not
-reduce recurrence in a randomised trial (Ferreira 2021), core training modestly improves
-speed/jump in athletes (Kayantaş 2026), and trunk endurance is associated with lower overuse
-injury (Lopes 2021, observational).
-
-**Applied (`DEC-CORE-01`, constitution 1.2.0):** two reps-based slots — Day A `ab_wheel`
-3×6-10, Day C `hanging_leg_raise` 3×8-12 — added to `accessories_and_back_extension` so
-`PRG-DP-001` progresses them. No new hard rule; planks and carries stay self-directed because
-they are time-based. Full reasoning: [`docs/CORE-TRAINING.md`](CORE-TRAINING.md).
-
-## Q16. ~~Why is `PRG-DP-001` never assessable?~~ **Answered (2026-10-20)**
-
-The rule scoped the whole `$accessories_and_back_extension` collection, but `rep_ranges` was
-built from the current day's template (`DayTemplate.rep_ranges`). Every day lacked at least one
-scoped exercise (A: `split_squat`, B: `back_extension`, C: `lateral_raise`), so the rule
-returned `unknown` every day and "add increment" could never fire.
-
-**Applied:** `templates.all_rep_ranges()` pools the map across all three day templates, and the
-engine passes it to the rule context. On the current store the decision is still "hold load",
-so no prescribed load changed on the day of the fix. See `docs/CORE-TRAINING.md` §5.4.
-
-## Q17. ~~Should the programme add pulling and/or power slots?~~ **Answered (2026-10-20)**
-
-- **Pulling — applied (`DEC-PULL-01/02`, constitution 1.4.0).** The prescribed upper body was
-  entirely pressing (bench ×2-3, lateral raise) with no pull in any template, while the log
-  contained rows, pull-ups and lat pulldowns. Day B now has a **vertical-pull variant slot**:
-  `pull_up` **or** `lat_pulldown` 3×6-10, whichever was trained most recently; both are in
-  `accessories_and_back_extension` so `PRG-DP-001` progresses each on its own history. They
-  are substitutable for the stimulus but not identical (chin-ups load the biceps/erectors
-  more, pulldowns the rectus abdominis more; 1RM correlation ~0.78), and their loads are never
-  compared.
-- **Power — applied (`DEC-POWER-01`).** Day A opens with `box_jump` 3×3-5, RIR 4-5, full
-  recovery, before the main lift. `box_jump` is now a real taxonomy entity; the slot is
-  excluded from weekly undulation and carries no double-progression citation because power
-  cannot be scored from per-set average velocity.
-
-Full reasoning and evidence: [`docs/LONGEVITY-REVIEW.md`](LONGEVITY-REVIEW.md).
-
-## Q18. ~~Which longevity assessment metrics should the app record?~~ **Answered (2026-10-20)**
-
-**Applied (`DEC-MEASURE-01`).** A generic append-only `measurement` table with a config
-catalogue (`config/measurements.v1.yaml`): `vo2max`, `grip_strength_kg`,
-`sit_to_stand_5_s`, `steps_per_day`, `sitting_hours_per_day`. Each metric is declared in
-`metric_definition` with a direction and aggregation; a later direction change is refused. The
-CLI is `strength-coach measure` and the web UI has a Measures page.
-
-Grip strength was previously a readiness field; it has since been removed from readiness
-(`DEC-GRIP-01`) and is measurement-only. None of these metrics changes a load.
-
-## Q19. ~~Should a fatigue-fitness model drive strength loads?~~ **Answered: no load effect**
-
-**Answered 2026-10-20; closed 2026-10-25.** The model is shadow-only. The retrospective check
-lost to persistence (0.158 vs 0.074), and the Phase-1 diagnostic found rolling median beat the
-full model on SSB squat (MAE 9.39 vs 19.18) and bench press (7.23 vs 15.01). No prospective
-period is started for this form; a future candidate must pass §4.20's gate.
-
-**Research note:** [`docs/FATIGUE-FITNESS.md`](FATIGUE-FITNESS.md).
-
-At the time of the question, the app had no post-session fatigue state: readiness was the
-athlete's integrated signal, and gap rules handled long breaks. The model now exists in shadow
-but does not change a prescription.
-
-Options:
-
-- **A (default, recommended):** readiness only. No modelled fatigue.
-- **B:** a fixed-decay "recent stress" indicator, advisory only, no load effect.
-  **Applied 2026-10-20 (`DEC-STRESS-01`):** shown on Prescribe/Programme; still no load change.
-- **C:** a per-lift fitness-fatigue model fitted to the athlete's e1RM series, then validated
-  prospectively before it may change a load.
-- **D:** collect session RPE for strength (and optional per-lift soreness) first; revisit C.
-  **Partially applied 2026-10-20 (`DEC-SRPE-01`):** optional session RPE and length are captured
-  at review; no model reads them yet.
-
-**Why not C now:** the strength-specific evidence is one small weight-lifter study; parameter
-identifiability is poor; the fatigue component did not improve out-of-sample prediction in a
-2025 re-analysis; and the log still lacks frequent performance tests. The current RIR
-window and 48–72 h spacing already manage acute fatigue.
-
-**Default if unanswered: no modelled fatigue (A).** Recommendation: B or D, then revisit.
-
-## Q20. ~~Should e1RM estimates be calibrated against test results?~~ **Answered: bounded correction applied**
-
-**Answered 2026-10-20.** Epley+RIR estimates were used as `best_usable` in an 84-day window,
-and a measured `test` became an override. The report and bounded correction now exist; a
-correction is applied only when the CI excludes 1.0 and the bias is within ±10%.
-
-**Applied 2026-10-20 (`DEC-E1RM-CAL-01/02`):** report plus a bounded correction when the CI
-excludes 1.0; `e1rm calibrate` and the Athlete page. Measured overrides remain the control.
-
-## Q21. How should exercise selection decide what is comparable? — **closed 2026-10-25**
-
-**Closed by owner acceptance of the current three-class guard.**
-
-The current implementation is accepted as-is:
-
-- **A** — load-comparable; automatic only for true aliases.
-- **B** — near-comparable; explicit confirmation required. Pause/narrow bench and SSB/high-bar
-  remain B.
-- **C** — different lift/load basis; never automatic. SSB/front squat and barbell/dumbbell bench
-  remain C.
-- classification is configured per pair, with the conservative defaults retained;
-- confirmation is the explicit near-comparable action already in the UI;
-- loads always resolve from the selected lift's own history;
-- parent-variant e1RM ratios are not used as a load conversion or weakness measure.
-
-Any later promotion of a B pair to A, change to confirmation semantics, or use of a parent
-ratio is a **new decision**, not an open Q21 item.
-
-**Blocks:** nothing.
+---
 
 ## Q22. Should selection target weakness or injury?
 
@@ -359,39 +32,63 @@ baseline win, and an opt-in N-of-1/alternating test. See
 [WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md) and the gated
 [WEAKNESS-TARGETING-PLAN.md](WEAKNESS-TARGETING-PLAN.md).
 
-## Q23. Should a first-set RIR drop trigger a load reduction? — **Closed 2026-10-25: no**
+---
 
-`MOD-FAT-001` carried a fourth OR-branch — "the first working set is RIR 0-1 at a load that
-was RIR 2-3 last session" — that **was never implemented**: no predicate, no engine input, no
-test, and no document mentioned it. The constitution promised a trigger the code did not have.
+## Q24. Should the low-bar competition squat count toward the weekly spinal cap?
 
-It is removed rather than implemented (`DEC-RIR-04`, constitution 1.13.0). The reason is the
-one already written into `PRG-RIR-001`: self-reported RIR carries roughly ±1-2 reps of error,
-which is why the effort *window* is deliberately wide. A threshold of one RIR sits inside that
-error, so the trigger would fire on estimation noise and trade a real load for a measurement
-artefact — in the direction that costs the athlete sessions.
+**Open. Implemented default: no — the cap stays hinge-only.** No squat variant carries
+`high_fatigue_spinal`, so a squat never consumes one of the three weekly exposures.
 
-The implemented RIR signal is the per-lift readiness component: the **mean** RIR of the last
-session's working sets, weight 0.15, and it can only lower a load. Averaging over sets divides
-the reporting error down instead of reading a single set.
+The evidence does not rank squat against hinge on lumbar load directly, but it ranks the squat
+*variants*: the low-bar squat has greater forward lean and greater erector spinae activity than
+the high-bar squat (Glassbrook 2017), and the safety-squat bar is more upright than a standard
+bar (Hecker 2019: trunk flexion −7.3°, described as less lower-back stress). The hex bar leans
+further forward than a back squat (Stahl 2024), which is what makes the cap's hinge scope
+defensible in the first place.
 
-Reopening condition: a noise-aware version (a drop that persists across two consecutive
-sessions, emitted as a warning and never as a load multiplier) if the log shows the athlete
-systematically under-reporting effort.
+So the exclusion is well supported for the SSB and weakest for the athlete's **low-bar
+competition squat** — the variant with the most erector demand.
 
-## Closed
+**If it were counted at cost 1**, a standard week (back extension 1 + trap bar 2 + a
+bench+squat session 1) is 4 against a cap of 3: `MOD-SPINE-001` would drop the erector slot in
+every week that holds both a hinge and a bench+squat, or the cap would move to 4. Either is a
+programme change, not a code fix.
 
-- ~~What do the extreme `RIR` values mean?~~ **Closed** — `RIR 6` marks a **warm-up set**
-  (`DEC-RIR-01`), so it is excluded from effort, e1RM and working volume while staying
-  visible. `RIR 0-1` remain in scope but flagged (`DQ-RIR-02`).
-- ~~Bodyweight movements: total mass or added load?~~ **Closed** — progression acts on
-  **added load** (`DEC-LOAD-02`); total mass is used only for an e1RM.
-- ~~Is there a trap-bar deadlift in the data?~~ **Closed, then corrected** — the log name
-  "Competition Deadlift" meant a **sumo** pull until a recorded switch date and the trap bar after that
-  (`DEC-TRAPBAR-02`); the history is resolved by date, not relabelled.
-- ~~Which exercise is "back extension"?~~ **Closed** — synonymous with the older
-  hyperextension name, **including historical rows**: they keep their own identity but
-  count as back-extension history (`DEC-BACKEXT-02`, amending `DEC-BACKEXT-01`).
+Options: **(A)** keep the hinge-only scope and this wording (default); **(B)** count the low-bar
+competition squat at 1 and accept the erector trim, or raise the cap to 4; **(C)** add a
+bar-position property so only low-bar squats count.
+
+`DEC-SPINE-04`, `ASSUMPTION-39`, `LIM-44`, `docs/SPINAL-COST.md`.
+
+---
+## Closed — index only
+
+Removed from the live register on 2026-10-25. Each row names the outcome and where it is
+enforced; the reasoning lives in the decision record and the linked document.
+
+| Q | question | outcome | decision / evidence |
+|---|---|---|---|
+| Q1 | Do sessions have timestamps? | date-only accepted; one session per calendar date; ambiguous composition stays `unknown`; imported duration unmeasured | owner acceptance 2026-10-25; `docs/DATA-QUALITY.md` |
+| Q2, Q8 | What is one "high-fatigue spinal exposure"? | one high-fatigue exercise per session, weighted by `spinal_cost`, cap 3 per ISO week; kettlebell swings excluded | `DEC-SPINE-01`, `ASSUMPTION-02`, `docs/SPINAL-COST.md` |
+| Q3 | How is the erector ramp anchored? | explicit `athlete_profile.block_start_date`; `--force` restarts at week 1; a missing symptom reading stays `unknown` | `DEC-RAMP-02`, `docs/DECISIONS.md` |
+| Q4 | Is there a symptom input? | manual pre-session 0-3 back level in `symptom_log`; missing stays `unknown` | `DEC-SYMPTOM-01/02` |
+| Q5 | Is session duration measurable? | imported sessions unmeasurable; live workouts store measured duration; optional review length | rubric 1.1.0, `session_feedback.duration_min` |
+| Q6 | How do readiness rows merge, and is the composite authoritative? | most-complete row, latest tie-break, manual wins; `composite` stays null and the score is separate and non-authoritative | `DEC-READINESS-01`, `ASSUMPTION-04` |
+| Q7 | Does "RIR 2-3" forbid easier sets? | floor-only veto: RIR 0, below window and near-max singles fail; above-window sets are reported only | `DEC-RIR-03`, `docs/RIR-EVIDENCE.md` |
+| Q9 | Can the RIR window widen? | window is RIR 1-4 with a 2-3 target; changing it is a constitution change | `DEC-RIR-02`, `docs/RIR-EVIDENCE.md` |
+| Q10, Q11 | Is the sumo deadlift an accessory? | replacement for the trap-bar hinge only; its 2.5 spinal cost is an accepted ordinal choice, not recalibrated | `DEC-TRAPBAR-03`, `DEC-SPINE-01` |
+| Q12 | Can re-entry be calibrated from returns? | calibrated factor rejected (MAE 0.150 vs 0.128); fixed 14/28/56-day bands, +1 RIR, −5%/−10% remain | `DEC-CONTINUITY-02/03`, `docs/RETROSPECTIVE-VALIDATION.md` |
+| Q13 | Is four weeks the right back-signal window? | window scales with prior flares (28 d + 14/flare, cap 84); "tolerated" needs a clean reading; region-specific lift links | `DEC-INJURY-01/02/03`, `docs/INJURY-SIGNAL.md` |
+| Q15 | Dedicated core work, and at what dose? | two reps-based slots; both in `accessories_and_back_extension` so `PRG-DP-001` progresses them | `DEC-CORE-01`, `docs/CORE-TRAINING.md` |
+| Q16 | Why was `PRG-DP-001` never assessable? | rep ranges pool across all templates (`all_rep_ranges`), so every scoped accessory is assessable | answered 2026-10-20; `docs/CORE-TRAINING.md` §5.4 |
+| Q17 | Pulling and power slots? | vertical-pull variant slot and `box_jump` power slot added | `DEC-PULL-01/02`, `DEC-POWER-01` |
+| Q18 | Which longevity metrics? | append-only `measurement` table with a config catalogue; none changes a load | `DEC-MEASURE-01` |
+| Q19 | Should a fatigue-fitness model drive loads? | no; shadow-only and no load effect; the predictive model is closed | `DEC-FFM-04`, `DEC-STRESS-01`, `DEC-SRPE-01`, `docs/FATIGUE-FITNESS.md` |
+| Q20 | Calibrate e1RM against test results? | bounded correction only when the CI excludes 1.0 and the bias is within ±10%; measured overrides win | `DEC-E1RM-CAL-01/02` |
+| Q21 | What counts as comparable for selection? | three-class A/B/C guard; A is automatic aliases only, B needs confirmation, C is never automatic | `DEC-SELECT-03`, `docs/SELECTION-COMPARABILITY.md` |
+| Q23 | Does a first-set RIR drop trigger a load cut? | no; never implemented, inside RIR reporting error, removed from `MOD-FAT-001` in constitution 1.13.0; the mean-RIR per-lift component remains | `DEC-RIR-04` |
+
+---
 
 ## Decisions taken as defaults unless told otherwise
 

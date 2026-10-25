@@ -311,6 +311,7 @@ conclusion is weaker than it looks.
 | 170 | Evans TW, McLester CN, Howard JS, McLester JR, Calloway JP. *Comparison of muscle activation between back squats and belt squats.* J Strength Cond Res, 2019;33(1):S52-S59. | 10.1519/JSC.0000000000002052 | Belt squat had comparable quadriceps but lower gluteus maximus activation; load-prediction, not transfer. |
 | 171 | Layer JS, Grenz C, Hinshaw TJ, Smith DT, Barrett SF, Dai B. *Kinetic analysis of isometric back squats and isometric belt squats.* J Strength Cond Res, 2018;32(12):3301-3309. | 10.1519/JSC.0000000000002854 | Belt squat reduced low-back moments and increased knee/ankle moments; isometric acute study. |
 | 172 | Joseph L, Reilly J, Sweezey K, Waugh R, Carlson LA, Lawrence MA. *Activity of trunk and lower extremity musculature: comparison between parallel back squats and belt squats.* J Hum Kinet, 2020;72:223-228. | 10.2478/hukin-2019-0126 | Belt squat reduced lumbar/trunk and gluteal activation with similar quadriceps; acute. |
+| 173 | Glassbrook DJ, Helms ER, Brown SR, Storey AG. *A review of the biomechanical differences between the high-bar and low-bar back-squat.* J Strength Cond Res, 2017;31(9):2618-2634. | 10.1519/JSC.0000000000002007 | Low-bar: greater hip flexion, forward lean and erector spinae activity; high-bar: more upright, knee-dominant. Why squat variants are not equal (SPINAL-COST). |
 
 ## Not included
 
