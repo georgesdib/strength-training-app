@@ -1,8 +1,9 @@
 # Fatigue, fitness, and strength: evidence and options
 
-**Status: research note (2026-10-20). No model is implemented.** The current programme changes
-loads from readiness and history; it does not carry a session-level fatigue state forward. This
-note asks whether it should, what the evidence supports, and what the alternatives are.
+**Status: research note (2026-10-20; shadow prototype 2026-10-20).** A per-lift fitness–fatigue
+shadow model is implemented and displayed, but **no prescription reads it**; the retrospective
+walk-forward check lost to persistence, so it remains descriptive. This note records the
+evidence, the limits and the alternatives.
 
 Short answer: **a workout does contribute to fatigue, but the evidence for a strength-specific
 fitness-fatigue model is not strong enough to let one change prescriptions.** A shadow model now
