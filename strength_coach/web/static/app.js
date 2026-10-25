@@ -93,12 +93,16 @@ async function loadOverview() {
       ["Cardio (4 wk avg)", data.cardio ? data.cardio.average_weekly_minutes + " min/wk" : "unknown",
         data.cardio ? "reference " + data.cardio.reference_min + "-" + data.cardio.reference_max
           + " · " + data.cardio.sessions + " session(s)" : "no entry"],
+      ["Calibration", (data.calibration?.high_sessions ?? 0) + " reviewed",
+        (data.calibration?.agreement == null ? "agreement —" : data.calibration.agreement + "% agreement")
+        + " · " + (data.calibration?.comparable_items ?? 0) + " comparable"],
       ["Unreviewed", data.unreviewed.length, data.unreviewed.length ? "run review to catch up" : "all caught up"],
     ];
     $("#cards").innerHTML = cards.map(([label, value, sub]) => `
       <div class="card"><div class="label">${esc(label)}</div>
       <div class="value">${esc(value)}</div><div class="sub">${esc(sub)}</div></div>`).join("");
     renderRecent(data.sessions);
+    renderCalibration(data.calibration);
     fillSessionSelect();
     loadProgress();
     loadRepVelocityProgress();
@@ -107,6 +111,27 @@ async function loadOverview() {
     $("#today-title").textContent = "Could not load";
     $("#today-sub").textContent = error.message;
   }
+}
+
+function renderCalibration(data) {
+  if (!data) {
+    $("#calibration").innerHTML = "<p class='muted'>No calibration data.</p>";
+    return;
+  }
+  const rows = (data.items || []).map((item) =>
+    "<tr><td>" + esc(item.item) + "</td><td>" + item.marks + "</td><td>" +
+    item.comparable + "</td><td>" + esc(item.status) + "</td></tr>").join("");
+  $("#calibration").innerHTML =
+    "<p class='muted'><strong>" + data.high_sessions + "</strong> high-confidence sessions · " +
+    (data.agreement == null ? "agreement unknown" : data.agreement + "% agreement") +
+    " · " + (data.mae == null ? "MAE unknown" : "MAE " + data.mae) +
+    " · " + data.comparable_items + " comparable items.</p>" +
+    "<table><thead><tr><th>Item</th><th>high marks</th><th>comparable</th><th>status</th></tr></thead><tbody>" +
+    rows + "</tbody></table>" +
+    (data.gaps && data.gaps.length
+      ? "<p class='warnbox'><strong>Still collecting:</strong> " + esc(data.gaps.join(", ")) + "</p>"
+      : "<p class='muted'>All items have 10 marks and 10 comparable scores.</p>") +
+    "<p class='muted'>" + esc(data.next_action) + "</p>";
 }
 
 async function loadProgress() {

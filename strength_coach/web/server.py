@@ -611,6 +611,7 @@ class Handler(BaseHTTPRequestHandler):
             "injury_signal": signal,
             "unreviewed": queries.unreviewed_sessions(conn, limit=50),
             "sessions": _session_rows(conn, 12),
+            "calibration": self._calibration_status(conn),
         }
 
     def _import(self, conn, body: dict) -> dict:
@@ -872,6 +873,50 @@ class Handler(BaseHTTPRequestHandler):
                 }
                 for item in critique.items
             ],
+        }
+
+    def _calibration_status(self, conn) -> dict:
+        from collections import Counter
+        labels = load_marks(conn)
+        report = backtest(conn, labels, tolerance=TOLERANCE)
+        high = {
+            str(row["session_id"]): int(row["n"])
+            for row in conn.execute(
+                "SELECT session_id, COUNT(DISTINCT item) AS n FROM rubric_mark "
+                "WHERE confidence = 'high' GROUP BY session_id"
+            )
+        }
+        marks = Counter()
+        for row in conn.execute(
+            "SELECT item, COUNT(DISTINCT session_id) AS n FROM rubric_mark "
+            "WHERE confidence = 'high' GROUP BY item"
+        ):
+            marks[str(row["item"])] = int(row["n"])
+        comparable = Counter(str(item.key) for item in report.comparable_items)
+        items = []
+        for key in ITEM_KEYS:
+            items.append({
+                "item": key,
+                "marks": marks.get(key, 0),
+                "comparable": comparable.get(key, 0),
+                "status": "ready" if marks.get(key, 0) >= 10 and comparable.get(key, 0) >= 10
+                          else "collect",
+            })
+        gaps = [item["item"] for item in items if item["status"] != "ready"]
+        return {
+            "high_sessions": len(high),
+            "comparable_items": len(report.comparable_items),
+            "agreement": (round(report.agreement_rate * 100, 1)
+                          if report.agreement_rate is not None else None),
+            "mae": (round(report.mean_abs_error, 3)
+                    if report.mean_abs_error is not None else None),
+            "items": items,
+            "gaps": gaps,
+            "next_action": (
+                "Use live Workout mode and the optional per-rep CSV to build comparable "
+                "progression, essential-work, duration and velocity-loss scores; then review "
+                "the rubric. Do not retune from labels alone."
+            ),
         }
 
     def _edit_history(self, conn, session: str, body: dict) -> dict:

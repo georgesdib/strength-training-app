@@ -23,7 +23,7 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 ## Pages
 
 - **Outcomes** — read-only 4/8/12-week strength and longevity review, with data coverage and no prescription effect; includes a **Prospective check** implementing the W5 protocol.
-- **Today** — goal, block week, readiness, injury signal, unreviewed count, recent sessions, and a **Descriptive progress** panel (sRPE coverage, attendance, family exposures, performance ratio, weekly volume status, latest back symptom; monitoring only).
+- **Today** — goal, block week, readiness, injury signal, unreviewed count, **rubric calibration** (high-confidence sessions, agreement, per-item marks/comparable counts, gaps), recent sessions, and a **Descriptive progress** panel (sRPE coverage, attendance, family exposures, performance ratio, weekly volume status, latest back symptom; monitoring only).
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
   SQLite, never written to the repository. New cumulative exports are overlap-matched against
   stored rows, so old history is not duplicated. An **After the import** panel states the
