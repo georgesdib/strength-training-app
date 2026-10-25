@@ -95,8 +95,9 @@ def test_the_page_and_overview_are_served(server):
     assert "view-history" in page and "history.js" in page
     assert "view-longevity" in page and "longevity-form" in page
     assert "workout.js" in page
-    assert page.count('class="section-help"') >= 49
-    assert page.count("#docs?doc=") >= 45
+    assert page.count('class="section-help"') >= 57
+    assert page.count("#docs?doc=") >= 49
+    assert "&amp;anchor=" in page  # nested/dialog links use section anchors
     assert "Exercise details" in page  # dialog remains a P2 subsection
     # CLI/UI parity: the recent capture surfaces are reachable from the shell.
     assert "Cardio" in page and "Measures" in page

@@ -118,6 +118,7 @@
       <div class="panel" id="history-detail-panel" hidden>
         <div class="panel-head"><h2 id="history-detail-title">Session details</h2>
           <span class="muted">read only</span></div>
+        <p class="section-help"><span>Session-level RPE, duration, note and edit reason; set corrections remain append-only.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=17-1-corrections-for-completed-sessions">Correction model</a></p>
         <p class="section-help"><span>Read-only stored sets, RIR, VBT and notes for the selected session.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md">Session data model</a></p>
         <div id="history-details"></div>
         <div class="form-row"><button class="ghost" type="button" id="history-details-close">Close</button></div>
@@ -133,6 +134,7 @@
           <button class="ghost" type="button" id="history-add-set">Add set</button>
         </div>
         <div class="panel-head" style="margin-top:1rem"><h3>Session details</h3></div>
+        <p class="section-help"><span>Session-level RPE, duration, note and edit reason; set corrections remain append-only.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=17-1-corrections-for-completed-sessions">Correction model</a></p>
         <div class="history-meta">
           <label>Session RPE (1-10) <input type="number" min="1" max="10" step="0.5" id="history-edit-srpe"></label>
           <label>Duration (min) <input type="number" min="1" max="600" id="history-edit-duration"></label>
@@ -334,6 +336,7 @@
         <form id="workout-start-form">
           <div id="workout-readiness-required" class="grid-fields"></div>
           <div class="panel-head" style="margin-top:1rem"><h3>Optional device data</h3></div>
+        <p class="section-help"><span>Optional wearable fields are stored alongside the required readiness fields, not instead of them.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md&amp;anchor=4-10i-workout-mode-start-log-end">Workout guide</a></p>
           <div id="workout-readiness-optional" class="grid-fields"></div>
           <label>Readiness note <input type="text" id="workout-readiness-note" placeholder="optional"></label>
           <label>Workout note <input type="text" id="workout-start-note" placeholder="optional"></label>
@@ -353,6 +356,7 @@
         <div id="workout-plan"></div>
 
         <div class="panel-head" style="margin-top:1rem"><h3>Log a set</h3></div>
+        <p class="section-help"><span>Adds one actual set to the active workout; the frozen plan is never rewritten.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=16-workout-session-workout-set-workout-event-live-workout-mode">Live workout model</a></p>
         <form id="workout-set-form" class="form-row">
           <label>Exercise <select id="workout-set-exercise" required></select></label>
           <label>Load kg <input type="number" step="0.5" id="workout-set-load"></label>
@@ -366,6 +370,7 @@
         <div class="panel" id="workout-set-edit" hidden style="margin-top:1rem">
           <div class="panel-head"><h3>Edit actual set</h3>
             <button class="ghost" type="button" id="workout-set-edit-cancel">Cancel</button></div>
+        <p class="section-help"><span>Corrects an active-workout set by appending a replacement; the original stays auditable.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=16-workout-session-workout-set-workout-event-live-workout-mode">Live workout model</a></p>
           <div class="form-row">
             <label>Load kg <input id="workout-edit-load" type="number" step="0.5"></label>
             <label>Reps <input id="workout-edit-reps" type="number" step="1" min="0"></label>
@@ -379,10 +384,12 @@
 
 
         <div class="panel-head" style="margin-top:1rem"><h3>Import workout CSV</h3></div>
+        <p class="section-help"><span>Imports device rows into this active workout; preview first, then apply, with undo.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=16-workout-session-workout-set-workout-event-live-workout-mode">Workout import</a></p>
         <p class="muted">Columns: Exercise, Set, RPE, Value, Weight, Reps. No date column; import goes into this active workout. Preview first; apply replaces the same exercise/set and leaves other manual sets alone.</p>
         <label>CSV file <input type="file" id="workout-import-file" accept=".csv,text/csv"></label>
         <textarea id="workout-import-text" rows="6" style="width:100%" placeholder="Or paste the CSV here..."></textarea>
         <div class="panel-head" style="margin-top:1rem"><h3>Per-rep velocity (optional)</h3></div>
+        <p class="section-help"><span>Joins optional device reps to an existing set; it never creates a set.</span> <a class="doc-link" href="#docs?doc=docs/REP-VELOCITY.md&amp;anchor=per-rep-csv-optional">Per-rep contract</a></p>
         <p class="muted">Optional second CSV: Exercise Name, Set Number, Metric Name, Rep Number, Velocity. A blank Rep Number is the set mean. It is joined to the matching exercise/set above; it never creates a set.</p>
         <label>Per-rep CSV file <input type="file" id="workout-rep-import-file" accept=".csv,text/csv"></label>
         <textarea id="workout-rep-import-text" rows="4" style="width:100%" placeholder="Or paste per-rep rows here (optional)..."></textarea>
@@ -395,6 +402,7 @@
         <div id="workout-import-msg"></div>
         <div id="workout-import-preview-area"></div>
         <div class="panel-head" style="margin-top:1rem"><h3>End workout</h3></div>
+        <p class="section-help"><span>Stores duration and sRPE, materialises the session, and sends you to Review.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md&amp;anchor=4-10i-workout-mode-start-log-end">Workout guide</a></p>
         <form id="workout-end-form" class="form-row">
           <label>Duration min <input type="number" step="1" min="1" id="workout-end-duration" placeholder="measured if blank"></label>
           <label>Session RPE <input type="number" step="0.5" min="1" max="10" id="workout-end-srpe"></label>
@@ -817,6 +825,7 @@
     <dialog id="exercise-details-dialog" style="max-width:720px;width:90%;border:1px solid #444;border-radius:8px;padding:1rem;background:#171a1f;color:#eee">
       <div class="panel-head"><h2 id="exercise-details-title">Exercise details</h2>
         <button class="ghost" type="button" id="exercise-details-cancel">Close</button></div>
+        <p class="section-help"><span>Edits local exercise properties without rewriting history; ids stay immutable.</span> <a class="doc-link" href="#docs?doc=docs/EXERCISE-VARIANTS.md&amp;anchor=0-web-exercises-tab">Exercise editing</a></p>
       <form id="exercise-details-form">
         <div class="form-row">
           <label>Display name <input id="exercise-detail-display" required></label>
