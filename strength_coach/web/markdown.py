@@ -52,23 +52,37 @@ def _table(lines: list[str], link_for) -> str:
     return "".join(out)
 
 
+def _slug(text: str) -> str:
+    plain = re.sub(r"`([^`]+)`", r"\1", text)
+    plain = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", plain)
+    plain = re.sub(r"\*\*?([^*]+)\*\*?", r"\1", plain)
+    plain = html.unescape(plain).lower()
+    return re.sub(r"[^a-z0-9]+", "-", plain).strip("-") or "section"
+
+
 def render(text: str, *, docs_root: Path | None = None,
            base_dir: Path | None = None) -> str:
     def link_for(target: str) -> str:
         if target.startswith(("http://", "https://", "#", "mailto:")):
             return target
-        if target.endswith(".md") and docs_root is not None:
+        path, _, anchor = target.partition("#")
+        if path.endswith(".md") and docs_root is not None:
             candidates = []
             if base_dir is not None:
-                candidates.append((base_dir / target).resolve())
-            candidates.append((docs_root / target).resolve())
+                candidates.append((base_dir / path).resolve())
+            candidates.append((docs_root / path).resolve())
             for candidate in candidates:
                 if candidate.is_file() and docs_root.resolve() in candidate.parents:
-                    return "/docs/" + quote(candidate.name)
+                    name = candidate.relative_to(docs_root).as_posix()
+                    href = "#docs?doc=" + quote(name, safe="/")
+                    if anchor:
+                        href += "&anchor=" + quote(anchor, safe="")
+                    return href
         return target
 
     lines = text.splitlines()
     out: list[str] = []
+    used: dict[str, int] = {}
     i = 0
     while i < len(lines):
         line = lines[i]
@@ -89,7 +103,12 @@ def render(text: str, *, docs_root: Path | None = None,
         if stripped.startswith("#"):
             level = len(stripped) - len(stripped.lstrip("#"))
             level = min(level, 6)
-            out.append(f"<h{level}>{_inline(stripped[level:].strip(), link_for)}</h{level}>")
+            heading = stripped[level:].strip()
+            slug = _slug(heading)
+            used[slug] = used.get(slug, 0) + 1
+            anchor = slug if used[slug] == 1 else f"{slug}-{used[slug]}"
+            out.append(f'<h{level} id="{anchor}">'
+                       f"{_inline(heading, link_for)}</h{level}>")
             i += 1
             continue
         if stripped in {"---", "***", "___"}:

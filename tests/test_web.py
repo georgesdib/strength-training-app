@@ -85,10 +85,13 @@ def test_the_page_and_overview_are_served(server):
     assert 'id="toast"' in page
     assert 'id="settings-theme"' in page
     assert 'id="form-trend-result"' in page
+    assert 'id="form-followup"' in page
     assert "selection-include-different" in page
     assert "validation-run" in page
     assert "view-workout" in page
     assert "sidebar" in page and "menu-toggle" in page
+    assert "section-help" in page
+    assert "docs/UI-MAP.md" in page
     assert "view-history" in page and "history.js" in page
     assert "view-longevity" in page and "longevity-form" in page
     assert "workout.js" in page
@@ -105,6 +108,7 @@ def test_the_page_and_overview_are_served(server):
     assert status == 200
     data = json.loads(body)
     assert data["sessions"][0]["session_id"] == "2024-01-01"
+    assert data["form_evaluation"]["target_events"] == 10
 
 
 def test_prescribe_and_state_endpoints(server):
@@ -200,20 +204,27 @@ def test_docs_are_rendered_local(server):
     assert status == 200
     names = {entry["name"] for entry in json.loads(body)}
     assert "USER-GUIDE.md" in names
+    assert "docs/UI-MAP.md" in names
 
     status, body = get(server, "/api/docs/USER-GUIDE.md")
     assert status == 200
-    assert "<h1>" in json.loads(body)["html"]
+    assert "<h1 id=" in json.loads(body)["html"]
 
 
 def test_markdown_tables_and_links():
     rendered = markdown.render("# Title\n\n| a | b |\n|---|---|\n| 1 | 2 |")
-    assert "<h1>Title</h1>" in rendered
+    assert '<h1 id="title">Title</h1>' in rendered
     assert "<table>" in rendered
 
     root = Path(__file__).resolve().parents[1]
     linked = markdown.render("[x](CONTINUITY.md)", docs_root=root, base_dir=root / "docs")
-    assert 'href="/docs/CONTINUITY.md"' in linked
+    assert 'href="#docs?doc=docs/CONTINUITY.md"' in linked
+    anchored = markdown.render("[x](CONTINUITY.md#gap-detection)", docs_root=root,
+                               base_dir=root / "docs")
+    assert 'href="#docs?doc=docs/CONTINUITY.md&amp;anchor=gap-detection"' in anchored
+    duplicate = markdown.render("## Same\n\n## Same", docs_root=root, base_dir=root / "docs")
+    assert duplicate.count('id="same"') == 1
+    assert 'id="same-2"' in duplicate
 
 def test_upload_imports_both_csvs(server):
     training = make_training(ROWS).to_csv(index=False)

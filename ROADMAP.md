@@ -570,6 +570,12 @@ CLI remains the automation surface.
 
 Done: import, state editing, manual logging, Programme, Terminal. LLM proposal view closed as CLI-only; video is descoped; post-lift form assessment is done.
 
+**Documentation layer P0 (2026-10-25).** Docs support deep links (`#docs?doc=...&anchor=...`),
+Markdown headings have stable IDs and duplicate handling, and [`docs/UI-MAP.md`](docs/UI-MAP.md)
+is the canonical view/panel → doc/evidence/decision/question/roadmap map. The reusable
+`.section-help` pattern is demonstrated on Docs. **P1/P2 remain:** every view and panel needs
+its own short explanation and link; then the doc-side `Related` footer and coverage checker.
+
 ### 4.11 Web UI parity  (CLOSED for v0.3)
 
 **Status: closed 2026-10-23.** Manual logging, state editing, import, Programme, Terminal,

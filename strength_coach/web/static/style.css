@@ -236,3 +236,9 @@ body.menu-open { overflow: hidden; }
   .sidebar { width: 86vw; }
   .topbar { gap: 10px; }
 }
+
+/* One-line explanation plus a deep documentation link, used on every panel. */
+.section-help { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px;
+  margin: 0 0 12px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.section-help .doc-link { white-space: nowrap; }
+.doc-link { font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }

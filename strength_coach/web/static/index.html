@@ -59,6 +59,11 @@
       </div>
       <div id="cards" class="cards"></div>
       <div class="panel">
+        <div class="panel-head"><h2>Form evaluation follow-up</h2>
+          <span class="muted">manual review; no automatic change</span></div>
+        <div id="form-followup"></div>
+      </div>
+      <div class="panel">
         <div class="panel-head"><h2>Recent sessions</h2><span class="muted">newest first</span></div>
         <div id="recent"></div>
       </div>
@@ -754,7 +759,10 @@
 
     <section id="view-docs" class="view">
       <div class="docs-layout">
-        <aside class="panel docs-list"><div class="panel-head"><h2>Docs</h2></div><div id="docs-list"></div></aside>
+        <aside class="panel docs-list"><div class="panel-head"><h2>Docs</h2></div>
+          <p class="section-help"><span>Browse the local design record.</span>
+            <a class="doc-link" href="#docs?doc=docs/UI-MAP.md">UI documentation map</a></p>
+          <div id="docs-list"></div></aside>
         <article class="panel doc" id="doc-body"><p class="muted">Choose a document.</p></article>
       </div>
     </section>

@@ -91,14 +91,20 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") setSidebar(false);
 });
 
-window.addEventListener("hashchange", () => {
+function routeFromHash() {
   const raw = location.hash.replace("#", "") || "dashboard";
   const [name, query] = raw.split("?");
   const params = new URLSearchParams(query || "");
-  if (document.getElementById("view-" + name)) {
-    setView(name, {doc: params.get("doc"), anchor: params.get("anchor"), fromHash: true});
+  return {name, doc: params.get("doc"), anchor: params.get("anchor")};
+}
+
+function applyHashRoute() {
+  const route = routeFromHash();
+  if (document.getElementById("view-" + route.name)) {
+    setView(route.name, {...route, fromHash: true});
   }
-});
+}
+window.addEventListener("hashchange", applyHashRoute);
 
 /* --- dashboard ---------------------------------------------------------- */
 async function loadOverview() {
@@ -112,7 +118,17 @@ async function loadOverview() {
         + " unreviewed session(s)" : "reviews up to date");
     const readiness = data.readiness;
     const signal = data.injury_signal;
+    const formEval = data.form_evaluation || {};
+    const formStatus = {
+      collecting: "collecting", threshold_met_waiting: "waiting",
+      ready: "ready", extended: "extended", insufficient: "insufficient",
+    }[formEval.status] || formEval.status || "unknown";
     const cards = [
+      ["Form review", formEval.low_events == null ? "—" :
+        formEval.low_events + "/" + formEval.target_events + " low",
+        formEval.low_lifts == null ? "" :
+          formEval.low_lifts + "/" + formEval.target_lifts + " lifts · " +
+          (formEval.due_on ? "due " + formEval.due_on : formStatus)],
       ["Readiness today", data.readiness_score?.score != null
         ? data.readiness_score.score.toFixed(2) : "unknown",
         data.readiness_score?.status + (data.readiness_score?.basis ? " · " + data.readiness_score.basis : "")],
@@ -129,6 +145,7 @@ async function loadOverview() {
     $("#cards").innerHTML = cards.map(([label, value, sub]) => `
       <div class="card"><div class="label">${esc(label)}</div>
       <div class="value">${esc(value)}</div><div class="sub">${esc(sub)}</div></div>`).join("");
+    renderFormFollowup(formEval);
     renderRecent(data.sessions);
     renderCalibration(data.calibration);
     fillSessionSelect();
@@ -139,6 +156,26 @@ async function loadOverview() {
     $("#today-title").textContent = "Could not load";
     $("#today-sub").textContent = error.message;
   }
+}
+
+function renderFormFollowup(formEval) {
+  const target = $("#form-followup");
+  if (!target) return;
+  if (!formEval || !formEval.status) {
+    target.innerHTML = "<p class='empty'>No form evaluation recorded.</p>";
+    return;
+  }
+  const label = {
+    collecting: "collecting", threshold_met_waiting: "waiting for window",
+    ready: "ready to analyse", extended: "extended", insufficient: "insufficient",
+  }[formEval.status] || formEval.status;
+  target.innerHTML = `<p><strong>${esc(label)}</strong> · ${esc(formEval.message || "")}</p>
+    <p class="muted">Started ${esc(formEval.started_on)} · 12-week end ${esc(formEval.window_end)}
+      · extension ${esc(formEval.extension_end)}${formEval.due_on ? " · due " + esc(formEval.due_on) : ""}</p>
+    <p>Low-form events: <strong>${formEval.low_events}</strong> / ${formEval.target_events}
+      · lifts: <strong>${formEval.low_lifts}</strong> / ${formEval.target_lifts}</p>
+    <p class="muted">${esc(formEval.note || "")} See
+      <a href="#outcomes" data-view-link="outcomes">Outcomes → Form trend</a>.</p>`;
 }
 
 function renderCalibration(data) {
@@ -2279,5 +2316,4 @@ applyStoredUiDefaults();
 fillSessionSelect();
 loadExercises();
 loadOverview();
-const initial = location.hash.replace("#", "") || "dashboard";
-if (document.getElementById("view-" + initial)) setView(initial);
+applyHashRoute();
