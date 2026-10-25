@@ -745,6 +745,13 @@ No code. Continue reviewing sessions while they are fresh; the rubric report nee
 DEC-EVAL-04). Reconstructed marks are stored but excluded from agreement.
 
 Current state (2026-10-25): **10 high-confidence reviewed sessions**, with **10 high-confidence marks for every rubric item**. The 2026-10-20 session was completed to 8/8. Headline calibration: 40 comparable items, 75% agreement, MAE 0.19; progression and velocity loss remain non-comparable in the report, and rotation is the weakest measurable item. The label-count gate is met; any rubric retune is still a separate decision.
+
+**Next action (2026-10-25):** do not retune yet. Review the comparable items first
+(RIR n=7, weekly spinal n=10, redundancy n=10, rotation n=9); progression (n=0), essential
+work (n=3), duration (n=1) and velocity loss (n=0) lack enough engine comparisons because most
+sessions are imports without a prescription snapshot or per-rep detail. Use Workout mode, and
+the optional per-rep CSV, to build comparable sessions before changing a rubric definition or
+weight.
 The web Review page has the **Run rubric calibration** button; the CLI remains
 `strength-coach calibrate`.
 
