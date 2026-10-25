@@ -127,18 +127,24 @@ against 80 planned / 90 hard; the earlier “unmeasured for both” text is supe
 
 ---
 
-## Q7. Does "main lifts at RIR 2-3" forbid sets *easier*? **Default implemented**
+## Q7. Does "main lifts at RIR 2-3" forbid sets *easier*? — **closed 2026-10-25: floor-only veto**
 
-The constitution states a window, but `PRG-RIR-001`'s `on_fail` code is `RIR_FLOOR`, and the
-danger it names is "no RIR 0-1 sets, no max singles". A set at RIR 4-5 is easier than
-prescribed, not more dangerous, so treating it as a veto would make the rule fire on almost
-every session and bury the real violations.
+**Closed by owner acceptance of the current behaviour.** No config or code change.
 
-**Blocks:** nothing — the rule runs today with the default below.
-**Default:** the floor is a veto (RIR below the window, plus max singles at >= 90% of a
-multi-rep e1RM); a set *above* the window is counted and reported in the verdict details but
-does not fail the rule. Making easy sets violations is then a config change
-(`on_fail.action`) plus a predicate branch, not a rewrite.
+`PRG-RIR-001` vetoes only the hard side:
+
+- RIR 0;
+- below the RIR 1–4 window;
+- near-max singles at ≥90% of the multi-rep e1RM.
+
+A set above the window (RIR 5+) is counted and reported as `above_ceiling`, but does **not**
+fail the rule. RIR 6 remains a warm-up marker (`DEC-RIR-01`), excluded from compliance.
+
+Why: the danger named by the rule is the grinding set, not an easy one; RIR self-report carries
+roughly ±1–2 reps of error; and a tight two-sided veto would fire on estimation noise and bury
+the real violations. The rubric/review can still judge poor effort quality.
+
+**Blocks:** nothing. No further Q7 decision is open.
 
 ---
 
