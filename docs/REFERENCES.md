@@ -301,6 +301,17 @@ conclusion is weaker than it looks.
 | 165 | Bahr R. *Why screening tests to predict injury do not work—and probably never will…: a critical review.* Br J Sports Med, 2016;50(13):776-780. | 10.1136/bjsports-2016-096256 | Screening needs a prospective marker, adequate test properties and a treatment benefit; no sports-injury screen meets that standard. |
 | 166 | Seiler J, Haas A, Gnädinger D, Bode G, de la Rosa M, Prill R, Schmal H, Bode L. *Limited predictive value of preseason isokinetic strength testing for noncontact lower extremity injuries in elite female football players: a 5-year prospective cohort study.* Knee Surg Sports Traumatol Arthrosc, 2026. | 10.1002/ksa.70623 | Isokinetic strength and H:Q ratios had limited independent injury prediction; not a stand-alone screen. |
 
+## 25. Reverse hyperextension and belt squat
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 167 | Lawrence MA, Chin A, Swanson BT. *Biomechanical comparison of the reverse hyperextension machine and the hyperextension exercise.* J Strength Cond Res, 2019;33(8):2053-2056. | 10.1519/JSC.0000000000003146 | Reverse hyper had greater low-back moment and hip ROM than hyperextension; acute EMG/biomechanics only. |
+| 168 | Cuthbert M, Ripley NJ, Suchomel TJ, Alejo R, McMahon JJ, Comfort P. *Electromyographical differences between the hyperextension and reverse-hyperextension.* J Strength Cond Res, 2021;35(6):1477-1483. | 10.1519/JSC.0000000000004049 | Reverse hyper produced greater posterior-chain EMG than hyperextension; no longitudinal outcomes. |
+| 169 | Lawrence MA, Somma MJ, Swanson BT. *Effect of load on muscle activity, kinematics, and force production during the reverse hyperextension exercise.* J Appl Biomech, 2022;38(5):336-345. | 10.1123/jab.2022-0046 | Load does not linearly increase force/activation; acute study. |
+| 170 | Evans TW, McLester CN, Howard JS, McLester JR, Calloway JP. *Comparison of muscle activation between back squats and belt squats.* J Strength Cond Res, 2019;33(1):S52-S59. | 10.1519/JSC.0000000000002052 | Belt squat had comparable quadriceps but lower gluteus maximus activation; load-prediction, not transfer. |
+| 171 | Layer JS, Grenz C, Hinshaw TJ, Smith DT, Barrett SF, Dai B. *Kinetic analysis of isometric back squats and isometric belt squats.* J Strength Cond Res, 2018;32(12):3301-3309. | 10.1519/JSC.0000000000002854 | Belt squat reduced low-back moments and increased knee/ankle moments; isometric acute study. |
+| 172 | Joseph L, Reilly J, Sweezey K, Waugh R, Carlson LA, Lawrence MA. *Activity of trunk and lower extremity musculature: comparison between parallel back squats and belt squats.* J Hum Kinet, 2020;72:223-228. | 10.2478/hukin-2019-0126 | Belt squat reduced lumbar/trunk and gluteal activation with similar quadriceps; acute. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow
@@ -319,3 +330,4 @@ claim that the study is definitive; the evidence notes state the limitations.
 - `docs/LONGEVITY-REVIEW.md` — modality review against a longevity-first goal
 - `ROADMAP.md` §4.13 — cardio load and impulse-fatigue model plan
 - `docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md` — variant ratios, weakness assessment and screening
+- `docs/REVERSE-HYPER-BELT-SQUAT-EVIDENCE.md` — reverse hyperextension and belt squat evidence
