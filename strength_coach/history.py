@@ -16,7 +16,7 @@ from strength_coach import __version__
 from strength_coach.critique import build_facts, score_session
 from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.domain import load as load_mod
-from strength_coach.store import queries, repositories
+from strength_coach.store import db, queries, repositories
 from strength_coach.utils import exercises
 
 CURRENT = (
@@ -222,12 +222,47 @@ def _insert_set(conn, *, session_id: str, occurred_on: str, edit_id: str,
     return int(cursor.lastrowid)
 
 
-def edit_session(conn, session_id: str, *, sets: list[dict],
-                 forms: list[dict] | None = None,
-                 session_rpe: float | None = None,
-                 duration_min: float | None = None,
-                 notes: str | None = None,
-                 reason: str | None = None) -> dict:
+def _validated_forms(session: dict, forms: list[dict] | None):
+    """Validate every form write before any set mutation starts."""
+    if forms is None:
+        return None
+    if not isinstance(forms, list):
+        raise ValueError("forms must be a list")
+    known_exercises = {str(item["exercise_id"]) for item in session["sets"]}
+    known_exercises.update(str(item["exercise_id"]) for item in session.get("forms") or [])
+    existing_forms = {str(item["exercise_id"]): item for item in session.get("forms") or []}
+    writes = []
+    for index, item in enumerate(forms):
+        if not isinstance(item, dict):
+            raise ValueError(f"form {index + 1}: must be an object")
+        exercise_id = str(item.get("exercise_id") or "").strip()
+        if not exercise_id:
+            raise ValueError(f"form {index + 1}: exercise is required")
+        if exercise_id not in known_exercises:
+            raise ValueError(f"form {index + 1}: exercise is not in this session")
+        rating = item.get("rating")
+        if rating in (None, ""):
+            continue
+        try:
+            rating = int(rating)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"form {index + 1}: rating {rating!r} is not a number") from exc
+        if not 1 <= rating <= 5:
+            raise ValueError(f"form {index + 1}: rating must be between 1 and 5")
+        note = item.get("note") or None
+        old = existing_forms.get(exercise_id)
+        if old and int(old["rating"]) == rating and (old.get("note") or None) == note:
+            continue
+        writes.append((exercise_id, rating, note, old))
+    return writes
+
+
+def _edit_session_impl(conn, session_id: str, *, sets: list[dict],
+                       forms: list[dict] | None = None,
+                       session_rpe: float | None = None,
+                       duration_min: float | None = None,
+                       notes: str | None = None,
+                       reason: str | None = None) -> dict:
     session = detail(conn, session_id)
     if session.get("voided"):
         raise ValueError("unvoid the session before editing it")
@@ -235,6 +270,7 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
               "session_rpe": session.get("session_rpe"),
               "duration_min": session.get("duration_min"), "notes": (session.get("feedback") or {}).get("note")}
     existing = {int(item["set_id"]): item for item in session["sets"]}
+    form_writes = _validated_forms(session, forms)
     incoming = []
     for index, item in enumerate(sets):
         try:
@@ -309,33 +345,8 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
             })
     if vbt_entries:
         apply_vbt(conn, session_id, vbt_entries, reason="VBT override with correction")
-    if forms is not None:
-        if not isinstance(forms, list):
-            raise ValueError("forms must be a list")
-        known_exercises = {str(item["exercise_id"]) for item in session["sets"]}
-        known_exercises.update(str(item["exercise_id"]) for item in session.get("forms") or [])
-        existing_forms = {str(item["exercise_id"]): item for item in session.get("forms") or []}
-        for index, item in enumerate(forms):
-            if not isinstance(item, dict):
-                raise ValueError(f"form {index + 1}: must be an object")
-            exercise_id = str(item.get("exercise_id") or "").strip()
-            if not exercise_id:
-                raise ValueError(f"form {index + 1}: exercise is required")
-            if exercise_id not in known_exercises:
-                raise ValueError(f"form {index + 1}: exercise is not in this session")
-            rating = item.get("rating")
-            if rating in (None, ""):
-                continue
-            try:
-                rating = int(rating)
-            except (TypeError, ValueError) as exc:
-                raise ValueError(f"form {index + 1}: rating {rating!r} is not a number") from exc
-            if not 1 <= rating <= 5:
-                raise ValueError(f"form {index + 1}: rating must be between 1 and 5")
-            note = item.get("note") or None
-            old = existing_forms.get(exercise_id)
-            if old and int(old["rating"]) == rating and (old.get("note") or None) == note:
-                continue
+    if form_writes is not None:
+        for exercise_id, rating, note, old in form_writes:
             conn.execute(
                 "INSERT INTO session_form_rating "
                 "(session_id, exercise_id, rating, note, supersedes_id) VALUES (?, ?, ?, ?, ?)",
@@ -375,28 +386,46 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
     )
     warnings = []
     try:
-        old_critique = conn.execute(
-            "SELECT critique_id FROM critique WHERE session_id = ? "
-            "ORDER BY created_at DESC LIMIT 1", (session_id,)
-        ).fetchone()
-        run = repositories.start_run(
-            conn, input_hash="session-edit:" + edit_id, code_version=__version__,
-            window_start=session["occurred_on"], window_end=session["occurred_on"],
-        )
-        critique = score_session(conn, session_id)
-        new_id = persist_critique(
-            conn, critique, run_id=run.run_id,
-            supersedes_id=old_critique["critique_id"] if old_critique else None,
-        )
-        repositories.finish_run(conn, run.run_id)
-        conn.execute(
-            "UPDATE workout_session SET critique_id = ?, reviewed_at = NULL "
-            "WHERE workout_id = ?", (new_id, session_id)
-        )
+        # The rebuilt critique is derived data: keep it atomic too, but do not roll back the
+        # user's corrected sets if only the rebuild fails.
+        with db.transaction(conn):
+            old_critique = conn.execute(
+                "SELECT critique_id FROM critique WHERE session_id = ? "
+                "ORDER BY created_at DESC LIMIT 1", (session_id,)
+            ).fetchone()
+            run = repositories.start_run(
+                conn, input_hash="session-edit:" + edit_id, code_version=__version__,
+                window_start=session["occurred_on"], window_end=session["occurred_on"],
+            )
+            critique = score_session(conn, session_id)
+            new_id = persist_critique(
+                conn, critique, run_id=run.run_id,
+                supersedes_id=old_critique["critique_id"] if old_critique else None,
+            )
+            repositories.finish_run(conn, run.run_id)
+            conn.execute(
+                "UPDATE workout_session SET critique_id = ?, reviewed_at = NULL "
+                "WHERE workout_id = ?", (new_id, session_id)
+            )
     except Exception as exc:
         warnings.append(f"critique not rebuilt: {type(exc).__name__}: {exc}")
     return {"session": detail(conn, session_id), "edit_id": edit_id,
             "warnings": warnings}
+
+
+def edit_session(conn, session_id: str, *, sets: list[dict],
+                 forms: list[dict] | None = None,
+                 session_rpe: float | None = None,
+                 duration_min: float | None = None,
+                 notes: str | None = None,
+                 reason: str | None = None) -> dict:
+    """Apply a complete correction atomically; any failure rolls the whole edit back."""
+    with db.transaction(conn):
+        return _edit_session_impl(
+            conn, session_id, sets=sets, forms=forms, session_rpe=session_rpe,
+            duration_min=duration_min, notes=notes, reason=reason,
+        )
+
 
 def void_session(conn, session_id: str, *, reason: str | None = None,
                  unvoid: bool = False) -> dict:

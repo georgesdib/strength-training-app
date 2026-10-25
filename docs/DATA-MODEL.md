@@ -564,7 +564,9 @@ A correction does **not** update `clean_set`:
 - saving marks clears `needs_review`.
 
 Date and session type are read-only in this first version. The correction stores before/after JSON
-in `session_edit`, so the edit itself is auditable.
+in `session_edit`, so the edit itself is auditable. Form values are validated before any write;
+the set/form/feedback/audit writes run in one transaction, and the derived critique rebuild uses
+its own savepoint so a rebuild failure cannot partially commit or roll back the correction.
 
 Whole-session **void/unvoid** is separate: `session.voided` is the operational flag and
 `session_void` is the append-only event log. A void keeps every row, excludes the session from

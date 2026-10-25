@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from conftest import make_readiness, make_training
 from strength_coach import history
 from strength_coach.store import db, importer, queries
@@ -140,5 +142,48 @@ def test_history_form_ratings_are_append_only_and_amendable():
         assert conn.execute(
             "SELECT COUNT(*) AS n FROM session_form_rating"
         ).fetchone()["n"] == 2
+    finally:
+        store.close()
+
+
+def test_invalid_form_does_not_commit_set_changes():
+    store = _store()
+    try:
+        conn = store.connection
+        detail = history.detail(conn, history.list_sessions(conn)["sessions"][0]["session_id"])
+        original = {item["set_id"]: item for item in detail["sets"]}
+        first = detail["sets"][0]
+        with pytest.raises(ValueError, match="rating must be between 1 and 5"):
+            history.edit_session(
+                conn, detail["session_id"],
+                sets=[{**first, "load_kg": 105}, detail["sets"][1]],
+                forms=[{"exercise_id": "ssb_squat", "rating": 9}],
+            )
+        after = {item["set_id"]: item for item in history.detail(conn, detail["session_id"])["sets"]}
+        assert after[first["set_id"]]["load_kg"] == original[first["set_id"]]["load_kg"]
+        assert conn.execute("SELECT COUNT(*) AS n FROM session_edit").fetchone()["n"] == 0
+    finally:
+        store.close()
+
+
+def test_injected_failure_rolls_back_the_whole_edit(monkeypatch):
+    store = _store()
+    try:
+        conn = store.connection
+        detail = history.detail(conn, history.list_sessions(conn)["sessions"][0]["session_id"])
+        first = detail["sets"][0]
+
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("injected aggregate failure")
+
+        monkeypatch.setattr(history, "_refresh_session", boom)
+        with pytest.raises(RuntimeError, match="injected"):
+            history.edit_session(
+                conn, detail["session_id"],
+                sets=[{**first, "load_kg": 105}, detail["sets"][1]],
+            )
+        after = history.detail(conn, detail["session_id"])
+        assert after["sets"][0]["load_kg"] == first["load_kg"]
+        assert conn.execute("SELECT COUNT(*) AS n FROM session_edit").fetchone()["n"] == 0
     finally:
         store.close()

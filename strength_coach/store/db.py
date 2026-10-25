@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -138,6 +139,31 @@ def migrate(
         newly_applied.append(migration.version)
 
     return newly_applied
+
+
+@contextmanager
+def transaction(conn: sqlite3.Connection):
+    """Run a unit of work atomically; use a savepoint when already in a transaction."""
+    if conn.in_transaction:
+        savepoint = f"sp_{id(conn)}"
+        conn.execute(f"SAVEPOINT {savepoint}")
+        try:
+            yield
+        except Exception:
+            conn.execute(f"ROLLBACK TO {savepoint}")
+            conn.execute(f"RELEASE {savepoint}")
+            raise
+        else:
+            conn.execute(f"RELEASE {savepoint}")
+        return
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        yield
+    except Exception:
+        conn.rollback()
+        raise
+    else:
+        conn.commit()
 
 
 class Store:
