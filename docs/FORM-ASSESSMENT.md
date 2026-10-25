@@ -93,7 +93,12 @@ No load, set or prescription use.
 - The trend's ±0.5 display threshold is not validated.
 - Ratings are not available per set, so they cannot identify the exact rep where form broke.
 
-## 7. Files
+## 7. Evidence and use
+
+See [`FORM-USE-EVIDENCE.md`](FORM-USE-EVIDENCE.md). Form is monitoring/rubric-only; the
+retrospective association was near zero and does not support e1RM filtering or load changes.
+
+## 8. Files
 
 - migration `0033_form_ratings.sql`
 - `workout.py` (`set_form_rating`, materialisation)
