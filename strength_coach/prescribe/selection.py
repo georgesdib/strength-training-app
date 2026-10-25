@@ -17,7 +17,7 @@ import statistics
 import pandas as pd
 import yaml
 
-from strength_coach.features import fatigue_fitness, injury_signal, recent_stress
+from strength_coach.features import injury_signal, recent_stress
 from strength_coach.features import readiness_score
 from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.prescribe import templates
@@ -323,13 +323,6 @@ def select(
     injury = injury_signal.compute(conn, on_date, ramp_week=context.block_week_index)
     stress = recent_stress.compute(context.sets, on_date)
     stress_cfg = recent_stress.StressConfig.load()
-    try:
-        models = {
-            model.exercise_id: model
-            for model in fatigue_fitness.compute_cached(conn, on_date)
-        }
-    except Exception:
-        models = {}
     suitability = queries.exercise_suitability(conn)
     taxes = selection_tax.TaxConfig.load()
     readiness_baseline, baseline_n = _readiness_baseline(conn, on_date)
@@ -374,10 +367,9 @@ def select(
             )
             rotation = _clamp(float(days_since) / cfg.rotation_days)
             preference = _preference(exercise_id, suitability)
-            model = models.get(exercise_id)
+            # The fatigue model was rejected as a predictor (DEC-FFM-04); keep this term
+            # neutral rather than letting a rejected state change the ranking.
             fatigue = 0.5
-            if model and model.latest_e1rm and model.state_kg:
-                fatigue = _clamp(0.5 + (model.state_kg / model.latest_e1rm - 1.0) / 0.10)
             score = (
                 cfg.weights.get("readiness", 0.35) * readiness
                 + cfg.weights.get("stress", 0.25) * stress_score
@@ -392,7 +384,7 @@ def select(
                 f"recent stress {stress_entry.status if stress_entry else 'unknown'}",
                 f"rotation {days_since}d",
                 f"preference {preference:.1f}",
-                f"fatigue {fatigue:.2f}",
+                "fatigue not used (diagnostic rejected)",
             ]
             candidates.append(Candidate(
                 exercise_id, _clamp(score), tuple(reasons),
