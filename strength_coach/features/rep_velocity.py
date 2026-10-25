@@ -33,7 +33,8 @@ def session_report(conn, session_id: str) -> dict:
                s.exercise_id, s.session_id
         FROM clean_rep r
         JOIN clean_set s ON s.set_id = r.clean_set_id
-        WHERE s.session_id = ?
+        WHERE s.session_id = ? AND s.voided = 0 AND NOT EXISTS (
+            SELECT 1 FROM clean_set child WHERE child.supersedes_id = s.set_id)
         ORDER BY r.clean_set_id, r.rep_index
         """,
         (session_id,),
