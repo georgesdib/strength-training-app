@@ -428,7 +428,8 @@ def _narrative(facts: CritiqueFacts, items: Iterable[RubricItem]) -> str:
     return head + (f"Measured: {scored}." if scored else "No item was measurable.")
 
 
-def persist(conn, critique: Critique, *, run_id: str, critique_id: str | None = None) -> str:
+def persist(conn, critique: Critique, *, run_id: str, critique_id: str | None = None,
+            supersedes_id: str | None = None) -> str:
     """Write the critique and its scores as append-only rows."""
     import uuid
 
@@ -442,6 +443,7 @@ def persist(conn, critique: Critique, *, run_id: str, critique_id: str | None = 
         session_id=critique.session_id,
         narrative=critique.narrative,
         facts_hash=critique.facts_hash,
+        supersedes_id=supersedes_id,
     )
     for item in critique.items:
         repo.append_rubric_score(

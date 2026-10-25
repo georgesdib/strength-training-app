@@ -84,6 +84,7 @@ def test_the_page_and_overview_are_served(server):
     assert "selection-include-different" in page
     assert "validation-run" in page
     assert "view-workout" in page
+    assert "view-history" in page and "history.js" in page
     assert "workout.js" in page
     # CLI/UI parity: the recent capture surfaces are reachable from the shell.
     assert "Cardio" in page and "Measures" in page
@@ -777,3 +778,26 @@ def test_prospective_endpoint_is_read_only(server):
     assert data["window"]["weeks"] == 4
     assert "strength" in data and "flags" in data
     assert data["note"].startswith("Descriptive only")
+
+
+def test_history_endpoint_lists_and_edits_a_session(server):
+    status, body = get(server, "/api/history?limit=10&offset=0")
+    assert status == 200
+    page = json.loads(body)
+    assert page["total"] >= 1
+    session_id = page["sessions"][0]["session_id"]
+
+    status, body = get(server, f"/api/history/{session_id}")
+    assert status == 200
+    detail = json.loads(body)
+    first = detail["sets"][0]
+
+    result = post(server, f"/api/history/{session_id}/edit", {
+        "sets": [{**first, "load_kg": float(first["load_kg"] or 0) + 2.5}, *detail["sets"][1:]],
+        "duration_min": 45,
+        "notes": "history correction",
+        "reason": "typo",
+    })
+    assert result["edit_id"]
+    assert result["session"]["needs_review"] == 1
+    assert result["session"]["edited_at"]

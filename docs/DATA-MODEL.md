@@ -526,10 +526,29 @@ What exists:
 |---|---|
 | Workout still `in_progress` | **Abandon** it; it is not materialised as a completed session |
 | Wrong set during an active workout | **Remove** it, or edit load/reps/RIR/velocity |
-| Completed workout | No delete, edit or void action today |
-| Imported session | No delete action |
+| Completed workout | Correct it in **History**; append-only supersession, no delete or overwrite |
+| Imported session | Correct it in **History**; no delete action |
 
 **Recommended future operation: void, not delete.** A completed session should keep its rows and
 gain an append-only `session_void` event with a reason; analytics/review/volume/e1RM would filter
 it out, and an unvoid event would restore it. This is **not implemented** and is not scheduled.
 Do not disable the append-only triggers to “clean up” history.
+
+
+### 17.1 Corrections for completed sessions
+
+Migration `0030_session_history` adds `clean_set.voided`, `session.needs_review`,
+`session.edited_at` and the append-only `session_edit` audit table.
+
+A correction does **not** update `clean_set`:
+
+- an edited set inserts a new `clean_set` row with `supersedes_id = old.set_id`;
+- a removed set inserts a tombstone (`voided = 1`) that supersedes the old row;
+- readers use the leaf row: `voided = 0` and no child references it;
+- `session` totals and `needs_review` are rebuilt;
+- a new critique supersedes the old one;
+- old human marks remain but are excluded from calibration while `needs_review = 1`;
+- saving marks clears `needs_review`.
+
+Date and session type are read-only in this first version. The correction stores before/after JSON
+in `session_edit`, so the edit itself is auditable.

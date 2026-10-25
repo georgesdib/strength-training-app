@@ -521,6 +521,8 @@ def _loaded_dates(conn, rule: RegionRule, start: str, on_date: str,
     rows = conn.execute(
         "SELECT occurred_on, exercise_id, COUNT(*) AS n FROM clean_set "
         "WHERE occurred_on > ? AND occurred_on <= ? AND is_working_set = 1 "
+        "AND voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "WHERE child.supersedes_id = clean_set.set_id) "
         "GROUP BY occurred_on, exercise_id",
         (start, on_date),
     ).fetchall()

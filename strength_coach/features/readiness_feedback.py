@@ -42,7 +42,9 @@ def _session_metrics(conn, session_id: str, feedback: dict[str, dict]) -> dict:
         (str(session_id),),
     ).fetchone()
     sets = conn.execute(
-        "SELECT rir FROM clean_set WHERE session_id = ? AND is_working_set = 1",
+        "SELECT rir FROM clean_set WHERE session_id = ? AND is_working_set = 1 "
+        "AND voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "WHERE child.supersedes_id = clean_set.set_id)",
         (str(session_id),),
     ).fetchall()
     rirs = [float(r["rir"]) for r in sets if r["rir"] is not None]
@@ -64,7 +66,9 @@ def _session_metrics(conn, session_id: str, feedback: dict[str, dict]) -> dict:
 
 def _e1rm_at(conn, exercise_id: str, on_or_before: str | None = None,
              after: str | None = None, until: str | None = None) -> float | None:
-    sql = "SELECT load_kg, reps, rir FROM clean_set WHERE exercise_id = ? AND is_working_set = 1"
+    sql = ("SELECT load_kg, reps, rir FROM clean_set WHERE exercise_id = ? "
+           "AND is_working_set = 1 AND voided = 0 AND NOT EXISTS "
+           "(SELECT 1 FROM clean_set child WHERE child.supersedes_id = clean_set.set_id)")
     params: list[Any] = [str(exercise_id)]
     if on_or_before is not None:
         sql += " AND occurred_on <= ?"

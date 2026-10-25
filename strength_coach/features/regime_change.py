@@ -34,7 +34,9 @@ def _window(on_date: str | None, weeks: int) -> tuple[dt.date, dt.date, dt.date,
 def _sets(conn, start: dt.date, end: dt.date) -> list[dict[str, Any]]:
     rows = conn.execute(
         "SELECT occurred_on, exercise_id FROM clean_set "
-        "WHERE is_working_set = 1 AND occurred_on BETWEEN ? AND ?",
+        "WHERE is_working_set = 1 AND occurred_on BETWEEN ? AND ? "
+        "AND voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "WHERE child.supersedes_id = clean_set.set_id)",
         (start.isoformat(), end.isoformat()),
     ).fetchall()
     return [{"date": str(row["occurred_on"])[:10], "exercise_id": str(row["exercise_id"])}

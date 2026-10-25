@@ -42,6 +42,7 @@ def _sets(conn, start: dt.date, end: dt.date) -> pd.DataFrame:
                is_working_set
           FROM clean_set
          WHERE occurred_on BETWEEN ? AND ?
+           AND voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child WHERE child.supersedes_id = clean_set.set_id)
         """,
         (start.isoformat(), end.isoformat()),
     )

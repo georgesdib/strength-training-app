@@ -23,6 +23,7 @@ def _session_lift_e1rms(conn) -> tuple[dict[str, dict[str, float]], dict[str, st
           FROM clean_set
          WHERE is_working_set = 1 AND load_kg IS NOT NULL AND load_kg > 0
            AND reps BETWEEN 1 AND 20
+           AND voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child WHERE child.supersedes_id = clean_set.set_id)
         """
     )
     columns = [description[0] for description in cursor.description]
@@ -132,6 +133,7 @@ def _sets(conn):
         SELECT occurred_on AS date, session_id, exercise_id, load_kg, reps, rir,
                is_working_set
           FROM clean_set
+         WHERE voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child WHERE child.supersedes_id = clean_set.set_id)
         """
     )
     columns = [description[0] for description in cursor.description]

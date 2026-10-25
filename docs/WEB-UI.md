@@ -50,6 +50,7 @@ hidden unless **show different lifts** is ticked). Each applied substitution cit
 `MOD-SELECT-001` and the load is re-solved from the selected lift's own history; the session
 type does not change, and nothing is persisted until Start workout. **Use LLM** appears only when Apply is ticked. Without the toggle the
   prescription is unchanged. The **Retrospective validation** panel runs the walk-forward check. A scheduled deload is shown as a suggestion with an **Apply deload** button; it is not applied until confirmed. Reactive deloads are automatic. Applied deloads cite `MOD-DELOAD-001`. Main lifts show their warm-up ramp; the strength-test cadence is shown in the notes. The volume ledger now applies `MOD-VOL-002` (one accessory set after three weeks below MEV).
+- **History** — paginated list of every completed/imported session, date filters, session detail and append-only correction. Edits rebuild totals/critique and mark the session re-review; date/type are fixed.
 - **Workout** — start from a prescription, confirm the seven required readiness fields (device fields optional), log sets manually, remove a set, end with measured/manual duration and sRPE or mark sRPE not recorded, or abandon. A prescription snapshot is frozen at start. During the workout the plan is editable: adjust planned sets, swap/add/remove exercises; each change is an append-only event and the original prescription stays frozen. On completion the workout materialises, the end screen shows actual vs modified plan and actual vs original prescription, and the deterministic rubric is persisted. **Review workout** opens the rubric sheet; saving marks runs calibration and closes the workout. In-workout CSV import is available by paste or file with columns `Exercise,Set,RPE,Value,Weight,Reps`; preview first, then apply. A recognised exercise absent from the prescription is added to the workout plan; an unrecognised exercise is shown as unknown and blocks apply. The file has no date, so backfill is not supported. An optional second per-rep CSV (`Exercise Name,Set Number,Metric Name,Rep Number,Velocity`) can be added in the same panel; it joins by exercise + set, never creates a set, and is shown descriptively after the workout.
 - **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
   date and first session type (`auto` or a specific type).
@@ -91,6 +92,9 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 | `POST /api/workout/<id>/update-set` | `{set_id, load_kg, reps, rir, velocity}` -> append correction event |
 | `POST /api/workout/<id>/import` | `{text, rep_text?, apply}` -> parse/preview/apply workout CSV; optional per-rep table; no date column |
 | `POST /api/workout/<id>/import/undo` | undo the latest import batch, including rep detail |
+| `GET /api/history?limit=&offset=&start=&end=` | paginated session history |
+| `GET /api/history/<id>` | current session sets and feedback |
+| `POST /api/history/<id>/edit` | append-only correction of sets and session metadata |
 | `GET /api/rep-velocity?session=<id>` | descriptive per-rep report after completion |
 | `GET /api/rep-velocity/analysis?weeks=&date=` | stratified cross-session descriptive report |
 | `POST /api/workout/<id>/abandon` | abandon the active workout |

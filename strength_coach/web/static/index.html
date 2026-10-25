@@ -11,6 +11,7 @@
     <div class="brand">Strength<span>Coach</span></div>
     <nav id="nav">
       <button data-view="dashboard" class="active">Today</button>
+      <button data-view="history">History</button>
       <button data-view="outcomes">Outcomes</button>
       <button data-view="prescribe">Prescribe</button>
       <button data-view="workout">Workout</button>
@@ -61,6 +62,43 @@
         <p class="muted">Python computes every load, RIR and warning. The web page is a view over the same
           core as the CLI; nothing is inferred from a missing value. Docs are linked under
           <a href="#docs" data-view-link="docs">Docs</a>.</p>
+      </div>
+    </section>
+
+    <section id="view-history" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>History</h2><span class="muted">all completed and imported sessions</span></div>
+        <div class="form-row">
+          <label>From <input type="date" id="history-start"></label>
+          <label>To <input type="date" id="history-end"></label>
+          <button class="ghost" type="button" id="history-refresh">Load history</button>
+          <span class="muted" id="history-total"></span>
+        </div>
+        <div id="history-list"></div>
+        <div class="form-row">
+          <button class="ghost" type="button" id="history-prev">Previous</button>
+          <button class="ghost" type="button" id="history-next">Next</button>
+        </div>
+      </div>
+
+      <div class="panel" id="history-edit-panel" hidden>
+        <div class="panel-head"><h2 id="history-edit-title">Edit session</h2>
+          <span class="muted">append-only correction; date and session type stay fixed</span></div>
+        <div id="history-edit-note" class="warnbox" hidden></div>
+        <div id="history-edit-sets"></div>
+        <div class="form-row">
+          <button class="ghost" type="button" id="history-add-set">Add set</button>
+          <label>Session RPE <input type="number" min="1" max="10" step="0.5" id="history-edit-srpe"></label>
+          <label>Duration min <input type="number" min="1" max="600" id="history-edit-duration"></label>
+          <label class="grow">Note <input type="text" id="history-edit-notes"></label>
+          <label class="grow">Reason <input type="text" id="history-edit-reason" placeholder="e.g. typo"></label>
+        </div>
+        <div class="form-row">
+          <button class="primary" type="button" id="history-save">Save correction</button>
+          <button class="ghost" type="button" id="history-cancel">Cancel</button>
+          <span class="muted" id="history-edit-msg"></span>
+        </div>
+        <p class="muted">Saving supersedes the old sets, rebuilds the session totals and critique, and marks the session for re-review. Old rows and marks stay for audit.</p>
       </div>
     </section>
 
@@ -690,6 +728,7 @@
 
   <footer class="foot">Same core as <code>strength-coach</code>. The CLI remains the automation interface.</footer>
   <script src="/static/app.js"></script>
+  <script src="/static/history.js"></script>
   <script src="/static/workout.js"></script>
 </body>
 </html>

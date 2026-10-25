@@ -144,6 +144,8 @@ def analysis_report(conn, *, on_date: str | None = None, weeks: int = 12,
         FROM clean_rep r
         JOIN clean_set s ON s.set_id = r.clean_set_id
         WHERE s.occurred_on >= ? AND s.occurred_on <= ?
+          AND s.voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child
+            WHERE child.supersedes_id = s.set_id)
         ORDER BY s.session_id, s.exercise_id, r.clean_set_id, r.rep_index
         """,
         (cutoff, end),
@@ -195,6 +197,8 @@ def analysis_report(conn, *, on_date: str | None = None, weeks: int = 12,
     all_sets = conn.execute(
         "SELECT session_id, occurred_on, exercise_id, load_kg, reps, rir "
         "FROM clean_set WHERE occurred_on >= ? AND occurred_on <= ? AND is_working_set = 1 "
+        "AND voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "WHERE child.supersedes_id = clean_set.set_id) "
         "ORDER BY occurred_on",
         (cutoff, end),
     ).fetchall()

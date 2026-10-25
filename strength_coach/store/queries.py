@@ -62,6 +62,8 @@ def clean_sets(
         " s.rir_source, s.velocity_mps, s.velocity_present, s.rom_mm, s.tut_s,"
         " s.form_score, s.tonnage_kg, s.is_working_set, s.flags, r.source_row"
         " FROM clean_set s JOIN raw_row r ON r.raw_id = s.raw_id"
+        " WHERE s.voided = 0 AND NOT EXISTS ("
+        "SELECT 1 FROM clean_set child WHERE child.supersedes_id = s.set_id)"
     )
     params: list[object] = []
     clauses: list[str] = []
@@ -78,7 +80,7 @@ def clean_sets(
         clauses.append("s.exercise_id IN (" + ", ".join("?" for _ in ids) + ")")
         params.extend(ids)
     if clauses:
-        sql += " WHERE " + " AND ".join(clauses)
+        sql += " AND " + " AND ".join(clauses)
     sql += " ORDER BY s.occurred_on, s.set_id"
 
     rows = [dict(row) for row in conn.execute(sql, params)]
@@ -242,12 +244,14 @@ def latest_rubric_marks(conn) -> list[dict]:
         """
         SELECT m.session_id, m.item, m.score, m.confidence, m.rubric_version, m.marked_at
           FROM rubric_mark m
+          JOIN session s ON s.session_id = m.session_id
           JOIN (
                 SELECT session_id, item, MAX(mark_id) AS keep_id
                   FROM rubric_mark
               GROUP BY session_id, item
                ) latest
             ON latest.keep_id = m.mark_id
+         WHERE s.needs_review = 0
       ORDER BY m.session_id DESC, m.item
         """
     ).fetchall()

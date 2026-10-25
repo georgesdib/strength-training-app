@@ -42,6 +42,7 @@ function setView(name) {
   if (name === "docs" && !$("#docs-list").dataset.loaded) loadDocs();
   if (name === "state") loadState();
   if (name === "settings") loadSettings();
+  if (name === "history") loadHistory();
   if (name === "outcomes") loadOutcomes();
   if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
 }

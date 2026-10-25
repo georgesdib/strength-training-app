@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
-from strength_coach import __version__, workout
+from strength_coach import __version__, history, workout
 from strength_coach.agents.client import LLMError
 from strength_coach.agents.config import (
     PROVIDERS, build_client, config_path, describe, load_settings, update_llm_settings,
@@ -124,7 +124,7 @@ def _session_rows(conn, limit: int = 20) -> list[dict]:
     rows = conn.execute(
         """
         SELECT s.session_id, s.occurred_on, s.session_type, s.set_count, s.working_set_count,
-               s.main_lifts, s.tonnage_kg,
+               s.main_lifts, s.tonnage_kg, s.needs_review, s.edited_at,
                (SELECT COUNT(*) FROM rubric_mark m WHERE m.session_id = s.session_id) AS marks
           FROM session s
          ORDER BY s.occurred_on DESC
@@ -276,6 +276,19 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             elif path == "/api/sessions":
                 self._json(200, self._with_conn(lambda c: _session_rows(c, 40)))
+            elif path == "/api/history":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(lambda c: history.list_sessions(
+                    c, limit=int(query.get("limit", ["50"])[0]),
+                    offset=int(query.get("offset", ["0"])[0]),
+                    start=query.get("start", [None])[0],
+                    end=query.get("end", [None])[0],
+                )))
+            elif path.startswith("/api/history/"):
+                session_id = path.rsplit("/", 1)[-1]
+                self._json(200, self._with_conn(
+                    lambda c: history.detail(c, session_id)
+                ))
             elif path == "/api/calibrate":
                 self._json(200, self._with_conn(self._calibrate))
             elif path == "/api/readiness/shadow":
@@ -426,6 +439,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._workout_start(c, body)))
             elif path.startswith("/api/workout/"):
                 self._json(200, self._with_conn(lambda c: self._workout_action(c, path, body)))
+            elif path.startswith("/api/history/") and path.endswith("/edit"):
+                session_id = path[len("/api/history/"):-len("/edit")].strip("/")
+                self._json(200, self._with_conn(
+                    lambda c: self._edit_history(c, session_id, body)
+                ))
             elif path == "/api/reviews":
                 self._json(200, self._with_conn(lambda c: self._save_review_task(c, body)))
             elif path == "/api/readiness/feedback":
@@ -844,6 +862,18 @@ class Handler(BaseHTTPRequestHandler):
             ],
         }
 
+    def _edit_history(self, conn, session: str, body: dict) -> dict:
+        sets = body.get("sets")
+        if not isinstance(sets, list):
+            raise ValueError("sets must be a list")
+        return history.edit_session(
+            conn, session, sets=sets,
+            session_rpe=body.get("session_rpe"),
+            duration_min=body.get("duration_min"),
+            notes=body.get("notes"),
+            reason=body.get("reason"),
+        )
+
     def _save_review(self, conn, session: str, body: dict) -> dict:
         build_facts(conn, session)  # refuse marks for a session that does not exist
         raw_scores = body.get("scores") or {}
@@ -874,6 +904,9 @@ class Handler(BaseHTTPRequestHandler):
         )
         if written == 0 and feedback is None:
             raise ValueError("no marks recorded; give at least one score")
+        conn.execute(
+            "UPDATE session SET needs_review = 0 WHERE session_id = ?", (session,)
+        )
         workout_reviewed = workout.mark_reviewed(conn, session)
         return {
             "written": written,

@@ -772,6 +772,14 @@ The standard dated training export remains the Import-page backfill path. Workou
 in-workout only. This plan is **closed**; CLI workout commands cover
 status/add/update/remove/end/import, while starting a workout remains UI-only.
 
+### Where are past workouts?
+
+**History** in the web UI lists every completed or imported session, with date filters and
+pagination. **Edit** opens the session's current sets and metadata. A correction is append-only:
+the old set remains, a new current row supersedes it, the session totals and deterministic
+critique are rebuilt, and the session is marked **re-review**. Old review marks stay for audit
+but are excluded from calibration until the session is re-marked.
+
 ### Can I delete a past workout?
 
 **No.** There is no hard delete, and that is deliberate: clean sets, prescriptions, critiques and
@@ -779,11 +787,12 @@ marks are append-only, and deleting one would change e1RM, volume and review his
 
 - An **in-progress** workout can be abandoned.
 - A wrong set during an active workout can be removed or edited.
-- A **completed** workout cannot currently be deleted, edited or voided.
+- A **completed** workout can be corrected in History, but never deleted or overwritten.
 
-The recommended future operation is **void**, not delete: keep the rows, add an append-only void
-reason, exclude the session from reports and prescriptions, and allow unvoid. It is documented in
-[DATA-MODEL.md](docs/DATA-MODEL.md#17-deleting-or-voiding-a-session) but not implemented.
+The recommended future operation for a wholly invalid session is **void**, not delete: keep the
+rows, add an append-only void reason, exclude the session from reports and prescriptions, and
+allow unvoid. It is documented in [DATA-MODEL.md](docs/DATA-MODEL.md#17-deleting-or-voiding-a-session)
+but not implemented.
 
 ### 4.10b `cardio` — capture the other half
 

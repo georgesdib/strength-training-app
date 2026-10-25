@@ -36,7 +36,9 @@ def _window(on_date: str | None, weeks: int) -> tuple[dt.date, dt.date, dt.date,
 def _sets(conn, start: dt.date, end: dt.date) -> pd.DataFrame:
     cursor = conn.execute(
         "SELECT occurred_on AS date, session_id, exercise_id, load_kg, reps, rir, "
-        "is_working_set FROM clean_set WHERE occurred_on BETWEEN ? AND ?",
+        "is_working_set FROM clean_set WHERE occurred_on BETWEEN ? AND ? "
+        "AND voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "WHERE child.supersedes_id = clean_set.set_id)",
         (start.isoformat(), end.isoformat()),
     )
     columns = [description[0] for description in cursor.description]

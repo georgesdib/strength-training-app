@@ -4,6 +4,8 @@
 
 ### Added
 
+- History page with paginated sessions and append-only correction of completed/imported
+  sessions; edits supersede old sets, rebuild totals/critique and mark re-review.
 - Evidence review for top set + back-off sets: no direct trial against the current programme;
   no change recommended.
 - Optional per-rep velocity CSV in Workout mode, joined to set-level rows by exercise + set;
