@@ -650,6 +650,9 @@ function syncTechniqueThrottle() {
 $("#prescribe-technique").addEventListener("change", syncTechniqueThrottle);
 syncMinimumSession();
 
+let prescribeBusy = false;
+let prescribeQueued = false;
+
 $("#prescribe-apply-selection").addEventListener("change", () => {
   const llmWrap = $("#prescribe-selection-llm-wrap");
   const confirmWrap = $("#prescribe-selection-confirm-wrap");
@@ -660,12 +663,24 @@ $("#prescribe-apply-selection").addEventListener("change", () => {
     $("#prescribe-selection-llm").checked = false;
     $("#prescribe-selection-confirm").checked = false;
   }
+  if (prescribeBusy) prescribeQueued = true;
+});
+$("#prescribe-selection-llm").addEventListener("change", () => {
+  if (prescribeBusy) prescribeQueued = true;
+});
+$("#prescribe-selection-confirm").addEventListener("change", () => {
+  if (prescribeBusy) prescribeQueued = true;
 });
 
 let lastPrescribePayload = null;
 
 $("#prescribe-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (prescribeBusy) {
+    prescribeQueued = true;
+    return;
+  }
+  prescribeBusy = true;
   const date = $("#prescribe-date").value;
   const sessionType = $("#prescribe-session-type").value;
   $("#prescribe-result").innerHTML = "<p class='empty'>Building…</p>";
@@ -686,9 +701,17 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
   };
   try {
     const data = await api("/api/prescribe", { method: "POST", body: JSON.stringify(lastPrescribePayload) });
-    renderPrescription(data);
+    if (!prescribeQueued) renderPrescription(data);
   } catch (error) {
-    $("#prescribe-result").innerHTML = `<div class="panel warnbox">${esc(error.message)}</div>`;
+    if (!prescribeQueued) {
+      $("#prescribe-result").innerHTML = `<div class="panel warnbox">${esc(error.message)}</div>`;
+    }
+  } finally {
+    prescribeBusy = false;
+    if (prescribeQueued) {
+      prescribeQueued = false;
+      $("#prescribe-form").requestSubmit();
+    }
   }
 });
 
@@ -2098,6 +2121,21 @@ function renderProgramme(entries) {
     <tbody>${rows}</tbody></table></div>`;
 }
 
+let programmeBusy = false;
+let programmeQueued = false;
+let programmeHasResult = false;
+
+function programmeSelectionChanged() {
+  syncProgrammeSelection();
+  if (programmeBusy) {
+    programmeQueued = true;
+  } else if (programmeHasResult) {
+    $("#programme-result").innerHTML =
+      "<p class='muted'>Selection options changed; build the forecast again to apply them.</p>";
+    programmeHasResult = false;
+  }
+}
+
 function syncProgrammeSelection() {
   const on = $("#programme-apply-selection").checked;
   $("#programme-selection-llm-wrap").hidden = !on;
@@ -2107,10 +2145,17 @@ function syncProgrammeSelection() {
     $("#programme-selection-confirm").checked = false;
   }
 }
-$("#programme-apply-selection")?.addEventListener("change", syncProgrammeSelection);
+$("#programme-apply-selection")?.addEventListener("change", programmeSelectionChanged);
+$("#programme-selection-llm")?.addEventListener("change", programmeSelectionChanged);
+$("#programme-selection-confirm")?.addEventListener("change", programmeSelectionChanged);
 syncProgrammeSelection();
 
 async function runProgramme() {
+  if (programmeBusy) {
+    programmeQueued = true;
+    return;
+  }
+  programmeBusy = true;
   const applySelection = $("#programme-apply-selection").checked;
   const payload = {
     weeks: Number($("#programme-weeks").value || 4),
@@ -2127,11 +2172,21 @@ async function runProgramme() {
   button.disabled = true;
   try {
     const data = await api("/api/programme", { method: "POST", body: JSON.stringify(payload) });
-    renderProgramme(data.entries);
+    if (!programmeQueued) {
+      renderProgramme(data.entries);
+      programmeHasResult = true;
+    }
   } catch (error) {
-    $("#programme-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+    if (!programmeQueued) {
+      $("#programme-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+    }
   } finally {
     button.disabled = false;
+    programmeBusy = false;
+    if (programmeQueued) {
+      programmeQueued = false;
+      runProgramme();
+    }
   }
 }
 
