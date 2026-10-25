@@ -128,6 +128,7 @@ def get(conn, workout_id: str) -> dict | None:
     data["plan_modified"] = bool(modified_raw)
     data["readiness"] = json.loads(data.pop("readiness_json"))
     data["sets"] = _sets(conn, workout_id)
+    data["forms"] = _form_ratings(conn, workout_id)
     rep_state = _current_reps(conn, workout_id)
     for row in data["sets"]:
         detail = rep_state.get(int(row["set_id"]))
@@ -138,6 +139,49 @@ def get(conn, workout_id: str) -> dict | None:
     data["comparison"] = _comparison(data)
     data["original_comparison"] = _comparison({**data, "plan": original})
     return data
+
+
+def _form_ratings(conn, workout_id: str) -> list[dict]:
+    """Latest optional post-lift rating per exercise, in first-rated order."""
+    rows = conn.execute(
+        "SELECT form_id, exercise_id, rating, note FROM workout_form_rating "
+        "WHERE workout_id = ? ORDER BY form_id",
+        (str(workout_id),),
+    ).fetchall()
+    out: dict[str, dict] = {}
+    for row in rows:
+        out[str(row["exercise_id"])] = {
+            "form_id": int(row["form_id"]),
+            "exercise_id": str(row["exercise_id"]),
+            "rating": int(row["rating"]),
+            "note": row["note"],
+        }
+    return list(out.values())
+
+
+def set_form_rating(conn, workout_id: str, *, exercise_id: str, rating: int,
+                    note: str | None = None) -> dict:
+    """Record/amend one optional 1-5 post-lift form rating while the workout is open."""
+    workout = get(conn, workout_id)
+    if workout is None:
+        raise ValueError("workout not found")
+    if workout["status"] != "in_progress":
+        raise ValueError("workout is not in progress; edit it from History")
+    exercise_id = _validate_exercise(exercise_id)
+    value = int(rating)
+    if not 1 <= value <= 5:
+        raise ValueError("form rating must be between 1 and 5")
+    plan_ids = {str(item.get("exercise_id")) for item in (workout.get("plan") or {}).get("items") or []}
+    set_ids = {str(item.get("exercise_id")) for item in _sets(conn, workout_id)}
+    if exercise_id not in plan_ids and exercise_id not in set_ids:
+        raise ValueError(f"{exercise_id} is not part of this workout")
+    conn.execute(
+        "INSERT INTO workout_form_rating (workout_id, exercise_id, rating, note) "
+        "VALUES (?, ?, ?, ?)",
+        (str(workout_id), exercise_id, value, note or None),
+    )
+    _event(conn, workout_id, "form_rating", {"exercise_id": exercise_id, "rating": value})
+    return get(conn, workout_id)
 
 
 def _sets(conn, workout_id: str) -> list[dict]:
@@ -986,6 +1030,12 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
             1 if session_rpe_recorded else 0,
         ),
     )
+    for form in _form_ratings(conn, workout_id):
+        conn.execute(
+            "INSERT INTO session_form_rating (session_id, exercise_id, rating, note) "
+            "VALUES (?, ?, ?, ?)",
+            (workout_id, str(form["exercise_id"]), int(form["rating"]), form.get("note")),
+        )
     import hashlib
     file_sha = "workout:" + hashlib.sha256(workout_id.encode("utf-8")).hexdigest()
     rep_state = _current_reps(conn, workout_id)

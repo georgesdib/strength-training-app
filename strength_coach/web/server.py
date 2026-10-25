@@ -707,6 +707,13 @@ class Handler(BaseHTTPRequestHandler):
                 rep_text=str(body.get("rep_text") or "") or None,
             )
             return {"workout": imported["workout"], "preview": imported["preview"]}
+        if action == "form":
+            return {"workout": workout.set_form_rating(
+                conn, workout_id,
+                exercise_id=str(body.get("exercise_id") or ""),
+                rating=int(body.get("rating")),
+                note=body.get("note") or None,
+            )}
         if action == "plan":
             sub = parts[4] if len(parts) > 4 else ""
             if sub == "swap":
@@ -925,6 +932,7 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("sets must be a list")
         return history.edit_session(
             conn, session, sets=sets,
+            forms=body.get("forms"),
             session_rpe=body.get("session_rpe"),
             duration_min=body.get("duration_min"),
             notes=body.get("notes"),

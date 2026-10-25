@@ -750,7 +750,9 @@ The local UI has a **Workout** tab. Build a prescription on **Prescribe**, then 
 - **Abandon** keeps the record but does not mark it completed.
 
 During the workout, the plan is editable: adjust planned sets, swap an exercise, add or remove
-an exercise. The original prescription is frozen; every override is an event and the modified
+an exercise. Each planned lift has an optional **Form** rating (1–5, higher is better) in the
+plan table; it is post-lift, per exercise, and can be corrected later in **History → Edit**. It
+feeds the rubric only and changes no load or set. The original prescription is frozen; every override is an event and the modified
 plan is shown separately. Actual sets can be edited inline after import; imported values show
 field-level conflicts and the last import can be undone.
 
@@ -1039,7 +1041,7 @@ substitution rather than blocking the session.
 
 ### The critique
 
-Seven items are measured, one is not:
+Eight items are measured when their inputs exist, one is not:
 
 | item | measures |
 |---|---|
@@ -1050,10 +1052,12 @@ Seven items are measured, one is not:
 | `REDUNDANCY` | no hinge + erector stacking, no two hinge lifts |
 | `ROTATION` | selection stable for self-directed sessions; expected rotation for app-assigned |
 | `SESSION_DURATION` | measured live-workout duration against 80 planned / 90 hard; imported sessions remain unmeasurable |
+| `FORM_ASSESSMENT` | optional post-lift 1–5 form ratings, averaged over rated lifts; unrated lifts are ignored |
 | `VELOCITY_LOSS` | **not measurable** — one mean velocity per set |
 
-The rubric version is `1.1.0`; the six original weights were scaled by 0.95 to make room for a
-0.05 duration weight. The composite still re-normalises over measurable items.
+The rubric version is `1.2.0`; the prior weights were scaled by 0.95 to make room for
+measured duration and optional form, each at 0.05. The composite still re-normalises over
+measurable items.
 
 `composite` is the weighted mean over the items that were measurable, re-normalised — a
 missing metric never drags the score to zero.

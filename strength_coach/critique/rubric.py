@@ -1,10 +1,11 @@
 """The deterministic critique rubric.
 
-Six items are measurable from the export; two are not, and they are stored with
+Eight items are measurable when their inputs exist; missing inputs are stored with
 `measurable = 0` rather than a guessed score:
 
 * session duration — imported sessions have no timestamps; a measured live-workout duration
   is scored against the 80-minute planned / 90-minute hard cap;
+* post-lift form — optional 1–5 ratings per exercise, averaged; absent ratings do not penalise;
 * within-set velocity loss — the export stores one mean velocity per set (DEC-VELOCITY-01).
 
 Weights are config-free on purpose: they are a product decision, not a measurement, and the
@@ -28,17 +29,18 @@ from strength_coach.rules import load_document
 # carries 0.0 because the export has one mean velocity per set.
 # Bumped whenever an item's definition or weighting changes. Marks record the version they
 # were made against, so a rubric change does not silently invalidate the calibration history.
-RUBRIC_VERSION = "1.1.0"
+RUBRIC_VERSION = "1.2.0"
 
 RUBRIC_WEIGHTS: Mapping[str, float] = {
-    # The original six weights are scaled by 0.95 to make room for measured duration.
-    "RIR_ADHERENCE": 0.285,
-    "PROGRESSION_ADHERENCE": 0.190,
-    "WEEKLY_SPINAL_COST": 0.1425,
-    "ESSENTIAL_WORK": 0.1425,
-    "REDUNDANCY": 0.095,
-    "ROTATION": 0.095,
-    "SESSION_DURATION": 0.050,
+    # The prior seven weights are scaled by 0.95 to make room for optional form assessment.
+    "RIR_ADHERENCE": 0.27075,
+    "PROGRESSION_ADHERENCE": 0.1805,
+    "WEEKLY_SPINAL_COST": 0.135375,
+    "ESSENTIAL_WORK": 0.135375,
+    "REDUNDANCY": 0.09025,
+    "ROTATION": 0.09025,
+    "SESSION_DURATION": 0.0475,
+    "FORM_ASSESSMENT": 0.050,
     "VELOCITY_LOSS": 0.000,
 }
 
@@ -114,6 +116,7 @@ def score_session(
         _redundancy(facts),
         _rotation(facts),
         _session_duration(facts),
+        _form_assessment(facts),
         _velocity_loss(facts),
     )
     critique = Critique(
@@ -345,6 +348,28 @@ def _rotation(facts: CritiqueFacts) -> RubricItem:
         evidence_refs=(f"session:{facts.session_id}", f"session:{previous_id}"),
         rule_ids=(),
         detail=detail,
+    )
+
+
+def _form_assessment(facts: CritiqueFacts) -> RubricItem:
+    """Optional per-lift form ratings, averaged over the lifts that were rated."""
+    ratings = facts.form_ratings
+    if not ratings:
+        return _unmeasurable(
+            "FORM_ASSESSMENT", (),
+            "no post-lift form ratings (optional)",
+        )
+    score = sum(float(value) for value in ratings.values()) / (5.0 * len(ratings))
+    return RubricItem(
+        key="FORM_ASSESSMENT",
+        weight=RUBRIC_WEIGHTS["FORM_ASSESSMENT"],
+        score=round(score, 4),
+        measurable=True,
+        evidence_refs=tuple(f"session:{facts.session_id}" for _ in ratings),
+        rule_ids=(),
+        detail=(
+            f"{len(ratings)} lift(s) rated; mean {sum(ratings.values()) / len(ratings):.2f}/5"
+        ),
     )
 
 

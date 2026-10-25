@@ -158,7 +158,7 @@ for a normal 4–6 week block, using ordinary training judgement:
 - log a symptom reading only when the back actually feels different;
 - continue at 0–1, or level 2 that settles within about 48 hours;
 - reduce or stop at level 3, persistent level 2, or new neurological symptoms;
-- one video or coach check in the first 1–2 sessions; not every session.
+- one coach check in the first 1–2 sessions; not every session.
 
 Evidence: no RCT ranks sumo against trap bar for injury; they differ in muscle activity and joint
 moments, and trap-bar/squat selection matters less than heavy loading and target muscles. See

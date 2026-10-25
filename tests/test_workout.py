@@ -343,3 +343,25 @@ def test_rep_import_rejects_unknown_metric(conn):
     )
     assert any("unsupported metric" in error["error"]
                for error in preview["preview"]["errors"])
+
+
+def test_optional_post_lift_form_ratings_materialise(conn):
+    started = workout.start(
+        conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS,
+    )
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2,
+    )
+    rated = workout.set_form_rating(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift", rating=4,
+    )
+    assert rated["forms"][0]["rating"] == 4
+    workout.end(conn, started["workout_id"], session_rpe=7, duration_min=30)
+    rows = conn.execute(
+        "SELECT exercise_id, rating FROM session_form_rating WHERE session_id = ?",
+        (started["workout_id"],),
+    ).fetchall()
+    assert [(row["exercise_id"], row["rating"]) for row in rows] == [
+        ("trap_bar_deadlift", 4)
+    ]

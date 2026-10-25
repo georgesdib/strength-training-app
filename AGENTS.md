@@ -13,7 +13,7 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**v0, v0.1, v0.2 and v0.3 are complete; v0.4 is next.** Cardio is v0.4, video v0.5 (see ROADMAP). The deeper labelled calibration set moves to v0.4 (§4.14).
+**v0, v0.1, v0.2 and v0.3 are complete; v0.4 is next.** Cardio is v0.4 (see ROADMAP). The deeper labelled calibration set moves to v0.4 (§4.14).
 
 **Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
@@ -187,6 +187,7 @@ never read `data/raw`.
 |---|---|
 | `USER-GUIDE.md` | how to install, run and read the output (the human-facing entry point) |
 | `ROADMAP.md` | live phase status, next actions, resume checklist |
+| `docs/FORM-ASSESSMENT.md` | optional per-lift 1-5 form assessment; Workout/History and rubric 1.2.0 |
 | `docs/REGIME-CHANGE.md` | read-only main-lift/substitute regime check; thresholds and limits |
 | `docs/AUDIT-CLOSEOUT.md` | final W0–W12 audit outcome, implemented fixes and remaining limitations |
 | `docs/W11-W12-CLOSEOUT.md` | W11 documentation consistency (including rubric 1.1.0 duration) and W12 public-data inventory/history decision |

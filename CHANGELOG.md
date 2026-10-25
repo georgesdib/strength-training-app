@@ -4,6 +4,8 @@
 
 ### Added
 
+- Optional post-lift form assessment, one 1–5 rating per exercise, editable in Workout and
+  History; rubric 1.2.0 adds `FORM_ASSESSMENT` at weight 0.05.
 - Dark mode with System / Light / Dark selection on the Settings page; stored per browser.
 - History page with paginated sessions and append-only correction of completed/imported
   sessions; edits supersede old sets, rebuild totals/critique and mark re-review.

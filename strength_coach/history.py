@@ -118,7 +118,19 @@ def detail(conn, session_id: str) -> dict:
         1 for value in vbt.values() if value["mean"] is not None or value["reps"]
     )
     data["feedback"] = queries.session_feedback(conn, session_id)
+    data["forms"] = _current_forms(conn, session_id)
     return data
+
+
+def _current_forms(conn, session_id: str) -> list[dict]:
+    rows = conn.execute(
+        "SELECT f.form_id, f.exercise_id, f.rating, f.note "
+        "FROM session_form_rating f WHERE f.session_id = ? "
+        "AND NOT EXISTS (SELECT 1 FROM session_form_rating child "
+        "WHERE child.supersedes_id = f.form_id) ORDER BY f.form_id",
+        (str(session_id),),
+    ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def _refresh_session(conn, session_id: str) -> None:
@@ -211,6 +223,7 @@ def _insert_set(conn, *, session_id: str, occurred_on: str, edit_id: str,
 
 
 def edit_session(conn, session_id: str, *, sets: list[dict],
+                 forms: list[dict] | None = None,
                  session_rpe: float | None = None,
                  duration_min: float | None = None,
                  notes: str | None = None,
@@ -218,7 +231,8 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
     session = detail(conn, session_id)
     if session.get("voided"):
         raise ValueError("unvoid the session before editing it")
-    before = {"sets": session["sets"], "session_rpe": session.get("session_rpe"),
+    before = {"sets": session["sets"], "forms": session.get("forms") or [],
+              "session_rpe": session.get("session_rpe"),
               "duration_min": session.get("duration_min"), "notes": (session.get("feedback") or {}).get("note")}
     existing = {int(item["set_id"]): item for item in session["sets"]}
     incoming = []
@@ -295,6 +309,39 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
             })
     if vbt_entries:
         apply_vbt(conn, session_id, vbt_entries, reason="VBT override with correction")
+    if forms is not None:
+        if not isinstance(forms, list):
+            raise ValueError("forms must be a list")
+        known_exercises = {str(item["exercise_id"]) for item in session["sets"]}
+        known_exercises.update(str(item["exercise_id"]) for item in session.get("forms") or [])
+        existing_forms = {str(item["exercise_id"]): item for item in session.get("forms") or []}
+        for index, item in enumerate(forms):
+            if not isinstance(item, dict):
+                raise ValueError(f"form {index + 1}: must be an object")
+            exercise_id = str(item.get("exercise_id") or "").strip()
+            if not exercise_id:
+                raise ValueError(f"form {index + 1}: exercise is required")
+            if exercise_id not in known_exercises:
+                raise ValueError(f"form {index + 1}: exercise is not in this session")
+            rating = item.get("rating")
+            if rating in (None, ""):
+                continue
+            try:
+                rating = int(rating)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"form {index + 1}: rating {rating!r} is not a number") from exc
+            if not 1 <= rating <= 5:
+                raise ValueError(f"form {index + 1}: rating must be between 1 and 5")
+            note = item.get("note") or None
+            old = existing_forms.get(exercise_id)
+            if old and int(old["rating"]) == rating and (old.get("note") or None) == note:
+                continue
+            conn.execute(
+                "INSERT INTO session_form_rating "
+                "(session_id, exercise_id, rating, note, supersedes_id) VALUES (?, ?, ?, ?, ?)",
+                (str(session_id), exercise_id, rating, note,
+                 int(old["form_id"]) if old else None),
+            )
     _refresh_session(conn, session_id)
     if session_rpe is not None or duration_min is not None or notes:
         repositories.append_session_feedback(
@@ -315,6 +362,7 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
              ("exercise_id", "load_kg", "reps", "rir", "velocity_mps")}
             for item in incoming
         ],
+        "forms": forms,
         "session_rpe": session_rpe,
         "duration_min": duration_min,
         "notes": notes,

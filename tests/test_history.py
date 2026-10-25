@@ -116,3 +116,29 @@ def test_apply_vbt_set_and_rep_overrides():
         assert len(result["session"]["sets"]) == 2
     finally:
         store.close()
+
+
+def test_history_form_ratings_are_append_only_and_amendable():
+    store = _store()
+    try:
+        conn = store.connection
+        session_id = history.list_sessions(conn)["sessions"][0]["session_id"]
+        detail = history.detail(conn, session_id)
+        history.edit_session(
+            conn, session_id, sets=detail["sets"],
+            forms=[{"exercise_id": "ssb_squat", "rating": 3}],
+        )
+        first = history.detail(conn, session_id)["forms"]
+        assert first[0]["rating"] == 3
+        history.edit_session(
+            conn, session_id, sets=detail["sets"],
+            forms=[{"exercise_id": "ssb_squat", "rating": 5}],
+        )
+        latest = history.detail(conn, session_id)["forms"]
+        assert len(latest) == 1
+        assert latest[0]["rating"] == 5
+        assert conn.execute(
+            "SELECT COUNT(*) AS n FROM session_form_rating"
+        ).fetchone()["n"] == 2
+    finally:
+        store.close()

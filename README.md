@@ -30,7 +30,7 @@ per-lift readiness, e1RM calibration/decay, rolling session types, readiness vol
 weekly volume ledger/MRV cap, exercise selection with A/B/C *variant* comparability, and the local web UI
 with import, state, Programme, Exercises, Terminal and calibration reports. v0.3 is complete. v0.4 covers cardio prescription/model plus the deeper labelled calibration
 set moved from v0.3. Prospective validation remains a future gate, not an active candidate;
-review follow-ups are in ROADMAP §4.20. v0.5 is video.
+review follow-ups are in ROADMAP §4.20.
 See [ROADMAP.md](ROADMAP.md).
 
 What runs today:

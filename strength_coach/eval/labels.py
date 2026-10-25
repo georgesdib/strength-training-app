@@ -68,8 +68,12 @@ ITEM_GUIDE: dict[str, tuple[str, str]] = {
         "1.0 = appropriate; 0.0 = churn in a self-directed session.",
     ),
     "SESSION_DURATION": (
-        "Did the session length feel appropriate? (The engine cannot measure this.)",
-        "Score only if you know; otherwise skip. Never compared with the engine.",
+        "Did the session length feel appropriate? (Measured live duration is scored; imported sessions are unknown.)",
+        "1.0 = at or under 80 min; 0.5 at 85 min; 0.0 at 90+ min. Skip if no measured duration.",
+    ),
+    "FORM_ASSESSMENT": (
+        "Did the form of the lift hold up? (Optional post-lift 1-5 ratings.)",
+        "1.0 = all rated lifts at 5/5; 0.0 = all at 1/5. Skip if no lifts were rated.",
     ),
     "VELOCITY_LOSS": (
         "Was within-set velocity loss controlled? (Not computable from the export.)",

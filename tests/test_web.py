@@ -799,6 +799,7 @@ def test_history_endpoint_lists_and_edits_a_session(server):
 
     result = post(server, f"/api/history/{session_id}/edit", {
         "sets": [{**first, "load_kg": float(first["load_kg"] or 0) + 2.5}, *detail["sets"][1:]],
+        "forms": [{"exercise_id": first["exercise_id"], "rating": 4}],
         "duration_min": 45,
         "notes": "history correction",
         "reason": "typo",
@@ -806,6 +807,7 @@ def test_history_endpoint_lists_and_edits_a_session(server):
     assert result["edit_id"]
     assert result["session"]["needs_review"] == 1
     assert result["session"]["edited_at"]
+    assert result["session"]["forms"][0]["rating"] == 4
 
 
 def test_history_void_and_vbt_endpoints(server):

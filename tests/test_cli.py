@@ -66,7 +66,7 @@ def test_run_persists_a_critique_and_a_prescription(database, capsys):
     after = {table: count(database, table) for table in tables}
     # The fixture import is itself a run; only the deltas belong to this command.
     assert after["critique"] - before["critique"] == 1
-    assert after["rubric_score"] - before["rubric_score"] == 8
+    assert after["rubric_score"] - before["rubric_score"] == 9
     assert after["prescription"] - before["prescription"] == 1
     assert after["prescription_item"] - before["prescription_item"] == 5
     assert after["run"] - before["run"] == 1
@@ -165,12 +165,12 @@ def test_review_records_marks_and_reports(database, tmp_path, capsys):
 
 
 def test_review_interactively_takes_scores(database, monkeypatch, capsys):
-    responses = iter(["0.9", "", "0.5", "", "", "", "", "", "high", "", ""])
+    responses = iter(["0.9", "", "0.5", "", "", "", "", "", "", "high", "", ""])
     monkeypatch.setattr("builtins.input", lambda *a, **k: next(responses))
 
     code = cli.main(["--db", str(database), "review", "--session", "2024-01-01"])
     assert code == 0
-    # Two non-empty scores out of eight items, plus confidence and two optional detail prompts.
+    # Two non-empty scores out of nine items, plus confidence and two optional detail prompts.
     assert count(database, "rubric_mark") == 2
 
     store = db.Store(database)

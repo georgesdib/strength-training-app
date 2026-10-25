@@ -282,7 +282,15 @@ function renderWorkout(w) {
 
   var plan = w.plan || {};
   var items = plan.items || [];
+  var formById = {};
+  (w.forms || []).forEach(function (form) { formById[form.exercise_id] = form; });
   var rows = items.map(function (item, index) {
+    var form = formById[item.exercise_id];
+    var formOptions = ['<option value="">—</option>'];
+    for (var rating = 1; rating <= 5; rating += 1) {
+      formOptions.push('<option value="' + rating + '"' +
+        (form && Number(form.rating) === rating ? " selected" : "") + ">" + rating + "</option>");
+    }
     return "<tr><td><strong>" + esc(item.exercise_id) + "</strong>" +
       (item.substitution_for ? '<div class="muted">swapped from ' + esc(item.substitution_for) + "</div>" : "") +
       (item.added_during_workout ? '<div class="muted">added during workout</div>' : "") +
@@ -291,13 +299,14 @@ function renderWorkout(w) {
       ' <button class="ghost" type="button" data-plan-set="1" data-index="' + index + '">+</button></td><td>' +
       item.reps_low + "–" + item.reps_high + "</td><td>" + fmt(item.load_kg) +
       "</td><td>" + (item.rir_target == null ? "—" : item.rir_target) + "</td><td>" +
+      '<select data-form-exercise="' + esc(item.exercise_id) + '">' + formOptions.join("") + "</select></td><td>" +
       '<select data-swap-select="' + index + '">' + workoutExerciseOptions("") + "</select>" +
       ' <button class="ghost" type="button" data-swap-index="' + index + '">Swap</button></td><td>' +
       '<button class="ghost" type="button" data-remove-item="' + index + '">Remove</button></td></tr>';
   }).join("");
   $("#workout-plan").innerHTML = "<p class='muted'>This is the editable workout plan; the original prescription is kept separately.</p>" +
     "<table><thead><tr><th>Planned</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th>" +
-    "<th>Swap</th><th></th></tr></thead><tbody>" + rows + "</tbody></table>" +
+    "<th>Form</th><th>Swap</th><th></th></tr></thead><tbody>" + rows + "</tbody></table>" +
     '<div class="form-row" style="margin-top:0.75rem">' +
     '<label>Add exercise <select id="workout-add-exercise">' + workoutExerciseOptions("") + "</select></label>" +
     '<label>Sets <input id="workout-add-sets" type="number" min="1" max="20" value="3"></label>' +
@@ -307,6 +316,20 @@ function renderWorkout(w) {
     '<label>RIR <input id="workout-add-rir" type="number" min="0" max="10" value="2"></label>' +
     '<button class="ghost" type="button" id="workout-add-exercise-run">Add to plan</button></div>' +
     '<div id="workout-plan-msg"></div>';
+  document.querySelectorAll("[data-form-exercise]").forEach(function (select) {
+    select.addEventListener("change", function () {
+      if (!select.value || !activeWorkoutId) return;
+      api("/api/workout/" + activeWorkoutId + "/form", {
+        method: "POST",
+        body: JSON.stringify({ exercise_id: select.dataset.formExercise, rating: Number(select.value) })
+      }).then(function (data) {
+        notify("Form rating saved.");
+        renderWorkout(data.workout);
+      }).catch(function (error) {
+        notify(error.message, "error");
+      });
+    });
+  });
   document.querySelectorAll("[data-plan-set]").forEach(function (button) {
     button.addEventListener("click", function () {
       planAction("set-count", { item_index: Number(button.dataset.index), delta: Number(button.dataset.planSet) });

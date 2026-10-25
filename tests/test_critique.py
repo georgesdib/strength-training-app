@@ -295,3 +295,18 @@ def test_measured_live_duration_is_scored_against_the_session_caps():
     assert partial.item("SESSION_DURATION").score == pytest.approx(0.5)
     assert over.item("SESSION_DURATION").score == 0.0
     assert "80 planned" in on_plan.item("SESSION_DURATION").detail
+
+
+def test_form_assessment_is_optional_and_scored_when_present():
+    rows = session_rows("2024-01-01")
+    with store_with(rows) as store:
+        conn = store.connection
+        conn.execute(
+            "INSERT INTO session_form_rating (session_id, exercise_id, rating) "
+            "VALUES ('2024-01-01', 'ssb_squat', 4), ('2024-01-01', 'bench_press', 5)"
+        )
+        critique = score_session(conn, "2024-01-01")
+    item = critique.item("FORM_ASSESSMENT")
+    assert item.measurable
+    assert item.score == pytest.approx(0.9)
+    assert "2 lift(s)" in item.detail

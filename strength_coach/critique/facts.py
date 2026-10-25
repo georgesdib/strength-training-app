@@ -38,6 +38,8 @@ class CritiqueFacts:
     # Duration is only scoreable when the live workout recorded it; imported rows stay unknown.
     duration_min: float | None
     duration_basis: str
+    # Optional post-lift form ratings, exercise -> 1-5; empty means not assessed.
+    form_ratings: Mapping[str, int]
     sessions: pd.DataFrame
     week: str
     week_cost: float
@@ -66,6 +68,7 @@ class CritiqueFacts:
             "exercises": sorted({str(e) for e in self.sets["exercise_id"].unique()}),
             "duration_min": self.duration_min,
             "duration_basis": self.duration_basis,
+            "form_ratings": dict(sorted(self.form_ratings.items())),
             "week": self.week,
             "week_cost": round(self.week_cost, 4),
         }
@@ -109,6 +112,14 @@ def build_facts(
 
     sets = context.sets[context.sets["session_id"].astype(str) == str(session_id)]
     prior = context.sets[context.sets["session_id"].astype(str) != str(session_id)]
+    form_rows = conn.execute(
+        "SELECT exercise_id, rating FROM session_form_rating f "
+        "WHERE f.session_id = ? AND NOT EXISTS ("
+        "SELECT 1 FROM session_form_rating child WHERE child.supersedes_id = f.form_id) "
+        "ORDER BY f.form_id",
+        (str(session_id),),
+    ).fetchall()
+    form_ratings = {str(row["exercise_id"]): int(row["rating"]) for row in form_rows}
 
     spine_rule = document.rule("PRG-SPINE-001")
     costs = registry.weekly_spinal_costs(spine_rule, context)
@@ -137,6 +148,7 @@ def build_facts(
         prior_sets=prior,
         duration_min=(float(row["duration_min"]) if pd.notna(row.get("duration_min")) else None),
         duration_basis=str(row.get("duration_basis") or "unavailable"),
+        form_ratings=form_ratings,
         sessions=sessions,
         week=week,
         week_cost=week_cost,

@@ -191,6 +191,7 @@ async function saveHistoryEdit() {
       method: "POST",
       body: JSON.stringify({
         sets: collectHistorySets(),
+        forms: collectHistoryForms(),
         session_rpe: document.getElementById("history-edit-srpe").value || null,
         duration_min: document.getElementById("history-edit-duration").value || null,
         notes: document.getElementById("history-edit-notes").value || null,

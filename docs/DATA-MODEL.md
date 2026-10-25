@@ -273,6 +273,19 @@ document version.
 | e1rm_source_sets | nullable; usable sets behind a formula e1RM (NULL for overrides/fallbacks) |
 | substitution_for | nullable |
 
+### 8.4 `workout_form_rating` / `session_form_rating`
+
+Optional post-lift form assessment, one 1-5 rating per exercise.
+
+| table | purpose |
+|---|---|
+| `workout_form_rating` | append-only ratings while a workout is open; latest row per exercise wins |
+| `session_form_rating` | materialised at workout end; later History edits insert a superseding row |
+
+Rating 1-5, higher is better. The rubric scores the mean over rated lifts; an unrated lift is
+not a zero. The imported `Form` column remains separate and unused because its direction is
+unconfirmed.
+
 ## 9. `critique` / `rubric_score`
 
 `critique` stores the narrative plus `facts_hash`; `rubric_score` stores one row per
