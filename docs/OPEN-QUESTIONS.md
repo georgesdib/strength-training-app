@@ -305,19 +305,26 @@ correction is applied only when the CI excludes 1.0 and the bias is within ±10%
 **Applied 2026-10-20 (`DEC-E1RM-CAL-01/02`):** report plus a bounded correction when the CI
 excludes 1.0; `e1rm calibrate` and the Athlete page. Measured overrides remain the control.
 
-## Q21. How should exercise selection decide what is comparable?
+## Q21. How should exercise selection decide what is comparable? — **closed 2026-10-25**
 
-The selector can swap configured variants but has no explicit comparability class. Open:
-where the A/B boundary sits (pause/narrow bench, SSB/high-bar), whether the class is per
-exercise or per pair, what confirmation means, and whether parent-variant e1RM ratios can ever
-be used.
+**Closed by owner acceptance of the current three-class guard.**
 
-Proposed in [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md): class A load-comparable,
-class B near-comparable (confirmation required), class C different lift (never automatic).
-**Implemented 2026-10-20**; the exact A/B boundary remains open. Parent-variant e1RM ratios
-are **not** a weakness measure; see
-[PARENT-VARIANT-WEAKNESS-EVIDENCE.md](PARENT-VARIANT-WEAKNESS-EVIDENCE.md). Any future ratio is a
-display-only relative-performance profile, never a silent load conversion.
+The current implementation is accepted as-is:
+
+- **A** — load-comparable; automatic only for true aliases.
+- **B** — near-comparable; explicit confirmation required. Pause/narrow bench and SSB/high-bar
+  remain B.
+- **C** — different lift/load basis; never automatic. SSB/front squat and barbell/dumbbell bench
+  remain C.
+- classification is configured per pair, with the conservative defaults retained;
+- confirmation is the explicit near-comparable action already in the UI;
+- loads always resolve from the selected lift's own history;
+- parent-variant e1RM ratios are not used as a load conversion or weakness measure.
+
+Any later promotion of a B pair to A, change to confirmation semantics, or use of a parent
+ratio is a **new decision**, not an open Q21 item.
+
+**Blocks:** nothing.
 
 ## Q22. Should selection target weakness or injury?
 

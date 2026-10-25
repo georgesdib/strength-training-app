@@ -21,6 +21,7 @@ documentation contract, form assessment and calibration milestone. Cardio depth 
 
 ### Changed
 
+- Closed Q21: the current A/B/C exercise-comparability guard is accepted as-is.
 - Closed Q6: current readiness merge and non-authoritative composite architecture accepted;
   Q3 documented as a manual anchor plus symptom input.
 - PRG-SCHED-001 wording/scope now uses canonical session types (`squat`, `bench_squat`),

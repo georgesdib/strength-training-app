@@ -213,19 +213,19 @@ default is **B**, not A.
 - an unknown selected-lift history is shown as unknown, never filled from the old lift;
 - tests use synthetic pairs for each class and an explicit different-implement case.
 
-## 6. Open questions
+## 6. Resolved questions — closed 2026-10-25
 
-1. Is bench pause/narrow a B (near) or can any pair ever be A? The load-velocity evidence says
-   B is the safe default.
-2. Is SSB <-> high-bar B, while SSB <-> front squat C? Both change mechanics; front squat also
-   changes the load basis more substantially.
-3. Should class be per exercise, per slot pair, or both? Pair-level is more precise but more
-   configuration.
-4. What counts as sufficient confirmation: one click, a typed reason, or both?
-5. Are parent-variant e1RM ratios ever acceptable as a prior? If so, only after prospective
-   validation and with a visible uncertainty interval.
-6. Does the selector need a same-stimulus score, or is a hard class enough? A hard class is
-   simpler and auditable.
+The owner accepted the current guard as-is:
+
+1. Bench pause/narrow and SSB/high-bar remain **B**; no pair is promoted to A.
+2. SSB/front squat and barbell/dumbbell bench remain **C**.
+3. Classification stays configured per pair with the existing defaults; this is precise enough
+   for the current candidate set.
+4. Confirmation stays the explicit near-comparable action already implemented.
+5. Parent-variant e1RM ratios are not used as a load conversion or weakness measure.
+6. A hard class is sufficient; no same-stimulus score is added.
+
+Any future loosening is a new decision with config/tests, not an open question.
 
 ## 7. Recommendation
 
@@ -248,9 +248,9 @@ Implemented 2026-10-20:
   checkbox; the selection panel shows class badges;
 - tests cover default filtering, B confirmation, C blocking and selected-lift load resolution.
 
-Still open: the exact A/B boundary for pause/narrow bench and SSB/high-bar, pair-vs-exercise
-metadata, and any future parent-ratio prior. Weakness/injury targeting is deliberately out of
-scope; see [WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md) and `DEC-SELECT-04`.
+**Closed 2026-10-25:** the exact A/B boundary, pair metadata and parent-ratio question are
+accepted in their current state. Weakness/injury targeting remains deliberately out of scope;
+see [WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md) and `DEC-SELECT-04`.
 
 ## Related
 
