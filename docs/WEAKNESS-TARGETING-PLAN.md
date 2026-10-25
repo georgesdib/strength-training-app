@@ -153,7 +153,7 @@ No decision may be made from the retrospective screen alone.
 | 3 | opt-in N-of-1/alternating blocks; at least three pairs or report unknown |
 | 4 | keep fixed, display-only, or bounded opt-in targeting |
 
-Earliest review remains after v0.4/~April 2027 (`DEC-SELECT-05`). The date is a gate, not a
+Earliest review remains after v0.5/~April 2027 (`DEC-SELECT-05`). The date is a gate, not a
 commitment.
 
 ## Related

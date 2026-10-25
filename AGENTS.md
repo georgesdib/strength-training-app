@@ -13,7 +13,9 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**v0, v0.1, v0.2 and v0.3 are complete; v0.4 is next.** Cardio is v0.4 (see ROADMAP). The deeper labelled calibration set moves to v0.4 (§4.14).
+**v0, v0.1, v0.2, v0.3 and v0.4 are complete; v0.5 is next.** v0.4 packaged the audit,
+documentation and form closeout. Cardio depth and comparable calibration data are v0.5 (see
+ROADMAP §4.13a/§4.14).
 
 **Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
@@ -222,6 +224,8 @@ never read `data/raw`.
 | `docs/NEXT-PHASE-FATIGUE-PLAN.md` | final lean non-cardio fatigue plan: sRPE/duration backfill, descriptive calibration, optional deload; no experiments |
 | `docs/RETROSPECTIVE-VALIDATION.md` | retrospective walk-forward method/result; not prospective; no model adoption |
 | `docs/WEAKNESS-INJURY-SELECTION.md` | evidence and deferral of weakness/injury-targeted selection |
+| `docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md` | why parent-variant ratios are not weakness or injury measures |
+| `docs/WEAKNESS-TARGETING-PLAN.md` | gated weakness metric, retrospective screen and N-of-1 test plan |
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/UI-CLI-PARITY.md` | current first-class parity, intentional differences and remaining gaps |
 | `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |

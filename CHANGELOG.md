@@ -1,6 +1,19 @@
 # Changelog
 
-## [0.3.1] — unreleased
+## [0.5.0] — unreleased
+
+### Planned
+
+- v0.5 cardio depth: capture audit, reproducible impulse, shadow 7/28-day load context, and a
+  later model decision only after enough data (ROADMAP §4.13a). No automatic load effect.
+- Comparable calibration depth: live-workout snapshots and per-rep data, per-item comparable
+  counts, and a pre-declared rubric review (ROADMAP §4.14).
+
+## [0.4.0] — 2026-10-25
+
+**Audit, documentation and form closeout.** This release packages the post-v0.3 audits, UI
+documentation contract, form assessment and calibration milestone. Cardio depth and comparable
+ calibration implementation move to v0.5.
 
 ### Changed
 
@@ -14,8 +27,6 @@
 - Weakness-targeting test plan (`docs/WEAKNESS-TARGETING-PLAN.md`, ROADMAP §4.20.3): own-lift
   noise-aware definition, retrospective screen, opt-in N-of-1/alternating blocks, decision
   gates. Plan only; no targeting.
-- Gated v0.4 roadmap plan (§4.13a): cardio capture audit, reproducible impulse, shadow load
-  context, later model decision, and parallel calibration-depth work. No automatic load effect.
 - Evidence review for parent-variant e1RM ratios: they are relative performance profiles, not
   weakness or injury measures. Display-only prior at most; no targeting (`DEC-SELECT-09`).
 - UI documentation P0–P4: deep-linkable docs (`#docs?doc=...&anchor=...`), stable heading IDs,

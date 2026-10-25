@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-25 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 planned** · version `0.3.1-dev` · **696 public tests** (711 with the 15 private integration tests)
+Last updated: 2026-10-25 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 done, v0.5 next** · version `0.5.0-dev` · **696 public tests** (711 with the 15 private integration tests)
 
 ---
 
@@ -45,7 +45,8 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
 | v0.3 | Strength/data depth | **done** | manual logging via live workout mode (§4.2/§4.21, closed), import adapters closed (§4.3), learned readiness weights evaluated and closed (§4.9), LLM proposal view closed as CLI-only (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed), read-only 4/8/12-week outcomes review, longevity context, prescription-modifier provenance and quick readiness presets/context and readiness feedback, UI prescription persistence (A0/A/B/C/E), minimum effective sessions (D) the methodology/privacy docs (F), W1/W7 attendance metrics and the session-time cap |
-| v0.4 | Cardio + calibration depth | **planned; plan at §4.13a** | cardio prescription and cardio impulse/fatigue model (§4.13); deeper labelled calibration set (§4.14); gated implementation plan (§4.13a) |
+| v0.4 | Audit, documentation and form closeout | **done 2026-10-25** | form assessment/prospective follow-up, fatigue diagnostic closure, UI documentation P0–P4, parent-ratio evidence review, weakness test plan, calibration milestone (§4.22) |
+| v0.5 | Cardio + calibration depth | **planned; plan at §4.13a** | cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14); gated plan (§4.13a) |
 | — | Post-workout form assessment | **done 2026-10-25** | optional per-lift 1–5; Workout + History edit; rubric 1.2.0 |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video descoped; 3.8 labelled set moved to §4.14 |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000`; Settings tab for LLM and browser defaults |
@@ -57,12 +58,14 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 |---|---|---|
 | v0.2 | readiness, continuity, injury, web UI, cardio capture, measurements, session RPE/length, recent stress, per-lift readiness, e1RM calibration/decay | **done** |
 | v0.3 | everything strength/data-depth that is not cardio: manual logging, adapters closed, LLM proposal view CLI-only, continuity calibration, exercise selection, strength fitness-fatigue model | **done** |
-| v0.4 | cardio prescription/model plus the deeper labelled calibration set moved from v0.3 | **planned; see §4.13a** |
+| v0.4 | audit/documentation/form closeout: form assessment, fatigue diagnostic, UI docs P0–P4, ratio review, weakness plan, calibration milestone | **done 2026-10-25** |
+| v0.5 | cardio depth plus comparable calibration data | **planned; see §4.13a** |
 | — | post-workout form assessment | **done 2026-10-25** |
 | future | LLM-guided suggested programme (§4.18) | **idea only; not scheduled** |
 
 **Rule:** cardio work does not enter v0.3; video is descoped. The strength model (§4.16) is
-strength-only and closed with v0.3. The labelled calibration depth moves to v0.4.
+strength-only and closed with v0.3. Audit/documentation/form closeout is v0.4; cardio depth and
+comparable calibration data are v0.5.
 
 ### What works end to end today
 
@@ -662,7 +665,7 @@ Acceptance: `strength-coach continuity` and `GET /api/continuity` show observed 
 the fixed rule; the minimum-data rule is explicit; a sparse band keeps the fixed factor; a
 well-observed band applies the calibrated factor; the prescription cites the applied rule.
 
-### 4.13 Cardio workouts and an impulse fatigue model  (capture v0.2 done; cardio model v0.4; strength model is §4.16)
+### 4.13 Cardio workouts and an impulse fatigue model  (capture v0.2 done; cardio model v0.5; strength model is §4.16)
 
 The app currently measures resistance training only. Cardio is a separate exposure with a
 different fatigue signature, and a single "fatigue score" would hide that. This item adds the
@@ -735,7 +738,7 @@ method; the fatigue state is displayed with inputs and time constants; a shadow 
 no prescription; constraints and injury ceilings remain vetoes; no cardio session silently
 counts as resistance volume or vice versa.
 
-### 4.13a v0.4 plan — cardio depth and calibration  (approved 2026-10-25)
+### 4.13a v0.5 plan — cardio depth and calibration  (approved 2026-10-25)
 
 **Goal:** make cardio a first-class, reproducible exposure; add only a shadow cardio-load
 context; and deepen calibration enough to decide whether any rubric definition should change.
@@ -804,7 +807,7 @@ These are planning windows, not promises; missing data pauses the dependent phas
 3. Add the A2 impulse contract and fixed test cases before any model work.
 4. Keep collecting live workouts and per-rep data for B0 in parallel.
 
-### 4.14 Labelled calibration set  (v0.4; moved from v0.3)
+### 4.14 Labelled calibration set  (v0.5; moved from v0.3)
 
 No code. Continue reviewing sessions while they are fresh; the rubric report needs roughly ten
 *remembered* sessions per item before changing a definition or weight (DEC-EVAL-03,
@@ -830,7 +833,7 @@ never edits; the report states the sample size and excludes low-confidence marks
 **Current implementation:** `prescribe/selection.py` ranks the configured and catalogue variants per slot from readiness, recent stress, rotation and preference; the rejected fitness-fatigue state is no longer an input; constraints and `can_do: false` exclude a candidate; injury is a penalty, not a veto. Candidates carry an A/B/C comparability class: A applies automatically, B requires confirmation, C is hidden by default and never automatic; the selected lift's own history is always used. A display-only own-history e1RM ratio is shown, but it does not enter the score. See `DEC-SELECT-03` and [SELECTION-COMPARABILITY.md](docs/SELECTION-COMPARABILITY.md). It is exposed as `strength-coach select` and a Prescribe panel. With the explicit **Apply selection** toggle, the chosen candidate replaces the slot exercise and the load is re-solved from that lift's own history (`MOD-SELECT-001`). Without the toggle nothing changes. All synthetic raw variant names were canonicalised and their history rewritten (migration 0014, 114 entities, 3,607 audited remaps; migration 0015 split close-grip pulldown); trap-bar date-scoping and back-extension equivalence are preserved.
 
 **Weakness/injury tailoring — deferred.** No positive weakness/injury targeting. Injury remains
-an exclusion/penalty/ceiling. Earliest review is after v0.4 and ~April 2027, and only with 12
+an exclusion/penalty/ceiling. Earliest review is after v0.5 and ~April 2027, and only with 12
 sessions per target lift over 12 weeks, a pre-registered own-trend metric, a retrospective
 baseline win, and an opt-in N-of-1/alternating test; injury targeting remains unscheduled.
 See [WEAKNESS-INJURY-SELECTION.md](docs/WEAKNESS-INJURY-SELECTION.md),
@@ -1024,7 +1027,7 @@ deferred items stay listed in §4.19.
 | P1 | Scheduled deload / broader fatigue-management policy | done — `DEC-PROGRAMME-05` |
 | P1 | 3RM/5RM calibration cadence and explicit warm-up prescription | done — 10-week reminder + 50/70/85 ramp |
 | P2 | Parent-variant e1RM ratios | moved to §4.20, unscheduled |
-| P2 | Weakness/injury-targeted selection | display-only context done; targeting deferred — earliest after v0.4 / ~April 2027; gates in `DEC-SELECT-05` |
+| P2 | Weakness/injury-targeted selection | display-only context done; targeting deferred — earliest after v0.5 / ~April 2027; gates in `DEC-SELECT-05` |
 | P2 | Strength-review implementation closeout | **review closed**; future work in §4.20 |
 | P2 | Individualized MRV / main-lift volume experimentation | **closed** — not estimable; no experiment (`DEC-VOLUME-04`) |
 | P2 | Prospective validation of continuity, volume, selection and fatigue models | moved to §4.20 — no candidate; current models failed the retrospective baseline |
@@ -1033,9 +1036,9 @@ deferred items stay listed in §4.19.
 | P1 (v0.3) | Import adapters | **closed** — standard export + workout CSV cover the paths |
 | P1 (v0.3) | LLM proposal view | **closed** — CLI-only by decision |
 | P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
-| v0.4 | Deeper labelled calibration set | moved to v0.4 |
+| v0.5 | Deeper labelled calibration set | moved to v0.5 |
 | P3 | Per-rep velocity: cross-session analysis and evidence review | **done** — descriptive report; no rule (`DEC-VBT-05`) |
-| v0.4 | Cardio prescription and cardio fatigue interaction | planned |
+| v0.5 | Cardio depth and shadow cardio load | planned |
 | — | Post-workout form assessment | done 2026-10-25 |
 | future | LLM-guided suggested programme (§4.18) | idea only |
 
@@ -1055,7 +1058,7 @@ Moved out of the strength-programme review so it can close. These are **not** v0
 3. **Weakness/injury targeting.** No positive targeting. A display-only own-history context is
    implemented. A gated testing plan is in
    [WEAKNESS-TARGETING-PLAN.md](docs/WEAKNESS-TARGETING-PLAN.md). Weakness targeting is gated by
-   DEC-SELECT-05 (earliest after v0.4 / ~April 2027); injury targeting is unscheduled and remains
+   DEC-SELECT-05 (earliest after v0.5 / ~April 2027); injury targeting is unscheduled and remains
    constraint/penalty/ceiling only.
 
 ### 4.20.3 Weakness targeting test plan  (plan only; unscheduled)
@@ -1080,9 +1083,9 @@ No implementation, no automatic substitution and no load effect follows from thi
 |---|---|---|
 | Prospective validation of a future continuity/fatigue candidate | gate only; current candidates rejected | §4.20.1, DEC-VALIDATION-01 |
 | Parent-variant e1RM ratios | unscheduled; display-only profile/prior, not weakness | §4.20.2; `PARENT-VARIANT-WEAKNESS-EVIDENCE.md` |
-| Weakness targeting | plan only; deferred to after v0.4 / ~April 2027 | §4.20.3, `WEAKNESS-TARGETING-PLAN.md`, Q22, DEC-SELECT-05 |
+| Weakness targeting | plan only; deferred to after v0.5 / ~April 2027 | §4.20.3, `WEAKNESS-TARGETING-PLAN.md`, Q22, DEC-SELECT-05 |
 | Selection A/B boundary (pause/narrow, SSB/high-bar) | dormant policy decision; current default is conservative (A only same exercise) | Q21, docs/SELECTION-COMPARABILITY.md |
-| Cardio model | v0.4 | §4.13, Q14 |
+| Cardio model | v0.5 | §4.13, Q14 |
 
 ### 4.21 Live workout mode  (v0.3, CLOSED 2026-10-23)
 
@@ -1103,6 +1106,28 @@ vs the modified plan and the original prescription, runs the deterministic rubri
 review marks. Actual-set edit, plan overrides, in-workout CSV import with conflict preview/undo,
 and the exercise-details popup are done. The standard dated training export remains the backfill
 path. CLI workout commands are partial (no start).
+
+### 4.22 v0.4 — audit, documentation and form closeout  (done 2026-10-25)
+
+**Status:** complete. This release packages the post-v0.3 audit and documentation work; it is
+not the cardio release and does not implement weakness targeting.
+
+| workstream | outcome | artifact |
+|---|---|---|
+| Post-workout form assessment | optional 1–5 per lift; Workout/History; rubric 1.2.0; prospective follow-up opened, still collecting | §4.8, `docs/FORM-ASSESSMENT.md` |
+| Fatigue model | Phase-1 diagnostic; full model rejected as a predictor; descriptive only | §4.16, `docs/FATIGUE-FITNESS.md` |
+| UI documentation | P0–P4 complete: deep links, help on every panel, Related footers, automated checker | `docs/UI-MAP.md`, `tools/check_ui_docs.py` |
+| Parent-variant ratios | evidence review: relative performance, not weakness or injury | `docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md` |
+| Weakness targeting | gated test plan only; no targeting | §4.20.3, `docs/WEAKNESS-TARGETING-PLAN.md` |
+| Calibration | 10 high-confidence sessions; every item at n=10; comparable items still uneven | §4.14 |
+| Naming/consistency | legacy A/B/C wording removed; docs/test counts reconciled | commits c0c8d80..83c0180 |
+
+**Not in v0.4:** cardio prescription/model, comparable calibration depth, weakness targeting,
+parent-ratio implementation, and any new model load effect. Those move to v0.5 or remain
+unscheduled.
+
+**v0.5:** see §4.13a. First actions are the cardio data audit, capture completion, impulse
+contract, and comparable workout data collection.
 
 ## 5. Known gaps and risks
 

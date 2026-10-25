@@ -17,7 +17,7 @@ LLM call fails entirely.
 
 ## Status
 
-**v0 complete; v0.1 complete; v0.2 complete; v0.3 complete; v0.4 next.** The full slice runs:
+**v0 complete; v0.1 complete; v0.2 complete; v0.3 complete; v0.4 complete; v0.5 next.** The full slice runs:
 import → readiness → prescribe a day → critique the last session → review it → calibrate. Days
 are prescribable through rolling session types (squat, hinge, bench+squat, bench+hinge); athlete
 state, constraints, suitability, e1RM overrides, symptoms and the exercise catalogue are editable
@@ -28,8 +28,8 @@ Delivered in v0.2/v0.3: readiness score and overrides, wearable/HRV/RHR baseline
 continuity calibration, cardio capture, measurements, session RPE/length, recent stress,
 per-lift readiness, e1RM calibration/decay, rolling session types, readiness volume valve,
 weekly volume ledger/MRV cap, exercise selection with A/B/C *variant* comparability, and the local web UI
-with import, state, Programme, Exercises, Terminal and calibration reports. v0.3 is complete. v0.4 covers cardio prescription/model plus the deeper labelled calibration
-set moved from v0.3. Prospective validation remains a future gate, not an active candidate;
+with import, state, Programme, Exercises, Terminal and calibration reports. v0.3 and v0.4 are complete. v0.4 packaged the audit, documentation and form closeout; v0.5
+covers cardio depth plus comparable calibration data. Prospective validation remains a future gate, not an active candidate;
 review follow-ups are in ROADMAP §4.20.
 See [ROADMAP.md](ROADMAP.md).
 
