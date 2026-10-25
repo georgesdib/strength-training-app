@@ -312,7 +312,8 @@ async function loadOutcomes() {
   try {
     const query = new URLSearchParams({ weeks });
     if (day) query.set("date", day);
-    const data = await api("/api/outcomes?" + query.toString());
+    const data = (await api("/api/outcomes?" + query.toString())) || {};
+    const period = data.window || {};
     const strength = data.strength || {};
     const lifts = (strength.main_lifts || []).map((lift) => `
       <tr><td><strong>${esc(lift.exercise_id)}</strong><div class="muted">n=${lift.n}</div></td>
@@ -342,7 +343,7 @@ async function loadOutcomes() {
       <tr><td>${esc(field)}</td><td>${row.n}</td><td>${row.average ?? "—"}</td>
       <td>${row.first ?? "—"} → ${row.last ?? "—"}</td></tr>`).join("");
     $("#outcomes-result").innerHTML = `
-      <p class="muted">${esc(data.window.from)} to ${esc(data.window.to)} · ${data.window.weeks} weeks</p>
+      <p class="muted">${esc(period.from ?? "unknown")} to ${esc(period.to ?? "unknown")} · ${period.weeks ?? "—"} weeks</p>
       <h3>Strength</h3>
       <p class="muted">e1RM values are estimates from working sets, not measured maximums.</p>
       <table><thead><tr><th>Lift</th><th>First → last e1RM</th><th>Change</th><th>Best</th></tr></thead>
