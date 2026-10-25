@@ -29,19 +29,36 @@ Any future timestamped source would be a new data decision, not a reopening of Q
 
 ---
 
-## Q2. What is a "high-fatigue spinal exposure"? **Default implemented: weighted cost**
+## Q2. What is a "high-fatigue spinal exposure"? — **closed 2026-10-25: weighted one-exercise-per-session**
 
-The brief caps "more than ~3 per week" without defining an exposure. Measured on **distinct
-exercise types** the cap almost never fires, which makes it decorative; measured **per set**
-it fires almost every week, which makes it meaningless.
+**Closed by owner acceptance of the current rule.** Q8 is merged into this answer.
 
-The likely intent is distinct high-fatigue exercise types per week — but then three heavy
-rack-pull sets count the same as three light back-extension sets, which is probably not the
-intent either.
+`PRG-SPINE-001` caps a **weighted spinal cost of 3 per ISO week**. An exposure is:
 
-**Blocks:** the spinal-cap rule and the redundancy rubric line.
-**Default:** distinct high-fatigue exercise types per ISO week, cap 3, with an ordinal
-weighted cost reported alongside as context (ASSUMPTION-02).
+> **one high-fatigue exercise in one session**, weighted by its configured `spinal_cost`.
+
+It is not one set. A 12-set trap-bar session is one trap-bar exposure. Only working sets count;
+the same exercise repeated in one session still counts once. Two sessions in one week count
+twice.
+
+| exercise | cost |
+|---|---:|
+| back extension / reverse hyperextension | 1 |
+| trap-bar deadlift / RDL / Jefferson curl | 2 |
+| rack pull / good morning / conventional deadlift | 3 |
+
+Kettlebell swings (`hinge_ballistic`) are excluded. A new high-fatigue exercise falls back to
+its taxonomy `spinal_cost`. More than 3 fails the veto; exactly 3 passes.
+
+Why this unit:
+
+- **per set** makes a 12-set trap-bar session twelve exposures and fires almost every week;
+- **distinct exercise types per week** almost never fires and ignores dose;
+- **one exercise per session, weighted** is the middle reading.
+
+The weighting is `ASSUMPTION-02`: ordinal, not load/reps/RIR or measured spinal compression.
+
+**Blocks:** nothing. No further Q2/Q8 decision is open.
 
 ---
 
@@ -125,17 +142,10 @@ does not fail the rule. Making easy sets violations is then a config change
 
 ---
 
-## Q8. What counts as one "high-fatigue spinal exposure"? **Default implemented**
+## Q8. ~~What counts as one "high-fatigue spinal exposure"?~~ **Closed — merged into Q2**
 
-ASSUMPTION-02 fixes the *weighting* (ordinal `spinal_cost`) but not the *unit*:
-
-* per **set** — one 12-set trap-bar session is twelve exposures, so the cap fires every week;
-* per **exercise type per week** — the cap almost never fires, which makes it decorative;
-* per **exercise per session** — two hinge sessions in a week cost 2+2 = 4 against a cap of 3.
-
-**Blocks:** how strict `PRG-SPINE-001` is. It does not block the build.
-**Default:** one exposure = one exercise in one session, weighted by `spinal_cost`
-(`rules/registry.py` `weekly_spinal_cap`). Sets do not multiply an exposure.
+The unit is one high-fatigue exercise per session, weighted by `spinal_cost`, capped at 3 per
+ISO week. See Q2.
 
 ---
 
