@@ -11,6 +11,8 @@
 
 ### Added
 
+- Gated v0.4 roadmap plan (§4.13a): cardio capture audit, reproducible impulse, shadow load
+  context, later model decision, and parallel calibration-depth work. No automatic load effect.
 - Evidence review for parent-variant e1RM ratios: they are relative performance profiles, not
   weakness or injury measures. Display-only prior at most; no targeting (`DEC-SELECT-09`).
 - UI documentation P0–P4: deep-linkable docs (`#docs?doc=...&anchor=...`), stable heading IDs,

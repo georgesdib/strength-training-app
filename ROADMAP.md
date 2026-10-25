@@ -45,7 +45,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
 | v0.3 | Strength/data depth | **done** | manual logging via live workout mode (§4.2/§4.21, closed), import adapters closed (§4.3), learned readiness weights evaluated and closed (§4.9), LLM proposal view closed as CLI-only (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed), read-only 4/8/12-week outcomes review, longevity context, prescription-modifier provenance and quick readiness presets/context and readiness feedback, UI prescription persistence (A0/A/B/C/E), minimum effective sessions (D) the methodology/privacy docs (F), W1/W7 attendance metrics and the session-time cap |
-| v0.4 | Cardio + calibration depth | **planned** | cardio prescription and cardio impulse/fatigue model (§4.13 remaining); deeper labelled calibration set (§4.14) |
+| v0.4 | Cardio + calibration depth | **planned; plan at §4.13a** | cardio prescription and cardio impulse/fatigue model (§4.13); deeper labelled calibration set (§4.14); gated implementation plan (§4.13a) |
 | — | Post-workout form assessment | **done 2026-10-25** | optional per-lift 1–5; Workout + History edit; rubric 1.2.0 |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video descoped; 3.8 labelled set moved to §4.14 |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000`; Settings tab for LLM and browser defaults |
@@ -57,7 +57,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 |---|---|---|
 | v0.2 | readiness, continuity, injury, web UI, cardio capture, measurements, session RPE/length, recent stress, per-lift readiness, e1RM calibration/decay | **done** |
 | v0.3 | everything strength/data-depth that is not cardio: manual logging, adapters closed, LLM proposal view CLI-only, continuity calibration, exercise selection, strength fitness-fatigue model | **done** |
-| v0.4 | cardio prescription/model plus the deeper labelled calibration set moved from v0.3 | **planned** |
+| v0.4 | cardio prescription/model plus the deeper labelled calibration set moved from v0.3 | **planned; see §4.13a** |
 | — | post-workout form assessment | **done 2026-10-25** |
 | future | LLM-guided suggested programme (§4.18) | **idea only; not scheduled** |
 
@@ -734,6 +734,75 @@ A cardio session can be recorded and cited; its impulse is reproducible and labe
 method; the fatigue state is displayed with inputs and time constants; a shadow period changes
 no prescription; constraints and injury ceilings remain vetoes; no cardio session silently
 counts as resistance volume or vice versa.
+
+### 4.13a v0.4 plan — cardio depth and calibration  (approved 2026-10-25)
+
+**Goal:** make cardio a first-class, reproducible exposure; add only a shadow cardio-load
+context; and deepen calibration enough to decide whether any rubric definition should change.
+No automatic cardio load effect and no parent-variant/weakness implementation in this phase.
+
+**Principles**
+
+1. Capture and data quality before modelling.
+2. Impulse must be reproducible and labelled by method.
+3. Cardio and strength fatigue stay separate; no single global fatigue scalar.
+4. Shadow first; a model may not change a load, RIR, set or selection until it beats a simple
+   baseline and completes a frozen prospective period.
+5. Calibration changes are separate from model changes and require the existing per-item gate.
+6. No optimiser, ML model, LLM programme generation, parent-variant targeting or weakness
+   targeting.
+
+**Workstream A — cardio**
+
+| phase | deliverable | gate / acceptance |
+|---|---|---|
+| A0. Scope and data audit | Confirm modalities (walking, cycling, rowing, running, intervals), available HR fields, resting-HR source and explicit injury-region tags; measure current coverage | A short audit states how many sessions have duration, average/max HR, sRPE and modality; unresolved questions are recorded, not guessed |
+| A1. Capture completion | Close only the gaps the audit proves necessary; keep append-only; no free-text parsing in the core | A cardio session can be recorded with its method-relevant fields and cited from the UI/CLI |
+| A2. Impulse v1 | Compute one documented impulse: HR-based TRIMP where average HR, resting/max HR and duration exist; otherwise sRPE × duration. Store the method and inputs | Fixed test cases reproduce the impulse; every value says which method was used and why |
+| A3. Shadow load context | Show 7-day and 28-day cardio load and a separate cardio/neuromuscular context; do not fit a fitness–fatigue model yet | Display includes inputs, method coverage and time window; no prescription reads it |
+| A4. Model decision | Only after at least 12 weeks and ~24 cardio sessions: fit a cardio fitness/fatigue candidate and compare with the simple 7/28-day load and readiness-only baselines | No model is fitted on readiness as if it were performance; if it loses, keep descriptive load only |
+| A5. Interaction review | Decide whether cardio context may inform readiness display, never constraints/injury/loads | Any load/RIR effect is a separate decision after a prospective result |
+
+**Workstream B — calibration depth**
+
+| phase | deliverable | gate / acceptance |
+|---|---|---|
+| B0. Comparable data | Use Workout mode so prescriptions have snapshots; collect optional per-rep CSV where available | Comparable counts are reported per item, not just mark counts |
+| B1. Review the measurable items | Inspect RIR, weekly spinal cost, redundancy and rotation disagreements first | A written review identifies whether disagreements are rubric, measurement or data-coverage problems |
+| B2. Reach the item gate | Priority gaps: progression, essential work, duration and velocity loss | No rubric retune until each targeted item has enough comparable observations; unknowns stay unknown |
+| B3. Rubric decision | Change a definition/weight only after the gate and a pre-declared review | Decision recorded in DECISIONS; no automatic tuning from the latest report |
+
+**Sequence and timing**
+
+- **Weeks 1–2:** A0, A1, B0.
+- **Weeks 3–4:** A2, A3; start the shadow load display.
+- **Weeks 5–12:** collect cardio and comparable workout data; B1 review at the midpoint.
+- **Week 12+:** A4 model decision and B2/B3 rubric decision, only if the gates are met.
+These are planning windows, not promises; missing data pauses the dependent phase.
+
+**Success criteria**
+
+- Cardio coverage is measured and most sessions have a labelled impulse method.
+- The shadow context is reproducible and changes no prescription.
+- No cardio session silently counts as resistance volume, and no cardio session is invisible
+  to an explicit injury-region tag.
+- Calibration reports per-item comparable n, not only high-confidence mark counts.
+- Any future load effect has a retrospective baseline win and a frozen prospective test.
+
+**Out of scope**
+
+- Parent-variant e1RM ratios and weakness/injury targeting — parent ratios remain unscheduled,
+  display-only at most; see [PARENT-VARIANT-WEAKNESS-EVIDENCE.md](docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md).
+- A single combined cardio/strength fatigue score.
+- Optimiser, ML, automatic programme generation.
+- Automatic cardio-driven load or RIR changes.
+
+**First actions**
+
+1. Run the A0 cardio data audit and record coverage/method gaps.
+2. Confirm the cardio modalities and resting-HR source with the athlete.
+3. Add the A2 impulse contract and fixed test cases before any model work.
+4. Keep collecting live workouts and per-rep data for B0 in parallel.
 
 ### 4.14 Labelled calibration set  (v0.4; moved from v0.3)
 
