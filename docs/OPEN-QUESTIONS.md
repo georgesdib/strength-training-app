@@ -326,7 +326,8 @@ weakness/injury targeting. Injury remains a constraint/ceiling/penalty; it must 
 candidate. A relative-weakness display, if added, is display-only. Revisit only with 12
 sessions per target lift over 12 weeks, a pre-registered weakness definition, a retrospective
 baseline win, and an opt-in N-of-1/alternating test. See
-[WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md).
+[WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md) and the gated
+[WEAKNESS-TARGETING-PLAN.md](WEAKNESS-TARGETING-PLAN.md).
 
 ## Closed
 

@@ -833,7 +833,8 @@ never edits; the report states the sample size and excludes low-confidence marks
 an exclusion/penalty/ceiling. Earliest review is after v0.4 and ~April 2027, and only with 12
 sessions per target lift over 12 weeks, a pre-registered own-trend metric, a retrospective
 baseline win, and an opt-in N-of-1/alternating test; injury targeting remains unscheduled.
-See [WEAKNESS-INJURY-SELECTION.md](docs/WEAKNESS-INJURY-SELECTION.md), `DEC-SELECT-04/05`, Q22.
+See [WEAKNESS-INJURY-SELECTION.md](docs/WEAKNESS-INJURY-SELECTION.md),
+[WEAKNESS-TARGETING-PLAN.md](docs/WEAKNESS-TARGETING-PLAN.md), `DEC-SELECT-04/05`, Q22.
 
 **Later phase — variant-group e1RM ratios.** Variants stay distinct entities for now. A future
 model may express a variant's e1RM as a ratio of a parent lift (illustrative: front squat ≈60%
@@ -1052,8 +1053,26 @@ Moved out of the strength-programme review so it can close. These are **not** v0
    relation and paired data. No schedule. See
    [PARENT-VARIANT-WEAKNESS-EVIDENCE.md](docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md).
 3. **Weakness/injury targeting.** No positive targeting. A display-only own-history context is
-   implemented. Weakness targeting is gated by DEC-SELECT-05 (earliest after v0.4 / ~April
-   2027); injury targeting is unscheduled and remains constraint/penalty/ceiling only.
+   implemented. A gated testing plan is in
+   [WEAKNESS-TARGETING-PLAN.md](docs/WEAKNESS-TARGETING-PLAN.md). Weakness targeting is gated by
+   DEC-SELECT-05 (earliest after v0.4 / ~April 2027); injury targeting is unscheduled and remains
+   constraint/penalty/ceiling only.
+
+### 4.20.3 Weakness targeting test plan  (plan only; unscheduled)
+
+[WEAKNESS-TARGETING-PLAN.md](docs/WEAKNESS-TARGETING-PLAN.md) defines the full test:
+
+1. **Data:** 12 sessions for the target lift across 12 weeks, with snapshots, RIR and symptoms.
+2. **Definition:** own-lift recent baseline minus current trend, with a pre-registered noise-aware
+   threshold; never a parent-variant ratio or population norm.
+3. **Retrospective screen:** fixed selection vs the targeting rule on the same chronological
+   dates; screening only, not causal proof.
+4. **N-of-1:** opt-in alternating fixed/targeted blocks, at least three pairs or report unknown,
+   with stop rules for symptoms and guardrail lifts.
+5. **Decision:** keep fixed, display-only, or bounded opt-in targeting after the N-of-1 result.
+   Injury targeting stays unscheduled; injury remains exclusion/penalty/ceiling only.
+
+No implementation, no automatic substitution and no load effect follows from this plan.
 
 **Open decisions register**
 
@@ -1061,7 +1080,7 @@ Moved out of the strength-programme review so it can close. These are **not** v0
 |---|---|---|
 | Prospective validation of a future continuity/fatigue candidate | gate only; current candidates rejected | §4.20.1, DEC-VALIDATION-01 |
 | Parent-variant e1RM ratios | unscheduled; display-only profile/prior, not weakness | §4.20.2; `PARENT-VARIANT-WEAKNESS-EVIDENCE.md` |
-| Weakness targeting | deferred to after v0.4 / ~April 2027 | §4.20.3, Q22, DEC-SELECT-05 |
+| Weakness targeting | plan only; deferred to after v0.4 / ~April 2027 | §4.20.3, `WEAKNESS-TARGETING-PLAN.md`, Q22, DEC-SELECT-05 |
 | Selection A/B boundary (pause/narrow, SSB/high-bar) | dormant policy decision; current default is conservative (A only same exercise) | Q21, docs/SELECTION-COMPARABILITY.md |
 | Cardio model | v0.4 | §4.13, Q14 |
 

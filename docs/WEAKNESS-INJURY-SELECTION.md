@@ -100,6 +100,10 @@ it weakness. See
 
 ## 4. Deferral gates — when this can be revisited
 
+A concrete test plan is recorded in
+[WEAKNESS-TARGETING-PLAN.md](WEAKNESS-TARGETING-PLAN.md): metric, retrospective screen,
+opt-in N-of-1 blocks and decision gates. It is plan-only; no targeting is implemented.
+
 **Recommended: not before v0.5 is complete, and not before six months of stable current-programme
 data (~April 2027).** That is an earliest review point, not a commitment.
 

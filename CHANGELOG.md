@@ -11,6 +11,9 @@
 
 ### Added
 
+- Weakness-targeting test plan (`docs/WEAKNESS-TARGETING-PLAN.md`, ROADMAP §4.20.3): own-lift
+  noise-aware definition, retrospective screen, opt-in N-of-1/alternating blocks, decision
+  gates. Plan only; no targeting.
 - Gated v0.4 roadmap plan (§4.13a): cardio capture audit, reproducible impulse, shadow load
   context, later model decision, and parallel calibration-depth work. No automatic load effect.
 - Evidence review for parent-variant e1RM ratios: they are relative performance profiles, not
