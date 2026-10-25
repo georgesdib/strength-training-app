@@ -76,6 +76,11 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 - **Terminal** — restricted `strength-coach` command runner bound to the UI database.
 - **Docs** — local Markdown rendered without external assets.
 
+## Feedback
+
+Mutating actions show a short non-blocking toast on success or failure. **End review**
+also disables while saving and reports the number of marks written.
+
 ## API
 
 | route | purpose |

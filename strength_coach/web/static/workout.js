@@ -99,6 +99,7 @@ function submitWorkoutStart(event) {
     })
   }).then(function (data) {
     $("#workout-start-panel").hidden = true;
+    notify("Workout started.");
     renderWorkout(data.workout);
   }).catch(function (error) {
     $("#workout-start-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + '</p>';
@@ -157,6 +158,7 @@ function planAction(action, body) {
     method: "POST", body: JSON.stringify(body)
   }).then(function (data) {
     $("#workout-plan-msg").textContent = "";
+    notify("Workout plan updated.");
     renderWorkout(data.workout);
   }).catch(function (error) {
     $("#workout-plan-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>";
@@ -220,6 +222,7 @@ function submitImport(apply) {
     renderImportPreview(data.preview || {});
     if (apply) {
       $("#workout-import-msg").textContent = "Imported.";
+      notify("Workout CSV imported.");
       renderWorkout(data.workout);
     } else {
       $("#workout-import-msg").textContent = "Preview only; nothing applied.";
@@ -259,6 +262,7 @@ function saveWorkoutSetEdit() {
   }).then(function (data) {
     $("#workout-set-edit").hidden = true;
     window.__editingSetId = null;
+    notify("Set updated.");
     renderWorkout(data.workout);
   }).catch(function (error) {
     $("#workout-set-edit-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>";
@@ -452,6 +456,7 @@ function removeWorkoutSet(setId) {
   api("/api/workout/" + activeWorkoutId + "/remove-set", {
     method: "POST", body: JSON.stringify({ set_id: setId })
   }).then(function (data) {
+    notify("Set removed.");
     renderWorkout(data.workout);
   }).catch(function (error) {
     $("#workout-set-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>";
@@ -477,6 +482,7 @@ function submitWorkoutSet(event) {
     $("#workout-set-reps").value = "";
     $("#workout-set-rir").value = "";
     $("#workout-set-velocity").value = "";
+    notify("Set added.");
     renderWorkout(data.workout);
   }).catch(function (error) {
     $("#workout-set-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>";
@@ -496,6 +502,7 @@ function submitWorkoutEnd(event) {
   api("/api/workout/" + activeWorkoutId + "/end", {
     method: "POST", body: JSON.stringify(body)
   }).then(function (data) {
+    notify("Workout ended; session saved.");
     renderWorkoutEnded(data.workout);
   }).catch(function (error) {
     $("#workout-end-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>";
@@ -506,7 +513,7 @@ function abandonWorkout() {
   if (!activeWorkoutId) return;
   if (!window.confirm("Abandon this workout? Sets stay in history but it will not count as completed.")) return;
   api("/api/workout/" + activeWorkoutId + "/abandon", { method: "POST", body: "{}" })
-    .then(loadActiveWorkout)
+    .then(function () { notify("Workout abandoned."); return loadActiveWorkout(); })
     .catch(function (error) {
       $("#workout-end-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>";
     });
@@ -547,7 +554,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (importUndo) importUndo.addEventListener("click", function () {
     if (!activeWorkoutId) return;
     api("/api/workout/" + activeWorkoutId + "/import/undo", { method: "POST", body: "{}" })
-      .then(function (data) { $("#workout-import-msg").textContent = "Last import undone."; renderWorkout(data.workout); })
+      .then(function (data) { $("#workout-import-msg").textContent = "Last import undone."; notify("Last import undone."); renderWorkout(data.workout); })
       .catch(function (error) { $("#workout-import-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>"; });
   });
   var notRecorded = document.getElementById("workout-end-not-recorded");

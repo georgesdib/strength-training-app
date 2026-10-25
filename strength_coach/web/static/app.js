@@ -26,6 +26,17 @@ async function api(path, options = {}) {
   return data;
 }
 
+let toastTimer = null;
+function notify(message, kind = "ok") {
+  const toast = document.querySelector("#toast");
+  if (!toast) return;
+  toast.textContent = message;
+  toast.className = "toast " + (kind === "error" ? "toast-error" : "toast-ok");
+  toast.hidden = false;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.hidden = true; }, 4500);
+}
+
 function setView(name) {
   document.querySelectorAll("#nav button").forEach((b) => {
     b.classList.toggle("active", b.dataset.view === name);
@@ -209,8 +220,10 @@ async function completeReview(taskKey) {
     await api("/api/reviews", { method: "POST", body: JSON.stringify({
       task_key: taskKey, action: "completed", decision, note,
     }) });
+    notify("Review marked complete.");
     await loadReviews();
   } catch (error) {
+    notify(error.message, "error");
     $("#reviews").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
@@ -220,8 +233,10 @@ async function snoozeReview(taskKey) {
     await api("/api/reviews", { method: "POST", body: JSON.stringify({
       task_key: taskKey, action: "snoozed",
     }) });
+    notify("Review snoozed.");
     await loadReviews();
   } catch (error) {
+    notify(error.message, "error");
     $("#reviews").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
@@ -630,6 +645,10 @@ async function loadReview(session) {
 }
 
 async function saveReview(session) {
+  const button = $("#save-review");
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = "Saving…";
   const scores = {};
   document.querySelectorAll("#review-result input[data-key]").forEach((input) => {
     if (input.value !== "") scores[input.dataset.key] = Number(input.value);
@@ -653,9 +672,14 @@ async function saveReview(session) {
       : "";
     $("#review-calibration").innerHTML = `<div class="warnbox"><strong>${esc(saved)}</strong>${post}
       <pre>${esc(data.calibration.text)}</pre></div>`;
+    notify(saved + " · review saved.");
     loadOverview();
   } catch (error) {
-    $("#review-calibration").innerHTML = `<div class="warnbox">${esc(error.message)}</div>`;
+    notify(error.message, "error");
+    $("#review-calibration").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
   }
 }
 
@@ -816,6 +840,7 @@ async function saveReadinessContext() {
   try {
     await api("/api/readiness/context", { method: "POST", body: JSON.stringify({ date: day, flags }) });
     $("#context-msg").textContent = "Saved";
+    notify("Readiness context saved.");
     await loadReadiness(day);
   } catch (error) {
     $("#context-msg").textContent = error.message;
@@ -837,6 +862,7 @@ $("#volume-form").addEventListener("submit", async (event) => {
     });
     renderReadiness(data);
     $("#volume-msg").textContent = "Saved";
+    notify("Readiness volume valve saved.");
     loadOverview();
   } catch (error) {
     $("#volume-msg").textContent = error.message;
@@ -862,6 +888,7 @@ $("#settings-form").addEventListener("submit", async (event) => {
     renderReadiness(data);
     $("#settings-source").textContent =
       "effective source: " + data.settings.setting_source + " · athlete setting recorded";
+    notify("Readiness settings saved.");
     loadOverview();
   } catch (error) {
     $("#settings-source").textContent = error.message;
@@ -903,6 +930,7 @@ $("#override-form").addEventListener("submit", async (event) => {
     renderReadiness(data);
     $("#override-value").value = "";
     $("#override-reason").value = "";
+    notify("Readiness override saved.");
     loadOverview();
   } catch (error) {
     $("#readiness-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
@@ -926,6 +954,7 @@ $("#readiness-form").addEventListener("submit", async (event) => {
         note: $("#readiness-note").value || null }),
     });
     renderReadiness(data);
+    notify("Readiness saved.");
     loadOverview();
   } catch (error) {
     $("#readiness-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
@@ -1417,6 +1446,7 @@ $("#continuity-save").addEventListener("click", async () => {
     });
     $("#continuity-relax").checked = !!data.allow_relax_fixed;
     $("#continuity-msg").textContent = "Saved";
+    notify("Continuity setting saved.");
     await loadContinuity();
   } catch (error) {
     $("#continuity-msg").textContent = error.message;
@@ -1656,6 +1686,7 @@ $("#exercise-form").addEventListener("submit", async (event) => {
     const data = await api("/api/exercises", { method: "POST", body: JSON.stringify({ id, props }) });
     window.__exerciseCatalog = data;
     $("#exercise-editor").hidden = true;
+    notify("Exercise saved.");
     await loadExerciseCatalog();
     await loadExercises();
   } catch (error) {
@@ -2001,6 +2032,7 @@ $("#settings-llm-form").addEventListener("submit", async (event) => {
       method: "POST", body: JSON.stringify(llmPayload()),
     }));
     $("#settings-llm-msg").textContent = "Saved.";
+    notify("LLM settings saved.");
   } catch (error) {
     $("#settings-llm-msg").textContent = error.message;
   }
@@ -2021,6 +2053,7 @@ $("#settings-defaults-save").addEventListener("click", () => {
   localStorage.setItem(SETTINGS_CLASS_C_KEY, $("#settings-default-class-c").checked ? "1" : "0");
   applyStoredUiDefaults();
   $("#settings-defaults-msg").textContent = "Saved in this browser.";
+  notify("Prescribe defaults saved in this browser.");
 });
 
 /* --- boot --------------------------------------------------------------- */

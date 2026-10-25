@@ -81,6 +81,7 @@ def test_the_page_and_overview_are_served(server):
     assert "A/B/C remains" not in page
     assert "Language model" in page
     assert "Regime change" in page
+    assert 'id="toast"' in page
     assert "selection-include-different" in page
     assert "validation-run" in page
     assert "view-workout" in page

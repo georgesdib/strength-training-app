@@ -35,6 +35,8 @@
 
 ### Changed
 
+- Save/review/workout actions now show a non-blocking toast confirmation; End review
+  also disables the button while saving.
 - Programme copy no longer mentions legacy A/B/C; the exercise catalogue table now fits its
   panel with fixed columns and a responsive narrow layout.
 - Minimum-session target and deeper-tier controls are hidden until the mode is ticked, with
