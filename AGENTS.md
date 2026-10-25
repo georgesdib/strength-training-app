@@ -246,6 +246,7 @@ never read `data/raw`.
 | `docs/MINIMUM-SESSION.md` | `MOD-MIN-001` user-selected volume-only fallback: targets, floors, precedence, refusal and provenance |
 | `docs/IMPLEMENTATION-PLAN-2026-10.md` | approved direction and phased implementation plan; A0–F implemented |
 | `docs/TEST-FATIGUE-PLAN.md` | superseded narrow test-fatigue proposal; points to the broader plan |
+| `docs/TECHNIQUE-THROTTLE.md` | user-declared one-session load/RIR throttle (`MOD-TECH-001`); why the automatic form was rejected |
 | `docs/RULES-FORMAT.md` | citable rule IDs + 5 encoded rules |
 | `docs/VBT-CALIBRATION.md` | clean set, sparsity, overrides, versioning, current wiring |
 | `docs/VBT-EVIDENCE.md` | VBT evidence, best practices, what our data can and cannot support |

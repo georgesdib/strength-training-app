@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.12.0"
+  version: "1.13.0"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -40,7 +40,9 @@ document:
     - version: "1.11.0"
       change: "An under-MEV pattern adds one accessory set after three weeks below MEV (MOD-VOL-002), and poor readiness may now reduce main-lift sets as well as accessories (DEC-READINESS-08 amendment)."
     - version: "1.12.0"
-      change: "Canonical session types replace the legacy A/B/C label. Direct-erector scheduling reads session.session_type and allows squat/bench_squat only (DEC-SESSION-01)."
+      change: "Canonical session types replace the legacy A/B/C label everywhere, including PRG-RIR-001's scope (its predicate was always session-agnostic). Direct-erector scheduling reads session.session_type and allows squat/bench_squat only (DEC-SESSION-01)."
+    - version: "1.13.0"
+      change: "MOD-FAT-001's first-set RIR-drop trigger is removed: it was never implemented and a one-RIR drop is inside the measurement's own error (DEC-RIR-04, OPEN-QUESTIONS Q22). MOD-SPINE-001 trims non-essential spinal work when a proposed session would exceed the weekly cap (DEC-SPINE-03). Every modifier now declares implemented_by, so a documented trigger can be traced to the code that runs it."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -85,7 +87,11 @@ rules:
     severity: veto
     scope:
       exercises: "$primary_compounds"
-      sessions: [A, B, C]
+      # DEC-SESSION-01: canonical session types replace the retired A/B/C labels. The
+      # predicate is session-agnostic — it assesses every primary-compound working set — so
+      # the list names all four types rather than narrowing the rule to the days that used
+      # to exist.
+      sessions: [squat, hinge, bench_squat, bench_hinge]
     statement: >
       Main lifts at RIR 1-4, with 2-3 as the default target. RIR 0 — a grinding set — is
       prohibited, as are max singles and 1RM testing inside a block. The allowed window is
@@ -268,6 +274,7 @@ rules:
 modifiers:
 
   - id: MOD-DELOAD-001
+    implemented_by: "strength_coach/prescribe/deload.py::apply_items"
     title: "Scheduled or reactive low-volume deload"
     statement: >
       When a deload is due — the configured block week or a reactive trigger — reduce one set
@@ -286,6 +293,7 @@ modifiers:
       reason: "Config polices scheduled and reactive triggers (DEC-PROGRAMME-05, ASSUMPTION-32)."
 
   - id: MOD-E1RM-001
+    implemented_by: "strength_coach/features/e1rm_calibration.py::factors"
     title: "Measured e1RM calibration"
     statement: >
       When a lift has at least three measured tests and a 95% bootstrap CI of the median
@@ -301,6 +309,7 @@ modifiers:
       reason: "Computed from measured tests (DEC-E1RM-CAL-02, ASSUMPTION-26)."
 
   - id: MOD-E1RM-DECAY-001
+    implemented_by: "strength_coach/features/e1rm_decay.py::factor"
     title: "Age decay of an old e1RM"
     statement: >
       After a 21-day grace period, reduce the e1RM used as the load basis by 1% per week,
@@ -316,6 +325,7 @@ modifiers:
       reason: "Age of the selected e1RM (DEC-E1RM-DECAY-01, ASSUMPTION-27)."
 
   - id: MOD-GAP-001
+    implemented_by: "strength_coach/prescribe/engine.py::_apply_continuity"
     title: "Return-to-training adjustment"
     statement: >
       After a gap in training, add one RIR for the first week back; from 28 days also reduce
@@ -331,19 +341,19 @@ modifiers:
       reason: "The gap is detected from stored sessions (DEC-CONTINUITY-01)."
 
   - id: MOD-FAT-001
+    implemented_by: "strength_coach/prescribe/engine.py::_apply_readiness_score"
     title: "Fatigue downgrade"
     statement: >
-      If the computed readiness score is below 0.80, or sleep/energy is at or below 2, or
-      the first working set is RIR 0-1 at a load that was RIR 2-3 last session, reduce the
-      load by the configured score factor (or use the reduced session). A global/category
-      readiness override wins over the computed score. The combined readiness + continuity
-      reduction is capped at 20%; constraints and injury ceilings are never diluted by it.
+      If the computed readiness score is below 0.80, or sleep/energy is at or below 2,
+      reduce the load by the configured score factor (or use the reduced session). A
+      global/category readiness override wins over the computed score. The combined
+      readiness + continuity reduction is capped at 20%; constraints and injury ceilings
+      are never diluted by it.
     when:
       any:
         - {input: readiness.score, op: "<", value: 0.80}
         - {input: readiness.sleep, op: "<=", value: 2}
         - {input: readiness.energy, op: "<=", value: 2}
-        - {input: first_set_rir_drop.vs_prior_session, op: ">=", value: 1}
     then:
       load_multiplier: [0.85, 1.0]
       rir_bump: [0, 2]
@@ -357,8 +367,14 @@ modifiers:
       The "or" is deliberate: which branch is chosen depends on how many factors fired,
       and that choice belongs to the deterministic engine, not to an LLM. The score,
       override and cap are documented in docs/READINESS-SCORE.md (DEC-READINESS-06/07).
+      There is deliberately no first-set RIR-drop trigger (removed in 1.13.0): at the
+      ±1-2 reps of error the window above already concedes, a one-RIR drop is inside the
+      measurement noise, and a trigger that fires on noise would trade real load for
+      estimation error (DEC-RIR-04, OPEN-QUESTIONS Q22). The implemented RIR signal is the
+      per-lift mean-RIR component, which averages the error down rather than reading one set.
 
   - id: MOD-VOL-001
+    implemented_by: "strength_coach/prescribe/engine.py::_apply_volume_cap"
     title: "Conservative weekly MRV cap"
     statement: >
       If the proposed session plus the prior seven days would put a movement pattern above its
@@ -376,6 +392,7 @@ modifiers:
       reason: "Volume ledger plus configured landmarks (DEC-VOLUME-02, ASSUMPTION-31)."
 
   - id: MOD-VOL-002
+    implemented_by: "strength_coach/prescribe/engine.py::_apply_under_mev"
     title: "Under-MEV accessory progression"
     statement: >
       When a movement pattern has been below its configured MEV for three weeks, add one set
@@ -391,6 +408,7 @@ modifiers:
       reason: "Volume ledger and configured landmarks (DEC-VOLUME-03, ASSUMPTION-33)."
 
   - id: MOD-SELECT-001
+    implemented_by: "strength_coach/prescribe/selection.py::select"
     title: "Categorical exercise substitution from the filtered selector"
     statement: >
       When exercise selection is explicitly enabled, at most one allowed candidate may replace
@@ -408,6 +426,7 @@ modifiers:
       reason: "Shadow selector plus explicit UI/CLI opt-in (DEC-SELECT-02)."
 
   - id: MOD-BACK-001
+    implemented_by: "strength_coach/prescribe/engine.py::_apply_back_flare"
     title: "Back symptom flare deload"
     statement: >
       If back symptoms rise and do not settle in 24-48 h, cut erector volume to the
@@ -422,3 +441,25 @@ modifiers:
     availability:
       status: available
       reason: "Symptom input exists: symptom_log records a pre-session 0-3 back level (DEC-SYMPTOM-01/02)."
+
+  - id: MOD-SPINE-001
+    implemented_by: "strength_coach/prescribe/engine.py::_apply_spinal_trim"
+    title: "Trim non-essential spinal work when a proposed session would exceed the weekly cap"
+    statement: >
+      When the proposed session plus the week's performed work would take the weighted spinal
+      cost above PRG-SPINE-001's cap, remove a non-essential high-fatigue spinal item if that
+      alone brings the week to the cap. Never remove an essential lift. The standard cycle is
+      designed to sit exactly on the cap, so when the overage comes from essential work the
+      prescription stays non-executable and the issue names the exposures that compose the cost.
+    when:
+      any:
+        - {input: spinal.week_cost, op: ">", value: 3}   # mirrors PRG-SPINE-001 params.cap
+    then:
+      item_removal: non_essential_spinal
+    guard:
+      # The cap belongs to the week, not the session: the same session is legal on Monday and
+      # illegal on Friday of a week that already holds a hinge.
+      unit: iso_week
+    availability:
+      status: available
+      reason: "Projected week cost uses the rule's own exposure function (DEC-SPINE-03)."

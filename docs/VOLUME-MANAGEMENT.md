@@ -94,9 +94,16 @@ review decision `DEC-PROGRAMME-04`, not from a new MRV estimate.
 
 `features/volume.py` counts working sets by pattern over the configured window and returns:
 
-- weekly counts, total, average;
+- weekly counts, total, average (for that raw pattern) and `group_average` (for its landmark);
 - MEV, MAV, MRV;
-- status: `under`, `within`, `high`, `over`, `untargeted`.
+- status: `under`, `within`, `high`, `over`, `untargeted`, judged on the **landmark group**.
+
+The status belongs to the group, not the row (`DEC-VOLUME-05`). Several raw patterns share one
+landmark — `core_anti_extension` and `core_flexion` both count as `core`, `squat_unilateral`
+counts as `squat` — and judging a sub-pattern on its own against the merged landmark lets a
+pattern that is low add volume to a sibling that is already trained. `erector_extension` has
+no landmark at all: direct erector work is dosed by `PRG-EREC-001` and capped by
+`PRG-SPINE-001`, never by MEV/MRV.
 
 Exposed as:
 
@@ -122,10 +129,15 @@ volume stacking.
 
 ### Under-MEV
 
-When a pattern is below MEV across the configured three-week window, the engine adds **one
-accessory set** to the first non-essential item in that pattern (`MOD-VOL-002`), up to the
+When a pattern **group** is below MEV across the configured three-week window, the engine adds
+**one accessory set** to the first non-essential item in that group (`MOD-VOL-002`), up to the
 configured per-item maximum. Main lifts are never increased by this rule. The MRV cap runs
 afterwards, so the result still cannot exceed the weekly ceiling.
+
+"Group" matters: before `DEC-VOLUME-05` the rule read a raw pattern's status but matched items
+by landmark key, so a low `core_flexion` added a set to a well-trained `ab_wheel` on every
+squat day, and a low `squat_unilateral` added a set to `split_squat` on every hinge day. The
+set never reached the pattern that was actually under, so the rule re-fired indefinitely.
 
 This is a small deterministic progression, not an individual MRV or an experiment.
 

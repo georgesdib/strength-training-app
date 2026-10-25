@@ -1,0 +1,17 @@
+# MOD-TECH-001 — user-declared technique throttle.
+#
+# The athlete says "technique felt off, take it easier today". This is a *user request*,
+# not a derived rule: no form_rating is read, no flag is stored, and the next session is
+# normal unless the athlete asks again (docs/TECHNIQUE-THROTTLE.md).
+#
+# Both values are design choices, not evidence (ASSUMPTION-36):
+#   load_multiplier 0.90 — a bounded 10% reduction, the same step as a scheduled deload.
+#   rir_floor 3        — the top of the DEC-RIR-02 effort window (RIR 1-4, target 2-3),
+#                        so an easier session is still a working session.
+#
+# The reduction is COMPARED with what the automatic modifiers already applied, never
+# multiplied on top, so an already-reduced item is left alone.
+load_multiplier: 0.90
+rir_floor: 3
+# RIR 0 is forbidden and RIR 6 is a warm-up (DEC-RIR-01), so the cap stays inside 1-5.
+rir_cap: 4

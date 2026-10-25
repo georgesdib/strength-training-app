@@ -4,7 +4,51 @@
 
 ### Added
 
+- Evidence review for reverse hyperextensions and belt squats: acute biomechanics/EMG only,
+  no longitudinal strength or injury outcomes; both remain optional accessories.
 - Guided **Workout workflow**: readiness → prescription preview → start → active workout (sets, CSV/per-rep import, end) → post-workout comparison. Readiness settings and Prescribe analysis remain separate pages.
+- User-declared **technique throttle** (`MOD-TECH-001`): a one-session 90% load cap and RIR floor of 3, chosen explicitly in the Prescribe UI or with `run --technique-throttle [--throttle-pattern]`. It never reads `form_rating`, stores no state and cannot carry into the next session. The automatic `MOD-FORM-001` variant was rejected; see `docs/TECHNIQUE-THROTTLE.md`.
+- Display-only **e1RM plausibility advisory**: when the e1RM behind a main-lift load is >5%
+  above the decayed median of the lift's recent working sets (28 days, ≥3 sets), the
+  prescription says so and names both numbers. No load, set or verdict changes; no modifier id;
+  not persisted with the prescription (`DEC-E1RM-PLAUS-01`, `ASSUMPTION-37`).
+- **e1RM overrides where the lift is on screen**: an **e1RM** action on every Exercises row
+  (shows the override in force, appends a new one), and an optional e1RM panel on the
+  ended-workout screen — a measured test from the set just performed (which registers a
+  high-intensity exposure) or a direct override. Both use the same append-only endpoint as
+  the Athlete page and `e1rm set`.
+- The **technique throttle** is now reachable from the web: `POST /api/prescribe` takes
+  `technique_throttle` and `technique_throttle_pattern`, and the Prescribe form has a
+  **Technique throttle** tick plus an optional pattern scope. This closes the gap that
+  `DEC-TECH-01` had assumed.
+
+### Changed
+
+- The e1RM behind a main-lift load is now an explicit **selector** rather than an implicit
+  best-of-window: `median` (28-day robust window, the default), `best_usable` or `most_recent`
+  (`DEC-E1RM-SOURCE-01`). Median can prescribe materially below a single great day, by design.
+- The weekly spinal cap gains a one-directional trim: a non-essential erector slot is dropped
+  when that alone brings the week to the cap, and the veto stands (naming the exposures) when
+  essential work is the cause (`MOD-SPINE-001`, `DEC-SPINE-03`). Cap unchanged.
+- Volume `under`/`high`/`over` status is judged per **landmark group**; the ledger exposes
+  `group` and `group_average` per row (`DEC-VOLUME-05`).
+
+### Fixed
+
+- `e1rm_source` was read by nothing: changing it to `median` changed no prescription. Unknown
+  values now raise at config load instead of silently defaulting.
+- `MOD-FAT-001`'s first-set RIR-drop branch was documented but never implemented. Removed, with
+  the noise-floor reasoning recorded in `OPEN-QUESTIONS` Q22 (`DEC-RIR-04`, constitution 1.13.0).
+- `MOD-VOL-002` added an under-MEV set to the wrong sub-pattern every session (a low
+  `core_flexion` grew `ab_wheel`; a low `squat_unilateral` grew `split_squat`) and re-fired
+  indefinitely. It now acts on the group that is actually under.
+- The retired A/B/C labels still appeared in `PRG-RIR-001`'s rule scope and in `day_roles`
+  in the exercise taxonomy. Both now list the four canonical session types
+  (`DEC-SESSION-01`), and tests pin the vocabulary so the labels cannot return.
+- A gap reduction could raise `UnboundLocalError` when a bodyweight item was the first one in
+  the loop (box jump): its branch read `applied`, which only the load branch bound. Both
+  branches now share the readiness+continuity budget, so a bodyweight set drop records the
+  factor it actually used (`DEC-W3-02`).
 
 ### Planned
 
@@ -68,6 +112,9 @@ documentation contract, form assessment and calibration milestone. Cardio depth 
 
 ### Fixed
 
+- History corrections are now atomic: forms are validated before any write, set/form/feedback/audit
+  mutations share one transaction, and a failed critique rebuild uses a savepoint instead of
+  committing partial history. Rollback tests cover invalid forms and injected failures.
 - Dynamic form-follow-up docs links used bare filenames; both now use `docs/...`, and the P4 checker scans JavaScript-generated docs links and requires their `Related` footer.
 - Added a partial index on `clean_set(supersedes_id)`; the append-only leaf lookup was
   O(n²) and made Today, Review, rubric calibration and Athlete-state requests slow after

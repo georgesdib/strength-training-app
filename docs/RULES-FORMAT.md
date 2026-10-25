@@ -19,6 +19,11 @@ registered Python predicate. The rule text is never parsed as an expression — 
 little DSL to get wrong. YAML declares *which* predicate and *with what arguments*; Python
 implements the predicate once and tests it.
 
+`scope.sessions` values are the four canonical session types — `squat`, `hinge`,
+`bench_squat`, `bench_hinge`. The retired A/B/C labels must not appear (`DEC-SESSION-01`).
+Scope is descriptive metadata: predicates read the stored sets, not this list, so a stale
+label is invisible at runtime and is caught only by the loader test that pins the vocabulary.
+
 ## 2. Anatomy of a rule
 
 ```yaml
@@ -66,6 +71,13 @@ applied in order by the prescription engine before the policy engine evaluates t
 `MOD-FAT-001` now uses the computed readiness score (with the sleep/energy floor), global or
 category overrides, and a 20% combined readiness + continuity cap; the details are in
 [`READINESS-SCORE.md`](READINESS-SCORE.md).
+
+**A modifier's `when:` block is documentation, not an executed expression.** Python decides
+the trigger, so every modifier must declare
+`implemented_by: "<module/path.py>::<function>"`, and `tests/test_rules_loader.py` imports that
+path and checks the function exists. This is the guard against the failure that motivated it:
+a `when:` branch can sit here for months with no code behind it, and a reader has no way to
+tell. Add a branch only together with its implementation.
 
 ## 3. Citation scheme
 

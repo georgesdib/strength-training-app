@@ -113,6 +113,12 @@ def main(argv: list[str] | None = None) -> int:
                      help="minimum-session target; default from config (45)")
     run.add_argument("--minimum-include-main", action="store_true",
                      help="deeper tier: also reduce main-lift sets to the floor")
+    run.add_argument("--technique-throttle", action="store_true",
+                     help="user-declared: cap load at 90%% and floor RIR at 3 for this session "
+                          "(MOD-TECH-001)")
+    run.add_argument("--throttle-pattern", default=None, metavar="PATTERN",
+                     help="restrict the throttle to one movement pattern (e.g. squat, hinge); "
+                          "default is the session's main lifts")
 
     review = sub.add_parser("review", help="mark a session and update calibration")
     review.add_argument("--session", default=None, help="session id (YYYY-MM-DD)")
@@ -502,6 +508,8 @@ def _cmd_run(args) -> int:
             minimum_session=args.minimum_session,
             minimum_target_minutes=args.target_minutes,
             minimum_include_main=args.minimum_include_main,
+            technique_throttle=args.technique_throttle,
+            technique_throttle_pattern=args.throttle_pattern,
             deload_decision=deload_decision,
         )
         if scheduled_suggestion is not None:
@@ -1480,11 +1488,14 @@ def _cmd_volume(args) -> int:
     finally:
         store.close()
     print(f"weekly hard sets, {report['from']} to {report['to']} (weeks {report['weeks']})")
-    print(f"  {'pattern':<28}{'avg/wk':>8}{'total':>8}{'target':>12}  status")
+    # Status is judged on the landmark group, not the row, so print both averages: a
+    # core_flexion row averaging 2.0 can legitimately read "within" because the core group
+    # averages 5.0 (DEC-VOLUME-05).
+    print(f"  {'pattern':<28}{'avg/wk':>8}{'grp/wk':>8}{'total':>8}{'target':>12}  status")
     for row in report["patterns"]:
         target = "-" if row["target"] is None else f"{row['target'][0]:g}-{row['target'][1]:g}"
-        print(f"  {row['pattern']:<28}{row['average']:>8.1f}{row['total']:>8}"
-              f"{target:>12}  {row['status']}")
+        print(f"  {row['pattern']:<28}{row['average']:>8.1f}{row['group_average']:>8.1f}"
+              f"{row['total']:>8}{target:>12}  {row['status']}")
     heavy = heavy_spinal.compute(
         context.sets, on_date=on_date,
         config=heavy_spinal.HeavySpinalConfig(

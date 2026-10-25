@@ -846,6 +846,10 @@ class Handler(BaseHTTPRequestHandler):
         )
         minimum_session = _truth(body.get("minimum_session"))
         minimum_include_main = _truth(body.get("minimum_include_main")) and minimum_session
+        # MOD-TECH-001 is a user request, so it only runs when explicitly asked for; the
+        # pattern narrows it to one movement pattern, empty means the whole session.
+        technique_throttle = _truth(body.get("technique_throttle"))
+        technique_pattern = str(body.get("technique_throttle_pattern") or "").strip() or None
         target = body.get("target_minutes")
         target_minutes = int(target) if target not in (None, "") else None
         # Resolve deload before building: it must run before minimum session and final
@@ -869,6 +873,8 @@ class Handler(BaseHTTPRequestHandler):
             minimum_target_minutes=target_minutes,
             minimum_include_main=minimum_include_main,
             deload_decision=deload_decision,
+            technique_throttle=technique_throttle,
+            technique_throttle_pattern=technique_pattern,
         )
         if scheduled_suggestion is not None:
             prescription = deload_mod.suggest(prescription, scheduled_suggestion)

@@ -34,6 +34,7 @@ from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import test_cadence, volume as volume_feature
 from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import minimum_session as minimum_session_mod
+from strength_coach.prescribe import technique_throttle as technique_throttle_mod
 from strength_coach.prescribe import warmup
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
 from strength_coach.features import lift_readiness as lift_readiness_feature
@@ -72,6 +73,8 @@ def build_prescription(
     minimum_session: bool = False,
     minimum_target_minutes: int | None = None,
     minimum_include_main: bool = False,
+    technique_throttle: bool = False,
+    technique_throttle_pattern: str | None = None,
     deload_decision: Any | None = None,
 ) -> Prescription:
     """Generate the deterministic session for `for_date`.
@@ -237,6 +240,13 @@ def build_prescription(
         context, tuple(items), for_date
     )
     warnings.extend(volume_warnings)
+    # Last set change before validation: the spinal cap is a veto on the week, and the
+    # standard cycle sits exactly on it, so a non-essential exposure that pushes the week
+    # over is removed rather than turned into a dead prescription (MOD-SPINE-001).
+    items, spine_warnings, spine_note = _apply_spinal_trim(
+        context, tuple(items), for_date, document
+    )
+    warnings.extend(spine_warnings)
 
     # Deload runs before the minimum session and before final validation. Its load factor is
     # compared with the cumulative readiness/continuity factor, never multiplied on top.
@@ -255,6 +265,32 @@ def build_prescription(
             warnings.append(deload_warning)
         if deload_note is not None:
             fallback_level = deload_level
+
+    # MOD-TECH-001 is a user request, so it runs after the automatic modifiers and compares
+    # with their cumulative load factor instead of multiplying on top. It must precede the
+    # ramp attach, which derives warm-up loads from the final top-set load.
+    technique_note = None
+    if technique_throttle:
+        throttle_cfg = technique_throttle_mod.TechniqueThrottleConfig.load()
+        patterns = {
+            item.exercise_id: str(context.entity(item.exercise_id).get("pattern") or "")
+            for item in items
+        }
+        throttle = technique_throttle_mod.apply(
+            tuple(items), patterns,
+            pattern=technique_throttle_pattern, config=throttle_cfg,
+        )
+        if throttle["applied"]:
+            items = list(throttle["items"])
+            warnings.append(
+                f"MOD-TECH-001: user-declared technique throttle; {throttle['reason']}; "
+                "this session only"
+            )
+        else:
+            warnings.append(f"MOD-TECH-001 not applied: {throttle['reason']}")
+        technique_note = {
+            key: value for key, value in throttle.items() if key != "items"
+        }
 
     # Attach the ramp before estimating a minimum session so its warm-up cost is not hidden.
     items = warmup.attach(tuple(items))
@@ -361,13 +397,9 @@ def build_prescription(
     }
 
     spine_rule = document.rule("PRG-SPINE-001")
-    spine_costs = registry.weekly_spinal_costs(
-        spine_rule, context,
-        [(for_date, item.exercise_id, for_date) for item in items],
+    span_week, spine_cost, spine_cap, _spine_mix = _week_spinal(
+        spine_rule, context, tuple(items), for_date
     )
-    span_week = registry.iso_week(for_date)
-    spine_cost = float(spine_costs.get(span_week, {}).get("cost", 0.0))
-    spine_cap = float(spine_rule.params.get("cap", 3))
     spinal_cap = {
         "week": span_week,
         "cost": spine_cost,
@@ -427,9 +459,11 @@ def build_prescription(
             "high_intensity_exposure": exposure_status.as_dict(),
             "volume_management": volume_note,
             "minimum_session": minimum_note,
+            "technique_throttle": technique_note,
             "load_stack": load_stack,
         "session_time": session_time,
         "spinal_cap": spinal_cap,
+        "spinal_trim": spine_note,
         **({"deload": deload_note} if deload_note is not None else {}),
             "selection": {
                 "requested": bool(apply_selection),
@@ -464,22 +498,24 @@ def _apply_under_mev(
         context.sets, on_date=for_date,
         config=replace(cfg, window_weeks=cfg.under_mev_weeks),
     )
+    # Status is judged on the landmark group, so the key to act on is the group, not the
+    # raw pattern a row happens to name (DEC-VOLUME-05).
     under = {
-        volume_feature.volume_target_key(row["pattern"])
+        str(row.get("group") or volume_feature.volume_target_key(row["pattern"]))
         for row in report["patterns"] if row["status"] == "under"
     }
     if not under:
         return items, (), {"applied": False}
     out = list(items)
     changed: list[str] = []
-    for pattern in sorted(under):
+    for key in sorted(under):
         indexes = [
             i for i, item in enumerate(out)
             if not item.essential
             and item.exercise_id
             and volume_feature.volume_target_key(
                 context.entity(item.exercise_id).get("pattern") or ""
-            ) == pattern
+            ) == key
         ]
         if not indexes:
             continue
@@ -493,7 +529,7 @@ def _apply_under_mev(
             sets=item.sets + add,
             rationale_refs=item.rationale_refs + ("MOD-VOL-002",),
         )
-        changed.append(f"{pattern}:{item.exercise_id}+{add}")
+        changed.append(f"{key}:{item.exercise_id}+{add}")
     if not changed:
         return tuple(out), (), {"applied": False}
     warning = (
@@ -583,6 +619,108 @@ def _apply_volume_cap(
         "reductions": {items[i].exercise_id: items[i].sets - sets
                        for i, sets in changed.items()},
         "warning_count": len(warnings),
+    }
+
+
+def _week_spinal(
+    rule,
+    context: RuleContext,
+    items: tuple[PrescriptionItem, ...],
+    for_date: str,
+) -> tuple[str, float, float, dict[str, int]]:
+    """Projected spinal cost for the session's ISO week, with its composition.
+
+    The proposed session is costed by the same function that judges performed work
+    (PRG-SPINE-001's exposure function), so the engine cannot disagree with the predicate
+    about what the week costs. That is the whole reason MOD-SPINE-001 can exist: it trims
+    against the rule's own arithmetic rather than a second implementation of it.
+    """
+    week = registry.iso_week(for_date)
+    proposed = [(for_date, item.exercise_id, for_date) for item in items]
+    entry = registry.weekly_spinal_costs(rule, context, proposed).get(week, {})
+    mix = {str(ex): int(n) for ex, n in (entry.get("exercises") or {}).items()}
+    return (
+        week,
+        float(entry.get("cost", 0.0)),
+        float(rule.params.get("cap", 3)),
+        mix,
+    )
+
+
+def _apply_spinal_trim(
+    context: RuleContext,
+    items: tuple[PrescriptionItem, ...],
+    for_date: str,
+    document,
+) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], dict]:
+    """Drop non-essential spinal work when the proposed session would exceed the weekly cap.
+
+    PRG-SPINE-001 vetoes a *week*, and the standard cycle is designed to sit exactly on the
+    cap (docs/W9-SPINAL-CAP.md), so one extra exposure is enough to make an otherwise good
+    prescription non-executable. This is the same one-directional remedy the MRV cap uses:
+    remove only non-essential high-fatigue spinal work, never an essential lift, and only
+    while the removal actually reduces the week's cost. If the overage comes from essential
+    work the veto stands and `validate_prescription` names the exposures that compose it.
+    """
+    rule = document.rule("PRG-SPINE-001")
+    week, cost, cap, _mix = _week_spinal(rule, context, items, for_date)
+    base = {"week": week, "cost": cost, "cap": cap}
+    if cost <= cap:
+        return items, (), {"applied": False, **base}
+
+    excluded = {str(p) for p in (rule.params.get("excluded_patterns") or ())}
+    costs = dict(rule.params.get("costs") or {})
+    candidates: list[tuple[float, int, int]] = []
+    for index, item in enumerate(items):
+        if item.essential:
+            continue
+        entity = context.entity(item.exercise_id)
+        if not entity.get("high_fatigue_spinal", False):
+            continue
+        if str(entity.get("pattern")) in excluded:
+            continue
+        exercise_cost = costs.get(item.exercise_id, entity.get("spinal_cost"))
+        if exercise_cost is None:
+            continue
+        # Cheapest exposure first, then the item with the most sets: that saves the most
+        # work per unit of spinal cost removed.
+        candidates.append((float(exercise_cost), -int(item.sets), index))
+    if not candidates:
+        return items, (), {"applied": False, "reason": "no non-essential spinal work", **base}
+
+    kept = list(range(len(items)))
+    removed: list[str] = []
+    current = cost
+    for _cost, _neg_sets, index in sorted(candidates):
+        if current <= cap:
+            break
+        trial = [i for i in kept if i != index]
+        trial_cost = _week_spinal(rule, context, [items[i] for i in trial], for_date)[1]
+        if trial_cost < current:
+            kept = trial
+            removed.append(items[index].exercise_id)
+            current = trial_cost
+    if not removed:
+        # The overage is carried by essential lifts: removing an accessory cannot fix it, so
+        # the veto must stand rather than silently delete unrelated work.
+        return items, (), {
+            "applied": False,
+            "reason": "overage comes from essential lifts",
+            **base,
+        }
+    # order_index is positional in models.Prescription.item(), so renumber after a removal.
+    out = tuple(replace(items[i], order_index=position) for position, i in enumerate(kept))
+    warning = (
+        "MOD-SPINE-001: removed " + ", ".join(removed)
+        + f" to keep the week within the spinal cap (cost {cost:g} -> {current:g}, cap {cap:g})"
+    )
+    return out, (warning,), {
+        "applied": True,
+        "week": week,
+        "cap": cap,
+        "removed": removed,
+        "cost_before": cost,
+        "cost_after": current,
     }
 
 
@@ -751,6 +889,7 @@ def _load_stack(items: tuple[PrescriptionItem, ...]) -> list[dict]:
         ("MOD-FAT-001", "readiness"),
         ("MOD-GAP-001", "continuity"),
         ("MOD-DELOAD-001", "deload"),
+        ("MOD-TECH-001", "technique throttle"),
     )
     rows = []
     for item in items:
@@ -837,6 +976,16 @@ def _apply_continuity(
                 load_factor=item.load_factor * applied,
             ))
         elif multiplier < 1.0 and item.load_basis == "bodyweight_total":
+            # Bodyweight work cannot shed load, so it loses a set instead. The factor still
+            # comes from the same readiness+continuity budget and must be bound here: a
+            # bodyweight item can be the first one in the loop (box jump), and reading
+            # `applied` from the branch above left it unbound (DEC-W3-02).
+            prior = prior_factors.get(item.exercise_id, 1.0)
+            applied = multiplier
+            if prior * multiplier < 0.80:
+                applied = min(1.0, 0.80 / prior)
+                capped = capped or applied > multiplier
+            factors_out[item.exercise_id] = prior * applied
             out.append(replace(
                 item,
                 sets=max(1, item.sets - 1),
@@ -1130,7 +1279,9 @@ def build_item(
             )
     elif slot.load_source == "e1rm":
         found = _latest_e1rm(conn, context, exercise_id, for_date,
-                              thresholds.e1rm_window_days, calibration_factors)
+                              thresholds.e1rm_window_days, calibration_factors,
+                              source=thresholds.e1rm_source,
+                              robust_window_days=thresholds.e1rm_robust_window_days)
         if found is None:
             # No recent e1RM is common after a layoff. Reusing the last working load is
             # safer than refusing to prescribe: the load is a real, previously managed
@@ -1158,6 +1309,13 @@ def build_item(
                 warnings.append(
                     f"{exercise_id}: e1RM source has one eligible set; confidence limited"
                 )
+            elif thresholds.e1rm_source == config_mod.E1RM_MEDIAN:
+                # Say what the estimate summarised: a median is not a single stored set, and
+                # the cited reference names only the most recent contributor.
+                warnings.append(
+                    f"{exercise_id}: e1RM is the median of {coverage} sets over up to "
+                    f"{thresholds.e1rm_robust_window_days} days"
+                )
             load = loads.solve_load(e1rm_kg, slot.reps_low, slot.rir_low, increment)
             refs = ("PRG-RIR-001", ref)
             if calibrated:
@@ -1176,6 +1334,16 @@ def build_item(
                 warnings.append(
                     f"{exercise_id}: using a manual e1RM override ({e1rm_kg:g} kg)"
                 )
+            calibration_row = (calibration_factors or {}).get(exercise_id)
+            advisory = _e1rm_plausibility(
+                context, exercise_id, e1rm_kg, for_date, thresholds,
+                calibration_factor=(
+                    1.0 if calibration_row is None
+                    else float(calibration_row.correction_factor)
+                ),
+            )
+            if advisory:
+                warnings.append(advisory)
     else:
         found = _last_working_set(context, exercise_id)
         if found is None and bodyweight:
@@ -1273,13 +1441,26 @@ def _e1rm_decay(context: RuleContext, age_days: float) -> float:
 def _latest_e1rm(
     conn, context: RuleContext, exercise_id: str, for_date: str, window_days: int,
     calibration_factors: Mapping[str, object] | None = None,
+    *,
+    source: str = config_mod.E1RM_BEST_USABLE,
+    robust_window_days: int = 28,
 ) -> tuple[float, str, bool, bool, int | None, float] | None:
     """The e1RM to prescribe from, with a citable reference.
 
-    A manual override in force on the date outranks the computed estimate: the athlete may
-    know a tested value the formula cannot see. Otherwise the best usable e1RM in the window
-    ending at `for_date` is used. The window is measured from the prescription date, not from
-    the last session, so a returning athlete is not prescribed from a pre-break peak.
+    A manual override in force on the date outranks every computed estimate: the athlete may
+    know a tested value the formula cannot see. Otherwise one of three selectors picks a
+    value from the window ending at `for_date` (DEC-E1RM-SOURCE-01):
+
+    * `best_usable` — the highest age-decayed estimate. The maximum of noisy observations is
+      an optimistic estimator by construction, which is why it is no longer the default.
+    * `median` — the median set-level estimate in the shorter robust window, falling back to
+      `best_usable` when that window holds nothing. One great day cannot pin twelve weeks.
+    * `most_recent` — the latest usable set.
+
+    Every selector compares *age-decayed* values, so an old observation competes with a
+    recent one on equal terms rather than by raw value alone. The window is measured from the
+    prescription date, not the last session, so a returning athlete is not prescribed from a
+    pre-break peak.
     """
     override = queries.e1rm_override(conn, exercise_id, for_date)
     if override is not None:
@@ -1298,21 +1479,60 @@ def _latest_e1rm(
         & frame["e1rm_kg"].notna()
         & (frame["date"] >= cutoff)
     ]
+    # Only working sets. A warm-up still carries a (much lower) formula e1RM; it can never win
+    # a maximum, so `best_usable` was accidentally immune, but it drags a median down and can
+    # be the "most recent" set. A lift with nothing but warm-ups has no usable e1RM, which is
+    # the same answer the domain gives (DEC-RIR-01).
+    if "is_working_set" in usable.columns:
+        usable = usable[usable["is_working_set"].astype(bool)]
     if usable.empty:
         return None
-    # Pick the best *current* estimate: the same e1RM from an older set decays more, and a
-    # tie should prefer the more recent observation. Selecting by raw e1RM first made the
-    # oldest of several identical sets the winner.
     usable = usable.assign(
         _age_days=(pd.Timestamp(for_date) - usable["date"]).dt.days,
     )
     usable["_decay"] = [_e1rm_decay(context, age) for age in usable["_age_days"]]
     usable["_effective"] = usable["e1rm_kg"] * usable["_decay"]
+    calibration = (calibration_factors or {}).get(exercise_id)
+    factor = 1.0 if calibration is None else float(calibration.correction_factor)
+
+    if source == config_mod.E1RM_MEDIAN:
+        robust_start = pd.Timestamp(for_date) - pd.Timedelta(days=robust_window_days)
+        pool = usable[usable["date"] >= robust_start]
+        if pool.empty:
+            # Nothing recent: the median falls back to the best usable estimate rather than
+            # to "no e1RM", which would throw away real history on a returning athlete.
+            pool = usable
+        raw_median = float(pool["e1rm_kg"].median())
+        effective_median = float(pool["_effective"].median())
+        # The implied decay is the ratio of the two medians: it says how much age cost the
+        # typical observation, without pretending any single set is the source.
+        decay = effective_median / raw_median if raw_median > 0 else 1.0
+        # Cite the most recent contributor: the reference proves the estimate came from
+        # stored sets, and the warning says how many it summarised.
+        row = pool.sort_values(["date", "set_id"]).iloc[-1]
+        return (effective_median * factor,
+                f"set:{row['session_id']}/{int(row['set_id'])}",
+                factor != 1.0,
+                decay < 1.0 - 1e-9,
+                int(len(pool)),
+                decay)
+
+    if source == config_mod.E1RM_MOST_RECENT:
+        row = usable.sort_values(["date", "set_id"]).iloc[-1]
+        decay = float(row["_decay"])
+        return (float(row["e1rm_kg"]) * factor * decay,
+                f"set:{row['session_id']}/{int(row['set_id'])}",
+                factor != 1.0,
+                decay != 1.0,
+                int(len(usable)),
+                decay)
+
+    # best_usable: the highest *current* estimate. The same e1RM from an older set decays
+    # more, and a tie should prefer the more recent observation; selecting by raw e1RM first
+    # made the oldest of several identical sets the winner.
     row = usable.sort_values(
         ["_effective", "date", "set_id"], ascending=[False, False, False]
     ).iloc[0]
-    calibration = (calibration_factors or {}).get(exercise_id)
-    factor = 1.0 if calibration is None else float(calibration.correction_factor)
     decay = float(row["_decay"])
     return (float(row["e1rm_kg"]) * factor * decay,
             f"set:{row['session_id']}/{int(row['set_id'])}",
@@ -1320,6 +1540,72 @@ def _latest_e1rm(
             decay != 1.0,
             int(len(usable)),
             decay)
+
+
+def _e1rm_plausibility(
+    context: RuleContext,
+    exercise_id: str,
+    used_e1rm: float | None,
+    for_date: str,
+    thresholds,
+    *,
+    calibration_factor: float = 1.0,
+) -> str | None:
+    """An advisory when the load base sits far above this lift's recent typical estimate.
+
+    Advisory, never policy: it changes no load, no set and no verdict — the precedent is the
+    injury and recent-stress signals (DEC-INJURY-01, DEC-STRESS-01). It catches a *single-point*
+    error in the load base: a measured override set far above history, a best-of-window estimate
+    after a config flip, or a median that had to fall back to the older window. It is
+    deliberately blind to a systematic bias in the whole e1RM distribution, because that cannot
+    be seen in the distribution itself: MOD-E1RM-001 measures it against real tests.
+
+    The reference is the median *working-set* e1RM over the recent window, decayed to the
+    prescription date like the value it judges, so the comparison is like for like. Under the
+    default `median` selector with ordinary history the two numbers are the same and this
+    function is silent by construction (DEC-E1RM-PLAUS-01).
+    """
+    if not thresholds.plausibility_enabled or used_e1rm is None:
+        return None
+    frame = context.sets
+    if frame.empty or "e1rm_kg" not in frame:
+        return None
+    cutoff = pd.Timestamp(for_date) - pd.Timedelta(
+        days=thresholds.plausibility_reference_days
+    )
+    reference = frame[
+        frame["exercise_id"].isin(exercises_mod.history_equivalents(exercise_id))
+        & frame["e1rm_kg"].notna()
+        & (frame["date"] >= cutoff)
+    ]
+    if "is_working_set" in reference.columns:
+        reference = reference[reference["is_working_set"].astype(bool)]
+    if len(reference) < thresholds.plausibility_min_sets:
+        # Too little recent work to call anything implausible: say nothing rather than guess.
+        return None
+    ages = (pd.Timestamp(for_date) - reference["date"]).dt.days
+    effective = [
+        float(value) * _e1rm_decay(context, int(age))
+        for value, age in zip(reference["e1rm_kg"], ages, strict=True)
+    ]
+    typical = float(pd.Series(effective).median())
+    if typical <= 0:
+        return None
+    excess = float(used_e1rm) / typical - 1.0
+    # A measured-test calibration is evidence, not an error, so the band widens by whatever it
+    # justified: the advisory must not tell the athlete to distrust the one correction that is
+    # checked against reality (MOD-E1RM-001). Its own warning already explains that load.
+    allowed = thresholds.plausibility_max_above_reference + max(
+        0.0, float(calibration_factor) - 1.0
+    )
+    if excess <= allowed:
+        return None
+    return (
+        f"{exercise_id}: the e1RM behind this load ({float(used_e1rm):g} kg) is "
+        f"{excess:.0%} above the recent median for this lift ({typical:g} kg from "
+        f"{len(reference)} working sets in {thresholds.plausibility_reference_days} days); "
+        "check the source before lifting — the load is unchanged (DEC-E1RM-PLAUS-01)"
+    )
 
 
 def _last_working_set(
@@ -1386,13 +1672,14 @@ def validate_prescription(
                     )
 
     rule = document.rule("PRG-SPINE-001")
-    proposed = [(for_date, item.exercise_id, for_date) for item in items]
-    costs = registry.weekly_spinal_costs(rule, context, proposed)
-    week = registry.iso_week(for_date)
-    cost = float(costs.get(week, {}).get("cost", 0.0))
-    cap = float(rule.params.get("cap", 3))
+    week, cost, cap, mix = _week_spinal(rule, context, items, for_date)
     if cost > cap:
-        issues.append(f"SPINAL_CAP:{week}:cost {cost:g} exceeds cap {cap:g}")
+        # Name the exposures: "move one of these" is actionable, "over the cap" is not.
+        composition = ", ".join(f"{ex} x{n}" for ex, n in sorted(mix.items()))
+        issues.append(
+            f"SPINAL_CAP:{week}:cost {cost:g} exceeds cap {cap:g}"
+            + (f" ({composition})" if composition else "")
+        )
 
     return issues
 

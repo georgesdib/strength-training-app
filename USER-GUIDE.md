@@ -447,8 +447,10 @@ strength-coach state
 ```
 
 The web **Athlete** page edits all of this append-only: profile, constraints, suitability,
-e1RM overrides, strength tests, block start and symptoms. The CLI below remains the scripted
-route. This is the §11 athlete state: goals, constraints and per-exercise suitability. It exists so
+e1RM overrides, strength tests, block start and symptoms. An e1RM override can also be set
+where you are thinking about that lift: the **e1RM** button on an **Exercises** row, or the
+panel at the bottom of an ended workout (which can record a measured test from the set you
+just did, or a direct override). The CLI below remains the scripted route. This is the §11 athlete state: goals, constraints and per-exercise suitability. It exists so
 a hard constraint can veto a prescription deterministically, rather than living in a prompt.
 
 - **constraint** — `hard_exclude` vetoes the exercise; `caution` and `monitor` are recorded
@@ -603,7 +605,8 @@ source is used, the last set, and "no measured test; formula only". It also appl
 a **bounded correction** when at least 3 tests exist and the 95% bootstrap CI
 of the median ratio excludes 1.0: the formula e1RM is multiplied by the median ratio, clamped
 to ±10%, and cited as `MOD-E1RM-001`. Ambiguous evidence or a larger bias applies nothing.
-Measured overrides are never adjusted. The same table is on the Athlete page.
+Measured overrides are never adjusted. The same table is on the Athlete page; overrides can
+be appended from there, from an Exercises row, or from the post-workout panel.
 
 ### 4.7 `symptom` — a pre-session region reading
 

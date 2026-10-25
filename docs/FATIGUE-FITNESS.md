@@ -54,7 +54,7 @@ prescription remains deterministic and shadow-free.
 |---|---|---|
 | readiness score | global 0–1 from sleep/energy/mood/stress/soreness (plus HRV/RHR baseline and optional wearable blend); category overrides | no per-lift readiness; no post-session fatigue |
 | `MOD-FAT-001` | reduces load up to 5% and raises RIR when readiness is low | does not know what you lifted yesterday |
-| e1RM | best usable Epley+RIR estimate in the **84-day** window, or a measured override | does not decay the estimate after a hard session |
+| e1RM | the selected Epley+RIR estimate in the **84-day** window — a 28-day median by default, `best_usable` or `most_recent` by config (`DEC-E1RM-SOURCE-01`) — or a measured override | does not decay the estimate after a hard session |
 | gap rules | 14/28/56-day bands reduce load and step back the erector ramp | a 48-hour turnaround is "no gap" |
 | deload | scheduled/reactive low-volume week can reduce sets, load and RIR | no accumulated-load or fitness-fatigue state drives the trigger |
 
@@ -216,7 +216,7 @@ per lift (median ratio, mean bias, MAE), and a **bounded correction** when ≥3 
 Athlete page show both. Measured overrides still win. The value remains an estimate:
 
 - Epley with RIR folded in (`epley_plus_rir`), marked as an approximation (`ASSUMPTION-03`);
-- the **best usable** estimate in the 84-day window is used for loads, not the latest;
+- the selected estimate in the 84-day window is used for loads: a **28-day median** by default, so one great day does not pin twelve weeks of prescriptions (`DEC-E1RM-SOURCE-01`);
 - a measured `test` writes an `e1rm_override` and outranks the formula;
 - `--e1rm` can override a test if the athlete knows better.
 
@@ -229,6 +229,37 @@ handful of tests would overfit; the single robust ratio is the limit.
 Recommended order: report first (now implemented), manual override remains the control. If
 the report shows a consistent per-lift bias over several tests, add a config-level correction
 with an assumption, not a learned model.
+### 6.1 The load base, end to end
+
+Five steps stand between a logged set and a number on the bar. They answer different
+questions, and mixing them up is how a plausible-sounding rule turns into a controller:
+
+| step | question | mechanism | can it change a load? |
+|---|---|---|---|
+| formula | what does this set imply for a single? | Epley with RIR folded in | it defines the units |
+| selection | which estimate represents the athlete now? | `best_usable` / `median` / `most_recent` (`DEC-E1RM-SOURCE-01`) | yes |
+| decay | how much is the estimate worth today? | 1%/week after 21 days, capped 10% (`MOD-E1RM-DECAY-001`) | yes |
+| calibration | is the formula hot or cold for this lift? | bounded ±10% ratio from measured tests (`MOD-E1RM-001`) | yes |
+| plausibility | is this number believable against recent work? | advisory only (`DEC-E1RM-PLAUS-01`) | **no** |
+
+**Selection, decay and calibration correct the estimate. The plausibility check only speaks.**
+It exists because a robust selector cannot see a single-point error: a measured override set
+far above history, a best-of-window estimate after a config flip, or a median that fell back
+to the older window when the recent one was empty.
+
+A rate limiter on load increases was considered and rejected. It bounds *change*, not *level*:
+if every estimate is 4% high, a one-increment cap converges to the same 4%-high load, only
+later — and because a 2% shift in a 180 kg e1RM is about six 0.5 kg increments, the cap would
+bind on ordinary progression rather than on the case it was meant to catch. A level error is
+also invisible inside the distribution: every set agrees with every other set because they all
+carry the same bias. Only an external reference identifies it, which is why the correction is
+the measured-test ratio and not a statistic of the training log.
+
+**What the advisory does not do:** it is generation-time only (warnings are not persisted with
+a stored prescription), it stays silent below three recent working sets, and it will not fire
+under the default `median` selector with ordinary history — by construction, because the
+two numbers are then the same. That silence is the design, not a gap: the selector already
+answers the question it would ask.
 
 ---
 

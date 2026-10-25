@@ -78,13 +78,20 @@ class PatternVolume:
     mev: float | None = None
     mav: tuple[float, float] | None = None
     mrv: float | None = None
+    # The landmark key this pattern is judged under. Several raw patterns can share one
+    # (core_anti_extension and core_flexion both count as "core"), so the status belongs to
+    # the group, not to the row: a sub-pattern below MEV must not add volume to its sibling.
+    group: str = ""
+    group_average: float = 0.0
 
     def as_dict(self) -> dict:
         return {
             "pattern": self.pattern,
+            "group": self.group or self.pattern,
             "weeks": list(self.weeks),
             "total": self.total,
             "average": round(self.average, 2),
+            "group_average": round(self.group_average, 2),
             "target": list(self.target) if self.target else None,
             "status": self.status,
             "mev": self.mev,
@@ -94,7 +101,21 @@ class PatternVolume:
 
 
 def volume_target_key(pattern: str) -> str:
-    """Map a taxonomy pattern to the configured landmark key."""
+    """Map a taxonomy pattern to the configured landmark key.
+
+    The mapping is a decision, not an accident, and it is deliberately asymmetric:
+
+    * `squat_unilateral` joins `squat` because split squats load the same quad and glute
+      tissue as the bilateral lift and the config gives them no separate landmark;
+    * `hinge_unilateral` stays separate because the config *does* carry a
+      `hinge_unilateral` landmark, and a single-leg RDL is a low-axial-load accessory that
+      should not consume the trap bar's recovery budget;
+    * `erector_extension` stays under its own key, which has no landmark at all: direct
+      erector work is dosed by PRG-EREC-001 and capped by PRG-SPINE-001, not by MEV/MRV.
+
+    `tests/test_volume.py` asserts all three, so changing the mapping without changing the
+    configured volumes is a test failure rather than a silent drift.
+    """
     raw = str(pattern)
     if raw.startswith("horizontal_push"):
         return "horizontal_push"
@@ -132,30 +153,45 @@ def compute(sets: pd.DataFrame, *, on_date: str | None = None,
     frame = frame[frame["pattern"].notna()]
     frame["iso_week"] = frame["date"].dt.isocalendar().week.astype(int)
     week_labels = sorted(frame["iso_week"].unique().tolist())
-    rows: list[PatternVolume] = []
+    # Two passes: collect the raw patterns, then judge each *landmark group* as a whole.
+    # Judging a raw pattern against a merged landmark is what made a low hanging_leg_raise
+    # add a set to a well-trained ab_wheel (DEC-VOLUME-05).
+    grouped: dict[str, list[dict]] = {}
     for pattern, group in frame.groupby("pattern"):
         counts = [int((group["iso_week"] == week).sum()) for week in week_labels]
         total = sum(counts)
-        average = total / max(1, len(week_labels))
-        target_key = volume_target_key(str(pattern))
+        grouped.setdefault(volume_target_key(str(pattern)), []).append({
+            "pattern": str(pattern),
+            "counts": tuple(counts),
+            "total": total,
+            "average": total / max(1, len(week_labels)),
+        })
+
+    rows: list[PatternVolume] = []
+    for target_key, members in grouped.items():
         landmark = cfg.landmark(target_key) if target_key else None
         target = (landmark[0], landmark[3]) if landmark else None
+        group_average = sum(member["total"] for member in members) / max(1, len(week_labels))
         if landmark is None:
             status = "untargeted"
-        elif average < landmark[0]:
+        elif group_average < landmark[0]:
             status = "under"
-        elif average > landmark[3]:
+        elif group_average > landmark[3]:
             status = "over"
-        elif average > landmark[2]:
+        elif group_average > landmark[2]:
             status = "high"
         else:
             status = "within"
-        rows.append(PatternVolume(
-            str(pattern), tuple(counts), total, average, target, status,
-            mev=landmark[0] if landmark else None,
-            mav=(landmark[1], landmark[2]) if landmark else None,
-            mrv=landmark[3] if landmark else None,
-        ))
+        for member in members:
+            rows.append(PatternVolume(
+                member["pattern"], member["counts"], member["total"], member["average"],
+                target, status,
+                mev=landmark[0] if landmark else None,
+                mav=(landmark[1], landmark[2]) if landmark else None,
+                mrv=landmark[3] if landmark else None,
+                group=target_key,
+                group_average=group_average,
+            ))
     rows.sort(key=lambda row: (-row.total, row.pattern))
     return {
         "from": start.date().isoformat(),

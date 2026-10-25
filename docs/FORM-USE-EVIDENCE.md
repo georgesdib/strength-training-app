@@ -64,6 +64,9 @@ prospective test and cannot establish prediction or causation.
   substitute an exercise or trigger a deload.
 - **Technique work** can be a coaching response after the athlete reviews the pattern.
 - **Exercise selection** may show form as context, but must not rank or exclude a lift on it.
+- **A user-declared throttle is not a rating-driven change.** `MOD-TECH-001` lets the athlete
+  ask for a lighter session after reviewing a pattern; it reads no `form_rating`, stores no
+  flag and carries nothing forward (`docs/TECHNIQUE-THROTTLE.md`).
 
 ## 5. What it must not be used for
 

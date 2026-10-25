@@ -21,7 +21,7 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-11 | Minimum-session deep-tier main floor of 2 is a heuristic, not trial evidence | open | W0-C8, DEC-MIN-01 | evidence for a different minimum dose |
 | LIM-12 | Last-working-load fallback is not decayed; continuity handles the gap separately | open | W2 | evidence for decaying the fallback |
 | LIM-13 | e1RM coverage is visible as a source-set count; a single-set source still has low confidence | closed | W2 / DEC-E1RM-COVERAGE-01 | reopened if coverage needs a confidence model |
-| LIM-14 | The spinal cap is ordinal and load-blind; normal week sits exactly at cap 3 | open | W9 | cap/ordinality/template decision |
+| LIM-14 | The spinal cap is ordinal and load-blind; normal week sits exactly at cap 3. It counts one exposure per (session, exercise), so set count is invisible: five trap-bar sets cost the same as one. A non-essential erector slot is now trimmed when it alone resolves an overage (`MOD-SPINE-001`), but the ordinal weights themselves are unchanged | open | W9 / DEC-SPINE-03 | cap/ordinality/load-weighting decision with a pre-declared validation plan |
 | LIM-15 | Exact-cap weeks do not trigger the reactive deload; only two consecutive over-cap weeks do | open | W9 | reactive-policy change is approved |
 | LIM-16 | `single_leg_db_rdl` is classified as non-counting by engineering judgement; no direct lumbar-load comparison exists | open | W9 / DEC-W9-01 | direct unilateral spinal-load evidence or a template decision |
 | LIM-17 | High-fatigue deadlift variants use a conservative default cost of 3, not a measured cost | open | W9 | variant-specific evidence/config |
@@ -31,7 +31,8 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-21 | Power dose (3×3–5 box jumps) is practice; function evidence is moderate/low certainty | open | W4, STRENGTH-PROGRAM-REVIEW | dose-specific power evidence |
 | LIM-22 | Exercise-selection algorithm is a shadow tool, not a validated strength intervention | open | W4, SELECTION-COMPARABILITY | prospective selection comparison |
 | LIM-23 | High-intensity exposure guard is safety engineering; prospective review is pending | open | W4, HIGH-INTENSITY-EXPOSURE-PLAN | prospective exposure review |
-| LIM-24 | e1RM/formula precision overstates the underlying RIR/measurement precision | open | W4, STRENGTH-PROGRAM-REVIEW | calibration/measurement study |
+| LIM-24 | e1RM/formula precision overstates the underlying RIR/measurement precision. The default selector is now a 28-day median (`DEC-E1RM-SOURCE-01`), which counters best-of-window optimism but does not fix the RIR-adjusted Epley bias itself | open | W4, STRENGTH-PROGRAM-REVIEW / DEC-E1RM-SOURCE-01 | calibration/measurement study |
+| LIM-43 | The e1RM plausibility advisory is display-only and generation-time only (warnings are not persisted with a stored prescription), needs at least 3 recent working sets to speak, cannot see the last-working-load fallback (which has no e1RM at all), and cannot detect a systematic level bias in the whole e1RM distribution — that is `MOD-E1RM-001`'s job and needs measured tests | open | DEC-E1RM-PLAUS-01 | a level-bias estimate from repeated measured tests |
 | LIM-25 | Public Git history still contains earlier personal details; current docs were generalised, not rewritten | accepted | F, PRIVACY | a history-rewrite decision |
 | LIM-26 | Single-athlete observational data cannot support causal claims | open | W4/W5, METHODOLOGY | prospective design |
 | LIM-27 | The UI still lacks first-class surfaces for `review --pending`, bulk state YAML, some report date controls and LLM proposals | open | UI-CLI-PARITY | parity work |

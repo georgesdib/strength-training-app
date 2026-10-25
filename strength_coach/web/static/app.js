@@ -642,6 +642,12 @@ function syncMinimumSession() {
   if (!on) $("#prescribe-minimum-main").checked = false;
 }
 $("#prescribe-minimum").addEventListener("change", syncMinimumSession);
+
+function syncTechniqueThrottle() {
+  $("#prescribe-throttle-pattern-wrap").hidden = !$("#prescribe-technique").checked;
+}
+
+$("#prescribe-technique").addEventListener("change", syncTechniqueThrottle);
 syncMinimumSession();
 
 $("#prescribe-apply-selection").addEventListener("change", () => {
@@ -674,6 +680,8 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
     minimum_session: $("#prescribe-minimum").checked,
     target_minutes: Number($("#prescribe-target").value),
     minimum_include_main: $("#prescribe-minimum-main").checked,
+    technique_throttle: $("#prescribe-technique").checked,
+    technique_throttle_pattern: ($("#prescribe-throttle-pattern").value || "").trim() || null,
     allow_unknown_readiness: !scoreReady && Boolean(window.__workflowAllowUnknown),
   };
   try {
@@ -1895,6 +1903,7 @@ function renderExerciseCatalog() {
       <td>${names || "—"}</td>
       <td><button class="ghost" data-details-exercise="${esc(row.id)}">Details</button>
         <button class="ghost" data-edit-exercise="${esc(row.id)}">Edit</button>
+        <button class="ghost" data-e1rm-exercise="${esc(row.id)}" title="Append an e1RM override for this lift">e1RM</button>
         <details><summary class="muted">all fields</summary>
         <pre class="props">${esc(JSON.stringify(p, null, 2))}</pre></details></td>
     </tr>`;
@@ -1914,7 +1923,70 @@ function renderExerciseCatalog() {
       if (row) openExerciseDetails(row);
     });
   });
+  document.querySelectorAll("[data-e1rm-exercise]").forEach((button) => {
+    button.addEventListener("click", () => openExerciseE1rm(button.dataset.e1rmExercise));
+  });
 }
+
+function renderExerciseE1rmCurrent(exerciseId, overrides) {
+  const onDate = today();
+  const forLift = (overrides || []).filter((row) => row.exercise_id === exerciseId);
+  const inForce = forLift
+    .filter((row) => String(row.effective_from) <= onDate
+      && (!row.expires_on || String(row.expires_on) >= onDate))
+    .sort((a, b) => String(b.effective_from).localeCompare(String(a.effective_from)));
+  $("#exercise-e1rm-current").textContent = inForce.length
+    ? `active override ${inForce[0].e1rm_kg} kg from ${inForce[0].effective_from} (${forLift.length} recorded)`
+    : forLift.length
+      ? `${forLift.length} recorded, none in force today`
+      : "no override — the load uses the formula estimate";
+}
+
+async function openExerciseE1rm(exerciseId) {
+  const panel = $("#exercise-e1rm-panel");
+  panel.hidden = false;
+  $("#exercise-e1rm-id").value = exerciseId;
+  $("#exercise-e1rm-kg").value = "";
+  $("#exercise-e1rm-date").value = today();
+  $("#exercise-e1rm-reason").value = "";
+  $("#exercise-e1rm-msg").textContent = "";
+  $("#exercise-e1rm-current").textContent = "Loading…";
+  try {
+    const state = await api("/api/state");
+    renderExerciseE1rmCurrent(exerciseId, state.e1rm_overrides);
+  } catch (error) {
+    $("#exercise-e1rm-current").textContent = error.message;
+  }
+  panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+$("#exercise-e1rm-close").addEventListener("click", () => {
+  $("#exercise-e1rm-panel").hidden = true;
+});
+
+$("#exercise-e1rm-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const exerciseId = $("#exercise-e1rm-id").value;
+  const kg = $("#exercise-e1rm-kg").value;
+  $("#exercise-e1rm-msg").textContent = "Saving…";
+  try {
+    const state = await api("/api/state/e1rm", {
+      method: "POST",
+      body: JSON.stringify({
+        exercise_id: exerciseId,
+        e1rm_kg: kg,
+        effective_from: $("#exercise-e1rm-date").value || null,
+        reason: $("#exercise-e1rm-reason").value || null,
+      }),
+    });
+    renderExerciseE1rmCurrent(exerciseId, state.e1rm_overrides);
+    $("#exercise-e1rm-msg").textContent = `Saved ${kg} kg for ${exerciseId}.`;
+    $("#exercise-e1rm-kg").value = "";
+    notify("e1RM override appended.");
+  } catch (error) {
+    $("#exercise-e1rm-msg").innerHTML = `<span class="warnbox">${esc(error.message)}</span>`;
+  }
+});
 
 async function loadExerciseCatalog() {
   try {

@@ -36,9 +36,11 @@ function openWorkoutStart() {
   $("#workout-start-summary").textContent =
     plan.for_date + " · " + (plan.session_type || "unknown");
   $("#workout-readiness-required").innerHTML =
-    WORKOUT_REQUIRED.map(function (key) { return workoutField(key, true); }).join("");
+    WORKOUT_REQUIRED.map(function (key) { return workoutField(key, false); }).join("");
   $("#workout-readiness-optional").innerHTML =
     WORKOUT_OPTIONAL.map(function (key) { return workoutField(key, false); }).join("");
+  $("#workout-start-ack").checked = false;
+  $("#workout-start-ack-wrap").hidden = true;
   $("#workout-start-msg").textContent = "Loading readiness…";
   setView("workout");
   if (typeof setWorkflowStep === "function") setWorkflowStep("active");
@@ -47,7 +49,12 @@ function openWorkoutStart() {
       input.value = data[input.dataset.workoutField] == null ? "" : data[input.dataset.workoutField];
     });
     $("#workout-readiness-note").value = data.note || "";
-    $("#workout-start-msg").textContent = "";
+    window.__workoutReadinessLoaded = data;
+    var scored = data.score && data.score.status === "ready";
+    $("#workout-start-ack-wrap").hidden = Boolean(scored);
+    $("#workout-start-msg").textContent = scored
+      ? ""
+      : "Readiness score unavailable; tick the acknowledgement to start with partial data.";
   }).catch(function (error) {
     $("#workout-start-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + '</p>';
   });
@@ -71,12 +78,7 @@ function submitWorkoutStart(event) {
     var input = document.querySelector('[data-workout-field="' + key + '"]');
     if (input && input.value !== "") readiness[key] = input.value;
   });
-  var missing = WORKOUT_REQUIRED.filter(function (key) { return readiness[key] === undefined; });
-  if (missing.length) {
-    $("#workout-start-msg").innerHTML =
-      '<p class="warnbox">Required readiness missing: ' + esc(missing.join(", ")) + '</p>';
-    return;
-  }
+  var acknowledge = $("#workout-start-ack").checked;
   var loaded = window.__workoutReadinessLoaded || {};
   var changed = WORKOUT_REQUIRED.some(function (key) {
     return String(readiness[key]) !== String(loaded[key] || "");
@@ -95,6 +97,7 @@ function submitWorkoutStart(event) {
       date: plan.for_date,
       plan: plan,
       readiness: readiness,
+      readiness_ack: acknowledge,
       readiness_note: $("#workout-readiness-note").value || null,
       note: $("#workout-start-note").value || null
     })
@@ -440,6 +443,34 @@ function renderWorkoutEnded(w) {
         return esc(row.exercise_id) + " #" + row.set_index;
       }).join(", ") + "</p>"
     : "";
+  var postOptions = "";
+  var seenPost = {};
+  // The workout payload carries the plan; the comparison is the fallback when the plan was
+  // edited away. Either way, only lifts that were actually part of this session are offered.
+  var postSource = (w.plan && w.plan.items) || (w.comparison && w.comparison.items) || [];
+  postSource.forEach(function (item) {
+    if (seenPost[item.exercise_id]) return;
+    seenPost[item.exercise_id] = true;
+    postOptions += '<option value="' + esc(item.exercise_id) + '">' + esc(item.exercise_id) + "</option>";
+  });
+  var postBlock = postOptions
+    ? '<div class="panel" id="post-e1rm-panel" style="margin-top:1rem">' +
+      '<div class="panel-head"><h2>Record an e1RM</h2>' +
+      '<span class="muted">optional; a test registers a high-intensity exposure</span></div>' +
+      '<form id="post-test-form" class="grid-fields">' +
+      '<label>Exercise<select id="post-test-exercise">' + postOptions + "</select></label>" +
+      '<label>kg<input id="post-test-kg" type="number" step="0.5" min="0.5"></label>' +
+      '<label>Reps<input id="post-test-reps" type="number" min="1" max="10" value="3"></label>' +
+      '<label>Date<input id="post-test-date" type="date" value="' + esc(w.for_date) + '"></label>' +
+      '<button class="primary" type="submit">Record test</button></form>' +
+      '<form id="post-e1rm-form" class="grid-fields" style="margin-top:.75rem">' +
+      '<label>or set e1RM<select id="post-e1rm-exercise">' + postOptions + "</select></label>" +
+      '<label>e1RM kg<input id="post-e1rm-kg" type="number" step="0.5" min="0.5"></label>' +
+      '<label>Date<input id="post-e1rm-date" type="date" value="' + esc(w.for_date) + '"></label>' +
+      '<label class="grow">Reason<input id="post-e1rm-reason" placeholder="coach call, correction"></label>' +
+      '<button type="submit">Set override</button></form>' +
+      '<div id="post-e1rm-msg" class="muted"></div></div>'
+    : "";
   $("#workout-ended").innerHTML = "<p><strong>" + esc(w.for_date) + "</strong> ended. Duration <strong>" +
     fmt(w.duration_min) + " min</strong> (" + esc(w.duration_source || "measured") +
     "), session RPE <strong>" + rpe + "</strong>.</p>" +
@@ -452,11 +483,58 @@ function renderWorkoutEnded(w) {
         '<th>Actual / planned sets</th></tr></thead><tbody>' + origRows + '</tbody></table>' +
         '<p class="muted">The table above compares against the modified workout plan; this table compares against the original prescription.</p>'
       : "") +
+    postBlock +
     '<div class="form-row" style="margin-top:1rem">' +
     '<button class="primary" type="button" id="workout-review">Review workout</button>' +
     '<span class="muted">The deterministic rubric was saved at End workout.</span></div>';
   var review = document.getElementById("workout-review");
   if (review) review.addEventListener("click", function () { openReview(w.workout_id); });
+  var postTest = document.getElementById("post-test-form");
+  if (postTest) postTest.addEventListener("submit", function (event) {
+    event.preventDefault();
+    var message = document.getElementById("post-e1rm-msg");
+    message.textContent = "Recording…";
+    api("/api/state/test", {
+      method: "POST",
+      body: JSON.stringify({
+        exercise_id: document.getElementById("post-test-exercise").value,
+        kg: document.getElementById("post-test-kg").value,
+        reps: document.getElementById("post-test-reps").value,
+        date: document.getElementById("post-test-date").value,
+        reason: "post-workout"
+      })
+    }).then(function (state) {
+      var row = (state.e1rm_overrides || []).filter(function (item) {
+        return item.exercise_id === document.getElementById("post-test-exercise").value;
+      }).pop();
+      message.textContent = row
+        ? "Measured e1RM recorded: " + row.e1rm_kg + " kg from " + row.effective_from + "."
+        : "Measured e1RM recorded.";
+      document.getElementById("post-test-kg").value = "";
+    }).catch(function (error) {
+      message.innerHTML = '<span class="warnbox">' + esc(error.message) + "</span>";
+    });
+  });
+  var postOverride = document.getElementById("post-e1rm-form");
+  if (postOverride) postOverride.addEventListener("submit", function (event) {
+    event.preventDefault();
+    var message = document.getElementById("post-e1rm-msg");
+    message.textContent = "Saving…";
+    api("/api/state/e1rm", {
+      method: "POST",
+      body: JSON.stringify({
+        exercise_id: document.getElementById("post-e1rm-exercise").value,
+        e1rm_kg: document.getElementById("post-e1rm-kg").value,
+        effective_from: document.getElementById("post-e1rm-date").value,
+        reason: document.getElementById("post-e1rm-reason").value || "post-workout"
+      })
+    }).then(function () {
+      message.textContent = "e1RM override appended.";
+      document.getElementById("post-e1rm-kg").value = "";
+    }).catch(function (error) {
+      message.innerHTML = '<span class="warnbox">' + esc(error.message) + "</span>";
+    });
+  });
 }
 
 function loadActiveWorkout() {

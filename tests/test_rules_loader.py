@@ -49,7 +49,7 @@ def write_document(tmp_path, *, rules=None, collections=None, document=None, nam
 def test_loads_the_real_constitution():
     document = loader.load_document()
     assert document.document_id == "programme.constitution"
-    assert document.version == "1.12.0"
+    assert document.version == "1.13.0"
     assert document.rule_ids == (
         "PRG-RIR-001",
         "PRG-DP-001",
@@ -85,11 +85,65 @@ def test_unscoped_rule_returns_none():
     assert document.scope_exercises(rule.scope) is None
 
 
+def test_session_scopes_use_canonical_session_types():
+    """DEC-SESSION-01: a rule scope must never reintroduce the retired A/B/C labels.
+
+    scope.sessions is descriptive metadata — no predicate reads it — so a stale label is
+    otherwise invisible: the report still cites the rule and nothing fails.
+    """
+    from strength_coach.prescribe.schedule import SESSION_TYPES
+
+    document = loader.load_document()
+    for rule in document.rules:
+        sessions = rule.scope.get("sessions")
+        if sessions is not None:
+            assert set(sessions) <= set(SESSION_TYPES), (
+                f"{rule.id} scopes sessions {list(sessions)}; "
+                f"canonical types are {list(SESSION_TYPES)}"
+            )
+
+
 def test_modifiers_are_parsed_separately_from_rules():
     document = loader.load_document()
     ids = [modifier["id"] for modifier in document.modifiers]
-    assert ids == ["MOD-DELOAD-001", "MOD-E1RM-001", "MOD-E1RM-DECAY-001", "MOD-GAP-001", "MOD-FAT-001", "MOD-VOL-001", "MOD-VOL-002", "MOD-SELECT-001", "MOD-BACK-001"]
+    assert ids == ["MOD-DELOAD-001", "MOD-E1RM-001", "MOD-E1RM-DECAY-001", "MOD-GAP-001", "MOD-FAT-001", "MOD-VOL-001", "MOD-VOL-002", "MOD-SELECT-001", "MOD-BACK-001", "MOD-SPINE-001"]
     assert "MOD-FAT-001" not in document.rule_ids
+
+
+def test_every_modifier_names_the_code_that_implements_it():
+    """A modifier without a code path is a promise the engine does not keep.
+
+    The `when` blocks are documentation -- Python decides the trigger -- so `implemented_by`
+    is the only link from the document to behaviour. This test follows the link: the module
+    must import and the function must exist. It is what would have caught MOD-FAT-001's
+    first-set RIR branch, which sat in the constitution with no implementation behind it
+    (DEC-RIR-04).
+    """
+    import importlib
+
+    document = loader.load_document()
+    assert document.modifiers
+    for modifier in document.modifiers:
+        target = modifier.get("implemented_by")
+        assert target, f"{modifier['id']} does not declare implemented_by"
+        path, _, attribute = str(target).partition("::")
+        assert attribute, (
+            f"{modifier['id']}: implemented_by must be 'module/path.py::function'"
+        )
+        module = importlib.import_module(path.removesuffix(".py").replace("/", "."))
+        assert callable(getattr(module, attribute, None)), (
+            f"{modifier['id']}: {target} does not resolve to a callable"
+        )
+
+
+def test_the_spinal_trim_trigger_matches_the_rule_cap():
+    """MOD-SPINE-001's `when` value duplicates PRG-SPINE-001's cap; they must not drift."""
+    document = loader.load_document()
+    cap = document.rule("PRG-SPINE-001").params["cap"]
+    modifier = next(m for m in document.modifiers if m["id"] == "MOD-SPINE-001")
+    trigger = modifier["when"]["any"][0]
+    assert trigger["input"] == "spinal.week_cost"
+    assert float(trigger["value"]) == float(cap)
 
 
 @pytest.mark.parametrize("rules, message", [

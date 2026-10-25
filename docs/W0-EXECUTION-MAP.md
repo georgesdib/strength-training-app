@@ -58,7 +58,9 @@ date**, and a prescription is built from stored records, not from a later sessio
 | VBT | `_attach_vbt_targets` | `vbt_calibration` | velocity sets, calibration | velocity target, calibration ids |
 | under-MEV | `_apply_under_mev` | volume ledger | 4-week history by pattern | accessory set + `MOD-VOL-002` |
 | MRV cap | `_apply_volume_cap` | volume landmarks | 7-day prior sets + proposed sets | accessory set reduction + `MOD-VOL-001` |
+| spinal trim | `_apply_spinal_trim` | rule document, weekly exposure cost | proposed items + the week's performed exposures | removes a non-essential spinal item + `MOD-SPINE-001`; essential overage still vetoes |
 | deload | `deload.apply_items` | deload config, prior load factors, primary compounds | decision, current items, readiness/continuity factors | sets/load/RIR + `MOD-DELOAD-001` |
+| technique throttle | `technique_throttle.apply` | load cap, RIR floor, pattern scope | explicit user request, taxonomy pattern, current items | item load/RIR + `MOD-TECH-001` |
 | warm-up | `warmup.attach` | ramp config | final item load | ramp sets |
 | constraints | `constraints.evaluate` | stored state | athlete constraints/suitability | vetoes/warnings |
 | minimum session | `minimum_session.apply` | target minutes, floors, timing estimate | explicit user request, current items | accessory/main sets + `MOD-MIN-001` |
@@ -76,7 +78,9 @@ date**, and a prescription is built from stored records, not from a later sessio
 | `MOD-GAP-001` | `_apply_continuity` | back flare | load/RIR; 20% combined cap with readiness |
 | `MOD-VOL-002` | `_apply_under_mev` | continuity | accessory sets upward, bounded |
 | `MOD-VOL-001` | `_apply_volume_cap` | under-MEV | accessory sets downward, bounded |
+| `MOD-SPINE-001` | `_apply_spinal_trim` | volume cap | removes non-essential spinal work when that alone reaches the weekly cap; never an essential lift |
 | `MOD-DELOAD-001` | `deload.apply_items` | volume cap | sets/load/RIR, one-way floors |
+| `MOD-TECH-001` | `technique_throttle.apply` | deload | load (compared, not multiplied) and RIR floor; explicit user |
 | `MOD-MIN-001` | `minimum_session.apply` | deload + warm-up | volume only; explicit user |
 | `MOD-SELECT-001` | selection block in `build_prescription` | before load | exercise identity |
 | `MOD-E1RM-001` | `build_item` / calibration | load path | e1RM correction |

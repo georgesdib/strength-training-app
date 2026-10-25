@@ -38,6 +38,7 @@ This is deliberate: the UI is a planning surface until the athlete starts the wo
 | Review one session | `review` | Review page | same marks/rubric |
 | Post-lift form rating | no CLI command | Workout + History edit | UI-only capture; same rubric item from stored ratings |
 | Minimum effective session | `run --minimum-session` | Prescribe controls | same volume-only core; `MOD-MIN-001` |
+| Technique throttle | `run --technique-throttle [--throttle-pattern]` | Prescribe controls | same load/RIR core; `MOD-TECH-001` |
 | Programme forecast | `programme` | Programme page | same forecast |
 | Outcomes | `outcomes` | Outcomes page | same report |
 | Readiness feedback | `readiness feedback` | Outcomes panel | same report; workout snapshots included |
@@ -45,8 +46,8 @@ This is deliberate: the UI is a planning surface until the athlete starts the wo
 | Measurements | `measure` | Measures page | same metric service |
 | Exercise catalogue | `exercise list/set` | Exercises page | same catalogue/admin |
 | Athlete profile/constraints/suitability | `state` | Athlete forms | individual edits only; see gaps |
-| e1RM set/list | `e1rm set/list` | Athlete page | same overrides |
-| Strength test recording | `test` | Athlete page | same exposure/test path |
+| e1RM set/list | `e1rm set/list` | Athlete page, Exercises tab, post-workout panel | same overrides |
+| Strength test recording | `test` | Athlete page, post-workout panel | same exposure/test path |
 | Symptom logging | `symptom` | Athlete page | same region validation |
 | Exposure logging/status | `exposure ...` | Athlete page | same guard |
 | Exercise selection | `select` | Prescribe panel | same selection engine |

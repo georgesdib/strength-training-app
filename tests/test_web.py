@@ -904,3 +904,85 @@ def test_history_void_and_vbt_endpoints(server):
     assert json.loads(body)["voided"] == 1
     restored = post(server, f"/api/history/{session_id}/void", {"unvoid": True})
     assert restored["voided"] == 0
+
+def test_the_exercise_tab_offers_an_e1rm_override(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert 'id="exercise-e1rm-panel"' in page
+    assert 'id="exercise-e1rm-form"' in page
+    assert 'id="exercise-e1rm-id"' in page
+    # The catalogue row action lives in the client bundle.
+    status, js = get(server, "/static/app.js")
+    assert status == 200
+    assert "data-e1rm-exercise" in js
+    assert "/api/state/e1rm" in js
+
+
+def test_the_post_workout_screen_offers_an_e1rm(server):
+    status, js = get(server, "/static/workout.js")
+    assert status == 200
+    assert 'id="post-test-form"' in js
+    assert 'id="post-e1rm-form"' in js
+    assert "/api/state/test" in js
+    assert "/api/state/e1rm" in js
+
+
+def test_an_e1rm_override_can_start_today_and_be_replaced(server):
+    # The exercise tab and the post-workout panel both append, never edit: the latest
+    # applicable row wins, which is the same contract the Athlete page and CLI use.
+    first = post(server, "/api/state/e1rm", {
+        "exercise_id": "trap_bar_deadlift", "e1rm_kg": 180, "reason": "first",
+    })
+    second = post(server, "/api/state/e1rm", {
+        "exercise_id": "trap_bar_deadlift", "e1rm_kg": 185, "reason": "second",
+    })
+    rows = [row for row in second["e1rm_overrides"]
+            if row["exercise_id"] == "trap_bar_deadlift"]
+    assert len(rows) == len([row for row in first["e1rm_overrides"]
+                             if row["exercise_id"] == "trap_bar_deadlift"]) + 1
+    assert max(row["e1rm_kg"] for row in rows) == 185
+
+def test_the_technique_throttle_is_available_from_the_api(server):
+    baseline = post(server, "/api/prescribe", {"date": "2024-01-08", "session_type": "squat"})
+    throttled = post(server, "/api/prescribe", {
+        "date": "2024-01-08", "session_type": "squat", "technique_throttle": True,
+    })
+    assert any("MOD-TECH-001" in warning for warning in throttled["warnings"])
+    base = {item["exercise_id"]: item["load_kg"] for item in baseline["items"]}
+    dropped = [
+        item for item in throttled["items"]
+        if item["load_kg"] is not None and base.get(item["exercise_id"]) is not None
+        and item["load_kg"] < base[item["exercise_id"]]
+    ]
+    assert dropped
+    # The throttle can only lower a load, so it must not change executability either way:
+    # if the baseline is already unexecutable for another reason, the throttle is not a fix.
+    assert throttled["executable"] == baseline["executable"]
+
+
+def test_the_technique_throttle_can_be_scoped_to_one_pattern(server):
+    baseline = post(server, "/api/prescribe", {"date": "2024-01-08", "session_type": "squat"})
+    scoped = post(server, "/api/prescribe", {
+        "date": "2024-01-08", "session_type": "squat",
+        "technique_throttle": True, "technique_throttle_pattern": "squat",
+    })
+    assert any("MOD-TECH-001" in warning for warning in scoped["warnings"])
+    base = {item["exercise_id"]: item["load_kg"] for item in baseline["items"]}
+    scoped_loads = {item["exercise_id"]: item["load_kg"] for item in scoped["items"]}
+    assert scoped_loads["ssb_squat"] < base["ssb_squat"]
+    assert scoped_loads["bench_press"] == base["bench_press"]
+
+
+def test_a_technique_throttle_pattern_with_no_match_says_so(server):
+    data = post(server, "/api/prescribe", {
+        "date": "2024-01-08", "session_type": "squat",
+        "technique_throttle": True, "technique_throttle_pattern": "not_a_pattern",
+    })
+    assert any("MOD-TECH-001 not applied" in warning for warning in data["warnings"])
+
+
+def test_the_page_exposes_the_technique_throttle_controls(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert 'id="prescribe-technique"' in page
+    assert 'id="prescribe-throttle-pattern"' in page

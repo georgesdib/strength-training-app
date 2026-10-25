@@ -24,7 +24,7 @@ session type (squat, hinge, bench_squat, bench_hinge)
         ↓
 exercise selection (validated substitutions only)
         ↓
-e1RM / load (formula, tests, overrides, calibration, decay)
+e1RM / load (selector, formula, tests, overrides, calibration, decay)
         ↓
 RIR target
         ↓
@@ -35,6 +35,8 @@ optional user-selected minimum session (MOD-MIN-001)
 warm-up ramp
         ↓
 validation: constraints, RIR window, spinal cap, executability
+        ↓
+advisories: e1RM plausibility, injury signal, recent stress (never policy)
         ↓
 prescription
 ```

@@ -30,6 +30,7 @@ taxonomy stays intact, so comments and the base audit trail survive. IDs are imm
 |---|---|
 | `log_names` | exact names resolved at import; add every spelling |
 | `pattern` | readiness category, selection family, injury links |
+| `day_roles` | descriptive only: the canonical session types (`squat`, `hinge`, `bench_squat`, `bench_hinge`) where the lift is programmed or allowed; scheduling reads the templates, not this field (`DEC-SESSION-01`) |
 | `primary_compound` | applies `PRG-RIR-001` |
 | `bodyweight_type` | `load 0` is a real bodyweight load |
 | `loadable` | external load is meaningful |

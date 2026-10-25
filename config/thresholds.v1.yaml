@@ -1,8 +1,12 @@
-# Thresholds that change a prescribed load.
+# Thresholds that change or check a prescribed load.
 #
 # AGENTS.md §4: rep ranges, load increments and caps are CONFIG, not code. Changing a value
 # here changes what the athlete is told to lift, so every entry carries its domain reason.
-# anything that alters a prescribed load and is not written down here is a bug.
+# Anything that alters a prescribed load and is not written down here is a bug.
+#
+# One block is advisory and cannot alter anything: `plausibility` only decides when to say
+# something out loud. It lives here because it is a threshold on the load base and belongs
+# next to the e1RM window it measures against.
 
 schema_version: "1.0.0"
 
@@ -17,10 +21,45 @@ load:
   # and rounding up would silently exceed the target RIR.
   rounding: down
 
-  # Which e1RM to build the load from. A recent best-in-window reflects current form; an
+  # How far back a usable set can be. A recent best-in-window reflects current form; an
   # all-time best from two years ago would prescribe loads the athlete cannot currently hit.
   e1rm_window_days: 84
-  e1rm_source: best_usable
+
+  # Which e1RM to build the load from (DEC-E1RM-SOURCE-01).
+  #   best_usable — the highest age-decayed estimate in the window. The maximum of noisy
+  #                 observations is biased upward by construction: one great day sets the
+  #                 load for as long as it stays in the window.
+  #   median      — the median set-level estimate in the shorter robust window, falling back
+  #                 to best_usable when that window is empty. A typical set is a less exciting
+  #                 estimator and a more honest one; it is the default.
+  #   most_recent — the latest usable set only. Least biased by history, most exposed to a
+  #                 single bad day.
+  e1rm_source: median
+  # The robust window for `median`. Four weeks is about one mesocycle of comparable effort:
+  # long enough to average out a single outlier, short enough to track current form. It must
+  # not exceed e1rm_window_days, or the estimator could see sets the window excludes.
+  e1rm_robust_window_days: 28
+
+# Advisory only: this block never changes a load, a set or a verdict (DEC-E1RM-PLAUS-01).
+#
+# The check answers one question: is the number behind this load plausible against what the
+# athlete has actually been lifting? It catches a *single-point* error in the load base — a
+# measured override far above history, a best-of-window estimate after a config flip, a median
+# that had to fall back to the older window. It cannot catch a *systematic* bias in the whole
+# e1RM distribution; that is MOD-E1RM-001's job, measured against real tests.
+plausibility:            # ASSUMPTION-37: the window, sample and 5% bound are design choices
+  enabled: true
+  # Compared against the median working-set e1RM on the same lift over this window. 28 days
+  # matches the default selector, so under `median` with ordinary history the check is silent
+  # by construction — it only speaks when the load base came from somewhere else.
+  reference_days: 28
+  # Fewer reference sets than this is noise, so nothing is reported. Three is the smallest
+  # sample whose median is not simply the most recent set.
+  min_sets: 3
+  # A load base more than this fraction above the recent median is worth saying out loud.
+  # 5% is roughly one rep at RIR 2 on a five-rep set — inside the RIR reporting error — so the
+  # threshold sits where the estimate stops being explainable by ordinary set-to-set noise.
+  max_above_reference: 0.05
 
 modifiers:
   # MOD-FAT-001 allows reducing load 5-10%. Take the smaller intervention first: a 5% cut is

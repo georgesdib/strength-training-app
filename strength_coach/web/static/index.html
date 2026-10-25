@@ -361,12 +361,20 @@
             <label><input type="checkbox" id="prescribe-minimum-main" disabled> also reduce main lifts</label>
             <span class="muted">Only used when minimum session is ticked: it trims accessory volume to the estimated target, then main-lift sets to a floor of 2 if you opt in. Loads and RIR stay unchanged.</span>
           </span>
+          <label><input type="checkbox" id="prescribe-technique"> Technique throttle</label>
+          <label id="prescribe-throttle-pattern-wrap" hidden>Scope
+            <input id="prescribe-throttle-pattern" list="exercise-patterns" placeholder="all lifts">
+          </label>
           <button class="primary" type="submit">Build prescription</button>
         </form>
         <p class="muted">The prescription is deterministic and cites rule ids. Warnings are part of the
           answer, not noise: a missing readiness or an unknown load appears here. Poor readiness
           reduces accessory sets by one (config/readiness.v1.yaml) as well as load/RIR.
-          A minimum session is explicit, volume-only, and leaves load/RIR unchanged.</p>
+          A minimum session is explicit, volume-only, and leaves load/RIR unchanged.
+          A technique throttle is a user-declared, one-session 90% load cap with RIR floor 3
+          (<code>MOD-TECH-001</code>); it never reads a form rating, stores nothing, and cannot
+          carry into the next session. Leave Scope empty for the whole session, or name one
+          movement pattern.</p>
       </div>
       <div id="prescribe-result"></div>
       
@@ -712,6 +720,22 @@
           <button class="ghost" id="exercise-refresh" type="button">Refresh</button>
         </div>
         <div id="exercise-catalog"></div>
+      </div>
+
+      <div class="panel" id="exercise-e1rm-panel" hidden>
+        <div class="panel-head"><h2>e1RM override</h2>
+          <span class="muted" id="exercise-e1rm-current"></span>
+          <button class="ghost" id="exercise-e1rm-close" type="button">Close</button></div>
+        <p class="section-help"><span>Appends a manual override for this lift; the latest applicable row wins and the prescription cites it. A manual value does not feed the measured/formula calibration — record a real 3RM or 5RM as a test (post-workout panel or Athlete page) for that.</span>
+          <a class="doc-link" href="#docs?doc=docs/FATIGUE-FITNESS.md">How the load base works</a></p>
+        <form id="exercise-e1rm-form" class="grid-fields">
+          <label>Exercise<input id="exercise-e1rm-id" readonly></label>
+          <label>e1RM kg<input id="exercise-e1rm-kg" type="number" step="0.5" min="0.5" required></label>
+          <label>Effective from<input id="exercise-e1rm-date" type="date"></label>
+          <label class="grow">Reason<input id="exercise-e1rm-reason" placeholder="test, coach call, correction"></label>
+          <button class="primary" type="submit">Append e1RM</button>
+        </form>
+        <div id="exercise-e1rm-msg" class="muted"></div>
       </div>
 
       <div class="panel" id="exercise-editor" hidden>

@@ -359,6 +359,26 @@ baseline win, and an opt-in N-of-1/alternating test. See
 [WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md) and the gated
 [WEAKNESS-TARGETING-PLAN.md](WEAKNESS-TARGETING-PLAN.md).
 
+## Q22. Should a first-set RIR drop trigger a load reduction? — **Closed 2026-10-26: no**
+
+`MOD-FAT-001` carried a fourth OR-branch — "the first working set is RIR 0-1 at a load that
+was RIR 2-3 last session" — that **was never implemented**: no predicate, no engine input, no
+test, and no document mentioned it. The constitution promised a trigger the code did not have.
+
+It is removed rather than implemented (`DEC-RIR-04`, constitution 1.13.0). The reason is the
+one already written into `PRG-RIR-001`: self-reported RIR carries roughly ±1-2 reps of error,
+which is why the effort *window* is deliberately wide. A threshold of one RIR sits inside that
+error, so the trigger would fire on estimation noise and trade a real load for a measurement
+artefact — in the direction that costs the athlete sessions.
+
+The implemented RIR signal is the per-lift readiness component: the **mean** RIR of the last
+session's working sets, weight 0.15, and it can only lower a load. Averaging over sets divides
+the reporting error down instead of reading a single set.
+
+Reopening condition: a noise-aware version (a drop that persists across two consecutive
+sessions, emitted as a warning and never as a load multiplier) if the log shows the athlete
+systematically under-reporting effort.
+
 ## Closed
 
 - ~~What do the extreme `RIR` values mean?~~ **Closed** — `RIR 6` marks a **warm-up set**

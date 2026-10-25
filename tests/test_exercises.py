@@ -12,13 +12,61 @@ They also pin the resolution *order*, since regex ordering is the fragile part.
 """
 
 import pytest
+import yaml
 
-from strength_coach.utils import exercises
+from strength_coach.utils import exercises, paths
 
 
 @pytest.fixture(scope="module")
 def taxonomy():
     return exercises.taxonomy()
+
+
+def _shipped_taxonomy_entities() -> dict:
+    """The checked-in taxonomy, without any local UI overrides."""
+    raw = yaml.safe_load(paths.taxonomy_yaml().read_text(encoding="utf-8"))
+    return raw.get("entities") or {}
+
+
+# --- day_roles vocabulary (DEC-SESSION-01) ---------------------------------
+def test_day_roles_use_canonical_session_types():
+    """The retired A/B/C day labels must not survive in the taxonomy.
+
+    Read the shipped YAML directly so a local UI override cannot make a public test fail.
+    """
+    from strength_coach.prescribe.schedule import SESSION_TYPES
+
+    bad = {
+        exercise_id: props.get("day_roles")
+        for exercise_id, props in _shipped_taxonomy_entities().items()
+        if props.get("day_roles") and not set(props["day_roles"]) <= set(SESSION_TYPES)
+    }
+    assert not bad, bad
+
+
+def test_declared_day_roles_cover_every_template_that_prescribes_the_lift():
+    """`day_roles` is descriptive, but it must not contradict the templates.
+
+    A superset is allowed: direct erector work may be listed on both squat-emphasis types
+    (PRG-SCHED-001) while the template fills only one to stay under the spinal cap.
+    """
+    from strength_coach.prescribe.schedule import SESSION_TYPES
+    from strength_coach.prescribe.templates import SessionTemplate
+
+    prescribed: dict[str, set[str]] = {}
+    for session_type in SESSION_TYPES:
+        for slot in SessionTemplate.load(session_type).slots:
+            for exercise_id in slot.exercises:
+                prescribed.setdefault(exercise_id, set()).add(session_type)
+
+    for exercise_id, props in _shipped_taxonomy_entities().items():
+        declared = set(props.get("day_roles") or ())
+        if not declared:
+            continue
+        missing = prescribed.get(exercise_id, set()) - declared
+        assert not missing, (
+            f"{exercise_id}: templates prescribe {sorted(missing)}, day_roles {sorted(declared)}"
+        )
 
 
 # --- recorded decisions ----------------------------------------------------

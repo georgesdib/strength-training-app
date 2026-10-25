@@ -1,6 +1,11 @@
 # W9 — SPINAL-CAP HEADROOM
 
 **Status:** audit complete 2026-10-23; W9 recommendations implemented. No cap/headroom change.
+**Follow-up 2026-10-26:** the cap and the template arithmetic are unchanged, but the engine now
+has a one-directional remedy for the at-cap week it documents below. `MOD-SPINE-001` removes a
+non-essential high-fatigue spinal item (in practice the erector slot) when that alone brings the
+week to the cap; when the overage is carried by essential lifts the veto stands and the issue
+names the exposures (`DEC-SPINE-03`).
 **Method:** template arithmetic plus stored weekly spinal costs. Exact personal counts are in
 `private/docs/PRIVATE-CONTEXT.md`; this public report gives the shape only.
 **Scope:** `PRG-SPINE-001`, normal weekly programming and the reactive deload trigger.

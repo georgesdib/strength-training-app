@@ -128,6 +128,14 @@ without conditioning on provenance penalises the athlete for following the presc
   are policy choices, not validated cut-points (`DEC-SELECT-06`).
 - **ASSUMPTION-35** — selection tax metadata (axial/systemic/skill/ROM) is ordinal and
   config-authoritative; unknown metadata blocks a “less taxing” claim (`DEC-SELECT-06`).
+- **ASSUMPTION-36** — the technique throttle's 90% load cap and RIR-3 floor are design
+  choices, not measured thresholds. They match the scheduled-deload load step and the top of
+  the `DEC-RIR-02` effort window. The throttle is user-declared, one session at a time
+  (`DEC-TECH-01`, `docs/TECHNIQUE-THROTTLE.md`); it is not an evidence-based dose.
+- **ASSUMPTION-37** — the e1RM plausibility advisory's reference window (28 days), minimum
+  sample (3 working sets) and excess bound (5%) are design choices, not validated cut-points.
+  5% is chosen because it is roughly one rep at RIR 2 on a five-rep set, i.e. the scale of
+  ordinary set-to-set noise. The advisory changes no load (`DEC-E1RM-PLAUS-01`).
 - **ASSUMPTION-33** — the under-MEV accessory progression uses a three-week window and one-set
   increments; the MEV landmarks remain coaching defaults, not measured thresholds
   (`DEC-VOLUME-03`).
@@ -163,7 +171,7 @@ without conditioning on provenance penalises the athlete for following the presc
 - **ASSUMPTION-03** — RIR-adjusted e1RM is an approximation.
 - **ASSUMPTION-04** — plank/carry values in the reps column are seconds. Strongly implied by
   the magnitudes; no schema states it.
-- **ASSUMPTION-05** — a session is one calendar date. Unverifiable without timestamps.
+- **ASSUMPTION-38** — a session is one calendar date. Unverifiable without timestamps.
 
 ## E. What these checks deliberately did not do
 

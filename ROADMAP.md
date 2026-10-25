@@ -75,11 +75,15 @@ day guess, calibrated for velocity targets, and **persisted**: one import writes
 re-importing the same file writes no duplicate rows. The constitution can now be evaluated
 against that history: `rules` parses the YAML into hash-bearing `Rule` objects, the registry
 supplies one predicate per `check.fn`, and `policy` returns a verdict per rule with citable
-evidence. A session for **each of the four rolling session types is now generated**: loads solved from recent e1RM (or double
-progression for accessories), rounded down to the athlete's 0.5 kg microplates, with
+evidence. A session for **each of the four rolling session types is now generated**: loads solved from a selected e1RM — a 28-day median by default, `best_usable` or `most_recent` by config (`DEC-E1RM-SOURCE-01`) — or from double
+progression for accessories, rounded down to the athlete's 0.5 kg microplates, with
 MOD-FAT-001 reducing loads when sleep or energy is <= 2. Every item cites a rule id and a
 stored set, and the prescription refuses to be executable if a load, the RIR window, the
-erector-day rule or the weekly spinal cap would be broken. A performed session can now be
+erector-day rule or the weekly spinal cap would be broken. At the weekly cap (the normal cycle
+sits exactly on it) a non-essential erector slot is trimmed rather than left dead
+(`MOD-SPINE-001`); essential overages still veto and name the exposures. A main-lift load whose
+e1RM sits far above the lift's recent median raises a display-only advisory rather than a load
+change (`DEC-E1RM-PLAUS-01`). A performed session can now be
 **critiqued**: seven rubric items score it (RIR adherence, progression adherence, weekly spinal
 cost, essential work, redundancy, rotation and measured live-session duration) with evidence
 references. Imported-session duration and within-set velocity loss remain `measurable = 0`
@@ -512,6 +516,13 @@ one rating per exercise, and can be corrected later in **History → Edit**.
 
 The imported `Form` column is not reused: its scale/direction is unconfirmed. This rating is a
 separate, explicitly directed measure.
+
+**User-declared technique throttle (2026-10-25).** `MOD-TECH-001` applies a 90% load cap and
+an RIR floor of 3 for one session when the athlete explicitly asks for it
+(`run --technique-throttle`, Prescribe UI). It is not driven by `form_rating`, stores no state
+and cannot latch. The automatic variant proposed as `MOD-FORM-001` was rejected for the
+reasons in [`docs/FORM-USE-EVIDENCE.md`](docs/FORM-USE-EVIDENCE.md); see
+[`docs/TECHNIQUE-THROTTLE.md`](docs/TECHNIQUE-THROTTLE.md).
 
 ### 4.9 Readiness score and follow-ups  (core + devices done; learned weights closed)
 

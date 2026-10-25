@@ -53,6 +53,11 @@ decisions:
 
 # ---------------------------------------------------------------------------
 # Canonical entities. `id` is the only identifier used by code and by agents.
+#
+# `day_roles` lists the canonical session types (config/templates/session-types.v1.yaml)
+# in which an exercise is programmed or allowed. It is descriptive metadata for the UI and
+# for reading the taxonomy; scheduling reads the templates, not this field. The retired
+# A/B/C labels are gone (DEC-SESSION-01).
 # ---------------------------------------------------------------------------
 entities:
 
@@ -63,7 +68,7 @@ entities:
     pattern: squat
     main_lift: true
     primary_compound: true
-    day_roles: [A, C]
+    day_roles: [squat, bench_squat]
     primary_muscles: [quadriceps, glutes, erectors]
     erector_family: false          # loaded but not *direct* erector work
     vbt_family: squat
@@ -92,7 +97,8 @@ entities:
     pattern: horizontal_push
     main_lift: true
     primary_compound: true
-    day_roles: [A, B, C]
+    # The hinge session uses the narrow-grip/pause variants, so plain bench is not in it.
+    day_roles: [squat, bench_squat, bench_hinge]
     primary_muscles: [chest, triceps, front_delts]
     erector_family: false
     vbt_family: bench
@@ -104,9 +110,9 @@ entities:
     display: "Bench Press (narrow grip)"
     log_names: ["Bench Press (narrow grip)"]
     pattern: horizontal_push
-    main_lift: true                # Day B close-grip slot
+    main_lift: true                # hinge-session close-grip slot
     primary_compound: true
-    day_roles: [B]
+    day_roles: [hinge]
     vbt_family: bench              # pools with bench for calibration
     default_rir_target: [2, 3]
     loadable: true
@@ -124,7 +130,7 @@ entities:
     pattern: horizontal_push
     main_lift: true
     primary_compound: true
-    day_roles: [B]
+    day_roles: [hinge]
     vbt_family: bench
     default_rir_target: [2, 3]
     loadable: true
@@ -138,7 +144,7 @@ entities:
     pattern: hinge
     main_lift: true
     primary_compound: true
-    day_roles: [B]
+    day_roles: [hinge]
     primary_muscles: [glutes, hamstrings, erectors, upper_back]
     erector_family: true
     # Hinge loading is *indirect* erector work: it never satisfies the direct
@@ -184,7 +190,9 @@ entities:
     log_names: ["Back Extension"]
     pattern: erector_extension
     main_lift: false
-    day_roles: [A, C]
+    # Allowed on both squat-emphasis types (PRG-SCHED-001); the template fills only `squat`
+    # so a normal week stays at the spinal cap.
+    day_roles: [squat, bench_squat]
     primary_muscles: [erectors]
     bodyweight_type: true          # 0 or ~bodyweight both appear in Weight_Used
     e1rm_applicable: false         # not a 1RM lift; an "e1RM" here is a meaningless index
