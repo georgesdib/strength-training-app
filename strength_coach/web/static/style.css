@@ -212,3 +212,6 @@ details summary { cursor: pointer; color: var(--muted); }
 
 #history-details input[readonly] { background: var(--soft); color: var(--ink); }
 #history-details table { min-width: 760px; }
+
+#longevity-summary, #longevity-details { overflow-x: auto; }
+#longevity-summary table, #longevity-details table { min-width: 620px; }

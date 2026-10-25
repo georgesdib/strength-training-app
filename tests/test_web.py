@@ -87,6 +87,7 @@ def test_the_page_and_overview_are_served(server):
     assert "validation-run" in page
     assert "view-workout" in page
     assert "view-history" in page and "history.js" in page
+    assert "view-longevity" in page and "longevity-form" in page
     assert "workout.js" in page
     # CLI/UI parity: the recent capture surfaces are reachable from the shell.
     assert "Cardio" in page and "Measures" in page

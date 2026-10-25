@@ -803,6 +803,10 @@ rows, add an append-only void reason, exclude the session from reports and presc
 allow unvoid. It is documented in [DATA-MODEL.md](docs/DATA-MODEL.md#17-deleting-or-voiding-a-session)
 but not implemented.
 
+### Longevity view
+
+The web **Longevity** tab consolidates cardio, periodic measurements, readiness coverage and symptoms. Its **Going well** and **Needs attention** labels are deterministic context, not medical advice; the only reference range is the WHO cardio 150–300 min/week context. **Outcomes** is now focused on strength, attendance, volume, prospective check and readiness feedback.
+
 ### 4.10b `cardio` — capture the other half
 
 Cardio is a separate exposure, not a strength session. It is captured first; it does **not**

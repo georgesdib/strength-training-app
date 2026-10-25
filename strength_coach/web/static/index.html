@@ -23,6 +23,7 @@
       <button data-view="dashboard" class="active">Today</button>
       <button data-view="history">History</button>
       <button data-view="outcomes">Outcomes</button>
+      <button data-view="longevity">Longevity</button>
       <button data-view="prescribe">Prescribe</button>
       <button data-view="workout">Workout</button>
       <button data-view="programme">Programme</button>
@@ -149,6 +150,26 @@
           <div class="panel-head"><h2>Readiness feedback</h2><span class="muted">association only; no tuning</span></div>
           <div id="readiness-feedback-result"><p class="empty">No readiness reductions in this window.</p></div>
         </div>
+      </div>
+    </section>
+
+    <section id="view-longevity" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Longevity context</h2><span class="muted">descriptive; not medical advice</span></div>
+        <p class="muted">Cardio, measurements, readiness and symptoms in one view. Status labels are deterministic context, not targets for every metric.</p>
+        <form id="longevity-form" class="form-row">
+          <label>Period
+            <select id="longevity-weeks">
+              <option value="4">4 weeks</option>
+              <option value="8">8 weeks</option>
+              <option value="12" selected>12 weeks</option>
+            </select>
+          </label>
+          <label>As of <input type="date" id="longevity-date"></label>
+          <button class="primary" type="submit">Build longevity view</button>
+        </form>
+        <div id="longevity-summary"></div>
+        <div id="longevity-details"></div>
       </div>
     </section>
 

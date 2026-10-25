@@ -22,7 +22,8 @@ global option in the CLI). It is convenience only: it ends in the same `strength
 
 ## Pages
 
-- **Outcomes** — read-only 4/8/12-week strength and longevity review, with data coverage and no prescription effect; includes a **Prospective check** implementing the W5 protocol.
+- **Outcomes** — read-only 4/8/12-week strength review, attendance, volume and **Prospective check**; no prescription effect.
+- **Longevity** — consolidated cardio, measurement, readiness and symptom context with deterministic **Going well / Needs attention** labels; no targets beyond the WHO cardio reference and no prescription effect.
 - **Today** — goal, block week, readiness, injury signal, unreviewed count, **rubric calibration** (high-confidence sessions, agreement, per-item marks/comparable counts, gaps), recent sessions, and a **Descriptive progress** panel (sRPE coverage, attendance, family exposures, performance ratio, weekly volume status, latest back symptom; monitoring only).
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
   SQLite, never written to the repository. New cumulative exports are overlap-matched against

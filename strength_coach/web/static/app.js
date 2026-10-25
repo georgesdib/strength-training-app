@@ -55,6 +55,7 @@ function setView(name) {
   if (name === "settings") loadSettings();
   if (name === "history") loadHistory();
   if (name === "outcomes") loadOutcomes();
+  if (name === "longevity") loadLongevity();
   if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
 }
 
@@ -360,23 +361,6 @@ async function loadOutcomes() {
       <h3>Volume</h3>
       <table><thead><tr><th>Pattern</th><th>avg sets/week</th><th>total sets</th><th>weeks present</th></tr></thead>
       <tbody>${volume || "<tr><td colspan='4' class='muted'>no working-set volume</td></tr>"}</tbody></table>
-      <h3>Longevity context</h3>
-      <p class="muted">Captured, not prescribed. ${esc(longevity.note || "")}</p>
-      <p>Cardio: ${cardio.average_weekly_minutes ?? "unknown"} min/week average;
-        last four weeks ${cardio.rolling_4w_average ?? "unknown"} min/week
-        (${cardio.sessions ?? 0} sessions, ${cardio.weeks_with_data ?? 0} week(s) with data).
-        Reference: ${cardio.reference_min}–${cardio.reference_max} min/week, general context only.</p>
-      <table><thead><tr><th>Week</th><th>aerobic minutes</th></tr></thead>
-      <tbody>${cardioWeeks || "<tr><td colspan='2' class='muted'>no cardio entries</td></tr>"}</tbody></table>
-      <table><thead><tr><th>Modality</th><th>sessions</th></tr></thead>
-      <tbody>${modalities || "<tr><td colspan='2' class='muted'>none</td></tr>"}</tbody></table>
-      <table><thead><tr><th>Readiness field</th><th>n</th><th>average</th><th>first → last</th></tr></thead>
-      <tbody>${readinessFields || "<tr><td colspan='4' class='muted'>no readiness fields</td></tr>"}</tbody></table>
-      <table><thead><tr><th>Measurement</th><th>latest</th><th>change</th><th>date</th></tr></thead>
-      <tbody>${metrics || "<tr><td colspan='4' class='muted'>none measured in this catalogue</td></tr>"}</tbody></table>
-      <h3>Symptoms</h3>
-      <table><thead><tr><th>Region</th><th>flares</th><th>readings</th><th>latest</th></tr></thead>
-      <tbody>${symptomRows || "<tr><td colspan='4' class='muted'>no symptom entries — unknown, not “no flare”</td></tr>"}</tbody></table>
       <p class="muted">${esc(data.note)}</p>`;
     await loadReadinessFeedback(weeks, day);
     await loadProspective(weeks, day);
@@ -390,13 +374,19 @@ $("#outcomes-form").addEventListener("submit", (event) => {
   loadOutcomes();
 });
 
+$("#longevity-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  loadLongevity();
+});
+
 async function loadProspective(weeks, day) {
   const target = $("#prospective-result");
   if (!target) return;
   try {
     const query = new URLSearchParams({ weeks });
     if (day) query.set("date", day);
-    const data = await api("/api/prospective?" + query.toString());
+    const data = (await api("/api/prospective?" + query.toString())) || {};
+    const period = data.window || {};
     const lifts = (data.strength?.lifts || []).map((lift) => `
       <tr><td>${esc(lift.exercise_id)}</td><td>${esc(lift.status)}</td>
       <td>${lift.baseline_median_e1rm ?? "—"} → ${lift.current_median_e1rm ?? "—"} kg</td>
@@ -410,8 +400,8 @@ async function loadProspective(weeks, day) {
     const rir = data.rir || {};
     const duration = data.duration || {};
     target.innerHTML = `
-      <p class="muted">${esc(data.window.current_from)} to ${esc(data.window.current_to)}
-        · baseline ${esc(data.window.baseline_from)} to ${esc(data.window.baseline_to)}</p>
+      <p class="muted">${esc(period.current_from ?? "unknown")} to ${esc(period.current_to ?? "unknown")}
+        · baseline ${esc(period.baseline_from ?? "unknown")} to ${esc(period.baseline_to ?? "unknown")}</p>
       <table><thead><tr><th>Lift</th><th>status</th><th>median e1RM</th><th>change</th><th>n base/current</th></tr></thead>
       <tbody>${lifts || "<tr><td colspan='5' class='muted'>no stable-lift observations</td></tr>"}</tbody></table>
       <p>Attendance: ${attendance.completed ?? "unknown"} / ${attendance.target ?? "unknown"}
@@ -423,6 +413,94 @@ async function loadProspective(weeks, day) {
       <p class="muted">${esc(data.note || "")}</p>`;
   } catch (error) {
     target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function loadLongevity() {
+  const weeks = $("#longevity-weeks").value;
+  const day = $("#longevity-date").value;
+  $("#longevity-summary").innerHTML = "<p class='empty'>Building longevity view…</p>";
+  $("#longevity-details").innerHTML = "";
+  try {
+    const query = new URLSearchParams({ weeks });
+    if (day) query.set("date", day);
+    const data = (await api("/api/outcomes?" + query.toString())) || {};
+    const period = data.window || {};
+    const longevity = data.longevity || {};
+    const cardio = longevity.cardio || {};
+    const metrics = longevity.measurements || {};
+    const readiness = longevity.readiness || {};
+    const fields = readiness.fields || {};
+    const symptoms = (data.strength && data.strength.symptoms && data.strength.symptoms.regions) || {};
+    const attendance = (data.strength && data.strength.attendance) || {};
+    const cardioAvg = cardio.rolling_4w_average ?? cardio.average_weekly_minutes;
+    const refMin = cardio.reference_min ?? 150;
+    const refMax = cardio.reference_max ?? 300;
+    const metricCount = Object.keys(metrics).length;
+    const readinessCount = Object.values(fields).filter((row) => row.n > 0).length;
+    const regions = Object.values(symptoms);
+    const symptomReadings = regions.reduce((sum, row) => sum + (row.readings || 0), 0);
+    const flares = regions.reduce((sum, row) => sum + (row.flares || 0), 0);
+    const well = [];
+    const attention = [];
+    if (cardioAvg != null && cardioAvg >= refMin) well.push("Cardio is at or above the WHO reference (" + cardioAvg + " min/wk).");
+    else if (cardioAvg == null) attention.push("No cardio minutes captured in this window.");
+    else attention.push("Cardio is below the WHO reference (" + cardioAvg + " vs " + refMin + " min/wk).");
+    if (metricCount) well.push(metricCount + " longevity measurement(s) captured.");
+    else attention.push("No periodic measurements in this window.");
+    if (readinessCount >= 7) well.push("Readiness coverage is complete (" + readinessCount + " fields).");
+    else attention.push("Readiness coverage is partial (" + readinessCount + "/7 fields).");
+    if (symptomReadings === 0) attention.push("No symptom readings; flare status is unknown, not zero.");
+    else if (flares === 0) well.push("No recorded symptom flares in the window.");
+    else attention.push(flares + " symptom flare(s) recorded; review context.");
+    if (attendance.pct != null && attendance.pct >= 80) well.push("Attendance is at or above 80%.");
+    else if (attendance.pct != null) attention.push("Attendance is below 80% (" + attendance.pct + "%).");
+    else attention.push("Attendance target is unknown.");
+    const metricRows = Object.entries(metrics).map(([key, row]) =>
+      "<tr><td>" + esc(key) + "</td><td>" + (row.latest_value ?? "—") + "</td><td>" +
+      (row.change == null ? "—" : (row.change > 0 ? "+" : "") + row.change) +
+      "</td><td>" + esc(row.latest_on || "—") + "</td></tr>").join("");
+    const readinessRows = Object.entries(fields).map(([field, row]) =>
+      "<tr><td>" + esc(field) + "</td><td>" + row.n + "</td><td>" +
+      (row.average ?? "—") + "</td><td>" + (row.first ?? "—") + " → " +
+      (row.last ?? "—") + "</td></tr>").join("");
+    const symptomRows = Object.entries(symptoms).map(([region, row]) =>
+      "<tr><td>" + esc(region) + "</td><td>" + row.flares + "</td><td>" +
+      row.readings + "</td><td>" + esc(row.latest_on || "—") + " · level " +
+      (row.latest_level ?? "—") + "</td></tr>").join("");
+    const cardioWeeks = Object.entries(cardio.weekly_minutes || {}).map(([week, minutes]) =>
+      "<tr><td>" + esc(week) + "</td><td>" + fmt(minutes, 1) + " min</td></tr>").join("");
+    $("#longevity-summary").innerHTML =
+      "<p class='muted'>" + esc(period.from ?? "unknown") + " to " + esc(period.to ?? "unknown") +
+      " · " + esc(weeks) + " weeks.</p>" +
+      "<div class='cards'>" +
+      "<div class='card'><div class='label'>Cardio</div><div class='value'>" +
+      (cardioAvg == null ? "unknown" : cardioAvg + " min/wk") + "</div><div class='sub'>reference " +
+      refMin + "–" + refMax + " · context only</div></div>" +
+      "<div class='card'><div class='label'>Measurements</div><div class='value'>" +
+      metricCount + "</div><div class='sub'>captured metrics</div></div>" +
+      "<div class='card'><div class='label'>Readiness</div><div class='value'>" +
+      readinessCount + "/7</div><div class='sub'>fields with data</div></div>" +
+      "<div class='card'><div class='label'>Symptoms</div><div class='value'>" +
+      (symptomReadings ? flares + " flare(s)" : "unknown") + "</div><div class='sub'>" +
+      symptomReadings + " reading(s)</div></div></div>" +
+      "<h3>Going well</h3><ul class='list'>" +
+      (well.length ? well.map((x) => "<li>" + esc(x) + "</li>").join("") : "<li class='muted'>nothing confidently positive</li>") +
+      "</ul><h3>Needs attention</h3><ul class='list'>" +
+      (attention.length ? attention.map((x) => "<li>" + esc(x) + "</li>").join("") : "<li class='muted'>none identified</li>") +
+      "</ul><p class='muted'>These are descriptive context labels, not medical advice and not a prescription change.</p>";
+    $("#longevity-details").innerHTML =
+      "<h3>Cardio weeks</h3><table><thead><tr><th>Week</th><th>minutes</th></tr></thead><tbody>" +
+      (cardioWeeks || "<tr><td colspan='2' class='muted'>no cardio entries</td></tr>") + "</tbody></table>" +
+      "<h3>Measurements</h3><table><thead><tr><th>Metric</th><th>latest</th><th>change</th><th>date</th></tr></thead><tbody>" +
+      (metricRows || "<tr><td colspan='4' class='muted'>none in this window</td></tr>") + "</tbody></table>" +
+      "<h3>Readiness fields</h3><table><thead><tr><th>Field</th><th>n</th><th>average</th><th>first → last</th></tr></thead><tbody>" +
+      (readinessRows || "<tr><td colspan='4' class='muted'>no readiness fields</td></tr>") + "</tbody></table>" +
+      "<h3>Symptoms</h3><table><thead><tr><th>Region</th><th>flares</th><th>readings</th><th>latest</th></tr></thead><tbody>" +
+      (symptomRows || "<tr><td colspan='4' class='muted'>no symptom entries — unknown, not “no flare”</td></tr>") + "</tbody></table>" +
+      "<p class='muted'>" + esc(longevity.note || "") + "</p>";
+  } catch (error) {
+    $("#longevity-summary").innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
   }
 }
 
