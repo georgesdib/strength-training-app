@@ -50,6 +50,7 @@ function setView(name, options = {}) {
   if (name === "cardio") loadCardio();
   if (name === "measures") loadMeasurements();
   if (name === "prescribe") { loadFatigue(); loadContinuity(); loadVolume(); }
+  if (name === "workout") { loadReadiness($("#readiness-date").value); updateWorkflowStep(); }
   if (name === "docs") loadDocs(options.doc, options.anchor);
   if (name === "state") loadState();
   if (name === "settings") loadSettings();
@@ -990,6 +991,53 @@ function fieldInput(field, device = false) {
   return `<label>${esc(LABELS[field])} <select data-field="${field}">${options}</select></label>`;
 }
 
+/* --- workout workflow -------------------------------------------------- */
+const WORKFLOW_REQUIRED = ["sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration"];
+const WORKFLOW_ORDER = ["readiness", "preview", "active", "post"];
+
+function setWorkflowStep(step) {
+  const current = Math.max(0, WORKFLOW_ORDER.indexOf(step));
+  document.querySelectorAll("[data-workflow-step]").forEach((item) => {
+    const index = WORKFLOW_ORDER.indexOf(item.dataset.workflowStep);
+    item.classList.toggle("active", index === current);
+    item.classList.toggle("done", index < current);
+  });
+}
+
+function updateWorkflowStep() {
+  const ended = $("#workout-ended-panel");
+  const active = $("#workout-active-panel");
+  const start = $("#workout-start-panel");
+  const preview = $("#workflow-preview");
+  let step = "readiness";
+  if (ended && !ended.hidden) step = "post";
+  else if (active && !active.hidden) step = "active";
+  else if (start && !start.hidden) step = "active";
+  else if (preview && !preview.classList.contains("locked")) step = "preview";
+  setWorkflowStep(step);
+}
+
+function setWorkflowReadiness(data) {
+  const complete = Boolean(data) && data.known !== false &&
+    WORKFLOW_REQUIRED.every((field) => data[field] != null);
+  const preview = $("#workflow-preview");
+  const lock = $("#workflow-lock");
+  const content = $("#workflow-preview-content");
+  if (!preview || !lock || !content) return;
+  preview.classList.toggle("locked", !complete);
+  lock.hidden = complete;
+  content.hidden = !complete;
+  const empty = $("#workout-empty");
+  if (empty) {
+    const active = $("#workout-active-panel");
+    const start = $("#workout-start-panel");
+    if (!(active && !active.hidden) && !(start && !start.hidden)) {
+      empty.hidden = complete;
+    }
+  }
+  updateWorkflowStep();
+}
+
 $("#readiness-date").value = today();
 $("#readiness-fields").innerHTML = SCORE_FIELDS.map((f) => fieldInput(f)).join("");
 $("#readiness-device").innerHTML = DEVICE_FIELDS.map((f) => fieldInput(f, true)).join("");
@@ -1031,6 +1079,7 @@ async function loadReadiness(date) {
     }
     renderReadiness(data);
   } catch (error) {
+    setWorkflowReadiness(null);
     $("#readiness-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
@@ -1175,9 +1224,11 @@ $("#readiness-form").addEventListener("submit", async (event) => {
 
 function renderReadiness(data) {
   if (!data || data.known === false || Object.keys(data).length === 0) {
+    setWorkflowReadiness(null);
     $("#readiness-result").innerHTML = "<p class='empty'>No readiness for this date.</p>";
     return;
   }
+  setWorkflowReadiness(data);
   const rows = Object.keys(LABELS).filter((field) => data[field] != null).map((field) => `
     <tr><td>${esc(LABELS[field])}</td><td>${fmt(data[field])}</td>
     <td><span class="badge">${esc(data.sources?.[field] || "import")}</span></td></tr>`).join("");

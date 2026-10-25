@@ -2,6 +2,10 @@
 
 ## [0.5.0] — unreleased
 
+### Added
+
+- Guided **Workout workflow**: readiness → prescription preview → start → active workout (sets, CSV/per-rep import, end) → post-workout comparison. Readiness settings and Prescribe analysis remain separate pages.
+
 ### Planned
 
 - v0.5 cardio depth: capture audit, reproducible impulse, shadow 7/28-day load context, and a

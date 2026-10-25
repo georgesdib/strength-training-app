@@ -41,6 +41,7 @@ function openWorkoutStart() {
     WORKOUT_OPTIONAL.map(function (key) { return workoutField(key, false); }).join("");
   $("#workout-start-msg").textContent = "Loading readiness…";
   setView("workout");
+  if (typeof setWorkflowStep === "function") setWorkflowStep("active");
   api("/api/readiness/" + encodeURIComponent(plan.for_date)).then(function (data) {
     document.querySelectorAll("[data-workout-field]").forEach(function (input) {
       input.value = data[input.dataset.workoutField] == null ? "" : data[input.dataset.workoutField];
@@ -55,7 +56,7 @@ function openWorkoutStart() {
 function cancelWorkoutStart() {
   $("#workout-start-panel").hidden = true;
   $("#workout-empty").hidden = false;
-  setView("prescribe");
+  setView("workout");
 }
 
 function submitWorkoutStart(event) {
@@ -84,7 +85,7 @@ function submitWorkoutStart(event) {
     "Readiness changed after this prescription was built. Start with the existing plan? " +
     "Cancel to go back and rebuild the prescription."
   )) {
-    setView("prescribe");
+    setView("workout");
     return;
   }
   $("#workout-start-msg").textContent = "Starting…";
@@ -276,6 +277,7 @@ function renderWorkout(w) {
   $("#workout-start-panel").hidden = true;
   $("#workout-ended-panel").hidden = true;
   $("#workout-active-panel").hidden = false;
+  if (typeof setWorkflowStep === "function") setWorkflowStep("active");
   $("#workout-title").textContent = w.for_date + " · " + (w.session_type || "unknown");
   $("#workout-meta").innerHTML = "Started " + esc(w.started_at) + " · status <strong>" +
     esc(w.status) + "</strong>";
@@ -407,6 +409,7 @@ function renderWorkoutEnded(w) {
   $("#workout-start-panel").hidden = true;
   $("#workout-empty").hidden = true;
   $("#workout-ended-panel").hidden = false;
+  if (typeof setWorkflowStep === "function") setWorkflowStep("post");
   var rpe = w.session_rpe_recorded ? fmt(w.session_rpe) : "not recorded";
   var comparison = w.comparison || { items: [], extra: [] };
   var original = w.original_comparison || comparison;
@@ -467,6 +470,7 @@ function loadActiveWorkout() {
       $("#workout-start-panel").hidden = true;
       $("#workout-ended-panel").hidden = true;
       $("#workout-empty").hidden = false;
+      if (typeof updateWorkflowStep === "function") updateWorkflowStep();
     }
   }).catch(function (error) {
     $("#workout-empty").hidden = false;

@@ -38,7 +38,7 @@ implementation or parity document.
 | **Outcomes** | Outcome review; Prospective check; Form trend; Readiness feedback | [OUTCOMES.md](OUTCOMES.md), [W5-PROSPECTIVE-EVALUATION.md](W5-PROSPECTIVE-EVALUATION.md) | [FORM-PROSPECTIVE.md](FORM-PROSPECTIVE.md), [FORM-USE-EVIDENCE.md](FORM-USE-EVIDENCE.md), [READINESS.md](READINESS.md), [ROADMAP.md](ROADMAP.md) |
 | **Longevity** | Longevity context; summary cards; cardio, measurements, readiness, symptoms tables | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](ROADMAP.md) |
 | **Prescribe** | Prescribe form; Continuity calibration; Weekly volume; Regime change; Strength fatigue diagnostic; Exercise selection; Retrospective validation | [RULES-FORMAT.md](RULES-FORMAT.md), [METHODOLOGY.md](METHODOLOGY.md) | [CONTINUITY.md](CONTINUITY.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md), [REGIME-CHANGE.md](REGIME-CHANGE.md), [FATIGUE-FITNESS.md](FATIGUE-FITNESS.md), [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md), [RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md) |
-| **Workout** | Workout; Start workout; Optional device data; Workout in progress; Log a set; Edit actual set; Import workout CSV; Per-rep velocity; End workout; Workout ended | [USER-GUIDE.md](../USER-GUIDE.md), [WEB-UI.md](WEB-UI.md) | [VBT-CALIBRATION.md](VBT-CALIBRATION.md), [REP-VELOCITY.md](REP-VELOCITY.md), [WORKOUT-TYPE-READINESS-EVIDENCE.md](WORKOUT-TYPE-READINESS-EVIDENCE.md), [DECISIONS.md](DECISIONS.md) |
+| **Workflow** | Readiness; Preview/configure; Start workout; Active workout; Log/edit sets; Optional device data; Import workout CSV; Per-rep velocity; End workout; Post-workout comparison | [USER-GUIDE.md](../USER-GUIDE.md), [WEB-UI.md](WEB-UI.md) | [VBT-CALIBRATION.md](VBT-CALIBRATION.md), [REP-VELOCITY.md](REP-VELOCITY.md), [WORKOUT-TYPE-READINESS-EVIDENCE.md](WORKOUT-TYPE-READINESS-EVIDENCE.md), [DECISIONS.md](DECISIONS.md) |
 | **Programme** | Programme forecast | [TRAINING-DYNAMICS.md](TRAINING-DYNAMICS.md), [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md) | [REFERENCES.md](REFERENCES.md), [ROADMAP.md](ROADMAP.md) |
 | **Review** | Review a session; Rubric agreement | [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md), [RULES-FORMAT.md](RULES-FORMAT.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](ROADMAP.md) |
 | **Readiness** | Log readiness; Quick readiness; Baseline settings; Volume valve; Calibration report; Override the score | [READINESS.md](READINESS.md), [READINESS-SCORE.md](READINESS-SCORE.md) | [LIFT-READINESS.md](LIFT-READINESS.md), [READINESS-WEIGHT-EVIDENCE.md](READINESS-WEIGHT-EVIDENCE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](ROADMAP.md) |
@@ -104,7 +104,7 @@ implementation or parity document.
 - [x] Deep-link route (`#docs?doc=...&anchor=...`), heading IDs, duplicate-slug handling.
 - [x] Canonical view/panel map and relationship fields.
 - [x] Reusable `.section-help` style.
-- [x] P1: every view-level `h2` panel has the pattern (49 panels).
+- [x] P1: every view-level `h2` panel has the pattern.
 - [x] P2: every nested `h3` and the exercise-details dialog has the pattern, with verified anchors.
 - [x] P3: every UI-linked doc has a Related block.
 - [x] P4: `tools/check_ui_docs.py` and `tests/test_ui_docs.py` enforce the contract,

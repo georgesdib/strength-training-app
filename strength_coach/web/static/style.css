@@ -242,3 +242,22 @@ body.menu-open { overflow: hidden; }
   margin: 0 0 12px; color: var(--muted); font-size: 13px; line-height: 1.45; }
 .section-help .doc-link { white-space: nowrap; }
 .doc-link { font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Guided workout workflow. */
+.workflow-intro { border-left: 4px solid var(--ink); }
+.workflow-steps { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 8px 0 0; }
+.workflow-steps li { display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+  border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 13px; }
+.workflow-steps li strong { display: inline-grid; place-items: center; width: 20px; height: 20px;
+  border-radius: 50%; background: var(--soft); font-size: 11px; }
+.workflow-steps li.active { color: var(--ink); border-color: var(--ink); background: var(--paper); }
+.workflow-steps li.done { color: var(--ink); border-style: dashed; }
+.workflow-step-block { margin: 14px 0; }
+.workflow-step-head { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 8px; }
+.workflow-step-head h2 { margin: 0 0 2px; }
+.workflow-step-head p { margin: 0; }
+.step-number { display: inline-grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px;
+  border-radius: 50%; background: var(--ink); color: #fff; font-weight: 700; }
+.workflow-lock { border: 1px dashed var(--line); border-radius: 10px; padding: 14px;
+  color: var(--muted); background: var(--soft); }
+#workflow-preview.locked .workflow-step-head { opacity: .7; }

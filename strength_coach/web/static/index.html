@@ -31,7 +31,7 @@
       <button data-view="outcomes">Outcomes</button>
       <button data-view="longevity">Longevity</button>
       <button data-view="prescribe">Prescribe</button>
-      <button data-view="workout">Workout</button>
+      <button data-view="workout">Workflow</button>
       <button data-view="programme">Programme</button>
       <button data-view="review">Review</button>
       <button data-view="readiness">Readiness</button>
@@ -207,43 +207,10 @@
 
     <section id="view-prescribe" class="view">
       <div class="panel">
-        <div class="panel-head"><h2>Prescribe a session</h2></div>
-        <p class="section-help"><span>Builds the deterministic prescription with hard constraints, fallback and provenance.</span> <a class="doc-link" href="#docs?doc=docs/METHODOLOGY.md">Methodology</a></p>
-        <form id="prescribe-form" class="form-row">
-          <label>Date <input type="date" id="prescribe-date" required></label>
-          <label>Session
-            <select id="prescribe-session-type">
-              <option value="auto">Auto (rolling)</option>
-              <option value="squat">Squat emphasis</option>
-              <option value="hinge">Hinge emphasis</option>
-              <option value="bench_squat">Bench + squat support</option>
-              <option value="bench_hinge">Bench + hinge support</option>
-            </select>
-          </label>
-          <label><input type="checkbox" id="prescribe-apply-selection"> Apply selection</label>
-          <label id="prescribe-selection-confirm-wrap" hidden><input type="checkbox" id="prescribe-selection-confirm"> Confirm near-comparable (B)</label>
-          <label id="prescribe-selection-llm-wrap" hidden><input type="checkbox" id="prescribe-selection-llm"> Use LLM</label>
-          <p class="muted" id="prescribe-apply-selection-note"><strong>Apply selection:</strong> reruns the per-slot ranking and substitutes only <strong>class A</strong> candidates automatically; <strong>class B</strong> requires <em>Confirm near-comparable</em>; <strong>class C</strong> is never applied. Each applied slot cites <code>MOD-SELECT-001</code> and its load is re-solved from that lift's own history. It does not change the session type, and nothing is persisted until <strong>Start workout</strong>.</p>
-          <label><input type="checkbox" id="prescribe-minimum"> Minimum session</label>
-          <span id="prescribe-minimum-options" hidden>
-            <label>Target
-              <select id="prescribe-target" disabled>
-                <option value="30">30 min</option>
-                <option value="45" selected>45 min</option>
-                <option value="60">60 min</option>
-              </select>
-            </label>
-            <label><input type="checkbox" id="prescribe-minimum-main" disabled> also reduce main lifts</label>
-            <span class="muted">Only used when minimum session is ticked: it trims accessory volume to the estimated target, then main-lift sets to a floor of 2 if you opt in. Loads and RIR stay unchanged.</span>
-          </span>
-          <button class="primary" type="submit">Build prescription</button>
-        </form>
-        <p class="muted">The prescription is deterministic and cites rule ids. Warnings are part of the
-          answer, not noise: a missing readiness or an unknown load appears here. Poor readiness
-          reduces accessory sets by one (config/readiness.v1.yaml) as well as load/RIR.
-          A minimum session is explicit, volume-only, and leaves load/RIR unchanged.</p>
+        <div class="panel-head"><h2>Prescription analysis</h2><span class="muted">preview lives in Workflow</span></div>
+        <p class="section-help"><span>Readiness, preview, start and end are now one guided workflow.</span> <a class="doc-link" href="#docs?doc=docs/UI-MAP.md">UI documentation map</a></p>
+        <p class="muted">The prescription form and Start button are in the <a href="#workout" data-view-link="workout">Workout workflow</a>. This page keeps continuity, volume, regime, fatigue and validation analysis.</p>
       </div>
-      <div id="prescribe-result"></div>
       <div class="panel" id="continuity-panel">
         <div class="panel-head"><h2>Continuity calibration</h2>
           <span class="muted" id="continuity-status">loading…</span></div>
@@ -321,10 +288,89 @@
 
 
     <section id="view-workout" class="view">
+      <div class="workflow-intro panel">
+        <div class="panel-head"><h2>Workout workflow</h2><span class="muted">readiness → preview → workout → post-workout</span></div>
+        <p class="section-help"><span>One guided path from today's readiness to a saved session and its comparison.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md&amp;anchor=4-10i-workout-mode-start-log-end">Workout guide</a></p>
+        <ol class="workflow-steps">
+          <li data-workflow-step="readiness"><strong>1</strong><span>Readiness</span></li>
+          <li data-workflow-step="preview"><strong>2</strong><span>Preview</span></li>
+          <li data-workflow-step="active"><strong>3</strong><span>Start / workout</span></li>
+          <li data-workflow-step="post"><strong>4</strong><span>Post-workout</span></li>
+        </ol>
+      </div>
+      <div class="workflow-step-block" id="workflow-readiness">
+        <div class="workflow-step-head"><span class="step-number">1</span><div><h2>Readiness</h2><p class="muted">Complete the seven self-report fields to unlock the preview.</p></div></div>
+        <div class="panel">
+        <div class="panel-head"><h2>Log readiness</h2></div>
+        <p class="section-help"><span>Records daily readiness; any subset is valid and manual values win per field.</span> <a class="doc-link" href="#docs?doc=docs/READINESS.md">Readiness</a></p>
+        <form id="readiness-form">
+          <div class="form-row">
+            <label>Date <input type="date" id="readiness-date" required></label>
+            <label class="grow">Note <input type="text" id="readiness-note" placeholder="optional"></label>
+          </div>
+          <div id="readiness-fields" class="grid-fields"></div>
+          <details class="advanced">
+            <summary>Device fields (optional)</summary>
+            <div id="readiness-device" class="grid-fields"></div>
+          </details>
+          <div class="form-row">
+            <button class="primary" type="submit">Save readiness</button>
+            <span class="muted">Any subset is valid. Manual values win per field.</span>
+          </div>
+        </form>
+        </div>
+        <div id="readiness-result"></div>
+        <div id="readiness-score"></div>
+      </div>
+      <div class="workflow-step-block locked" id="workflow-preview">
+        <div class="workflow-step-head"><span class="step-number">2</span><div><h2>Preview and configure</h2><p class="muted">Build the deterministic plan, inspect warnings, then start it.</p></div></div>
+        <div id="workflow-lock" class="workflow-lock">Complete readiness above to unlock the prescription preview.</div>
+        <div id="workflow-preview-content" hidden>
+<div class="panel">
+        <div class="panel-head"><h2>Prescribe a session</h2></div>
+        <p class="section-help"><span>Builds the deterministic prescription with hard constraints, fallback and provenance.</span> <a class="doc-link" href="#docs?doc=docs/METHODOLOGY.md">Methodology</a></p>
+        <form id="prescribe-form" class="form-row">
+          <label>Date <input type="date" id="prescribe-date" required></label>
+          <label>Session
+            <select id="prescribe-session-type">
+              <option value="auto">Auto (rolling)</option>
+              <option value="squat">Squat emphasis</option>
+              <option value="hinge">Hinge emphasis</option>
+              <option value="bench_squat">Bench + squat support</option>
+              <option value="bench_hinge">Bench + hinge support</option>
+            </select>
+          </label>
+          <label><input type="checkbox" id="prescribe-apply-selection"> Apply selection</label>
+          <label id="prescribe-selection-confirm-wrap" hidden><input type="checkbox" id="prescribe-selection-confirm"> Confirm near-comparable (B)</label>
+          <label id="prescribe-selection-llm-wrap" hidden><input type="checkbox" id="prescribe-selection-llm"> Use LLM</label>
+          <p class="muted" id="prescribe-apply-selection-note"><strong>Apply selection:</strong> reruns the per-slot ranking and substitutes only <strong>class A</strong> candidates automatically; <strong>class B</strong> requires <em>Confirm near-comparable</em>; <strong>class C</strong> is never applied. Each applied slot cites <code>MOD-SELECT-001</code> and its load is re-solved from that lift's own history. It does not change the session type, and nothing is persisted until <strong>Start workout</strong>.</p>
+          <label><input type="checkbox" id="prescribe-minimum"> Minimum session</label>
+          <span id="prescribe-minimum-options" hidden>
+            <label>Target
+              <select id="prescribe-target" disabled>
+                <option value="30">30 min</option>
+                <option value="45" selected>45 min</option>
+                <option value="60">60 min</option>
+              </select>
+            </label>
+            <label><input type="checkbox" id="prescribe-minimum-main" disabled> also reduce main lifts</label>
+            <span class="muted">Only used when minimum session is ticked: it trims accessory volume to the estimated target, then main-lift sets to a floor of 2 if you opt in. Loads and RIR stay unchanged.</span>
+          </span>
+          <button class="primary" type="submit">Build prescription</button>
+        </form>
+        <p class="muted">The prescription is deterministic and cites rule ids. Warnings are part of the
+          answer, not noise: a missing readiness or an unknown load appears here. Poor readiness
+          reduces accessory sets by one (config/readiness.v1.yaml) as well as load/RIR.
+          A minimum session is explicit, volume-only, and leaves load/RIR unchanged.</p>
+      </div>
+      <div id="prescribe-result"></div>
+      
+        </div>
+      </div>
       <div class="panel" id="workout-empty">
         <div class="panel-head"><h2>Workout</h2><span class="muted">no active workout</span></div>
         <p class="section-help"><span>Start, log, edit and end a live workout linked to a frozen plan.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
-        <p class="muted">Build a prescription on the Prescribe page, then choose <strong>Start workout</strong>.
+        <p class="muted">Complete readiness above, build the preview, then choose <strong>Start workout</strong>.
           The prescription is frozen and the workout becomes the actual record.</p>
       </div>
 
@@ -418,6 +464,11 @@
         <div class="panel-head"><h2>Workout ended</h2><span class="muted">review is the next step</span></div>
         <p class="section-help"><span>The session is stored; Review is the next step and calibration is separate.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
         <div id="workout-ended"></div>
+        <div class="form-row">
+          <a class="ghost" href="#review">Review session</a>
+          <a class="ghost" href="#history">History</a>
+          <a class="ghost" href="#outcomes">Outcomes</a>
+        </div>
       </div>
     </section>
     <section id="view-programme" class="view">
@@ -467,23 +518,8 @@
 
     <section id="view-readiness" class="view">
       <div class="panel">
-        <div class="panel-head"><h2>Log readiness</h2></div>
-        <p class="section-help"><span>Records daily readiness; any subset is valid and manual values win per field.</span> <a class="doc-link" href="#docs?doc=docs/READINESS.md">Readiness</a></p>
-        <form id="readiness-form">
-          <div class="form-row">
-            <label>Date <input type="date" id="readiness-date" required></label>
-            <label class="grow">Note <input type="text" id="readiness-note" placeholder="optional"></label>
-          </div>
-          <div id="readiness-fields" class="grid-fields"></div>
-          <details class="advanced">
-            <summary>Device fields (optional)</summary>
-            <div id="readiness-device" class="grid-fields"></div>
-          </details>
-          <div class="form-row">
-            <button class="primary" type="submit">Save readiness</button>
-            <span class="muted">Any subset is valid. Manual values win per field.</span>
-          </div>
-        </form>
+        <p class="section-help"><span>The daily log is in the guided workflow; this page keeps baseline and policy settings.</span> <a class="doc-link" href="#workout" data-view-link="workout">Workout workflow</a></p>
+
         <div class="panel">
           <div class="panel-head"><h2>Quick readiness</h2><span class="muted">presets write ordinary fields; no shortcut around the gate</span></div>
         <p class="section-help"><span>Presets write ordinary fields; they do not bypass the readiness gate.</span> <a class="doc-link" href="#docs?doc=docs/READINESS.md">Readiness</a></p>
@@ -493,7 +529,6 @@
           <button class="ghost" type="button" onclick="saveReadinessContext()">Save context flags</button>
           <span id="context-msg" class="muted"></span>
         </div>
-        <div id="readiness-score"></div>
         <div class="panel">
           <div class="panel-head"><h2>Baseline settings</h2><span class="muted">athlete overrides config</span></div>
         <p class="section-help"><span>Athlete-specific readiness baseline and weighting overrides.</span> <a class="doc-link" href="#docs?doc=docs/READINESS-SCORE.md">Readiness score</a></p>
@@ -556,7 +591,6 @@
           </form>
           <p class="muted">The override wins over the computed score and changes the load, but never bypasses an injury ceiling or constraint.</p>
         </div>
-        <div id="readiness-result"></div>
       </div>
     </section>
 

@@ -96,9 +96,16 @@ def test_the_page_and_overview_are_served(server):
     assert "view-history" in page and "history.js" in page
     assert "view-longevity" in page and "longevity-form" in page
     assert "workout.js" in page
-    assert page.count('class="section-help"') >= 57
-    assert page.count("#docs?doc=") >= 49
+    assert page.count('class="section-help"') >= 60
+    assert page.count("#docs?doc=") >= 50
     assert "&amp;anchor=" in page  # nested/dialog links use section anchors
+    # The guided workflow owns readiness → preview → workout → post-workout.
+    assert page.index('id="workflow-readiness"') < page.index('id="workflow-preview"')
+    assert page.index('id="workflow-preview"') < page.index('id="workout-start-panel"')
+    assert page.index('id="workout-start-panel"') < page.index('id="workout-active-panel"')
+    assert page.index('id="workout-active-panel"') < page.index('id="workout-ended-panel"')
+    assert 'data-workflow-step="post"' in page
+    assert 'id="readiness-form"' in page and 'id="prescribe-form"' in page
     assert "Exercise details" in page  # dialog remains a P2 subsection
     # CLI/UI parity: the recent capture surfaces are reachable from the shell.
     assert "Cardio" in page and "Measures" in page
