@@ -18,6 +18,9 @@
 
 ### Fixed
 
+- Added a partial index on `clean_set(supersedes_id)`; the append-only leaf lookup was
+  O(n²) and made Today, Review, rubric calibration and Athlete-state requests slow after
+  history growth.
 - Readiness saves now accept the optional `wearable_score` (migration 0029) and are
   all-or-nothing, so a rejected field cannot leave a partial readiness day.
 - Workout materialisation now classifies added bodyweight load through the domain resolver and
