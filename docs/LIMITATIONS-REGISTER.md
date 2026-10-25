@@ -48,6 +48,7 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-38 | Regime-change thresholds (4 baseline sets, ≤25% current, ≥2 substitute rise) are descriptive heuristics, not validated cut-points | open | DEC-REGIME-01 | prospective evidence or a different review policy |
 | LIM-39 | Post-lift form is a subjective 1–5 self-rating; its rubric weight (0.05) and aggregation are policy choices, not validated. Imported Form backfill uses 1=best, 5=worst, 0=missing and half-up rounding; retrospective associations with e1RM/next performance/sRPE were near zero | open | DEC-FORM-01/02/04 | prospective evidence or a coach comparison |
 | LIM-40 | Form-trend status uses a ±0.5 descriptive threshold; it is not a validated minimal important difference | open | DEC-FORM-04 | evidence for a change threshold |
+| LIM-41 | The prospective form evaluation has not run; low-form-event and next-performance associations remain unknown | open | FORM-PROSPECTIVE | 12 weeks / 10 low-form events across ≥4 lifts |
 
 ## Rules
 

@@ -15,7 +15,19 @@ better. It is optional; an unrated lift is not penalised.
 - imported sessions can receive ratings through History;
 - never changes a load, set, RIR or exercise selection.
 
-## 2. Surfaces
+## 2. Anchors
+
+| rating | meaning |
+|---:|---|
+| 5 | Intended technique on every rep; no compromise. |
+| 4 | Minor deviation; no rep lost or materially altered. |
+| 3 | Clear deviation in at least one rep; set completed as planned. |
+| 2 | Multiple compromised reps, or a rep noticeably altered/partial; set completed only with modification. |
+| 1 | Technique broke down; set stopped/aborted or unsafe to continue. |
+
+Compare only within the same lift.
+
+## 3. Surfaces
 
 Workout:
 
@@ -43,7 +55,7 @@ POST /api/history/<session_id>/edit
 { "sets": [...], "forms": [{ "exercise_id": "...", "rating": 4 }], ... }
 ```
 
-## 3. Rubric
+## 4. Rubric
 
 Rubric **1.2.0** adds `FORM_ASSESSMENT`:
 
@@ -57,7 +69,7 @@ Rubric **1.2.0** adds `FORM_ASSESSMENT`:
 
 The previous seven weights were scaled by 0.95 to make room for form.
 
-## 4. Storage
+## 5. Storage
 
 - `workout_form_rating` — append-only active-workout ratings;
 - `session_form_rating` — materialised at workout end; corrections supersede the old row;
@@ -72,7 +84,7 @@ The exact source `Form` value remains in `raw_row.payload` for audit. The new
 `session_form_rating` rows are authoritative; a post-lift rating is still a separate,
 explicitly directed measure.
 
-## 5. Descriptive uses
+## 6. Descriptive uses
 
 - **Outcomes → Form trend** — current vs previous equal window, latest rating, change and
   session counts. The ±0.5 status threshold is a display heuristic, not a validated cut-point.
@@ -83,7 +95,7 @@ explicitly directed measure.
 `GET /api/form-trend?weeks=4|8|12&date=YYYY-MM-DD` returns the descriptive trend.
 No load, set or prescription use.
 
-## 6. Limits
+## 7. Limits
 
 - Self-reported and subjective.
 - Not validated against a coach or injury outcomes.
@@ -93,12 +105,13 @@ No load, set or prescription use.
 - The trend's ±0.5 display threshold is not validated.
 - Ratings are not available per set, so they cannot identify the exact rep where form broke.
 
-## 7. Evidence and use
+## 8. Evidence and use
 
-See [`FORM-USE-EVIDENCE.md`](FORM-USE-EVIDENCE.md). Form is monitoring/rubric-only; the
-retrospective association was near zero and does not support e1RM filtering or load changes.
+See [`FORM-USE-EVIDENCE.md`](FORM-USE-EVIDENCE.md) and the open
+[`FORM-PROSPECTIVE.md`](FORM-PROSPECTIVE.md). Form is monitoring/rubric-only; the retrospective
+association was near zero and does not support e1RM filtering or load changes.
 
-## 8. Files
+## 9. Files
 
 - migration `0033_form_ratings.sql`
 - `workout.py` (`set_form_rating`, materialisation)

@@ -72,6 +72,8 @@ def report(conn, *, weeks: int = 12, on_date: str | None = None) -> dict:
             "exercise_id": exercise_id,
             "current_n": len(current_values),
             "baseline_n": len(baseline_values),
+            "low_current": sum(1 for value in current_values if value <= 2),
+            "low_baseline": sum(1 for value in baseline_values if value <= 2),
             "current_avg": round(statistics.mean(current_values), 2) if current_values else None,
             "baseline_avg": round(statistics.mean(baseline_values), 2) if baseline_values else None,
             "change": change,
@@ -88,6 +90,8 @@ def report(conn, *, weeks: int = 12, on_date: str | None = None) -> dict:
             "current_to": end.isoformat(),
         },
         "forms": rows,
+        "low_form_events": sum(row["low_current"] for row in rows),
+        "low_form_lifts": sum(1 for row in rows if row["low_current"] > 0),
         "note": "Descriptive form ratings (1=worst, 5=best). No load or prescription effect.",
     }
 

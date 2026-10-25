@@ -51,6 +51,8 @@ def test_form_trend_compares_adjacent_windows():
     assert row["change"] == 2.5
     assert row["status"] == "up"
     assert row["current_n"] == 2 and row["baseline_n"] == 2
+    assert row["low_current"] == 0
+    assert report["low_form_events"] == 0
 
 
 def test_review_context_lists_prior_form_only():

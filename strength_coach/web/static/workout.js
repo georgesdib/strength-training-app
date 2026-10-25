@@ -307,6 +307,7 @@ function renderWorkout(w) {
   $("#workout-plan").innerHTML = "<p class='muted'>This is the editable workout plan; the original prescription is kept separately.</p>" +
     "<table><thead><tr><th>Planned</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th>" +
     "<th>Form</th><th>Swap</th><th></th></tr></thead><tbody>" + rows + "</tbody></table>" +
+    '<details><summary class="muted">Form scale (optional)</summary><p class="muted">5 = intended technique on every rep; 4 = minor deviation, no compromised rep; 3 = clear deviation in at least one rep; 2 = multiple compromised reps or a noticeably altered rep; 1 = technique broke down / set stopped. Rate after the lift, per exercise.</p></details>' +
     '<div class="form-row" style="margin-top:0.75rem">' +
     '<label>Add exercise <select id="workout-add-exercise">' + workoutExerciseOptions("") + "</select></label>" +
     '<label>Sets <input id="workout-add-sets" type="number" min="1" max="20" value="3"></label>' +

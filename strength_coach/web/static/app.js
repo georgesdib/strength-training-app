@@ -37,7 +37,7 @@ function notify(message, kind = "ok") {
   toastTimer = setTimeout(() => { toast.hidden = true; }, 4500);
 }
 
-function setView(name) {
+function setView(name, options = {}) {
   document.querySelectorAll("#nav button").forEach((b) => {
     b.classList.toggle("active", b.dataset.view === name);
   });
@@ -50,13 +50,15 @@ function setView(name) {
   if (name === "cardio") loadCardio();
   if (name === "measures") loadMeasurements();
   if (name === "prescribe") { loadFatigue(); loadContinuity(); loadVolume(); }
-  if (name === "docs" && !$("#docs-list").dataset.loaded) loadDocs();
+  if (name === "docs") loadDocs(options.doc, options.anchor);
   if (name === "state") loadState();
   if (name === "settings") loadSettings();
   if (name === "history") loadHistory();
   if (name === "outcomes") loadOutcomes();
   if (name === "longevity") loadLongevity();
-  if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
+  if (!options.fromHash && location.hash !== "#" + name) {
+    history.replaceState(null, "", "#" + name);
+  }
 }
 
 document.querySelectorAll("#nav button").forEach((button) => {
@@ -90,8 +92,12 @@ document.addEventListener("keydown", (event) => {
 });
 
 window.addEventListener("hashchange", () => {
-  const name = location.hash.replace("#", "") || "dashboard";
-  if (document.getElementById("view-" + name)) setView(name);
+  const raw = location.hash.replace("#", "") || "dashboard";
+  const [name, query] = raw.split("?");
+  const params = new URLSearchParams(query || "");
+  if (document.getElementById("view-" + name)) {
+    setView(name, {doc: params.get("doc"), anchor: params.get("anchor"), fromHash: true});
+  }
 });
 
 /* --- dashboard ---------------------------------------------------------- */
@@ -413,13 +419,15 @@ async function loadFormTrend(weeks, day) {
       <td>${row.current_avg ?? "—"} / ${row.baseline_avg ?? "—"}</td>
       <td>${row.change == null ? "—" : (row.change > 0 ? "+" : "") + row.change}</td>
       <td><span class="badge ${row.status === "down" ? "warn" : ""}">${esc(row.status)}</span></td>
-      <td class="muted">n ${row.current_n}/${row.baseline_n}</td></tr>`).join("");
+      <td class="muted">n ${row.current_n}/${row.baseline_n} · low ${row.low_current}</td></tr>`).join("");
     target.innerHTML = rows
       ? `<p class="muted">${esc(data.window.current_from)} to ${esc(data.window.current_to)}
          · baseline ${esc(data.window.baseline_from)} to ${esc(data.window.baseline_to)}</p>
          <table><thead><tr><th>Lift</th><th>latest</th><th>current / baseline avg</th>
          <th>change</th><th>status</th><th>sessions</th></tr></thead>
-         <tbody>${rows}</tbody></table><p class="muted">${esc(data.note)}</p>`
+         <tbody>${rows}</tbody></table>
+         <p class="muted">Low-form events (≤2) in this window: <strong>${data.low_form_events ?? 0}</strong>
+         across ${data.low_form_lifts ?? 0} lift(s). ${esc(data.note)}</p>`
       : `<p class="empty">No form ratings in this window.</p>`;
   } catch (error) {
     target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
@@ -1462,28 +1470,36 @@ function renderStateForms(data) {
 }
 
 /* --- docs --------------------------------------------------------------- */
-async function loadDocs() {
+async function loadDocs(requested, anchor) {
   try {
     const docs = await api("/api/docs");
     $("#docs-list").dataset.loaded = "1";
-    $("#docs-list").innerHTML = docs.map((doc) => `<a href="#docs" data-doc="${esc(doc.name)}">
+    $("#docs-list").innerHTML = docs.map((doc) => `<a href="#docs?doc=${encodeURIComponent(doc.name)}">
       ${esc(doc.title)}</a>`).join("");
-    document.querySelectorAll("[data-doc]").forEach((link) => {
-      link.addEventListener("click", (event) => {
-        event.preventDefault();
-        loadDoc(link.dataset.doc);
-      });
-    });
-    if (docs.length) loadDoc(docs[0].name);
+    if (!requested && $("#doc-body").dataset.loaded) return;
+    const target = requested || docs[0]?.name;
+    if (!target) return;
+    if (!docs.some((doc) => doc.name === target)) {
+      $("#doc-body").innerHTML = `<p class="warnbox">Unknown document: ${esc(target)}</p>`;
+      return;
+    }
+    await loadDoc(target, anchor);
   } catch (error) {
     $("#docs-list").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
 
-async function loadDoc(name) {
+async function loadDoc(name, anchor) {
   try {
     const doc = await api("/api/docs/" + encodeURIComponent(name));
+    $("#doc-body").dataset.loaded = "1";
     $("#doc-body").innerHTML = `<p class="muted">${esc(doc.name)}</p>` + doc.html;
+    if (anchor) {
+      requestAnimationFrame(() => {
+        const target = document.getElementById(anchor);
+        if (target) target.scrollIntoView({block: "start"});
+      });
+    }
   } catch (error) {
     $("#doc-body").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
