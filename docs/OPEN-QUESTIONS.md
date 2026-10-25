@@ -38,16 +38,24 @@ weighted cost reported alongside as context (ASSUMPTION-02).
 
 ---
 
-## Q3. The erector ramp needs an anchor — **default implemented: optional anchor**
+## Q3. The erector ramp needs an anchor — **closed: manual anchor + symptom input**
 
-The 8-12 week dose ramp (bodyweight -> add load -> add a set -> consolidate) requires knowing
-which week of the block today is. Nothing in the source export marks a block boundary, and
-the historical erector rows deliberately do **not** count toward the dose.
+The 8-12 week dose ramp (bodyweight -> add load -> add a set -> consolidate) needs to know
+which week of the block today is. Nothing in the source export marks a block boundary.
 
-**Blocks:** the erector ramp rule, squat/bench session prescription, the "weekly erector dose vs plan"
-rubric line.
-**Default:** block starts on the first Monday after approval; until then, bodyweight only,
-phase labelled `unanchored`.
+**Closed 2026-10-25.** The anchor is explicit, not inferred: the athlete sets
+`athlete_profile.block_start_date` with `strength-coach block --date`; `--force` resets it and
+restarts the ramp at week 1 (`DEC-RAMP-02`). The UI exposes the same field. This is an
+operational input, not an open design question.
+
+The rule separately needs a pre-session low-back symptom reading. **0 is a valid reading and
+means no symptoms**; it satisfies the gate. A missing reading is `unknown`, not "no flare" —
+absence of a record is not evidence of absence. Historical erector rows count as training
+history but cannot establish the block week.
+
+**Blocks:** nothing design-level. Until both inputs exist, `PRG-EREC-001` returns `unknown`;
+the prescription can still start erector work at bodyweight, and main loads are unaffected.
+**Default:** no anchor -> `unknown`; bodyweight start; no automatic "first Monday" anchor.
 
 ---
 
