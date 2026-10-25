@@ -68,6 +68,27 @@ document.querySelectorAll("[data-view-link]").forEach((link) => {
     setView(link.dataset.viewLink);
   });
 });
+/* Collapsible left menu. */
+function setSidebar(open) {
+  const sidebar = document.querySelector("#sidebar");
+  const backdrop = document.querySelector("#sidebar-backdrop");
+  const toggle = document.querySelector("#menu-toggle");
+  if (!sidebar || !backdrop || !toggle) return;
+  sidebar.hidden = !open;
+  backdrop.hidden = !open;
+  toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  document.body.classList.toggle("menu-open", open);
+}
+document.querySelector("#menu-toggle")?.addEventListener("click", () => setSidebar(true));
+document.querySelector("#sidebar-close")?.addEventListener("click", () => setSidebar(false));
+document.querySelector("#sidebar-backdrop")?.addEventListener("click", () => setSidebar(false));
+document.querySelectorAll("#nav button").forEach((button) => {
+  button.addEventListener("click", () => setSidebar(false));
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setSidebar(false);
+});
+
 window.addEventListener("hashchange", () => {
   const name = location.hash.replace("#", "") || "dashboard";
   if (document.getElementById("view-" + name)) setView(name);

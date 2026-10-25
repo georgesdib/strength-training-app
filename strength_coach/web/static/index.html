@@ -18,7 +18,13 @@
 </head>
 <body>
   <header class="topbar">
+    <button id="menu-toggle" class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false">☰</button>
     <div class="brand">Strength<span>Coach</span></div>
+    <div class="local">local only · <code>127.0.0.1:8000</code></div>
+  </header>
+  <aside id="sidebar" class="sidebar" hidden aria-label="Main menu">
+    <div class="sidebar-head"><span>Menu</span>
+      <button id="sidebar-close" class="sidebar-close" type="button" aria-label="Close menu">×</button></div>
     <nav id="nav">
       <button data-view="dashboard" class="active">Today</button>
       <button data-view="history">History</button>
@@ -38,8 +44,8 @@
       <button data-view="terminal">Terminal</button>
       <button data-view="docs">Docs</button>
     </nav>
-    <div class="local">local only · <code>127.0.0.1:8000</code></div>
-  </header>
+  </aside>
+  <div id="sidebar-backdrop" class="sidebar-backdrop" hidden></div>
 
   <main>
     <section id="view-dashboard" class="view active">
