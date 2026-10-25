@@ -38,7 +38,7 @@
 - `e1rm_source` was read by nothing: changing it to `median` changed no prescription. Unknown
   values now raise at config load instead of silently defaulting.
 - `MOD-FAT-001`'s first-set RIR-drop branch was documented but never implemented. Removed, with
-  the noise-floor reasoning recorded in `OPEN-QUESTIONS` Q22 (`DEC-RIR-04`, constitution 1.13.0).
+  the noise-floor reasoning recorded in `OPEN-QUESTIONS` Q23 (`DEC-RIR-04`, constitution 1.13.0).
 - `MOD-VOL-002` added an under-MEV set to the wrong sub-pattern every session (a low
   `core_flexion` grew `ab_wheel`; a low `squat_unilateral` grew `split_squat`) and re-fired
   indefinitely. It now acts on the group that is actually under.

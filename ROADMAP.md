@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-25 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 done, v0.5 next** · version `0.5.0-dev` · **696 public tests** (711 with the 15 private integration tests)
+Last updated: 2026-10-26 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 done, v0.5 in progress** · version `0.5.0-dev` · **749 public tests** (764 with the 15 private integration tests)
 
 ---
 
@@ -47,6 +47,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v0.3 | Strength/data depth | **done** | manual logging via live workout mode (§4.2/§4.21, closed), import adapters closed (§4.3), learned readiness weights evaluated and closed (§4.9), LLM proposal view closed as CLI-only (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed), read-only 4/8/12-week outcomes review, longevity context, prescription-modifier provenance and quick readiness presets/context and readiness feedback, UI prescription persistence (A0/A/B/C/E), minimum effective sessions (D) the methodology/privacy docs (F), W1/W7 attendance metrics and the session-time cap |
 | v0.4 | Audit, documentation and form closeout | **done 2026-10-25** | form assessment/prospective follow-up, fatigue diagnostic closure, UI documentation P0–P4, parent-ratio evidence review, weakness test plan, calibration milestone (§4.22) |
 | v0.5 | Cardio + calibration depth | **in progress; plan at §4.13a** | guided Workflow UI (readiness → preview → workout → post-workout); cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
+| — | 2026-10-26 corrective pass | **done 2026-10-26** | e1RM selector + plausibility advisory (`DEC-E1RM-SOURCE-01`, `DEC-E1RM-PLAUS-01`), `MOD-SPINE-001` spinal trim, group-level volume status (`DEC-VOLUME-05`), technique throttle in the API and Prescribe form (`MOD-TECH-001`), e1RM overrides in Exercises and post-workout; constitution 1.13.0 (`DEC-RIR-04`) |
 | — | Post-workout form assessment | **done 2026-10-25** | optional per-lift 1–5; Workout + History edit; rubric 1.2.0 |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video descoped; 3.8 labelled set moved to §4.14 |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000`; Settings tab for LLM and browser defaults |
@@ -83,7 +84,9 @@ erector-day rule or the weekly spinal cap would be broken. At the weekly cap (th
 sits exactly on it) a non-essential erector slot is trimmed rather than left dead
 (`MOD-SPINE-001`); essential overages still veto and name the exposures. A main-lift load whose
 e1RM sits far above the lift's recent median raises a display-only advisory rather than a load
-change (`DEC-E1RM-PLAUS-01`). A performed session can now be
+change (`DEC-E1RM-PLAUS-01`). The web UI exposes the one-session technique throttle on the Prescribe
+form (`MOD-TECH-001`) and appends e1RM overrides from an Exercises row or the ended-workout
+panel, where a recorded test feeds the measured/formula calibration. A performed session can now be
 **critiqued**: seven rubric items score it (RIR adherence, progression adherence, weekly spinal
 cost, essential work, redundancy, rotation and measured live-session duration) with evidence
 references. Imported-session duration and within-set velocity loss remain `measurable = 0`
@@ -1035,6 +1038,7 @@ deferred items stay listed in §4.19.
 
 | priority | action | status |
 |---|---|---|
+| P1 | Record **≥3 measured tests per main lift** so `MOD-E1RM-001` can calibrate the formula (the bias question is data-starved, not mechanism-starved) | **next** — `e1rm calibrate` shows the ratio and CI; record from the Athlete page, an Exercises row or the post-workout panel |
 | P1 | Scheduled deload / broader fatigue-management policy | done — `DEC-PROGRAMME-05` |
 | P1 | 3RM/5RM calibration cadence and explicit warm-up prescription | done — 10-week reminder + 50/70/85 ramp |
 | P2 | Parent-variant e1RM ratios | moved to §4.20, unscheduled |
@@ -1047,6 +1051,7 @@ deferred items stay listed in §4.19.
 | P1 (v0.3) | Import adapters | **closed** — standard export + workout CSV cover the paths |
 | P1 (v0.3) | LLM proposal view | **closed** — CLI-only by decision |
 | P2 | Learned readiness weights | **closed** — fixed weights retained (`DEC-READINESS-10`) |
+| P2 | Main-lift upward-revision ratchet (cap the e1RM's per-session increase) | **deferred, not scheduled** — rejected as a controller in `DEC-E1RM-PLAUS-01` (bounds change, not level); revisit only if calibration cannot close the bias |
 | v0.5 | Deeper labelled calibration set | moved to v0.5 |
 | P3 | Per-rep velocity: cross-session analysis and evidence review | **done** — descriptive report; no rule (`DEC-VBT-05`) |
 | v0.5 | Cardio depth and shadow cardio load | planned |
@@ -1153,7 +1158,8 @@ contract, and comparable workout data collection.
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
 | Velocity detail was per-set only | within-set velocity loss was unavailable from the standard export | **resolved for capture and descriptive analysis** — optional per-rep CSV writes `clean_rep`; set-level remains primary; the report is stratified and sample-size-aware; no VBT rule reads it (`DEC-VBT-04/05`); trap-bar targets stay withheld |
 | Rubric calibration milestone | 10 high-confidence reviewed sessions; every rubric item at n=10; rotation weak; progression/velocity not comparable in the report; some old marks reconstructed and excluded | label gate met 2026-10-25; rubric retune remains a separate decision; `DEC-EVAL-04`; exact counts private |
-| Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one | Reviewed 2026-10-23: keep ordinal; separate heavy-set advisory (RIR ≤ 1) is context only; see docs/SPINAL-LOAD-EVIDENCE.md |
+| Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one, and set count is invisible (one exposure per session/exercise) | Reviewed 2026-10-23: keep ordinal; separate heavy-set advisory (RIR ≤ 1) is context only; `MOD-SPINE-001` now trims a non-essential exposure when it alone reaches the cap, but the weights are unchanged (`DEC-SPINE-03`, `LIM-14`, `docs/SPINAL-LOAD-EVIDENCE.md`) |
+| e1RM formula bias is only correctable with measured tests | an optimistic RIR fold shifts every load, and the shift is invisible inside the distribution | bounded correction ±10% from ≥3 tests (`MOD-E1RM-001`); the 28-day median and the plausibility advisory limit the damage meanwhile (`DEC-E1RM-SOURCE-01`, `DEC-E1RM-PLAUS-01`, `LIM-24`, `LIM-43`) |
 | VBT targets not prescribed | a prescription carries no `velocity_target` | **resolved** — 22 targets where trustworthy; trap bar withheld; `DEC-VBT-02` |
 | ACWR contested | cannot be a hard rule | advisory only; `DEC-ACWR-01` |
 
