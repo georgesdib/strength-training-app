@@ -23,6 +23,9 @@ documentation contract, form assessment and calibration milestone. Cardio depth 
 
 - Exposed cumulative load reductions below 0.80 and added a stacked decay/readiness/deload test;
   no total-stack cap or load change.
+
+- Exposed cumulative load reductions below 0.80 and added a stacked decay/readiness/deload test;
+  no total-stack cap or load change.
 - Closed Q7: floor-only RIR veto accepted; easier sets remain reported, not violations.
 - Closed Q2/Q8: weighted one-exercise-per-session spinal exposure accepted; stale distinct-type wording corrected.
 - Closed Q1: date-only imported sessions accepted; no timestamp backfill or inferred duration.

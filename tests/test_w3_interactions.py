@@ -80,3 +80,38 @@ def test_minimum_note_is_after_deload_not_before_it():
     note = prescription.notes["minimum_session"]
     assert note["after_minutes"] == estimate_minutes(prescription.items)
     assert "MOD-DELOAD-001" in " ".join(prescription.warnings)
+
+
+STALE_ROWS = [
+    {"Date": "2024-01-01", "Exercise": "Safety Squat Bar", "Weight_Used": "150",
+     "RIR": "2", "Reps_Done": "5"},
+    # Keep the latest session recent so this isolates e1RM age from continuity.
+    {"Date": "2024-03-24", "Exercise": "Competition Bench Press", "Weight_Used": "90",
+     "RIR": "2", "Reps_Done": "5"},
+]
+STALE_LOW_READINESS = [{
+    "Date": "2024-03-25", "Sleep": "1", "Energy": "1", "Mood": "1",
+    "Soreness": "1", "Stress": "1", "Nutrition": "1", "Hydration": "1",
+}]
+
+
+def test_stacked_decay_readiness_and_deload_do_not_multiply():
+    """The 20% cap is readiness+continuity; decay is a separate load-basis correction."""
+    with store_with(STALE_ROWS, readiness_rows=STALE_LOW_READINESS) as store:
+        low = build_prescription(
+            store.connection, for_date="2024-03-25", session_type="squat",
+        )
+        stacked = build_prescription(
+            store.connection, for_date="2024-03-25", session_type="squat",
+            deload_decision=DECISION,
+        )
+    low_squat = next(i for i in low.items if i.exercise_id == "ssb_squat")
+    stacked_squat = next(i for i in stacked.items if i.exercise_id == "ssb_squat")
+    assert "MOD-E1RM-DECAY-001" in low_squat.rationale_refs
+    assert "MOD-FAT-001" in low_squat.rationale_refs
+    assert stacked_squat.load_kg == low_squat.load_kg
+    assert stacked_squat.load_factor == low_squat.load_factor
+    assert low_squat.load_factor < 0.80
+    assert low.notes["load_stack"][0]["components"] == ["e1RM decay", "readiness"]
+    assert any("combined load reduction" in warning for warning in low.warnings)
+    assert any("MOD-DELOAD-001" in warning for warning in stacked.warnings)

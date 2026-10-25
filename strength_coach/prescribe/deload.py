@@ -70,6 +70,7 @@ def apply_items(
         if new_sets != item.sets:
             changed_sets += 1
         new_load = item.load_kg
+        applied_ratio = 1.0
         prior = max(1e-9, float(factors.get(item.exercise_id, 1.0)))
         if new_load is not None and cfg.load_multiplier < prior:
             # Apply only the difference needed to reach the deload factor from the base load;
@@ -79,6 +80,7 @@ def apply_items(
             if candidate != new_load:
                 changed_loads += 1
                 new_load = candidate
+                applied_ratio = ratio
         new_rir = item.rir_target + cfg.rir_add
         if item.exercise_id in primary:
             capped = min(4, new_rir)
@@ -91,6 +93,7 @@ def apply_items(
             load_kg=new_load,
             rir_target=new_rir,
             rationale_refs=item.rationale_refs + refs,
+            load_factor=item.load_factor * applied_ratio,
         ))
     label = "reactive deload: " if "reactive" in decision.trigger else ""
     warning = (

@@ -42,6 +42,9 @@ class PrescriptionItem:
     vbt_basis: str | None = None
     # Number of usable sets behind a formula e1RM; None for overrides/fallbacks/accessories.
     e1rm_source_sets: int | None = None
+    # Cumulative load multiplier from e1RM decay, readiness, continuity and deload. Display
+    # provenance only; the stored prescription remains the source for the actual load.
+    load_factor: float = 1.0
     # Main-lift ramp sets; empty for accessories and unknown loads.
     warmup: tuple[WarmupSet, ...] = ()
 

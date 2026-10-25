@@ -87,6 +87,23 @@ low readiness + deload:           121.0 kg   (~24% cut from normal)
 The readiness/continuity cap is 20%, but the deload multiplier is applied afterwards. The
 result is a second independent load reduction, not “the most restrictive single factor”.
 
+### W3-03 residual — e1RM decay sits outside the 20% readiness cap  (accepted 2026-10-25)
+
+The deload is no longer multiplicative: `apply_items` uses the most restrictive single factor.
+A separate correction can still stack with readiness:
+
+```text
+e1RM decay 0.91 × readiness 0.85 = 0.7735   (~23% total)
+```
+
+`MOD-FAT-001`'s 20% cap applies to **readiness + continuity**, not to e1RM decay. That is
+intentional: decay says the load basis itself is stale. A total 20% cap would leave the load
+too high when both signals agree.
+
+Displayed context: `PrescriptionItem.load_factor` and `Prescription.notes["load_stack"]` record
+the cumulative factor; a warning is emitted when it falls below 0.80. The deload still does not
+add a second cut when readiness is already stricter. No total cap is applied. See `LIM-42`.
+
 ### W3-04 — RESOLVED — Deload can push a main-lift RIR outside 1–4
 
 **Classification:** confirmed defect.
@@ -181,5 +198,6 @@ Verification:
 - `test_deload_rir_cap_keeps_primary_compounds_in_window`
 - `test_deload_does_not_undo_mrv_cap`
 - `test_minimum_note_is_after_deload_not_before_it`
+- `test_stacked_decay_readiness_and_deload_do_not_multiply`
 
 Full suite at W3 audit time: 662 tests passed. Current counts live in `ROADMAP.md`.

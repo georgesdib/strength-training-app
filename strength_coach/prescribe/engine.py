@@ -300,6 +300,15 @@ def build_prescription(
                 key: value for key, value in result.items() if key != "items"
             }
 
+    load_stack = _load_stack(items)
+    if load_stack:
+        worst = load_stack[0]
+        warnings.append(
+            f"combined load reduction {worst['reduction_pct']:.1f}% on "
+            f"{worst['exercise_id']} ({', '.join(worst['components'])}); "
+            "the 20% cap covers readiness+continuity only, not e1RM decay or deload"
+        )
+
     # Injury signals are context, never policy: a flaring region adds a warning naming the
     # lifts that load it, but never vetoes or edits a load (DEC-INJURY-01).
     warnings.extend(_injury_warnings(injury, tuple(items)))
@@ -418,6 +427,7 @@ def build_prescription(
             "high_intensity_exposure": exposure_status.as_dict(),
             "volume_management": volume_note,
             "minimum_session": minimum_note,
+            "load_stack": load_stack,
         "session_time": session_time,
         "spinal_cap": spinal_cap,
         **({"deload": deload_note} if deload_note is not None else {}),
@@ -711,6 +721,7 @@ def _apply_readiness_score(
                 load_kg=new_load,
                 rir_target=min(4, item.rir_target + rir_bump),
                 rationale_refs=refs,
+                load_factor=item.load_factor * factor,
             )
         )
     warnings: list[str] = []
@@ -731,6 +742,30 @@ def _apply_readiness_score(
         )
     return (tuple(out), ("fatigue_reduced" if reduced else "full"), tuple(warnings),
             factors, lift_scores)
+
+
+def _load_stack(items: tuple[PrescriptionItem, ...]) -> list[dict]:
+    """Items whose cumulative load factor is below 0.80, with the visible components."""
+    labels = (
+        ("MOD-E1RM-DECAY-001", "e1RM decay"),
+        ("MOD-FAT-001", "readiness"),
+        ("MOD-GAP-001", "continuity"),
+        ("MOD-DELOAD-001", "deload"),
+    )
+    rows = []
+    for item in items:
+        if item.load_kg in (None, 0) or item.load_factor >= 0.80 - 1e-9:
+            continue
+        components = [
+            label for ref, label in labels if ref in item.rationale_refs
+        ] or ["load modifiers"]
+        rows.append({
+            "exercise_id": item.exercise_id,
+            "factor": round(item.load_factor, 4),
+            "reduction_pct": round((1.0 - item.load_factor) * 100, 1),
+            "components": components,
+        })
+    return sorted(rows, key=lambda row: (row["factor"], row["exercise_id"]))
 
 
 def _gap_band(gap_days: int | None, thresholds: config_mod.Thresholds) -> str | None:
@@ -799,6 +834,7 @@ def _apply_continuity(
                 ),
                 rir_target=rir,
                 rationale_refs=refs,
+                load_factor=item.load_factor * applied,
             ))
         elif multiplier < 1.0 and item.load_basis == "bodyweight_total":
             out.append(replace(
@@ -806,6 +842,7 @@ def _apply_continuity(
                 sets=max(1, item.sets - 1),
                 rir_target=rir,
                 rationale_refs=refs,
+                load_factor=item.load_factor * applied,
             ))
         else:
             out.append(replace(item, rir_target=rir, rationale_refs=refs))
@@ -1066,6 +1103,8 @@ def build_item(
     refs: tuple[str, ...] = ()
     unknown_reason: str | None = None
     e1rm_source_sets: int | None = None
+    decayed = False
+    decay_factor = 1.0
 
     if calibration_factors is None:
         calibration_factors = e1rm_calibration_feature.factors(
@@ -1113,7 +1152,7 @@ def build_item(
                     f"{thresholds.e1rm_window_days} days; reused the last working load"
                 )
         else:
-            e1rm_kg, ref, calibrated, decayed, coverage = found
+            e1rm_kg, ref, calibrated, decayed, coverage, decay_factor = found
             e1rm_source_sets = coverage
             if coverage == 1:
                 warnings.append(
@@ -1194,6 +1233,7 @@ def build_item(
         time_cap_s=template.time_cap_s if slot.essential else None,
         unknown_load_reason=unknown_reason,
         e1rm_source_sets=e1rm_source_sets,
+        load_factor=decay_factor if decayed else 1.0,
     )
     return item, tuple(warnings)
 
@@ -1233,7 +1273,7 @@ def _e1rm_decay(context: RuleContext, age_days: float) -> float:
 def _latest_e1rm(
     conn, context: RuleContext, exercise_id: str, for_date: str, window_days: int,
     calibration_factors: Mapping[str, object] | None = None,
-) -> tuple[float, str, bool, bool, int | None] | None:
+) -> tuple[float, str, bool, bool, int | None, float] | None:
     """The e1RM to prescribe from, with a citable reference.
 
     A manual override in force on the date outranks the computed estimate: the athlete may
@@ -1246,7 +1286,8 @@ def _latest_e1rm(
         age = (pd.Timestamp(for_date) - pd.Timestamp(override["effective_from"])).days
         decay = _e1rm_decay(context, age)
         return (float(override["e1rm_kg"]) * decay,
-                f"e1rm_override:{override['override_id']}", False, decay != 1.0, None)
+                f"e1rm_override:{override['override_id']}", False, decay != 1.0, None,
+                decay)
 
     if context.sets.empty or "e1rm_kg" not in context.sets:
         return None
@@ -1277,7 +1318,8 @@ def _latest_e1rm(
             f"set:{row['session_id']}/{int(row['set_id'])}",
             factor != 1.0,
             decay != 1.0,
-            int(len(usable)))
+            int(len(usable)),
+            decay)
 
 
 def _last_working_set(

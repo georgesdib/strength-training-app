@@ -49,6 +49,7 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-39 | Post-lift form is a subjective 1–5 self-rating; its rubric weight (0.05) and aggregation are policy choices, not validated. Imported Form backfill uses 1=best, 5=worst, 0=missing and half-up rounding; retrospective associations with e1RM/next performance/sRPE were near zero | open | DEC-FORM-01/02/04 | prospective evidence or a coach comparison |
 | LIM-40 | Form-trend status uses a ±0.5 descriptive threshold; it is not a validated minimal important difference | open | DEC-FORM-04 | evidence for a change threshold |
 | LIM-41 | The prospective form evaluation has not run; low-form-event and next-performance associations remain unknown | open | FORM-PROSPECTIVE | 12 weeks / 10 low-form events across ≥4 lifts |
+| LIM-42 | Total load reduction can exceed the readiness+continuity 20% cap when e1RM decay or a deload is also active; the total is warned below 0.80 but not capped | open | DEC-W3-02 | decide whether a total-stack floor is warranted |
 
 ## Rules
 
