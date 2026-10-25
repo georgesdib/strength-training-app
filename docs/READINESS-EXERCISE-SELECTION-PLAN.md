@@ -439,7 +439,7 @@ No automatic threshold changes. The panel is a prompt, not a controller.
 | task | due calculation | suggested action |
 |---|---|---|
 | **Readiness threshold review** | 12 weeks or 40 new sessions since last completion | Re-run readiness associations, compare absolute vs relative gates, keep unless held-out improvement |
-| **Rubric labels** | show count; target 10 high-confidence marks per measurable item | Review recent sessions; current coverage 5–6 per item |
+| **Rubric labels** | show count; target 10 high-confidence marks per measurable item | Review recent sessions; current coverage 9–10 per measurable item (2026-10-25) |
 | **3RM/5RM test** | 10 weeks from last measured test | Run `strength-coach test --status`; schedule a test if due |
 | **sRPE/duration coverage** | monthly check; target 80% of recent sessions | Review recent sessions with missing sRPE/duration |
 | **Back-pattern review** | after a new low-back episode or a pattern that does not fit the existing case series | Review the episode against the private case series; do not auto-change rules |

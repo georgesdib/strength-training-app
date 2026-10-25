@@ -744,7 +744,7 @@ No code. Continue reviewing sessions while they are fresh; the rubric report nee
 *remembered* sessions per item before changing a definition or weight (DEC-EVAL-03,
 DEC-EVAL-04). Reconstructed marks are stored but excluded from agreement.
 
-Current state: 5 high-confidence sessions, 75% agreement, MAE 0.20; rotation is the weak item.
+Current state (2026-10-25): **10 high-confidence reviewed sessions**. The six measurable items have 10 high-confidence marks each except **PROGRESSION_ADHERENCE = 9**; the 2026-10-20 session is missing that item. Headline calibration: 40 comparable items, 75% agreement, MAE 0.19; rotation remains the weakest measurable item. This is a reviewed-session milestone, not yet the full per-item gate.
 The web Review page has the **Run rubric calibration** button; the CLI remains
 `strength-coach calibrate`.
 
@@ -1021,7 +1021,7 @@ path. CLI workout commands are partial (no start).
 | Only one session type can be prescribed | The other templates are blocked by the erector-ramp anchor (Q3), the SSB question (H1) and the missing §11 tables | **resolved** — all four session types prescribable; the ramp anchor is optional and `unknown` is explicit |
 | Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
 | Velocity detail was per-set only | within-set velocity loss was unavailable from the standard export | **resolved for capture and descriptive analysis** — optional per-rep CSV writes `clean_rep`; set-level remains primary; the report is stratified and sample-size-aware; no VBT rule reads it (`DEC-VBT-04/05`); trap-bar targets stay withheld |
-| Rubric calibrated on a small number of high-confidence sessions | agreement is limited and rotation is the weak item; some old marks are reconstructed and excluded | `DEC-EVAL-04`; needs ~10 remembered marks per item before changing weights; exact counts are private |
+| Rubric calibration milestone | 10 high-confidence reviewed sessions; five of six measurable items at n=10, progression at n=9; rotation weak; some old marks reconstructed and excluded | milestone recorded 2026-10-25; mark the missing progression item before any rubric change; `DEC-EVAL-04`; exact counts private |
 | Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one | Reviewed 2026-10-23: keep ordinal; separate heavy-set advisory (RIR ≤ 1) is context only; see docs/SPINAL-LOAD-EVIDENCE.md |
 | VBT targets not prescribed | a prescription carries no `velocity_target` | **resolved** — 22 targets where trustworthy; trap bar withheld; `DEC-VBT-02` |
 | ACWR contested | cannot be a hard rule | advisory only; `DEC-ACWR-01` |
