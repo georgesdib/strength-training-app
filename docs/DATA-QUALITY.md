@@ -200,7 +200,7 @@ new row, not a silent merge.
 | implausible rep counts (e.g. four digits) | `REPS_TYPO` flag, excluded from features, reported |
 | implausible load × rep combinations | `REPS_TYPO` flag |
 | dates with an implausible number of sets | `POSSIBLE_DOUBLE_SESSION` |
-| `Form` 1–4 with unknown direction | stored, **not** used in scoring until the scale is confirmed |
+| `Form` 1=best / 5=worst | 0/blank is missing; historical values backfilled to per-exercise session ratings with `6 − average`; not read directly by the rubric |
 | `ExertionLoad` semantics unclear | unused; not trusted as a fatigue proxy |
 
 ## 7. The general principle

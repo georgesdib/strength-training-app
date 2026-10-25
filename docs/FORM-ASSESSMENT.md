@@ -63,8 +63,10 @@ The previous seven weights were scaled by 0.95 to make room for form.
 - `session_form_rating` — materialised at workout end; corrections supersede the old row;
 - latest leaf per session/lift is used by History and the rubric.
 
-The imported `Form` column remains separate and unused: its scale/direction is still
-unconfirmed. A post-lift rating is a new, explicitly directed 1–5 measure.
+The imported `Form` column is not read directly by the rubric. It is a 1=best / 5=worst
+per-set value with 0/blank treated as missing. Historical values were backfilled per
+session/exercise by averaging the valid sets, inverting with `6 − mean`, and rounding half-up
+to the new 1–5 rating. A post-lift rating is still a separate, explicitly directed measure.
 
 ## 5. Limits
 

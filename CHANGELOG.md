@@ -4,6 +4,8 @@
 
 ### Added
 
+- Backfilled historical imported Form ratings per exercise (average of valid sets, inverted
+  1=best → 5=worst, rounded half-up) into the new session form table.
 - Optional post-lift form assessment, one 1–5 rating per exercise, editable in Workout and
   History; rubric 1.2.0 adds `FORM_ASSESSMENT` at weight 0.05.
 - Dark mode with System / Light / Dark selection on the Settings page; stored per browser.

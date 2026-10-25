@@ -46,7 +46,7 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-36 | Public guidance says “age-dependent” without a recorded age; this must not read as a personal prescription | open | W10 | age is recorded or wording is generalised |
 | LIM-37 | `metric_definition` is not a live readiness-composite driver; adding readiness metrics still needs code/config work | open | W11 follow-up / DATA-MODEL §11.4 | dynamic composite design with weights/baselines and shadow validation |
 | LIM-38 | Regime-change thresholds (4 baseline sets, ≤25% current, ≥2 substitute rise) are descriptive heuristics, not validated cut-points | open | DEC-REGIME-01 | prospective evidence or a different review policy |
-| LIM-39 | Post-lift form is a subjective 1–5 self-rating; its rubric weight (0.05) and aggregation are policy choices, not validated | open | DEC-FORM-01 | prospective evidence or a coach/video comparison |
+| LIM-39 | Post-lift form is a subjective 1–5 self-rating; its rubric weight (0.05) and aggregation are policy choices, not validated. Imported Form backfill uses 1=best, 5=worst, 0=missing and half-up rounding | open | DEC-FORM-01/02 | prospective evidence or a coach comparison |
 
 ## Rules
 
