@@ -136,7 +136,8 @@ function renderCalibration(data) {
 
 async function loadProgress() {
   try {
-    const data = await api("/api/progress");
+    const data = (await api("/api/progress")) || {};
+    const coverage = data.coverage || {};
     const p = data.performance || {};
     const latest = p.latest ? `${p.latest.ratio.toFixed(3)} on ${p.latest.date}` : "insufficient";
     const rows = (data.volume || []).filter((row) => row.status !== "untargeted").slice(0, 8)
@@ -147,8 +148,8 @@ async function loadProgress() {
     const attendance = data.attendance || {};
     const families = attendance.families || {};
     $("#progress").innerHTML = `
-      <p class="muted">sRPE coverage: ${data.coverage.with_srpe}/${data.coverage.sessions}
-        (${data.coverage.pct}%). Performance ratio: <strong>${esc(latest)}</strong>;
+      <p class="muted">sRPE coverage: ${coverage.with_srpe ?? "—"}/${coverage.sessions ?? "—"}
+        (${coverage.pct ?? "—"}%). Performance ratio: <strong>${esc(latest)}</strong>;
         median ${p.median_ratio ?? "—"} across ${p.n} sessions. Back: ${esc(back)}.</p>
       <p>Attendance: <strong>${attendance.completed ?? "unknown"}</strong> /
         ${attendance.target ?? "unknown"} (${attendance.pct ?? "unknown"}%). Shortfall:
