@@ -81,6 +81,13 @@
         </div>
       </div>
 
+      <div class="panel" id="history-detail-panel" hidden>
+        <div class="panel-head"><h2 id="history-detail-title">Session details</h2>
+          <span class="muted">read only</span></div>
+        <div id="history-details"></div>
+        <div class="form-row"><button class="ghost" type="button" id="history-details-close">Close</button></div>
+      </div>
+
       <div class="panel" id="history-edit-panel" hidden>
         <div class="panel-head"><h2 id="history-edit-title">Edit session</h2>
           <span class="muted">append-only correction; date and session type stay fixed</span></div>
@@ -729,6 +736,7 @@
     </dialog>
   </main>
 
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <footer class="foot">Same core as <code>strength-coach</code>. The CLI remains the automation interface.</footer>
   <script src="/static/app.js"></script>
   <script src="/static/history.js"></script>

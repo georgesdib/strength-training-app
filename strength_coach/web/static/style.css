@@ -98,6 +98,18 @@ pre { background: #f0ede4; padding: 13px; border-radius: 10px; overflow: auto; f
 }
 details summary { cursor: pointer; color: var(--muted); }
 
+/* Small, non-blocking confirmation for every mutation. */
+.toast {
+  position: fixed; right: 18px; bottom: 18px; z-index: 50;
+  max-width: min(420px, calc(100vw - 36px));
+  padding: 10px 14px; border-radius: 10px;
+  background: #244a2d; color: #fff; font-size: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+}
+.toast.toast-error { background: var(--bad); }
+.toast.toast-ok { background: #244a2d; }
+@media (max-width: 760px) { .toast { left: 18px; right: 18px; bottom: 12px; } }
+
 /* exercise catalogue */
 #exercise-catalog { min-width: 0; }
 #exercise-catalog .table-scroll { overflow-x: auto; }
@@ -185,3 +197,6 @@ details summary { cursor: pointer; color: var(--muted); }
 .rep-field { font-size: 11px; }
 .history-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
 #history-edit-panel .form-row { margin-top: 12px; }
+
+#history-details input[readonly] { background: var(--soft); color: var(--ink); }
+#history-details table { min-width: 760px; }

@@ -30,6 +30,7 @@ async function loadHistory() {
         "</td><td>" + esc((s.main_lifts || []).join(", ")) + "</td><td>" +
         (s.marks ? '<span class="badge">' + s.marks + "</span>" : '<span class="badge warn">none</span>') +
         " " + edited + " " + review + " " + voided + "</td><td>" +
+        '<button class="ghost" type="button" data-history-details="' + esc(s.session_id) + '">Details</button> ' +
         '<button class="ghost" type="button" data-history-edit="' + esc(s.session_id) + '">Edit</button> ' +
         '<button class="ghost" type="button" data-history-review="' + esc(s.session_id) + '">Review</button> ' +
         '<button class="ghost" type="button" data-history-void="' + esc(s.session_id) + '">' + (s.voided ? "Unvoid" : "Void") + "</button>" +
@@ -41,6 +42,9 @@ async function loadHistory() {
       : "<p class='empty'>No sessions in this range.</p>";
     document.getElementById("history-total").textContent =
       historyTotal + " session(s) · showing " + (data.sessions || []).length;
+    document.querySelectorAll("[data-history-details]").forEach(function (button) {
+      button.addEventListener("click", function () { openHistoryDetails(button.dataset.historyDetails); });
+    });
     document.querySelectorAll("[data-history-edit]").forEach(function (button) {
       button.addEventListener("click", function () { openHistoryEdit(button.dataset.historyEdit); });
     });
@@ -195,6 +199,7 @@ async function saveHistoryEdit() {
     });
     document.getElementById("history-edit-msg").textContent =
       "Correction saved" + ((data.warnings || []).length ? ": " + data.warnings.join("; ") : ".");
+    notify("Session correction saved.");
     await loadHistory();
     await openHistoryEdit(historyDetail.session_id);
   } catch (error) {
@@ -264,3 +269,51 @@ async function saveHistoryVbt() {
     document.getElementById("history-vbt-msg").innerHTML = "<span class='warnbox'>" + esc(error.message) + "</span>";
   }
 }
+
+function openHistoryDetails(sessionId) {
+  var panel = document.getElementById("history-detail-panel");
+  panel.hidden = false;
+  document.getElementById("history-details").innerHTML = "<p class='empty'>Loading details…</p>";
+  api("/api/history/" + encodeURIComponent(sessionId)).then(function (data) {
+    document.getElementById("history-detail-title").textContent =
+      "Session details · " + data.occurred_on + " · " + data.session_type;
+    var rows = (data.sets || []).map(function (item, index) {
+      var reps = (item.vbt_reps || []).length
+        ? item.vbt_reps.map(function (rep) { return rep.velocity_mps; }).join(", ")
+        : (item.device_reps || []).map(function (rep) { return rep.velocity_mps; }).join(", ");
+      return "<tr><td>" + (index + 1) + "</td><td>" + esc(item.exercise_id) +
+        "</td><td>" + (item.load_kg == null ? "—" : item.load_kg) +
+        "</td><td>" + (item.reps == null ? "—" : item.reps) +
+        "</td><td>" + (item.rir == null ? "—" : item.rir) +
+        "</td><td>" + (item.velocity_mps == null ? "—" : item.velocity_mps) +
+        "</td><td>" + (item.vbt_mean == null ? "—" : item.vbt_mean) +
+        "</td><td>" + (reps || "—") + "</td></tr>";
+    }).join("");
+    var feedback = data.feedback || {};
+    var status = data.voided ? "voided" : "active";
+    if (data.needs_review) status += " · needs re-review";
+    document.getElementById("history-details").innerHTML =
+      "<div class='history-meta'>" +
+      "<label>Date <input readonly value='" + esc(data.occurred_on) + "'></label>" +
+      "<label>Session type <input readonly value='" + esc(data.session_type) + "'></label>" +
+      "<label>Status <input readonly value='" + esc(status) + "'></label>" +
+      "<label>Session RPE <input readonly value='" + (data.session_rpe == null ? "" : data.session_rpe) + "'></label>" +
+      "<label>Duration (min) <input readonly value='" + (data.duration_min == null ? "" : data.duration_min) + "'></label>" +
+      "<label>Edited at <input readonly value='" + esc(data.edited_at || "") + "'></label>" +
+      "<label class='grow'>Note <input readonly value='" + esc(feedback.note || "") + "'></label>" +
+      "</div>" +
+      "<h3>Sets</h3><div class='table-scroll'><table><thead><tr><th>#</th><th>Exercise</th>" +
+      "<th>Load kg</th><th>Reps</th><th>RIR</th><th>Device VBT</th><th>VBT override</th>" +
+      "<th>Rep velocities</th></tr></thead><tbody>" +
+      (rows || "<tr><td colspan='8' class='muted'>No sets.</td></tr>") +
+      "</tbody></table></div>";
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }).catch(function (error) {
+    document.getElementById("history-details").innerHTML =
+      "<p class='warnbox'>" + esc(error.message) + "</p>";
+  });
+}
+
+document.getElementById("history-details-close").addEventListener("click", function () {
+  document.getElementById("history-detail-panel").hidden = true;
+});
