@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 from datetime import date
 from pathlib import Path
@@ -115,7 +116,17 @@ def test_the_page_and_overview_are_served(server):
     assert data["form_evaluation"]["target_events"] == 10
 
 
-def test_prescribe_and_state_endpoints(server):
+def test_ui_linked_docs_have_related_footer(server):
+    status, page = get(server, "/")
+    assert status == 200
+    names = set(re.findall(r"#docs\?doc=([^\"&]+)", page))
+    root = Path(__file__).resolve().parents[1]
+    missing = []
+    for name in names:
+        path = root / name
+        if not path.is_file() or "## Related" not in path.read_text(encoding="utf-8"):
+            missing.append(name)
+    assert not missing, missing
     data = post(server, "/api/prescribe", {"date": "2024-01-08", "session_type": "squat"})
     assert data["session_type"] == "squat"
     assert data["items"]

@@ -574,8 +574,8 @@ Done: import, state editing, manual logging, Programme, Terminal. LLM proposal v
 Markdown headings have stable IDs and duplicate handling, and [`docs/UI-MAP.md`](docs/UI-MAP.md)
 is the canonical view/panel → doc/evidence/decision/question/roadmap map. The reusable
 `.section-help` pattern is applied to every view-level `h2` panel (P1) and every nested
-`h3`/dialog (P2, 2026-10-25), with verified deep-link anchors. **P3/P4 remain:** doc-side
-`Related` footers and an automated coverage/link checker.
+`h3`/dialog (P2, 2026-10-25), with verified deep-link anchors. Every UI-linked doc now has a
+`Related` footer (P3, 2026-10-25). **P4 remains:** the automated coverage/link checker.
 
 ### 4.11 Web UI parity  (CLOSED for v0.3)
 
@@ -1066,3 +1066,11 @@ Recorded so good ideas are not lost, explicitly **not** commitments:
   also append to [`docs/DECISIONS.md`](docs/DECISIONS.md).
 - Personal goals, injuries and preferences are **not** recorded here — this repository is
   public. They live in the git-ignored `private/`.
+
+## Related
+
+- **UI surface:** [docs/UI-MAP.md](docs/UI-MAP.md)
+- **Evidence:** [docs/REFERENCES.md](docs/REFERENCES.md)
+- **Decisions:** [docs/DECISIONS.md](docs/DECISIONS.md)
+- **Open questions:** [docs/OPEN-QUESTIONS.md](docs/OPEN-QUESTIONS.md)
+- **Roadmap:** this file

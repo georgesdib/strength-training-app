@@ -131,3 +131,11 @@ different one.
 - Per-lift readiness as a downward-only advisory.
 - Descriptive readiness–performance monitoring on the progress dashboard.
 - No learned weights. Main-lift set reduction is opt-in (`DEC-READINESS-12`); it is not automatic.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

@@ -573,3 +573,11 @@ set/session reads and calibration, and can be reversed. It is not a delete.
 `vbt_override` stores append-only set-mean and per-rep velocities. A NULL `rep_index` is the set
 mean; a numbered row is that rep. Overrides can fill a missing value or supersede a device value;
 they never mutate `clean_set` or `clean_rep`.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

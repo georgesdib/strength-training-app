@@ -168,3 +168,11 @@ Readiness page and recorded in the `MOD-FAT-001` warning.
 - [2026 deload RCT](https://link.springer.com/article/10.1038/s41598-026-40612-5)
 - [Autoregulation trial](https://cris.unibo.it/retrieve/handle/11585/1050402/6abdb23c-cb15-4062-95dd-bafaf9f659aa/autoregulation_does_not_provide_additional.2-1.pdf)
 - [Examine strength-volume summary](https://examine.com/faq/how-much-volume-do-i-need-to-perform-to-increase-muscle-strength/)
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

@@ -204,3 +204,11 @@ and read-only summary, not evidence that the programme works.
 - No new model or dashboard is introduced: **yes**.
 
 This is a protocol plus summary, not an evaluation result. No training policy changed.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [OUTCOMES.md](OUTCOMES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

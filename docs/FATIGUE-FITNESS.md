@@ -268,3 +268,11 @@ outcome — not inferred from the global score.
 5. Revisit a fitted model only after ~6 months of the richer data and a prospective backtest.
 
 See `OPEN-QUESTIONS.md` Q19 for the decision record and the default.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

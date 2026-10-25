@@ -154,3 +154,11 @@ a preference of convenience: record it in `docs/DECISIONS.md` when you do.
 - The wearable score is not used to override constraints or the injury ceiling.
 - No inference of readiness from training data, sleep reports or anything else: absent means
   absent.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [LIFT-READINESS.md](LIFT-READINESS.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

@@ -111,3 +111,11 @@ workout, it is descriptive.
 - undo restores reps;
 - materialisation writes `clean_rep`;
 - report is descriptive and never changes a prescription.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REP-VELOCITY-EVIDENCE.md](REP-VELOCITY-EVIDENCE.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

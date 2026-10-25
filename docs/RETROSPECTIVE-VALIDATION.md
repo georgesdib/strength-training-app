@@ -58,3 +58,11 @@ Volume has no predictive model; selection has no counterfactual.
 
 Until then: keep fixed continuity, keep the fatigue model shadow-only, and keep volume/selection
 decision rules conservative.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

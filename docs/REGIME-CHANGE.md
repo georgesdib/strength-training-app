@@ -96,3 +96,11 @@ compared with unilateral squat work; a bench can be compared with another horizo
 - `web/static` Prescribe panel
 - `tests/test_regime_change.py`, `tests/test_web.py`
 - `docs/TRAINING-GUIDELINES.md` §8
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

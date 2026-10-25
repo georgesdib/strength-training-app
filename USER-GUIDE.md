@@ -1327,3 +1327,11 @@ Privacy rules that make this safe:
 
 The portability test suite runs the full loop on two independent databases with different
 lifts, dates and days, and asserts neither database sees the other's artifacts.
+
+## Related
+
+- **UI surface:** [docs/UI-MAP.md](docs/UI-MAP.md)
+- **Evidence:** [docs/REFERENCES.md](docs/REFERENCES.md)
+- **Decisions:** [docs/DECISIONS.md](docs/DECISIONS.md)
+- **Open questions:** [docs/OPEN-QUESTIONS.md](docs/OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](ROADMAP.md)

@@ -105,3 +105,11 @@ Minimum-effective-session mode must:
 
 The UI prescription-persistence gap is now fixed for the commitment path. The remaining gaps
 above do not block D.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [WEB-UI.md](WEB-UI.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

@@ -117,3 +117,11 @@ place. DataFrames are for computation; SQLite is for memory.
 `strength_coach/web/` is a thin HTTP layer above the same core. It serialises prescriptions,
 critiques, readiness score/overrides and calibration; it never computes a load or a score. The server binds to
 127.0.0.1 and has no authentication. The CLI remains the automation surface.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

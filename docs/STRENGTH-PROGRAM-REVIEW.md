@@ -292,3 +292,11 @@ Primary sources used in this review:
 Internal evidence notes: [`TRAINING-GUIDELINES.md`](TRAINING-GUIDELINES.md),
 [`RIR-EVIDENCE.md`](RIR-EVIDENCE.md), [`TRAINING-DYNAMICS.md`](TRAINING-DYNAMICS.md),
 [`CONTINUITY.md`](CONTINUITY.md), [`REFERENCES.md`](REFERENCES.md).
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

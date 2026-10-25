@@ -209,3 +209,11 @@ Every row either becomes a feature, gets an explicit flag, or is quarantined wit
 Nothing is dropped silently, and nothing is "cleaned up" by inference. A missing value stays
 missing and propagates as `unknown` — because a plausible-looking substitute is worse than a
 visible gap in a system whose whole purpose is to justify each number it prints.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

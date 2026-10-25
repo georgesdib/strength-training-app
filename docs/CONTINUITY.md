@@ -138,3 +138,11 @@ This is **strength retention**, not capacity retention, and not the e1RM age dec
 capacity curve needs post-session fatigue/completion data; the current model only uses e1RM
 observations already in `clean_set`. `strength-coach continuity` and the Prescribe continuity
 panel show the report; `GET /api/continuity` is the same data.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

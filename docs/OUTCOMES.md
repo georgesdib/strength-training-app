@@ -103,3 +103,11 @@ without the reduction, and it does not tune weights, cut-points or the volume va
 - no automatic rule or weight change;
 - no snapshot table;
 - no prescription change.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

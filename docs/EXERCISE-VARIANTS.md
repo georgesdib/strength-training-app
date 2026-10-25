@@ -118,3 +118,11 @@ suitability, not config.
 - [ ] template parses: `strength-coach select --date YYYY-MM-DD --session-type T`;
 - [ ] golden/rep-range tests updated if the template changed;
 - [ ] server restarted.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

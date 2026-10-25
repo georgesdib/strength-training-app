@@ -120,3 +120,11 @@ deeper tier reduces main-lift sets to a floor of two. See
 | version | date | change |
 |---|---|---|
 | 1.0.0 | 2026-10-23 | First canonical summary after outcomes, readiness, feedback, minimum session and parity work |
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

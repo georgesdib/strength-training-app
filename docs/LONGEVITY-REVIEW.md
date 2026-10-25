@@ -189,3 +189,11 @@ Cardio scope is Q14 and ROADMAP §4.13. This review only ranks the priorities.
 - The cardio dose is a guideline synthesis, not an individual prescription; it needs the
   athlete's current fitness and preferences, neither of which is in the app yet.
 - Nothing here changes the constitution. The strength methodology remains the source of truth.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

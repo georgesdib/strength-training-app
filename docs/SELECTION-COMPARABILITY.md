@@ -251,3 +251,11 @@ Implemented 2026-10-20:
 Still open: the exact A/B boundary for pause/narrow bench and SSB/high-bar, pair-vs-exercise
 metadata, and any future parent-ratio prior. Weakness/injury targeting is deliberately out of
 scope; see [WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md) and `DEC-SELECT-04`.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

@@ -534,3 +534,11 @@ continuity cap is 20%, applying to loads only.
 
 Evidence references: [`docs/REFERENCES.md`](REFERENCES.md) §8. Injury evidence:
 [`docs/INJURY-SIGNAL.md`](INJURY-SIGNAL.md).
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Evidence:** [READINESS-WEIGHT-EVIDENCE.md](READINESS-WEIGHT-EVIDENCE.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)
