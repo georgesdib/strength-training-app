@@ -44,6 +44,7 @@ from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import undulation as undulation_mod
 from strength_coach.prescribe import fallback, loads, schedule, templates
 from strength_coach.prescribe import selection as selection_mod
+from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
 from strength_coach.rules import History, RuleContext, evaluate, load_document, registry
 from strength_coach.rules import policy as policy_mod
@@ -234,6 +235,14 @@ def build_prescription(
     if gap_level == "fatigue_reduced":
         fallback_level = "fatigue_reduced"
     warnings.extend(gap_warnings)
+
+    # The volume budget is off by default and enabled only in the athlete profile. It moves
+    # non-essential sets; a safety cut is skipped, not re-added (MOD-VOL-003).
+    items, budget_warnings, budget_note = volume_budget_mod.apply(
+        tuple(items), conn=conn, context=context, for_date=for_date,
+        session_type=session_type,
+    )
+    warnings.extend(budget_warnings)
 
     items, calibration_ids, vbt_note = _attach_vbt_targets(
         conn, context, tuple(items), for_date, fallback_level, calibration=vbt_cal
@@ -465,6 +474,7 @@ def build_prescription(
             "test_cadence": test_cadence.status(conn, for_date),
             "high_intensity_exposure": exposure_status.as_dict(),
             "volume_management": volume_note,
+            "volume_budget": budget_note,
             "minimum_session": minimum_note,
             "technique_throttle": technique_note,
             "load_stack": load_stack,

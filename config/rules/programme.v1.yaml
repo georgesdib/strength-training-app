@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.14.0"
+  version: "1.15.0"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -47,6 +47,8 @@ document:
       change: "MOD-TECH-001 and MOD-MIN-001 are now declared. Both were already implemented and cited but absent from the document; both are explicit user requests for one session and are never automatic (DEC-TECH-01, DEC-MIN-01)."
     - version: "1.14.0"
       change: "The weekly spinal cap rises from 3 to 6. The low-bar competition squat now counts as one high-fatigue exposure (DEC-SPINE-05). The bench+hinge support becomes the sumo deadlift as a 3x3-5 strength slot."
+    - version: "1.15.0"
+      change: "A weekly volume budget (MOD-VOL-003) may adjust non-essential accessory sets per movement group when enabled in the athlete profile. Main lifts never move; a set removed by readiness, deload or the spinal cap is exempt and is not re-added (DEC-VOLUME-06/08/09)."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -412,6 +414,23 @@ modifiers:
     availability:
       status: available
       reason: "Volume ledger and configured landmarks (DEC-VOLUME-03, ASSUMPTION-33)."
+
+  - id: MOD-VOL-003
+    implemented_by: "strength_coach/prescribe/volume_budget.py::apply"
+    title: "Weekly volume budget"
+    statement: >
+      When enabled in the athlete profile, adjust non-essential accessory sets so each movement
+      group moves toward its effective weekly target, within the per-group session cap, total cap,
+      time cap and MRV. Never trim or increase an essential main lift. A set removed by readiness,
+      deload or the spinal cap is exempt and must not be re-added.
+    when:
+      any:
+        - {input: volume_budget.enabled, op: "==", value: true}
+    then:
+      set_adjustment: non_essential_only
+    availability:
+      status: available
+      reason: "Opt-in in athlete_profile; accessories only (DEC-VOLUME-06/08/09)."
 
   - id: MOD-SELECT-001
     implemented_by: "strength_coach/prescribe/selection.py::select"

@@ -1,17 +1,17 @@
 # VOLUME MODULATION — weekly target, session cap, and a settings layer
 
-**Status: design accepted; the constitution change is approved; step 1 (the read-only weekly
-budget, with per-group status and capacity) is implemented (2026-10-26). No prescription
-changes yet.** This document specifies a
-volume budget (a weekly target plus a per-session cap) and the settings/modality layer it must
-sit behind. It records the evidence, the rules, the decisions and a phased path. Step 1 is
-read-only; steps 2–8 are not implemented.
+**Status: design accepted; constitution 1.15.0; step 1 (the read-only weekly budget with
+per-group status and capacity) and step 2 (the per-group budget behind the off-by-default
+profile flag) are implemented (2026-10-26).** This document specifies a volume budget (a weekly
+target plus a per-session cap) and the settings/modality layer it must sit behind. It records the
+evidence, the rules, the decisions and a phased path. Step 1 is read-only; step 2 is opt-in;
+steps 3–9 are not implemented.
 
 At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
 plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
 safety cuts lower the **effective target**, no cross-week debt, phased automatic accessory
-trim/top-up, and a settings/modality registry with append-only profiles. The `MOD-VOL-003` rule
-entry and the constitution version bump land with implementation; they are not in the rule
+trim/top-up, and a settings/modality registry with append-only profiles. `MOD-VOL-003` is
+declared in constitution 1.15.0; it only runs when the athlete profile enables it (default off).
 document yet (`DEC-VOLUME-06`, `DEC-VOLUME-07`).
 
 Related: [FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md),
@@ -294,6 +294,26 @@ Phasing: per-group diagnostics (step 1, done) → within-template per-group trig
 compensation slot pool with main lifts preserved (step 9a) → opt-in main-lift top-up (9b) →
 volume-first drop (9c, decision + simulation).
 
+### 4.3 Frequency above three sessions
+
+The budget math is frequency-agnostic: `sessions_per_week_target` can be 4, the report projects
+four sessions, and the per-session cap applies to each. The target is still the three-session
+average (57 sets), so four sessions **spread** the same dose; they do not automatically add
+volume. To use the fourth session for more volume, set an explicit `weekly_target` in
+`config/volume.v1.yaml` (the report and engine read it), or set a higher value per group.
+
+Strength-preserving still applies: the main lifts stay at template sets, so four full-body
+sessions add main-lift frequency and may exceed the 57-set target; the budget trims accessories
+only and warns. A fourth heavy full-body day can also collide with the MRV, spinal and readiness
+caps. The sensible first design is a fourth **accessory/weak-point** session, not another heavy
+squat/hinge day; that is a programme decision.
+
+The scheduler is not there yet. `programme --sessions-per-week` accepts 1–3, and the forecast
+picks three weekdays. Four-plus needs a scheduling decision (days and spacing, the fourth
+session's type, and the session-type rotation). Until that exists, a four-session week can be
+represented in the read-only report by setting the profile target to 4, but the programme
+forecast cannot emit the fourth day.
+
 ## 5. Worked examples
 
 - **Normal week:** projected 56–58 vs target 57; inside the band; no change.
@@ -465,11 +485,10 @@ the policy engine sees it. Each modifier carries an `id`, a `statement`, a `when
 an `implemented_by` entry. Declaring one is a **constitution version bump** (the document is at
 1.14.0), which is why it needs the owner's approval.
 
-It does not exist yet. The plan uses the name so the design, citations and tests point at one id.
-On implementation, every item whose sets change cites `MOD-VOL-003`, and the prescription
-carries the arithmetic in the modifier detail. The owner approved the modifier and the constitution bump on
-2026-10-26 (`DEC-VOLUME-07`); the rule entry and version bump are part of implementation, not
-this plan.
+It is declared in the constitution at 1.15.0 and implemented by
+`strength_coach/prescribe/volume_budget.py::apply`. Every item whose sets change cites
+`MOD-VOL-003`; the prescription note carries the arithmetic. The budget is off unless
+`athlete_profile.volume_budget_enabled` is set (`DEC-VOLUME-07/08`).
 - No prescription notes: `prescription` has no notes column. The arithmetic goes in the
   `MOD-VOL-003` `prescription_modifier` detail; the cuts go in `volume_exemption`.
 - `prescription_modifier` rows for every changed item, with the profile id.
@@ -480,6 +499,8 @@ this plan.
 
 - `strength-coach volume --week`: target, exempt, effective target, completed, projection, cap,
   feasibility.
+- `state --volume-budget on|off --main-lift-policy preserve|reduce|drop`; the Athlete page has
+  the same two fields. The budget is off until enabled.
 - Prescribe page: a "Weekly volume" panel (target / done / remaining / cap / minimum sessions)
   and +/− set badges on items.
 - Programme forecast: budget-aware allocation across projected dates, with the unreachable
@@ -523,7 +544,7 @@ deliberate golden update where a prescription changes.
   summing, template consistency, per-group status/capacity.
 - Gate: full suite; compare the report with 3–4 real weeks. No prescription change.
 
-**2. Apply trim (first prescription change).**
+**2. Apply trim (first prescription change) — implemented 2026-10-26 behind the profile flag.**
 - `_apply_volume_budget` after continuity, before under-MEV; non-essential sets only; trim to
   the top of the band; exemptions recorded.
 - Per-group trigger: act on a group outside its own band, not only on the total; top up only
@@ -588,7 +609,7 @@ it; not v1.
 - registry: default profile reproduces today's prescriptions; disabling each module changes only
   its cited outputs; hard-safety waiver required.
 
-## 12. Decisions (accepted 2026-10-26; step 1 implemented read-only, steps 2–9 not)
+## 12. Decisions (accepted 2026-10-26; steps 1–2 implemented, steps 3–9 not)
 
 | # | decision | accepted choice |
 |---|---|---|
@@ -598,7 +619,7 @@ it; not v1.
 | 4 | Exemptions | safety/recovery removals lower the **effective weekly target**, not the session cap; missed sessions, early ends and minimum sessions are debt by default |
 | 5 | Week boundary | ISO week, no cross-week debt |
 | 6 | Main-lift top-ups | opt-in only |
-| 7 | New rule | `MOD-VOL-003` and the constitution bump **approved 2026-10-26** (`DEC-VOLUME-07`); rule entry with implementation |
+| 7 | New rule | `MOD-VOL-003` **declared in constitution 1.15.0** (approved 2026-10-26, `DEC-VOLUME-07`); runs only when the profile enables it |
 | 8 | Settings layer | budget as a config module first, registry and profiles later |
 | 9 | Hard-safety toggles | constraints, injury ceilings and load validation stay hard; the spinal cap is **guarded** (warning + double confirmation), not a plain switch |
 | 10 | Future-session basis | remaining planned sessions projected at template sets, recomputed each build |
@@ -606,11 +627,12 @@ it; not v1.
 | 12 | Cross-group compensation | confirmed as a later **volume-first mode**: per-group quotas, inverse-similarity weights, `main_lift_policy` preserve by default, `drop` opt-in; parameters and evidence still open |
 | 13 | Strength-preserving default | main lifts stay at template sets even when the group quota is full; `main_lift_policy` is an append-only `athlete_profile` field (`preserve` default, `reduce`/`drop` opt-in); compensation is accessory-only under `preserve`; "no squats" is `drop` |
 | 14 | Compensation parameters | one optional non-essential compensation slot per session type; candidates `dumbbell_bench_press` (push) and `rdl` (hinge), executable load only; weights squat↔hinge 0.7, squat↔bench 0.2, hinge↔bench 0.2, push↔pull 0.3, floor 0.1; all sets count; main lifts stay in `preserve`; main-lift top-up opt-in; `MOD-VOL-004` for slot replacement |
+| 15 | Frequency above three | the budget supports 4+ by spreading the same 57-set target, or an explicit higher target; the programme/forecast still supports 1–3 and needs a four-day scheduling decision; a fourth heavy full-body day is not assumed |
 
-These are design decisions. Step 1 is implemented read-only (the module, the
-`volume_exemption` table and the config section). No prescription, constitution or `MOD-VOL-003`
-change has been made; the rule entry is still absent from `config/rules/programme.v1.yaml`. The
-approval is for the modifier semantics and the design, not a rule edit. The rationale and the rejected
+Step 1 is implemented read-only (the module, the `volume_exemption` table and the config
+section). Step 2 is implemented behind the off-by-default profile flag: `MOD-VOL-003` is in
+constitution 1.15.0, `_apply_volume_budget` runs after continuity, and safety cuts are recorded
+in `volume_exemption`. Steps 3–9 remain unimplemented. The rationale and the rejected
 alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VOLUME-07` and
 `DEC-SPINE-06`.
 

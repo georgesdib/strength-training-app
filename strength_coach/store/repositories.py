@@ -557,14 +557,19 @@ def append_athlete_profile(
     sessions_per_week_target: int | None = None,
     max_session_minutes: int | None = None,
     block_start_date: str | None = None,
+    volume_budget_enabled: bool = False,
+    main_lift_policy: str = "preserve",
 ) -> None:
     """Append a profile version. A reset or a goal change is a new row (DEC-RAMP-01)."""
+    if main_lift_policy not in ("preserve", "reduce", "drop"):
+        raise ValueError("main_lift_policy must be preserve, reduce or drop")
     conn.execute(
         """
         INSERT INTO athlete_profile (effective_from, primary_goal, goal_rank, focus_lifts,
                                      competition_date, sessions_per_week_target,
-                                     max_session_minutes, block_start_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                     max_session_minutes, block_start_date,
+                                     volume_budget_enabled, main_lift_policy)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             effective_from,
@@ -575,6 +580,8 @@ def append_athlete_profile(
             sessions_per_week_target,
             max_session_minutes,
             block_start_date,
+            1 if volume_budget_enabled else 0,
+            main_lift_policy,
         ),
     )
 

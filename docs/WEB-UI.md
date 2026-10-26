@@ -161,7 +161,7 @@ also disables while saving and reports the number of marks written.
 | `GET /api/measurements` | metric catalogue, per-metric summary and recent entries |
 | `POST /api/measurements` | `{metric, value, date, method, note}` -> summary |
 | `POST /api/terminal` | one restricted `strength-coach` command |
-| `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes |
+| `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy` |
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |
 

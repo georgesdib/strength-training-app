@@ -1528,6 +1528,19 @@ function renderStateForms(data) {
         ${profileField("sessions_per_week_target", "Sessions/week", p.sessions_per_week_target, "number")}
         ${profileField("max_session_minutes", "Max minutes", p.max_session_minutes, "number")}
         ${profileField("block_start_date", "Block start", p.block_start_date, "date")}
+        <label>Volume budget
+          <select data-profile="volume_budget_enabled">
+            <option value="off" ${p.volume_budget_enabled ? "" : "selected"}>off</option>
+            <option value="on" ${p.volume_budget_enabled ? "selected" : ""}>on (accessories only)</option>
+          </select>
+        </label>
+        <label>Main-lift policy
+          <select data-profile="main_lift_policy">
+            <option value="preserve" ${(p.main_lift_policy || "preserve") === "preserve" ? "selected" : ""}>preserve</option>
+            <option value="reduce" ${p.main_lift_policy === "reduce" ? "selected" : ""}>reduce</option>
+            <option value="drop" ${p.main_lift_policy === "drop" ? "selected" : ""}>drop</option>
+          </select>
+        </label>
         <button class="primary" type="submit">Save profile version</button>
       </form>
     </div>

@@ -447,7 +447,21 @@ strength-coach state
 ```
 
 The web **Athlete** page edits all of this append-only: profile, constraints, suitability,
-e1RM overrides, strength tests, block start and symptoms. An e1RM override can also be set
+e1RM overrides, strength tests, block start and symptoms.
+
+Two profile fields control the volume budget, both off/neutral by default:
+
+```bash
+strength-coach state --volume-budget on
+strength-coach state --main-lift-policy preserve
+```
+
+`volume_budget_enabled` is off by default. When on, the engine may trim or top up **accessory**
+sets so each movement group moves toward its effective weekly target; main lifts keep their
+template sets. A set removed by readiness, deload or the spinal cap is recorded in
+`volume_exemption` and is never re-added. `main_lift_policy` is `preserve` by default; `reduce`
+and `drop` are recorded for the later volume-first mode but are not implemented yet, and the
+prescription warns if one is selected. An e1RM override can also be set
 where you are thinking about that lift: the **e1RM** button on an **Exercises** row, or the
 panel at the bottom of an ended workout (which can record a measured test from the set you
 just did, or a direct override). The CLI below remains the scripted route. This is the §11 athlete state: goals, constraints and per-exercise suitability. It exists so

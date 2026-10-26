@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import datetime as dt
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -21,7 +21,7 @@ import yaml
 
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import schedule, templates
-from strength_coach.store import queries
+from strength_coach.store import queries, repositories
 from strength_coach.utils import exercises, paths
 
 # The ledger's target keys. The first eight have MEV/MAV/MRV landmarks and are managed by the
@@ -48,6 +48,9 @@ DEFAULT_CAPS = {
 
 # Matches the minimum-session planner's set cost. It is a planning estimate, not the clock.
 SET_SECONDS = 30
+
+# A set removed by one of these is a safety/recovery cut and must not be re-added.
+SAFETY_REFS = frozenset({"MOD-FAT-001", "MOD-DELOAD-001", "MOD-SPINE-001"})
 
 
 @dataclass(frozen=True)
@@ -353,6 +356,140 @@ def _delta(changes: list[dict[str, Any]], exercise_id: str, key: str, delta: int
     changes.append({"exercise_id": exercise_id, "key": key, "delta": delta})
 
 
+def allocate_items(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    effective: Mapping[str, float],
+    completed: Mapping[str, int],
+    future_sets: Sequence[Mapping[str, int]],
+    persistent: Mapping[str, Mapping[str, Any] | None],
+    config: BudgetConfig,
+    time_cap_minutes: float,
+    safety_keys: Iterable[str] = (),
+) -> dict[str, Any]:
+    """Per-group allocation used by the engine (step 2).
+
+    A group moves only when its own weekly band is crossed and either the total is outside its
+    band or the four-week ledger agrees. Accessories only; essential items never move.
+    """
+    out = [dict(row) for row in rows]
+    bands = per_pattern_band(effective, config.tolerance)
+    limits = band(effective, config.tolerance)
+    projected = projection(completed, pattern_sets(out), future_sets)
+    before_projected = dict(projected)
+    before_total = sum(before_projected.values())
+    total = before_total
+    safety = set(safety_keys)
+    changed: list[dict[str, Any]] = []
+    blocked: list[str] = []
+    actions: dict[str, str] = {}
+
+    def recompute() -> None:
+        nonlocal projected, total
+        projected = projection(completed, pattern_sets(out), future_sets)
+        total = sum(projected.values())
+
+    total_over = total > limits["high"]
+    total_under = total < limits["low"]
+
+    for key in MANAGED_KEYS:
+        target = float(effective.get(key, 0))
+        value = float(projected.get(key, 0))
+        band_p = bands[key]
+        if value < target - band_p:
+            week = "under"
+        elif value > target + band_p:
+            week = "over"
+        else:
+            continue
+        persistent_status = (persistent.get(key) or {}).get("status")
+        agrees = persistent_status == week
+        if total_over and week == "over":
+            actions[key] = "over"
+        elif total_under and week == "under":
+            actions[key] = "under"
+        elif not total_over and not total_under and agrees:
+            actions[key] = week
+
+    # Trim first, then top up, so a total overrun is not made worse.
+    for key, direction in list(actions.items()):
+        if direction != "over":
+            continue
+        target = float(effective.get(key, 0))
+        high = target + bands[key]
+        candidates = [
+            index for index, row in enumerate(out)
+            if row.get("key") == key and not row.get("essential")
+        ]
+        for index in reversed(candidates):
+            while projected.get(key, 0.0) > high and out[index]["sets"] > 1:
+                out[index]["sets"] -= 1
+                _delta(changed, out[index]["exercise_id"], key, -1)
+                recompute()
+        if projected.get(key, 0.0) > high:
+            blocked.append(f"{key}: over, no non-essential set left")
+
+    for key, direction in list(actions.items()):
+        if direction != "under":
+            continue
+        if key in safety:
+            blocked.append(f"{key}: safety cut, not re-added")
+            continue
+        target = float(effective.get(key, 0))
+        low = target - bands[key]
+        cap = config.session_cap_pattern.get(key, 0)
+        candidates = [
+            index for index, row in enumerate(out)
+            if row.get("key") == key and not row.get("essential") and row["sets"] < 8
+        ]
+        if not candidates:
+            blocked.append(f"{key}: under, no non-essential capacity")
+            continue
+        while projected.get(key, 0.0) < low:
+            current = pattern_sets(out).get(key, 0)
+            if current >= cap:
+                blocked.append(f"{key}: under, session cap reached")
+                break
+            if sum(row["sets"] for row in out) >= config.session_cap_total:
+                blocked.append(f"{key}: under, total session cap reached")
+                break
+            progressed = False
+            for index in candidates:
+                if out[index]["sets"] >= 8:
+                    continue
+                out[index]["sets"] += 1
+                if estimate_minutes(out, config) > time_cap_minutes:
+                    out[index]["sets"] -= 1
+                    blocked.append(f"{key}: under, time cap reached")
+                    break
+                _delta(changed, out[index]["exercise_id"], key, 1)
+                recompute()
+                progressed = True
+                break
+            if not progressed:
+                break
+        if projected.get(key, 0.0) < low and not any(
+            item.startswith(f"{key}:") for item in blocked
+        ):
+            blocked.append(f"{key}: under, no capacity")
+
+    after = pattern_sets(out)
+    projected_after = projection(completed, after, future_sets)
+    return {
+        "rows": out,
+        "actions": actions,
+        "changed": changed,
+        "blocked": blocked,
+        "projected_before": before_projected,
+        "projected_after": projected_after,
+        "total_before": round(before_total, 1),
+        "total_after": round(sum(projected_after.values()), 1),
+        "target_low": round(limits["low"], 1),
+        "target_high": round(limits["high"], 1),
+        "time_minutes": estimate_minutes(out, config),
+    }
+
+
 def plan_session(
     rows: Sequence[Mapping[str, Any]],
     *,
@@ -463,7 +600,10 @@ def plan_session(
     }
 
 
-def report(conn, on_date: str, *, config: BudgetConfig | None = None) -> dict[str, Any]:
+def report(
+    conn, on_date: str, *, config: BudgetConfig | None = None,
+    session_type: str | None = None,
+) -> dict[str, Any]:
     """Read-only weekly budget for a date. Writes nothing."""
     cfg = config or BudgetConfig.load()
     start, end = week_bounds(on_date)
@@ -488,7 +628,7 @@ def report(conn, on_date: str, *, config: BudgetConfig | None = None) -> dict[st
         prior: list[str] = []
     else:
         future_count = max(0, target_frequency - sessions_done - 1)
-        today_type = schedule.next_session_type(conn, str(on_date))
+        today_type = session_type or schedule.next_session_type(conn, str(on_date))
         today_rows = template_rows(today_type)
         prior = [today_type]
 
@@ -580,3 +720,147 @@ def report(conn, on_date: str, *, config: BudgetConfig | None = None) -> dict[st
             "and capacity are read-only; the engine does not apply the budget yet."
         ),
     }
+
+
+def apply(
+    items,
+    *,
+    conn,
+    context,
+    for_date: str,
+    session_type: str,
+    config: BudgetConfig | None = None,
+) -> tuple[tuple, tuple[str, ...], dict[str, Any]]:
+    """Apply the per-group budget to a session's items. No-op unless the profile enables it."""
+    cfg = config or BudgetConfig.load()
+    profile = queries.athlete_profile(conn) or {}
+    if "volume_budget_enabled" in profile:
+        enabled = bool(profile.get("volume_budget_enabled"))
+    else:
+        enabled = cfg.enabled
+    if not enabled:
+        return tuple(items), (), {"enabled": False}
+
+    data = report(conn, for_date, config=cfg, session_type=session_type)
+    rows: list[dict[str, Any]] = []
+    for index, item in enumerate(items):
+        entity = context.entity(item.exercise_id) or {}
+        pattern = entity.get("pattern")
+        key = volume_feature.volume_target_key(str(pattern)) if pattern else None
+        rows.append({
+            "index": index,
+            "item": item,
+            "exercise_id": item.exercise_id,
+            "sets": int(item.sets),
+            "essential": bool(item.essential),
+            "rest_s": int(item.rest_s or 0),
+            "key": key,
+        })
+    safety = {
+        row["key"] for row in rows
+        if row["key"] and SAFETY_REFS & set(row["item"].rationale_refs)
+    }
+    persistent = {
+        key: diag.get("persistent") for key, diag in data["per_pattern"].items()
+    }
+    time_cap = float(
+        profile.get("max_session_minutes") or cfg.session_time_cap_minutes
+    )
+    result = allocate_items(
+        rows,
+        effective=data["effective_targets"],
+        completed=data["completed"],
+        future_sets=[entry["sets"] for entry in data["future"]],
+        persistent=persistent,
+        config=cfg,
+        time_cap_minutes=time_cap,
+        safety_keys=safety,
+    )
+    out = list(items)
+    for row in result["rows"]:
+        if int(row["sets"]) == int(row["item"].sets):
+            continue
+        refs = row["item"].rationale_refs
+        if "MOD-VOL-003" not in refs:
+            refs = refs + ("MOD-VOL-003",)
+        out[row["index"]] = replace(
+            row["item"], sets=int(row["sets"]), rationale_refs=refs
+        )
+    warnings: list[str] = []
+    policy = str(profile.get("main_lift_policy") or "preserve")
+    if policy != "preserve":
+        warnings.append(
+            f"MOD-VOL-003: main_lift_policy {policy!r} is not implemented yet; preserving "
+            "main lifts"
+        )
+    if result["changed"]:
+        changes = ", ".join(
+            f"{row['exercise_id']}{row['delta']:+d}" for row in result["changed"]
+        )
+        warnings.append(f"MOD-VOL-003: volume budget; {changes}")
+    outside = (
+        result["total_before"] < result["target_low"]
+        or result["total_before"] > result["target_high"]
+    )
+    if result["blocked"] and (result["changed"] or outside):
+        warnings.append("MOD-VOL-003: " + "; ".join(result["blocked"]))
+    note = {
+        "enabled": True,
+        "main_lift_policy": policy,
+        "actions": result["actions"],
+        "changed": result["changed"],
+        "blocked": result["blocked"],
+        "total_before": result["total_before"],
+        "total_after": result["total_after"],
+        "time_minutes": result["time_minutes"],
+    }
+    return tuple(out), tuple(warnings), note
+
+
+def record_exemptions(
+    conn,
+    *,
+    prescription_id: str,
+    effective_on: str,
+    session_type: str,
+    items,
+) -> None:
+    """Record sets a safety rule removed so the budget never re-adds them (DEC-VOLUME-06).
+
+    Called after the prescription is stored. Items removed entirely are not recorded: the
+    budget only tops up items that are present, so it cannot resurrect them.
+    """
+    try:
+        template = templates.SessionTemplate.load(session_type)
+    except (ValueError, KeyError):
+        return
+    slots: dict[str, Any] = {}
+    for slot in template.slots:
+        exercises = ([slot.exercise] if slot.exercise else []) + list(slot.variants)
+        for exercise in exercises:
+            slots[str(exercise)] = slot
+    for item in items:
+        is_mapping = isinstance(item, Mapping)
+        exercise = str(item["exercise_id"] if is_mapping else item.exercise_id)
+        slot = slots.get(exercise)
+        if slot is None:
+            continue
+        refs = (
+            item.get("rationale_refs") or item.get("refs") or ()
+            if is_mapping else item.rationale_refs
+        )
+        sets = int(item["sets"] if is_mapping else item.sets)
+        safety = SAFETY_REFS & set(refs)
+        if not safety or sets >= int(slot.sets):
+            continue
+        key = pattern_key(exercise)
+        if key is None:
+            continue
+        repositories.append_volume_exemption(
+            conn,
+            prescription_id=prescription_id,
+            effective_on=effective_on,
+            pattern=key,
+            sets=int(slot.sets) - sets,
+            source=sorted(safety)[0],
+        )

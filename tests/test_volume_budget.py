@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from conftest import make_readiness, make_training
 from strength_coach import cli
 from strength_coach.features import programme
-from strength_coach.prescribe import volume_budget
-from strength_coach.store import db, importer, repositories
+from strength_coach.prescribe import build_prescription, volume_budget
+from strength_coach.store import db, importer, queries, repositories
 from strength_coach.utils import exercises
 
 TODAY = "2026-10-26"
@@ -263,6 +265,156 @@ def test_report_includes_the_per_pattern_diagnosis():
     assert hinge["target"] == 6.5
     assert "top_up_capacity" in hinge
     assert "persistent" in hinge
+
+
+def test_allocate_items_trims_an_over_group_and_keeps_essentials():
+    rows = [
+        {"exercise_id": "ssb_squat", "sets": 5, "essential": True, "rest_s": 180,
+         "key": "squat"},
+        {"exercise_id": "split_squat", "sets": 4, "essential": False, "rest_s": 90,
+         "key": "squat"},
+        {"exercise_id": "dumbbell_row", "sets": 3, "essential": False, "rest_s": 90,
+         "key": "horizontal_pull"},
+    ]
+    result = volume_budget.allocate_items(
+        rows, effective=_effective(squat=5, horizontal_pull=3), completed={},
+        future_sets=[], persistent={}, config=volume_budget.BudgetConfig(),
+        time_cap_minutes=80,
+    )
+    assert result["actions"]["squat"] == "over"
+    assert result["rows"][0]["sets"] == 5
+    assert result["rows"][1]["sets"] == 1
+    assert result["changed"] == [{"exercise_id": "split_squat", "key": "squat",
+                                  "delta": -3}]
+
+
+def test_allocate_items_tops_up_an_under_group_within_capacity():
+    rows = [
+        {"exercise_id": "ssb_squat", "sets": 3, "essential": True, "rest_s": 180,
+         "key": "squat"},
+        {"exercise_id": "split_squat", "sets": 1, "essential": False, "rest_s": 90,
+         "key": "squat"},
+        {"exercise_id": "dumbbell_row", "sets": 3, "essential": False, "rest_s": 90,
+         "key": "horizontal_pull"},
+    ]
+    result = volume_budget.allocate_items(
+        rows, effective=_effective(squat=8, horizontal_pull=6), completed={},
+        future_sets=[], persistent={}, config=volume_budget.BudgetConfig(),
+        time_cap_minutes=80,
+    )
+    assert result["actions"]["squat"] == "under"
+    assert result["rows"][0]["sets"] == 3
+    assert result["rows"][1]["sets"] >= 4
+    assert result["rows"][2]["sets"] >= 4
+
+
+def test_allocate_items_does_not_re_add_a_safety_cut():
+    rows = [
+        {"exercise_id": "ssb_squat", "sets": 3, "essential": True, "rest_s": 180,
+         "key": "squat"},
+        {"exercise_id": "split_squat", "sets": 1, "essential": False, "rest_s": 90,
+         "key": "squat"},
+    ]
+    result = volume_budget.allocate_items(
+        rows, effective=_effective(squat=8), completed={}, future_sets=[],
+        persistent={}, config=volume_budget.BudgetConfig(), time_cap_minutes=80,
+        safety_keys={"squat"},
+    )
+    assert result["rows"][1]["sets"] == 1
+    assert any("safety cut" in item for item in result["blocked"])
+
+
+def test_record_exemptions_writes_the_safety_cut():
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        run = repositories.start_run(conn, input_hash="test", code_version="test")
+        repositories.append_prescription(
+            conn, prescription_id="p1", run_id=run.run_id, for_date=TODAY,
+            session_type="squat", fallback_level="full", rule_document_version="test",
+            calibration_ids=(), approved_by="deterministic", items=[],
+        )
+        volume_budget.record_exemptions(
+            conn, prescription_id="p1", effective_on=TODAY, session_type="squat",
+            items=[
+                {"exercise_id": "ssb_squat", "sets": 4,
+                 "rationale_refs": ["MOD-FAT-001"]},
+                {"exercise_id": "bench_press", "sets": 4,
+                 "rationale_refs": ["MOD-VOL-003"]},
+            ],
+        )
+        rows = queries.volume_exemptions(conn, start=TODAY, end=TODAY)
+    finally:
+        store.close()
+    assert [(row["pattern"], row["sets"], row["source"]) for row in rows] == [
+        ("squat", 1, "MOD-FAT-001")
+    ]
+
+
+def _profile(conn, *, enabled: bool):
+    current = queries.athlete_profile(conn) or {}
+    repositories.append_athlete_profile(
+        conn, effective_from=TODAY, primary_goal=current.get("primary_goal") or "strength",
+        goal_rank=current.get("goal_rank") and json.loads(current["goal_rank"]) or ["strength"],
+        focus_lifts=[], competition_date=None, sessions_per_week_target=3,
+        max_session_minutes=90, block_start_date=None,
+        volume_budget_enabled=enabled, main_lift_policy="preserve",
+    )
+
+
+def test_the_budget_is_off_by_default_and_enabled_by_the_profile():
+    store = store_with()
+    try:
+        off = volume_budget.apply(
+            (), conn=store.connection, context=None, for_date=TODAY,
+            session_type="squat",
+        )
+        _profile(store.connection, enabled=True)
+        on = volume_budget.apply(
+            (), conn=store.connection, context=None, for_date=TODAY,
+            session_type="squat",
+        )
+    finally:
+        store.close()
+    assert off[2]["enabled"] is False
+    assert on[2]["enabled"] is True
+
+
+def test_the_budget_note_is_wired_into_the_prescription():
+    store = store_with()
+    try:
+        _profile(store.connection, enabled=False)
+        off = build_prescription(
+            store.connection, for_date=TODAY, session_type="squat",
+        )
+        _profile(store.connection, enabled=True)
+        on = build_prescription(
+            store.connection, for_date=TODAY, session_type="squat",
+        )
+    finally:
+        store.close()
+    assert off.notes["volume_budget"]["enabled"] is False
+    assert on.notes["volume_budget"]["enabled"] is True
+
+
+def test_cli_updates_the_budget_profile(tmp_path, capsys):
+    path = tmp_path / "coach.db"
+    store = db.Store(path)
+    repositories.append_athlete_profile(
+        store.connection, effective_from=TODAY, primary_goal="strength",
+        goal_rank=["strength"], focus_lifts=[], competition_date=None,
+        sessions_per_week_target=3, max_session_minutes=90, block_start_date=None,
+        volume_budget_enabled=False, main_lift_policy="preserve",
+    )
+    store.close()
+    assert cli.main(["--db", str(path), "state", "--volume-budget", "on"]) == 0
+    reopened = db.Store(path)
+    try:
+        profile = queries.athlete_profile(reopened.connection)
+    finally:
+        reopened.close()
+    assert profile["volume_budget_enabled"] == 1
+    assert profile["main_lift_policy"] == "preserve"
 
 
 def test_cli_prints_the_read_only_budget(tmp_path, capsys):

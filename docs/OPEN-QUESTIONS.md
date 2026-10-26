@@ -44,6 +44,11 @@ sets (19 vs 61 in the reproduced example) and is below the configured MEV for sq
 horizontal push. Separately, nothing reads a completed session's shortfall or excess; the only
 volume feedback is the 7-day MRV cap (accessories only) and the slow accessory under-MEV rule.
 
+Four-plus is a separate gap: the profile `sessions_per_week_target` can be 4 and the read-only
+budget report projects four sessions, but the scheduler flag is 1–3 and there is no four-day
+week. The target is the three-session average, so four sessions spread 57 sets unless an explicit
+higher target is set; a fourth heavy full-body day needs a recovery/session-type decision.
+
 Open: should (a) a lower frequency scale per-session sets toward the weekly targets, (b) a short
 session add volume next time, (c) a heavy session cut next time, or (d) the app stay dates-only
 and report the shortfall? Evidence supports weekly volume as the dose and does not support

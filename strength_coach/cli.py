@@ -150,6 +150,11 @@ def main(argv: list[str] | None = None) -> int:
     state.add_argument("--will-do", choices=("yes", "no"), default="yes")
     state.add_argument("--feels-bad", choices=("yes", "no"), default="no")
     state.add_argument("--note", default=None)
+    state.add_argument("--volume-budget", choices=("on", "off"), default=None,
+                       help="enable or disable the accessory-only weekly volume budget")
+    state.add_argument("--main-lift-policy", choices=("preserve", "reduce", "drop"),
+                       default=None,
+                       help="preserve keeps main lifts even when the group quota is full")
 
     programme = sub.add_parser("programme", help="forecast a rolling four-session-type horizon")
     programme.add_argument("--weeks", type=int, required=True)
@@ -565,6 +570,12 @@ def _cmd_run(args) -> int:
                 approved_by=approved_by,
                 items=prescription.as_rows(),
             )
+            volume_budget_mod.record_exemptions(
+                conn, prescription_id=prescription_id,
+                effective_on=prescription.for_date,
+                session_type=prescription.session_type,
+                items=prescription.as_rows(),
+            )
             prescription_provenance.record(conn, prescription_id, prescription)
             trace.event("artifact", {
                 "critique": critique_id,
@@ -739,6 +750,30 @@ def _cmd_state(args) -> int:
         if args.import_file and args.rate:
             print("use either --import or --rate, not both")
             return 2
+        if args.volume_budget is not None or args.main_lift_policy is not None:
+            current = queries.athlete_profile(conn)
+            if current is None:
+                print("record an athlete profile first; run 'strength-coach state --import FILE'")
+                return 2
+            enabled = bool(current.get("volume_budget_enabled", 0))
+            if args.volume_budget is not None:
+                enabled = args.volume_budget == "on"
+            policy = args.main_lift_policy or current.get("main_lift_policy", "preserve")
+            repositories.append_athlete_profile(
+                conn,
+                effective_from=datetime.date.today().isoformat(),
+                primary_goal=current["primary_goal"],
+                goal_rank=json.loads(current["goal_rank"] or "[]"),
+                focus_lifts=json.loads(current["focus_lifts"] or "[]"),
+                competition_date=current["competition_date"],
+                sessions_per_week_target=current["sessions_per_week_target"],
+                max_session_minutes=current["max_session_minutes"],
+                block_start_date=current["block_start_date"],
+                volume_budget_enabled=enabled,
+                main_lift_policy=policy,
+            )
+            print(f"profile updated: volume_budget={'on' if enabled else 'off'}, "
+                  f"main_lift_policy={policy}")
         if args.rate:
             repositories.append_exercise_suitability(
                 conn,
@@ -1778,6 +1813,8 @@ def _cmd_block(args) -> int:
             sessions_per_week_target=current["sessions_per_week_target"],
             max_session_minutes=current["max_session_minutes"],
             block_start_date=args.date,
+            volume_budget_enabled=bool(current.get("volume_budget_enabled", 0)),
+            main_lift_policy=current.get("main_lift_policy", "preserve"),
         )
         print(f"block starts {args.date}: ramp at week 1 (DEC-RAMP-02)")
         return 0
@@ -1880,6 +1917,8 @@ def _import_state(conn, path: Path, *, force: bool) -> int:
         sessions_per_week_target=profile.get("sessions_per_week_target"),
         max_session_minutes=profile.get("max_session_minutes"),
         block_start_date=profile.get("block_start_date"),
+        volume_budget_enabled=bool(profile.get("volume_budget_enabled", False)),
+        main_lift_policy=str(profile.get("main_lift_policy") or "preserve"),
     )
 
     constraints = raw.get("constraints") or []
@@ -1983,6 +2022,8 @@ def _print_state(conn) -> None:
     print(f"  sessions/week       {profile['sessions_per_week_target']}")
     print(f"  max session         {profile['max_session_minutes']} min")
     print(f"  block start         {profile['block_start_date'] or 'not declared'}")
+    print(f"  volume budget       {'on' if profile.get('volume_budget_enabled') else 'off'}")
+    print(f"  main-lift policy    {profile.get('main_lift_policy', 'preserve')}")
 
     constraints = queries.athlete_constraints(conn)
     print(f"\nconstraints ({len(constraints)})")

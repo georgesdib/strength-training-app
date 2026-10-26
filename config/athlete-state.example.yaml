@@ -16,6 +16,11 @@ profile:
   max_session_minutes: 90
   # Week 1 of the erector ramp. Leave null until the athlete declares it (DEC-RAMP-01).
   block_start_date: null
+  # Off by default. On changes accessory sets only; main lifts stay at template sets.
+  volume_budget_enabled: false
+  # preserve keeps main lifts even when a group quota is full; reduce/drop are volume-first
+  # opt-ins (DEC-VOLUME-08).
+  main_lift_policy: preserve
 
 constraints: []                    # e.g. {kind: injury, region: low_back, severity: monitor, ...}
 

@@ -1362,6 +1362,12 @@ class Handler(BaseHTTPRequestHandler):
             sessions_per_week_target=_int_or_none(body.get("sessions_per_week_target")),
             max_session_minutes=_int_or_none(body.get("max_session_minutes")),
             block_start_date=block_start or None,
+            volume_budget_enabled=_truth(
+                body.get("volume_budget_enabled", current.get("volume_budget_enabled", 0))
+            ),
+            main_lift_policy=str(
+                body.get("main_lift_policy") or current.get("main_lift_policy") or "preserve"
+            ),
         )
         return self._state(conn)
 
@@ -1536,6 +1542,8 @@ class Handler(BaseHTTPRequestHandler):
             sessions_per_week_target=current["sessions_per_week_target"],
             max_session_minutes=current["max_session_minutes"],
             block_start_date=str(body.get("date") or "").strip() or None,
+            volume_budget_enabled=bool(current.get("volume_budget_enabled", 0)),
+            main_lift_policy=current.get("main_lift_policy", "preserve"),
         )
         return self._state(conn)
 

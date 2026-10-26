@@ -9,6 +9,12 @@
   plus per-group week status, persistent four-week status and non-essential top-up capacity. It
   writes nothing and changes no prescription (`DEC-VOLUME-06`, step 1 of
   `docs/VOLUME-MODULATION-PLAN.md`).
+- Opt-in **per-group volume budget** behind `athlete_profile.volume_budget_enabled` (default
+  off): trims or tops up non-essential accessory sets toward each group's effective target,
+  cites `MOD-VOL-003` (constitution 1.15.0), and records readiness/deload/spinal cuts in
+  `volume_exemption` so they are never re-added. Main lifts keep their template sets;
+  `main_lift_policy` is `preserve` by default, and `reduce`/`drop` are recorded but not
+  implemented yet.
 - Evidence review for reverse hyperextensions and belt squats: acute biomechanics/EMG only,
   no longitudinal strength or injury outcomes; both remain optional accessories.
 - Guided **Workout workflow**: readiness → prescription preview → start → active workout (sets, CSV/per-rep import, end) → post-workout comparison. Readiness settings and Prescribe analysis remain separate pages.
