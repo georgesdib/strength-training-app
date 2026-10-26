@@ -1734,9 +1734,10 @@ function renderStateForms(data) {
   const collect = (prefix) => Object.fromEntries(
     [...document.querySelectorAll(`[data-${prefix}]`)].map((el) => [el.dataset[prefix], el.value])
   );
-  const save = async (path, payload, target = "#state-result") => {
+  const save = async (path, payload, target = "#state-result", message = "Saved.") => {
     try {
       await api(path, { method: "POST", body: JSON.stringify(payload) });
+      notify(message);
       loadState();
       loadOverview();
     } catch (error) {
@@ -1750,7 +1751,7 @@ function renderStateForms(data) {
       ...values,
       sessions_per_week_target: values.sessions_per_week_target || null,
       max_session_minutes: values.max_session_minutes || null,
-    });
+    }, "#state-result", "Profile saved — new version appended.");
   });
   $("#constraint-form").addEventListener("submit", (event) => {
     event.preventDefault();

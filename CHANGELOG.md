@@ -37,6 +37,8 @@
   weekly high tolerance band and does not add when the week is already there. If no load is
   available, it retries with the e1RM basis and then asks for an e1RM in the Prescribe panel
   (CLI prints the `e1rm set` command); it refuses only if still unusable. `drop` remains 9c.
+- **Save feedback**: Athlete-page profile saves now show a toast ("Profile saved — new
+  version appended"); the other state forms show a generic saved toast on success.
 - **Budget UI label fix**: the volume-budget option is now “on”, with a helper explaining
   preserve/reduce/drop and that the main-lift policy is ignored while the budget is off.
 - **Modality registry/UI (5b)**: 11 modules with classes, dependencies, citations and
