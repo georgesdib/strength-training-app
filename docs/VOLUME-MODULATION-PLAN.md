@@ -6,7 +6,8 @@ step 9a (read-only compensation preview) and step 9b (opt-in compensation applic
 implemented (2026-10-26).** This document specifies a volume budget (a weekly target plus a
 per-session cap) and the settings/modality layer it must sit behind. It records the evidence,
 the rules, the decisions and a phased path. Step 1 is read-only; 9a is a preview; 9b is opt-in;
-9c (`drop`) and steps 3–8 are not implemented.
+9c (`drop`) has an agreed two-branch design (§4.6) but is not implemented; steps 3–8 are not
+implemented.
 
 At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
 plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
@@ -448,8 +449,40 @@ dumbbell bench. With a recorded dumbbell-bench load, 9b adds that item; without 
 and names the missing history.
 
 `MOD-VOL-004` is declared in constitution **1.17.0**. When the slot has no load, the athlete
-is asked for an e1RM rather than silently refused (`DEC-VOLUME-15`). Step 9c (`drop`) is still
-open; it removes and relabels a main lift and is not part of this rule.
+is asked for an e1RM rather than silently refused (`DEC-VOLUME-15`). Step 9c (`drop`) is
+separate: its two-branch design is agreed in §4.6, but it is not implemented and `MOD-VOL-004`
+does not remove a main lift.
+
+### 4.6 9c drop — agreed design (not implemented)
+
+The drop decision is made at the start of a session, from the remaining week, not from one slot.
+
+**Branch 1 — total weekly quota already full**
+- There is no volume to reallocate. The session is **skipped** or replaced by a short/technique
+  session; no main lift is dropped into another normal session and no compensation volume is
+  added. Record "week complete" and the original session; this is not a `volume_fill`.
+- Rebuilding as the next normal type would just add volume and hit the same total cap again, so
+  it is not used.
+
+**Branch 2 — total under, one group already filled**
+- Remove that group's main lift and its non-essential work from the session.
+- Build a distinct **`volume_fill`** session from the remaining session budget, using **multiple**
+  non-essential slots rather than the single 9b slot:
+  - fill the under-target groups by their shortfalls and the inverse-similarity weights (for a
+    filled squat, bench gets more than hinge, but both can receive);
+  - respect the daily/session cap, time, MRV, spinal, total band and executable-load rules;
+  - stop when the shortfalls are met or the session is full; report any unreachable shortfall.
+- The original session type and the reason are recorded; `volume_fill` is a distinct type,
+  counts as a session, and is never silently relabelled as a normal squat/hinge session.
+- If there is no under-target group or no capacity, short/skip instead.
+
+**Activation and safety**
+- Only when the budget is enabled and `main_lift_policy: drop` is selected; `preserve`/`reduce`
+  are unchanged.
+- Automatic after that opt-in, with a per-session confirmation at competition/peak; never
+  remove a main lift silently.
+- `MOD-VOL-005` will cover 9c; `MOD-VOL-004` remains the 9b single-slot application. No code,
+  template or constitution change is made yet.
 
 ## 5. Worked examples
 
@@ -741,7 +774,9 @@ it; not v1.
 - 9b **implemented 2026-10-26**: with `apply: true` and the budget on, the engine adds the
   selected slot through `build_item`, cites `MOD-VOL-004`, and refuses if the load is not
   executable. Constitution 1.17.0.
-- 9c **next**: `drop` rebuilds or names a distinct session; never remove a main lift silently.
+- 9c **design agreed 2026-10-26, not implemented**: total full → skip/short; lift-specific
+  full with total under → a distinct multi-slot `volume_fill` with the original type recorded;
+  automatic after the opt-in, with confirmation at competition/peak; `MOD-VOL-005`.
 - `reduce` is step 2b, not here; step 9 only handles cross-group compensation and `drop`.
 
 ## 11. Tests (for the implementation phase)
@@ -785,6 +820,7 @@ it; not v1.
 | 18 | 9a/9b compensation | 9a preview: slot pool, similarity weights and `compensation` report. 9b application: with `apply: true` and the budget on, one non-essential slot is added with a real load (`MOD-VOL-004`, constitution 1.17.0); no history refuses. 9c is `drop` |
 | 19 | 9b application | one slot added through `build_item`; executable load required; refusal is a warning, not a guessed load; `MOD-VOL-004`; all later caps still run (`DEC-VOLUME-14`) |
 | 20 | Missing compensation load | retry with the e1RM basis, then ask the athlete for an e1RM (UI prompt/CLI) and rebuild; refuse only if still unusable (`DEC-VOLUME-15`) |
+| 21 | 9c drop design | two branches: total full → skip/short, no reallocation; lift-specific full with total under → distinct multi-slot `volume_fill`, original type/reason recorded, no silent relabel. Automatic after `main_lift_policy: drop` opt-in; confirm at competition/peak; `MOD-VOL-005`; not implemented (`DEC-VOLUME-16`) |
 
 Step 1 is implemented read-only (the module, the `volume_exemption` table and the config
 section). Step 2 is implemented behind the off-by-default profile flag, step 2b adds the opt-in

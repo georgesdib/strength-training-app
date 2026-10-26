@@ -514,8 +514,10 @@ Each build does the same four steps:
 Main lifts keep their template sets while `main_lift_policy` is `preserve`, so a filled group
 can legitimately go over its target; the change is in the accessories, and the report warns.
 `reduce` is implemented (step 2b): it trims a filled group's main lift to `main_lift_floor`.
-`drop` is the remaining step 9c; it will remove and relabel a main lift, and is not implemented
-yet. Both are opt-in.
+`drop` is the remaining step 9c; its two-branch design is agreed but not implemented: total
+weekly quota full means skip or short/technique, while a lift-specific fill with the total under
+builds a distinct multi-slot `volume_fill` session and records the original type. It is opt-in
+and switches on only after `main_lift_policy: drop`.
 
 A set removed by readiness, deload or the spinal cap is recorded in `volume_exemption` and is
 never re-added. If a group is under but has no non-essential capacity (hinge on a hinge day is
