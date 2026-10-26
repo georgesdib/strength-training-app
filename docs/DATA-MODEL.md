@@ -348,8 +348,8 @@ deterministically, no matter what the LLM says. They are empty until the user an
 | sessions_per_week_target | the *intended* frequency, so the rubric can separate intent from execution |
 | max_session_minutes | the real ceiling, used once duration becomes measurable |
 | block_start_date | week 1 of the **erector ramp**, as the athlete declared it; it does not bound the programme (DEC-PROGRAMME-01). Resetting means a new profile row, never an edit (DEC-RAMP-01/02) |
-| volume_budget_enabled | opt-in weekly volume budget; 0 default. It moves non-essential accessory sets only and is off unless explicitly enabled (DEC-VOLUME-06/08) |
-| main_lift_policy | `preserve` (default) \| `reduce` \| `drop`; preserve keeps main lifts at template sets even when a group quota is full. `reduce` is implemented (step 2b): a filled group's main lift is trimmed to `main_lift_floor`. `drop` is recorded but not implemented (DEC-VOLUME-08/11) |
+| volume_budget_enabled | master switch for the weekly volume budget; 0 default. With it off the main-lift policy is ignored. With it on, the budget trims/tops up accessories and the main-lift policy controls main-lift treatment (DEC-VOLUME-06/08) |
+| main_lift_policy | `preserve` (default) leaves main lifts at template sets; `reduce` trims a filled group's main lift to `main_lift_floor`; `drop` removes it and relabels the session as `volume_fill_<original>`/`technique` (9c) |
 
 ### 11.1a `settings_profile` / `prescription_profile` — step 4
 

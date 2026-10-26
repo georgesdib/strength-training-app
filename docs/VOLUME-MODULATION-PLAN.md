@@ -328,8 +328,9 @@ This is the current, implemented behaviour; it is the reference for the reduce/d
 - `athlete_profile.volume_budget_enabled` is authoritative and defaults to off (0). If no
   profile flag is recorded, `budget.enabled` in `config/volume.v1.yaml` is the fallback.
   `MOD-VOL-003` only runs when the budget is enabled.
-- `athlete_profile.main_lift_policy` defaults to `preserve`. `reduce` is implemented (step
-  2b). `drop` is recorded but not implemented: the prescription warns and keeps the main lift.
+- `athlete_profile.main_lift_policy` defaults to `preserve`. With the budget off the policy is
+  ignored. With it on, `preserve` leaves main lifts alone, `reduce` trims a filled group's main
+  lift to the floor, and `drop` removes it and relabels the session (9c).
 
 **Targets and inputs**
 - `budget.weekly_total` is explicit and must equal the sum of `budget.weekly_target`; config

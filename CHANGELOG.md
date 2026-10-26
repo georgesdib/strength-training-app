@@ -37,6 +37,8 @@
   weekly high tolerance band and does not add when the week is already there. If no load is
   available, it retries with the e1RM basis and then asks for an e1RM in the Prescribe panel
   (CLI prints the `e1rm set` command); it refuses only if still unusable. `drop` remains 9c.
+- **Budget UI label fix**: the volume-budget option is now “on”, with a helper explaining
+  preserve/reduce/drop and that the main-lift policy is ignored while the budget is off.
 - **Modality registry/UI (5b)**: 11 modules with classes, dependencies, citations and
   factor references; every enable delegates to the existing setting; hard-safety entries are
   read-only; `settings modalities`, `/api/modalities` and the Settings Modules panel share the

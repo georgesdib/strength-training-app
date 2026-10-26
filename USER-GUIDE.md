@@ -456,15 +456,20 @@ strength-coach state --volume-budget on
 strength-coach state --main-lift-policy preserve
 ```
 
-`volume_budget_enabled` is off by default. When on, the engine may trim or top up **accessory**
-sets so each movement group moves toward its effective weekly target; main lifts keep their
-template sets. A set removed by readiness, deload or the spinal cap is recorded in
-`volume_exemption` and is never re-added. `main_lift_policy` is `preserve` by default; `reduce`
-is implemented (step 2b): when a group was already filled before today, its main lift is trimmed
-to `budget.main_lift_floor` (default 3 sets), the session type stays the same, and accessory
-top-up is disabled so the freed sets are not sent to another group. `drop` comes after the
-compensation slot pool (step 9c) and is not implemented yet; selecting it warns and keeps the
-main lift. The weekly dose has
+`volume_budget_enabled` is off by default and is the master switch. With it **off**, the
+main-lift policy is ignored. With it **on**:
+
+- `preserve` (default) trims and tops up **accessory** sets only; main lifts keep their template
+  sets.
+- `reduce` also trims a filled group’s main lift to `budget.main_lift_floor` (default 3 sets),
+  keeps the session type, and disables accessory top-up so the freed sets are not sent to another
+  group.
+- `drop` also removes the filled group’s main/accessory work and relabels the session as
+  `volume_fill_<original>` or `technique`; competition-window confirmation applies.
+
+A set removed by readiness, deload or the spinal cap is recorded in `volume_exemption` and is
+never re-added. The web Athlete page labels the budget simply **on** and shows this policy
+beneath the two dropdowns. The weekly dose has
 an explicit `budget.weekly_total` plus `budget.weekly_target` per group in
 `config/volume.v1.yaml`; the total must equal the sum of the groups, so change both when changing
 the dose. An e1RM override can also be set

@@ -1601,7 +1601,7 @@ function renderStateForms(data) {
         <label>Volume budget
           <select data-profile="volume_budget_enabled">
             <option value="off" ${p.volume_budget_enabled ? "" : "selected"}>off</option>
-            <option value="on" ${p.volume_budget_enabled ? "selected" : ""}>on (accessories only)</option>
+            <option value="on" ${p.volume_budget_enabled ? "selected" : ""}>on</option>
           </select>
         </label>
         <label>Main-lift policy
@@ -1613,6 +1613,10 @@ function renderStateForms(data) {
         </label>
         <button class="primary" type="submit">Save profile version</button>
       </form>
+      <p class="muted">Budget <strong>on</strong> with <strong>preserve</strong> trims and tops up
+        accessories only. <strong>reduce</strong> also trims filled-group main lifts;
+        <strong>drop</strong> also removes/relabels the main lift. The main-lift policy is ignored
+        while the volume budget is off.</p>
     </div>
 
     <div class="panel"><div class="panel-head"><h2>Add constraint</h2></div>
