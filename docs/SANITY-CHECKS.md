@@ -181,6 +181,7 @@ without conditioning on provenance penalises the athlete for following the presc
 - **ASSUMPTION-45** — the proposed volume budget projects future sessions at template sets; the projection is recomputed on every build and is not a stored plan (`docs/VOLUME-MODULATION-PLAN.md`).
 - **ASSUMPTION-46** — the Settings range for the spinal cap (0–12) and per-exercise costs (0–5) is a guardrail, not a measured bound; values outside it require a config edit (`DEC-SPINE-06`, `docs/VOLUME-MODULATION-PLAN.md`).
 - **ASSUMPTION-47** — cross-group compensation weights are inverse-similarity heuristics (squat and hinge similar, squat and bench less so) with a floor, not measured set equivalence; the mode is opt-in and `preserve` is the default (`docs/VOLUME-MODULATION-PLAN.md`).
+- **ASSUMPTION-48** — the compensation slot pool (`dumbbell_bench_press`, `rdl`) and the similarity matrix are design heuristics, not measured equivalence; the slot is non-essential and the main lift stays in `preserve` (`docs/VOLUME-MODULATION-PLAN.md` §4.2).
 
 - **ASSUMPTION-38** — a session is one calendar date. Unverifiable without timestamps.
 

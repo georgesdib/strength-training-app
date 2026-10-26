@@ -7,7 +7,7 @@ produces an `unknown` verdict rather than a silent guess.
 > Quantitative evidence for each question is kept out of this public repository. The
 > questions themselves are methodology questions and apply to any athlete using the system.
 
-**Live register (2026-10-26):** three open questions (Q14, Q26, Q27) and one deferred decision (Q22).
+**Live register (2026-10-26):** two open questions (Q14, Q26) and one deferred decision (Q22).
 The 22 questions decided since the register was created were removed from the live text on
 2026-10-25; each outcome and decision record is indexed under
 [Closed](#closed--index-only). Reopening a closed question is a new decision, not an edit.
@@ -55,23 +55,6 @@ the limitation documented.
 
 ---
 
-## Q27. Should filled groups reallocate volume across groups?
-
-The athlete's model: once a group's weekly quota is filled, the next session gives it no work and
-moves the freed sets to other groups — more bench, less hinge (squat and hinge are similar), but
-some hinge (they are not the same movement). This is the `drop` end of a volume-first mode: it
-can remove a main lift from a session and change the session type.
-
-The owner confirmed **strength-preserving as the default** on 2026-10-26 (`DEC-VOLUME-08`):
-main lifts stay at template sets even when the quota is full; only accessory volume is
-reallocated; the policy is `athlete_profile.main_lift_policy`
-(`preserve`/`reduce`/`drop`). Open: the compensation slot pool (bench and hinge have no
-non-essential slot), the similarity weights, quota accounting, and whether `drop` is ever
-automatic. Default: per-group triggers within the fixed templates; no cross-group compensation.
-See [VOLUME-MODULATION-PLAN.md](VOLUME-MODULATION-PLAN.md) §4.2.
-
----
-
 ## Closed — index only
 
 Removed from the live register on 2026-10-25. Each row names the outcome and where it is
@@ -100,6 +83,7 @@ enforced; the reasoning lives in the decision record and the linked document.
 | Q23 | Does a first-set RIR drop trigger a load cut? | no; never implemented, inside RIR reporting error, removed from `MOD-FAT-001` in constitution 1.13.0; the mean-RIR per-lift component remains | `DEC-RIR-04` |
 | Q24 | Should the low-bar competition squat count toward the weekly spinal cap? | yes, at cost 1; the cap rises 3 to 6, and bench+hinge uses sumo at 2.5 | `DEC-SPINE-05`, `docs/SPINAL-COST.md` |
 | Q25 | Does a level-1 reading with no settle answer count as a flare? | yes: only a recorded 48 h settlement clears a level 1, so an unrecorded answer fails safe | `DEC-SYMPTOM-04`, `docs/SYMPTOM-LOGGING.md` |
+| Q27 | Should filled groups reallocate volume across groups? | strength-preserving default; main lifts stay; accessory-only compensation under `preserve`; volume-first `drop` deferred; compensation slot pool and weights agreed | `DEC-VOLUME-08/09`, VOLUME-MODULATION-PLAN §4.2 |
 
 ---
 

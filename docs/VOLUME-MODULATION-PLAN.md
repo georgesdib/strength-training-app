@@ -223,7 +223,7 @@ capacity. Step 2 acts on it:
 - use the four-week ledger for a **programme** change; the weekly trigger handles scheduling
   shortfalls and phase noise.
 
-### 4.2 Cross-group quota compensation (later, confirmed direction)
+### 4.2 Cross-group quota compensation (design agreed; later)
 
 The athlete's model, at the `drop` end of the policy: once a group's weekly quota is met, the
 next session gives that group no work and moves the freed sets to other groups — more bench, less
@@ -235,34 +235,50 @@ opt-in), so it is athlete state, not prompt text or a hidden config. Under `pres
 lift still runs at its template sets even when the group quota is full; only **accessory** volume
 is withheld and reallocated. "No squats at all" is `drop`, not `preserve`.
 
-This is a **volume-first mode** when `drop` is selected, not the default strength programme,
-because it can remove a main lift from a session. It needs its own decision, templates and tests.
+`drop` is the volume-first mode, not the default strength programme, because it can remove a main
+lift from a session. The default (`preserve`) keeps the main lift and moves only accessory volume.
 
-Model:
+**Quota accounting**
+- Every working set counts, main lifts included. In `preserve` a main lift is never trimmed, so
+  a session can exceed the group target; the target is a **floor for accessories**, not a hard
+  cap. The report warns when a preserved main lift pushes the group over.
+- A group is **filled** when the week reaches its effective target (tolerance applies). Its
+  non-essential accessories are then withheld; the main lift stays in `preserve`.
+- A **persistent four-week deficit** is a programme change (add or swap an accessory), not a
+  weekly top-up. The weekly trigger only handles scheduling shortfalls and phase noise.
 
-- `quota[group]` = the effective weekly target; a group is filled when the week reaches it
-  (tolerance applies). Every working set counts, main lifts included. In `preserve` a main lift
-  is never trimmed, so a session can legitimately exceed the group target; the target is a
-  planning floor there, not a hard cap.
-- `main_lift_policy`: `preserve` (default), `reduce` (keep a configured floor), `drop`
-  (volume-first only). A `drop` session must say it is not a normal squat/hinge session.
-- **Compensation slots are the blocker.** The current templates have no non-essential bench or
-  hinge item (bench, trap bar and sumo are essential or the only hinge work). Quota-driven
-  compensation therefore needs new accessory slots (for example a chest-supported press, an RDL)
-  with an executable load, or accessory slot replacement. Adding sets to an essential main lift
-  is a separate opt-in (`main_lift_topup`), not automatic compensation.
-- `similarity[group_a][group_b]` in 0–1 (config): squat↔hinge high, squat↔bench low,
-  hinge↔bench low, push↔pull low, and so on.
-- `compensation_weight(a -> b) = max(floor, 1 - similarity[a][b])`, normalised over groups
-  with headroom. A filled squat therefore sends most freed sets to bench, less to hinge, and
-  still some to hinge because the weight has a floor.
-- Every cap still applies: per-group MRV, session cap, time cap, spinal cap (sumo/hinge),
-  constraints, injury ceilings, readiness and deload. Compensation cannot exceed them.
+**Compensation pool**
+- Each session type gets one optional, non-essential **compensation slot**. Candidates need an
+  executable load; the starting pool is `dumbbell_bench_press` for horizontal push and `rdl`
+  for hinge (taxonomy/config, no code).
+- When a group is filled, its accessory slot is withheld. The compensation slot may be filled
+  from a group below quota, chosen by the weights below. If the session has no free non-essential
+  slot or no executable candidate, warn; do not inflate a main lift.
+- Adding sets to an essential main lift is a separate, opt-in `main_lift_topup` (default false),
+  never automatic compensation. It adds to the receiver's main lift, never trims the filled
+  group's main lift.
+
+**Weights**
+- `similarity[a][b]` is config: squat↔hinge 0.7, squat↔bench 0.2, hinge↔bench 0.2, push↔pull
+  0.3; the remaining pairs default to 0.1. `floor` is 0.1.
+- `compensation_weight(a -> b) = max(floor, 1 - similarity[a][b])`, normalised over receiving
+  groups with headroom. A filled squat sends most freed sets to bench, less to hinge, and still
+  some to hinge.
+- The athlete profile selects the mode (`preserve`/`reduce`/`drop`); the matrix is config,
+  not per-athlete profile.
+
+**Caps**
+- Per-group MRV, session cap, time cap, spinal cap (sumo/hinge), constraints, injury ceilings,
+  readiness and deload still apply. Compensation cannot exceed them.
 - Only exercises with an executable load (e1RM, double progression or bodyweight) can receive
   compensation; an unknown-load addition is refused, not guessed.
-- The session-type identity is a real problem: a "squat session" with no squat is a different
-  session. Do not silently relabel it; rebuild the rolling schedule/template or make the mode a
-  distinct session type.
+
+**Identity and provenance**
+- `preserve` changes no session identity: only a non-essential accessory slot is replaced.
+- `drop` removes a main lift; rebuild the rolling schedule/template or make it a distinct
+  volume-first session type. Never silently relabel a squat session as a squat session.
+- `MOD-VOL-003` covers set changes; `MOD-VOL-004` covers accessory slot replacement and
+  compensation. Both need constitution approval at implementation.
 
 Evidence limits:
 
@@ -275,8 +291,8 @@ Evidence limits:
   cross-group.
 
 Phasing: per-group diagnostics (step 1, done) → within-template per-group triggers (step 2) →
-cross-group accessory reallocation with main lifts preserved (step 9a) → main-lift drop mode
-(step 9b, opt-in, decision + simulation).
+compensation slot pool with main lifts preserved (step 9a) → opt-in main-lift top-up (9b) →
+volume-first drop (9c, decision + simulation).
 
 ## 5. Worked examples
 
@@ -548,11 +564,12 @@ deliberate golden update where a prescription changes.
 **8. Later refinement.** Fractional/indirect sets (direct 1, indirect 0.5) if the ledger warrants
 it; not v1.
 
-**9. Cross-group quota compensation (after step 8; direction confirmed, parameters open).**
-- `main_lift_policy` `preserve` by default; `drop` only in an opt-in volume-first mode.
-- Config similarity matrix and compensation weights; per-group MRV, session, time and spinal
-  caps still apply.
-- Read-only simulation first, then opt-in, then a decision; never remove a main lift silently.
+**9. Cross-group quota compensation (after step 8; design agreed).**
+- 9a: one optional non-essential compensation slot per session type; candidates
+  `dumbbell_bench_press` (horizontal push) and `rdl` (hinge); similarity weights; all caps.
+- 9b: opt-in `main_lift_topup`; never automatic compensation.
+- 9c: `drop` mode rebuilds or names a distinct session; never remove a main lift silently.
+- Read-only simulation first; `MOD-VOL-004` for slot replacement and compensation.
 
 ## 11. Tests (for the implementation phase)
 
@@ -588,6 +605,7 @@ it; not v1.
 | 11 | Spinal load in Settings | **guarded**: warning + double confirmation + reason + append-only profile; `PRG-SPINE-001` stays in force and is parameterised, not disabled |
 | 12 | Cross-group compensation | confirmed as a later **volume-first mode**: per-group quotas, inverse-similarity weights, `main_lift_policy` preserve by default, `drop` opt-in; parameters and evidence still open |
 | 13 | Strength-preserving default | main lifts stay at template sets even when the group quota is full; `main_lift_policy` is an append-only `athlete_profile` field (`preserve` default, `reduce`/`drop` opt-in); compensation is accessory-only under `preserve`; "no squats" is `drop` |
+| 14 | Compensation parameters | one optional non-essential compensation slot per session type; candidates `dumbbell_bench_press` (push) and `rdl` (hinge), executable load only; weights squat↔hinge 0.7, squat↔bench 0.2, hinge↔bench 0.2, push↔pull 0.3, floor 0.1; all sets count; main lifts stay in `preserve`; main-lift top-up opt-in; `MOD-VOL-004` for slot replacement |
 
 These are design decisions. Step 1 is implemented read-only (the module, the
 `volume_exemption` table and the config section). No prescription, constitution or `MOD-VOL-003`
@@ -614,6 +632,9 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
 - **ASSUMPTION-47** — cross-group compensation weights are inverse-similarity heuristics (squat
   and hinge similar, squat and bench less so) with a floor, not measured set equivalence; the
   mode is opt-in and `preserve` is the default.
+- **ASSUMPTION-48** — the compensation slot pool (`dumbbell_bench_press`, `rdl`) and the
+  similarity matrix are design heuristics, not measured equivalence; the slot is non-essential
+  and the main lift stays in `preserve`.
 
 ## 14. Evidence
 
@@ -638,7 +659,7 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
   https://doi.org/10.1186/s40798-021-00404-9
 - **No trial of make-up volume.** Searches returned coaching articles and detraining studies, not
   interventions. The cap, tolerance, exemption list and allocation order are therefore design
-  choices, not findings. They are recorded as ASSUMPTION-40–47.
+  choices, not findings. They are recorded as ASSUMPTION-40–48.
 
 ### Limits of the evidence
 
@@ -648,7 +669,7 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
   is a modelling choice, and its frequency results are compatible with small effects.
 - There is **no trial** of a per-session set cap, of make-up volume, or of volume autoregulation.
   The 30-set cap, the ±10% band, the exemption list and the allocation order are design choices
-  (`ASSUMPTION-40`–`47`), not findings.
+  (`ASSUMPTION-40`–`48`), not findings.
 - The app's own W6 audit found the readiness counterfactual is not identifiable retrospectively
   ([READINESS-AUDIT.md](READINESS-AUDIT.md)); the budget is a programming heuristic, and the
   phased rollout (display → opt-in → automatic) is the safeguard.
