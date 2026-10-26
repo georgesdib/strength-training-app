@@ -102,6 +102,14 @@ SET_SECONDS = 30
 SAFETY_REFS = frozenset({"MOD-FAT-001", "MOD-DELOAD-001", "MOD-SPINE-001"})
 
 
+def _deep_merge(base: dict, extra: dict) -> None:
+    for key, value in extra.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            _deep_merge(base[key], value)
+        else:
+            base[key] = value
+
+
 @dataclass(frozen=True)
 class BudgetConfig:
     enabled: bool = False
@@ -154,6 +162,9 @@ class BudgetConfig:
     def load(cls, path: str | Path | None = None) -> "BudgetConfig":
         source = Path(path or paths.config_dir("volume.v1.yaml"))
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        overlay = source.with_name("volume.local.yaml")
+        if overlay.is_file():
+            _deep_merge(raw, yaml.safe_load(overlay.read_text(encoding="utf-8")) or {})
         body = raw.get("budget") or {}
         targets = {
             str(key): float(value)
@@ -236,7 +247,7 @@ class BudgetConfig:
         drop_days = int(drop.get("competition_confirm_days", 7))
         drop_max = int(drop.get("max_slots_per_group", 1))
         drop_minutes = int(drop.get("technique_minutes", 30))
-        if drop_days < 0 or drop_max < 1 or drop_minutes <= 0:
+        if not 0 <= drop_days <= 28 or drop_max < 1 or drop_minutes <= 0:
             raise ValueError("volume budget drop settings are invalid")
         drop_slots: dict[str, tuple[dict[str, Any], ...]] = {}
         for group, entries in (drop.get("slots") or DEFAULT_DROP_SLOTS).items():

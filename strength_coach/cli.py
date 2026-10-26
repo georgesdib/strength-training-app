@@ -119,6 +119,8 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--technique-throttle", action="store_true",
                      help="user-declared: cap load at 90%% and floor RIR at 3 for this session "
                           "(MOD-TECH-001)")
+    run.add_argument("--drop-confirm", action="store_true",
+                      help="confirm a drop inside the competition window")
     run.add_argument("--throttle-pattern", default=None, metavar="PATTERN",
                      help="restrict the throttle to one movement pattern (e.g. squat, hinge); "
                           "default is the session's main lifts")
@@ -546,6 +548,7 @@ def _cmd_run(args) -> int:
             technique_throttle=args.technique_throttle,
             technique_throttle_pattern=args.throttle_pattern,
             deload_decision=deload_decision,
+            drop_confirmed=args.drop_confirm,
         )
         if scheduled_suggestion is not None:
             prescription = deload_mod.suggest(prescription, scheduled_suggestion)

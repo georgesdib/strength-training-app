@@ -6,8 +6,8 @@ step 9a (read-only compensation preview) and step 9b (opt-in compensation applic
 implemented (2026-10-26).** This document specifies a volume budget (a weekly target plus a
 per-session cap) and the settings/modality layer it must sit behind. It records the evidence,
 the rules, the decisions and a phased path. Step 1 is read-only; 9a is a preview; 9b is opt-in;
-9c-1 (`drop` engine) and 9c-2 (identity/UX) are implemented; 9c-3
-(confirmation/settings) is pending; steps 3–8 are not implemented.
+9c-1 (`drop` engine), 9c-2 (identity/UX) and 9c-3 (confirmation/settings) are implemented;
+steps 3–8 are not implemented.
 
 At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
 plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
@@ -515,7 +515,14 @@ The drop decision is made at the start of a session, from the remaining week, no
 - 9c-2 adds the first-class label/API fields, Prescribe/Workout/History/Programme labels,
   start/end of an empty technique attendance session (no rubric), derived-review handling,
   forecast entries using the actual derived type, and migration 0038 removing the fixed
-  session-type CHECK. 9c-3 still covers competition confirmation and settings exposure.
+  session-type CHECK.
+- 9c-3 adds the Settings **Drop / volume fill** panel and `GET/POST /api/settings/drop`, backed
+  by the git-ignored `config/volume.local.yaml` overlay. It exposes the drop switch, 0–28 day
+  competition window, max slots per group, technique minutes, tolerance (with the computed high
+  band read-only) and the full per-group candidate pool as editable JSON, validated server-side.
+  The competition confirmation is per session via `--drop-confirm`, the API
+  `drop_confirmed` field and the Prescribe checkbox; it applies to both `volume_fill` and
+  `technique` and is recorded in the prescription notes.
 
 **Activation and safety**
 - Only when the budget is enabled and `main_lift_policy: drop` is selected; `preserve`/`reduce`
@@ -865,6 +872,7 @@ it; not v1.
 | 22 | 9b high-band guard | 9b stays additive (source accessory remains) but stops at the weekly high tolerance band; status `weekly_full` and no added slot when already there (`DEC-VOLUME-17`) |
 | 23 | 9c-1 drop engine | `budget.drop` pools; `plan_drop` technique at/above the high band and multi-slot `volume_fill_<original>` below; schedule maps the derived type; `MOD-VOL-005`, constitution 1.18.0; no UI/confirmation/labels/forecast yet (`DEC-VOLUME-18`) |
 | 24 | 9c-2 identity/UX | `session_identity` labels/API fields; Prescribe/Workout/History/Programme display; empty technique start/end with no rubric; volume_fill reviewed without a missing-main penalty; forecast entries use the actual derived type; migration 0038 removes the fixed session-type CHECK. 9c-3 confirmation/settings pending (`DEC-VOLUME-19`) |
+| 25 | 9c-3 confirmation/settings | Settings drop panel + `/api/settings/drop` over `config/volume.local.yaml`; 0–28 window, max slots, technique minutes, tolerance/computed high band and full per-group candidate pool; per-session confirmation via `--drop-confirm`/API/Prescribe, both branches, recorded in notes (`DEC-VOLUME-20`) |
 
 Step 1 is implemented read-only (the module, the `volume_exemption` table and the config
 section). Step 2 is implemented behind the off-by-default profile flag, step 2b adds the opt-in

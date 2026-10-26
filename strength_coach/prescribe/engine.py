@@ -512,6 +512,7 @@ def build_prescription(
             "volume_budget": budget_note,
             "compensation": compensation_note,
             "drop": drop_plan.get("note") if drop_applied else None,
+            "drop_confirmed": bool(drop_confirmed),
             "minimum_session": minimum_note,
             "technique_throttle": technique_note,
             "load_stack": load_stack,

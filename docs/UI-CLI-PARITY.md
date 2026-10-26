@@ -70,7 +70,7 @@ These are known and intentional or still open.
 | `test --status` standalone cadence | cadence shown in prescription notes | partial |
 | `symptom --show` raw history | UI shows injury signal/current tables | partial |
 | `volume --weeks/--date` | UI panel uses the default 4-week window | partial |
-| Volume budget | `volume --budget`; `state --volume-budget/--main-lift-policy` | Prescribe **Volume budget** panel; Athlete profile fields; compensation preview/application | full |
+| Volume budget | `volume --budget`; `state --volume-budget/--main-lift-policy`; `run --drop-confirm` | Prescribe **Volume budget** panel; Athlete profile fields; compensation preview/application; Settings **Drop / volume fill**; `GET/POST /api/settings/drop` | full |
 | `continuity --date` | UI panel uses the default date | partial |
 | `fatigue --date` | UI panel uses the default date | partial |
 | `validate --max-dates` | UI button uses 12 dates | partial |

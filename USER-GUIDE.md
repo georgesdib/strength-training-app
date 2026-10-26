@@ -520,7 +520,12 @@ and builds a multi-slot `volume_fill_<original>` session that fills into the hig
 opt-in after `main_lift_policy: drop`. 9c-2 adds the labels (**Volume fill (squat omitted)**,
 **Technique (week complete)**), history/Prescribe/Programme display, and a startable empty
 technique session: it has no template and no rubric, and you can add manual sets or import a
-workout later. The competition-window confirmation and settings exposure are 9c-3.
+workout later. The Settings page now has a **Drop / volume fill** panel for the switch,
+competition window, max slots per group, technique minutes, tolerance and the full candidate
+pool; edits go to the git-ignored `config/volume.local.yaml` and are validated before saving.
+The high band is shown read-only, derived from the total target and tolerance. In the competition
+window the Prescribe page holds the drop until you tick **Confirm drop**, use `run --drop-confirm`,
+or send `drop_confirmed`; it applies to both `volume_fill` and `technique`.
 
 A set removed by readiness, deload or the spinal cap is recorded in `volume_exemption` and is
 never re-added. If a group is under but has no non-essential capacity (hinge on a hinge day is

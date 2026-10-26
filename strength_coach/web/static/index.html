@@ -380,6 +380,7 @@
             <span class="muted">Only used when minimum session is ticked: it trims accessory volume to the estimated target, then main-lift sets to a floor of 2 if you opt in. Loads and RIR stay unchanged.</span>
           </span>
           <label><input type="checkbox" id="prescribe-technique"> Technique throttle</label>
+          <label><input type="checkbox" id="prescribe-drop-confirm"> Confirm drop in competition window</label>
           <label id="prescribe-throttle-pattern-wrap" hidden>Scope
             <input id="prescribe-throttle-pattern" list="exercise-patterns" placeholder="all lifts">
           </label>
@@ -871,6 +872,31 @@
           <span class="muted" id="settings-defaults-msg"></span>
         </div>
         <p class="muted">These only pre-fill the Prescribe page; they do not change the engine.</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Drop / volume fill</h2><span class="muted">local config overlay</span></div>
+        <p class="section-help"><span>9c drop policy and candidate pool; saved in config/volume.local.yaml.</span> <a class="doc-link" href="#docs?doc=docs/VOLUME-MODULATION-PLAN.md">Volume plan</a></p>
+        <form id="settings-drop-form">
+          <div class="form-row">
+            <label><input type="checkbox" id="settings-drop-enabled"> Enable drop</label>
+            <label>Competition confirm days <input type="number" min="0" max="28" id="settings-drop-days"></label>
+            <label>Max slots/group <input type="number" min="1" max="4" id="settings-drop-max"></label>
+            <label>Technique minutes <input type="number" min="1" max="120" id="settings-drop-technique"></label>
+            <label>Tolerance <input type="number" min="0" max="1" step="0.01" id="settings-drop-tolerance"></label>
+            <span class="muted">High band <code id="settings-drop-high">—</code></span>
+          </div>
+          <label>Candidate pool (JSON, keyed by movement group)
+            <textarea id="settings-drop-slots" rows="12" spellcheck="false"></textarea>
+          </label>
+          <div class="form-row">
+            <button class="primary" type="submit">Save drop settings</button>
+            <span class="muted" id="settings-drop-msg"></span>
+          </div>
+        </form>
+        <p class="muted">The high band is derived from the total target and tolerance, not a
+          separate value. Candidate pools need a real exercise id, sets, reps, RIR, rest and
+          load source; the server validates before writing.</p>
       </div>
 
       <div class="panel">

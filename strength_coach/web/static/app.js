@@ -746,6 +746,7 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
     minimum_include_main: $("#prescribe-minimum-main").checked,
     technique_throttle: $("#prescribe-technique").checked,
     technique_throttle_pattern: ($("#prescribe-throttle-pattern").value || "").trim() || null,
+    drop_confirmed: $("#prescribe-drop-confirm").checked,
     allow_unknown_readiness: !scoreReady && Boolean(window.__workflowAllowUnknown),
   };
   try {
@@ -1255,6 +1256,34 @@ $("#volume-form").addEventListener("submit", async (event) => {
     loadOverview();
   } catch (error) {
     $("#volume-msg").textContent = error.message;
+  }
+});
+
+$("#settings-drop-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  let slots;
+  try {
+    slots = JSON.parse($("#settings-drop-slots").value || "{}");
+  } catch (error) {
+    $("#settings-drop-msg").textContent = "Candidate pool JSON is invalid: " + error.message;
+    return;
+  }
+  try {
+    const data = await api("/api/settings/drop", {
+      method: "POST",
+      body: JSON.stringify({
+        enabled: $("#settings-drop-enabled").checked,
+        competition_confirm_days: Number($("#settings-drop-days").value),
+        max_slots_per_group: Number($("#settings-drop-max").value),
+        technique_minutes: Number($("#settings-drop-technique").value),
+        tolerance: Number($("#settings-drop-tolerance").value),
+        slots,
+      }),
+    });
+    renderSettings(data);
+    notify("Drop settings saved.");
+  } catch (error) {
+    $("#settings-drop-msg").textContent = error.message;
   }
 });
 
@@ -2685,6 +2714,18 @@ function renderSettings(data) {
   applyStoredUiDefaults();
   applyTheme(storedThemeMode());
   syncLlmFields();
+  renderDropSettings(data.drop || {});
+}
+
+function renderDropSettings(drop) {
+  $("#settings-drop-enabled").checked = !!drop.enabled;
+  $("#settings-drop-days").value = drop.competition_confirm_days ?? 7;
+  $("#settings-drop-max").value = drop.max_slots_per_group ?? 1;
+  $("#settings-drop-technique").value = drop.technique_minutes ?? 30;
+  $("#settings-drop-tolerance").value = drop.tolerance ?? 0.1;
+  $("#settings-drop-high").textContent = drop.high_band ?? "—";
+  $("#settings-drop-slots").value = JSON.stringify(drop.slots || {}, null, 2);
+  $("#settings-drop-msg").textContent = "source: " + (drop.source || "—");
 }
 
 async function loadSettings() {

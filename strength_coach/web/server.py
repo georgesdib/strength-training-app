@@ -64,6 +64,7 @@ from strength_coach.prescribe import persistence as prescription_persistence
 from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
 from strength_coach.prescribe import session_identity
+from strength_coach.prescribe import volume_settings
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
@@ -517,6 +518,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._save_exposure(c, body)))
             elif path == "/api/settings/llm":
                 self._json(200, self._save_llm_settings(body))
+            elif path == "/api/settings/drop":
+                self._json(200, self._save_drop_settings(body))
             elif path == "/api/settings/llm/test":
                 self._json(200, self._test_llm())
             elif path == "/api/prescribe":
@@ -596,8 +599,13 @@ class Handler(BaseHTTPRequestHandler):
             "database": str(self.db_path or db.default_db_path()),
             "version": __version__,
             "providers": list(PROVIDERS),
+            "drop": volume_settings.load_drop(),
             "local_only": True,
         }
+
+    def _save_drop_settings(self, body: dict) -> dict:
+        volume_settings.save_drop(body)
+        return self._settings()
 
     def _save_llm_settings(self, body: dict) -> dict:
         return update_llm_settings(
@@ -898,6 +906,7 @@ class Handler(BaseHTTPRequestHandler):
             deload_decision=deload_decision,
             technique_throttle=technique_throttle,
             technique_throttle_pattern=technique_pattern,
+            drop_confirmed=_truth(body.get("drop_confirmed")),
         )
         if scheduled_suggestion is not None:
             prescription = deload_mod.suggest(prescription, scheduled_suggestion)

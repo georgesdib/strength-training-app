@@ -37,6 +37,9 @@
   weekly high tolerance band and does not add when the week is already there. If no load is
   available, it retries with the e1RM basis and then asks for an e1RM in the Prescribe panel
   (CLI prints the `e1rm set` command); it refuses only if still unusable. `drop` remains 9c.
+- **Drop confirmation/settings (9c-3)**: a Settings **Drop / volume fill** panel and
+  `GET/POST /api/settings/drop`, backed by `config/volume.local.yaml`; per-session competition
+  confirmation via `--drop-confirm`/API/Prescribe; candidate-pool validation; computed high band.
 - **Drop identity/UX (9c-2)**: derived session labels in Prescribe, Workout, History and the
   programme forecast; an empty technique session can be started and ended as attendance with no
   rubric; `volume_fill` is reviewed against its actual items without a missing-main penalty;

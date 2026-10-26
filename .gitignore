@@ -19,6 +19,7 @@ data/*.db*
 # file may contain an API key and must never be pushed.
 # ---------------------------------------------------------------------------
 config/llm.local.toml
+config/volume.local.yaml
 .env
 
 # ---------------------------------------------------------------------------
