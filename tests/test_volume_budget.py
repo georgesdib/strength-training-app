@@ -583,6 +583,40 @@ def test_compensation_needs_a_filled_accessory_and_is_off_by_default():
     assert disabled["status"] == "disabled"
 
 
+def test_compensation_caps_at_the_weekly_high_band():
+    rows = [
+        {"exercise_id": "ssb_squat", "sets": 5, "essential": True, "rest_s": 180,
+         "key": "squat"},
+        {"exercise_id": "split_squat", "sets": 3, "essential": False, "rest_s": 90,
+         "key": "squat"},
+    ]
+    result = volume_budget.simulate_compensation(
+        session_type="squat", rows=rows, completed={"squat": 10},
+        effective={"squat": 10, "horizontal_push": 10},
+        projected={"squat": 13, "horizontal_push": 8},
+        config=volume_budget.BudgetConfig(compensation_enabled=True),
+    )
+    assert result["status"] == "simulated"
+    assert result["selected"]["sets"] == 1  # only 1 set of high-band headroom
+
+
+def test_compensation_does_not_add_when_weekly_total_is_full():
+    rows = [
+        {"exercise_id": "ssb_squat", "sets": 5, "essential": True, "rest_s": 180,
+         "key": "squat"},
+        {"exercise_id": "split_squat", "sets": 3, "essential": False, "rest_s": 90,
+         "key": "squat"},
+    ]
+    result = volume_budget.simulate_compensation(
+        session_type="squat", rows=rows, completed={"squat": 10},
+        effective={"squat": 10, "horizontal_push": 10},
+        projected={"squat": 13, "horizontal_push": 10},
+        config=volume_budget.BudgetConfig(compensation_enabled=True),
+    )
+    assert result["status"] == "weekly_full"
+    assert result["selected"] is None
+
+
 def test_compensation_apply_is_enabled_for_the_engine():
     rows = [
         {"exercise_id": "split_squat", "sets": 3, "essential": False, "rest_s": 90,

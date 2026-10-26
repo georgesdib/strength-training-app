@@ -420,25 +420,31 @@ settings are under `budget.compensation` in `config/volume.v1.yaml`:
 - `similarity` — squat↔hinge 0.7, squat↔push 0.2, hinge↔push 0.2, push↔pull 0.3; unknown
   pairs default to 0.1.
 - `slots` — one optional non-essential slot per session type, with candidate exercises, sets,
-  reps, RIR, rest and load source. A candidate needs an executable load; no history means the
-  engine refuses it and adds nothing.
+  reps, RIR, rest and load source. A candidate needs an executable load; no history retries the
+  e1RM basis, asks for an e1RM if needed, and refuses only if still unusable.
 
 The preview works like this:
 
 1. A group is **filled** when `completed >= effective_target` before today, the same rule as
    `reduce`. Its **non-essential** sets in today's template are the freed sets; main lifts stay.
 2. The largest freed group is the source. Each slot candidate must be a different group that is
-   under its target and has session and total headroom.
+   under its target and has session headroom. **9b is additive**: it does not remove the source
+   accessory, so it also stops at the **weekly high tolerance band**; if the projected week is
+   already there, status is `weekly_full` and nothing is added.
 3. The weight is `max(floor, 1 - similarity(source, receiver))`, normalised over the candidates.
    The **one** slot takes the highest weight; its sets are capped by the freed sets, the slot's
-   configured sets, the receiver's shortfall, the per-group session cap and the total cap.
+   configured sets, the receiver's shortfall, the per-group session cap, the session total cap and
+   the remaining weekly headroom to the high band.
 4. The report returns `freed`, `source`, `candidates` (weight, share, sets) and `selected`.
-   Status is `disabled`, `no_filled_accessory`, `no_receiver`, `simulated`; the engine note adds
-   `applied` or `refused`.
+   Status is `disabled`, `no_filled_accessory`, `no_receiver`, `weekly_full` or `simulated`; the
+   engine note adds `applied` or `refused`. `weekly_full` means the projected week is already at or
+   above the high tolerance band; 9b adds nothing.
 
 With `apply: true` and the budget on, 9b builds one new non-essential item from the selected
-candidate using the normal `build_item` load solver. The item cites `MOD-VOL-004`; MRV, spinal,
-under-MEV, deload, total and time checks still run afterwards. If the candidate has no working
+candidate using the normal `build_item` load solver. It is an **addition**, not a swap: the
+source accessory stays, and the weekly high-band guard prevents it from pushing the total past
+the high tolerance band. The item cites `MOD-VOL-004`; MRV, spinal, under-MEV, deload, total and
+time checks still run afterwards. If the candidate has no working
 history, the engine retries with the **e1RM basis**. If that also has no usable e1RM, the
 Prescribe panel asks the athlete to enter one (and the CLI prints the `e1rm set` command), then
 rebuilds. It refuses only if no usable load exists after that.
@@ -457,30 +463,54 @@ does not remove a main lift.
 
 The drop decision is made at the start of a session, from the remaining week, not from one slot.
 
-**Branch 1 — total weekly quota already full**
-- There is no volume to reallocate. The session is **skipped** or replaced by a short/technique
-  session; no main lift is dropped into another normal session and no compensation volume is
-  added. Record "week complete" and the original session; this is not a `volume_fill`.
-- Rebuilding as the next normal type would just add volume and hit the same total cap again, so
+**Branch 1 — total at or above the high tolerance band**
+- There is no volume to reallocate. The session is a **technique-focused session**: no main lift,
+  no working sets counted toward the weekly target and no compensation volume. It counts as
+  attendance; record "week complete" and the original session. This is not a `volume_fill`.
+- Rebuilding as the next normal type would just add volume and hit the same high band again, so
   it is not used.
 
-**Branch 2 — total under, one group already filled**
+**Branch 2 — below the high band, one group already filled**
 - Remove that group's main lift and its non-essential work from the session.
 - Build a distinct **`volume_fill`** session from the remaining session budget, using **multiple**
   non-essential slots rather than the single 9b slot:
   - fill the under-target groups by their shortfalls and the inverse-similarity weights (for a
     filled squat, bench gets more than hinge, but both can receive);
-  - respect the daily/session cap, time, MRV, spinal, total band and executable-load rules;
-  - stop when the shortfalls are met or the session is full; report any unreachable shortfall.
+  - fill **into** the high tolerance band, not only to the nominal total; stop at the high band;
+  - respect the daily/session cap, time, MRV, spinal and executable-load rules;
+  - stop when the shortfalls are met, the session is full or the high band is reached; report
+    any unreachable shortfall.
 - The original session type and the reason are recorded; `volume_fill` is a distinct type,
   counts as a session, and is never silently relabelled as a normal squat/hinge session.
-- If there is no under-target group or no capacity, short/skip instead.
+- If there is no under-target group or no capacity, use the technique-focused session instead.
+
+**Default candidate pool (all configurable)**
+- push: `dumbbell_bench_press`, then `incline_db_bench_press`;
+- hinge: `rdl`; `single_leg_db_rdl` only when `hinge_unilateral` is targeted;
+- horizontal pull: `dumbbell_chest_supported_row`, then `dumbbell_row`;
+- vertical pull: `pull_up`, then `lat_pulldown`;
+- vertical push: `landmine_press`;
+- core: `ab_wheel`, then `hanging_leg_raise`.
+- Avoid main-lift and high-spinal substitutes. Each candidate carries its own sets, reps, RIR,
+  rest, load source and priority; all of it is overrideable in settings.
+
+**Session identity**
+- `volume_fill` and `technique` are first-class session types, not relabelled normal sessions.
+- `volume_fill` counts as attendance and as the scheduled slot for the current week (so the
+  filled type is not immediately re-requested), but not as a main-lift exposure for the omitted
+  group. Accessory volume counts for the receiver groups. The original type, omitted group and
+  filled groups are recorded and shown.
+- `technique` counts as attendance, not as volume or main-lift exposure; it does not advance the
+  main-lift rotation. The next week starts the normal cycle.
+- The programme forecast and review/rubric must know both types; a `volume_fill` without a main
+  lift must not be graded as a failed main session.
 
 **Activation and safety**
 - Only when the budget is enabled and `main_lift_policy: drop` is selected; `preserve`/`reduce`
   are unchanged.
-- Automatic after that opt-in, with a per-session confirmation at competition/peak; never
-  remove a main lift silently.
+- Automatic after that opt-in, with a per-session confirmation at competition/peak; the window
+  is config with a default of **7 days** before `competition_date`; never remove a main lift
+  silently.
 - `MOD-VOL-005` will cover 9c; `MOD-VOL-004` remains the 9b single-slot application. No code,
   template or constitution change is made yet.
 
@@ -820,7 +850,8 @@ it; not v1.
 | 18 | 9a/9b compensation | 9a preview: slot pool, similarity weights and `compensation` report. 9b application: with `apply: true` and the budget on, one non-essential slot is added with a real load (`MOD-VOL-004`, constitution 1.17.0); no history refuses. 9c is `drop` |
 | 19 | 9b application | one slot added through `build_item`; executable load required; refusal is a warning, not a guessed load; `MOD-VOL-004`; all later caps still run (`DEC-VOLUME-14`) |
 | 20 | Missing compensation load | retry with the e1RM basis, then ask the athlete for an e1RM (UI prompt/CLI) and rebuild; refuse only if still unusable (`DEC-VOLUME-15`) |
-| 21 | 9c drop design | two branches: total full → skip/short, no reallocation; lift-specific full with total under → distinct multi-slot `volume_fill`, original type/reason recorded, no silent relabel. Automatic after `main_lift_policy: drop` opt-in; confirm at competition/peak; `MOD-VOL-005`; not implemented (`DEC-VOLUME-16`) |
+| 21 | 9c drop design | two branches: total at/above the high band → technique-focused session; below the high band with a filled group → first-class multi-slot `volume_fill` filling into the high band. `volume_fill`/`technique` count as sessions with distinct exposure semantics; original type/reason recorded; no silent relabel. Automatic after `main_lift_policy: drop` opt-in; confirm 7 days before competition (config); `MOD-VOL-005`; not implemented (`DEC-VOLUME-16/17`) |
+| 22 | 9b high-band guard | 9b stays additive (source accessory remains) but stops at the weekly high tolerance band; status `weekly_full` and no added slot when already there (`DEC-VOLUME-17`) |
 
 Step 1 is implemented read-only (the module, the `volume_exemption` table and the config
 section). Step 2 is implemented behind the off-by-default profile flag, step 2b adds the opt-in

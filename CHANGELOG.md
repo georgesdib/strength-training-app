@@ -33,9 +33,10 @@
   floor. A group filled before today frees its non-essential sets; the report selects the
   best-weighted receiver and shows freed, source, candidates and the selected slot. With
   `apply: true` and the budget profile flag on, the engine adds the selected item with a real
-  load and cites `MOD-VOL-004` (constitution 1.17.0). If no load is available, it retries with
-  the e1RM basis and then asks for an e1RM in the Prescribe panel (CLI prints the `e1rm set`
-  command); it refuses only if still unusable. `drop` remains 9c.
+  load and cites `MOD-VOL-004` (constitution 1.17.0). 9b is additive, so it now stops at the
+  weekly high tolerance band and does not add when the week is already there. If no load is
+  available, it retries with the e1RM basis and then asks for an e1RM in the Prescribe panel
+  (CLI prints the `e1rm set` command); it refuses only if still unusable. `drop` remains 9c.
 - Evidence review for reverse hyperextensions and belt squats: acute biomechanics/EMG only,
   no longitudinal strength or injury outcomes; both remain optional accessories.
 - Guided **Workout workflow**: readiness → prescription preview → start → active workout (sets, CSV/per-rep import, end) → post-workout comparison. Readiness settings and Prescribe analysis remain separate pages.

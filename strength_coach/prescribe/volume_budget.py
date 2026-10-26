@@ -864,6 +864,23 @@ def simulate_compensation(
     freed_total = sum(freed.values())
     today_sets = pattern_sets(rows)
     session_total = sum(int(row.get("sets") or 0) for row in rows)
+    total_high = band(effective, config.tolerance)["high"]
+    projected_total = sum(float(value) for value in projected.values())
+    weekly_headroom = max(0.0, total_high - projected_total)
+    if weekly_headroom <= 0:
+        return {
+            "enabled": True,
+            "apply": bool(config.compensation_apply),
+            "status": "weekly_full",
+            "freed": freed,
+            "source": source,
+            "candidates": [],
+            "selected": None,
+            "note": (
+                "The projected week is already at or above the high tolerance band; "
+                "9b does not add compensation volume."
+            ),
+        }
     candidates: list[dict[str, Any]] = []
     for slot in config.compensation_slots.get(session_type, ()):
         group = str(slot["group"])
@@ -884,6 +901,7 @@ def simulate_compensation(
                 shortfall,
                 session_headroom,
                 total_headroom,
+                weekly_headroom,
             )
         )
         if sets <= 0:

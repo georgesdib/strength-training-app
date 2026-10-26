@@ -539,10 +539,12 @@ filled from a group still under target, using the inverse-similarity weights (sq
 preferred over squat→hinge).
 
 The engine builds the selected item through the normal load solver, cites `MOD-VOL-004`, and then
-runs MRV, spinal, under-MEV, deload and time checks. If the candidate has no working history, it
-retries with the e1RM basis. If there is no usable e1RM either, the Prescribe panel shows an
-**e1RM input** and rebuilds after you save it; the CLI prints the matching `e1rm set` command.
-It refuses only if no usable load exists after that — it never guesses. `drop` remains step 9c.
+runs MRV, spinal, under-MEV, deload and time checks. 9b is an **addition**: the source accessory
+stays, so it stops at the weekly high tolerance band; if the week is already there, nothing is
+added (`weekly_full`). If the candidate has no working history, it retries with the e1RM basis.
+If there is no usable e1RM either, the Prescribe panel shows an **e1RM input** and rebuilds after
+you save it; the CLI prints the matching `e1rm set` command. It refuses only if no usable load
+exists after that — it never guesses. `drop` remains step 9c.
 
 If no state is recorded, a prescription is still produced but says so: *"athlete state not
 recorded: constraints were not evaluated"*. Silence is not permission.
