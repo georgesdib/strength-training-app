@@ -276,11 +276,14 @@ module:
 
 Classes:
 
-- **hard_safety** — constraints, injury ceilings, RIR-0 floor, spinal cap, load validation.
-  These cannot be switched off by a checkbox. Turning one off is a **constitution change**:
-  a new rule version or an explicit signed waiver in the profile, recorded as a `DEC`. The
-  spinal cap is exactly this case: it may become toggleable later, but only as a named profile
-  that says so, never as an anonymous switch.
+- **hard_safety** — constraints, injury ceilings, RIR-0 floor, load validation. These cannot
+  be switched off by a checkbox: turning one off is a **constitution change**, recorded as a
+  `DEC` and a new rule version.
+- **guarded_safety** — the weekly spinal cap and the per-exercise spinal costs. Modifiable in
+  Settings, but only with a warning, a double confirmation, a required reason and an append-only
+  profile. The rule (`PRG-SPINE-001`) stays in force at the new value and is cited with the
+  profile; it is parameterised, not disabled. Disabling the rule or removing the citation is
+  still a constitution change. See §7.6.
 - **prescription_policy** — DUP, deload, MRV cap, under-MEV, readiness set valve, e1RM
   decay/calibration, selection, budget. Toggleable, but every change creates a profile and is
   cited in the prescription.
@@ -303,7 +306,8 @@ A config file edit silently changes future prescriptions and cannot explain an o
 Each module declares its factors with a type, range, unit, default and what they affect. The
 settings UI renders those, not raw YAML. The first candidates: volume budget (target mode, cap,
 tolerance, exemptions), DUP cycle, deload interval and prescription, readiness weights,
-MRV/MEV/MAV landmarks, e1RM source and decay, and the readiness set valve.
+MRV/MEV/MAV landmarks, e1RM source and decay, the readiness set valve, and the **guarded spinal
+cap/costs** (§7.6).
 
 ### 7.5 Migration and tests
 
@@ -313,17 +317,54 @@ MRV/MEV/MAV landmarks, e1RM source and decay, and the readiness set valve.
   reproduces today's golden prescriptions.
 - A hard-safety module cannot be disabled without a waiver; the loader rejects a profile that
   omits the waiver or the constitution version.
+- A guarded-safety change (spinal cap or cost) requires the warning acknowledgement, the double
+  confirmation and a reason; the default profile reproduces today's prescriptions; the rule
+  still evaluates at the new value and the prescription cites `PRG-SPINE-001` and
+  `profile:<id>`.
+- The spinal override is read by both the rule parameters and the taxonomy `spinal_cost`; a
+  second copy is a test failure.
 - Profiles round-trip, are append-only, and are cited on every changed item.
 
-### 7.6 Recommended scope split
+### 7.6 Spinal load: a guarded setting
+
+The athlete asked for spinal load to be editable in Settings. It is a safety parameter, so it
+gets the strongest guard short of "not editable":
+
+**Parameters**
+- `weekly_cap` — `PRG-SPINE-001.params.cap`, default 6.
+- `costs` — the ordinal `spinal_cost` for each high-fatigue exercise, default from the rule.
+- `heavy_exposure` — the display-only heavy-set advisory (4-week window, RIR ≤ 1); separate
+  and non-prescriptive.
+
+**Guard**
+1. A warning says that the cap and costs are ordinal heuristics, not measured lumbar load; the
+   normal week sits exactly at the cap, so raising it removes a guard and lowering it can make
+   the normal programme non-executable.
+2. A double confirmation: tick a confirmation **and** type the new cap (or `CONFIRM`), plus a
+   required reason. CLI `settings spinal --cap 8 --confirm --reason ...`; the API requires
+   `confirm: true` and the typed value.
+3. An append-only profile records old/new values, the reason and the date; the prescription
+   cites `PRG-SPINE-001` and `profile:<id>`.
+4. The rule still runs at the new value and still vetoes. The profile is the single override
+   layer: the rule params and the taxonomy `spinal_cost` must read the same override, never a
+   second copy.
+
+**Not allowed:** disabling `PRG-SPINE-001`, removing its citation, or negative costs — those
+remain a constitution change. Settings range: cap 0–12, costs 0–5; outside that is a config edit
+(`ASSUMPTION-46`). The erector ramp (`PRG-EREC-001`) is a separate rule and is not part of
+this setting.
+
+### 7.7 Recommended scope split
 
 The settings layer is a larger piece of work than the budget. To avoid blocking the request:
 
 - **v1 budget:** ship as a single config module (`volume_budget.enabled` plus factors), with
   no scattered constants, so it can move into the registry unchanged;
 - **v2 registry:** build the registry and profile store; migrate DUP, deload, MRV, under-MEV and
-  the budget; leave the hard-safety rules on the constitution path;
-- **v3 settings UI:** expose the registry factors, with the diff preview and waiver flow.
+  the budget; leave the hard-safety rules on the constitution path; add the guarded spinal
+  cap/costs to the same profile store;
+- **v3 settings UI:** expose the registry factors, with the diff preview, waiver flow and the
+  spinal double-confirmation guard.
 
 ## 8. Provenance and data
 
@@ -358,9 +399,10 @@ this plan.
   warning; the forecast simulates previous projected sessions as completed rather than treating
   every date as isolated.
 - Workout end: "week 49/57; 8 sets remaining; 1 session left".
-- Settings (v3): modality list with classes, factors, dependencies and diff preview.
-- CLI/API parity: `settings modalities`, `settings profile`, `GET/POST /api/modalities`,
-  `/api/profiles`; the same core functions as the CLI (AGENTS.md §10).
+- Settings (v3): modality list with classes, factors, dependencies and diff preview, including
+  the guarded spinal cap/costs with warning + double confirmation (§7.6).
+- CLI/API parity: `settings modalities`, `settings profile`, `settings spinal --cap ... --confirm`,
+  `GET/POST /api/modalities`, `/api/profiles`; the same core functions as the CLI (AGENTS.md §10).
 
 ## 10. Phasing
 
@@ -408,13 +450,15 @@ Each phase ends with the full suite and a new golden fixture for the default pro
 | 6 | Main-lift top-ups | opt-in only |
 | 7 | New rule | `MOD-VOL-003` and the constitution bump **approved 2026-10-26** (`DEC-VOLUME-07`); rule entry with implementation |
 | 8 | Settings layer | budget as a config module first, registry and profiles later |
-| 9 | Hard-safety toggles | spinal cap only through a named waiver/profile |
+| 9 | Hard-safety toggles | constraints, injury ceilings and load validation stay hard; the spinal cap is **guarded** (warning + double confirmation), not a plain switch |
 | 10 | Future-session basis | remaining planned sessions projected at template sets, recomputed each build |
+| 11 | Spinal load in Settings | **guarded**: warning + double confirmation + reason + append-only profile; `PRG-SPINE-001` stays in force and is parameterised, not disabled |
 
 These are design decisions only. No code, config or constitution change has been made;
 `MOD-VOL-003` is absent from `config/rules/programme.v1.yaml` until implementation. The approval
 is for the modifier semantics and the design, not a rule edit. The rationale and the rejected
-alternatives are in §3–§7; the decision records are `DEC-VOLUME-06` and `DEC-VOLUME-07`.
+alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VOLUME-07` and
+`DEC-SPINE-06`.
 
 ## 13. Assumptions
 
@@ -428,6 +472,8 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06` and `DEC
 - **ASSUMPTION-44** — automatic top-ups are accessory-only; main-lift top-ups are opt-in.
 - **ASSUMPTION-45** — future sessions are projected at template sets; the projection is
   recomputed on every build and is not a stored plan.
+- **ASSUMPTION-46** — the Settings range for the spinal cap (0–12) and costs (0–5) is a
+  guardrail, not a measured bound; values outside it require a config edit.
 
 ## 14. Evidence
 
@@ -452,7 +498,7 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06` and `DEC
   https://doi.org/10.1186/s40798-021-00404-9
 - **No trial of make-up volume.** Searches returned coaching articles and detraining studies, not
   interventions. The cap, tolerance, exemption list and allocation order are therefore design
-  choices, not findings. They are recorded as ASSUMPTION-40–45.
+  choices, not findings. They are recorded as ASSUMPTION-40–46.
 
 ### Limits of the evidence
 
@@ -462,7 +508,7 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06` and `DEC
   is a modelling choice, and its frequency results are compatible with small effects.
 - There is **no trial** of a per-session set cap, of make-up volume, or of volume autoregulation.
   The 30-set cap, the ±10% band, the exemption list and the allocation order are design choices
-  (`ASSUMPTION-40`–`45`), not findings.
+  (`ASSUMPTION-40`–`46`), not findings.
 - The app's own W6 audit found the readiness counterfactual is not identifiable retrospectively
   ([READINESS-AUDIT.md](READINESS-AUDIT.md)); the budget is a programming heuristic, and the
   phased rollout (display → opt-in → automatic) is the safeguard.
