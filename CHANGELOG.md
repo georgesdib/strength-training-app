@@ -37,6 +37,10 @@
   weekly high tolerance band and does not add when the week is already there. If no load is
   available, it retries with the e1RM basis and then asks for an e1RM in the Prescribe panel
   (CLI prints the `e1rm set` command); it refuses only if still unusable. `drop` remains 9c.
+- **Settings registry (7a)**: a typed registry and read-through snapshot over DUP, deload,
+  MRV/under-MEV, readiness set reduction, e1RM and plausibility, with classes, sources and
+  ranges. The deload reactive two-week/two-flare constants moved to `config/deload.v1.yaml`.
+  No precedence, profile, UI or behaviour change.
 - **Drop confirmation/settings (9c-3)**: a Settings **Drop / volume fill** panel and
   `GET/POST /api/settings/drop`, backed by `config/volume.local.yaml`; per-session competition
   confirmation via `--drop-confirm`/API/Prescribe; candidate-pool validation; computed high band.

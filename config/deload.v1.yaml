@@ -19,6 +19,9 @@ scheduled:
 
 reactive:
   enabled: true
+  # Number of consecutive weeks/sessions that must trigger before a reactive deload.
+  consecutive_weeks: 2
+  consecutive_flares: 2
   # Existing triggers: two consecutive weeks over the spinal cap, or two consecutive flares.
   # They stay available even when the scheduled calendar is disabled.
 

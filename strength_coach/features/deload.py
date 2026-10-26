@@ -27,6 +27,8 @@ class DeloadConfig:
     every_weeks: int = 6
     anchor_required: bool = True
     reactive_enabled: bool = True
+    reactive_weeks: int = 2
+    reactive_flares: int = 2
     set_reduction: int = 1
     minimum_sets: int = 2
     include_essential: bool = True
@@ -47,6 +49,8 @@ class DeloadConfig:
             every_weeks=max(1, int(scheduled.get("every_weeks", 6))),
             anchor_required=bool(scheduled.get("anchor_required", True)),
             reactive_enabled=bool(reactive.get("enabled", True)),
+            reactive_weeks=max(1, int(reactive.get("consecutive_weeks", 2))),
+            reactive_flares=max(1, int(reactive.get("consecutive_flares", 2))),
             set_reduction=max(0, int(prescription.get("set_reduction", 1))),
             minimum_sets=max(1, int(prescription.get("minimum_sets_per_item", 2))),
             include_essential=bool(prescription.get("include_essential", True)),
@@ -100,8 +104,8 @@ def reactive_reason(
         costs = verdict.details.get("weighted_costs", {}) if verdict.details else {}
         cap = float(verdict.details.get("cap", 3)) if verdict.details else 3.0
         weeks = sorted(costs)
-        if len(weeks) >= 2:
-            last_two = weeks[-2:]
+        if len(weeks) >= cfg.reactive_weeks:
+            last_two = weeks[-cfg.reactive_weeks:]
             consecutive = (
                 dt.date.fromisocalendar(int(last_two[1][:4]), int(last_two[1][6:]), 1)
                 - dt.date.fromisocalendar(int(last_two[0][:4]), int(last_two[0][6:]), 1)
@@ -117,9 +121,9 @@ def reactive_reason(
         pass
 
     sessions = queries.sessions(conn, end=as_of)
-    if len(sessions) >= 2:
+    if len(sessions) >= cfg.reactive_flares:
         flares = []
-        for occurred_on in sessions.tail(2)["occurred_on"]:
+        for occurred_on in sessions.tail(cfg.reactive_flares)["occurred_on"]:
             entry = queries.latest_symptom(conn, str(occurred_on))
             flares.append(
                 entry is not None
