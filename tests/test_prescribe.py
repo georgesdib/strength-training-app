@@ -247,10 +247,10 @@ def test_a_missing_e1rm_is_reported_not_invented():
     assert any(issue.startswith("NO_LOAD:") for issue in prescription.issues)
 
 
-def test_two_hinge_exposures_in_one_week_break_the_spinal_cap():
-    # Q8 default: one exposure = exercise x session, weighted 2 per hinge session. A hinge
-    # already trained on Monday plus the proposed Day B on Friday is 4 against a cap of 3.
-    history = week_sessions("2024-01-29")
+def test_four_hinge_exposures_in_one_week_break_the_spinal_cap():
+    # One exposure = exercise x session, weighted 2 per hinge session. Three performed
+    # sessions (6) plus the proposed Friday session (2) exceed the raised cap of 6.
+    history = week_sessions("2024-01-29", "2024-01-30", "2024-01-31")
     with store_with(history) as store:
         prescription = build_prescription(store.connection, for_date="2024-02-02")
         assert not prescription.executable
@@ -663,13 +663,18 @@ def test_e1rm_source_width_is_exposed_on_the_item():
 
 
 def test_a_non_essential_erector_exposure_is_trimmed_before_the_veto():
-    # Monday already holds trap bar (cost 2) plus direct erector work (cost 1) = the whole cap.
-    # A squat session on Wednesday would add a fourth exposure; the erector slot is the only
-    # non-essential spinal work, so it is removed rather than leaving a dead prescription.
+    # Two performed days hold trap bar (2) plus direct erector work (1) each = 6, the cap.
+    # A squat session on Wednesday would add another erector exposure; the erector slot is
+    # the only non-essential spinal work, so it is removed rather than leaving a dead
+    # prescription.
     history = [
         {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
          "RIR": "2", "Reps_Done": "5"},
         {"Date": "2024-01-01", "Exercise": "Back Extension", "Weight_Used": "0",
+         "RIR": "2", "Reps_Done": "12"},
+        {"Date": "2024-01-02", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
+         "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2024-01-02", "Exercise": "Back Extension", "Weight_Used": "0",
          "RIR": "2", "Reps_Done": "12"},
         # The squat session needs its own e1RM and its accessories need history, or it would
         # be rejected for NO_LOAD before the spinal question is reached.
@@ -689,18 +694,23 @@ def test_a_non_essential_erector_exposure_is_trimmed_before_the_veto():
     assert not any(item.exercise_id == "back_extension" for item in prescription.items)
     assert prescription.notes["spinal_trim"]["applied"] is True
     assert prescription.notes["spinal_trim"]["removed"] == ["back_extension"]
-    assert prescription.notes["spinal_cap"]["cost"] == 3.0
+    assert prescription.notes["spinal_cap"]["cost"] == 6.0
     assert any("MOD-SPINE-001" in warning for warning in prescription.warnings)
 
 
 def test_the_spinal_veto_survives_when_essential_work_causes_the_overage():
-    # A second hinge day in the same week cannot be fixed by dropping an accessory: the trap
-    # bar is essential, so the veto must stand and the issue must name the exposures.
+    # Three performed hinge sessions already cost 6. A fourth in the same week cannot be
+    # fixed by dropping an accessory: the trap bar is essential, so the veto must stand and
+    # the issue must name the exposures.
     history = [
         {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
          "RIR": "2", "Reps_Done": "5"},
-        {"Date": "2024-01-02", "Exercise": "Back Extension", "Weight_Used": "0",
+        {"Date": "2024-01-02", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
+         "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2024-01-03", "Exercise": "Back Extension", "Weight_Used": "0",
          "RIR": "2", "Reps_Done": "12"},
+        {"Date": "2024-01-03", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
+         "RIR": "2", "Reps_Done": "5"},
     ]
     with store_with(history) as store:
         prescription = build_prescription(

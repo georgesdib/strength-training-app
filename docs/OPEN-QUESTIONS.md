@@ -7,8 +7,8 @@ produces an `unknown` verdict rather than a silent guess.
 > Quantitative evidence for each question is kept out of this public repository. The
 > questions themselves are methodology questions and apply to any athlete using the system.
 
-**Live register (2026-10-25):** two open questions (Q14, Q24) and one deferred decision (Q22).
-The 21 questions decided since the register was created were removed from the live text on
+**Live register (2026-10-25):** one open question (Q14) and one deferred decision (Q22).
+The 22 questions decided since the register was created were removed from the live text on
 2026-10-25; each outcome and decision record is indexed under
 [Closed](#closed--index-only). Reopening a closed question is a new decision, not an edit.
 
@@ -34,33 +34,6 @@ baseline win, and an opt-in N-of-1/alternating test. See
 
 ---
 
-## Q24. Should the low-bar competition squat count toward the weekly spinal cap?
-
-**Open. Implemented default: no — the cap stays hinge-only.** No squat variant carries
-`high_fatigue_spinal`, so a squat never consumes one of the three weekly exposures.
-
-The evidence does not rank squat against hinge on lumbar load directly, but it ranks the squat
-*variants*: the low-bar squat has greater forward lean and greater erector spinae activity than
-the high-bar squat (Glassbrook 2017), and the safety-squat bar is more upright than a standard
-bar (Hecker 2019: trunk flexion −7.3°, described as less lower-back stress). The hex bar leans
-further forward than a back squat (Stahl 2024), which is what makes the cap's hinge scope
-defensible in the first place.
-
-So the exclusion is well supported for the SSB and weakest for the athlete's **low-bar
-competition squat** — the variant with the most erector demand.
-
-**If it were counted at cost 1**, a standard week (back extension 1 + trap bar 2 + a
-bench+squat session 1) is 4 against a cap of 3: `MOD-SPINE-001` would drop the erector slot in
-every week that holds both a hinge and a bench+squat, or the cap would move to 4. Either is a
-programme change, not a code fix.
-
-Options: **(A)** keep the hinge-only scope and this wording (default); **(B)** count the low-bar
-competition squat at 1 and accept the erector trim, or raise the cap to 4; **(C)** add a
-bar-position property so only low-bar squats count.
-
-`DEC-SPINE-04`, `ASSUMPTION-39`, `LIM-44`, `docs/SPINAL-COST.md`.
-
----
 ## Closed — index only
 
 Removed from the live register on 2026-10-25. Each row names the outcome and where it is
@@ -69,7 +42,7 @@ enforced; the reasoning lives in the decision record and the linked document.
 | Q | question | outcome | decision / evidence |
 |---|---|---|---|
 | Q1 | Do sessions have timestamps? | date-only accepted; one session per calendar date; ambiguous composition stays `unknown`; imported duration unmeasured | owner acceptance 2026-10-25; `docs/DATA-QUALITY.md` |
-| Q2, Q8 | What is one "high-fatigue spinal exposure"? | one high-fatigue exercise per session, weighted by `spinal_cost`, cap 3 per ISO week; kettlebell swings excluded | `DEC-SPINE-01`, `ASSUMPTION-02`, `docs/SPINAL-COST.md` |
+| Q2, Q8 | What is one "high-fatigue spinal exposure"? | one high-fatigue exercise per session, weighted by `spinal_cost`; cap was 3, raised to 6 on 2026-10-25; kettlebell swings excluded | `DEC-SPINE-01`, `DEC-SPINE-05`, `ASSUMPTION-02`, `docs/SPINAL-COST.md` |
 | Q3 | How is the erector ramp anchored? | explicit `athlete_profile.block_start_date`; `--force` restarts at week 1; a missing symptom reading stays `unknown` | `DEC-RAMP-02`, `docs/DECISIONS.md` |
 | Q4 | Is there a symptom input? | manual pre-session 0-3 back level in `symptom_log`; missing stays `unknown` | `DEC-SYMPTOM-01/02` |
 | Q5 | Is session duration measurable? | imported sessions unmeasurable; live workouts store measured duration; optional review length | rubric 1.1.0, `session_feedback.duration_min` |
@@ -87,6 +60,7 @@ enforced; the reasoning lives in the decision record and the linked document.
 | Q20 | Calibrate e1RM against test results? | bounded correction only when the CI excludes 1.0 and the bias is within ±10%; measured overrides win | `DEC-E1RM-CAL-01/02` |
 | Q21 | What counts as comparable for selection? | three-class A/B/C guard; A is automatic aliases only, B needs confirmation, C is never automatic | `DEC-SELECT-03`, `docs/SELECTION-COMPARABILITY.md` |
 | Q23 | Does a first-set RIR drop trigger a load cut? | no; never implemented, inside RIR reporting error, removed from `MOD-FAT-001` in constitution 1.13.0; the mean-RIR per-lift component remains | `DEC-RIR-04` |
+| Q24 | Should the low-bar competition squat count toward the weekly spinal cap? | yes, at cost 1; the cap rises 3 to 6, and bench+hinge uses sumo at 2.5 | `DEC-SPINE-05`, `docs/SPINAL-COST.md` |
 
 ---
 

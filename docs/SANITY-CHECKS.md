@@ -171,12 +171,8 @@ without conditioning on provenance penalises the athlete for following the presc
 - **ASSUMPTION-03** — RIR-adjusted e1RM is an approximation.
 - **ASSUMPTION-04** — plank/carry values in the reps column are seconds. Strongly implied by
   the magnitudes; no schema states it.
-- **ASSUMPTION-39** — the weekly spinal cap counts hip-hinge and erector-extension work only;
-  squat variants are excluded by **scope**, not because a squat was measured to load the spine
-  lightly. The low-bar competition squat is the most erector-demanding variant (Glassbrook 2017)
-  and the SSB the most upright (Hecker 2019), so the exclusion is better supported for the SSB
-  than for the low-bar squat; counting it would take a standard week to 4/3 (`DEC-SPINE-04`,
-  `LIM-44`, `OPEN-QUESTIONS` Q24).
+- **ASSUMPTION-39** — the weekly spinal cap counts the low-bar competition squat at cost 1 and leaves the SSB/high-bar squats outside by explicit exercise identity. The taxonomy has no bar-position field, so this is a scope classification, not a measurement; the cap itself was raised from 3 to 6 by `DEC-SPINE-05`. The evidence ranks the variants (low-bar > high-bar > SSB in forward lean and erector demand), but does not measure lumbar load.
+
 - **ASSUMPTION-38** — a session is one calendar date. Unverifiable without timestamps.
 
 ## E. What these checks deliberately did not do

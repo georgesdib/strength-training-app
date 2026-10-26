@@ -167,11 +167,11 @@ bench_hinge:
     rir_target: 2
     rest_s: 180
     essential: true
-  - exercise_id: single_leg_db_rdl
-    sets: 3
+  - exercise_id: sumo_deadlift
+    sets: 4
     reps_low: 8
     reps_high: 10
-    load_kg: 20.0
+    load_kg: 120.0
     load_basis: external
     rir_target: 2
     rest_s: 90

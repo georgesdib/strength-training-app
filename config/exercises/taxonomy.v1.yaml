@@ -88,10 +88,12 @@ entities:
     # performed most, which is often not one of the constitution's named lifts.
     primary_compound: true
     programme_slot_of: ssb_squat   # substitute for SSB elsewhere; bench_squat programs it directly (DEC-PROGRAMME-08)
-    # Not counted toward the weekly spinal cap even though it is a low-bar squat - the variant
-    # with the greatest forward lean and erector activity (Glassbrook 2017). The cap counts
-    # hinge-type exposures by scope; counting this takes a standard week to 4/3 (LIM-44, Q24).
+    # DEC-SPINE-05 (2026-10-25): the low-bar competition squat now counts as one high-fatigue
+    # spinal exposure. It has the greatest forward lean and erector activity of the squat
+    # variants (Glassbrook 2017). The weekly cap was raised to 6 at the same time.
     erector_family: false
+    high_fatigue_spinal: true
+    spinal_cost: 1
     vbt_family: squat
     loadable: true
     time_based: false
@@ -168,12 +170,12 @@ entities:
     time_based: false
 
   sumo_deadlift:
-    display: "Sumo Deadlift (historical)"
-    # What "Competition Deadlift" actually was before the switch (DEC-TRAPBAR-02). It keeps
-    # its own identity so its history cannot be read as trap-bar history.
-    log_names: []
+    display: "Sumo Deadlift"
+    # What "Competition Deadlift" actually was before the switch (DEC-TRAPBAR-02); it is also
+    # the bench+hinge support lift from DEC-SPINE-05, so new logs need a direct name.
+    log_names: ["Sumo Deadlift"]
     pattern: hinge
-    main_lift: false                # not in the current day templates
+    main_lift: false                # not a constitution main lift, but programmed in bench_hinge
     primary_compound: true          # it was a competition lift, so effort rules still apply
     day_roles: []
     primary_muscles: [glutes, hamstrings, erectors, upper_back]

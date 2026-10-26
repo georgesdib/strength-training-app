@@ -128,8 +128,9 @@ def test_a_submaximal_single_does_not_fail(document):
 
 
 def test_spinal_cap_fires_on_accumulated_exposures(document):
-    # Two hinge sessions in one ISO week: 2 x spinal_cost 2 = 4 > cap 3.
-    ctx = context(trap_bar("2024-01-01") + trap_bar("2024-01-03"))
+    # Four hinge sessions in one ISO week: 4 x spinal_cost 2 = 8 > cap 6.
+    ctx = context(trap_bar("2024-01-01") + trap_bar("2024-01-02")
+                 + trap_bar("2024-01-03") + trap_bar("2024-01-04"))
     verdict = evaluate(document, ctx, rule_ids=["PRG-SPINE-001"]).verdict("PRG-SPINE-001")
     assert verdict.verdict == "fail"
     assert verdict.evidence[0].ref.startswith("week:")

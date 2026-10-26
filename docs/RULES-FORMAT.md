@@ -198,16 +198,17 @@ notes: >
 
 ### PRG-SPINE-001 — Weekly high-fatigue spinal exposure cap  (severity: `veto`)
 
-> "Flag any week containing more than ~3 high-fatigue spinal-loading exposures (e.g.
+> "Flag any week containing more than ~6 weighted high-fatigue spinal-loading exposures (e.g.
 > trap-bar + rack pull + RDL + good morning + hyperextension)."
 
 ```yaml
 scope: {unit: iso_week}
 params:
-  cap: 3
+  cap: 6
   counting: weighted            # sum of spinal_cost, not a raw count
-  costs: {back_extension: 1, trap_bar_deadlift: 2, rdl: 2, jefferson_curl: 2,
-          rack_pull: 3, good_morning: 3, conventional_deadlift: 3}
+  costs: {back_extension: 1, competition_squat: 1, trap_bar_deadlift: 2,
+          sumo_deadlift: 2.5, rdl: 2, jefferson_curl: 2, rack_pull: 3,
+          good_morning: 3, conventional_deadlift: 3}
 check: {fn: weekly_spinal_cap}
 on_fail: {action: veto, code: SPINAL_CAP}
 notes: >

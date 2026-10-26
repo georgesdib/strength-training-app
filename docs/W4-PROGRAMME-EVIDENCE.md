@@ -42,7 +42,7 @@
 | Warm-up ramp 50/70/85% | reasonable heuristic | low | `warmup.py` | Preparation/comparability, not an optimal ramp |
 | 3RM/5RM test cadence | reasonable heuristic | low | `test_cadence.py` | Practical testing policy, not an evidence-based interval |
 | VBT targets | unvalidated/weak evidence | low | `vbt_calibration`, `_attach_vbt_targets` | Attached only when calibration is trustworthy |
-| Spinal cap 3 | engineering/safety constraint + ordinal assumption | low as measurement | `PRG-SPINE-001`, `registry.weekly_spinal_costs` | Ordinal, load-blind; normal week at cap (W9) |
+| Spinal cap 6 | engineering/safety constraint + ordinal assumption | low as measurement | `PRG-SPINE-001`, `registry.weekly_spinal_costs` | Ordinal, load-blind; competition squat counts 1; standard weeks 4 or 5.5 |
 | High-intensity exposure guard | engineering/safety constraint | low | `high_intensity_exposure` | Prospective review pending |
 | Cardio capture (no prescription) | direct evidence for aerobic health, not a dose | high for direction | `features/cardio.py` | Captured context only; no individual prescription |
 | Minimum effective session | reasonable heuristic | low | `minimum_session.py`, `MOD-MIN-001` | No validated universal minimum dose |

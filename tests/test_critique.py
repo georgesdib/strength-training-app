@@ -119,7 +119,11 @@ def test_progression_credit_when_the_step_was_taken():
 
 
 def test_weekly_spinal_cost_scores_below_one_when_over_the_cap():
-    rows = session_rows("2024-01-01") + session_rows("2024-01-03")
+    rows = [
+        *session_rows("2024-01-01", with_erector=True),
+        *session_rows("2024-01-02", with_erector=True),
+        *session_rows("2024-01-03", with_erector=True),
+    ]
     with store_with(rows) as store:
         critique = score_session(store.connection, "2024-01-03")
     item = critique.item("WEEKLY_SPINAL_COST")

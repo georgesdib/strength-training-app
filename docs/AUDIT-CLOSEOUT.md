@@ -2,6 +2,9 @@
 
 **Status:** CLOSED 2026-10-23.
 **Scope:** W0–W12 of [`ENGINE-AUDIT-PLAN.md`](ENGINE-AUDIT-PLAN.md).
+**Later amendment:** `DEC-SPINE-05` (2026-10-25) raised the spinal cap from 3 to 6 and
+counted the competition squat; the cap statements below describe the audited state at close.
+
 **Meaning:** the planned audit work is complete. It does **not** mean every limitation is
 closed; remaining limitations are tracked in
 [`LIMITATIONS-REGISTER.md`](LIMITATIONS-REGISTER.md).

@@ -1,6 +1,8 @@
 # W8 — VOLUME BALANCE
 
 **Status:** audit complete 2026-10-23. No template or set change.
+**Later amendment:** `DEC-SPINE-05` (2026-10-25) raised the cap to 6 and changed the
+bench+hinge support to sumo; the 3/3 figures below are the audited state at that time.
 **Scope:** weekly hard-set balance across the four session types, within the spinal cap and
 80-minute planned session limit.
 

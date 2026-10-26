@@ -49,6 +49,8 @@ def history_rows_all_days() -> list[dict]:
              "RIR": "2", "Reps_Done": "8"},
             {"Date": day, "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
              "RIR": "2", "Reps_Done": "5"},
+            {"Date": day, "Exercise": "Sumo Deadlift", "Weight_Used": "120",
+             "RIR": "2", "Reps_Done": "5"},
             {"Date": day, "Exercise": "Bench Press (narrow grip)", "Weight_Used": "90",
              "RIR": "2", "Reps_Done": "5"},
         ]

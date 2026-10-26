@@ -3,8 +3,9 @@
 # Session types are the canonical identity; there is no legacy day override.
 #
 # Back-extension rule: only the squat-emphasis session carries direct erector work. The hinge
-# session and the bench+hinge session must not; the bench+squat session also omits it so a
-# normal week stays at or below the spinal cap (squat 1 + hinge 2 = 3).
+# session and the bench+hinge session must not; the bench+squat session also omits it.
+# DEC-SPINE-05: the cap is 6 and the competition squat counts 1; a normal week is
+# squat 1 + trap-bar hinge 2 + bench+hinge sumo 2.5 = 5.5, or 4 with bench+squat.
 schema_version: "1.0.0"
 
 session_types:
@@ -174,7 +175,9 @@ session_types:
           essential: true
           load_source: e1rm
         - id: hinge_support
-          exercise: single_leg_db_rdl
+          # DEC-SPINE-05: sumo replaces the unilateral accessory; the slot prescription is
+          # unchanged. It is a full high-fatigue hinge exposure (spinal_cost 2.5).
+          exercise: sumo_deadlift
           sets: 3
           reps: {low: 8, high: 10}
           rir: {low: 2, high: 3}
