@@ -46,7 +46,7 @@ document:
     - version: "1.13.1"
       change: "MOD-TECH-001 and MOD-MIN-001 are now declared. Both were already implemented and cited but absent from the document; both are explicit user requests for one session and are never automatic (DEC-TECH-01, DEC-MIN-01)."
     - version: "1.14.0"
-      change: "The weekly spinal cap rises from 3 to 6. The low-bar competition squat now counts as one high-fatigue exposure (DEC-SPINE-05). The bench+hinge support becomes the sumo deadlift, keeping its 3x8-10 slot."
+      change: "The weekly spinal cap rises from 3 to 6. The low-bar competition squat now counts as one high-fatigue exposure (DEC-SPINE-05). The bench+hinge support becomes the sumo deadlift as a 3x3-5 strength slot."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.

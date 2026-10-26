@@ -9,6 +9,7 @@ from datetime import date
 from pathlib import Path
 import urllib.error
 import urllib.request
+from urllib.parse import quote
 
 import pytest
 
@@ -125,6 +126,21 @@ def test_the_page_and_overview_are_served(server):
     data = json.loads(body)
     assert data["sessions"][0]["session_id"] == "2024-01-01"
     assert data["form_evaluation"]["target_events"] == 10
+
+
+def test_every_ui_doc_link_resolves_through_the_api(server):
+    status, page = get(server, "/")
+    assert status == 200
+    hrefs = set(re.findall(r'href="#docs\?doc=([^"&]+)', page))
+    status, script = get(server, "/static/app.js")
+    assert status == 200
+    hrefs |= set(re.findall(r"#docs\?doc=([^\"&]+)", script))
+    hrefs = {name for name in hrefs if "{" not in name and "}" not in name}
+    assert hrefs
+    for name in sorted(hrefs):
+        doc_status, body = get(server, "/api/docs/" + quote(name, safe=""))
+        assert doc_status == 200, name
+        assert json.loads(body)["name"] == name
 
 
 def test_ui_linked_docs_have_related_footer(server):

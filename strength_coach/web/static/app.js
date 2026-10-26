@@ -71,6 +71,21 @@ document.querySelectorAll("[data-view-link]").forEach((link) => {
     setView(link.dataset.viewLink);
   });
 });
+// Docs links are hash routes; handle them directly so a stale hash or a listener-order
+// problem cannot leave the docs view on its default page.
+document.addEventListener("click", (event) => {
+  const anchor = event.target?.closest?.('a[href^="#docs?doc="]');
+  if (!anchor) return;
+  event.preventDefault();
+  const href = anchor.getAttribute("href") || "";
+  const params = new URLSearchParams(href.slice(href.indexOf("?") + 1));
+  setView("docs", {
+    doc: params.get("doc"),
+    anchor: params.get("anchor"),
+    fromHash: true,
+  });
+  history.replaceState(null, "", href);
+});
 /* Collapsible left menu. */
 function setSidebar(open) {
   const sidebar = document.querySelector("#sidebar");

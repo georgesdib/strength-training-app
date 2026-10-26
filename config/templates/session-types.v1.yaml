@@ -175,15 +175,15 @@ session_types:
           essential: true
           load_source: e1rm
         - id: hinge_support
-          # DEC-SPINE-05: sumo replaces the unilateral accessory; the slot prescription is
-          # unchanged. It is a full high-fatigue hinge exposure (spinal_cost 2.5).
+          # DEC-SPINE-05: sumo replaces the unilateral accessory as a low-rep strength
+          # support lift, not a high-rep accessory. It is a high-fatigue hinge (cost 2.5).
           exercise: sumo_deadlift
           sets: 3
-          reps: {low: 8, high: 10}
+          reps: {low: 3, high: 5}
           rir: {low: 2, high: 3}
-          rest_s: 90
+          rest_s: 180
           essential: false
-          load_source: double_progression
+          load_source: e1rm
         - id: accessory_pull_up
           exercise_variants: [pull_up, lat_pulldown]
           sets: 3
