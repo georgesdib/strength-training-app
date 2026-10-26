@@ -54,6 +54,33 @@ def test_review_status_reports_data_gaps_without_writing():
     assert tasks["back_pattern"]["status"] == "ok"
 
 
+def test_back_pattern_review_only_fires_on_an_actual_flare():
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        repositories.append_symptom(
+            conn, logged_on="2024-01-10", timing="pre_session", region="low_back", level=0,
+        )
+        task = next(
+            item for item in reviews.status(conn, "2024-01-10")["tasks"]
+            if item["key"] == "back_pattern"
+        )
+        assert task["status"] == "ok"
+        assert task["doc"] == "docs/SYMPTOM-LOGGING.md"
+
+        repositories.append_symptom(
+            conn, logged_on="2024-01-11", timing="pre_session", region="low_back", level=2,
+        )
+        task = next(
+            item for item in reviews.status(conn, "2024-01-11")["tasks"]
+            if item["key"] == "back_pattern"
+        )
+        assert task["status"] == "attention"
+        assert "flare" in task["summary"].lower()
+    finally:
+        store.close()
+
+
 def test_substitution_review_is_a_periodic_task():
     store = db.Store(":memory:")
     try:

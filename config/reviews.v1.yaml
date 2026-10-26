@@ -68,7 +68,7 @@ readiness_baseline:
 back_pattern:
   label: Back-pattern review
   recent_days: 14
-  doc: docs/WEAKNESS-INJURY-SELECTION.md
+  doc: docs/SYMPTOM-LOGGING.md
   why: A new episode may not fit the three known tweaks; review without changing rules
     automatically.
   steps:

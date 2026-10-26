@@ -297,7 +297,9 @@ async function loadReviews() {
     const cards = actionable.map((task) => {
       const details = (task.steps || []).map((s) => `<li>${esc(s)}</li>`).join("");
       const dont = (task.dont || []).map((s) => `<li>${esc(s)}</li>`).join("");
-      const doc = task.doc ? `<a href="#docs" data-view-link="docs">${esc(task.doc)}</a>` : "";
+      const doc = task.doc
+        ? `<a href="#docs?doc=${encodeURIComponent(task.doc)}">${esc(task.doc)}</a>`
+        : "";
       const actions = task.periodic
         ? `<details><summary>Mark reviewed</summary>
              <div class="form-row">

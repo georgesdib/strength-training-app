@@ -13,6 +13,7 @@ from typing import Any
 
 import yaml
 
+from strength_coach.domain.symptoms import flare_from
 from strength_coach.features import test_cadence
 from strength_coach.store import queries
 from strength_coach.utils import paths
@@ -233,12 +234,18 @@ def _baseline_task(conn, on_date: str, cfg: dict) -> ReviewTask:
 def _back_task(conn, on_date: str, cfg: dict) -> ReviewTask:
     symptom = queries.latest_symptom(conn, on_date)
     recent = int(cfg.get("recent_days", 14))
-    status = "attention" if symptom and symptom.get("logged_on") and (
+    # A clean level-0 reading is not an episode; only an actual flare asks for a review.
+    # Use the shared flare definition so a settled level-1 reading is also not a false alarm.
+    is_flare = bool(
+        symptom
+        and flare_from(int(symptom["level"]), symptom.get("settled_within_48h")) is True
+    )
+    status = "attention" if is_flare and symptom.get("logged_on") and (
         dt.date.fromisoformat(on_date) - dt.date.fromisoformat(str(symptom["logged_on"]))
     ).days <= recent else "ok"
     summary = (
-        f"Recent back symptom logged {symptom['logged_on']} (level {symptom['level']}/3)."
-        if status == "attention" else "No recent back symptom logged."
+        f"Recent back flare logged {symptom['logged_on']} (level {symptom['level']}/3)."
+        if status == "attention" else "No recent back flare logged."
     )
     return ReviewTask(
         "back_pattern", str(cfg.get("label", "Back-pattern review")),
