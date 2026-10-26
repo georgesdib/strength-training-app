@@ -358,13 +358,12 @@ this setting.
 
 The settings layer is a larger piece of work than the budget. To avoid blocking the request:
 
-- **v1 budget:** ship as a single config module (`volume_budget.enabled` plus factors), with
-  no scattered constants, so it can move into the registry unchanged;
-- **v2 registry:** build the registry and profile store; migrate DUP, deload, MRV, under-MEV and
-  the budget; leave the hard-safety rules on the constitution path; add the guarded spinal
-  cap/costs to the same profile store;
-- **v3 settings UI:** expose the registry factors, with the diff preview, waiver flow and the
-  spinal double-confirmation guard.
+- **v1 budget:** read-only report plus a config-backed settings object, then trim/top-up behind
+  a flag; no scattered constants, so it can move into the profile store unchanged;
+- **v2 profile store:** append-only profiles, the budget reading them, the guarded spinal
+  cap/costs and the Settings UI for the budget and spinal parameters;
+- **v3 registry migration:** move the remaining flags (DUP, deload, MRV, under-MEV, readiness
+  valve, e1RM) into the registry; hard-safety stays on the constitution path.
 
 ## 8. Provenance and data
 
@@ -404,22 +403,72 @@ this plan.
 - CLI/API parity: `settings modalities`, `settings profile`, `settings spinal --cap ... --confirm`,
   `GET/POST /api/modalities`, `/api/profiles`; the same core functions as the CLI (AGENTS.md §10).
 
-## 10. Phasing
+## 10. Implementation sequence
 
-1. **Phase 0 — instrumentation.** Store planned vs completed working sets per pattern per week;
-   the ledger already computes completed. Add the feasibility report. No prescription change.
-2. **Phase 1 — display-only budget.** Show target/remaining/cap and the allocation the engine
-   *would* make. Validate the arithmetic against real weeks. No change.
-3. **Phase 2 — automatic trim, opt-in top-up.** Trimming after a long session is bounded and
-   safe; top-up is explicit (`run --use-volume-budget`, UI tick). New modifier cited.
-4. **Phase 3 — automatic accessory top-up.** After a review of Phase 2 weeks: no adverse
-   symptoms, no MRV breaches, and the athlete confirms the added volume is wanted.
-5. **Phase 4 — settings registry and profiles.** Migrate the scattered flags; expose factors.
-6. **Phase 5 — fractional/indirect sets.** The 2025 meta-regression found fractional counting
-   (indirect = 0.5) fits best; today the ledger counts integer sets by pattern. A later
-   refinement, not v1.
+Each step is a reviewable commit or small series. Every step ends with the full suite and a
+deliberate golden update where a prescription changes.
 
-Each phase ends with the full suite and a new golden fixture for the default profile.
+**0. Settle four details (design, no code).**
+1. **Exemption storage.** Record the sets a safety modifier removes in the prescription's
+   `notes.volume_budget.exempt` and sum the week's stored prescriptions; no new table. A missed
+   session has no prescription and no exemption.
+2. **Projection source.** Use the rolling `schedule.next_session_type` plus
+   `sessions_per_week_target` minus completed sessions; do not depend on a persisted programme
+   forecast. Recompute every build.
+3. **Time cap and warm-ups.** Warm-ups are attached after deload, so the budget uses a config
+   warm-up allowance (default 5 min) in the time estimate; the measured clock remains
+   post-workout.
+4. **Target derivation.** Store `weekly_target` explicitly in `config/volume.v1.yaml` with a
+   test that it equals the six-session template sum (114/2); a template change then fails the
+   test rather than silently moving the target.
+
+**1. Read-only budget (no prescription change).**
+- `features/volume_budget.py`: target, completed, exemptions, projection, effective target,
+  allocation, feasibility.
+- `budget:` config section, default off.
+- `volume --budget`, `GET /api/volume/budget`, read-only Prescribe panel.
+- Tests: arithmetic, ISO-week boundary, 56/58 phases, worked examples, feasibility, exemption
+  summing, template consistency.
+- Gate: full suite; compare the report with 3–4 real weeks. No prescription change.
+
+**2. Apply trim (first prescription change).**
+- `_apply_volume_budget` after continuity, before under-MEV; non-essential sets only; trim to
+  the top of the band; exemptions recorded.
+- Declare `MOD-VOL-003`, constitution 1.15.0, `implemented_by`; flag defaults off, enabled in
+  the athlete's profile after review.
+- Tests: long-session trim, essential floors, MRV/spinal still win, exemptions not re-added,
+  citation, golden updated deliberately.
+- Gate: full suite, a real-week check, no MRV or spinal breach.
+
+**3. Top-up.**
+- Opt-in first (`run --use-volume-budget`, UI tick), then automatic accessory top-up after a
+  review window.
+- Per-item/per-pattern/total/time caps, symptom suppression, unreachable warning.
+- Tests: missed, short, caps, no cross-week debt.
+- Gate: 2–3 weeks of real data before changing the default.
+
+**4. Profile store and settings loader.**
+- `prescription_profile` (append-only), repository/query, precedence profile > config >
+  default, profile snapshot on the prescription.
+- The budget reads the same settings object; no budget-code change.
+- CLI `settings profile`, API; no UI yet.
+
+**5. Settings UI and the guarded spinal setting.**
+- Settings page: modalities/factors, diff preview, profile save; budget fields.
+- Spinal: warning, double confirmation, reason, profile; `PRG-SPINE-001` params and taxonomy
+  costs read one override; tests for the guard and the single source.
+- CLI/API parity.
+
+**6. Forecast and workout panels.**
+- Budget-aware programme projection across dates; Prescribe/Workout weekly panel; `volume`
+  report; docs update.
+
+**7. Migrate the remaining flags.**
+- DUP, deload, MRV, under-MEV, readiness valve, e1RM into the registry; behavior-preserving;
+  golden tests; hard-safety stays on the constitution path.
+
+**8. Later refinement.** Fractional/indirect sets (direct 1, indirect 0.5) if the ledger warrants
+it; not v1.
 
 ## 11. Tests (for the implementation phase)
 
