@@ -75,6 +75,7 @@ back (see §6).
 
 | term | meaning |
 |---|---|
+| `weekly_total` | explicit total for one week; must equal the sum of `weekly_target`; default 57 |
 | `weekly_target[pattern]` | hard working sets for one week, by ledger group (default: the cycle average above) |
 | `weekly_floor[pattern]` | MEV; the level below which the week is "under" (report only) |
 | `weekly_ceiling[pattern]` | MRV; the hard ceiling already enforced by `MOD-VOL-001` |
@@ -299,8 +300,9 @@ volume-first drop (9c, decision + simulation).
 The budget math is frequency-agnostic: `sessions_per_week_target` can be 4, the report projects
 four sessions, and the per-session cap applies to each. The target is still the three-session
 average (57 sets), so four sessions **spread** the same dose; they do not automatically add
-volume. To use the fourth session for more volume, set an explicit `weekly_target` in
-`config/volume.v1.yaml` (the report and engine read it), or set a higher value per group.
+volume. To use the fourth session for more volume, set an explicit `weekly_total` and matching
+`weekly_target` in `config/volume.v1.yaml` (the report and engine read it), or set a higher value
+per group.
 
 Strength-preserving still applies: the main lifts stay at template sets, so four full-body
 sessions add main-lift frequency and may exceed the 57-set target; the budget trims accessories
@@ -308,11 +310,61 @@ only and warns. A fourth heavy full-body day can also collide with the MRV, spin
 caps. The sensible first design is a fourth **accessory/weak-point** session, not another heavy
 squat/hinge day; that is a programme decision.
 
-The scheduler is not there yet. `programme --sessions-per-week` accepts 1–3, and the forecast
-picks three weekdays. Four-plus needs a scheduling decision (days and spacing, the fourth
-session's type, and the session-type rotation). Until that exists, a four-session week can be
-represented in the read-only report by setting the profile target to 4, but the programme
-forecast cannot emit the fourth day.
+The scheduler is **out of scope for now**: `programme --sessions-per-week` stays 1–3. A
+four-session week is manual single-session training; the budget report still projects four when
+the profile target is 4. No four-day forecast is planned.
+
+### 4.4 What step 2 actually does (implemented)
+
+This is the current, implemented behaviour; it is the reference for the reduce/drop work.
+
+**Activation and precedence**
+- `athlete_profile.volume_budget_enabled` is authoritative and defaults to off (0). If no
+  profile flag is recorded, `budget.enabled` in `config/volume.v1.yaml` is the fallback.
+  `MOD-VOL-003` only runs when the budget is enabled.
+- `athlete_profile.main_lift_policy` defaults to `preserve`. `reduce` and `drop` are
+  recorded but not implemented: the prescription warns and uses `preserve`.
+
+**Targets and inputs**
+- `budget.weekly_total` is explicit and must equal the sum of `budget.weekly_target`; config
+  load fails if only one side is edited. The default is 57.
+- `effective_target = max(0, weekly_target - exempt)`. Fixed template doses (erector,
+  power jump) count in the total but are never changed.
+- Completed = stored working sets in the ISO week. Projected = completed + today's items + the
+  template sets of the remaining planned sessions; the number of future sessions comes from
+  `sessions_per_week_target`. There is no cross-week debt.
+- `tolerance` is ±10% of the total; a per-group band is at least ±1 set.
+
+**Allocation**
+1. A group acts when its own projected week is outside its band, and either the total is outside
+   its band or the four-week ledger agrees (persistent under/over). This avoids reacting to the
+   normal 56/58 phase noise.
+2. If over: trim **non-essential** sets in that group, down to one set each, until the group is
+   back at the top of its band. Never trim another group's accessories to pay for it.
+3. If under: top up **non-essential** sets in that group, to at most eight per item, bounded by
+   the per-pattern cap, total cap, time cap and MRV. No capacity means a blocked warning, not an
+   essential add.
+4. Essential items never move. A group with a safety ref in the current build is not topped up.
+5. Every changed item cites `MOD-VOL-003`; the warning names the changes and the prescription
+   note carries the before/after arithmetic.
+
+**Order and caps**
+- The budget runs after continuity and before VBT/under-MEV; MRV, spinal, deload and the minimum
+  session still run afterwards and may trim further. No later rule re-adds a safety cut. The
+  total, time, spinal, MRV, constraint, injury, readiness and deload caps all still bind.
+
+**Exemptions**
+- `record_exemptions` runs after a prescription is stored. For a present item with
+  `MOD-FAT-001`, `MOD-DELOAD-001` or `MOD-SPINE-001` and fewer sets than its template
+  slot, the difference is written to `volume_exemption`. The report subtracts it from the
+  target, so a later session does not make up a safety cut.
+- The current build skips top-up for a group with a safety ref. Removed items are not recorded:
+  the budget only tops up items that are present, so it cannot resurrect one.
+
+**Not implemented**
+- `reduce` (step 2b) and `drop` (step 9c); cross-group compensation and the compensation
+  slot pool; a separate top-up switch (top-up is part of step 2); a four-day programme forecast
+  (manual single-session only); settings UI for the targets (the config file is the source).
 
 ## 5. Worked examples
 
@@ -528,9 +580,10 @@ deliberate golden update where a prescription changes.
 3. **Time cap and warm-ups.** Warm-ups are attached after deload, so the budget uses a config
    warm-up allowance (default 5 min) in the time estimate; the measured clock remains
    post-workout.
-4. **Target derivation.** Store `weekly_target` explicitly in `config/volume.v1.yaml` with a
-   test that it equals the six-session template sum (114/2); a template change then fails the
-   test rather than silently moving the target.
+4. **Target derivation.** Store `weekly_total` and `weekly_target` explicitly in
+   `config/volume.v1.yaml` with a test that the total equals the six-session template sum (114/2)
+   and the per-group targets sum to the total; a template or one-sided edit then fails the test
+   or the config load rather than silently moving the dose.
 
 **1. Read-only budget (no prescription change) — implemented 2026-10-26.**
 - `prescribe/volume_budget.py`: target, completed, exemptions, projection, effective
@@ -544,9 +597,10 @@ deliberate golden update where a prescription changes.
   summing, template consistency, per-group status/capacity.
 - Gate: full suite; compare the report with 3–4 real weeks. No prescription change.
 
-**2. Apply trim (first prescription change) — implemented 2026-10-26 behind the profile flag.**
+**2. Apply trim and accessory top-up (first prescription change) — implemented 2026-10-26 behind
+ the profile flag.**
 - `_apply_volume_budget` after continuity, before under-MEV; non-essential sets only; trim to
-  the top of the band; exemptions recorded.
+  the top of the band and top up under groups where capacity exists; exemptions recorded.
 - Per-group trigger: act on a group outside its own band, not only on the total; top up only
   where capacity exists; trim the group that is over, never a different group's accessories.
 - Declare `MOD-VOL-003`, constitution 1.15.0, `implemented_by`; flag defaults off, enabled in
@@ -555,12 +609,22 @@ deliberate golden update where a prescription changes.
   citation, golden updated deliberately.
 - Gate: full suite, a real-week check, no MRV or spinal breach.
 
-**3. Top-up.**
-- Opt-in first (`run --use-volume-budget`, UI tick), then automatic accessory top-up after a
-  review window.
-- Per-item/per-pattern/total/time caps, symptom suppression, unreachable warning.
-- Tests: missed, short, caps, no cross-week debt.
-- Gate: 2–3 weeks of real data before changing the default.
+**2b. Main-lift reduce (next; opt-in).**
+- Only when the profile has `main_lift_policy: reduce` and the budget is enabled. When a group's
+  week is filled, trim its **main lift** to a configured floor (`main_lift_floor`, default three
+  sets), never below the floor and never in `preserve`. The session type does not change: a squat
+  session still has a squat, just fewer sets.
+- No cross-group reallocation yet; the freed sets are not sent to another group until step 9.
+  `drop` is not part of step 2b.
+- Tests: filled group, floor, essential floor, preserve unchanged, citation, no silent removal.
+- Gate: full suite and a real-week check; only then enable `reduce` in the profile.
+
+**3. Top-up review (included in step 2).**
+- Step 2 already tops up non-essential accessories under the same profile flag; there is no
+  separate switch. Review 2–3 real weeks with the per-item/per-pattern/total/time caps and the
+  blocked warnings, then adjust the caps or defaults.
+- No new code is planned here unless the review shows a defect; any separate opt-in would be a
+  new decision.
 
 **4. Profile store and settings loader.**
 - `prescription_profile` (append-only), repository/query, precedence profile > config >
@@ -590,6 +654,7 @@ it; not v1.
   `dumbbell_bench_press` (horizontal push) and `rdl` (hinge); similarity weights; all caps.
 - 9b: opt-in `main_lift_topup`; never automatic compensation.
 - 9c: `drop` mode rebuilds or names a distinct session; never remove a main lift silently.
+- `reduce` is step 2b, not here; step 9 only handles cross-group compensation and `drop`.
 - Read-only simulation first; `MOD-VOL-004` for slot replacement and compensation.
 
 ## 11. Tests (for the implementation phase)
@@ -627,7 +692,8 @@ it; not v1.
 | 12 | Cross-group compensation | confirmed as a later **volume-first mode**: per-group quotas, inverse-similarity weights, `main_lift_policy` preserve by default, `drop` opt-in; parameters and evidence still open |
 | 13 | Strength-preserving default | main lifts stay at template sets even when the group quota is full; `main_lift_policy` is an append-only `athlete_profile` field (`preserve` default, `reduce`/`drop` opt-in); compensation is accessory-only under `preserve`; "no squats" is `drop` |
 | 14 | Compensation parameters | one optional non-essential compensation slot per session type; candidates `dumbbell_bench_press` (push) and `rdl` (hinge), executable load only; weights squat↔hinge 0.7, squat↔bench 0.2, hinge↔bench 0.2, push↔pull 0.3, floor 0.1; all sets count; main lifts stay in `preserve`; main-lift top-up opt-in; `MOD-VOL-004` for slot replacement |
-| 15 | Frequency above three | the budget supports 4+ by spreading the same 57-set target, or an explicit higher target; the programme/forecast still supports 1–3 and needs a four-day scheduling decision; a fourth heavy full-body day is not assumed |
+| 15 | Frequency above three | the budget supports 4+ by spreading the same 57-set target, or an explicit higher target; the programme/forecast stays 1–3 and four-plus is manual single-session only; a fourth heavy full-body day is not assumed |
+| 16 | Reduce/drop timing | `reduce` is **step 2b (next)** and only trims the filled group's main lift to a configured floor; `drop` remains **step 9c**, after the 9a compensation slot pool, because it removes and relabels a main lift; both are opt-in via `main_lift_policy` |
 
 Step 1 is implemented read-only (the module, the `volume_exemption` table and the config
 section). Step 2 is implemented behind the off-by-default profile flag: `MOD-VOL-003` is in
@@ -657,6 +723,8 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
 - **ASSUMPTION-48** — the compensation slot pool (`dumbbell_bench_press`, `rdl`) and the
   similarity matrix are design heuristics, not measured equivalence; the slot is non-essential
   and the main lift stays in `preserve`.
+- **ASSUMPTION-49** — the reduce floor default (three sets) is a coaching assumption,
+  configurable, not a measured minimum; the main lift stays in the session.
 
 ## 14. Evidence
 
@@ -681,7 +749,7 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
   https://doi.org/10.1186/s40798-021-00404-9
 - **No trial of make-up volume.** Searches returned coaching articles and detraining studies, not
   interventions. The cap, tolerance, exemption list and allocation order are therefore design
-  choices, not findings. They are recorded as ASSUMPTION-40–48.
+  choices, not findings. They are recorded as ASSUMPTION-40–49.
 
 ### Limits of the evidence
 
@@ -691,7 +759,7 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
   is a modelling choice, and its frequency results are compatible with small effects.
 - There is **no trial** of a per-session set cap, of make-up volume, or of volume autoregulation.
   The 30-set cap, the ±10% band, the exemption list and the allocation order are design choices
-  (`ASSUMPTION-40`–`48`), not findings.
+  (`ASSUMPTION-40`–`49`), not findings.
 - The app's own W6 audit found the readiness counterfactual is not identifiable retrospectively
   ([READINESS-AUDIT.md](READINESS-AUDIT.md)); the budget is a programming heuristic, and the
   phased rollout (display → opt-in → automatic) is the safeguard.

@@ -460,8 +460,11 @@ strength-coach state --main-lift-policy preserve
 sets so each movement group moves toward its effective weekly target; main lifts keep their
 template sets. A set removed by readiness, deload or the spinal cap is recorded in
 `volume_exemption` and is never re-added. `main_lift_policy` is `preserve` by default; `reduce`
-and `drop` are recorded for the later volume-first mode but are not implemented yet, and the
-prescription warns if one is selected. An e1RM override can also be set
+is the next step (2b) and `drop` comes after the compensation slot pool (step 9c), so both are
+recorded but not implemented yet; the prescription warns if one is selected. The weekly dose has
+an explicit `budget.weekly_total` plus `budget.weekly_target` per group in
+`config/volume.v1.yaml`; the total must equal the sum of the groups, so change both when changing
+the dose. An e1RM override can also be set
 where you are thinking about that lift: the **e1RM** button on an **Exercises** row, or the
 panel at the bottom of an ended workout (which can record a measured test from the set you
 just did, or a direct override). The CLI below remains the scripted route. This is the §11 athlete state: goals, constraints and per-exercise suitability. It exists so
@@ -473,6 +476,48 @@ a hard constraint can veto a prescription deterministically, rather than living 
   engine reports as a warning ("a substitution is needed"), never treats as a safety veto.
 - The tables are append-only: re-running the import with `--force` adds a new version, and
   `state` always shows the latest.
+
+#### How the volume budget decides
+
+The budget is **off by default**. Turn it on in the Athlete page or with
+`strength-coach state --volume-budget on`. The profile flag overrides the global
+`budget.enabled`; the global value is only the fallback when no profile flag exists.
+
+The weekly dose is explicit in `config/volume.v1.yaml`:
+
+- `budget.weekly_total` — the total hard sets for the week (default 57).
+- `budget.weekly_target` — the split by movement group (squat, hinge, push, pull, core, ...).
+- The total must equal the sum of the groups; config load fails if only one side is edited.
+- Fixed template doses (erector, power jump) count in the total but are never changed.
+
+Each build does the same four steps:
+
+1. Count stored working sets since Monday and add today's plan and the remaining planned sessions
+   at template sets. This is the **projected week**.
+2. Compare each group with its own target. A group acts only when its week is outside its band
+   **and** either the total is outside its band or the four-week ledger agrees; normal 56/58
+   phase noise does not trigger a change.
+3. If a group is over, trim its non-essential accessories to the top of its band. If it is under,
+   top up its non-essential accessories where there is capacity. Never touch another group's
+   accessories, never add to a main lift, and never exceed the per-group, total or time caps.
+4. Re-check MRV, the spinal cap, deload and the minimum session afterwards. Those rules still win.
+
+Main lifts keep their template sets while `main_lift_policy` is `preserve`, so a filled group
+can legitimately go over its target; the change is in the accessories, and the report warns.
+`reduce` is the next step (2b) and will trim a filled group's main lift to a configured floor;
+`drop` is later (9c) and will remove it only after the compensation slot pool exists. Both are
+opt-in and neither is implemented yet.
+
+A set removed by readiness, deload or the spinal cap is recorded in `volume_exemption` and is
+never re-added. If a group is under but has no non-essential capacity (hinge on a hinge day is
+the usual case), the budget leaves it alone and says so.
+
+Four-plus sessions are manual single-session training for now: set the profile target to 4 and
+run each day; the multi-day `programme` forecast still supports 1–3. The budget report will
+project four, but the target remains the three-session average unless you set a higher
+`weekly_total` and matching per-group targets.
+
+See `docs/VOLUME-MODULATION-PLAN.md` §4.4 for the exact algorithm and formulas.
 
 If no state is recorded, a prescription is still produced but says so: *"athlete state not
 recorded: constraints were not evaluated"*. Silence is not permission.

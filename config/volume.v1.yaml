@@ -31,8 +31,12 @@ budget:
   # Read-only weekly volume budget (docs/VOLUME-MODULATION-PLAN.md, DEC-VOLUME-06). The target is
   # the six-session cycle average; tests/test_volume_budget.py pins these numbers to the
   # templates, so a template change fails loudly instead of silently moving the dose.
-  # enabled stays false: the engine does not apply the budget yet.
+  # enabled is the fallback used only when no athlete profile flag is recorded; the profile
+  # flag athlete_profile.volume_budget_enabled (default off) is authoritative.
   enabled: false
+  # Explicit total. It must equal the sum of weekly_target below; the check catches editing only
+  # one of the two numbers. Change both when changing the weekly dose.
+  weekly_total: 57
   weekly_target:
     squat: 10
     hinge: 6.5

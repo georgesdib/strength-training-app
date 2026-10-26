@@ -57,12 +57,18 @@ SAFETY_REFS = frozenset({"MOD-FAT-001", "MOD-DELOAD-001", "MOD-SPINE-001"})
 class BudgetConfig:
     enabled: bool = False
     weekly_target: Mapping[str, float] = field(default_factory=lambda: dict(DEFAULT_TARGET))
+    weekly_total: float | None = None
     session_cap_total: int = 30
     session_cap_pattern: Mapping[str, int] = field(default_factory=lambda: dict(DEFAULT_CAPS))
     tolerance: float = 0.10
     warmup_estimate_minutes: float = 5.0
     session_time_cap_minutes: float = 80.0
     source_path: Path = Path()
+
+    def total_target(self) -> float:
+        if self.weekly_total is not None:
+            return float(self.weekly_total)
+        return sum(float(value) for value in self.weekly_target.values())
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> "BudgetConfig":
@@ -81,6 +87,16 @@ class BudgetConfig:
             )
         if any(value < 0 for value in targets.values()):
             raise ValueError("volume budget targets must be non-negative")
+        raw_total = body.get("weekly_total")
+        total = float(raw_total) if raw_total is not None else sum(targets.values())
+        if total < 0:
+            raise ValueError("volume budget weekly_total must be non-negative")
+        if abs(total - sum(targets.values())) > 0.51:
+            raise ValueError(
+                "volume budget weekly_total "
+                f"{total:g} must equal the sum of weekly_target "
+                f"{sum(targets.values()):g}; change both when changing the dose"
+            )
         cap = body.get("session_cap") or {}
         per_pattern = {
             str(key): int(value)
@@ -107,6 +123,7 @@ class BudgetConfig:
         return cls(
             enabled=bool(body.get("enabled", False)),
             weekly_target=targets,
+            weekly_total=total,
             session_cap_total=total_cap,
             session_cap_pattern=per_pattern,
             tolerance=tolerance,
@@ -698,7 +715,7 @@ def report(
         "completed": completed,
         "projection": projected,
         "per_pattern": per_pattern,
-        "total_target": round(sum(cfg.weekly_target.values()), 1),
+        "total_target": round(cfg.total_target(), 1),
         "total_effective": round(sum(effective.values()), 1),
         "total_projected": round(sum(projected.values()), 1),
         "band": {

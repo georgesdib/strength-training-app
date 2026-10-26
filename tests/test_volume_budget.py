@@ -61,6 +61,28 @@ def test_weekly_target_matches_the_six_session_template_sum():
     assert {key: totals[key] / 2 for key in totals} == pytest.approx(
         dict(config.weekly_target)
     )
+    assert config.total_target() == 57
+
+
+def test_weekly_total_is_explicit_and_must_match_the_category_sum(tmp_path):
+    source = volume_budget.BudgetConfig.load().source_path
+    text = source.read_text(encoding="utf-8")
+    mismatch = tmp_path / "mismatch.yaml"
+    mismatch.write_text(
+        text.replace("  weekly_total: 57", "  weekly_total: 60"), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="weekly_total"):
+        volume_budget.BudgetConfig.load(mismatch)
+    consistent = tmp_path / "consistent.yaml"
+    consistent.write_text(
+        text.replace("  weekly_total: 57", "  weekly_total: 60").replace(
+            "    squat: 10", "    squat: 13"
+        ),
+        encoding="utf-8",
+    )
+    config = volume_budget.BudgetConfig.load(consistent)
+    assert config.total_target() == 60
+    assert config.weekly_target["squat"] == 13
 
 
 def test_iso_week_is_monday_to_sunday():
