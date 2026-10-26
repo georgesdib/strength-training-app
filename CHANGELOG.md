@@ -18,6 +18,16 @@
   prescription warns if one is selected.
 - The weekly dose is explicit: `budget.weekly_total` and per-group `budget.weekly_target` in
   `config/volume.v1.yaml`, validated to match. Change both when changing the total.
+- Opt-in **main-lift reduce** (step 2b): with `main_lift_policy: reduce` and the budget enabled,
+  a group that was already filled before today has its main-lift items trimmed to
+  `budget.main_lift_floor` (default 3 sets). The session type is unchanged, accessory top-up is
+  disabled (no cross-group reallocation yet), safety cuts are skipped, and every change cites
+  `MOD-VOL-003` (constitution 1.16.0). `drop` remains step 9c.
+- Every volume-budget allocation parameter is config-backed: total and per-group targets, the
+  **daily/session total cap** (`session_cap.total`) and per-group caps, tolerance/band minimum,
+  trim/top-up switches, accessory floor and per-item top-up ceiling, set seconds/warm-up/time
+  cap, and the reduce floor. The only profile controls are on/off, policy, and a tightening
+  `max_session_minutes`.
 - Evidence review for reverse hyperextensions and belt squats: acute biomechanics/EMG only,
   no longitudinal strength or injury outcomes; both remain optional accessories.
 - Guided **Workout workflow**: readiness → prescription preview → start → active workout (sets, CSV/per-rep import, end) → post-workout comparison. Readiness settings and Prescribe analysis remain separate pages.

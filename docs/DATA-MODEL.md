@@ -349,7 +349,7 @@ deterministically, no matter what the LLM says. They are empty until the user an
 | max_session_minutes | the real ceiling, used once duration becomes measurable |
 | block_start_date | week 1 of the **erector ramp**, as the athlete declared it; it does not bound the programme (DEC-PROGRAMME-01). Resetting means a new profile row, never an edit (DEC-RAMP-01/02) |
 | volume_budget_enabled | opt-in weekly volume budget; 0 default. It moves non-essential accessory sets only and is off unless explicitly enabled (DEC-VOLUME-06/08) |
-| main_lift_policy | `preserve` (default) \| `reduce` \| `drop`; preserve keeps main lifts at template sets even when a group quota is full. `reduce`/`drop` are recorded but not implemented yet (DEC-VOLUME-08) |
+| main_lift_policy | `preserve` (default) \| `reduce` \| `drop`; preserve keeps main lifts at template sets even when a group quota is full. `reduce` is implemented (step 2b): a filled group's main lift is trimmed to `main_lift_floor`. `drop` is recorded but not implemented (DEC-VOLUME-08/11) |
 
 ### 11.2 `athlete_constraint` — injuries, contraindications, mobility limits
 

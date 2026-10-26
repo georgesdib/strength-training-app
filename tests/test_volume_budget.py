@@ -85,6 +85,57 @@ def test_weekly_total_is_explicit_and_must_match_the_category_sum(tmp_path):
     assert config.weekly_target["squat"] == 13
 
 
+def test_reduce_floor_is_configurable_and_validated(tmp_path):
+    source = volume_budget.BudgetConfig.load().source_path
+    text = source.read_text(encoding="utf-8")
+    assert volume_budget.BudgetConfig.load().main_lift_floor == 3
+    zero = tmp_path / "zero.yaml"
+    zero.write_text(
+        text.replace("  main_lift_floor: 3", "  main_lift_floor: 0"), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="main_lift_floor"):
+        volume_budget.BudgetConfig.load(zero)
+    two = tmp_path / "two.yaml"
+    two.write_text(
+        text.replace("  main_lift_floor: 3", "  main_lift_floor: 2"), encoding="utf-8"
+    )
+    assert volume_budget.BudgetConfig.load(two).main_lift_floor == 2
+
+
+def test_all_budget_parameters_are_config_backed(tmp_path):
+    source = volume_budget.BudgetConfig.load().source_path
+    text = source.read_text(encoding="utf-8")
+    changed = (
+        text.replace("  main_lift_floor: 3", "  main_lift_floor: 2")
+        .replace("  trim_enabled: true", "  trim_enabled: false")
+        .replace("  top_up_enabled: true", "  top_up_enabled: false")
+        .replace("  band_min: 1", "  band_min: 2")
+        .replace("  min_accessory_sets: 1", "  min_accessory_sets: 2")
+        .replace("  top_up_max_sets_per_item: 8", "  top_up_max_sets_per_item: 6")
+        .replace("  set_seconds: 30", "  set_seconds: 45")
+        .replace("    total: 30", "    total: 24")
+        .replace("    squat: 8", "    squat: 7")
+        .replace("  tolerance: 0.10", "  tolerance: 0.20")
+        .replace("  warmup_estimate_minutes: 5", "  warmup_estimate_minutes: 4")
+        .replace("  session_time_cap_minutes: 80", "  session_time_cap_minutes: 70")
+    )
+    path = tmp_path / "all.yaml"
+    path.write_text(changed, encoding="utf-8")
+    config = volume_budget.BudgetConfig.load(path)
+    assert config.main_lift_floor == 2
+    assert config.trim_enabled is False
+    assert config.top_up_enabled is False
+    assert config.band_min == 2
+    assert config.min_accessory_sets == 2
+    assert config.top_up_max_sets_per_item == 6
+    assert config.set_seconds == 45
+    assert config.session_cap_total == 24
+    assert config.session_cap_pattern["squat"] == 7
+    assert config.tolerance == 0.20
+    assert config.warmup_estimate_minutes == 4
+    assert config.session_time_cap_minutes == 70
+
+
 def test_iso_week_is_monday_to_sunday():
     assert volume_budget.week_bounds("2026-10-29") == ("2026-10-26", "2026-11-01")
     assert volume_budget.week_bounds("2026-11-01") == ("2026-10-26", "2026-11-01")
@@ -373,14 +424,14 @@ def test_record_exemptions_writes_the_safety_cut():
     ]
 
 
-def _profile(conn, *, enabled: bool):
+def _profile(conn, *, enabled: bool, policy: str = "preserve"):
     current = queries.athlete_profile(conn) or {}
     repositories.append_athlete_profile(
         conn, effective_from=TODAY, primary_goal=current.get("primary_goal") or "strength",
         goal_rank=current.get("goal_rank") and json.loads(current["goal_rank"]) or ["strength"],
         focus_lifts=[], competition_date=None, sessions_per_week_target=3,
         max_session_minutes=90, block_start_date=None,
-        volume_budget_enabled=enabled, main_lift_policy="preserve",
+        volume_budget_enabled=enabled, main_lift_policy=policy,
     )
 
 
@@ -400,6 +451,90 @@ def test_the_budget_is_off_by_default_and_enabled_by_the_profile():
         store.close()
     assert off[2]["enabled"] is False
     assert on[2]["enabled"] is True
+
+
+def test_reduce_trims_only_a_filled_groups_main_lift():
+    rows = [
+        {"exercise_id": "ssb_squat", "sets": 5, "essential": True, "main_lift": True,
+         "key": "squat", "rest_s": 180},
+        {"exercise_id": "box_jump", "sets": 3, "essential": True, "main_lift": False,
+         "key": "power_jump", "rest_s": 90},
+        {"exercise_id": "split_squat", "sets": 4, "essential": False, "main_lift": False,
+         "key": "squat", "rest_s": 90},
+    ]
+    result = volume_budget.reduce_filled_main_lifts(
+        rows, completed={"squat": 10}, effective={"squat": 10}, floor=3,
+    )
+    assert result["rows"][0]["sets"] == 3
+    assert result["rows"][1]["sets"] == 3
+    assert result["rows"][2]["sets"] == 4
+    assert result["changed"] == [{"exercise_id": "ssb_squat", "key": "squat",
+                                  "delta": -2}]
+
+
+def test_reduce_keeps_an_unfilled_lift_and_a_safety_cut():
+    rows = [
+        {"exercise_id": "ssb_squat", "sets": 5, "essential": True, "main_lift": True,
+         "key": "squat", "rest_s": 180},
+        {"exercise_id": "bench_press", "sets": 4, "essential": True, "main_lift": True,
+         "key": "horizontal_push", "rest_s": 180, "refs": ["MOD-FAT-001"]},
+    ]
+    result = volume_budget.reduce_filled_main_lifts(
+        rows, completed={"squat": 4, "horizontal_push": 12},
+        effective={"squat": 10, "horizontal_push": 12}, floor=3,
+    )
+    assert [row["sets"] for row in result["rows"]] == [5, 4]
+    assert result["changed"] == []
+
+
+def test_reduce_mode_does_not_top_up_another_group():
+    rows = [
+        {"exercise_id": "ssb_squat", "sets": 5, "essential": True, "main_lift": True,
+         "key": "squat", "rest_s": 180},
+        {"exercise_id": "dumbbell_row", "sets": 1, "essential": False, "main_lift": False,
+         "key": "horizontal_pull", "rest_s": 90},
+    ]
+    reduced = volume_budget.reduce_filled_main_lifts(
+        rows, completed={"squat": 10}, effective={"squat": 10}, floor=3,
+    )
+    result = volume_budget.allocate_items(
+        reduced["rows"], effective=_effective(squat=10, horizontal_pull=9),
+        completed={"squat": 10}, future_sets=[], persistent={},
+        config=volume_budget.BudgetConfig(), time_cap_minutes=80,
+        allow_top_up=False,
+    )
+    assert result["rows"][1]["sets"] == 1
+    assert any("top-up disabled" in item for item in result["blocked"])
+
+
+def test_reduce_engine_slice_honours_the_profile():
+    rows = [
+        {"Date": "2026-10-26", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"}
+        for _ in range(5)
+    ] + [
+        {"Date": "2026-10-27", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"}
+        for _ in range(5)
+    ]
+    store = store_with(rows)
+    try:
+        _profile(store.connection, enabled=True, policy="reduce")
+        reduced = build_prescription(
+            store.connection, for_date="2026-10-29", session_type="squat",
+        )
+        _profile(store.connection, enabled=True, policy="preserve")
+        preserved = build_prescription(
+            store.connection, for_date="2026-10-29", session_type="squat",
+        )
+    finally:
+        store.close()
+    reduced_ssb = next(i for i in reduced.items if i.exercise_id == "ssb_squat")
+    preserved_ssb = next(i for i in preserved.items if i.exercise_id == "ssb_squat")
+    assert reduced_ssb.sets == 3
+    assert "MOD-VOL-003" in reduced_ssb.rationale_refs
+    assert preserved_ssb.sets == 5
+    assert reduced.notes["volume_budget"]["main_lift_reduce"]
 
 
 def test_the_budget_note_is_wired_into_the_prescription():

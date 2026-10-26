@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.15.0"
+  version: "1.16.0"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -49,6 +49,8 @@ document:
       change: "The weekly spinal cap rises from 3 to 6. The low-bar competition squat now counts as one high-fatigue exposure (DEC-SPINE-05). The bench+hinge support becomes the sumo deadlift as a 3x3-5 strength slot."
     - version: "1.15.0"
       change: "A weekly volume budget (MOD-VOL-003) may adjust non-essential accessory sets per movement group when enabled in the athlete profile. Main lifts never move; a set removed by readiness, deload or the spinal cap is exempt and is not re-added (DEC-VOLUME-06/08/09)."
+    - version: "1.16.0"
+      change: "MOD-VOL-003 gains the opt-in main-lift reduce mode (step 2b): when a group has already reached its effective target, trim its main lift to the configured floor, never in preserve and never adding sets. Drop remains out of scope (DEC-VOLUME-10/11)."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -421,16 +423,18 @@ modifiers:
     statement: >
       When enabled in the athlete profile, adjust non-essential accessory sets so each movement
       group moves toward its effective weekly target, within the per-group session cap, total cap,
-      time cap and MRV. Never trim or increase an essential main lift. A set removed by readiness,
-      deload or the spinal cap is exempt and must not be re-added.
+      time cap and MRV. Never increase an essential main lift. In preserve, never trim one. In the
+      opt-in reduce mode (main_lift_policy: reduce), trim a filled group's main lift to the
+      configured floor; the session type is unchanged and drop is outside this rule. A set removed
+      by readiness, deload or the spinal cap is exempt and must not be re-added.
     when:
       any:
         - {input: volume_budget.enabled, op: "==", value: true}
     then:
-      set_adjustment: non_essential_only
+      set_adjustment: non_essential_or_opt_in_main_reduce
     availability:
       status: available
-      reason: "Opt-in in athlete_profile; accessories only (DEC-VOLUME-06/08/09)."
+      reason: "Opt-in in athlete_profile; accessories by default, main-lift reduce only in the reduce mode (DEC-VOLUME-06/08/09/11)."
 
   - id: MOD-SELECT-001
     implemented_by: "strength_coach/prescribe/selection.py::select"

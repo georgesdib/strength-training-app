@@ -460,8 +460,11 @@ strength-coach state --main-lift-policy preserve
 sets so each movement group moves toward its effective weekly target; main lifts keep their
 template sets. A set removed by readiness, deload or the spinal cap is recorded in
 `volume_exemption` and is never re-added. `main_lift_policy` is `preserve` by default; `reduce`
-is the next step (2b) and `drop` comes after the compensation slot pool (step 9c), so both are
-recorded but not implemented yet; the prescription warns if one is selected. The weekly dose has
+is implemented (step 2b): when a group was already filled before today, its main lift is trimmed
+to `budget.main_lift_floor` (default 3 sets), the session type stays the same, and accessory
+top-up is disabled so the freed sets are not sent to another group. `drop` comes after the
+compensation slot pool (step 9c) and is not implemented yet; selecting it warns and keeps the
+main lift. The weekly dose has
 an explicit `budget.weekly_total` plus `budget.weekly_target` per group in
 `config/volume.v1.yaml`; the total must equal the sum of the groups, so change both when changing
 the dose. An e1RM override can also be set
@@ -489,6 +492,12 @@ The weekly dose is explicit in `config/volume.v1.yaml`:
 - `budget.weekly_target` — the split by movement group (squat, hinge, push, pull, core, ...).
 - The total must equal the sum of the groups; config load fails if only one side is edited.
 - Fixed template doses (erector, power jump) count in the total but are never changed.
+- The same section holds every other knob: `trim_enabled`, `top_up_enabled`, `main_lift_floor`,
+  `session_cap.total` (the daily/session total cap), `session_cap.per_pattern`, `tolerance`,
+  `band_min`, `min_accessory_sets`, `top_up_max_sets_per_item`, `set_seconds`,
+  `warmup_estimate_minutes` and `session_time_cap_minutes`. Nothing in the allocation is
+  hardcoded.
+- The profile's `max_session_minutes` can only lower the config time ceiling.
 
 Each build does the same four steps:
 

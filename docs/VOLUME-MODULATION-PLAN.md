@@ -1,17 +1,17 @@
 # VOLUME MODULATION — weekly target, session cap, and a settings layer
 
-**Status: design accepted; constitution 1.15.0; step 1 (the read-only weekly budget with
-per-group status and capacity) and step 2 (the per-group budget behind the off-by-default
-profile flag) are implemented (2026-10-26).** This document specifies a volume budget (a weekly
-target plus a per-session cap) and the settings/modality layer it must sit behind. It records the
-evidence, the rules, the decisions and a phased path. Step 1 is read-only; step 2 is opt-in;
-steps 3–9 are not implemented.
+**Status: design accepted; constitution 1.16.0; step 1 (the read-only weekly budget with
+per-group status and capacity), step 2 (the per-group budget behind the off-by-default profile
+flag) and step 2b (opt-in main-lift reduce) are implemented (2026-10-26).** This document
+specifies a volume budget (a weekly target plus a per-session cap) and the settings/modality
+layer it must sit behind. It records the evidence, the rules, the decisions and a phased path.
+Step 1 is read-only; steps 2/2b are opt-in; steps 3–9 (including `drop`) are not implemented.
 
 At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
 plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
 safety cuts lower the **effective target**, no cross-week debt, phased automatic accessory
 trim/top-up, and a settings/modality registry with append-only profiles. `MOD-VOL-003` is
-declared in constitution 1.15.0; it only runs when the athlete profile enables it (default off).
+declared in constitution 1.16.0; it only runs when the athlete profile enables it (default off).
 document yet (`DEC-VOLUME-06`, `DEC-VOLUME-07`).
 
 Related: [FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md),
@@ -304,9 +304,10 @@ volume. To use the fourth session for more volume, set an explicit `weekly_total
 `weekly_target` in `config/volume.v1.yaml` (the report and engine read it), or set a higher value
 per group.
 
-Strength-preserving still applies: the main lifts stay at template sets, so four full-body
-sessions add main-lift frequency and may exceed the 57-set target; the budget trims accessories
-only and warns. A fourth heavy full-body day can also collide with the MRV, spinal and readiness
+Strength-preserving still applies by default: the main lifts stay at template sets, so four
+full-body sessions add main-lift frequency and may exceed the 57-set target; the budget trims
+accessories only and warns. In the opt-in `reduce` mode a filled group's main lift is trimmed to
+the floor instead. A fourth heavy full-body day can also collide with the MRV, spinal and readiness
 caps. The sensible first design is a fourth **accessory/weak-point** session, not another heavy
 squat/hinge day; that is a programme decision.
 
@@ -314,7 +315,7 @@ The scheduler is **out of scope for now**: `programme --sessions-per-week` stays
 four-session week is manual single-session training; the budget report still projects four when
 the profile target is 4. No four-day forecast is planned.
 
-### 4.4 What step 2 actually does (implemented)
+### 4.4 What steps 2 and 2b actually do (implemented)
 
 This is the current, implemented behaviour; it is the reference for the reduce/drop work.
 
@@ -322,8 +323,8 @@ This is the current, implemented behaviour; it is the reference for the reduce/d
 - `athlete_profile.volume_budget_enabled` is authoritative and defaults to off (0). If no
   profile flag is recorded, `budget.enabled` in `config/volume.v1.yaml` is the fallback.
   `MOD-VOL-003` only runs when the budget is enabled.
-- `athlete_profile.main_lift_policy` defaults to `preserve`. `reduce` and `drop` are
-  recorded but not implemented: the prescription warns and uses `preserve`.
+- `athlete_profile.main_lift_policy` defaults to `preserve`. `reduce` is implemented (step
+  2b). `drop` is recorded but not implemented: the prescription warns and keeps the main lift.
 
 **Targets and inputs**
 - `budget.weekly_total` is explicit and must equal the sum of `budget.weekly_target`; config
@@ -335,6 +336,32 @@ This is the current, implemented behaviour; it is the reference for the reduce/d
   `sessions_per_week_target`. There is no cross-week debt.
 - `tolerance` is ±10% of the total; a per-group band is at least ±1 set.
 
+**Every knob is config-backed** (`config/volume.v1.yaml`, `budget:`; the engine has no
+hidden allocation threshold):
+
+| config key | default | role |
+|---|---|---|
+| `enabled` | false | fallback only when no profile flag is recorded |
+| `weekly_total` | 57 | explicit total; must equal the sum of `weekly_target` |
+| `weekly_target[pattern]` | 10/6.5/... | per-group target; fixed doses included |
+| `main_lift_floor` | 3 | reduce mode: minimum main-lift sets of a filled group |
+| `trim_enabled` | true | allow accessory trim |
+| `top_up_enabled` | true | allow accessory top-up (disabled in reduce mode) |
+| `session_cap.total` | 30 | **daily/session total cap** |
+| `session_cap.per_pattern` | 8/6/... | per-group session cap |
+| `tolerance` | 0.10 | total band (±10%) |
+| `band_min` | 1 | per-group band minimum in sets |
+| `min_accessory_sets` | 1 | trim floor for an accessory |
+| `top_up_max_sets_per_item` | 8 | per-item top-up ceiling |
+| `set_seconds` | 30 | execution seconds per set in the time estimate |
+| `warmup_estimate_minutes` | 5 | planning warm-up allowance |
+| `session_time_cap_minutes` | 80 | upper bound for the budget time cap |
+
+The profile adds only `volume_budget_enabled` (authoritative on/off),
+`main_lift_policy` (`preserve`/`reduce`/`drop`), and `max_session_minutes`, which can
+only **lower** the config time ceiling. The engine's own planned-minutes ceiling may be lower
+still. Nothing in the allocation is hardcoded except the rule IDs and the safety-reference set.
+
 **Allocation**
 1. A group acts when its own projected week is outside its band, and either the total is outside
    its band or the four-week ledger agrees (persistent under/over). This avoids reacting to the
@@ -344,9 +371,22 @@ This is the current, implemented behaviour; it is the reference for the reduce/d
 3. If under: top up **non-essential** sets in that group, to at most eight per item, bounded by
    the per-pattern cap, total cap, time cap and MRV. No capacity means a blocked warning, not an
    essential add.
-4. Essential items never move. A group with a safety ref in the current build is not topped up.
+4. In `preserve`, essential items never move. In `reduce`, only the **main-lift** items of a
+   group that was already filled before today move, and only down to the floor. A group with a
+   safety ref in the current build is not topped up or reduced.
 5. Every changed item cites `MOD-VOL-003`; the warning names the changes and the prescription
    note carries the before/after arithmetic.
+
+**Reduce mode (step 2b)**
+- Only with `main_lift_policy: reduce` and the budget enabled. "Filled" means the group had
+  already reached its effective target **before today** (`completed >= effective`). If so, its
+  **main-lift** items are trimmed to `budget.main_lift_floor` (default 3), never below the floor
+  and never by adding sets. The lift stays in the session; the session type is unchanged.
+- `preserve` never trims a main lift. `drop` is not this mode.
+- Top-up is disabled while `reduce` is selected: the freed sets are not sent to another group
+  (that is step 9). Only over-group accessory trims still run.
+- A main lift with a safety ref in the current build is left alone. Tests: filled group, floor,
+  safety skip, preserve unchanged, no cross-group top-up, citation.
 
 **Order and caps**
 - The budget runs after continuity and before VBT/under-MEV; MRV, spinal, deload and the minimum
@@ -362,9 +402,9 @@ This is the current, implemented behaviour; it is the reference for the reduce/d
   the budget only tops up items that are present, so it cannot resurrect one.
 
 **Not implemented**
-- `reduce` (step 2b) and `drop` (step 9c); cross-group compensation and the compensation
-  slot pool; a separate top-up switch (top-up is part of step 2); a four-day programme forecast
-  (manual single-session only); settings UI for the targets (the config file is the source).
+- `drop` (step 9c); cross-group compensation and the compensation slot pool; a separate top-up
+  switch (top-up is part of step 2, disabled in `reduce`); a four-day programme forecast (manual
+  single-session only); settings UI for the targets (the config file is the source).
 
 ## 5. Worked examples
 
@@ -537,7 +577,7 @@ the policy engine sees it. Each modifier carries an `id`, a `statement`, a `when
 an `implemented_by` entry. Declaring one is a **constitution version bump** (the document is at
 1.14.0), which is why it needs the owner's approval.
 
-It is declared in the constitution at 1.15.0 and implemented by
+It is declared in the constitution at 1.16.0 (1.15.0 plus the reduce mode) and implemented by
 `strength_coach/prescribe/volume_budget.py::apply`. Every item whose sets change cites
 `MOD-VOL-003`; the prescription note carries the arithmetic. The budget is off unless
 `athlete_profile.volume_budget_enabled` is set (`DEC-VOLUME-07/08`).
@@ -603,21 +643,21 @@ deliberate golden update where a prescription changes.
   the top of the band and top up under groups where capacity exists; exemptions recorded.
 - Per-group trigger: act on a group outside its own band, not only on the total; top up only
   where capacity exists; trim the group that is over, never a different group's accessories.
-- Declare `MOD-VOL-003`, constitution 1.15.0, `implemented_by`; flag defaults off, enabled in
+- Declare `MOD-VOL-003`, constitution 1.15.0 (amended to 1.16.0 for step 2b), `implemented_by`; flag defaults off, enabled in
   the athlete's profile after review.
 - Tests: long-session trim, essential floors, MRV/spinal still win, exemptions not re-added,
   citation, golden updated deliberately.
 - Gate: full suite, a real-week check, no MRV or spinal breach.
 
-**2b. Main-lift reduce (next; opt-in).**
-- Only when the profile has `main_lift_policy: reduce` and the budget is enabled. When a group's
-  week is filled, trim its **main lift** to a configured floor (`main_lift_floor`, default three
-  sets), never below the floor and never in `preserve`. The session type does not change: a squat
-  session still has a squat, just fewer sets.
-- No cross-group reallocation yet; the freed sets are not sent to another group until step 9.
-  `drop` is not part of step 2b.
-- Tests: filled group, floor, essential floor, preserve unchanged, citation, no silent removal.
-- Gate: full suite and a real-week check; only then enable `reduce` in the profile.
+**2b. Main-lift reduce (opt-in) — implemented 2026-10-26.**
+- Only when the profile has `main_lift_policy: reduce` and the budget is enabled. A group counts
+  as filled when `completed >= effective_target` **before today**; its main-lift items are then
+  trimmed to `main_lift_floor` (default 3), never below the floor, never by adding sets, and never
+  in `preserve`. The session type does not change: a squat session still has a squat.
+- Top-up is disabled in `reduce`; the freed sets are not sent to another group until step 9.
+  `drop` is not part of step 2b. A main lift with a safety ref is left alone.
+- Tests: filled group, floor, safety skip, preserve unchanged, no cross-group top-up, citation.
+- Gate: full suite and a real-week check; enable `reduce` in the profile only deliberately.
 
 **3. Top-up review (included in step 2).**
 - Step 2 already tops up non-essential accessories under the same profile flag; there is no
@@ -674,7 +714,7 @@ it; not v1.
 - registry: default profile reproduces today's prescriptions; disabling each module changes only
   its cited outputs; hard-safety waiver required.
 
-## 12. Decisions (accepted 2026-10-26; steps 1–2 implemented, steps 3–9 not)
+## 12. Decisions (accepted 2026-10-26; steps 1–2b implemented, steps 3–9 not)
 
 | # | decision | accepted choice |
 |---|---|---|
@@ -684,7 +724,7 @@ it; not v1.
 | 4 | Exemptions | safety/recovery removals lower the **effective weekly target**, not the session cap; missed sessions, early ends and minimum sessions are debt by default |
 | 5 | Week boundary | ISO week, no cross-week debt |
 | 6 | Main-lift top-ups | opt-in only |
-| 7 | New rule | `MOD-VOL-003` **declared in constitution 1.15.0** (approved 2026-10-26, `DEC-VOLUME-07`); runs only when the profile enables it |
+| 7 | New rule | `MOD-VOL-003` **declared in constitution 1.16.0** (approved 2026-10-26, `DEC-VOLUME-07`; amended for reduce in 1.16.0, `DEC-VOLUME-11`); runs only when the profile enables it |
 | 8 | Settings layer | budget as a config module first, registry and profiles later |
 | 9 | Hard-safety toggles | constraints, injury ceilings and load validation stay hard; the spinal cap is **guarded** (warning + double confirmation), not a plain switch |
 | 10 | Future-session basis | remaining planned sessions projected at template sets, recomputed each build |
@@ -693,12 +733,14 @@ it; not v1.
 | 13 | Strength-preserving default | main lifts stay at template sets even when the group quota is full; `main_lift_policy` is an append-only `athlete_profile` field (`preserve` default, `reduce`/`drop` opt-in); compensation is accessory-only under `preserve`; "no squats" is `drop` |
 | 14 | Compensation parameters | one optional non-essential compensation slot per session type; candidates `dumbbell_bench_press` (push) and `rdl` (hinge), executable load only; weights squat↔hinge 0.7, squat↔bench 0.2, hinge↔bench 0.2, push↔pull 0.3, floor 0.1; all sets count; main lifts stay in `preserve`; main-lift top-up opt-in; `MOD-VOL-004` for slot replacement |
 | 15 | Frequency above three | the budget supports 4+ by spreading the same 57-set target, or an explicit higher target; the programme/forecast stays 1–3 and four-plus is manual single-session only; a fourth heavy full-body day is not assumed |
-| 16 | Reduce/drop timing | `reduce` is **step 2b (next)** and only trims the filled group's main lift to a configured floor; `drop` remains **step 9c**, after the 9a compensation slot pool, because it removes and relabels a main lift; both are opt-in via `main_lift_policy` |
+| 16 | Reduce/drop timing | `reduce` is **step 2b, implemented 2026-10-26**: it trims a filled group's main lift to the configured floor, keeps the session type, and disables top-up; `drop` remains **step 9c**, after the 9a compensation slot pool, because it removes and relabels a main lift; both are opt-in via `main_lift_policy` |
+| 17 | All parameters config-backed | total/per-group targets, daily/session total and per-group caps, tolerance/band minimum, trim/top-up switches, accessory floor and per-item top-up ceiling, set seconds/warm-up/time cap, and the reduce floor all live in `config/volume.v1.yaml`; the profile only adds on/off, policy and a tightening `max_session_minutes` (`DEC-VOLUME-12`) |
 
 Step 1 is implemented read-only (the module, the `volume_exemption` table and the config
-section). Step 2 is implemented behind the off-by-default profile flag: `MOD-VOL-003` is in
-constitution 1.15.0, `_apply_volume_budget` runs after continuity, and safety cuts are recorded
-in `volume_exemption`. Steps 3–9 remain unimplemented. The rationale and the rejected
+section). Step 2 is implemented behind the off-by-default profile flag, and step 2b adds the
+opt-in `reduce` mode: `MOD-VOL-003` is in constitution 1.16.0, `_apply_volume_budget` runs after
+continuity, and safety cuts are recorded in `volume_exemption`. Steps 3–9 (including `drop`)
+remain unimplemented. The rationale and the rejected
 alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VOLUME-07` and
 `DEC-SPINE-06`.
 

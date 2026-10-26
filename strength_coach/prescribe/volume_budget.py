@@ -58,6 +58,13 @@ class BudgetConfig:
     enabled: bool = False
     weekly_target: Mapping[str, float] = field(default_factory=lambda: dict(DEFAULT_TARGET))
     weekly_total: float | None = None
+    main_lift_floor: int = 3
+    trim_enabled: bool = True
+    top_up_enabled: bool = True
+    band_min: float = 1.0
+    min_accessory_sets: int = 1
+    top_up_max_sets_per_item: int = 8
+    set_seconds: float = SET_SECONDS
     session_cap_total: int = 30
     session_cap_pattern: Mapping[str, int] = field(default_factory=lambda: dict(DEFAULT_CAPS))
     tolerance: float = 0.10
@@ -97,6 +104,21 @@ class BudgetConfig:
                 f"{total:g} must equal the sum of weekly_target "
                 f"{sum(targets.values()):g}; change both when changing the dose"
             )
+        floor = int(body.get("main_lift_floor", 3))
+        if floor < 1:
+            raise ValueError("volume budget main_lift_floor must be at least 1")
+        band_min = float(body.get("band_min", 1.0))
+        if band_min < 0:
+            raise ValueError("volume budget band_min must be non-negative")
+        min_sets = int(body.get("min_accessory_sets", 1))
+        max_sets = int(body.get("top_up_max_sets_per_item", 8))
+        if min_sets < 1 or max_sets < 1 or min_sets > max_sets:
+            raise ValueError(
+                "volume budget accessory set bounds must be positive and ordered"
+            )
+        set_seconds = float(body.get("set_seconds", SET_SECONDS))
+        if set_seconds <= 0:
+            raise ValueError("volume budget set_seconds must be positive")
         cap = body.get("session_cap") or {}
         per_pattern = {
             str(key): int(value)
@@ -124,6 +146,13 @@ class BudgetConfig:
             enabled=bool(body.get("enabled", False)),
             weekly_target=targets,
             weekly_total=total,
+            main_lift_floor=floor,
+            trim_enabled=bool(body.get("trim_enabled", True)),
+            top_up_enabled=bool(body.get("top_up_enabled", True)),
+            band_min=band_min,
+            min_accessory_sets=min_sets,
+            top_up_max_sets_per_item=max_sets,
+            set_seconds=set_seconds,
             session_cap_total=total_cap,
             session_cap_pattern=per_pattern,
             tolerance=tolerance,
@@ -250,11 +279,11 @@ def projection(
 
 
 def per_pattern_band(
-    effective: Mapping[str, float], tolerance: float
+    effective: Mapping[str, float], tolerance: float, minimum: float = 1.0
 ) -> dict[str, float]:
-    """Per-group diagnostic band: at least one set, otherwise the configured tolerance."""
+    """Per-group diagnostic band: at least `minimum` sets, otherwise the configured tolerance."""
     return {
-        key: max(1.0, tolerance * float(effective.get(key, 0)))
+        key: max(float(minimum), tolerance * float(effective.get(key, 0)))
         for key in MANAGED_KEYS
     }
 
@@ -268,7 +297,7 @@ def top_up_capacity(
     """Non-essential headroom in today's template, per managed group.
 
     A group with no non-essential item has zero capacity: the budget must not inflate an
-    essential main lift. The per-pattern session cap and the per-item maximum (8) bound it.
+    essential main lift. The per-pattern session cap and the configured per-item maximum bound it.
     """
     current_sets = dict(current or pattern_sets(rows))
     out: dict[str, dict[str, Any]] = {
@@ -284,7 +313,10 @@ def top_up_capacity(
         headroom = config.session_cap_pattern.get(key, 0) - current_sets.get(key, 0)
         if headroom <= 0:
             continue
-        per_item = sum(max(0, 8 - int(row.get("sets") or 0)) for row in items)
+        per_item = sum(
+            max(0, config.top_up_max_sets_per_item - int(row.get("sets") or 0))
+            for row in items
+        )
         out[key] = {
             "sets": int(min(headroom, per_item)),
             "items": [str(row["exercise_id"]) for row in items],
@@ -303,7 +335,7 @@ def per_pattern_status(
     persistent: Mapping[str, dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Read-only per-group diagnosis: week status, persistent ledger status and capacity."""
-    bands = per_pattern_band(effective, config.tolerance)
+    bands = per_pattern_band(effective, config.tolerance, config.band_min)
     capacity = top_up_capacity(rows, config=config)
     out: dict[str, dict[str, Any]] = {}
     for key in MANAGED_KEYS:
@@ -359,7 +391,7 @@ def feasibility(
 
 def estimate_minutes(rows: Iterable[Mapping[str, Any]], config: BudgetConfig) -> float:
     seconds = sum(
-        int(row.get("sets") or 0) * (SET_SECONDS + int(row.get("rest_s") or 0))
+        int(row.get("sets") or 0) * (config.set_seconds + int(row.get("rest_s") or 0))
         for row in rows
     )
     return round(seconds / 60.0 + config.warmup_estimate_minutes, 1)
@@ -373,6 +405,41 @@ def _delta(changes: list[dict[str, Any]], exercise_id: str, key: str, delta: int
     changes.append({"exercise_id": exercise_id, "key": key, "delta": delta})
 
 
+def reduce_filled_main_lifts(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    completed: Mapping[str, int],
+    effective: Mapping[str, float],
+    floor: int,
+) -> dict[str, Any]:
+    """Trim a filled group's main lift to the opt-in floor (step 2b).
+
+    "Filled" means the group had already reached its effective target before today. The lift
+    stays in the session; only sets are removed, never added. A safety cut is left alone.
+    """
+    out = [dict(row) for row in rows]
+    changed: list[dict[str, Any]] = []
+    keep = max(1, int(floor))
+    for row in out:
+        if not row.get("main_lift") or not row.get("key"):
+            continue
+        key = row["key"]
+        target = float(effective.get(key, 0))
+        if target <= 0 or float(completed.get(key, 0)) < target:
+            continue
+        refs = row.get("refs")
+        if refs is None and row.get("item") is not None:
+            refs = row["item"].rationale_refs
+        if SAFETY_REFS & set(refs or ()):
+            continue
+        current = int(row["sets"])
+        new = min(current, keep)
+        if new < current:
+            row["sets"] = new
+            _delta(changed, row["exercise_id"], key, new - current)
+    return {"rows": out, "changed": changed}
+
+
 def allocate_items(
     rows: Sequence[Mapping[str, Any]],
     *,
@@ -383,6 +450,7 @@ def allocate_items(
     config: BudgetConfig,
     time_cap_minutes: float,
     safety_keys: Iterable[str] = (),
+    allow_top_up: bool = True,
 ) -> dict[str, Any]:
     """Per-group allocation used by the engine (step 2).
 
@@ -390,7 +458,7 @@ def allocate_items(
     band or the four-week ledger agrees. Accessories only; essential items never move.
     """
     out = [dict(row) for row in rows]
-    bands = per_pattern_band(effective, config.tolerance)
+    bands = per_pattern_band(effective, config.tolerance, config.band_min)
     limits = band(effective, config.tolerance)
     projected = projection(completed, pattern_sets(out), future_sets)
     before_projected = dict(projected)
@@ -432,6 +500,9 @@ def allocate_items(
     for key, direction in list(actions.items()):
         if direction != "over":
             continue
+        if not config.trim_enabled:
+            blocked.append(f"{key}: over, trim disabled")
+            continue
         target = float(effective.get(key, 0))
         high = target + bands[key]
         candidates = [
@@ -439,7 +510,10 @@ def allocate_items(
             if row.get("key") == key and not row.get("essential")
         ]
         for index in reversed(candidates):
-            while projected.get(key, 0.0) > high and out[index]["sets"] > 1:
+            while (
+                projected.get(key, 0.0) > high
+                and out[index]["sets"] > config.min_accessory_sets
+            ):
                 out[index]["sets"] -= 1
                 _delta(changed, out[index]["exercise_id"], key, -1)
                 recompute()
@@ -449,6 +523,9 @@ def allocate_items(
     for key, direction in list(actions.items()):
         if direction != "under":
             continue
+        if not allow_top_up or not config.top_up_enabled:
+            blocked.append(f"{key}: under, top-up disabled in reduce mode")
+            continue
         if key in safety:
             blocked.append(f"{key}: safety cut, not re-added")
             continue
@@ -457,7 +534,9 @@ def allocate_items(
         cap = config.session_cap_pattern.get(key, 0)
         candidates = [
             index for index, row in enumerate(out)
-            if row.get("key") == key and not row.get("essential") and row["sets"] < 8
+            if row.get("key") == key
+            and not row.get("essential")
+            and row["sets"] < config.top_up_max_sets_per_item
         ]
         if not candidates:
             blocked.append(f"{key}: under, no non-essential capacity")
@@ -472,7 +551,7 @@ def allocate_items(
                 break
             progressed = False
             for index in candidates:
-                if out[index]["sets"] >= 8:
+                if out[index]["sets"] >= config.top_up_max_sets_per_item:
                     continue
                 out[index]["sets"] += 1
                 if estimate_minutes(out, config) > time_cap_minutes:
@@ -504,6 +583,7 @@ def allocate_items(
         "target_low": round(limits["low"], 1),
         "target_high": round(limits["high"], 1),
         "time_minutes": estimate_minutes(out, config),
+        "top_up": allow_top_up,
     }
 
 
@@ -540,26 +620,29 @@ def plan_session(
         projected = projection(completed, pattern_sets(out), future_sets)
         projected_total = sum(projected.values())
 
-    if projected_total > limits["high"]:
+    if projected_total > limits["high"] and config.trim_enabled:
         action = "trim"
         managed = [
             index for index, row in enumerate(out)
             if row.get("key") in MANAGED_KEYS and not row.get("essential")
         ]
         for index in reversed(managed):
-            while projected_total > limits["high"] and out[index]["sets"] > 1:
+            while (
+                projected_total > limits["high"]
+                and out[index]["sets"] > config.min_accessory_sets
+            ):
                 out[index]["sets"] -= 1
                 _delta(trimmed, out[index]["exercise_id"], out[index]["key"], -1)
                 recompute()
         truncated = projected_total > limits["high"]
-    elif projected_total < limits["low"]:
+    elif projected_total < limits["low"] and config.top_up_enabled:
         action = "top_up"
         while projected_total < limits["low"]:
             candidates = [
                 index for index, row in enumerate(out)
                 if row.get("key") in MANAGED_KEYS
                 and not row.get("essential")
-                and int(row["sets"]) < 8
+                and int(row["sets"]) < config.top_up_max_sets_per_item
                 and effective.get(row["key"], 0.0) - projected.get(row["key"], 0.0) > 0
             ]
             if not candidates:
@@ -626,7 +709,10 @@ def report(
     start, end = week_bounds(on_date)
     profile = queries.athlete_profile(conn) or {}
     target_frequency = int(profile.get("sessions_per_week_target") or 3)
-    time_cap = float(profile.get("max_session_minutes") or cfg.session_time_cap_minutes)
+    profile_max = profile.get("max_session_minutes")
+    time_cap = float(cfg.session_time_cap_minutes)
+    if profile_max is not None:
+        time_cap = min(time_cap, float(profile_max))
 
     today_sessions = queries.sessions(conn, start=str(on_date), end=str(on_date))
     today_done = not today_sessions.empty
@@ -727,6 +813,21 @@ def report(
             "total": cfg.session_cap_total,
             "per_pattern": dict(cfg.session_cap_pattern),
         },
+        "parameters": {
+            "weekly_total": round(cfg.total_target(), 1),
+            "tolerance": cfg.tolerance,
+            "band_min": cfg.band_min,
+            "trim_enabled": cfg.trim_enabled,
+            "top_up_enabled": cfg.top_up_enabled,
+            "min_accessory_sets": cfg.min_accessory_sets,
+            "top_up_max_sets_per_item": cfg.top_up_max_sets_per_item,
+            "set_seconds": cfg.set_seconds,
+            "warmup_estimate_minutes": cfg.warmup_estimate_minutes,
+            "session_time_cap_minutes": cfg.session_time_cap_minutes,
+            "main_lift_floor": cfg.main_lift_floor,
+            "session_cap_total": cfg.session_cap_total,
+            "session_cap_per_pattern": dict(cfg.session_cap_pattern),
+        },
         "feasibility": feasibility(
             effective, cfg, current_frequency=target_frequency
         ),
@@ -734,7 +835,8 @@ def report(
         "note": (
             "Read-only template projection; the live prescription may include history-driven "
             "sets (for example under-MEV) that this report does not model. Per-group status "
-            "and capacity are read-only; the engine does not apply the budget yet."
+            "and capacity are read-only; the engine applies the budget only when the profile "
+            "flag is on."
         ),
     }
 
@@ -770,9 +872,21 @@ def apply(
             "exercise_id": item.exercise_id,
             "sets": int(item.sets),
             "essential": bool(item.essential),
+            "main_lift": bool(entity.get("main_lift")),
             "rest_s": int(item.rest_s or 0),
             "key": key,
         })
+    policy = str(profile.get("main_lift_policy") or "preserve")
+    main_changed: list[dict[str, Any]] = []
+    if policy == "reduce":
+        reduced = reduce_filled_main_lifts(
+            rows,
+            completed=data["completed"],
+            effective=data["effective_targets"],
+            floor=cfg.main_lift_floor,
+        )
+        rows = reduced["rows"]
+        main_changed = reduced["changed"]
     safety = {
         row["key"] for row in rows
         if row["key"] and SAFETY_REFS & set(row["item"].rationale_refs)
@@ -780,9 +894,10 @@ def apply(
     persistent = {
         key: diag.get("persistent") for key, diag in data["per_pattern"].items()
     }
-    time_cap = float(
-        profile.get("max_session_minutes") or cfg.session_time_cap_minutes
-    )
+    profile_max = profile.get("max_session_minutes")
+    time_cap = float(cfg.session_time_cap_minutes)
+    if profile_max is not None:
+        time_cap = min(time_cap, float(profile_max))
     result = allocate_items(
         rows,
         effective=data["effective_targets"],
@@ -792,6 +907,7 @@ def apply(
         config=cfg,
         time_cap_minutes=time_cap,
         safety_keys=safety,
+        allow_top_up=policy != "reduce",
     )
     out = list(items)
     for row in result["rows"]:
@@ -804,12 +920,15 @@ def apply(
             row["item"], sets=int(row["sets"]), rationale_refs=refs
         )
     warnings: list[str] = []
-    policy = str(profile.get("main_lift_policy") or "preserve")
-    if policy != "preserve":
+    if policy == "drop":
         warnings.append(
-            f"MOD-VOL-003: main_lift_policy {policy!r} is not implemented yet; preserving "
-            "main lifts"
+            "MOD-VOL-003: main_lift_policy 'drop' is not implemented yet; preserving main lifts"
         )
+    if main_changed:
+        changes = ", ".join(
+            f"{row['exercise_id']}{row['delta']:+d}" for row in main_changed
+        )
+        warnings.append(f"MOD-VOL-003: main-lift reduce; {changes}")
     if result["changed"]:
         changes = ", ".join(
             f"{row['exercise_id']}{row['delta']:+d}" for row in result["changed"]
@@ -824,9 +943,12 @@ def apply(
     note = {
         "enabled": True,
         "main_lift_policy": policy,
+        "main_lift_floor": cfg.main_lift_floor,
         "actions": result["actions"],
-        "changed": result["changed"],
+        "changed": main_changed + result["changed"],
+        "main_lift_reduce": main_changed,
         "blocked": result["blocked"],
+        "top_up": result.get("top_up", True),
         "total_before": result["total_before"],
         "total_after": result["total_after"],
         "time_minutes": result["time_minutes"],

@@ -28,7 +28,7 @@ landmarks:
   core: {mev: 3, mav: [4, 9], mrv: 12}
 
 budget:
-  # Read-only weekly volume budget (docs/VOLUME-MODULATION-PLAN.md, DEC-VOLUME-06). The target is
+  # Weekly volume budget (docs/VOLUME-MODULATION-PLAN.md, DEC-VOLUME-06). The target is
   # the six-session cycle average; tests/test_volume_budget.py pins these numbers to the
   # templates, so a template change fails loudly instead of silently moving the dose.
   # enabled is the fallback used only when no athlete profile flag is recorded; the profile
@@ -37,6 +37,12 @@ budget:
   # Explicit total. It must equal the sum of weekly_target below; the check catches editing only
   # one of the two numbers. Change both when changing the weekly dose.
   weekly_total: 57
+  # Opt-in reduce mode: keep at least this many sets of a filled group's main lift. A coaching
+  # assumption, configurable; preserve never trims a main lift (ASSUMPTION-49).
+  main_lift_floor: 3
+  # Every allocation knob is config-backed; there is no hidden constant in the engine.
+  trim_enabled: true
+  top_up_enabled: true
   weekly_target:
     squat: 10
     hinge: 6.5
@@ -51,8 +57,8 @@ budget:
     erector_extension: 3
     power_jump: 3
   session_cap:
-    # A per-session fatigue guard, not a measured maximum (ASSUMPTION-41). The time estimate
-    # below remains the practical limit.
+    # The daily/session total and per-group caps, not a measured maximum (ASSUMPTION-41). The
+    # time estimate below remains the practical limit.
     total: 30
     per_pattern:
       squat: 8
@@ -65,6 +71,13 @@ budget:
       core: 6
   # Do not chase an exact weekly number: the normal six-session phases are 56 and 58 against 57.
   tolerance: 0.10
+  # A per-group band is at least this many sets, even when tolerance is smaller.
+  band_min: 1
+  # Trim floor for an accessory (never below one working set) and the per-item top-up ceiling.
+  min_accessory_sets: 1
+  top_up_max_sets_per_item: 8
+  # Time estimate: execution seconds per set plus the item's rest, plus the warm-up allowance.
+  set_seconds: 30
   # Warm-ups are attached after deload, so the budget uses a planning allowance instead of the
   # final warm-up list (step 0 implementation decision).
   warmup_estimate_minutes: 5
