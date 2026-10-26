@@ -631,6 +631,7 @@ def test_volume_budget_endpoint_is_read_only(server):
     assert data["on_date"] == "2024-01-01"
     assert data["session_cap"]["total"] == 30
     assert "targets" in data and "plan" in data
+    assert "per_pattern" in data
     assert data["note"].startswith("Read-only")
 
 

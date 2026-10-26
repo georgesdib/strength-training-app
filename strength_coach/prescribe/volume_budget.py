@@ -229,6 +229,87 @@ def projection(
     return out
 
 
+def per_pattern_band(
+    effective: Mapping[str, float], tolerance: float
+) -> dict[str, float]:
+    """Per-group diagnostic band: at least one set, otherwise the configured tolerance."""
+    return {
+        key: max(1.0, tolerance * float(effective.get(key, 0)))
+        for key in MANAGED_KEYS
+    }
+
+
+def top_up_capacity(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    config: BudgetConfig,
+    current: Mapping[str, int] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Non-essential headroom in today's template, per managed group.
+
+    A group with no non-essential item has zero capacity: the budget must not inflate an
+    essential main lift. The per-pattern session cap and the per-item maximum (8) bound it.
+    """
+    current_sets = dict(current or pattern_sets(rows))
+    out: dict[str, dict[str, Any]] = {
+        key: {"sets": 0, "items": []} for key in MANAGED_KEYS
+    }
+    for key in MANAGED_KEYS:
+        items = [
+            row for row in rows
+            if row.get("key") == key and not row.get("essential")
+        ]
+        if not items:
+            continue
+        headroom = config.session_cap_pattern.get(key, 0) - current_sets.get(key, 0)
+        if headroom <= 0:
+            continue
+        per_item = sum(max(0, 8 - int(row.get("sets") or 0)) for row in items)
+        out[key] = {
+            "sets": int(min(headroom, per_item)),
+            "items": [str(row["exercise_id"]) for row in items],
+        }
+    return out
+
+
+def per_pattern_status(
+    *,
+    targets: Mapping[str, float],
+    effective: Mapping[str, float],
+    completed: Mapping[str, int],
+    projected: Mapping[str, float],
+    rows: Sequence[Mapping[str, Any]],
+    config: BudgetConfig,
+    persistent: Mapping[str, dict[str, Any]] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Read-only per-group diagnosis: week status, persistent ledger status and capacity."""
+    bands = per_pattern_band(effective, config.tolerance)
+    capacity = top_up_capacity(rows, config=config)
+    out: dict[str, dict[str, Any]] = {}
+    for key in MANAGED_KEYS:
+        target = float(effective.get(key, 0))
+        value = float(projected.get(key, 0))
+        band = bands[key]
+        if value < target - band:
+            status = "under"
+        elif value > target + band:
+            status = "over"
+        else:
+            status = "within"
+        out[key] = {
+            "target": round(target, 1),
+            "target_nominal": round(float(targets.get(key, 0)), 1),
+            "completed": int(completed.get(key, 0)),
+            "projected": round(value, 1),
+            "short": round(max(0.0, target - value), 1),
+            "band": round(band, 1),
+            "status": status,
+            "persistent": dict(persistent.get(key, {})) if persistent else None,
+            "top_up_capacity": capacity[key],
+        }
+    return out
+
+
 def feasibility(
     targets: Mapping[str, float],
     config: BudgetConfig,
@@ -422,6 +503,29 @@ def report(conn, on_date: str, *, config: BudgetConfig | None = None) -> dict[st
 
     today_sets = pattern_sets(today_rows)
     projected = projection(completed, today_sets, future_sets)
+    # The four-week ledger is the persistence check: one phase week is not a deficit.
+    ledger_start = (dt.date.fromisoformat(str(on_date)) - dt.timedelta(days=28)).isoformat()
+    ledger = volume_feature.compute(
+        queries.clean_sets(conn, start=ledger_start, end=str(on_date)),
+        on_date=str(on_date),
+    )
+    persistent = {
+        str(row.get("group")): {
+            "status": row["status"],
+            "average": row["group_average"],
+        }
+        for row in ledger["patterns"]
+        if str(row.get("group")) in MANAGED_KEYS
+    }
+    per_pattern = per_pattern_status(
+        targets=cfg.weekly_target,
+        effective=effective,
+        completed=completed,
+        projected=projected,
+        rows=today_rows,
+        config=cfg,
+        persistent=persistent,
+    )
     limits = band(effective, cfg.tolerance)
     plan = None
     if today_rows:
@@ -453,6 +557,7 @@ def report(conn, on_date: str, *, config: BudgetConfig | None = None) -> dict[st
         "effective_targets": effective,
         "completed": completed,
         "projection": projected,
+        "per_pattern": per_pattern,
         "total_target": round(sum(cfg.weekly_target.values()), 1),
         "total_effective": round(sum(effective.values()), 1),
         "total_projected": round(sum(projected.values()), 1),
@@ -471,7 +576,7 @@ def report(conn, on_date: str, *, config: BudgetConfig | None = None) -> dict[st
         "plan": plan,
         "note": (
             "Read-only template projection; the live prescription may include history-driven "
-            "sets (for example under-MEV) that this report does not model. The engine does not "
-            "apply the budget yet."
+            "sets (for example under-MEV) that this report does not model. Per-group status "
+            "and capacity are read-only; the engine does not apply the budget yet."
         ),
     }

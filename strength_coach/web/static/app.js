@@ -1806,9 +1806,20 @@ async function loadVolumeBudget() {
       const done = data.completed[key] ?? 0;
       const projected = data.projection[key] ?? 0;
       const short = Math.max(0, (data.effective_targets[key] ?? 0) - projected);
+      const diag = (data.per_pattern || {})[key] || {};
+      const persistent = (diag.persistent || {}).status || "—";
       return `<tr><td><code>${esc(key)}</code></td><td>${fmt(target, 1)}</td>
-        <td>${fmt(done, 1)}</td><td>${fmt(projected, 1)}</td><td>${fmt(short, 1)}</td></tr>`;
+        <td>${fmt(done, 1)}</td><td>${fmt(projected, 1)}</td><td>${fmt(short, 1)}</td>
+        <td>${esc(diag.status || "fixed")}</td>
+        <td>${diag.top_up_capacity ? diag.top_up_capacity.sets : "—"}</td>
+        <td>${esc(persistent)}</td></tr>`;
     }).join("");
+    const blocked = Object.entries(data.per_pattern || {})
+      .filter(([, diag]) => diag.status === "under" && diag.top_up_capacity.sets === 0)
+      .map(([key]) => key);
+    const blockedLine = blocked.length
+      ? `<p class="muted">Under with no top-up capacity: ${blocked.map(esc).join(", ")} (programme decision).</p>`
+      : "";
     const feasibility = data.feasibility;
     const planLine = data.plan
       ? `<p class="muted">Today <strong>${esc(data.today.session_type)}</strong>: ${esc(data.plan.action)};
@@ -1823,8 +1834,10 @@ async function loadVolumeBudget() {
         projected ${fmt(data.total_projected, 1)} · band ±${fmt(data.band.total, 1)}</p>
       <p class="muted">Session cap ${data.session_cap.total} sets · sessions ${data.sessions_done}/${data.sessions_target} ·
         minimum ${feasibility.min_sessions} · ${feasibility.reachable ? "reachable" : "unreachable"}</p>
-      <table><thead><tr><th>pattern</th><th>target</th><th>done</th><th>projected</th><th>short</th></tr></thead>
+      <table><thead><tr><th>pattern</th><th>target</th><th>done</th><th>projected</th><th>short</th>
+        <th>status</th><th>cap</th><th>4-wk</th></tr></thead>
       <tbody>${rows}</tbody></table>
+      ${blockedLine}
       ${planLine}
       <p class="muted">${esc(data.note)}</p>`;
   } catch (error) {

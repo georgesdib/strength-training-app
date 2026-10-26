@@ -204,6 +204,67 @@ def test_the_time_cap_stops_a_top_up():
     assert plan["added"] == []
 
 
+def test_top_up_capacity_is_zero_where_no_accessory_exists():
+    config = volume_budget.BudgetConfig.load()
+    hinge = volume_budget.top_up_capacity(
+        volume_budget.template_rows("hinge"), config=config
+    )
+    assert hinge["hinge"]["sets"] == 0          # trap bar is essential
+    assert hinge["horizontal_pull"]["sets"] > 0  # dumbbell row is not
+
+    bench_squat = volume_budget.top_up_capacity(
+        volume_budget.template_rows("bench_squat"), config=config
+    )
+    assert bench_squat["squat"]["sets"] == 0          # competition squat is essential
+    assert bench_squat["horizontal_push"]["sets"] == 0  # bench is essential
+
+    bench_hinge = volume_budget.top_up_capacity(
+        volume_budget.template_rows("bench_hinge"), config=config
+    )
+    assert bench_hinge["hinge"]["sets"] > 0      # sumo is non-essential on this day
+
+
+def test_per_pattern_status_catches_a_group_deficit_the_total_hides():
+    config = volume_budget.BudgetConfig.load()
+    effective = _effective(
+        squat=10, hinge=6.5, horizontal_push=12, horizontal_pull=9,
+        vertical_push=3, vertical_pull=4.5, core=6,
+    )
+    projected = {key: 0.0 for key in volume_budget.TARGET_KEYS}
+    projected.update({
+        "squat": 10, "hinge": 4, "horizontal_push": 13, "horizontal_pull": 9,
+        "vertical_push": 3, "vertical_pull": 4.5, "core": 6,
+        "erector_extension": 3, "power_jump": 3,
+    })
+    diag = volume_budget.per_pattern_status(
+        targets=config.weekly_target,
+        effective=effective,
+        completed={},
+        projected=projected,
+        rows=volume_budget.template_rows("hinge"),
+        config=config,
+        persistent={"hinge": {"status": "under", "average": 4.0}},
+    )
+    assert diag["hinge"]["status"] == "under"
+    assert diag["hinge"]["short"] == 2.5
+    assert diag["hinge"]["top_up_capacity"]["sets"] == 0
+    assert diag["hinge"]["persistent"]["status"] == "under"
+    assert diag["squat"]["status"] == "within"
+
+
+def test_report_includes_the_per_pattern_diagnosis():
+    store = store_with()
+    try:
+        report = volume_budget.report(store.connection, TODAY)
+    finally:
+        store.close()
+    assert set(report["per_pattern"]) == set(volume_budget.MANAGED_KEYS)
+    hinge = report["per_pattern"]["hinge"]
+    assert hinge["target"] == 6.5
+    assert "top_up_capacity" in hinge
+    assert "persistent" in hinge
+
+
 def test_cli_prints_the_read_only_budget(tmp_path, capsys):
     path = tmp_path / "coach.db"
     store = db.Store(path)

@@ -1,7 +1,8 @@
 # VOLUME MODULATION — weekly target, session cap, and a settings layer
 
 **Status: design accepted; the constitution change is approved; step 1 (the read-only weekly
-budget) is implemented (2026-10-26). No prescription changes yet.** This document specifies a
+budget, with per-group status and capacity) is implemented (2026-10-26). No prescription
+changes yet.** This document specifies a
 volume budget (a weekly target plus a per-session cap) and the settings/modality layer it must
 sit behind. It records the evidence, the rules, the decisions and a phased path. Step 1 is
 read-only; steps 2–8 are not implemented.
@@ -208,6 +209,60 @@ Future sessions are projected at **template** sets; their own readiness or deloa
 not known yet. The projection is recomputed on every build, so a changed plan or a new stored
 session updates it.
 
+### 4.1 Per-group triggers (step 2)
+
+Step 1 exposes, per group, the week status, the persistent four-week status and the top-up
+capacity. Step 2 acts on it:
+
+- top up a group only when it is below its own band **and** has non-essential capacity; the
+  total band remains an aggregate guard, not the only trigger;
+- trim a group that is over its own band, accessory-first; never pay for a bench surplus by
+  cutting squat or pull accessories;
+- never inflate an essential main lift; if a group is under with capacity 0, warn and leave the
+  decision to the athlete;
+- use the four-week ledger for a **programme** change; the weekly trigger handles scheduling
+  shortfalls and phase noise.
+
+### 4.2 Cross-group quota compensation (later, confirmed direction)
+
+The athlete's model: once a group's weekly quota is met, the next session should give that group
+no work and move the freed sets to other groups — more bench, less hinge (squat and hinge are
+similar) but not zero (they are not the same movement).
+
+This is a **volume-first mode**, not the default strength programme, because it can remove a main
+lift from a session. It needs its own decision, templates and tests.
+
+Model:
+
+- `quota[group]` = the effective weekly target; a group is filled when the week reaches it
+  (tolerance applies).
+- `main_lift_policy`: `preserve` (default), `reduce` (keep a configured floor), `drop`
+  (volume-first only). A `drop` session must say it is not a normal squat/hinge session.
+- `similarity[group_a][group_b]` in 0–1 (config): squat↔hinge high, squat↔bench low,
+  hinge↔bench low, push↔pull low, and so on.
+- `compensation_weight(a -> b) = max(floor, 1 - similarity[a][b])`, normalised over groups
+  with headroom. A filled squat therefore sends most freed sets to bench, less to hinge, and
+  still some to hinge because the weight has a floor.
+- Every cap still applies: per-group MRV, session cap, time cap, spinal cap (sumo/hinge),
+  constraints, injury ceilings, readiness and deload. Compensation cannot exceed them.
+- The session-type identity is a real problem: a "squat session" with no squat is a different
+  session. Do not silently relabel it; rebuild the rolling schedule/template or make the mode a
+  distinct session type.
+
+Evidence limits:
+
+- No trial shows that bench sets substitute for squat sets, or at what ratio. The similarity
+  weights are a coaching heuristic (`ASSUMPTION-47`), not measured equivalence.
+- Strength is specific: removing the squat main lift can reduce squat strength even when weekly
+  set volume is maintained elsewhere. That is why `preserve` is the default and `drop` is
+  opt-in.
+- Hypertrophy may tolerate more redistribution, but the evidence is per muscle group, not
+  cross-group.
+
+Phasing: per-group diagnostics (step 1, done) → within-template per-group triggers (step 2) →
+cross-group accessory reallocation with main lifts preserved (step 9a) → main-lift drop mode
+(step 9b, opt-in, decision + simulation).
+
 ## 5. Worked examples
 
 - **Normal week:** projected 56–58 vs target 57; inside the band; no change.
@@ -380,8 +435,8 @@ an `implemented_by` entry. Declaring one is a **constitution version bump** (the
 1.14.0), which is why it needs the owner's approval.
 
 It does not exist yet. The plan uses the name so the design, citations and tests point at one id.
-On implementation, every item whose sets change cites `MOD-VOL-003`, and the prescription notes
-carry the budget arithmetic. The owner approved the modifier and the constitution bump on
+On implementation, every item whose sets change cites `MOD-VOL-003`, and the prescription
+carries the arithmetic in the modifier detail. The owner approved the modifier and the constitution bump on
 2026-10-26 (`DEC-VOLUME-07`); the rule entry and version bump are part of implementation, not
 this plan.
 - No prescription notes: `prescription` has no notes column. The arithmetic goes in the
@@ -430,14 +485,18 @@ deliberate golden update where a prescription changes.
   target, allocation, feasibility. It lives in `prescribe` because it needs the session
   templates and the rolling schedule, which `features` may not import.
 - `budget:` config section, default off.
+- Per-group week status, persistent four-week status and non-essential top-up capacity, with
+  the capacity drawn from the actual session template.
 - `volume --budget`, `GET /api/volume/budget`, read-only Prescribe panel.
 - Tests: arithmetic, ISO-week boundary, 56/58 phases, worked examples, feasibility, exemption
-  summing, template consistency.
+  summing, template consistency, per-group status/capacity.
 - Gate: full suite; compare the report with 3–4 real weeks. No prescription change.
 
 **2. Apply trim (first prescription change).**
 - `_apply_volume_budget` after continuity, before under-MEV; non-essential sets only; trim to
   the top of the band; exemptions recorded.
+- Per-group trigger: act on a group outside its own band, not only on the total; top up only
+  where capacity exists; trim the group that is over, never a different group's accessories.
 - Declare `MOD-VOL-003`, constitution 1.15.0, `implemented_by`; flag defaults off, enabled in
   the athlete's profile after review.
 - Tests: long-session trim, essential floors, MRV/spinal still win, exemptions not re-added,
@@ -474,6 +533,12 @@ deliberate golden update where a prescription changes.
 **8. Later refinement.** Fractional/indirect sets (direct 1, indirect 0.5) if the ledger warrants
 it; not v1.
 
+**9. Cross-group quota compensation (after step 8; direction confirmed, parameters open).**
+- `main_lift_policy` `preserve` by default; `drop` only in an opt-in volume-first mode.
+- Config similarity matrix and compensation weights; per-group MRV, session, time and spinal
+  caps still apply.
+- Read-only simulation first, then opt-in, then a decision; never remove a main lift silently.
+
 ## 11. Tests (for the implementation phase)
 
 - target arithmetic per pattern; the 114/2 cycle average.
@@ -491,7 +556,7 @@ it; not v1.
 - registry: default profile reproduces today's prescriptions; disabling each module changes only
   its cited outputs; hard-safety waiver required.
 
-## 12. Decisions (accepted by the owner, 2026-10-26; implementation not started)
+## 12. Decisions (accepted 2026-10-26; step 1 implemented read-only, steps 2–9 not)
 
 | # | decision | accepted choice |
 |---|---|---|
@@ -506,10 +571,12 @@ it; not v1.
 | 9 | Hard-safety toggles | constraints, injury ceilings and load validation stay hard; the spinal cap is **guarded** (warning + double confirmation), not a plain switch |
 | 10 | Future-session basis | remaining planned sessions projected at template sets, recomputed each build |
 | 11 | Spinal load in Settings | **guarded**: warning + double confirmation + reason + append-only profile; `PRG-SPINE-001` stays in force and is parameterised, not disabled |
+| 12 | Cross-group compensation | confirmed as a later **volume-first mode**: per-group quotas, inverse-similarity weights, `main_lift_policy` preserve by default, `drop` opt-in; parameters and evidence still open |
 
-These are design decisions only. No code, config or constitution change has been made;
-`MOD-VOL-003` is absent from `config/rules/programme.v1.yaml` until implementation. The approval
-is for the modifier semantics and the design, not a rule edit. The rationale and the rejected
+These are design decisions. Step 1 is implemented read-only (the module, the
+`volume_exemption` table and the config section). No prescription, constitution or `MOD-VOL-003`
+change has been made; the rule entry is still absent from `config/rules/programme.v1.yaml`. The
+approval is for the modifier semantics and the design, not a rule edit. The rationale and the rejected
 alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VOLUME-07` and
 `DEC-SPINE-06`.
 
@@ -527,6 +594,10 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
   recomputed on every build and is not a stored plan.
 - **ASSUMPTION-46** — the Settings range for the spinal cap (0–12) and costs (0–5) is a
   guardrail, not a measured bound; values outside it require a config edit.
+
+- **ASSUMPTION-47** — cross-group compensation weights are inverse-similarity heuristics (squat
+  and hinge similar, squat and bench less so) with a floor, not measured set equivalence; the
+  mode is opt-in and `preserve` is the default.
 
 ## 14. Evidence
 
@@ -551,7 +622,7 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
   https://doi.org/10.1186/s40798-021-00404-9
 - **No trial of make-up volume.** Searches returned coaching articles and detraining studies, not
   interventions. The cap, tolerance, exemption list and allocation order are therefore design
-  choices, not findings. They are recorded as ASSUMPTION-40–46.
+  choices, not findings. They are recorded as ASSUMPTION-40–47.
 
 ### Limits of the evidence
 
@@ -561,10 +632,13 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
   is a modelling choice, and its frequency results are compatible with small effects.
 - There is **no trial** of a per-session set cap, of make-up volume, or of volume autoregulation.
   The 30-set cap, the ±10% band, the exemption list and the allocation order are design choices
-  (`ASSUMPTION-40`–`46`), not findings.
+  (`ASSUMPTION-40`–`47`), not findings.
 - The app's own W6 audit found the readiness counterfactual is not identifiable retrospectively
   ([READINESS-AUDIT.md](READINESS-AUDIT.md)); the budget is a programming heuristic, and the
   phased rollout (display → opt-in → automatic) is the safeguard.
+- **No trial of cross-group set equivalence.** The similarity weights for the later
+  volume-first mode are a heuristic (`ASSUMPTION-47`), and strength is specific: bench sets do
+  not replace squat sets for squat strength.
 
 ## Related
 

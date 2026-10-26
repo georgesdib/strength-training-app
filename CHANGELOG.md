@@ -5,8 +5,9 @@
 ### Added
 
 - Read-only **weekly volume budget** (`volume --budget`, `GET /api/volume/budget`, Prescribe
-  panel): target, safety exemptions, completed sets, projected week, session cap and feasibility.
-  It writes nothing and changes no prescription (`DEC-VOLUME-06`, step 1 of
+  panel): target, safety exemptions, completed sets, projected week, session cap and feasibility,
+  plus per-group week status, persistent four-week status and non-essential top-up capacity. It
+  writes nothing and changes no prescription (`DEC-VOLUME-06`, step 1 of
   `docs/VOLUME-MODULATION-PLAN.md`).
 - Evidence review for reverse hyperextensions and belt squats: acute biomechanics/EMG only,
   no longitudinal strength or injury outcomes; both remain optional accessories.

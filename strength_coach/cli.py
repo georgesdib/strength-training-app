@@ -1563,12 +1563,26 @@ def _print_volume_budget(report: dict) -> None:
         f"{report['sessions_target']}; min sessions {feasibility['min_sessions']}; "
         f"reachable {'yes' if feasibility['reachable'] else 'no'}"
     )
-    print(f"  {'pattern':<22}{'target':>8}{'done':>8}{'projected':>10}{'short':>10}")
+    print(f"  {'pattern':<22}{'target':>8}{'done':>8}{'projected':>10}{'short':>7}"
+          f"{'status':>9}{'cap':>5}{'4wk':>9}")
     for key, target in report["targets"].items():
         done = float(report["completed"].get(key, 0))
         projected = float(report["projection"].get(key, 0))
         short = max(0.0, float(report["effective_targets"].get(key, 0)) - projected)
-        print(f"  {key:<22}{target:>8.1f}{done:>8.1f}{projected:>10.1f}{short:>10.1f}")
+        diag = report["per_pattern"].get(key)
+        if diag:
+            persistent = (diag.get("persistent") or {}).get("status", "-")
+            print(f"  {key:<22}{target:>8.1f}{done:>8.1f}{projected:>10.1f}{short:>7.1f}"
+                  f"{diag['status']:>9}{diag['top_up_capacity']['sets']:>5}{persistent:>9}")
+        else:
+            print(f"  {key:<22}{target:>8.1f}{done:>8.1f}{projected:>10.1f}{short:>7.1f}"
+                  f"{'-':>9}{'-':>5}{'-':>9}")
+    blocked = [
+        key for key, diag in report["per_pattern"].items()
+        if diag["status"] == "under" and diag["top_up_capacity"]["sets"] == 0
+    ]
+    if blocked:
+        print(f"  under with no top-up capacity: {', '.join(blocked)} (programme decision)")
     plan = report["plan"]
     if plan:
         print(
