@@ -4,6 +4,10 @@
 
 ### Added
 
+- Read-only **weekly volume budget** (`volume --budget`, `GET /api/volume/budget`, Prescribe
+  panel): target, safety exemptions, completed sets, projected week, session cap and feasibility.
+  It writes nothing and changes no prescription (`DEC-VOLUME-06`, step 1 of
+  `docs/VOLUME-MODULATION-PLAN.md`).
 - Evidence review for reverse hyperextensions and belt squats: acute biomechanics/EMG only,
   no longitudinal strength or injury outcomes; both remain optional accessories.
 - Guided **Workout workflow**: readiness → prescription preview → start → active workout (sets, CSV/per-rep import, end) → post-workout comparison. Readiness settings and Prescribe analysis remain separate pages.

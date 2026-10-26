@@ -903,6 +903,39 @@ def append_prescription(
     return prescription_id
 
 
+def append_volume_exemption(
+    conn: sqlite3.Connection,
+    *,
+    prescription_id: str,
+    effective_on: str,
+    pattern: str,
+    sets: int,
+    source: str,
+) -> None:
+    """Record sets a safety/recovery rule removed from a week (DEC-VOLUME-06).
+
+    The weekly budget must not re-add a readiness, deload, spinal or constraint cut. The
+    prescription has no notes column, so this append-only row is the record; `source` names
+    the modifier (for example MOD-FAT-001) or CONSTRAINT.
+    """
+    if not str(prescription_id).strip():
+        raise ValueError("a volume exemption needs a prescription")
+    if not str(pattern).strip():
+        raise ValueError("a volume exemption needs a pattern")
+    if int(sets) <= 0:
+        raise ValueError("a volume exemption must remove at least one set")
+    if not str(source).strip():
+        raise ValueError("a volume exemption needs a source")
+    conn.execute(
+        """
+        INSERT INTO volume_exemption
+            (prescription_id, effective_on, pattern, sets, source)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (str(prescription_id), str(effective_on), str(pattern), int(sets), str(source)),
+    )
+
+
 def append_rubric_mark(
     conn: sqlite3.Connection,
     *,

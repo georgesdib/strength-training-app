@@ -153,6 +153,19 @@ def e1rm_override_by_id(conn, override_id: int) -> dict | None:
     return dict(row) if row is not None else None
 
 
+def volume_exemptions(conn, *, start: str, end: str) -> list[dict]:
+    """Volume sets removed by safety/recovery rules in [start, end] (DEC-VOLUME-06)."""
+    rows = conn.execute(
+        """
+        SELECT * FROM volume_exemption
+         WHERE effective_on >= ? AND effective_on <= ?
+         ORDER BY effective_on, exemption_id
+        """,
+        (str(start), str(end)),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def athlete_profile(conn) -> dict | None:
     """The current profile: the latest version by effective date."""
     row = conn.execute(

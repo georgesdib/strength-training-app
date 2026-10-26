@@ -955,6 +955,10 @@ strength-coach volume --weeks 4 --date 2026-10-20
 ```
 
 Working sets by movement pattern, average per week, total and target status. It reports drift.
+
+`volume --budget` (and the Prescribe **Volume budget** panel) shows the read-only weekly budget:
+target, safety exemptions, completed sets, the projected week, the session cap and feasibility.
+It writes nothing and the engine does not apply it yet (`DEC-VOLUME-06`).
 When a pattern is below MEV for three weeks, the engine adds **one accessory set** to that
 pattern (`MOD-VOL-002`); main lifts are never increased by this rule. The MRV cap still applies.
 The weekly volume panel also shows **heavy spinal sets** — high-fatigue spinal exercises at

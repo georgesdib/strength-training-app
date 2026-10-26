@@ -122,6 +122,23 @@ Append-only. Flags are displayed beside readiness and do not alter the score by 
 `device_suppression_flags` in `config/readiness.v1.yaml` can explicitly suppress HRV/RHR for
 selected flags; the default list is empty. `readiness_entry.source` now includes `preset`.
 
+## 3e. `volume_exemption` — safety cuts that lower the weekly target
+
+| column | notes |
+|---|---|
+| exemption_id PK | autoincrement |
+| prescription_id | stored prescription that made the cut |
+| effective_on | date of the cut |
+| pattern | ledger group (squat, hinge, horizontal_push, ...) |
+| sets | positive integer removed |
+| source | `MOD-FAT-001`, `MOD-DELOAD-001`, `MOD-SPINE-001` or `CONSTRAINT` |
+| recorded_at | timestamp |
+
+Append-only. The weekly volume budget must not re-add volume that readiness, deload, a spinal
+trim or a constraint removed (`DEC-VOLUME-06`). The prescription table has no notes column, so
+the amount and its source live here. A missed session has no prescription and therefore no row;
+the budget reallocates only scheduling shortfalls, never safety cuts.
+
 ## 4. Quarantine
 
 `raw_row` rows that cannot be placed (rows with a null date) stay in `raw_row` and get a

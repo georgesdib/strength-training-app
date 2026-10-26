@@ -26,3 +26,42 @@ landmarks:
   horizontal_pull: {mev: 4, mav: [6, 10], mrv: 12}
   vertical_pull: {mev: 3, mav: [4, 8], mrv: 10}
   core: {mev: 3, mav: [4, 9], mrv: 12}
+
+budget:
+  # Read-only weekly volume budget (docs/VOLUME-MODULATION-PLAN.md, DEC-VOLUME-06). The target is
+  # the six-session cycle average; tests/test_volume_budget.py pins these numbers to the
+  # templates, so a template change fails loudly instead of silently moving the dose.
+  # enabled stays false: the engine does not apply the budget yet.
+  enabled: false
+  weekly_target:
+    squat: 10
+    hinge: 6.5
+    hinge_unilateral: 0
+    horizontal_push: 12
+    horizontal_pull: 9
+    vertical_push: 3
+    vertical_pull: 4.5
+    core: 6
+    # Fixed template doses: they count toward the weekly total and the session cap, but the
+    # budget never trims or tops them up.
+    erector_extension: 3
+    power_jump: 3
+  session_cap:
+    # A per-session fatigue guard, not a measured maximum (ASSUMPTION-41). The time estimate
+    # below remains the practical limit.
+    total: 30
+    per_pattern:
+      squat: 8
+      hinge: 6
+      hinge_unilateral: 5
+      horizontal_push: 8
+      horizontal_pull: 8
+      vertical_push: 5
+      vertical_pull: 5
+      core: 6
+  # Do not chase an exact weekly number: the normal six-session phases are 56 and 58 against 57.
+  tolerance: 0.10
+  # Warm-ups are attached after deload, so the budget uses a planning allowance instead of the
+  # final warm-up list (step 0 implementation decision).
+  warmup_estimate_minutes: 5
+  session_time_cap_minutes: 80

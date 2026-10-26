@@ -49,7 +49,7 @@ function setView(name, options = {}) {
   if (name === "exercises") loadExerciseCatalog();
   if (name === "cardio") loadCardio();
   if (name === "measures") loadMeasurements();
-  if (name === "prescribe") { loadFatigue(); loadContinuity(); loadVolume(); }
+  if (name === "prescribe") { loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget(); }
   if (name === "workout") { loadReadiness($("#readiness-date").value); updateWorkflowStep(); }
   if (name === "docs") loadDocs(options.doc, options.anchor);
   if (name === "state") loadState();
@@ -673,6 +673,7 @@ async function loadReadinessFeedback(weeks, day) {
 
 /* --- prescribe ---------------------------------------------------------- */
 $("#prescribe-date").value = today();
+$("#prescribe-date").addEventListener("change", loadVolumeBudget);
 function syncMinimumSession() {
   const on = $("#prescribe-minimum").checked;
   $("#prescribe-minimum-options").hidden = !on;
@@ -1793,6 +1794,41 @@ async function loadVolume() {
       <p class="muted">MEV/MAV/MRV are configurable coaching landmarks, not measured individual thresholds.</p>`;
   } catch (error) {
     $("#volume-ledger").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function loadVolumeBudget() {
+  const date = $("#prescribe-date").value;
+  if (!date) { $("#volume-budget").innerHTML = "<p class='empty'>Choose a date.</p>"; return; }
+  try {
+    const data = await api(`/api/volume/budget?date=${encodeURIComponent(date)}`);
+    const rows = Object.entries(data.targets).map(([key, target]) => {
+      const done = data.completed[key] ?? 0;
+      const projected = data.projection[key] ?? 0;
+      const short = Math.max(0, (data.effective_targets[key] ?? 0) - projected);
+      return `<tr><td><code>${esc(key)}</code></td><td>${fmt(target, 1)}</td>
+        <td>${fmt(done, 1)}</td><td>${fmt(projected, 1)}</td><td>${fmt(short, 1)}</td></tr>`;
+    }).join("");
+    const feasibility = data.feasibility;
+    const planLine = data.plan
+      ? `<p class="muted">Today <strong>${esc(data.today.session_type)}</strong>: ${esc(data.plan.action)};
+         projected ${fmt(data.plan.total_before, 1)} to ${fmt(data.plan.total_after, 1)};
+         estimated ${fmt(data.plan.time_minutes, 1)} min.${data.plan.unreachable_sets ? ` Below the band by ${fmt(data.plan.unreachable_sets, 1)} sets.` : ""}</p>`
+      : `<p class="muted">Today's session is already recorded.</p>`;
+    $("#volume-budget").innerHTML = `
+      <p class="muted">Week ${esc(data.week.start)} to ${esc(data.week.end)} · target ${fmt(data.total_target, 1)} ·
+        exempt ${fmt(Object.values(data.exempt).reduce((a, b) => a + b, 0), 1)} ·
+        effective ${fmt(data.total_effective, 1)} ·
+        completed ${fmt(Object.values(data.completed).reduce((a, b) => a + b, 0), 1)} ·
+        projected ${fmt(data.total_projected, 1)} · band ±${fmt(data.band.total, 1)}</p>
+      <p class="muted">Session cap ${data.session_cap.total} sets · sessions ${data.sessions_done}/${data.sessions_target} ·
+        minimum ${feasibility.min_sessions} · ${feasibility.reachable ? "reachable" : "unreachable"}</p>
+      <table><thead><tr><th>pattern</th><th>target</th><th>done</th><th>projected</th><th>short</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+      ${planLine}
+      <p class="muted">${esc(data.note)}</p>`;
+  } catch (error) {
+    $("#volume-budget").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
 

@@ -40,6 +40,7 @@ from strength_coach.features import breaks as breaks_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import continuity_calibration
 from strength_coach.features import volume as volume_feature
+from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import measurements as measurements_feature
 from strength_coach.features import session_feedback as session_feedback_feature
@@ -331,6 +332,12 @@ class Handler(BaseHTTPRequestHandler):
                 weeks = int(query.get("weeks", ["4"])[0])
                 self._json(200, self._with_conn(
                     lambda c: self._volume(c, day, weeks)
+                ))
+            elif path == "/api/volume/budget":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0] or datetime.date.today().isoformat()
+                self._json(200, self._with_conn(
+                    lambda c: volume_budget_mod.report(c, day)
                 ))
             elif path == "/api/rep-velocity":
                 query = parse_qs(urlparse(self.path).query)

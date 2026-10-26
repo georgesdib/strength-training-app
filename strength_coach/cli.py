@@ -72,6 +72,7 @@ from strength_coach.prescribe import schedule as schedule_mod
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import schemes as schemes_mod
+from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.rules import RuleContext, evaluate, load_document
 from strength_coach.store import db, exercise_admin, importer, queries, repositories
 from strength_coach.trace import RunTrace
@@ -359,6 +360,8 @@ def main(argv: list[str] | None = None) -> int:
     volume = sub.add_parser("volume", help="show weekly hard-set volume by movement pattern")
     volume.add_argument("--weeks", type=int, default=4)
     volume.add_argument("--date", default=None, help="as-of date (default: today)")
+    volume.add_argument("--budget", action="store_true",
+                         help="show the read-only weekly volume budget")
 
     continuity = sub.add_parser("continuity", help="show or configure return-to-training calibration")
     continuity.add_argument("--date", default=None, help="as-of date (default: today)")
@@ -1545,11 +1548,51 @@ def _cmd_regime(args) -> int:
         store.close()
 
 
+def _print_volume_budget(report: dict) -> None:
+    week = report["week"]
+    print(f"volume budget {report['on_date']} (week {week['start']}..{week['end']}); read-only")
+    print(
+        f"  target {report['total_target']:g} | exempt {sum(report['exempt'].values()):g} | "
+        f"effective {report['total_effective']:g} | "
+        f"completed {sum(report['completed'].values()):g} | "
+        f"projected {report['total_projected']:g} | band +/-{report['band']['total']:g}"
+    )
+    feasibility = report["feasibility"]
+    print(
+        f"  cap {report['session_cap']['total']} sets; sessions {report['sessions_done']}/"
+        f"{report['sessions_target']}; min sessions {feasibility['min_sessions']}; "
+        f"reachable {'yes' if feasibility['reachable'] else 'no'}"
+    )
+    print(f"  {'pattern':<22}{'target':>8}{'done':>8}{'projected':>10}{'short':>10}")
+    for key, target in report["targets"].items():
+        done = float(report["completed"].get(key, 0))
+        projected = float(report["projection"].get(key, 0))
+        short = max(0.0, float(report["effective_targets"].get(key, 0)) - projected)
+        print(f"  {key:<22}{target:>8.1f}{done:>8.1f}{projected:>10.1f}{short:>10.1f}")
+    plan = report["plan"]
+    if plan:
+        print(
+            f"  today {report['today']['session_type']}: {plan['action']}; "
+            f"projected {plan['total_before']:g}->{plan['total_after']:g}; "
+            f"time ~{plan['time_minutes']:g} min"
+        )
+        for row in plan["added"]:
+            print(f"    +{row['delta']} {row['exercise_id']} ({row['key']})")
+        for row in plan["trimmed"]:
+            print(f"    {row['delta']} {row['exercise_id']} ({row['key']})")
+        if plan["unreachable_sets"]:
+            print(f"    below the band by {plan['unreachable_sets']:g} sets")
+    print(f"  note: {report['note']}")
+
+
 def _cmd_volume(args) -> int:
     store = db.Store(args.db)
     try:
         conn = store.connection
         on_date = args.date or datetime.date.today().isoformat()
+        if args.budget:
+            _print_volume_budget(volume_budget_mod.report(conn, on_date))
+            return 0
         context = RuleContext.from_store(conn, end=on_date)
         report = volume_feature.compute(context.sets, on_date=on_date,
                                         config=volume_feature.VolumeConfig(

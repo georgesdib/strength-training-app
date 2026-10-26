@@ -624,6 +624,16 @@ def test_volume_ledger_endpoint(server):
     assert data["heavy_spinal"]["rir_max"] == 1
 
 
+def test_volume_budget_endpoint_is_read_only(server):
+    status, body = get(server, "/api/volume/budget?date=2024-01-01")
+    assert status == 200
+    data = json.loads(body)
+    assert data["on_date"] == "2024-01-01"
+    assert data["session_cap"]["total"] == 30
+    assert "targets" in data and "plan" in data
+    assert data["note"].startswith("Read-only")
+
+
 def test_programme_accepts_a_start_session_type(server):
     data = post(server, "/api/programme", {
         "weeks": 1, "sessions_per_week": 1, "start_session_type": "bench_hinge",

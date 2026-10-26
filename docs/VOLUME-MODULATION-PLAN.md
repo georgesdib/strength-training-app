@@ -1,9 +1,10 @@
 # VOLUME MODULATION — weekly target, session cap, and a settings layer
 
-**Status: design accepted and the constitution change approved by the owner (2026-10-26).
-No implementation.** This document specifies a volume budget (a weekly target plus a per-session
-cap) and the settings/modality layer it must sit behind. It records the evidence, the rules, the
-decisions and a phased path. Nothing here changes a prescription until implementation.
+**Status: design accepted; the constitution change is approved; step 1 (the read-only weekly
+budget) is implemented (2026-10-26). No prescription changes yet.** This document specifies a
+volume budget (a weekly target plus a per-session cap) and the settings/modality layer it must
+sit behind. It records the evidence, the rules, the decisions and a phased path. Step 1 is
+read-only; steps 2–8 are not implemented.
 
 At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
 plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
@@ -198,8 +199,9 @@ and a missed Wednesday top up Friday, without overfilling the early part of the 
    the minimum frequency. Top-up capacity is limited by the accessories present: if a pattern has
    no non-essential item (for example squat on a bench+squat day, where the competition squat is
    essential), it stays unmet and the warning names it.
-8. Record `notes.volume_budget` (target, exempt, effective target, completed, projection, cap,
-   allocated, feasibility) and cite `MOD-VOL-003` on every changed item.
+8. Record the arithmetic (target, exempt, effective target, completed, projection, cap,
+   allocated, feasibility) in the `MOD-VOL-003` `prescription_modifier` detail; `prescription`
+   has no notes column. Cite `MOD-VOL-003` on every changed item.
 
 A deload week is the week-scale case: the effective target is the deload plan and no debt follows.
 Future sessions are projected at **template** sets; their own readiness or deload adjustments are
@@ -382,11 +384,11 @@ On implementation, every item whose sets change cites `MOD-VOL-003`, and the pre
 carry the budget arithmetic. The owner approved the modifier and the constitution bump on
 2026-10-26 (`DEC-VOLUME-07`); the rule entry and version bump are part of implementation, not
 this plan.
-- Prescription notes: `volume_budget` with target, exempt, effective target, completed,
-  projection, cap, allocated, and `feasibility` (minimum sessions, unreachable sets).
+- No prescription notes: `prescription` has no notes column. The arithmetic goes in the
+  `MOD-VOL-003` `prescription_modifier` detail; the cuts go in `volume_exemption`.
 - `prescription_modifier` rows for every changed item, with the profile id.
-- No new table for the budget itself (it is computed). The profile store is the only new table,
-  and only in v2.
+- The budget itself is computed. Two tables are added during implementation:
+  `volume_exemption` (step 1, append-only) and `prescription_profile` (step 4).
 
 ## 9. UI / CLI / API
 
@@ -409,9 +411,10 @@ Each step is a reviewable commit or small series. Every step ends with the full 
 deliberate golden update where a prescription changes.
 
 **0. Settle four details (design, no code).**
-1. **Exemption storage.** Record the sets a safety modifier removes in the prescription's
-   `notes.volume_budget.exempt` and sum the week's stored prescriptions; no new table. A missed
-   session has no prescription and no exemption.
+1. **Exemption storage.** `prescription` has no notes column (confirmed in step 0), so record
+   the sets a safety modifier removes in a small append-only `volume_exemption` table
+   (prescription_id, effective_on, pattern, sets, source) and sum the week's rows. A missed
+   session has no prescription, so no rows.
 2. **Projection source.** Use the rolling `schedule.next_session_type` plus
    `sessions_per_week_target` minus completed sessions; do not depend on a persisted programme
    forecast. Recompute every build.
@@ -422,9 +425,10 @@ deliberate golden update where a prescription changes.
    test that it equals the six-session template sum (114/2); a template change then fails the
    test rather than silently moving the target.
 
-**1. Read-only budget (no prescription change).**
-- `features/volume_budget.py`: target, completed, exemptions, projection, effective target,
-  allocation, feasibility.
+**1. Read-only budget (no prescription change) — implemented 2026-10-26.**
+- `prescribe/volume_budget.py`: target, completed, exemptions, projection, effective
+  target, allocation, feasibility. It lives in `prescribe` because it needs the session
+  templates and the rolling schedule, which `features` may not import.
 - `budget:` config section, default off.
 - `volume --budget`, `GET /api/volume/budget`, read-only Prescribe panel.
 - Tests: arithmetic, ISO-week boundary, 56/58 phases, worked examples, feasibility, exemption
@@ -562,7 +566,7 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
   ([READINESS-AUDIT.md](READINESS-AUDIT.md)); the budget is a programming heuristic, and the
   phased rollout (display → opt-in → automatic) is the safeguard.
 
-## 15. Related
+## Related
 
 - [FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md) — the reproduced behaviour and the options
 - [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md) — ledger, landmarks, MRV cap, under-MEV
@@ -570,4 +574,5 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
 - [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) Q26
 - [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md) LIM-51
 - **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md)
