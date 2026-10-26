@@ -101,7 +101,9 @@ keeps the imported fields around it and the override is auditable.
 The implemented score reads the five core subjective fields (sleep, energy, mood, stress,
 soreness) and needs at least three of them plus sleep or energy. HRV and RHR enter only with
 a 28-day baseline (at least 7 readings) at half weight; an optional wearable score is a 10%
-blend. It produces a global score and per-category scores; overrides are 0.00–1.00. The old
+blend. It produces a global score and per-category scores; overrides are 0.00–1.00. An explicit
+override still applies when no numeric score can be formed (the status stays `insufficient`),
+and a `category:` scope that names no category is rejected rather than silently ignored. The old
 `MOD-FAT-001` configured-field rule remains as a **floor**:
 
 ```yaml

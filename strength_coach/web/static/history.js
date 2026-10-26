@@ -156,10 +156,16 @@ async function openHistoryEdit(sessionId) {
       (data.sets || []).map(historySetRow).join("") ||
       "<p class='muted'>No current sets.</p>";
     wireHistorySetButtons();
+    // Backfilled values live in session_feedback for imported sessions; show them rather than
+    // an empty box that would overwrite them with a blank on the next save.
+    var feedback = data.feedback || {};
     document.getElementById("history-edit-srpe").value =
-      data.session_rpe == null ? "" : data.session_rpe;
+      data.session_rpe != null ? data.session_rpe
+        : (feedback.srpe == null ? "" : feedback.srpe);
     document.getElementById("history-edit-duration").value =
-      data.duration_min == null ? "" : data.duration_min;
+      data.duration_min != null ? data.duration_min
+        : (feedback.duration_min == null ? "" : feedback.duration_min);
+    renderHistoryVbt(data);
     document.getElementById("history-edit-notes").value =
       (data.feedback && data.feedback.note) || "";
     document.getElementById("history-edit-reason").value = "";
@@ -230,13 +236,16 @@ document.getElementById("history-add-set").addEventListener("click", function ()
   wireHistoryRemoveButtons();
 });
 document.getElementById("history-save").addEventListener("click", saveHistoryEdit);
+document.getElementById("history-vbt-save").addEventListener("click", saveHistoryVbt);
 document.getElementById("history-cancel").addEventListener("click", function () {
   document.getElementById("history-edit-panel").hidden = true;
 });
 
 function renderHistoryVbt(data) {
   var rows = (data.sets || []).map(function (item) {
-    var reps = (item.vbt_reps || []).map(function (rep) { return rep.velocity_mps; }).join(", ");
+    var reps = (item.vbt_reps && item.vbt_reps.length
+      ? item.vbt_reps
+      : (item.device_reps || [])).map(function (rep) { return rep.velocity_mps; }).join(", ");
     return '<tr data-vbt-set data-set-id="' + item.set_id + '"><td>' + esc(item.exercise_id) +
       '</td><td><input type="number" step="0.01" data-vbt-mean value="' +
       (item.vbt_mean == null ? "" : item.vbt_mean) + '"></td><td><input data-vbt-reps value="' +
@@ -333,11 +342,15 @@ function openHistoryDetails(sessionId) {
         ? "voided" + (data.void_reason ? " · " + data.void_reason : "")
         : "active") + (data.needs_review ? " · needs re-review" : "")) +
       fact("Source", data.source) +
-      fact("Session RPE", data.session_rpe) +
-      fact("Duration", data.duration_min == null
-        ? (data.duration_basis === "unavailable"
-          ? "not recorded (imported session: no timestamps)" : "not recorded")
-        : data.duration_min + " min (" + (data.duration_basis || "unknown") + ")") +
+      fact("Session RPE", data.session_rpe != null
+        ? data.session_rpe
+        : (feedback.srpe == null ? null : feedback.srpe + " (backfilled)")) +
+      fact("Duration", data.duration_min != null
+        ? data.duration_min + " min (" + (data.duration_basis || "unknown") + ")"
+        : (feedback.duration_min != null
+          ? feedback.duration_min + " min (backfilled)"
+          : (data.duration_basis === "unavailable"
+            ? "not recorded (imported session: no timestamps)" : "not recorded"))) +
       fact("Sets (working / total)", (data.working_set_count == null ? "—" : data.working_set_count) +
         " / " + (data.set_count == null ? "—" : data.set_count)) +
       fact("Exercises", data.exercise_count) +

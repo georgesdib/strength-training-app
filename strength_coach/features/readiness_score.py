@@ -9,6 +9,8 @@ This is the shadow-first implementation of docs/READINESS-SCORE.md:
 * grip is capacity, never a daily score input;
 * a score needs at least three core fields and sleep or energy;
 * category overrides win over global overrides, which win over the computed score;
+* an explicit override is still used when no numeric score can be formed, while the status
+  stays insufficient/unknown;
 * the injury signal is a ceiling, not an average.
 
 The load factor is deliberately small and explicit. Nothing here writes a prescription.

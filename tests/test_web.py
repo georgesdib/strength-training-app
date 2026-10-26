@@ -995,6 +995,17 @@ def test_a_declared_break_can_be_recorded_and_cancelled(server):
                 if row["break_id"] == break_id)["cancelled"] is True
 
 
+def test_the_history_edit_sheet_can_backfill_per_rep_velocity(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert 'id="history-vbt"' in page
+    assert 'id="history-vbt-save"' in page
+    status, js = get(server, "/static/history.js")
+    assert status == 200
+    assert "renderHistoryVbt" in js and "saveHistoryVbt" in js
+    assert "(backfilled)" in js  # backfilled sRPE/duration surface in the details sheet
+
+
 def test_the_athlete_page_exposes_declared_breaks(server):
     status, js = get(server, "/static/app.js")
     assert status == 200

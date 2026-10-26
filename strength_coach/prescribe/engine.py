@@ -179,13 +179,20 @@ def build_prescription(
     assessment = readiness_score.compute(conn, for_date)
     trigger = readiness_config.trigger(readiness)
     if assessment.status == "unknown":
-        warnings.append(
-            f"readiness unknown for {for_date}; fatigue modifier not applied"
+        # An explicit override is not a score, but it is applied; saying otherwise would be
+        # false and would hide the only readiness statement for the day (DEC-READINESS-17).
+        tail = (
+            "manual override applied; no numeric score"
+            if assessment.overrides else "fatigue modifier not applied"
         )
+        warnings.append(f"readiness unknown for {for_date}; {tail}")
     elif assessment.status == "insufficient":
+        tail = (
+            "manual override applied; no numeric score"
+            if assessment.overrides else "score not applied"
+        )
         warnings.append(
-            f"readiness insufficient for {for_date}: {assessment.basis}; "
-            "score not applied"
+            f"readiness insufficient for {for_date}: {assessment.basis}; {tail}"
         )
 
     vbt_cal = vbt

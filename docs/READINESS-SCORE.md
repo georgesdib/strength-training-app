@@ -205,8 +205,13 @@ readiness-driven load change, require at least one of **sleep or energy** to be 
 otherwise the score can be displayed but does not move a load. The existing sleep/energy floor
 still applies independently.
 
-For a lift with no global score: use its **category override** if present, capped by the injury
-ceiling; otherwise no readiness factor. The injury ceiling still applies either way.
+For a lift with no global score: use its **category override** if present, or a **global
+override**, capped by the injury ceiling; otherwise no readiness factor. The assessment still
+reports `insufficient`/`unknown` with `score = null` — the override is a dated athlete
+statement, not a computed value, so no numeric score is invented. The readiness gate and the
+minimum-data rule are unchanged, and set reduction still keys on the global score or the
+sleep/energy floor, not on an override-only value. An override scope that names an unknown
+category is rejected when written, never stored and silently ignored (`DEC-READINESS-17`).
 This is `ASSUMPTION-15`; it prevents a two-field day from masquerading as a full score.
 
 ### 2.3 From score to load
@@ -471,6 +476,13 @@ Delivered on 2026-10-19:
   ridge/linear fit and baseline comparison;
 - HRV/RHR baseline-relative components (0.5 weight, 7 readings in 28 days);
 - optional wearable score at a 10% blend.
+
+Amended 2026-10-26 (`DEC-READINESS-17`):
+
+- an override is used even when no numeric score can be formed: the status stays
+  `insufficient`/`unknown`, it supplies only the load factor, and the injury ceiling caps it;
+- a misspelt `category:<name>` scope is refused at write time instead of being stored and
+  silently ignored.
 
 Closed:
 

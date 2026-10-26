@@ -28,6 +28,28 @@ def _store():
     return store
 
 
+def test_per_rep_velocity_can_be_backfilled_and_is_read_back():
+    store = _store()
+    try:
+        conn = store.connection
+        session_id = history.list_sessions(conn)["sessions"][0]["session_id"]
+        detail = history.detail(conn, session_id)
+        set_id = detail["sets"][0]["set_id"]
+        history.apply_vbt(conn, session_id, [{
+            "set_id": set_id,
+            "mean": 0.72,
+            "reps": [{"rep_index": 1, "velocity_mps": 0.75},
+                     {"rep_index": 2, "velocity_mps": 0.69}],
+        }], reason="backfill")
+        after = history.detail(conn, session_id)
+    finally:
+        store.close()
+    first = after["sets"][0]
+    assert first["vbt_mean"] == 0.72
+    assert [rep["velocity_mps"] for rep in first["vbt_reps"]] == [0.75, 0.69]
+    assert after["vbt_override_count"] == 1
+
+
 def test_sets_keep_the_order_they_were_logged():
     # An import inserts rows grouped by exercise, so set_id order is not the order the sets
     # were performed; raw_id is. The details view must show the log order.
@@ -81,6 +103,9 @@ def test_history_lists_and_edits_with_superseding_rows():
         )
         assert edited["warnings"] == []
         after = history.detail(conn, session_id)
+        # Backfilled session values live in the append-only feedback row, not on the session.
+        assert after["feedback"]["srpe"] == 8
+        assert after["feedback"]["duration_min"] == 50
         squat = next(item for item in after["sets"] if item["exercise_id"] == "ssb_squat")
         assert squat["load_kg"] == 105
         assert squat["reps"] == 4

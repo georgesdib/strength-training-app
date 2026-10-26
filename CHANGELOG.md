@@ -90,6 +90,13 @@
   branches now share the readiness+continuity budget, so a bodyweight set drop records the
   factor it actually used (`DEC-W3-02`).
 
+- A readiness override did nothing on a day without a numeric score: `compute()` returned
+  empty category scores and the engine only ran when the status was `ready`, so the override
+  was stored, displayed and ignored. It now supplies the factor for the categories it covers
+  (the status still says `insufficient`/`unknown` and the injury ceiling still caps it). A
+  misspelt `category:<name>` scope is rejected instead of stored and silently ignored
+  (`DEC-READINESS-17`, `READINESS-SCORE` §2.2a).
+
 ### Planned
 
 - v0.5 cardio depth: capture audit, reproducible impulse, shadow 7/28-day load context, and a

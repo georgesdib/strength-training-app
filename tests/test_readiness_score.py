@@ -141,6 +141,21 @@ def test_global_override_applies_when_no_score_can_be_formed():
     assert item(prescription, "bench_press").load_kg < 84.5
 
 
+def test_override_applies_on_a_day_with_no_readiness_entry():
+    with store_with() as store:
+        store.connection.execute("DELETE FROM readiness_day")
+        repositories.append_readiness_override(
+            store.connection, effective_on=TODAY, scope="global", value=0.50,
+            reason="no form today",
+        )
+        assessment = readiness_score.compute(store.connection, TODAY)
+        prescription = build_prescription(store.connection, for_date=TODAY, session_type="squat")
+
+    assert assessment.status == "unknown"
+    assert assessment.score is None
+    assert item(prescription, "ssb_squat").load_kg < 105.5
+
+
 def test_a_partial_day_without_an_override_changes_nothing():
     """Guard: the override path must not become a way to apply an injury ceiling on partial days."""
     with store_with() as store:
