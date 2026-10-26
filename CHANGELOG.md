@@ -11,11 +11,11 @@
   `docs/VOLUME-MODULATION-PLAN.md`).
 - Opt-in **per-group volume budget** behind `athlete_profile.volume_budget_enabled` (default
   off): trims or tops up non-essential accessory sets toward each group's effective target,
-  cites `MOD-VOL-003` (constitution 1.15.0), and records readiness/deload/spinal cuts in
-  `volume_exemption` so they are never re-added. Main lifts keep their template sets;
-  `main_lift_policy` is `preserve` by default. `reduce` is scheduled as step 2b and `drop` as
-  step 9c, after the compensation slot pool; both are recorded but not implemented, and a
-  prescription warns if one is selected.
+  cites `MOD-VOL-003` (constitution 1.15.0, amended through 1.17.0), and records
+  readiness/deload/spinal cuts in `volume_exemption` so they are never re-added. Main lifts
+  keep their template sets; `main_lift_policy` is `preserve` by default. `reduce` is
+  implemented as step 2b; `drop` remains step 9c and is recorded but not implemented, so a
+  prescription warns if it is selected.
 - The weekly dose is explicit: `budget.weekly_total` and per-group `budget.weekly_target` in
   `config/volume.v1.yaml`, validated to match. Change both when changing the total.
 - Opt-in **main-lift reduce** (step 2b): with `main_lift_policy: reduce` and the budget enabled,
@@ -28,11 +28,13 @@
   trim/top-up switches, accessory floor and per-item top-up ceiling, set seconds/warm-up/time
   cap, and the reduce floor. The only profile controls are on/off, policy, and a tightening
   `max_session_minutes`.
-- Read-only **cross-group compensation preview** (step 9a): `budget.compensation` holds one
-  optional slot per session type (dumbbell bench for push, RDL for hinge), inverse-similarity
-  weights and a floor. A group filled before today frees its non-essential sets; the report
-  selects the best-weighted receiver and shows freed, source, candidates and the selected slot.
-  `apply: false`; no prescription changes and no `MOD-VOL-004` yet.
+- **Cross-group compensation** (steps 9a/9b): `budget.compensation` holds one optional slot
+  per session type (dumbbell bench for push, RDL for hinge), inverse-similarity weights and a
+  floor. A group filled before today frees its non-essential sets; the report selects the
+  best-weighted receiver and shows freed, source, candidates and the selected slot. With
+  `apply: true` and the budget profile flag on, the engine adds the selected item with a real
+  load, cites `MOD-VOL-004` (constitution 1.17.0), and refuses without working history. `drop`
+  remains 9c.
 - Evidence review for reverse hyperextensions and belt squats: acute biomechanics/EMG only,
   no longitudinal strength or injury outcomes; both remain optional accessories.
 - Guided **Workout workflow**: readiness → prescription preview → start → active workout (sets, CSV/per-rep import, end) → post-workout comparison. Readiness settings and Prescribe analysis remain separate pages.

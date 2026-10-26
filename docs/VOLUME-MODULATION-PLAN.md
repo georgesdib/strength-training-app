@@ -1,12 +1,12 @@
 # VOLUME MODULATION — weekly target, session cap, and a settings layer
 
-**Status: design accepted; constitution 1.16.0; step 1 (read-only weekly budget), step 2
-(per-group budget behind the off-by-default profile flag), step 2b (opt-in main-lift reduce) and
-step 9a (read-only cross-group compensation preview) are implemented (2026-10-26).** This
-document specifies a volume budget (a weekly target plus a per-session cap) and the
-settings/modality layer it must sit behind. It records the evidence, the rules, the decisions and
-a phased path. Step 1 is read-only; steps 2/2b are opt-in; 9a is a preview; 9b/9c and steps 3–8
-(including `drop`) are not implemented.
+**Status: design accepted; constitution 1.17.0; step 1 (read-only weekly budget), step 2
+(per-group budget behind the off-by-default profile flag), step 2b (opt-in main-lift reduce),
+step 9a (read-only compensation preview) and step 9b (opt-in compensation application) are
+implemented (2026-10-26).** This document specifies a volume budget (a weekly target plus a
+per-session cap) and the settings/modality layer it must sit behind. It records the evidence,
+the rules, the decisions and a phased path. Step 1 is read-only; 9a is a preview; 9b is opt-in;
+9c (`drop`) and steps 3–8 are not implemented.
 
 At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
 plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
@@ -293,8 +293,8 @@ Evidence limits:
   cross-group.
 
 Phasing: per-group diagnostics (step 1, done) → within-template per-group triggers (step 2) →
-compensation slot pool with main lifts preserved (step 9a) → opt-in main-lift top-up (9b) →
-volume-first drop (9c, decision + simulation).
+compensation preview (step 9a) → opt-in compensation application (9b) → volume-first drop
+(9c, decision + simulation).
 
 ### 4.3 Frequency above three sessions
 
@@ -407,18 +407,20 @@ still. Nothing in the allocation is hardcoded except the rule IDs and the safety
   switch (top-up is part of step 2, disabled in `reduce`); a four-day programme forecast (manual
   single-session only); settings UI for the targets (the config file is the source).
 
-### 4.5 Cross-group compensation — 9a read-only preview
+### 4.5 Cross-group compensation — 9a preview and 9b application
 
-Step 9a is implemented as a **preview only**; it changes no prescription. The settings are under
-`budget.compensation` in `config/volume.v1.yaml`:
+9a is a read-only preview; 9b applies the selected slot **opt-in** when the budget is on. The
+settings are under `budget.compensation` in `config/volume.v1.yaml`:
 
-- `enabled` — show the preview; default true for 9a.
-- `apply` — **false**; reserved for 9b. Even true only reports `apply_not_implemented`.
+- `enabled` — show the preview and compute the selection; default true.
+- `apply` — **true** in 9b; the engine adds the selected slot only when the profile budget flag
+  is also on. Set false to return to a preview-only budget.
 - `floor` — the inverse-similarity floor (0.1).
 - `similarity` — squat↔hinge 0.7, squat↔push 0.2, hinge↔push 0.2, push↔pull 0.3; unknown
   pairs default to 0.1.
-- `slots` — one optional non-essential slot per session type, with candidate exercises and a
-  set allocation. A slot needs an executable load before 9b can apply it.
+- `slots` — one optional non-essential slot per session type, with candidate exercises, sets,
+  reps, RIR, rest and load source. A candidate needs an executable load; no history means the
+  engine refuses it and adds nothing.
 
 The preview works like this:
 
@@ -430,16 +432,21 @@ The preview works like this:
    The **one** slot takes the highest weight; its sets are capped by the freed sets, the slot's
    configured sets, the receiver's shortfall, the per-group session cap and the total cap.
 4. The report returns `freed`, `source`, `candidates` (weight, share, sets) and `selected`.
-   Status is `disabled`, `no_filled_accessory`, `no_receiver`, `simulated` or
-   `apply_not_implemented`.
+   Status is `disabled`, `no_filled_accessory`, `no_receiver`, `simulated`; the engine note adds
+   `applied` or `refused`.
 
-Worked example: squat is filled before today, so the squat session's split-squat accessory frees
-3 sets. Bench is 2 short and hinge 1.5 short. Bench weight is 0.8, hinge 0.3, so the one slot
-selects the dumbbell bench for 2 sets. The preview names the choice; the prescription still
-contains the original split squat.
+With `apply: true` and the budget on, 9b builds one new non-essential item from the selected
+candidate using the normal `build_item` load solver. The item cites `MOD-VOL-004`; MRV, spinal,
+under-MEV, deload, total and time checks still run afterwards. If the candidate has no working
+history or no usable e1RM, the engine refuses it, warns, and leaves the prescription unchanged.
 
-`MOD-VOL-004` is not declared and the constitution is not bumped: 9a is a report. Step 9b will
-add the application and its modifier; 9c adds `drop` after this slot pool exists.
+Worked example: squat is filled before today, so the hinge session's split-squat accessory frees
+3–4 sets. Bench is short; the bench weight 0.8 beats hinge 0.3, so the one slot selects the
+dumbbell bench. With a recorded dumbbell-bench load, 9b adds that item; without one, it refuses
+and names the missing history.
+
+`MOD-VOL-004` is declared in constitution **1.17.0**. Step 9c (`drop`) is still open; it removes
+and relabels a main lift and is not part of this rule.
 
 ## 5. Worked examples
 
@@ -612,7 +619,8 @@ the policy engine sees it. Each modifier carries an `id`, a `statement`, a `when
 an `implemented_by` entry. Declaring one is a **constitution version bump** (the document is at
 1.14.0), which is why it needs the owner's approval.
 
-It is declared in the constitution at 1.16.0 (1.15.0 plus the reduce mode) and implemented by
+It is declared in the constitution at 1.16.0 (1.15.0 plus the reduce mode), with the
+compensation application added as `MOD-VOL-004` in 1.17.0; it is implemented by
 `strength_coach/prescribe/volume_budget.py::apply`. Every item whose sets change cites
 `MOD-VOL-003`; the prescription note carries the arithmetic. The budget is off unless
 `athlete_profile.volume_budget_enabled` is set (`DEC-VOLUME-07/08`).
@@ -724,13 +732,13 @@ deliberate golden update where a prescription changes.
 **8. Later refinement.** Fractional/indirect sets (direct 1, indirect 0.5) if the ledger warrants
 it; not v1.
 
-**9. Cross-group quota compensation (after step 8; 9a preview implemented).**
+**9. Cross-group quota compensation (9a preview and 9b application implemented).**
 - 9a **implemented 2026-10-26**: one optional non-essential slot per session type, candidates
-  `dumbbell_bench_press` (push) and `rdl` (hinge), similarity weights and a read-only preview;
-  no prescription change.
-- 9b **next**: apply the selected slot opt-in, with `MOD-VOL-004` and the constitution bump;
-  `main_lift_topup` remains a separate opt-in and is not part of 9a.
-- 9c: `drop` mode rebuilds or names a distinct session; never remove a main lift silently.
+  `dumbbell_bench_press` (push) and `rdl` (hinge), similarity weights and a read-only preview.
+- 9b **implemented 2026-10-26**: with `apply: true` and the budget on, the engine adds the
+  selected slot through `build_item`, cites `MOD-VOL-004`, and refuses if the load is not
+  executable. Constitution 1.17.0.
+- 9c **next**: `drop` rebuilds or names a distinct session; never remove a main lift silently.
 - `reduce` is step 2b, not here; step 9 only handles cross-group compensation and `drop`.
 
 ## 11. Tests (for the implementation phase)
@@ -750,7 +758,7 @@ it; not v1.
 - registry: default profile reproduces today's prescriptions; disabling each module changes only
   its cited outputs; hard-safety waiver required.
 
-## 12. Decisions (accepted 2026-10-26; steps 1–2b and 9a implemented, steps 3–8 and 9b/9c not)
+## 12. Decisions (accepted 2026-10-26; steps 1–2b, 9a and 9b implemented; steps 3–8 and 9c not)
 
 | # | decision | accepted choice |
 |---|---|---|
@@ -771,13 +779,14 @@ it; not v1.
 | 15 | Frequency above three | the budget supports 4+ by spreading the same 57-set target, or an explicit higher target; the programme/forecast stays 1–3 and four-plus is manual single-session only; a fourth heavy full-body day is not assumed |
 | 16 | Reduce/drop timing | `reduce` is **step 2b, implemented 2026-10-26**: it trims a filled group's main lift to the configured floor, keeps the session type, and disables top-up; `drop` remains **step 9c**, after the 9a compensation slot pool, because it removes and relabels a main lift; both are opt-in via `main_lift_policy` |
 | 17 | All parameters config-backed | total/per-group targets, daily/session total and per-group caps, tolerance/band minimum, trim/top-up switches, accessory floor and per-item top-up ceiling, set seconds/warm-up/time cap, and the reduce floor all live in `config/volume.v1.yaml`; the profile only adds on/off, policy and a tightening `max_session_minutes` (`DEC-VOLUME-12`) |
-| 18 | 9a compensation preview | read-only slot pool, similarity weights and `compensation` report; `apply: false`; no prescription change and no `MOD-VOL-004`. 9b applies the selected slot next; 9c is `drop` |
+| 18 | 9a/9b compensation | 9a preview: slot pool, similarity weights and `compensation` report. 9b application: with `apply: true` and the budget on, one non-essential slot is added with a real load (`MOD-VOL-004`, constitution 1.17.0); no history refuses. 9c is `drop` |
+| 19 | 9b application | one slot added through `build_item`; executable load required; refusal is a warning, not a guessed load; `MOD-VOL-004`; all later caps still run (`DEC-VOLUME-14`) |
 
 Step 1 is implemented read-only (the module, the `volume_exemption` table and the config
-section). Step 2 is implemented behind the off-by-default profile flag, and step 2b adds the
-opt-in `reduce` mode: `MOD-VOL-003` is in constitution 1.16.0, `_apply_volume_budget` runs after
-continuity, and safety cuts are recorded in `volume_exemption`. Steps 3–9 (including `drop`)
-remain unimplemented. The rationale and the rejected
+section). Step 2 is implemented behind the off-by-default profile flag, step 2b adds the opt-in
+`reduce` mode, and 9b adds the opt-in compensation slot: `MOD-VOL-003`/`MOD-VOL-004` are in
+constitution 1.17.0, `_apply_volume_budget` runs after continuity, and safety cuts are recorded
+in `volume_exemption`. Steps 3–8 and 9c (`drop`) remain unimplemented. The rationale and the rejected
 alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VOLUME-07` and
 `DEC-SPINE-06`.
 

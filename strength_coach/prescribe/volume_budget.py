@@ -180,10 +180,21 @@ class BudgetConfig:
                 sets = int(entry["sets"])
                 if sets < 1:
                     raise ValueError("compensation slot sets must be positive")
+                load_source = str(entry.get("load_source", "double_progression"))
+                if load_source not in templates.LOAD_SOURCES:
+                    raise ValueError(
+                        f"compensation load_source {load_source!r} is not supported"
+                    )
                 parsed.append({
                     "exercise_id": str(entry["exercise_id"]),
                     "group": group,
                     "sets": sets,
+                    "reps_low": int(entry.get("reps_low", 8)),
+                    "reps_high": int(entry.get("reps_high", 12)),
+                    "rir_low": int(entry.get("rir_low", 2)),
+                    "rir_high": int(entry.get("rir_high", 3)),
+                    "rest_s": int(entry.get("rest_s", 90)),
+                    "load_source": load_source,
                 })
             if not parsed:
                 raise ValueError(f"compensation slot for {session!r} is empty")
@@ -885,6 +896,12 @@ def simulate_compensation(
             "sets": sets,
             "shortfall": round(shortfall, 1),
             "weight": round(weight, 2),
+            "reps_low": int(slot.get("reps_low", 8)),
+            "reps_high": int(slot.get("reps_high", 12)),
+            "rir_low": int(slot.get("rir_low", 2)),
+            "rir_high": int(slot.get("rir_high", 3)),
+            "rest_s": int(slot.get("rest_s", 90)),
+            "load_source": str(slot.get("load_source", "double_progression")),
         })
     if not candidates:
         return {
@@ -906,18 +923,15 @@ def simulate_compensation(
     return {
         "enabled": True,
         "apply": bool(config.compensation_apply),
-        "status": (
-            "apply_not_implemented" if config.compensation_apply else "simulated"
-        ),
+        "status": "simulated",
         "freed": freed,
         "source": source,
         "candidates": candidates,
         "selected": selected,
         "note": (
-            "Read-only 9a simulation; no prescription change. The selected slot is a preview "
-            "only until the 9b application lands."
+            "Read-only 9a preview; the engine applies this slot only when the budget is on."
             if not config.compensation_apply
-            else "apply=true is not implemented yet; the preview changes no prescription."
+            else "Application is enabled: the engine adds the selected slot when the budget is on."
         ),
     }
 

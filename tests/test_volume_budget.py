@@ -424,12 +424,12 @@ def test_record_exemptions_writes_the_safety_cut():
     ]
 
 
-def _profile(conn, *, enabled: bool, policy: str = "preserve"):
+def _profile(conn, *, enabled: bool, policy: str = "preserve", sessions: int = 3):
     current = queries.athlete_profile(conn) or {}
     repositories.append_athlete_profile(
         conn, effective_from=TODAY, primary_goal=current.get("primary_goal") or "strength",
         goal_rank=current.get("goal_rank") and json.loads(current["goal_rank"]) or ["strength"],
-        focus_lifts=[], competition_date=None, sessions_per_week_target=3,
+        focus_lifts=[], competition_date=None, sessions_per_week_target=sessions,
         max_session_minutes=90, block_start_date=None,
         volume_budget_enabled=enabled, main_lift_policy=policy,
     )
@@ -583,7 +583,7 @@ def test_compensation_needs_a_filled_accessory_and_is_off_by_default():
     assert disabled["status"] == "disabled"
 
 
-def test_compensation_apply_is_not_implemented_yet():
+def test_compensation_apply_is_enabled_for_the_engine():
     rows = [
         {"exercise_id": "split_squat", "sets": 3, "essential": False, "rest_s": 90,
          "key": "squat"},
@@ -596,20 +596,70 @@ def test_compensation_apply_is_not_implemented_yet():
             compensation_enabled=True, compensation_apply=True,
         ),
     )
-    assert result["status"] == "apply_not_implemented"
+    assert result["status"] == "simulated"
     assert result["selected"] is not None
-    assert "changes no prescription" in result["note"]
+    assert "Application is enabled" in result["note"]
 
 
 def test_compensation_config_is_loaded_and_defaults_to_preview_only():
     config = volume_budget.BudgetConfig.load()
     assert config.compensation_enabled is True
-    assert config.compensation_apply is False
+    assert config.compensation_apply is True
     assert config.compensation_floor == 0.1
     assert config.compensation_similarity["squat"]["hinge"] == 0.7
     assert config.compensation_slots["squat"][0]["exercise_id"] == (
         "dumbbell_bench_press"
     )
+
+
+def test_compensation_applies_the_selected_slot_with_a_real_load():
+    rows = [
+        {"Date": "2026-10-26", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"}
+        for _ in range(10)
+    ] + [
+        {"Date": "2026-10-26", "Exercise": "Dumbbell Bench Press", "Weight_Used": "20",
+         "RIR": "2", "Reps_Done": "10"}
+        for _ in range(2)
+    ]
+    store = store_with(rows)
+    try:
+        _profile(store.connection, enabled=True, policy="preserve", sessions=1)
+        prescription = build_prescription(
+            store.connection, for_date="2026-10-29", session_type="hinge",
+        )
+    finally:
+        store.close()
+    added = [
+        item for item in prescription.items
+        if item.exercise_id == "dumbbell_bench_press"
+    ]
+    assert len(added) == 1
+    assert added[0].sets >= 3  # a later under-MEV rule may add one set
+    assert prescription.notes["compensation"]["selected"]["sets"] == 3
+    assert "MOD-VOL-004" in added[0].rationale_refs
+    assert prescription.notes["compensation"]["status"] == "applied"
+
+
+def test_compensation_refuses_without_an_executable_load():
+    rows = [
+        {"Date": "2026-10-26", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"}
+        for _ in range(10)
+    ]
+    store = store_with(rows)
+    try:
+        _profile(store.connection, enabled=True, policy="preserve", sessions=1)
+        prescription = build_prescription(
+            store.connection, for_date="2026-10-29", session_type="hinge",
+        )
+    finally:
+        store.close()
+    assert not any(
+        item.exercise_id == "dumbbell_bench_press" for item in prescription.items
+    )
+    assert prescription.notes["compensation"]["status"] == "refused"
+    assert any("MOD-VOL-004" in warning for warning in prescription.warnings)
 
 
 def test_the_budget_note_is_wired_into_the_prescription():

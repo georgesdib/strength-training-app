@@ -513,9 +513,9 @@ Each build does the same four steps:
 
 Main lifts keep their template sets while `main_lift_policy` is `preserve`, so a filled group
 can legitimately go over its target; the change is in the accessories, and the report warns.
-`reduce` is the next step (2b) and will trim a filled group's main lift to a configured floor;
-`drop` is later (9c) and will remove it only after the compensation slot pool exists. Both are
-opt-in and neither is implemented yet.
+`reduce` is implemented (step 2b): it trims a filled group's main lift to `main_lift_floor`.
+`drop` is the remaining step 9c; it will remove and relabel a main lift, and is not implemented
+yet. Both are opt-in.
 
 A set removed by readiness, deload or the spinal cap is recorded in `volume_exemption` and is
 never re-added. If a group is under but has no non-essential capacity (hinge on a hinge day is
@@ -528,15 +528,19 @@ project four, but the target remains the three-session average unless you set a 
 
 See `docs/VOLUME-MODULATION-PLAN.md` §4.4 for the exact algorithm and formulas.
 
-#### Compensation preview (9a)
+#### Compensation slot (9a preview, 9b apply)
 
-`budget.compensation` is a **read-only** cross-group preview. It is enabled for display with
-`apply: false`; it never changes a prescription. When a group was already filled before today,
-its non-essential sets are "freed". One optional slot per session type is filled from a group
-that is still under target, using the inverse-similarity weights (squat→bench is preferred over
-squat→hinge). The CLI, the Volume budget panel and `GET /api/volume/budget` show the freed
-group, the source, the candidates and the selected slot. Step 9b will apply it opt-in; step 9c
-will add `drop`.
+`budget.compensation` is the cross-group slot. 9a shows the preview; 9b applies it **only when
+the budget profile flag is on and `compensation.apply` is true**. When a group was already
+filled before today, its non-essential sets are "freed". One optional slot per session type is
+filled from a group still under target, using the inverse-similarity weights (squat→bench is
+preferred over squat→hinge).
+
+The engine builds the selected item through the normal load solver, cites `MOD-VOL-004`, and then
+runs MRV, spinal, under-MEV, deload and time checks. If the candidate has no working history or
+usable e1RM, it is refused with a warning and the prescription is unchanged — it never guesses a
+load. The CLI, Volume budget panel and `GET /api/volume/budget` show the preview and the applied
+or refused result. `drop` remains step 9c.
 
 If no state is recorded, a prescription is still produced but says so: *"athlete state not
 recorded: constraints were not evaluated"*. Silence is not permission.

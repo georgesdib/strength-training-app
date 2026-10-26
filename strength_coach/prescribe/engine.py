@@ -238,11 +238,19 @@ def build_prescription(
 
     # The volume budget is off by default and enabled only in the athlete profile. It moves
     # non-essential sets; a safety cut is skipped, not re-added (MOD-VOL-003).
+    budget_config = volume_budget_mod.BudgetConfig.load()
     items, budget_warnings, budget_note = volume_budget_mod.apply(
         tuple(items), conn=conn, context=context, for_date=for_date,
-        session_type=session_type,
+        session_type=session_type, config=budget_config,
     )
     warnings.extend(budget_warnings)
+    items, compensation_warnings, compensation_note = _apply_compensation(
+        conn, context, tuple(items), for_date=for_date, session_type=session_type,
+        template=template, thresholds=thresholds, decisions=decisions,
+        budget_note=budget_note, config=budget_config,
+        calibration_factors=e1rm_factors,
+    )
+    warnings.extend(compensation_warnings)
 
     items, calibration_ids, vbt_note = _attach_vbt_targets(
         conn, context, tuple(items), for_date, fallback_level, calibration=vbt_cal
@@ -475,6 +483,7 @@ def build_prescription(
             "high_intensity_exposure": exposure_status.as_dict(),
             "volume_management": volume_note,
             "volume_budget": budget_note,
+            "compensation": compensation_note,
             "minimum_session": minimum_note,
             "technique_throttle": technique_note,
             "load_stack": load_stack,
@@ -1247,6 +1256,105 @@ def _apply_back_flare(
         else:
             out.append(replace(item, rationale_refs=refs))
     return tuple(out)
+
+
+def _apply_compensation(
+    conn,
+    context,
+    items,
+    *,
+    for_date: str,
+    session_type: str,
+    template,
+    thresholds,
+    decisions,
+    budget_note,
+    config,
+    calibration_factors,
+):
+    """Apply the selected 9b compensation slot. Only a real, executable load is added."""
+    if not budget_note.get("enabled") or not config.compensation_apply:
+        return tuple(items), (), {
+            "status": "disabled",
+            "reason": "budget or compensation apply is off",
+        }
+
+    rows = [
+        {
+            "exercise_id": item.exercise_id,
+            "sets": int(item.sets),
+            "essential": bool(item.essential),
+            "rest_s": int(item.rest_s or 0),
+            "key": volume_budget_mod.pattern_key(item.exercise_id),
+        }
+        for item in items
+    ]
+    data = volume_budget_mod.report(
+        conn, for_date, config=config, session_type=session_type,
+    )
+    projected = volume_budget_mod.projection(
+        data["completed"],
+        volume_budget_mod.pattern_sets(rows),
+        [entry["sets"] for entry in data["future"]],
+    )
+    selection = volume_budget_mod.simulate_compensation(
+        session_type=session_type,
+        rows=rows,
+        completed=data["completed"],
+        effective=data["effective_targets"],
+        projected=projected,
+        config=config,
+    )
+    if selection.get("status") != "simulated" or not selection.get("selected"):
+        return tuple(items), (), {
+            "status": selection.get("status"),
+            "selection": selection,
+        }
+
+    selected = dict(selection["selected"])
+    exercise_id = str(selected["exercise_id"])
+    if any(item.exercise_id == exercise_id for item in items):
+        return tuple(items), (), {
+            "status": "already_present",
+            "selection": selection,
+        }
+    slot = templates.Slot(
+        id=f"compensation:{exercise_id}",
+        sets=int(selected["sets"]),
+        reps_low=int(selected["reps_low"]),
+        reps_high=int(selected["reps_high"]),
+        rir_low=int(selected["rir_low"]),
+        rir_high=int(selected["rir_high"]),
+        rest_s=int(selected["rest_s"]),
+        essential=False,
+        load_source=str(selected["load_source"]),
+        exercise=exercise_id,
+    )
+    item, slot_warnings = build_item(
+        conn, context, slot, len(items), thresholds, for_date, decisions, template,
+        calibration_factors=calibration_factors, exercise_id=exercise_id,
+    )
+    if item.load_kg is None or item.unknown_load_reason is not None:
+        reason = item.unknown_load_reason or "no executable load"
+        return tuple(items), (
+            f"MOD-VOL-004: compensation {exercise_id} refused: {reason}",
+        ), {
+            "status": "refused",
+            "selection": selection,
+            "reason": reason,
+        }
+    item = replace(
+        item, rationale_refs=item.rationale_refs + ("MOD-VOL-004",),
+    )
+    warning = (
+        f"MOD-VOL-004: compensation {exercise_id} ({selected['group']}) "
+        f"{selected['sets']} sets from {selection.get('source')}"
+    )
+    return tuple(items) + (item,), (warning,) + tuple(slot_warnings), {
+        "status": "applied",
+        "selection": selection,
+        "selected": selected,
+    }
 
 
 def build_item(

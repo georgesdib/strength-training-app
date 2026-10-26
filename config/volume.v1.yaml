@@ -84,9 +84,11 @@ budget:
   session_time_cap_minutes: 80
   # Step 9a: read-only cross-group compensation simulation. enabled controls the preview;
   # apply is reserved for 9b and must stay false (no prescription change yet).
+  # Step 9b: apply the selected slot when the budget is on. The candidate needs an executable
+  # load; otherwise the engine refuses it and changes nothing.
   compensation:
     enabled: true
-    apply: false
+    apply: true
     floor: 0.1
     similarity:
       squat: {hinge: 0.7, horizontal_push: 0.2}
@@ -95,13 +97,69 @@ budget:
       horizontal_pull: {horizontal_push: 0.3}
     slots:
       squat:
-        - {exercise_id: dumbbell_bench_press, group: horizontal_push, sets: 3}
-        - {exercise_id: rdl, group: hinge, sets: 3}
+        - exercise_id: dumbbell_bench_press
+          group: horizontal_push
+          sets: 3
+          reps_low: 8
+          reps_high: 12
+          rir_low: 2
+          rir_high: 3
+          rest_s: 90
+          load_source: double_progression
+        - exercise_id: rdl
+          group: hinge
+          sets: 3
+          reps_low: 8
+          reps_high: 12
+          rir_low: 2
+          rir_high: 3
+          rest_s: 120
+          load_source: double_progression
       bench_squat:
-        - {exercise_id: rdl, group: hinge, sets: 3}
-        - {exercise_id: dumbbell_bench_press, group: horizontal_push, sets: 3}
+        - exercise_id: rdl
+          group: hinge
+          sets: 3
+          reps_low: 8
+          reps_high: 12
+          rir_low: 2
+          rir_high: 3
+          rest_s: 120
+          load_source: double_progression
+        - exercise_id: dumbbell_bench_press
+          group: horizontal_push
+          sets: 3
+          reps_low: 8
+          reps_high: 12
+          rir_low: 2
+          rir_high: 3
+          rest_s: 90
+          load_source: double_progression
       hinge:
-        - {exercise_id: dumbbell_bench_press, group: horizontal_push, sets: 3}
+        - exercise_id: dumbbell_bench_press
+          group: horizontal_push
+          sets: 3
+          reps_low: 8
+          reps_high: 12
+          rir_low: 2
+          rir_high: 3
+          rest_s: 90
+          load_source: double_progression
       bench_hinge:
-        - {exercise_id: dumbbell_bench_press, group: horizontal_push, sets: 3}
-        - {exercise_id: rdl, group: hinge, sets: 3}
+        - exercise_id: dumbbell_bench_press
+          group: horizontal_push
+          sets: 3
+          reps_low: 8
+          reps_high: 12
+          rir_low: 2
+          rir_high: 3
+          rest_s: 90
+          load_source: double_progression
+        - exercise_id: rdl
+          group: hinge
+          sets: 3
+          reps_low: 8
+          reps_high: 12
+          rir_low: 2
+          rir_high: 3
+          rest_s: 120
+          load_source: double_progression
