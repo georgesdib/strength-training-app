@@ -21,7 +21,13 @@ TARGET_COUNTS = {"squat": 2, "hinge": 2, "bench": 2}
 WINDOW = 6
 
 
-def _family(session_type: str) -> str:
+def _family(session_type: str) -> str | None:
+    if session_type == "technique":
+        return None
+    if session_type.startswith("volume_fill_"):
+        session_type = session_type[len("volume_fill_"):]
+    if session_type not in SESSION_TYPES:
+        return None
     if session_type in ("bench_squat", "bench_hinge"):
         return "bench"
     return session_type
@@ -36,9 +42,9 @@ def _choose_family(recent: list[str]) -> str:
     last_seen: dict[str, int] = {}
     last_family = None
     for index, value in enumerate(recent):
-        if value not in SESSION_TYPES:
-            continue
         family = _family(value)
+        if family is None:
+            continue
         counts[family] += 1
         last_seen[family] = index
         last_family = family

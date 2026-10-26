@@ -77,6 +77,7 @@ def build_prescription(
     technique_throttle: bool = False,
     technique_throttle_pattern: str | None = None,
     deload_decision: Any | None = None,
+    drop_confirmed: bool = False,
 ) -> Prescription:
     """Generate the deterministic session for `for_date`.
 
@@ -86,7 +87,16 @@ def build_prescription(
     """
     document = document or load_document()
     thresholds = thresholds or config_mod.Thresholds.load()
-    if template is None:
+    budget_config = volume_budget_mod.BudgetConfig.load()
+    requested_session_type = session_type
+    drop_plan = volume_budget_mod.plan_drop(
+        conn, for_date, session_type, config=budget_config, confirmed=drop_confirmed,
+    )
+    drop_applied = bool(drop_plan.get("applied"))
+    if drop_applied:
+        session_type = str(drop_plan["session_type"])
+        template = drop_plan["template"]
+    elif template is None:
         template = templates.SessionTemplate.load(session_type)
     readiness_config = readiness_config or readiness_mod.ReadinessConfig.load()
     undulation = undulation or undulation_mod.Undulation.load()
@@ -100,6 +110,18 @@ def build_prescription(
 
     items: list[PrescriptionItem] = []
     warnings: list[str] = []
+    if drop_applied:
+        if session_type == "technique":
+            warnings.append(
+                "MOD-VOL-005: week is at/above the high tolerance band; technique session"
+            )
+        else:
+            warnings.append(
+                "MOD-VOL-005: volume fill; "
+                f"{drop_plan['note']['original_session_type']} main/accessories removed"
+            )
+    elif drop_plan.get("status") == "competition_confirmation":
+        warnings.append(f"MOD-VOL-005: drop held: {drop_plan.get('note')}")
     if exposure_status.status != "clear":
         warnings.append(
             f"high-intensity exposure: {exposure_status.reason}"
@@ -237,20 +259,25 @@ def build_prescription(
     warnings.extend(gap_warnings)
 
     # The volume budget is off by default and enabled only in the athlete profile. It moves
-    # non-essential sets; a safety cut is skipped, not re-added (MOD-VOL-003).
-    budget_config = volume_budget_mod.BudgetConfig.load()
-    items, budget_warnings, budget_note = volume_budget_mod.apply(
-        tuple(items), conn=conn, context=context, for_date=for_date,
-        session_type=session_type, config=budget_config,
-    )
-    warnings.extend(budget_warnings)
-    items, compensation_warnings, compensation_note = _apply_compensation(
-        conn, context, tuple(items), for_date=for_date, session_type=session_type,
-        template=template, thresholds=thresholds, decisions=decisions,
-        budget_note=budget_note, config=budget_config,
-        calibration_factors=e1rm_factors,
-    )
-    warnings.extend(compensation_warnings)
+    # non-essential sets; a safety cut is skipped, not re-added (MOD-VOL-003). In drop mode the
+    # volume_fill template is already target-built, so 9b is not applied again.
+    if drop_applied:
+        budget_note = {"enabled": True, "status": "drop", "drop": drop_plan}
+        compensation_note = {"status": "disabled", "reason": "drop mode"}
+    else:
+        items, budget_warnings, budget_note = volume_budget_mod.apply(
+            tuple(items), conn=conn, context=context, for_date=for_date,
+            session_type=requested_session_type, config=budget_config,
+        )
+        warnings.extend(budget_warnings)
+        items, compensation_warnings, compensation_note = _apply_compensation(
+            conn, context, tuple(items), for_date=for_date,
+            session_type=requested_session_type,
+            template=template, thresholds=thresholds, decisions=decisions,
+            budget_note=budget_note, config=budget_config,
+            calibration_factors=e1rm_factors,
+        )
+        warnings.extend(compensation_warnings)
 
     items, calibration_ids, vbt_note = _attach_vbt_targets(
         conn, context, tuple(items), for_date, fallback_level, calibration=vbt_cal
@@ -484,6 +511,7 @@ def build_prescription(
             "volume_management": volume_note,
             "volume_budget": budget_note,
             "compensation": compensation_note,
+            "drop": drop_plan.get("note") if drop_applied else None,
             "minimum_session": minimum_note,
             "technique_throttle": technique_note,
             "load_stack": load_stack,

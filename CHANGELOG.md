@@ -37,6 +37,11 @@
   weekly high tolerance band and does not add when the week is already there. If no load is
   available, it retries with the e1RM basis and then asks for an e1RM in the Prescribe panel
   (CLI prints the `e1rm set` command); it refuses only if still unusable. `drop` remains 9c.
+- **Drop engine (9c-1)**: `budget.drop` candidate pools, high-band technique session, and a
+  multi-slot `volume_fill_<original>` below the high band; the filled group's main and
+  non-essential work are removed, the original type is recorded, and the rolling schedule maps
+  the derived type back to its family. `MOD-VOL-005`/constitution 1.18.0. UI/CLI confirmation,
+  labels, history and programme forecast are not part of 9c-1.
 - Evidence review for reverse hyperextensions and belt squats: acute biomechanics/EMG only,
   no longitudinal strength or injury outcomes; both remain optional accessories.
 - Guided **Workout workflow**: readiness → prescription preview → start → active workout (sets, CSV/per-rep import, end) → post-workout comparison. Readiness settings and Prescribe analysis remain separate pages.

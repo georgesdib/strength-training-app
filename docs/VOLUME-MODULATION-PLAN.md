@@ -1,13 +1,13 @@
 # VOLUME MODULATION — weekly target, session cap, and a settings layer
 
-**Status: design accepted; constitution 1.17.0; step 1 (read-only weekly budget), step 2
+**Status: design accepted; constitution 1.18.0; step 1 (read-only weekly budget), step 2
 (per-group budget behind the off-by-default profile flag), step 2b (opt-in main-lift reduce),
 step 9a (read-only compensation preview) and step 9b (opt-in compensation application) are
 implemented (2026-10-26).** This document specifies a volume budget (a weekly target plus a
 per-session cap) and the settings/modality layer it must sit behind. It records the evidence,
 the rules, the decisions and a phased path. Step 1 is read-only; 9a is a preview; 9b is opt-in;
-9c (`drop`) has an agreed two-branch design (§4.6) but is not implemented; steps 3–8 are not
-implemented.
+9c-1 (`drop` engine) is implemented; 9c-2 (identity/UX) and 9c-3 (confirmation/settings) are
+pending; steps 3–8 are not implemented.
 
 At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
 plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
@@ -459,7 +459,7 @@ is asked for an e1RM rather than silently refused (`DEC-VOLUME-15`). Step 9c (`d
 separate: its two-branch design is agreed in §4.6, but it is not implemented and `MOD-VOL-004`
 does not remove a main lift.
 
-### 4.6 9c drop — agreed design (not implemented)
+### 4.6 9c drop — design and 9c-1 engine
 
 The drop decision is made at the start of a session, from the remaining week, not from one slot.
 
@@ -505,14 +505,23 @@ The drop decision is made at the start of a session, from the remaining week, no
 - The programme forecast and review/rubric must know both types; a `volume_fill` without a main
   lift must not be graded as a failed main session.
 
+**9c-1 engine status (implemented 2026-10-26)**
+- `budget.drop` holds the candidate pools, max slots per group, technique minutes and 7-day
+  competition window.
+- `plan_drop` implements both branches; `technique` is an attendance-only empty prescription, and
+  `volume_fill_<original>` is a synthetic template with the filled group removed and multi-slot
+  fills into the high band. `MOD-VOL-005` is in constitution 1.18.0.
+- `volume_fill_<original>` maps back to its original family for the rolling schedule.
+- Not in 9c-1: UI/CLI confirmation, first-class labels/history, review/ingest, programme forecast
+  and settings exposure. Those are 9c-2/3.
+
 **Activation and safety**
 - Only when the budget is enabled and `main_lift_policy: drop` is selected; `preserve`/`reduce`
   are unchanged.
 - Automatic after that opt-in, with a per-session confirmation at competition/peak; the window
   is config with a default of **7 days** before `competition_date`; never remove a main lift
   silently.
-- `MOD-VOL-005` will cover 9c; `MOD-VOL-004` remains the 9b single-slot application. No code,
-  template or constitution change is made yet.
+- `MOD-VOL-005` covers the 9c engine; `MOD-VOL-004` remains the 9b single-slot application.
 
 ## 5. Worked examples
 
@@ -804,9 +813,9 @@ it; not v1.
 - 9b **implemented 2026-10-26**: with `apply: true` and the budget on, the engine adds the
   selected slot through `build_item`, cites `MOD-VOL-004`, and refuses if the load is not
   executable. Constitution 1.17.0.
-- 9c **design agreed 2026-10-26, not implemented**: total full → skip/short; lift-specific
-  full with total under → a distinct multi-slot `volume_fill` with the original type recorded;
-  automatic after the opt-in, with confirmation at competition/peak; `MOD-VOL-005`.
+- 9c **engine implemented 2026-10-26 (9c-1)**: high band → technique; below → multi-slot
+  `volume_fill_<original>` with the filled group removed; `MOD-VOL-005`/constitution 1.18.0;
+  schedule maps the derived type. UI/confirmation/labels/forecast are 9c-2/3.
 - `reduce` is step 2b, not here; step 9 only handles cross-group compensation and `drop`.
 
 ## 11. Tests (for the implementation phase)
@@ -850,13 +859,14 @@ it; not v1.
 | 18 | 9a/9b compensation | 9a preview: slot pool, similarity weights and `compensation` report. 9b application: with `apply: true` and the budget on, one non-essential slot is added with a real load (`MOD-VOL-004`, constitution 1.17.0); no history refuses. 9c is `drop` |
 | 19 | 9b application | one slot added through `build_item`; executable load required; refusal is a warning, not a guessed load; `MOD-VOL-004`; all later caps still run (`DEC-VOLUME-14`) |
 | 20 | Missing compensation load | retry with the e1RM basis, then ask the athlete for an e1RM (UI prompt/CLI) and rebuild; refuse only if still unusable (`DEC-VOLUME-15`) |
-| 21 | 9c drop design | two branches: total at/above the high band → technique-focused session; below the high band with a filled group → first-class multi-slot `volume_fill` filling into the high band. `volume_fill`/`technique` count as sessions with distinct exposure semantics; original type/reason recorded; no silent relabel. Automatic after `main_lift_policy: drop` opt-in; confirm 7 days before competition (config); `MOD-VOL-005`; not implemented (`DEC-VOLUME-16/17`) |
+| 21 | 9c drop design | two branches: total at/above the high band → technique-focused session; below the high band with a filled group → first-class multi-slot `volume_fill` filling into the high band. `volume_fill`/`technique` count as sessions with distinct exposure semantics; original type/reason recorded; no silent relabel. Automatic after `main_lift_policy: drop` opt-in; confirm 7 days before competition (config); `MOD-VOL-005`; 9c-1 engine implemented, 9c-2/3 pending (`DEC-VOLUME-16/17/18`) |
 | 22 | 9b high-band guard | 9b stays additive (source accessory remains) but stops at the weekly high tolerance band; status `weekly_full` and no added slot when already there (`DEC-VOLUME-17`) |
+| 23 | 9c-1 drop engine | `budget.drop` pools; `plan_drop` technique at/above the high band and multi-slot `volume_fill_<original>` below; schedule maps the derived type; `MOD-VOL-005`, constitution 1.18.0; no UI/confirmation/labels/forecast yet (`DEC-VOLUME-18`) |
 
 Step 1 is implemented read-only (the module, the `volume_exemption` table and the config
 section). Step 2 is implemented behind the off-by-default profile flag, step 2b adds the opt-in
 `reduce` mode, and 9b adds the opt-in compensation slot: `MOD-VOL-003`/`MOD-VOL-004` are in
-constitution 1.17.0, `_apply_volume_budget` runs after continuity, and safety cuts are recorded
+constitution 1.18.0, `_apply_volume_budget` runs after continuity, `plan_drop` handles 9c-1, and safety cuts are recorded
 in `volume_exemption`. Steps 3–8 and 9c (`drop`) remain unimplemented. The rationale and the rejected
 alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VOLUME-07` and
 `DEC-SPINE-06`.

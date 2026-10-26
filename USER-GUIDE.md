@@ -514,10 +514,11 @@ Each build does the same four steps:
 Main lifts keep their template sets while `main_lift_policy` is `preserve`, so a filled group
 can legitimately go over its target; the change is in the accessories, and the report warns.
 `reduce` is implemented (step 2b): it trims a filled group's main lift to `main_lift_floor`.
-`drop` is the remaining step 9c; its two-branch design is agreed but not implemented: total
-weekly quota full means skip or short/technique, while a lift-specific fill with the total under
-builds a distinct multi-slot `volume_fill` session and records the original type. It is opt-in
-and switches on only after `main_lift_policy: drop`.
+`drop` is 9c. The **9c-1 engine only** is implemented: at or above the weekly high band it
+returns a technique-focused empty plan; below the high band it removes the filled group's work
+and builds a multi-slot `volume_fill_<original>` session that fills into the high band. It is
+opt-in after `main_lift_policy: drop`. The Prescribe/CLI confirmation, labels, history and
+forecast are 9c-2/3 and not available yet.
 
 A set removed by readiness, deload or the spinal cap is recorded in `volume_exemption` and is
 never re-added. If a group is under but has no non-essential capacity (hinge on a hinge day is

@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.17.0"
+  version: "1.18.0"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -53,6 +53,8 @@ document:
       change: "MOD-VOL-003 gains the opt-in main-lift reduce mode (step 2b): when a group has already reached its effective target, trim its main lift to the configured floor, never in preserve and never adding sets. Drop remains out of scope (DEC-VOLUME-10/11)."
     - version: "1.17.0"
       change: "MOD-VOL-004 (step 9b) applies one non-essential compensation slot when the budget and compensation apply are enabled: a group filled before today frees its accessory, the best-weighted under-target receiver receives one slot, and only an executable load is added. Drop remains 9c (DEC-VOLUME-13/14)."
+    - version: "1.18.0"
+      change: "MOD-VOL-005 (step 9c-1) adds the drop engine: at/above the high tolerance band the session becomes technique; below it, a filled group's main/accessories are removed and a multi-slot volume_fill is built into the high band. Session identity and confirmation UI follow in later chunks (DEC-VOLUME-18)."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -456,6 +458,25 @@ modifiers:
     availability:
       status: available
       reason: "Opt-in via budget.compensation.apply and the budget profile flag (DEC-VOLUME-13/14)."
+
+  - id: MOD-VOL-005
+    implemented_by: "strength_coach/prescribe/volume_budget.py::plan_drop"
+    title: "Drop / volume fill"
+    statement: >
+      When the budget is enabled and main_lift_policy is drop, a projected week at or above the
+      high tolerance band becomes a technique-focused session with no working sets. Below the high
+      band, a filled group's main lift and non-essential work are removed and a distinct
+      volume_fill session is built from the remaining session budget, using multiple non-essential
+      slots, the inverse-similarity weights, executable loads and the high-band ceiling. Never
+      silently relabel a normal session; competition-window confirmation is required.
+    when:
+      any:
+        - {input: volume_drop.enabled, op: "==", value: true}
+    then:
+      session_transform: drop
+    availability:
+      status: available
+      reason: "Opt-in via main_lift_policy: drop; 9c-1 engine only (DEC-VOLUME-18)."
 
   - id: MOD-SELECT-001
     implemented_by: "strength_coach/prescribe/selection.py::select"

@@ -424,12 +424,15 @@ def test_record_exemptions_writes_the_safety_cut():
     ]
 
 
-def _profile(conn, *, enabled: bool, policy: str = "preserve", sessions: int = 3):
+def _profile(
+    conn, *, enabled: bool, policy: str = "preserve", sessions: int = 3,
+    competition: str | None = None,
+):
     current = queries.athlete_profile(conn) or {}
     repositories.append_athlete_profile(
         conn, effective_from=TODAY, primary_goal=current.get("primary_goal") or "strength",
         goal_rank=current.get("goal_rank") and json.loads(current["goal_rank"]) or ["strength"],
-        focus_lifts=[], competition_date=None, sessions_per_week_target=sessions,
+        focus_lifts=[], competition_date=competition, sessions_per_week_target=sessions,
         max_session_minutes=90, block_start_date=None,
         volume_budget_enabled=enabled, main_lift_policy=policy,
     )
@@ -722,6 +725,95 @@ def test_compensation_falls_back_to_a_recorded_e1rm():
     assert added[0].load_kg is not None
     assert "MOD-VOL-004" in added[0].rationale_refs
     assert prescription.notes["compensation"]["status"] == "applied"
+
+
+def test_drop_config_is_loaded():
+    config = volume_budget.BudgetConfig.load()
+    assert config.drop_enabled is True
+    assert config.drop_competition_confirm_days == 7
+    assert config.drop_max_slots_per_group == 1
+    assert config.drop_slots["horizontal_push"][0]["exercise_id"] == (
+        "dumbbell_bench_press"
+    )
+
+
+def test_drop_uses_a_technique_session_at_the_high_band():
+    rows = [
+        {"Date": "2026-10-26", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"}
+        for _ in range(63)
+    ]
+    store = store_with(rows)
+    try:
+        _profile(store.connection, enabled=True, policy="drop", sessions=1)
+        prescription = build_prescription(
+            store.connection, for_date="2026-10-29", session_type="hinge",
+        )
+    finally:
+        store.close()
+    assert prescription.session_type == "technique"
+    assert prescription.items == ()
+    assert any("MOD-VOL-005" in warning for warning in prescription.warnings)
+
+
+def test_drop_builds_a_volume_fill_session():
+    rows = [
+        {"Date": "2026-10-26", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"}
+        for _ in range(10)
+    ] + [
+        {"Date": "2026-10-26", "Exercise": "Dumbbell Bench Press", "Weight_Used": "20",
+         "RIR": "2", "Reps_Done": "10"}
+        for _ in range(2)
+    ]
+    store = store_with(rows)
+    try:
+        _profile(store.connection, enabled=True, policy="drop", sessions=1)
+        prescription = build_prescription(
+            store.connection, for_date="2026-10-29", session_type="hinge",
+        )
+    finally:
+        store.close()
+    assert prescription.session_type == "volume_fill_hinge"
+    assert not any(item.exercise_id == "split_squat" for item in prescription.items)
+    assert any(
+        item.exercise_id == "dumbbell_bench_press" for item in prescription.items
+    )
+    assert prescription.notes["drop"]["original_session_type"] == "hinge"
+    assert any("MOD-VOL-005" in warning for warning in prescription.warnings)
+
+
+def test_drop_requires_confirmation_in_the_competition_window():
+    rows = [
+        {"Date": "2026-10-26", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"}
+        for _ in range(10)
+    ]
+    store = store_with(rows)
+    try:
+        _profile(
+            store.connection, enabled=True, policy="drop", sessions=1,
+            competition="2026-11-01",
+        )
+        held = build_prescription(
+            store.connection, for_date="2026-10-29", session_type="hinge",
+        )
+        confirmed = build_prescription(
+            store.connection, for_date="2026-10-29", session_type="hinge",
+            drop_confirmed=True,
+        )
+    finally:
+        store.close()
+    assert held.session_type == "hinge"
+    assert any("drop held" in warning for warning in held.warnings)
+    assert confirmed.session_type == "volume_fill_hinge"
+
+
+def test_schedule_maps_a_volume_fill_to_its_original_family():
+    from strength_coach.prescribe import schedule
+    assert schedule._family("volume_fill_squat") == "squat"
+    assert schedule._family("volume_fill_bench_hinge") == "bench"
+    assert schedule._family("technique") is None
 
 
 def test_the_budget_note_is_wired_into_the_prescription():

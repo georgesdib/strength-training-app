@@ -72,6 +72,28 @@ DEFAULT_COMPENSATION_SLOTS = {
     ),
 }
 
+DEFAULT_DROP_SLOTS = {
+    "horizontal_push": (
+        {"exercise_id": "dumbbell_bench_press", "sets": 3},
+        {"exercise_id": "incline_db_bench_press", "sets": 3},
+    ),
+    "hinge": ({"exercise_id": "rdl", "sets": 3},),
+    "horizontal_pull": (
+        {"exercise_id": "dumbbell_chest_supported_row", "sets": 3},
+        {"exercise_id": "dumbbell_row", "sets": 3},
+    ),
+    "vertical_pull": (
+        {"exercise_id": "pull_up", "sets": 3, "load_source": "bodyweight"},
+        {"exercise_id": "lat_pulldown", "sets": 3},
+    ),
+    "vertical_push": ({"exercise_id": "landmine_press", "sets": 3},),
+    "core": (
+        {"exercise_id": "ab_wheel", "sets": 3, "load_source": "bodyweight"},
+        {"exercise_id": "hanging_leg_raise", "sets": 3, "load_source": "bodyweight"},
+    ),
+    "hinge_unilateral": ({"exercise_id": "single_leg_db_rdl", "sets": 3},),
+}
+
 SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
 
 SET_SECONDS = 30
@@ -98,6 +120,16 @@ class BudgetConfig:
         default_factory=lambda: {
             key: tuple(dict(entry) for entry in entries)
             for key, entries in DEFAULT_COMPENSATION_SLOTS.items()
+        }
+    )
+    drop_enabled: bool = True
+    drop_competition_confirm_days: int = 7
+    drop_max_slots_per_group: int = 1
+    drop_technique_minutes: int = 30
+    drop_slots: Mapping[str, tuple[Mapping[str, Any], ...]] = field(
+        default_factory=lambda: {
+            key: tuple(dict(entry) for entry in entries)
+            for key, entries in DEFAULT_DROP_SLOTS.items()
         }
     )
     trim_enabled: bool = True
@@ -199,6 +231,38 @@ class BudgetConfig:
             if not parsed:
                 raise ValueError(f"compensation slot for {session!r} is empty")
             slots[str(session)] = tuple(parsed)
+        drop = body.get("drop") or {}
+        drop_enabled = bool(drop.get("enabled", True))
+        drop_days = int(drop.get("competition_confirm_days", 7))
+        drop_max = int(drop.get("max_slots_per_group", 1))
+        drop_minutes = int(drop.get("technique_minutes", 30))
+        if drop_days < 0 or drop_max < 1 or drop_minutes <= 0:
+            raise ValueError("volume budget drop settings are invalid")
+        drop_slots: dict[str, tuple[dict[str, Any], ...]] = {}
+        for group, entries in (drop.get("slots") or DEFAULT_DROP_SLOTS).items():
+            if group not in MANAGED_KEYS:
+                raise ValueError(f"volume budget drop unknown group {group!r}")
+            parsed_drop: list[dict[str, Any]] = []
+            for entry in entries:
+                sets = int(entry["sets"])
+                if sets < 1:
+                    raise ValueError("drop slot sets must be positive")
+                load_source = str(entry.get("load_source", "double_progression"))
+                if load_source not in templates.LOAD_SOURCES:
+                    raise ValueError(f"drop load_source {load_source!r} is not supported")
+                parsed_drop.append({
+                    "exercise_id": str(entry["exercise_id"]),
+                    "sets": sets,
+                    "reps_low": int(entry.get("reps_low", 8)),
+                    "reps_high": int(entry.get("reps_high", 12)),
+                    "rir_low": int(entry.get("rir_low", 2)),
+                    "rir_high": int(entry.get("rir_high", 3)),
+                    "rest_s": int(entry.get("rest_s", 90)),
+                    "load_source": load_source,
+                })
+            if not parsed_drop:
+                raise ValueError(f"drop slot for {group!r} is empty")
+            drop_slots[str(group)] = tuple(parsed_drop)
         band_min = float(body.get("band_min", 1.0))
         if band_min < 0:
             raise ValueError("volume budget band_min must be non-negative")
@@ -244,6 +308,11 @@ class BudgetConfig:
             compensation_floor=comp_floor,
             compensation_similarity=similarity,
             compensation_slots=slots,
+            drop_enabled=drop_enabled,
+            drop_competition_confirm_days=drop_days,
+            drop_max_slots_per_group=drop_max,
+            drop_technique_minutes=drop_minutes,
+            drop_slots=drop_slots,
             trim_enabled=bool(body.get("trim_enabled", True)),
             top_up_enabled=bool(body.get("top_up_enabled", True)),
             band_min=band_min,
@@ -951,6 +1020,177 @@ def simulate_compensation(
             if not config.compensation_apply
             else "Application is enabled: the engine adds the selected slot when the budget is on."
         ),
+    }
+
+
+def plan_drop(
+    conn,
+    on_date: str,
+    session_type: str,
+    *,
+    config: BudgetConfig | None = None,
+    confirmed: bool = False,
+) -> dict[str, Any]:
+    """Choose the 9c branch: technique at the high band, else a volume_fill session."""
+    cfg = config or BudgetConfig.load()
+    profile = queries.athlete_profile(conn) or {}
+    enabled = (
+        bool(profile.get("volume_budget_enabled"))
+        if "volume_budget_enabled" in profile else cfg.enabled
+    )
+    if not enabled or not cfg.drop_enabled or profile.get("main_lift_policy") != "drop":
+        return {"applied": False, "status": "disabled"}
+
+    competition = profile.get("competition_date")
+    if competition and not confirmed:
+        days = (
+            dt.date.fromisoformat(str(competition))
+            - dt.date.fromisoformat(str(on_date))
+        ).days
+        if 0 <= days <= cfg.drop_competition_confirm_days:
+            return {
+                "applied": False,
+                "status": "competition_confirmation",
+                "note": (
+                    f"competition is in {days} days; drop needs confirmation within "
+                    f"{cfg.drop_competition_confirm_days} days"
+                ),
+            }
+
+    template = templates.SessionTemplate.load(session_type)
+    data = report(conn, on_date, config=cfg, session_type=session_type)
+    effective = data["effective_targets"]
+    projected = data["projection"]
+    completed = data["completed"]
+    total_high = band(effective, cfg.tolerance)["high"]
+    projected_total = sum(float(value) for value in projected.values())
+
+    def technique(note: str) -> dict[str, Any]:
+        return {
+            "applied": True,
+            "session_type": "technique",
+            "template": templates.SessionTemplate(
+                session_type="technique",
+                label="Technique (week complete)",
+                slots=(),
+                time_cap_s=int(cfg.drop_technique_minutes * 60),
+                schema_version=template.schema_version,
+            ),
+            "note": note,
+        }
+
+    if projected_total >= total_high:
+        return technique(
+            "projected week is at or above the high tolerance band; technique session"
+        )
+
+    filled = {
+        key for key in MANAGED_KEYS
+        if float(effective.get(key, 0)) > 0
+        and float(completed.get(key, 0)) >= float(effective.get(key, 0))
+    }
+    removed = []
+    base = []
+    for slot in template.slots:
+        groups = {pattern_key(exercise) for exercise in slot.exercises}
+        if groups & filled:
+            removed.append(slot)
+        else:
+            base.append(slot)
+    if not removed:
+        return {"applied": False, "status": "no_filled_slot"}
+
+    freed = sum(int(slot.sets) for slot in removed)
+    headroom = max(0.0, total_high - (projected_total - freed))
+    base_by_group: dict[str, int] = {}
+    for slot in base:
+        key = pattern_key(slot.exercises[0])
+        if key:
+            base_by_group[key] = base_by_group.get(key, 0) + int(slot.sets)
+    headroom = min(
+        headroom, max(0.0, cfg.session_cap_total - sum(int(slot.sets) for slot in base))
+    )
+    if headroom <= 0:
+        return technique("removing the filled work leaves no room below the high band")
+
+    source = max(
+        filled,
+        key=lambda key: sum(
+            int(slot.sets) for slot in removed
+            if pattern_key(slot.exercises[0]) == key
+        ),
+    )
+    receivers: list[tuple[float, str]] = []
+    for group in MANAGED_KEYS:
+        if group in filled:
+            continue
+        shortfall = float(effective.get(group, 0)) - float(projected.get(group, 0))
+        if shortfall <= 0:
+            continue
+        weight = max(
+            cfg.compensation_floor,
+            1.0 - _compensation_similarity(cfg, source, group),
+        )
+        receivers.append((weight, group))
+    receivers.sort(reverse=True)
+
+    fill_slots = []
+    for _weight, group in receivers:
+        shortfall = float(effective.get(group, 0)) - float(projected.get(group, 0))
+        count = 0
+        for candidate in cfg.drop_slots.get(group, ()):
+            if count >= cfg.drop_max_slots_per_group or shortfall <= 0 or headroom <= 0:
+                break
+            group_headroom = max(
+                0, cfg.session_cap_pattern.get(group, 0) - base_by_group.get(group, 0)
+            )
+            sets = int(min(shortfall, int(candidate["sets"]), headroom, group_headroom))
+            if sets <= 0:
+                continue
+            fill_slots.append(templates.Slot(
+                id=f"drop:{group}:{candidate['exercise_id']}",
+                sets=sets,
+                reps_low=int(candidate["reps_low"]),
+                reps_high=int(candidate["reps_high"]),
+                rir_low=int(candidate["rir_low"]),
+                rir_high=int(candidate["rir_high"]),
+                rest_s=int(candidate["rest_s"]),
+                essential=False,
+                load_source=str(candidate["load_source"]),
+                exercise=str(candidate["exercise_id"]),
+            ))
+            shortfall -= sets
+            headroom -= sets
+            count += 1
+
+    if not fill_slots:
+        return technique("no under-target receiver has capacity for a fill slot")
+
+    new_type = f"volume_fill_{session_type}"
+    return {
+        "applied": True,
+        "session_type": new_type,
+        "template": templates.SessionTemplate(
+            session_type=new_type,
+            label=f"Volume fill ({session_type} omitted)",
+            slots=tuple(base) + tuple(fill_slots),
+            time_cap_s=template.time_cap_s,
+            schema_version=template.schema_version,
+        ),
+        "note": {
+            "original_session_type": session_type,
+            "filled_groups": sorted(filled),
+            "freed_sets": freed,
+            "high_band": round(total_high, 1),
+            "filled_slots": [
+                {
+                    "exercise_id": slot.exercise,
+                    "group": pattern_key(slot.exercise or ""),
+                    "sets": slot.sets,
+                }
+                for slot in fill_slots
+            ],
+        },
     }
 
 

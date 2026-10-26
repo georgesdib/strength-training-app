@@ -163,3 +163,28 @@ budget:
           rir_high: 3
           rest_s: 120
           load_source: double_progression
+  # 9c-1: drop engine. At/above the high band -> technique; otherwise a volume_fill session.
+  drop:
+    enabled: true
+    competition_confirm_days: 7
+    max_slots_per_group: 1
+    technique_minutes: 30
+    slots:
+      horizontal_push:
+        - {exercise_id: dumbbell_bench_press, sets: 3}
+        - {exercise_id: incline_db_bench_press, sets: 3}
+      hinge:
+        - {exercise_id: rdl, sets: 3}
+      horizontal_pull:
+        - {exercise_id: dumbbell_chest_supported_row, sets: 3}
+        - {exercise_id: dumbbell_row, sets: 3}
+      vertical_pull:
+        - {exercise_id: pull_up, sets: 3, load_source: bodyweight}
+        - {exercise_id: lat_pulldown, sets: 3}
+      vertical_push:
+        - {exercise_id: landmine_press, sets: 3}
+      core:
+        - {exercise_id: ab_wheel, sets: 3, load_source: bodyweight}
+        - {exercise_id: hanging_leg_raise, sets: 3, load_source: bodyweight}
+      hinge_unilateral:
+        - {exercise_id: single_leg_db_rdl, sets: 3}
