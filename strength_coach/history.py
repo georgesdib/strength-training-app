@@ -30,9 +30,16 @@ def _now() -> str:
 
 
 def current_sets(conn, session_id: str) -> list[dict]:
+    """Sets in performed order.
+
+    An import inserts rows grouped by exercise, so `set_id` order is not the order the sets
+    were logged; `raw_id` is. Live-workout sets are appended in order and have no raw_id, so
+    they keep `set_id` order. A session that mixes both sources sorts each by its own
+    sequence, which is the best available without a stored performed-position column.
+    """
     rows = conn.execute(
         f"SELECT s.* FROM clean_set s WHERE s.session_id = ? AND {CURRENT} "
-        "ORDER BY s.set_id",
+        "ORDER BY COALESCE(s.raw_id, s.set_id), s.set_id",
         (str(session_id),),
     ).fetchall()
     return [dict(row) for row in rows]

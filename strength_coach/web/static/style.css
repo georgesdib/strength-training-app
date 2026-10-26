@@ -208,6 +208,14 @@ details summary { cursor: pointer; color: var(--muted); }
 .history-rep-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 8px; }
 .rep-field { font-size: 11px; }
 .history-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+/* Read-only facts in the details sheet: labels and values, not inputs that look editable. */
+.history-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 0 0 14px; }
+.history-facts div { min-width: 0; }
+.history-facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.history-facts dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.hero-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.history-exercise { margin-top: 16px; }
+.history-exercise h3 { margin-bottom: 4px; }
 #history-edit-panel .form-row { margin-top: 12px; }
 
 #history-details input[readonly] { background: var(--soft); color: var(--ink); }

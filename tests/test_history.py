@@ -28,6 +28,33 @@ def _store():
     return store
 
 
+def test_sets_keep_the_order_they_were_logged():
+    # An import inserts rows grouped by exercise, so set_id order is not the order the sets
+    # were performed; raw_id is. The details view must show the log order.
+    rows = [
+        {"Date": "2024-01-01", "Exercise": "Safety Squat Bar", "Reps_Done": "5", "RIR": "2"},
+        {"Date": "2024-01-01", "Exercise": "Competition Bench Press", "Reps_Done": "5", "RIR": "2"},
+        {"Date": "2024-01-01", "Exercise": "Safety Squat Bar", "Reps_Done": "5", "RIR": "2"},
+        {"Date": "2024-01-01", "Exercise": "Competition Bench Press", "Reps_Done": "5", "RIR": "2"},
+    ]
+    store = db.Store(":memory:")
+    try:
+        training = make_training(rows)
+        readiness = make_readiness([{"Date": "2024-01-01"}])
+        importer.import_export(
+            store.connection, training, readiness,
+            training_sha256=importer.sha256_frame(training),
+            readiness_sha256=importer.sha256_frame(readiness),
+        )
+        session_id = history.list_sessions(store.connection)["sessions"][0]["session_id"]
+        detail = history.detail(store.connection, session_id)
+    finally:
+        store.close()
+    assert [item["exercise_id"] for item in detail["sets"]] == [
+        "ssb_squat", "bench_press", "ssb_squat", "bench_press",
+    ]
+
+
 def test_history_lists_and_edits_with_superseding_rows():
     store = _store()
     try:

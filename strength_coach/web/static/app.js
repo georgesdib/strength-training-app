@@ -168,11 +168,33 @@ async function loadOverview() {
     loadProgress();
     loadRepVelocityProgress();
     loadReviews();
+    // The hero button reloads this whole page; the stamp is the only visible proof it ran.
+    const stamp = $("#today-updated");
+    if (stamp) stamp.textContent = "Updated " + new Date().toLocaleTimeString();
   } catch (error) {
     $("#today-title").textContent = "Could not load";
     $("#today-sub").textContent = error.message;
   }
 }
+
+async function refreshToday() {
+  const button = $("#today-refresh");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Refreshing…";
+  }
+  try {
+    await loadOverview();
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Refresh";
+    }
+  }
+}
+
+const todayRefresh = $("#today-refresh");
+if (todayRefresh) todayRefresh.addEventListener("click", refreshToday);
 
 function renderFormFollowup(formEval) {
   const target = $("#form-followup");

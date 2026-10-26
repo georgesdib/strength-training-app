@@ -4,6 +4,12 @@ var historyTotal = 0;
 var historyDetail = null;
 var historyLimit = 25;
 
+// Read-only fact for the details sheet; a missing value is said out loud, never left blank.
+function fact(label, value) {
+  var text = value == null || value === "" ? "not recorded" : String(value);
+  return "<div><dt>" + esc(label) + "</dt><dd>" + esc(text) + "</dd></div>";
+}
+
 function historyParam(name) {
   var el = document.getElementById(name);
   return el && el.value ? encodeURIComponent(el.value) : "";
@@ -278,36 +284,84 @@ function openHistoryDetails(sessionId) {
   api("/api/history/" + encodeURIComponent(sessionId)).then(function (data) {
     document.getElementById("history-detail-title").textContent =
       "Session details · " + data.occurred_on + " · " + data.session_type;
-    var rows = (data.sets || []).map(function (item, index) {
-      var reps = (item.vbt_reps || []).length
-        ? item.vbt_reps.map(function (rep) { return rep.velocity_mps; }).join(", ")
-        : (item.device_reps || []).map(function (rep) { return rep.velocity_mps; }).join(", ");
-      return "<tr><td>" + (index + 1) + "</td><td>" + esc(item.exercise_id) +
-        "</td><td>" + (item.load_kg == null ? "—" : item.load_kg) +
-        "</td><td>" + (item.reps == null ? "—" : item.reps) +
-        "</td><td>" + (item.rir == null ? "—" : item.rir) +
-        "</td><td>" + (item.velocity_mps == null ? "—" : item.velocity_mps) +
-        "</td><td>" + (item.vbt_mean == null ? "—" : item.vbt_mean) +
-        "</td><td>" + (reps || "—") + "</td></tr>";
-    }).join("");
     var feedback = data.feedback || {};
-    var status = data.voided ? "voided" : "active";
-    if (data.needs_review) status += " · needs re-review";
+    // One view, grouped in performed order: exercise heading, its sets, then optional rep
+    // detail. The set list keeps the log order (raw_id) instead of grouping by exercise.
+    var order = [];
+    var byExercise = {};
+    (data.sets || []).forEach(function (item) {
+      if (!byExercise[item.exercise_id]) {
+        byExercise[item.exercise_id] = [];
+        order.push(item.exercise_id);
+      }
+      byExercise[item.exercise_id].push(item);
+    });
+    var blocks = order.map(function (exerciseId) {
+      var group = byExercise[exerciseId];
+      var setRows = group.map(function (item, index) {
+        var units = item.reps_unit === "seconds" ? " s" : "";
+        return "<tr><td>" + (index + 1) + "</td><td>" +
+          (item.load_kg == null ? "—" : item.load_kg) + "</td><td>" +
+          (item.reps == null ? "—" : item.reps + units) + "</td><td>" +
+          (item.rir == null ? "—" : item.rir) + "</td><td>" +
+          esc((item.flags || []).join(", ") || "—") + "</td><td>" +
+          (item.velocity_mps == null ? "—" : item.velocity_mps) + "</td><td>" +
+          (item.vbt_mean == null ? "—" : item.vbt_mean) + "</td></tr>";
+      }).join("");
+      var repTables = group.map(function (item, index) {
+        var reps = (item.vbt_reps || []).length ? item.vbt_reps : (item.device_reps || []);
+        if (!reps.length) return "";
+        return "<p class='muted'>Set " + (index + 1) + " · " + reps.length + " rep(s)</p>" +
+          "<table><thead><tr><th>Rep</th><th>Velocity m/s</th></tr></thead><tbody>" +
+          reps.map(function (rep) {
+            return "<tr><td>" + rep.rep_index + "</td><td>" + rep.velocity_mps + "</td></tr>";
+          }).join("") + "</tbody></table>";
+      }).join("");
+      return "<section class='history-exercise'><h3>" + esc(exerciseId) + "</h3>" +
+        "<p class='muted'>" + group.length + " set(s)</p>" +
+        "<div class='table-scroll'><table><thead><tr><th>#</th><th>Load kg</th><th>Reps</th>" +
+        "<th>RIR</th><th>Flags</th><th>Device VBT</th><th>VBT override</th></tr></thead><tbody>" +
+        setRows + "</tbody></table></div>" +
+        (repTables ? "<details class='history-reps'><summary>Rep details (velocity)</summary>" +
+          repTables + "</details>" : "") +
+        "</section>";
+    }).join("");
+    var facts =
+      fact("Date", data.occurred_on) +
+      fact("Session type", data.session_type) +
+      fact("Status", (data.voided
+        ? "voided" + (data.void_reason ? " · " + data.void_reason : "")
+        : "active") + (data.needs_review ? " · needs re-review" : "")) +
+      fact("Source", data.source) +
+      fact("Session RPE", data.session_rpe) +
+      fact("Duration", data.duration_min == null
+        ? (data.duration_basis === "unavailable"
+          ? "not recorded (imported session: no timestamps)" : "not recorded")
+        : data.duration_min + " min (" + (data.duration_basis || "unknown") + ")") +
+      fact("Sets (working / total)", (data.working_set_count == null ? "—" : data.working_set_count) +
+        " / " + (data.set_count == null ? "—" : data.set_count)) +
+      fact("Exercises", data.exercise_count) +
+      fact("Tonnage", data.tonnage_kg == null ? null : Math.round(data.tonnage_kg) + " kg") +
+      fact("Main lifts", (data.main_lifts || []).join(", ")) +
+      fact("Flags", (data.flags || []).join(", ")) +
+      fact("Prescription", data.prescription_id) +
+      fact("Workout", data.workout_id) +
+      fact("VBT overrides", data.vbt_override_count) +
+      fact("Created", data.created_at) +
+      fact("Updated", data.updated_at) +
+      fact("Edited", data.edited_at);
+    var forms = (data.forms || []).map(function (item) {
+      return "<tr><td>" + esc(item.exercise_id) + "</td><td>" + item.rating +
+        "</td><td>" + esc(item.note || "") + "</td></tr>";
+    }).join("");
     document.getElementById("history-details").innerHTML =
-      "<div class='history-meta'>" +
-      "<label>Date <input readonly value='" + esc(data.occurred_on) + "'></label>" +
-      "<label>Session type <input readonly value='" + esc(data.session_type) + "'></label>" +
-      "<label>Status <input readonly value='" + esc(status) + "'></label>" +
-      "<label>Session RPE <input readonly value='" + (data.session_rpe == null ? "" : data.session_rpe) + "'></label>" +
-      "<label>Duration (min) <input readonly value='" + (data.duration_min == null ? "" : data.duration_min) + "'></label>" +
-      "<label>Edited at <input readonly value='" + esc(data.edited_at || "") + "'></label>" +
-      "<label class='grow'>Note <input readonly value='" + esc(feedback.note || "") + "'></label>" +
-      "</div>" +
-      "<h3>Sets</h3><div class='table-scroll'><table><thead><tr><th>#</th><th>Exercise</th>" +
-      "<th>Load kg</th><th>Reps</th><th>RIR</th><th>Device VBT</th><th>VBT override</th>" +
-      "<th>Rep velocities</th></tr></thead><tbody>" +
-      (rows || "<tr><td colspan='8' class='muted'>No sets.</td></tr>") +
-      "</tbody></table></div>";
+      "<dl class='history-facts'>" + facts + "</dl>" +
+      (feedback.note ? "<p class='muted'>Note: " + esc(feedback.note) + "</p>" : "") +
+      (forms ? "<h3>Form ratings</h3><table><thead><tr><th>Exercise</th><th>Rating (1–5)</th>" +
+        "<th>Note</th></tr></thead><tbody>" + forms + "</tbody></table>" +
+        "<p class='muted'>Optional self-assessment; rubric input only, never a load or set.</p>" : "") +
+      "<h3>Exercises and sets</h3>" +
+      (blocks || "<p class='muted'>No sets.</p>");
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
   }).catch(function (error) {
     document.getElementById("history-details").innerHTML =

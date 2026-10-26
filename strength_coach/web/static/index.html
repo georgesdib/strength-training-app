@@ -55,7 +55,10 @@
           <h1 id="today-title">Loading…</h1>
           <p class="muted" id="today-sub"></p>
         </div>
-        <button class="primary" onclick="loadOverview()">Refresh</button>
+        <div class="hero-actions">
+          <button class="primary" id="today-refresh" type="button">Refresh</button>
+          <span class="muted" id="today-updated"></span>
+        </div>
       </div>
       <div id="cards" class="cards"></div>
       <div class="panel">
@@ -101,7 +104,7 @@
     <section id="view-history" class="view">
       <div class="panel">
         <div class="panel-head"><h2>History</h2><span class="muted">all completed and imported sessions</span></div>
-        <p class="section-help"><span>Filterable append-only measurement history; no values are deleted.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md">Measurement model</a></p>
+        <p class="section-help"><span>Filterable append-only session history; no values are deleted, and a correction is a new row.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=3-session-reconstructed">Session model</a></p>
         <div class="form-row">
           <label>From <input type="date" id="history-start"></label>
           <label>To <input type="date" id="history-end"></label>
@@ -660,7 +663,7 @@
       </div>
       <div class="panel">
         <div class="panel-head"><h2>History</h2><span class="muted">filter by metric</span></div>
-        <p class="section-help"><span>Filterable append-only measurement history; no values are deleted.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md">Measurement model</a></p>
+        <p class="section-help"><span>Filterable append-only measurement history; no values are deleted.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=11-4-metric-definition-declared-measurement-direction">Measurement model</a></p>
         <div class="form-row">
           <label>Metric <select id="measure-filter"><option value="">all metrics</option></select></label>
         </div>
