@@ -7,8 +7,9 @@ implemented (2026-10-26).** This document specifies a volume budget (a weekly ta
 per-session cap) and the settings/modality layer it must sit behind. It records the evidence,
 the rules, the decisions and a phased path. Step 1 is read-only; 9a is a preview; 9b is opt-in;
 9c-1 (drop engine), 9c-2 (identity/UX), 9c-3 (confirmation/settings), 7a (settings
-registry/snapshot) and step 4 (profile store, precedence, CLI/API, budget wiring and prescription
-snapshot) are implemented; 7b and steps 3, 5, 6 and 8 remain.
+registry/snapshot), step 4 (profile store, precedence, CLI/API, budget wiring and prescription
+snapshot) and 7b (profile-backed feature wiring, including DUP) are implemented; steps 3, 5, 6
+and 8 remain.
 
 At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
 plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
@@ -820,8 +821,12 @@ deliberate golden update where a prescription changes.
   DUP, deload, MRV/under-MEV, the readiness set reduction, e1RM window/source/decay/calibration,
   and plausibility. The deload reactive constants (two weeks/two flares) moved from code to
   `config/deload.v1.yaml`. No precedence, profile, UI or behavior change.
-- **7b pending:** move those values onto the profile/settings store and expose the writable ones
-  through Settings; behavior-preserving golden tests remain the gate.
+- **7b implemented 2026-10-26:** `feature_settings(conn, on_date)` resolves the full profile
+  into typed feature objects. DUP (including the scheme table), deload decisions/application,
+  volume landmarks/under-MEV, readiness set reduction, e1RM window/source/decay/calibration and
+  plausibility are wired into the engine, programme forecast, CLI and status views. The forecast
+  resolves per date. Review remains on the stored/prescription snapshot, not current settings.
+  The MRV cap stays guarded/config-only; the Settings UI is step 5.
 
 **8. Later refinement.** Fractional/indirect sets (direct 1, indirect 0.5) if the ledger warrants
 it; not v1.
@@ -885,6 +890,8 @@ it; not v1.
 | 25 | 9c-3 confirmation/settings | Settings drop panel + `/api/settings/drop` over `config/volume.local.yaml`; 0–28 window, max slots, technique minutes, tolerance/computed high band and full per-group candidate pool; per-session confirmation via `--drop-confirm`/API/Prescribe, both branches, recorded in notes (`DEC-VOLUME-20`) |
 | 26 | 7a settings registry | typed registry/snapshot over existing YAML for DUP, deload, MRV/under-MEV, readiness set reduction, e1RM and plausibility; deload reactive counts moved to config; no precedence/profile/UI change (`DEC-VOLUME-21`) |
 | 27 | Step 4 profile store | `settings_profile` versions + `prescription_profile` snapshots; precedence profile > config; guarded keys rejected; CLI/API; budget override wired; full resolved snapshot on new prescriptions; no UI, other loaders in 7b (`DEC-VOLUME-22`) |
+| 28 | 7b profile-backed feature wiring | Resolve one `FeatureSettings` snapshot per date; wire DUP (including the full scheme table), deload decisions/application, volume landmarks/under-MEV, readiness set reduction, e1RM window/source/decay/calibration and plausibility into engine, programme, CLI and status views; no retrospective review; no UI (`DEC-VOLUME-23`) |
+| 29 | Hinge maximal setting | `undulation.maximal_hinge_allowed` (default false) profile/config-backed; `Schemes.applicable` honors it; Settings UI follows step 5 (`DEC-VOLUME-24`) |
 
 Step 1 is implemented read-only (the module, the `volume_exemption` table and the config
 section). Step 2 is implemented behind the off-by-default profile flag, step 2b adds the opt-in

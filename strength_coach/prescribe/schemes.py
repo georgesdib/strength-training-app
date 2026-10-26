@@ -37,6 +37,7 @@ class Scheme:
 @dataclass(frozen=True)
 class Schemes:
     schemes: Mapping[str, Scheme]
+    maximal_hinge_allowed: bool = False
 
     def get(self, name: str) -> Scheme:
         try:
@@ -44,16 +45,19 @@ class Schemes:
         except KeyError as exc:
             raise SchemeError(f"unknown rep scheme {name!r}") from exc
 
-    def applicable(self, name: str, *, exercise_id: str, essential: bool) -> bool:
+    def applicable(self, name: str, *, exercise_id: str, essential: bool,
+                   maximal_hinge_allowed: bool = False) -> bool:
         """Whether a scheme makes sense for this item.
 
         `maximal` and `strength` are main-lift schemes; `volume` and `accessory` are for
         assistance work. This mirrors the templates rather than inventing a new rule: a main
-        lift is prescribed for strength, an accessory for volume.
+        lift is prescribed for strength, an accessory for volume. `maximal_hinge_allowed`
+        overrides the configured hinge exclusion; the default keeps the back-history policy.
         """
         scheme = self.get(name)
         if not scheme.allows(exercise_id):
-            return False
+            if not (scheme.name == "maximal" and maximal_hinge_allowed):
+                return False
         if scheme.name in ("maximal", "strength"):
             return essential
         return True
@@ -78,7 +82,10 @@ class Schemes:
             )
         if not schemes:
             raise SchemeError("no rep schemes configured")
-        return cls(schemes=MappingProxyType(schemes))
+        return cls(
+            schemes=MappingProxyType(schemes),
+            maximal_hinge_allowed=bool(raw.get("maximal_hinge_allowed", False)),
+        )
 
 
 def all_schemes() -> Schemes:

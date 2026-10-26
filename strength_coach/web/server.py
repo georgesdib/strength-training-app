@@ -11,6 +11,7 @@ Design constraints, deliberately:
 from __future__ import annotations
 
 import datetime
+from dataclasses import replace
 import hashlib
 import json
 import mimetypes
@@ -901,8 +902,13 @@ class Handler(BaseHTTPRequestHandler):
         target_minutes = int(target) if target not in (None, "") else None
         # Resolve deload before building: it must run before minimum session and final
         # validation, not after validation.
-        reactive = deload_feature.reactive_decision(conn, for_date)
-        scheduled = deload_feature.scheduled_decision(conn, for_date)
+        resolved = settings_profile.feature_settings(conn, for_date)
+        reactive = deload_feature.reactive_decision(
+            conn, for_date, config=resolved.deload
+        )
+        scheduled = deload_feature.scheduled_decision(
+            conn, for_date, config=resolved.deload
+        )
         deload_decision = None
         scheduled_suggestion = None
         if reactive is not None:
@@ -1078,7 +1084,7 @@ class Handler(BaseHTTPRequestHandler):
         data["settings"] = readiness_feature.as_dict(
             readiness_score.effective_settings(conn, day)
         )
-        cfg = readiness_feature.ReadinessConfig.load()
+        cfg = settings_profile.feature_settings(conn, day).readiness
         data["volume_valve"] = {
             "enabled": cfg.set_reduction_enabled,
             "score_below": cfg.set_reduction_score_below,
@@ -1244,12 +1250,8 @@ class Handler(BaseHTTPRequestHandler):
     def _volume(self, conn, day: str | None = None, weeks: int = 4) -> dict:
         on_date = day or datetime.date.today().isoformat()
         context = RuleContext.from_store(conn, end=on_date)
-        cfg = volume_feature.VolumeConfig.load()
-        cfg = volume_feature.VolumeConfig(
-            window_weeks=weeks, targets=cfg.targets,
-            landmarks=cfg.landmarks, apply_mrv_cap=cfg.apply_mrv_cap,
-            source_path=cfg.source_path,
-        )
+        cfg = settings_profile.feature_settings(conn, on_date).volume
+        cfg = replace(cfg, window_weeks=weeks)
         report = volume_feature.compute(context.sets, on_date=on_date, config=cfg)
         heavy_cfg = heavy_spinal.HeavySpinalConfig.load()
         heavy_cfg = heavy_spinal.HeavySpinalConfig(

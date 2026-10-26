@@ -222,6 +222,7 @@ def build(
     window_days: int = DEFAULT_WINDOW_DAYS,
     as_of: str | None = None,
     config: E1RMCalibrationConfig | None = None,
+    decay_config: e1rm_decay.DecayConfig | None = None,
 ) -> list[LiftCalibration]:
     """Per-lift formula e1RM context plus any measured-test calibration.
 
@@ -308,7 +309,7 @@ def build(
         ) >= (str(previous["effective_from"]), int(previous["override_id"])):
             active_overrides[key] = override
 
-    cfg_decay = e1rm_decay.DecayConfig.load()
+    cfg_decay = decay_config or e1rm_decay.DecayConfig.load()
     out: list[LiftCalibration] = []
     for key in sorted(set(points) | set(summaries)):
         ordered = tuple(sorted(points.get(key, []), key=lambda p: p.measured_on))
@@ -449,9 +450,13 @@ def factors(
     *,
     window_days: int = DEFAULT_WINDOW_DAYS,
     config: E1RMCalibrationConfig | None = None,
+    decay_config: e1rm_decay.DecayConfig | None = None,
 ) -> dict[str, LiftCalibration]:
     """Per-lift corrections in force on `on_date`; only applied rows have factor != 1."""
-    report = build(conn, window_days=window_days, as_of=on_date, config=config)
+    report = build(
+        conn, window_days=window_days, as_of=on_date, config=config,
+        decay_config=decay_config,
+    )
     return {row.exercise_id: row for row in report if row.correction_applied}
 
 

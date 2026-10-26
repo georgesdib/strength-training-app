@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+from dataclasses import replace
 import json
 import sys
 from pathlib import Path
@@ -521,8 +522,9 @@ def _cmd_run(args) -> int:
         )
         # Resolve deload before building: the engine must apply it before minimum session and
         # final validation, not after validation.
-        reactive = deload_feature.reactive_decision(conn, args.date)
-        scheduled = deload_feature.scheduled_decision(conn, args.date)
+        resolved = settings_profile.feature_settings(conn, args.date)
+        reactive = deload_feature.reactive_decision(conn, args.date, config=resolved.deload)
+        scheduled = deload_feature.scheduled_decision(conn, args.date, config=resolved.deload)
         deload_decision = None
         scheduled_suggestion = None
         if reactive is not None:
@@ -1715,13 +1717,9 @@ def _cmd_volume(args) -> int:
             _print_volume_budget(volume_budget_mod.report(conn, on_date))
             return 0
         context = RuleContext.from_store(conn, end=on_date)
+        base = settings_profile.feature_settings(conn, on_date).volume
         report = volume_feature.compute(context.sets, on_date=on_date,
-                                        config=volume_feature.VolumeConfig(
-                                            window_weeks=args.weeks,
-                                            targets=volume_feature.VolumeConfig.load().targets,
-                                            landmarks=volume_feature.VolumeConfig.load().landmarks,
-                                            apply_mrv_cap=volume_feature.VolumeConfig.load().apply_mrv_cap,
-                                        ))
+                                        config=replace(base, window_weeks=args.weeks))
     finally:
         store.close()
     print(f"weekly hard sets, {report['from']} to {report['to']} (weeks {report['weeks']})")

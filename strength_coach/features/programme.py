@@ -14,6 +14,7 @@ from __future__ import annotations
 import datetime as dt
 from dataclasses import dataclass
 
+from strength_coach import settings_profile
 from strength_coach.features import deload as deload_feature
 from strength_coach.features import readiness as readiness_mod
 from strength_coach.features import vbt_calibration
@@ -78,42 +79,40 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
     # enriched history and the VBT calibration for every projected session made a four-week
     # forecast take over two minutes; the date-dependent inputs are still derived per date.
     history = History.load(conn, end=dates[-1].isoformat())
-    deload_cfg = deload_feature.DeloadConfig.load() if apply_deload else None
     document = load_document()
-    thresholds = thresholds_mod.Thresholds.load()
     session_types = {name: templates.SessionTemplate.load(name)
                      for name in templates.SESSION_TYPES}
-    readiness_config = readiness_mod.ReadinessConfig.load()
-    undulation = undulation_mod.Undulation.load()
     # No history means no calibration to reuse; `calibrate` expects enriched columns that an
     # empty frame does not have, and the engine already reports VBT as unavailable.
     vbt = vbt_calibration.calibrate(history.sets) if not history.sets.empty else None
     out: list[ProgrammeEntry] = []
     current_type = start_type
     for index, date in enumerate(dates):
+        # Resolve per date: a profile version effective mid-forecast changes later entries.
+        resolved = settings_profile.feature_settings(conn, date.isoformat())
         # Reactive triggers are automatic and are evaluated once against current state.
         # A scheduled deload is only a suggestion in the forecast; it is never applied here.
         reactive = None
         scheduled = None
-        if deload_cfg is not None:
+        if apply_deload:
             reactive = (
                 deload_feature.reactive_decision(
-                    conn, date.isoformat(), history=history, config=deload_cfg,
+                    conn, date.isoformat(), history=history, config=resolved.deload,
                 )
                 if index == 0 else None
             )
             scheduled = deload_feature.scheduled_decision(
-                conn, date.isoformat(), config=deload_cfg,
+                conn, date.isoformat(), config=resolved.deload,
             )
         prescription = build_prescription(
             conn,
             for_date=date.isoformat(),
             session_type=current_type,
             document=document,
-            thresholds=thresholds,
+            thresholds=resolved.thresholds,
             template=session_types[current_type],
-            readiness_config=readiness_config,
-            undulation=undulation,
+            readiness_config=resolved.readiness,
+            undulation=resolved.undulation,
             history=history,
             vbt=vbt,
             apply_selection=apply_selection,

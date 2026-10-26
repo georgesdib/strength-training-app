@@ -439,6 +439,12 @@ def test_maximal_scheme_is_the_lowest_and_excludes_hinges():
     assert not maximal.allows("trap_bar_deadlift")
     assert schemes.applicable("maximal", exercise_id="bench_press", essential=True)
     assert not schemes.applicable("maximal", exercise_id="ab_wheel", essential=False)
+    assert schemes.maximal_hinge_allowed is False
+    assert not schemes.applicable("maximal", exercise_id="trap_bar_deadlift", essential=True)
+    assert schemes.applicable(
+        "maximal", exercise_id="trap_bar_deadlift", essential=True,
+        maximal_hinge_allowed=True,
+    )
 
 
 def test_setting_the_maximal_scheme_rebuilds_reps_and_load():

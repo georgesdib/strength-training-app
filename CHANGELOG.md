@@ -37,6 +37,13 @@
   weekly high tolerance band and does not add when the week is already there. If no load is
   available, it retries with the e1RM basis and then asks for an e1RM in the Prescribe panel
   (CLI prints the `e1rm set` command); it refuses only if still unusable. `drop` remains 9c.
+- **Configurable hinge maximal scheme**: `undulation.maximal_hinge_allowed` (default false)
+  is profile/config-backed; true lets the maximal scheme use the currently excluded hinge IDs.
+  Settings UI exposure follows step 5.
+- **Profile-backed feature wiring (7b)**: one resolved `FeatureSettings` per date now drives
+  DUP (including the full scheme table), deload, volume landmarks/under-MEV, readiness set
+  reduction, e1RM window/source/decay/calibration and plausibility in the engine, forecast, CLI
+  and status views. Per-date forecast; no retrospective review; no UI; MRV cap remains guarded.
 - **Settings profile (step 4)**: append-only `settings_profile` versions, full resolved
   `prescription_profile` snapshots, precedence profile > config > registry default, guarded-key
   rejection, CLI `settings profile` and GET/POST API, and budget override wiring. No UI; other

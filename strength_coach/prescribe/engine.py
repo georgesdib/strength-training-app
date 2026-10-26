@@ -23,6 +23,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
+from strength_coach import settings_profile
 from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import readiness as readiness_mod
 from strength_coach.features import readiness_score
@@ -85,8 +86,9 @@ def build_prescription(
     prescription from the same past (the programme forecast): the enriched frame and the VBT
     calibration do not change with the forecast date, so recomputing them per entry is waste.
     """
+    resolved = settings_profile.feature_settings(conn, for_date)
     document = document or load_document()
-    thresholds = thresholds or config_mod.Thresholds.load()
+    thresholds = thresholds or resolved.thresholds
     budget_config = volume_budget_mod.BudgetConfig.load(conn=conn, on_date=for_date)
     requested_session_type = session_type
     drop_plan = volume_budget_mod.plan_drop(
@@ -98,8 +100,8 @@ def build_prescription(
         template = drop_plan["template"]
     elif template is None:
         template = templates.SessionTemplate.load(session_type)
-    readiness_config = readiness_config or readiness_mod.ReadinessConfig.load()
-    undulation = undulation or undulation_mod.Undulation.load()
+    readiness_config = readiness_config or resolved.readiness
+    undulation = undulation or resolved.undulation
 
     context = RuleContext.from_store(
         conn, end=for_date, rep_ranges=templates.all_rep_ranges(), history=history
@@ -139,7 +141,8 @@ def build_prescription(
         selection_notes = [row.as_dict() for row in selected]
 
     e1rm_factors = e1rm_calibration_feature.factors(
-        conn, for_date, window_days=thresholds.e1rm_window_days
+        conn, for_date, window_days=thresholds.e1rm_window_days,
+        config=resolved.calibration, decay_config=resolved.decay,
     )
     for index, slot in enumerate(template.slots):
         selected_row = selection_rows.get(slot.id)
@@ -188,6 +191,7 @@ def build_prescription(
     if undulation.enabled and context.block_week_index:
         items, dup_warnings, dup_plan = _apply_undulation(
             conn, context, tuple(items), template, thresholds, for_date, decisions, undulation,
+            maximal_hinge_allowed=resolved.maximal_hinge_allowed,
             calibration_factors=e1rm_factors,
         )
         warnings.extend(dup_warnings)
@@ -284,11 +288,11 @@ def build_prescription(
     )
 
     items, under_warnings, under_note = _apply_under_mev(
-        context, tuple(items), for_date
+        context, tuple(items), for_date, config=resolved.volume
     )
     warnings.extend(under_warnings)
     items, volume_warnings, volume_note = _apply_volume_cap(
-        context, tuple(items), for_date
+        context, tuple(items), for_date, config=resolved.volume
     )
     warnings.extend(volume_warnings)
     # Last set change before validation: the spinal cap is a veto on the week, and the
@@ -308,7 +312,7 @@ def build_prescription(
             if context.entity(item.exercise_id).get("primary_compound", False)
         }
         items, deload_warning, deload_note, deload_level = deload_mod.apply_items(
-            tuple(items), deload_decision,
+            tuple(items), deload_decision, config=resolved.deload,
             prior_load_factors=load_factors,
             primary_compounds=primary,
         )
@@ -539,6 +543,8 @@ def _apply_under_mev(
     context: RuleContext,
     items: tuple[PrescriptionItem, ...],
     for_date: str,
+    *,
+    config: volume_feature.VolumeConfig | None = None,
 ) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], dict]:
     """Add one accessory set to a pattern that has been below MEV for the configured window.
 
@@ -546,7 +552,7 @@ def _apply_under_mev(
     licence to raise the primary strength dose. The MRV cap runs afterwards and can still
     remove a set if the result would exceed the ceiling.
     """
-    cfg = volume_feature.VolumeConfig.load()
+    cfg = config or volume_feature.VolumeConfig.load()
     if not cfg.under_mev_enabled or not cfg.landmarks:
         return items, (), {"applied": False}
     report = volume_feature.compute(
@@ -597,6 +603,8 @@ def _apply_volume_cap(
     context: RuleContext,
     items: tuple[PrescriptionItem, ...],
     for_date: str,
+    *,
+    config: volume_feature.VolumeConfig | None = None,
 ) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], dict]:
     """Trim non-essential sets when a pattern would exceed its configured MRV.
 
@@ -604,7 +612,7 @@ def _apply_volume_cap(
     never auto-filled. The MRV landmark is a coaching heuristic, not a measured individual
     threshold, so only accessories are trimmed; an essential item is never silently cut.
     """
-    cfg = volume_feature.VolumeConfig.load()
+    cfg = config or volume_feature.VolumeConfig.load()
     if not cfg.apply_mrv_cap or cfg.landmarks is None:
         return items, (), {"applied": False, "reason": "cap disabled"}
 
@@ -1194,6 +1202,7 @@ def _apply_undulation(
     decisions: Mapping[str, Any],
     undulation: undulation_mod.Undulation,
     *,
+    maximal_hinge_allowed: bool = False,
     calibration_factors: Mapping[str, object] | None = None,
 ) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], Mapping[str, str] | None]:
     """Apply the week's rep schemes, rebuilding each item's load through the solver.
@@ -1224,8 +1233,10 @@ def _apply_undulation(
         if not name:
             out.append(item)
             continue
-        if not schemes.applicable(name, exercise_id=item.exercise_id,
-                                  essential=item.essential):
+        if not schemes.applicable(
+            name, exercise_id=item.exercise_id, essential=item.essential,
+            maximal_hinge_allowed=maximal_hinge_allowed,
+        ):
             name = "strength" if item.essential else "accessory"
         scheme = schemes.get(name)
         if (item.reps_low, item.reps_high) == (scheme.reps_low, scheme.reps_high):

@@ -6,6 +6,11 @@
 # programme, and the athlete has a back history (docs/TRAINING-DYNAMICS.md).
 schema_version: "1.0.0"
 
+# The hinge exclusions below are a policy default, not a hard-coded fact. When true, the
+# maximal scheme may be used on the excluded hinge lifts; the default keeps the back-history
+# protection. Profile-backed; exposed in Settings later.
+maximal_hinge_allowed: false
+
 schemes:
   maximal:
     label: "maximal strength (1-3 reps)"

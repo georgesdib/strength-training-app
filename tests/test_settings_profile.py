@@ -104,6 +104,31 @@ def test_cli_settings_profile_set_and_show(tmp_path, capsys):
     assert "0.15" in out
 
 
+def test_feature_settings_apply_profile_values_including_the_dup_table():
+    store = _store()
+    try:
+        conn = store.connection
+        settings_profile.save(
+            conn,
+            set_values={
+                "undulation.weeks": {"1": {"squat": "strength"}},
+                "undulation.cycle_weeks": 1,
+                "undulation.maximal_hinge_allowed": True,
+                "deload.prescription.rir_add": 2,
+                "e1rm.window_days": 63,
+            },
+            effective_from="2026-10-26",
+        )
+        resolved = settings_profile.feature_settings(conn, "2026-10-26")
+    finally:
+        store.close()
+    assert resolved.undulation.cycle_weeks == 1
+    assert resolved.maximal_hinge_allowed is True
+    assert resolved.undulation.weeks[1]["squat"] == "strength"
+    assert resolved.deload.rir_add == 2
+    assert resolved.thresholds.e1rm_window_days == 63
+
+
 def test_prescription_snapshot_is_written():
     store = _store()
     try:

@@ -526,9 +526,12 @@ pool; edits go to the git-ignored `config/volume.local.yaml` and are validated b
 The high band is shown read-only, derived from the total target and tolerance.
 Step 4 adds a profile-backed settings layer: `strength-coach settings profile show`, `set
 KEY=VALUE`, `unset KEY` and `reset`; profile values win over config. `budget` is a JSON object
-override, e.g. `settings profile set budget='{"tolerance":0.15}'`. The Prescribe page and other
-feature loaders still read config for now; 7b wires them. Guarded-safety keys such as the MRV cap
-are rejected until step 5. In the competition
+override, e.g. `settings profile set budget='{"tolerance":0.15}'`. Profile values now drive
+DUP (including the scheme table), deload, volume landmarks/under-MEV, readiness set reduction,
+e1RM and plausibility; the programme forecast resolves per date. The hinge maximal-scheme
+policy is `undulation.maximal_hinge_allowed` (default false); set it to `true` to allow the
+maximal scheme on the currently excluded hinge IDs. Its Settings control follows in step 5. Review keeps the historical
+snapshot. Guarded-safety keys such as the MRV cap are still rejected until step 5. In the competition
 window the Prescribe page holds the drop until you tick **Confirm drop**, use `run --drop-confirm`,
 or send `drop_confirmed`; it applies to both `volume_fill` and `technique`.
 

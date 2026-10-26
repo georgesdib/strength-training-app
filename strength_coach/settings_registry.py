@@ -17,6 +17,7 @@ from strength_coach.features.e1rm_calibration import E1RMCalibrationConfig
 from strength_coach.features.e1rm_decay import DecayConfig
 from strength_coach.features.readiness import ReadinessConfig
 from strength_coach.features.volume import VolumeConfig
+from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import undulation as undulation_mod
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.utils import paths
@@ -88,7 +89,10 @@ def _definitions() -> tuple[SettingDefinition, ...]:
            "Length of the weekly cycle.", minimum=1, maximum=12),
         _d("undulation.weeks", "DUP", "DUP scheme table", "table", {},
            "templates/undulation.v1.yaml", "prescription_policy",
-           "Read-only week-to-scheme data for 7a."),
+           "Weekly scheme assignment data."),
+        _d("undulation.maximal_hinge_allowed", "DUP", "Allow maximal hinge",
+           "bool", False, "templates/schemes.v1.yaml", "prescription_policy",
+           "Allow the maximal scheme on hinge lifts; default keeps the back-history exclusion."),
         _d("deload.enabled", "Deload", "Deload enabled", "bool", True,
            "deload.v1.yaml", "prescription_policy", "Master deload switch."),
         _d("deload.scheduled.enabled", "Deload", "Scheduled deload", "bool", True,
@@ -233,6 +237,9 @@ def _snapshot_values() -> dict[str, Any]:
         "undulation.enabled": bool(undulation.enabled),
         "undulation.cycle_weeks": int(undulation.cycle_weeks),
         "undulation.weeks": dict(raw_undulation.get("weeks") or {}),
+        "undulation.maximal_hinge_allowed": bool(
+            schemes_mod.Schemes.load().maximal_hinge_allowed
+        ),
         "deload.enabled": bool(deload.enabled),
         "deload.scheduled.enabled": bool(deload.scheduled_enabled),
         "deload.scheduled.every_weeks": int(deload.every_weeks),
