@@ -1,0 +1,478 @@
+# VOLUME MODULATION — weekly target, session cap, and a settings layer
+
+**Status: design accepted and the constitution change approved by the owner (2026-10-26).
+No implementation.** This document specifies a volume budget (a weekly target plus a per-session
+cap) and the settings/modality layer it must sit behind. It records the evidence, the rules, the
+decisions and a phased path. Nothing here changes a prescription until implementation.
+
+At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
+plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
+safety cuts lower the **effective target**, no cross-week debt, phased automatic accessory
+trim/top-up, and a settings/modality registry with append-only profiles. The `MOD-VOL-003` rule
+entry and the constitution version bump land with implementation; they are not in the rule
+document yet (`DEC-VOLUME-06`, `DEC-VOLUME-07`).
+
+Related: [FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md),
+Q26 in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), LIM-51 in [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md).
+
+---
+
+## 1. The problem this solves
+
+The athlete will:
+
+- miss sessions;
+- sometimes shorten a session;
+- sometimes extend one.
+
+Today the programme is a fixed three-session template. `--sessions-per-week` only selects
+weekdays, so a one-session week delivers about one third of the weekly sets (19 vs 61 in the
+reproduced example) and nothing redistributes a short or long session. The request is a
+**weekly target and a per-session cap** used to modulate the session in both directions.
+
+Two design questions must be answered together:
+
+1. **What is the weekly dose, and how is it spent?** (the budget)
+2. **Who is allowed to change a prescription, and how is that recorded?** (the settings layer)
+
+The second is not optional: DUP, the spinal cap, deload, the MRV cap and the new budget are all
+"modalities" that the athlete may want on or off, with their factors visible. A budget hard-wired
+into the engine would be a fifth scattered `enabled` flag.
+
+## 2. What the programme delivers today
+
+The four session types form a six-session (two-week) cycle. Building one full cycle gives
+**114 working sets**, i.e. **57/week**:
+
+| pattern (ledger group) | sets/week | MEV | MAV | MRV |
+|---|---:|---:|---:|---:|
+| squat (incl. split squat) | 10 | 6 | 8–12 | 14 |
+| hinge | 6.5 | 6 | 6–9 | 10 |
+| horizontal push | 12 | 8 | 10–16 | 18 |
+| horizontal pull | 9 | 4 | 6–10 | 12 |
+| vertical push | 3 | 3 | 4–8 | 10 |
+| vertical pull | 4.5 | 3 | 4–8 | 10 |
+| core | 6 | 3 | 4–9 | 12 |
+| hinge unilateral | 0 | 0 | 0–6 | 8 |
+| **targeted total** | **51** | | | |
+| untargeted (erector 3, power 3) | 6 | — | — | — |
+| **week total** | **57** | | | |
+
+Week-to-week phases are not identical: starting at bench+squat gives 56, then 58 (squat 12 then
+8; hinge 5 then 8). A budget that treated 58 as "over 57" would trim every other week, so the
+model needs a tolerance band.
+
+Note on the 19-vs-61 example: the reproduced live week totalled 61 because the stored history
+triggered under-MEV additions; the pure template cycle is 114/2 = 57. The budget targets the
+programme, so an active under-MEV increment must be included in the target rather than trimmed
+back (see §6).
+
+## 3. The model
+
+### 3.1 Terms
+
+| term | meaning |
+|---|---|
+| `weekly_target[pattern]` | hard working sets for one week, by ledger group (default: the cycle average above) |
+| `weekly_floor[pattern]` | MEV; the level below which the week is "under" (report only) |
+| `weekly_ceiling[pattern]` | MRV; the hard ceiling already enforced by `MOD-VOL-001` |
+| `completed[pattern]` | stored working sets in the current week |
+| `exempt[pattern]` | sets removed by safety/recovery rules; lowers the week's target, not the cap |
+| `effective_target[pattern]` | `max(0, weekly_target - exempt)`; the dose the budget actually plans against |
+| `remaining[pattern]` | `max(0, effective_target - completed)` |
+| `projected_week` | `completed + today's plan + the template sets of the remaining planned sessions` |
+| `session_cap` | maximum working sets in one session: total, per pattern, and by time |
+| `tolerance` | band inside which nothing changes (±10% of the total, ±1 set per pattern) |
+| `week` | ISO week, Monday–Sunday |
+
+Warm-ups never count. Working sets count regardless of load source (barbell, bodyweight,
+machine), matching the existing ledger. The pattern grouping is the ledger's
+`volume_target_key` mapping, so the budget and the report cannot disagree.
+
+### 3.2 Target source
+
+**Recommended: the cycle average (51 targeted sets, 57 total).** At three sessions a week the
+budget is neutral; at one or two sessions the same weekly target is compressed. This is the only
+option that changes no prescription on a normal week.
+
+Alternatives, exposed as config `target_mode`:
+
+- `landmark` — use MAV's low value (squat 8, hinge 6, push 10, pull 6, vertical push 4,
+  vertical pull 4, core 4). This is a programme change: it lowers push and pull from current
+  levels and raises nothing.
+- `explicit` — per-pattern values the athlete sets, checked against MEV/MRV for feasibility.
+
+Every target is config, not code. Untargeted patterns (direct erector work, power) stay outside
+the budget because they are dosed by other rules (`PRG-EREC-001`, the power slot).
+
+### 3.3 Session cap
+
+Three caps, whichever binds first:
+
+1. **Total working sets: 30.** Current sessions are 19–22, so this allows roughly one extra
+   session's worth of top-up without turning a session into a meet.
+2. **Per pattern: squat 8, hinge 6, horizontal push 8, horizontal pull 8, vertical push 5,
+   vertical pull 5, core 6, hinge unilateral 5.** These are roughly `ceil(weekly_target / 2)`
+   rounded up, and never above the pattern's weekly MRV.
+3. **Time.** The existing estimator (`sets × (30 s + rest_s)`, plus warm-ups) must stay within
+   the athlete's `max_session_minutes` (80 planned, 90 hard). If the set cap would exceed the
+   time cap, the time cap wins and the plan reports the set count achieved.
+
+At 57 weekly sets and a 30-set cap, **two sessions can meet the target and one cannot**. That is
+the honest answer to the original complaint, and it should be stated, not hidden.
+
+### 3.4 Feasibility check
+
+For the chosen target, cap and frequency:
+
+`min_sessions = max( ceil(total_target / session_cap), max over patterns ceil(target[p] / pattern_cap[p]) )`
+
+Also check time: `ceil(total_estimated_minutes / time_cap)`. With the recommended numbers this
+is 2 sessions/week. Feasibility uses the nominal target at the start of the week; an exemption can
+only lower it, so a week that starts infeasible can still become feasible. If the athlete picks
+`--sessions-per-week 1`, the forecast must say "target 57, cap 30, minimum 2 sessions: 27 sets
+unreachable" rather than silently delivering 19.
+
+### 3.5 Week window and tolerance
+
+- ISO week (Mon–Sun), matching the ledger and the Mon/Wed/Fri schedule. A session on Sunday
+  belongs to that week.
+- **No cross-week debt.** A missed Sunday is not made up on Monday. The evidence for weekly
+  dosing gives no basis for a fortnightly catch-up, and a rolling debt invites volume spikes.
+- Tolerance: no change when `|completed - effective_target| <= 10%` of the total and
+  per-pattern deviation is ≤ 1 set. This absorbs the 56/58 phase variation.
+
+### 3.6 Exemptions — safety cuts lower the target, not the cap
+
+A budget that made up every removed set would undo the safety layer. The mechanism is an
+**effective weekly target**:
+
+`effective_target[pattern] = max(0, weekly_target[pattern] - exempt[pattern])`
+
+An exemption lowers the week's **dose** for that pattern, so the removed sets are not reallocated.
+It does **not** lower the session cap: the cap is a per-session fatigue guard, and cutting it
+would also block a legitimate top-up later in the week. The MRV ceiling is unchanged too — a
+safety cut lowers the dose, not the safety limit. The tolerance band uses the effective target;
+feasibility is computed on the nominal target at the start of the week.
+
+| removed by | lowers effective target? | why |
+|---|---|---|
+| readiness set valve (`MOD-FAT-001`) | **yes** | a recovery decision must not be re-added next session |
+| deload (`MOD-DELOAD-001`) | **yes**, to the deload plan | a deload is a planned low week, not a shortfall |
+| spinal trim (`MOD-SPINE-001`) | **yes** | a safety veto is not volume debt |
+| constraint/injury veto | **yes** | same |
+| session missed entirely | **no** | the athlete wants the remaining volume reallocated |
+| session ended early | **no** (unless a symptom was recorded) | the common case the request targets |
+| `MOD-MIN-001` minimum session | **no** by default (config can exempt) | it is a time choice, not a recovery rule |
+
+Each exemption is stored per pattern with its source id, so the report can say why the week's
+target is lower.
+
+If the last session on a pattern recorded a symptom flare, automatic top-up for that pattern is
+suppressed and the warning says so. The budget must never push volume into a region that just
+flared.
+
+## 4. Allocation algorithm
+
+The budget is evaluated against the **projected week**, using the **effective weekly target**
+after exemptions, not one session's remainder. That is what makes a long Monday trim Wednesday,
+and a missed Wednesday top up Friday, without overfilling the early part of the week.
+
+1. Compute `effective_target[pattern] = max(0, weekly_target - exempt)` from the week's recorded
+   safety/recovery removals; each keeps its source id.
+2. Determine the week's planned sessions: the completed sessions, today, and the sessions the
+   athlete still intends to train (the programme schedule, or `sessions_per_week_target` minus
+   completed). If the future is unknown, use the rolling session-type templates.
+3. `projected = completed + today's template + the template sets of the remaining planned sessions`,
+   measured against the effective target. The band is 10% of the effective target (at least one
+   set per pattern).
+4. If `effective_target - band <= projected <= effective_target + band`, change nothing.
+5. If `projected > effective_target + band`: trim today's non-essential accessories from the end,
+   down to one set each, until the projection is inside the band. Essential items are never
+   trimmed; if they alone keep the projection over, warn.
+6. If `projected < effective_target - band`: top up today's non-essential accessories in the
+   patterns furthest below target, round-robin, up to the per-item maximum (8), the per-pattern
+   cap, the total cap and the time cap, until the projection is inside the band. Main lifts are
+   not topped up by default.
+7. If the cap is reached and the projection is still below the band, warn with the arithmetic and
+   the minimum frequency. Top-up capacity is limited by the accessories present: if a pattern has
+   no non-essential item (for example squat on a bench+squat day, where the competition squat is
+   essential), it stays unmet and the warning names it.
+8. Record `notes.volume_budget` (target, exempt, effective target, completed, projection, cap,
+   allocated, feasibility) and cite `MOD-VOL-003` on every changed item.
+
+A deload week is the week-scale case: the effective target is the deload plan and no debt follows.
+Future sessions are projected at **template** sets; their own readiness or deload adjustments are
+not known yet. The projection is recomputed on every build, so a changed plan or a new stored
+session updates it.
+
+## 5. Worked examples
+
+- **Normal week:** projected 56–58 vs target 57; inside the band; no change.
+- **Readiness cuts two squat sets on Monday:** the squat effective target becomes 8, and those
+  two sets are not re-added later. A long Monday still trims; a missed Wednesday still leaves the
+  week short.
+- **Missed Wednesday:** on Friday, completed 19 and today's template 20 → projected 39, against
+  a low band of 51.3. Top up by the cap (+10 to 30); the week lands at 49/57. Warning: 8 sets
+  short with no session left; add a session or accept 49.
+- **Short Wednesday:** on Friday, completed 31 (19 + 12) and today's template 20 → projected 51,
+  just below the 51.3 band floor. Friday tops up by one set to 21; week 52/57, inside the band.
+- **Long Monday (26 instead of 19):** on Wednesday, completed 26, Wednesday 22 and Friday 20 give
+  a projected 68 against a high band of 62.7. Trim Wednesday's accessories by about six sets;
+  the week lands at 62/57, inside the band, and the warning names what was trimmed.
+- **One session a week:** projected 19 against a low band of 51.3; cap 30 → 30 sets planned and
+  27 unreachable. Feasibility says the minimum is two sessions; the plan is 30 sets, not 19.
+
+## 6. Interaction and precedence
+
+Proposed order inside `build_prescription` (no reordering of existing safety layers):
+
+1. template, selection, DUP;
+2. readiness / continuity / back flare (load and optional set cuts);
+3. **volume budget** (this proposal);
+4. under-MEV — folded into the target (recommended) or skipped for targeted patterns; it never
+   runs as an independent add on top of a budget that would trim it;
+5. MRV cap (hard ceiling; runs after the budget);
+6. spinal trim (hard veto);
+7. deload — suspends the budget on its week;
+8. technique throttle, warm-up attach, minimum session (user-selected), validation.
+
+Under-MEV and the target: when a pattern has been below MEV and `MOD-VOL-002` is active, its
+increment is part of the intended weekly dose, so the target is recomputed as template + active
+under-MEV increments and the budget will not trim it back. If that coupling is too much for v1,
+the fallback is to suspend `MOD-VOL-002` while the budget is on and let the athlete raise the
+target in config. Either way, the two rules must not add and trim the same set.
+
+## 7. Settings and modality toggles (future, designed in)
+
+The athlete's request: put the modalities behind a setting flag, including DUP, the spinal cap
+and the factors, and expose them to settings. The budget must be built as one of those modules,
+not as a fifth hard-wired flag.
+
+### 7.1 Current state
+
+Toggles are scattered: `deload.enabled`, `undulation.enabled`, `volume.apply_mrv_cap`,
+`volume.under_mev.enabled`, `readiness.set_reduction.enabled`, `readiness.composite.enabled`,
+`e1rm-decay.apply`, `e1rm-calibration.apply`, `continuity-calibration.enabled`,
+`fatigue-fitness.enabled`, `test-cadence.enabled`, `warmup.enabled`. The constitution
+(`config/rules/programme.v1.yaml`) is versioned separately and owns the hard rules. The Settings
+page exposes only the LLM and some Prescribe defaults; readiness weights have their own
+append-only table.
+
+### 7.2 Proposed registry
+
+A single `config/modalities.v1.yaml` (or a section in an existing settings file) listing every
+module:
+
+```yaml
+- id: volume_budget
+  class: prescription_policy        # hard_safety | prescription_policy | display | experiment
+  enabled: false                    # ships off until approved
+  config: volume.v1.yaml#budget     # where its factors live
+  depends_on: [volume_ledger]
+  citations: [MOD-VOL-003]
+  factors: [target_mode, session_cap, tolerance, exemption_minimum_session]
+```
+
+Classes:
+
+- **hard_safety** — constraints, injury ceilings, RIR-0 floor, spinal cap, load validation.
+  These cannot be switched off by a checkbox. Turning one off is a **constitution change**:
+  a new rule version or an explicit signed waiver in the profile, recorded as a `DEC`. The
+  spinal cap is exactly this case: it may become toggleable later, but only as a named profile
+  that says so, never as an anonymous switch.
+- **prescription_policy** — DUP, deload, MRV cap, under-MEV, readiness set valve, e1RM
+  decay/calibration, selection, budget. Toggleable, but every change creates a profile and is
+  cited in the prescription.
+- **display** — reports and advisories (volume ledger, recent stress, injury attention).
+- **experiment** — shadow-only models.
+
+### 7.3 Profile, not a raw config edit
+
+A config file edit silently changes future prescriptions and cannot explain an old one. Instead:
+
+- a named **prescription profile** (append-only): `profile_id`, `name`, `effective_from`,
+  `settings_json`, `reason`, `created_at`;
+- each prescription stores the profile id and a snapshot, so `run` on an old date still shows
+  the settings that were in force;
+- precedence: profile > config > code default, mirroring `readiness_setting`;
+- a diff preview before saving ("this turns off the MRV cap; today's session would gain 2 sets").
+
+### 7.4 Factors exposed to settings
+
+Each module declares its factors with a type, range, unit, default and what they affect. The
+settings UI renders those, not raw YAML. The first candidates: volume budget (target mode, cap,
+tolerance, exemptions), DUP cycle, deload interval and prescription, readiness weights,
+MRV/MEV/MAV landmarks, e1RM source and decay, and the readiness set valve.
+
+### 7.5 Migration and tests
+
+- Move the existing `enabled` flags into the registry without changing behaviour; a test pins
+  registry defaults to the current config values.
+- A test per module: disabling it changes only its cited outputs; the default profile
+  reproduces today's golden prescriptions.
+- A hard-safety module cannot be disabled without a waiver; the loader rejects a profile that
+  omits the waiver or the constitution version.
+- Profiles round-trip, are append-only, and are cited on every changed item.
+
+### 7.6 Recommended scope split
+
+The settings layer is a larger piece of work than the budget. To avoid blocking the request:
+
+- **v1 budget:** ship as a single config module (`volume_budget.enabled` plus factors), with
+  no scattered constants, so it can move into the registry unchanged;
+- **v2 registry:** build the registry and profile store; migrate DUP, deload, MRV, under-MEV and
+  the budget; leave the hard-safety rules on the constitution path;
+- **v3 settings UI:** expose the registry factors, with the diff preview and waiver flow.
+
+## 8. Provenance and data
+
+`MOD-VOL-003` is the proposed **modifier id** for the weekly volume budget. It sits in the
+same namespace as `MOD-VOL-001` (MRV cap) and `MOD-VOL-002` (under-MEV): `MOD` for modifier,
+`VOL` for volume, `003` because the first two are taken.
+
+The constitution declares **modifiers** separately from **rules** (`config/rules/programme.v1.yaml`,
+section `modifiers`). A rule passes, fails or vetoes; a modifier transforms a prescription before
+the policy engine sees it. Each modifier carries an `id`, a `statement`, a `when`, a `then` and
+an `implemented_by` entry. Declaring one is a **constitution version bump** (the document is at
+1.14.0), which is why it needs the owner's approval.
+
+It does not exist yet. The plan uses the name so the design, citations and tests point at one id.
+On implementation, every item whose sets change cites `MOD-VOL-003`, and the prescription notes
+carry the budget arithmetic. The owner approved the modifier and the constitution bump on
+2026-10-26 (`DEC-VOLUME-07`); the rule entry and version bump are part of implementation, not
+this plan.
+- Prescription notes: `volume_budget` with target, exempt, effective target, completed,
+  projection, cap, allocated, and `feasibility` (minimum sessions, unreachable sets).
+- `prescription_modifier` rows for every changed item, with the profile id.
+- No new table for the budget itself (it is computed). The profile store is the only new table,
+  and only in v2.
+
+## 9. UI / CLI / API
+
+- `strength-coach volume --week`: target, exempt, effective target, completed, projection, cap,
+  feasibility.
+- Prescribe page: a "Weekly volume" panel (target / done / remaining / cap / minimum sessions)
+  and +/− set badges on items.
+- Programme forecast: budget-aware allocation across projected dates, with the unreachable
+  warning; the forecast simulates previous projected sessions as completed rather than treating
+  every date as isolated.
+- Workout end: "week 49/57; 8 sets remaining; 1 session left".
+- Settings (v3): modality list with classes, factors, dependencies and diff preview.
+- CLI/API parity: `settings modalities`, `settings profile`, `GET/POST /api/modalities`,
+  `/api/profiles`; the same core functions as the CLI (AGENTS.md §10).
+
+## 10. Phasing
+
+1. **Phase 0 — instrumentation.** Store planned vs completed working sets per pattern per week;
+   the ledger already computes completed. Add the feasibility report. No prescription change.
+2. **Phase 1 — display-only budget.** Show target/remaining/cap and the allocation the engine
+   *would* make. Validate the arithmetic against real weeks. No change.
+3. **Phase 2 — automatic trim, opt-in top-up.** Trimming after a long session is bounded and
+   safe; top-up is explicit (`run --use-volume-budget`, UI tick). New modifier cited.
+4. **Phase 3 — automatic accessory top-up.** After a review of Phase 2 weeks: no adverse
+   symptoms, no MRV breaches, and the athlete confirms the added volume is wanted.
+5. **Phase 4 — settings registry and profiles.** Migrate the scattered flags; expose factors.
+6. **Phase 5 — fractional/indirect sets.** The 2025 meta-regression found fractional counting
+   (indirect = 0.5) fits best; today the ledger counts integer sets by pattern. A later
+   refinement, not v1.
+
+Each phase ends with the full suite and a new golden fixture for the default profile.
+
+## 11. Tests (for the implementation phase)
+
+- target arithmetic per pattern; the 114/2 cycle average.
+- normal week (56/58) inside tolerance → no change.
+- missed session → top-up to cap; unreachable warning with the feasibility numbers.
+- short session → remaining; long session → trim; floors respected; essentials never trimmed.
+- readiness/deload/spinal/constraint removals lower the effective target and are not re-added.
+- minimum session default is debt; config can exempt it from the target.
+- symptom flare suppresses top-up for that pattern.
+- MRV cap still wins after top-up; spinal trim still wins.
+- time cap binds before the set cap.
+- no cross-week debt; ISO-week boundary.
+- forecast allocation across projected dates.
+- config validation: cap < target feasibility, negative tolerance, unknown pattern.
+- registry: default profile reproduces today's prescriptions; disabling each module changes only
+  its cited outputs; hard-safety waiver required.
+
+## 12. Decisions (accepted by the owner, 2026-10-26; implementation not started)
+
+| # | decision | accepted choice |
+|---|---|---|
+| 1 | Target source | cycle average (51 targeted + 6 untargeted = 57/week) |
+| 2 | Session cap | 30 sets total plus the per-pattern table and the time cap |
+| 3 | Automation | automatic trim + automatic accessory top-up, phased |
+| 4 | Exemptions | safety/recovery removals lower the **effective weekly target**, not the session cap; missed sessions, early ends and minimum sessions are debt by default |
+| 5 | Week boundary | ISO week, no cross-week debt |
+| 6 | Main-lift top-ups | opt-in only |
+| 7 | New rule | `MOD-VOL-003` and the constitution bump **approved 2026-10-26** (`DEC-VOLUME-07`); rule entry with implementation |
+| 8 | Settings layer | budget as a config module first, registry and profiles later |
+| 9 | Hard-safety toggles | spinal cap only through a named waiver/profile |
+| 10 | Future-session basis | remaining planned sessions projected at template sets, recomputed each build |
+
+These are design decisions only. No code, config or constitution change has been made;
+`MOD-VOL-003` is absent from `config/rules/programme.v1.yaml` until implementation. The approval
+is for the modifier semantics and the design, not a rule edit. The rationale and the rejected
+alternatives are in §3–§7; the decision records are `DEC-VOLUME-06` and `DEC-VOLUME-07`.
+
+## 13. Assumptions
+
+- **ASSUMPTION-40** — the default weekly target is the six-session template average (51 targeted
+  + 6 untargeted sets), not a landmark value. It keeps a normal week unchanged.
+- **ASSUMPTION-41** — the 30-set total cap and the per-pattern caps are fatigue-management
+  choices, not measured maxima; the time cap remains the practical limit.
+- **ASSUMPTION-42** — safety and recovery removals lower the effective weekly target; they do
+  not lower the session cap or the MRV ceiling. Only scheduling shortfalls are reallocated.
+- **ASSUMPTION-43** — the budget uses the ISO week and creates no cross-week debt.
+- **ASSUMPTION-44** — automatic top-ups are accessory-only; main-lift top-ups are opt-in.
+- **ASSUMPTION-45** — future sessions are projected at template sets; the projection is
+  recomputed on every build and is not a stored plan.
+
+## 14. Evidence
+
+- **Weekly volume is the dose.** The 2025 meta-regression (67 studies, 2,058 participants) found
+  volume raises hypertrophy and strength with diminishing returns, more pronounced for strength:
+  https://doi.org/10.1007/s40279-025-02344-w
+- **The same weekly sets in one vs three sessions.** Calzavara 2026 (18 trained men, 6 weeks,
+  3 sets/exercise/week at 80% to failure) found similar hypertrophy and higher volume load in the
+  distributed group (+58% squat, +76% leg press), with strength differences only directional
+  (p ≈ 0.07): https://doi.org/10.1519/JSC.0000000000005665
+  This is the closest direct support for compressing a weekly target into fewer sessions, but it
+  used a small weekly dose, not 57 sets.
+- **Frequency mostly distributes volume; once a week per muscle is the weak end.** Schoenfeld
+  2016 (2× > 1× for hypertrophy at equal volume; 3× vs 2× unresolved):
+  https://doi.org/10.1007/s40279-016-0543-8 ; Grgic 2018 (no strength effect when volume is
+  equated): https://doi.org/10.1007/s40279-018-0872-x
+- **Acute fatigue rises with per-session volume.** The 2025 review of 51 studies found total
+  volume, proximity to failure and set duration are the main determinants of performance
+  impairment and perceived fatigue: https://doi.org/10.1519/JSC.0000000000005194
+- **Autoregulation is not clearly superior.** Load-based autoregulation trials have not beaten a
+  fixed programme; there is no volume-autoregulation trial:
+  https://doi.org/10.1186/s40798-021-00404-9
+- **No trial of make-up volume.** Searches returned coaching articles and detraining studies, not
+  interventions. The cap, tolerance, exemption list and allocation order are therefore design
+  choices, not findings. They are recorded as ASSUMPTION-40–45.
+
+### Limits of the evidence
+
+- Calzavara 2026 is 18 trained men over 6 weeks with 3 sets/exercise/week; it supports compressing
+  a small weekly dose, not 57 sets into one session.
+- The 2025 meta-regression is study-level and observational; the fractional volume quantification
+  is a modelling choice, and its frequency results are compatible with small effects.
+- There is **no trial** of a per-session set cap, of make-up volume, or of volume autoregulation.
+  The 30-set cap, the ±10% band, the exemption list and the allocation order are design choices
+  (`ASSUMPTION-40`–`45`), not findings.
+- The app's own W6 audit found the readiness counterfactual is not identifiable retrospectively
+  ([READINESS-AUDIT.md](READINESS-AUDIT.md)); the budget is a programming heuristic, and the
+  phased rollout (display → opt-in → automatic) is the safeguard.
+
+## 15. Related
+
+- [FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md) — the reproduced behaviour and the options
+- [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md) — ledger, landmarks, MRV cap, under-MEV
+- [MINIMUM-SESSION.md](MINIMUM-SESSION.md) — the explicit short-session path
+- [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) Q26
+- [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md) LIM-51
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

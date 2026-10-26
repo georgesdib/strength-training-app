@@ -36,15 +36,23 @@ exercise taxonomy rather than the raw muscle label.
 
 ## 2. Frequency
 
-When weekly volume is equated, training a muscle group more often does not clearly increase
-hypertrophy; for **strength**, higher frequency appears to help somewhat (weekly frequency
-meta-analysis, [PubMed 30076500](https://pubmed.ncbi.nlm.nih.gov/30076500/) `[title/abstract
-only]`).
+The meta-analyses disagree in emphasis, so the honest summary is narrow. When weekly volume is
+equated, the hypertrophy advantage of training a muscle more often is small but not always
+zero: Schoenfeld 2016 found twice-weekly per muscle superior to once-weekly, while the 2025
+dose-response meta-regression could not distinguish a frequency effect on hypertrophy from zero
+([Schoenfeld 2016](https://doi.org/10.1007/s40279-016-0543-8);
+[2025 meta-regression](https://link.springer.com/article/10.1007/s40279-025-02344-w)). For
+strength, Grgic 2018 found the frequency effect disappeared when volume was equated, whereas
+the 2025 model still found a positive frequency slope
+([Grgic 2018](https://doi.org/10.1007/s40279-018-0872-x)). The consistent reading is that
+**frequency mostly distributes volume, and training a muscle once a week is the weak end of the
+range**; whether 3x beats 2x is unresolved.
 
-**Implication:** 3x/week full-body sits at the high end of what the evidence supports for
-strength and is well within it. A rule like "missed sessions must not leave any muscle group
-without stimulus for a week" is a *practical robustness* rule, not a frequency-science claim —
-which is the right justification for it, and should be described that way.
+**Implication:** 3x/week full-body is a defensible distribution, not a free extra dose. A rule
+like "missed sessions must not leave any muscle group without stimulus for a week" is a
+*practical robustness* rule, not a frequency-science claim. Fewer sessions at the same
+per-session dose means less weekly volume; see
+[FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md).
 
 ## 3. Proximity to failure
 

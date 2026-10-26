@@ -564,6 +564,10 @@ the Python-filtered variants; it never supplies a load, set or RIR. A missing mo
 to the deterministic choice. The
 first session is marked `fatigue_reduced` if the last two weeks exceeded the spinal cap or the
 last two sessions both flared.
+`--sessions-per-week 1|2|3` selects Monday, Monday/Wednesday or Monday/Wednesday/Friday for
+the forecast. It changes **which days** are projected, not the session content: a one-day week
+keeps the same per-session sets, so weekly volume falls to about one third instead of being
+redistributed. See [FREQUENCY-AND-VOLUME.md](docs/FREQUENCY-AND-VOLUME.md).
 
 ### 4.5 `block` — declare or reset week 1
 

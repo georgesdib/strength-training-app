@@ -173,6 +173,13 @@ without conditioning on provenance penalises the athlete for following the presc
   the magnitudes; no schema states it.
 - **ASSUMPTION-39** — the weekly spinal cap counts the low-bar competition squat at cost 1 and leaves the SSB/high-bar squats outside by explicit exercise identity. The taxonomy has no bar-position field, so this is a scope classification, not a measurement; the cap itself was raised from 3 to 6 by `DEC-SPINE-05`. The evidence ranks the variants (low-bar > high-bar > SSB in forward lean and erector demand), but does not measure lumbar load.
 
+- **ASSUMPTION-40** — the proposed volume budget's default weekly target is the six-session template average (51 targeted + 6 untargeted sets, 57 total), not a landmark value. It keeps a normal week unchanged; changing it is a programme decision (`docs/VOLUME-MODULATION-PLAN.md`).
+- **ASSUMPTION-41** — the 30-set total cap and the per-pattern caps are fatigue-management choices, not measured maxima; the existing time estimate remains the practical limit.
+- **ASSUMPTION-42** — safety and recovery removals (readiness, deload, spinal trim, constraints) lower the effective weekly target; they do not lower the session cap or the MRV ceiling. Only scheduling shortfalls are reallocated.
+- **ASSUMPTION-43** — the budget uses the ISO week and creates no cross-week debt.
+- **ASSUMPTION-44** — automatic top-ups are accessory-only; main-lift top-ups are opt-in.
+- **ASSUMPTION-45** — the proposed volume budget projects future sessions at template sets; the projection is recomputed on every build and is not a stored plan (`docs/VOLUME-MODULATION-PLAN.md`).
+
 - **ASSUMPTION-38** — a session is one calendar date. Unverifiable without timestamps.
 
 ## E. What these checks deliberately did not do

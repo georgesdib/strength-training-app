@@ -159,6 +159,9 @@ Readiness page and recorded in the `MOD-FAT-001` warning.
 - The evidence does not support a fixed automatic deload schedule; the scheduled deload is a
   configurable fatigue-management policy (`DEC-PROGRAMME-05`), not a claim of proven superiority.
 - Volume management does not itself trigger a deload; the deload policy is separate.
+- Frequency is not used to redistribute weekly volume: `programme --sessions-per-week` changes
+  which days are projected, not the per-session dose. See
+  [FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md).
 
 ---
 
@@ -187,4 +190,5 @@ Readiness page and recorded in the `MOD-FAT-001` warning.
 - **Evidence:** [REFERENCES.md](REFERENCES.md)
 - **Decisions:** [DECISIONS.md](DECISIONS.md)
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- [VOLUME-MODULATION-PLAN.md](VOLUME-MODULATION-PLAN.md) — proposed weekly target + session cap budget
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md)

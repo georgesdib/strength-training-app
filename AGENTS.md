@@ -191,6 +191,8 @@ never read `data/raw`.
 | `ROADMAP.md` | live phase status, next actions, resume checklist |
 | `docs/FORM-PROSPECTIVE.md` | open prospective form evaluation: anchors, sampling, outcomes and limits |
 | `docs/FORM-USE-EVIDENCE.md` | form evidence review, retrospective association and allowed uses |
+| `docs/FREQUENCY-AND-VOLUME.md` | reproduced `programme --sessions-per-week` behaviour, existing volume rules, evidence and options; no implementation |
+| `docs/VOLUME-MODULATION-PLAN.md` | proposed weekly target + session cap volume budget, exemptions, worked examples and the settings/modality layer; design only |
 | `docs/FORM-ASSESSMENT.md` | optional per-lift 1-5 form assessment; Workout/History and rubric 1.2.0 |
 | `docs/REGIME-CHANGE.md` | read-only main-lift/substitute regime check; thresholds and limits |
 | `docs/AUDIT-CLOSEOUT.md` | final W0–W12 audit outcome, implemented fixes and remaining limitations |

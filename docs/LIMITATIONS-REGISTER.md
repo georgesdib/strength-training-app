@@ -59,6 +59,7 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-48 | Technique-throttle values (90% load, RIR floor 3) are design choices, not measured optima | accepted | DEC-TECH-01, ASSUMPTION-36 | evidence for different values |
 | LIM-49 | ACWR is contested, so it can only be advisory and may never veto a prescription | accepted | DEC-ACWR-01 | a defensible dose-response model |
 | LIM-50 | The scheduled-deload clock counts calendar weeks from the block start, so a declared break freezes the DUP cycle and the erector ramp but not the deload schedule | open | DEC-CONTINUITY-04 | a break-aware deload clock is designed and tested |
+| LIM-51 | `programme --sessions-per-week` changes only which weekdays are projected; per-session content and weekly volume are unchanged, so a 1/week forecast delivers about one third of the weekly hard sets and is below MEV for squat and horizontal push. No rule redistributes volume by frequency, and none reads a completed session's shortfall or excess | open | frequency/volume investigation 2026-10-26, FREQUENCY-AND-VOLUME, VOLUME-MODULATION-PLAN, DEC-VOLUME-06 | the volume budget is implemented and reviewed |
 
 ## Rules
 
