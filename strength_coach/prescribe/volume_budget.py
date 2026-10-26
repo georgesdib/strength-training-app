@@ -398,7 +398,10 @@ def pattern_sets(rows: Iterable[Mapping[str, Any]]) -> dict[str, int]:
     return out
 
 
-def completed_sets(conn, *, on_date: str, include_today: bool) -> dict[str, int]:
+def completed_sets(
+    conn, *, on_date: str, include_today: bool,
+    projected: Iterable[Mapping[str, Any]] = (),
+) -> dict[str, int]:
     """Working sets in the week before (or through) the date, by ledger key."""
     start, _ = week_bounds(on_date)
     end = str(on_date)
@@ -416,6 +419,10 @@ def completed_sets(conn, *, on_date: str, include_today: bool) -> dict[str, int]
         key = pattern_key(exercise_id, taxonomy)
         if key in out:
             out[key] += 1
+    for row in projected:
+        key = pattern_key(str(row.get("exercise_id") or ""), taxonomy)
+        if key in out:
+            out[key] += int(row.get("sets") or 0)
     return out
 
 
@@ -1051,6 +1058,8 @@ def plan_drop(
     *,
     config: BudgetConfig | None = None,
     confirmed: bool = False,
+    projected_items: Iterable[Mapping[str, Any]] = (),
+    projected_sessions: int = 0,
 ) -> dict[str, Any]:
     """Choose the 9c branch: technique at the high band, else a volume_fill session."""
     cfg = config or BudgetConfig.load(conn=conn, on_date=on_date)
@@ -1079,7 +1088,10 @@ def plan_drop(
             }
 
     template = templates.SessionTemplate.load(session_type)
-    data = report(conn, on_date, config=cfg, session_type=session_type)
+    data = report(
+        conn, on_date, config=cfg, session_type=session_type,
+        projected_items=projected_items, projected_sessions=projected_sessions,
+    )
     effective = data["effective_targets"]
     projected = data["projection"]
     completed = data["completed"]
@@ -1218,6 +1230,8 @@ def plan_drop(
 def report(
     conn, on_date: str, *, config: BudgetConfig | None = None,
     session_type: str | None = None,
+    projected_items: Iterable[Mapping[str, Any]] = (),
+    projected_sessions: int = 0,
 ) -> dict[str, Any]:
     """Read-only weekly budget for a date. Writes nothing."""
     cfg = config or BudgetConfig.load(conn=conn, on_date=on_date)
@@ -1235,10 +1249,13 @@ def report(
     if today_done:
         today_type = str(today_sessions.iloc[-1].get("session_type") or "unknown")
 
-    completed = completed_sets(conn, on_date=on_date, include_today=today_done)
+    completed = completed_sets(
+        conn, on_date=on_date, include_today=today_done,
+        projected=projected_items,
+    )
     exempt = exemptions(conn, on_date=on_date)
     effective = effective_targets(cfg.weekly_target, exempt)
-    sessions_done = completed_sessions(conn, on_date=on_date)
+    sessions_done = completed_sessions(conn, on_date=on_date) + int(projected_sessions)
 
     if today_done:
         future_count = max(0, target_frequency - sessions_done)
@@ -1377,6 +1394,66 @@ def report(
     }
 
 
+
+
+
+def week_panel(
+    conn,
+    on_date: str,
+    items,
+    *,
+    config: BudgetConfig | None = None,
+    session_type: str | None = None,
+    projected_items: Iterable[Mapping[str, Any]] = (),
+    projected_sessions: int = 0,
+) -> dict[str, Any]:
+    """Weekly position after this session, using the same report as the engine."""
+    cfg = config or BudgetConfig.load(conn=conn, on_date=on_date)
+    # Derived types have no template; the panel only needs completed/targets, not a template.
+    report_type = session_type if session_type in templates.SESSION_TYPES else None
+    data = report(
+        conn, on_date, config=cfg, session_type=report_type,
+        projected_items=projected_items, projected_sessions=projected_sessions,
+    )
+    rows = [
+        {
+            "exercise_id": str(item["exercise_id"] if isinstance(item, Mapping)
+                              else item.exercise_id),
+            "sets": int(item["sets"] if isinstance(item, Mapping) else item.sets),
+        }
+        for item in items
+    ]
+    today_sets = pattern_sets(rows)
+    after = projection(data["completed"], today_sets, ())
+    groups = {}
+    for key in MANAGED_KEYS:
+        target = float(data["effective_targets"].get(key, 0))
+        groups[key] = {
+            "target": round(target, 1),
+            "completed": int(data["completed"].get(key, 0)),
+            "after": round(after.get(key, 0), 1),
+            "remaining": round(max(0.0, target - after.get(key, 0)), 1),
+        }
+    sessions_done = int(data["sessions_done"])
+    sessions_target = int(data["sessions_target"])
+    return {
+        "on_date": str(on_date),
+        "week": data["week"],
+        "sessions_target": sessions_target,
+        "sessions_done": sessions_done,
+        "sessions_remaining": max(0, sessions_target - sessions_done - 1),
+        "target": round(data["total_effective"], 1),
+        "completed": round(sum(data["completed"].values()), 1),
+        "after": round(sum(after.values()), 1),
+        "remaining": round(max(0.0, data["total_effective"] - sum(after.values())), 1),
+        "band": data["band"],
+        "high_band_reached": sum(after.values()) >= data["band"]["high"],
+        "groups": groups,
+        "feasibility": data["feasibility"],
+        "session_type": session_type,
+    }
+
+
 def apply(
     items,
     *,
@@ -1385,6 +1462,8 @@ def apply(
     for_date: str,
     session_type: str,
     config: BudgetConfig | None = None,
+    projected_items: Iterable[Mapping[str, Any]] = (),
+    projected_sessions: int = 0,
 ) -> tuple[tuple, tuple[str, ...], dict[str, Any]]:
     """Apply the per-group budget to a session's items. No-op unless the profile enables it."""
     cfg = config or BudgetConfig.load(conn=conn, on_date=for_date)
@@ -1396,7 +1475,10 @@ def apply(
     if not enabled:
         return tuple(items), (), {"enabled": False}
 
-    data = report(conn, for_date, config=cfg, session_type=session_type)
+    data = report(
+        conn, for_date, config=cfg, session_type=session_type,
+        projected_items=projected_items, projected_sessions=projected_sessions,
+    )
     rows: list[dict[str, Any]] = []
     for index, item in enumerate(items):
         entity = context.entity(item.exercise_id) or {}

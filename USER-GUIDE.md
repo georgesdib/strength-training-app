@@ -537,7 +537,10 @@ e1RM and plausibility; the programme forecast resolves per date. Step 5 adds the
 **Settings profile** editor with diff and append-only reason; guarded MRV/spinal changes need the
 confirmation tick, the word `SPINAL` and a reason. The Drop panel now saves a profile budget. A
 **Volume review** reminder appears on Today after the budget is enabled and stays open for step 3.
-The Settings **Modules** panel lists the active modalities, their classes, dependencies and
+When the budget is on, Prescribe shows the weekly position after the proposed session, the
+programme shows the position per forecast entry, and Workout shows the planned position at
+start and end. The forecast simulates earlier projected sessions in the same week; `drop` is
+held only inside the competition window. The Settings **Modules** panel lists the active modalities, their classes, dependencies and
 factor references; toggles and edits use the same CLI/API core. Hard-safety entries are
 read-only. Remaining modules (continuity, fatigue-fitness, test cadence, warmup, selection and
 high-intensity exposure) are deferred to 5c.

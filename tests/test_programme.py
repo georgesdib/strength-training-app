@@ -59,6 +59,24 @@ def test_programme_is_a_weekday_abc_forecast_and_persists_nothing():
     assert before == after == 0
 
 
+def test_programme_simulates_projected_sessions_for_the_budget():
+    with store_with() as store:
+        conn = store.connection
+        repositories.append_athlete_profile(
+            conn, effective_from="2024-01-01", primary_goal="strength",
+            goal_rank=["strength"], focus_lifts=["squat"],
+            volume_budget_enabled=True,
+        )
+        entries = programme.build_programme(
+            conn, start="2024-01-02", weeks=1, per_week=3,
+            start_session_type="squat",
+        )
+    panels = [entry.prescription.notes["volume_panel"] for entry in entries]
+    assert all(entry.prescription.notes["volume_budget"]["enabled"] for entry in entries)
+    assert all(panel["target"] > 0 for panel in panels)
+    assert panels[1]["sessions_done"] > panels[0]["sessions_done"]
+
+
 def test_two_flaring_sessions_trigger_a_reactive_deload():
     rows = ROWS + [
         {"Date": "2024-01-03", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
@@ -99,7 +117,10 @@ def test_a_forecast_entry_equals_a_freshly_built_prescription():
 
     assert entry.prescription.items == direct.items
     assert entry.prescription.warnings == direct.warnings
-    assert entry.prescription.notes == direct.notes
+    # The forecast intentionally carries the simulated weekly panel; other notes must match.
+    assert {k: v for k, v in entry.prescription.notes.items() if k != "volume_panel"} == {
+        k: v for k, v in direct.notes.items() if k != "volume_panel"
+    }
 
 
 def test_programme_can_use_a_selection_chooser():

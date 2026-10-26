@@ -800,6 +800,26 @@ async function applySuggestedDeload() {
   }
 }
 
+function volumePanelHtml(panel, label = "Weekly volume") {
+  if (!panel || panel.target == null) return "";
+  const groups = Object.entries(panel.groups || {}).filter(([, row]) => Number(row.target) > 0)
+    .map(([key, row]) => "<tr><td>" + esc(key) + "</td><td>" + fmt(row.completed, 1) +
+      "</td><td>" + fmt(row.after, 1) + "</td><td>" + fmt(row.target, 1) +
+      "</td><td>" + fmt(row.remaining, 1) + "</td></tr>").join("");
+  const warn = panel.high_band_reached || panel.feasibility?.reachable === false
+    ? "<p class='warnbox'>" + (panel.high_band_reached ? "Week is at or above the high band." : "") +
+      (panel.feasibility?.reachable === false ? " Target may be unreachable with the remaining sessions." : "") + "</p>"
+    : "";
+  return "<div class='panel' style='margin-top:1rem'><div class='panel-head'><h3>" +
+    esc(label) + "</h3><span class='badge " + (panel.high_band_reached ? "warn" : "") + "'>" +
+    fmt(panel.after, 1) + " / " + fmt(panel.target, 1) + " sets</span></div>" +
+    "<p class='muted'>" + fmt(panel.completed, 1) + " completed before this session · " +
+    fmt(panel.remaining, 1) + " remaining · sessions " + panel.sessions_done + "/" +
+    panel.sessions_target + " · high band " + fmt(panel.band?.high, 1) + ".</p>" +
+    warn + (groups ? "<div class='table-scroll'><table><thead><tr><th>Group</th><th>Done</th><th>After</th><th>Target</th><th>Remaining</th></tr></thead><tbody>" + groups + "</tbody></table></div>" : "") +
+    "</div>";
+}
+
 function renderPrescription(p) {
   window.__lastPrescription = p;
   const stress = p.notes?.recent_stress || {};
@@ -829,6 +849,8 @@ function renderPrescription(p) {
   const warnings = p.warnings.length
     ? '<div class="warnbox"><strong>Warnings</strong><ul class="list">' +
       p.warnings.map((w) => "<li>" + esc(w) + "</li>").join("") + "</ul></div>" : "";
+  const volumeBox = p.notes?.volume_budget?.enabled
+    ? volumePanelHtml(p.notes?.volume_panel) : "";
   const comp = p.notes?.compensation || {};
   const compSelected = comp.status === "refused" ? comp.selection?.selected : null;
   const compBox = compSelected
@@ -880,7 +902,7 @@ function renderPrescription(p) {
   $("#prescribe-result").innerHTML = `<div class="panel">
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_label || sessionLabel(p.session_type || "unknown"))}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
-    ${compBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
+    ${volumeBox}${compBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <div class="form-row">
       ${p.executable
         ? '<button class="primary" type="button" onclick="openWorkoutStart()">Start workout</button>'
@@ -2352,6 +2374,11 @@ function renderProgramme(entries) {
       return `<li>${esc(item.exercise_id)} — ${item.sets}×${item.reps_low}-${item.reps_high}
        @ ${fmt(item.load_kg)} kg, RIR ${esc(item.rir_target)}${tag}${rtag}</li>`;
     }).join("");
+    const vp = entry.prescription.notes?.volume_panel;
+    const budgetOn = entry.prescription.notes?.volume_budget?.enabled;
+    const volumeTag = budgetOn && vp
+      ? `<div class="muted">week ${fmt(vp.after, 1)}/${fmt(vp.target, 1)} sets · ${fmt(vp.remaining, 1)} remaining</div>`
+      : "";
     const warn = entry.prescription.warnings.length
       ? `<details><summary>${entry.prescription.warnings.length} warning(s)</summary><ul>${entry.prescription.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></details>`
       : "<span class='empty'>none</span>";
@@ -2365,6 +2392,7 @@ function renderProgramme(entries) {
       <td><ul class="plain">${items}</ul>
         ${entry.deload_reason ? `<p class="warnbox">deload applied: ${esc(entry.deload_reason)}</p>` : ""}
         ${entry.deload_suggestion ? `<p class="warnbox">deload suggested: ${esc(entry.deload_suggestion)}</p>` : ""}
+        ${volumeTag}
         ${warn}</td>
     </tr>`;
   }).join("");

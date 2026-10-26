@@ -286,6 +286,11 @@ function renderWorkout(w) {
     esc(w.status) + "</strong>";
 
   var plan = w.plan || {};
+  var volumeBox = document.getElementById("workout-volume");
+  if (volumeBox) {
+    volumeBox.innerHTML = plan.volume_panel
+      ? volumePanelHtml(plan.volume_panel, "Planned weekly volume") : "";
+  }
   var items = plan.items || [];
   var formById = {};
   (w.forms || []).forEach(function (form) { formById[form.exercise_id] = form; });
@@ -407,6 +412,11 @@ function renderWorkout(w) {
 
 function renderWorkoutEnded(w) {
   stopWorkoutTimer();
+  var endedVolume = document.getElementById("workout-ended-volume");
+  if (endedVolume) {
+    endedVolume.innerHTML = w.plan && w.plan.volume_panel
+      ? volumePanelHtml(w.plan.volume_panel, "Weekly volume at the end (planned position)") : "";
+  }
   activeWorkoutId = null;
   $("#workout-active-panel").hidden = true;
   $("#workout-start-panel").hidden = true;

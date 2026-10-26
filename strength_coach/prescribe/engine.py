@@ -79,6 +79,8 @@ def build_prescription(
     technique_throttle_pattern: str | None = None,
     deload_decision: Any | None = None,
     drop_confirmed: bool = False,
+    projected_items: tuple[Mapping[str, Any], ...] = (),
+    projected_sessions: int = 0,
 ) -> Prescription:
     """Generate the deterministic session for `for_date`.
 
@@ -93,6 +95,7 @@ def build_prescription(
     requested_session_type = session_type
     drop_plan = volume_budget_mod.plan_drop(
         conn, for_date, session_type, config=budget_config, confirmed=drop_confirmed,
+        projected_items=projected_items, projected_sessions=projected_sessions,
     )
     drop_applied = bool(drop_plan.get("applied"))
     if drop_applied:
@@ -273,6 +276,7 @@ def build_prescription(
         items, budget_warnings, budget_note = volume_budget_mod.apply(
             tuple(items), conn=conn, context=context, for_date=for_date,
             session_type=requested_session_type, config=budget_config,
+            projected_items=projected_items, projected_sessions=projected_sessions,
         )
         warnings.extend(budget_warnings)
         items, compensation_warnings, compensation_note = _apply_compensation(
@@ -281,6 +285,8 @@ def build_prescription(
             template=template, thresholds=thresholds, decisions=decisions,
             budget_note=budget_note, config=budget_config,
             calibration_factors=e1rm_factors,
+            projected_items=projected_items,
+            projected_sessions=projected_sessions,
         )
         warnings.extend(compensation_warnings)
 
@@ -465,6 +471,12 @@ def build_prescription(
         "over_cap": spine_cost > spine_cap,
     }
 
+    volume_panel = None
+    if budget_note.get("enabled"):
+        volume_panel = volume_budget_mod.week_panel(
+            conn, for_date, tuple(items), config=budget_config, session_type=session_type,
+            projected_items=projected_items, projected_sessions=projected_sessions,
+        )
     return Prescription(
         for_date=for_date,
         session_type=session_type,
@@ -515,6 +527,7 @@ def build_prescription(
             "high_intensity_exposure": exposure_status.as_dict(),
             "volume_management": volume_note,
             "volume_budget": budget_note,
+            "volume_panel": volume_panel,
             "compensation": compensation_note,
             "drop": drop_plan.get("note") if drop_applied else None,
             "drop_confirmed": bool(drop_confirmed),
@@ -1314,6 +1327,8 @@ def _apply_compensation(
     budget_note,
     config,
     calibration_factors,
+    projected_items=(),
+    projected_sessions=0,
 ):
     """Apply the selected 9b compensation slot. Only a real, executable load is added."""
     if not budget_note.get("enabled") or not config.compensation_apply:
@@ -1334,6 +1349,7 @@ def _apply_compensation(
     ]
     data = volume_budget_mod.report(
         conn, for_date, config=config, session_type=session_type,
+        projected_items=projected_items, projected_sessions=projected_sessions,
     )
     projected = volume_budget_mod.projection(
         data["completed"],

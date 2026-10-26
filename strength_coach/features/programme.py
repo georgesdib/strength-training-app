@@ -19,6 +19,7 @@ from strength_coach.features import deload as deload_feature
 from strength_coach.features import readiness as readiness_mod
 from strength_coach.features import vbt_calibration
 from strength_coach.prescribe import build_prescription, deload as deload_mod, schedule
+from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.prescribe import config as thresholds_mod
 from strength_coach.prescribe import templates, undulation as undulation_mod
 from strength_coach.rules import History, load_document
@@ -87,7 +88,12 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
     vbt = vbt_calibration.calibrate(history.sets) if not history.sets.empty else None
     out: list[ProgrammeEntry] = []
     current_type = start_type
+    projected_items: dict[str, list[dict]] = {}
+    projected_dates: dict[str, set[str]] = {}
     for index, date in enumerate(dates):
+        week_start, _week_end = volume_budget_mod.week_bounds(date.isoformat())
+        prior_items = projected_items.get(week_start, [])
+        prior_sessions = len(projected_dates.get(week_start, set()))
         # Resolve per date: a profile version effective mid-forecast changes later entries.
         resolved = settings_profile.feature_settings(conn, date.isoformat())
         # Reactive triggers are automatic and are evaluated once against current state.
@@ -119,6 +125,8 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
             selection_chooser=selection_chooser,
             selection_confirmed=selection_confirmed,
             deload_decision=reactive,
+            projected_items=tuple(prior_items),
+            projected_sessions=prior_sessions,
         )
         if reactive is None and scheduled is not None:
             prescription = deload_mod.suggest(prescription, scheduled)
@@ -128,6 +136,13 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
             deload_suggestion=scheduled.reason if scheduled and reactive is None else None,
             deload_applied=reactive is not None,
         ))
+        for item in prescription.items:
+            projected_items.setdefault(week_start, []).append({
+                "exercise_id": item.exercise_id,
+                "sets": int(item.sets),
+                "date": date.isoformat(),
+            })
+        projected_dates.setdefault(week_start, set()).add(date.isoformat())
         prior.append(prescription.session_type)
         current_type = schedule.next_session_type(
             conn, date.isoformat(), prior_types=prior

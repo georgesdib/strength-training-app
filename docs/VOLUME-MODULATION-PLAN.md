@@ -9,8 +9,9 @@ the rules, the decisions and a phased path. Step 1 is read-only; 9a is a preview
 9c-1 (drop engine), 9c-2 (identity/UX), 9c-3 (confirmation/settings), 7a (settings
 registry/snapshot), step 4 (profile store, precedence, CLI/API, budget wiring and prescription
 snapshot), 7b (profile-backed feature wiring, including DUP) and step 5 (Settings UI, guarded
-MRV/spinal settings, drop panel profile) and 5b (modality registry/UI) are implemented;
-steps 3, 6, 8 and the later 5c module expansion remain.
+MRV/spinal settings, drop panel profile), 5b (modality registry/UI) and step 6 (budget-aware
+forecast and weekly panels) are implemented; steps 3, 8 and the later 5c module expansion
+remain.
 
 At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
 plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
@@ -833,9 +834,15 @@ deliberate golden update where a prescription changes.
   ambiguous toggles. 5c needs its own class/dependency decisions.
 
 
-**6. Forecast and workout panels.**
-- Budget-aware programme projection across dates; Prescribe/Workout weekly panel; `volume`
-  report; docs update.
+**6. Forecast and workout panels — implemented 2026-10-26.**
+- Programme forecast carries a per-week projected ledger: actual sessions before the start plus
+  every earlier projected session in the same ISO week. The engine's budget/drop logic is the
+  same as a real build; `drop` applies outside the competition window and is held with its
+  warning inside it.
+- Every prescription carries `volume_panel` when the budget is on: target, completed, after,
+  remaining, sessions, high band, per-group position and feasibility. Prescribe shows it;
+  Programme shows the weekly position per entry; Workout shows the planned position at start and
+  end. `volume --budget` remains the detailed report.
 
 **7. Migrate the remaining flags.**
 - **7a implemented 2026-10-26:** `settings_registry.py` defines the typed keys, sources,
@@ -916,6 +923,7 @@ it; not v1.
 | 29 | Hinge maximal setting | `undulation.maximal_hinge_allowed` (default false) profile/config-backed; `Schemes.applicable` honors it; Settings UI follows step 5 (`DEC-VOLUME-24`) |
 | 30 | Step 5 Settings UI/guard | profile editor with diff, reset and append-only reason; guarded MRV cap and spinal cap/costs with typed confirmation; drop panel writes profile budget; rule context reads the same spinal override; no modalities yet (`DEC-VOLUME-25`) |
 | 31 | 5b modality registry | 11 metadata modules + hard-safety read-only entries; enabled keys delegate to existing settings; CLI/API/Settings Modules panel parity; factors reference existing keys; no second toggle (`DEC-VOLUME-26`) |
+| 32 | Step 6 forecast panels | projected weekly ledger in programme; per-prescription `volume_panel`; Prescribe/Programme/Workout panels; drop follows the real policy (held only in competition window); no new rules (`DEC-VOLUME-27`) |
 
 Step 1 is implemented read-only (the module, the `volume_exemption` table and the config
 section). Step 2 is implemented behind the off-by-default profile flag, step 2b adds the opt-in
