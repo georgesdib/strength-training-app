@@ -159,12 +159,22 @@ class BudgetConfig:
         return sum(float(value) for value in self.weekly_target.values())
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "BudgetConfig":
+    def load(
+        cls, path: str | Path | None = None, *,
+        conn=None, on_date: str | None = None,
+        profile_budget: Mapping[str, Any] | None = None,
+    ) -> "BudgetConfig":
         source = Path(path or paths.config_dir("volume.v1.yaml"))
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         overlay = source.with_name("volume.local.yaml")
         if overlay.is_file():
             _deep_merge(raw, yaml.safe_load(overlay.read_text(encoding="utf-8")) or {})
+        if profile_budget is None and conn is not None and on_date is not None:
+            from strength_coach.settings_profile import budget_overrides
+            profile_budget = budget_overrides(conn, on_date)
+        if profile_budget:
+            budget_raw = raw.setdefault("budget", {})
+            _deep_merge(budget_raw, dict(profile_budget))
         body = raw.get("budget") or {}
         targets = {
             str(key): float(value)
@@ -1043,7 +1053,7 @@ def plan_drop(
     confirmed: bool = False,
 ) -> dict[str, Any]:
     """Choose the 9c branch: technique at the high band, else a volume_fill session."""
-    cfg = config or BudgetConfig.load()
+    cfg = config or BudgetConfig.load(conn=conn, on_date=on_date)
     profile = queries.athlete_profile(conn) or {}
     enabled = (
         bool(profile.get("volume_budget_enabled"))
@@ -1210,7 +1220,7 @@ def report(
     session_type: str | None = None,
 ) -> dict[str, Any]:
     """Read-only weekly budget for a date. Writes nothing."""
-    cfg = config or BudgetConfig.load()
+    cfg = config or BudgetConfig.load(conn=conn, on_date=on_date)
     start, end = week_bounds(on_date)
     profile = queries.athlete_profile(conn) or {}
     target_frequency = int(profile.get("sessions_per_week_target") or 3)
@@ -1377,7 +1387,7 @@ def apply(
     config: BudgetConfig | None = None,
 ) -> tuple[tuple, tuple[str, ...], dict[str, Any]]:
     """Apply the per-group budget to a session's items. No-op unless the profile enables it."""
-    cfg = config or BudgetConfig.load()
+    cfg = config or BudgetConfig.load(conn=conn, on_date=for_date)
     profile = queries.athlete_profile(conn) or {}
     if "volume_budget_enabled" in profile:
         enabled = bool(profile.get("volume_budget_enabled"))

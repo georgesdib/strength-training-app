@@ -87,7 +87,7 @@ def build_prescription(
     """
     document = document or load_document()
     thresholds = thresholds or config_mod.Thresholds.load()
-    budget_config = volume_budget_mod.BudgetConfig.load()
+    budget_config = volume_budget_mod.BudgetConfig.load(conn=conn, on_date=for_date)
     requested_session_type = session_type
     drop_plan = volume_budget_mod.plan_drop(
         conn, for_date, session_type, config=budget_config, confirmed=drop_confirmed,

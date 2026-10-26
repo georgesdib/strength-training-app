@@ -1320,3 +1320,69 @@ def append_readiness_context(
         (context_id, str(on_date), flag, (note or "").strip() or None),
     )
     return context_id
+
+
+def append_settings_profile(
+    conn: sqlite3.Connection,
+    *,
+    effective_from: str,
+    overrides: Mapping[str, object],
+) -> int:
+    """Append a complete override map; the latest effective version wins."""
+    cursor = conn.execute(
+        "INSERT INTO settings_profile (effective_from, overrides_json) VALUES (?, ?)",
+        (str(effective_from), _json(dict(overrides))),
+    )
+    return int(cursor.lastrowid)
+
+
+def settings_profile_latest(
+    conn: sqlite3.Connection, on_date: str
+) -> dict[str, object] | None:
+    row = conn.execute(
+        """
+        SELECT * FROM settings_profile
+         WHERE effective_from <= ?
+         ORDER BY effective_from DESC, profile_id DESC
+         LIMIT 1
+        """,
+        (str(on_date),),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def settings_profile_history(conn: sqlite3.Connection) -> list[dict[str, object]]:
+    return [
+        dict(row)
+        for row in conn.execute(
+            "SELECT * FROM settings_profile ORDER BY effective_from DESC, profile_id DESC"
+        ).fetchall()
+    ]
+
+
+def append_prescription_profile(
+    conn: sqlite3.Connection,
+    *,
+    prescription_id: str,
+    profile_id: int | None,
+    settings: Mapping[str, object],
+    config_hash: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO prescription_profile
+            (prescription_id, profile_id, settings_json, config_hash)
+        VALUES (?, ?, ?, ?)
+        """,
+        (str(prescription_id), profile_id, _json(dict(settings)), str(config_hash)),
+    )
+
+
+def prescription_profile(
+    conn: sqlite3.Connection, prescription_id: str
+) -> dict[str, object] | None:
+    row = conn.execute(
+        "SELECT * FROM prescription_profile WHERE prescription_id = ?",
+        (str(prescription_id),),
+    ).fetchone()
+    return dict(row) if row else None

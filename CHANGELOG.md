@@ -37,6 +37,10 @@
   weekly high tolerance band and does not add when the week is already there. If no load is
   available, it retries with the e1RM basis and then asks for an e1RM in the Prescribe panel
   (CLI prints the `e1rm set` command); it refuses only if still unusable. `drop` remains 9c.
+- **Settings profile (step 4)**: append-only `settings_profile` versions, full resolved
+  `prescription_profile` snapshots, precedence profile > config > registry default, guarded-key
+  rejection, CLI `settings profile` and GET/POST API, and budget override wiring. No UI; other
+  feature loaders are 7b.
 - **Settings registry (7a)**: a typed registry and read-through snapshot over DUP, deload,
   MRV/under-MEV, readiness set reduction, e1RM and plausibility, with classes, sources and
   ranges. The deload reactive two-week/two-flare constants moved to `config/deload.v1.yaml`.

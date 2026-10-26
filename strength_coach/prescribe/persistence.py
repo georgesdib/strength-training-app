@@ -12,6 +12,7 @@ import uuid
 from typing import Any, Mapping
 
 from strength_coach import __version__
+from strength_coach import settings_profile
 from strength_coach.features import prescription_provenance
 from strength_coach.prescribe import volume_budget
 from strength_coach.store import repositories
@@ -77,5 +78,6 @@ def store_plan(conn, plan: Mapping[str, Any], *, approved_by: str = "determinist
         session_type=str(plan["session_type"]),
         items=plan.get("items") or (),
     )
+    settings_profile.snapshot_prescription(conn, prescription_id, str(plan["for_date"]))
     prescription_provenance.record_plan(conn, prescription_id, plan)
     return prescription_id

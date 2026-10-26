@@ -636,6 +636,20 @@ def test_volume_budget_endpoint_is_read_only(server):
     assert data["note"].startswith("Read-only")
 
 
+def test_settings_profile_endpoint(server):
+    status, body = get(server, "/api/settings/profile?date=2024-01-01")
+    assert status == 200
+    data = json.loads(body)
+    assert data["profile_id"] is None
+
+    saved = post(server, "/api/settings/profile", {
+        "set": {"undulation.cycle_weeks": 3},
+        "effective_from": "2024-01-01",
+    })
+    assert saved["profile_id"] is not None
+    assert saved["resolved"]["undulation.cycle_weeks"] == 3
+
+
 def test_programme_accepts_a_start_session_type(server):
     data = post(server, "/api/programme", {
         "weeks": 1, "sessions_per_week": 1, "start_session_type": "bench_hinge",

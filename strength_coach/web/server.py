@@ -65,6 +65,7 @@ from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
 from strength_coach.prescribe import session_identity
 from strength_coach.prescribe import volume_settings
+from strength_coach import settings_profile
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
@@ -270,6 +271,10 @@ class Handler(BaseHTTPRequestHandler):
                                  mimetypes.guess_type(path)[0] or "application/octet-stream")
             elif path == "/api/settings":
                 self._json(200, self._settings())
+            elif path == "/api/settings/profile":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0] or datetime.date.today().isoformat()
+                self._json(200, self._with_conn(lambda c: settings_profile.state(c, day)))
             elif path == "/api/regime":
                 query = parse_qs(urlparse(self.path).query)
                 self._json(200, self._with_conn(lambda c: regime_feature.detect(
@@ -520,6 +525,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._save_llm_settings(body))
             elif path == "/api/settings/drop":
                 self._json(200, self._save_drop_settings(body))
+            elif path == "/api/settings/profile":
+                self._json(200, self._with_conn(lambda c: self._save_settings_profile(c, body)))
             elif path == "/api/settings/llm/test":
                 self._json(200, self._test_llm())
             elif path == "/api/prescribe":
@@ -602,6 +609,15 @@ class Handler(BaseHTTPRequestHandler):
             "drop": volume_settings.load_drop(),
             "local_only": True,
         }
+
+    def _save_settings_profile(self, conn, body: dict) -> dict:
+        return settings_profile.save(
+            conn,
+            set_values=body.get("set") or {},
+            unset=list(body.get("unset") or []),
+            reset=_truth(body.get("reset")),
+            effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
+        )
 
     def _save_drop_settings(self, body: dict) -> dict:
         volume_settings.save_drop(body)

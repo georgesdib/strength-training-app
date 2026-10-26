@@ -24,7 +24,7 @@ from pathlib import Path
 
 import yaml
 
-from strength_coach import __version__, workout
+from strength_coach import __version__, settings_profile, workout
 from strength_coach.agents import (
     LLMError,
     build_client,
@@ -158,6 +158,13 @@ def main(argv: list[str] | None = None) -> int:
     state.add_argument("--main-lift-policy", choices=("preserve", "reduce", "drop"),
                        default=None,
                        help="preserve keeps main lifts even when the group quota is full")
+
+    settings = sub.add_parser("settings", help="profile-backed settings (step 4)")
+    settings_sub = settings.add_subparsers(dest="settings_action", required=True)
+    profile = settings_sub.add_parser("profile", help="show or append a settings profile version")
+    profile.add_argument("action", choices=("show", "set", "unset", "reset"))
+    profile.add_argument("values", nargs="*", help="KEY=VALUE for set, KEY for unset")
+    profile.add_argument("--date", default=None, help="effective date (default today)")
 
     programme = sub.add_parser("programme", help="forecast a rolling four-session-type horizon")
     programme.add_argument("--weeks", type=int, required=True)
@@ -419,6 +426,7 @@ def main(argv: list[str] | None = None) -> int:
         "review": _cmd_review,
         "calibrate": _cmd_calibrate,
         "state": _cmd_state,
+        "settings": _cmd_settings,
         "e1rm": _cmd_e1rm,
         "test": _cmd_test,
         "symptom": _cmd_symptom,
@@ -579,6 +587,9 @@ def _cmd_run(args) -> int:
                 effective_on=prescription.for_date,
                 session_type=prescription.session_type,
                 items=prescription.as_rows(),
+            )
+            settings_profile.snapshot_prescription(
+                conn, prescription_id, prescription.for_date
             )
             prescription_provenance.record(conn, prescription_id, prescription)
             trace.event("artifact", {
@@ -743,6 +754,51 @@ def _cmd_calibrate(args) -> int:
         )
         print(format_report(report))
         return 0
+    finally:
+        store.close()
+
+
+def _cmd_settings(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        if args.settings_action != "profile":
+            print("only 'settings profile' is available")
+            return 2
+        date = args.date or datetime.date.today().isoformat()
+        if args.action == "show":
+            data = settings_profile.state(conn, date)
+            print(f"settings profile effective {data['effective_from'] or 'config only'}"
+                  f" (profile {data['profile_id'] if data['profile_id'] is not None else '—'})")
+            print(f"overrides: {json.dumps(data['overrides'], sort_keys=True)}")
+            print(f"budget: {json.dumps(data['budget'], sort_keys=True, default=str)}")
+            print(f"versions: {len(data['history'])}")
+            return 0
+        set_values = {}
+        for entry in args.values:
+            if args.action == "set":
+                if "=" not in entry:
+                    print(f"expected KEY=VALUE, got {entry!r}")
+                    return 2
+                key, raw = entry.split("=", 1)
+                try:
+                    value = json.loads(raw)
+                except json.JSONDecodeError:
+                    value = raw
+                set_values[key] = value
+        data = settings_profile.save(
+            conn,
+            set_values=set_values if args.action == "set" else None,
+            unset=args.values if args.action == "unset" else None,
+            reset=args.action == "reset",
+            effective_from=date,
+        )
+        print(f"settings profile {data['profile_id']} effective {data['effective_from']}; "
+              f"{len(data['overrides'])} override(s)")
+        return 0
+    except ValueError as exc:
+        print(str(exc))
+        return 2
     finally:
         store.close()
 

@@ -351,6 +351,17 @@ deterministically, no matter what the LLM says. They are empty until the user an
 | volume_budget_enabled | opt-in weekly volume budget; 0 default. It moves non-essential accessory sets only and is off unless explicitly enabled (DEC-VOLUME-06/08) |
 | main_lift_policy | `preserve` (default) \| `reduce` \| `drop`; preserve keeps main lifts at template sets even when a group quota is full. `reduce` is implemented (step 2b): a filled group's main lift is trimmed to `main_lift_floor`. `drop` is recorded but not implemented (DEC-VOLUME-08/11) |
 
+### 11.1a `settings_profile` / `prescription_profile` — step 4
+
+| table | contents |
+|---|---|
+| `settings_profile` | append-only profile versions: `profile_id`, `effective_from`, `overrides_json` (complete map), `created_at`; the latest effective row wins |
+| `prescription_profile` | one resolved snapshot per prescription: `prescription_id`, `profile_id`, `settings_json` (registry + budget), `config_hash`, `created_at` |
+
+Profile precedence is profile > config > registry default. Guarded-safety keys are rejected
+until the step-5 confirmation flow. The snapshot freezes what a prescription actually used;
+existing prescriptions without a row are not rewritten.
+
 ### 11.2 `athlete_constraint` — injuries, contraindications, mobility limits
 
 Stored as `athlete_constraint`: `constraint` is a reserved SQL keyword (`DEC-STATE-01`).

@@ -6,9 +6,9 @@ step 9a (read-only compensation preview) and step 9b (opt-in compensation applic
 implemented (2026-10-26).** This document specifies a volume budget (a weekly target plus a
 per-session cap) and the settings/modality layer it must sit behind. It records the evidence,
 the rules, the decisions and a phased path. Step 1 is read-only; 9a is a preview; 9b is opt-in;
-9c-1 (`drop` engine), 9c-2 (identity/UX), 9c-3 (confirmation/settings) and 7a (settings
-registry/snapshot, including the deload reactive constants) are implemented; 7b and steps 3–6/8
-remain.
+9c-1 (drop engine), 9c-2 (identity/UX), 9c-3 (confirmation/settings), 7a (settings
+registry/snapshot) and step 4 (profile store, precedence, CLI/API, budget wiring and prescription
+snapshot) are implemented; 7b and steps 3, 5, 6 and 8 remain.
 
 At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
 plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
@@ -794,11 +794,15 @@ deliberate golden update where a prescription changes.
 - No new code is planned here unless the review shows a defect; any separate opt-in would be a
   new decision.
 
-**4. Profile store and settings loader.**
-- `prescription_profile` (append-only), repository/query, precedence profile > config >
-  default, profile snapshot on the prescription.
-- The budget reads the same settings object; no budget-code change.
-- CLI `settings profile`, API; no UI yet.
+**4. Profile store and settings loader — implemented 2026-10-26.**
+- `settings_profile` append-only versions (complete override map, `effective_from`) and
+  `prescription_profile` snapshots; repository/query and migration 0039.
+- Precedence is profile > config > registry default. Guarded-safety keys are rejected until
+  step 5. CLI `settings profile show/set/unset/reset` and `GET/POST /api/settings/profile`.
+- The budget consumes the same profile through `BudgetConfig.load(conn=..., on_date=...)`;
+  `budget` is a JSON override object. The resolved registry plus budget is snapshotted on every
+  new prescription; existing prescriptions are untouched.
+- No UI yet; the other feature loaders are wired in 7b.
 
 **5. Settings UI and the guarded spinal setting.**
 - Settings page: modalities/factors, diff preview, profile save; budget fields.
@@ -880,6 +884,7 @@ it; not v1.
 | 24 | 9c-2 identity/UX | `session_identity` labels/API fields; Prescribe/Workout/History/Programme display; empty technique start/end with no rubric; volume_fill reviewed without a missing-main penalty; forecast entries use the actual derived type; migration 0038 removes the fixed session-type CHECK. 9c-3 confirmation/settings pending (`DEC-VOLUME-19`) |
 | 25 | 9c-3 confirmation/settings | Settings drop panel + `/api/settings/drop` over `config/volume.local.yaml`; 0–28 window, max slots, technique minutes, tolerance/computed high band and full per-group candidate pool; per-session confirmation via `--drop-confirm`/API/Prescribe, both branches, recorded in notes (`DEC-VOLUME-20`) |
 | 26 | 7a settings registry | typed registry/snapshot over existing YAML for DUP, deload, MRV/under-MEV, readiness set reduction, e1RM and plausibility; deload reactive counts moved to config; no precedence/profile/UI change (`DEC-VOLUME-21`) |
+| 27 | Step 4 profile store | `settings_profile` versions + `prescription_profile` snapshots; precedence profile > config; guarded keys rejected; CLI/API; budget override wired; full resolved snapshot on new prescriptions; no UI, other loaders in 7b (`DEC-VOLUME-22`) |
 
 Step 1 is implemented read-only (the module, the `volume_exemption` table and the config
 section). Step 2 is implemented behind the off-by-default profile flag, step 2b adds the opt-in
