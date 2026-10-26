@@ -1616,7 +1616,8 @@ function renderStateForms(data) {
       <p class="muted">Budget <strong>on</strong> with <strong>preserve</strong> trims and tops up
         accessories only. <strong>reduce</strong> also trims filled-group main lifts;
         <strong>drop</strong> also removes/relabels the main lift. The main-lift policy is ignored
-        while the volume budget is off.</p>
+        while the volume budget is off. <a class="doc-link"
+        href="#docs?doc=docs/VOLUME-MODULATION-PLAN.md&amp;anchor=44-what-steps-2-and-2b-actually-do-implemented">Volume budget rules</a></p>
     </div>
 
     <div class="panel"><div class="panel-head"><h2>Add constraint</h2></div>
