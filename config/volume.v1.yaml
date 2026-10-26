@@ -82,3 +82,26 @@ budget:
   # final warm-up list (step 0 implementation decision).
   warmup_estimate_minutes: 5
   session_time_cap_minutes: 80
+  # Step 9a: read-only cross-group compensation simulation. enabled controls the preview;
+  # apply is reserved for 9b and must stay false (no prescription change yet).
+  compensation:
+    enabled: true
+    apply: false
+    floor: 0.1
+    similarity:
+      squat: {hinge: 0.7, horizontal_push: 0.2}
+      hinge: {squat: 0.7, horizontal_push: 0.2}
+      horizontal_push: {squat: 0.2, hinge: 0.2, horizontal_pull: 0.3}
+      horizontal_pull: {horizontal_push: 0.3}
+    slots:
+      squat:
+        - {exercise_id: dumbbell_bench_press, group: horizontal_push, sets: 3}
+        - {exercise_id: rdl, group: hinge, sets: 3}
+      bench_squat:
+        - {exercise_id: rdl, group: hinge, sets: 3}
+        - {exercise_id: dumbbell_bench_press, group: horizontal_push, sets: 3}
+      hinge:
+        - {exercise_id: dumbbell_bench_press, group: horizontal_push, sets: 3}
+      bench_hinge:
+        - {exercise_id: dumbbell_bench_press, group: horizontal_push, sets: 3}
+        - {exercise_id: rdl, group: hinge, sets: 3}

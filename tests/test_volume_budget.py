@@ -537,6 +537,81 @@ def test_reduce_engine_slice_honours_the_profile():
     assert reduced.notes["volume_budget"]["main_lift_reduce"]
 
 
+def test_compensation_prefers_bench_over_hinge_in_one_slot():
+    rows = [
+        {"exercise_id": "ssb_squat", "sets": 5, "essential": True, "rest_s": 180,
+         "key": "squat"},
+        {"exercise_id": "split_squat", "sets": 3, "essential": False, "rest_s": 90,
+         "key": "squat"},
+    ]
+    result = volume_budget.simulate_compensation(
+        session_type="squat",
+        rows=rows,
+        completed={"squat": 10},
+        effective={"squat": 10, "horizontal_push": 12, "hinge": 6.5},
+        projected={"squat": 13, "horizontal_push": 10, "hinge": 5},
+        config=volume_budget.BudgetConfig(compensation_enabled=True),
+    )
+    assert result["status"] == "simulated"
+    assert result["freed"] == {"squat": 3}
+    assert result["selected"]["group"] == "horizontal_push"
+    assert result["selected"]["exercise_id"] == "dumbbell_bench_press"
+    assert result["selected"]["sets"] == 2
+    assert result["selected"]["weight"] == 0.8
+    assert [row["group"] for row in result["candidates"]] == [
+        "horizontal_push", "hinge"
+    ]
+
+
+def test_compensation_needs_a_filled_accessory_and_is_off_by_default():
+    rows = [
+        {"exercise_id": "split_squat", "sets": 3, "essential": False, "rest_s": 90,
+         "key": "squat"},
+    ]
+    not_filled = volume_budget.simulate_compensation(
+        session_type="squat", rows=rows, completed={"squat": 0},
+        effective={"squat": 10}, projected={"squat": 3},
+        config=volume_budget.BudgetConfig(compensation_enabled=True),
+    )
+    disabled = volume_budget.simulate_compensation(
+        session_type="squat", rows=rows, completed={"squat": 10},
+        effective={"squat": 10}, projected={"squat": 13},
+        config=volume_budget.BudgetConfig(),
+    )
+    assert not_filled["status"] == "no_filled_accessory"
+    assert not_filled["selected"] is None
+    assert disabled["status"] == "disabled"
+
+
+def test_compensation_apply_is_not_implemented_yet():
+    rows = [
+        {"exercise_id": "split_squat", "sets": 3, "essential": False, "rest_s": 90,
+         "key": "squat"},
+    ]
+    result = volume_budget.simulate_compensation(
+        session_type="squat", rows=rows, completed={"squat": 10},
+        effective={"squat": 10, "horizontal_push": 12},
+        projected={"squat": 13, "horizontal_push": 10},
+        config=volume_budget.BudgetConfig(
+            compensation_enabled=True, compensation_apply=True,
+        ),
+    )
+    assert result["status"] == "apply_not_implemented"
+    assert result["selected"] is not None
+    assert "changes no prescription" in result["note"]
+
+
+def test_compensation_config_is_loaded_and_defaults_to_preview_only():
+    config = volume_budget.BudgetConfig.load()
+    assert config.compensation_enabled is True
+    assert config.compensation_apply is False
+    assert config.compensation_floor == 0.1
+    assert config.compensation_similarity["squat"]["hinge"] == 0.7
+    assert config.compensation_slots["squat"][0]["exercise_id"] == (
+        "dumbbell_bench_press"
+    )
+
+
 def test_the_budget_note_is_wired_into_the_prescription():
     store = store_with()
     try:
@@ -574,6 +649,16 @@ def test_cli_updates_the_budget_profile(tmp_path, capsys):
     assert profile["main_lift_policy"] == "preserve"
 
 
+def test_report_includes_the_compensation_preview():
+    store = store_with()
+    try:
+        report = volume_budget.report(store.connection, TODAY)
+    finally:
+        store.close()
+    assert "compensation" in report
+    assert "status" in report["compensation"]
+
+
 def test_cli_prints_the_read_only_budget(tmp_path, capsys):
     path = tmp_path / "coach.db"
     store = db.Store(path)
@@ -590,3 +675,4 @@ def test_cli_prints_the_read_only_budget(tmp_path, capsys):
     assert cli.main(["--db", str(path), "volume", "--budget", "--date", TODAY]) == 0
     out = capsys.readouterr().out
     assert "volume budget" in out and "read-only" in out
+    assert "compensation" in out

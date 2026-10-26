@@ -47,6 +47,33 @@ DEFAULT_CAPS = {
 }
 
 # Matches the minimum-session planner's set cost. It is a planning estimate, not the clock.
+DEFAULT_COMPENSATION_SIMILARITY = {
+    "squat": {"hinge": 0.7, "horizontal_push": 0.2},
+    "hinge": {"squat": 0.7, "horizontal_push": 0.2},
+    "horizontal_push": {"squat": 0.2, "hinge": 0.2, "horizontal_pull": 0.3},
+    "horizontal_pull": {"horizontal_push": 0.3},
+}
+
+DEFAULT_COMPENSATION_SLOTS = {
+    "squat": (
+        {"exercise_id": "dumbbell_bench_press", "group": "horizontal_push", "sets": 3},
+        {"exercise_id": "rdl", "group": "hinge", "sets": 3},
+    ),
+    "bench_squat": (
+        {"exercise_id": "rdl", "group": "hinge", "sets": 3},
+        {"exercise_id": "dumbbell_bench_press", "group": "horizontal_push", "sets": 3},
+    ),
+    "hinge": (
+        {"exercise_id": "dumbbell_bench_press", "group": "horizontal_push", "sets": 3},
+    ),
+    "bench_hinge": (
+        {"exercise_id": "dumbbell_bench_press", "group": "horizontal_push", "sets": 3},
+        {"exercise_id": "rdl", "group": "hinge", "sets": 3},
+    ),
+}
+
+SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
+
 SET_SECONDS = 30
 
 # A set removed by one of these is a safety/recovery cut and must not be re-added.
@@ -59,6 +86,20 @@ class BudgetConfig:
     weekly_target: Mapping[str, float] = field(default_factory=lambda: dict(DEFAULT_TARGET))
     weekly_total: float | None = None
     main_lift_floor: int = 3
+    compensation_enabled: bool = False
+    compensation_apply: bool = False
+    compensation_floor: float = 0.1
+    compensation_similarity: Mapping[str, Mapping[str, float]] = field(
+        default_factory=lambda: {
+            key: dict(row) for key, row in DEFAULT_COMPENSATION_SIMILARITY.items()
+        }
+    )
+    compensation_slots: Mapping[str, tuple[Mapping[str, Any], ...]] = field(
+        default_factory=lambda: {
+            key: tuple(dict(entry) for entry in entries)
+            for key, entries in DEFAULT_COMPENSATION_SLOTS.items()
+        }
+    )
     trim_enabled: bool = True
     top_up_enabled: bool = True
     band_min: float = 1.0
@@ -107,6 +148,46 @@ class BudgetConfig:
         floor = int(body.get("main_lift_floor", 3))
         if floor < 1:
             raise ValueError("volume budget main_lift_floor must be at least 1")
+        comp = body.get("compensation") or {}
+        comp_enabled = bool(comp.get("enabled", False))
+        comp_apply = bool(comp.get("apply", False))
+        comp_floor = float(comp.get("floor", 0.1))
+        if not 0.0 <= comp_floor <= 1.0:
+            raise ValueError("volume budget compensation floor must be between 0 and 1")
+        similarity: dict[str, dict[str, float]] = {}
+        for group, row in (comp.get("similarity") or DEFAULT_COMPENSATION_SIMILARITY).items():
+            if group not in MANAGED_KEYS:
+                raise ValueError(f"volume budget compensation unknown group {group!r}")
+            similarity[str(group)] = {}
+            for other, value in (row or {}).items():
+                if other not in MANAGED_KEYS:
+                    raise ValueError(
+                        f"volume budget compensation unknown group {other!r}"
+                    )
+                number = float(value)
+                if not 0.0 <= number <= 1.0:
+                    raise ValueError("compensation similarity must be between 0 and 1")
+                similarity[str(group)][str(other)] = number
+        slots: dict[str, tuple[dict[str, Any], ...]] = {}
+        for session, entries in (comp.get("slots") or DEFAULT_COMPENSATION_SLOTS).items():
+            if session not in SESSION_TYPES:
+                raise ValueError(f"volume budget compensation unknown session {session!r}")
+            parsed: list[dict[str, Any]] = []
+            for entry in entries:
+                group = str(entry["group"])
+                if group not in MANAGED_KEYS:
+                    raise ValueError(f"compensation slot unknown group {group!r}")
+                sets = int(entry["sets"])
+                if sets < 1:
+                    raise ValueError("compensation slot sets must be positive")
+                parsed.append({
+                    "exercise_id": str(entry["exercise_id"]),
+                    "group": group,
+                    "sets": sets,
+                })
+            if not parsed:
+                raise ValueError(f"compensation slot for {session!r} is empty")
+            slots[str(session)] = tuple(parsed)
         band_min = float(body.get("band_min", 1.0))
         if band_min < 0:
             raise ValueError("volume budget band_min must be non-negative")
@@ -147,6 +228,11 @@ class BudgetConfig:
             weekly_target=targets,
             weekly_total=total,
             main_lift_floor=floor,
+            compensation_enabled=comp_enabled,
+            compensation_apply=comp_apply,
+            compensation_floor=comp_floor,
+            compensation_similarity=similarity,
+            compensation_slots=slots,
             trim_enabled=bool(body.get("trim_enabled", True)),
             top_up_enabled=bool(body.get("top_up_enabled", True)),
             band_min=band_min,
@@ -700,6 +786,142 @@ def plan_session(
     }
 
 
+def _compensation_similarity(config: BudgetConfig, source: str, receiver: str) -> float:
+    if source == receiver:
+        return 1.0
+    row = config.compensation_similarity.get(source) or {}
+    if receiver in row:
+        return float(row[receiver])
+    reverse = config.compensation_similarity.get(receiver) or {}
+    if source in reverse:
+        return float(reverse[source])
+    return 0.1
+
+
+def simulate_compensation(
+    *,
+    session_type: str,
+    rows: Sequence[Mapping[str, Any]],
+    completed: Mapping[str, int],
+    effective: Mapping[str, float],
+    projected: Mapping[str, float],
+    config: BudgetConfig,
+) -> dict[str, Any]:
+    """Read-only preview of the 9a compensation slot. Never changes a prescription.
+
+    Freed sets are the non-essential sets of a group that was already filled before today. The
+    one optional slot is filled from the best-weighted receiver that is under target and has
+    session headroom. Nothing here is applied; `apply` is reserved for 9b.
+    """
+    if not config.compensation_enabled:
+        return {
+            "enabled": False,
+            "apply": False,
+            "status": "disabled",
+            "freed": {},
+            "source": None,
+            "candidates": [],
+            "selected": None,
+            "note": "9a simulation is disabled in config.",
+        }
+
+    freed: dict[str, int] = {}
+    for key in MANAGED_KEYS:
+        target = float(effective.get(key, 0))
+        if target <= 0 or float(completed.get(key, 0)) < target:
+            continue
+        sets = sum(
+            int(row.get("sets") or 0)
+            for row in rows
+            if row.get("key") == key and not row.get("essential")
+        )
+        if sets > 0:
+            freed[key] = sets
+    if not freed:
+        return {
+            "enabled": True,
+            "apply": bool(config.compensation_apply),
+            "status": "no_filled_accessory",
+            "freed": {},
+            "source": None,
+            "candidates": [],
+            "selected": None,
+            "note": "No group is filled with a non-essential accessory in this session.",
+        }
+
+    source = max(freed, key=lambda key: freed[key])
+    freed_total = sum(freed.values())
+    today_sets = pattern_sets(rows)
+    session_total = sum(int(row.get("sets") or 0) for row in rows)
+    candidates: list[dict[str, Any]] = []
+    for slot in config.compensation_slots.get(session_type, ()):
+        group = str(slot["group"])
+        if group in freed:
+            continue
+        target = float(effective.get(group, 0))
+        shortfall = target - float(projected.get(group, 0))
+        if target <= 0 or shortfall <= 0:
+            continue
+        session_headroom = max(
+            0, config.session_cap_pattern.get(group, 0) - today_sets.get(group, 0)
+        )
+        total_headroom = max(0, config.session_cap_total - session_total)
+        sets = int(
+            min(
+                freed_total,
+                int(slot["sets"]),
+                shortfall,
+                session_headroom,
+                total_headroom,
+            )
+        )
+        if sets <= 0:
+            continue
+        similarity = _compensation_similarity(config, source, group)
+        weight = max(config.compensation_floor, 1.0 - similarity)
+        candidates.append({
+            "group": group,
+            "exercise_id": str(slot["exercise_id"]),
+            "sets": sets,
+            "shortfall": round(shortfall, 1),
+            "weight": round(weight, 2),
+        })
+    if not candidates:
+        return {
+            "enabled": True,
+            "apply": bool(config.compensation_apply),
+            "status": "no_receiver",
+            "freed": freed,
+            "source": source,
+            "candidates": [],
+            "selected": None,
+            "note": "A group is filled, but no slot receiver is under target with headroom.",
+        }
+
+    total_weight = sum(float(row["weight"]) for row in candidates)
+    for row in candidates:
+        row["share"] = round(float(row["weight"]) / total_weight, 2)
+    candidates.sort(key=lambda row: (-float(row["weight"]), -int(row["sets"])))
+    selected = dict(candidates[0])
+    return {
+        "enabled": True,
+        "apply": bool(config.compensation_apply),
+        "status": (
+            "apply_not_implemented" if config.compensation_apply else "simulated"
+        ),
+        "freed": freed,
+        "source": source,
+        "candidates": candidates,
+        "selected": selected,
+        "note": (
+            "Read-only 9a simulation; no prescription change. The selected slot is a preview "
+            "only until the 9b application lands."
+            if not config.compensation_apply
+            else "apply=true is not implemented yet; the preview changes no prescription."
+        ),
+    }
+
+
 def report(
     conn, on_date: str, *, config: BudgetConfig | None = None,
     session_type: str | None = None,
@@ -780,6 +1002,26 @@ def report(
             config=cfg,
             time_cap_minutes=time_cap,
         )
+    if today_rows:
+        compensation = simulate_compensation(
+            session_type=str(today_type),
+            rows=today_rows,
+            completed=completed,
+            effective=effective,
+            projected=projected,
+            config=cfg,
+        )
+    else:
+        compensation = {
+            "enabled": cfg.compensation_enabled,
+            "apply": False,
+            "status": "today_done" if today_done else "no_session",
+            "freed": {},
+            "source": None,
+            "candidates": [],
+            "selected": None,
+            "note": "No open session to preview compensation for.",
+        }
 
     return {
         "on_date": str(on_date),
@@ -831,6 +1073,7 @@ def report(
         "feasibility": feasibility(
             effective, cfg, current_frequency=target_frequency
         ),
+        "compensation": compensation,
         "plan": plan,
         "note": (
             "Read-only template projection; the live prescription may include history-driven "

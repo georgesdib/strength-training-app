@@ -1631,6 +1631,18 @@ def _print_volume_budget(report: dict) -> None:
             print(f"    {row['delta']} {row['exercise_id']} ({row['key']})")
         if plan["unreachable_sets"]:
             print(f"    below the band by {plan['unreachable_sets']:g} sets")
+    comp = report.get("compensation") or {}
+    if comp:
+        print(f"  compensation {comp.get('status')} (9a preview; no prescription change)")
+        if comp.get("freed"):
+            freed = ", ".join(f"{key} {sets}" for key, sets in comp["freed"].items())
+            print(f"    freed: {freed}; source {comp.get('source')}")
+        selected = comp.get("selected")
+        if selected:
+            print(
+                f"    slot {selected['exercise_id']} ({selected['group']}): "
+                f"{selected['sets']} sets, weight {selected['weight']:g}"
+            )
     print(f"  note: {report['note']}")
 
 

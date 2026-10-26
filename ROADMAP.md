@@ -1052,7 +1052,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | P2 | Parent-variant e1RM ratios | unscheduled; display-only at most (§4.20.2) |
 | P2 | Weakness/injury-targeted selection | deferred to after v0.5 / ~April 2027; gates in §4.20.3 and `DEC-SELECT-05` |
 | P2 | Main-lift upward-revision ratchet | **deferred, not scheduled** — rejected as a controller in `DEC-E1RM-PLAUS-01`; revisit only if calibration cannot close the bias |
-| P2 | Volume modulation: weekly target + session cap | **in progress** — step 1 read-only budget with per-group status/capacity and step 2 per-group accessory budget behind the off-by-default profile flag (`MOD-VOL-003`, constitution 1.15.0) implemented; **step 2b `reduce`** implemented (main lift to a configured floor, opt-in, top-up disabled); next **step 9c `drop`** after the 9a compensation slot pool; 4+ programme out of scope (manual single-session); design in `docs/VOLUME-MODULATION-PLAN.md` |
+| P2 | Volume modulation: weekly target + session cap | **in progress** — steps 1, 2, 2b and 9a implemented: read-only budget, per-group accessory budget behind the off-by-default profile flag (`MOD-VOL-003`, constitution 1.16.0), opt-in main-lift `reduce`, and the read-only compensation preview (slot pool/weights, no prescription); next **9b application**, then **9c `drop`**; 4+ programme out of scope (manual single-session); design in `docs/VOLUME-MODULATION-PLAN.md` |
 | v0.5 | Cardio depth and shadow cardio load | planned (§4.13a, Q14) |
 | v0.5 | Deeper labelled calibration set | in progress (§4.14) |
 | future | LLM-guided suggested programme | idea only (§4.18) |

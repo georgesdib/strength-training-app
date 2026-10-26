@@ -528,6 +528,16 @@ project four, but the target remains the three-session average unless you set a 
 
 See `docs/VOLUME-MODULATION-PLAN.md` §4.4 for the exact algorithm and formulas.
 
+#### Compensation preview (9a)
+
+`budget.compensation` is a **read-only** cross-group preview. It is enabled for display with
+`apply: false`; it never changes a prescription. When a group was already filled before today,
+its non-essential sets are "freed". One optional slot per session type is filled from a group
+that is still under target, using the inverse-similarity weights (squat→bench is preferred over
+squat→hinge). The CLI, the Volume budget panel and `GET /api/volume/budget` show the freed
+group, the source, the candidates and the selected slot. Step 9b will apply it opt-in; step 9c
+will add `drop`.
+
 If no state is recorded, a prescription is still produced but says so: *"athlete state not
 recorded: constraints were not evaluated"*. Silence is not permission.
 

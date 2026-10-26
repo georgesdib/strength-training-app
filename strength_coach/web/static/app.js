@@ -1839,6 +1839,12 @@ async function loadVolumeBudget() {
          projected ${fmt(data.plan.total_before, 1)} to ${fmt(data.plan.total_after, 1)};
          estimated ${fmt(data.plan.time_minutes, 1)} min.${data.plan.unreachable_sets ? ` Below the band by ${fmt(data.plan.unreachable_sets, 1)} sets.` : ""}</p>`
       : `<p class="muted">Today's session is already recorded.</p>`;
+    const comp = data.compensation || {};
+    const compLine = comp.enabled
+      ? `<p class="muted">Compensation preview (9a, read-only): ${comp.selected
+          ? `${esc(comp.selected.exercise_id)} into ${esc(comp.selected.group)} at ${fmt(comp.selected.sets, 1)} sets (weight ${fmt(comp.selected.weight, 2)})`
+          : esc(comp.status)}. No prescription change.</p>`
+      : "";
     $("#volume-budget").innerHTML = `
       <p class="muted">Week ${esc(data.week.start)} to ${esc(data.week.end)} · target ${fmt(data.total_target, 1)} ·
         exempt ${fmt(Object.values(data.exempt).reduce((a, b) => a + b, 0), 1)} ·
@@ -1852,6 +1858,7 @@ async function loadVolumeBudget() {
       <tbody>${rows}</tbody></table>
       ${blockedLine}
       ${planLine}
+      ${compLine}
       <p class="muted">${esc(data.note)}</p>`;
   } catch (error) {
     $("#volume-budget").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;

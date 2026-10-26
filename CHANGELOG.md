@@ -28,6 +28,11 @@
   trim/top-up switches, accessory floor and per-item top-up ceiling, set seconds/warm-up/time
   cap, and the reduce floor. The only profile controls are on/off, policy, and a tightening
   `max_session_minutes`.
+- Read-only **cross-group compensation preview** (step 9a): `budget.compensation` holds one
+  optional slot per session type (dumbbell bench for push, RDL for hinge), inverse-similarity
+  weights and a floor. A group filled before today frees its non-essential sets; the report
+  selects the best-weighted receiver and shows freed, source, candidates and the selected slot.
+  `apply: false`; no prescription changes and no `MOD-VOL-004` yet.
 - Evidence review for reverse hyperextensions and belt squats: acute biomechanics/EMG only,
   no longitudinal strength or injury outcomes; both remain optional accessories.
 - Guided **Workout workflow**: readiness → prescription preview → start → active workout (sets, CSV/per-rep import, end) → post-workout comparison. Readiness settings and Prescribe analysis remain separate pages.
