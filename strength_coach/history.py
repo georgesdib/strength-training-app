@@ -72,7 +72,8 @@ def list_sessions(conn, *, limit: int = 50, offset: int = 0,
         "offset": int(offset),
         "sessions": [
             {**dict(row),
-             "main_lifts": json.loads(row["main_lifts"] or "[]")}
+             "main_lifts": json.loads(row["main_lifts"] or "[]"),
+             "flags": json.loads(row["flags"] or "[]")}
             for row in rows
         ],
     }
@@ -86,6 +87,8 @@ def detail(conn, session_id: str) -> dict:
         raise ValueError("session not found")
     data = dict(row)
     data["main_lifts"] = json.loads(data.get("main_lifts") or "[]")
+    # JSON columns leave SQLite as text; the API promises arrays, and a string has no .join().
+    data["flags"] = json.loads(data.get("flags") or "[]")
     rep_rows = conn.execute(
         "SELECT r.clean_set_id, r.rep_index, r.velocity_mps FROM clean_rep r "
         "JOIN clean_set s ON s.set_id = r.clean_set_id "

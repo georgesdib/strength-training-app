@@ -98,6 +98,91 @@ def test_category_override_only_affects_that_category():
     assert bench.load_kg == 84.5
 
 
+def test_category_override_applies_when_no_score_can_be_formed():
+    """READINESS-SCORE §2.2a: a partial day keeps the athlete's explicit category override."""
+    with store_with() as store:
+        store.connection.execute("DELETE FROM readiness_day")
+        readiness_feature.record_manual(store.connection, TODAY, {"sleep": 4, "energy": 4})
+        repositories.append_readiness_override(
+            store.connection, effective_on=TODAY, scope="category:squat", value=0.50,
+            reason="squat positioning felt off",
+        )
+        assessment = readiness_score.compute(store.connection, TODAY)
+        prescription = build_prescription(store.connection, for_date=TODAY, session_type="squat")
+
+    # No numeric score is invented: the override is the only readiness statement.
+    assert assessment.status == "insufficient"
+    assert assessment.score is None
+    assert assessment.category_scores["squat"] == 0.50
+    squat = item(prescription, "ssb_squat")
+    assert squat.load_kg < 105.5
+    assert "MOD-FAT-001" in squat.rationale_refs
+    assert any(ref.startswith("readiness_override:") for ref in squat.rationale_refs)
+    assert not any(ref.startswith("readiness_score:") for ref in squat.rationale_refs)
+    # The override is scoped to its category; the bench keeps its normal load.
+    assert item(prescription, "bench_press").load_kg == 84.5
+
+
+def test_global_override_applies_when_no_score_can_be_formed():
+    with store_with() as store:
+        store.connection.execute("DELETE FROM readiness_day")
+        readiness_feature.record_manual(store.connection, TODAY, {"sleep": 4, "energy": 4})
+        repositories.append_readiness_override(
+            store.connection, effective_on=TODAY, scope="global", value=0.50,
+            reason="felt worse than the partial form says",
+        )
+        assessment = readiness_score.compute(store.connection, TODAY)
+        prescription = build_prescription(store.connection, for_date=TODAY, session_type="squat")
+
+    assert assessment.status == "insufficient"
+    assert assessment.score is None
+    assert assessment.category_scores["hinge"] == 0.50
+    assert item(prescription, "ssb_squat").load_kg < 105.5
+    assert item(prescription, "bench_press").load_kg < 84.5
+
+
+def test_a_partial_day_without_an_override_changes_nothing():
+    """Guard: the override path must not become a way to apply an injury ceiling on partial days."""
+    with store_with() as store:
+        store.connection.execute("DELETE FROM readiness_day")
+        readiness_feature.record_manual(store.connection, TODAY, {"sleep": 4, "energy": 4})
+        assessment = readiness_score.compute(store.connection, TODAY)
+        prescription = build_prescription(store.connection, for_date=TODAY, session_type="squat")
+
+    assert assessment.status == "insufficient"
+    assert assessment.category_scores == {}
+    assert item(prescription, "ssb_squat").load_kg == 105.5
+    assert prescription.fallback_level == "full"
+
+
+def test_an_unknown_category_scope_is_rejected():
+    with store_with() as store:
+        with pytest.raises(ValueError, match="unknown readiness category"):
+            repositories.append_readiness_override(
+                store.connection, effective_on=TODAY, scope="category:sqaut", value=0.50,
+                reason="typo",
+            )
+        assert queries.readiness_overrides(store.connection, TODAY) == {}
+
+
+def test_cli_rejects_an_unknown_category_scope(tmp_path, capsys):
+    path = tmp_path / "coach.db"
+    store = db.Store(path)
+    training = make_training(ROWS)
+    readiness = make_readiness([{"Date": TODAY}])
+    importer.import_export(
+        store.connection, training, readiness,
+        training_sha256=importer.sha256_frame(training),
+        readiness_sha256=importer.sha256_frame(readiness),
+    )
+    store.close()
+
+    code = cli.main(["--db", str(path), "readiness", "override", "--date", TODAY,
+                     "--scope", "category:sqaut", "--value", "0.5", "--reason", "typo"])
+    assert code == 2
+    assert "unknown readiness category" in capsys.readouterr().out
+
+
 def test_injury_ceiling_caps_a_high_score():
     with store_with() as store:
         conn = store.connection

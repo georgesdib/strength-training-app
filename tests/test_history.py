@@ -46,13 +46,18 @@ def test_sets_keep_the_order_they_were_logged():
             training_sha256=importer.sha256_frame(training),
             readiness_sha256=importer.sha256_frame(readiness),
         )
-        session_id = history.list_sessions(store.connection)["sessions"][0]["session_id"]
+        page = history.list_sessions(store.connection)
+        session_id = page["sessions"][0]["session_id"]
         detail = history.detail(store.connection, session_id)
     finally:
         store.close()
     assert [item["exercise_id"] for item in detail["sets"]] == [
         "ssb_squat", "bench_press", "ssb_squat", "bench_press",
     ]
+    # JSON columns must reach the browser as arrays: flags is text in SQLite, and a string has
+    # no .join(), which is what broke the details sheet.
+    assert isinstance(detail["flags"], list)
+    assert isinstance(page["sessions"][0]["flags"], list)
 
 
 def test_history_lists_and_edits_with_superseding_rows():

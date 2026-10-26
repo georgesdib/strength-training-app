@@ -764,6 +764,15 @@ def append_readiness_override(
     """Append a manual correction of a computed readiness score."""
     if scope != "global" and not scope.startswith("category:"):
         raise ValueError("scope must be 'global' or 'category:<name>'")
+    if scope != "global":
+        # A misspelt category used to be stored and then silently ignored by the score, so the
+        # athlete saw "override saved" and an unchanged load. Refuse it at the write path.
+        category = scope.split(":", 1)[1]
+        if category not in readiness_utils.CATEGORY_PATTERNS:
+            known = ", ".join(sorted(readiness_utils.CATEGORY_PATTERNS))
+            raise ValueError(
+                f"unknown readiness category {category!r}; known: {known}"
+            )
     if not 0.0 <= float(value) <= 1.0:
         raise ValueError("readiness override must be between 0 and 1")
     if not reason.strip():

@@ -32,24 +32,10 @@ MIN_CORE_FIELDS = 3
 FACTOR_BANDS = ((0.80, 1.00, 0), (0.60, 0.95, 1), (0.40, 0.90, 1), (0.00, 0.85, 2))
 
 # Movement/muscle categories. The category is the training unit; the region is evidence.
-CATEGORY_PATTERNS: Mapping[str, tuple[str, ...]] = {
-    "hinge": ("hinge", "hinge_unilateral", "hinge_ballistic"),
-    "squat": ("squat", "squat_unilateral"),
-    "horizontal_push": ("horizontal_push", "horizontal_push_bw"),
-    "vertical_push": ("vertical_push",),
-    "horizontal_pull": ("horizontal_pull",),
-    "vertical_pull": ("vertical_pull",),
-    "elbow_flexion": ("elbow_flexion",),
-    "knee_extension": ("knee_extension",),
-    "knee_flexion": ("knee_flexion", "hamstring_eccentric"),
-    "dorsiflexion": ("dorsiflexion",),
-    "spinal_extension": ("erector_extension",),
-    "core_carry": ("core_flexion", "core_anti_extension", "core_isometric",
-                   "core_stability", "carry"),
-}
-PATTERN_TO_CATEGORY = {
-    pattern: category for category, patterns in CATEGORY_PATTERNS.items() for pattern in patterns
-}
+# The vocabulary lives in utils because the store validates override scopes with it and may
+# not import features (layering); re-exported here so the score keeps one public name.
+CATEGORY_PATTERNS: Mapping[str, tuple[str, ...]] = readiness_utils.CATEGORY_PATTERNS
+PATTERN_TO_CATEGORY = readiness_utils.PATTERN_TO_CATEGORY
 
 
 @dataclass(frozen=True)
@@ -221,6 +207,35 @@ def effective_settings(conn, on_date: str,
     )
 
 
+def _partial_basis(reason: str, overrides: Mapping[str, dict]) -> str:
+    """Say that an override is the only readiness statement when no score can be formed."""
+    if not overrides:
+        return reason
+    return f"{reason}; manual readiness override (no numeric score)"
+
+
+def _override_categories(
+    overrides: Mapping[str, dict],
+) -> tuple[dict[str, float], dict[str, tuple[float, int]]]:
+    """Category values for a day that cannot form a numeric score.
+
+    Only an explicit override can produce a value here, so the assessment status stays
+    `insufficient` or `unknown`: the override is a dated athlete statement, not a computed
+    score. Category wins over global, exactly as it does when a score exists.
+    """
+    scores: dict[str, float] = {}
+    factors: dict[str, tuple[float, int]] = {}
+    global_override = overrides.get("global")
+    for category in CATEGORY_PATTERNS:
+        row = overrides.get(f"category:{category}") or global_override
+        if row is None:
+            continue
+        value = float(row["value"])
+        scores[category] = value
+        factors[category] = factor_for(value)
+    return scores, factors
+
+
 def compute(conn, on_date: str, config: readiness_config.ReadinessConfig | None = None) -> ReadinessAssessment:
     config = effective_settings(conn, on_date, config)
     data = queries.readiness_day(conn, on_date)
@@ -228,16 +243,23 @@ def compute(conn, on_date: str, config: readiness_config.ReadinessConfig | None 
     components = _core_values(data)
     overrides = queries.readiness_overrides(conn, on_date)
     present = {c.field for c in components}
+    # A day without a numeric score still honours an explicit override (READINESS-SCORE §2.2a):
+    # the athlete's dated statement is not a fabrication, and the status says no score formed.
+    override_scores, override_factors = _override_categories(overrides)
     if data is None:
         return ReadinessAssessment(
-            on_date, "unknown", None, (), "no readiness entry", overrides, {}, {},
+            on_date, "unknown", None, (), _partial_basis("no readiness entry", overrides),
+            overrides, override_scores, override_factors,
             context_flags=context_flags,
         )
     if len(components) < MIN_CORE_FIELDS or not ({"sleep", "energy"} & present):
         return ReadinessAssessment(
             on_date, "insufficient", None, tuple(components),
-            f"{len(components)} core field(s); need {MIN_CORE_FIELDS} and sleep or energy",
-            overrides, {}, {}, context_flags=context_flags,
+            _partial_basis(
+                f"{len(components)} core field(s); need {MIN_CORE_FIELDS} and sleep or energy",
+                overrides,
+            ),
+            overrides, override_scores, override_factors, context_flags=context_flags,
         )
 
     device_components, device_notes = _device_components(
@@ -321,6 +343,12 @@ def effective(assessment: ReadinessAssessment, conn, exercise_id: str,
     base = assessment.score if category is None else assessment.category_scores.get(
         category, assessment.score
     )
+    if base is None:
+        # No computed score today: only an explicit global override can supply a base, so an
+        # unclassified exercise is not left without the athlete's own statement.
+        global_override = assessment.overrides.get("global")
+        if global_override is not None:
+            base = float(global_override["value"])
     ceiling = injury_ceiling(conn, assessment.on_date, exercise_id, entity,
                              signal=signal, config=config)
     score = min(base if base is not None else 1.0, ceiling)

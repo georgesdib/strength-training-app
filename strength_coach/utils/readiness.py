@@ -4,6 +4,12 @@ The 1-5 fields are subjective scores; the device fields are measurements. Keepin
 one place means a new field cannot be accepted by the CLI and rejected by the table (or the
 reverse), and it keeps the sentinel policy in `ingest.readiness` as the only place that decides
 what a zero means.
+
+The movement/muscle categories live here too because two layers need the same list: the score
+maps an exercise pattern to its category, and the store rejects a `category:<name>` override
+scope that names no category. The store may not import `features` (layering), so the shared
+vocabulary belongs below both. The category is the training unit; the injury region remains
+the evidence unit.
 """
 
 from __future__ import annotations
@@ -60,3 +66,26 @@ def validate(field: str, value: float) -> None:
             raise ValueError("wearable_score must be from 0 to 100")
     elif number <= 0:
         raise ValueError(f"{field} must be positive")
+
+
+# Movement/muscle categories. The category is the training unit the athlete chooses between;
+# the region is the injury-evidence unit. The exact list is a config-level proposal
+# (docs/READINESS-SCORE.md §2.6), not a measurement.
+CATEGORY_PATTERNS: dict[str, tuple[str, ...]] = {
+    "hinge": ("hinge", "hinge_unilateral", "hinge_ballistic"),
+    "squat": ("squat", "squat_unilateral"),
+    "horizontal_push": ("horizontal_push", "horizontal_push_bw"),
+    "vertical_push": ("vertical_push",),
+    "horizontal_pull": ("horizontal_pull",),
+    "vertical_pull": ("vertical_pull",),
+    "elbow_flexion": ("elbow_flexion",),
+    "knee_extension": ("knee_extension",),
+    "knee_flexion": ("knee_flexion", "hamstring_eccentric"),
+    "dorsiflexion": ("dorsiflexion",),
+    "spinal_extension": ("erector_extension",),
+    "core_carry": ("core_flexion", "core_anti_extension", "core_isometric",
+                   "core_stability", "carry"),
+}
+PATTERN_TO_CATEGORY = {
+    pattern: category for category, patterns in CATEGORY_PATTERNS.items() for pattern in patterns
+}

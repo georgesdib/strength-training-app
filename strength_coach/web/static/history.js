@@ -304,7 +304,7 @@ function openHistoryDetails(sessionId) {
           (item.load_kg == null ? "—" : item.load_kg) + "</td><td>" +
           (item.reps == null ? "—" : item.reps + units) + "</td><td>" +
           (item.rir == null ? "—" : item.rir) + "</td><td>" +
-          esc((item.flags || []).join(", ") || "—") + "</td><td>" +
+          esc((Array.isArray(item.flags) ? item.flags : []).join(", ") || "—") + "</td><td>" +
           (item.velocity_mps == null ? "—" : item.velocity_mps) + "</td><td>" +
           (item.vbt_mean == null ? "—" : item.vbt_mean) + "</td></tr>";
       }).join("");
@@ -343,7 +343,7 @@ function openHistoryDetails(sessionId) {
       fact("Exercises", data.exercise_count) +
       fact("Tonnage", data.tonnage_kg == null ? null : Math.round(data.tonnage_kg) + " kg") +
       fact("Main lifts", (data.main_lifts || []).join(", ")) +
-      fact("Flags", (data.flags || []).join(", ")) +
+      fact("Flags", (Array.isArray(data.flags) ? data.flags : []).join(", ")) +
       fact("Prescription", data.prescription_id) +
       fact("Workout", data.workout_id) +
       fact("VBT overrides", data.vbt_override_count) +

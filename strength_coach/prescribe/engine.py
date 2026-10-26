@@ -785,6 +785,16 @@ def _apply_readiness_score(
         lift_scores = lift_readiness_feature.compute(
             context.sets, base_scores, for_date, calibration=calibration
         )
+    elif assessment.overrides:
+        # No numeric score can be formed, but an explicit override is a dated athlete
+        # statement and still supplies the factor for the categories it covers
+        # (READINESS-SCORE §2.2a). The per-lift advisory is deliberately not computed: it
+        # needs a base score and must not invent one on a partial day.
+        for item in items:
+            entity = (context.entities or {}).get(item.exercise_id, {})
+            prepared[item.exercise_id] = readiness_score.effective(
+                assessment, conn, item.exercise_id, entity, signal=injury
+            )
     config = readiness_config or readiness_mod.ReadinessConfig.load()
     poor_for_sets = bool(
         config.set_reduction_enabled
@@ -798,11 +808,14 @@ def _apply_readiness_score(
     reduced = False
     capped = False
     scored = False
+    override_used = False
     lift_reduced: list[str] = []
     sets_reduced: list[str] = []
     factors: dict[str, float] = {}
     for item in items:
         entity = (context.entities or {}).get(item.exercise_id, {})
+        category = readiness_score.category_for(item.exercise_id, entity)
+        scope = f"category:{category}" if category else None
         factor = 1.0
         rir_bump = 0
         score = None
@@ -820,6 +833,12 @@ def _apply_readiness_score(
                 if factor < previous:
                     lift_reduced.append(item.exercise_id)
                 scored = True
+        elif scope in assessment.overrides or "global" in assessment.overrides:
+            # Only the covered categories take the override; an uncovered item keeps the
+            # plain session, and no injury ceiling is applied through this path alone.
+            score, factor, rir_bump, ceiling = prepared[item.exercise_id]
+            if factor < 1.0:
+                override_used = True
         factor = min(factor, floor_factor)
         if trigger and floor_factor < 1.0:
             rir_bump = max(rir_bump, 1)
@@ -835,14 +854,11 @@ def _apply_readiness_score(
             continue
         reduced = True
         refs = item.rationale_refs + ("MOD-FAT-001", f"readiness:{for_date}")
-        if score is not None:
+        if score is not None and assessment.score is not None:
+            # No computed global score on a partial day: cite the override, not a score.
             refs += (f"readiness_score:{score:.3f}",)
         if ceiling < 1.0:
             capped = True
-        scope = None
-        category = readiness_score.category_for(item.exercise_id, entity)
-        if category:
-            scope = f"category:{category}"
         override = assessment.overrides.get(scope) if scope else None
         override = override or assessment.overrides.get("global")
         if override is not None:
@@ -867,6 +883,8 @@ def _apply_readiness_score(
         pieces = []
         if scored and assessment.score is not None:
             pieces.append(f"readiness score {assessment.score:.2f}")
+        if override_used and assessment.score is None:
+            pieces.append("manual readiness override")
         if trigger:
             pieces.append(f"floor {trigger}")
         if capped:
