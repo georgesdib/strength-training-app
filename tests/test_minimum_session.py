@@ -18,6 +18,12 @@ def _item(index, exercise, sets, *, essential, rest=180, load=100):
     )
 
 
+def test_the_estimate_reads_the_persisted_plan_form():
+    # The ended-workout view recomputes the estimate from plan_json, so dict items must work:
+    # 4 sets x (30 s set + 120 s rest) + 2 warm-up sets x 30 s = 660 s.
+    assert estimate_minutes([{"sets": 4, "rest_s": 120, "warmup": [1, 2]}]) == 11.0
+
+
 def _items():
     return (
         _item(0, "main_lift", 5, essential=True),

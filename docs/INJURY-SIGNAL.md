@@ -209,7 +209,7 @@ diagnosis-specific one.
 |---|---|
 | `unknown` | no reading for the region; nothing can be said |
 | `insufficient` | the last reading is older than 14 days; a stale reading cannot speak for today |
-| `active` | the latest reading is a flare (level ≥ 2, or level 1 that did not settle in 48 h) |
+| `active` | the latest reading is a flare (level ≥ 2, or level 1 that did not settle in 48 h — an unrecorded settlement counts as not settled) |
 | `monitoring` | readings exist, no active flare, and the review bar is not met |
 | `review` | streak ≥ window **and** tolerated sessions ≥ requirement, with no active flare |
 
@@ -224,7 +224,9 @@ and a duplicate would bury the modifier.
 
 1. Append a region to `config/injuries.v1.yaml` with its `links` and, if it needs different
    numbers, any of the window keys.
-2. Log against it: `strength-coach symptom --region <name> --level <0-3>`.
+2. Log against it: `strength-coach symptom --region <name> --level <0-3>`. What to
+   write in `settled`, and which reading ends a flare, is in
+   [SYMPTOM-LOGGING.md](SYMPTOM-LOGGING.md).
 3. If the region needs a movement the taxonomy cannot express, add the property to the
    taxonomy (and document it in [DATA-MODEL.md](DATA-MODEL.md)), not a special case in code.
 

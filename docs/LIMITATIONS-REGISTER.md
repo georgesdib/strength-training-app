@@ -1,6 +1,7 @@
 # LIMITATIONS REGISTER
 
-**Status:** living register, 2026-10-23.
+**Status:** living register, 2026-10-26. Since that date it is also the only place accepted
+limitations are listed; the roadmap keeps no second table.
 **Purpose:** keep every known limitation from the audits in one place so later work can revisit
 it deliberately instead of rediscovering it.
 
@@ -52,6 +53,12 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-40 | Form-trend status uses a ±0.5 descriptive threshold; it is not a validated minimal important difference | open | DEC-FORM-04 | evidence for a change threshold |
 | LIM-41 | The prospective form evaluation has not run; low-form-event and next-performance associations remain unknown | open | FORM-PROSPECTIVE | 12 weeks / 10 low-form events across ≥4 lifts |
 | LIM-42 | Total load reduction can exceed the readiness+continuity 20% cap when e1RM decay or a deload is also active; the total is warned below 0.80 but not capped | open | DEC-W3-02 | decide whether a total-stack floor is warranted |
+| LIM-45 | The erector-ramp verdict `PRG-EREC-001` stays `unknown` until a block start is declared and a symptom reading exists; the anchor is never inferred from dates or gaps | documented | DEC-RAMP-01, closed Q3/Q4 | never; declaring the block start is the input |
+| LIM-46 | Roughly 45% of stored dates carry no inferable programme day, so day-specific rules stay ungraded on the rest. This is a property of the historical export, not a defect to fix; inference reports explicit reasons rather than forcing a bucket | accepted | W0 day inference, owner decision 2026-10-26 | never; the historical rows will not be relabelled |
+| LIM-47 | The 30/45/60-minute minimum-session target is judged against a per-set planning estimate, not measured time; transitions and idle time are not modelled | mitigated | DEC-MIN-01/02, MINIMUM-SESSION | **Mitigation:** the ended-workout screen shows target, recomputed estimate and measured duration side by side, so the estimate is never read as the clock. Closing it needs 20–30 measured workouts and a calibrated per-set value |
+| LIM-48 | Technique-throttle values (90% load, RIR floor 3) are design choices, not measured optima | accepted | DEC-TECH-01, ASSUMPTION-36 | evidence for different values |
+| LIM-49 | ACWR is contested, so it can only be advisory and may never veto a prescription | accepted | DEC-ACWR-01 | a defensible dose-response model |
+| LIM-50 | The scheduled-deload clock counts calendar weeks from the block start, so a declared break freezes the DUP cycle and the erector ramp but not the deload schedule | open | DEC-CONTINUITY-04 | a break-aware deload clock is designed and tested |
 
 ## Rules
 

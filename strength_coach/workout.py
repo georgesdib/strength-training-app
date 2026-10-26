@@ -19,6 +19,7 @@ from strength_coach import __version__
 from strength_coach.domain import load as load_mod
 from strength_coach.critique import build_facts, score_session
 from strength_coach.critique.rubric import persist as persist_critique
+from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.store import repositories
 from strength_coach.utils import exercises
 
@@ -149,7 +150,34 @@ def get(conn, workout_id: str) -> dict | None:
     data["elapsed_seconds"] = _elapsed(data)
     data["comparison"] = _comparison(data)
     data["original_comparison"] = _comparison({**data, "plan": original})
+    data["minimum_session"] = _minimum_session_summary(data)
     return data
+
+
+def _minimum_session_summary(workout: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Target, planning estimate and measured length side by side.
+
+    The estimate is a planning aid, not a measurement (LIM-47), so the ended screen shows all
+    three numbers rather than letting the estimate stand in for the clock. The estimate is
+    recomputed from the plan as it stands, because in-session edits change the work.
+    """
+    notes = (workout.get("plan") or {}).get("notes") or {}
+    if not notes:
+        notes = (workout.get("original_plan") or {}).get("notes") or {}
+    note = notes.get("minimum_session") or {}
+    if not note.get("requested"):
+        return None
+    measured = workout.get("duration_min")
+    return {
+        "requested": True,
+        "target_minutes": note.get("target_minutes"),
+        "estimated_minutes": minimum_session_mod.estimate_minutes(
+            (workout.get("plan") or {}).get("items") or ()
+        ),
+        "measured_minutes": None if measured is None else round(float(measured), 1),
+        "duration_source": workout.get("duration_source"),
+        "status": note.get("status"),
+    }
 
 
 def _form_ratings(conn, workout_id: str) -> list[dict]:

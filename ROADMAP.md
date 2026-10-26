@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-25 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 done, v0.5 in progress** · version `0.5.0-dev` · **752 public tests** (767 with the 15 private integration tests)
+Last updated: 2026-10-26 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 done, v0.5 in progress** · version `0.5.0-dev` · **768 public tests** (783 with the 15 private integration tests)
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-25 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 767 locally, including the 15 private integration tests
+.venv/bin/python -m pytest            # 783 locally, including the 15 private integration tests
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -471,6 +471,11 @@ and adds one RIR. The exact thresholds remain assumptions (`DEC-CONTINUITY-01`).
 Delivered: gap detection from stored sessions, `MOD-GAP-001`, trained-week DUP cycle, ramp
 step-back after a long gap, bodyweight set reduction, and the message in the prescription.
 Open items recorded in Q12.
+
+**Declared break delivered 2026-10-26** (`DEC-CONTINUITY-04`): an append-only range that freezes
+its weeks in the trained-week count, exposed as `strength-coach break` and on the Athlete page.
+It exists for the week that was trained but must not count — an untrained week is already
+skipped. The scheduled-deload clock still counts calendar weeks (`LIM-50`).
 
 ### 4.7 Injury signal — per region, informs suitability, never clears it  (done)
 
@@ -1042,7 +1047,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 
 | priority | action | status |
 |---|---|---|
-| P1 | Record **≥3 measured tests per main lift** so `MOD-E1RM-001` can calibrate the formula (the bias question is data-starved, not mechanism-starved) | **next** — `e1rm calibrate` shows the ratio and CI; record from the Athlete page, an Exercises row or the post-workout panel |
+| P1 | Record **≥3 measured tests per main lift** so `MOD-E1RM-001` can calibrate the formula (the bias question is data-starved, not mechanism-starved) | **next** — `e1rm tests-needed` reports counted tests per main lift against the gate (the Athlete page shows the same table); `e1rm calibrate` shows the ratio and CI; record from the Athlete page, an Exercises row or the post-workout panel |
 | P2 | Parent-variant e1RM ratios | unscheduled; display-only at most (§4.20.2) |
 | P2 | Weakness/injury-targeted selection | deferred to after v0.5 / ~April 2027; gates in §4.20.3 and `DEC-SELECT-05` |
 | P2 | Main-lift upward-revision ratchet | **deferred, not scheduled** — rejected as a controller in `DEC-E1RM-PLAUS-01`; revisit only if calibration cannot close the bias |
@@ -1140,21 +1145,13 @@ contract, and comparable workout data collection.
 
 ## 5. Known gaps and risks
 
-Resolved items were removed on 2026-10-25; the status table and `CHANGELOG.md` keep the record.
-
-| gap | impact | mitigation / status |
-|---|---|---|
-| Erector ramp has no anchor | `PRG-EREC-001` returns `unknown`; squat-led/bench-led sessions lack a ramp verdict | rule implemented; `unknown` names both missing inputs (`OPEN-QUESTIONS` Q3, Q4) |
-| Imported sessions have no timestamps | imported duration unmeasurable; two imported sessions on one date indistinguishable | workout mode measures duration; imports remain date-only (`OPEN-QUESTIONS` Q5) |
-| Only ~45% of dates map to a programme day | day-specific rules cannot be scored on the rest | day inference reports explicit reasons; do not force a bucket |
-| Rubric calibration milestone | 10 high-confidence reviewed sessions; every rubric item at n=10; rotation weak; progression/velocity not comparable in the report; some old marks reconstructed and excluded | label gate met 2026-10-25; rubric retune remains a separate decision; `DEC-EVAL-04`; exact counts private |
-| Spinal cost ignores load and effort | a 50 kg good-morning at RIR 3 counts the same as a maximal one, and set count is invisible (one exposure per session/exercise) | Reviewed 2026-10-23: keep ordinal; separate heavy-set advisory (RIR ≤ 1) is context only; `MOD-SPINE-001` now trims a non-essential exposure when it alone reaches the cap, but the weights are unchanged (`DEC-SPINE-03`, `LIM-14`, `docs/SPINAL-LOAD-EVIDENCE.md`) |
-| Spinal cap excludes squat loading | the low-bar competition squat adds erector demand but consumes no weekly exposure | scope decision recorded; Q24 open, `DEC-SPINE-04`, LIM-44 |
-| e1RM formula bias is only correctable with measured tests | an optimistic RIR fold shifts every load, and the shift is invisible inside the distribution | bounded correction ±10% from ≥3 tests (`MOD-E1RM-001`); the 28-day median and the plausibility advisory limit the damage meanwhile (`DEC-E1RM-SOURCE-01`, `DEC-E1RM-PLAUS-01`, `LIM-24`, `LIM-43`) |
-| Cardio has no impulse or fatigue model | cardio is captured but invisible to load and readiness modelling | v0.5 §4.13a A2/A3; shadow only, no load effect until the A4 gate |
-| Minimum-session duration is a planning estimate | the 30/45/60 target comes from a per-set estimate, not measured time | labelled a heuristic; `DEC-MIN-01`, `docs/MINIMUM-SESSION.md` |
-| Technique-throttle values are design choices | 90% load / RIR 3 are not measured optima | explicit user request only; `DEC-TECH-01`, `ASSUMPTION-36` |
-| ACWR contested | cannot be a hard rule | advisory only; `DEC-ACWR-01` |
+This section keeps **no list**. Every accepted limitation is registered with an id, a status and
+a "revisit when" in [`docs/LIMITATIONS-REGISTER.md`](docs/LIMITATIONS-REGISTER.md); forward-looking
+work lives in §4.19 and the v0.5 plan in §4.13a. The table that used to sit here was folded into
+that register on 2026-10-26 — `LIM-45`–`LIM-49` are its new rows, and the rest already existed
+(`LIM-07`/`LIM-10` duration and timestamps, `LIM-14` spinal cost, `LIM-24`/`LIM-43` e1RM bias).
+Two rows that described *planned work* were not limitations and did not move: calibration
+comparability is tracked in §4.14 and the cardio impulse in §4.13a A2/A3.
 
 ## 6. Idea backlog (not approved, not scheduled)
 

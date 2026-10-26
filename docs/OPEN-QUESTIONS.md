@@ -7,7 +7,7 @@ produces an `unknown` verdict rather than a silent guess.
 > Quantitative evidence for each question is kept out of this public repository. The
 > questions themselves are methodology questions and apply to any athlete using the system.
 
-**Live register (2026-10-25):** one open question (Q14) and one deferred decision (Q22).
+**Live register (2026-10-26):** one open question (Q14) and one deferred decision (Q22).
 The 22 questions decided since the register was created were removed from the live text on
 2026-10-25; each outcome and decision record is indexed under
 [Closed](#closed--index-only). Reopening a closed question is a new decision, not an edit.
@@ -31,6 +31,8 @@ sessions per target lift over 12 weeks, a pre-registered weakness definition, a 
 baseline win, and an opt-in N-of-1/alternating test. See
 [WEAKNESS-INJURY-SELECTION.md](WEAKNESS-INJURY-SELECTION.md) and the gated
 [WEAKNESS-TARGETING-PLAN.md](WEAKNESS-TARGETING-PLAN.md).
+
+---
 
 ---
 
@@ -61,6 +63,7 @@ enforced; the reasoning lives in the decision record and the linked document.
 | Q21 | What counts as comparable for selection? | three-class A/B/C guard; A is automatic aliases only, B needs confirmation, C is never automatic | `DEC-SELECT-03`, `docs/SELECTION-COMPARABILITY.md` |
 | Q23 | Does a first-set RIR drop trigger a load cut? | no; never implemented, inside RIR reporting error, removed from `MOD-FAT-001` in constitution 1.13.0; the mean-RIR per-lift component remains | `DEC-RIR-04` |
 | Q24 | Should the low-bar competition squat count toward the weekly spinal cap? | yes, at cost 1; the cap rises 3 to 6, and bench+hinge uses sumo at 2.5 | `DEC-SPINE-05`, `docs/SPINAL-COST.md` |
+| Q25 | Does a level-1 reading with no settle answer count as a flare? | yes: only a recorded 48 h settlement clears a level 1, so an unrecorded answer fails safe | `DEC-SYMPTOM-04`, `docs/SYMPTOM-LOGGING.md` |
 
 ---
 

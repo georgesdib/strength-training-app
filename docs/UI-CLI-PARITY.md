@@ -66,6 +66,7 @@ These are known and intentional or still open.
 | `review --pending` bulk queue | UI reviews a selected recent session; no batch queue | open; terminal fallback |
 | `state --import` YAML | UI has individual state forms only | open; terminal fallback |
 | `e1rm calibrate --window-days` | UI shows the calibration table, no window control | partial |
+| `e1rm tests-needed --window-days` | UI shows the same coverage table with the default window | partial |
 | `test --status` standalone cadence | cadence shown in prescription notes | partial |
 | `symptom --show` raw history | UI shows injury signal/current tables | partial |
 | `volume --weeks/--date` | UI panel uses the default 4-week window | partial |

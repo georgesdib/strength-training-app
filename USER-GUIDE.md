@@ -576,6 +576,28 @@ The block anchor drives the erector ramp. It is **declared, never inferred** (`D
 a gap in the log cannot start a block, because gaps are non-adherence. Resetting is a genuine
 restart — the ramp goes back to week 1 rather than continuing at week 8 (`DEC-RAMP-02`).
 
+### 4.5a `break` — declare time off that must not count
+
+```bash
+strength-coach break --from 2026-10-26 --to 2026-11-02 --reason holiday
+strength-coach break --from 2026-10-26 --to 2026-10-28 --reason test --note "3RM week"
+strength-coach break --show
+strength-coach break --cancel 2          # appends a cancellation; nothing is deleted
+```
+
+A declared break freezes its weeks in the trained-week count, so **neither the DUP cycle nor
+the erector ramp advances inside it**. It exists for the week you *did* train but must not count
+— a test week or a deload week. An untrained week is already skipped, so declaring a holiday
+changes the record and the display, not the arithmetic. One break day freezes its whole week.
+
+It never changes a load, RIR or set, and it does not replace the gap rules: when training
+resumes, `MOD-GAP-001` still applies for the time off. The **scheduled-deload clock keeps
+counting calendar weeks** from the block start (`LIM-50`). Reasons are `holiday`, `deload`,
+`test` and `other`; the record is append-only, so a mistake is cancelled, never edited.
+
+The same table and form are on the **Athlete** page under **Declared break**
+(`DEC-CONTINUITY-04`, [docs/CONTINUITY.md](docs/CONTINUITY.md)).
+
 ### 4.6 `e1rm` — override the estimated max
 
 ```bash
@@ -615,6 +637,12 @@ to ±10%, and cited as `MOD-E1RM-001`. Ambiguous evidence or a larger bias appli
 Measured overrides are never adjusted. The same table is on the Athlete page; overrides can
 be appended from there, from an Exercises row, or from the post-workout panel.
 
+**What is still missing.** `strength-coach e1rm tests-needed` (the same table is on the
+Athlete page) shows, per main lift, how many tests are **counted** toward that gate, how many
+more are needed, and what to do next. A test only counts when the app had a formula estimate
+for that lift in the 84 days before it, so a test filed against a lift with no recent training
+is recorded but not counted, and the row says so instead of silently staying at zero.
+
 ### 4.7 `symptom` — a pre-session region reading
 
 ```bash
@@ -625,15 +653,31 @@ strength-coach symptom --show
 
 One number per configured region, recorded **pre-session**: `0` none, `1` awareness, `2`
 annoying, `3` limiting. Logging defaults to `low_back`; use `--region biceps` or `--region knee`
-for another configured region. `--settled` records whether it settled within 48 hours.
+for another configured region. `--settled` records whether it settled within 48 hours; only a
+recorded `yes` clears a level-1 reading.
 
 A reading counts as a **flare** when the level is 2 or more, or when a level of 1 did not
-settle within 48 hours. A flare makes `MOD-BACK-001` apply to the next prescription: erector
+settle within 48 hours — including when no answer was recorded, because a missing answer is
+not evidence of settling (`DEC-SYMPTOM-04`). A flare makes `MOD-BACK-001` apply to the next prescription: erector
 work returns to the weeks 1-3 dose and main lifts are held at RIR 3.
 
 With a reading **and** a declared block start (`block --date`), `PRG-EREC-001` stops
 returning `unknown` and grades the ramp, citing `symptom:<date>`. Without either input it
 still says `unknown` — no reading is never read as "no flare".
+
+**When it settles.** Log a *new* reading with `--level 0` for the day it is gone:
+
+```bash
+strength-coach symptom --date 2026-10-28 --level 0 --note "settled after two days"
+```
+
+That reading ends the flare — the next prescription stops applying `MOD-BACK-001` — while the
+flare itself stays in history, where it still counts toward the injury signal's streak and
+window. Leave `--settled` alone on a `0` row; the question belongs to the episode.
+
+A level-1 reading is a flare **unless** it carries `--settled yes`, so answer the flag when you
+log one: `yes` for a niggle that settled within 48 hours, `no` (or omit it) while it has not.
+Full workflow, including what not to do: [SYMPTOM-LOGGING.md](docs/SYMPTOM-LOGGING.md).
 
 Correct a mistake by logging again; the latest entry for the day wins and the earlier one
 stays in history.

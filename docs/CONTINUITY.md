@@ -38,6 +38,25 @@ the engine; the open questions are at the end.
 - **Erector ramp**: pauses during the gap; after the long break it steps back one stage. Rest
   settles symptoms but does not build load tolerance.
 
+### Declared breaks (implemented 2026-10-26)
+
+A break is a date range the athlete declares — holiday, deload, test week, other — recorded
+append-only (`strength-coach break`, or the Athlete page). It exists for the week that **was
+trained but must not count**: an untrained week is already skipped by the trained-week index,
+so declaring a holiday changes the record and the display, not the arithmetic.
+
+- **Freeze.** Every ISO week that contains at least one break day is removed from the
+  trained-week count, so neither the DUP cycle nor the erector ramp advances inside it. One
+  declared day freezes its whole week — that is the assumption, not a measurement.
+- **Cancellation.** A mistake is cancelled by appending a row that names the row it cancels;
+  nothing is edited or deleted, and the cancelled break stays visible in history.
+- **No effect on load.** The gap rules above still apply when training resumes: a declared
+  break does not replace `MOD-GAP-001`, and it never changes a load, RIR or set.
+- **Not shifted:** the **scheduled-deload clock** still counts calendar weeks from the block
+  start, so a long break does not move it (`LIM-50`).
+
+Decision record: `DEC-CONTINUITY-04`.
+
 ### Retrospective walk-forward (2026-10-20)
 
 On 12 observed returns, the calibrated factor had ratio MAE 0.150 versus 0.128 for the fixed

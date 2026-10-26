@@ -36,6 +36,7 @@ from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, load_marks, record_marks
 from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import deload as deload_feature
+from strength_coach.features import breaks as breaks_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import continuity_calibration
 from strength_coach.features import volume as volume_feature
@@ -310,6 +311,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: self._cardio(c, {"weeks": weeks, "date": on_date})
                 ))
+            elif path == "/api/breaks":
+                self._json(200, self._with_conn(self._breaks))
             elif path == "/api/measurements":
                 self._json(200, self._with_conn(self._measurements))
             elif path == "/api/fatigue":
@@ -544,6 +547,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._save_symptom(c, body)))
             elif path == "/api/state/block":
                 self._json(200, self._with_conn(lambda c: self._save_block(c, body)))
+            elif path == "/api/state/break":
+                self._json(200, self._with_conn(lambda c: self._save_break(c, body)))
+            elif path == "/api/state/break/cancel":
+                self._json(200, self._with_conn(lambda c: self._cancel_break(c, body)))
             elif path == "/api/state/test":
                 self._json(200, self._with_conn(lambda c: self._save_test(c, body)))
             elif path.startswith("/api/review/"):
@@ -1105,6 +1112,8 @@ class Handler(BaseHTTPRequestHandler):
         return self._readiness(conn, day)
 
     def _state(self, conn) -> dict:
+        # One calibration build feeds both tables: the report and the tests-needed coverage.
+        calibration = e1rm_calibration_feature.build(conn)
         today = datetime.date.today().isoformat()
         context = RuleContext.from_store(conn, end=today)
         constraints = []
@@ -1130,8 +1139,10 @@ class Handler(BaseHTTPRequestHandler):
             "suitability": queries.exercise_suitability(conn),
             "symptoms": queries.symptom_entries(conn)[-10:],
             "e1rm_overrides": queries.e1rm_overrides(conn),
-            "e1rm_calibration": e1rm_calibration_feature.as_dict(
-                e1rm_calibration_feature.build(conn)
+            "declared_breaks": breaks_feature.as_dict(breaks_feature.all_breaks(conn)),
+            "e1rm_calibration": e1rm_calibration_feature.as_dict(calibration),
+            "e1rm_tests_needed": e1rm_calibration_feature.coverage_as_dict(
+                e1rm_calibration_feature.coverage(conn, report=calibration)
             ),
             "block_week": context.block_week_index,
             "injury_signal": injury_signal.compute(
@@ -1376,6 +1387,31 @@ class Handler(BaseHTTPRequestHandler):
             note=body.get("note") or None,
         )
         return self._state(conn)
+
+    def _breaks(self, conn, body: dict | None = None) -> dict:
+        body = body or {}
+        day = str(body.get("date") or datetime.date.today().isoformat())
+        return {
+            "breaks": breaks_feature.as_dict(breaks_feature.all_breaks(conn)),
+            "active": breaks_feature.as_dict(breaks_feature.active_on(conn, day)),
+        }
+
+    def _save_break(self, conn, body: dict) -> dict:
+        """Record a break through the same writer the CLI uses; nothing is edited later."""
+        break_id = breaks_feature.record(
+            conn,
+            starts_on=str(body.get("starts_on") or "").strip(),
+            ends_on=str(body.get("ends_on") or "").strip(),
+            reason=str(body.get("reason") or "").strip(),
+            note=body.get("note") or None,
+        )
+        return {"break_id": break_id, **self._breaks(conn)}
+
+    def _cancel_break(self, conn, body: dict) -> dict:
+        cancel_id = breaks_feature.cancel(
+            conn, _integer(body.get("break_id")), note=body.get("note") or None
+        )
+        return {"cancel_id": cancel_id, **self._breaks(conn)}
 
     def _save_e1rm(self, conn, body: dict) -> dict:
         exercise_id = str(body.get("exercise_id") or "").strip()

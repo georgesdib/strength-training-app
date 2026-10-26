@@ -218,6 +218,16 @@ def latest_symptom(conn, on_or_before: str, *, timing: str = "pre_session",
     return dict(row) if row is not None else None
 
 
+def declared_breaks(conn) -> list[dict]:
+    """Every break row, including cancellation records, oldest first."""
+    return [
+        dict(row)
+        for row in conn.execute(
+            "SELECT * FROM declared_break ORDER BY starts_on, break_id"
+        )
+    ]
+
+
 def symptom_entries(conn, *, since: str | None = None,
                     region: str | None = None) -> list[dict]:
     clauses: list[str] = []

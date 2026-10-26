@@ -71,6 +71,11 @@ The seconds are config (`config/minimum-session.v1.yaml`). This is **not** a mea
 length and is not a fatigue model. A partial result is labelled `partial` when the floors are
 reached before the target.
 
+Because the target is judged against an estimate, the **ended-workout screen shows all three
+numbers**: target, estimate (recomputed from the plan as it stands) and measured duration
+(`DEC-MIN-02`, `LIM-47`). The estimate ignores transitions and idle time; the measured value is
+the clock. Nothing in the prescription changes.
+
 ## 5. Safety and refusal
 
 `MOD-MIN-001` is not applied when:

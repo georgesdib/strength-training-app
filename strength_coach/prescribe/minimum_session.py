@@ -7,6 +7,7 @@ applied after the automatic modifiers, so it can only take work away.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Iterable
@@ -48,15 +49,27 @@ class MinimumSessionConfig:
         )
 
 
-def estimate_minutes(items: Iterable[PrescriptionItem],
+def _field(item: Any, name: str, default: Any = None) -> Any:
+    """Read a plan item as a PrescriptionItem or as its persisted dict form."""
+    if isinstance(item, Mapping):
+        return item.get(name, default)
+    return getattr(item, name, default)
+
+
+def estimate_minutes(items: Iterable[Any],
                      config: MinimumSessionConfig | None = None) -> float:
-    """Planning estimate from sets, rests and warm-up sets. Not a measured duration."""
+    """Planning estimate from sets, rests and warm-up sets. Not a measured duration.
+
+    Items may be `PrescriptionItem`s or the dict form stored in a workout plan, so the
+    ended-workout view recomputes the same estimate the build used instead of trusting a
+    number the athlete may have edited away (`LIM-47`).
+    """
     cfg = config or MinimumSessionConfig.load()
     total = 0.0
     for item in items:
-        rest = float(item.rest_s or 0)
-        total += int(item.sets) * (cfg.set_seconds + rest)
-        total += len(item.warmup) * cfg.warmup_set_seconds
+        rest = float(_field(item, "rest_s") or 0)
+        total += int(_field(item, "sets") or 0) * (cfg.set_seconds + rest)
+        total += len(_field(item, "warmup") or ()) * cfg.warmup_set_seconds
     return round(total / 60.0, 1)
 
 

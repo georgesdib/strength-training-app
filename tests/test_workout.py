@@ -22,6 +22,15 @@ READINESS = {
     "nutrition": 4, "hydration": 4,
 }
 
+MINIMUM_PLAN = {
+    **PLAN,
+    "notes": {"minimum_session": {
+        "requested": True, "applied": True, "status": "applied",
+        "target_minutes": 45, "before_minutes": 58.0, "after_minutes": 44.0,
+        "include_main": False, "removed_sets": 2, "removed_exercises": [],
+    }},
+}
+
 
 @pytest.fixture
 def conn():
@@ -30,6 +39,28 @@ def conn():
         yield store.connection
     finally:
         store.close()
+
+
+def test_a_minimum_session_reports_target_estimate_and_measured_time(conn):
+    # LIM-47: the target is judged against a planning estimate, so the payload must carry both
+    # that estimate and the clock, and recompute the estimate from the plan as it stands.
+    started = workout.start(conn, for_date="2024-01-01", plan=MINIMUM_PLAN,
+                            readiness=READINESS)
+    summary = started["minimum_session"]
+    assert summary["target_minutes"] == 45
+    assert summary["estimated_minutes"] > 0
+    assert summary["measured_minutes"] is None          # still in progress
+    assert summary["status"] == "applied"
+
+    ended = workout.end(conn, started["workout_id"], session_rpe=7, duration_min=58)
+    summary = ended["minimum_session"]
+    assert summary["measured_minutes"] == 58.0
+    assert summary["duration_source"] == "manual"
+
+
+def test_a_plan_without_a_minimum_session_has_no_summary(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    assert started["minimum_session"] is None
 
 
 def test_start_requires_all_seven_readiness_fields(conn):

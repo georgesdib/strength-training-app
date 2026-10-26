@@ -36,6 +36,7 @@ from strength_coach.agents import proposal as proposal_mod
 from strength_coach.agents import selection as agent_selection
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
 from strength_coach.domain import e1rm as e1rm_mod
+from strength_coach.features import breaks as breaks_feature
 from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import continuity_calibration
 from strength_coach.features import volume as volume_feature
@@ -182,6 +183,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     e1rm_cal.add_argument("--window-days", type=int, default=84,
                           help="look-back window before each test (default 84)")
+    e1rm_needed = e1rm_sub.add_parser(
+        "tests-needed",
+        help="show counted measured tests per lift against the calibration gate",
+    )
+    e1rm_needed.add_argument("--window-days", type=int, default=84,
+                             help="look-back window before each test (default 84)")
 
     test = sub.add_parser("test", help="record a 3RM/5RM (or confirmed 1RM) strength test")
     test.add_argument("--status", action="store_true",
@@ -209,7 +216,8 @@ def main(argv: list[str] | None = None) -> int:
     symptom.add_argument("--level", type=int, choices=(0, 1, 2, 3), default=None,
                          help="0 none, 1 awareness, 2 annoying, 3 limiting")
     symptom.add_argument("--settled", choices=("yes", "no", "unknown"), default=None,
-                         help="did it settle within 48 hours?")
+                         help="settled within 48 hours? yes clears a level-1 reading; "
+                              "no and unknown both count as not settled")
     symptom.add_argument("--note", default=None)
     symptom.add_argument("--show", action="store_true", help="list recent entries")
 
@@ -381,6 +389,17 @@ def main(argv: list[str] | None = None) -> int:
     block.add_argument("--force", action="store_true",
                        help="reset even if the ramp is already running")
 
+    brk = sub.add_parser(
+        "break", help="record a break (holiday, deload or test week) that freezes the cycle"
+    )
+    brk.add_argument("--from", dest="starts_on", default=None, help="YYYY-MM-DD")
+    brk.add_argument("--to", dest="ends_on", default=None, help="YYYY-MM-DD (inclusive)")
+    brk.add_argument("--reason", choices=breaks_feature.REASONS, default=None)
+    brk.add_argument("--note", default=None)
+    brk.add_argument("--cancel", type=int, dest="cancel_id", default=None,
+                     help="cancel a recorded break by id (appends, never edits)")
+    brk.add_argument("--show", action="store_true", help="list recorded breaks")
+
     args = parser.parse_args(argv)
     handlers = {
         "import": _cmd_import,
@@ -406,6 +425,7 @@ def main(argv: list[str] | None = None) -> int:
         "workout": _cmd_workout,
         "exercise": _cmd_exercise,
         "block": _cmd_block,
+        "break": _cmd_break,
         "readiness": _cmd_readiness,
         "web": _cmd_web,
     }
@@ -967,6 +987,12 @@ def _cmd_e1rm(args) -> int:
             report = e1rm_calibration_feature.build(conn, window_days=args.window_days)
             _print_e1rm_calibration(report)
             return 0
+        if args.action == "tests-needed":
+            coverage = e1rm_calibration_feature.coverage(
+                conn, window_days=args.window_days
+            )
+            _print_e1rm_tests_needed(coverage, window_days=args.window_days)
+            return 0
         if args.kg <= 0:
             print("e1RM must be positive")
             return 2
@@ -1030,6 +1056,25 @@ def _print_e1rm_calibration(report) -> None:
                   f"  formula {point.predicted_kg:g} kg  ({point.ratio:.3f})")
     print("\nbounded correction: applied only when the 95% CI excludes 1.0 and the median "
           "bias is within ±10%; measured tests still override the formula.")
+
+
+def _print_e1rm_tests_needed(rows, *, window_days: int) -> None:
+    """P1 coverage: the gate is data, not code, so show how much data is still missing."""
+    if not rows:
+        print("no lifts to report")
+        return
+    print("measured-test coverage for MOD-E1RM-001")
+    print("gate: 3 counted tests, a 95% CI that excludes 1.0, and a median bias within ±10%")
+    print()
+    print(f"{'':2}{'lift':<26}{'counted':>8}{'need':>6}  gate")
+    for row in rows:
+        marker = "*" if row.is_main_lift else " "
+        print(f"{marker} {row.exercise_id:<26}{row.counted:>8}{row.needed:>6}  {row.status}")
+        print(f"    {row.next_action}")
+        if row.note:
+            print(f"    {row.note}")
+    print(f"\n* = main lift. A test counts only when a formula estimate exists in the prior "
+          f"{window_days} days; record one with `strength-coach test`.")
 
 
 def _cmd_test(args) -> int:
@@ -1185,8 +1230,16 @@ def _cmd_symptom(args) -> int:
                 print("that is a flare: MOD-BACK-001 will apply to the next prescription")
             else:
                 print(f"that is a flare: the {region} signal will show it as active")
-        elif args.level == 1 and settled is False:
-            print("level 1 that did not settle is also a flare (DEC-SYMPTOM-02)")
+        elif args.level == 1:
+            if settled is True:
+                print("level 1 that settled within 48 h is not a flare")
+            else:
+                print("level 1 with no recorded 48 h settlement is a flare "
+                      "(DEC-SYMPTOM-02, DEC-SYMPTOM-04)")
+        if args.level >= 2 or (args.level == 1 and settled is not True):
+            # Only a reading that is still a flare needs the "how do I close it" answer.
+            print("when it settles, log a level-0 reading for that date; the flare stays in "
+                  "history (docs/SYMPTOM-LOGGING.md)")
         return 0
     finally:
         store.close()
@@ -1198,7 +1251,7 @@ def _print_symptoms(conn, *, region: str | None = None) -> None:
         where = f" for {region}" if region else ""
         print(f"no symptom entries logged{where}; injury signals stay unknown until one exists")
         return
-    print(f"{'date':<12}{'region':<12}{'timing':<14}{'level':>6}  {'settled':<8} note")
+    print(f"{'date':<12}{'region':<12}{'timing':<14}{'level':>6}  {'settled<48h':<11} note")
     for row in entries[-20:]:
         settled = "-" if row["settled_within_48h"] is None else (
             "yes" if row["settled_within_48h"] else "no"
@@ -1673,6 +1726,73 @@ def _cmd_block(args) -> int:
         return 0
     finally:
         store.close()
+
+
+def _cmd_break(args) -> int:
+    """Record, list or cancel a declared break.
+
+    A break freezes the trained-week cycle and the erector ramp for its duration; it changes no
+    load, RIR or set, and the gap rules still apply when training resumes (DEC-CONTINUITY-04).
+    """
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        if args.cancel_id is not None:
+            try:
+                new_id = breaks_feature.cancel(conn, args.cancel_id, note=args.note)
+            except ValueError as exc:
+                print(str(exc))
+                return 2
+            print(f"break {args.cancel_id} cancelled by row {new_id}; the original stays in "
+                  "history")
+            return 0
+        if args.show or not args.starts_on:
+            _print_breaks(conn)
+            return 0
+        if not args.ends_on or not args.reason:
+            print("--to and --reason are required when recording a break")
+            return 2
+        try:
+            break_id = breaks_feature.record(
+                conn, starts_on=args.starts_on, ends_on=args.ends_on,
+                reason=args.reason, note=args.note,
+            )
+        except ValueError as exc:
+            print(str(exc))
+            return 2
+        days = breaks_feature.DeclaredBreak(
+            break_id=break_id, starts_on=args.starts_on, ends_on=args.ends_on,
+            reason=args.reason, note=args.note,
+        ).days
+        print(f"break {break_id}: {args.reason} {args.starts_on} to {args.ends_on} "
+              f"({days} days)")
+        print("its weeks are frozen: neither the DUP cycle nor the erector ramp advances "
+              "inside it")
+        return 0
+    finally:
+        store.close()
+
+
+def _print_breaks(conn) -> None:
+    rows = breaks_feature.all_breaks(conn)
+    if not rows:
+        print("no declared breaks; untrained weeks are already skipped by the trained-week "
+              "count")
+        return
+    today = datetime.date.today().isoformat()
+    print(f"{'id':>4}  {'from':<12}{'to':<12}{'reason':<9}{'days':>5}  status")
+    for row in rows:
+        if row.cancelled:
+            status = "cancelled"
+        elif row.covers(today):
+            status = "active"
+        elif row.ends_on < today:
+            status = "past"
+        else:
+            status = "future"
+        print(f"{row.break_id:>4}  {row.starts_on:<12}{row.ends_on:<12}"
+              f"{row.reason:<9}{row.days:>5}  {status}"
+              + (f"  ({row.note})" if row.note else ""))
 
 
 def _import_state(conn, path: Path, *, force: bool) -> int:

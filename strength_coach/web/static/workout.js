@@ -414,6 +414,20 @@ function renderWorkoutEnded(w) {
   $("#workout-ended-panel").hidden = false;
   if (typeof setWorkflowStep === "function") setWorkflowStep("post");
   var rpe = w.session_rpe_recorded ? fmt(w.session_rpe) : "not recorded";
+  var minimum = w.minimum_session;
+  // LIM-47: the target is judged against a planning estimate, so show that estimate next to
+  // the measured clock rather than letting it stand in for the session length.
+  var minimumLine = minimum
+    ? "<p class='muted'>Minimum session (MOD-MIN-001): target <strong>" +
+      fmt(minimum.target_minutes) + " min</strong> · estimated <strong>" +
+      fmt(minimum.estimated_minutes) + " min</strong> · measured <strong>" +
+      (minimum.measured_minutes == null ? "not measured"
+        : fmt(minimum.measured_minutes) + " min") + "</strong>" +
+      (minimum.measured_minutes != null && minimum.duration_source &&
+       minimum.duration_source !== "measured"
+        ? " (" + esc(minimum.duration_source) + ")" : "") +
+      ". The estimate ignores transitions and idle time; the measured value is the clock.</p>"
+    : "";
   var comparison = w.comparison || { items: [], extra: [] };
   var original = w.original_comparison || comparison;
   var origRows = original.items.map(function (row) {
@@ -474,6 +488,7 @@ function renderWorkoutEnded(w) {
   $("#workout-ended").innerHTML = "<p><strong>" + esc(w.for_date) + "</strong> ended. Duration <strong>" +
     fmt(w.duration_min) + " min</strong> (" + esc(w.duration_source || "measured") +
     "), session RPE <strong>" + rpe + "</strong>.</p>" +
+    minimumLine +
     "<table><thead><tr><th>Exercise</th><th>Status</th><th>Sets actual / planned</th>" +
     "<th>Reps</th><th>kg</th><th>RIR</th></tr></thead><tbody>" + compRows + "</tbody></table>" +
     extra +

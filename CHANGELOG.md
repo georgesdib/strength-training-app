@@ -17,6 +17,24 @@
   ended-workout screen — a measured test from the set just performed (which registers a
   high-intensity exposure) or a direct override. Both use the same append-only endpoint as
   the Athlete page and `e1rm set`.
+- **Measured-test coverage for P1** (`e1rm tests-needed`, Athlete page): one row per main
+  lift with the tests counted, the tests still needed, the gate status and the next action,
+  plus a note when a filed test was not counted because the app had no formula estimate inside
+  the window before it. Read-only, and built from the same calibration pass, so its counts
+  cannot drift from `e1rm calibrate`.
+- **Symptom-logging workflow documented** (`docs/SYMPTOM-LOGGING.md`, linked from the Athlete
+  page beside the form): what to write in `settled`, why a settled flare is closed by a new
+  level-0 reading rather than an edit, and how the readings drive `MOD-BACK-001`,
+  `PRG-EREC-001` and the injury signal.
+- **Declared breaks** (`strength-coach break`, Athlete page): an append-only date range for a
+  holiday, deload, test week or other break. Every week containing a break day is frozen — it
+  leaves the trained-week count, so the DUP cycle and the erector ramp do not advance inside it
+  (`DEC-CONTINUITY-04`). A mistake is cancelled by a new row, never an edit; no load, RIR or set
+  changes. The scheduled-deload clock is not shifted (`LIM-50`).
+- **Minimum-session target shown against the clock** (`LIM-47` mitigated, `DEC-MIN-02`): after a
+  workout the ended screen reports target, estimate and measured duration together, and the
+  estimate is labelled a planning aid. No load, set or RIR change; calibration stays a later
+  option.
 - The **technique throttle** is now reachable from the web: `POST /api/prescribe` takes
   `technique_throttle` and `technique_throttle_pattern`, and the Prescribe form has a
   **Technique throttle** tick plus an optional pattern scope. This closes the gap that
@@ -24,8 +42,12 @@
 
 ### Changed
 
+- **A level-1 symptom reading is a flare unless a 48-hour settlement is recorded**
+  (`DEC-SYMPTOM-04`, Q25 closed). An unrecorded `settled` answer — the CLI and UI default —
+  counts as not settled, so `symptom --level 1` no longer clears `MOD-BACK-001` and the
+  erector-ramp gate by silence; recording `--settled yes` keeps the non-flare path.
 - **Spinal cap raised 3 → 6**, the low-bar competition squat now counts as one high-fatigue
-  exposure, and the bench+hinge support becomes the **sumo deadlift** at 2.5. Standard weeks
+  exposure, and the bench+hinge support becomes a low-rep **sumo deadlift** (3×3–5, e1RM-derived) at 2.5. Standard weeks
   are 4 (bench+squat) or 5.5 (bench+hinge), leaving limited headroom; constitution 1.14.0
   (`DEC-SPINE-05`, Q24 closed).
 

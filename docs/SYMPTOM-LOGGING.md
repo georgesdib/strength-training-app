@@ -29,6 +29,9 @@ The app does not reinterpret the anchors; it applies the flare definition to the
 | level `0` | never |
 | no reading at all | `unknown`, never "no flare" |
 
+The Athlete page labels this field **Settled within 48 hours**; leaving it on `unknown` is the
+same as answering `no`.
+
 So `settled_within_48h` answers exactly one question, and only for a level-1 reading: *is it
 confirmed to have settled over the last two days?* Only a recorded `yes` clears it. An
 unrecorded answer counts as **not** settled, because a missing observation is not evidence that

@@ -78,7 +78,7 @@ def log(conn, date, level, settled=None):
         (0, None, False),
         (1, True, False),
         (1, False, True),
-        (1, None, False),
+        (1, None, True),   # unrecorded settlement fails safe (DEC-SYMPTOM-04)
         (2, True, True),
         (3, None, True),
         (None, None, None),
@@ -124,6 +124,18 @@ def test_cli_logs_and_shows(tmp_path, capsys):
     assert cli.main(["--db", str(path), "symptom", "--show"]) == 0
     out = capsys.readouterr().out
     assert "2024-01-25" in out
+
+
+def test_cli_points_at_the_settling_workflow(tmp_path, capsys):
+    # The question "what do I log when it settles" is asked at the moment of logging, so the
+    # answer belongs in this output rather than only in a document.
+    path = tmp_path / "coach.db"
+    assert cli.main(["--db", str(path), "symptom", "--date", "2024-01-25", "--level", "2"]) == 0
+    out = capsys.readouterr().out
+    assert "level-0 reading" in out and "SYMPTOM-LOGGING.md" in out
+
+    assert cli.main(["--db", str(path), "symptom", "--date", "2024-01-26", "--level", "0"]) == 0
+    assert "level-0 reading" not in capsys.readouterr().out
 
 
 def test_cli_logs_a_region_and_rejects_an_unknown_one(tmp_path, capsys):
@@ -222,6 +234,41 @@ def test_back_flare_transforms_the_prescription():
         assert "symptom:2024-01-08" in item.rationale_refs
 
     assert any("MOD-BACK-001" in w for w in prescription.warnings)
+
+
+def test_a_level_one_without_a_settlement_still_applies_the_modifier():
+    # The safety contract behind Q25: "did not settle" is an observation, so a level-1 reading
+    # needs an explicit settled=yes to be dismissed. Otherwise the modifier must apply.
+    with store_with(DAY_A_ROWS) as store:
+        conn = store.connection
+        log(conn, "2024-01-08", 1)
+        prescription = build_prescription(conn, for_date="2024-01-08", session_type="squat")
+
+    assert any("MOD-BACK-001" in w for w in prescription.warnings)
+    squat = next(i for i in prescription.items if i.exercise_id == "ssb_squat")
+    assert squat.rir_target == 3
+
+
+def test_a_settled_level_one_leaves_the_prescription_alone():
+    with store_with(DAY_A_ROWS) as store:
+        conn = store.connection
+        log(conn, "2024-01-08", 1, settled=True)
+        prescription = build_prescription(conn, for_date="2024-01-08", session_type="squat")
+
+    assert not any("MOD-BACK-001" in w for w in prescription.warnings)
+    squat = next(i for i in prescription.items if i.exercise_id == "ssb_squat")
+    assert squat.rir_target == 2
+
+
+def test_cli_says_which_way_a_level_one_went(tmp_path, capsys):
+    path = tmp_path / "coach.db"
+    assert cli.main(["--db", str(path), "symptom", "--date", "2024-01-25", "--level", "1"]) == 0
+    assert "no recorded 48 h settlement is a flare" in capsys.readouterr().out
+
+    assert cli.main(["--db", str(path), "symptom", "--date", "2024-01-26", "--level", "1",
+                     "--settled", "yes"]) == 0
+    out = capsys.readouterr().out
+    assert "settled within 48 h is not a flare" in out
 
 
 def test_no_flare_leaves_the_prescription_alone():

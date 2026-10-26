@@ -1419,9 +1419,30 @@ async function loadState() {
       <td>${row.latest_on || "—"}</td>
       <td>${row.n}</td><td>${row.median_ratio ?? "—"}</td>
       <td>${row.ci_low == null ? "—" : row.ci_low + "–" + row.ci_high}</td></tr>`).join("");
+    // P1 coverage: the gate is data, so show which lifts still need tests and by how many.
+    // Every number comes from Python; this block only formats it.
+    const coverage = data.e1rm_tests_needed || [];
+    const mainCoverage = coverage.filter((row) => row.is_main_lift);
+    const mainMet = mainCoverage.filter((row) => row.needed === 0).length;
+    const coverageRows = coverage.map(function (row) {
+      const note = row.note ? "<div class='muted'>" + esc(row.note) + "</div>" : "";
+      return "<tr><td><strong>" + esc(row.display) + "</strong><div class='muted'>" +
+        esc(row.exercise_id) + (row.is_main_lift ? " · main lift" : "") + "</div></td>" +
+        "<td>" + row.counted + " / " + row.min_tests + "</td>" +
+        "<td>" + row.needed + "</td>" +
+        "<td>" + esc(row.status) + note + "</td>" +
+        "<td>" + esc(row.next_action) + "</td></tr>";
+    }).join("");
+    const coverageTable = coverageRows
+      ? "<div class='table-scroll'><table class='e1rm-table'><thead><tr><th>Lift</th><th>tests counted</th><th>need</th><th>gate</th><th>next</th></tr></thead><tbody>" + coverageRows + "</tbody></table></div>"
+      : "<p class='empty'>no lifts to report.</p>";
+    const coveragePanel = "<div class='panel state-wide'><div class='panel-head'><h2>Measured tests needed</h2>" +
+      "<span class='muted'>" + mainMet + "/" + mainCoverage.length + " main lifts at the gate</span></div>" +
+      "<p class='section-help'><span>A test counts only when a formula estimate existed within 84 days before it. Record one with <code>strength-coach test</code>; this table is read-only.</span> " + '<a class="doc-link" href="#docs?doc=ROADMAP.md">Roadmap</a></p>' +
+      coverageTable + "</div>";
     renderStateForms(data);
     loadExposureStatus();
-    $("#state-result").innerHTML = `
+    $("#state-result").innerHTML = coveragePanel + `
       <div class="panel"><div class="panel-head"><h2>Profile</h2></div>
         <table><tbody>${profileRows}</tbody></table></div>
       <div class="panel"><div class="panel-head"><h2>Constraints</h2></div><ul class="list">${constraints}</ul></div>
@@ -1455,6 +1476,25 @@ function renderStateForms(data) {
   const regions = Object.keys(data.injury_signal?.regions || {});
   const regionOptions = (regions.length ? regions : ["low_back"]).map((r) =>
     `<option value="${esc(r)}">${esc(r)}</option>`).join("");
+  // A declared break freezes its weeks; the list is the record, the form appends to it.
+  const today = new Date().toISOString().slice(0, 10);
+  const breaks = data.declared_breaks || [];
+  const breakRows = breaks.length
+    ? "<div class='table-scroll'><table><thead><tr><th>From</th><th>To</th><th>Reason</th>" +
+      "<th>Days</th><th>Status</th><th></th></tr></thead><tbody>" +
+      breaks.map((row) => {
+        const status = row.cancelled ? "cancelled"
+          : (row.starts_on <= today && today <= row.ends_on) ? "active"
+          : row.ends_on < today ? "past" : "future";
+        const action = (!row.cancelled && status !== "past")
+          ? "<button class='ghost' type='button' data-cancel-break='" + row.break_id +
+            "'>Cancel</button>"
+          : "";
+        return "<tr><td>" + row.starts_on + "</td><td>" + row.ends_on + "</td><td>" +
+          esc(row.reason) + "</td><td>" + row.days + "</td><td>" + status + "</td><td>" +
+          action + "</td></tr>";
+      }).join("") + "</tbody></table></div>"
+    : "<p class='empty'>no declared breaks; untrained weeks are already skipped</p>";
   $("#state-forms").innerHTML = `
     <div class="panel"><div class="panel-head"><h2>Edit profile</h2><span class="muted">appends a new version</span></div>
       <form id="profile-form" class="grid-fields">
@@ -1544,14 +1584,32 @@ function renderStateForms(data) {
     </div>
 
     <div class="panel"><div class="panel-head"><h2>Symptom</h2></div>
+      <p class="section-help"><span>One pre-session 0-3 reading per region. The latest reading drives the back rules; the whole history drives the injury signal. “Settled within 48 hours” clears a level-1 reading only when recorded as yes — unknown counts as not settled. When it settles, log a new level-0 reading.</span> <a class="doc-link" href="#docs?doc=docs/SYMPTOM-LOGGING.md">Symptom logging</a></p>
       <form id="symptom-form" class="grid-fields">
         <label>Date<input data-symptom="date" type="date"></label>
         <label>Region<select data-symptom="region">${regionOptions}</select></label>
         <label>Level<select data-symptom="level"><option>0</option><option>1</option><option>2</option><option>3</option></select></label>
-        <label>Settled<select data-symptom="settled"><option>unknown</option><option>yes</option><option>no</option></select></label>
+        <label>Settled within 48 hours<select data-symptom="settled"><option value="unknown">unknown (not settled)</option><option value="yes">yes</option><option value="no">no</option></select></label>
         <label class="grow">Note<input data-symptom="note"></label>
         <button class="primary" type="submit">Append symptom</button>
       </form>
+    </div>
+
+    <div class="panel"><div class="panel-head"><h2>Declared break</h2>
+      <span class="muted">holiday, deload or test week</span></div>
+      <p class="section-help"><span>A break freezes its weeks: the DUP cycle and the erector ramp do not advance inside it, nothing is edited or deleted, and no load, RIR or set changes.</span> <a class="doc-link" href="#docs?doc=docs/CONTINUITY.md&anchor=declared-breaks-implemented-2026-10-26">Continuity</a></p>
+      <div id="break-list">${breakRows}</div>
+      <form id="break-form" class="grid-fields">
+        <label>From<input data-break="starts_on" type="date"></label>
+        <label>To<input data-break="ends_on" type="date"></label>
+        <label>Reason<select data-break="reason">
+          <option value="holiday">holiday</option><option value="deload">deload</option>
+          <option value="test">test week</option><option value="other">other</option>
+        </select></label>
+        <label class="grow">Note<input data-break="note"></label>
+        <button class="primary" type="submit">Record break</button>
+      </form>
+      <div id="break-msg" class="muted"></div>
     </div>
 
     <div class="panel"><div class="panel-head"><h2>Block start</h2><span class="muted">resets the ramp</span></div>
@@ -1624,6 +1682,16 @@ function renderStateForms(data) {
     event.preventDefault();
     const values = collect("block");
     save("/api/state/block", { ...values, force: Boolean(values.force) });
+  });
+  $("#break-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    save("/api/state/break", collect("break"), "#break-msg");
+  });
+  document.querySelectorAll("[data-cancel-break]").forEach((button) => {
+    button.addEventListener("click", () => {
+      save("/api/state/break/cancel",
+        { break_id: Number(button.dataset.cancelBreak) }, "#break-msg");
+    });
   });
 }
 

@@ -435,10 +435,13 @@ no migration is needed — but the region is now load-bearing, not decorative. E
 reads `low_back` only, so a knee reading cannot trigger `MOD-BACK-001` or reset the back
 signal. Multiple entries per day are allowed and the latest wins (migration 0005), so a
 correction is an insert. A reading is a **flare** at level >= 2, or at level 1 that did not
-settle within 48 hours (`DEC-SYMPTOM-02`); no reading is `unknown`, never "no flare".
+settle within 48 hours (`DEC-SYMPTOM-02`); a level-1 reading with no recorded settlement
+counts as not settled (`DEC-SYMPTOM-04`). No reading is `unknown`, never "no flare".
 
 The per-region signal built from this table is documented in
-[`INJURY-SIGNAL.md`](INJURY-SIGNAL.md); which exercises load a region is config, not schema.
+[`INJURY-SIGNAL.md`](INJURY-SIGNAL.md); how to log an episode, and what to record when it
+settles, is in [`SYMPTOM-LOGGING.md`](SYMPTOM-LOGGING.md). Which exercises load a region is
+config, not schema.
 
 Until this table has rows, MOD-BACK-001 and the PRG-EREC-001 stability gate return
 `unknown` — visibly, in the run report.
@@ -575,6 +578,23 @@ set/session reads and calibration, and can be reversed. It is not a delete.
 `vbt_override` stores append-only set-mean and per-rep velocities. A NULL `rep_index` is the set
 mean; a numbered row is that rep. Overrides can fill a missing value or supersede a device value;
 they never mutate `clean_set` or `clean_rep`.
+
+## 18. `declared_break` — holiday, deload and test weeks
+
+| column | notes |
+|---|---|
+| break_id | |
+| starts_on / ends_on | inclusive ISO dates; `ends_on >= starts_on` is a CHECK |
+| reason | `holiday` | `deload` | `test` | `other` |
+| note | free text |
+| cancels_break_id | set on the row that **cancels** another break; NULL on a real break |
+| recorded_at | |
+
+Append-only (no-update and no-delete triggers, migration 0035). A break row is a real interval
+unless another row names it in `cancels_break_id`; rows that only cancel are audit records, not
+intervals. Reads: the trained-week index subtracts every week that contains a break day, so the
+DUP cycle and the erector ramp freeze for that week (`DEC-CONTINUITY-04`, `docs/CONTINUITY.md`).
+Nothing else reads this table — no load, RIR or set depends on it.
 
 ## Related
 

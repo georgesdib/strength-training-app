@@ -92,6 +92,9 @@ implementation or parity document.
 | Exercise catalogue | Taxonomy plus local overrides | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md) |
 | Edit exercise | Local display/property overrides; no history rewrite | [DATA-MODEL.md](DATA-MODEL.md) |
 | Athlete state | Goals, constraints, suitability and symptoms as state, not prompt text | [DATA-MODEL.md](DATA-MODEL.md) |
+| Measured tests needed | P1 coverage: counted tests per main lift against the `MOD-E1RM-001` gate | [ROADMAP.md](../ROADMAP.md) |
+| Declared break | Append-only holiday/deload/test-week range; freezes the DUP week and the erector ramp | [CONTINUITY.md](CONTINUITY.md) |
+| Log symptom | Pre-session 0-3 reading per region; what to log when it settles | [SYMPTOM-LOGGING.md](SYMPTOM-LOGGING.md) |
 | Appearance | Browser theme preference only | [WEB-UI.md](WEB-UI.md) |
 | Language model | Optional narrator/proposer; never computes loads | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | Prescribe defaults | Browser-only form preferences | [WEB-UI.md](WEB-UI.md) |

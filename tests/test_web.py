@@ -167,6 +167,13 @@ def test_ui_linked_docs_have_related_footer(server):
     }
     assert state["constraints"][0]["forbidden_exercises"] == ["back_extension"]
     assert isinstance(state["e1rm_calibration"], list)
+    # P1 coverage is part of the same payload so the page cannot show one without the other.
+    assert isinstance(state["e1rm_tests_needed"], list)
+    assert {"ssb_squat", "bench_press", "trap_bar_deadlift"} <= {
+        row["exercise_id"] for row in state["e1rm_tests_needed"]
+    }
+    assert all(row["min_tests"] == 3 and row["needed"] >= 0
+               for row in state["e1rm_tests_needed"])
 
 
 def test_form_trend_endpoint_is_read_only(server):
@@ -948,6 +955,54 @@ def test_the_exercise_tab_offers_an_e1rm_override(server):
     assert "/api/state/e1rm" in js
 
 
+def test_the_athlete_page_shows_the_tests_needed_table(server):
+    # The table is rendered from the same /api/state payload the CLI builds; the browser
+    # adds no gate logic of its own.
+    status, js = get(server, "/static/app.js")
+    assert status == 200
+    assert "e1rm_tests_needed" in js
+    assert "Measured tests needed" in js
+    assert "#docs?doc=ROADMAP.md" in js
+
+
+def test_the_symptom_form_names_the_settle_window_and_links_the_workflow(server):
+    # The field label is the only place the 48-hour window is stated in the UI, and the
+    # workflow it belongs to is reachable from the same panel.
+    status, js = get(server, "/static/app.js")
+    assert status == 200
+    assert "Settled within 48 hours" in js
+    assert 'data-symptom="settled"' in js
+    assert "#docs?doc=docs/SYMPTOM-LOGGING.md" in js
+
+
+def test_a_declared_break_can_be_recorded_and_cancelled(server):
+    data = post(server, "/api/state/break", {
+        "starts_on": "2024-01-08", "ends_on": "2024-01-10", "reason": "test",
+    })
+    break_id = data["break_id"]
+    assert any(row["reason"] == "test" for row in data["breaks"])
+
+    status, body = get(server, "/api/breaks")
+    assert status == 200
+    assert any(row["reason"] == "test" for row in json.loads(body)["breaks"])
+
+    # The state payload carries the list so the Athlete panel renders from the same source.
+    status, body = get(server, "/api/state")
+    assert any(row["break_id"] == break_id for row in json.loads(body)["declared_breaks"])
+
+    cancelled = post(server, "/api/state/break/cancel", {"break_id": break_id})
+    assert next(row for row in cancelled["breaks"]
+                if row["break_id"] == break_id)["cancelled"] is True
+
+
+def test_the_athlete_page_exposes_declared_breaks(server):
+    status, js = get(server, "/static/app.js")
+    assert status == 200
+    assert "Declared break" in js
+    assert "/api/state/break" in js
+    assert "#docs?doc=docs/CONTINUITY.md" in js
+
+
 def test_the_post_workout_screen_offers_an_e1rm(server):
     status, js = get(server, "/static/workout.js")
     assert status == 200
@@ -955,6 +1010,8 @@ def test_the_post_workout_screen_offers_an_e1rm(server):
     assert 'id="post-e1rm-form"' in js
     assert "/api/state/test" in js
     assert "/api/state/e1rm" in js
+    # LIM-47: the ended screen shows target, estimate and measured duration together.
+    assert "minimum_session" in js and "Minimum session (MOD-MIN-001)" in js
 
 
 def test_an_e1rm_override_can_start_today_and_be_replaced(server):

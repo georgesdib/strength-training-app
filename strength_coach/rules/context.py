@@ -16,6 +16,7 @@ from typing import Any, Mapping
 import pandas as pd
 
 from strength_coach.domain.symptoms import flare_from as _flare_from
+from strength_coach.features import breaks as breaks_feature
 from strength_coach.features import derived
 from strength_coach.store import queries
 from strength_coach.utils import exercises
@@ -220,6 +221,9 @@ def trained_week_index(conn, start: str, on_date: str) -> int | None:
         iso = day.isocalendar()
         weeks.add((iso[0], iso[1]))
 
+    # A declared break freezes its weeks even when training happened in them: a test or deload
+    # week must not advance the DUP cycle or the erector ramp (DEC-CONTINUITY-04).
+    weeks -= breaks_feature.break_weeks(conn, str(first), str(when))
     return max(1, len(weeks))
 
 

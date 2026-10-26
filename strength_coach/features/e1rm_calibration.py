@@ -145,6 +145,42 @@ class LiftCalibration:
         }
 
 
+@dataclass(frozen=True)
+class LiftCoverage:
+    """How close one lift is to the measured-test gate (ROADMAP §4.19 P1).
+
+    `counted` is not `recorded`: a measured test only becomes a calibration point when the
+    app had a formula estimate for that lift inside the window before the test, so a test
+    filed cold contributes nothing and the athlete needs to know that rather than assume the
+    gate is filling. `needed` is therefore driven by `counted`.
+    """
+
+    exercise_id: str
+    display: str
+    is_main_lift: bool
+    counted: int
+    recorded: int
+    needed: int
+    min_tests: int
+    status: str
+    next_action: str
+    note: str = ""
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "exercise_id": self.exercise_id,
+            "display": self.display,
+            "is_main_lift": self.is_main_lift,
+            "counted": self.counted,
+            "recorded": self.recorded,
+            "needed": self.needed,
+            "min_tests": self.min_tests,
+            "status": self.status,
+            "next_action": self.next_action,
+            "note": self.note,
+        }
+
+
 def _canonical(exercise_id: str, entities) -> str:
     return str(entities.get(exercise_id, {}).get("history_equivalent_of") or exercise_id)
 
@@ -317,6 +353,96 @@ def build(
     return out
 
 
+def coverage(
+    conn,
+    *,
+    window_days: int = DEFAULT_WINDOW_DAYS,
+    as_of: str | None = None,
+    config: E1RMCalibrationConfig | None = None,
+    report: list[LiftCalibration] | None = None,
+) -> list[LiftCoverage]:
+    """Which lifts are short of the measured-test gate, and by how many tests.
+
+    `build` lists only lifts that have a working set or a counted test, so a lift with no
+    usable history at all is invisible there — and that is exactly the lift that needs
+    testing. This view answers the P1 question instead (ROADMAP §4.19): main lifts always
+    appear, plus any other lift that already has a test filed against it.
+
+    `report` lets a caller that already built the calibration table reuse it; it must have
+    been built with the same `config`, `window_days` and `as_of`.
+    """
+    cfg = config or E1RMCalibrationConfig.load()
+    rows = report if report is not None else build(
+        conn, window_days=window_days, as_of=as_of, config=cfg
+    )
+    entities = exercises.taxonomy().entities
+    measured = [
+        row for row in queries.e1rm_overrides(conn)
+        if row.get("source") == "measured"
+        and (as_of is None or str(row["effective_from"]) <= as_of)
+    ]
+    # Count against the canonical lift, exactly as `build` does, so "filed" and "counted"
+    # are comparable (hyperextension -> back_extension is the only such relation today).
+    recorded: dict[str, int] = {}
+    for row in measured:
+        key = _canonical(str(row["exercise_id"]), entities)
+        recorded[key] = recorded.get(key, 0) + 1
+
+    by_id = {row.exercise_id: row for row in rows}
+    main_lifts = {
+        _canonical(exercise_id, entities)
+        for exercise_id, entity in entities.items()
+        if entity.get("main_lift")
+    }
+    keys = sorted(
+        main_lifts
+        | set(recorded)
+        | {key for key, row in by_id.items() if row.n}
+    )
+
+    out: list[LiftCoverage] = []
+    for key in keys:
+        row = by_id.get(key)
+        counted = row.n if row is not None else 0
+        filed = recorded.get(key, 0)
+        needed = max(0, cfg.min_tests - counted)
+        if counted >= cfg.min_tests and row is not None:
+            status = row.status          # "applied x1.043" or why no correction was made
+            next_action = (
+                "none: correction in force"
+                if row.correction_applied
+                else "none: gate met, no correction"
+            )
+        elif counted == 0 and filed == 0:
+            status = "no tests"
+            next_action = f"record {needed} measured test(s)"
+        else:
+            status = f"{counted}/{cfg.min_tests} counted"
+            next_action = f"record {needed} more measured test(s)"
+        note = ""
+        if filed > counted:
+            note = (
+                f"{filed - counted} test(s) not counted: no formula estimate within "
+                f"{window_days} days before the test"
+            )
+        entity = entities.get(key, {})
+        out.append(LiftCoverage(
+            exercise_id=key,
+            display=str(entity.get("display") or key),
+            is_main_lift=key in main_lifts,
+            counted=counted,
+            recorded=filed,
+            needed=needed,
+            min_tests=cfg.min_tests,
+            status=status,
+            next_action=next_action,
+            note=note,
+        ))
+    # Main lifts first: P1 is about them, and a long tail of tested accessories would
+    # otherwise push the actionable rows off the top of the table.
+    return sorted(out, key=lambda item: (not item.is_main_lift, item.exercise_id))
+
+
 def factors(
     conn,
     on_date: str,
@@ -330,4 +456,8 @@ def factors(
 
 
 def as_dict(report: list[LiftCalibration]) -> list[dict[str, Any]]:
+    return [row.as_dict() for row in report]
+
+
+def coverage_as_dict(report: list[LiftCoverage]) -> list[dict[str, Any]]:
     return [row.as_dict() for row in report]

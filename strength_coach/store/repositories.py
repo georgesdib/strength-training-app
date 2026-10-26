@@ -779,6 +779,26 @@ def append_readiness_override(
     return override_id
 
 
+def append_declared_break(
+    conn: sqlite3.Connection,
+    *,
+    starts_on: str,
+    ends_on: str,
+    reason: str,
+    note: str | None = None,
+    cancels_break_id: int | None = None,
+) -> int:
+    """Append one break row. A cancellation is the same call with `cancels_break_id` set."""
+    cursor = conn.execute(
+        """
+        INSERT INTO declared_break (starts_on, ends_on, reason, note, cancels_break_id)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (starts_on, ends_on, reason, note, cancels_break_id),
+    )
+    return int(cursor.lastrowid)
+
+
 def append_symptom(
     conn: sqlite3.Connection,
     *,
