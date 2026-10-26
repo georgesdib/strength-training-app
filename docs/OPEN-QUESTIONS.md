@@ -59,11 +59,16 @@ the limitation documented.
 
 The athlete's model: once a group's weekly quota is filled, the next session gives it no work and
 moves the freed sets to other groups — more bench, less hinge (squat and hinge are similar), but
-some hinge (they are not the same movement). This is a **volume-first mode**: it can remove a main
-lift from a session and change the session type. Open: whether the default stays `preserve`,
-what the similarity weights are, and whether `drop` is ever automatic. Default: per-group
-triggers within the fixed templates; no cross-group compensation. See
-[VOLUME-MODULATION-PLAN.md](VOLUME-MODULATION-PLAN.md) §4.2.
+some hinge (they are not the same movement). This is the `drop` end of a volume-first mode: it
+can remove a main lift from a session and change the session type.
+
+The owner confirmed **strength-preserving as the default** on 2026-10-26 (`DEC-VOLUME-08`):
+main lifts stay at template sets even when the quota is full; only accessory volume is
+reallocated; the policy is `athlete_profile.main_lift_policy`
+(`preserve`/`reduce`/`drop`). Open: the compensation slot pool (bench and hinge have no
+non-essential slot), the similarity weights, quota accounting, and whether `drop` is ever
+automatic. Default: per-group triggers within the fixed templates; no cross-group compensation.
+See [VOLUME-MODULATION-PLAN.md](VOLUME-MODULATION-PLAN.md) §4.2.
 
 ---
 

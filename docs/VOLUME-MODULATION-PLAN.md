@@ -225,19 +225,32 @@ capacity. Step 2 acts on it:
 
 ### 4.2 Cross-group quota compensation (later, confirmed direction)
 
-The athlete's model: once a group's weekly quota is met, the next session should give that group
-no work and move the freed sets to other groups — more bench, less hinge (squat and hinge are
-similar) but not zero (they are not the same movement).
+The athlete's model, at the `drop` end of the policy: once a group's weekly quota is met, the
+next session gives that group no work and moves the freed sets to other groups — more bench, less
+hinge (squat and hinge are similar) but not zero (they are not the same movement).
 
-This is a **volume-first mode**, not the default strength programme, because it can remove a main
-lift from a session. It needs its own decision, templates and tests.
+**Strength-preserving is the default for this athlete.** The policy lives in
+`athlete_profile.main_lift_policy` (append-only; `preserve` default, `reduce`/`drop`
+opt-in), so it is athlete state, not prompt text or a hidden config. Under `preserve` the main
+lift still runs at its template sets even when the group quota is full; only **accessory** volume
+is withheld and reallocated. "No squats at all" is `drop`, not `preserve`.
+
+This is a **volume-first mode** when `drop` is selected, not the default strength programme,
+because it can remove a main lift from a session. It needs its own decision, templates and tests.
 
 Model:
 
 - `quota[group]` = the effective weekly target; a group is filled when the week reaches it
-  (tolerance applies).
+  (tolerance applies). Every working set counts, main lifts included. In `preserve` a main lift
+  is never trimmed, so a session can legitimately exceed the group target; the target is a
+  planning floor there, not a hard cap.
 - `main_lift_policy`: `preserve` (default), `reduce` (keep a configured floor), `drop`
   (volume-first only). A `drop` session must say it is not a normal squat/hinge session.
+- **Compensation slots are the blocker.** The current templates have no non-essential bench or
+  hinge item (bench, trap bar and sumo are essential or the only hinge work). Quota-driven
+  compensation therefore needs new accessory slots (for example a chest-supported press, an RDL)
+  with an executable load, or accessory slot replacement. Adding sets to an essential main lift
+  is a separate opt-in (`main_lift_topup`), not automatic compensation.
 - `similarity[group_a][group_b]` in 0–1 (config): squat↔hinge high, squat↔bench low,
   hinge↔bench low, push↔pull low, and so on.
 - `compensation_weight(a -> b) = max(floor, 1 - similarity[a][b])`, normalised over groups
@@ -245,6 +258,8 @@ Model:
   still some to hinge because the weight has a floor.
 - Every cap still applies: per-group MRV, session cap, time cap, spinal cap (sumo/hinge),
   constraints, injury ceilings, readiness and deload. Compensation cannot exceed them.
+- Only exercises with an executable load (e1RM, double progression or bodyweight) can receive
+  compensation; an unknown-load addition is refused, not guessed.
 - The session-type identity is a real problem: a "squat session" with no squat is a different
   session. Do not silently relabel it; rebuild the rolling schedule/template or make the mode a
   distinct session type.
@@ -572,6 +587,7 @@ it; not v1.
 | 10 | Future-session basis | remaining planned sessions projected at template sets, recomputed each build |
 | 11 | Spinal load in Settings | **guarded**: warning + double confirmation + reason + append-only profile; `PRG-SPINE-001` stays in force and is parameterised, not disabled |
 | 12 | Cross-group compensation | confirmed as a later **volume-first mode**: per-group quotas, inverse-similarity weights, `main_lift_policy` preserve by default, `drop` opt-in; parameters and evidence still open |
+| 13 | Strength-preserving default | main lifts stay at template sets even when the group quota is full; `main_lift_policy` is an append-only `athlete_profile` field (`preserve` default, `reduce`/`drop` opt-in); compensation is accessory-only under `preserve`; "no squats" is `drop` |
 
 These are design decisions. Step 1 is implemented read-only (the module, the
 `volume_exemption` table and the config section). No prescription, constitution or `MOD-VOL-003`
