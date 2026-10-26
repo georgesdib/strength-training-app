@@ -300,7 +300,7 @@ prescription 2026-10-20  (hinge, full)
 
 critique 2026-10-15: composite 0.88
   RIR_ADHERENCE             0.75   3/4 rated sets inside the effort window
-  WEEKLY_SPINAL_COST        1.00   weighted spinal cost 0 against cap 3
+  WEEKLY_SPINAL_COST        1.00   weighted spinal cost 0 against cap 6
   ESSENTIAL_WORK             n/a   no prescription template for day 'unknown'
   ...
 ```
@@ -1082,7 +1082,7 @@ zero-weight diagnostic:
 |---|---|
 | `RIR_ADHERENCE` | share of rated primary-compound sets inside the allowed window (RIR 1–4) |
 | `PROGRESSION_ADHERENCE` | accessories added load only after topping the rep range |
-| `WEEKLY_SPINAL_COST` | the week's weighted spinal load against a cap of 3 |
+| `WEEKLY_SPINAL_COST` | the week's weighted spinal load against a cap of 6 |
 | `ESSENTIAL_WORK` | the day's essential lifts were present |
 | `REDUNDANCY` | no hinge + erector stacking, no two hinge lifts |
 | `ROTATION` | selection stable for self-directed sessions; expected rotation for app-assigned |
@@ -1286,7 +1286,7 @@ Tests: `.venv/bin/python -m pytest`, and the markers `-m golden` (locked numbers
 | `no stored session on or before <date>` | the date predates the log, or nothing is imported. Run `strength-coach import`. |
 | `already prescribed for <date>` | `run` is idempotent per date. Add `--force` to regenerate. |
 | `NO_LOAD: ... no usable e1RM` | no rated set for that lift in the last 84 days. Train it, or widen `e1rm_window_days`. |
-| `SPINAL_CAP ... exceeds cap` | the week already contains a hinge exposure; two hinge sessions cost 2+2 against a cap of 3. Move the day or accept the warning. |
+| `SPINAL_CAP ... exceeds cap` | the week already contains enough high-fatigue spinal work; for example four trap-bar sessions cost 2+2+2+2=8 against a cap of 6. Move the day or accept the warning. |
 | `PRG-EREC-001 ... missing symptom.flare` | expected: there is no symptom input yet. It becomes assessable in v0.1. |
 | `PRG-DP-001 ... missing set.reps.<exercise>` | the scoped accessory has no comparable working set yet. Train it once; the range itself now comes from all day templates. |
 | `no marks yet` | run `strength-coach review --session DATE` first. |

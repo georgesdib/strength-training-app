@@ -24,18 +24,23 @@
 
 ### Changed
 
+- **Spinal cap raised 3 → 6**, the low-bar competition squat now counts as one high-fatigue
+  exposure, and the bench+hinge support becomes the **sumo deadlift** at 2.5. Standard weeks
+  are 4 (bench+squat) or 5.5 (bench+hinge), leaving limited headroom; constitution 1.14.0
+  (`DEC-SPINE-05`, Q24 closed).
+
 - The e1RM behind a main-lift load is now an explicit **selector** rather than an implicit
   best-of-window: `median` (28-day robust window, the default), `best_usable` or `most_recent`
   (`DEC-E1RM-SOURCE-01`). Median can prescribe materially below a single great day, by design.
 - The weekly spinal cap gains a one-directional trim: a non-essential erector slot is dropped
   when that alone brings the week to the cap, and the veto stands (naming the exposures) when
-  essential work is the cause (`MOD-SPINE-001`, `DEC-SPINE-03`). Cap unchanged.
+  essential work is the cause (`MOD-SPINE-001`, `DEC-SPINE-03`). The cap was 3 at that point; it was later raised to 6 by `DEC-SPINE-05`.
 - Volume `under`/`high`/`over` status is judged per **landmark group**; the ledger exposes
   `group` and `group_average` per row (`DEC-VOLUME-05`).
-- The weekly spinal cap's **squat exclusion is now documented as a scope decision** with the
-  evidence that ranks the variants: the low-bar competition squat has the most forward lean and
-  erector demand, the safety-squat bar the most upright trunk. Behaviour is unchanged; the
-  classification question is open as Q24 (`DEC-SPINE-04`, `ASSUMPTION-39`, `LIM-44`).
+- The weekly spinal cap's **squat classification** was documented with the evidence that ranks
+  the variants: the low-bar competition squat has the most forward lean and erector demand, the
+  safety-squat bar the most upright trunk. It was later resolved by `DEC-SPINE-05`: the cap is
+  raised 3 → 6 and the competition squat counts at cost 1.
 - **Two implemented modifiers are now declared in the constitution**: `MOD-TECH-001` and
   `MOD-MIN-001` were cited by the engine and the UI but absent from the document. Both are
   explicit one-session user requests, never automatic (constitution 1.13.1). The
