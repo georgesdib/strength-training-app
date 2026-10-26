@@ -359,6 +359,7 @@ function openHistoryDetails(sessionId) {
       fact("Flags", (Array.isArray(data.flags) ? data.flags : []).join(", ")) +
       fact("Prescription", data.prescription_id) +
       fact("Workout", data.workout_id) +
+      (data.workout_note ? fact("Workout note", data.workout_note) : "") +
       fact("VBT overrides", data.vbt_override_count) +
       fact("Created", data.created_at) +
       fact("Updated", data.updated_at) +

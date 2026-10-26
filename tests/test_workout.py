@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from strength_coach import workout
+from strength_coach import history, workout
 from strength_coach.store import db
 
 PLAN = {
@@ -56,6 +56,16 @@ def test_a_minimum_session_reports_target_estimate_and_measured_time(conn):
     summary = ended["minimum_session"]
     assert summary["measured_minutes"] == 58.0
     assert summary["duration_source"] == "manual"
+
+
+def test_a_workout_note_is_readable_from_history(conn):
+    # The note is provenance for a backfilled session; the detail view shows it beside the sets.
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS,
+                            note="backfilled from the 9 October session CSV")
+    ended = workout.end(conn, started["workout_id"], session_rpe=7, duration_min=40)
+    assert history.detail(conn, ended["workout_id"])["workout_note"] == (
+        "backfilled from the 9 October session CSV"
+    )
 
 
 def test_a_plan_without_a_minimum_session_has_no_summary(conn):

@@ -129,6 +129,15 @@ def detail(conn, session_id: str) -> dict:
     )
     data["feedback"] = queries.session_feedback(conn, session_id)
     data["forms"] = _current_forms(conn, session_id)
+    # A workout's free-text note is provenance ("backfilled from the 9 October session CSV");
+    # show it beside the record it explains rather than leaving it in the workout row.
+    data["workout_note"] = None
+    if data.get("workout_id"):
+        note_row = conn.execute(
+            "SELECT notes FROM workout_session WHERE workout_id = ?",
+            (str(data["workout_id"]),),
+        ).fetchone()
+        data["workout_note"] = note_row["notes"] if note_row is not None else None
     return data
 
 
