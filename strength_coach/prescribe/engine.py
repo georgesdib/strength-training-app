@@ -104,7 +104,8 @@ def build_prescription(
     undulation = undulation or resolved.undulation
 
     context = RuleContext.from_store(
-        conn, end=for_date, rep_ranges=templates.all_rep_ranges(), history=history
+        conn, end=for_date, rep_ranges=templates.all_rep_ranges(), history=history,
+        spinal_cap=resolved.spinal_cap, spinal_costs=resolved.spinal_costs,
     )
     policy_result = evaluate(document, context)
     decisions = policy_result.verdict("PRG-DP-001").details.get("decisions", {})
@@ -705,7 +706,8 @@ def _week_spinal(
     return (
         week,
         float(entry.get("cost", 0.0)),
-        float(rule.params.get("cap", 3)),
+        float(context.spinal_cap if context.spinal_cap is not None
+              else rule.params.get("cap", 3)),
         mix,
     )
 
@@ -733,6 +735,7 @@ def _apply_spinal_trim(
 
     excluded = {str(p) for p in (rule.params.get("excluded_patterns") or ())}
     costs = dict(rule.params.get("costs") or {})
+    costs.update(dict(context.spinal_costs or {}))
     candidates: list[tuple[float, int, int]] = []
     for index, item in enumerate(items):
         if item.essential:

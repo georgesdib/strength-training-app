@@ -355,7 +355,7 @@ deterministically, no matter what the LLM says. They are empty until the user an
 
 | table | contents |
 |---|---|
-| `settings_profile` | append-only profile versions: `profile_id`, `effective_from`, `overrides_json` (complete map), `created_at`; the latest effective row wins |
+| `settings_profile` | append-only profile versions: `profile_id`, `effective_from`, `overrides_json` (complete map), `reason` (guarded changes), `created_at`; the latest effective row wins |
 | `prescription_profile` | one resolved snapshot per prescription: `prescription_id`, `profile_id`, `settings_json` (registry + budget), `config_hash`, `created_at` |
 
 Profile precedence is profile > config > registry default. Guarded-safety keys are rejected

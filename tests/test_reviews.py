@@ -41,6 +41,29 @@ def test_readiness_review_is_due_then_completed_and_snoozed():
         store.close()
 
 
+def test_volume_review_reminder_appears_only_after_budget_is_enabled():
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        assert not any(
+            t["key"] == "volume_review" for t in reviews.status(conn, "2026-10-26")["tasks"]
+        )
+        repositories.append_athlete_profile(
+            conn, effective_from="2026-10-26", primary_goal="strength",
+            goal_rank=["strength"], focus_lifts=["squat"],
+            volume_budget_enabled=True,
+        )
+        task = next(
+            t for t in reviews.status(conn, "2026-10-26")["tasks"]
+            if t["key"] == "volume_review"
+        )
+    finally:
+        store.close()
+    assert task["status"] == "attention"
+    assert task["periodic"] is False
+    assert "step 3" in task["why"].lower()
+
+
 def test_review_status_reports_data_gaps_without_writing():
     store = db.Store(":memory:")
     try:

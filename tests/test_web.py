@@ -636,6 +636,24 @@ def test_volume_budget_endpoint_is_read_only(server):
     assert data["note"].startswith("Read-only")
 
 
+def test_settings_drop_endpoint_writes_the_profile(server):
+    saved = post(server, "/api/settings/drop", {
+        "enabled": False, "competition_confirm_days": 9,
+        "max_slots_per_group": 1, "technique_minutes": 30,
+        "tolerance": 0.2,
+        "slots": {"horizontal_push": [{
+            "exercise_id": "dumbbell_bench_press", "sets": 3,
+            "reps_low": 8, "reps_high": 12, "rir_low": 2, "rir_high": 3,
+            "rest_s": 90, "load_source": "double_progression",
+        }]},
+    })
+    assert saved["drop"]["tolerance"] == 0.2
+    assert saved["drop"]["source"] == "profile"
+    status, body = get(server, "/api/settings/profile")
+    assert status == 200
+    assert json.loads(body)["budget"]["tolerance"] == 0.2
+
+
 def test_settings_profile_endpoint(server):
     status, body = get(server, "/api/settings/profile?date=2024-01-01")
     assert status == 200

@@ -66,7 +66,7 @@ from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
 from strength_coach.prescribe import session_identity
 from strength_coach.prescribe import volume_settings
-from strength_coach import settings_profile
+from strength_coach import settings_profile, settings_registry
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
@@ -271,7 +271,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._serve_file(STATIC / Path(path).name,
                                  mimetypes.guess_type(path)[0] or "application/octet-stream")
             elif path == "/api/settings":
-                self._json(200, self._settings())
+                self._json(200, self._with_conn(lambda c: self._settings(c)))
             elif path == "/api/settings/profile":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0] or datetime.date.today().isoformat()
@@ -525,7 +525,7 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/settings/llm":
                 self._json(200, self._save_llm_settings(body))
             elif path == "/api/settings/drop":
-                self._json(200, self._save_drop_settings(body))
+                self._json(200, self._with_conn(lambda c: self._save_drop_settings(c, body)))
             elif path == "/api/settings/profile":
                 self._json(200, self._with_conn(lambda c: self._save_settings_profile(c, body)))
             elif path == "/api/settings/llm/test":
@@ -600,14 +600,42 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send(200, path.read_bytes(), content_type)
 
-    def _settings(self) -> dict:
+    def _settings(self, conn=None) -> dict:
+        drop = volume_settings.load_drop()
+        if conn is not None:
+            day = datetime.date.today().isoformat()
+            state = settings_profile.state(conn, day)
+            budget = state["budget"]
+            drop = {
+                "enabled": bool(budget.get("drop_enabled")),
+                "competition_confirm_days": budget.get("drop_competition_confirm_days"),
+                "max_slots_per_group": budget.get("drop_max_slots_per_group"),
+                "technique_minutes": budget.get("drop_technique_minutes"),
+                "tolerance": budget.get("tolerance"),
+                "high_band": budget.get("high_band"),
+                "slots": budget.get("drop_slots") or {},
+                "source": "profile" if state.get("profile_id") is not None
+                else drop.get("source"),
+            }
         return {
             "llm": describe(),
             "llm_config_path": str(config_path()),
             "database": str(self.db_path or db.default_db_path()),
             "version": __version__,
             "providers": list(PROVIDERS),
-            "drop": volume_settings.load_drop(),
+            "drop": drop,
+            "registry": [
+                {
+                    "key": setting.key, "group": setting.group,
+                    "label": setting.label, "kind": setting.kind,
+                    "default": setting.default, "source": setting.source,
+                    "classification": setting.classification,
+                    "description": setting.description,
+                    "minimum": setting.minimum, "maximum": setting.maximum,
+                    "choices": list(setting.choices),
+                }
+                for setting in settings_registry.SETTINGS
+            ],
             "local_only": True,
         }
 
@@ -618,11 +646,28 @@ class Handler(BaseHTTPRequestHandler):
             unset=list(body.get("unset") or []),
             reset=_truth(body.get("reset")),
             effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
+            guard_confirmed=_truth(body.get("guard_confirmed")),
+            reason=(str(body.get("reason")) if body.get("reason") else None),
         )
 
-    def _save_drop_settings(self, body: dict) -> dict:
-        volume_settings.save_drop(body)
-        return self._settings()
+    def _save_drop_settings(self, conn, body: dict) -> dict:
+        day = datetime.date.today().isoformat()
+        current = settings_profile.budget_overrides(conn, day)
+        drop = dict(current.get("drop") or {})
+        for field in (
+            "enabled", "competition_confirm_days", "max_slots_per_group",
+            "technique_minutes", "slots",
+        ):
+            if field in body:
+                drop[field] = body[field]
+        budget = dict(current)
+        budget["drop"] = drop
+        if "tolerance" in body:
+            budget["tolerance"] = body["tolerance"]
+        settings_profile.save(
+            conn, set_values={"budget": budget}, effective_from=day,
+        )
+        return self._settings(conn)
 
     def _save_llm_settings(self, body: dict) -> dict:
         return update_llm_settings(

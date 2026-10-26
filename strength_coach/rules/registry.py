@@ -232,7 +232,9 @@ def weekly_spinal_cap(
     taxonomy's ordinal `spinal_cost` so a new exercise is covered by its own properties.
     """
     params = rule.params
-    cap = float(params.get("cap", 3))
+    cap = float(
+        context.spinal_cap if context.spinal_cap is not None else params.get("cap", 3)
+    )
 
     sets = context.sets
     if sets.empty:
@@ -437,6 +439,7 @@ def spinal_exposures(
     """
     params = rule.params
     costs = dict(params.get("costs") or {})
+    costs.update(dict(context.spinal_costs or {}))
     excluded = {str(p) for p in (params.get("excluded_patterns") or ())}
 
     # An "exposure" is one exercise in one session, weighted by its spinal cost. Counting

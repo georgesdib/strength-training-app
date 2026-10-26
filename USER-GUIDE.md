@@ -528,9 +528,13 @@ Step 4 adds a profile-backed settings layer: `strength-coach settings profile sh
 KEY=VALUE`, `unset KEY` and `reset`; profile values win over config. `budget` is a JSON object
 override, e.g. `settings profile set budget='{"tolerance":0.15}'`. Profile values now drive
 DUP (including the scheme table), deload, volume landmarks/under-MEV, readiness set reduction,
-e1RM and plausibility; the programme forecast resolves per date. The hinge maximal-scheme
+e1RM and plausibility; the programme forecast resolves per date. Step 5 adds the Settings
+**Settings profile** editor with diff and append-only reason; guarded MRV/spinal changes need the
+confirmation tick, the word `SPINAL` and a reason. The Drop panel now saves a profile budget. A
+**Volume review** reminder appears on Today after the budget is enabled and stays open for step 3.
+The hinge maximal-scheme
 policy is `undulation.maximal_hinge_allowed` (default false); set it to `true` to allow the
-maximal scheme on the currently excluded hinge IDs. Its Settings control follows in step 5. Review keeps the historical
+maximal scheme on the currently excluded hinge IDs. Its Settings control is in the profile editor. Review keeps the historical
 snapshot. Guarded-safety keys such as the MRV cap are still rejected until step 5. In the competition
 window the Prescribe page holds the drop until you tick **Confirm drop**, use `run --drop-confirm`,
 or send `drop_confirmed`; it applies to both `volume_fill` and `technique`.

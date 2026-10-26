@@ -38,6 +38,7 @@ def latest(conn, on_date: str) -> dict[str, Any] | None:
         "effective_from": str(row["effective_from"]),
         "overrides": _loads(row["overrides_json"]),
         "created_at": str(row["created_at"]),
+        "reason": row.get("reason"),
     }
 
 
@@ -48,12 +49,15 @@ def history(conn) -> list[dict[str, Any]]:
             "effective_from": str(row["effective_from"]),
             "overrides": _loads(row["overrides_json"]),
             "created_at": str(row["created_at"]),
+            "reason": row.get("reason"),
         }
         for row in repositories.settings_profile_history(conn)
     ]
 
 
-def _validate_overrides(overrides: Mapping[str, Any]) -> dict[str, Any]:
+def _validate_overrides(
+    overrides: Mapping[str, Any], *, allow_guarded: bool = False,
+) -> dict[str, Any]:
     clean: dict[str, Any] = {}
     for key, value in overrides.items():
         if key == "budget":
@@ -64,9 +68,21 @@ def _validate_overrides(overrides: Mapping[str, Any]) -> dict[str, Any]:
         definition = settings_registry.BY_KEY.get(str(key))
         if definition is None:
             raise ValueError(f"unknown settings key {key!r}")
-        if definition.classification == "guarded_safety":
-            raise ValueError(f"{key} is guarded safety; step 5 requires confirmation")
+        if definition.classification == "guarded_safety" and not allow_guarded:
+            raise ValueError(f"{key} is guarded safety and needs confirmation")
         definition.validate(value)
+        if key == "spinal.override":
+            if not isinstance(value, dict):
+                raise ValueError("spinal.override must be an object")
+            cap = value.get("cap")
+            costs = value.get("costs") or {}
+            if cap is not None and float(cap) <= 0:
+                raise ValueError("spinal cap must be positive")
+            if not isinstance(costs, dict) or not all(
+                isinstance(k, str) and isinstance(v, (int, float))
+                for k, v in costs.items()
+            ):
+                raise ValueError("spinal costs must be a map of numbers")
         clean[str(key)] = value
     if "budget" in clean:
         from strength_coach.prescribe.volume_budget import BudgetConfig
@@ -102,6 +118,8 @@ def save(
     unset: list[str] | None = None,
     reset: bool = False,
     effective_from: str | None = None,
+    guard_confirmed: bool = False,
+    reason: str | None = None,
 ) -> dict[str, Any]:
     day = str(effective_from or dt.date.today().isoformat())
     current = latest(conn, day)
@@ -110,8 +128,20 @@ def save(
         merged.pop(str(key), None)
     for key, value in (set_values or {}).items():
         merged[str(key)] = value
-    merged = _validate_overrides(merged)
-    repositories.append_settings_profile(conn, effective_from=day, overrides=merged)
+    guarded = [
+        key for key in merged
+        if key == "spinal.override"
+        or settings_registry.BY_KEY.get(str(key), None) is not None
+        and settings_registry.BY_KEY[str(key)].classification == "guarded_safety"
+    ]
+    if guarded and not guard_confirmed:
+        raise ValueError("guarded settings require confirmation: " + ", ".join(sorted(guarded)))
+    if guarded and not (reason or "").strip():
+        raise ValueError("guarded settings require a reason")
+    merged = _validate_overrides(merged, allow_guarded=guard_confirmed)
+    repositories.append_settings_profile(
+        conn, effective_from=day, overrides=merged, reason=(reason or None),
+    )
     return state(conn, day)
 
 
@@ -126,12 +156,18 @@ def state(conn, on_date: str) -> dict[str, Any]:
 
     row = latest(conn, on_date)
     overrides = row["overrides"] if row else {}
+    budget_config = BudgetConfig.load(conn=conn, on_date=on_date)
+    budget = budget_snapshot(budget_config)
+    budget["high_band"] = round(
+        budget_config.total_target() * (1.0 + budget_config.tolerance), 1
+    )
     return {
         "profile_id": row["profile_id"] if row else None,
         "effective_from": row["effective_from"] if row else None,
+        "reason": row["reason"] if row else None,
         "overrides": overrides,
         "resolved": resolved_registry(overrides),
-        "budget": budget_snapshot(BudgetConfig.load(conn=conn, on_date=on_date)),
+        "budget": budget,
         "history": history(conn),
     }
 
@@ -162,6 +198,8 @@ class FeatureSettings:
     profile_id: int | None
     undulation: undulation_feature.Undulation
     maximal_hinge_allowed: bool
+    spinal_cap: float
+    spinal_costs: dict[str, float]
     deload: deload_feature.DeloadConfig
     volume: volume_feature.VolumeConfig
     readiness: readiness_feature.ReadinessConfig
@@ -270,11 +308,20 @@ def feature_settings(conn, on_date: str) -> FeatureSettings:
         seed=int(values["e1rm.calibration.seed"]),
     )
 
+    spinal_base = settings_registry._spinal_defaults()
+    spinal_override = overrides.get("spinal.override") or {}
+    spinal_cap = float(spinal_override.get("cap", spinal_base.get("cap", 6)))
+    spinal_costs = {
+        **{str(k): float(v) for k, v in (spinal_base.get("costs") or {}).items()},
+        **{str(k): float(v) for k, v in (spinal_override.get("costs") or {}).items()},
+    }
     budget = BudgetConfig.load(conn=conn, on_date=on_date)
     return FeatureSettings(
         profile_id=row["profile_id"] if row else None,
         undulation=undulation,
         maximal_hinge_allowed=bool(values["undulation.maximal_hinge_allowed"]),
+        spinal_cap=spinal_cap,
+        spinal_costs=spinal_costs,
         deload=deload,
         volume=volume,
         readiness=readiness,
@@ -283,6 +330,3 @@ def feature_settings(conn, on_date: str) -> FeatureSettings:
         calibration=calibration,
         budget=budget,
     )
-
-
-

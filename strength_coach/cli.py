@@ -166,6 +166,9 @@ def main(argv: list[str] | None = None) -> int:
     profile.add_argument("action", choices=("show", "set", "unset", "reset"))
     profile.add_argument("values", nargs="*", help="KEY=VALUE for set, KEY for unset")
     profile.add_argument("--date", default=None, help="effective date (default today)")
+    profile.add_argument("--guard-confirm", action="store_true",
+                         help="confirm a guarded setting change")
+    profile.add_argument("--reason", default=None, help="required reason for guarded settings")
 
     programme = sub.add_parser("programme", help="forecast a rolling four-session-type horizon")
     programme.add_argument("--weeks", type=int, required=True)
@@ -794,6 +797,8 @@ def _cmd_settings(args) -> int:
             unset=args.values if args.action == "unset" else None,
             reset=args.action == "reset",
             effective_from=date,
+            guard_confirmed=args.guard_confirm,
+            reason=args.reason,
         )
         print(f"settings profile {data['profile_id']} effective {data['effective_from']}; "
               f"{len(data['overrides'])} override(s)")

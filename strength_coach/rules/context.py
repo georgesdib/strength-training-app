@@ -74,6 +74,9 @@ class RuleContext:
     block_week_index: int | None = None
     # Days since the last stored session, or None when this is the first one.
     gap_days: int | None = None
+    # Resolved guarded PRG-SPINE-001 override; None means use the rule's own params.
+    spinal_cap: float | None = None
+    spinal_costs: Mapping[str, float] | None = None
     # Supplied by the prescription engine in phase 5; empty here rather than guessed.
     rep_ranges: Mapping[str, tuple[int, int]] = field(default_factory=dict)
     # Evidence indices, built once from `sets`. Resolving a `set:`/`session:`/`week:`
@@ -96,6 +99,8 @@ class RuleContext:
         block_week_index: int | None = None,
         rep_ranges: Mapping[str, tuple[int, int]] | None = None,
         history: "History | None" = None,
+        spinal_cap: float | None = None,
+        spinal_costs: Mapping[str, float] | None = None,
     ) -> "RuleContext":
         """Build the context, deriving symptom state and block week when possible.
 
@@ -136,6 +141,8 @@ class RuleContext:
             symptom_on=on_date,
             block_week_index=block_week_index,
             gap_days=gap_days,
+            spinal_cap=spinal_cap,
+            spinal_costs=spinal_costs,
             rep_ranges=rep_ranges or {},
             set_keys=_set_keys(sets),
             session_ids=frozenset(sets["session_id"].astype(str)) if not sets.empty

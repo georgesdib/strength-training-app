@@ -53,7 +53,7 @@ def test_profile_rejects_guarded_and_unknown_keys():
     store = _store()
     try:
         conn = store.connection
-        with pytest.raises(ValueError, match="guarded safety"):
+        with pytest.raises(ValueError, match="guarded"):
             settings_profile.save(
                 conn, set_values={"volume.apply_mrv_cap": False},
                 effective_from="2026-10-26",
@@ -127,6 +127,50 @@ def test_feature_settings_apply_profile_values_including_the_dup_table():
     assert resolved.undulation.weeks[1]["squat"] == "strength"
     assert resolved.deload.rir_add == 2
     assert resolved.thresholds.e1rm_window_days == 63
+
+
+def test_guarded_settings_require_confirmation_and_reason():
+    store = _store()
+    try:
+        conn = store.connection
+        settings_profile.save(
+            conn,
+            set_values={"volume.apply_mrv_cap": False},
+            effective_from="2026-10-26",
+        )
+    except ValueError as exc:
+        assert "guarded" in str(exc)
+    else:
+        raise AssertionError("guarded write should fail")
+    try:
+        settings_profile.save(
+            conn,
+            set_values={"volume.apply_mrv_cap": False},
+            effective_from="2026-10-26",
+            guard_confirmed=True,
+        )
+    except ValueError as exc:
+        assert "reason" in str(exc)
+    else:
+        raise AssertionError("guarded write needs a reason")
+    result = settings_profile.save(
+        conn,
+        set_values={
+            "volume.apply_mrv_cap": False,
+            "spinal.override": {"cap": 5, "costs": {"rdl": 1}},
+        },
+        effective_from="2026-10-26",
+        guard_confirmed=True,
+        reason="back history changed",
+    )
+    try:
+        resolved = settings_profile.feature_settings(conn, "2026-10-26")
+    finally:
+        store.close()
+    assert result["reason"] == "back history changed"
+    assert result["overrides"]["volume.apply_mrv_cap"] is False
+    assert resolved.spinal_cap == 5
+    assert resolved.spinal_costs["rdl"] == 1
 
 
 def test_prescription_snapshot_is_written():

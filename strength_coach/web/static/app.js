@@ -2728,14 +2728,166 @@ function renderDropSettings(drop) {
   $("#settings-drop-msg").textContent = "source: " + (drop.source || "—");
 }
 
+function renderProfileSettings(registry, profile) {
+  window.__profileSettings = profile || {};
+  window.__settingsRegistry = registry || [];
+  const fields = $("#settings-profile-fields");
+  if (!fields) return;
+  const groups = {};
+  (registry || []).forEach((setting) => {
+    (groups[setting.group] = groups[setting.group] || []).push(setting);
+  });
+  const resolved = window.__profileSettings.resolved || {};
+  const overrides = window.__profileSettings.overrides || {};
+  fields.innerHTML = Object.entries(groups).map(([group, settings]) => {
+    const rows = settings.map((setting) => {
+      const value = Object.prototype.hasOwnProperty.call(overrides, setting.key)
+        ? overrides[setting.key] : resolved[setting.key];
+      const id = "profile-" + setting.key.replace(/[^a-zA-Z0-9_-]/g, "-");
+      let control;
+      if (setting.kind === "bool") {
+        control = '<input type="checkbox" data-profile-key="' + esc(setting.key) + '" id="' + id + '">';
+      } else if (setting.kind === "int" || setting.kind === "float") {
+        const step = setting.kind === "int" ? "1" : "0.01";
+        const min = setting.minimum == null ? "" : ' min="' + setting.minimum + '"';
+        const max = setting.maximum == null ? "" : ' max="' + setting.maximum + '"';
+        control = '<input type="number" step="' + step + '"' + min + max + ' data-profile-key="' + esc(setting.key) + '" id="' + id + '">';
+      } else if (setting.kind === "table") {
+        control = '<textarea rows="3" spellcheck="false" data-profile-key="' + esc(setting.key) + '" id="' + id + '"></textarea>';
+      } else if ((setting.choices || []).length) {
+        control = '<select data-profile-key="' + esc(setting.key) + '" id="' + id + '">' +
+          setting.choices.map((choice) => '<option value="' + esc(choice) + '">' + esc(choice) + '</option>').join("") + "</select>";
+      } else {
+        control = '<input type="text" data-profile-key="' + esc(setting.key) + '" id="' + id + '">';
+      }
+      const badge = setting.classification === "guarded_safety"
+        ? ' <span class="badge warn">guarded</span>' : "";
+      return '<label class="grow">' + esc(setting.label) + badge + control +
+        '<span class="muted">' + esc(setting.key) + " · " + esc(setting.source) + "</span></label>";
+    }).join("");
+    return '<div class="panel" style="margin:0 0 10px"><div class="panel-head"><h3>' + esc(group) +
+      '</h3><span class="muted">profile > config > default</span></div><div class="form-row">' + rows + "</div></div>";
+  }).join("");
+  (registry || []).forEach((setting) => {
+    const node = document.getElementById("profile-" + setting.key.replace(/[^a-zA-Z0-9_-]/g, "-"));
+    if (!node) return;
+    const value = Object.prototype.hasOwnProperty.call(overrides, setting.key)
+      ? overrides[setting.key] : resolved[setting.key];
+    if (setting.kind === "bool") node.checked = !!value;
+    else if (setting.kind === "table") node.value = JSON.stringify(value ?? {}, null, 2);
+    else node.value = value ?? "";
+    node.dataset.original = JSON.stringify(value ?? null);
+    node.dataset.classification = setting.classification;
+    node.addEventListener("input", updateProfileDiff);
+    node.addEventListener("change", updateProfileDiff);
+  });
+  const meta = $("#settings-profile-meta");
+  if (meta) {
+    meta.textContent = window.__profileSettings.profile_id == null
+      ? "config only" : "profile " + window.__profileSettings.profile_id +
+        " · effective " + window.__profileSettings.effective_from;
+    meta.className = "badge";
+  }
+  updateProfileDiff();
+}
+
+function profileNodeValue(node, setting) {
+  if (setting.kind === "bool") return node.checked;
+  if (setting.kind === "int") return Number(node.value);
+  if (setting.kind === "float") return Number(node.value);
+  if (setting.kind === "table") {
+    try { return JSON.parse(node.value || "{}"); }
+    catch (error) { throw new Error(setting.key + ": invalid JSON — " + error.message); }
+  }
+  return node.value;
+}
+
+function updateProfileDiff() {
+  const registry = window.__settingsRegistry || [];
+  const changes = [];
+  try {
+    registry.forEach((setting) => {
+      const node = document.getElementById("profile-" + setting.key.replace(/[^a-zA-Z0-9_-]/g, "-"));
+      if (!node) return;
+      const value = profileNodeValue(node, setting);
+      const original = JSON.parse(node.dataset.original || "null");
+      if (JSON.stringify(value) !== JSON.stringify(original)) changes.push({ setting, value, original });
+    });
+  } catch (error) {
+    $("#settings-profile-diff").textContent = error.message;
+    return;
+  }
+  const box = $("#settings-profile-diff");
+  if (!box) return;
+  if (!changes.length) { box.textContent = "No changes."; return; }
+  box.innerHTML = changes.map(({ setting, value, original }) =>
+    '<div><code>' + esc(setting.key) + '</code>: ' + esc(JSON.stringify(original)) +
+    " → " + esc(JSON.stringify(value)) + "</div>").join("");
+}
+
+function profileDraft() {
+  const registry = window.__settingsRegistry || [];
+  const set = {};
+  const guarded = [];
+  registry.forEach((setting) => {
+    const node = document.getElementById("profile-" + setting.key.replace(/[^a-zA-Z0-9_-]/g, "-"));
+    if (!node) return;
+    const value = profileNodeValue(node, setting);
+    const original = JSON.parse(node.dataset.original || "null");
+    if (JSON.stringify(value) !== JSON.stringify(original)) {
+      set[setting.key] = value;
+      if (setting.classification === "guarded_safety") guarded.push(setting.key);
+    }
+  });
+  return { set, guarded };
+}
+
+async function saveProfileDraft() {
+  try {
+    const { set, guarded } = profileDraft();
+    if (!Object.keys(set).length) {
+      $("#settings-profile-msg").textContent = "No changes to save.";
+      return;
+    }
+    const reason = $("#settings-profile-reason").value.trim();
+    if (guarded.length) {
+      if (!$("#settings-profile-guard").checked ||
+          $("#settings-profile-guard-text").value.trim() !== "SPINAL" || !reason) {
+        throw new Error("Guarded changes need the confirmation tick, SPINAL and a reason.");
+      }
+    }
+    await api("/api/settings/profile", {
+      method: "POST",
+      body: JSON.stringify({
+        set, reason: reason || null, guard_confirmed: $("#settings-profile-guard").checked,
+      }),
+    });
+    $("#settings-profile-msg").textContent = "Saved a new profile version.";
+    $("#settings-profile-guard").checked = false;
+    $("#settings-profile-guard-text").value = "";
+    $("#settings-profile-reason").value = "";
+    await loadSettings();
+  } catch (error) {
+    $("#settings-profile-msg").textContent = error.message;
+  }
+}
+
 async function loadSettings() {
   try {
-    renderSettings(await api("/api/settings"));
+    const data = await api("/api/settings");
+    const profile = await api("/api/settings/profile");
+    renderSettings(data);
+    renderProfileSettings(data.registry || [], profile);
   } catch (error) {
     $("#settings-llm-status").textContent = "error";
     $("#settings-llm-msg").textContent = error.message;
   }
 }
+
+const profileSave = $("#settings-profile-save");
+if (profileSave) profileSave.addEventListener("click", saveProfileDraft);
+const profileReset = $("#settings-profile-reset");
+if (profileReset) profileReset.addEventListener("click", () => loadSettings());
 
 function llmPayload() {
   return {

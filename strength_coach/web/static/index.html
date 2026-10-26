@@ -900,6 +900,24 @@
       </div>
 
       <div class="panel">
+        <div class="panel-head"><h2>Settings profile</h2>
+          <span class="badge" id="settings-profile-meta">loading…</span></div>
+        <p class="section-help"><span>Profile-backed settings; a save appends a version and never edits history.</span> <a class="doc-link" href="#docs?doc=docs/VOLUME-MODULATION-PLAN.md">Settings plan</a></p>
+        <div id="settings-profile-fields"></div>
+        <div class="form-row">
+          <label class="grow">Reason <input id="settings-profile-reason" placeholder="required for guarded settings"></label>
+          <label><input type="checkbox" id="settings-profile-guard"> Confirm guarded change</label>
+          <label>Type SPINAL <input id="settings-profile-guard-text" placeholder="SPINAL" autocomplete="off"></label>
+          <button class="primary" type="button" id="settings-profile-save">Save profile version</button>
+          <button class="ghost" type="button" id="settings-profile-reset">Reset draft</button>
+        </div>
+        <div id="settings-profile-diff" class="muted">No changes.</div>
+        <p class="muted" id="settings-profile-msg"></p>
+        <p class="muted">Guarded values are the MRV cap and the spinal cap/costs. They require the
+          confirmation tick, the typed word and a reason; the server rejects otherwise.</p>
+      </div>
+
+      <div class="panel">
         <div class="panel-head"><h2>App</h2><span class="muted">local only</span></div>
         <p class="section-help"><span>Shows local-only runtime and storage facts; no hosted service.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI</a></p>
         <p>Version <code id="settings-version">—</code></p>

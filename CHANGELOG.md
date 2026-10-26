@@ -37,6 +37,10 @@
   weekly high tolerance band and does not add when the week is already there. If no load is
   available, it retries with the e1RM basis and then asks for an e1RM in the Prescribe panel
   (CLI prints the `e1rm set` command); it refuses only if still unusable. `drop` remains 9c.
+- **Settings UI and guarded settings (step 5)**: profile editor with diff/reset and
+  append-only reason; guarded MRV cap and spinal cap/costs with typed `SPINAL` confirmation;
+  Drop / volume fill writes a profile budget override; the step-3 volume-review reminder appears
+  on Today once the budget is enabled and stays open. Modalities/factors are 5b.
 - **Configurable hinge maximal scheme**: `undulation.maximal_hinge_allowed` (default false)
   is profile/config-backed; true lets the maximal scheme use the currently excluded hinge IDs.
   Settings UI exposure follows step 5.

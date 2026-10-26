@@ -148,7 +148,7 @@ also disables while saving and reports the number of marks written.
 | `GET /api/settings` | masked LLM settings, drop settings, config/database paths and app version |
 | `POST /api/settings/llm` | save local LLM settings; blank key keeps the stored key |
 | `POST /api/settings/drop` | save drop policy/candidate pool to the local `config/volume.local.yaml` overlay |
-| `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset and effective_from |
+| `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset, effective_from, guard_confirmed and reason |
 | `POST /api/settings/llm/test` | call the configured model with a tiny connectivity prompt |
 | `GET /api/exposures?date=N` | recent high-intensity exposures and recovery guard |
 | `POST /api/exposures` | log a manual max/competition/unplanned exposure; tests use the test endpoint |

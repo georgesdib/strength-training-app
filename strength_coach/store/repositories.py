@@ -1327,11 +1327,12 @@ def append_settings_profile(
     *,
     effective_from: str,
     overrides: Mapping[str, object],
+    reason: str | None = None,
 ) -> int:
     """Append a complete override map; the latest effective version wins."""
     cursor = conn.execute(
-        "INSERT INTO settings_profile (effective_from, overrides_json) VALUES (?, ?)",
-        (str(effective_from), _json(dict(overrides))),
+        "INSERT INTO settings_profile (effective_from, overrides_json, reason) VALUES (?, ?, ?)",
+        (str(effective_from), _json(dict(overrides)), reason),
     )
     return int(cursor.lastrowid)
 

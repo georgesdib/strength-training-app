@@ -93,6 +93,9 @@ def _definitions() -> tuple[SettingDefinition, ...]:
         _d("undulation.maximal_hinge_allowed", "DUP", "Allow maximal hinge",
            "bool", False, "templates/schemes.v1.yaml", "prescription_policy",
            "Allow the maximal scheme on hinge lifts; default keeps the back-history exclusion."),
+        _d("spinal.override", "Spinal", "Spinal cap and costs", "table", {},
+           "rules/programme.v1.yaml", "guarded_safety",
+           "Guarded weekly cap and per-exercise costs for PRG-SPINE-001."),
         _d("deload.enabled", "Deload", "Deload enabled", "bool", True,
            "deload.v1.yaml", "prescription_policy", "Master deload switch."),
         _d("deload.scheduled.enabled", "Deload", "Scheduled deload", "bool", True,
@@ -222,6 +225,18 @@ class SettingsSnapshot:
         return self.values[key]
 
 
+def _spinal_defaults() -> dict[str, Any]:
+    raw = yaml.safe_load(
+        paths.config_dir("rules/programme.v1.yaml").read_text(encoding="utf-8")
+    ) or {}
+    for rule in raw.get("rules") or []:
+        if rule.get("id") == "PRG-SPINE-001":
+            params = rule.get("params") or {}
+            return {"cap": float(params.get("cap", 6)),
+                    "costs": dict(params.get("costs") or {})}
+    return {}
+
+
 def _snapshot_values() -> dict[str, Any]:
     undulation = undulation_mod.Undulation.load()
     raw_undulation = yaml.safe_load(
@@ -240,6 +255,7 @@ def _snapshot_values() -> dict[str, Any]:
         "undulation.maximal_hinge_allowed": bool(
             schemes_mod.Schemes.load().maximal_hinge_allowed
         ),
+        "spinal.override": _spinal_defaults(),
         "deload.enabled": bool(deload.enabled),
         "deload.scheduled.enabled": bool(deload.scheduled_enabled),
         "deload.scheduled.every_weeks": int(deload.every_weeks),
