@@ -816,6 +816,25 @@ def test_schedule_maps_a_volume_fill_to_its_original_family():
     assert schedule._family("technique") is None
 
 
+def test_programme_forecast_uses_the_derived_type():
+    rows = [
+        {"Date": "2026-10-26", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"}
+        for _ in range(10)
+    ]
+    store = store_with(rows)
+    try:
+        _profile(store.connection, enabled=True, policy="drop", sessions=1)
+        entries = programme.build_programme(
+            store.connection, start="2026-10-29", weeks=1, per_week=1,
+            start_session_type="hinge",
+        )
+    finally:
+        store.close()
+    assert len(entries) == 1
+    assert entries[0].session_type == entries[0].prescription.session_type
+
+
 def test_the_budget_note_is_wired_into_the_prescription():
     store = store_with()
     try:

@@ -69,6 +69,7 @@ from strength_coach.eval.report import format_report, format_session_sheet, item
 from strength_coach.prescribe import build_prescription
 from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
+from strength_coach.prescribe import session_identity
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import schemes as schemes_mod
@@ -991,7 +992,7 @@ def _cmd_programme(args) -> int:
                 status = "deload"
             elif entry.deload_suggestion:
                 status = "suggested deload"
-            print(f"{entry.on_date:<12}{entry.session_type:<14}{status:<10}{loads}")
+            print(f"{entry.on_date:<12}{session_identity.label(entry.session_type):<14}{status:<10}{loads}")
             if entry.deload_reason:
                 print(f"  reactive deload: {entry.deload_reason}")
             if entry.deload_suggestion:
@@ -2235,7 +2236,7 @@ def _print_import(report) -> None:
 
 def _print_prescription(prescription) -> None:
     print(f"\nprescription {prescription.for_date}  "
-          f"({prescription.session_type}, {prescription.fallback_level})")
+          f"({session_identity.label(prescription.session_type)}, {prescription.fallback_level})")
     show_velocity = any(item.velocity_target is not None for item in prescription.items)
     header = (f"  {'exercise':<24}{'sets':>5}{'reps':>8}{'load':>9}{'rir':>5}"
               + (f"{'vel':>7}" if show_velocity else "") + "  refs")

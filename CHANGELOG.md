@@ -37,6 +37,10 @@
   weekly high tolerance band and does not add when the week is already there. If no load is
   available, it retries with the e1RM basis and then asks for an e1RM in the Prescribe panel
   (CLI prints the `e1rm set` command); it refuses only if still unusable. `drop` remains 9c.
+- **Drop identity/UX (9c-2)**: derived session labels in Prescribe, Workout, History and the
+  programme forecast; an empty technique session can be started and ended as attendance with no
+  rubric; `volume_fill` is reviewed against its actual items without a missing-main penalty;
+  migration 0038 removes the fixed session-type CHECK.
 - **Drop engine (9c-1)**: `budget.drop` candidate pools, high-band technique session, and a
   multi-slot `volume_fill_<original>` below the high band; the filled group's main and
   non-essential work are removed, the original type is recorded, and the rolling schedule maps

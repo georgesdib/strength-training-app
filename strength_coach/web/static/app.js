@@ -8,6 +8,15 @@ function esc(value) {
   }[c]));
 }
 
+function sessionLabel(value) {
+  const text = String(value ?? "");
+  if (text.startsWith("volume_fill_")) {
+    return `Volume fill (${text.slice("volume_fill_".length).replaceAll("_", " ")} omitted)`;
+  }
+  if (text === "technique") return "Technique (week complete)";
+  return text;
+}
+
 function fmt(value, digits = 1) {
   if (value === null || value === undefined || value === "") return "—";
   const n = Number(value);
@@ -382,7 +391,7 @@ function renderRecent(sessions) {
   if (!sessions.length) { $("#recent").innerHTML = "<p class='empty'>No sessions.</p>"; return; }
   $("#recent").innerHTML = `<table><thead><tr><th>Date</th><th>Day</th><th>Sets</th>
     <th>Main lifts</th><th>Marks</th><th></th></tr></thead><tbody>` +
-    sessions.map((s) => `<tr><td>${esc(s.occurred_on)}</td><td>${esc(s.session_type)}</td>
+    sessions.map((s) => `<tr><td>${esc(s.occurred_on)}</td><td>${esc(sessionLabel(s.session_type))}</td>
       <td>${s.working_set_count}/${s.set_count}</td>
       <td>${esc((s.main_lifts || []).join(", "))}</td>
       <td>${s.marks ? '<span class="badge">' + s.marks + "</span>" : '<span class="badge warn">none</span>'}</td>
@@ -868,7 +877,7 @@ function renderPrescription(p) {
     <button type="button" onclick="applySuggestedDeload()">Deload this workout</button>
     <span class="muted">Or train as planned; the suggestion will return next workout this week.</span></div>` : "";
   $("#prescribe-result").innerHTML = `<div class="panel">
-    <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_type || "unknown")}</h2>
+    <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_label || sessionLabel(p.session_type || "unknown"))}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
     ${compBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <div class="form-row">
@@ -891,7 +900,7 @@ function fillSessionSelect() {
   if (!sessions.length) { select.innerHTML = "<option value=''>no sessions</option>"; return; }
   const current = select.value;
   select.innerHTML = sessions.map((s) => `<option value="${esc(s.session_id)}">
-    ${esc(s.occurred_on)} · ${esc(s.session_type)} · ${s.marks ? s.marks + " marks" : "unreviewed"}</option>`).join("");
+    ${esc(s.occurred_on)} · ${esc(sessionLabel(s.session_type))} · ${s.marks ? s.marks + " marks" : "unreviewed"}</option>`).join("");
   if (current) select.value = current;
 }
 
@@ -931,7 +940,7 @@ async function loadReview(session) {
          <th>prior average</th><th>prior latest</th></tr></thead><tbody>${formRows}</tbody></table>`
       : "";
     $("#review-result").innerHTML = `<div class="panel">
-      <div class="panel-head"><h2>${esc(data.session)} · ${esc(data.session_type)}</h2>
+      <div class="panel-head"><h2>${esc(data.session)} · ${esc(sessionLabel(data.session_type))}</h2>
         <span class="badge">composite ${fmt(data.composite, 2)}</span></div>
       <p class="muted">Week ${esc(data.week)} · spinal cost ${fmt(data.week_cost, 2)}</p>
       ${reviewWorkoutSummary(data.workout)}
@@ -2313,7 +2322,7 @@ function renderProgramme(entries) {
       : "<span class='empty'>none</span>";
     return `<tr>
       <td>${esc(entry.date)}</td>
-      <td><strong>${esc(entry.session_type)}</strong>
+      <td><strong>${esc(sessionLabel(entry.session_type))}</strong>
         ${entry.prescription.notes?.selection?.requested
           ? `<div class="muted">selection ${entry.prescription.notes.selection.applied ? "applied" : "preview"}${entry.prescription.notes.selection.llm_used ? " · LLM" : entry.prescription.notes.selection.llm_requested ? " · LLM fallback" : ""}</div>`
           : ""}</td>

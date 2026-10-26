@@ -20,6 +20,7 @@ from strength_coach.domain import load as load_mod
 from strength_coach.critique import build_facts, score_session
 from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.prescribe import minimum_session as minimum_session_mod
+from strength_coach.prescribe import session_identity
 from strength_coach.store import repositories
 from strength_coach.utils import exercises
 
@@ -68,11 +69,13 @@ def validate_readiness(values: Mapping[str, Any], *,
     return clean
 
 
-def _plan(value: Any) -> dict:
+def _plan(value: Any, *, allow_empty: bool = False) -> dict:
     if not isinstance(value, dict):
         raise ValueError("plan must be an object")
     items = value.get("items")
-    if not isinstance(items, list) or not items:
+    if not isinstance(items, list):
+        raise ValueError("plan.items must be a list")
+    if not items and not allow_empty:
         raise ValueError("plan.items must be a non-empty list")
     return value
 
@@ -91,13 +94,19 @@ def start(
     active = active_workout(conn)
     if active is not None:
         raise ValueError("a workout is already in progress; end or abandon it first")
-    plan_data = _plan(plan)
+    resolved_type = str(session_type or (plan.get("session_type") if isinstance(plan, dict) else "") or "")
+    plan_data = _plan(plan, allow_empty=session_identity.is_technique(resolved_type))
     readiness_data = validate_readiness(
         readiness, allow_partial=allow_partial_readiness
     )
-    resolved_type = str(session_type or plan_data.get("session_type") or "")
-    if resolved_type not in {"squat", "hinge", "bench_squat", "bench_hinge"}:
-        raise ValueError("plan.session_type must be squat, hinge, bench_squat or bench_hinge")
+    if not (
+        resolved_type in session_identity.ORIGINAL_TYPES
+        or session_identity.is_volume_fill(resolved_type)
+        or session_identity.is_technique(resolved_type)
+    ):
+        raise ValueError(
+            "plan.session_type must be a normal type, volume_fill_<original> or technique"
+        )
     workout_id = str(uuid.uuid4())
     conn.execute(
         """
@@ -1171,7 +1180,8 @@ def end(
         conn, workout, ended=ended, duration=duration, duration_source=source,
         session_rpe=rpe, session_rpe_recorded=not not_recorded, notes=notes,
     )
-    critique_id = score(conn, workout_id)
+    # A technique session is attendance only: it has no template and no normal rubric.
+    critique_id = None if session_identity.is_technique(workout["session_type"]) else score(conn, workout_id)
     conn.execute(
         """
         UPDATE workout_session

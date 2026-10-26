@@ -124,12 +124,12 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
         if reactive is None and scheduled is not None:
             prescription = deload_mod.suggest(prescription, scheduled)
         out.append(ProgrammeEntry(
-            date.isoformat(), prescription, current_type,
+            date.isoformat(), prescription, prescription.session_type,
             reactive.reason if reactive else None,
             deload_suggestion=scheduled.reason if scheduled and reactive is None else None,
             deload_applied=reactive is not None,
         ))
-        prior.append(current_type)
+        prior.append(prescription.session_type)
         current_type = schedule.next_session_type(
             conn, date.isoformat(), prior_types=prior
         )

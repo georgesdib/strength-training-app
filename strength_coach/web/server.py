@@ -63,6 +63,7 @@ from strength_coach.prescribe import build_prescription
 from strength_coach.prescribe import persistence as prescription_persistence
 from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
+from strength_coach.prescribe import session_identity
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
@@ -112,6 +113,14 @@ def prescription_dict(prescription) -> dict:
     return {
         "for_date": prescription.for_date,
         "session_type": prescription.session_type,
+        "session_label": session_identity.label(prescription.session_type),
+        "session_kind": (
+            "volume_fill" if session_identity.is_volume_fill(prescription.session_type)
+            else "technique" if session_identity.is_technique(prescription.session_type)
+            else "normal"
+        ),
+        "session_original_type": session_identity.original_type(prescription.session_type),
+        "counts_as_main": session_identity.counts_as_main(prescription.session_type),
         "fallback_level": prescription.fallback_level,
         "rule_document_version": prescription.rule_document_version,
         "calibration_ids": list(prescription.calibration_ids),

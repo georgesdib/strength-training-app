@@ -517,8 +517,10 @@ can legitimately go over its target; the change is in the accessories, and the r
 `drop` is 9c. The **9c-1 engine only** is implemented: at or above the weekly high band it
 returns a technique-focused empty plan; below the high band it removes the filled group's work
 and builds a multi-slot `volume_fill_<original>` session that fills into the high band. It is
-opt-in after `main_lift_policy: drop`. The Prescribe/CLI confirmation, labels, history and
-forecast are 9c-2/3 and not available yet.
+opt-in after `main_lift_policy: drop`. 9c-2 adds the labels (**Volume fill (squat omitted)**,
+**Technique (week complete)**), history/Prescribe/Programme display, and a startable empty
+technique session: it has no template and no rubric, and you can add manual sets or import a
+workout later. The competition-window confirmation and settings exposure are 9c-3.
 
 A set removed by readiness, deload or the spinal cap is recorded in `volume_exemption` and is
 never re-added. If a group is under but has no non-essential capacity (hinge on a hinge day is

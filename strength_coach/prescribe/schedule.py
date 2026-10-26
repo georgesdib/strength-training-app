@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections import Counter
 
+from strength_coach.prescribe import session_identity
 from strength_coach.store import queries
 
 SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
@@ -22,15 +23,7 @@ WINDOW = 6
 
 
 def _family(session_type: str) -> str | None:
-    if session_type == "technique":
-        return None
-    if session_type.startswith("volume_fill_"):
-        session_type = session_type[len("volume_fill_"):]
-    if session_type not in SESSION_TYPES:
-        return None
-    if session_type in ("bench_squat", "bench_hinge"):
-        return "bench"
-    return session_type
+    return session_identity.rotation_family(session_type)
 
 
 def _choose_family(recent: list[str]) -> str:
