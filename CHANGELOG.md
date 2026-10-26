@@ -37,6 +37,10 @@
   weekly high tolerance band and does not add when the week is already there. If no load is
   available, it retries with the e1RM basis and then asks for an e1RM in the Prescribe panel
   (CLI prints the `e1rm set` command); it refuses only if still unusable. `drop` remains 9c.
+- **Modality registry/UI (5b)**: 11 modules with classes, dependencies, citations and
+  factor references; every enable delegates to the existing setting; hard-safety entries are
+  read-only; `settings modalities`, `/api/modalities` and the Settings Modules panel share the
+  same core. Remaining modules are deferred to 5c.
 - **Settings UI and guarded settings (step 5)**: profile editor with diff/reset and
   append-only reason; guarded MRV cap and spinal cap/costs with typed `SPINAL` confirmation;
   Drop / volume fill writes a profile budget override; the step-3 volume-review reminder appears

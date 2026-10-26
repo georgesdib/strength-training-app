@@ -25,7 +25,7 @@ from pathlib import Path
 
 import yaml
 
-from strength_coach import __version__, settings_profile, workout
+from strength_coach import __version__, modalities, settings_profile, workout
 from strength_coach.agents import (
     LLMError,
     build_client,
@@ -169,6 +169,13 @@ def main(argv: list[str] | None = None) -> int:
     profile.add_argument("--guard-confirm", action="store_true",
                          help="confirm a guarded setting change")
     profile.add_argument("--reason", default=None, help="required reason for guarded settings")
+    modalities_parser = settings_sub.add_parser("modalities", help="list or update modality toggles")
+    modalities_parser.add_argument("action", choices=("list", "show", "set"))
+    modalities_parser.add_argument("module", nargs="?", default=None)
+    modalities_parser.add_argument("values", nargs="*", help="enabled=on|off or factor=value")
+    modalities_parser.add_argument("--date", default=None)
+    modalities_parser.add_argument("--guard-confirm", action="store_true")
+    modalities_parser.add_argument("--reason", default=None)
 
     programme = sub.add_parser("programme", help="forecast a rolling four-session-type horizon")
     programme.add_argument("--weeks", type=int, required=True)
@@ -767,8 +774,45 @@ def _cmd_settings(args) -> int:
     store = db.Store(args.db)
     try:
         conn = store.connection
+        if args.settings_action == "modalities":
+            day = args.date or datetime.date.today().isoformat()
+            if args.action == "list":
+                for module in modalities.state(conn, day)["modules"]:
+                    state = "on" if module["enabled"] else "off"
+                    print(f"{module['id']:<20} {state:<3} {module['class']:<18} "
+                          f"deps={','.join(module['dependencies']) or '-'}")
+                return 0
+            if not args.module:
+                print("modality id is required")
+                return 2
+            if args.action == "show":
+                print(json.dumps(modalities.show(conn, args.module, day), indent=2, default=str))
+                return 0
+            enabled = None
+            factors = {}
+            for entry in args.values:
+                if "=" not in entry:
+                    print(f"expected key=value, got {entry!r}")
+                    return 2
+                key, raw = entry.split("=", 1)
+                try:
+                    value = json.loads(raw)
+                except json.JSONDecodeError:
+                    value = raw
+                if key == "enabled":
+                    enabled = str(value).lower() in ("on", "true", "1", "yes")
+                else:
+                    factors[key] = value
+            result = modalities.update(
+                conn, args.module, enabled=enabled, factors=factors,
+                guard_confirmed=args.guard_confirm, reason=args.reason,
+                effective_from=day,
+            )
+            print(f"{result['id']}: {'on' if result['enabled'] else 'off'} "
+                  f"({result['enabled_source']})")
+            return 0
         if args.settings_action != "profile":
-            print("only 'settings profile' is available")
+            print("only 'settings profile' or 'settings modalities' is available")
             return 2
         date = args.date or datetime.date.today().isoformat()
         if args.action == "show":

@@ -66,7 +66,7 @@ from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
 from strength_coach.prescribe import session_identity
 from strength_coach.prescribe import volume_settings
-from strength_coach import settings_profile, settings_registry
+from strength_coach import modalities, settings_profile, settings_registry
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
@@ -272,6 +272,17 @@ class Handler(BaseHTTPRequestHandler):
                                  mimetypes.guess_type(path)[0] or "application/octet-stream")
             elif path == "/api/settings":
                 self._json(200, self._with_conn(lambda c: self._settings(c)))
+            elif path == "/api/modalities":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0] or datetime.date.today().isoformat()
+                self._json(200, self._with_conn(lambda c: modalities.state(c, day)))
+            elif path.startswith("/api/modalities/"):
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0] or datetime.date.today().isoformat()
+                module_id = path.rsplit("/", 1)[-1]
+                self._json(200, self._with_conn(
+                    lambda c: modalities.show(c, module_id, day)
+                ))
             elif path == "/api/settings/profile":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0] or datetime.date.today().isoformat()
@@ -528,6 +539,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._save_drop_settings(c, body)))
             elif path == "/api/settings/profile":
                 self._json(200, self._with_conn(lambda c: self._save_settings_profile(c, body)))
+            elif path.startswith("/api/modalities/"):
+                module_id = path.rsplit("/", 1)[-1]
+                self._json(200, self._with_conn(
+                    lambda c: self._save_modality(c, module_id, body)
+                ))
             elif path == "/api/settings/llm/test":
                 self._json(200, self._test_llm())
             elif path == "/api/prescribe":
@@ -648,6 +664,16 @@ class Handler(BaseHTTPRequestHandler):
             effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
             guard_confirmed=_truth(body.get("guard_confirmed")),
             reason=(str(body.get("reason")) if body.get("reason") else None),
+        )
+
+    def _save_modality(self, conn, module_id: str, body: dict) -> dict:
+        return modalities.update(
+            conn, module_id,
+            enabled=(_truth(body.get("enabled")) if "enabled" in body else None),
+            factors=body.get("factors") or {},
+            guard_confirmed=_truth(body.get("guard_confirmed")),
+            reason=(str(body.get("reason")) if body.get("reason") else None),
+            effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
         )
 
     def _save_drop_settings(self, conn, body: dict) -> dict:

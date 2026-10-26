@@ -1,0 +1,164 @@
+# Prescription modalities. Metadata only: no module here invents a second enabled flag.
+# enabled_key points at the existing setting; the module toggle delegates to that path.
+schema_version: "1.0.0"
+
+modules:
+  - id: volume_budget
+    label: Weekly volume budget
+    class: prescription_policy
+    enabled_key: athlete_profile.volume_budget_enabled
+    toggleable: true
+    dependencies: [volume_ledger]
+    citations: [MOD-VOL-003]
+    factors: [budget]
+    doc: docs/VOLUME-MODULATION-PLAN.md
+
+  - id: dup
+    label: DUP / weekly undulation
+    class: prescription_policy
+    enabled_key: undulation.enabled
+    toggleable: true
+    dependencies: [schedule]
+    citations: []
+    factors:
+      - undulation.cycle_weeks
+      - undulation.weeks
+      - undulation.maximal_hinge_allowed
+    doc: docs/TRAINING-DYNAMICS.md
+
+  - id: deload
+    label: Deload policy
+    class: prescription_policy
+    enabled_key: deload.enabled
+    toggleable: true
+    dependencies: []
+    citations: [MOD-DELOAD-001]
+    factors:
+      - deload.scheduled.every_weeks
+      - deload.scheduled.anchor_required
+      - deload.reactive.enabled
+      - deload.reactive.consecutive_weeks
+      - deload.reactive.consecutive_flares
+      - deload.prescription.set_reduction
+      - deload.prescription.minimum_sets_per_item
+      - deload.prescription.include_essential
+      - deload.prescription.load_multiplier
+      - deload.prescription.rir_add
+    doc: docs/NEXT-PHASE-FATIGUE-PLAN.md
+
+  - id: mrv_cap
+    label: MRV cap
+    class: guarded_safety
+    enabled_key: volume.apply_mrv_cap
+    toggleable: true
+    dependencies: [volume_ledger]
+    citations: [MOD-VOL-001]
+    factors: []
+    doc: docs/VOLUME-MANAGEMENT.md
+
+  - id: under_mev
+    label: Under-MEV progression
+    class: prescription_policy
+    enabled_key: volume.under_mev.enabled
+    toggleable: true
+    dependencies: [volume_ledger, mrv_cap]
+    citations: [MOD-VOL-002]
+    factors:
+      - volume.under_mev.weeks
+      - volume.under_mev.add_sets
+      - volume.under_mev.max_sets_per_item
+    doc: docs/VOLUME-MANAGEMENT.md
+
+  - id: readiness_set_valve
+    label: Readiness set valve
+    class: prescription_policy
+    enabled_key: readiness.set_reduction.enabled
+    toggleable: true
+    dependencies: []
+    citations: []
+    factors:
+      - readiness.set_reduction.score_below
+      - readiness.set_reduction.sets
+      - readiness.set_reduction.include_essential
+    doc: docs/READINESS.md
+
+  - id: e1rm_decay
+    label: e1RM age decay
+    class: prescription_policy
+    enabled_key: e1rm.decay.apply
+    toggleable: true
+    dependencies: []
+    citations: [MOD-E1RM-DECAY-001]
+    factors:
+      - e1rm.decay.grace_days
+      - e1rm.decay.weekly_decay
+      - e1rm.decay.max_decay
+    doc: docs/FATIGUE-FITNESS.md
+
+  - id: e1rm_calibration
+    label: e1RM calibration
+    class: prescription_policy
+    enabled_key: e1rm.calibration.apply
+    toggleable: true
+    dependencies: []
+    citations: [MOD-E1RM-001]
+    factors:
+      - e1rm.calibration.min_tests
+      - e1rm.calibration.confidence
+      - e1rm.calibration.max_correction
+      - e1rm.calibration.bootstrap_samples
+      - e1rm.calibration.seed
+    doc: docs/FATIGUE-FITNESS.md
+
+  - id: plausibility
+    label: e1RM plausibility advisory
+    class: display
+    enabled_key: e1rm.plausibility.enabled
+    toggleable: true
+    dependencies: []
+    citations: [DEC-E1RM-PLAUS-01]
+    factors:
+      - e1rm.plausibility.reference_days
+      - e1rm.plausibility.min_sets
+      - e1rm.plausibility.max_above_reference
+    doc: docs/FATIGUE-FITNESS.md
+
+  - id: hinge_maximal
+    label: Maximal scheme on hinges
+    class: prescription_policy
+    enabled_key: undulation.maximal_hinge_allowed
+    toggleable: true
+    dependencies: [dup]
+    citations: []
+    factors: []
+    doc: docs/TRAINING-DYNAMICS.md
+
+  - id: spinal
+    label: Spinal cap and costs
+    class: guarded_safety
+    enabled_key: null
+    toggleable: false
+    dependencies: []
+    citations: [PRG-SPINE-001, MOD-SPINE-001]
+    factors: [spinal.override]
+    doc: docs/SPINAL-COST.md
+
+  - id: hard_constraints
+    label: Constraints and injury ceilings
+    class: hard_safety
+    enabled_key: null
+    toggleable: false
+    dependencies: []
+    citations: [PRG-INJURY-001]
+    factors: []
+    doc: docs/DATA-MODEL.md
+
+  - id: load_validation
+    label: Load and RIR validation
+    class: hard_safety
+    enabled_key: null
+    toggleable: false
+    dependencies: []
+    citations: [PRG-RIR-001]
+    factors: []
+    doc: docs/RULES-FORMAT.md

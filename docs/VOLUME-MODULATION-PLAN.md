@@ -9,7 +9,8 @@ the rules, the decisions and a phased path. Step 1 is read-only; 9a is a preview
 9c-1 (drop engine), 9c-2 (identity/UX), 9c-3 (confirmation/settings), 7a (settings
 registry/snapshot), step 4 (profile store, precedence, CLI/API, budget wiring and prescription
 snapshot), 7b (profile-backed feature wiring, including DUP) and step 5 (Settings UI, guarded
-MRV/spinal settings, drop panel profile) are implemented; steps 3, 5b, 6 and 8 remain.
+MRV/spinal settings, drop panel profile) and 5b (modality registry/UI) are implemented;
+steps 3, 6, 8 and the later 5c module expansion remain.
 
 At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
 plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
@@ -814,10 +815,22 @@ deliberate golden update where a prescription changes.
   `PRG-SPINE-001` read the same cap/costs override.
 - No modalities/factors yet; see 5b. CLI/API parity is retained.
 
-**5b. Modalities/factors registry (not implemented).**
-- Add `config/modalities.v1.yaml`: module id, class, enabled, config source, dependencies,
-  citations and factor list; wire it into the existing registry and deliver `settings modalities`,
-  matching API and the Settings module list/diff UI. This is the §7 layer, separate from step 5.
+**5b. Modalities/factors registry — implemented 2026-10-26.**
+- `config/modalities.v1.yaml` lists 11 modules (volume budget, DUP, deload, MRV cap,
+  under-MEV, readiness valve, e1RM decay/calibration, plausibility, hinge maximal, spinal) plus
+  read-only hard-safety entries. Every enabled key points at the existing setting; there is no
+  second toggle. Factors are references to existing registry keys.
+- `settings modalities list/show/set`, `GET/POST /api/modalities`, and the Settings **Modules**
+  panel use the same core. Toggles delegate to the settings profile or athlete profile; guarded
+  modules use the step-5 confirmation. Hard-safety entries are read-only.
+
+**5c. Remaining modules (after step 6).**
+- Continuity calibration, fatigue-fitness shadow, test cadence, warmup, selection, and
+  high-intensity exposure. These are deliberately deferred: selection is per-request rather
+  than a standing module, the exposure rule is a hard display guard, and the others lack a
+  clean registry-backed enable/factor contract. Adding them now would create no-op or
+  ambiguous toggles. 5c needs its own class/dependency decisions.
+
 
 **6. Forecast and workout panels.**
 - Budget-aware programme projection across dates; Prescribe/Workout weekly panel; `volume`
@@ -901,6 +914,7 @@ it; not v1.
 | 28 | 7b profile-backed feature wiring | Resolve one `FeatureSettings` snapshot per date; wire DUP (including the full scheme table), deload decisions/application, volume landmarks/under-MEV, readiness set reduction, e1RM window/source/decay/calibration and plausibility into engine, programme, CLI and status views; no retrospective review; no UI (`DEC-VOLUME-23`) |
 | 29 | Hinge maximal setting | `undulation.maximal_hinge_allowed` (default false) profile/config-backed; `Schemes.applicable` honors it; Settings UI follows step 5 (`DEC-VOLUME-24`) |
 | 30 | Step 5 Settings UI/guard | profile editor with diff, reset and append-only reason; guarded MRV cap and spinal cap/costs with typed confirmation; drop panel writes profile budget; rule context reads the same spinal override; no modalities yet (`DEC-VOLUME-25`) |
+| 31 | 5b modality registry | 11 metadata modules + hard-safety read-only entries; enabled keys delegate to existing settings; CLI/API/Settings Modules panel parity; factors reference existing keys; no second toggle (`DEC-VOLUME-26`) |
 
 Step 1 is implemented read-only (the module, the `volume_exemption` table and the config
 section). Step 2 is implemented behind the off-by-default profile flag, step 2b adds the opt-in

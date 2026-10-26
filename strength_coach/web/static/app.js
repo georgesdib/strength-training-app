@@ -2689,6 +2689,62 @@ function syncLlmFields() {
     .forEach((selector) => { const node = $(selector); if (node) node.disabled = !on; });
 }
 
+function renderModalities(data) {
+  window.__modalities = data || {};
+  const box = $("#settings-modalities");
+  if (!box) return;
+  box.innerHTML = (data.modules || []).map((module) => {
+    const deps = (module.dependencies || []).map((dep) => {
+      const ok = module.dependency_state?.[dep];
+      return '<span class="badge ' + (ok ? "" : "warn") + '">' + esc(dep) + (ok ? "" : " (off)") + "</span>";
+    }).join(" ") || '<span class="muted">no dependencies</span>';
+    const factors = (module.factors || []).map((factor) =>
+      '<code>' + esc(factor.key) + "</code>").join(" ") || '<span class="muted">no factors</span>';
+    const cls = module.class === "hard_safety" ? "badge" :
+      module.class === "guarded_safety" ? "badge warn" : "badge";
+    const toggle = module.toggleable
+      ? '<button type="button" data-modality-toggle="' + esc(module.id) + '">' +
+        (module.enabled ? "Turn off" : "Turn on") + "</button>"
+      : '<span class="muted">' + (module.class === "hard_safety" ? "read-only" : "always on") + "</span>";
+    return '<div class="panel" style="margin:0 0 10px"><div class="panel-head"><h3>' +
+      esc(module.label) + '</h3><span class="' + cls + '">' + esc(module.class) + "</span></div>" +
+      '<div class="form-row"><span><strong>' + (module.enabled ? "on" : "off") +
+      "</strong> · " + esc(module.enabled_source) + "</span>" + toggle + "</div>" +
+      "<p class='muted'>Dependencies: " + deps + "</p>" +
+      "<p class='muted'>Factors: " + factors + "</p>" +
+      (module.citations?.length ? "<p class='muted'>Citations: " + esc(module.citations.join(", ")) + "</p>" : "") +
+      "</div>";
+  }).join("");
+}
+
+async function updateModality(moduleId) {
+  const data = window.__modalities || {};
+  const module = (data.modules || []).find((row) => row.id === moduleId);
+  if (!module) return;
+  try {
+    const guarded = module.class === "guarded_safety";
+    if (guarded) {
+      if (!$("#settings-profile-guard").checked ||
+          $("#settings-profile-guard-text").value.trim() !== "SPINAL" ||
+          !$("#settings-profile-reason").value.trim()) {
+        throw new Error("Guarded modules need the confirmation tick, SPINAL and a reason.");
+      }
+    }
+    await api("/api/modalities/" + encodeURIComponent(moduleId), {
+      method: "POST",
+      body: JSON.stringify({
+        enabled: !module.enabled,
+        guard_confirmed: $("#settings-profile-guard").checked,
+        reason: $("#settings-profile-reason").value.trim() || null,
+      }),
+    });
+    $("#settings-profile-msg").textContent = "Module updated: " + moduleId;
+    await loadSettings();
+  } catch (error) {
+    $("#settings-profile-msg").textContent = error.message;
+  }
+}
+
 function renderSettings(data) {
   const llm = data.llm || {};
   window.__llmSettings = llm;
@@ -2876,14 +2932,21 @@ async function loadSettings() {
   try {
     const data = await api("/api/settings");
     const profile = await api("/api/settings/profile");
+    const modalityData = await api("/api/modalities");
     renderSettings(data);
     renderProfileSettings(data.registry || [], profile);
+    renderModalities(modalityData);
   } catch (error) {
     $("#settings-llm-status").textContent = "error";
     $("#settings-llm-msg").textContent = error.message;
   }
 }
 
+const moduleBox = $("#settings-modalities");
+if (moduleBox) moduleBox.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-modality-toggle]");
+  if (button) updateModality(button.dataset.modalityToggle);
+});
 const profileSave = $("#settings-profile-save");
 if (profileSave) profileSave.addEventListener("click", saveProfileDraft);
 const profileReset = $("#settings-profile-reset");

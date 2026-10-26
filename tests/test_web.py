@@ -636,6 +636,16 @@ def test_volume_budget_endpoint_is_read_only(server):
     assert data["note"].startswith("Read-only")
 
 
+def test_modalities_endpoint_lists_and_sets(server):
+    status, body = get(server, "/api/modalities")
+    assert status == 200
+    data = json.loads(body)
+    assert any(row["id"] == "deload" for row in data["modules"])
+    saved = post(server, "/api/modalities/deload", {"enabled": False})
+    assert saved["id"] == "deload"
+    assert saved["enabled"] is False
+
+
 def test_settings_drop_endpoint_writes_the_profile(server):
     saved = post(server, "/api/settings/drop", {
         "enabled": False, "competition_confirm_days": 9,
