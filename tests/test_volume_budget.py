@@ -662,6 +662,34 @@ def test_compensation_refuses_without_an_executable_load():
     assert any("MOD-VOL-004" in warning for warning in prescription.warnings)
 
 
+def test_compensation_falls_back_to_a_recorded_e1rm():
+    rows = [
+        {"Date": "2026-10-26", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"}
+        for _ in range(10)
+    ]
+    store = store_with(rows)
+    try:
+        repositories.append_e1rm_override(
+            store.connection, exercise_id="dumbbell_bench_press", e1rm_kg=30.0,
+            effective_from="2026-10-26", reason="test compensation",
+        )
+        _profile(store.connection, enabled=True, policy="preserve", sessions=1)
+        prescription = build_prescription(
+            store.connection, for_date="2026-10-29", session_type="hinge",
+        )
+    finally:
+        store.close()
+    added = [
+        item for item in prescription.items
+        if item.exercise_id == "dumbbell_bench_press"
+    ]
+    assert len(added) == 1
+    assert added[0].load_kg is not None
+    assert "MOD-VOL-004" in added[0].rationale_refs
+    assert prescription.notes["compensation"]["status"] == "applied"
+
+
 def test_the_budget_note_is_wired_into_the_prescription():
     store = store_with()
     try:

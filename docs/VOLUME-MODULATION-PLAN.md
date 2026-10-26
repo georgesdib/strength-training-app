@@ -438,15 +438,18 @@ The preview works like this:
 With `apply: true` and the budget on, 9b builds one new non-essential item from the selected
 candidate using the normal `build_item` load solver. The item cites `MOD-VOL-004`; MRV, spinal,
 under-MEV, deload, total and time checks still run afterwards. If the candidate has no working
-history or no usable e1RM, the engine refuses it, warns, and leaves the prescription unchanged.
+history, the engine retries with the **e1RM basis**. If that also has no usable e1RM, the
+Prescribe panel asks the athlete to enter one (and the CLI prints the `e1rm set` command), then
+rebuilds. It refuses only if no usable load exists after that.
 
 Worked example: squat is filled before today, so the hinge session's split-squat accessory frees
 3–4 sets. Bench is short; the bench weight 0.8 beats hinge 0.3, so the one slot selects the
 dumbbell bench. With a recorded dumbbell-bench load, 9b adds that item; without one, it refuses
 and names the missing history.
 
-`MOD-VOL-004` is declared in constitution **1.17.0**. Step 9c (`drop`) is still open; it removes
-and relabels a main lift and is not part of this rule.
+`MOD-VOL-004` is declared in constitution **1.17.0**. When the slot has no load, the athlete
+is asked for an e1RM rather than silently refused (`DEC-VOLUME-15`). Step 9c (`drop`) is still
+open; it removes and relabels a main lift and is not part of this rule.
 
 ## 5. Worked examples
 
@@ -781,6 +784,7 @@ it; not v1.
 | 17 | All parameters config-backed | total/per-group targets, daily/session total and per-group caps, tolerance/band minimum, trim/top-up switches, accessory floor and per-item top-up ceiling, set seconds/warm-up/time cap, and the reduce floor all live in `config/volume.v1.yaml`; the profile only adds on/off, policy and a tightening `max_session_minutes` (`DEC-VOLUME-12`) |
 | 18 | 9a/9b compensation | 9a preview: slot pool, similarity weights and `compensation` report. 9b application: with `apply: true` and the budget on, one non-essential slot is added with a real load (`MOD-VOL-004`, constitution 1.17.0); no history refuses. 9c is `drop` |
 | 19 | 9b application | one slot added through `build_item`; executable load required; refusal is a warning, not a guessed load; `MOD-VOL-004`; all later caps still run (`DEC-VOLUME-14`) |
+| 20 | Missing compensation load | retry with the e1RM basis, then ask the athlete for an e1RM (UI prompt/CLI) and rebuild; refuse only if still unusable (`DEC-VOLUME-15`) |
 
 Step 1 is implemented read-only (the module, the `volume_exemption` table and the config
 section). Step 2 is implemented behind the off-by-default profile flag, step 2b adds the opt-in

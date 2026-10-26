@@ -755,6 +755,29 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
   }
 });
 
+async function recordCompensationE1rm(exerciseId) {
+  const kg = Number($("#comp-e1rm-kg")?.value);
+  if (!(kg > 0)) {
+    $("#comp-e1rm-msg").textContent = "Enter a positive e1RM.";
+    return;
+  }
+  try {
+    await api("/api/state/e1rm", {
+      method: "POST",
+      body: JSON.stringify({
+        exercise_id: exerciseId,
+        e1rm_kg: kg,
+        effective_from: lastPrescribePayload?.date || new Date().toISOString().slice(0, 10),
+        reason: "compensation slot",
+      }),
+    });
+    $("#comp-e1rm-msg").textContent = "Saved; rebuilding...";
+    $("#prescribe-form").requestSubmit();
+  } catch (error) {
+    $("#comp-e1rm-msg").textContent = error.message;
+  }
+}
+
 async function applySuggestedDeload() {
   if (!lastPrescribePayload) return;
   const payload = { ...lastPrescribePayload, deload_confirmed: true };
@@ -796,6 +819,15 @@ function renderPrescription(p) {
   const warnings = p.warnings.length
     ? '<div class="warnbox"><strong>Warnings</strong><ul class="list">' +
       p.warnings.map((w) => "<li>" + esc(w) + "</li>").join("") + "</ul></div>" : "";
+  const comp = p.notes?.compensation || {};
+  const compSelected = comp.status === "refused" ? comp.selection?.selected : null;
+  const compBox = compSelected
+    ? `<div class="warnbox"><strong>Compensation needs an e1RM</strong>
+       <p>${esc(comp.reason || "No usable e1RM")} for <code>${esc(compSelected.exercise_id)}</code>.</p>
+       <label>e1RM (kg)<input id="comp-e1rm-kg" type="number" step="0.5" min="0"></label>
+       <button type="button" class="primary" onclick="recordCompensationE1rm('${esc(compSelected.exercise_id)}')">Save e1RM and rebuild</button>
+       <span id="comp-e1rm-msg" class="muted"></span></div>`
+    : "";
   const selection = p.notes?.selection;
   const selectionSuggestions = (selection?.slots || []).filter(
     (s) => s.trigger && s.trigger !== "none" && s.changed
@@ -838,7 +870,7 @@ function renderPrescription(p) {
   $("#prescribe-result").innerHTML = `<div class="panel">
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_type || "unknown")}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
-    ${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
+    ${compBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <div class="form-row">
       ${p.executable
         ? '<button class="primary" type="button" onclick="openWorkoutStart()">Start workout</button>'

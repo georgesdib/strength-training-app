@@ -1335,14 +1335,27 @@ def _apply_compensation(
         calibration_factors=calibration_factors, exercise_id=exercise_id,
     )
     if item.load_kg is None or item.unknown_load_reason is not None:
-        reason = item.unknown_load_reason or "no executable load"
-        return tuple(items), (
-            f"MOD-VOL-004: compensation {exercise_id} refused: {reason}",
-        ), {
-            "status": "refused",
-            "selection": selection,
-            "reason": reason,
-        }
+        # Retry with the e1RM basis so a manual e1RM can satisfy 9b.
+        if str(slot.load_source) != "e1rm":
+            retry_slot = replace(slot, load_source="e1rm")
+            retry, retry_warnings = build_item(
+                conn, context, retry_slot, len(items), thresholds, for_date, decisions,
+                template, calibration_factors=calibration_factors,
+                exercise_id=exercise_id,
+            )
+            if retry.load_kg is not None and retry.unknown_load_reason is None:
+                item = retry
+                slot_warnings = tuple(slot_warnings) + tuple(retry_warnings)
+        if item.load_kg is None or item.unknown_load_reason is not None:
+            reason = item.unknown_load_reason or "no executable load"
+            return tuple(items), (
+                f"MOD-VOL-004: compensation {exercise_id} refused: {reason}; "
+                "record an e1RM and rebuild",
+            ), {
+                "status": "refused",
+                "selection": selection,
+                "reason": reason,
+            }
     item = replace(
         item, rationale_refs=item.rationale_refs + ("MOD-VOL-004",),
     )
