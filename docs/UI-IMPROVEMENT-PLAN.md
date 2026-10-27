@@ -25,6 +25,10 @@ The ordering principle is: **security and request correctness first, determinism
 integrity third, browser evidence fourth, modularisation last.** Modularisation is the only
 workstream that is purely structural; it must not hide or complicate the correctness fixes.
 
+Every final-audit finding is assigned to Workstreams A–F or explicitly marked no-change in the
+findings ledger. The O1–O10 items in §14 are deferred improvements, not omitted: they stay in
+this plan with a trigger, but they are not part of commits 0–8.
+
 ---
 
 ## 2. Findings ledger
@@ -475,7 +479,12 @@ test is not a passed browser test.
 
 ---
 
-## 14. Optional follow-ups
+## 14. Deferred follow-ups (in the plan, not in the current sequence)
+
+These are part of the plan, not a separate backlog. They are deferred because they are
+improvements rather than confirmed defects, depend on an earlier workstream, or need a decision
+or evidence. Each has a trigger; promote it to a numbered commit when the trigger is met. They
+are not part of commits 0–8.
 
 - **O1 — Settings extraction** after Exercises.
 - **O2 — view registry** for `setView`; defer until at least two features have moved.
