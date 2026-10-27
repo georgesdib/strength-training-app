@@ -656,6 +656,20 @@ computed in the browser.
 audit are consolidated in [`docs/UI-IMPROVEMENT-PLAN.md`](docs/UI-IMPROVEMENT-PLAN.md); closed
 2026-10-27 (implemented and merged into `main`; merge `db1cc8f`, lint `49a49cd`).
 
+**Deferred UI follow-ups (not scheduled).** The plan's O1–O10 are kept here so they are not
+lost; details and evidence live in the plan's §14:
+
+- **O1 — Settings extraction** after Exercises.
+- **O2 — view registry** for `setView`; once at least two features have moved.
+- **O3 — migrate `history.js`/`workout.js` to core**; once a third feature needs the helpers.
+- **O4 — streaming/multipart imports** if 40 MiB parse memory becomes a problem.
+- **O5 — read timeouts** for slow bodies (slowloris); local-only, lower priority.
+- **O6 — HTTP/1.1 and keep-alive**; only with close/drain handling and tests.
+- **O7 — limit tuning** (64 vs 96 MiB) after a rejected legitimate import.
+- **O8 — 411/413 error copy**; friendly UI text.
+- **O9 — markdown scheme allowlist**; block `javascript:` targets.
+- **O10 — browser coverage** for import preview/apply and more failure paths.
+
 ### 4.12 Continuity calibration from real returns  (v0.3, implemented; calibrated factor rejected)
 
 Estimate per-athlete return retention from actual returns. The fixed 14/28/56 bands remain per-band
