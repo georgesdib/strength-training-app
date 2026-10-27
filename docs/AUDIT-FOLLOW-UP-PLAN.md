@@ -1,7 +1,8 @@
 # AUDIT FOLLOW-UP — implementation plan
 
-**Status:** proposed 2026-10-27. Four findings from the prescription audit plus a post-implementation
-adversarial audit gate. Part A is decided (`DEC-SPINE-07`); Part B is decided (`DEC-POWER-02`);
+**Status:** implemented 2026-10-27. The audit report is
+[`AUDIT-FOLLOW-UP-REPORT.md`](AUDIT-FOLLOW-UP-REPORT.md). The body below is the plan as
+written, including the pre-implementation state it described. Part A is decided (`DEC-SPINE-07`); Part B is decided (`DEC-POWER-02`);
 Part C is a documentation/tooling fix with no constitution change; Part D is decided
 (`DEC-VOLUME-30`); Part E verifies the fixes behaviourally after they land. No code has been changed
 for any part.
@@ -10,9 +11,9 @@ for any part.
 |---|---|---|---|
 | A | back-flare scope misses a non-essential high-fatigue hinge; the sumo is not aligned with the competition squat; interaction tests are missing; the erector dose can be reset upward after a readiness cut | implemented 2026-10-27 (`DEC-SPINE-08`); dose ceiling and interaction matrix included | none |
 | B | power work is displayed as RIR-limited but instructed as quality-limited | implemented 2026-10-27 (`DEC-POWER-03`) | none |
-| C | the programme review and dependent summaries describe the old bench+hinge support | agreed; docs/tooling only | none |
+| C | the programme review and dependent summaries describe the old bench+hinge support | implemented 2026-10-27 | none |
 | D | same-date recorded sets are counted as completed **and** added as proposed in the MRV cap, the spinal cap and the budget application | implemented 2026-10-27 (`DEC-VOLUME-31`) | none |
-| E | independent adversarial audit of the fixed system, including the five previous fixes | deferred until A–D are implemented | A–D merged; clean tree; green baseline |
+| E | independent adversarial audit of the fixed system, including the five previous fixes | completed 2026-10-27; report linked above | none |
 
 The parts A–D are independent and can ship in any order. E is a gate over all of them, so it runs
 last; the sequencing in §F is the safe one.

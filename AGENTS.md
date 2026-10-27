@@ -220,7 +220,8 @@ never read `data/raw`.
 | `docs/CONTINUITY.md` | gap detection and re-entry rules; the injury signal is separate |
 | `docs/INJURY-SIGNAL.md` | per-region injury signals, what "tolerated" loading means, injury-to-exercise links |
 | `docs/SYMPTOM-LOGGING.md` | the 0-3 reading: what counts as a flare, and what to log when a symptom settles |
-| `docs/AUDIT-FOLLOW-UP-PLAN.md` | implementation plan for three audit findings: back-flare scope (`DEC-SPINE-07`), quality-limited power work, and programme-document drift; no code yet |
+| `docs/AUDIT-FOLLOW-UP-PLAN.md` | implemented audit follow-up: back-flare scope, quality-limited power, programme-document drift, same-date accounting and the audit gate |
+| `docs/AUDIT-FOLLOW-UP-REPORT.md` | audit follow-up report: five previous fixes verified, residual risks and unverified areas |
 | `docs/CORE-TRAINING.md` | core/trunk training evidence and the proposed programme amendment |
 | `docs/LONGEVITY-REVIEW.md` | modality review against the longevity-first goal: gaps, doses, priorities |
 | `docs/FATIGUE-FITNESS.md` | fatigue-fitness evidence, strength recovery, e1RM calibration and why no model drives loads |
