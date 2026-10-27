@@ -439,6 +439,8 @@ def pattern_sets(
     out = {key: 0.0 for key in TARGET_KEYS}
     for row in rows:
         key = row.get("key")
+        if key is None and row.get("exercise_id"):
+            key = pattern_key(str(row["exercise_id"]))
         sets = float(row.get("sets") or 0)
         if key in out:
             out[key] += sets
@@ -1302,8 +1304,13 @@ def report(
     if profile_max is not None:
         time_cap = min(time_cap, float(profile_max))
 
+    projected_rows = list(projected_items)
     today_sessions = queries.sessions(conn, start=str(on_date), end=str(on_date))
     today_done = not today_sessions.empty
+    # A plan supplied for a date that already has a session is a revision: the date's work is
+    # what the plan replaces, so it is excluded from the completed baseline and the plan is
+    # counted once (DEC-VOLUME-30). A read-only report with no plan keeps the old meaning.
+    revision = today_done and bool(projected_rows)
     today_type = None
     if today_done:
         today_type = str(today_sessions.iloc[-1].get("session_type") or "unknown")
@@ -1311,17 +1318,22 @@ def report(
     mapping = cfg.indirect_by_group if cfg.set_accounting == "effective" else None
     targets = cfg.targets_for(cfg.set_accounting)
     completed = completed_sets(
-        conn, on_date=on_date, include_today=today_done,
-        projected=projected_items, mapping=mapping,
+        conn, on_date=on_date, include_today=today_done and not revision,
+        projected=() if revision else projected_rows, mapping=mapping,
     )
     exempt = exemptions(conn, on_date=on_date)
     effective = effective_targets(targets, exempt)
     sessions_done = completed_sessions(conn, on_date=on_date) + int(projected_sessions)
 
-    if today_done:
+    if revision:
+        today_type = session_type or today_type or "unknown"
+        today_rows: list[dict[str, Any]] = list(projected_rows)
         future_count = max(0, target_frequency - sessions_done)
-        today_rows: list[dict[str, Any]] = []
-        prior: list[str] = []
+        prior: list[str] = [today_type]
+    elif today_done:
+        future_count = max(0, target_frequency - sessions_done)
+        today_rows = []
+        prior = []
     else:
         future_count = max(0, target_frequency - sessions_done - 1)
         today_type = session_type or schedule.next_session_type(conn, str(on_date))
@@ -1402,6 +1414,7 @@ def report(
         "week": {"start": start, "end": end},
         "sessions_target": target_frequency,
         "sessions_done": sessions_done,
+        "revision": revision,
         "today": {
             "done": today_done,
             "session_type": today_type,
@@ -1500,12 +1513,13 @@ def week_panel(
         }
     sessions_done = int(data["sessions_done"])
     sessions_target = int(data["sessions_target"])
+    today_slot = 0 if data.get("revision") else 1
     return {
         "on_date": str(on_date),
         "week": data["week"],
         "sessions_target": sessions_target,
         "sessions_done": sessions_done,
-        "sessions_remaining": max(0, sessions_target - sessions_done - 1),
+        "sessions_remaining": max(0, sessions_target - sessions_done - today_slot),
         "target": round(data["total_effective"], 1),
         "completed": round(sum(data["completed"].values()), 1),
         "after": round(sum(after.values()), 1),
@@ -1539,10 +1553,6 @@ def apply(
     if not enabled:
         return tuple(items), (), {"enabled": False}
 
-    data = report(
-        conn, for_date, config=cfg, session_type=session_type,
-        projected_items=projected_items, projected_sessions=projected_sessions,
-    )
     rows: list[dict[str, Any]] = []
     for index, item in enumerate(items):
         entity = context.entity(item.exercise_id) or {}
@@ -1558,6 +1568,12 @@ def apply(
             "rest_s": int(item.rest_s or 0),
             "key": key,
         })
+    same_date = not queries.sessions(conn, start=for_date, end=for_date).empty
+    data = report(
+        conn, for_date, config=cfg, session_type=session_type,
+        projected_items=rows if same_date else projected_items,
+        projected_sessions=projected_sessions,
+    )
     policy = str(profile.get("main_lift_policy") or "preserve")
     main_changed: list[dict[str, Any]] = []
     if policy == "reduce":

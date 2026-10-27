@@ -11,7 +11,7 @@ for any part.
 | A | back-flare scope misses a non-essential high-fatigue hinge; the sumo is not aligned with the competition squat; interaction tests are missing; the erector dose can be reset upward after a readiness cut | implemented 2026-10-27 (`DEC-SPINE-08`); dose ceiling and interaction matrix included | none |
 | B | power work is displayed as RIR-limited but instructed as quality-limited | decided (`DEC-POWER-02`), implementation pending | none (decision recorded) |
 | C | the programme review and dependent summaries describe the old bench+hinge support | agreed; docs/tooling only | none |
-| D | same-date recorded sets are counted as completed **and** added as proposed in the MRV cap, the spinal cap and the budget application | decided (`DEC-VOLUME-30`), implementation pending | none (decision recorded) |
+| D | same-date recorded sets are counted as completed **and** added as proposed in the MRV cap, the spinal cap and the budget application | implemented 2026-10-27 (`DEC-VOLUME-31`) | none |
 | E | independent adversarial audit of the fixed system, including the five previous fixes | deferred until A–D are implemented | A–D merged; clean tree; green baseline |
 
 The parts A–D are independent and can ship in any order. E is a gate over all of them, so it runs
@@ -673,6 +673,9 @@ uses the prior view.
   no-session path is unchanged and tested.
 - **Out of scope:** multiple plans per date, cross-date debt, and changing the MRV/spinal
   thresholds. This is an accounting fix, not a cap change.
+- **Drop and under-MEV same-date paths.** `plan_drop` and the under-MEV top-up still read
+  the full context; they are separate opt-in/accessory rules and were not part of this
+  fix. The audit gate should verify them.
 
 ---
 

@@ -10,7 +10,7 @@ reverse -- see AGENTS.md §4).
 from __future__ import annotations
 
 import datetime as _dt
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Mapping
 
 import pandas as pd
@@ -87,6 +87,41 @@ class RuleContext:
 
     def entity(self, exercise_id: str) -> Mapping[str, Any]:
         return self.entities.get(str(exercise_id), {})
+
+    def prior_to(self, for_date: str) -> "RuleContext":
+        """The context as it stood before `for_date`, for a plan on that date.
+
+        A prescription is the plan for its date. If a session is already recorded there, the
+        plan is a revision and its recorded sets are the work being revised, not additional
+        completed work. Performed-work predicates keep the full context; only the proposed-week
+        accounting (MRV, spinal cap, budget) uses this view (DEC-VOLUME-30).
+        """
+        cutoff = pd.Timestamp(for_date)
+        sets = self.sets[self.sets["date"] < cutoff] if not self.sets.empty else self.sets
+        sessions = (
+            self.sessions[self.sessions["occurred_on"] < cutoff]
+            if not self.sessions.empty else self.sessions
+        )
+        # Synthetic contexts in unit tests carry only the columns a predicate needs. Recompute
+        # the evidence indices only when the frame has them; otherwise keep the parent view.
+        has_set_keys = {"session_id", "set_id"} <= set(sets.columns)
+        set_keys = _set_keys(sets) if has_set_keys else self.set_keys
+        session_ids = (
+            frozenset(sets["session_id"].astype(str))
+            if "session_id" in sets.columns else self.session_ids
+        )
+        iso_weeks = (
+            frozenset(sets["iso_week"].dropna())
+            if "iso_week" in sets.columns else self.iso_weeks
+        )
+        return replace(
+            self,
+            sets=sets,
+            sessions=sessions,
+            set_keys=set_keys,
+            session_ids=session_ids,
+            iso_weeks=iso_weeks,
+        )
 
     @classmethod
     def from_store(

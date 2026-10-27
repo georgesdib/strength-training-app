@@ -121,6 +121,18 @@ def build_prescription(
 
     items: list[PrescriptionItem] = []
     warnings: list[str] = []
+    same_date_sessions = queries.sessions(conn, start=for_date, end=for_date)
+    same_date_note = None
+    if not same_date_sessions.empty:
+        same_date_note = {
+            "session_ids": [str(value) for value in same_date_sessions["session_id"]],
+            "session_types": [str(value) for value in same_date_sessions["session_type"]],
+        }
+        warnings.append(
+            f"same-date session recorded on {for_date} "
+            f"({', '.join(same_date_note['session_ids'])}); this plan is a revision and the "
+            "date's recorded sets are excluded from week accounting"
+        )
     if drop_applied:
         if session_type == "technique":
             warnings.append(
@@ -540,6 +552,7 @@ def build_prescription(
             },
             "back_flare": bool(context.symptom_flare),
             "back_flare_review": flare_note,
+            "same_date_session": same_date_note,
             "constraints": constraint_report.status,
             "session_type": session_type,
             "under_mev": under_note,
@@ -683,7 +696,9 @@ def _apply_volume_cap(
         return items, (), {"applied": False, "reason": "cap disabled"}
 
     cutoff = pd.Timestamp(for_date) - pd.Timedelta(days=7)
-    prior = context.sets
+    # A plan on a date with a recorded session is a revision: that date's work is what the
+    # plan replaces, not an addition to it (DEC-VOLUME-30).
+    prior = context.prior_to(for_date).sets
     if not prior.empty and "is_working_set" in prior:
         prior = prior[prior["is_working_set"].astype(bool)]
         prior = prior[(prior["date"] > cutoff) & (prior["date"] <= pd.Timestamp(for_date))]
@@ -766,7 +781,8 @@ def _week_spinal(
     """
     week = registry.iso_week(for_date)
     proposed = [(for_date, item.exercise_id, for_date) for item in items]
-    entry = registry.weekly_spinal_costs(rule, context, proposed).get(week, {})
+    plan_context = context.prior_to(for_date)
+    entry = registry.weekly_spinal_costs(rule, plan_context, proposed).get(week, {})
     mix = {str(ex): int(n) for ex, n in (entry.get("exercises") or {}).items()}
     return (
         week,
