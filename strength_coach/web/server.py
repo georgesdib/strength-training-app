@@ -949,6 +949,7 @@ class Handler(BaseHTTPRequestHandler):
                 rir=_integer(body.get("rir")),
                 velocity=_number(body.get("velocity")),
                 source=str(body.get("source") or "manual"),
+                set_index=_integer(body.get("set_index")),
             )
         elif action == "update-set":
             result = workout.update_set(

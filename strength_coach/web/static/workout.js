@@ -11,6 +11,7 @@ const WORKOUT_LABELS = {
 };
 let workoutTimer = null;
 let activeWorkoutId = null;
+let workoutSetBusy = false;
 
 function workoutField(key, required) {
   var label = '<label>' + esc(WORKOUT_LABELS[key] || key);
@@ -599,14 +600,26 @@ function removeWorkoutSet(setId) {
 
 function submitWorkoutSet(event) {
   event.preventDefault();
-  if (!activeWorkoutId) return;
+  if (!activeWorkoutId || workoutSetBusy) return;
+  var data = window.__workoutData || {};
+  var exerciseId = $("#workout-set-exercise").value;
+  var used = (data.sets || []).filter(function (set) {
+    return set.exercise_id === exerciseId;
+  });
+  var next = used.reduce(function (max, set) {
+    return Math.max(max, Number(set.set_index) || 0);
+  }, 0) + 1;
   var body = {
-    exercise_id: $("#workout-set-exercise").value,
+    exercise_id: exerciseId,
     load_kg: $("#workout-set-load").value || null,
     reps: $("#workout-set-reps").value || null,
     rir: $("#workout-set-rir").value || null,
-    velocity: $("#workout-set-velocity").value || null
+    velocity: $("#workout-set-velocity").value || null,
+    set_index: next
   };
+  workoutSetBusy = true;
+  var submit = document.querySelector('#workout-set-form button[type="submit"]');
+  if (submit) submit.disabled = true;
   $("#workout-set-msg").textContent = "Adding…";
   api("/api/workout/" + activeWorkoutId + "/sets", {
     method: "POST", body: JSON.stringify(body)
@@ -620,6 +633,9 @@ function submitWorkoutSet(event) {
     renderWorkout(data.workout);
   }).catch(function (error) {
     $("#workout-set-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>";
+  }).finally(function () {
+    workoutSetBusy = false;
+    if (submit) submit.disabled = false;
   });
 }
 

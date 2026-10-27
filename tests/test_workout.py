@@ -416,3 +416,56 @@ def test_optional_post_lift_form_ratings_materialise(conn):
     assert [(row["exercise_id"], row["rating"]) for row in rows] == [
         ("trap_bar_deadlift", 4)
     ]
+
+def test_duplicate_set_index_is_idempotent(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    first = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2, set_index=1,
+    )
+    retry = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=105, reps=4, rir=2, set_index=1,
+    )
+    assert len(retry["sets"]) == 1
+    assert retry["sets"][0]["set_id"] == first["sets"][0]["set_id"]
+    assert retry["sets"][0]["load_kg"] == 100
+
+
+def test_end_retry_returns_the_completed_workout(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    workout.add_set(conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+                    load_kg=100, reps=5, rir=2)
+    ended = workout.end(conn, started["workout_id"], session_rpe=7, duration_min=55)
+    retry = workout.end(conn, started["workout_id"], session_rpe=7, duration_min=55)
+    assert retry["status"] == "completed"
+    assert retry["ended_at"] == ended["ended_at"]
+    assert conn.execute(
+        "SELECT COUNT(*) AS c FROM session WHERE session_id = ?",
+        (started["workout_id"],),
+    ).fetchone()["c"] == 1
+    assert conn.execute(
+        "SELECT COUNT(*) AS c FROM critique WHERE session_id = ?",
+        (started["workout_id"],),
+    ).fetchone()["c"] == 1
+
+
+def test_end_failure_rolls_back_the_completion(conn, monkeypatch):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    workout.add_set(conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+                    load_kg=100, reps=5, rir=2)
+    original = workout._event
+
+    def boom(conn, workout_id, event_type, payload, **kwargs):
+        if event_type == "end":
+            raise RuntimeError("injected end failure")
+        return original(conn, workout_id, event_type, payload, **kwargs)
+
+    monkeypatch.setattr(workout, "_event", boom)
+    with pytest.raises(RuntimeError, match="injected end failure"):
+        workout.end(conn, started["workout_id"], session_rpe=7, duration_min=55)
+    assert workout.get(conn, started["workout_id"])["status"] == "in_progress"
+    assert conn.execute(
+        "SELECT COUNT(*) AS c FROM session WHERE session_id = ?",
+        (started["workout_id"],),
+    ).fetchone()["c"] == 0

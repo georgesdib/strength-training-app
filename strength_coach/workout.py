@@ -21,7 +21,7 @@ from strength_coach.critique import build_facts, score_session
 from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import session_identity
-from strength_coach.store import repositories
+from strength_coach.store import db, repositories
 from strength_coach.utils import exercises
 
 REQUIRED_READINESS = (
@@ -371,19 +371,29 @@ def add_set(
          if item.get("exercise_id") == exercise_id),
         None,
     )
-    cursor = conn.execute(
-        """
-        INSERT INTO workout_set
+    with db.transaction(conn):
+        existing = conn.execute(
+            "SELECT set_id FROM workout_set WHERE workout_id = ? AND exercise_id = ? "
+            "AND set_index = ?",
+            (workout_id, exercise_id, set_index),
+        ).fetchone()
+        if existing is not None:
+            # A retry after a lost response must not append a second set. The client sends
+            # the next index it knows; an existing row means this request already landed.
+            return get(conn, workout_id)
+        cursor = conn.execute(
+            """
+            INSERT INTO workout_set
+                (workout_id, exercise_id, set_index, load_kg, reps, rir, velocity, source,
+                 prescription_item_index)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
             (workout_id, exercise_id, set_index, load_kg, reps, rir, velocity, source,
-             prescription_item_index)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (workout_id, exercise_id, set_index, load_kg, reps, rir, velocity, source,
-         item_index),
-    )
-    _event(conn, workout_id, "add_set", {"exercise_id": exercise_id,
-                                          "set_index": set_index},
-           target_set_id=int(cursor.lastrowid))
+             item_index),
+        )
+        _event(conn, workout_id, "add_set", {"exercise_id": exercise_id,
+                                              "set_index": set_index},
+               target_set_id=int(cursor.lastrowid))
     return get(conn, workout_id)
 
 
@@ -1157,6 +1167,9 @@ def end(
     workout = get(conn, workout_id)
     if workout is None:
         raise ValueError("workout not found")
+    if workout["status"] == "completed":
+        # A lost response to a successful end must not look like a failure on retry.
+        return workout
     if workout["status"] != "in_progress":
         raise ValueError("workout is not in progress")
     if duration_min is not None:
@@ -1176,26 +1189,28 @@ def end(
     else:
         raise ValueError("session_rpe is required, or mark it not recorded")
     ended = _now()
-    _materialise(
-        conn, workout, ended=ended, duration=duration, duration_source=source,
-        session_rpe=rpe, session_rpe_recorded=not not_recorded, notes=notes,
-    )
-    # A technique session is attendance only: it has no template and no normal rubric.
-    critique_id = None if session_identity.is_technique(workout["session_type"]) else score(conn, workout_id)
-    conn.execute(
-        """
-        UPDATE workout_session
-        SET status = 'completed', ended_at = ?, duration_measured_s = ?,
-            duration_min = ?, duration_source = ?, session_rpe = ?,
-            session_rpe_recorded = ?, notes = COALESCE(?, notes), critique_id = ?
-        WHERE workout_id = ?
-        """,
-        (ended, _elapsed(workout), duration, source, rpe, 0 if not_recorded else 1,
-         notes, critique_id, workout_id),
-    )
-    _event(conn, workout_id, "end", {"duration_min": duration,
-                                      "session_rpe": rpe,
-                                      "not_recorded": bool(not_recorded)})
+    with db.transaction(conn):
+        _materialise(
+            conn, workout, ended=ended, duration=duration, duration_source=source,
+            session_rpe=rpe, session_rpe_recorded=not not_recorded, notes=notes,
+        )
+        # A technique session is attendance only: it has no template and no normal rubric.
+        critique_id = (None if session_identity.is_technique(workout["session_type"])
+                       else score(conn, workout_id))
+        conn.execute(
+            """
+            UPDATE workout_session
+            SET status = 'completed', ended_at = ?, duration_measured_s = ?,
+                duration_min = ?, duration_source = ?, session_rpe = ?,
+                session_rpe_recorded = ?, notes = COALESCE(?, notes), critique_id = ?
+            WHERE workout_id = ?
+            """,
+            (ended, _elapsed(workout), duration, source, rpe, 0 if not_recorded else 1,
+             notes, critique_id, workout_id),
+        )
+        _event(conn, workout_id, "end", {"duration_min": duration,
+                                          "session_rpe": rpe,
+                                          "not_recorded": bool(not_recorded)})
     return get(conn, workout_id)
 
 

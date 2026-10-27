@@ -21,6 +21,7 @@ import pandas as pd
 
 from strength_coach import __version__
 from strength_coach.ingest import clean, readiness as readiness_mod, sessions as sessions_mod
+from strength_coach.store import db
 from strength_coach.store import repositories as repo
 from strength_coach.utils import paths
 
@@ -111,55 +112,57 @@ def import_export(
     )
 
     try:
-        training_raw, training_inserted = repo.store_raw_rows(
-            conn, training, table_name="training", file_sha256=training_sha256
-        )
-        readiness_raw, readiness_inserted = repo.store_raw_rows(
-            conn, readiness, table_name="readiness", file_sha256=readiness_sha256
-        )
+        with db.transaction(conn):
+            training_raw, training_inserted = repo.store_raw_rows(
+                conn, training, table_name="training", file_sha256=training_sha256
+            )
+            readiness_raw, readiness_inserted = repo.store_raw_rows(
+                conn, readiness, table_name="readiness", file_sha256=readiness_sha256
+            )
 
-        result = clean.build_clean_sets(training, readiness)
-        reconstructed = sessions_mod.build_sessions(result.sets)
+            result = clean.build_clean_sets(training, readiness)
+            reconstructed = sessions_mod.build_sessions(result.sets)
 
-        # Sessions first: clean_set.session_id is a foreign key into session.
-        repo.upsert_sessions(conn, reconstructed)
-        inserted, existing = repo.store_clean_sets(conn, result.sets, raw_ids=training_raw)
-        quarantined = repo.store_quarantine(conn, result.quarantine, raw_ids=training_raw)
+            # Sessions first: clean_set.session_id is a foreign key into session.
+            repo.upsert_sessions(conn, reconstructed)
+            inserted, existing = repo.store_clean_sets(conn, result.sets, raw_ids=training_raw)
+            quarantined = repo.store_quarantine(conn, result.quarantine, raw_ids=training_raw)
 
-        # Readiness is merged here because the prescription engine needs one row per date for
-        # MOD-FAT-001; the merge rule is the documented Q6 default (DEC-READINESS-01).
-        readiness_result = readiness_mod.build_readiness_day(readiness)
-        readiness_days = repo.upsert_readiness_days(conn, readiness_result.days)
+            # Readiness is merged here because the prescription engine needs one row per date for
+            # MOD-FAT-001; the merge rule is the documented Q6 default (DEC-READINESS-01).
+            readiness_result = readiness_mod.build_readiness_day(readiness)
+            readiness_days = repo.upsert_readiness_days(conn, readiness_result.days)
 
-        dates = result.sets["date"].dropna() if "date" in result.sets else pd.Series(dtype="object")
-        window_start = pd.Timestamp(dates.min()).date().isoformat() if len(dates) else None
-        window_end = pd.Timestamp(dates.max()).date().isoformat() if len(dates) else None
+            dates = (result.sets["date"].dropna() if "date" in result.sets
+                     else pd.Series(dtype="object"))
+            window_start = pd.Timestamp(dates.min()).date().isoformat() if len(dates) else None
+            window_end = pd.Timestamp(dates.max()).date().isoformat() if len(dates) else None
 
-        repo.log_event(
-            conn,
-            run.run_id,
-            "input",
-            {
-                "training_sha256": training_sha256,
-                "readiness_sha256": readiness_sha256,
-                "training_rows": int(len(training)),
-                "readiness_rows": int(len(readiness)),
-            },
-        )
-        repo.log_event(
-            conn,
-            run.run_id,
-            "artifact",
-            {
-                "raw_rows_inserted": training_inserted + readiness_inserted,
-                "clean_sets_inserted": inserted,
-                "clean_sets_existing": existing,
-                "sessions_written": len(reconstructed),
-                "quarantined": quarantined,
-                "readiness_days": readiness_days,
-            },
-        )
-        repo.finish_run(conn, run.run_id, status="ok")
+            repo.log_event(
+                conn,
+                run.run_id,
+                "input",
+                {
+                    "training_sha256": training_sha256,
+                    "readiness_sha256": readiness_sha256,
+                    "training_rows": int(len(training)),
+                    "readiness_rows": int(len(readiness)),
+                },
+            )
+            repo.log_event(
+                conn,
+                run.run_id,
+                "artifact",
+                {
+                    "raw_rows_inserted": training_inserted + readiness_inserted,
+                    "clean_sets_inserted": inserted,
+                    "clean_sets_existing": existing,
+                    "sessions_written": len(reconstructed),
+                    "quarantined": quarantined,
+                    "readiness_days": readiness_days,
+                },
+            )
+            repo.finish_run(conn, run.run_id, status="ok")
 
         return ImportReport(
             run_id=run.run_id,
@@ -175,7 +178,6 @@ def import_export(
             window_end=window_end,
         )
     except Exception:
-        # The trace must record a failed attempt; swallowing this would leave a run that
-        # looks successful with half its artifacts written.
+        # The run row is outside the transaction; mark it failed after the data rolls back.
         repo.finish_run(conn, run.run_id, status="error")
         raise
