@@ -227,6 +227,7 @@ never read `data/raw`.
 | `docs/FATIGUE-FITNESS.md` | fatigue-fitness evidence, strength recovery, e1RM calibration and why no model drives loads |
 | `docs/LIFT-READINESS.md` | per-lift readiness evidence, components, weights and downward-only rule |
 | `docs/EXERCISE-VARIANTS.md` | how to add a canonical variant, slot wiring, history caveat, selection tuning |
+| `docs/SESSION-TEMPLATES.md` | field guide to session templates: scheduling source of truth, prescription blocks, slot fields, variants, day roles and safety rules |
 | `docs/VARIANT-PATTERN-AUDIT.md` | 2026-10-20 variant pattern/muscle audit: checked exceptions and applied corrections |
 | `docs/SELECTION-COMPARABILITY.md` | evidence and proposed three-class guard for variant substitution |
 | `docs/READINESS-EXERCISE-SELECTION-PLAN.md` | locked symptom/readiness substitution plan plus app-wide readiness policy and periodic-review panel design |

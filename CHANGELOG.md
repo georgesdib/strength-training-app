@@ -145,6 +145,13 @@
 
 ### Changed
 
+- **Same-date drop and under-MEV accounting** (`DEC-VOLUME-32`): the revision view now
+  also covers `plan_drop` and the under-MEV accessory top-up, so a plan rebuilt on a date
+  with a recorded session is counted once in those paths too.
+- **Readiness RIR re-solve** (`DEC-READINESS-18`): when readiness raises the RIR target,
+  the load is re-solved at the bumped RIR from the factor-scaled e1RM. This changes loads
+  for readiness-reduced items; the factor, set reduction and combined-reduction cap keep
+  their existing meaning.
 - **Quality-limited power work** (`DEC-POWER-02/03`): `box_jump` now carries a stored quality stop rule instead of an RIR target. The item has `effort_model = quality`, a null `rir_target`; migration `0041` persists both; the API, UI, CLI, narrative and proposal show the stop rule; RIR transforms and RIR-compliance analytics skip quality items. Old prescriptions keep their recorded numbers.
 - **Same-date plan accounting** (`DEC-VOLUME-30/31`): a plan rebuilt on a date with a recorded session is a revision; the date's recorded sets are excluded from the MRV, spinal and budget baselines and the plan is counted once. A same-date warning and `notes["same_date_session"]` are surfaced; performed-work policy still sees the session.
 - **Back-flare alignment** (`DEC-SPINE-07/08`): the bench+hinge sumo is essential; `MOD-BACK-001` holds essential items and high-fatigue spinal lifts at RIR ≥3 with the load re-solved from the same e1RM, and the direct-erector dose is a ceiling that never restores a readiness cut. The sumo is excluded from the maximal scheme; constitution 1.19.0.

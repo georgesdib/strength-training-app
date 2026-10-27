@@ -10,8 +10,9 @@ import pytest
 from conftest import make_readiness, make_training
 from strength_coach import cli
 from strength_coach.features import readiness as readiness_feature
+from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import readiness_score
-from strength_coach.prescribe import build_prescription
+from strength_coach.prescribe import build_prescription, loads
 from strength_coach.store import db, importer, queries, repositories
 
 TODAY = dt.date.today().isoformat()
@@ -274,7 +275,8 @@ def test_combined_readiness_and_gap_reduction_is_capped():
         prescription = build_prescription(conn, for_date="2024-03-01", session_type="squat")
 
     squat = item(prescription, "ssb_squat")
-    assert squat.load_kg == 84.0       # 105.5 * 0.80, not 0.85 * 0.90
+    # 105.5 * 0.80, then re-solved at the bumped RIR (DEC-READINESS-18).
+    assert squat.load_kg == 79.5
     assert any("capped at 20%" in warning for warning in prescription.warnings)
 
 def _readiness_with_history(history_values, current):
@@ -409,3 +411,36 @@ def test_score_is_independent_of_the_legacy_composite_flag():
     assert day["composite"] is None
     assert assessment.status == "ready"
     assert assessment.score == pytest.approx(0.8)
+
+
+def test_readiness_rir_bump_re_solves_the_load_at_the_bumped_rir():
+    low_rows = [{
+        "Date": TODAY, "Sleep": "1", "Energy": "1", "Mood": "1",
+        "Stress": "1", "Soreness": "1",
+    }]
+    with store_with() as store:
+        neutral = build_prescription(
+            store.connection, for_date=TODAY, session_type="squat",
+        )
+    with store_with(readiness_rows=low_rows) as store:
+        reduced = build_prescription(
+            store.connection, for_date=TODAY, session_type="squat",
+        )
+
+    base = item(neutral, "ssb_squat")
+    low = item(reduced, "ssb_squat")
+    assert low.rir_target > base.rir_target
+    assert low.load_factor < 1.0
+    base_e1rm = e1rm_mod.epley_rir_adjusted(
+        base.load_kg, base.reps_low, base.rir_target,
+    )
+    expected = loads.solve_load(
+        base_e1rm * low.load_factor,
+        low.reps_low,
+        low.rir_target,
+        low.rounding_increment_kg,
+    )
+    assert low.load_kg == expected
+    assert low.load_kg != loads.round_down(
+        base.load_kg * low.load_factor, low.rounding_increment_kg,
+    )

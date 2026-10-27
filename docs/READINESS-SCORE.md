@@ -223,6 +223,11 @@ This is `ASSUMPTION-15`; it prevents a two-field day from masquerading as a full
 | 0.40-0.60 | 0.90 | +1 |
 | < 0.40 | 0.85 | +2 |
 
+When the RIR column changes, the load is **re-solved** from the same e1RM at the bumped RIR,
+with the e1RM scaled by the load factor (`DEC-READINESS-18`, implemented 2026-10-27). The
+printed RIR and the load then describe the same set; a plain factor multiplication would
+leave a RIR label on a load solved for the previous RIR.
+
 Cut-points and factors are `ASSUMPTION-14`. The current sleep/energy rule stays as a **floor**:
 if either is at or below 2, the old 5% reduction still applies even if the composite is high.
 Final factor is the **strongest single reduction**, not a product of every rule; total
@@ -259,7 +264,9 @@ the number is `ASSUMPTION-21`.
 1. Hard constraints and suitability vetoes (unchanged; readiness cannot override).
 2. Back-flare `MOD-BACK-001` (unchanged; wins over readiness).
 3. Per-lift readiness: `min(global, self, injury ceiling)`.
-4. Apply the factor to that item; items without a lift-specific value use the global factor.
+4. Apply the factor to that item, and if the RIR bump applies, re-solve the load at the
+   bumped RIR from the factor-scaled e1RM; items without a lift-specific value use the
+   global factor.
 5. Continuity (`MOD-GAP-001`) applies as today, but the combined reduction is capped.
 6. Cite `readiness:<date>`, `readiness_score:<value>`, the contributors, and the injury region
    that set a ceiling.

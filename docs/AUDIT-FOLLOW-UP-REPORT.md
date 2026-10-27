@@ -20,10 +20,9 @@ regression tests. The full public+private suite passes, the generated programme 
 configuration, and the new prescription invariants hold across the four session types.
 
 It is **not** medically validated, and this audit does not establish that the training
-methodology is optimal. The four residuals below were reviewed with the owner on 2026-10-27.
-**R2 and R4 were accepted and closed** (R2 is not a defect; R4 is a coverage limitation).
-**R1 and R3 remain open** — they were not accepted or fixed, and are described here for the
-owner's decision.
+methodology is optimal. All four residuals below are now closed: **R1 and R3 were fixed** on
+2026-10-27 after owner approval (`DEC-VOLUME-32`, `DEC-READINESS-18`); **R2 and R4 were accepted
+and closed** (R2 is not a defect; R4 is a coverage limitation). No S3 residual remains open.
 
 No S1 (wrong prescription/executability, cap breach, data loss) or S2 (material user-visible
 wrong number/state) finding remains open.
@@ -42,18 +41,17 @@ wrong number/state) finding remains open.
 | F4 | S2 (was) | A plan rebuilt on a date with a recorded session counted the same sets as completed and proposed in MRV, spinal and the budget | `tests/test_same_date_accounting.py`; revision view, plan counted once, report/apply agree | **closed** (`DEC-VOLUME-31`) |
 | F5 | S3 (was) | The symptom tests did not assert the sumo or the final prescription under combined modifiers | `tests/test_back_flare_interactions.py`; final item/RIR/load/issues for readiness, gap, deload, spinal and DUP | **closed** (A.4.1) |
 
-### 2.2 Residuals (R2/R4 closed; R1/R3 open)
+### 2.2 Residuals (all closed 2026-10-27)
 
 | id | severity | residual | evidence / why it remains | impact |
 |---|---|---|---|---|
-| R1 | S3 | `plan_drop` and the under-MEV top-up still read the full context for a plan date with a recorded session | Deliberately out of DEC-VOLUME-31; the plan's D.7 records it. Only reachable with `main_lift_policy: drop` or a persistent under-MEV pattern and a same-date rebuild | A drop/under-MEV decision could be based on a week that counts the date's recorded work twice; narrow, opt-in edge |
-| R2 | S3 | `features/baseline.working_rir_median` still includes box-jump RIR values, though `rir_compliance_pct` excludes them | Descriptive median only; the value is recorded effort, not a target. DEC-POWER-03 excludes the window/compliance path | A per-lift descriptive RIR median for box jumps is not a target; no prescription change |
-| R3 | S3 | Readiness's own RIR bump is not re-solved against the load (pre-existing) | A.8; fixing it would change every readiness-reduced session and needs its own decision | The printed RIR after a readiness bump can sit on a load solved for the previous RIR; the direction is not guaranteed |
-| R4 | S3 | No browser-level UI test suite; ruff is configured but not installed; SQLite concurrency/lock and a real populated-DB migration were not exercised | Tooling limitation, stated rather than papered over | UI rendering and rare concurrency/populated-DB paths are not verified automatically |
+| R1 | S3 (closed) | `plan_drop` and the under-MEV top-up were counting a same-date session as completed *and* adding the plan | Fixed by `DEC-VOLUME-32`: `_apply_under_mev` uses `prior_to(for_date)`; `plan_drop` supplies the template as the revision plan. `tests/test_same_date_accounting.py` covers both | Was a narrow opt-in edge; now the revision semantic is uniform across the budget paths |
+| R2 | S3 (closed, not a defect) | `features/baseline.working_rir_median` includes box-jump RIR values, though `rir_compliance_pct` excludes them | Descriptive median only; the value is recorded effort, not a target. DEC-POWER-03 excludes the window/compliance path | Intended behaviour: preserve the logged observation without scoring it as a target |
+| R3 | S3 (closed) | Readiness's own RIR bump was not re-solved against the load (pre-existing) | Fixed by `DEC-READINESS-18`: the load is re-solved at the bumped RIR from the factor-scaled e1RM. `tests/test_readiness_score.py` asserts the solver result and the changed-load case | Loads for readiness-reduced items changed; the printed RIR and load now describe the same set |
+| R4 | S3 (closed) | No browser-level UI test suite; ruff is configured but not installed; SQLite concurrency/lock not exercised. The populated-DB migration was rehearsed and applied on 2026-10-27 | Tooling limitation, stated rather than papered over; migration now verified on the real file | UI rendering and rare concurrency paths are not verified automatically |
 
-**R1 and R3 are open**; no code change was made. R1 is the only one that can change an
-accounting decision in a narrow opt-in path; R3 would change loads if fixed. R2 and R4 are
-closed as described above.
+All four are closed. R1 and R3 are fixed with regression tests; R2 is not a defect; R4 is an
+accepted coverage limitation. No S3 residual remains open.
 
 ---
 
@@ -66,6 +64,7 @@ closed as described above.
 | `fe2a20e` | **A**: sumo essential, flare hold at build time with load re-solve, erector-dose ceiling, `DEC-SPINE-08`, `LIM-53` closed, interaction matrix, constitution 1.19.0 wording |
 | `1da0cfc` | **D**: `RuleContext.prior_to`, MRV/spinal/budget revision view, same-date note/warning, `DEC-VOLUME-31` |
 | `7a332b6` | **B**: quality-limited power, nullable RIR, `effort_model`/`quality_stop`, migration `0041`, API/UI/CLI/narrative/proposal, analytics, `DEC-POWER-03` |
+| R1/R3 pass | Same-date revision now covers `plan_drop` and under-MEV (`DEC-VOLUME-32`); readiness re-solves the load at the bumped RIR (`DEC-READINESS-18`); tests and live migration rehearsal |
 
 No training threshold, exercise choice or programme structure was changed beyond the approved
 decisions. No personal workout data is used in the report or fixtures.
@@ -79,7 +78,7 @@ decisions. No personal workout data is used in the report or fixtures.
 | command | result |
 |---|---|
 | `.venv/bin/python -m pytest -q` before the fixes | **exit 0**, 887 collected (the pre-change baseline) |
-| `.venv/bin/python -m pytest -q` after all fixes | **exit 0**, **921 tests collected** (906 public + 15 private integration) |
+| `.venv/bin/python -m pytest -q` after all fixes | **exit 0**, **925 tests collected** (910 public + 15 private integration) |
 
 The final run includes the concurrent exercise-admin commit; the audit's own changes are green.
 
@@ -92,7 +91,7 @@ The final run includes the concurrent exercise-admin commit; the audit's own cha
   tests/test_same_date_accounting.py tests/test_invariants.py -q
 ```
 
-**exit 0, 53 passed.**
+**exit 0, 55 passed.**
 
 ### 4.3 Date-sensitive run in a non-local timezone
 
@@ -102,7 +101,7 @@ TZ=America/New_York .venv/bin/python -m pytest \
   tests/test_same_date_accounting.py tests/test_declared_break.py -q
 ```
 
-**exit 0, 22 passed.**
+**exit 0, 24 passed.**
 
 ### 4.4 Other checks
 
@@ -110,6 +109,8 @@ TZ=America/New_York .venv/bin/python -m pytest \
 |---|---|
 | `tests/test_docs_consistency.py` | **9 passed** |
 | `python tools/programme_summary.py --check` | `programme summary is current` (exit 0) |
+| R1/R3 targeted (`tests/test_same_date_accounting.py`, `tests/test_readiness_score.py`) | **30 passed** |
+| migration `0041` rehearsal and live apply | copy passed; live now has 41 migrations, `integrity_check = ok`, old rows `effort_model = 'rir'`, `quality_stop IS NULL`, `rir_target` digest unchanged |
 | `node --check strength_coach/web/static/app.js` / `workout.js` | exit 0 |
 | `ruff` | **not run — configured in `pyproject.toml` but not installed in `.venv`** |
 | browser suite | **none present**; UI exercised by HTTP/unit tests and JS syntax only |
@@ -122,10 +123,9 @@ TZ=America/New_York .venv/bin/python -m pytest \
   suite exists, so only the API/JS contract and syntax were checked.
 - **Live LLM** availability, malformed output, timeout and refusal; `NullLLM` is the default and
   the deterministic path is what the tests exercise.
-- **SQLite concurrency/lock behaviour** under simultaneous requests; the app is single-user
-  local, and no concurrency test was added.
-- **Migration on a real populated database**; migration `0041` is applied by the test suite on
-  fresh databases, but a backup/rehearsal on the user's data was not run.
+- **SQLite concurrency** under simultaneous requests; the app is single-user local, and no
+  concurrency test was added. The migration itself was rehearsed on a copy and applied to the
+  live `data/coach.db` on 2026-10-27 (backup retained).
 - **Import fuzzing** beyond the existing malformed/overlap/idempotency tests; no new random
   corpus was generated.
 - **Medical or training validity**; not audited and not claimed.
@@ -134,12 +134,12 @@ TZ=America/New_York .venv/bin/python -m pytest \
 
 ## 6. Residual risks
 
-- **R1 is open** — the most material residual: same-date accounting is fixed for MRV, the spinal
-  cap and budget allocation, but not for `plan_drop` or under-MEV. It is opt-in/narrow but real.
+- **R1 is closed** — same-date accounting now covers MRV, the spinal cap, budget allocation,
+  `plan_drop` and under-MEV.
 - **R2 is closed** — the descriptive box-jump RIR median is not a target and cannot change a
   prescription; this is the intended behaviour.
-- **R3 is open** — the pre-existing readiness-RIR/load mismatch. The flare change fixed the same
-  pattern for the flare, but readiness's own bump was explicitly out of scope.
+- **R3 is closed** — readiness now re-solves the load at the bumped RIR; the load change is
+  deliberate (`DEC-READINESS-18`).
 - **Old prescriptions** keep their recorded RIR, including historical box-jump rows; this is
   append-only behaviour, not a migration defect.
 - **Two-a-days** on one date are treated as that date's work (`ASSUMPTION-38`); a genuine second
@@ -150,17 +150,16 @@ TZ=America/New_York .venv/bin/python -m pytest \
 
 ## 7. Recommended next actions
 
-No code action is required for **R2/R4**; both are closed. **R1 and R3 remain open** and need an
-owner decision before any code change:
+All four residuals are closed; no code action remains. The migration `0041` rehearsal and live
+apply are complete; the pre-migration backup is retained under `data/` (git-ignored).
 
-1. **R1** — if `main_lift_policy: drop` or under-MEV is used, pass the revision view into
-   `plan_drop`/under-MEV and add one same-date test each. This is an accounting change, not a
-   training-rule change.
-2. **R3** — decide whether readiness should re-solve the load at the bumped RIR (a load change),
-   keep the current heuristic and document it, or change only one of the two outputs.
+Operational follow-ups, none blocking:
 
-Optional operational check: rehearse migration `0041` on a **copy** of `data/coach.db` and verify
-an old prescription still reads correctly. This is a migration safety check, not an R1/R3 fix.
+1. Keep a periodic backup of `data/coach.db`; the live file now records migration `0041`.
+2. If a browser-level UI test is added later, use it to cover the quality-stop and readiness
+   displays; R4 remains a coverage limitation, not a defect.
+3. If SQLite concurrency becomes real (more than one user/process), add a lock test; the current
+   app is single-user local.
 
-The deterministic engine remains authoritative. R1 and R3 must not be changed without a separate
-decision.
+The deterministic engine remains authoritative. R1 and R3 are implemented as recorded decisions;
+any further change to them needs a new decision.

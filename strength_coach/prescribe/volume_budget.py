@@ -1149,6 +1149,10 @@ def plan_drop(
             }
 
     template = templates.SessionTemplate.load(session_type)
+    # A same-date plan is a revision of the recorded session, not a second session. Supply the
+    # planned template so report() excludes the date and counts the plan once (DEC-VOLUME-32).
+    if not queries.sessions(conn, start=on_date, end=on_date).empty:
+        projected_items = template_rows(session_type)
     data = report(
         conn, on_date, config=cfg, session_type=session_type,
         projected_items=projected_items, projected_sessions=projected_sessions,

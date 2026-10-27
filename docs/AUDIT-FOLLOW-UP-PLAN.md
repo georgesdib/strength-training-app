@@ -286,10 +286,9 @@ number honest.
 
 ## A.8 Deliberately out of scope
 
-- **Readiness's own RIR bump is still not re-solved.** The readiness transform adds RIR and
-  multiplies the load, but does not re-solve for the new RIR. Fixing that would change every
-  readiness-reduced session, needs its own decision and evidence review. A new register row (next
-  free `LIM-` number) should record it.
+- **Readiness's own RIR bump.** Initially out of scope; resolved 2026-10-27 by
+  `DEC-READINESS-18`. The load is re-solved at the bumped RIR from the factor-scaled e1RM, so the
+  printed RIR and the load describe the same set. This changes loads for readiness-reduced items.
 - **Pattern-based hinge guard.** The plan uses the config exclusion list, the existing mechanism.
   A property-based guard is a separate improvement.
 - **No per-lift load adjustment beyond the RIR re-solve.** The flare adds no percentage cut, no set
@@ -674,9 +673,9 @@ uses the prior view.
   no-session path is unchanged and tested.
 - **Out of scope:** multiple plans per date, cross-date debt, and changing the MRV/spinal
   thresholds. This is an accounting fix, not a cap change.
-- **Drop and under-MEV same-date paths.** `plan_drop` and the under-MEV top-up still read
-  the full context; they are separate opt-in/accessory rules and were not part of this
-  fix. The audit gate should verify them.
+- **Drop and under-MEV same-date paths.** Resolved 2026-10-27 by `DEC-VOLUME-32`:
+  `_apply_under_mev` uses the prior view and `plan_drop` supplies the template as the revision
+  plan when the date already has a session. Tests are in `tests/test_same_date_accounting.py`.
 
 ---
 
