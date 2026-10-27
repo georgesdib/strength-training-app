@@ -141,14 +141,16 @@ def test_agents_map_lists_every_doc() -> None:
 
 def test_status_matches_roadmap() -> None:
     roadmap = _read("ROADMAP.md")
-    in_progress = set(re.findall(r"(v\d+\.\d+)\s+in progress", roadmap))
-    assert in_progress, "ROADMAP has no phase marked in progress"
+    current = set(re.findall(r"(v\d+\.\d+)\s+beta", roadmap))
+    if not current:
+        current = set(re.findall(r"(v\d+\.\d+)\s+in progress", roadmap))
+    assert current, "ROADMAP has no current phase"
     for name in ("README.md", "AGENTS.md"):
         text = _read(name)
-        for version in sorted(in_progress):
+        for version in sorted(current):
             assert version in text, f"{name} does not mention the current phase {version}"
             assert not re.search(rf"{re.escape(version)}\s+(?:is\s+)?next\b", text), (
-                f"{name} still calls {version} 'next' while ROADMAP has it in progress"
+                f"{name} still calls {version} 'next' while ROADMAP has it current"
             )
 
 

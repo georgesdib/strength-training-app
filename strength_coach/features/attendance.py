@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import datetime as dt
 import statistics
-from collections import Counter, defaultdict
+from collections import Counter
 
 from strength_coach.store import queries
 

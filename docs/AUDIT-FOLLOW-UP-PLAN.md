@@ -162,7 +162,7 @@ implementation; otherwise the Part A implementation row records it. The config k
 | `docs/EXERCISE-VARIANTS.md` | document the optional slot `flare` field. |
 | `docs/DECISIONS.md` | append one implementation row under the next free `DEC-SPINE-` number: constitution 1.19.0, final wording including the erector-dose ceiling (`min(current, 3)`) and the no-restore rule, where enforced. Do **not** edit `DEC-SPINE-07`. |
 | `docs/LIMITATIONS-REGISTER.md` | `LIM-53` → `closed`, naming the new tests. |
-| `CHANGELOG.md` | one entry under 0.5.0: sumo alignment, flare scope/load re-solve, provenance fix. |
+| `CHANGELOG.md` | one entry under 1.0.0-beta.1: sumo alignment, flare scope/load re-solve, provenance fix. |
 | `ROADMAP.md` | the 2026-10-27 status row and the public test count; no phase change. |
 | UI / API | none. Warning text changes; no new field. `notes["back_flare_review"]` is additive. |
 

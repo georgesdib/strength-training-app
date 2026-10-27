@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "strength-coach"
-version = "0.5.0.dev0"
+version = "1.0.0b1"
 description = "Evidence-based, rules-driven strength coaching: deterministic Python core with a small, auditable LLM layer"
 requires-python = ">=3.11"
 dependencies = [

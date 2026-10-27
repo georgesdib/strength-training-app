@@ -104,7 +104,7 @@ A concrete test plan is recorded in
 [WEAKNESS-TARGETING-PLAN.md](WEAKNESS-TARGETING-PLAN.md): metric, retrospective screen,
 opt-in N-of-1 blocks and decision gates. It is plan-only; no targeting is implemented.
 
-**Recommended: not before v0.5 is complete, and not before six months of stable current-programme
+**Recommended: not before v1.1 is complete, and not before six months of stable current-programme
 data (~April 2027).** That is an earliest review point, not a commitment.
 
 Weakness targeting may be reconsidered only when all of these exist:
@@ -134,7 +134,7 @@ Until then, injury remains exclusion/penalty/ceiling only.
 | 3 | opt-in N-of-1 / alternating-block comparison, with safety outcomes | not started |
 | 4 | decision: keep fixed, or add a bounded targeting rule | not reached |
 
-**Earliest review:** after v0.5 and roughly **April 2027**. This is a gate, not a scheduled
+**Earliest review:** after v1.1 and roughly **April 2027**. This is a gate, not a scheduled
 feature. Injury targeting remains unscheduled at every phase.
 
 ## 5. What would be tested if this is revisited

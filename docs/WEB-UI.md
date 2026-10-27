@@ -3,9 +3,9 @@
 A local browser interface over the same Python core. It is an additional surface, not a
 replacement for the CLI.
 
-**Planned UI and functionality work:** request-body limits, inline-handler safety, deterministic
+**UI and functionality hardening:** request-body limits, inline-handler safety, deterministic
 dates, safe error responses, data-integrity checks, browser coverage and frontend modularisation
-are specified in [`UI-IMPROVEMENT-PLAN.md`](UI-IMPROVEMENT-PLAN.md); not implemented yet.
+were implemented and closed in [`UI-IMPROVEMENT-PLAN.md`](UI-IMPROVEMENT-PLAN.md) on 2026-10-27.
 
 ## Run
 

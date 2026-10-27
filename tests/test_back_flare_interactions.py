@@ -186,6 +186,8 @@ def test_deload_composes_with_the_flare_ceiling():
 def test_a_flare_that_cannot_be_trimmed_reports_the_spinal_cap():
     rows = list(HINGE_ROWS)
     rows += [
+        {"Date": "2024-01-15", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
+         "RIR": "2", "Reps_Done": "5"},
         {"Date": "2024-01-16", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
          "RIR": "2", "Reps_Done": "5"},
         {"Date": "2024-01-16", "Exercise": "Competition Squat", "Weight_Used": "100",

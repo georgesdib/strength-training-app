@@ -53,7 +53,7 @@ Only fixes with separate approval were applied:
 - age-based load rules (none);
 - stored planned calendar;
 - Git history (no rewrite);
-- cardio prescription (v0.5).
+- cardio prescription (v1.1).
 
 ## 4. Remaining limitations
 
@@ -83,5 +83,5 @@ These are limitation records, not incomplete audit workstreams.
   (2026-10-24), 42 on 2026-10-25; neither is a live count. The single current list is
   [`LIMITATIONS-REGISTER.md`](LIMITATIONS-REGISTER.md).
 
-The next planned product work is **v0.5 — cardio depth and comparable calibration**, not
+The next planned product work is **v1.1 — cardio depth and comparable calibration**, not
 another audit slice.

@@ -1,6 +1,8 @@
 # Changelog
 
-## [0.5.0] — unreleased
+## [1.0.0-beta.1] — 2026-10-27
+
+First **v1.0 beta**: the workable app for user testing. The beta label is removed in v1.1.
 
 ### Added
 
@@ -219,7 +221,7 @@
 
 ### Planned
 
-- v0.5 cardio depth: capture audit, reproducible impulse, shadow 7/28-day load context, and a
+- v1.1 cardio depth: capture audit, reproducible impulse, shadow 7/28-day load context, and a
   later model decision only after enough data (ROADMAP §4.13a). No automatic load effect.
 - Comparable calibration depth: live-workout snapshots and per-rep data, per-item comparable
   counts, and a pre-declared rubric review (ROADMAP §4.14).
@@ -228,7 +230,7 @@
 
 **Audit, documentation and form closeout.** This release packages the post-v0.3 audits, UI
 documentation contract, form assessment and calibration milestone. Cardio depth and comparable
- calibration implementation move to v0.5.
+ calibration implementation move to v1.1.
 
 ### Changed
 

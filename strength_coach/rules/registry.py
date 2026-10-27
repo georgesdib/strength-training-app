@@ -476,7 +476,7 @@ def spinal_exposures(
     if not context.sets.empty:
         working = context.sets[context.sets["is_working_set"]]
         for row in working.itertuples(index=False):
-            week = str(getattr(row, "iso_week", "") or iso_week(getattr(row, "date")))
+            week = str(getattr(row, "iso_week", "") or iso_week(row.date))
             key = (week, str(row.session_id), str(row.exercise_id))
             item = groups.setdefault(key, {"sets": 0, "intensities": []})
             item["sets"] += 1

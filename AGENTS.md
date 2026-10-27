@@ -13,9 +13,9 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**v0, v0.1, v0.2, v0.3 and v0.4 are complete; v0.5 is in progress.** v0.4 packaged the audit,
-documentation and form closeout. The guided Workflow UI is delivered; cardio depth and comparable
-calibration data remain (see ROADMAP §4.13a/§4.14).
+**v1.0 beta is released; v1.1 is planned.** v1.0 packages the workable app and guided Workflow
+UI for user testing. v1.1 drops the beta label; cardio depth and comparable calibration data
+remain (see ROADMAP §4.13a/§4.14).
 
 **Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
@@ -206,8 +206,8 @@ never read `data/raw`.
 | `ROADMAP.md` | live phase status, next actions, resume checklist |
 | `docs/FORM-PROSPECTIVE.md` | open prospective form evaluation: anchors, sampling, outcomes and limits |
 | `docs/FORM-USE-EVIDENCE.md` | form evidence review, retrospective association and allowed uses |
-| `docs/FREQUENCY-AND-VOLUME.md` | reproduced `programme --sessions-per-week` behaviour, existing volume rules, evidence and options; no implementation |
-| `docs/VOLUME-MODULATION-PLAN.md` | proposed weekly target + session cap volume budget, exemptions, worked examples and the settings/modality layer; design only |
+| `docs/FREQUENCY-AND-VOLUME.md` | reproduced `programme --sessions-per-week` behaviour, existing volume rules, evidence and the closed Q26 dates-only decision |
+| `docs/VOLUME-MODULATION-PLAN.md` | implemented and closed weekly target/session cap volume budget, exemptions, effective accounting and modality layer |
 | `docs/FORM-ASSESSMENT.md` | optional per-lift 1-5 form assessment; Workout/History and rubric 1.2.0 |
 | `docs/REGIME-CHANGE.md` | read-only main-lift/substitute regime check; thresholds and limits |
 | `docs/AUDIT-CLOSEOUT.md` | final W0–W12 audit outcome, implemented fixes and remaining limitations |

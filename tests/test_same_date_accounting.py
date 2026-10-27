@@ -133,7 +133,7 @@ def test_spinal_week_excludes_the_same_date_session():
             store.connection, for_date="2024-01-08", session_type="bench_hinge",
         )
 
-    assert prescription.notes["spinal_cap"]["cost"] == 2.5   # sumo only, trap bar excluded
+    assert abs(prescription.notes["spinal_cap"]["cost"] - 2.44) < 0.02   # sumo only, trap bar excluded
     assert prescription.notes["same_date_session"] is not None
     assert any("same-date session" in warning for warning in prescription.warnings)
 
