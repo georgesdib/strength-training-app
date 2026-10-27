@@ -14,10 +14,12 @@ import datetime
 from dataclasses import replace
 import hashlib
 import json
+import os
 import mimetypes
 import shlex
 import subprocess
 import sys
+import yaml
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -68,16 +70,39 @@ from strength_coach.prescribe import session_identity
 from strength_coach.prescribe import volume_settings
 from strength_coach import modalities, settings_profile, settings_registry
 from strength_coach.prescribe import selection as selection_mod
+from strength_coach.prescribe import summary as programme_summary
 from strength_coach.prescribe import templates
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
 from strength_coach.store import db, exercise_admin, importer, queries, repositories
-from strength_coach.utils import exercises, io_utils
+from strength_coach.utils import exercises, io_utils, paths
 from strength_coach.web import markdown
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).resolve().parent / "static"
 TOLERANCE = 0.25
+
+
+TEMPLATE_BACKUPS = ROOT / "data" / "template-backups"
+TEMPLATE_BACKUP_KEEP = 20
+
+
+def _backup_template(path) -> None:
+    TEMPLATE_BACKUPS.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    (TEMPLATE_BACKUPS / f"session-types-{stamp}.yaml").write_bytes(path.read_bytes())
+    backups = sorted(TEMPLATE_BACKUPS.glob("session-types-*.yaml"))
+    for old in backups[:-TEMPLATE_BACKUP_KEEP]:
+        old.unlink(missing_ok=True)
+
+
+def _write_template(text: str) -> None:
+    path = paths.session_types_yaml()
+    if path.exists():
+        _backup_template(path)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def _json_default(value: Any) -> Any:
@@ -455,6 +480,16 @@ class Handler(BaseHTTPRequestHandler):
                      "pattern": value.get("pattern")}
                     for key, value in exercises.taxonomy().entities.items()
                 ])
+            elif path == "/api/templates":
+                source = paths.session_types_yaml()
+                doc = ROOT / "docs" / "STRENGTH-PROGRAM-REVIEW.md"
+                current = programme_summary.extract(doc.read_text(encoding="utf-8"))
+                self._json(200, {
+                    "yaml": source.read_text(encoding="utf-8"),
+                    "path": str(source.relative_to(ROOT)),
+                    "docs": "docs/SESSION-TEMPLATES.md",
+                    "summary_stale": current != programme_summary.render(),
+                })
             elif path == "/api/docs":
                 self._json(200, _docs())
             elif path.startswith("/api/docs/"):
@@ -575,6 +610,42 @@ class Handler(BaseHTTPRequestHandler):
                 value = _truth(body.get("allow_relax_fixed"))
                 cfg = continuity_calibration.save_allow_relax_fixed(value)
                 self._json(200, {"allow_relax_fixed": cfg.allow_relax_fixed})
+            elif path == "/api/templates/restore":
+                backups = sorted(TEMPLATE_BACKUPS.glob("session-types-*.yaml"))
+                if not backups:
+                    raise ValueError("no template backup is available")
+                text = backups[-1].read_text(encoding="utf-8")
+                templates.validate_text(text)
+                _write_template(text)
+                templates._parse_session_template.cache_clear()
+                self._json(200, {"ok": True, "restored": backups[-1].name})
+            elif path == "/api/templates/summary":
+                doc = ROOT / "docs" / "STRENGTH-PROGRAM-REVIEW.md"
+                original = doc.read_text(encoding="utf-8")
+                doc.write_text(
+                    programme_summary.replace(original, programme_summary.render()),
+                    encoding="utf-8",
+                )
+                self._json(200, {"ok": True})
+            elif path == "/api/templates":
+                text = str(body.get("yaml") or "")
+                if not text.strip():
+                    raise ValueError("template YAML is empty")
+                raw = templates.validate_text(text)
+                taxonomy = exercises.taxonomy()
+                known = set(taxonomy.entities)
+                unknown = sorted({
+                    exercise_id
+                    for block in (raw.get("session_types") or {}).values()
+                    for slot in ((block or {}).get("prescription") or {}).get("slots") or []
+                    for exercise_id in ([slot.get("exercise")] + list(slot.get("exercise_variants") or []))
+                    if exercise_id and str(exercise_id) not in known
+                })
+                if unknown:
+                    raise ValueError("unknown exercise ids: " + ", ".join(map(str, unknown)))
+                _write_template(text)
+                templates._parse_session_template.cache_clear()
+                self._json(200, {"ok": True, "path": str(paths.session_types_yaml().relative_to(ROOT))})
             elif path == "/api/exercises":
                 entity_id = str(body.get("id") or "").strip()
                 props = body.get("props") or {}

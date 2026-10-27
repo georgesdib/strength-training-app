@@ -564,7 +564,7 @@
           <div id="readiness-presets" class="form-row"></div>
           <p class="muted">Context flags are displayed beside readiness and do not change the score by default.</p>
           <div id="readiness-context" class="form-row"></div>
-          <button class="ghost" type="button" onclick="saveReadinessContext()">Save context flags</button>
+          <button class="ghost" type="button" id="readiness-context-save">Save context flags</button>
           <span id="context-msg" class="muted"></span>
         </div>
         <div class="panel">
@@ -745,6 +745,15 @@
           <button class="ghost" id="exercise-refresh" type="button">Refresh</button>
         </div>
         <div id="exercise-catalog"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Session templates</h2><span class="muted">YAML</span></div>
+        <p class="section-help"><span>Controls which exercises/variants fill each session slot, plus sets, reps, RIR, rest and time cap. Day roles are derived from this file.</span> <a class="doc-link" href="#docs?doc=docs/SESSION-TEMPLATES.md">Template field guide</a></p>
+        <p class="muted" id="template-summary-status"></p>
+        <button class="primary" id="templates-edit" type="button">Edit templates</button>
+        <button class="ghost" id="template-summary-refresh" type="button">Refresh programme summary</button>
+        <button class="ghost" id="template-restore" type="button">Restore last backup</button>
       </div>
 
       <div class="panel" id="exercise-e1rm-panel" hidden>
@@ -993,6 +1002,20 @@
         <div class="form-row">
           <button class="primary" type="submit">Save details</button>
           <span id="exercise-details-msg" class="muted"></span>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="template-dialog" style="max-width:900px;width:94%;border:1px solid #444;border-radius:8px;padding:1rem;background:#171a1f;color:#eee">
+      <form id="template-form" method="dialog">
+        <div class="panel-head"><h2>Session templates</h2><span class="muted" id="template-path"></span></div>
+        <p class="section-help"><span>Edit the YAML that defines every session: <code>session_types</code> → <code>prescription</code> → <code>slots</code>. A slot has an <code>id</code>, one <code>exercise</code> or <code>exercise_variants</code>, <code>sets</code>, <code>reps.low/high</code>, <code>rir.low/high</code>, <code>rest_s</code>, <code>essential</code> and <code>load_source</code>. Power slots use <code>power: true</code> and <code>quality_stop</code> instead of RIR. Changing a slot changes the derived day roles for that exercise.</span> <a class="doc-link" href="#docs?doc=docs/SESSION-TEMPLATES.md">Full field guide</a></p>
+        <p class="warnbox">Saving validates all four session types and every exercise id before writing. A bad edit is rejected; the current file is left untouched.</p>
+        <label class="grow">Template YAML<textarea id="template-yaml" rows="28" spellcheck="false" style="width:100%;font-family:monospace"></textarea></label>
+        <div class="form-row">
+          <button class="primary" type="submit">Save templates</button>
+          <button class="ghost" type="button" id="template-cancel">Cancel</button>
+          <span id="template-msg" class="muted"></span>
         </div>
       </form>
     </dialog>

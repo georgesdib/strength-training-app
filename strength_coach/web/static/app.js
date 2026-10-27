@@ -46,6 +46,21 @@ function notify(message, kind = "ok") {
   toastTimer = setTimeout(() => { toast.hidden = true; }, 4500);
 }
 
+/* Dynamic rows carry data-* values; never build executable inline handlers. */
+document.addEventListener("click", (event) => {
+  const element = event.target instanceof Element
+    ? event.target.closest("[data-action]") : null;
+  if (!element) return;
+  const action = element.dataset.action;
+  if (action === "review-complete") completeReview(element.dataset.taskKey);
+  else if (action === "review-snooze") snoozeReview(element.dataset.taskKey);
+  else if (action === "open-review") openReview(element.dataset.session);
+  else if (action === "comp-e1rm") recordCompensationE1rm(element.dataset.exerciseId);
+  else if (action === "suggested-deload") applySuggestedDeload();
+  else if (action === "open-workout-start") openWorkoutStart();
+  else if (action === "readiness-preset") applyReadinessPreset(element.dataset.preset);
+});
+
 function setView(name, options = {}) {
   document.querySelectorAll("#nav button").forEach((b) => {
     b.classList.toggle("active", b.dataset.view === name);
@@ -340,8 +355,8 @@ async function loadReviews() {
                  <option value="not_applicable">not applicable</option>
                </select></label>
                <label class="grow">Note <input id="review-note-${esc(task.key)}" placeholder="optional"></label>
-               <button type="button" onclick="completeReview('${esc(task.key)}')">Save review</button>
-               <button type="button" class="ghost" onclick="snoozeReview('${esc(task.key)}')">Snooze 2 weeks</button>
+               <button type="button" data-action="review-complete" data-task-key="${esc(task.key)}">Save review</button>
+               <button type="button" class="ghost" data-action="review-snooze" data-task-key="${esc(task.key)}">Snooze 2 weeks</button>
              </div></details>`
         : `<p class="muted">Use the linked workflow; this is a data-state reminder.</p>`;
       return `<div class="panel" style="margin-bottom:8px">
@@ -395,7 +410,7 @@ function renderRecent(sessions) {
       <td>${s.working_set_count}/${s.set_count}</td>
       <td>${esc((s.main_lifts || []).join(", "))}</td>
       <td>${s.marks ? '<span class="badge">' + s.marks + "</span>" : '<span class="badge warn">none</span>'}</td>
-      <td><button class="ghost" onclick="openReview('${esc(s.session_id)}')">Review</button></td></tr>`).join("")
+      <td><button class="ghost" data-action="open-review" data-session="${esc(s.session_id)}">Review</button></td></tr>`).join("")
     + "</tbody></table>";
 }
 
@@ -859,7 +874,7 @@ function renderPrescription(p) {
     ? `<div class="warnbox"><strong>Compensation needs an e1RM</strong>
        <p>${esc(comp.reason || "No usable e1RM")} for <code>${esc(compSelected.exercise_id)}</code>.</p>
        <label>e1RM (kg)<input id="comp-e1rm-kg" type="number" step="0.5" min="0"></label>
-       <button type="button" class="primary" onclick="recordCompensationE1rm('${esc(compSelected.exercise_id)}')">Save e1RM and rebuild</button>
+       <button type="button" class="primary" data-action="comp-e1rm" data-exercise-id="${esc(compSelected.exercise_id)}">Save e1RM and rebuild</button>
        <span id="comp-e1rm-msg" class="muted"></span></div>`
     : "";
   const selection = p.notes?.selection;
@@ -899,7 +914,7 @@ function renderPrescription(p) {
   const suggestion = p.notes?.deload_suggestion;
   const suggestionBox = suggestion ? `<div class="warnbox"><strong>Deload suggested</strong>
     — ${esc(suggestion.reason)}.<br>
-    <button type="button" onclick="applySuggestedDeload()">Deload this workout</button>
+    <button type="button" data-action="suggested-deload">Deload this workout</button>
     <span class="muted">Or train as planned; the suggestion will return next workout this week.</span></div>` : "";
   $("#prescribe-result").innerHTML = `<div class="panel">
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_label || sessionLabel(p.session_type || "unknown"))}</h2>
@@ -907,7 +922,7 @@ function renderPrescription(p) {
     ${volumeBox}${compBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <div class="form-row">
       ${p.executable
-        ? '<button class="primary" type="button" onclick="openWorkoutStart()">Start workout</button>'
+        ? '<button class="primary" type="button" data-action="open-workout-start">Start workout</button>'
         : '<button class="primary" type="button" disabled>Start workout</button>'}
       <span class="muted">${p.executable ? "Freezes this plan and opens the start form." : "Fix the warnings above before starting."}</span>
     </div>
@@ -1206,7 +1221,7 @@ async function loadReadiness(date) {
     });
     const presets = data.presets || {};
     $("#readiness-presets").innerHTML = Object.entries(presets).map(([name, preset]) =>
-      `<button type="button" class="ghost" onclick="applyReadinessPreset('${esc(name)}')">${esc(preset.label || name)}</button>`
+      `<button type="button" class="ghost" data-action="readiness-preset" data-preset="${esc(name)}">${esc(preset.label || name)}</button>`
     ).join("");
     const flags = ["travel", "timezone_change", "illness", "alcohol", "poor_sleep_environment", "high_work_stress"];
     const active = new Set(data.context_flags || []);
@@ -1260,6 +1275,7 @@ async function saveReadinessContext() {
     $("#context-msg").textContent = error.message;
   }
 }
+$("#readiness-context-save")?.addEventListener("click", saveReadinessContext);
 
 $("#volume-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -2299,10 +2315,69 @@ async function loadExerciseCatalog() {
     select.value = current;
     $("#exercise-patterns").innerHTML = data.patterns.map((p) => `<option value="${esc(p)}">`).join("");
     renderExerciseCatalog();
+    loadTemplateStatus().catch(() => {});
   } catch (error) {
     $("#exercise-catalog").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
+
+
+async function loadTemplateStatus() {
+  const data = await api("/api/templates");
+  $("#template-summary-status").textContent = data.summary_stale
+    ? "Programme summary is stale; refresh it after a template change."
+    : "Programme summary is current.";
+  return data;
+}
+
+async function openTemplateEditor() {
+  try {
+    const data = await loadTemplateStatus();
+    $("#template-yaml").value = data.yaml || "";
+    $("#template-path").textContent = data.path || "";
+    $("#template-msg").textContent = "";
+    $("#template-dialog").showModal();
+  } catch (error) {
+    $("#template-msg").textContent = error.message;
+  }
+}
+
+$("#templates-edit").addEventListener("click", openTemplateEditor);
+$("#template-cancel").addEventListener("click", () => $("#template-dialog").close());
+$("#template-restore").addEventListener("click", async () => {
+  if (!confirm("Restore the last template backup? The current file will be backed up first.")) return;
+  try {
+    await api("/api/templates/restore", { method: "POST", body: "{}" });
+    await loadExerciseCatalog();
+    await loadTemplateStatus();
+  } catch (error) {
+    $("#template-summary-status").textContent = error.message;
+  }
+});
+$("#template-summary-refresh").addEventListener("click", async () => {
+  try {
+    await api("/api/templates/summary", { method: "POST", body: "{}" });
+    await loadTemplateStatus();
+  } catch (error) {
+    $("#template-summary-status").textContent = error.message;
+  }
+});
+$("#template-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  $("#template-msg").textContent = "Saving…";
+  try {
+    await api("/api/templates", {
+      method: "POST",
+      body: JSON.stringify({ yaml: $("#template-yaml").value }),
+    });
+    $("#template-msg").textContent = "Saved.";
+    $("#template-dialog").close();
+    await loadExerciseCatalog();
+    await loadTemplateStatus();
+  } catch (error) {
+    $("#template-msg").textContent = error.message;
+  }
+});
 
 $("#exercise-search").addEventListener("input", renderExerciseCatalog);
 $("#exercise-filter").addEventListener("change", renderExerciseCatalog);
