@@ -26,7 +26,7 @@ Decisions/assumptions: `DEC-CORE-01`, `ASSUMPTION-23`. Config:
 | squat | SSB squat 5×3-5, bench 4×3-5 | back extension 3×10-12 | **ab wheel 3×6-10** |
 | hinge | trap-bar deadlift 5×3-5, narrow/pause bench 4×3-5 | none direct | — |
 | bench+squat | bench 4×3-5, competition-squat support 4×3-5 | none direct | **ab wheel 3×6-10** |
-| bench+hinge | bench 4×3-5, single-leg RDL 3×8-10 | none direct | **hanging leg raise 3×8-12** |
+| bench+hinge | bench 4×3-5, sumo deadlift 3×3-5 | none direct | **hanging leg raise 3×8-12** |
 
 Before the change, the prescribed week contained **6 sets of back extension** (spinal
 extension) and heavy squat/hinge bracing, and **zero anti-extension, anti-rotation, lateral or

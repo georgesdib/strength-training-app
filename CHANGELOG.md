@@ -4,6 +4,7 @@
 
 ### Added
 
+- Generated **programme summary** (`tools/programme_summary.py`): the strength-programme review's session, weekly-volume and spinal-exposure tables are rendered from the templates, taxonomy, volume config and `PRG-SPINE-001`. The review now names the sumo deadlift and reports the 5.5/6 bench+hinge week; a stale block fails `tests/test_programme_summary.py`.
 - Read-only **weekly volume budget** (`volume --budget`, `GET /api/volume/budget`, Prescribe
   panel): target, safety exemptions, completed sets, projected week, session cap and feasibility,
   plus per-group week status, persistent four-week status and non-essential top-up capacity. It

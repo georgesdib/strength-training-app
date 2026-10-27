@@ -88,6 +88,10 @@ support is 4×3–5, and trap-bar hinge is 5×3–5. Planned weekly squat volume
 hinge ~5 sets; the back-extension and single-leg RDL doses are unchanged. This came from the
 review decision `DEC-PROGRAMME-04`, not from a new MRV estimate.
 
+**Later amendment (2026-10-25, `DEC-SPINE-05`):** the bench+hinge support is a 3×3–5 sumo
+deadlift at spinal cost 2.5, replacing the single-leg RDL. The paragraph above is the 2026-10-20
+snapshot; current weekly volume is in `docs/STRENGTH-PROGRAM-REVIEW.md`.
+
 ## 3. Implemented behaviour
 
 ### Ledger

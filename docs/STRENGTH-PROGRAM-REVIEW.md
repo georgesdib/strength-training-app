@@ -17,35 +17,45 @@ main evidence claims against the cited literature. The local 12-week audit is in
 
 ## 1. The programme as implemented
 
-### Current weekly shape (Plan A, 2026-10-20)
+### Current weekly shape (generated from config)
 
-Default prescriptions use rolling session types; the legacy A/B/C override has been removed.
-overrides.
+The tables below are generated from `config/templates/session-types.v1.yaml`, the taxonomy,
+`config/volume.v1.yaml` and `PRG-SPINE-001`; run `python tools/programme_summary.py --write`
+after a template change. A stale block fails `tests/test_programme_summary.py`.
 
-| session type | work | sets |
+**Reconciled 2026-10-27** with `DEC-SPINE-05`: the bench+hinge support is the sumo deadlift,
+not the single-leg RDL.
+
+<!-- BEGIN GENERATED PROGRAMME SUMMARY -->
+<!-- source:sha256:3037fa8ffcc43297 -->
+
+| session type | work | sets | spinal cost |
 |---|---|---|---:|
-| **squat** | box jump 3×3–5; SSB squat **5×3–5**; bench 4×3–5; back extension 3×10–12; dumbbell row 3×8–12; ab wheel 3×6–10 | 21 |
-| **hinge** | trap-bar deadlift **5×3–5**; narrow/pause bench 4×3–5; pull-up/pulldown 3×6–10; dumbbell row 3×8–12; split squat 3×8–10 | 18 |
-| **bench_squat** | bench 4×3–5; SSB squat support **4×3–5**; dumbbell row 3×8–12; overhead press 3×6–10; ab wheel 3×6–10 | 17 |
-| **bench_hinge** | bench 4×3–5; single-leg RDL 3×8–10; pull-up/pulldown 3×6–10; dumbbell row 3×8–12; overhead press 3×6–10; hanging leg raise 3×8–12 | 19 |
+| **squat** | Box Jump 3×3–5 @ quality stop; SSB Squat 5×3–5 @ RIR 2–3; Bench Press 4×3–5 @ RIR 2–3; Back Extension 3×10–12 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 21 | 1 |
+| **hinge** | Trap-Bar Deadlift 5×3–5 @ RIR 2–3; Bench Press (narrow grip) / Bench Press (pause) 4×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Split Squat 3×8–10 @ RIR 2–3 | 18 | 2 |
+| **bench_squat** | Bench Press 4×3–5 @ RIR 2–3; Competition Squat 4×3–5 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 17 | 1 |
+| **bench_hinge** | Bench Press 4×3–5 @ RIR 2–3; Sumo Deadlift 3×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Hanging Leg Raise 3×8–12 @ RIR 2–3 | 19 | 2.5 |
 
-Over six sessions (two weeks): squat, hinge, bench+squat, squat, hinge, bench+hinge. Planned
-average is **~57 working sets/week** across three sessions.
+Over six sessions (two weeks): squat, hinge, bench+squat, squat, hinge, bench+hinge.
+Planned average is **57 working sets/week** across three sessions.
 
-Current main-lift volume:
-
-| lift | sets/week |
+| lift group | sets/week |
 |---|---:|
-| squat (SSB main + support) | **7** |
+| squat (SSB main + competition support) | 7 |
 | bench (main + support) | 12 |
-| trap-bar deadlift | **5** |
-| single-leg RDL | 1.5 |
+| trap-bar deadlift | 5 |
+| sumo deadlift | 1.5 |
 | back extension | 3 |
 | horizontal row | 9 |
+| vertical pull | 4.5 |
 | overhead press | 3 |
 | split squat | 3 |
 | core | 6 |
 | power | 3 |
+| **total** | **57** |
+
+Counted spinal cost: **4** for the first week (squat, hinge, bench+squat) and **5.5** for the second (squat, hinge, bench+hinge), against a cap of **6**.
+<!-- END GENERATED PROGRAMME SUMMARY -->
 
 ### Effort and progression
 
@@ -77,7 +87,7 @@ settled by trials.
 | # | Claim in the programme | Evidence status | What the evidence says | Verdict |
 |---|---|---|---|---|
 | 1 | 3×/week full-body is a good strength frequency | Moderate | When weekly volume is equated, higher frequency appears to help strength somewhat; 3× full-body is within the supported range. Frequency is not a free extra dose. ([frequency meta-analysis](https://pubmed.ncbi.nlm.nih.gov/30076500/); [2025 dose-response](https://link.springer.com/article/10.1007/s40279-025-02344-w)) | Supported |
-| 2 | Weekly volume around the current plan is enough | Moderate | Hypertrophy rises with weekly volume to roughly 10+ sets per muscle with diminishing returns; strength is less volume-dependent. The current plan has ~7 squat, 12 bench and ~5 heavy-hinge sets/week, plus accessory volume. ([Schoenfeld 2017](https://www.tandfonline.com/doi/abs/10.1080/02640414.2016.1210197); [2025 dose-response](https://link.springer.com/article/10.1007/s40279-025-02344-w)) | Supported after Plan A; hinge still below bench volume |
+| 2 | Weekly volume around the current plan is enough | Moderate | Hypertrophy rises with weekly volume to roughly 10+ sets per muscle with diminishing returns; strength is less volume-dependent. The current plan has ~7 squat, 12 bench and ~6.5 hinge sets/week (5 trap-bar + 1.5 sumo), plus accessory volume. ([Schoenfeld 2017](https://www.tandfonline.com/doi/abs/10.1080/02640414.2016.1210197); [2025 dose-response](https://link.springer.com/article/10.1007/s40279-025-02344-w)) | Supported after Plan A; hinge still below bench volume |
 | 3 | Main lifts at 3–5 reps | Strong for strength | Heavy, lower-rep training is more specific for 1RM strength when effort is matched. ([Hammert 2026](https://doi.org/10.1007/s40279-025-02370-8)) | Supported |
 | 4 | RIR 2 target, RIR 1–4 allowed, RIR 0 forbidden | Moderate | Strength gains are similar across a wide RIR range; non-failure is at least as good for dynamic strength; hypertrophy improves closer to failure; RIR self-estimation carries meaningful error. ([Robinson 2024](https://doi.org/10.1007/s40279-024-02069-2); [Wu 2026](https://doi.org/10.1186/s13102-026-01861-z); [RIR-EVIDENCE](RIR-EVIDENCE.md)) | Supported and conservative |
 | 5 | Accessories at RIR 2 with double progression | Moderate | The effort is defensible for a back-sensitive athlete, but hypertrophy-oriented accessory work may progress more slowly than a failure-inclusive programme. This is a deliberate trade-off, not an evidence claim that RIR 2 is optimal. | Coherent trade-off |
@@ -127,8 +137,8 @@ settled by trials.
 **Applied 2026-10-20 (Plan A + session types).** The original plan gave bench 12 sets/week,
 squat 7 sets/week and hinge 4 sets/week once. The rolling programme initially restored squat but
 left heavy hinge at 4 and squat at ~5.5; Plan A corrected that to squat **~7** and trap-bar
-**~5** sets/week. The added hinge is a single-leg RDL support, not a second heavy hinge; heavy
-hinge frequency remains about once per week.
+**~5** sets/week. The added hinge is a sumo deadlift support, a second heavy hinge exposure;
+weekly hinge volume is now ~6.5 sets (5 trap-bar + 1.5 sumo), still below bench volume.
 
 This is a **volume-first** resolution: the evidence favours added volume over added frequency
 when weekly volume is matched, and a second heavy hinge would exceed the spinal cap. The spinal
@@ -235,7 +245,7 @@ Status reflects the implementation, not only the original recommendation.
 - [x] Dorsiflexion readiness category for the tib-bar lift.
 - [x] Volume v1: ledger, MEV/MAV/MRV, conservative MRV cap.
 - [x] Selection comparability A/B/C guard.
-- [x] Plan A: squat ~7 sets/week and trap-bar ~5 sets/week.
+- [x] Plan A: squat ~7 sets/week, trap-bar ~5 sets/week and sumo ~1.5 sets/week.
 - [x] Scheduled deload / broader fatigue-management policy (`DEC-PROGRAMME-05`).
 - [x] Under-MEV accessory progression (`MOD-VOL-002`).
 - [x] MRV question closed — not estimable without independent volume variation; no experiment.
@@ -247,7 +257,7 @@ Status reflects the implementation, not only the original recommendation.
 | priority | change | reason | effort | status |
 |---|---|---|---|---|
 | P0 | Fix power items: bodyweight/implement only, no e1RM/double progression | A loaded box jump is not the intended stimulus | Small | **Done** |
-| P0 | Rebalance main-lift volume: restore squat and raise hinge volume without breaking the spinal cap | Current 4 hinge vs 12 bench and reduced squat was not a balanced strength dose | Medium | **Done** — Plan A, volume-first; heavy hinge still ~1×/week |
+| P0 | Rebalance main-lift volume: restore squat and raise hinge volume without breaking the spinal cap | Current 4 hinge vs 12 bench and reduced squat was not a balanced strength dose | Medium | **Done** — Plan A, volume-first; hinge is ~6.5 sets/week (trap-bar + sumo) |
 | P0 | Restrict automatic selection to load-comparable variants; require confirmation for different implements | Prevents a valid load solve from silently changing the stimulus | Medium | **Done** (A/B/C guard) |
 | P1 | Add a horizontal row and a vertical press (3 sets each), or explicitly trade bench accessory volume | Upper-body balance and shoulder health | Small | **Done** |
 | P1 | Add a scheduled low-volume week or a readiness set-reduction option | Set valve and scheduled/reactive deload policy exist; evidence is weak but the gap is now addressed | Medium | **Done** — set valve + scheduled deload (`MOD-DELOAD-001`) |

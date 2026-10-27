@@ -971,7 +971,7 @@ four session types:
 | `squat` | SSB squat + power | bench support + row | yes |
 | `hinge` | trap-bar deadlift | narrow/pause bench + row + pull | no |
 | `bench_squat` | bench + squat support | overhead press + row | no |
-| `bench_hinge` | bench + single-leg RDL | overhead press + row + pull | no |
+| `bench_hinge` | bench + sumo deadlift | overhead press + row + pull | no |
 
 The rolling rule targets two squat, two hinge and two bench-emphasis sessions per six, uses the
 recent `session_type` history plus forecast choices, and falls back to the preferred emphasis
@@ -981,12 +981,12 @@ calendar. The legacy A/B/C fields and overrides were removed by migration 0023 (
 **Balance changes:** every session includes bench or another upper-body press/pull, plus a
 horizontal row. After the 2026-10-20 review, squat-emphasis SSB is 5×3–5, the bench+squat
 squat support is 4×3–5 of **competition squat** (`DEC-PROGRAMME-08`: a second SSB exposure
-repeated the squat session's main lift), and the trap-bar hinge is 5×3–5. This restores ~7 squat sets/week and
-raises heavy hinge to ~5 sets/week without a second heavy exposure; back extension stays at 3
-sets/week. The hinge gets a second exposure through the single-leg RDL support on the
-bench+hinge session, without stacking another high-fatigue spinal lift. Only the squat-emphasis
-session carries direct erector work, keeping a normal week at squat 1 + hinge 2 = 3 against the
-spinal cap. Poor readiness can remove one accessory set; main-lift set reduction is opt-in (`include_essential: false` by default),
+repeated the squat session's main lift), and the trap-bar hinge is 5×3–5. This restores ~7 squat
+sets/week and keeps the trap-bar hinge at ~5 sets/week; the bench+hinge session adds a 3×3–5
+sumo deadlift (~1.5 sets/week) as a second heavy hinge exposure. Back extension stays at 3
+sets/week. Only the squat-emphasis session carries direct erector work; a normal week is 4/6
+(bench+squat) or 5.5/6 (bench+hinge) against the cap. Poor readiness can remove one accessory
+set; main-lift set reduction is opt-in (`include_essential: false` by default),
 and the Readiness page exposes that **volume valve**.
 A weekly **hard-set ledger** reports sets per movement pattern against broad MEV/MAV/MRV
 landmarks; non-essential sets are trimmed only when the recent week plus the proposed session
