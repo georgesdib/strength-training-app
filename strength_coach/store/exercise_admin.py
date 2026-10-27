@@ -57,6 +57,8 @@ def _normalise(entity_id: str, props: Mapping[str, Any], current: Mapping[str, A
                 raise ValueError("an exercise id cannot be changed")
             continue
         merged[str(key)] = value
+    # Day roles are derived from the templates; never store an editable copy.
+    merged.pop("day_roles", None)
 
     display = str(merged.get("display") or "").strip()
     if not display:
@@ -103,6 +105,31 @@ def _collision(entity_id: str, log_names: list[str], merged_entities: Mapping[st
     return None
 
 
+
+SESSION_ORDER = ("squat", "hinge", "bench_squat", "bench_hinge")
+
+
+def _derived_day_roles() -> dict[str, list[str]]:
+    """Session types where the templates actually place each exercise or variant."""
+    path = paths.config_dir("templates/session-types.v1.yaml")
+    if not path.exists():
+        return {}
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    out: dict[str, set[str]] = {}
+    for session_type, body in (raw.get("session_types") or {}).items():
+        for slot in ((body or {}).get("prescription") or {}).get("slots") or []:
+            ids = []
+            if slot.get("exercise"):
+                ids.append(str(slot["exercise"]))
+            ids.extend(str(x) for x in slot.get("exercise_variants") or [])
+            for exercise_id in ids:
+                out.setdefault(exercise_id, set()).add(str(session_type))
+    return {
+        exercise_id: [s for s in SESSION_ORDER if s in sessions]
+        for exercise_id, sessions in out.items()
+    }
+
+
 def catalog() -> dict[str, Any]:
     """Every entity, its source (base/override) and the full property mapping."""
     base = _read(paths.taxonomy_yaml()).get("entities") or {}
@@ -117,9 +144,11 @@ def catalog() -> dict[str, Any]:
         merged.update(dict(patch or {}))
         entities[str(entity_id)] = merged
         sources[str(entity_id)] = "override" if str(entity_id) in base else "new"
+    derived_roles = _derived_day_roles()
     rows = []
     for entity_id in sorted(entities):
         entity = entities[entity_id]
+        entity["day_roles"] = derived_roles.get(entity_id, [])
         rows.append({
             "id": entity_id,
             "display": str(entity.get("display") or entity_id),

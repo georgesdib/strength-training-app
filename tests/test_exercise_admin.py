@@ -77,3 +77,10 @@ def test_an_id_cannot_be_changed_or_invalid(tmp_path, monkeypatch):
             "log_names": ["Bad"],
             "pattern": "squat",
         })
+
+
+def test_catalogue_day_roles_are_derived_from_templates():
+    rows = {row["id"]: row["props"].get("day_roles") for row in exercise_admin.catalog()["entities"]}
+    assert rows["bench_press_narrow"] == ["hinge"]
+    assert rows["bench_press_pause"] == ["hinge"]
+    assert rows["1_arm_row"] == []

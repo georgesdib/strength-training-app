@@ -2146,7 +2146,6 @@ function saveExerciseDetails(event) {
     high_fatigue_spinal: $("#exercise-detail-spinal").checked,
     erector_family: $("#exercise-detail-erector").checked,
     direct_erector: $("#exercise-detail-direct-erector").checked,
-    day_roles: $("#exercise-detail-day-roles").value.split(",").map((v) => v.trim()).filter(Boolean),
   });
   if ($("#exercise-detail-vbt").value.trim()) props.vbt_family = $("#exercise-detail-vbt").value.trim();
   else delete props.vbt_family;
