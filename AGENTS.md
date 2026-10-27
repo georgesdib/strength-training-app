@@ -253,7 +253,7 @@ never read `data/raw`.
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/UI-CLI-PARITY.md` | current first-class parity, intentional differences and remaining gaps |
 | `docs/UI-MAP.md` | web UI surface map: panels, routes, docs links and the behaviour each panel exposes |
-| `docs/UI-IMPROVEMENT-PLAN.md` | UI-04/UI-08 plus the final functionality/code audit: findings ledger, workstreams, permanent guardrails, commit sequence and optional follow-ups; implemented and merged into `main` |
+| `docs/UI-IMPROVEMENT-PLAN.md` | UI-04/UI-08 plus the final functionality/code audit: findings ledger, workstreams, permanent guardrails, commit sequence and optional follow-ups; closed 2026-10-27 (implemented and merged into `main`) |
 | `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |
 | `docs/SPINAL-COST.md` | evidence behind the ordinal spinal-cost ratings |
 | `docs/SPINAL-LOAD-EVIDENCE.md` | focused review of load-weighting; keep ordinal, no load/RIR weighting |

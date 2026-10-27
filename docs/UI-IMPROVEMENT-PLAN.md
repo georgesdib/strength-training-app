@@ -1,9 +1,10 @@
 # UI AND FUNCTIONALITY IMPROVEMENT PLAN — UI-04, UI-08 AND FINAL AUDIT
 
-**Status:** implemented and merged into `main` 2026-10-27 (merge `db1cc8f`).
-Phase 0 (the documentation audit and this plan) is committed. Workstreams A1–F are implemented;
-the O1–O10 items in §14 remain deferred. Browser verification uses the manual checklist in
-`WEB-UI.md` because no browser automation is installed.
+**Status:** closed 2026-10-27. Implemented and merged into `main` (merge `db1cc8f`; lint cleanup
+`49a49cd`). Phase 0 (the documentation audit and this plan) is committed. Workstreams A1–F are
+implemented; the O1–O10 items in §14 remain optional deferred follow-ups, not open audit
+findings. Browser verification uses the manual checklist in `WEB-UI.md` because no browser
+automation is installed.
 **Scope:** the local web UI, the HTTP request boundary, date handling, backend error responses,
 data integrity, browser verification and frontend modularisation. No training calculations,
 prescription rules, readiness interpretation, database schema or historical data changes
@@ -500,6 +501,16 @@ are not part of commits 0–8.
 - **O10 — expand browser coverage** to import preview/apply and more failure paths.
 
 ---
+
+## Audit closure
+
+Closed 2026-10-27. No finding in the ledger remains open; workstreams A1–F are implemented and
+merged. The O1–O10 items are optional follow-ups with triggers, not open findings.
+
+Verification at closure: the full suite passed with 951 tests collected, exit code 0, including
+the 15 private integration tests; `ruff check .` is clean; `tools/check_ui_docs.py` reports OK.
+The manual browser checklist in `WEB-UI.md` was not executed because no browser automation is
+installed; it remains the accepted coverage limitation for this closure.
 
 ## Related
 

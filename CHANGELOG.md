@@ -145,6 +145,13 @@
 
 ### Changed
 
+- **UI/functionality audit closed:** request-body limits, generic 500s, local-date handling,
+  atomic workout/import writes, frontend static checks, and the `core.js`/`exercises.js`
+  modularisation are merged. The manual browser checklist remains the accepted coverage
+  limitation.
+- **Ruff backlog cleared:** `ruff check .` is clean and is part of the definition of done. The
+  cleanup fixed three undefined names, a duplicate key, a loop-closure binding and dead
+  assignments; no runtime behaviour changed.
 - **Same-date drop and under-MEV accounting** (`DEC-VOLUME-32`): the revision view now
   also covers `plan_drop` and the under-MEV accessory top-up, so a plan rebuilt on a date
   with a recorded session is counted once in those paths too.
