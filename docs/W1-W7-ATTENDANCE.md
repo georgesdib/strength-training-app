@@ -62,12 +62,12 @@ handles the load/RIR side; the schedule has no explicit “return block”. The 
 remained balanced.
 
 **W1-05 — A permanently unavailable family can stall the schedule.**  
-Classification: confirmed limitation, not a defect in normal use.
+Classification: resolved 2026-10-27.
 
-If the chosen family is skipped every time it comes up, the selector keeps choosing it because
-the recent window has no successful session of another type. A one-off missed session does not
-stall; permanent unavailability does. Constraints/selection handle the exercise level, but the
-schedule has no family-level fallback.
+Availability is now derived from each session type's **primary lift** constraint/suitability.
+An unavailable family is removed from the target, the six-session target is redistributed across
+the remaining families, and the selector falls back. A secondary-lift veto removes that lift
+from the session instead of dropping the session or cycling through types.
 
 **W1-06 — The programme forecast still applies deload after the build.**  
 Classification: confirmed code-path inconsistency; **fixed**.

@@ -393,6 +393,27 @@ def build_prescription(
     constraint_report = constraints_mod.evaluate(
         conn, [item.exercise_id for item in items]
     )
+    # A hard constraint on a secondary lift removes that lift, not the session. The primary
+    # lift is the scheduling identity; if it is vetoed the session stays non-executable.
+    omitted: list[dict[str, str]] = []
+    if constraint_report.vetoes:
+        keep = []
+        for item in items:
+            reasons = [reason for ex, reason in constraint_report.vetoes if ex == item.exercise_id]
+            if reasons and item.exercise_id != template.primary_exercise:
+                omitted.append({"exercise_id": item.exercise_id, "reason": reasons[0]})
+            else:
+                keep.append(item)
+        if omitted:
+            items = keep
+            constraint_report = constraints_mod.evaluate(
+                conn, [item.exercise_id for item in items]
+            )
+            warnings.append(
+                "CONSTRAINT_OMITTED: " + ", ".join(
+                    f"{row['exercise_id']} ({row['reason']})" for row in omitted
+                )
+            )
     minimum_note = None
     if minimum_session:
         minimum_cfg = minimum_session_mod.MinimumSessionConfig.load()

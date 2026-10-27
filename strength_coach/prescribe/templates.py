@@ -63,6 +63,7 @@ class SessionTemplate:
     slots: tuple[Slot, ...]
     time_cap_s: int
     schema_version: str
+    primary_exercise: str | None = None
 
     def rep_ranges(self) -> dict[str, tuple[int, int]]:
         ranges: dict[str, tuple[int, int]] = {}
@@ -107,6 +108,11 @@ def _parse_session_template(session_type: str, source_name: str, digest: str,
         slots=slots,
         time_cap_s=int(block.get("time_cap_s", 4800)),
         schema_version=schema_version,
+        primary_exercise=(
+            str(types[session_type].get("primary_exercise"))
+            if types[session_type].get("primary_exercise")
+            else next((s.exercise for s in slots if s.essential and s.exercise), None)
+        ),
     )
 
 

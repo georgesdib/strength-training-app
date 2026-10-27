@@ -42,7 +42,7 @@ def test_history_without_squat_rotates_instead_of_three_squats():
     history = ["hinge", "hinge", "hinge", "hinge", "bench_squat", "bench_squat"]
     prior: list[str] = []
     for _ in range(6):
-        family = schedule._choose_family(history + prior)
+        family = schedule._choose_family(history + prior, schedule.TARGET_COUNTS)
         prior.append("bench_squat" if family == "bench" else family)
     assert prior != ["squat", "squat", "squat", "bench_hinge", "squat", "bench_squat"]
     assert prior.count("squat") == 2
@@ -104,3 +104,23 @@ def test_validate_text_rejects_ambiguous_slots_and_missing_essential_work():
         pass
     else:
         raise AssertionError("session with no essential slot was accepted")
+
+
+def test_a_constrained_primary_family_falls_back_and_rebalances():
+    from strength_coach.store import db, repositories
+
+    store = db.Store(":memory:")
+    try:
+        repositories.append_exercise_suitability(
+            store.connection, exercise_id="trap_bar_deadlift", rated_on="2024-01-01",
+            can_do=False, will_do=False, feels_bad=False,
+        )
+        availability = schedule._availability(store.connection)
+        assert availability["hinge"] is False
+        assert availability["bench_hinge"] is True  # bench primary is available
+        targets = schedule._targets({"squat", "bench"})
+        assert targets == {"squat": 3, "hinge": 0, "bench": 3}
+        chosen = schedule.next_session_type(store.connection, "2024-02-01")
+        assert chosen in {"squat", "bench_squat", "bench_hinge"}
+    finally:
+        store.close()

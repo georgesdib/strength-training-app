@@ -11,6 +11,7 @@ schema_version: "1.0.0"
 session_types:
   squat:
     label: "Squat emphasis"
+    primary_exercise: ssb_squat
     prescription:
       time_cap_s: 4800
       slots:
@@ -69,6 +70,7 @@ session_types:
 
   hinge:
     label: "Hinge emphasis"
+    primary_exercise: trap_bar_deadlift
     prescription:
       time_cap_s: 4800
       slots:
@@ -115,6 +117,7 @@ session_types:
 
   bench_squat:
     label: "Bench + squat support"
+    primary_exercise: bench_press
     prescription:
       time_cap_s: 4800
       slots:
@@ -165,6 +168,7 @@ session_types:
 
   bench_hinge:
     label: "Bench + hinge support"
+    primary_exercise: bench_press
     prescription:
       time_cap_s: 4800
       slots:

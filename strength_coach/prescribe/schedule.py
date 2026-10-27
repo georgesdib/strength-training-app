@@ -22,14 +22,44 @@ TARGET_COUNTS = {"squat": 2, "hinge": 2, "bench": 2}
 WINDOW = 6
 
 
+def _availability(conn) -> dict[str, bool]:
+    """Session-type availability from the primary lift's stored constraints/suitability."""
+    from strength_coach.prescribe import constraints as constraints_mod
+    from strength_coach.prescribe import templates
+
+    out: dict[str, bool] = {}
+    for session_type in SESSION_TYPES:
+        primary = templates.SessionTemplate.load(session_type).primary_exercise
+        if not primary:
+            out[session_type] = True
+            continue
+        out[session_type] = not constraints_mod.evaluate(conn, [primary]).vetoes
+    return out
+
+
+def _targets(available: set[str]) -> dict[str, int]:
+    """Keep the six-session family target and redistribute unavailable families."""
+    counts = {family: 0 for family in TARGETS}
+    for family in available:
+        counts[family] = TARGET_COUNTS[family]
+    missing = sum(TARGET_COUNTS.values()) - sum(counts.values())
+    ordered = [family for family in TARGETS if family in available]
+    if not ordered:
+        raise ValueError("no schedule family is available under the stored constraints")
+    for index in range(missing):
+        counts[ordered[index % len(ordered)]] += 1
+    return counts
+
+
 def _family(session_type: str) -> str | None:
     return session_identity.rotation_family(session_type)
 
 
-def _choose_family(recent: list[str]) -> str:
+def _choose_family(recent: list[str], targets: dict[str, int]) -> str:
     """Pick the emphasis family, with least-recent rotation on a target tie."""
+    available = {family for family, count in targets.items() if count > 0}
     if not recent:
-        return "squat"
+        return min(available, key=TARGETS.index)
 
     counts: Counter[str] = Counter()
     last_seen: dict[str, int] = {}
@@ -43,7 +73,7 @@ def _choose_family(recent: list[str]) -> str:
         last_family = family
 
     deficits = {
-        family: TARGET_COUNTS[family] - counts.get(family, 0) for family in TARGETS
+        family: targets[family] - counts.get(family, 0) for family in TARGETS
     }
 
     # Prefer the next family in the squat -> hinge -> bench cycle while it still has a
@@ -55,7 +85,10 @@ def _choose_family(recent: list[str]) -> str:
     # If the successor has no remaining deficit, rotate rather than taking the largest
     # deficit: history can already be over target for a family, and a max-deficit rule would
     # then avoid it for many sessions. Least-recent keeps the emphasis cycle moving.
-    return min(TARGETS, key=lambda family: last_seen.get(family, -1))
+    return min(
+        (family for family in TARGETS if targets.get(family, 0) > 0),
+        key=lambda family: last_seen.get(family, -1),
+    )
 
 
 def next_session_type(conn, before: str, *, prior_types=()) -> str:
@@ -64,7 +97,14 @@ def next_session_type(conn, before: str, *, prior_types=()) -> str:
     recent = [] if sessions.empty else [str(v) for v in sessions.tail(WINDOW)["session_type"]]
     recent.extend(str(item) for item in prior_types)
 
-    family = _choose_family(recent)
+    availability = _availability(conn)
+    available_families = {
+        family for family in TARGETS
+        if any(availability.get(session_type) for session_type in SESSION_TYPES
+               if _family(session_type) == family)
+    }
+    targets = _targets(available_families)
+    family = _choose_family(recent, targets)
     if family == "bench":
         last_bench = next(
             (value for value in reversed(recent)
