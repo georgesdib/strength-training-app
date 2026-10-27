@@ -7,7 +7,7 @@ produces an `unknown` verdict rather than a silent guess.
 > Quantitative evidence for each question is kept out of this public repository. The
 > questions themselves are methodology questions and apply to any athlete using the system.
 
-**Live register (2026-10-26):** two open questions (Q14, Q26) and one deferred decision (Q22).
+**Live register (2026-10-27):** one open question (Q14) and one deferred decision (Q22).
 The 22 questions decided since the register was created were removed from the live text on
 2026-10-25; each outcome and decision record is indexed under
 [Closed](#closed--index-only). Reopening a closed question is a new decision, not an edit.
@@ -33,30 +33,6 @@ baseline win, and an opt-in N-of-1/alternating test. See
 [WEAKNESS-TARGETING-PLAN.md](WEAKNESS-TARGETING-PLAN.md).
 
 ---
-
----
-
-## Q26. Should volume respond to programme frequency or to an incomplete session?
-
-`programme --sessions-per-week 1|2|3` currently selects weekdays only; each projected session
-keeps the three-session template, so a one-session week delivers about one third of the weekly
-sets (19 vs 61 in the reproduced example) and is below the configured MEV for squat and
-horizontal push. Separately, nothing reads a completed session's shortfall or excess; the only
-volume feedback is the 7-day MRV cap (accessories only) and the slow accessory under-MEV rule.
-
-Four-plus is out of scope for the programme: the profile `sessions_per_week_target` can be 4
-and the budget report projects four, but the scheduler flag stays 1–3 and there is no four-day
-forecast. Use manual single-session training; the target is the three-session average, so four
-sessions spread 57 sets unless an explicit higher total/target is set.
-
-Open: should (a) a lower frequency scale per-session sets toward the weekly targets, (b) a short
-session add volume next time, (c) a heavy session cut next time, or (d) the app stay dates-only
-and report the shortfall? Evidence supports weekly volume as the dose and does not support
-automatic make-up volume; no implementation. See
-[FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md). The owner accepted the design (weekly target,
-session cap, effective-target exemptions and a settings/modality layer) on 2026-10-26
-(`DEC-VOLUME-06`); implementation has not started. Default until implemented: dates-only, with
-the limitation documented.
 
 ---
 
@@ -88,6 +64,7 @@ enforced; the reasoning lives in the decision record and the linked document.
 | Q23 | Does a first-set RIR drop trigger a load cut? | no; never implemented, inside RIR reporting error, removed from `MOD-FAT-001` in constitution 1.13.0; the mean-RIR per-lift component remains | `DEC-RIR-04` |
 | Q24 | Should the low-bar competition squat count toward the weekly spinal cap? | yes, at cost 1; the cap rises 3 to 6, and bench+hinge uses sumo at 2.5 | `DEC-SPINE-05`, `docs/SPINAL-COST.md` |
 | Q25 | Does a level-1 reading with no settle answer count as a flare? | yes: only a recorded 48 h settlement clears a level 1, so an unrecorded answer fails safe | `DEC-SYMPTOM-04`, `docs/SYMPTOM-LOGGING.md` |
+| Q26 | Does volume respond to programme frequency or an incomplete session? | **Closed 2026-10-27.** Frequency remains dates-only (1–3 scheduled sessions keep the normal template; no per-session scaling or extra sessions). Incomplete/low-volume sessions are handled by the live volume budget through policy-specific accessory top-up/under-MEV; `preserve` is the mode where ordinary accessory make-up applies. No automatic heavy-session cut. | `DEC-VOLUME-06`, live budget, [FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md), LIM-51 |
 | Q27 | Should filled groups reallocate volume across groups? | strength-preserving default; main lifts stay; accessory-only compensation under `preserve`; volume-first `drop` deferred; compensation slot pool and weights agreed | `DEC-VOLUME-08/09`, VOLUME-MODULATION-PLAN §4.2 |
 | Q28 | Should a personalised volume-response model drive volume? | not now: future shadow-only model with interval/confidence and a pre-registered prospective gate; fixed budget and safety guards remain authoritative until then | `DEC-VOLUME-29`, VOLUME-MODULATION-PLAN §13 |
 | Q29 | How should the volume ledger treat a week with no working sets? | implemented 2026-10-27: calendar-window denominator; `volume.ledger.coverage=complete` zero-fills; breaks/deloads reset the under-MEV clock; under-MEV requires all eligible weeks to be training weeks. The live profile is complete | VOLUME-MODULATION-PLAN §14 |
