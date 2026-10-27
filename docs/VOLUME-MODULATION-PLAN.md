@@ -1041,3 +1041,44 @@ Guardrails:
 The output must not be called "the" optimal volume. It is a response estimate under confounding,
 and it must say so. The current budget remains the deterministic production policy until the
 gate is met.
+## 14. Volume-ledger denominator and zero-week coverage (planned, not implemented)
+
+**Finding.** The ledger currently divides by the unique ISO weeks present in the filtered
+data, not by the configured window. A week with no working sets disappears from the
+denominator, which inflates the average and can suppress an under-MEV signal.
+
+**Assumption for this design:** the athlete logs every lift. Absence of working sets then means
+**no training**, not a logging gap.
+
+Proposed behaviour:
+
+1. **Enumerate the window.** Use the configured window (currently four weeks) as a calendar
+   window, not a list of weeks that happen to contain rows. Report the window start/end and
+   whether the current week is partial.
+2. **Coverage-aware denominator.** Add a ledger coverage mode:
+   - **complete** — every calendar week in the window is eligible; a week with zero working
+     sets counts as **0**;
+   - **unknown/incomplete** — missing weeks stay excluded and are reported as coverage gaps;
+     never silently treated as zero.
+   The athlete's complete-logging assumption should be an explicit setting/profile value, not
+   an inference from a blank frame.
+3. **Exclude non-training expectations.** Declared breaks and weeks marked as no-training are
+   excluded from the denominator, or counted as zero only in a display average. A break must
+   not look like under-volume.
+4. **Separate the under-MEV decision.** Under-MEV progression should use eligible **training**
+   weeks: a week with no logged session is reported, but it does not trigger set additions.
+   Deload weeks are labelled and excluded from the under-MEV trigger; the report can still
+   show their lower volume.
+5. **Show the arithmetic.** Every ledger row should expose:
+   - window weeks; observed weeks; zero weeks; excluded weeks;
+   - denominator used; total and average;
+   - coverage gaps and the reason for each excluded week.
+6. **Config, not code.** The denominator mode and zero-fill policy belong in
+   `config/volume.v1.yaml` with domain comments; the default for existing users remains
+   conservative until they declare complete coverage.
+7. **Tests.** Add fixtures for: complete coverage with a zero week; an incomplete/import gap;
+   a declared break; a deload week; a partial current week. Assert the denominator, average,
+   under-MEV status and no set addition after a break.
+
+This is a ledger/coverage correction, not a new prescription rule: the budget's weekly target and
+the MRV/spinal guards remain unchanged.
