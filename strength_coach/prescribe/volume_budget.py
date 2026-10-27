@@ -710,6 +710,7 @@ def allocate_items(
     band or the four-week ledger agrees. Accessories only; essential items never move.
     """
     out = [dict(row) for row in rows]
+    mapping = config.indirect_by_group if config.set_accounting == "effective" else None
     bands = per_pattern_band(effective, config.tolerance, config.band_min)
     limits = band(effective, config.tolerance)
     projected = projection(completed, pattern_sets(out), future_sets)
@@ -723,7 +724,7 @@ def allocate_items(
 
     def recompute() -> None:
         nonlocal projected, total
-        projected = projection(completed, pattern_sets(out), future_sets)
+        projected = projection(completed, pattern_sets(out, mapping), future_sets)
         total = sum(projected.values())
 
     total_over = total > limits["high"]
@@ -794,7 +795,7 @@ def allocate_items(
             blocked.append(f"{key}: under, no non-essential capacity")
             continue
         while projected.get(key, 0.0) < low:
-            current = pattern_sets(out).get(key, 0)
+            current = float(sum(row["sets"] for row in out if row.get("key") == key))
             if current >= cap:
                 blocked.append(f"{key}: under, session cap reached")
                 break

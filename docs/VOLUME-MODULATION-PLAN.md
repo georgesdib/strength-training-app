@@ -1206,8 +1206,10 @@ both the target and the landmarks would make the change mostly cosmetic.
 
 ### 16.7 What is not yet done
 
-- `allocate_items`, trim/top-up, compensation and drop still allocate raw sets.
-- The hard-vs-effective prescription diff and live switch remain.
+- `allocate_items` is effective-aware when `set_accounting=effective`; trim/top-up
+  recompute through the indirect map. Compensation/drop use the effective report.
+- Session caps/time remain raw.
+- The hard-vs-effective prescription diff and live switch remain; live accounting is still hard.
 
 ### 16.7 Required before live activation
 
