@@ -20,9 +20,9 @@ regression tests. The full public+private suite passes, the generated programme 
 configuration, and the new prescription invariants hold across the four session types.
 
 It is **not** medically validated, and this audit does not establish that the training
-methodology is optimal. The remaining material caveats are the same-date accounting paths that
-were deliberately left out of DEC-VOLUME-31 (`plan_drop` and the under-MEV top-up), and the
-absence of a browser-level test suite and of an installed lint runner.
+methodology is optimal. The four residuals below were reviewed with the owner on 2026-10-27 and
+**accepted**; none is a confirmed defect in normal use. R1 is the only one to revisit if
+`main_lift_policy: drop` or the under-MEV top-up is used.
 
 No S1 (wrong prescription/executability, cap breach, data loss) or S2 (material user-visible
 wrong number/state) finding remains open.
@@ -41,7 +41,7 @@ wrong number/state) finding remains open.
 | F4 | S2 (was) | A plan rebuilt on a date with a recorded session counted the same sets as completed and proposed in MRV, spinal and the budget | `tests/test_same_date_accounting.py`; revision view, plan counted once, report/apply agree | **closed** (`DEC-VOLUME-31`) |
 | F5 | S3 (was) | The symptom tests did not assert the sumo or the final prescription under combined modifiers | `tests/test_back_flare_interactions.py`; final item/RIR/load/issues for readiness, gap, deload, spinal and DUP | **closed** (A.4.1) |
 
-### 2.2 Open residuals (not fixed in this audit)
+### 2.2 Residuals (accepted 2026-10-27; no code change)
 
 | id | severity | residual | evidence / why it remains | impact |
 |---|---|---|---|---|
@@ -49,6 +49,9 @@ wrong number/state) finding remains open.
 | R2 | S3 | `features/baseline.working_rir_median` still includes box-jump RIR values, though `rir_compliance_pct` excludes them | Descriptive median only; the value is recorded effort, not a target. DEC-POWER-03 excludes the window/compliance path | A per-lift descriptive RIR median for box jumps is not a target; no prescription change |
 | R3 | S3 | Readiness's own RIR bump is not re-solved against the load (pre-existing) | A.8; fixing it would change every readiness-reduced session and needs its own decision | The printed RIR after a readiness bump can sit on a load solved for the previous RIR; conservative direction |
 | R4 | S3 | No browser-level UI test suite; ruff is configured but not installed; SQLite concurrency/lock and a real populated-DB migration were not exercised | Tooling limitation, stated rather than papered over | UI rendering and rare concurrency/populated-DB paths are not verified automatically |
+
+All four are **accepted** by the owner on 2026-10-27. They remain documented risks, not open
+findings; no code change is planned for them. R1 is the one to revisit if drop/under-MEV is used.
 
 ---
 
@@ -145,20 +148,13 @@ TZ=America/New_York .venv/bin/python -m pytest \
 
 ## 7. Recommended next actions
 
-1. **Close R1** if `main_lift_policy: drop` or under-MEV is used: pass the revision view into
-   `plan_drop` and the under-MEV computation and add one same-date test for each. This is an
-   accounting change, not a training-rule change.
-2. **Decide R2 explicitly**: either exclude power from `working_rir_median` (descriptive only) or
-   document that the baseline reports the athlete's logged RIR for box jumps without treating it
-   as a target.
-3. **Run a real-database migration rehearsal** on a copy of `data/coach.db` before the next real
-   session, and verify one old prescription still reads correctly after migration `0041`.
-4. **Add a browser smoke test** if the UI surface keeps growing; at minimum, one manual click path
-   through Prescribe → Workout → History.
-5. **Install ruff in the dev environment** and run `ruff check .` once; no source change is
-   required by this audit.
-6. **Keep R3 open** until a readiness-specific decision is made; do not fold it into the flare
-   fix.
+No code action is required for R1–R4; they are accepted. Two optional operational checks remain
+worth doing before the next real block:
 
-The deterministic engine remains authoritative. None of the residuals above justifies a change
+1. **Rehearse migration `0041` on a copy of `data/coach.db`** and verify an old prescription still
+   reads correctly. The migration is additive and old rows default to `effort_model = 'rir'`.
+2. **If `main_lift_policy: drop` or under-MEV is used**, revisit R1 and pass the revision view
+   into `plan_drop`/under-MEV with one same-date test each.
+
+The deterministic engine remains authoritative. None of the accepted residuals justifies a change
 to the training rules without a separate decision.
