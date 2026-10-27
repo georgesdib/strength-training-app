@@ -267,19 +267,19 @@ def status(conn, on_date: str) -> dict:
         tasks.append(_task(conn, key, on_date, config).as_dict())
     profile = queries.athlete_profile(conn) or {}
     if profile.get("volume_budget_enabled"):
-        # Step 3 is a real-use review, not a closeable task: it appears only after the budget
-        # is enabled and stays visible while it is on. It never changes a prescription.
+        # Standing review after the plan closed: it appears while the budget is enabled and
+        # never changes a prescription. It is not a roadmap milestone.
         tasks.append(ReviewTask(
-            key="volume_review", label="Volume review", kind="reminder",
+            key="volume_review", label="Volume review (standing)", kind="reminder",
             status="attention", due_on=on_date,
-            summary="Review trims and top-ups after 2-3 weeks of budget use.",
-            why="Step 3 is a real-week review of the volume budget; it stays open.",
+            summary="Standing review: check trims and top-ups after 2-3 weeks of budget use.",
+            why="The volume-modulation plan is closed; this is a standing follow-up review.",
             steps=(
                 "Use the budget for 2-3 weeks.",
                 "Review trims, top-ups, blocked warnings and the high-band guard.",
-                "Change config only if the review shows a defect.",
+                "Keep or adjust config; roll back to hard if a defect appears.",
             ),
-            dont=("Do not treat this reminder as closing step 3.",),
+            dont=("Do not treat this reminder as an unresolved plan item.",),
             doc="docs/VOLUME-MODULATION-PLAN.md",
         ).as_dict())
     due = [task for task in tasks if task["status"] in {"due", "attention"}]

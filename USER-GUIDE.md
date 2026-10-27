@@ -536,7 +536,8 @@ DUP (including the scheme table), deload, volume landmarks/under-MEV, readiness 
 e1RM and plausibility; the programme forecast resolves per date. Step 5 adds the Settings
 **Settings profile** editor with diff and append-only reason; guarded MRV/spinal changes need the
 confirmation tick, the word `SPINAL` and a reason. The Drop panel now saves a profile budget. A
-**Volume review** reminder appears on Today after the budget is enabled and stays open for step 3.
+**Volume review (standing)** reminder appears on Today after the budget is enabled; it is a
+follow-up review, not an unresolved roadmap step.
 When the budget is on, Prescribe shows the weekly position after the proposed session, the
 programme shows the position per forecast entry, and Workout shows the planned position at
 start and end. The forecast simulates earlier projected sessions in the same week; `drop` is

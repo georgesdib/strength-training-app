@@ -61,7 +61,8 @@ def test_volume_review_reminder_appears_only_after_budget_is_enabled():
         store.close()
     assert task["status"] == "attention"
     assert task["periodic"] is False
-    assert "step 3" in task["why"].lower()
+    assert "standing" in task["why"].lower()
+    assert "closed" in task["why"].lower()
 
 
 def test_review_status_reports_data_gaps_without_writing():
