@@ -1196,12 +1196,18 @@ ceiling; the safety consequence is accepted for the step-8 evaluation. Raw sets 
 This is the only version where indirect credit changes the decision in a meaningful way. Scaling
 both the target and the landmarks would make the change mostly cosmetic.
 
-### 16.6 What is not yet done
+### 16.6 What is implemented so far
 
-- The budget still counts raw sets. Target/landmark selection is stored but unused.
-- `allocate_items`, trim/top-up, compensation, drop, report and forecast are not migrated.
-- `volume.ledger.set_accounting` remains `hard`; do not switch it.
+- Effective target/total table is stored and validated.
+- Budget report selects targets/totals by `set_accounting` and counts completed, today and future
+  sets effectively via the 0.25 map.
+- `volume.ledger.set_accounting` remains `hard`; live is unchanged.
 - No golden prescription changed.
+
+### 16.7 What is not yet done
+
+- `allocate_items`, trim/top-up, compensation and drop still allocate raw sets.
+- The hard-vs-effective prescription diff and live switch remain.
 
 ### 16.7 Required before live activation
 

@@ -113,6 +113,8 @@ def _deep_merge(base: dict, extra: dict) -> None:
 @dataclass(frozen=True)
 class BudgetConfig:
     enabled: bool = False
+    set_accounting: str = "hard"
+    indirect_by_group: Mapping[str, Mapping[str, float]] = field(default_factory=dict)
     weekly_target: Mapping[str, float] = field(default_factory=lambda: dict(DEFAULT_TARGET))
     weekly_total: float | None = None
     weekly_target_effective: Mapping[str, float] = field(default_factory=lambda: dict(DEFAULT_TARGET))
@@ -218,6 +220,10 @@ class BudgetConfig:
                 "volume budget weekly_total_effective must equal the sum of "
                 "weekly_target_effective"
             )
+        indirect_path = paths.config_dir("volume-indirect.v1.yaml")
+        indirect_raw = yaml.safe_load(
+            indirect_path.read_text(encoding="utf-8")
+        ) if indirect_path.exists() else {}
         raw_total = body.get("weekly_total")
         total = float(raw_total) if raw_total is not None else sum(targets.values())
         if total < 0:
@@ -351,6 +357,11 @@ class BudgetConfig:
             raise ValueError("volume budget time settings must be positive")
         return cls(
             enabled=bool(body.get("enabled", False)),
+            set_accounting=str((body.get("ledger") or {}).get("set_accounting", "hard")),
+            indirect_by_group={
+                str(group): {str(target): float(weight) for target, weight in (targets or {}).items()}
+                for group, targets in (indirect_raw.get("by_group") or {}).items()
+            },
             weekly_target=targets,
             weekly_total=total,
             weekly_target_effective=effective_targets,
@@ -421,28 +432,36 @@ def template_rows(session_type: str) -> list[dict[str, Any]]:
     return rows
 
 
-def pattern_sets(rows: Iterable[Mapping[str, Any]]) -> dict[str, int]:
-    out = {key: 0 for key in TARGET_KEYS}
+def pattern_sets(
+    rows: Iterable[Mapping[str, Any]],
+    mapping: Mapping[str, Mapping[str, float]] | None = None,
+) -> dict[str, float]:
+    out = {key: 0.0 for key in TARGET_KEYS}
     for row in rows:
         key = row.get("key")
+        sets = float(row.get("sets") or 0)
         if key in out:
-            out[key] += int(row.get("sets") or 0)
+            out[key] += sets
+            for target, weight in (mapping or {}).get(str(key), {}).items():
+                if target in out and target != key:
+                    out[target] += weight * sets
     return out
 
 
 def completed_sets(
     conn, *, on_date: str, include_today: bool,
     projected: Iterable[Mapping[str, Any]] = (),
-) -> dict[str, int]:
+    mapping: Mapping[str, Mapping[str, float]] | None = None,
+) -> dict[str, float]:
     """Working sets in the week before (or through) the date, by ledger key."""
     start, _ = week_bounds(on_date)
     end = str(on_date)
     if not include_today:
         end = (dt.date.fromisoformat(str(on_date)) - dt.timedelta(days=1)).isoformat()
     if start > end:
-        return {key: 0 for key in TARGET_KEYS}
+        return {key: 0.0 for key in TARGET_KEYS}
     frame = queries.clean_sets(conn, start=start, end=end)
-    out = {key: 0 for key in TARGET_KEYS}
+    out = {key: 0.0 for key in TARGET_KEYS}
     if frame.empty:
         return out
     taxonomy = exercises.taxonomy()
@@ -450,11 +469,18 @@ def completed_sets(
     for exercise_id in working["exercise_id"].astype(str):
         key = pattern_key(exercise_id, taxonomy)
         if key in out:
-            out[key] += 1
+            out[key] += 1.0
+            for target, weight in (mapping or {}).get(str(key), {}).items():
+                if target in out and target != key:
+                    out[target] += weight
     for row in projected:
         key = pattern_key(str(row.get("exercise_id") or ""), taxonomy)
         if key in out:
-            out[key] += int(row.get("sets") or 0)
+            sets = int(row.get("sets") or 0)
+            out[key] += sets
+            for target, weight in (mapping or {}).get(str(key), {}).items():
+                if target in out and target != key:
+                    out[target] += weight * sets
     return out
 
 
@@ -1281,12 +1307,14 @@ def report(
     if today_done:
         today_type = str(today_sessions.iloc[-1].get("session_type") or "unknown")
 
+    mapping = cfg.indirect_by_group if cfg.set_accounting == "effective" else None
+    targets = cfg.targets_for(cfg.set_accounting)
     completed = completed_sets(
         conn, on_date=on_date, include_today=today_done,
-        projected=projected_items,
+        projected=projected_items, mapping=mapping,
     )
     exempt = exemptions(conn, on_date=on_date)
-    effective = effective_targets(cfg.weekly_target, exempt)
+    effective = effective_targets(targets, exempt)
     sessions_done = completed_sessions(conn, on_date=on_date) + int(projected_sessions)
 
     if today_done:
@@ -1306,9 +1334,12 @@ def report(
         )
         future_types.append(next_type)
         prior.append(next_type)
-    future_sets = [pattern_sets(template_rows(session_type)) for session_type in future_types]
+    future_sets = [
+        pattern_sets(template_rows(session_type), mapping)
+        for session_type in future_types
+    ]
 
-    today_sets = pattern_sets(today_rows)
+    today_sets = pattern_sets(today_rows, mapping)
     projected = projection(completed, today_sets, future_sets)
     # The four-week ledger is the persistence check: one phase week is not a deficit.
     ledger_start = (dt.date.fromisoformat(str(on_date)) - dt.timedelta(days=28)).isoformat()
@@ -1325,7 +1356,7 @@ def report(
         if str(row.get("group")) in MANAGED_KEYS
     }
     per_pattern = per_pattern_status(
-        targets=cfg.weekly_target,
+        targets=targets,
         effective=effective,
         completed=completed,
         projected=projected,
@@ -1379,13 +1410,13 @@ def report(
             {"session_type": session_type, "sets": sets}
             for session_type, sets in zip(future_types, future_sets)
         ],
-        "targets": dict(cfg.weekly_target),
+        "targets": dict(targets),
         "exempt": exempt,
         "effective_targets": effective,
         "completed": completed,
         "projection": projected,
         "per_pattern": per_pattern,
-        "total_target": round(cfg.total_target(), 1),
+        "total_target": round(cfg.total_for(cfg.set_accounting), 1),
         "total_effective": round(sum(effective.values()), 1),
         "total_projected": round(sum(projected.values()), 1),
         "band": {
