@@ -8,6 +8,7 @@ script files, escaping regressions and unsafe date/error patterns added by later
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -60,3 +61,38 @@ def test_esc_escapes_html_metacharacters() -> None:
         "if (got !== \"&#39;&quot;&gt;&lt;&amp;\") throw new Error(got);"
     )
     subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+def test_no_utc_or_locale_date_contract() -> None:
+    source = "\n".join(path.read_text(encoding="utf-8")
+                        for path in (STATIC / "app.js", STATIC / "core.js") if path.exists())
+    assert "toISOString().slice(0, 10)" not in source
+    assert "toLocaleDateString" not in source
+
+
+def test_format_local_date_uses_the_local_calendar_day() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = "\n".join(path.read_text(encoding="utf-8")
+                        for path in (STATIC / "app.js", STATIC / "core.js") if path.exists())
+    functions = []
+    for name in ("pad2", "formatLocalDate"):
+        match = re.search(rf"function {name}\([^)]*\) \{{[\s\S]*?\n\}}", source)
+        assert match, f"{name}() not found in the client bundle"
+        functions.append(match.group(0))
+    script = (
+        "".join(f"eval({json.dumps(fn)});" for fn in functions)
+        + "const cases = ["
+        + "[new Date('2026-01-01T00:30:00Z'), '2025-12-31'],"
+        + "[new Date(2026, 0, 1, 0, 0), '2026-01-01'],"
+        + "[new Date('not-a-date'), ''],"
+        + "[new Date(2026, 2, 8, 12, 0), '2026-03-08'],"
+        + "];"
+        + "for (const [date, expected] of cases) {"
+        + "  const got = formatLocalDate(date);"
+        + "  if (got !== expected) throw new Error(expected + ' != ' + got);"
+        + "}"
+    )
+    env = {**os.environ, "TZ": "America/New_York"}
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True, env=env)

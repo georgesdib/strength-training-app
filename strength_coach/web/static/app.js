@@ -1,6 +1,19 @@
 /* Local UI over the strength-coach HTTP API. No framework, no external assets. */
 const $ = (sel) => document.querySelector(sel);
-const today = () => new Date().toLocaleDateString("en-CA");
+
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+
+/* Local calendar date in YYYY-MM-DD; never use a UTC slice for a date default. */
+function formatLocalDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+  return date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate());
+}
+
+function today() {
+  return formatLocalDate(new Date());
+}
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (c) => ({
@@ -792,7 +805,7 @@ async function recordCompensationE1rm(exerciseId) {
       body: JSON.stringify({
         exercise_id: exerciseId,
         e1rm_kg: kg,
-        effective_from: lastPrescribePayload?.date || new Date().toISOString().slice(0, 10),
+        effective_from: lastPrescribePayload?.date || today(),
         reason: "compensation slot",
       }),
     });
@@ -1610,15 +1623,15 @@ function renderStateForms(data) {
   const regionOptions = (regions.length ? regions : ["low_back"]).map((r) =>
     `<option value="${esc(r)}">${esc(r)}</option>`).join("");
   // A declared break freezes its weeks; the list is the record, the form appends to it.
-  const today = new Date().toISOString().slice(0, 10);
+  const todayDate = today();
   const breaks = data.declared_breaks || [];
   const breakRows = breaks.length
     ? "<div class='table-scroll'><table><thead><tr><th>From</th><th>To</th><th>Reason</th>" +
       "<th>Days</th><th>Status</th><th></th></tr></thead><tbody>" +
       breaks.map((row) => {
         const status = row.cancelled ? "cancelled"
-          : (row.starts_on <= today && today <= row.ends_on) ? "active"
-          : row.ends_on < today ? "past" : "future";
+          : (row.starts_on <= todayDate && todayDate <= row.ends_on) ? "active"
+          : row.ends_on < todayDate ? "past" : "future";
         const action = (!row.cancelled && status !== "past")
           ? "<button class='ghost' type='button' data-cancel-break='" + row.break_id +
             "'>Cancel</button>"
