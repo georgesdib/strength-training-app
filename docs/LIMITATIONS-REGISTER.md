@@ -61,6 +61,7 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-50 | The scheduled-deload clock counts calendar weeks from the block start, so a declared break freezes the DUP cycle and the erector ramp but not the deload schedule | open | DEC-CONTINUITY-04 | a break-aware deload clock is designed and tested |
 | LIM-51 | `programme --sessions-per-week` changes only which weekdays are projected; per-session content and weekly volume are unchanged, so a 1/week forecast delivers about one third of the weekly hard sets and is below MEV for squat and horizontal push. No rule redistributes volume by frequency, and none reads a completed session's shortfall or excess | open | frequency/volume investigation 2026-10-26, FREQUENCY-AND-VOLUME, VOLUME-MODULATION-PLAN, DEC-VOLUME-06 | the volume budget is implemented and reviewed |
 | LIM-52 | The weekly spinal cap and per-exercise costs are ordinal heuristics and are now editable in Settings (guarded); the guard is only as good as the athlete's judgement and the recorded profile | accepted | DEC-SPINE-06, VOLUME-MODULATION-PLAN | a measured lumbar-load model exists |
+| LIM-53 | `MOD-BACK-001`'s effort hold keys on the template `essential` flag, so a non-essential high-fatigue hinge was left at full effort during a back flare while still carrying the `MOD-BACK-001` citation; the bench+hinge sumo was the live case, and `bench_hinge` had no flare test | open | audit finding 2026-10-27, `DEC-SPINE-07` | `DEC-SPINE-07` is implemented and `tests/test_symptom.py` covers `bench_hinge` |
 
 ## Rules
 
