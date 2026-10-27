@@ -106,10 +106,12 @@ The UI edits runtime config; it never edits test code.
 
 - `tests/test_golden_prescription.py` pins the shipped programme. A template change that alters
   a prescription will fail that test until the golden fixture is deliberately updated.
-- Synthetic-template tests exercise the engine independently of the shipped programme.
-- Programme-invariant tests assert decisions such as push/row coverage and main-lift uniqueness.
-- An intentional template change therefore needs a reviewed fixture update; an unintended one
-  should be restored from backup.
+- `tests/test_engine_synthetic_template.py` exercises engine mechanics against a small
+  synthetic template, independently of the shipped programme.
+- `tests/test_session_types.py` holds the programme-invariant tests (push/row coverage,
+  main-lift uniqueness, slot order).
+- An intentional template change therefore needs a reviewed golden-fixture update; an
+  unintended one should be restored from backup.
 
 `docs/STRENGTH-PROGRAM-REVIEW.md` is generated from the templates. After a template change it is
 stale until **Refresh programme summary** rewrites its generated block. That is documentation,
