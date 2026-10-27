@@ -52,10 +52,9 @@ so declaring a holiday changes the record and the display, not the arithmetic.
   nothing is edited or deleted, and the cancelled break stays visible in history.
 - **No effect on load.** The gap rules above still apply when training resumes: a declared
   break does not replace `MOD-GAP-001`, and it never changes a load, RIR or set.
-- **Not shifted:** the **scheduled-deload clock** still counts calendar weeks from the block
-  start, so a long break does not move it (`LIM-50`).
-
-Decision record: `DEC-CONTINUITY-04`.
+- **Deload clock reset:** a declared break also resets the **scheduled-deload clock** after
+  the break ends. A break that is still active does not also trigger a scheduled deload.
+  Decision record: `DEC-CONTINUITY-04`, amended by `DEC-CONTINUITY-05`.
 
 ### Retrospective walk-forward (2026-10-20)
 

@@ -100,3 +100,20 @@ def test_cli_records_lists_and_cancels(tmp_path, capsys):
     assert "cancelled" in capsys.readouterr().out
     assert cli.main(["--db", str(path), "break", "--show"]) == 0
     assert "cancelled" in capsys.readouterr().out
+
+
+def test_a_declared_break_resets_the_scheduled_deload_clock():
+    from strength_coach.features import deload
+    from strength_coach.store import repositories
+
+    with _store() as store:
+        conn = store.connection
+        repositories.append_athlete_profile(
+            conn, effective_from="2024-01-01", primary_goal="strength",
+            goal_rank=["strength"], focus_lifts=[], sessions_per_week_target=3,
+            max_session_minutes=90, block_start_date="2024-01-01",
+        )
+        assert deload.scheduled_reason(conn, "2024-02-05") is not None
+        breaks.record(conn, starts_on="2024-01-15", ends_on="2024-01-21", reason="holiday")
+        assert deload.scheduled_reason(conn, "2024-02-05") is None
+        assert deload.scheduled_reason(conn, "2024-02-26") is not None

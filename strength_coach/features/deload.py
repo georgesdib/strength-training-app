@@ -15,6 +15,7 @@ from pathlib import Path
 import yaml
 
 from strength_coach.domain.symptoms import flare_from
+from strength_coach.features import breaks as breaks_feature
 from strength_coach.rules import History, RuleContext, evaluate, load_document
 from strength_coach.store import queries
 from strength_coach.utils import paths
@@ -80,8 +81,21 @@ def scheduled_reason(conn, as_of: str, *, config: DeloadConfig | None = None) ->
     current = dt.date.fromisoformat(as_of)
     if current < anchor:
         return None
-    elapsed_days = (current - anchor).days
-    week = elapsed_days // 7 + 1
+    # Scheduled time off resets the deload clock: the block restarts after the latest
+    # declared break ends. A break that is still active does not also trigger a deload.
+    breaks = [item for item in breaks_feature.all_breaks(conn) if not item.cancelled]
+    latest_end = None
+    for item in breaks:
+        end = dt.date.fromisoformat(item.ends_on)
+        if end < anchor or end > current:
+            continue
+        if latest_end is None or end > latest_end:
+            latest_end = end
+    if latest_end is not None:
+        if current <= latest_end:
+            return None
+        anchor = latest_end + dt.timedelta(days=1)
+    week = (current - anchor).days // 7 + 1
     if week % cfg.every_weeks != 0:
         return None
     return (
