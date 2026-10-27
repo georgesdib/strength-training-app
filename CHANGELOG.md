@@ -41,6 +41,8 @@
   version appended"); the other state forms show a generic saved toast on success.
 - **Budget UI label fix**: the volume-budget option is now “on”, with a helper explaining
   preserve/reduce/drop and that the main-lift policy is ignored while the budget is off.
+- **Future personalised volume-response model**: recorded as a shadow-only, gated research
+  track (uncertainty, pre-registered prospective run, no prescription change); not implemented.
 - **Remaining modules (5c)**: continuity, fatigue-fitness shadow, test cadence and warmup
   are profile-backed and wired; high-intensity exposure is guarded-editable and always on;
   selection is a per-session read-only card. All YAML factors are in the registry; the Modules

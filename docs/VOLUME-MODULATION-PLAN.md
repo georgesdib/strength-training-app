@@ -1010,3 +1010,34 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
 - **Decisions:** [DECISIONS.md](DECISIONS.md)
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md)
+## 13. Personalised volume-response model (future, gated)
+
+**Status: future idea, not scheduled, not implemented.** This records the design principle, not
+a new prescription path.
+
+The target is a model that estimates, per group/lift:
+
+- the volume that appears **productive** for this athlete;
+- the volume that appears **tolerable** (symptoms, readiness, completion);
+- how **confident** that estimate is, with an interval rather than a point;
+- when the evidence is strong enough to **suggest** an adjustment.
+
+Guardrails:
+
+1. **Shadow first.** Estimate and display; change no prescription. The fixed budget, MRV cap,
+   spinal guard and exposure guard remain authoritative.
+2. **Python computes.** No LLM arithmetic or veto. The model may only rank/estimate; the
+   deterministic engine applies any accepted change.
+3. **Uncertainty is visible.** Show the interval, sample size and basis. Missing or confounded
+   evidence remains unknown, never a confident recommendation.
+4. **Pre-registered gate.** Require a minimum number of clean exposures, a stable estimate, and
+   a frozen prospective run (8-12 weeks / 24-36 sessions) with no retuning and no load effect
+   before any opt-in suggestion.
+5. **Opt-in and append-only.** An accepted suggestion creates a profile version with reason and
+   provenance; it is never applied silently.
+6. **Evaluate against the fixed rule.** If the model does not beat the current policy
+   prospectively, the fixed rule stays.
+
+The output must not be called "the" optimal volume. It is a response estimate under confounding,
+and it must say so. The current budget remains the deterministic production policy until the
+gate is met.

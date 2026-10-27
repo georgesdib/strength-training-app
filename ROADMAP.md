@@ -1060,6 +1060,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | v0.5 | Cardio depth and shadow cardio load | planned (§4.13a, Q14) |
 | v0.5 | Deeper labelled calibration set | in progress (§4.14) |
 | future | LLM-guided suggested programme | idea only (§4.18) |
+| future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 
 ### 4.20 Post-review follow-ups  (unscheduled)
 
@@ -1174,6 +1175,10 @@ removed on 2026-10-25; their record is in `CHANGELOG.md`.
   high-load/multiset and autoregulation evidence, but no direct trial against the current
   4-5 × 3-5 @ RIR 2-3 prescription. Do not replace the programme yet
   ([TOP-SET-BACKOFF-EVIDENCE.md](docs/TOP-SET-BACKOFF-EVIDENCE.md)).
+- Personalised volume-response model — future, shadow-only: estimate productive/tolerable
+  volume per group/lift with calibrated uncertainty and a pre-registered prospective gate; no
+  prescription change until validated. Fixed budget and safety guards remain authoritative.
+  Idea only; see `docs/VOLUME-MODULATION-PLAN.md` §13 and Q28.
 - LLM-guided suggested programme under the §4.18 guardrails (idea only).
 - Wider proposal licence (more than one increment on the menu) once the menu has proved itself
   in real sessions.

@@ -89,6 +89,7 @@ enforced; the reasoning lives in the decision record and the linked document.
 | Q24 | Should the low-bar competition squat count toward the weekly spinal cap? | yes, at cost 1; the cap rises 3 to 6, and bench+hinge uses sumo at 2.5 | `DEC-SPINE-05`, `docs/SPINAL-COST.md` |
 | Q25 | Does a level-1 reading with no settle answer count as a flare? | yes: only a recorded 48 h settlement clears a level 1, so an unrecorded answer fails safe | `DEC-SYMPTOM-04`, `docs/SYMPTOM-LOGGING.md` |
 | Q27 | Should filled groups reallocate volume across groups? | strength-preserving default; main lifts stay; accessory-only compensation under `preserve`; volume-first `drop` deferred; compensation slot pool and weights agreed | `DEC-VOLUME-08/09`, VOLUME-MODULATION-PLAN §4.2 |
+| Q28 | Should a personalised volume-response model drive volume? | not now: future shadow-only model with interval/confidence and a pre-registered prospective gate; fixed budget and safety guards remain authoritative until then | `DEC-VOLUME-29`, VOLUME-MODULATION-PLAN §13 |
 
 ---
 
