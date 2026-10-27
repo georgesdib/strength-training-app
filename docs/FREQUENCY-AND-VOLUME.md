@@ -1,11 +1,11 @@
 # FREQUENCY AND VOLUME — what `--sessions-per-week` actually changes
 
-**Status: Q26 closed 2026-10-27; LIM-51 mitigated.** Frequency remains dates-only:
-`--sessions-per-week` selects weekdays and keeps the normal per-session template; it does not
-scale main-lift sets or create extra sessions. Incomplete/low-volume weeks are handled by the
-live volume budget through policy-specific accessory top-up and under-MEV; `preserve` is where
-ordinary accessory make-up applies. The reproduced gap and the residual 1/week main-lift
-shortfall remain under `LIM-51`.
+**Status: Q26 closed 2026-10-27; LIM-51 closed as an accepted design choice.** Frequency
+remains dates-only: `--sessions-per-week` selects weekdays and keeps the normal per-session
+template; it does not scale main-lift sets or create extra sessions. Incomplete/low-volume
+weeks are handled by the live volume budget through policy-specific accessory top-up and
+under-MEV; `preserve` is where ordinary accessory make-up applies. The reproduced 1/week
+difference is a consequence of that design, not an unhandled limitation.
 
 ---
 
