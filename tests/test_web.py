@@ -4,18 +4,20 @@ from __future__ import annotations
 
 import json
 import re
+import socket
 import threading
 from datetime import date
 from pathlib import Path
 import urllib.error
 import urllib.request
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import pytest
 
 from conftest import make_readiness, make_training
 from strength_coach.store import db, importer, repositories
 from strength_coach.web import markdown
+from strength_coach.web import server as web_server
 from strength_coach.web.server import create_server
 
 ROWS = [
@@ -1138,3 +1140,105 @@ def test_the_page_exposes_the_technique_throttle_controls(server):
     assert status == 200
     assert 'id="prescribe-technique"' in page
     assert 'id="prescribe-throttle-pattern"' in page
+
+def _raw_post(base: str, headers: list[str], body: bytes = b"") -> tuple[int, str]:
+    parsed = urlparse(base)
+    with socket.create_connection((parsed.hostname, parsed.port), timeout=3) as sock:
+        head = (
+            "POST /api/import HTTP/1.0\r\n"
+            "Host: localhost\r\n"
+            + "".join(f"{header}\r\n" for header in headers)
+            + "\r\n"
+        )
+        sock.sendall(head.encode() + body)
+        sock.shutdown(socket.SHUT_WR)
+        chunks = []
+        while True:
+            data = sock.recv(65536)
+            if not data:
+                break
+            chunks.append(data)
+    raw = b"".join(chunks).decode("latin1")
+    return int(raw.split(" ", 2)[1]), raw
+
+
+def test_oversized_body_is_rejected_before_read(monkeypatch, server):
+    monkeypatch.setattr(web_server, "MAX_BODY_BYTES", 1024)
+    status, raw = _raw_post(server, ["Content-Length: 100000"])
+    assert status == 413
+    assert "request body too large" in raw
+
+
+def test_missing_content_length_is_411(server):
+    status, _ = _raw_post(server, [])
+    assert status == 411
+
+
+def test_invalid_content_length_is_400(server):
+    for value in ("abc", "-1", "5.0", "1" * 30):
+        status, _ = _raw_post(server, [f"Content-Length: {value}"])
+        assert status == 400, value
+
+
+def test_duplicate_content_length_is_400(server):
+    status, _ = _raw_post(server, ["Content-Length: 1", "Content-Length: 1"])
+    assert status == 400
+
+
+def test_chunked_transfer_is_rejected(server):
+    status, _ = _raw_post(server, ["Transfer-Encoding: chunked"])
+    assert status == 400
+
+
+def test_malformed_json_and_non_object_are_400(server):
+    cases = [
+        (b"{", 1),
+        (b"[]", 2),
+        (b"\xff", 1),
+    ]
+    for body, length in cases:
+        status, _ = _raw_post(server, [f"Content-Length: {length}"], body)
+        assert status == 400, body
+
+
+def test_body_at_limit_is_accepted_but_one_byte_over_is_413(monkeypatch, server):
+    monkeypatch.setattr(web_server, "MAX_BODY_BYTES", 64)
+    exact = json.dumps({"x": "a" * 56}, separators=(",", ":")).encode()
+    assert len(exact) == 64
+    status, _ = _raw_post(
+        server, [f"Content-Length: {len(exact)}", "Content-Type: application/json"], exact
+    )
+    assert status == 400  # parsed, then rejected by the import handler
+    status, _ = _raw_post(server, [f"Content-Length: {len(exact) + 1}"])
+    assert status == 413
+
+
+def test_zero_content_length_is_an_empty_object(server):
+    status, _ = _raw_post(server, ["Content-Length: 0"])
+    assert status == 400  # import handler, not a framing error
+
+
+def test_the_import_file_limit_is_used(monkeypatch, server):
+    monkeypatch.setattr(web_server, "MAX_IMPORT_FILE_BYTES", 10)
+    status, body = post_status(server, "/api/import", {
+        "training": {"name": "t.csv", "text": "x" * 11},
+        "readiness": {"name": "r.csv", "text": "x"},
+    })
+    assert status == 400
+    assert "import limit" in body
+
+
+def test_a_legitimate_import_survives_patched_limits(monkeypatch, server):
+    monkeypatch.setattr(web_server, "MAX_BODY_BYTES", 20000)
+    monkeypatch.setattr(web_server, "MAX_IMPORT_FILE_BYTES", 4096)
+    training = make_training(ROWS[:1]).to_csv(index=False)
+    readiness = make_readiness([{"Date": "2024-01-01"}]).to_csv(index=False)
+    data = post(server, "/api/import", {
+        "training": {"name": "training.csv", "text": training},
+        "readiness": {"name": "readiness.csv", "text": readiness},
+    })
+    assert data["window_start"] == "2024-01-01"
+
+
+def test_body_limit_constants_leave_import_headroom():
+    assert web_server.MAX_BODY_BYTES >= 2 * web_server.MAX_IMPORT_FILE_BYTES + 4 * 1024 * 1024

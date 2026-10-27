@@ -79,6 +79,21 @@ ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).resolve().parent / "static"
 TOLERANCE = 0.25
 
+# Two 20 MiB CSVs plus JSON escaping and keys; see docs/WEB-UI.md. The per-file limit
+# remains in _import; this is the HTTP-boundary guard.
+MAX_BODY_BYTES = 64 * 1024 * 1024
+MAX_IMPORT_FILE_BYTES = 20 * 1024 * 1024
+
+
+class RequestError(Exception):
+    """A client error raised before the route; close the socket for framing faults."""
+
+    def __init__(self, status: int, message: str, *, close: bool = False) -> None:
+        super().__init__(message)
+        self.status = status
+        self.message = message
+        self.close = close
+
 
 def _json_default(value: Any) -> Any:
     if hasattr(value, "__dict__"):
@@ -237,6 +252,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        if getattr(self, "close_connection", False):
+            self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(body)
 
@@ -248,13 +265,31 @@ class Handler(BaseHTTPRequestHandler):
         self._json(status, {"error": message})
 
     def _body(self) -> dict:
-        length = int(self.headers.get("Content-Length") or 0)
-        if length <= 0:
+        if self.headers.get("Transfer-Encoding"):
+            raise RequestError(400, "Transfer-Encoding is not supported", close=True)
+        values = self.headers.get_all("Content-Length") or []
+        if not values:
+            raise RequestError(411, "Content-Length is required", close=True)
+        if len(values) != 1:
+            raise RequestError(400, "multiple Content-Length headers", close=True)
+        raw_length = values[0].strip()
+        if (not raw_length or len(raw_length) > 20
+                or not raw_length.isascii() or not raw_length.isdigit()):
+            raise RequestError(400, "invalid Content-Length", close=True)
+        length = int(raw_length)
+        if length > MAX_BODY_BYTES:
+            raise RequestError(413, "request body too large", close=True)
+        if length == 0:
             return {}
         raw = self.rfile.read(length)
-        data = json.loads(raw.decode("utf-8"))
+        if len(raw) != length:
+            raise RequestError(400, "incomplete request body", close=True)
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise RequestError(400, "invalid JSON body") from None
         if not isinstance(data, dict):
-            raise ValueError("JSON body must be an object")
+            raise RequestError(400, "JSON body must be an object")
         return data
 
     def _with_conn(self, fn):
@@ -615,6 +650,10 @@ class Handler(BaseHTTPRequestHandler):
             self._error(409, str(exc))
         except UnknownSessionError as exc:
             self._error(404, str(exc))
+        except RequestError as exc:
+            if exc.close:
+                self.close_connection = True
+            self._error(exc.status, exc.message)
         except (ValueError, KeyError) as exc:
             self._error(400, str(exc))
         except Exception as exc:
@@ -773,8 +812,8 @@ class Handler(BaseHTTPRequestHandler):
             text = part.get("text")
             if not isinstance(text, str) or not text.strip():
                 raise ValueError(f"{part_name} file is missing or empty")
-            if len(text.encode("utf-8")) > 20 * 1024 * 1024:
-                raise ValueError(f"{part_name} file is larger than 20 MB")
+            if len(text.encode("utf-8")) > MAX_IMPORT_FILE_BYTES:
+                raise ValueError(f"{part_name} file is larger than the import limit")
             return name, text
 
         training_name, training_text = content("training")
