@@ -115,6 +115,10 @@ class PatternVolume:
             "average": round(self.average, 2),
             "group_average": round(self.group_average, 2),
             "effective_total": round(self.effective_total, 2),
+            "raw_total": self.total,
+            "raw_average": round(self.average, 2),
+            "indirect_total": round(max(0.0, self.effective_total - self.total), 2),
+            "effective_average": round(self.group_average, 2),
             "target": list(self.target) if self.target else None,
             "status": self.status,
             "mev": self.mev,
@@ -268,6 +272,7 @@ def compute(
         "patterns": [row.as_dict() for row in rows],
         "coverage": {
             "mode": cfg.ledger_coverage,
+            "accounting": cfg.set_accounting,
             "window_weeks": cfg.window_weeks,
             "denominator": len(labels),
             "observed_weeks": len(set(observed) & set(labels)),
