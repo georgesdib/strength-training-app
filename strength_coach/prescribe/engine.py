@@ -92,6 +92,11 @@ def build_prescription(
     document = document or load_document()
     thresholds = thresholds or resolved.thresholds
     budget_config = volume_budget_mod.BudgetConfig.load(conn=conn, on_date=for_date)
+    budget_config = replace(
+        budget_config,
+        set_accounting=resolved.volume.set_accounting,
+        indirect_by_group=resolved.volume.indirect_by_group or {},
+    )
     requested_session_type = session_type
     drop_plan = volume_budget_mod.plan_drop(
         conn, for_date, session_type, config=budget_config, confirmed=drop_confirmed,
