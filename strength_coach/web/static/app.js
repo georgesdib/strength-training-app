@@ -14,6 +14,8 @@ document.addEventListener("click", (event) => {
   else if (action === "readiness-preset") applyReadinessPreset(element.dataset.preset);
 });
 
+
+
 function setView(name, options = {}) {
   document.querySelectorAll("#nav button").forEach((b) => {
     b.classList.toggle("active", b.dataset.view === name);
@@ -2018,6 +2020,7 @@ $("#continuity-save").addEventListener("click", async () => {
   }
 });
 
+
 /* --- programme ---------------------------------------------------------- */
 function programmeStatus(entry) {
   if (entry.deload_applied || entry.deload_reason) return "deload";
@@ -2706,6 +2709,65 @@ $("#settings-defaults-save").addEventListener("click", () => {
   applyStoredUiDefaults();
   $("#settings-defaults-msg").textContent = "Saved in this browser.";
   notify("Prescribe defaults saved in this browser.");
+});
+
+
+
+async function loadTemplateStatus() {
+  const data = await api("/api/templates");
+  $("#template-summary-status").textContent = data.summary_stale
+    ? "Programme summary is stale; refresh it after a template change."
+    : "Programme summary is current.";
+  return data;
+}
+
+async function openTemplateEditor() {
+  try {
+    const data = await loadTemplateStatus();
+    $("#template-yaml").value = data.yaml || "";
+    $("#template-path").textContent = data.path || "";
+    $("#template-msg").textContent = "";
+    $("#template-dialog").showModal();
+  } catch (error) {
+    $("#template-msg").textContent = error.message;
+  }
+}
+
+$("#templates-edit").addEventListener("click", openTemplateEditor);
+$("#template-cancel").addEventListener("click", () => $("#template-dialog").close());
+$("#template-restore").addEventListener("click", async () => {
+  if (!confirm("Restore the last template backup? The current file will be backed up first.")) return;
+  try {
+    await api("/api/templates/restore", { method: "POST", body: "{}" });
+    await loadExerciseCatalog();
+    await loadTemplateStatus();
+  } catch (error) {
+    $("#template-summary-status").textContent = error.message;
+  }
+});
+$("#template-summary-refresh").addEventListener("click", async () => {
+  try {
+    await api("/api/templates/summary", { method: "POST", body: "{}" });
+    await loadTemplateStatus();
+  } catch (error) {
+    $("#template-summary-status").textContent = error.message;
+  }
+});
+$("#template-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  $("#template-msg").textContent = "Saving…";
+  try {
+    await api("/api/templates", {
+      method: "POST",
+      body: JSON.stringify({ yaml: $("#template-yaml").value }),
+    });
+    $("#template-msg").textContent = "Saved.";
+    $("#template-dialog").close();
+    await loadExerciseCatalog();
+    await loadTemplateStatus();
+  } catch (error) {
+    $("#template-msg").textContent = error.message;
+  }
 });
 
 /* --- boot --------------------------------------------------------------- */

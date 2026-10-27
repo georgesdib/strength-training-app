@@ -11,6 +11,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import replace
 
+import pytest
+
 from conftest import make_readiness, make_training
 from strength_coach.features.volume import VolumeConfig
 from strength_coach.prescribe import PrescriptionItem, build_prescription, engine, volume_budget
@@ -34,7 +36,7 @@ HINGE_ROWS = [
 
 
 @contextmanager
-def store_with(rows, *, volume_budget=False):
+def store_with(rows, *, volume_budget=False, main_lift_policy="preserve"):
     training = make_training(rows)
     readiness = make_readiness([{}])
     store = db.Store(":memory:")
@@ -53,6 +55,7 @@ def store_with(rows, *, volume_budget=False):
                 focus_lifts=[],
                 block_start_date="2024-01-01",
                 volume_budget_enabled=True,
+                main_lift_policy=main_lift_policy,
             )
         yield store
     finally:
@@ -77,13 +80,13 @@ def split_squat(sets: int) -> PrescriptionItem:
 
 def test_mrv_does_not_count_the_same_date_session_and_the_plan():
     rows = [
-        {"Date": "2024-01-08", "Exercise": "Split Squat", "Weight_Used": "30",
+        {"Date": "2024-01-10", "Exercise": "Split Squat", "Weight_Used": "30",
          "RIR": "2", "Reps_Done": "8"},
         {"Date": "2024-01-08", "Exercise": "Split Squat", "Weight_Used": "30",
          "RIR": "2", "Reps_Done": "8"},
     ]
     with store_with(rows) as store:
-        context = RuleContext.from_store(store.connection, end="2024-01-08")
+        context = RuleContext.from_store(store.connection, end="2024-01-10")
         assert len(context.sets) == 2
         assert context.prior_to("2024-01-08").sets.empty
         cfg = replace(
@@ -92,7 +95,7 @@ def test_mrv_does_not_count_the_same_date_session_and_the_plan():
             apply_mrv_cap=True,
         )
         items, _warnings, note = engine._apply_volume_cap(
-            context, (split_squat(3),), "2024-01-08", config=cfg,
+            context, (split_squat(3),), "2024-01-10", config=cfg,
         )
 
     assert items[0].sets == 3
@@ -187,3 +190,58 @@ def test_budget_report_and_apply_exclude_the_same_date_session():
     assert data["today"]["sets"]["squat"] == 3
     assert out[0].sets == 3
     assert note["changed"] == []
+
+
+def test_under_mev_excludes_the_same_date_session():
+    rows = [
+        # One set earlier in the same week is below the MEV of 2; the four same-date sets
+        # would hide that if they were counted as completed volume.
+        {"Date": "2024-01-08", "Exercise": "Split Squat", "Weight_Used": "30",
+         "RIR": "2", "Reps_Done": "8"},
+    ] + [
+        {"Date": "2024-01-10", "Exercise": "Split Squat", "Weight_Used": "30",
+         "RIR": "2", "Reps_Done": "8"}
+        for _ in range(4)
+    ]
+    with store_with(rows) as store:
+        context = RuleContext.from_store(store.connection, end="2024-01-10")
+        cfg = replace(
+            VolumeConfig.load(),
+            landmarks={"squat": (2, 3, 3, 4)},
+            under_mev_enabled=True,
+            under_mev_weeks=1,
+            under_mev_add_sets=1,
+            under_mev_max_sets=8,
+            apply_mrv_cap=False,
+        )
+        items, _warnings, note = engine._apply_under_mev(
+            context, (split_squat(3),), "2024-01-10", config=cfg,
+        )
+
+    assert note["applied"] is True
+    assert items[0].sets == 4
+    assert "MOD-VOL-002" in items[0].rationale_refs
+
+
+def test_plan_drop_supplies_the_same_date_plan_as_the_revision(monkeypatch):
+    rows = [
+        {"Date": "2024-01-08", "Exercise": "Split Squat", "Weight_Used": "30",
+         "RIR": "2", "Reps_Done": "8"}
+        for _ in range(2)
+    ]
+    with store_with(rows, volume_budget=True, main_lift_policy="drop") as store:
+        cfg = volume_budget.BudgetConfig.load(conn=store.connection, on_date="2024-01-08")
+        captured = {}
+        real_report = volume_budget.report
+
+        def spy(*args, **kwargs):
+            captured.update(kwargs)
+            return real_report(*args, **kwargs)
+
+        monkeypatch.setattr(volume_budget, "report", spy)
+        volume_budget.plan_drop(
+            store.connection, "2024-01-08", "squat", config=cfg,
+        )
+
+    assert captured["projected_items"]
+    assert all({"exercise_id", "sets"} <= set(row) for row in captured["projected_items"])

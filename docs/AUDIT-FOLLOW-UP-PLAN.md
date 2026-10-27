@@ -1,19 +1,19 @@
 # AUDIT FOLLOW-UP — implementation plan
 
-**Status:** implemented 2026-10-27. The audit report is
-[`AUDIT-FOLLOW-UP-REPORT.md`](AUDIT-FOLLOW-UP-REPORT.md). The body below is the plan as
-written, including the pre-implementation state it described. Part A is decided (`DEC-SPINE-07`); Part B is decided (`DEC-POWER-02`);
-Part C is a documentation/tooling fix with no constitution change; Part D is decided
-(`DEC-VOLUME-30`); Part E verifies the fixes behaviourally after they land. No code has been changed
-for any part.
+**Status: implemented and audit closed 2026-10-27.** No open findings or follow-up actions.
+The audit report is [`AUDIT-FOLLOW-UP-REPORT.md`](AUDIT-FOLLOW-UP-REPORT.md); the body below is
+the plan as written, including the pre-implementation state it described. Part A is decided
+(`DEC-SPINE-07`); Part B is decided (`DEC-POWER-02`); Part C is a documentation/tooling fix with
+no constitution change; Part D is decided (`DEC-VOLUME-30/31/32`); Part E verifies the fixes
+behaviourally after they land. All parts are implemented.
 
 | part | finding | status | blocking input |
 |---|---|---|---|
 | A | back-flare scope misses a non-essential high-fatigue hinge; the sumo is not aligned with the competition squat; interaction tests are missing; the erector dose can be reset upward after a readiness cut | implemented 2026-10-27 (`DEC-SPINE-08`); dose ceiling and interaction matrix included | none |
 | B | power work is displayed as RIR-limited but instructed as quality-limited | implemented 2026-10-27 (`DEC-POWER-03`) | none |
 | C | the programme review and dependent summaries describe the old bench+hinge support | implemented 2026-10-27 | none |
-| D | same-date recorded sets are counted as completed **and** added as proposed in the MRV cap, the spinal cap and the budget application | implemented 2026-10-27 (`DEC-VOLUME-31`) | none |
-| E | independent adversarial audit of the fixed system, including the five previous fixes | completed 2026-10-27; report linked above | none |
+| D | same-date recorded sets are counted as completed **and** added as proposed in the MRV cap, the spinal cap and the budget application | implemented 2026-10-27 (`DEC-VOLUME-31/32`); drop and under-MEV closed | none |
+| E | independent adversarial audit of the fixed system, including the five previous fixes | completed and **closed 2026-10-27**; report linked above; no follow-ups | none |
 
 The parts A–D are independent and can ship in any order. E is a gate over all of them, so it runs
 last; the sequencing in §F is the safe one.
@@ -286,10 +286,9 @@ number honest.
 
 ## A.8 Deliberately out of scope
 
-- **Readiness's own RIR bump is still not re-solved.** The readiness transform adds RIR and
-  multiplies the load, but does not re-solve for the new RIR. Fixing that would change every
-  readiness-reduced session, needs its own decision and evidence review. A new register row (next
-  free `LIM-` number) should record it.
+- **Readiness's own RIR bump.** Initially out of scope; resolved 2026-10-27 by
+  `DEC-READINESS-18`. The load is re-solved at the bumped RIR from the factor-scaled e1RM, so the
+  printed RIR and the load describe the same set. This changes loads for readiness-reduced items.
 - **Pattern-based hinge guard.** The plan uses the config exclusion list, the existing mechanism.
   A property-based guard is a separate improvement.
 - **No per-lift load adjustment beyond the RIR re-solve.** The flare adds no percentage cut, no set
@@ -674,9 +673,9 @@ uses the prior view.
   no-session path is unchanged and tested.
 - **Out of scope:** multiple plans per date, cross-date debt, and changing the MRV/spinal
   thresholds. This is an accounting fix, not a cap change.
-- **Drop and under-MEV same-date paths.** `plan_drop` and the under-MEV top-up still read
-  the full context; they are separate opt-in/accessory rules and were not part of this
-  fix. The audit gate should verify them.
+- **Drop and under-MEV same-date paths.** Resolved 2026-10-27 by `DEC-VOLUME-32`:
+  `_apply_under_mev` uses the prior view and `plan_drop` supplies the template as the revision
+  plan when the date already has a session. Tests are in `tests/test_same_date_accounting.py`.
 
 ---
 

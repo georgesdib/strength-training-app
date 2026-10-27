@@ -24,6 +24,7 @@ from typing import Any, Mapping
 import pandas as pd
 
 from strength_coach import settings_profile
+from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import readiness as readiness_mod
 from strength_coach.features import readiness_score
@@ -636,8 +637,10 @@ def _apply_under_mev(
     cfg = config or volume_feature.VolumeConfig.load()
     if not cfg.under_mev_enabled or not cfg.landmarks:
         return items, (), {"applied": False}
+    # A plan on a date with a recorded session is a revision: the date's work is what the
+    # plan replaces, so it must not count as completed accessory volume (DEC-VOLUME-32).
     report = volume_feature.compute(
-        context.sets, on_date=for_date,
+        context.prior_to(for_date).sets, on_date=for_date,
         config=replace(cfg, window_weeks=cfg.under_mev_weeks),
         reset_weeks=_reset_weeks(conn, for_date, cfg.under_mev_weeks) if conn else (),
     )
@@ -1013,21 +1016,46 @@ def _apply_readiness_score(
         override = override or assessment.overrides.get("global")
         if override is not None:
             refs += (f"readiness_override:{override['override_id']}",)
+        new_rir = (
+            item.rir_target
+            if item.effort_model == "quality" or item.rir_target is None
+            else min(4, item.rir_target + rir_bump)
+        )
         new_load = item.load_kg
         if new_load is not None:
-            new_load = loads.round_down(
-                new_load * factor, item.rounding_increment_kg
-            )
+            if (
+                rir_bump > 0
+                and new_rir is not None
+                and item.rir_target is not None
+                and new_load > 0
+                and item.load_basis != "bodyweight_total"
+            ):
+                # The load was solved for the old RIR. Re-solve it from the same e1RM,
+                # scaled by the readiness factor, at the bumped RIR so the printed RIR and
+                # the load describe the same set (DEC-READINESS-18).
+                base_e1rm = e1rm_mod.epley_rir_adjusted(
+                    float(new_load), int(item.reps_low), int(item.rir_target)
+                )
+                solved = loads.solve_load(
+                    base_e1rm * factor,
+                    int(item.reps_low),
+                    int(new_rir),
+                    item.rounding_increment_kg,
+                )
+                new_load = (
+                    solved if solved > 0
+                    else loads.round_down(new_load * factor, item.rounding_increment_kg)
+                )
+            else:
+                new_load = loads.round_down(
+                    new_load * factor, item.rounding_increment_kg
+                )
         out.append(
             replace(
                 item,
                 sets=new_sets,
                 load_kg=new_load,
-                rir_target=(
-                    item.rir_target
-                    if item.effort_model == "quality" or item.rir_target is None
-                    else min(4, item.rir_target + rir_bump)
-                ),
+                rir_target=new_rir,
                 rationale_refs=refs,
                 load_factor=item.load_factor * factor,
             )

@@ -122,6 +122,49 @@ def all_rep_ranges(path: str | Path | None = None) -> dict[str, tuple[int, int]]
     return ranges
 
 
+
+
+def validate_text(body: str) -> dict[str, Any]:
+    """Parse every session type from an edited document before it is written."""
+    raw = yaml.safe_load(body) or {}
+    schema_version = str(raw.get("schema_version", "unversioned"))
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        raise TemplateError(
+            f"unsupported session-types schema {schema_version!r}; "
+            f"supported: {SUPPORTED_SCHEMA_VERSIONS}"
+        )
+    types = raw.get("session_types") or {}
+    missing = sorted(set(SESSION_TYPES) - set(types))
+    extra = sorted(set(types) - set(SESSION_TYPES))
+    if missing or extra:
+        raise TemplateError(f"session_types must be exactly {SESSION_TYPES}; missing {missing}, extra {extra}")
+    for session_type in SESSION_TYPES:
+        block = (types.get(session_type) or {}).get("prescription")
+        if not block:
+            raise TemplateError(f"{session_type}: missing prescription block")
+        try:
+            cap = int(block.get("time_cap_s", 4800))
+        except (TypeError, ValueError) as exc:
+            raise TemplateError(f"{session_type}: time_cap_s must be an integer") from exc
+        if cap <= 0:
+            raise TemplateError(f"{session_type}: time_cap_s must be positive")
+        slots = block.get("slots") or []
+        if not slots:
+            raise TemplateError(f"{session_type}: prescription has no slots")
+        if not any(bool(slot.get("essential")) for slot in slots):
+            raise TemplateError(f"{session_type}: at least one slot must be essential")
+        for slot in slots:
+            has_exercise = bool(slot.get("exercise"))
+            has_variants = bool(slot.get("exercise_variants"))
+            if has_exercise == has_variants:
+                raise TemplateError(
+                    f"{session_type}/{slot.get('id', '<unnamed>')}: use exactly one of "
+                    "exercise or exercise_variants"
+                )
+        _parse_session_template(session_type, f"<edited {session_type}>", "edited", body)
+    return raw
+
+
 def _parse_slot(entry: Mapping[str, Any], day: str) -> Slot:
     where = f"{day}: slot {entry.get('id', '<unnamed>')}"
     exercise = entry.get("exercise")

@@ -249,6 +249,7 @@ async function loadExerciseCatalog() {
     select.value = current;
     $("#exercise-patterns").innerHTML = data.patterns.map((p) => `<option value="${esc(p)}">`).join("");
     renderExerciseCatalog();
+    loadTemplateStatus().catch(() => {});
   } catch (error) {
     $("#exercise-catalog").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }

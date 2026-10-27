@@ -64,3 +64,43 @@ def test_bench_squat_does_not_repeat_the_squat_sessions_main_lift():
     assert squat_main == "ssb_squat"
     assert support is not None
     assert support != squat_main
+
+
+def test_validate_text_accepts_the_shipped_document_and_rejects_bad_schema():
+    from strength_coach.utils import paths
+
+    text = paths.session_types_yaml().read_text(encoding="utf-8")
+    parsed = templates.validate_text(text)
+    assert set(parsed["session_types"]) == set(templates.SESSION_TYPES)
+    bad = text.replace('schema_version: "1.0.0"', 'schema_version: "9.9.9"')
+    try:
+        templates.validate_text(bad)
+    except templates.TemplateError:
+        pass
+    else:
+        raise AssertionError("bad schema was accepted")
+
+
+def test_validate_text_rejects_ambiguous_slots_and_missing_essential_work():
+    from strength_coach.utils import paths
+
+    text = paths.session_types_yaml().read_text(encoding="utf-8")
+    ambiguous = text.replace(
+        "        - id: power\n          exercise: box_jump",
+        "        - id: power\n          exercise: box_jump\n          exercise_variants: [box_jump]",
+        1,
+    )
+    try:
+        templates.validate_text(ambiguous)
+    except templates.TemplateError as exc:
+        assert "exactly one of exercise or exercise_variants" in str(exc)
+    else:
+        raise AssertionError("ambiguous slot was accepted")
+
+    no_essential = text.replace("          essential: true", "          essential: false")
+    try:
+        templates.validate_text(no_essential)
+    except templates.TemplateError:
+        pass
+    else:
+        raise AssertionError("session with no essential slot was accepted")

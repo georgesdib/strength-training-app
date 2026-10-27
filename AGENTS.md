@@ -230,12 +230,13 @@ never read `data/raw`.
 | `docs/INJURY-SIGNAL.md` | per-region injury signals, what "tolerated" loading means, injury-to-exercise links |
 | `docs/SYMPTOM-LOGGING.md` | the 0-3 reading: what counts as a flare, and what to log when a symptom settles |
 | `docs/AUDIT-FOLLOW-UP-PLAN.md` | implemented audit follow-up: back-flare scope, quality-limited power, programme-document drift, same-date accounting and the audit gate |
-| `docs/AUDIT-FOLLOW-UP-REPORT.md` | audit follow-up report: five previous fixes verified, residual risks and unverified areas |
+| `docs/AUDIT-FOLLOW-UP-REPORT.md` | closed audit follow-up report: five fixes verified, all residuals closed, accepted coverage limitations and no follow-up actions |
 | `docs/CORE-TRAINING.md` | core/trunk training evidence and the proposed programme amendment |
 | `docs/LONGEVITY-REVIEW.md` | modality review against the longevity-first goal: gaps, doses, priorities |
 | `docs/FATIGUE-FITNESS.md` | fatigue-fitness evidence, strength recovery, e1RM calibration and why no model drives loads |
 | `docs/LIFT-READINESS.md` | per-lift readiness evidence, components, weights and downward-only rule |
 | `docs/EXERCISE-VARIANTS.md` | how to add a canonical variant, slot wiring, history caveat, selection tuning |
+| `docs/SESSION-TEMPLATES.md` | field guide to session templates: scheduling source of truth, prescription blocks, slot fields, variants, day roles and safety rules |
 | `docs/VARIANT-PATTERN-AUDIT.md` | 2026-10-20 variant pattern/muscle audit: checked exceptions and applied corrections |
 | `docs/SELECTION-COMPARABILITY.md` | evidence and proposed three-class guard for variant substitution |
 | `docs/READINESS-EXERCISE-SELECTION-PLAN.md` | locked symptom/readiness substitution plan plus app-wide readiness policy and periodic-review panel design |
