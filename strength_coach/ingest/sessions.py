@@ -45,7 +45,7 @@ class SessionInference:
     version: str = "unversioned"
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "SessionInference":
+    def load(cls, path: str | Path | None = None) -> SessionInference:
         source = Path(path or paths.config_dir("templates", "inference.v1.yaml"))
         with source.open("r", encoding="utf-8") as handle:
             raw = yaml.safe_load(handle) or {}

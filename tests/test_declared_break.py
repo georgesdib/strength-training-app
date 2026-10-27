@@ -5,8 +5,8 @@ from __future__ import annotations
 import sqlite3
 
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach import cli
 from strength_coach.features import breaks
 from strength_coach.rules.context import trained_week_index

@@ -11,8 +11,6 @@ from strength_coach.eval.harness import (
     backtest,
     compare,
 )
-from strength_coach.eval.report import format_report, format_session_sheet, item_guide_lines
-from strength_coach.eval.store import load_marks, record_marks
 from strength_coach.eval.labels import (
     CONFIDENCE_LEVELS,
     ITEM_GUIDE,
@@ -25,6 +23,8 @@ from strength_coach.eval.labels import (
     template,
     write_template,
 )
+from strength_coach.eval.report import format_report, format_session_sheet, item_guide_lines
+from strength_coach.eval.store import load_marks, record_marks
 
 __all__ = [
     "BacktestReport",

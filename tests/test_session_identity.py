@@ -6,8 +6,8 @@ from strength_coach import workout
 from strength_coach.critique import facts as facts_mod
 from strength_coach.prescribe import session_identity
 from strength_coach.prescribe.models import Prescription
-from strength_coach.web.server import prescription_dict
 from strength_coach.store import db, queries
+from strength_coach.web.server import prescription_dict
 
 READINESS = {
     "sleep": 3, "energy": 3, "mood": 3, "soreness": 3,

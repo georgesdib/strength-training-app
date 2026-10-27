@@ -81,8 +81,9 @@ def test_competition_deadlift_is_date_scoped(taxonomy):
 
 
 def test_cleaning_resolves_the_same_name_by_row_date():
-    from strength_coach.ingest import clean as clean_mod
     from conftest import make_readiness, make_training
+
+    from strength_coach.ingest import clean as clean_mod
 
     rows = [
         {"Date": "2024-01-01", "Exercise": "Competition Deadlift"},

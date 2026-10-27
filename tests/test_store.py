@@ -12,8 +12,8 @@ from __future__ import annotations
 import sqlite3
 
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach.store import db, importer
 from strength_coach.store import repositories as repo
 

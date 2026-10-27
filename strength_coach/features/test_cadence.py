@@ -24,7 +24,7 @@ class CadenceConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "CadenceConfig":
+    def load(cls, path: str | Path | None = None) -> CadenceConfig:
         source = Path(path or paths.config_dir("test-cadence.v1.yaml"))
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         schemes = tuple(str(x) for x in raw.get("schemes", ["3RM", "5RM"]))

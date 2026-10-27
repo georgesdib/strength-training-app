@@ -13,7 +13,6 @@ from strength_coach.prescribe import build_prescription, templates
 from strength_coach.store import db
 from strength_coach.utils import paths
 
-
 SYNTHETIC = {
     "schema_version": "1.0.0",
     "session_types": {

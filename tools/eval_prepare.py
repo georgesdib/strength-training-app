@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from strength_coach.critique import build_facts, score_session  # noqa: E402
+from strength_coach.eval import ITEM_KEYS  # noqa: E402
 from strength_coach.eval.labels import LabelError, write_template  # noqa: E402
 from strength_coach.eval.report import format_session_sheet, item_guide_lines  # noqa: E402
 from strength_coach.store import db  # noqa: E402

@@ -43,7 +43,7 @@ class TaxConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "TaxConfig":
+    def load(cls, path: str | Path | None = None) -> TaxConfig:
         source = Path(path or paths.config_dir("selection-tax.v1.yaml"))
         if not source.exists():
             return cls({}, source)
@@ -73,9 +73,9 @@ def lower_tax(
         return False, "tax metadata unknown"
     left = current.mandatory(essential)
     right = candidate.mandatory(essential)
-    if any(r > l for l, r in zip(left, right)):
+    if any(r > left_value for left_value, r in zip(left, right, strict=False)):
         return False, "candidate is not lower-tax on a mandatory axis"
-    if not any(r < l for l, r in zip(left, right)):
+    if not any(r < left_value for left_value, r in zip(left, right, strict=False)):
         return False, "candidate is not lower on any mandatory axis"
     rom = ""
     if candidate.rom > current.rom:

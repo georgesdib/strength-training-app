@@ -35,7 +35,7 @@ class RunTrace:
         window_start: str | None = None,
         window_end: str | None = None,
         code_version: str | None = None,
-    ) -> "RunTrace":
+    ) -> RunTrace:
         run = repo.start_run(
             conn,
             input_hash=input_hash,
@@ -65,7 +65,7 @@ class RunTrace:
         )
         self.status = status
 
-    def __enter__(self) -> "RunTrace":
+    def __enter__(self) -> RunTrace:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

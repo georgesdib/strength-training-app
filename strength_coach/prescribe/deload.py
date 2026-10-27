@@ -7,8 +7,8 @@ primary-compound RIR outside 1-4.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import replace
-from typing import Iterable, Mapping
 
 from strength_coach.features.deload import DeloadConfig, DeloadDecision
 from strength_coach.prescribe import loads, warmup

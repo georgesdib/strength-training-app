@@ -33,7 +33,6 @@ from strength_coach.critique.rubric import Critique, RubricItem
 from strength_coach.store import db
 from strength_coach.trace import RunTrace
 
-
 # --- configuration ---------------------------------------------------------
 
 

@@ -7,11 +7,10 @@ leave the system with more evidence than before.
 
 from __future__ import annotations
 
-import yaml
-
 import pytest
-
+import yaml
 from conftest import make_readiness, make_training
+
 from strength_coach import cli
 from strength_coach.eval import load_marks
 from strength_coach.store import db, importer, queries

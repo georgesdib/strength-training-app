@@ -11,9 +11,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import replace
 
-import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach.features.volume import VolumeConfig
 from strength_coach.prescribe import PrescriptionItem, build_prescription, engine, volume_budget
 from strength_coach.rules import RuleContext

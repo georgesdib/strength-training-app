@@ -7,10 +7,11 @@ the session contain?". The schema version is checked so a stale template fails l
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 
@@ -72,7 +73,7 @@ class SessionTemplate:
 
     @classmethod
     def load(cls, session_type: str,
-             path: str | Path | None = None) -> "SessionTemplate":
+             path: str | Path | None = None) -> SessionTemplate:
         source = Path(path or paths.session_types_yaml())
         body = source.read_text(encoding="utf-8")
         digest = hashlib.sha256(body.encode("utf-8")).hexdigest()

@@ -11,18 +11,16 @@ worse than an error, because the athlete would believe they had changed the beha
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-from types import MappingProxyType
-from typing import Any, Mapping
-
+import datetime
 import os
 import re
 import tempfile
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 import yaml
-
-import datetime
 
 from strength_coach.store import repositories
 from strength_coach.utils import paths
@@ -90,7 +88,7 @@ class ReadinessConfig:
         return None
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "ReadinessConfig":
+    def load(cls, path: str | Path | None = None) -> ReadinessConfig:
         source = Path(path or paths.readiness_yaml())
         if not source.exists():
             return cls(source_path=source)
@@ -189,10 +187,7 @@ def save_set_reduction(
         f"  include_essential: {'true' if include_essential else 'false'}\n"
     )
     pattern = re.compile(r"^set_reduction:\n(?:[ \t].*\n)*", re.MULTILINE)
-    if pattern.search(text):
-        text = pattern.sub(block, text, count=1)
-    else:
-        text = text.rstrip() + "\n\n" + block
+    text = pattern.sub(block, text, count=1) if pattern.search(text) else text.rstrip() + "\n\n" + block
     fd, tmp = tempfile.mkstemp(prefix=source.name + ".", dir=str(source.parent), text=True)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:

@@ -5,22 +5,22 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
-from typing import Any, Mapping
+from typing import Any
 
 from strength_coach import settings_registry
-from strength_coach.features import deload as deload_feature
 from strength_coach.features import continuity_calibration as continuity_feature
+from strength_coach.features import deload as deload_feature
 from strength_coach.features import e1rm_calibration as calibration_feature
 from strength_coach.features import e1rm_decay as decay_feature
 from strength_coach.features import fatigue_fitness as fatigue_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
-from strength_coach.features import test_cadence as cadence_feature
 from strength_coach.features import readiness as readiness_feature
+from strength_coach.features import test_cadence as cadence_feature
 from strength_coach.features import volume as volume_feature
-from strength_coach.prescribe import schemes as schemes_feature
-from strength_coach.prescribe import warmup as warmup_feature
 from strength_coach.prescribe import undulation as undulation_feature
+from strength_coach.prescribe import warmup as warmup_feature
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.store import repositories
 

@@ -5,9 +5,9 @@ inference is a heuristic. These tests pin the heuristic's *honesty*: when the ev
 not support a day, the result must be `unknown` with a reason, never a guess.
 """
 
-import pytest
 
 from conftest import make_readiness, make_training
+
 from strength_coach.ingest import clean, sessions
 
 

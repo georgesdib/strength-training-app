@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from conftest import make_readiness, make_training
+
 from strength_coach.features import outcomes
 from strength_coach.store import db, importer, repositories
 
@@ -73,6 +74,7 @@ def test_outcome_review_marks_missing_data_unknown():
 
 def test_modifier_provenance_is_extracted_without_guessing():
     from types import SimpleNamespace
+
     from strength_coach.features import prescription_provenance
 
     prescription = SimpleNamespace(

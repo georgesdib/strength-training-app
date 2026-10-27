@@ -10,8 +10,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach.prescribe import build_prescription, loads
 from strength_coach.store import db, importer
 

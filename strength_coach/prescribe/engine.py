@@ -17,35 +17,32 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
-from typing import Any, Mapping
+from typing import Any
 
 import pandas as pd
 
 from strength_coach import settings_profile
 from strength_coach.domain import e1rm as e1rm_mod
+from strength_coach.features import continuity_calibration, readiness_score, test_cadence, vbt_calibration
+from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import e1rm_decay as e1rm_decay_feature
+from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import injury_signal as injury_signal_mod
+from strength_coach.features import lift_readiness as lift_readiness_feature
 from strength_coach.features import readiness as readiness_mod
-from strength_coach.features import readiness_score
+from strength_coach.features import recent_stress as recent_stress_feature
+from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
-from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
-from strength_coach.features import continuity_calibration
-from strength_coach.features import high_intensity_exposure as exposure_feature
-from strength_coach.features import test_cadence, volume as volume_feature
 from strength_coach.prescribe import deload as deload_mod
+from strength_coach.prescribe import loads, templates, warmup
 from strength_coach.prescribe import minimum_session as minimum_session_mod
-from strength_coach.prescribe import technique_throttle as technique_throttle_mod
-from strength_coach.prescribe import warmup
-from strength_coach.features import e1rm_decay as e1rm_decay_feature
-from strength_coach.features import lift_readiness as lift_readiness_feature
-from strength_coach.features import recent_stress as recent_stress_feature
-from strength_coach.features import vbt_calibration
 from strength_coach.prescribe import schemes as schemes_mod
-from strength_coach.prescribe import undulation as undulation_mod
-from strength_coach.prescribe import fallback, loads, schedule, templates
 from strength_coach.prescribe import selection as selection_mod
+from strength_coach.prescribe import technique_throttle as technique_throttle_mod
+from strength_coach.prescribe import undulation as undulation_mod
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
 from strength_coach.rules import History, RuleContext, evaluate, load_document, registry
@@ -911,7 +908,7 @@ def _apply_readiness_score(
     thresholds,
     *,
     readiness_config: readiness_mod.ReadinessConfig | None = None,
-    calibration: "vbt_calibration.CalibrationResult | None" = None,
+    calibration: vbt_calibration.CalibrationResult | None = None,
 ) -> tuple[tuple[PrescriptionItem, ...], str, tuple[str, ...], dict[str, float],
            dict[str, lift_readiness_feature.LiftReadiness]]:
     """Apply the readiness factor per item, with the old sleep/energy floor.
@@ -1223,7 +1220,7 @@ def _attach_vbt_targets(
     for_date: str,
     fallback_level: str,
     *,
-    calibration: "vbt_calibration.CalibrationResult | None" = None,
+    calibration: vbt_calibration.CalibrationResult | None = None,
 ) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], dict[str, Any]]:
     """Attach velocity targets from the per-lift calibration, when it is trustworthy.
 

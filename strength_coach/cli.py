@@ -18,9 +18,9 @@ from __future__ import annotations
 
 import argparse
 import datetime
-from dataclasses import replace
 import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import yaml
@@ -36,49 +36,50 @@ from strength_coach.agents import (
 from strength_coach.agents import proposal as proposal_mod
 from strength_coach.agents import selection as agent_selection
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
-from strength_coach.domain import e1rm as e1rm_mod
-from strength_coach.features import breaks as breaks_feature
-from strength_coach.features import cardio as cardio_feature
-from strength_coach.features import continuity_calibration
-from strength_coach.features import volume as volume_feature
-from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
-from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
-from strength_coach.features import measurements as measurements_feature
-from strength_coach.features import session_feedback as session_feedback_feature
-from strength_coach.features import heavy_spinal
-from strength_coach.features import high_intensity_exposure as exposure_feature
-from strength_coach.features import outcomes as outcomes_feature
-from strength_coach.features import regime_change as regime_feature
-from strength_coach.features import prospective as prospective_feature
-from strength_coach.features import readiness_feedback
-from strength_coach.features import prescription_provenance
-from strength_coach.features import injury_signal as injury_signal_mod
-from strength_coach.features import readiness as readiness_feature
-from strength_coach.features import readiness_baseline
-from strength_coach.features import retrospective_validation
-from strength_coach.features import programme as programme_feature
-from strength_coach.features import deload as deload_feature
-from strength_coach.features import readiness_score
-from strength_coach.utils import readiness as readiness_utils
-
-READINESS_CLI_FIELDS = {field: field for field in readiness_utils.INPUT_SCORE_FIELDS}
-READINESS_CLI_FIELDS.update({field: field for field in readiness_utils.MEASURE_FIELDS})
 from strength_coach.critique import persist as persist_critique
 from strength_coach.critique.rubric import RUBRIC_VERSION
+from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.eval import backtest, load_marks, record_marks
 from strength_coach.eval.report import format_report, format_session_sheet, item_guide_lines
-from strength_coach.prescribe import build_prescription
+from strength_coach.features import breaks as breaks_feature
+from strength_coach.features import cardio as cardio_feature
+from strength_coach.features import (
+    continuity_calibration,
+    heavy_spinal,
+    prescription_provenance,
+    readiness_baseline,
+    readiness_feedback,
+    readiness_score,
+    retrospective_validation,
+)
+from strength_coach.features import deload as deload_feature
+from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
+from strength_coach.features import high_intensity_exposure as exposure_feature
+from strength_coach.features import injury_signal as injury_signal_mod
+from strength_coach.features import measurements as measurements_feature
+from strength_coach.features import outcomes as outcomes_feature
+from strength_coach.features import programme as programme_feature
+from strength_coach.features import prospective as prospective_feature
+from strength_coach.features import readiness as readiness_feature
+from strength_coach.features import regime_change as regime_feature
+from strength_coach.features import session_feedback as session_feedback_feature
+from strength_coach.features import volume as volume_feature
+from strength_coach.prescribe import build_prescription, session_identity
+from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
-from strength_coach.prescribe import session_identity
-from strength_coach.prescribe import selection as selection_mod
-from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import schemes as schemes_mod
+from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.rules import RuleContext, evaluate, load_document
 from strength_coach.store import db, exercise_admin, importer, queries, repositories
 from strength_coach.trace import RunTrace
 from strength_coach.utils import io_utils, paths
+from strength_coach.utils import readiness as readiness_utils
+
+READINESS_CLI_FIELDS = {field: field for field in readiness_utils.INPUT_SCORE_FIELDS}
+READINESS_CLI_FIELDS.update({field: field for field in readiness_utils.MEASURE_FIELDS})
 
 DEFAULT_TOLERANCE = 0.25
 
@@ -897,9 +898,10 @@ def _cmd_state(args) -> int:
             )
             print(f"rated {args.rate}: can_do={args.can_do}, will_do={args.will_do}, "
                   f"feels_bad={args.feels_bad}")
-        if args.import_file:
-            if code := _import_state(conn, Path(args.import_file), force=args.force):
-                return code
+        if args.import_file and (code := _import_state(
+            conn, Path(args.import_file), force=args.force
+        )):
+            return code
         _print_state(conn)
         return 0
     finally:
@@ -1288,14 +1290,18 @@ def _cmd_test(args) -> int:
             except ValueError:
                 days_since = None
 
-        if args.reps == 1 and days_since is not None:
-            if days_since < thresholds.test_max_single_min_interval_days and not args.force:
-                print(
-                    f"a 1RM test for {args.exercise} was recorded {days_since} days ago; "
-                    f"the minimum interval is {thresholds.test_max_single_min_interval_days} "
-                    "days (use --force to override)"
-                )
-                return 2
+        if (
+            args.reps == 1
+            and days_since is not None
+            and days_since < thresholds.test_max_single_min_interval_days
+            and not args.force
+        ):
+            print(
+                f"a 1RM test for {args.exercise} was recorded {days_since} days ago; "
+                f"the minimum interval is {thresholds.test_max_single_min_interval_days} "
+                "days (use --force to override)"
+            )
+            return 2
 
         label = "1RM" if args.reps == 1 else f"{args.reps}RM"
         print(f"{label} test: {args.kg:g} kg x {args.reps} -> e1RM {computed:.1f} kg")

@@ -6,8 +6,8 @@ import json
 from contextlib import contextmanager
 
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach import cli
 from strength_coach.agents import LLMResponse
 from strength_coach.agents import proposal as proposal_mod

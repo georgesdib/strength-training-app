@@ -7,10 +7,11 @@ rounding, e1RM window). Both are config; neither belongs in code.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 
@@ -61,7 +62,7 @@ class Thresholds:
         return float(self.per_exercise_increment_kg.get(str(exercise_id), self.increment_kg))
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "Thresholds":
+    def load(cls, path: str | Path | None = None) -> Thresholds:
         source = Path(path or paths.thresholds_yaml())
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         load = raw.get("load") or {}

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
 import pandas as pd

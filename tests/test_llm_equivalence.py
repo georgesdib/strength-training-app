@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 
 from conftest import make_readiness, make_training
+
 from strength_coach import cli
 from strength_coach.agents import LLMResponse
 from strength_coach.store import db, importer

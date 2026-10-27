@@ -7,10 +7,10 @@ anchor is declared there is no week index, and the day templates apply unchanged
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Mapping
 
 import yaml
 
@@ -34,7 +34,7 @@ class Undulation:
         return self.weeks.get(position)
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "Undulation":
+    def load(cls, path: str | Path | None = None) -> Undulation:
         source = Path(path or paths.undulation_yaml())
         if not source.exists():
             return cls(enabled=False, cycle_weeks=0, weeks=MappingProxyType({}))

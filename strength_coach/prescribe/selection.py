@@ -8,23 +8,20 @@ under `MOD-SELECT-001`; this module deliberately stops short of that.
 
 from __future__ import annotations
 
+import statistics
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Mapping
-
-import statistics
+from typing import Any
 
 import pandas as pd
 import yaml
 
-from strength_coach.features import injury_signal, recent_stress
-from strength_coach.features import readiness_score
+from strength_coach.features import injury_signal, readiness_score, recent_stress
 from strength_coach.prescribe import constraints as constraints_mod
-from strength_coach.prescribe import templates
-from strength_coach.prescribe import selection_tax
+from strength_coach.prescribe import selection_tax, templates
 from strength_coach.rules import RuleContext
 from strength_coach.store import queries
-
 from strength_coach.utils import exercises, paths
 
 
@@ -38,7 +35,7 @@ class ComparisonConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "ComparisonConfig":
+    def load(cls, path: str | Path | None = None) -> ComparisonConfig:
         source = Path(path or paths.config_dir("selection-comparability.v1.yaml"))
         if not source.exists():
             return cls(source_path=source)
@@ -88,7 +85,7 @@ class SelectionConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "SelectionConfig":
+    def load(cls, path: str | Path | None = None) -> SelectionConfig:
         source = Path(path or paths.selection_yaml())
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         weights = {key: float(value) for key, value in (raw.get("weights") or {}).items()}

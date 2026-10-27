@@ -16,9 +16,9 @@ than being silently dropped.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
 
 from strength_coach.prescribe import templates
 from strength_coach.rules import load_document
@@ -83,12 +83,9 @@ def _slot_work(slot, entities: Mapping[str, Mapping[str, object]]) -> str:
         display = " / ".join(
             _display(entities.get(variant, {}), variant) for variant in slot.variants
         )
-    if slot.power:
-        # Power is quality-limited. The template's RIR value is a fallback, not the operative
-        # instruction (DEC-POWER-02); showing it as an RIR target is the defect being fixed.
-        effort = "quality stop"
-    else:
-        effort = _rir(slot)
+    # Power is quality-limited. The template's RIR value is a fallback, not the operative
+    # instruction (DEC-POWER-02); showing it as an RIR target is the defect being fixed.
+    effort = "quality stop" if slot.power else _rir(slot)
     return f"{display} {slot.sets}×{slot.reps_low}–{slot.reps_high} @ {effort}"
 
 
@@ -151,7 +148,6 @@ def group_for(exercise_id: str) -> str | None:
 
 def weekly_sets() -> dict[str, float]:
     """Sets per week per display group over the six-session cycle."""
-    entities = exercises.taxonomy().entities
     totals: dict[str, float] = {label: 0.0 for label, _members in LIFT_GROUPS}
     for session_type in CYCLE:
         template = templates.SessionTemplate.load(session_type)

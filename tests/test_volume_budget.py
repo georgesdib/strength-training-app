@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach import cli
 from strength_coach.features import programme
 from strength_coach.prescribe import build_prescription, volume_budget

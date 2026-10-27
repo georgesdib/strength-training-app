@@ -6,8 +6,8 @@ import datetime as dt
 from contextlib import contextmanager
 
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach.features import prescription_provenance
 from strength_coach.prescribe import build_prescription
 from strength_coach.prescribe.models import PrescriptionItem
@@ -153,7 +153,7 @@ def test_engine_applies_the_throttle_and_records_provenance():
                if "MOD-TECH-001" in i.rationale_refs]
     assert "ssb_squat" in changed
     assert throttled.notes["technique_throttle"]["applied"] is True
-    for before, after in zip(plain.items, throttled.items):
+    for before, after in zip(plain.items, throttled.items, strict=False):
         if after.exercise_id in changed:
             assert after.rir_target >= 3
             assert after.load_kg <= before.load_kg * 0.90 + 1e-9

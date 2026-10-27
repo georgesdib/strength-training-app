@@ -13,13 +13,14 @@ symptom rules could not be assessed is not a compliant run (AGENTS.md invariant 
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from strength_coach.rules import registry
 from strength_coach.rules.context import RuleContext
 from strength_coach.rules.loader import RuleDocument
-from strength_coach.rules.registry import Evidence, Evaluation
+from strength_coach.rules.registry import Evaluation, Evidence
 
 VETO = "veto"
 DOWNGRADE = "downgrade"

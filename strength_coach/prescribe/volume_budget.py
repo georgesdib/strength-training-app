@@ -13,9 +13,10 @@ from __future__ import annotations
 
 import datetime as dt
 import math
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
 
 import yaml
 
@@ -177,7 +178,7 @@ class BudgetConfig:
         cls, path: str | Path | None = None, *,
         conn=None, on_date: str | None = None,
         profile_budget: Mapping[str, Any] | None = None,
-    ) -> "BudgetConfig":
+    ) -> BudgetConfig:
         source = Path(path or paths.config_dir("volume.v1.yaml"))
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         overlay = source.with_name("volume.local.yaml")
@@ -1426,7 +1427,7 @@ def report(
         },
         "future": [
             {"session_type": session_type, "sets": sets}
-            for session_type, sets in zip(future_types, future_sets)
+            for session_type, sets in zip(future_types, future_sets, strict=False)
         ],
         "targets": dict(targets),
         "exempt": exempt,

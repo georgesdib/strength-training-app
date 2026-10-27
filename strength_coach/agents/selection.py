@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Callable
+from collections.abc import Callable
 
 from strength_coach.agents.client import LLMClient, LLMError
 from strength_coach.prescribe import selection as selection_mod

@@ -4,10 +4,11 @@ The failure mode this guards against is a confident-looking target built from fo
 ladder must either widen its scope (and say so) or return nothing.
 """
 
-import pytest
 
 from conftest import make_readiness, make_training
-from strength_coach.features import derived, vbt_calibration as vbt
+
+from strength_coach.features import derived
+from strength_coach.features import vbt_calibration as vbt
 from strength_coach.ingest import clean
 
 FAST = {"params": vbt.CalibrationParams()}

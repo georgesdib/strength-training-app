@@ -8,10 +8,10 @@ exposure for a back-history athlete.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Mapping
 
 import yaml
 
@@ -55,15 +55,16 @@ class Schemes:
         overrides the configured hinge exclusion; the default keeps the back-history policy.
         """
         scheme = self.get(name)
-        if not scheme.allows(exercise_id):
-            if not (scheme.name == "maximal" and maximal_hinge_allowed):
-                return False
+        if not scheme.allows(exercise_id) and not (
+            scheme.name == "maximal" and maximal_hinge_allowed
+        ):
+            return False
         if scheme.name in ("maximal", "strength"):
             return essential
         return True
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "Schemes":
+    def load(cls, path: str | Path | None = None) -> Schemes:
         source = Path(path or paths.schemes_yaml())
         if not source.exists():
             raise SchemeError(f"rep schemes file not found: {source}")

@@ -81,10 +81,7 @@ def discover_migrations(migrations_dir: str | Path | None = None) -> list[Migrat
 def connect(path: str | Path | None = None) -> sqlite3.Connection:
     """Open (or create) the database with the pragmas the store depends on."""
     target: str | Path
-    if path is None:
-        target = default_db_path()
-    else:
-        target = path
+    target = default_db_path() if path is None else path
     if isinstance(target, Path) and str(target) != _SQLITE_IN_MEMORY:
         target.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(target), isolation_level=None)

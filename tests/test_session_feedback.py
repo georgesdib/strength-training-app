@@ -6,8 +6,8 @@ import sqlite3
 
 import pytest
 import yaml
-
 from conftest import make_readiness, make_training
+
 from strength_coach import cli
 from strength_coach.features import session_feedback
 from strength_coach.store import db, importer, queries
@@ -43,11 +43,10 @@ def test_optional_values_are_stored_and_blank_is_not_an_error():
 
 @pytest.mark.parametrize("srpe,minutes", [(0, None), (11, None), (None, 0), (None, 700)])
 def test_out_of_range_values_are_rejected(srpe, minutes):
-    with store_with_session() as store:
-        with pytest.raises(ValueError):
-            session_feedback.record(
-                store.connection, "2024-01-01", srpe=srpe, duration_min=minutes,
-            )
+    with store_with_session() as store, pytest.raises(ValueError):
+        session_feedback.record(
+            store.connection, "2024-01-01", srpe=srpe, duration_min=minutes,
+        )
 
 
 def test_feedback_is_append_only_and_latest_wins():

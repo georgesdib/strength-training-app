@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from conftest import make_readiness, make_training
+
 from strength_coach.features import e1rm_calibration
 from strength_coach.store import db, importer, repositories
 

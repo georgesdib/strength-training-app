@@ -9,6 +9,7 @@ import json
 from contextlib import contextmanager
 
 from conftest import make_readiness, make_training
+
 from strength_coach import cli
 from strength_coach.agents import proposal as proposal_mod
 from strength_coach.prescribe import build_prescription

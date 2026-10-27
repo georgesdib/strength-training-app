@@ -6,11 +6,11 @@ import datetime as dt
 from contextlib import contextmanager
 
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach import cli
-from strength_coach.features import readiness as readiness_feature
 from strength_coach.domain import e1rm as e1rm_mod
+from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import readiness_score
 from strength_coach.prescribe import build_prescription, loads
 from strength_coach.store import db, importer, queries, repositories

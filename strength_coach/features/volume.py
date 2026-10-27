@@ -7,9 +7,9 @@ automatic set caps. The set valve under poor readiness remains a separate, expli
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
 
 import pandas as pd
 import yaml
@@ -33,7 +33,7 @@ class VolumeConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "VolumeConfig":
+    def load(cls, path: str | Path | None = None) -> VolumeConfig:
         source = Path(path or paths.config_dir("volume.v1.yaml"))
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         targets = {
@@ -223,7 +223,7 @@ def compute(
             "average": total / denominator,
         })
 
-    for target_key, counts in indirect.items():
+    for target_key, _counts in indirect.items():
         if target_key not in grouped:
             grouped[target_key] = [{
                 "pattern": f"indirect:{target_key}",

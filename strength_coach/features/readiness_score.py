@@ -18,15 +18,14 @@ The load factor is deliberately small and explicit. Nothing here writes a prescr
 
 from __future__ import annotations
 
-import datetime as dt
 import statistics
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Any, Mapping
+from typing import Any
 
 from strength_coach.features import injury_signal
 from strength_coach.features import readiness as readiness_config
 from strength_coach.store import queries
-from strength_coach.utils import exercises
 from strength_coach.utils import readiness as readiness_utils
 
 CORE_FIELDS = readiness_utils.CORE_SCORE_FIELDS

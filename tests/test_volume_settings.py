@@ -7,8 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from strength_coach.prescribe import volume_settings
-from strength_coach.prescribe import volume_budget
+from strength_coach.prescribe import volume_budget, volume_settings
 
 
 def _base(tmp_path: Path) -> Path:

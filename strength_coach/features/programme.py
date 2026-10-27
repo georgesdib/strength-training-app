@@ -16,14 +16,11 @@ from dataclasses import dataclass
 
 from strength_coach import settings_profile
 from strength_coach.features import deload as deload_feature
-from strength_coach.features import readiness as readiness_mod
 from strength_coach.features import vbt_calibration
-from strength_coach.prescribe import build_prescription, deload as deload_mod, schedule
+from strength_coach.prescribe import build_prescription, schedule, templates
+from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import volume_budget as volume_budget_mod
-from strength_coach.prescribe import config as thresholds_mod
-from strength_coach.prescribe import templates, undulation as undulation_mod
 from strength_coach.rules import History, load_document
-from strength_coach.store import queries
 
 WEEKDAYS = (0, 2, 4)          # Monday, Wednesday, Friday
 

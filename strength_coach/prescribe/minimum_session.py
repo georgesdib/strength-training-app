@@ -7,10 +7,10 @@ applied after the automatic modifiers, so it can only take work away.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import yaml
 
@@ -30,7 +30,7 @@ class MinimumSessionConfig:
     warmup_set_seconds: int = 30
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "MinimumSessionConfig":
+    def load(cls, path: str | Path | None = None) -> MinimumSessionConfig:
         source = Path(path or paths.config_dir("minimum-session.v1.yaml"))
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         targets = tuple(int(value) for value in (raw.get("targets_minutes") or (30, 45, 60)))

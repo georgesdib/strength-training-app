@@ -7,6 +7,7 @@ piece is a test the athlete has not done or a test that could not be counted.
 from __future__ import annotations
 
 from conftest import make_readiness, make_training
+
 from strength_coach.features import e1rm_calibration as cal
 from strength_coach.store import db, importer, repositories
 

@@ -159,6 +159,8 @@ so silently erased genuine `RIR = 0` observations during development.
 10. Unexpected web exceptions return a generic 500 and are logged server-side; expected
     400/404/409 messages stay useful.
 11. HTTP request bodies respect `MAX_BODY_BYTES`; never read an unbounded `Content-Length`.
+12. `ruff check .` passes. The config is in `pyproject.toml` (line length 110); do not add a
+    new per-file ignore without a reason.
 
 ### 7.1 How to run tests without wasting ten minutes
 

@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import json
 
-import pandas as pd
 import pytest
-
 from conftest import make_readiness
+
 from strength_coach.ingest import readiness as rd
 
 ALL_FIELDS = [

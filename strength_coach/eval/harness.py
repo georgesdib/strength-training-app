@@ -12,7 +12,6 @@ agreement that the production path cannot reproduce.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Mapping
 
 from strength_coach.critique import build_facts, score_session
 from strength_coach.critique.rubric import Critique

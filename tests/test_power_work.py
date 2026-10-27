@@ -10,8 +10,8 @@ from contextlib import contextmanager
 
 import pandas as pd
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach.agents import proposal
 from strength_coach.features import derived
 from strength_coach.features.deload import DeloadDecision

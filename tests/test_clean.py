@@ -6,8 +6,8 @@ changed, and the corresponding docs/DATA-QUALITY.md entry must change with it.
 
 import pandas as pd
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach.domain import load as load_mod
 from strength_coach.ingest import clean
 

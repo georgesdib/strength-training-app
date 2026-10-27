@@ -12,9 +12,10 @@ direction is assumed is a data bug waiting to happen (the `stress 5 = good` trap
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 
@@ -59,7 +60,7 @@ class MeasurementConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "MeasurementConfig":
+    def load(cls, path: str | Path | None = None) -> MeasurementConfig:
         source = Path(path or paths.measurements_yaml())
         if not source.exists():
             return cls(metrics={}, source_path=source)

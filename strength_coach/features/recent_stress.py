@@ -7,9 +7,10 @@ the constants are explicit assumptions in `config/stress.v1.yaml`.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import pandas as pd
 import yaml
@@ -30,7 +31,7 @@ class StressConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "StressConfig":
+    def load(cls, path: str | Path | None = None) -> StressConfig:
         source = Path(path or paths.stress_yaml())
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         return cls(

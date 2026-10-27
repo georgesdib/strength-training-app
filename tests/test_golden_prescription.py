@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from conftest import make_readiness, make_training
+
 from strength_coach.prescribe import build_prescription, validate_references
 from strength_coach.rules import RuleContext
 from strength_coach.store import db, importer

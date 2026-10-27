@@ -13,8 +13,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach.features import injury_signal
 from strength_coach.rules import RuleContext
 from strength_coach.store import db, importer, queries, repositories

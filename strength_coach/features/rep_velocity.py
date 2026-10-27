@@ -6,8 +6,6 @@ a workout import: first/last/mean/min/max and within-set velocity loss.
 
 from __future__ import annotations
 
-from strength_coach.store import queries
-
 
 def summarize(values: list[float]) -> dict | None:
     if not values:
@@ -116,7 +114,7 @@ def _pearson(xs: list[float], ys: list[float]) -> float | None:
     denom = (sum(x * x for x in dx) ** 0.5) * (sum(y * y for y in dy) ** 0.5)
     if denom == 0:
         return None
-    return round(sum(x * y for x, y in zip(dx, dy)) / denom, 3)
+    return round(sum(x * y for x, y in zip(dx, dy, strict=False)) / denom, 3)
 
 
 def _latest_feedback(conn) -> dict[str, float]:

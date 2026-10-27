@@ -26,7 +26,7 @@ class WarmupConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "WarmupConfig":
+    def load(cls, path: str | Path | None = None) -> WarmupConfig:
         source = Path(path or paths.config_dir("warmup.v1.yaml"))
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         percents = tuple(float(x) for x in raw.get("percents", [0.50, 0.70, 0.85]))
@@ -54,7 +54,7 @@ def for_item(
     if cfg.apply_to_essential and not item.essential:
         return ()
     out = []
-    for percent, reps in zip(cfg.percents, cfg.reps):
+    for percent, reps in zip(cfg.percents, cfg.reps, strict=False):
         out.append(WarmupSet(
             percent=percent,
             reps=reps,

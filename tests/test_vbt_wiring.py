@@ -5,8 +5,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach.prescribe import build_prescription
 from strength_coach.store import db, importer
 
@@ -15,7 +15,7 @@ DATES = ("2024-01-04", "2024-01-11", "2024-01-18")
 
 def rows_with_velocity() -> list[dict]:
     rows = []
-    for day_index, day in enumerate(DATES):
+    for _day_index, day in enumerate(DATES):
         for set_index in range(4):
             rows.append({
                 "Date": day,

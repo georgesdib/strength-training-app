@@ -35,7 +35,7 @@ class ModelConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "ModelConfig":
+    def load(cls, path: str | Path | None = None) -> ModelConfig:
         source = Path(path or paths.fatigue_fitness_yaml())
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         return cls(

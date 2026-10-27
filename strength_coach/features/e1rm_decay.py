@@ -23,7 +23,7 @@ class DecayConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "DecayConfig":
+    def load(cls, path: str | Path | None = None) -> DecayConfig:
         source = Path(path or paths.e1rm_decay_yaml())
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         return cls(

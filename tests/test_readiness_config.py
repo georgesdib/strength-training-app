@@ -11,8 +11,8 @@ from contextlib import contextmanager
 
 import pytest
 import yaml
-
 from conftest import make_readiness, make_training
+
 from strength_coach.features.readiness import ReadinessConfig, ReadinessConfigError
 from strength_coach.prescribe import build_prescription
 from strength_coach.store import db, importer

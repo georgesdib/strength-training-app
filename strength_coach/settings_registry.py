@@ -7,8 +7,9 @@ inventing a second schema. Every feature loader remains the consumer in this ste
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 
@@ -302,7 +303,7 @@ def _definitions() -> tuple[SettingDefinition, ...]:
 
     ]
     for group in LANDMARK_GROUPS:
-        for index, name in ((0, "mev"), (1, "mav_low"), (2, "mav_high"), (3, "mrv")):
+        for _index, name in ((0, "mev"), (1, "mav_low"), (2, "mav_high"), (3, "mrv")):
             items.append(_d(
                 f"volume.landmarks.{group}.{name}", "Volume",
                 f"{group} {name}", "float", 0.0, "volume.v1.yaml",

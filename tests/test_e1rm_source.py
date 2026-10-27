@@ -11,8 +11,8 @@ from dataclasses import replace
 
 import pytest
 import yaml
-
 from conftest import make_readiness, make_training
+
 from strength_coach.prescribe import build_prescription, config
 from strength_coach.store import db, importer
 

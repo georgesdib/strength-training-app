@@ -21,8 +21,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from strength_coach.features import derived
-from strength_coach.features import e1rm_decay
+from strength_coach.features import derived, e1rm_decay
 from strength_coach.store import queries
 from strength_coach.utils import exercises, paths
 
@@ -40,7 +39,7 @@ class E1RMCalibrationConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "E1RMCalibrationConfig":
+    def load(cls, path: str | Path | None = None) -> E1RMCalibrationConfig:
         source = Path(path or paths.e1rm_calibration_yaml())
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         return cls(
@@ -248,7 +247,7 @@ def build(
             measured_on = str(override["effective_from"])
             prior = sets[
                 sets["exercise_id"].map(
-                    lambda value: _canonical(str(value), entities) == exercise_id
+                    lambda value, exercise_id=exercise_id: _canonical(str(value), entities) == exercise_id
                 )
                 & sets["e1rm_kg"].notna()
                 & (sets["date"] < pd.Timestamp(measured_on))

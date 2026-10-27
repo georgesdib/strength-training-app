@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import yaml
 

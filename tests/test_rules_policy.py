@@ -12,10 +12,9 @@ from __future__ import annotations
 import dataclasses
 
 import pytest
-
 from conftest import make_readiness, make_training
-from strength_coach.rules import RuleContext, evaluate, load_document, publish, resolve_reference
-from strength_coach.rules import registry
+
+from strength_coach.rules import RuleContext, evaluate, load_document, publish, registry, resolve_reference
 from strength_coach.rules.policy import UnresolvedReference
 from strength_coach.store import db, importer
 

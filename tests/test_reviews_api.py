@@ -7,6 +7,7 @@ import threading
 import urllib.request
 
 from conftest import make_readiness, make_training
+
 from strength_coach.store import db, importer
 from strength_coach.web.server import create_server
 

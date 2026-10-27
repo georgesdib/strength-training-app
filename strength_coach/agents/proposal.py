@@ -15,14 +15,16 @@ from __future__ import annotations
 
 import datetime
 import json
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 from strength_coach.domain import e1rm as e1rm_mod
-from strength_coach.prescribe import constraints, engine, loads, schemes as schemes_mod, templates
-from strength_coach.store import queries
+from strength_coach.prescribe import constraints, engine, loads, templates
+from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe.config import Thresholds
-from strength_coach.prescribe.models import Prescription, PrescriptionItem
+from strength_coach.prescribe.models import Prescription
+from strength_coach.store import queries
 
 SYSTEM = (
     "You are a strength coach proposing at most one structural change to a session. "

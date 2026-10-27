@@ -9,7 +9,6 @@ from __future__ import annotations
 import datetime as dt
 import statistics
 from collections import defaultdict
-from typing import Any
 
 import pandas as pd
 
@@ -47,7 +46,7 @@ def _sets(conn, start: dt.date, end: dt.date) -> pd.DataFrame:
         (start.isoformat(), end.isoformat()),
     )
     columns = [description[0] for description in cursor.description]
-    return pd.DataFrame([dict(zip(columns, row)) for row in cursor.fetchall()])
+    return pd.DataFrame([dict(zip(columns, row, strict=False)) for row in cursor.fetchall()])
 
 
 def _strength(conn, sets: pd.DataFrame, start: dt.date, end: dt.date) -> dict:

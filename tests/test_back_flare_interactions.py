@@ -10,6 +10,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 
 from conftest import make_readiness, make_training
+
 from strength_coach.features.deload import DeloadDecision
 from strength_coach.prescribe import build_prescription
 from strength_coach.store import db, importer, repositories

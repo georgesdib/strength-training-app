@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach.features import e1rm_decay
 from strength_coach.prescribe import build_prescription
 from strength_coach.store import db, importer

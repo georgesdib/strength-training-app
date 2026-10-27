@@ -27,7 +27,7 @@ def _session_lift_e1rms(conn) -> tuple[dict[str, dict[str, float]], dict[str, st
         """
     )
     columns = [description[0] for description in cursor.description]
-    rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    rows = [dict(zip(columns, row, strict=False)) for row in cursor.fetchall()]
     best: dict[str, dict[str, float]] = defaultdict(dict)
     dates: dict[str, str] = {}
     for row in rows:
@@ -137,4 +137,4 @@ def _sets(conn):
         """
     )
     columns = [description[0] for description in cursor.description]
-    return pd.DataFrame([dict(zip(columns, row)) for row in cursor.fetchall()])
+    return pd.DataFrame([dict(zip(columns, row, strict=False)) for row in cursor.fetchall()])

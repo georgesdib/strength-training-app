@@ -23,7 +23,7 @@ class HeavySpinalConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "HeavySpinalConfig":
+    def load(cls, path: str | Path | None = None) -> HeavySpinalConfig:
         source = Path(path or paths.config_dir("spinal-heavy-exposure.v1.yaml"))
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         return cls(

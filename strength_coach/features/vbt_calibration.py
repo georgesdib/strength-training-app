@@ -12,15 +12,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import lru_cache
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yaml
 
 from strength_coach.domain import rir as rir_mod
-from strength_coach.features import derived
-from strength_coach.utils import exercises, paths, stats
+from strength_coach.utils import exercises, stats
 
 METHOD_VERSION = "1.0.0"
 
@@ -160,7 +157,7 @@ def calibrate(sets: pd.DataFrame, *, params: CalibrationParams | None = None) ->
 
     # Family fallback fills the rep counts a lift could not support on its own.
     covered = {(t.exercise_id, t.rep_count) for t in targets}
-    for (family, reps), group in frame.dropna(subset=["vbt_family"]).groupby(["vbt_family", "reps"]):
+    for (_family, reps), group in frame.dropna(subset=["vbt_family"]).groupby(["vbt_family", "reps"]):
         if len(group) < params.min_sets_family:
             continue
         members = group["exercise_id"].unique()

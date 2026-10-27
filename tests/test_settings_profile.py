@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 
 import pytest
 
@@ -84,7 +85,7 @@ def test_profile_versions_are_append_only_and_keep_the_last_map():
         )
         latest = settings_profile.latest(conn, "2026-10-28")
         history = settings_profile.history(conn)
-        with pytest.raises(Exception):
+        with pytest.raises(sqlite3.IntegrityError):
             conn.execute("UPDATE settings_profile SET effective_from='x'")
     finally:
         store.close()

@@ -20,9 +20,8 @@ def test_trace_records_events_in_order():
 def test_a_failed_run_is_marked_error():
     store = db.Store(":memory:")
     try:
-        with pytest.raises(RuntimeError):
-            with RunTrace.start(store.connection, input_hash="h"):
-                raise RuntimeError("boom")
+        with pytest.raises(RuntimeError), RunTrace.start(store.connection, input_hash="h"):
+            raise RuntimeError("boom")
         row = store.connection.execute("SELECT status, finished_at FROM run").fetchone()
         assert row["status"] == "error"
         assert row["finished_at"] is not None
@@ -31,7 +30,9 @@ def test_a_failed_run_is_marked_error():
 
 
 def test_unknown_event_kind_is_rejected():
-    with db.Store(":memory:") as store:
-        with RunTrace.start(store.connection, input_hash="h") as trace:
-            with pytest.raises(ValueError, match="unknown run_event kind"):
-                trace.event("not_a_kind")
+    with (
+        db.Store(":memory:") as store,
+        RunTrace.start(store.connection, input_hash="h") as trace,
+        pytest.raises(ValueError, match="unknown run_event kind"),
+    ):
+        trace.event("not_a_kind")

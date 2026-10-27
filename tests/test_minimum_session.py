@@ -43,7 +43,7 @@ def test_accessory_tier_keeps_main_lift_sets_and_load():
     assert main.load_kg == 100
     assert result["removed_sets"] > 0
     assert all(item.load_kg == original.load_kg
-               for item, original in zip(result["items"], before))
+               for item, original in zip(result["items"], before, strict=False))
     assert estimate_minutes(result["items"]) <= 30
 
 

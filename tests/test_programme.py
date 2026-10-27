@@ -6,6 +6,7 @@ import datetime as dt
 from contextlib import contextmanager
 
 from conftest import make_readiness, make_training
+
 from strength_coach import cli
 from strength_coach.features import deload as deload_feature
 from strength_coach.features import programme

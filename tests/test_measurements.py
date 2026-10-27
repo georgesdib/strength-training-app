@@ -40,9 +40,10 @@ def test_recording_declares_the_metric_and_summarises_it():
 
 
 def test_an_unknown_metric_is_rejected_with_the_list():
-    with db.Store(":memory:") as store:
-        with pytest.raises(measurements.MeasurementError, match="unknown measurement metric"):
-            measurements.record(store.connection, metric_key="bench_1rm", value=100)
+    with db.Store(":memory:") as store, pytest.raises(
+        measurements.MeasurementError, match="unknown measurement metric"
+    ):
+        measurements.record(store.connection, metric_key="bench_1rm", value=100)
 
 
 @pytest.mark.parametrize(
@@ -54,9 +55,8 @@ def test_an_unknown_metric_is_rejected_with_the_list():
     ],
 )
 def test_implausible_values_are_rejected(key, value, message):
-    with db.Store(":memory:") as store:
-        with pytest.raises(measurements.MeasurementError, match=message):
-            measurements.record(store.connection, metric_key=key, value=value)
+    with db.Store(":memory:") as store, pytest.raises(measurements.MeasurementError, match=message):
+        measurements.record(store.connection, metric_key=key, value=value)
 
 
 def test_a_direction_change_is_refused_after_declaration():

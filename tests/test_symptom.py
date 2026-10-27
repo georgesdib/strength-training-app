@@ -11,8 +11,8 @@ import sqlite3
 from contextlib import contextmanager
 
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach import cli
 from strength_coach.prescribe import build_prescription, validate_references
 from strength_coach.rules import RuleContext, evaluate, load_document

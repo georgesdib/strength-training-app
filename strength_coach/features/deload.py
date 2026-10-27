@@ -37,7 +37,7 @@ class DeloadConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "DeloadConfig":
+    def load(cls, path: str | Path | None = None) -> DeloadConfig:
         source = Path(path or paths.config_dir("deload.v1.yaml"))
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         scheduled = raw.get("scheduled") or {}

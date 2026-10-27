@@ -10,8 +10,9 @@ reverse -- see AGENTS.md §4).
 from __future__ import annotations
 
 import datetime as _dt
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
-from typing import Any, Mapping
+from typing import Any
 
 import pandas as pd
 
@@ -36,7 +37,7 @@ class History:
 
     @classmethod
     def load(cls, conn, *, start: str | None = None,
-             end: str | None = None) -> "History":
+             end: str | None = None) -> History:
         sets = queries.clean_sets(conn, start=start, end=end)
         if not sets.empty:
             # Enrichment is required for e1RM (max-single detection) and for the shared
@@ -47,7 +48,7 @@ class History:
             sessions=queries.sessions(conn, start=start, end=end),
         )
 
-    def until(self, end: str | None) -> "History":
+    def until(self, end: str | None) -> History:
         """The frame as it stood at `end`; the stored history is never mutated."""
         if end is None or self.sets.empty:
             return self
@@ -88,7 +89,7 @@ class RuleContext:
     def entity(self, exercise_id: str) -> Mapping[str, Any]:
         return self.entities.get(str(exercise_id), {})
 
-    def prior_to(self, for_date: str) -> "RuleContext":
+    def prior_to(self, for_date: str) -> RuleContext:
         """The context as it stood before `for_date`, for a plan on that date.
 
         A prescription is the plan for its date. If a session is already recorded there, the
@@ -133,10 +134,10 @@ class RuleContext:
         symptom_flare: bool | None = None,
         block_week_index: int | None = None,
         rep_ranges: Mapping[str, tuple[int, int]] | None = None,
-        history: "History | None" = None,
+        history: History | None = None,
         spinal_cap: float | None = None,
         spinal_costs: Mapping[str, float] | None = None,
-    ) -> "RuleContext":
+    ) -> RuleContext:
         """Build the context, deriving symptom state and block week when possible.
 
         `history` lets a caller reuse one enriched frame across several dates (the programme
@@ -190,7 +191,7 @@ class RuleContext:
 def _set_keys(sets: pd.DataFrame) -> frozenset[tuple[str, int]]:
     if sets.empty:
         return frozenset()
-    return frozenset(zip(sets["session_id"].astype(str), sets["set_id"].astype(int)))
+    return frozenset(zip(sets["session_id"].astype(str), sets["set_id"].astype(int), strict=False))
 
 
 def _with_iso_week(sets: pd.DataFrame) -> pd.DataFrame:

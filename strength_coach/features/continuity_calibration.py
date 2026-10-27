@@ -12,13 +12,13 @@ same lift.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Mapping
-
 import os
 import re
 import tempfile
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -45,7 +45,7 @@ class CalibrationConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "CalibrationConfig":
+    def load(cls, path: str | Path | None = None) -> CalibrationConfig:
         source = Path(path or paths.continuity_calibration_yaml())
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         return cls(
@@ -175,7 +175,7 @@ def _returns(
     out: dict[str, list[float]] = {"short": [], "medium": [], "long": []}
     for _exercise_id, group in sessions.groupby("exercise_id", sort=False):
         rows = list(group.itertuples(index=False))
-        for previous, current in zip(rows, rows[1:]):
+        for previous, current in zip(rows, rows[1:], strict=False):
             gap = int((pd.Timestamp(current.date) - pd.Timestamp(previous.date)).days)
             if gap < short_days or gap > cfg.max_gap_days:
                 continue

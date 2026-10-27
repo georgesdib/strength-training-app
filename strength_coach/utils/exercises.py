@@ -20,10 +20,11 @@ count as back-extension history for load and dose lookups.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import pandas as pd
 import yaml
@@ -108,7 +109,7 @@ class Taxonomy:
         cls,
         path: str | Path | None = None,
         overrides_path: str | Path | None = None,
-    ) -> "Taxonomy":
+    ) -> Taxonomy:
         source = Path(path or paths.taxonomy_yaml())
         with source.open("r", encoding="utf-8") as handle:
             raw = yaml.safe_load(handle)
@@ -160,9 +161,13 @@ class Taxonomy:
             # Date-scoped identities: the historical lift applies only before the switch.
             switch = alias.get("switch_date")
             historical = alias.get("historical_canonical")
-            if historical and switch and on_date is not None:
-                if str(on_date)[:10] < str(switch)[:10]:
-                    canonical = str(historical)
+            if (
+                historical
+                and switch
+                and on_date is not None
+                and str(on_date)[:10] < str(switch)[:10]
+            ):
+                canonical = str(historical)
             entity = self.entities.get(canonical)
             props = dict(entity) if entity else {}
             props.update({k: v for k, v in alias.items() if k in _PROP_KEYS})

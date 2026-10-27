@@ -66,9 +66,8 @@ def test_an_empty_log_is_zero_not_an_error():
 
 
 def test_a_wrong_distance_average_heart_rate_is_rejected():
-    with store() as s:
-        with pytest.raises(ValueError, match="avg_hr cannot exceed"):
-            log(s.connection, avg_hr=160, max_hr=150)
+    with store() as s, pytest.raises(ValueError, match="avg_hr cannot exceed"):
+        log(s.connection, avg_hr=160, max_hr=150)
 
 
 @pytest.mark.parametrize(
@@ -84,9 +83,8 @@ def test_a_wrong_distance_average_heart_rate_is_rejected():
     ],
 )
 def test_invalid_sessions_are_rejected(overrides, message):
-    with store() as s:
-        with pytest.raises(ValueError, match=message):
-            log(s.connection, **overrides)
+    with store() as s, pytest.raises(ValueError, match=message):
+        log(s.connection, **overrides)
 
 
 def test_cardio_rows_are_append_only():

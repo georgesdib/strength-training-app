@@ -10,9 +10,10 @@ applied, never multiplied on top, so an already-reduced session is left alone.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import yaml
 
@@ -30,7 +31,7 @@ class TechniqueThrottleConfig:
     rir_cap: int = 4
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "TechniqueThrottleConfig":
+    def load(cls, path: str | Path | None = None) -> TechniqueThrottleConfig:
         source = Path(path or paths.config_dir("technique-throttle.v1.yaml"))
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         multiplier = float(raw.get("load_multiplier", 0.90))

@@ -12,7 +12,6 @@ from collections import defaultdict
 from typing import Any
 
 from strength_coach.features import readiness_score
-from strength_coach.store import queries
 from strength_coach.utils import exercises
 
 DEFAULT_WEEKS = 8

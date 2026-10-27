@@ -9,10 +9,10 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
-from strength_coach import __version__
-from strength_coach import settings_profile
+from strength_coach import __version__, settings_profile
 from strength_coach.features import prescription_provenance
 from strength_coach.prescribe import volume_budget
 from strength_coach.store import repositories

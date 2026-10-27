@@ -8,13 +8,13 @@ honesty rules: no look-ahead, and no invented load when the e1RM is missing.
 
 from __future__ import annotations
 
-from dataclasses import replace
 from contextlib import contextmanager
+from dataclasses import replace
 
 import pytest
 import yaml
-
 from conftest import make_readiness, make_training
+
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.prescribe import (
     SessionTemplate,
@@ -412,8 +412,9 @@ def test_recent_stress_is_attached_as_an_advisory_only():
 
 
 def test_selection_b_requires_confirmation():
-    from strength_coach.prescribe import selection as selection_mod
     from unittest.mock import patch
+
+    from strength_coach.prescribe import selection as selection_mod
 
     def fake_select(conn, context, on_date, day, **kwargs):
         return [selection_mod.SlotSelection(
@@ -432,12 +433,14 @@ def test_selection_b_requires_confirmation():
         {"Date": "2024-01-08", "Exercise": "Bench Press (narrow grip)", "Weight_Used": "90",
          "RIR": "2", "Reps_Done": "5"},
     ]
-    with store_with(rows) as store:
-        with patch("strength_coach.prescribe.engine.selection_mod.select", fake_select):
-            prescription = build_prescription(
-                store.connection, for_date="2024-01-15", session_type="hinge",
-                apply_selection=True,
-            )
+    with (
+        store_with(rows) as store,
+        patch("strength_coach.prescribe.engine.selection_mod.select", fake_select),
+    ):
+        prescription = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="hinge",
+            apply_selection=True,
+        )
     ids = {item.exercise_id for item in prescription.items}
     assert "bench_press_pause" not in ids
     assert "bench_press_narrow" in ids

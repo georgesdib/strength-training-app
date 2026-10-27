@@ -12,12 +12,11 @@ from contextlib import contextmanager
 from dataclasses import replace
 
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach.critique import UnknownSessionError, persist, score_session
 from strength_coach.critique.facts import build_facts
-from strength_coach.critique.rubric import Critique, RUBRIC_WEIGHTS
-from strength_coach.rules import load_document
+from strength_coach.critique.rubric import RUBRIC_WEIGHTS, Critique
 from strength_coach.rules import policy as policy_mod
 from strength_coach.store import db, importer
 from strength_coach.trace import RunTrace
@@ -235,9 +234,8 @@ def test_composite_ignores_unmeasurable_items():
 
 
 def test_unknown_session_raises():
-    with store_with(session_rows("2024-01-01")) as store:
-        with pytest.raises(UnknownSessionError):
-            score_session(store.connection, "1999-01-01")
+    with store_with(session_rows("2024-01-01")) as store, pytest.raises(UnknownSessionError):
+        score_session(store.connection, "1999-01-01")
 
 
 def test_facts_hash_is_stable_and_changes_with_content():

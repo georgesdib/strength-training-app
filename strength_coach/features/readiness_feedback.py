@@ -13,8 +13,8 @@ import json
 import statistics
 from typing import Any
 
-from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach import workout
+from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.domain.symptoms import flare_from
 from strength_coach.store import queries
 
@@ -162,7 +162,6 @@ def _workout_event(conn, workout_id: str, for_date: str, plan: dict,
         "item_ids": item_ids,
         "next_session_on": for_date,
         "completed_within_7d": True,
-        "adherence": None,
         "previous": _session_metrics(conn, previous["session_id"], feedback) if previous else {},
         "next": _session_metrics(conn, workout_id, feedback),
         "adherence": _adherence(data.get("original_comparison") or {}),

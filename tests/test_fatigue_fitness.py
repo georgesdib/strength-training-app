@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from conftest import make_readiness, make_training
+
 from strength_coach.features import fatigue_fitness
 from strength_coach.store import db, importer
 
@@ -56,9 +57,10 @@ def test_insufficient_history_is_refused_rather_than_fitted():
 
 
 def test_cli_fatigue_reports_the_shadow_model(tmp_path, capsys):
+    from conftest import make_readiness, make_training
+
     from strength_coach import cli
     from strength_coach.store import db, importer
-    from conftest import make_readiness, make_training
 
     rows = []
     for index, day in enumerate(

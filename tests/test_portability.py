@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from conftest import make_readiness, make_training
+
 from strength_coach import cli
 from strength_coach.store import db, importer
 

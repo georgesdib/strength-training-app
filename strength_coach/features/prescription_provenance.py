@@ -6,8 +6,6 @@ stored prescription, for the outcome review and later audit.
 
 from __future__ import annotations
 
-from typing import Iterable
-
 from strength_coach.store import repositories
 
 MODIFIER_KEYS = (

@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from conftest import make_readiness, make_training
+
 from strength_coach.critique.rubric import RUBRIC_WEIGHTS, Critique, RubricItem
 from strength_coach.eval import (
     ITEM_KEYS,

@@ -7,11 +7,9 @@ allowed but requires --max, confirmation, and a minimum interval.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach import cli
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.prescribe import build_prescription

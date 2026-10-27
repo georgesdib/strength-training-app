@@ -7,7 +7,7 @@ new row rather than an edit.
 
 from __future__ import annotations
 
-from typing import Mapping
+from collections.abc import Mapping
 
 from strength_coach.eval.labels import ITEM_KEYS, LabelledSession, LabelledSet
 from strength_coach.store import queries, repositories

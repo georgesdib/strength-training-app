@@ -11,9 +11,10 @@ population guideline is the right individual dose, and `docs/LONGEVITY-REVIEW.md
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 

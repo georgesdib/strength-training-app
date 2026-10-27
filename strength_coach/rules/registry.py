@@ -12,8 +12,9 @@ be silently counted as compliance (AGENTS.md invariant 12).
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
@@ -114,7 +115,7 @@ def _unknown(missing: Iterable[str], reason: str, **details: Any) -> Evaluation:
 
 @predicate("primary_compound_rir_window")
 def primary_compound_rir_window(
-    document: "RuleDocument", rule: "Rule", context: "RuleContext"
+    document: RuleDocument, rule: Rule, context: RuleContext
 ) -> Evaluation:
     """Effort window on primary compounds: no RIR below the floor, no max singles.
 
@@ -223,7 +224,7 @@ def _e1rm_reference(scoped: pd.DataFrame) -> dict[str, float]:
 
 @predicate("weekly_spinal_cap")
 def weekly_spinal_cap(
-    document: "RuleDocument", rule: "Rule", context: "RuleContext"
+    document: RuleDocument, rule: Rule, context: RuleContext
 ) -> Evaluation:
     """Weighted sum of spinal cost per ISO week, capped.
 
@@ -276,7 +277,7 @@ def weekly_spinal_cap(
 
 @predicate("direct_erector_scheduling")
 def direct_erector_scheduling(
-    document: "RuleDocument", rule: "Rule", context: "RuleContext"
+    document: RuleDocument, rule: Rule, context: RuleContext
 ) -> Evaluation:
     """Direct erector work off the hinge day and never stacked with a hinge."""
     sets = context.sets
@@ -355,7 +356,7 @@ def direct_erector_scheduling(
 
 @predicate("erector_dose_ramp")
 def erector_dose_ramp(
-    document: "RuleDocument", rule: "Rule", context: "RuleContext"
+    document: RuleDocument, rule: Rule, context: RuleContext
 ) -> Evaluation:
     """Dose ramp gated on two stable sessions with no symptom flare.
 
@@ -428,8 +429,8 @@ def erector_dose_ramp(
 
 
 def spinal_exposures(
-    rule: "Rule",
-    context: "RuleContext",
+    rule: Rule,
+    context: RuleContext,
     extra: Iterable[tuple[str, str, Any]] = (),
 ) -> dict[str, dict[tuple[str, str], float]]:
     """week -> {(session_id, exercise_id): spinal_cost} for performed and proposed work.
@@ -477,8 +478,8 @@ def spinal_exposures(
 
 
 def weekly_spinal_costs(
-    rule: "Rule",
-    context: "RuleContext",
+    rule: Rule,
+    context: RuleContext,
     extra: Iterable[tuple[str, str, Any]] = (),
 ) -> dict[str, dict[str, Any]]:
     """Per-week weighted cost and exercise mix, optionally including a proposed session."""
@@ -504,7 +505,7 @@ def _ramp_phase(params: Mapping[str, Any], week: int) -> Mapping[str, Any] | Non
 
 @predicate("double_progression_decision")
 def double_progression_decision(
-    document: "RuleDocument", rule: "Rule", context: "RuleContext"
+    document: RuleDocument, rule: Rule, context: RuleContext
 ) -> Evaluation:
     """Hold the load until every comparable set reaches the top of its rep range.
 

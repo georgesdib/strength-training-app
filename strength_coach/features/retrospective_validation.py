@@ -9,7 +9,6 @@ Selection is excluded because the counterfactual is unobserved.
 
 from __future__ import annotations
 
-import datetime as dt
 from dataclasses import replace
 
 import numpy as np
@@ -111,7 +110,7 @@ def _continuity_rows(sets, dates, thresholds):
     returns = [r for r in returns if r[0] in set(dates)][-12:]
     cfg = replace(continuity_calibration.CalibrationConfig.load(), bootstrap_samples=200)
     rows = []
-    for at, exercise_id, gap, actual_ratio in returns:
+    for at, _exercise_id, gap, actual_ratio in returns:
         prefix = sessions[sessions["date"] < at]
         if prefix.empty:
             continue

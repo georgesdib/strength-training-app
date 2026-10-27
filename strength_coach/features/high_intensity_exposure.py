@@ -40,7 +40,7 @@ class ExposureConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "ExposureConfig":
+    def load(cls, path: str | Path | None = None) -> ExposureConfig:
         source = Path(path or paths.config_dir("high-intensity-exposure.v1.yaml"))
         raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         return cls(

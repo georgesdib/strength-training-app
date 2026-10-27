@@ -8,13 +8,12 @@ targets only. The output says whether the new score mimics the old app; it canno
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 import numpy as np
 
 from strength_coach.features import readiness_score
-from strength_coach.store import queries
 from strength_coach.utils import exercises
 
 LABELS = {

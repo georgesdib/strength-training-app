@@ -23,11 +23,12 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import yaml
 
@@ -90,9 +91,7 @@ class ExerciseLink:
         if any(bool(props.get(flag)) for flag in self.flags):
             return True
         muscles = props.get("primary_muscles") or ()
-        if self.muscles and any(str(m) in self.muscles for m in muscles):
-            return True
-        return False
+        return bool(self.muscles and any(str(m) in self.muscles for m in muscles))
 
 
 @dataclass(frozen=True)
@@ -138,7 +137,7 @@ class InjuryConfig:
     source_path: Path = Path()
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "InjuryConfig":
+    def load(cls, path: str | Path | None = None) -> InjuryConfig:
         source = Path(path or paths.injuries_yaml())
         if not source.exists():
             # A missing file means no region is configured; the signal then says `unknown`
@@ -151,7 +150,7 @@ class InjuryConfig:
         return _parse_config(str(source), digest, body)
 
     @classmethod
-    def _from_raw(cls, source: Path, raw: Mapping[str, Any]) -> "InjuryConfig":
+    def _from_raw(cls, source: Path, raw: Mapping[str, Any]) -> InjuryConfig:
         defaults = raw.get("defaults") or {}
         taxonomy = exercises.taxonomy()
         known_patterns, known_flags, known_muscles = _taxonomy_vocabulary(taxonomy)
