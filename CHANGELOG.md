@@ -43,6 +43,8 @@
   preserve/reduce/drop and that the main-lift policy is ignored while the budget is off.
 - **Volume-ledger coverage plan**: recorded the calendar-window denominator and complete-coverage
   zero-fill design, including break/deload handling and under-MEV eligibility; not implemented.
+- **Step 8 map revision**: indirect weights lowered to 0.25 after the target-implied check;
+  target-implied total is 68.25 effective sets. Not activated; live accounting remains hard.
 - **Step 8 chunk 1**: effective-set ledger infrastructure and the indirect map; `hard`
   remains the default and the live profile is unchanged. Target re-base, budget migration and
   live activation remain chunk 2/3.

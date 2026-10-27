@@ -1097,7 +1097,9 @@ golden prescription changed.
 What exists now:
 
 - `config/volume-indirect.v1.yaml` defines the pattern-level indirect map (direct 1.0, indirect
-  0.5): push/pull alternation, squat/hinge → core, unilateral hinge → hinge.
+  0.25 after the target-implied check): push/pull alternation, squat/hinge → core, unilateral
+  hinge → hinge. Target-implied total is 68.25 effective sets; not applied. The observed
+  vertical-push/core ratios fall to 2.67/1.50.
 - `volume.ledger.set_accounting` is profile-backed, `hard` by default.
 - In `effective` mode the ledger group average adds indirect credit; raw pattern totals stay
   visible and an indirect-only group gets an `indirect:<group>` row.

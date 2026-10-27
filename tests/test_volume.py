@@ -159,8 +159,8 @@ def test_effective_accounting_credits_indirect_groups():
     indirect_pull = next(
         row for row in effective_report["patterns"] if row["group"] == "vertical_pull"
     )
-    assert indirect_push["group_average"] == 1.0
-    assert indirect_pull["group_average"] == 1.0
+    assert indirect_push["group_average"] == 0.5
+    assert indirect_pull["group_average"] == 0.5
 
 
 def test_under_mev_never_adds_a_set_to_a_sibling_pattern():
