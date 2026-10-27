@@ -1889,20 +1889,22 @@ async function loadVolume() {
     }
     const rows = data.patterns.map((row) => `<tr>
       <td><code>${esc(row.pattern)}</code></td>
-      <td>${row.average}</td><td>${row.total}</td>
+      <td>${row.raw_average ?? row.average}</td>
+      <td>${row.effective_average ?? row.group_average}</td>
       <td>${row.mev ?? "—"}</td>
       <td>${row.mav ? row.mav[0] + "–" + row.mav[1] : "—"}</td>
       <td>${row.mrv ?? "—"}</td>
       <td>${esc(row.status)}</td></tr>`).join("");
+    const accounting = data.coverage?.accounting || "hard";
     const heavy = data.heavy_spinal;
     const heavyLine = heavy
       ? `<p class="muted">Heavy spinal sets (RIR ≤ ${heavy.rir_max}): <strong>${heavy.total_sets}</strong>
          in the last ${heavy.window_weeks} weeks. Context only; not load-weighted and not part of the cap.</p>`
       : "";
-    $("#volume-ledger").innerHTML = `<p class="muted">${esc(data.from)} to ${esc(data.to)}</p>${heavyLine}
-      <table><thead><tr><th>pattern</th><th>avg sets/week</th><th>total</th>
+    $("#volume-ledger").innerHTML = `<p class="muted">${esc(data.from)} to ${esc(data.to)} · accounting <strong>${esc(accounting)}</strong></p>${heavyLine}
+      <table><thead><tr><th>pattern</th><th>raw/wk</th><th>effective/wk</th>
       <th>MEV</th><th>MAV</th><th>MRV</th><th>status</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="muted">MEV/MAV/MRV are configurable coaching landmarks, not measured individual thresholds.</p>`;
+      <p class="muted">Effective/wk adds configured indirect work at 0.25; raw/wk is unchanged. MEV/MAV/MRV are configurable coaching landmarks, not measured individual thresholds. <a class="doc-link" href="#docs?doc=docs/VOLUME-MODULATION-PLAN.md&amp;anchor=16-effective-set-audit-and-the-target-decision-step-8-pre-activation">Accounting rules</a></p>`;
   } catch (error) {
     $("#volume-ledger").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
