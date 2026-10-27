@@ -23,7 +23,7 @@ Every linked document should end with:
 - **Evidence:** [REFERENCES.md](REFERENCES.md)
 - **Decisions:** [DECISIONS.md](DECISIONS.md)
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
-- **Roadmap:** [ROADMAP.md](ROADMAP.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)
 ```
 
 Operational pages (Appearance, Terminal, Docs) may replace “Evidence” with the relevant
@@ -33,23 +33,23 @@ implementation or parity document.
 
 | View | Panels / subsections | Primary documentation | Evidence / decisions / questions / roadmap |
 |---|---|---|---|
-| **Today** | Recent sessions; Descriptive progress; Rubric calibration; Per-rep velocity; Periodic reviews; How this works; summary cards | [WEB-UI.md](WEB-UI.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](ROADMAP.md) |
-| **History** | History list; Session details; Edit session; editor Session details | [WEB-UI.md](WEB-UI.md), [DATA-MODEL.md](DATA-MODEL.md) | [DATA-QUALITY.md](DATA-QUALITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](ROADMAP.md) |
-| **Outcomes** | Outcome review; Prospective check; Form trend; Readiness feedback | [OUTCOMES.md](OUTCOMES.md), [W5-PROSPECTIVE-EVALUATION.md](W5-PROSPECTIVE-EVALUATION.md) | [FORM-PROSPECTIVE.md](FORM-PROSPECTIVE.md), [FORM-USE-EVIDENCE.md](FORM-USE-EVIDENCE.md), [READINESS.md](READINESS.md), [ROADMAP.md](ROADMAP.md) |
-| **Longevity** | Longevity context; summary cards; cardio, measurements, readiness, symptoms tables | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](ROADMAP.md) |
+| **Today** | Recent sessions; Descriptive progress; Rubric calibration; Per-rep velocity; Periodic reviews; How this works; summary cards | [WEB-UI.md](WEB-UI.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **History** | History list; Session details; Edit session; editor Session details | [WEB-UI.md](WEB-UI.md), [DATA-MODEL.md](DATA-MODEL.md) | [DATA-QUALITY.md](DATA-QUALITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Outcomes** | Outcome review; Prospective check; Form trend; Readiness feedback | [OUTCOMES.md](OUTCOMES.md), [W5-PROSPECTIVE-EVALUATION.md](W5-PROSPECTIVE-EVALUATION.md) | [FORM-PROSPECTIVE.md](FORM-PROSPECTIVE.md), [FORM-USE-EVIDENCE.md](FORM-USE-EVIDENCE.md), [READINESS.md](READINESS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Longevity** | Longevity context; summary cards; cardio, measurements, readiness, symptoms tables | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Prescribe** | Prescribe form; Continuity calibration; Weekly volume; Regime change; Strength fatigue diagnostic; Exercise selection; Retrospective validation | [RULES-FORMAT.md](RULES-FORMAT.md), [METHODOLOGY.md](METHODOLOGY.md) | [CONTINUITY.md](CONTINUITY.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md), [REGIME-CHANGE.md](REGIME-CHANGE.md), [FATIGUE-FITNESS.md](FATIGUE-FITNESS.md), [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md), [RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md) |
 | **Workflow** | Readiness; Preview/configure; Start workout; Active workout; Log/edit sets; Optional device data; Import workout CSV; Per-rep velocity; End workout; Post-workout comparison | [USER-GUIDE.md](../USER-GUIDE.md), [WEB-UI.md](WEB-UI.md) | [VBT-CALIBRATION.md](VBT-CALIBRATION.md), [REP-VELOCITY.md](REP-VELOCITY.md), [WORKOUT-TYPE-READINESS-EVIDENCE.md](WORKOUT-TYPE-READINESS-EVIDENCE.md), [DECISIONS.md](DECISIONS.md) |
-| **Programme** | Programme forecast | [TRAINING-DYNAMICS.md](TRAINING-DYNAMICS.md), [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md) | [REFERENCES.md](REFERENCES.md), [ROADMAP.md](ROADMAP.md) |
-| **Review** | Review a session; Rubric agreement | [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md), [RULES-FORMAT.md](RULES-FORMAT.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](ROADMAP.md) |
-| **Readiness** | Log readiness; Quick readiness; Baseline settings; Volume valve; Calibration report; Override the score | [READINESS.md](READINESS.md), [READINESS-SCORE.md](READINESS-SCORE.md) | [LIFT-READINESS.md](LIFT-READINESS.md), [READINESS-WEIGHT-EVIDENCE.md](READINESS-WEIGHT-EVIDENCE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](ROADMAP.md) |
-| **Cardio** | Cardio capture and summary | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](ROADMAP.md) |
-| **Measures** | Measurements; History | [OUTCOMES.md](OUTCOMES.md), [DATA-MODEL.md](DATA-MODEL.md) | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](ROADMAP.md) |
-| **Import** | Import training/readiness; After the import | [USER-GUIDE.md](../USER-GUIDE.md), [DATA-QUALITY.md](DATA-QUALITY.md) | [PRIVACY.md](PRIVACY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](ROADMAP.md) |
-| **Exercises** | Exercise catalogue; Edit exercise; Exercise details dialog | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md), [DATA-MODEL.md](DATA-MODEL.md) | [DECISIONS.md](DECISIONS.md), [ROADMAP.md](ROADMAP.md) |
-| **Athlete** | Athlete state | [DATA-MODEL.md](DATA-MODEL.md), [INJURY-SIGNAL.md](INJURY-SIGNAL.md) | [READINESS.md](READINESS.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](ROADMAP.md) |
-| **Settings** | Appearance; Language model; Prescribe defaults; App | [WEB-UI.md](WEB-UI.md), [ARCHITECTURE.md](ARCHITECTURE.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](ROADMAP.md) |
-| **Terminal** | Terminal | [WEB-UI.md](WEB-UI.md), [UI-CLI-PARITY.md](UI-CLI-PARITY.md) | [DECISIONS.md](DECISIONS.md), [ROADMAP.md](ROADMAP.md) |
-| **Docs** | Docs list and document viewer | [WEB-UI.md](WEB-UI.md), [METHODOLOGY.md](METHODOLOGY.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](ROADMAP.md) |
+| **Programme** | Programme forecast | [TRAINING-DYNAMICS.md](TRAINING-DYNAMICS.md), [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md) | [REFERENCES.md](REFERENCES.md), [ROADMAP.md](../ROADMAP.md) |
+| **Review** | Review a session; Rubric agreement | [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md), [RULES-FORMAT.md](RULES-FORMAT.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Readiness** | Log readiness; Quick readiness; Baseline settings; Volume valve; Calibration report; Override the score | [READINESS.md](READINESS.md), [READINESS-SCORE.md](READINESS-SCORE.md) | [LIFT-READINESS.md](LIFT-READINESS.md), [READINESS-WEIGHT-EVIDENCE.md](READINESS-WEIGHT-EVIDENCE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Cardio** | Cardio capture and summary | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Measures** | Measurements; History | [OUTCOMES.md](OUTCOMES.md), [DATA-MODEL.md](DATA-MODEL.md) | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Import** | Import training/readiness; After the import | [USER-GUIDE.md](../USER-GUIDE.md), [DATA-QUALITY.md](DATA-QUALITY.md) | [PRIVACY.md](PRIVACY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Exercises** | Exercise catalogue; Edit exercise; Exercise details dialog | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md), [DATA-MODEL.md](DATA-MODEL.md) | [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Athlete** | Athlete state | [DATA-MODEL.md](DATA-MODEL.md), [INJURY-SIGNAL.md](INJURY-SIGNAL.md) | [READINESS.md](READINESS.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Settings** | Appearance; Language model; Prescribe defaults; App | [WEB-UI.md](WEB-UI.md), [ARCHITECTURE.md](ARCHITECTURE.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Terminal** | Terminal | [WEB-UI.md](WEB-UI.md), [UI-CLI-PARITY.md](UI-CLI-PARITY.md) | [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Docs** | Docs list and document viewer | [WEB-UI.md](WEB-UI.md), [METHODOLOGY.md](METHODOLOGY.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
 
 ## Panel-specific notes
 

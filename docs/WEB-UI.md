@@ -3,6 +3,9 @@
 A local browser interface over the same Python core. It is an additional surface, not a
 replacement for the CLI.
 
+**Planned UI work:** request-body limits (UI-04) and frontend modularisation (UI-08) are
+specified in [`UI-IMPROVEMENT-PLAN.md`](UI-IMPROVEMENT-PLAN.md); neither is implemented yet.
+
 ## Run
 
 ```bash

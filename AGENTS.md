@@ -13,9 +13,9 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**v0, v0.1, v0.2, v0.3 and v0.4 are complete; v0.5 is next.** v0.4 packaged the audit,
-documentation and form closeout. Cardio depth and comparable calibration data are v0.5 (see
-ROADMAP §4.13a/§4.14).
+**v0, v0.1, v0.2, v0.3 and v0.4 are complete; v0.5 is in progress.** v0.4 packaged the audit,
+documentation and form closeout. The guided Workflow UI is delivered; cardio depth and comparable
+calibration data remain (see ROADMAP §4.13a/§4.14).
 
 **Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
@@ -146,6 +146,10 @@ so silently erased genuine `RIR = 0` observations during development.
    `private/docs/EVIDENCE.md` — or you have updated both.
 4. New/changed config has a comment explaining the domain reason.
 5. If you made a judgement call, it is written down as an assumption, not just in code.
+6. A documentation change keeps `tests/test_docs_consistency.py` green: links resolve,
+   `DEC-*`/`LIM-*` references exist, README/AGENTS status matches the roadmap, the W9 current
+   state matches `PRG-SPINE-001`, public docs carry no exact return count, superseded
+   decisions are in the table, and audit counts are dated.
 
 ### 7.1 How to run tests without wasting ten minutes
 
@@ -200,6 +204,7 @@ never read `data/raw`.
 | `docs/W10-AGE.md` | W10 age-in-state audit; optional birth-year, wording and no age-based load rule |
 | `docs/W8-VOLUME-BALANCE.md` | W8 weekly set/spinal/time balance and four options; no change |
 | `docs/W5-PROSPECTIVE-EVALUATION.md` | W5 prospective protocol and implemented read-only summary |
+| `docs/OUTCOMES.md` | read-only 4/8/12-week outcomes review: what changed, not why |
 | `docs/W4-PROGRAMME-EVIDENCE.md` | W4 evidence classification and user-facing evidence labels |
 | `docs/LIMITATIONS-REGISTER.md` | living index of known limitations from all audits |
 | `docs/METHODOLOGY.md` | canonical versioned decision flow, limitations, never-do list and change control |
@@ -220,6 +225,7 @@ never read `data/raw`.
 | `docs/FATIGUE-FITNESS.md` | fatigue-fitness evidence, strength recovery, e1RM calibration and why no model drives loads |
 | `docs/LIFT-READINESS.md` | per-lift readiness evidence, components, weights and downward-only rule |
 | `docs/EXERCISE-VARIANTS.md` | how to add a canonical variant, slot wiring, history caveat, selection tuning |
+| `docs/VARIANT-PATTERN-AUDIT.md` | 2026-10-20 variant pattern/muscle audit: checked exceptions and applied corrections |
 | `docs/SELECTION-COMPARABILITY.md` | evidence and proposed three-class guard for variant substitution |
 | `docs/READINESS-EXERCISE-SELECTION-PLAN.md` | locked symptom/readiness substitution plan plus app-wide readiness policy and periodic-review panel design |
 | `docs/STRENGTH-PROGRAM-REVIEW.md` | evidence check and critique of the strength programme (review only) |
@@ -232,6 +238,8 @@ never read `data/raw`.
 | `docs/WEAKNESS-TARGETING-PLAN.md` | gated weakness metric, retrospective screen and N-of-1 test plan |
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/UI-CLI-PARITY.md` | current first-class parity, intentional differences and remaining gaps |
+| `docs/UI-MAP.md` | web UI surface map: panels, routes, docs links and the behaviour each panel exposes |
+| `docs/UI-IMPROVEMENT-PLAN.md` | UI-04 request-body limits and UI-08 frontend modularisation: phases, tests, corrections and optional follow-ups; proposed |
 | `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |
 | `docs/SPINAL-COST.md` | evidence behind the ordinal spinal-cost ratings |
 | `docs/SPINAL-LOAD-EVIDENCE.md` | focused review of load-weighting; keep ordinal, no load/RIR weighting |
@@ -242,7 +250,7 @@ never read `data/raw`.
 | `docs/ENGINE-AUDIT-PLAN.md` | closed W0–W12 audit plan; outcome in `AUDIT-CLOSEOUT.md` |
 | `docs/READINESS-AUDIT.md` | W6 audit: readiness vs no readiness is not identifiable retrospectively; descriptive associations and policy options |
 | `docs/W2-LOAD-LINEAGE.md` | W2 audit: load lineage; bodyweight-basis and incomplete-workout defects fixed |
-| `docs/W9-SPINAL-CAP.md` | W9 audit: explicit high-fatigue costs, at-cap display, cap unchanged |
+| `docs/W9-SPINAL-CAP.md` | W9 audit: explicit high-fatigue costs, at-cap display; cap 3 at close, superseded by cap 6 in §8 |
 | `docs/W1-W7-ATTENDANCE.md` | W1 schedule audit and W7 attendance metrics; forecast-deload path and session cap implemented |
 | `docs/W0-EXECUTION-MAP.md` | W0 execution map, modifier ownership/order, input risks, test coverage and candidate findings |
 | `docs/W3-MODIFIER-MATRIX.md` | W3 audit: six confirmed deload/order/floor/RIR defects, fixed and tested |

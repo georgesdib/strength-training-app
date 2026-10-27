@@ -40,12 +40,16 @@ Removed exact single-athlete sample counts from current public docs:
 
 - retrospective evaluation date count;
 - lift-session prediction count;
-- continuity return count;
+- continuity return count (see the 2026-10-27 correction below);
 - exact readiness-coverage day count.
 
 These are now described qualitatively in public docs, with exact values kept in the private
 record. Model-error values that describe method performance (not personal performance) remain
 as evidence of the rejection decision.
+
+**Correction 2026-10-27:** the continuity bullet was an over-claim at close. The exact count
+remained public until 2026-10-27; the W12 outcome is complete now, but the 2026-10-24 statement
+must not be read as evidence that it was complete then.
 
 ### Git history decision
 
@@ -67,7 +71,7 @@ anonymous.
 ## Exit criteria
 
 - W11 cap/count/architecture/duration checks: **complete**.
-- W12 inventory and generalisation: **complete**.
+- W12 inventory and generalisation: **complete, with the 2026-10-27 continuity correction**.
 - Git-history decision explicit: **complete**.
 - No new personal data: **yes**.
 - No code, config or prescription change: **yes**.

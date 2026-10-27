@@ -197,8 +197,8 @@ entities:
     log_names: ["Back Extension"]
     pattern: erector_extension
     main_lift: false
-    # Allowed on both squat-emphasis types (PRG-SCHED-001); the template fills only `squat`
-    # so a normal week stays at the spinal cap.
+    # Allowed on both squat-emphasis types (PRG-SCHED-001); the template fills only `squat`.
+    # A normal week is 4 or 5.5 against the cap of 6 (DEC-SPINE-05), so it is not at the cap.
     day_roles: [squat, bench_squat]
     primary_muscles: [erectors]
     bodyweight_type: true          # 0 or ~bodyweight both appear in Weight_Used

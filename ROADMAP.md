@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-26 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 done, v0.5 in progress** · version `0.5.0-dev` · **779 public tests** (794 with the 15 private integration tests)
+Last updated: 2026-10-27 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 done, v0.5 in progress** · version `0.5.0-dev` · **872 public tests** (887 with the 15 private integration tests)
 
 ---
 
@@ -347,7 +347,7 @@ Data: `readiness_day` is currently one upserted row per date. This needs an appe
 Delivered: `readiness set` with any subset of fields, bulk entry through `state --import`,
 append-only `readiness_entry`, per-field manual-over-import precedence with a `sources` map,
 and the explicit *readiness unknown* warning. The derivation is in
-[`docs/READINESS.md`](READINESS.md); the changeable parts are config in
+[`docs/READINESS.md`](docs/READINESS.md); the changeable parts are config in
 `config/readiness.v1.yaml` (`DEC-READINESS-04`).
 
 ### 4.2 Logging workouts three ways  (v0.3; manual path closed)
@@ -648,6 +648,10 @@ Acceptance: every interactive CLI action has a browser path or a documented exce
 same inputs produce the same database rows and warnings through either surface; a failed
 action leaves no partial write; API tests cover each new write; no load, score or threshold is
 computed in the browser.
+
+**Later UI work:** request-body limits (UI-04) and frontend modularisation (UI-08) are
+specified in [`docs/UI-IMPROVEMENT-PLAN.md`](docs/UI-IMPROVEMENT-PLAN.md); proposed, not
+started.
 
 ### 4.12 Continuity calibration from real returns  (v0.3, implemented; calibrated factor rejected)
 

@@ -1,11 +1,15 @@
 # W9 — SPINAL-CAP HEADROOM
 
-**Status:** audit complete 2026-10-23; W9 recommendations implemented. No cap/headroom change.
-**Follow-up 2026-10-25:** the cap and the template arithmetic are unchanged, but the engine now
-has a one-directional remedy for the at-cap week it documents below. `MOD-SPINE-001` removes a
-non-essential high-fatigue spinal item (in practice the erector slot) when that alone brings the
-week to the cap; when the overage is carried by essential lifts the veto stands and the issue
-names the exposures (`DEC-SPINE-03`).
+**Status:** audit complete 2026-10-23; W9 recommendations implemented. No cap change was made by
+that audit.
+**Superseded in part 2026-10-25:** `DEC-SPINE-05` raised the cap from **3 to 6**, counted the
+low-bar competition squat at cost 1, and replaced the bench+hinge support with a 3x3-5 sumo
+deadlift at 2.5. Everything in §§1–7 is the audit state at close (cap 3) and is kept as
+historical evidence; see §8 for the current state.
+**Follow-up 2026-10-25:** the engine has a one-directional remedy for the at-cap week this
+report documents. `MOD-SPINE-001` removes a non-essential high-fatigue spinal item (in practice
+the erector slot) when that alone brings the week to the cap; when the overage is carried by
+essential lifts the veto stands and the issue names the exposures (`DEC-SPINE-03`).
 **Method:** template arithmetic plus stored weekly spinal costs. Exact personal counts are in
 `private/docs/PRIVATE-CONTEXT.md`; this public report gives the shape only.
 **Scope:** `PRG-SPINE-001`, normal weekly programming and the reactive deload trigger.
@@ -213,3 +217,37 @@ Prescribe shows it.
 
 No cap or template change. Config, notes and UI were changed as above; tests cover the
 cost completeness and the cap note.
+
+---
+
+## 8. Current state (2026-10-27)
+
+The cap is **6**, not 3. The historical analysis above explains why 3 was the audited state;
+this section is the live summary and takes precedence where they differ.
+
+- `PRG-SPINE-001.params.cap: 6` in `config/rules/programme.v1.yaml`.
+  The default is 6; the cap and per-exercise costs are editable in Settings (`DEC-SPINE-06`),
+  guarded by a warning, typed confirmation and a required reason.
+- The **low-bar competition squat counts at cost 1** (`DEC-SPINE-05`); the safety-squat bar and
+  high-bar squat stay outside the cap by explicit exercise identity (`ASSUMPTION-39`).
+- The **bench+hinge support is a 3x3-5 sumo deadlift at cost 2.5**, replacing the non-counting
+  `single_leg_db_rdl` (`DEC-SPINE-05`).
+- With the current templates a normal week is **4/6** (squat + hinge + bench+squat) or
+  **5.5/6** (squat + hinge + bench+hinge), not the 3/3 documented above. `MOD-SPINE-001` still
+  trims a non-essential erector slot when that alone resolves an overage (`DEC-SPINE-03`).
+- The reactive deload still requires **two consecutive weeks strictly greater than the cap**;
+  an exact-cap week does not trigger it. That behaviour did not change when the cap moved.
+- The limits in §4 (W9-05) still hold: the sum is ordinal, load-blind and counts one exposure
+  per (session, exercise), not sets or RIR. A cap of 6 is a programme-owner number, not a
+  measured safety threshold ([SPINAL-COST.md](SPINAL-COST.md), `ASSUMPTION-02`).
+
+The original cap-3 analysis is retained above because it documents the zero-headroom finding
+that motivated `DEC-SPINE-03`, and because the frequency data in §3 is still the evidence base
+for the ordinal model.
+
+## Related
+
+- **Evidence:** [SPINAL-COST.md](SPINAL-COST.md), [SPINAL-LOAD-EVIDENCE.md](SPINAL-LOAD-EVIDENCE.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md) (`DEC-SPINE-03/04/05/06`)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) (Q2, Q24)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

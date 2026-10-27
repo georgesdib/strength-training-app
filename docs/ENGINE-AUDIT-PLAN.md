@@ -470,6 +470,10 @@ every item is a confirmed defect.
 | A4 | Spinal cap has no headroom | **Structural finding confirmed.** A normal week is designed to reach cost 3 against cap 3. The reactive trigger fires only when cost is **greater than** cap, so an exact-cap week does not trigger it; however the ordinal costs are summed as cardinal values and the sumo 2.5 is an assumption. Frequency of >3 weeks needs measurement. | Confirmed structural risk + open data question | New **W9**; measure, do not change cap |
 | A5 | Age not recorded | **Confirmed.** `athlete_profile` has no age field. The longevity review's power/balance advice is age-conditional. | Confirmed state gap | New **W10**; requires schema/state decision |
 
+> **Post-close note:** A4's cap of 3 is the audited state. `DEC-SPINE-05` (2026-10-25) later
+> raised the cap to 6 and counted the low-bar competition squat; see
+> [`W9-SPINAL-CAP.md`](W9-SPINAL-CAP.md) §8 for the current state.
+
 #### A1 detail — readiness baseline
 
 The existing report says:

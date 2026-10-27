@@ -47,7 +47,8 @@ Only fixes with separate approval were applied:
 
 - readiness gate and weights;
 - MRV/MEV/MAV values;
-- spinal cap 3 and template volume;
+- spinal cap 3 at close and template volume (the cap was later raised to 6 by `DEC-SPINE-05`
+  — see the header);
 - main-lift readiness set reduction default (still opt-in);
 - age-based load rules (none);
 - stored planned calendar;
@@ -56,7 +57,9 @@ Only fixes with separate approval were applied:
 
 ## 4. Remaining limitations
 
-The register has **42 entries**. The important open ones are:
+The register had **42 entries on 2026-10-25**, when that count was last updated (36 when the
+closeout was written on 2026-10-24); it is a living list, and the current rows are in
+[`LIMITATIONS-REGISTER.md`](LIMITATIONS-REGISTER.md). The important open ones are:
 
 - readiness has no validated no-readiness counterfactual;
 - no stored plan calendar;
@@ -76,7 +79,9 @@ These are limitation records, not incomplete audit workstreams.
 - Confirmed defects either fixed or explicitly accepted: **yes**.
 - Policy changes separated from evidence: **yes**.
 - No new model adopted: **yes**.
-- Open limitations visible and revisitable: **yes**, 36 entries.
+- Open limitations visible and revisitable: **yes** — 36 entries when the closeout was written
+  (2026-10-24), 42 on 2026-10-25; neither is a live count. The single current list is
+  [`LIMITATIONS-REGISTER.md`](LIMITATIONS-REGISTER.md).
 
 The next planned product work is **v0.5 — cardio depth and comparable calibration**, not
 another audit slice.

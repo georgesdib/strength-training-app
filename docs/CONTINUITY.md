@@ -59,9 +59,10 @@ Decision record: `DEC-CONTINUITY-04`.
 
 ### Retrospective walk-forward (2026-10-20)
 
-On 12 observed returns, the calibrated factor had ratio MAE 0.150 versus 0.128 for the fixed
-rule; the calibrated version lost. The fixed fallback therefore remains in use. This is
-retrospective, not prospective; see [RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md).
+On a small number of observed returns (exact count private), the calibrated factor had ratio
+MAE 0.150 versus 0.128 for the fixed rule; the calibrated version lost. The fixed fallback
+therefore remains in use. This is retrospective, not prospective; see
+[RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md).
 
 ### Open questions — parked for calibration
 

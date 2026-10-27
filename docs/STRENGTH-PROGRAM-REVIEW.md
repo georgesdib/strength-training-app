@@ -4,7 +4,7 @@
 of scope. This is the evidence snapshot; implementation status is recorded in the note and table below.
 
 **Review status: CLOSED 2026-10-20.** No open programme-design items remain here. Future
-validation, parent-ratio and targeting work is tracked in [ROADMAP.md](ROADMAP.md) §4.20.
+validation, parent-ratio and targeting work is tracked in [ROADMAP.md](../ROADMAP.md) §4.20.
 
 **Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload is now implemented as an optional suggestion with automatic reactive triggers; a standardised warm-up, a 3RM/5RM cadence and accessory under-MEV progression are implemented. Individualized MRV is closed as not estimable from the available data; main-lift volume experimentation is deliberately not done. The retrospective walk-forward check is done; continuity and fatigue lost to their baselines, so neither is adopted; prospective validation is a future gate only for a candidate that first beats the retrospective baseline. Weakness/injury targeting is deliberately deferred (`DEC-SELECT-04/05`). There are no open programme-design items left in this review.
 
