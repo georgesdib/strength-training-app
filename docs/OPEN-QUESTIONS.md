@@ -90,7 +90,7 @@ enforced; the reasoning lives in the decision record and the linked document.
 | Q25 | Does a level-1 reading with no settle answer count as a flare? | yes: only a recorded 48 h settlement clears a level 1, so an unrecorded answer fails safe | `DEC-SYMPTOM-04`, `docs/SYMPTOM-LOGGING.md` |
 | Q27 | Should filled groups reallocate volume across groups? | strength-preserving default; main lifts stay; accessory-only compensation under `preserve`; volume-first `drop` deferred; compensation slot pool and weights agreed | `DEC-VOLUME-08/09`, VOLUME-MODULATION-PLAN §4.2 |
 | Q28 | Should a personalised volume-response model drive volume? | not now: future shadow-only model with interval/confidence and a pre-registered prospective gate; fixed budget and safety guards remain authoritative until then | `DEC-VOLUME-29`, VOLUME-MODULATION-PLAN §13 |
-| Q29 | How should the volume ledger treat a week with no working sets? | proposed: calendar-window denominator; zero-fill only under declared complete coverage; exclude breaks and label deloads; under-MEV uses eligible training weeks and never adds after a break. Not implemented | VOLUME-MODULATION-PLAN §14 |
+| Q29 | How should the volume ledger treat a week with no working sets? | implemented 2026-10-27: calendar-window denominator; `volume.ledger.coverage=complete` zero-fills; breaks/deloads reset the under-MEV clock; under-MEV requires all eligible weeks to be training weeks. The live profile is complete | VOLUME-MODULATION-PLAN §14 |
 
 ---
 

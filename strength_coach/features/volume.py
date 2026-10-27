@@ -19,6 +19,7 @@ from strength_coach.utils import exercises, paths
 @dataclass(frozen=True)
 class VolumeConfig:
     window_weeks: int = 4
+    ledger_coverage: str = "unknown"
     targets: dict[str, tuple[float, float]] | None = None
     landmarks: dict[str, tuple[float, float, float, float]] | None = None
     apply_mrv_cap: bool = True
@@ -46,8 +47,12 @@ class VolumeConfig:
                 float(mav[1]),
                 float(value.get("mrv", mav[1])),
             )
+        coverage = str((raw.get("ledger") or {}).get("coverage", "unknown"))
+        if coverage not in ("unknown", "complete"):
+            raise ValueError("volume ledger coverage must be unknown or complete")
         return cls(
             window_weeks=int(raw.get("window_weeks", 4)),
+            ledger_coverage=coverage,
             targets=targets,
             landmarks=landmarks,
             apply_mrv_cap=bool(raw.get("apply_mrv_cap", True)),
@@ -130,18 +135,29 @@ def volume_target_key(pattern: str) -> str:
     return raw
 
 
-def compute(sets: pd.DataFrame, *, on_date: str | None = None,
-            config: VolumeConfig | None = None) -> dict:
+def compute(
+    sets: pd.DataFrame, *, on_date: str | None = None,
+    config: VolumeConfig | None = None,
+    excluded_weeks: Iterable[int] = (),
+    reset_weeks: Iterable[int] = (),
+) -> dict:
     cfg = config or VolumeConfig.load()
     if sets.empty or "date" not in sets or "exercise_id" not in sets:
         return {"from": on_date, "to": on_date, "weeks": [], "patterns": []}
     frame = sets.copy()
     frame["date"] = pd.to_datetime(frame["date"])
     end = pd.Timestamp(on_date) if on_date else frame["date"].max()
-    start = end - pd.Timedelta(days=cfg.window_weeks * 7)
+    # Calendar-window denominator: the current (possibly partial) ISO week counts as a full
+    # week under complete coverage; otherwise the old observed-week denominator is kept.
+    current_week_start = end.normalize() - pd.Timedelta(days=end.weekday())
+    start = current_week_start - pd.Timedelta(weeks=cfg.window_weeks - 1)
+    calendar_labels = [
+        int((current_week_start - pd.Timedelta(weeks=offset)).isocalendar().week)
+        for offset in range(cfg.window_weeks - 1, -1, -1)
+    ]
     if "is_working_set" in frame:
         frame = frame[frame["is_working_set"].astype(bool)]
-    frame = frame[(frame["date"] > start) & (frame["date"] <= end)]
+    frame = frame[(frame["date"] >= start) & (frame["date"] <= end)]
     if frame.empty:
         return {"from": start.date().isoformat(), "to": end.date().isoformat(),
                 "weeks": [], "patterns": []}
@@ -152,28 +168,38 @@ def compute(sets: pd.DataFrame, *, on_date: str | None = None,
     )
     frame = frame[frame["pattern"].notna()]
     frame["iso_week"] = frame["date"].dt.isocalendar().week.astype(int)
-    week_labels = sorted(frame["iso_week"].unique().tolist())
+    observed = sorted(frame["iso_week"].unique().tolist())
+    excluded = {int(week) for week in excluded_weeks}
+    resets = {int(week) for week in reset_weeks}
+    labels = [week for week in calendar_labels if week not in excluded]
+    if cfg.ledger_coverage == "unknown":
+        labels = [week for week in observed if week not in excluded]
+    training_weeks = len((set(observed) - resets) & set(labels))
+    denominator = max(1, len(labels))
     # Two passes: collect the raw patterns, then judge each *landmark group* as a whole.
     # Judging a raw pattern against a merged landmark is what made a low hanging_leg_raise
     # add a set to a well-trained ab_wheel (DEC-VOLUME-05).
     grouped: dict[str, list[dict]] = {}
     for pattern, group in frame.groupby("pattern"):
-        counts = [int((group["iso_week"] == week).sum()) for week in week_labels]
+        counts = [int((group["iso_week"] == week).sum()) for week in labels]
         total = sum(counts)
         grouped.setdefault(volume_target_key(str(pattern)), []).append({
             "pattern": str(pattern),
             "counts": tuple(counts),
             "total": total,
-            "average": total / max(1, len(week_labels)),
+            "average": total / denominator,
         })
 
     rows: list[PatternVolume] = []
     for target_key, members in grouped.items():
         landmark = cfg.landmark(target_key) if target_key else None
         target = (landmark[0], landmark[3]) if landmark else None
-        group_average = sum(member["total"] for member in members) / max(1, len(week_labels))
+        group_average = sum(member["total"] for member in members) / denominator
         if landmark is None:
             status = "untargeted"
+        elif training_weeks < len(labels):
+            # A zero/missed/break week resets the under-MEV clock; do not add sets on stale evidence.
+            status = "insufficient_training"
         elif group_average < landmark[0]:
             status = "under"
         elif group_average > landmark[3]:
@@ -193,9 +219,21 @@ def compute(sets: pd.DataFrame, *, on_date: str | None = None,
                 group_average=group_average,
             ))
     rows.sort(key=lambda row: (-row.total, row.pattern))
+    zero_weeks = [week for week in labels if week not in set(observed)]
     return {
         "from": start.date().isoformat(),
         "to": end.date().isoformat(),
-        "weeks": week_labels,
+        "weeks": labels,
         "patterns": [row.as_dict() for row in rows],
+        "coverage": {
+            "mode": cfg.ledger_coverage,
+            "window_weeks": cfg.window_weeks,
+            "denominator": len(labels),
+            "observed_weeks": len(set(observed) & set(labels)),
+            "zero_weeks": zero_weeks,
+            "excluded_weeks": sorted(excluded),
+            "reset_weeks": sorted(resets),
+            "training_weeks": training_weeks,
+            "complete": training_weeks == len(labels),
+        },
     }

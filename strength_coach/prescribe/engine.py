@@ -296,7 +296,7 @@ def build_prescription(
     )
 
     items, under_warnings, under_note = _apply_under_mev(
-        context, tuple(items), for_date, config=resolved.volume
+        context, tuple(items), for_date, conn=conn, config=resolved.volume
     )
     warnings.extend(under_warnings)
     items, volume_warnings, volume_note = _apply_volume_cap(
@@ -556,11 +556,40 @@ def build_prescription(
 VBT_UNRELIABLE = {"trap_bar_deadlift"}
 
 
+
+
+def _reset_weeks(conn, for_date: str, weeks: int) -> tuple[int, ...]:
+    """ISO weeks to reset the under-MEV clock: declared breaks/deloads in the window."""
+    end = pd.Timestamp(for_date)
+    current = end.normalize() - pd.Timedelta(days=end.weekday())
+    start = current - pd.Timedelta(weeks=max(1, weeks) - 1)
+    breaks = queries.declared_breaks(conn)
+    cancelled = {
+        int(row["cancels_break_id"]) for row in breaks
+        if row.get("cancels_break_id") is not None
+    }
+    out: set[int] = set()
+    for row in breaks:
+        if row.get("cancels_break_id") is not None:
+            continue
+        if int(row["break_id"]) in cancelled:
+            continue
+        begins = max(start, pd.Timestamp(str(row["starts_on"])))
+        finish = min(end, pd.Timestamp(str(row["ends_on"])))
+        if finish < begins:
+            continue
+        cursor = begins.normalize() - pd.Timedelta(days=begins.weekday())
+        while cursor <= finish:
+            out.add(int(cursor.isocalendar().week))
+            cursor += pd.Timedelta(days=7)
+    return tuple(sorted(out))
+
 def _apply_under_mev(
     context: RuleContext,
     items: tuple[PrescriptionItem, ...],
     for_date: str,
     *,
+    conn=None,
     config: volume_feature.VolumeConfig | None = None,
 ) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], dict]:
     """Add one accessory set to a pattern that has been below MEV for the configured window.
@@ -575,6 +604,7 @@ def _apply_under_mev(
     report = volume_feature.compute(
         context.sets, on_date=for_date,
         config=replace(cfg, window_weeks=cfg.under_mev_weeks),
+        reset_weeks=_reset_weeks(conn, for_date, cfg.under_mev_weeks) if conn else (),
     )
     # Status is judged on the landmark group, so the key to act on is the group, not the
     # raw pattern a row happens to name (DEC-VOLUME-05).

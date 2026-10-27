@@ -118,6 +118,29 @@ def test_the_ledger_judges_the_landmark_group_not_the_sub_pattern():
     assert by_pattern["core_flexion"]["status"] == "within"
 
 
+def test_complete_coverage_zero_fills_and_resets_the_under_mev_clock():
+    rows = [(day, "dumbbell_row") for day in ("2026-10-05", "2026-10-19") for _ in range(3)]
+    complete = replace(
+        volume.VolumeConfig.load(),
+        window_weeks=3, ledger_coverage="complete",
+    )
+    observed_only = replace(complete, ledger_coverage="unknown")
+    complete_report = volume.compute(_frame(rows), on_date="2026-10-20", config=complete)
+    observed_report = volume.compute(_frame(rows), on_date="2026-10-20", config=observed_only)
+    complete_row = next(
+        row for row in complete_report["patterns"] if row["pattern"] == "horizontal_pull"
+    )
+    observed_row = next(
+        row for row in observed_report["patterns"] if row["pattern"] == "horizontal_pull"
+    )
+    assert complete_report["coverage"]["denominator"] == 3
+    assert complete_report["coverage"]["zero_weeks"]
+    assert complete_report["coverage"]["training_weeks"] == 2
+    assert complete_row["status"] == "insufficient_training"
+    assert observed_report["coverage"]["denominator"] == 2
+    assert observed_row["average"] > complete_row["average"]
+
+
 def test_under_mev_never_adds_a_set_to_a_sibling_pattern():
     rows = []
     for week in WEEKS:

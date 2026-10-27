@@ -1041,11 +1041,17 @@ Guardrails:
 The output must not be called "the" optimal volume. It is a response estimate under confounding,
 and it must say so. The current budget remains the deterministic production policy until the
 gate is met.
-## 14. Volume-ledger denominator and zero-week coverage (planned, not implemented)
+## 14. Volume-ledger denominator and zero-week coverage (implemented 2026-10-27)
 
-**Finding.** The ledger currently divides by the unique ISO weeks present in the filtered
-data, not by the configured window. A week with no working sets disappears from the
-denominator, which inflates the average and can suppress an under-MEV signal.
+**Finding.** The ledger divided by the unique ISO weeks present in the filtered data, not by the
+configured window. A week with no working sets disappeared from the denominator, which inflated
+the average and could suppress an under-MEV signal.
+
+**Implemented:** `VolumeConfig.ledger_coverage` (`unknown` default, `complete` opt-in) and the
+calendar-window calculation. The live profile is set to `complete`. Complete coverage counts a
+zero week as zero; under-MEV requires all weeks in the window to be eligible training weeks and
+resets on a declared break, deload or unlogged/zero week. The ledger response includes
+`coverage` arithmetic (denominator, observed/zero/reset/training weeks).
 
 **Assumption for this design:** the athlete logs every lift. Absence of working sets then means
 **no training**, not a logging gap.

@@ -6,6 +6,10 @@
 # auto-filled.
 schema_version: "1.0.0"
 window_weeks: 4
+# Ledger coverage: unknown = divide by observed weeks; complete = a week with no working
+# sets is a real zero. Complete is an explicit athlete choice, never inferred from a blank frame.
+ledger:
+  coverage: unknown    # unknown | complete
 apply_mrv_cap: true
 
 under_mev:

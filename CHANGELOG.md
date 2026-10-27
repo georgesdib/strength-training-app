@@ -43,6 +43,9 @@
   preserve/reduce/drop and that the main-lift policy is ignored while the budget is off.
 - **Volume-ledger coverage plan**: recorded the calendar-window denominator and complete-coverage
   zero-fill design, including break/deload handling and under-MEV eligibility; not implemented.
+- **Volume-ledger coverage correction**: calendar-window denominator, opt-in complete-coverage
+  zero-fill, coverage arithmetic, and an under-MEV clock that resets on break/deload/zero weeks.
+  The live profile is set to complete. `unknown` remains the app default.
 - **Future personalised volume-response model**: recorded as a shadow-only, gated research
   track (uncertainty, pre-registered prospective run, no prescription change); not implemented.
 - **Remaining modules (5c)**: continuity, fatigue-fitness shadow, test cadence and warmup

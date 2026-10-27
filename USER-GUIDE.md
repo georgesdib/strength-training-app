@@ -1078,6 +1078,10 @@ strength-coach volume --weeks 4 --date 2026-10-20
 ```
 
 Working sets by movement pattern, average per week, total and target status. It reports drift.
+With `volume.ledger.coverage=complete`, a calendar week with no working sets counts as zero and
+a break, deload or zero week resets the under-MEV timer; with `unknown`, missing weeks stay
+excluded and are reported as coverage gaps. The live profile is set to complete because every
+lift is logged.
 
 `volume --budget` (and the Prescribe **Volume budget** panel) shows the read-only weekly budget:
 target, safety exemptions, completed sets, the projected week, the session cap and feasibility.
