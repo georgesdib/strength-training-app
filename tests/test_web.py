@@ -61,6 +61,17 @@ def get(base: str, path: str) -> tuple[int, str]:
         return response.status, response.read().decode()
 
 
+def client_js(base: str) -> str:
+    """The whole client bundle, so a feature move does not break a string contract."""
+    names = ("core.js", "app.js", "exercises.js", "history.js", "workout.js")
+    parts = []
+    for name in names:
+        status, body = get(base, "/static/" + name)
+        assert status == 200, name
+        parts.append(body)
+    return "\n".join(parts)
+
+
 def post(base: str, path: str, payload: dict) -> dict:
     request = urllib.request.Request(
         base + path,
@@ -97,6 +108,7 @@ def test_the_page_and_overview_are_served(server):
     assert "section-help" in page
     assert "docs/UI-MAP.md" in page
     assert "view-history" in page and "history.js" in page
+    assert "core.js" in page and "exercises.js" in page
     assert "view-longevity" in page and "longevity-form" in page
     assert "workout.js" in page
     assert page.count('class="section-help"') >= 60
@@ -134,8 +146,7 @@ def test_every_ui_doc_link_resolves_through_the_api(server):
     status, page = get(server, "/")
     assert status == 200
     hrefs = set(re.findall(r'href="#docs\?doc=([^"&]+)', page))
-    status, script = get(server, "/static/app.js")
-    assert status == 200
+    script = client_js(server)
     hrefs |= set(re.findall(r"#docs\?doc=([^\"&]+)", script))
     hrefs = {name for name in hrefs if "{" not in name and "}" not in name}
     assert hrefs
@@ -1004,9 +1015,8 @@ def test_the_exercise_tab_offers_an_e1rm_override(server):
     assert 'id="exercise-e1rm-panel"' in page
     assert 'id="exercise-e1rm-form"' in page
     assert 'id="exercise-e1rm-id"' in page
-    # The catalogue row action lives in the client bundle.
-    status, js = get(server, "/static/app.js")
-    assert status == 200
+    # The catalogue row action lives in the client bundle, not necessarily app.js.
+    js = client_js(server)
     assert "data-e1rm-exercise" in js
     assert "/api/state/e1rm" in js
 
@@ -1014,8 +1024,7 @@ def test_the_exercise_tab_offers_an_e1rm_override(server):
 def test_the_athlete_page_shows_the_tests_needed_table(server):
     # The table is rendered from the same /api/state payload the CLI builds; the browser
     # adds no gate logic of its own.
-    status, js = get(server, "/static/app.js")
-    assert status == 200
+    js = client_js(server)
     assert "e1rm_tests_needed" in js
     assert "Measured tests needed" in js
     assert "#docs?doc=ROADMAP.md" in js
@@ -1024,8 +1033,7 @@ def test_the_athlete_page_shows_the_tests_needed_table(server):
 def test_the_symptom_form_names_the_settle_window_and_links_the_workflow(server):
     # The field label is the only place the 48-hour window is stated in the UI, and the
     # workflow it belongs to is reachable from the same panel.
-    status, js = get(server, "/static/app.js")
-    assert status == 200
+    js = client_js(server)
     assert "Settled within 48 hours" in js
     assert 'data-symptom="settled"' in js
     assert "#docs?doc=docs/SYMPTOM-LOGGING.md" in js
@@ -1063,8 +1071,7 @@ def test_the_history_edit_sheet_can_backfill_per_rep_velocity(server):
 
 
 def test_the_athlete_page_exposes_declared_breaks(server):
-    status, js = get(server, "/static/app.js")
-    assert status == 200
+    js = client_js(server)
     assert "Declared break" in js
     assert "/api/state/break" in js
     assert "#docs?doc=docs/CONTINUITY.md" in js

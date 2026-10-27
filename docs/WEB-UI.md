@@ -173,6 +173,20 @@ also disables while saving and reports the number of marks written.
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |
 
+## Client modules
+
+No build step and no bundler. The scripts load in this order:
+
+1. `core.js` — API requests, HTML escaping, formatting, notices and local dates.
+2. `app.js` — navigation, routing, boot and the shared views.
+3. `exercises.js` — exercise catalogue, editor and e1RM override.
+4. `history.js` — history list, session details, corrections and VBT backfill.
+5. `workout.js` — live workout start, sets, end and post-workout screens.
+
+Feature modules use the core helpers and expose the functions `app.js` calls from
+`setView`. Boot is deferred to `DOMContentLoaded` so every module is loaded before a deep
+link can call its loader.
+
 ## Design
 
 The web layer is serialisation and routing only. It calls the same functions as the CLI:
