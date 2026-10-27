@@ -649,9 +649,9 @@ same inputs produce the same database rows and warnings through either surface; 
 action leaves no partial write; API tests cover each new write; no load, score or threshold is
 computed in the browser.
 
-**Later UI work:** request-body limits (UI-04) and frontend modularisation (UI-08) are
-specified in [`docs/UI-IMPROVEMENT-PLAN.md`](docs/UI-IMPROVEMENT-PLAN.md); proposed, not
-started.
+**Later UI and functionality work:** the UI-04/UI-08 brief and the final functionality/code
+audit are consolidated in [`docs/UI-IMPROVEMENT-PLAN.md`](docs/UI-IMPROVEMENT-PLAN.md); proposed,
+not started.
 
 ### 4.12 Continuity calibration from real returns  (v0.3, implemented; calibrated factor rejected)
 

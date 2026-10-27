@@ -1,402 +1,493 @@
-# UI IMPROVEMENT PLAN — UI-04 AND UI-08
+# UI AND FUNCTIONALITY IMPROVEMENT PLAN — UI-04, UI-08 AND FINAL AUDIT
 
-**Status:** proposed 2026-10-27. UI-04, UI-08a and UI-08b are not started; optional items are
-unscheduled.
-**Scope:** the local web UI only. No training calculations, prescription logic, database
-semantics or Python API changes, except the HTTP request boundary in UI-04.
-**Source:** the targeted UI improvement brief reviewed 2026-10-27; the corrections and
-sequencing below take precedence where they differ.
-
----
-
-## 1. Context
-
-Two independent improvements are proposed.
-
-**UI-04 — request-body limits.** `_body()` at
-[server.py:247](../strength_coach/web/server.py#L247) reads
-`int(Content-Length or 0)` bytes with no upper bound. The 20 MB per-file check is at
-[server.py:766](../strength_coach/web/server.py#L766), after the whole request has been read
-and JSON-parsed in [server.py:752](../strength_coach/web/server.py#L752). There is no 413
-path. Malformed JSON and a non-object body already return 400 through the
-`(ValueError, KeyError)` catch at [server.py:608](../strength_coach/web/server.py#L608);
-the problem is the unbounded read, the silent handling of a missing or negative length, and
-the lack of a framing policy for chunked requests. The handler inherits the standard
-library's HTTP/1.0 default: there is no `protocol_version = "HTTP/1.1"`, so keep-alive
-is off.
-
-**UI-08 — incremental frontend modularisation.** The client is
-[app.js](../strength_coach/web/static/app.js) (3,047 lines),
-[history.js](../strength_coach/web/static/history.js) (388) and
-[workout.js](../strength_coach/web/static/workout.js) (697), loaded as classic scripts in
-that order at [index.html:1003](../strength_coach/web/static/index.html#L1003). Everything
-shares one global namespace. `app.js` boots synchronously at
-[app.js:3041](../strength_coach/web/static/app.js#L3041), and `setView` calls feature
-loaders defined in the later files. An initial `#history` or `#workout` deep link
-therefore already reaches an undefined function. Any feature extracted after `app.js`
-would inherit that problem; any feature loaded before it cannot use the helpers defined in
-`app.js`. This is the constraint the plan resolves first.
+**Status:** proposed 2026-10-27. Phase 0 (the documentation audit and this plan) is committed.
+No implementation workstream has started. Browser verification is gated by the tooling decision
+in Workstream D.
+**Scope:** the local web UI, the HTTP request boundary, date handling, backend error responses,
+data integrity, browser verification and frontend modularisation. No training calculations,
+prescription rules, readiness interpretation, database schema or historical data changes
+unless a reproduced correctness defect requires it.
+**Sources:** the UI-04/UI-08 brief and the final functionality/code audit, both reviewed
+2026-10-27. This document is the single plan for both; the two briefs are no longer maintained
+separately.
 
 ---
 
-## 2. Goals and non-goals
+## 1. Why this plan
 
-Goals:
+The two briefs overlap at UI-04 (request-body limits) and UI-08 (frontend modularisation). They
+add five areas that the earlier plan did not cover: unsafe inline handlers, deterministic dates,
+safe 500 responses, data-integrity/transaction boundaries, and browser-level coverage. This
+plan folds them into one sequence so the same code is not touched twice and every confirmed
+finding gets a regression test and a permanent guard.
 
-- reject oversized request bodies before reading them;
-- preserve legitimate CSV imports and the current API for valid requests;
-- return 413/411/400 consistently for bad framing and malformed JSON;
-- fix the existing deep-link boot bug while making one frontend boundary real;
-- keep the vanilla JavaScript architecture and the current script-loading model, with one
-  deliberate exception: boot is deferred until every script is loaded;
-- keep the final diffs limited to the phase being executed.
-
-Non-goals:
-
-- no React, Vue, bundler, build step or ES-module migration;
-- no rewrite of the frontend or of `history.js`/`workout.js`;
-- no change to training calculations, prescriptions, database semantics or rule behaviour;
-- no browser automation in the implementation phases (see optional item O2);
-- no attempt to remove every global or every line from `app.js`.
+The ordering principle is: **security and request correctness first, determinism second, data
+integrity third, browser evidence fourth, modularisation last.** Modularisation is the only
+workstream that is purely structural; it must not hide or complicate the correctness fixes.
 
 ---
 
-## 3. Phase 0 — commit the prerequisite
+## 2. Findings ledger
 
-Commit the completed documentation audit and this plan before starting UI code. The working
-tree already contains the audit changes; mixing them with UI-04 or UI-08 makes the final diff
-unreviewable.
+Status labels:
+- **Confirmed** — the code shows the defect directly.
+- **Confirmed risk** — the code shows a realistic failure path; reproduce before changing.
+- **Latent** — the pattern is unsafe, but current value domains constrain exploitability.
+- **Optional** — an improvement, not a demonstrated defect.
+- **No change** — inspected and not reproduced.
 
-Baseline before UI-04:
-
-- `.venv/bin/python -m pytest tests/test_docs_consistency.py tests/test_ui_docs.py -q`
-- `.venv/bin/python tools/check_ui_docs.py`
-- the full suite at the current count (887 at the time of writing; update after any test
-  additions).
-
-If the SD card is tight, run the full suite with `TMPDIR=/dev/shm` and a
-`--basetemp` under `/dev/shm`.
+| ID | Finding | Status | Evidence | Fix |
+|---|---|---|---|---|
+| F1 | Five dynamic inline handlers interpolate values into executable JavaScript. `esc()` is HTML escaping, not JS-string escaping. | Confirmed; latent exploitability | `app.js` 343, 344, 398, 860, 1207; `esc` at 5 | A1 |
+| F2 | Dates are not deterministic: `today()` uses a locale-formatted string and two paths use UTC `toISOString().slice(0, 10)`. | Confirmed | `app.js` 3, 780, 1595 | B |
+| F3 | Unexpected 500 responses return the exception class and message; no server-side traceback logging. | Confirmed | `server.py` 476, 611 | A3 |
+| F4 | Request bodies are read with an unbounded `Content-Length`; missing/negative length is silent; no 413; chunked is not handled. | Confirmed | `server.py` 247–255, 766 | A2 |
+| F5 | A double-submit or timeout-retry can append a duplicate workout set; the server computes the next index and the UI has no in-flight guard. | Confirmed risk | `workout.js` 597; `workout.py` 338 | C |
+| F6 | `workout.end` writes the session, clean sets and workout update without one transaction; a partial session can survive and a retry skips it. | Confirmed risk | `workout.py` 1148, 1017 | C |
+| F7 | A failed import leaves raw rows and partial artifacts; the run is marked error but data is not rolled back. | Confirmed risk | `store/importer.py` 113–180 | C |
+| F8 | `add_set` writes the set and its event in two statements without a transaction. | Confirmed risk | `workout.py` 338–387 | C |
+| F9 | Ruff is configured but not in the dev dependencies and not installed, so the configured lint check cannot run. | Confirmed | `pyproject.toml` 41; no `ruff` in dev extras | F |
+| F10 | No browser, Playwright or Selenium is installed; node/npm exist. No browser workflow test currently exists. | Confirmed | environment; `tests/test_web.py` is HTTP-level | D |
+| F11 | A successful history response can include a raw exception message in `warnings`. | Confirmed | `history.py` 430 | A3 |
+| F12 | Markdown escapes text and hrefs and does not pass raw HTML, but does not reject a `javascript:` link target. Docs are trusted, so this is low risk. | Optional | `web/markdown.py` | O9 |
+| F13 | `app.js` is 3,047 lines with a global namespace; `setView` reaches into later-loaded files; `#history`/`#workout` deep links already reach undefined loaders at boot. | Confirmed; structural | `app.js` 49, 126, 3041; `index.html` 1003 | E |
+| F14 | `_workout_start` records readiness before the plan/workout transaction; a failed start can leave a readiness row. | Reproduce / decide | `server.py` 809–821 | C |
+| F15 | `workout.start` and `history.edit` already use transactions. | No change | `server.py` 821; `history.py` 442 | — |
+| F16 | Read-only endpoints and LLM boundaries were inspected; no demonstrated override or write path was found. | No change without reproduction | `agents/`, web GET paths | — |
 
 ---
 
-## 4. Phase 1 — UI-04 request-body limits
+## 3. Principles
 
-### 4.1 Files
+1. **Reproduce before fixing a data-integrity claim.** Static inspection identifies the path; a
+   test proves the failure before a transaction or schema change.
+2. **One workstream per commit.** Do not combine security, dates, transactions and
+   modularisation in one diff.
+3. **No framework, bundler or build step.** Vanilla JavaScript and the current no-build
+   architecture stay.
+4. **No schema change unless required.** A request id for set idempotency is possible without
+   schema changes if the client sends `set_index`; otherwise justify a column/table.
+5. **No training, prescription or readiness semantics changes.** A reproducible correctness
+   defect is the only exception, and it gets its own decision note.
+6. **No personal data in tests, logs or docs.** Use synthetic fixtures.
+7. **Be explicit about evidence.** Label claims as static inspection, automated test or real
+   browser verification. Never claim a browser check that was not run.
+8. **Every confirmed finding gets a permanent guard**, not just a one-off fix: a regression test,
+   a static check, a documented rule, or all three (Workstream F).
 
-- [strength_coach/web/server.py](../strength_coach/web/server.py)
-- `tests/test_web.py`, or a new `tests/test_web_body.py` for the boundary tests
-- [docs/WEB-UI.md](WEB-UI.md)
-- [ROADMAP.md](../ROADMAP.md) for the test count, if the convention is kept
+---
 
-### 4.2 Constants
+## 4. Workstream A — security and the request boundary
 
-Add near the other server constants, with a comment stating the domain reason:
+### A1. Replace dynamic inline handlers
+
+The five dynamic handlers at [app.js:343](../strength_coach/web/static/app.js#L343),
+[344](../strength_coach/web/static/app.js#L344), [398](../strength_coach/web/static/app.js#L398),
+[860](../strength_coach/web/static/app.js#L860) and
+[1207](../strength_coach/web/static/app.js#L1207) must stop embedding values in `onclick`.
+
+Use one of:
+
+- **event delegation** on a stable container, with the identifier in a `data-*` attribute;
+- **a listener attached after rendering**, closing over the value;
+- **a small dispatch table** keyed by `data-action`, with the value read from `dataset`.
+
+Do not replace `esc()` with a new generic JavaScript-string escaper and keep inline handlers.
+The correct fix is to remove the executable-string context.
+
+Keep the two static handlers (`applySuggestedDeload()`, `openWorkoutStart()`) only if they
+remain literal and non-interpolated; otherwise convert them for consistency. The static
+`saveReadinessContext()` at [index.html:567](../strength_coach/web/static/index.html#L567) can
+stay until the same conversion is applied to that panel.
+
+Checks:
+
+- regression tests with identifiers and labels containing `'`, `"`, `<`, `>`, `&`,
+  backticks and `</script>`; assert the generated DOM structure and that no code runs;
+- a static test that the client JS contains no interpolated event-handler attributes (the
+  generated files must contain no `on..="` pattern; a literal static handler in
+  `index.html` may be allowlisted);
+- a manual/browser check that the affected actions still fire.
+
+Current value domains are constrained: exercise ids must match
+`^[a-z][a-z0-9_]*$` at [exercise_admin.py:20](../strength_coach/store/exercise_admin.py#L20),
+review task keys are a fixed pair, and session ids are dates/UUIDs. The finding is therefore a
+latent unsafe construction, not a demonstrated live exploit. Fix it anyway.
+
+### A2. Enforce request-body limits
+
+This is the existing UI-04 requirement, with the evidence from the final audit.
+
+Constants, documented in `WEB-UI.md`:
 
 ```python
 MAX_BODY_BYTES = 64 * 1024 * 1024
 MAX_IMPORT_FILE_BYTES = 20 * 1024 * 1024
 ```
 
-Rationale: two 20 MB decoded CSVs are 40 MB; JSON escaping and keys need headroom; 64 MB is
-the smallest sensible request cap. A pathological file made mostly of quotes or backslashes
-can expand about 2x, so a 20 MB escape-heavy file can exceed 64 MB. Accept that and document
-it, or choose 96 MB for a hard guarantee. Do not go below 44 MB.
+Rationale: two 20 MiB decoded CSVs are 40 MiB; JSON escaping and keys need headroom; 64 MiB is
+the smallest sensible cap. A pathological escape-heavy file can expand about 2x; document that
+a near-limit file can receive 413, or choose 96 MiB for a hard guarantee. Do not go below
+44 MiB. Replace the hard-coded `20 * 1024 * 1024` in [server.py:766](../strength_coach/web/server.py#L766).
 
-Use `MAX_IMPORT_FILE_BYTES` in `_import` instead of the hard-coded
-`20 * 1024 * 1024` at [server.py:766](../strength_coach/web/server.py#L766). The per-file
-check stays in `_import`; the request limit stays at the HTTP boundary.
+Body contract:
 
-### 4.3 `_body()` contract
-
-| input | result |
+| Input | Result |
 |---|---|
-| exactly one valid `Content-Length`, 0 < length <= limit | read exactly that many bytes, parse, return dict |
-| valid length, malformed JSON or non-object | 400 with a JSON error; body has been consumed |
-| length > `MAX_BODY_BYTES` | 413, set `close_connection = True`, do not read |
-| missing `Content-Length` and no `Transfer-Encoding` | 411, close |
-| invalid `Content-Length` (non-digits, negative, float, huge digit string) | 400, close |
-| more than one `Content-Length` | 400, close |
-| `Transfer-Encoding` present | 400 or 501, close; the stdlib does not decode chunked |
-| `Content-Length: 0` | return `{}` without reading |
+| one valid `Content-Length`, 0 < length <= limit | read exactly length, parse, return object |
+| malformed JSON, invalid UTF-8, non-object | 400 JSON error |
+| length > limit | 413, close, do not read |
+| missing length, no chunked | 411, close |
+| invalid/negative/duplicate length | 400, close |
+| `Transfer-Encoding` | 400/501, close; stdlib does not decode chunked |
+| length 0 | empty object |
 
-Implementation notes:
+Implement a small `RequestError(status, message, close=True)` and catch it before the generic
+`ValueError` catch. Set `close_connection = True` on every framing rejection. The handler is
+HTTP/1.0 today; if it ever becomes HTTP/1.1, close/drain is mandatory.
 
-- use `self.headers.get_all("Content-Length")`, not `.get()`;
-- reject a header value longer than about 20 characters before `int()`;
-- accept only `str.isdigit()` (this rejects `-1`, `+1`, `5.0` and
-  ` 5 ` after stripping);
-- add a small `RequestError(status, message, close=True)` exception and catch it in
-  `do_POST` before `(ValueError, KeyError)`, so 413 and 411 are not converted to
-  400;
-- set `close_connection = True` for every framing rejection; optionally send
-  `Connection: close`;
-- keep the existing 400 for invalid JSON and non-object JSON, but use a stable message such
-  as `JSON body must be an object` rather than a raw decoder string;
-- `Expect: 100-continue` is optional: a custom `handle_expect_100` can return 413
-  before the client sends the body, but do not make it a requirement.
+Tests, with patched limits and no 40 MiB allocations:
 
-If a real client needs the old missing-length behaviour, treat it as an empty body and close
-the connection; do not leave the socket open.
+- normal JSON;
+- boundary at a patched 1 KiB limit;
+- headers-only oversized request returns 413 without reading (raw socket, timeout);
+- a fake `rfile` whose `read()` raises proves the limit check runs first;
+- invalid, missing, negative, duplicate and oversized length;
+- chunked rejection;
+- malformed JSON and non-object;
+- a legitimate import near a patched limit;
+- existing import regression;
+- constant relationship `MAX_BODY_BYTES >= 2 * MAX_IMPORT_FILE_BYTES + 4 MiB`.
 
-### 4.4 Tests
+### A3. Safe backend errors
 
-Use patchable limits. Do not build a 40 MB body in a test.
+At [server.py:476](../strength_coach/web/server.py#L476) and
+[server.py:611](../strength_coach/web/server.py#L611), replace
+`f"{type(exc).__name__}: {exc}"` with a generic JSON 500, for example
+`{"error": "internal server error"}`.
 
-- normal JSON POST;
-- patched limit of about 1 KB: exactly at the limit accepted, limit + 1 gives 413;
-- headers-only 413: raw socket, `Content-Length` above the limit, no body; read the
-  response with a timeout, proving no read blocked;
-- a fake `rfile` whose `read()` raises, passed to `_body()`, proving the
-  limit is checked first;
-- invalid lengths: `abc`, `-1`, `5.0`, a very long digit string;
-- missing length gives 411; duplicate length gives 400;
-- `Transfer-Encoding: chunked` gives 400/501;
-- malformed JSON and non-object JSON give 400 with a JSON error;
-- legitimate import near a patched limit: patch the request and per-file limits down, post
-  two small CSVs just under the request limit, expect 200; one file just over the per-file
-  limit gives 400;
-- existing import regression at `test_web.py:281`;
-- an assertion that `MAX_BODY_BYTES >= 2 * MAX_IMPORT_FILE_BYTES + 4 MB`.
+- log the unexpected exception server-side with method, path and traceback;
+- never log request bodies, API keys or personal training data;
+- keep the useful 400/404/409 messages;
+- keep the JSON shape consistent;
+- sanitize [history.py:430](../strength_coach/history.py#L430): log the detail and return a
+  generic warning, or omit the raw exception from the response.
 
-### 4.5 Docs
-
-Add a **Request limits** section to [docs/WEB-UI.md](WEB-UI.md): 64 MB request, 20 MB per
-decoded CSV, 413/411/400 behaviour, chunked rejected, HTTP/1.0 (no keep-alive), local-only
-threat model. State that the import is JSON text, not multipart, and that the per-file check
-is on decoded UTF-8 bytes.
-
-### 4.6 Risks
-
-- A 413 while the client is still uploading can surface as a connection reset; close and test
-  headers-only.
-- A future `HTTP/1.1` switch makes close/drain mandatory; record that in the comment.
-- 64 MB still allows roughly 100 MB of parse memory; acceptable for a local app, but note it
-  if the host is memory-constrained.
-- Changing missing-length behaviour to 411 can break an unusual client; check the actual
-  clients before merging.
+Tests: monkeypatch a handler to raise, assert 500 and generic body, assert the traceback is
+logged; assert a normal 400 still carries its message; assert a successful history edit does not
+echo an internal exception.
 
 ---
 
-## 5. Phase 2 — UI-08a: core helpers and deferred boot
+## 5. Workstream B — deterministic dates
 
-This phase is a prerequisite for UI-08b. It is also the correction for the existing
-deep-link bug.
+Policy: **the local calendar date in `YYYY-MM-DD` is authoritative** for UI defaults and daily
+records. The browser and server are expected to share the machine timezone in this local-only
+app. Document that in `WEB-UI.md`.
 
-### 5.1 Why
+Implement one helper, used everywhere:
 
-At [app.js:3041](../strength_coach/web/static/app.js#L3041) the boot block runs immediately.
-`applyHashRoute` calls `setView`, which calls `loadHistory` (in
-`history.js`) and `updateWorkflowStep` (in `workout.js`), both loaded after
-`app.js`. An initial `#history` or `#workout` link therefore reaches an
-undefined function. Deferring boot until all scripts are loaded fixes that and allows a
-feature module to load after `app.js`.
+- `formatLocalDate(date)` using `getFullYear`, `getMonth() + 1`, `getDate()`;
+- `today()` = `formatLocalDate(new Date())`;
+- no `toLocaleDateString` for a machine-readable date;
+- no `toISOString().slice(0, 10)` for a local date.
 
-### 5.2 Changes
+Replace [app.js:3](../strength_coach/web/static/app.js#L3),
+[app.js:780](../strength_coach/web/static/app.js#L780) and
+[app.js:1595](../strength_coach/web/static/app.js#L1595). Check date inputs, history filters,
+prescription/readiness defaults and workout start dates for the same pattern.
 
-- add `core.js` loaded first, with `$`,
-  `today`, `esc`, `sessionLabel`, `fmt`, `api` and
-  `notify` moved from `app.js`; keep the same global names and do not rewrite
-  call sites;
-- load order in `index.html`: `core.js`, `app.js`, `history.js`,
-  `workout.js`;
-- move the boot block into a `DOMContentLoaded` listener in `app.js`, or into a
-  final `boot.js` loaded last; all scripts are parser-blocking at the end of the body,
-  so both work;
-- leave `setView` in `app.js`; it is still the router;
-- do not move feature code in this phase.
+Tests:
 
-### 5.3 Tests
-
-- parse `index.html`, assert every referenced script exists and the order is
-  core -> app -> history -> workout;
-- `node --check` every static `.js` file (skip if node is absent);
-- every inline handler in `index.html` resolves to a function defined in one of the
-  scripts; the current one is `saveReadinessContext()` at
-  [index.html:567](../strength_coach/web/static/index.html#L567);
-- a manual browser smoke test of `#history`, `#workout` and
-  `#docs?doc=...`. No browser automation is installed, so record it as manual.
-
-### 5.4 Acceptance
-
-`#history` and `#workout` load their data on first open; no feature code has
-moved; all existing tests pass.
+- Node or browser tests with fixed timezones for a UTC date boundary and a DST transition;
+- a local-midnight case proving the date does not roll over;
+- invalid-date handling;
+- backend API defaults use `datetime.date.today()` local; add a test where practical;
+- a static check that client JS contains no `toISOString().slice(0, 10)` or
+  `toLocaleDateString` date conversion outside the helper.
 
 ---
 
-## 6. Phase 3 — UI-08b: extract Exercises
+## 6. Workstream C — data integrity and concurrency
 
-Exercises first: it is cohesive, has a small API surface and is not entangled with the
-training workflow. Settings is larger but carries theme, LLM, profile and boot concerns;
-make it a later extraction (O1).
+Reproduce each item before changing code.
 
-### 6.1 Changes
-
-- move the exercise catalogue block from `app.js` (around
-  [app.js:2049](../strength_coach/web/static/app.js#L2049) through
-  `loadExerciseCatalog`) and its top-level listeners to
-  `static/exercises.js`;
-- keep `loadExercises()`, the small picker at
-  [app.js:1868](../strength_coach/web/static/app.js#L1868), in `app.js` unless the move
-  is clearly cheaper with it;
-- `exercises.js` uses only the core globals and exposes `loadExerciseCatalog`,
-  `openExerciseEditor`, `openExerciseDetails`, `saveExerciseDetails` and
-  `openExerciseE1rm`;
-- load `exercises.js` after `app.js` and before the deferred boot;
-- do not copy `api` or `esc` into the module;
-- update [docs/UI-MAP.md](UI-MAP.md) if any docs links move, and
-  [docs/WEB-UI.md](WEB-UI.md) with the module list.
-
-### 6.2 Correct the test coupling
-
-`tests/test_web.py` pins strings to `app.js` at
-[test_web.py:1006](../tests/test_web.py#L1006) (exercise e1RM),
-[test_web.py:1015](../tests/test_web.py#L1015) (tests-needed table),
-[test_web.py:1025](../tests/test_web.py#L1025) (symptom form) and
-[test_web.py:1063](../tests/test_web.py#L1063) (declared breaks). Add a helper that
-concatenates every client script and assert the contract across the client, not against
-`app.js`. Update [test_web.py:131](../tests/test_web.py#L131), which currently scans only
-`app.js` for `#docs?doc=` links, to scan every script.
-
-### 6.3 Tests and smoke
-
-- existing web tests with the all-JS helper;
-- exercise catalogue, editor, details and e1RM endpoints still work;
-- script order/existence and inline-handler checks from UI-08a;
-- `node --check` on the new file;
-- manual smoke: open Exercises, edit a row, open details, save, open the e1RM override, and
-  navigate away and back.
-
-### 6.4 Acceptance
-
-Exercises behaves exactly as before; `app.js` no longer contains the catalogue code;
-no duplicated `api`/`esc`; tests and docs updated.
-
----
-
-## 7. Corrections to the original brief
-
-| # | original claim or gap | correction |
+| Invariant | Current state | Action |
 |---|---|---|
-| 1 | malformed JSON currently returns a 500 | it already returns 400 through the `ValueError` catch; standardise the message instead |
-| 2 | missing `Content-Length` is a minor case | it is a framing decision: 411 and close, or treat as empty and close |
-| 3 | `Transfer-Encoding` is not mentioned | reject chunked explicitly; the stdlib does not decode it |
-| 4 | reject oversized bodies | also close the connection, and test with a headers-only request |
-| 5 | per-file 20 MB limit | it is hard-coded at `server.py:766`; make it `MAX_IMPORT_FILE_BYTES` |
-| 6 | frontend tests cover the refactor | `test_web.py` pins strings to `app.js`; use an all-JS helper |
-| 7 | docs-link test covers the client | `test_web.py:131` scans only `app.js`; scan every script |
-| 8 | script order is preserved | the current boot already breaks `#history`/`#workout`; defer boot first |
-| 9 | no feature becomes inaccessible | add a static inline-handler check; a single `onclick` already depends on a global |
-| 10 | browser behaviour is verified | no browser/Playwright is installed; state that smoke testing was manual |
+| duplicate start | start is guarded and wrapped in `BEGIN IMMEDIATE` | keep; test concurrent start |
+| duplicate set | no in-flight guard; server computes next index | client in-flight guard; decide server idempotency |
+| duplicate end | second end raises "not in progress"; materialise is retry-aware | make retry return the completed workout or a defined 409; test |
+| partial end | multi-statement write is not transactional | wrap `end` in `db.transaction`; test injected failure |
+| partial import | writes are not transactional; failed run is marked but rows remain | transaction around data writes; decide where a failed run is recorded |
+| add_set atomicity | set + event are separate statements | wrap in `db.transaction` |
+| start readiness | readiness is recorded before the start transaction | decide whether that is intended; if not, move inside |
+
+For duplicate sets, the robust options are:
+
+1. **Client-side in-flight guard** (disable the submit button while the request is open) — closes
+   the double-click, not a retry after timeout.
+2. **Client-supplied `set_index`** plus the existing unique key — a duplicate retry gets a
+   constraint error; return the current workout and a clear message instead of a silent append.
+3. **A request-id idempotency key** — the strongest option; likely needs a new column/table, so
+   justify it before adding.
+
+Do not deduplicate sets by content: identical sets are real sets. Do not add global locks. Use
+`db.transaction` at [db.py:145](../strength_coach/store/db.py#L145), which already handles
+savepoints.
+
+Import failure design needs a decision: a transaction that rolls back the data also rolls back
+the run row. Either record the failed run in a separate short transaction after the rollback, or
+accept the existing `error` run as the record and document it. Choose one and test it.
+
+Concurrency tests only where realistic: two simultaneous starts, two ends, two imports, and a
+double set submission. Do not redesign persistence.
 
 ---
 
-## 8. Optional items (unscheduled)
+## 7. Workstream D — browser verification
 
-These are deliberately outside UI-04 and the first UI-08 phases. Pick them up only after the
-preceding phases are green.
+No browser, Playwright or Selenium is installed; node and npm exist. The default suite is
+HTTP-level. The brief requires an honest decision.
 
-**O1 — extract Settings.** The next feature extraction: theme, LLM settings, browser defaults,
-modalities and profile diff (roughly `app.js` 2660-3040). It is larger but less related
-to training logic. It needs the same core/boot prerequisites.
+Preferred: add **Playwright for Python** as an optional `browser` extra, not a runtime
+dependency:
 
-**O2 — browser automation.** No Playwright or Selenium is installed; node and npm exist but
-there is no browser binary. A separate change can add Playwright or a jsdom smoke test for
-navigation, deep links and the workout lifecycle. Do not mix it into the refactor.
+- `playwright` in `[project.optional-dependencies].browser`;
+- a `browser` pytest marker, skipped with a clear reason if Playwright or the browser binary is
+  absent;
+- reuse the temp-DB server fixture at [test_web.py:30](../tests/test_web.py#L30), or add a
+  browser fixture that starts the same server;
+- start with a small smoke suite, not the full ten-step journey.
 
-**O3 — a view registry.** `setView` directly calls a long list of feature loaders. A
-registry (`registerView(name, loader)`) would make the router extensible, but it changes
-the boot and loading contract. Defer until at least two features have moved.
+Smoke suite:
 
-**O4 — migrate `history.js` and `workout.js` to core.** They still use app.js
-globals. Leave them stable in this pass; migrate them only if a third feature needs the same
-helpers.
+1. load, navigate the primary views, assert no `pageerror` and no failed static requests;
+2. docs deep link;
+3. readiness save and reload;
+4. generate and inspect a prescription;
+5. start a workout, add a set, end it, open History/Review and verify the persisted session;
+6. one recoverable failure path (route abort or duplicate submit).
 
-**O5 — streaming or multipart imports.** The request cap bounds memory but a legitimate
-40 MB import still parses as a Python object. If the local host is memory-constrained, a
-streaming CSV import is the real fix. Out of scope here.
+Assert state transitions and persisted results, not just element existence. Add import
+preview/apply and broader failure paths after the smoke suite is stable.
 
-**O6 — read timeouts.** A client can declare a valid length and send it slowly, occupying a
-thread in `ThreadingHTTPServer`. A per-connection read timeout would address slowloris;
-the local-only threat model makes it lower priority.
-
-**O7 — HTTP/1.1 and keep-alive.** The handler is HTTP/1.0. If it is ever switched to HTTP/1.1,
-body rejection must close or drain, otherwise an unread body can be parsed as the next
-request.
-
-**O8 — limit tuning.** 64 MB is the default. Revisit 96 MB only if a legitimate escape-heavy
-import is rejected; revisit a lower cap only if memory pressure appears. Record the change in
-`WEB-UI.md`.
-
-**O9 — error copy.** The UI currently shows the server's error string in a toast or a panel.
-If the new 411/413 messages are too technical, add a small client-side mapping without
-changing the API contract.
+Fallback if a browser is not accepted: a manual checklist plus the static script-order,
+inline-handler and `node --check` tests; state explicitly that browser behaviour was not
+verified. Do not claim otherwise.
 
 ---
 
-## 9. Acceptance criteria
+## 8. Workstream E — frontend modularisation
 
-UI-04:
+This is UI-08, last and separate. It depends on the boot fix and the handler work.
 
-- an oversized body is rejected with 413 before `rfile.read`;
-- a legitimate import inside the patched or real limits succeeds;
-- malformed framing returns 400/411, not 500;
+### E1. Core helpers and deferred boot
+
+- add `core.js` first with `$`, `today`, `esc`, `sessionLabel`, `fmt`, `api`, `notify`;
+- load order: core, app, history, workout;
+- move the boot block at [app.js:3041](../strength_coach/web/static/app.js#L3041) into a
+  `DOMContentLoaded` listener (or a final `boot.js`);
+- this also fixes the existing `#history`/`#workout` deep-link failure, because `setView`
+  will no longer run before those files load.
+
+### E2. Extract Exercises
+
+Move the exercise catalogue block from `app.js` (around
+[app.js:2049](../strength_coach/web/static/app.js#L2049) through `loadExerciseCatalog`) and its
+listeners to `exercises.js`. Keep `loadExercises()` (the picker) in `app.js` unless the move
+is clearly cheaper. The module uses core helpers and exposes `loadExerciseCatalog`,
+`openExerciseEditor`, `openExerciseDetails`, `saveExerciseDetails` and `openExerciseE1rm`.
+
+Settings is the next candidate, not part of this pass.
+
+### E3. Test coupling
+
+`tests/test_web.py` pins strings to `app.js` at lines 1006, 1015, 1025 and 1063. Replace those
+with an all-JS helper so the contract is “the client contains this”, not “this file contains
+this”. Update the docs-link scan at line 131 to scan every script.
+
+### E4. Checks
+
+- script existence and order;
+- inline-handler resolution;
+- `node --check` on every static JS file;
+- all-JS docs-link resolution;
+- manual browser smoke (or Workstream D).
+
+---
+
+## 9. Workstream F — permanent guardrails
+
+The fixes are only permanent if the next change cannot silently reintroduce them.
+
+### F.1 Regression matrix
+
+| Finding | Permanent test | Static guard | Documented rule |
+|---|---|---|---|
+| F1 inline handlers | hostile identifiers/labels; DOM structure; no execution | no interpolated `on..="` in client JS | `WEB-UI.md`: HTML escaping is not JS escaping |
+| F2 dates | UTC boundary, local midnight, DST, invalid date | no `toISOString().slice(0, 10)` or date `toLocaleDateString` | `WEB-UI.md`: local calendar-date policy |
+| F3 500 leak | injected exception returns generic body; traceback logged | no `_error(500, f"{type...` pattern | `WEB-UI.md`/AGENTS: generic 500 + server log |
+| F4 body limits | boundary, fake read, 413/411/400, chunked | constants and relationship assertion | `WEB-UI.md`: request limits |
+| F5 duplicate set | double-submit and retry test | client busy-state assertion where practical | `WEB-UI.md`: idempotency note |
+| F6/F7/F8 transactions | injected failure leaves no partial state | code review; no static substitute | AGENTS: multi-statement writes use `db.transaction` |
+| F9 lint | `ruff check` in the verification lane | ruff in dev extras | AGENTS/README: lint command |
+| F10 browser | browser suite or explicit skip | `browser` marker | docs: what was and was not run |
+| F11 warnings | history warning is generic | no raw exception interpolation in warnings | `WEB-UI.md` |
+| F13 modularisation | script order, handlers, node check | all-JS scan | `WEB-UI.md`: module map |
+
+### F.2 Static checks to add
+
+Keep these small and explicit; do not build a general parser.
+
+- no interpolated event-handler attributes in the client JS;
+- every inline handler in `index.html` resolves to a function in a loaded script;
+- every `<script src>` exists and follows the documented order;
+- no `toISOString().slice(0, 10)` or date `toLocaleDateString` outside the date helper;
+- no `_error(500, f"{type` pattern;
+- request-limit constants satisfy the documented relationship;
+- `node --check` on every static JS file (skip if node is absent);
+- existing docs consistency tests remain green.
+
+### F.3 Toolchain
+
+- Add `ruff>=0.6` to `[project.optional-dependencies].dev`; run `ruff check .` with the
+  existing configuration at `pyproject.toml` 41.
+- Add a `browser` marker; keep it out of the default lane unless the browser is installed.
+- Update `docs/WEB-UI.md` with request limits, date policy, error behaviour and the module map.
+- Update `AGENTS.md` with the multi-statement transaction and no-inline-handler rules when the
+  fixes land, not before.
+- Keep the existing `tests/test_docs_consistency.py` in every docs change.
+
+---
+
+## 10. Commit sequence and dependencies
+
+| # | Commit | Contents | Depends on |
+|---|---|---|---|
+| 0 | Documentation audit + plan | done | — |
+| 1 | Inline handlers | A1 + tests + static guard | — |
+| 2 | Request-body limits | A2 + tests + `WEB-UI.md` | — |
+| 3 | Safe 500s | A3 + logging + tests | — |
+| 4 | Deterministic dates | B + helper + tests | — |
+| 5 | Data integrity | C: reproduce, transactions, duplicate-set decision | 1, 4 for browser/state tests |
+| 6 | Browser smoke | D: Playwright optional, smoke suite | 1–4; 5 for duplicate test |
+| 7 | Core and boot | E1 + script/handler checks | 1, 4 |
+| 8 | Exercises extraction | E2/E3 + docs | 6, 7 |
+
+Do not combine 1–5. Commit 6 may be skipped if the browser decision is “manual only”; record
+that decision explicitly.
+
+---
+
+## 11. Acceptance criteria
+
+A1:
+
+- no dynamic value is inserted into an executable inline context;
+- hostile values cannot change the DOM structure or execute;
+- affected actions still work.
+
+A2:
+
+- oversized bodies get 413 before `rfile.read`;
+- legitimate imports inside the policy succeed;
+- invalid framing gets 400/411, never 500;
 - tests cover normal, boundary, oversized, invalid and chunked inputs;
-- `WEB-UI.md` states the policy and the HTTP version;
-- no training logic changes.
+- `WEB-UI.md` states the policy and the HTTP version.
 
-UI-08a:
+A3:
 
-- the client still works and `#history`/`#workout` load on first open;
-- `core.js` is loaded first and duplicated helpers are removed from `app.js`;
-- every script exists, is syntactically valid and is loaded in the documented order;
-- every inline handler resolves.
+- unexpected failures return generic 500 JSON;
+- tracebacks are logged server-side without body/personal data;
+- expected 400/404/409 messages remain useful;
+- history warnings do not echo raw exceptions.
 
-UI-08b:
+B:
 
-- Exercises behaves as before;
-- `app.js` no longer contains the catalogue block;
-- the new module uses the core helpers and does not duplicate them;
+- one local `YYYY-MM-DD` helper is used for defaults;
+- no UTC slice or locale date contract remains;
+- midnight/UTC/DST/invalid-date tests pass;
+- the policy is documented.
+
+C:
+
+- duplicate set, partial end and partial import are reproduced or explicitly accepted;
+- the chosen fixes are covered by failure-injection tests;
+- start and history edit remain transactional;
+- no broad locking or schema change without justification.
+
+D:
+
+- a browser suite runs, or the lack of one is explicitly documented;
+- tests assert state/persistence, not just element presence;
+- no claim of browser verification without an actual run.
+
+E:
+
+- `#history` and `#workout` load on first open;
+- script order and inline handlers are checked;
+- Exercises behaves as before; no duplicated core helpers;
 - tests and docs are updated.
 
-Overall:
+F:
 
-- the full suite passes; report the exact count;
-- `tools/check_ui_docs.py` is green;
-- no Python API, training calculation, database or prescription change is in the diff;
-- the final diff contains only the phase being reviewed.
+- every confirmed finding has a regression test or a documented reason it cannot have one;
+- lint runs; static guards are in the suite;
+- the full suite passes; the exact count is reported;
+- the final diff for each commit contains only that workstream.
 
 ---
 
-## 10. Verification commands
+## 12. Verification
 
 ```bash
-.venv/bin/python -m pytest tests/test_web.py tests/test_ui_docs.py -q
-.venv/bin/python -m pytest tests/test_docs_consistency.py -q
-.venv/bin/python tools/check_ui_docs.py
+.venv/bin/python -m pytest tests/test_web.py tests/test_docs_consistency.py tests/test_ui_docs.py -q
+.venv/bin/python -m pytest -q
+.venv/bin/ruff check .            # after adding ruff to the dev extra
 node --check strength_coach/web/static/*.js
-.venv/bin/python -m pytest -q          # full suite, once per phase
+.venv/bin/python tools/check_ui_docs.py
+.venv/bin/python -m pytest -m browser -q   # only when the browser extra is installed
 ```
 
-For the full suite on a tight SD card:
+On a tight SD card:
 
 ```bash
 TMPDIR=/dev/shm .venv/bin/python -m pytest -q --basetemp=/dev/shm/pytest-ui
 ```
 
+Report static inspection, automated results and browser results separately. A skipped browser
+test is not a passed browser test.
+
 ---
 
-## 11. Risks and rollback
+## 13. Risks and rollback
 
-- **413 while uploading:** close the connection; test with headers only.
-- **Missing-length policy:** 411 is correct HTTP but could surprise a non-browser client;
-  verify before merging.
-- **Boot deferral:** it changes when initial data loads. Test `#history`,
-  `#workout` and `#docs` manually; the change also fixes a pre-existing bug.
-- **Feature extraction:** the main risk is a missing global or listener. The static handler
-  check, `node --check` and the manual smoke test are the guards.
-- **Test coupling:** update the tests to scan all JS rather than weakening the assertions.
-- **Rollback:** UI-04 is independent. UI-08a can be reverted without touching UI-08b; UI-08b
-  is a single file move and can be reverted alone.
+- **Inline-handler conversion** can silently break actions if a listener is missed. The static
+  handler check and browser smoke are the guards; rollback is the single workstream commit.
+- **413 while uploading** can surface as a reset; close and test headers-only.
+- **Missing-length policy** can surprise a non-browser client; verify before merging.
+- **Date helper** changes defaults at midnight; test both sides of the boundary.
+- **Transactions** can turn a partial write into an error where a retry previously succeeded;
+  test the user-visible behaviour, not only the database.
+- **Browser tests** are environment-sensitive; mark and skip rather than failing the default
+  lane, but do not let the skip hide a regression in CI.
+- **Modularisation** is the easiest place to lose a global; keep it last and separate.
+
+---
+
+## 14. Optional follow-ups
+
+- **O1 — Settings extraction** after Exercises.
+- **O2 — view registry** for `setView`; defer until at least two features have moved.
+- **O3 — migrate `history.js`/`workout.js` to core**; leave stable until a third feature
+  needs the same helpers.
+- **O4 — streaming/multipart imports** if 40 MiB parse memory becomes a problem.
+- **O5 — read timeouts** for slow bodies (slowloris); local-only, lower priority.
+- **O6 — HTTP/1.1 and keep-alive**; only with close/drain and tests.
+- **O7 — limit tuning** (64 vs 96 MiB) based on a rejected legitimate import.
+- **O8 — error copy** mapping 411/413 to friendly UI text.
+- **O9 — markdown scheme allowlist** for `javascript:` targets.
+- **O10 — expand browser coverage** to import preview/apply and more failure paths.
 
 ---
 
