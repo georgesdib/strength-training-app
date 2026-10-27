@@ -281,6 +281,7 @@ def feature_settings(conn, on_date: str) -> FeatureSettings:
         landmarks=landmarks,
         apply_mrv_cap=bool(values["volume.apply_mrv_cap"]),
         ledger_coverage=str(values["volume.ledger.coverage"]),
+        set_accounting=str(values["volume.ledger.set_accounting"]),
         under_mev_enabled=bool(values["volume.under_mev.enabled"]),
         under_mev_weeks=int(values["volume.under_mev.weeks"]),
         under_mev_add_sets=int(values["volume.under_mev.add_sets"]),

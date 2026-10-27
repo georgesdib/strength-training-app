@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Mapping
 
 import pandas as pd
 import yaml
@@ -20,6 +21,8 @@ from strength_coach.utils import exercises, paths
 class VolumeConfig:
     window_weeks: int = 4
     ledger_coverage: str = "unknown"
+    set_accounting: str = "hard"
+    indirect_by_group: Mapping[str, Mapping[str, float]] | None = None
     targets: dict[str, tuple[float, float]] | None = None
     landmarks: dict[str, tuple[float, float, float, float]] | None = None
     apply_mrv_cap: bool = True
@@ -50,9 +53,22 @@ class VolumeConfig:
         coverage = str((raw.get("ledger") or {}).get("coverage", "unknown"))
         if coverage not in ("unknown", "complete"):
             raise ValueError("volume ledger coverage must be unknown or complete")
+        accounting = str((raw.get("ledger") or {}).get("set_accounting", "hard"))
+        if accounting not in ("hard", "effective"):
+            raise ValueError("volume ledger set_accounting must be hard or effective")
+        indirect_source = paths.config_dir("volume-indirect.v1.yaml")
+        indirect_raw = yaml.safe_load(
+            indirect_source.read_text(encoding="utf-8")
+        ) if indirect_source.exists() else {}
+        indirect = {
+            str(group): {str(target): float(weight) for target, weight in (targets or {}).items()}
+            for group, targets in ((indirect_raw or {}).get("by_group") or {}).items()
+        }
         return cls(
             window_weeks=int(raw.get("window_weeks", 4)),
             ledger_coverage=coverage,
+            set_accounting=accounting,
+            indirect_by_group=indirect,
             targets=targets,
             landmarks=landmarks,
             apply_mrv_cap=bool(raw.get("apply_mrv_cap", True)),
@@ -88,6 +104,7 @@ class PatternVolume:
     # the group, not to the row: a sub-pattern below MEV must not add volume to its sibling.
     group: str = ""
     group_average: float = 0.0
+    effective_total: float = 0.0
 
     def as_dict(self) -> dict:
         return {
@@ -97,6 +114,7 @@ class PatternVolume:
             "total": self.total,
             "average": round(self.average, 2),
             "group_average": round(self.group_average, 2),
+            "effective_total": round(self.effective_total, 2),
             "target": list(self.target) if self.target else None,
             "status": self.status,
             "mev": self.mev,
@@ -179,6 +197,17 @@ def compute(
     # Two passes: collect the raw patterns, then judge each *landmark group* as a whole.
     # Judging a raw pattern against a merged landmark is what made a low hanging_leg_raise
     # add a set to a well-trained ab_wheel (DEC-VOLUME-05).
+    week_positions = {week: index for index, week in enumerate(labels)}
+    indirect: dict[str, list[float]] = {}
+    if cfg.set_accounting == "effective":
+        for row in frame.itertuples(index=False):
+            direct = volume_target_key(str(row.pattern))
+            for target, weight in (cfg.indirect_by_group or {}).get(direct, {}).items():
+                if target == direct or target not in (cfg.landmarks or {}):
+                    continue
+                indirect.setdefault(target, [0.0] * len(labels))[
+                    week_positions[int(row.iso_week)]
+                ] += float(weight)
     grouped: dict[str, list[dict]] = {}
     for pattern, group in frame.groupby("pattern"):
         counts = [int((group["iso_week"] == week).sum()) for week in labels]
@@ -190,11 +219,22 @@ def compute(
             "average": total / denominator,
         })
 
+    for target_key, counts in indirect.items():
+        if target_key not in grouped:
+            grouped[target_key] = [{
+                "pattern": f"indirect:{target_key}",
+                "counts": tuple(0 for _ in labels),
+                "total": 0,
+                "average": 0.0,
+            }]
     rows: list[PatternVolume] = []
     for target_key, members in grouped.items():
         landmark = cfg.landmark(target_key) if target_key else None
         target = (landmark[0], landmark[3]) if landmark else None
-        group_average = sum(member["total"] for member in members) / denominator
+        indirect_total = sum(indirect.get(target_key, [0.0] * len(labels)))
+        group_average = (
+            sum(member["total"] for member in members) + indirect_total
+        ) / denominator
         if landmark is None:
             status = "untargeted"
         elif training_weeks < len(labels):
@@ -217,6 +257,7 @@ def compute(
                 mrv=landmark[3] if landmark else None,
                 group=target_key,
                 group_average=group_average,
+                effective_total=float(sum(member["total"] for member in members) + indirect_total),
             ))
     rows.sort(key=lambda row: (-row.total, row.pattern))
     zero_weeks = [week for week in labels if week not in set(observed)]

@@ -202,6 +202,20 @@ def test_5c_feature_settings_and_guarded_exposure_override():
     assert resolved.exposure.windows["upper"] == 12
 
 
+def test_effective_set_accounting_is_profile_backed():
+    store = _store()
+    try:
+        conn = store.connection
+        settings_profile.save(
+            conn, set_values={"volume.ledger.set_accounting": "effective"},
+            effective_from="2026-10-26",
+        )
+        resolved = settings_profile.feature_settings(conn, "2026-10-26")
+    finally:
+        store.close()
+    assert resolved.volume.set_accounting == "effective"
+
+
 def test_prescription_snapshot_is_written():
     store = _store()
     try:

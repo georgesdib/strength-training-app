@@ -1,0 +1,13 @@
+# Indirect volume credit for step 8. Pattern-level, inherited by every exercise whose primary
+# pattern maps to the key. Direct work counts 1.0; the listed secondary group counts 0.5.
+# This is a modelling assumption, not a measured cross-group equivalence.
+schema_version: "1.0.0"
+
+by_group:
+  horizontal_push: {vertical_push: 0.5}
+  vertical_push: {horizontal_push: 0.5}
+  horizontal_pull: {vertical_pull: 0.5}
+  vertical_pull: {horizontal_pull: 0.5}
+  squat: {core: 0.5}
+  hinge: {core: 0.5}
+  hinge_unilateral: {hinge: 0.5}

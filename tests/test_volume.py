@@ -141,6 +141,28 @@ def test_complete_coverage_zero_fills_and_resets_the_under_mev_clock():
     assert observed_row["average"] > complete_row["average"]
 
 
+def test_effective_accounting_credits_indirect_groups():
+    rows = []
+    for week in WEEKS:
+        rows += [(week, "dumbbell_bench_press")] * 2
+        rows += [(week, "dumbbell_row")] * 2
+    hard = replace(volume.VolumeConfig.load(), window_weeks=3)
+    effective = replace(hard, set_accounting="effective")
+    hard_report = volume.compute(_frame(rows), on_date="2026-10-20", config=hard)
+    effective_report = volume.compute(_frame(rows), on_date="2026-10-20", config=effective)
+    assert all(
+        row["group"] != "vertical_push" for row in hard_report["patterns"]
+    )
+    indirect_push = next(
+        row for row in effective_report["patterns"] if row["group"] == "vertical_push"
+    )
+    indirect_pull = next(
+        row for row in effective_report["patterns"] if row["group"] == "vertical_pull"
+    )
+    assert indirect_push["group_average"] == 1.0
+    assert indirect_pull["group_average"] == 1.0
+
+
 def test_under_mev_never_adds_a_set_to_a_sibling_pattern():
     rows = []
     for week in WEEKS:

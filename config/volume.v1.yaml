@@ -10,6 +10,7 @@ window_weeks: 4
 # sets is a real zero. Complete is an explicit athlete choice, never inferred from a blank frame.
 ledger:
   coverage: unknown    # unknown | complete
+  set_accounting: hard # hard | effective (direct 1, configured indirect 0.5)
 apply_mrv_cap: true
 
 under_mev:

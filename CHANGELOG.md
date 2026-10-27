@@ -43,6 +43,9 @@
   preserve/reduce/drop and that the main-lift policy is ignored while the budget is off.
 - **Volume-ledger coverage plan**: recorded the calendar-window denominator and complete-coverage
   zero-fill design, including break/deload handling and under-MEV eligibility; not implemented.
+- **Step 8 chunk 1**: effective-set ledger infrastructure and the indirect map; `hard`
+  remains the default and the live profile is unchanged. Target re-base, budget migration and
+  live activation remain chunk 2/3.
 - **Roadmap placeholder**: nicer UI, adherence encouragement and KPI/adherence stats;
   future only, no implementation or rule change.
 - **Volume-ledger coverage correction**: calendar-window denominator, opt-in complete-coverage

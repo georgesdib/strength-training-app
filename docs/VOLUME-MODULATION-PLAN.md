@@ -1088,3 +1088,21 @@ Proposed behaviour:
 
 This is a ledger/coverage correction, not a new prescription rule: the budget's weekly target and
 the MRV/spinal guards remain unchanged.
+## 15. Effective-set accounting — step 8 chunk 1 (infrastructure only)
+
+**Status: implemented but not live.** The app default remains `volume.ledger.set_accounting: hard`;
+the live profile has not been switched. No budget target, MEV/MAV/MRV, trim/top-up, session cap or
+golden prescription changed.
+
+What exists now:
+
+- `config/volume-indirect.v1.yaml` defines the pattern-level indirect map (direct 1.0, indirect
+  0.5): push/pull alternation, squat/hinge → core, unilateral hinge → hinge.
+- `volume.ledger.set_accounting` is profile-backed, `hard` by default.
+- In `effective` mode the ledger group average adds indirect credit; raw pattern totals stay
+  visible and an indirect-only group gets an `indirect:<group>` row.
+- The existing complete-coverage/zero-week/reset rules apply in both modes.
+
+**Deliberately not in chunk 1:** budget allocation, target/MEV/MAV/MRV re-basing, session caps,
+live activation, golden updates. Those need the retrospective effective/hard ratio and a reviewed
+target baseline (chunk 2), then UI/docs/rollback (chunk 3).
