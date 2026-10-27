@@ -654,7 +654,7 @@ computed in the browser.
 
 **Later UI and functionality work:** the UI-04/UI-08 brief and the final functionality/code
 audit are consolidated in [`docs/UI-IMPROVEMENT-PLAN.md`](docs/UI-IMPROVEMENT-PLAN.md); implemented
-on branch `ui-improvement-plan`, pending review and merge.
+and merged into `main` (merge `db1cc8f`).
 
 ### 4.12 Continuity calibration from real returns  (v0.3, implemented; calibrated factor rejected)
 

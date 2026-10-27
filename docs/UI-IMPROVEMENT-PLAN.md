@@ -1,6 +1,6 @@
 # UI AND FUNCTIONALITY IMPROVEMENT PLAN — UI-04, UI-08 AND FINAL AUDIT
 
-**Status:** implemented on branch `ui-improvement-plan` 2026-10-27; pending review and merge.
+**Status:** implemented and merged into `main` 2026-10-27 (merge `db1cc8f`).
 Phase 0 (the documentation audit and this plan) is committed. Workstreams A1–F are implemented;
 the O1–O10 items in §14 remain deferred. Browser verification uses the manual checklist in
 `WEB-UI.md` because no browser automation is installed.
