@@ -223,6 +223,29 @@ def test_invalid_form_does_not_commit_set_changes():
         store.close()
 
 
+def test_critique_failure_is_sanitized(monkeypatch, caplog):
+    store = _store()
+    try:
+        conn = store.connection
+        detail = history.detail(conn, history.list_sessions(conn)["sessions"][0]["session_id"])
+        first = detail["sets"][0]
+
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("secret /tmp/coach.db")
+
+        monkeypatch.setattr(history, "score_session", boom)
+        with caplog.at_level("ERROR"):
+            edited = history.edit_session(
+                conn, detail["session_id"],
+                sets=[{**first, "load_kg": 105}, detail["sets"][1]],
+            )
+        assert edited["warnings"] == ["critique not rebuilt; see server log"]
+        assert "secret" not in " ".join(edited["warnings"])
+        assert "RuntimeError" in caplog.text
+    finally:
+        store.close()
+
+
 def test_injected_failure_rolls_back_the_whole_edit(monkeypatch):
     store = _store()
     try:

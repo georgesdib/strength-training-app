@@ -14,6 +14,7 @@ import datetime
 from dataclasses import replace
 import hashlib
 import json
+import logging
 import mimetypes
 import shlex
 import subprocess
@@ -83,6 +84,7 @@ TOLERANCE = 0.25
 # remains in _import; this is the HTTP-boundary guard.
 MAX_BODY_BYTES = 64 * 1024 * 1024
 MAX_IMPORT_FILE_BYTES = 20 * 1024 * 1024
+LOGGER = logging.getLogger(__name__)
 
 
 class RequestError(Exception):
@@ -510,8 +512,9 @@ class Handler(BaseHTTPRequestHandler):
             self._error(404, str(exc))
         except (ValueError, KeyError) as exc:
             self._error(400, str(exc))
-        except Exception as exc:  # local tool: show the problem, do not pretend success
-            self._error(500, f"{type(exc).__name__}: {exc}")
+        except Exception:
+            LOGGER.exception("unhandled GET %s", self.path)
+            self._error(500, "internal server error")
 
     def do_POST(self) -> None:
         path = unquote(urlparse(self.path).path)
@@ -656,8 +659,9 @@ class Handler(BaseHTTPRequestHandler):
             self._error(exc.status, exc.message)
         except (ValueError, KeyError) as exc:
             self._error(400, str(exc))
-        except Exception as exc:
-            self._error(500, f"{type(exc).__name__}: {exc}")
+        except Exception:
+            LOGGER.exception("unhandled POST %s", self.path)
+            self._error(500, "internal server error")
 
     def _serve_file(self, path: Path, content_type: str) -> None:
         if not path.is_file():

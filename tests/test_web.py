@@ -1242,3 +1242,18 @@ def test_a_legitimate_import_survives_patched_limits(monkeypatch, server):
 
 def test_body_limit_constants_leave_import_headroom():
     assert web_server.MAX_BODY_BYTES >= 2 * web_server.MAX_IMPORT_FILE_BYTES + 4 * 1024 * 1024
+
+
+def test_unexpected_errors_are_generic_and_logged(caplog, monkeypatch, server):
+    def boom(self, conn):
+        raise RuntimeError("secret path /tmp/coach.db")
+
+    monkeypatch.setattr(web_server.Handler, "_overview", boom)
+    with caplog.at_level("ERROR"):
+        with pytest.raises(urllib.error.HTTPError) as excinfo:
+            get(server, "/api/overview")
+    assert excinfo.value.code == 500
+    body = excinfo.value.read().decode()
+    assert "internal server error" in body
+    assert "secret path" not in body
+    assert "RuntimeError" in caplog.text

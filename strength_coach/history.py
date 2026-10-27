@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import logging
 import uuid
 from typing import Any
 
@@ -18,6 +19,8 @@ from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.domain import load as load_mod
 from strength_coach.store import db, queries, repositories
 from strength_coach.utils import exercises
+
+LOGGER = logging.getLogger(__name__)
 
 CURRENT = (
     "s.voided = 0 AND NOT EXISTS "
@@ -426,8 +429,9 @@ def _edit_session_impl(conn, session_id: str, *, sets: list[dict],
                 "UPDATE workout_session SET critique_id = ?, reviewed_at = NULL "
                 "WHERE workout_id = ?", (new_id, session_id)
             )
-    except Exception as exc:
-        warnings.append(f"critique not rebuilt: {type(exc).__name__}: {exc}")
+    except Exception:
+        LOGGER.exception("critique rebuild failed for session %s", session_id)
+        warnings.append("critique not rebuilt; see server log")
     return {"session": detail(conn, session_id), "edit_id": edit_id,
             "warnings": warnings}
 
