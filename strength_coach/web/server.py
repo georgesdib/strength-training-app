@@ -68,6 +68,7 @@ from strength_coach.prescribe import session_identity
 from strength_coach.prescribe import volume_settings
 from strength_coach import modalities, settings_profile, settings_registry
 from strength_coach.prescribe import selection as selection_mod
+from strength_coach.prescribe import templates
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
 from strength_coach.store import db, exercise_admin, importer, queries, repositories
@@ -577,6 +578,13 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/exercises":
                 entity_id = str(body.get("id") or "").strip()
                 props = body.get("props") or {}
+                roles = props.get("day_roles") or []
+                invalid = sorted(set(map(str, roles)) - set(templates.SESSION_TYPES))
+                if invalid:
+                    raise ValueError(
+                        "day_roles must be canonical session types: "
+                        + ", ".join(templates.SESSION_TYPES)
+                    )
                 self._json(200, exercise_admin.save(entity_id, props))
             elif path == "/api/terminal":
                 self._json(200, self._terminal(body))
