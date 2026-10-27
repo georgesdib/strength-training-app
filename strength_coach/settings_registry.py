@@ -12,6 +12,10 @@ from typing import Any, Mapping
 
 import yaml
 
+from strength_coach.features import continuity_calibration as continuity_feature
+from strength_coach.features import fatigue_fitness as fatigue_feature
+from strength_coach.features import high_intensity_exposure as exposure_feature
+from strength_coach.features import test_cadence as cadence_feature
 from strength_coach.features.deload import DeloadConfig
 from strength_coach.features.e1rm_calibration import E1RMCalibrationConfig
 from strength_coach.features.e1rm_decay import DecayConfig
@@ -19,6 +23,7 @@ from strength_coach.features.readiness import ReadinessConfig
 from strength_coach.features.volume import VolumeConfig
 from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import undulation as undulation_mod
+from strength_coach.prescribe import warmup as warmup_feature
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.utils import paths
 
@@ -63,6 +68,10 @@ class SettingDefinition:
         elif self.kind == "table":
             if not isinstance(value, dict):
                 raise ValueError(f"{self.key} must be a table")
+            return
+        elif self.kind == "list":
+            if not isinstance(value, list):
+                raise ValueError(f"{self.key} must be a list")
             return
         else:
             raise ValueError(f"{self.key} has unknown kind {self.kind!r}")
@@ -201,6 +210,88 @@ def _definitions() -> tuple[SettingDefinition, ...]:
         _d("e1rm.calibration.seed", "e1RM", "Calibration seed", "int", 20261020,
            "e1rm-calibration.v1.yaml", "prescription_policy", "Deterministic seed.",
            minimum=0, maximum=2147483647),
+        _d("continuity.enabled", "Continuity", "Continuity calibration", "bool", True,
+           "continuity-calibration.v1.yaml", "prescription_policy",
+           "Master switch for calibrated return factors."),
+        _d("continuity.apply", "Continuity", "Apply calibrated factor", "bool", True,
+           "continuity-calibration.v1.yaml", "prescription_policy",
+           "Use calibration; false keeps it report-only."),
+        _d("continuity.min_returns_per_band", "Continuity", "Min returns/band", "int", 5,
+           "continuity-calibration.v1.yaml", "prescription_policy",
+           "Returns per continuity band.", minimum=1, maximum=100),
+        _d("continuity.min_total_returns", "Continuity", "Min total returns", "int", 12,
+           "continuity-calibration.v1.yaml", "prescription_policy",
+           "Total returns required.", minimum=1, maximum=500),
+        _d("continuity.max_gap_days", "Continuity", "Max gap days", "int", 365,
+           "continuity-calibration.v1.yaml", "prescription_policy",
+           "Longest usable return gap.", minimum=1, maximum=3650),
+        _d("continuity.min_ratio", "Continuity", "Min ratio", "float", 0.50,
+           "continuity-calibration.v1.yaml", "prescription_policy",
+           "Reject implausibly low returns.", minimum=0.0, maximum=1.0),
+        _d("continuity.max_ratio", "Continuity", "Max ratio", "float", 1.50,
+           "continuity-calibration.v1.yaml", "prescription_policy",
+           "Reject implausibly high returns.", minimum=1.0, maximum=3.0),
+        _d("continuity.bootstrap_samples", "Continuity", "Bootstrap samples", "int", 1000,
+           "continuity-calibration.v1.yaml", "prescription_policy",
+           "Bootstrap draws.", minimum=100, maximum=20000),
+        _d("continuity.confidence", "Continuity", "Confidence", "float", 0.95,
+           "continuity-calibration.v1.yaml", "prescription_policy",
+           "Confidence level.", minimum=0.5, maximum=0.999),
+        _d("continuity.max_ci_width", "Continuity", "Max CI width", "float", 0.15,
+           "continuity-calibration.v1.yaml", "prescription_policy",
+           "Maximum usable interval.", minimum=0.0, maximum=1.0),
+        _d("continuity.factor_floor", "Continuity", "Factor floor", "float", 0.85,
+           "continuity-calibration.v1.yaml", "prescription_policy",
+           "Lowest calibrated factor.", minimum=0.0, maximum=1.0),
+        _d("continuity.allow_relax_fixed", "Continuity", "Allow relax fixed", "bool", False,
+           "continuity-calibration.v1.yaml", "prescription_policy",
+           "Allow calibration to relax the fixed reduction."),
+        _d("continuity.seed", "Continuity", "Seed", "int", 20261020,
+           "continuity-calibration.v1.yaml", "prescription_policy",
+           "Deterministic bootstrap seed.", minimum=0, maximum=2147483647),
+        _d("fatigue.enabled", "Fatigue", "Fatigue-fitness shadow", "bool", True,
+           "fatigue-fitness.v1.yaml", "display", "Enable the shadow model/reports."),
+        _d("fatigue.fitness_half_life_days", "Fatigue", "Fitness half-life", "float", 42.0,
+           "fatigue-fitness.v1.yaml", "display", "Fitness decay half-life.",
+           minimum=1.0, maximum=365.0),
+        _d("fatigue.fatigue_half_life_days", "Fatigue", "Fatigue half-life", "float", 4.0,
+           "fatigue-fitness.v1.yaml", "display", "Fatigue decay half-life.",
+           minimum=0.5, maximum=60.0),
+        _d("fatigue.min_observations", "Fatigue", "Min observations", "int", 8,
+           "fatigue-fitness.v1.yaml", "display", "Minimum observations.",
+           minimum=1, maximum=500),
+        _d("fatigue.min_span_days", "Fatigue", "Min span days", "int", 28,
+           "fatigue-fitness.v1.yaml", "display", "Minimum time span.",
+           minimum=1, maximum=3650),
+        _d("fatigue.min_r2", "Fatigue", "Min R2", "float", 0.30,
+           "fatigue-fitness.v1.yaml", "display", "Minimum fit quality.",
+           minimum=0.0, maximum=1.0),
+        _d("fatigue.max_condition", "Fatigue", "Max condition", "float", 100000000.0,
+           "fatigue-fitness.v1.yaml", "display", "Condition-number ceiling.",
+           minimum=1.0, maximum=1000000000.0),
+        _d("fatigue.pooling_k", "Fatigue", "Pooling k", "float", 10.0,
+           "fatigue-fitness.v1.yaml", "display", "Partial-pooling strength.",
+           minimum=0.0, maximum=1000.0),
+        _d("test_cadence.enabled", "Test cadence", "Test cadence", "bool", True,
+           "test-cadence.v1.yaml", "prescription_policy", "Enable strength-test prompts."),
+        _d("test_cadence.every_weeks", "Test cadence", "Every weeks", "int", 10,
+           "test-cadence.v1.yaml", "prescription_policy", "Test interval.",
+           minimum=1, maximum=104),
+        _d("test_cadence.schemes", "Test cadence", "Schemes", "list", [],
+           "test-cadence.v1.yaml", "prescription_policy", "Test scheme list."),
+        _d("warmup.enabled", "Warmup", "Warmup ramp", "bool", True,
+           "warmup.v1.yaml", "prescription_policy", "Attach ramp sets."),
+        _d("warmup.percents", "Warmup", "Percents", "list", [],
+           "warmup.v1.yaml", "prescription_policy", "Ramp percentages."),
+        _d("warmup.reps", "Warmup", "Reps", "list", [],
+           "warmup.v1.yaml", "prescription_policy", "Ramp reps."),
+        _d("warmup.apply_to_essential", "Warmup", "Essential only", "bool", True,
+           "warmup.v1.yaml", "prescription_policy", "Only main lifts get ramps."),
+        _d("high_intensity.override", "Exposure", "Exposure guard", "table", {},
+           "high-intensity-exposure.v1.yaml", "guarded_safety",
+           "Guarded lookback, symptom window and per-kind exposure windows."),
+
+
     ]
     for group in LANDMARK_GROUPS:
         for index, name in ((0, "mev"), (1, "mav_low"), (2, "mav_high"), (3, "mrv")):
@@ -248,6 +339,11 @@ def _snapshot_values() -> dict[str, Any]:
     thresholds = Thresholds.load()
     decay = DecayConfig.load()
     calibration = E1RMCalibrationConfig.load()
+    continuity = continuity_feature.CalibrationConfig.load()
+    fatigue = fatigue_feature.ModelConfig.load()
+    cadence = cadence_feature.CadenceConfig.load()
+    warmup = warmup_feature.WarmupConfig.load()
+    exposure = exposure_feature.ExposureConfig.load()
     values: dict[str, Any] = {
         "undulation.enabled": bool(undulation.enabled),
         "undulation.cycle_weeks": int(undulation.cycle_weeks),
@@ -296,6 +392,39 @@ def _snapshot_values() -> dict[str, Any]:
         "e1rm.calibration.max_correction": float(calibration.max_correction),
         "e1rm.calibration.bootstrap_samples": int(calibration.bootstrap_samples),
         "e1rm.calibration.seed": int(calibration.seed),
+        "continuity.enabled": bool(continuity.enabled),
+        "continuity.apply": bool(continuity.apply),
+        "continuity.min_returns_per_band": int(continuity.min_returns_per_band),
+        "continuity.min_total_returns": int(continuity.min_total_returns),
+        "continuity.max_gap_days": int(continuity.max_gap_days),
+        "continuity.min_ratio": float(continuity.min_ratio),
+        "continuity.max_ratio": float(continuity.max_ratio),
+        "continuity.bootstrap_samples": int(continuity.bootstrap_samples),
+        "continuity.confidence": float(continuity.confidence),
+        "continuity.max_ci_width": float(continuity.max_ci_width),
+        "continuity.factor_floor": float(continuity.factor_floor),
+        "continuity.allow_relax_fixed": bool(continuity.allow_relax_fixed),
+        "continuity.seed": int(continuity.seed),
+        "fatigue.enabled": bool(fatigue.enabled),
+        "fatigue.fitness_half_life_days": float(fatigue.fitness_half_life_days),
+        "fatigue.fatigue_half_life_days": float(fatigue.fatigue_half_life_days),
+        "fatigue.min_observations": int(fatigue.min_observations),
+        "fatigue.min_span_days": int(fatigue.min_span_days),
+        "fatigue.min_r2": float(fatigue.min_r2),
+        "fatigue.max_condition": float(fatigue.max_condition),
+        "fatigue.pooling_k": float(fatigue.pooling_k),
+        "test_cadence.enabled": bool(cadence.enabled),
+        "test_cadence.every_weeks": int(cadence.every_weeks),
+        "test_cadence.schemes": list(cadence.schemes),
+        "warmup.enabled": bool(warmup.enabled),
+        "warmup.percents": list(warmup.percents),
+        "warmup.reps": list(warmup.reps),
+        "warmup.apply_to_essential": bool(warmup.apply_to_essential),
+        "high_intensity.override": {
+            "lookback_days": int(exposure.lookback_days),
+            "active_back_symptom_days": int(exposure.active_back_symptom_days),
+            "windows_hours": dict(exposure.windows or {}),
+        },
     }
     for group, landmark in (volume.landmarks or {}).items():
         if group not in LANDMARK_GROUPS:

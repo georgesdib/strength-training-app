@@ -10,11 +10,16 @@ from typing import Any, Mapping
 
 from strength_coach import settings_registry
 from strength_coach.features import deload as deload_feature
+from strength_coach.features import continuity_calibration as continuity_feature
 from strength_coach.features import e1rm_calibration as calibration_feature
 from strength_coach.features import e1rm_decay as decay_feature
+from strength_coach.features import fatigue_fitness as fatigue_feature
+from strength_coach.features import high_intensity_exposure as exposure_feature
+from strength_coach.features import test_cadence as cadence_feature
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import schemes as schemes_feature
+from strength_coach.prescribe import warmup as warmup_feature
 from strength_coach.prescribe import undulation as undulation_feature
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.store import repositories
@@ -83,6 +88,19 @@ def _validate_overrides(
                 for k, v in costs.items()
             ):
                 raise ValueError("spinal costs must be a map of numbers")
+        if key == "high_intensity.override":
+            if not isinstance(value, dict):
+                raise ValueError("high_intensity.override must be an object")
+            if int(value.get("lookback_days", 1)) < 1:
+                raise ValueError("high-intensity lookback must be positive")
+            if int(value.get("active_back_symptom_days", 0)) < 0:
+                raise ValueError("high-intensity symptom window must be non-negative")
+            windows = value.get("windows_hours") or {}
+            if not isinstance(windows, dict) or not all(
+                isinstance(k, str) and isinstance(v, int) and v >= 1
+                for k, v in windows.items()
+            ):
+                raise ValueError("high-intensity windows must be a map of positive hours")
         clean[str(key)] = value
     if "budget" in clean:
         from strength_coach.prescribe.volume_budget import BudgetConfig
@@ -206,6 +224,11 @@ class FeatureSettings:
     thresholds: Thresholds
     decay: decay_feature.DecayConfig
     calibration: calibration_feature.E1RMCalibrationConfig
+    continuity: continuity_feature.CalibrationConfig
+    fatigue: fatigue_feature.ModelConfig
+    test_cadence: cadence_feature.CadenceConfig
+    warmup: warmup_feature.WarmupConfig
+    exposure: exposure_feature.ExposureConfig
     budget: Any
 
 
@@ -308,6 +331,72 @@ def feature_settings(conn, on_date: str) -> FeatureSettings:
         seed=int(values["e1rm.calibration.seed"]),
     )
 
+    continuity = continuity_feature.CalibrationConfig.load()
+    continuity = replace(
+        continuity,
+        enabled=bool(values["continuity.enabled"]),
+        apply=bool(values["continuity.apply"]),
+        min_returns_per_band=int(values["continuity.min_returns_per_band"]),
+        min_total_returns=int(values["continuity.min_total_returns"]),
+        max_gap_days=int(values["continuity.max_gap_days"]),
+        min_ratio=float(values["continuity.min_ratio"]),
+        max_ratio=float(values["continuity.max_ratio"]),
+        bootstrap_samples=int(values["continuity.bootstrap_samples"]),
+        confidence=float(values["continuity.confidence"]),
+        max_ci_width=float(values["continuity.max_ci_width"]),
+        factor_floor=float(values["continuity.factor_floor"]),
+        allow_relax_fixed=bool(values["continuity.allow_relax_fixed"]),
+        seed=int(values["continuity.seed"]),
+    )
+
+    fatigue = fatigue_feature.ModelConfig.load()
+    fatigue = replace(
+        fatigue,
+        enabled=bool(values["fatigue.enabled"]),
+        fitness_half_life_days=float(values["fatigue.fitness_half_life_days"]),
+        fatigue_half_life_days=float(values["fatigue.fatigue_half_life_days"]),
+        min_observations=int(values["fatigue.min_observations"]),
+        min_span_days=int(values["fatigue.min_span_days"]),
+        min_r2=float(values["fatigue.min_r2"]),
+        max_condition=float(values["fatigue.max_condition"]),
+        pooling_k=float(values["fatigue.pooling_k"]),
+    )
+
+    test_cadence = cadence_feature.CadenceConfig.load()
+    test_cadence = replace(
+        test_cadence,
+        enabled=bool(values["test_cadence.enabled"]),
+        every_weeks=int(values["test_cadence.every_weeks"]),
+        schemes=tuple(str(x) for x in (values["test_cadence.schemes"] or [])),
+    )
+
+    warmup = warmup_feature.WarmupConfig.load()
+    warmup = replace(
+        warmup,
+        enabled=bool(values["warmup.enabled"]),
+        percents=tuple(float(x) for x in (values["warmup.percents"] or [])),
+        reps=tuple(int(x) for x in (values["warmup.reps"] or [])),
+        apply_to_essential=bool(values["warmup.apply_to_essential"]),
+    )
+
+    exposure = exposure_feature.ExposureConfig.load()
+    exposure_override = overrides.get("high_intensity.override") or {}
+    if exposure_override:
+        windows = {str(k): int(v) for k, v in (exposure.windows or {}).items()}
+        windows.update({
+            str(k): int(v)
+            for k, v in (exposure_override.get("windows_hours") or {}).items()
+        })
+        exposure = replace(
+            exposure,
+            lookback_days=int(exposure_override.get("lookback_days", exposure.lookback_days)),
+            active_back_symptom_days=int(
+                exposure_override.get("active_back_symptom_days",
+                                     exposure.active_back_symptom_days)
+            ),
+            windows=windows,
+        )
+
     spinal_base = settings_registry._spinal_defaults()
     spinal_override = overrides.get("spinal.override") or {}
     spinal_cap = float(spinal_override.get("cap", spinal_base.get("cap", 6)))
@@ -328,5 +417,10 @@ def feature_settings(conn, on_date: str) -> FeatureSettings:
         thresholds=thresholds,
         decay=decay,
         calibration=calibration,
+        continuity=continuity,
+        fatigue=fatigue,
+        test_cadence=test_cadence,
+        warmup=warmup,
+        exposure=exposure,
         budget=budget,
     )

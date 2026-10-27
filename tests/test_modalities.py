@@ -17,7 +17,7 @@ def test_modalities_have_classes_and_delegate_to_existing_flags():
         assert by_id["mrv_cap"]["class"] == "guarded_safety"
         assert by_id["hard_constraints"]["class"] == "hard_safety"
         assert by_id["spinal"]["toggleable"] is False
-        result = modalities.update(conn, "deload", enabled=False)
+        result = modalities.update(conn, "deload", enabled=False, effective_from="2026-10-26")
         again = modalities.show(conn, "deload", "2026-10-26")
     finally:
         store.close()
@@ -34,6 +34,25 @@ def test_modalities_cli_list_and_set(tmp_path, capsys):
         "--db", str(path), "settings", "modalities", "set", "deload", "enabled=off",
     ]) == 0
     assert "deload: off" in capsys.readouterr().out
+
+
+def test_selection_and_high_intensity_are_not_plain_toggles():
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        by_id = {row["id"]: row for row in modalities.state(conn, "2026-10-26")["modules"]}
+        assert by_id["selection"]["enabled_source"] == "per_request"
+        assert by_id["selection"]["toggleable"] is False
+        assert by_id["high_intensity_exposure"]["class"] == "guarded_safety"
+        assert by_id["high_intensity_exposure"]["toggleable"] is False
+        with pytest.raises(ValueError, match="guarded"):
+            modalities.update(
+                conn, "high_intensity_exposure",
+                factors={"high_intensity.override": {"lookback_days": 3}},
+                effective_from="2026-10-26",
+            )
+    finally:
+        store.close()
 
 
 def test_volume_budget_toggle_uses_the_athlete_profile():

@@ -173,6 +173,35 @@ def test_guarded_settings_require_confirmation_and_reason():
     assert resolved.spinal_costs["rdl"] == 1
 
 
+def test_5c_feature_settings_and_guarded_exposure_override():
+    store = _store()
+    try:
+        conn = store.connection
+        settings_profile.save(
+            conn,
+            set_values={
+                "continuity.apply": False,
+                "warmup.percents": [0.5, 0.8],
+                "test_cadence.schemes": ["3RM"],
+                "high_intensity.override": {
+                    "lookback_days": 3,
+                    "windows_hours": {"upper": 12},
+                },
+            },
+            effective_from="2026-10-26",
+            guard_confirmed=True,
+            reason="exposure review",
+        )
+        resolved = settings_profile.feature_settings(conn, "2026-10-26")
+    finally:
+        store.close()
+    assert resolved.continuity.apply is False
+    assert resolved.warmup.percents == (0.5, 0.8)
+    assert resolved.test_cadence.schemes == ("3RM",)
+    assert resolved.exposure.lookback_days == 3
+    assert resolved.exposure.windows["upper"] == 12
+
+
 def test_prescription_snapshot_is_written():
     store = _store()
     try:

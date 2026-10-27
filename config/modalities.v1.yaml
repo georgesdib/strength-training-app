@@ -143,6 +143,92 @@ modules:
     factors: [spinal.override]
     doc: docs/SPINAL-COST.md
 
+
+  - id: continuity_calibration
+    label: Continuity calibration
+    class: prescription_policy
+    enabled_key: continuity.enabled
+    toggleable: true
+    dependencies: [calibration]
+    citations: []
+    factors:
+      - continuity.apply
+      - continuity.min_returns_per_band
+      - continuity.min_total_returns
+      - continuity.max_gap_days
+      - continuity.min_ratio
+      - continuity.max_ratio
+      - continuity.bootstrap_samples
+      - continuity.confidence
+      - continuity.max_ci_width
+      - continuity.factor_floor
+      - continuity.allow_relax_fixed
+      - continuity.seed
+    doc: docs/CONTINUITY.md
+
+  - id: fatigue_fitness
+    label: Fatigue-fitness shadow
+    class: experiment
+    enabled_key: fatigue.enabled
+    toggleable: true
+    dependencies: []
+    citations: []
+    factors:
+      - fatigue.fitness_half_life_days
+      - fatigue.fatigue_half_life_days
+      - fatigue.min_observations
+      - fatigue.min_span_days
+      - fatigue.min_r2
+      - fatigue.max_condition
+      - fatigue.pooling_k
+    doc: docs/FATIGUE-FITNESS.md
+
+  - id: test_cadence
+    label: Test cadence
+    class: prescription_policy
+    enabled_key: test_cadence.enabled
+    toggleable: true
+    dependencies: [schedule]
+    citations: []
+    factors:
+      - test_cadence.every_weeks
+      - test_cadence.schemes
+    doc: docs/FATIGUE-FITNESS.md
+
+  - id: warmup
+    label: Warm-up ramp
+    class: prescription_policy
+    enabled_key: warmup.enabled
+    toggleable: true
+    dependencies: []
+    citations: []
+    factors:
+      - warmup.percents
+      - warmup.reps
+      - warmup.apply_to_essential
+    doc: docs/ARCHITECTURE.md
+
+  - id: high_intensity_exposure
+    label: High-intensity exposure guard
+    class: guarded_safety
+    enabled_key: null
+    toggleable: false
+    dependencies: [spinal]
+    citations: []
+    factors: [high_intensity.override]
+    doc: docs/HIGH-INTENSITY-EXPOSURE-PLAN.md
+
+  - id: selection
+    label: Exercise selection (per session)
+    class: prescription_policy
+    enabled_key: null
+    enabled_source: per_request
+    toggleable: false
+    dependencies: []
+    citations: [MOD-SELECT-001]
+    factors: []
+    doc: docs/SELECTION-COMPARABILITY.md
+
   - id: hard_constraints
     label: Constraints and injury ceilings
     class: hard_safety

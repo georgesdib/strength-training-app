@@ -28,6 +28,7 @@ class Modality:
     label: str
     classification: str
     enabled_key: str | None
+    enabled_source: str | None
     toggleable: bool
     dependencies: tuple[str, ...]
     citations: tuple[str, ...]
@@ -50,6 +51,7 @@ def modules(path: str | Path | None = None) -> tuple[Modality, ...]:
             id=str(row["id"]), label=str(row.get("label", row["id"])),
             classification=classification,
             enabled_key=(str(row["enabled_key"]) if row.get("enabled_key") else None),
+            enabled_source=(str(row["enabled_source"]) if row.get("enabled_source") else None),
             toggleable=bool(row.get("toggleable", False)),
             dependencies=tuple(str(x) for x in (row.get("dependencies") or ())),
             citations=tuple(str(x) for x in (row.get("citations") or ())),
@@ -73,7 +75,10 @@ def _athlete_budget(conn) -> bool:
 
 def _module_state(conn, module: Modality, on_date: str) -> dict[str, Any]:
     settings = settings_profile.state(conn, on_date)
-    if module.enabled_key == "athlete_profile.volume_budget_enabled":
+    if module.enabled_source == "per_request":
+        enabled = False
+        source = "per_request"
+    elif module.enabled_key == "athlete_profile.volume_budget_enabled":
         enabled = _athlete_budget(conn)
         source = "athlete_profile"
     elif module.enabled_key:
@@ -118,6 +123,8 @@ def _module_state(conn, module: Modality, on_date: str) -> dict[str, Any]:
 
 
 def _module_enabled(conn, module: Modality, on_date: str) -> bool:
+    if module.enabled_source == "per_request":
+        return False
     if module.enabled_key == "athlete_profile.volume_budget_enabled":
         return _athlete_budget(conn)
     if not module.enabled_key:

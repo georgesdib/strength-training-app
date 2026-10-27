@@ -41,6 +41,10 @@
   version appended"); the other state forms show a generic saved toast on success.
 - **Budget UI label fix**: the volume-budget option is now “on”, with a helper explaining
   preserve/reduce/drop and that the main-lift policy is ignored while the budget is off.
+- **Remaining modules (5c)**: continuity, fatigue-fitness shadow, test cadence and warmup
+  are profile-backed and wired; high-intensity exposure is guarded-editable and always on;
+  selection is a per-session read-only card. All YAML factors are in the registry; the Modules
+  panel carries a behaviour note and docs link.
 - **Budget-aware forecast/weekly panels (step 6)**: the programme simulates earlier projected
   sessions in the same ISO week; prescriptions carry a weekly volume panel; Prescribe, Programme
   and Workout show it. `drop` follows the real policy, held only inside the competition window.

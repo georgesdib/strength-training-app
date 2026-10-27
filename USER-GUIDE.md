@@ -542,12 +542,17 @@ programme shows the position per forecast entry, and Workout shows the planned p
 start and end. The forecast simulates earlier projected sessions in the same week; `drop` is
 held only inside the competition window. The Settings **Modules** panel lists the active modalities, their classes, dependencies and
 factor references; toggles and edits use the same CLI/API core. Hard-safety entries are
-read-only. Remaining modules (continuity, fatigue-fitness, test cadence, warmup, selection and
-high-intensity exposure) are deferred to 5c.
+read-only. The remaining modules are now present: continuity (`enabled` is the master switch,
+`apply` keeps calibration report-only when false), fatigue-fitness (shadow/report only), test
+cadence and warmup are profile-backed; selection is a per-session, read-only card. High-intensity
+exposure is always on but its lookback/symptom windows are guarded-editable: this can make the
+warning guard more or less conservative, but it does not change a load, set or RIR automatically.
+Guarded changes need the confirmation and reason.
 The hinge maximal-scheme
 policy is `undulation.maximal_hinge_allowed` (default false); set it to `true` to allow the
 maximal scheme on the currently excluded hinge IDs. Its Settings control is in the profile editor. Review keeps the historical
-snapshot. Guarded-safety keys such as the MRV cap are still rejected until step 5. In the competition
+snapshot. Guarded-safety keys such as the MRV cap and spinal/exposure windows need the
+confirmation tick, typed `SPINAL` and a reason. In the competition
 window the Prescribe page holds the drop until you tick **Confirm drop**, use `run --drop-confirm`,
 or send `drop_confirmed`; it applies to both `volume_fill` and `technique`.
 

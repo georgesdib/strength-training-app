@@ -112,7 +112,7 @@ def build_prescription(
     )
     policy_result = evaluate(document, context)
     decisions = policy_result.verdict("PRG-DP-001").details.get("decisions", {})
-    exposure_status = exposure_feature.status(conn, for_date)
+    exposure_status = exposure_feature.status(conn, for_date, config=resolved.exposure)
 
     items: list[PrescriptionItem] = []
     warnings: list[str] = []
@@ -257,6 +257,7 @@ def build_prescription(
             long_days=thresholds.continuity_long_days,
             medium_multiplier=thresholds.continuity_medium_multiplier,
             long_multiplier=thresholds.continuity_long_multiplier,
+            config=resolved.continuity,
         )
     items, gap_level, gap_warnings, load_factors = _apply_continuity(
         context, tuple(items), thresholds, prior_factors=readiness_factors,
@@ -355,7 +356,7 @@ def build_prescription(
         }
 
     # Attach the ramp before estimating a minimum session so its warm-up cost is not hidden.
-    items = warmup.attach(tuple(items))
+    items = warmup.attach(tuple(items), config=resolved.warmup)
 
     # Constraint evaluation is needed before the optional minimum-session tier: a hard veto
     # must refuse volume reduction rather than hide it behind a non-executable prescription.
@@ -523,7 +524,9 @@ def build_prescription(
             "constraints": constraint_report.status,
             "session_type": session_type,
             "under_mev": under_note,
-            "test_cadence": test_cadence.status(conn, for_date),
+            "test_cadence": test_cadence.status(
+                conn, for_date, config=resolved.test_cadence
+            ),
             "high_intensity_exposure": exposure_status.as_dict(),
             "volume_management": volume_note,
             "volume_budget": budget_note,

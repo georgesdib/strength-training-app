@@ -2842,7 +2842,7 @@ function renderProfileSettings(registry, profile) {
         const min = setting.minimum == null ? "" : ' min="' + setting.minimum + '"';
         const max = setting.maximum == null ? "" : ' max="' + setting.maximum + '"';
         control = '<input type="number" step="' + step + '"' + min + max + ' data-profile-key="' + esc(setting.key) + '" id="' + id + '">';
-      } else if (setting.kind === "table") {
+      } else if (setting.kind === "table" || setting.kind === "list") {
         control = '<textarea rows="3" spellcheck="false" data-profile-key="' + esc(setting.key) + '" id="' + id + '"></textarea>';
       } else if ((setting.choices || []).length) {
         control = '<select data-profile-key="' + esc(setting.key) + '" id="' + id + '">' +
@@ -2864,7 +2864,9 @@ function renderProfileSettings(registry, profile) {
     const value = Object.prototype.hasOwnProperty.call(overrides, setting.key)
       ? overrides[setting.key] : resolved[setting.key];
     if (setting.kind === "bool") node.checked = !!value;
-    else if (setting.kind === "table") node.value = JSON.stringify(value ?? {}, null, 2);
+    else if (setting.kind === "table" || setting.kind === "list") {
+      node.value = JSON.stringify(value ?? (setting.kind === "list" ? [] : {}), null, 2);
+    }
     else node.value = value ?? "";
     node.dataset.original = JSON.stringify(value ?? null);
     node.dataset.classification = setting.classification;
@@ -2885,8 +2887,8 @@ function profileNodeValue(node, setting) {
   if (setting.kind === "bool") return node.checked;
   if (setting.kind === "int") return Number(node.value);
   if (setting.kind === "float") return Number(node.value);
-  if (setting.kind === "table") {
-    try { return JSON.parse(node.value || "{}"); }
+  if (setting.kind === "table" || setting.kind === "list") {
+    try { return JSON.parse(node.value || (setting.kind === "list" ? "[]" : "{}")); }
     catch (error) { throw new Error(setting.key + ": invalid JSON — " + error.message); }
   }
   return node.value;
