@@ -43,3 +43,28 @@ def test_dashboard_reports_coverage_performance_and_volume():
     assert report["attendance"]["target"] == 24
     assert report["attendance"]["families"]["hinge"] == 2
     assert report["attendance"]["injury_free_weeks"] is None
+
+
+def test_injury_free_state_persists_until_another_log():
+    import datetime as dt
+
+    from strength_coach.features import attendance
+
+    store = db.Store(":memory:")
+    try:
+        repositories.append_symptom(
+            store.connection, logged_on="2024-01-03", timing="pre_session",
+            region="low_back", level=0,
+        )
+        repositories.append_symptom(
+            store.connection, logged_on="2024-01-10", timing="pre_session",
+            region="low_back", level=3,
+        )
+        result = attendance.summary(
+            store.connection, start=dt.date(2024, 1, 1), end=dt.date(2024, 1, 28),
+            weeks=4, target_per_week=3,
+        )
+    finally:
+        store.close()
+    # Week 1 is free; the week-2 injury persists through week 4 (no recovery log).
+    assert result["injury_free_weeks"] == 1

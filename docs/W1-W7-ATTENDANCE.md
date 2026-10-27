@@ -122,7 +122,7 @@ All are descriptive and have no prescription effect.
 | `main_lift_exposures` | per-main-lift session counts | `0` is a real zero |
 | `session_type_balance` | counts of the four canonical types | `0` is a real zero |
 | `measured_duration` | mean/median measured workout duration | `unknown` if none |
-| `injury_free_weeks` | weeks with no symptom flare | `unknown` if symptom coverage is absent |
+| `injury_free_weeks` | weeks in the latest logged state with no flare; a log persists until another log changes it | `unknown` before the first symptom log |
 | `completed_vs_planned` | only possible with a stored plan | currently `unknown` |
 
 Do **not** call the target shortfall “missed planned sessions”; there is no stored plan.

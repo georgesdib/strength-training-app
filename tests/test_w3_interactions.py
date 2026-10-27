@@ -111,7 +111,7 @@ def test_stacked_decay_readiness_and_deload_do_not_multiply():
     assert "MOD-FAT-001" in low_squat.rationale_refs
     assert stacked_squat.load_kg == low_squat.load_kg
     assert stacked_squat.load_factor == low_squat.load_factor
-    assert low_squat.load_factor < 0.80
+    assert abs(low_squat.load_factor - 0.80) < 1e-9
     assert low.notes["load_stack"][0]["components"] == ["e1RM decay", "readiness"]
     assert any("combined load reduction" in warning for warning in low.warnings)
     assert any("MOD-DELOAD-001" in warning for warning in stacked.warnings)

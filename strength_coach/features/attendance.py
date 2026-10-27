@@ -50,20 +50,30 @@ def summary(conn, *, start: dt.date, end: dt.date, weeks: int,
 
     symptoms = queries.symptom_entries(conn, since=start.isoformat())
     symptoms = [row for row in symptoms if str(row["logged_on"]) <= end.isoformat()]
-    logged_weeks: dict[str, list[dict]] = defaultdict(list)
+    by_day: dict[str, int] = {}
     for row in symptoms:
-        stamp = dt.date.fromisoformat(str(row["logged_on"])[:10])
-        logged_weeks[stamp.strftime("%G-W%V")].append(row)
-    flare_weeks = set()
-    for week, rows in logged_weeks.items():
-        if any(int(row["level"]) >= 2 for row in rows):
-            flare_weeks.add(week)
-    # Injury-free is only reported when every week has symptom coverage; absent entries are
-    # unknown, never "no flare".
-    injury_free = (
-        weeks - len(flare_weeks)
-        if len(logged_weeks) >= weeks else None
-    )
+        day = str(row["logged_on"])[:10]
+        by_day[day] = max(by_day.get(day, 0), int(row["level"]))
+    logged_week_labels = {
+        dt.date.fromisoformat(day).strftime("%G-W%V") for day in by_day
+    }
+    # A symptom log is a state, not a dated episode with an automatic end: the latest entry
+    # persists until another entry changes it. Weeks before the first entry stay unknown.
+    injury_free = None
+    if by_day:
+        state: bool | None = None
+        free_weeks = 0
+        cursor = start
+        while cursor <= end:
+            week_start = cursor - dt.timedelta(days=cursor.weekday())
+            week_end = min(week_start + dt.timedelta(days=6), end)
+            for day in sorted(d for d in by_day if week_start <= dt.date.fromisoformat(d) <= week_end):
+                state = by_day[day] < 2
+                by_day.pop(day, None)
+            if state is True:
+                free_weeks += 1
+            cursor = week_end + dt.timedelta(days=1)
+        injury_free = free_weeks
 
     return {
         "weeks": weeks,
@@ -85,7 +95,7 @@ def summary(conn, *, start: dt.date, end: dt.date, weeks: int,
                 round(statistics.mean(measured_rows), 1) if measured_rows else None
             ),
         },
-        "symptom_weeks_logged": len(logged_weeks),
+        "symptom_weeks_logged": len(logged_week_labels),
         "injury_free_weeks": injury_free,
         "note": "target-based attendance, not a stored plan; no prescription effect",
     }

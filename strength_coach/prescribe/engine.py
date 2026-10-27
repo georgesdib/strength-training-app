@@ -294,6 +294,8 @@ def build_prescription(
     if gap_level == "fatigue_reduced":
         fallback_level = "fatigue_reduced"
     warnings.extend(gap_warnings)
+    items, stack_warnings = _cap_automatic_load_stack(tuple(items))
+    warnings.extend(stack_warnings)
 
     # The volume budget is off by default and enabled only in the athlete profile. It moves
     # non-essential sets; a safety cut is skipped, not re-added (MOD-VOL-003). In drop mode the
@@ -1090,7 +1092,7 @@ def _load_stack(items: tuple[PrescriptionItem, ...]) -> list[dict]:
     )
     rows = []
     for item in items:
-        if item.load_kg in (None, 0) or item.load_factor >= 0.80 - 1e-9:
+        if item.load_kg in (None, 0) or item.load_factor > 0.80 + 1e-9:
             continue
         components = [
             label for ref, label in labels if ref in item.rationale_refs
@@ -1103,6 +1105,40 @@ def _load_stack(items: tuple[PrescriptionItem, ...]) -> list[dict]:
         })
     return sorted(rows, key=lambda row: (row["factor"], row["exercise_id"]))
 
+
+def _cap_automatic_load_stack(
+    items: tuple[PrescriptionItem, ...], *, floor: float = 0.80,
+) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...]]:
+    """Keep automatic load reductions (decay/readiness/continuity) at or above the floor.
+
+    Deload and the explicit technique throttle run later, so a planned reduction can still go
+    below this floor. This prevents the automatic stack from silently exceeding the 20% guard.
+    """
+    out: list[PrescriptionItem] = []
+    warnings: list[str] = []
+    dropped: list[str] = []
+    for item in items:
+        if (
+            item.load_kg is None
+            or item.load_kg <= 0
+            or item.load_factor >= floor - 1e-9
+        ):
+            out.append(item)
+            continue
+        target = item.load_kg / item.load_factor * floor
+        new_load = loads.round_down(target, item.rounding_increment_kg)
+        out.append(replace(
+            item,
+            load_kg=new_load,
+            load_factor=floor,
+            rationale_refs=item.rationale_refs + ("MOD-FAT-001",),
+        ))
+        dropped.append(item.exercise_id)
+    if dropped:
+        warnings.append(
+            "automatic load stack capped at 20% reduction: " + ", ".join(dropped)
+        )
+    return tuple(out), tuple(warnings)
 
 def _gap_band(gap_days: int | None, thresholds: config_mod.Thresholds) -> str | None:
     if gap_days is None or gap_days < thresholds.continuity_short_days:
