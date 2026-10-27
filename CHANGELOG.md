@@ -145,6 +145,7 @@
 
 ### Changed
 
+- **Back-flare alignment** (`DEC-SPINE-07/08`): the bench+hinge sumo is essential; `MOD-BACK-001` holds essential items and high-fatigue spinal lifts at RIR ≥3 with the load re-solved from the same e1RM, and the direct-erector dose is a ceiling that never restores a readiness cut. The sumo is excluded from the maximal scheme; constitution 1.19.0.
 - **A level-1 symptom reading is a flare unless a 48-hour settlement is recorded**
   (`DEC-SYMPTOM-04`, Q25 closed). An unrecorded `settled` answer — the CLI and UI default —
   counts as not settled, so `symptom --level 1` no longer clears `MOD-BACK-001` and the

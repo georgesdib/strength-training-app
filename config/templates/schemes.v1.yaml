@@ -15,9 +15,10 @@ schemes:
   maximal:
     label: "maximal strength (1-3 reps)"
     reps: [1, 3]
-    # Only lifts with safeties, and never the hinges.
-    exclude: [trap_bar_deadlift, rdl, good_morning, rack_pull, conventional_deadlift,
-              jefferson_curl]
+    # Only lifts with safeties, and never the hinges. Sumo is explicit here as well as a
+    # hinge: once it is essential, the DUP week-3 scheme must still fall back to strength.
+    exclude: [trap_bar_deadlift, sumo_deadlift, rdl, good_morning, rack_pull,
+              conventional_deadlift, jefferson_curl]
 
   strength:
     label: "strength (3-5 reps)"

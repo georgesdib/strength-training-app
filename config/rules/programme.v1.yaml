@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.18.0"
+  version: "1.19.0"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -55,6 +55,8 @@ document:
       change: "MOD-VOL-004 (step 9b) applies one non-essential compensation slot when the budget and compensation apply are enabled: a group filled before today frees its accessory, the best-weighted under-target receiver receives one slot, and only an executable load is added. Drop remains 9c (DEC-VOLUME-13/14)."
     - version: "1.18.0"
       change: "MOD-VOL-005 (step 9c-1) adds the drop engine: at/above the high tolerance band the session becomes technique; below it, a filled group's main/accessories are removed and a multi-slot volume_fill is built into the high band. Session identity and confirmation UI follow in later chunks (DEC-VOLUME-18)."
+    - version: "1.19.0"
+      change: "MOD-BACK-001 names its scope: the effort hold covers essential items and high-fatigue spinal lifts, and the direct-erector dose is a ceiling that never restores a set removed by readiness. PRG-RIR-001 says primary compounds; MOD-MIN-001 says essential items; MOD-VOL-003 distinguishes essential items from taxonomy main lifts (DEC-SPINE-07)."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -103,7 +105,7 @@ rules:
       # to exist.
       sessions: [squat, hinge, bench_squat, bench_hinge]
     statement: >
-      Main lifts at RIR 1-4, with 2-3 as the default target. RIR 0 — a grinding set — is
+      Primary compounds at RIR 1-4, with 2-3 as the default target. RIR 0 — a grinding set — is
       prohibited, as are max singles and 1RM testing inside a block. The allowed window is
       deliberately wider than the target: the proximity-to-failure evidence does not support a
       tighter veto (strength gains are similar across a wide RIR range, hypertrophy improves
@@ -427,8 +429,8 @@ modifiers:
     statement: >
       When enabled in the athlete profile, adjust non-essential accessory sets so each movement
       group moves toward its effective weekly target, within the per-group session cap, total cap,
-      time cap and MRV. Never increase an essential main lift. In preserve, never trim one. In the
-      opt-in reduce mode (main_lift_policy: reduce), trim a filled group's main lift to the
+      time cap and MRV. Never increase an essential item. In preserve, never trim one. In the
+      opt-in reduce mode (main_lift_policy: reduce), trim a filled group's taxonomy main lift to the
       configured floor; the session type is unchanged and drop is outside this rule. A set removed
       by readiness, deload or the spinal cap is exempt and must not be re-added.
     when:
@@ -497,17 +499,21 @@ modifiers:
       reason: "Shadow selector plus explicit UI/CLI opt-in (DEC-SELECT-02)."
 
   - id: MOD-BACK-001
-    implemented_by: "strength_coach/prescribe/engine.py::_apply_back_flare"
+    implemented_by: "strength_coach/prescribe/engine.py::_apply_back_flare_dose"
     title: "Back symptom flare deload"
     statement: >
-      If back symptoms rise and do not settle in 24-48 h, cut erector volume to the
-      weeks 1-3 dose and hold main lifts at RIR 3-4 for a week.
+      If back symptoms rise and do not settle in 24-48 h, cut direct-erector volume to at most
+      the weeks 1-3 dose, never restore a set removed by readiness or another earlier modifier,
+      and hold the session's essential items and any high-fatigue spinal lift at a target of at
+      least RIR 3 for a week. Each held item's load is re-solved from the same e1RM at that RIR,
+      never relabelled on a load solved for a lower RIR.
     when:
       any:
         - {input: symptom.back_flare, op: "==", value: true}
     then:
-      erector_dose: "weeks_1_3"
-      main_lift_rir_override: {min: 3, max: 4}
+      erector_dose: "at_most_weeks_1_3"
+      applies_to: [essential, high_fatigue_spinal]
+      hold_rir: {min: 3, max: 4}
       duration_days: 7
     availability:
       status: available
@@ -563,8 +569,8 @@ modifiers:
     title: "User-selected minimum effective session"
     statement: >
       When the athlete asks for a shorter session (30/45/60 minutes), cut non-essential
-      accessory work first; the explicit deeper tier may reduce main-lift sets to a floor of
-      2. Load, RIR, reps and exercise identity never change, and no work is ever added. It is
+      accessory work first; the explicit deeper tier may reduce essential-item sets to a floor
+      of 2. Load, RIR, reps and exercise identity never change, and no work is ever added. It is
       refused when the prescription is not executable or a hard constraint vetoes an item.
     when:
       any:

@@ -45,6 +45,9 @@ class PrescriptionItem:
     # Cumulative load multiplier from e1RM decay, readiness, continuity and deload. Display
     # provenance only; the stored prescription remains the source for the actual load.
     load_factor: float = 1.0
+    # Resolved flare policy: hold, reviewed, dose or none. Generation-time only; the stored
+    # prescription is the outcome, not this policy (DEC-SPINE-07).
+    flare: str = "none"
     # Main-lift ramp sets; empty for accessories and unknown loads.
     warmup: tuple[WarmupSet, ...] = ()
 

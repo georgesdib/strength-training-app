@@ -60,6 +60,10 @@ Do not use `history_equivalent_of` for a different variant with different loads
 - every id must exist in the taxonomy;
 - all variants share the slot’s sets/reps/RIR/rest;
 - `essential: true` treats whichever is selected as essential work.
+- `flare` is optional and belongs only to the back-symptom flare: `hold_effort` forces the
+  RIR-hold branch on a non-essential item, `erector_dose` forces the direct-erector dose branch,
+  and `auto` (the default) derives from the taxonomy and `essential`. It is not a general effort
+  setting (`DEC-SPINE-07`).
 
 The engine still chooses the most recently trained variant. The shadow selection panel ranks
 all configured variants but does not change the prescription.

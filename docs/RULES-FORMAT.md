@@ -24,6 +24,19 @@ implements the predicate once and tests it.
 Scope is descriptive metadata: predicates read the stored sets, not this list, so a stale
 label is invisible at runtime and is caught only by the loader test that pins the vocabulary.
 
+### Terms used in rule text
+
+| term | meaning |
+|---|---|
+| main lift | taxonomy `main_lift` / the constitution's named lift collection |
+| primary compound | `primary_compound` (the RIR window scope) |
+| essential item | the template slot's `essential` flag (session role) |
+| direct erector work | `direct_erector` (a dose class, not an anatomy claim) |
+| high-fatigue spinal lift | `high_fatigue_spinal` (the spinal-cap risk marker) |
+
+`MOD-BACK-001` uses these terms explicitly: "essential items and any high-fatigue spinal lift"
+is a different set from "main lifts" (`DEC-SPINE-07`).
+
 ## 2. Anatomy of a rule
 
 ```yaml

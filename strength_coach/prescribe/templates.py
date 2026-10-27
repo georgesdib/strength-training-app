@@ -41,6 +41,9 @@ class Slot:
     # Power work is prescribed by intent and quality, not by a load target: it is excluded
     # from weekly rep-scheme undulation and carries no double-progression citation.
     power: bool = False
+    # Optional flare policy. None/auto derives from the taxonomy and the essential flag;
+    # hold_effort and erector_dose are explicit template choices (DEC-SPINE-07).
+    flare: str | None = None
 
     @property
     def exercises(self) -> tuple[str, ...]:
@@ -127,6 +130,12 @@ def _parse_slot(entry: Mapping[str, Any], day: str) -> Slot:
     if load_source not in LOAD_SOURCES:
         raise TemplateError(f"{where}: load_source must be one of {LOAD_SOURCES}")
 
+    flare = entry.get("flare")
+    if flare is not None and flare not in ("auto", "hold_effort", "erector_dose"):
+        raise TemplateError(
+            f"{where}: flare must be auto, hold_effort or erector_dose"
+        )
+
     reps = entry.get("reps") or {}
     rir = entry.get("rir") or {}
     try:
@@ -143,6 +152,7 @@ def _parse_slot(entry: Mapping[str, Any], day: str) -> Slot:
             exercise=str(exercise) if exercise else None,
             variants=variants,
             power=bool(entry.get("power", False)),
+            flare=str(flare) if flare is not None else None,
         )
     except KeyError as exc:
         raise TemplateError(f"{where}: missing required field {exc}") from exc

@@ -242,16 +242,29 @@ def build_prescription(
         fallback_level = "fatigue_reduced"
     warnings.extend(readiness_warnings)
 
+    flare_note: dict[str, list[str]] = {}
     if context.symptom_flare is True:
-        # MOD-BACK-001: a flare returns erector work to the weeks 1-3 dose and holds main
-        # lifts at RIR 3-4 for the week. Applied after the fatigue modifier, so a flare
-        # always wins over a load reduction.
-        items = list(_apply_back_flare(tuple(items), context, thresholds))
+        # The effort hold was applied at build time; this pass applies the erector dose
+        # ceiling after readiness, so a readiness set cut is not undone (DEC-SPINE-07).
+        items, flare_dose = _apply_back_flare_dose(tuple(items), context, thresholds)
+        held = [item.exercise_id for item in items if item.flare == "hold"]
+        reviewed = [item.exercise_id for item in items if item.flare == "reviewed"]
+        parts = []
+        if held:
+            parts.append("held " + ", ".join(held))
+        if flare_dose:
+            parts.append("erector dose " + ", ".join(flare_dose))
+        if reviewed:
+            parts.append("reviewed unchanged " + ", ".join(reviewed))
         warnings.append(
             f"MOD-BACK-001: back flare (level {context.symptom_level}, {context.symptom_on}); "
-            f"erector work back to the weeks 1-3 dose, main lifts at RIR "
-            f"{thresholds.back_flare_main_rir}"
+            + ("; ".join(parts) if parts else "no item needed a change")
         )
+        flare_note = {
+            "held": held,
+            "reviewed_unchanged": reviewed,
+            "dose": list(flare_dose),
+        }
 
     continuity_cal = None
     if context.gap_days is not None and context.gap_days >= thresholds.continuity_short_days:
@@ -526,6 +539,7 @@ def build_prescription(
                 "include_essential": readiness_config.set_reduction_include_essential,
             },
             "back_flare": bool(context.symptom_flare),
+            "back_flare_review": flare_note,
             "constraints": constraint_report.status,
             "session_type": session_type,
             "under_mev": under_note,
@@ -1307,6 +1321,11 @@ def _apply_undulation(
             essential=item.essential,
             load_source="e1rm" if item.essential else "double_progression",
             exercise=item.exercise_id,
+            flare=(
+                "hold_effort" if item.flare == "hold"
+                else "erector_dose" if item.flare == "dose"
+                else None
+            ),
         )
         rebuilt, _ = build_item(
             conn, context, slot, item.order_index, thresholds, for_date, decisions, template,
@@ -1318,39 +1337,48 @@ def _apply_undulation(
     return tuple(out), (f"DUP week {cycle_week}: {detail}",), dict(plan)
 
 
-def _apply_back_flare(
+def _apply_back_flare_dose(
     items: tuple[PrescriptionItem, ...],
     context: RuleContext,
     thresholds: config_mod.Thresholds,
-) -> tuple[PrescriptionItem, ...]:
-    """MOD-BACK-001 as a transformation: erector dose down, main-lift effort held back."""
-    extra: tuple[str, ...] = ("MOD-BACK-001",)
-    if context.symptom_on:
-        extra += (f"symptom:{context.symptom_on}",)
+) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...]]:
+    """Apply the weeks 1-3 erector dose as a ceiling after readiness has run.
 
-    added = float(thresholds.back_flare_erector_added_kg)
+    Readiness may already have removed a set; the ceiling preserves that lower dose instead of
+    restoring the third set (DEC-SPINE-07). A no-op item is marked `reviewed`, not cited.
+    """
     out: list[PrescriptionItem] = []
+    changed: list[str] = []
     for item in items:
-        refs = item.rationale_refs + extra
-        if context.entity(item.exercise_id).get("direct_erector", False):
-            out.append(
-                replace(
-                    item,
-                    sets=thresholds.back_flare_erector_sets,
-                    load_kg=added,
-                    load_basis="bodyweight_total" if added == 0 else "external",
-                    rationale_refs=refs,
-                    unknown_load_reason=None,
-                )
+        if item.flare != "dose":
+            out.append(item)
+            continue
+        sets = min(int(item.sets), int(thresholds.back_flare_erector_sets))
+        added = float(thresholds.back_flare_erector_added_kg)
+        basis = "bodyweight_total" if added == 0 else "external"
+        differs = (
+            sets != item.sets
+            or item.load_kg != added
+            or item.load_basis != basis
+        )
+        refs = item.rationale_refs
+        if differs:
+            refs = refs + ("MOD-BACK-001",)
+            if context.symptom_on:
+                refs = refs + (f"symptom:{context.symptom_on}",)
+            changed.append(item.exercise_id)
+        out.append(
+            replace(
+                item,
+                sets=sets,
+                load_kg=added,
+                load_basis=basis,
+                rationale_refs=refs,
+                unknown_load_reason=None,
+                flare="dose" if differs else "reviewed",
             )
-        elif item.essential:
-            out.append(
-                replace(item, rir_target=thresholds.back_flare_main_rir, rationale_refs=refs)
-            )
-        else:
-            out.append(replace(item, rationale_refs=refs))
-    return tuple(out)
-
+        )
+    return tuple(out), tuple(changed)
 
 def _apply_compensation(
     conn,
@@ -1467,6 +1495,25 @@ def _apply_compensation(
     }
 
 
+def _resolve_flare_policy(slot, entity, power_exercise: bool, context) -> str:
+    """Resolve the back-flare treatment for one item (DEC-SPINE-07).
+
+    Only a live flare applies anything. Power work is untouched. Direct-erector work gets the
+    dose branch; an explicit slot override wins next; otherwise an essential item or any
+    high-fatigue spinal lift is held. A 'reviewed' item is eligible but already at the RIR
+    floor, so it is recorded in the modifier note rather than cited.
+    """
+    if context.symptom_flare is not True or power_exercise:
+        return "none"
+    if slot.flare == "erector_dose" or entity.get("direct_erector", False):
+        return "dose"
+    if slot.flare == "hold_effort":
+        return "hold"
+    if slot.essential or entity.get("high_fatigue_spinal", False):
+        return "hold"
+    return "none"
+
+
 def build_item(
     conn,
     context: RuleContext,
@@ -1501,6 +1548,12 @@ def build_item(
     # A power jump is never load-progressed, even if a proposal rebuilds the item through a
     # generic slot. The pattern check is the backstop; the template also uses bodyweight.
     power_exercise = bool(slot.power) or str(props.get("pattern")) == "power_jump"
+    flare = _resolve_flare_policy(slot, props, power_exercise, context)
+    effective_rir = slot.rir_low
+    if flare == "hold":
+        effective_rir = max(int(slot.rir_low), int(thresholds.back_flare_main_rir))
+        if effective_rir == slot.rir_low and slot.flare != "hold_effort":
+            flare = "reviewed"
     load: float | None
     refs: tuple[str, ...] = ()
     unknown_reason: str | None = None
@@ -1569,7 +1622,7 @@ def build_item(
                     f"{exercise_id}: e1RM is the median of {coverage} sets over up to "
                     f"{thresholds.e1rm_robust_window_days} days"
                 )
-            load = loads.solve_load(e1rm_kg, slot.reps_low, slot.rir_low, increment)
+            load = loads.solve_load(e1rm_kg, slot.reps_low, effective_rir, increment)
             refs = ("PRG-RIR-001", ref)
             if calibrated:
                 refs += ("MOD-E1RM-001",)
@@ -1634,6 +1687,11 @@ def build_item(
             f"quality drops"
         )
 
+    if flare == "hold":
+        refs = refs + ("MOD-BACK-001",)
+        if context.symptom_on:
+            refs = refs + (f"symptom:{context.symptom_on}",)
+
     item = PrescriptionItem(
         order_index=index,
         exercise_id=exercise_id,
@@ -1647,9 +1705,10 @@ def build_item(
             else "external"
         ),
         rounding_increment_kg=increment,
-        rir_target=slot.rir_low,
+        rir_target=effective_rir,
         rest_s=slot.rest_s,
         essential=slot.essential,
+        flare=flare,
         rationale_refs=refs,
         time_cap_s=template.time_cap_s if slot.essential else None,
         unknown_load_reason=unknown_reason,

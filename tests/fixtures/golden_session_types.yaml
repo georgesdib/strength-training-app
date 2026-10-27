@@ -168,14 +168,14 @@ bench_hinge:
     rest_s: 180
     essential: true
   - exercise_id: sumo_deadlift
-    sets: 4
+    sets: 3
     reps_low: 3
     reps_high: 5
     load_kg: 126.5
     load_basis: external
     rir_target: 2
     rest_s: 180
-    essential: false
+    essential: true
   - exercise_id: pull_up
     sets: 3
     reps_low: 6

@@ -298,7 +298,7 @@ def test_top_up_capacity_is_zero_where_no_accessory_exists():
     bench_hinge = volume_budget.top_up_capacity(
         volume_budget.template_rows("bench_hinge"), config=config
     )
-    assert bench_hinge["hinge"]["sets"] > 0      # sumo is non-essential on this day
+    assert bench_hinge["hinge"]["sets"] == 0     # sumo is essential on this day
 
 
 def test_per_pattern_status_catches_a_group_deficit_the_total_hides():

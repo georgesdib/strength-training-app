@@ -8,7 +8,7 @@ for any part.
 
 | part | finding | status | blocking input |
 |---|---|---|---|
-| A | back-flare scope misses a non-essential high-fatigue hinge; the sumo is not aligned with the competition squat; interaction tests are missing; the erector dose can be reset upward after a readiness cut | decided (`DEC-SPINE-07`); the dose-ceiling clarification in A.2.6 is part of the implementation, pending | none |
+| A | back-flare scope misses a non-essential high-fatigue hinge; the sumo is not aligned with the competition squat; interaction tests are missing; the erector dose can be reset upward after a readiness cut | implemented 2026-10-27 (`DEC-SPINE-08`); dose ceiling and interaction matrix included | none |
 | B | power work is displayed as RIR-limited but instructed as quality-limited | decided (`DEC-POWER-02`), implementation pending | none (decision recorded) |
 | C | the programme review and dependent summaries describe the old bench+hinge support | agreed; docs/tooling only | none |
 | D | same-date recorded sets are counted as completed **and** added as proposed in the MRV cap, the spinal cap and the budget application | decided (`DEC-VOLUME-30`), implementation pending | none (decision recorded) |
@@ -275,6 +275,9 @@ number honest.
   without a decision.
 - **Budget capacity.** Hinge top-up capacity on `bench_hinge` becomes 0; the budget may report
   "under, no non-essential capacity". Correct, not a bug.
+- **Under-MEV top-up.** Because the sumo is essential, the under-MEV accessory rule no longer
+  adds a set to it; the golden fixture drops from 4 to 3 sets on a persistent under-MEV week.
+  Same exclusion as the competition squat; not a bug.
 - **Drop is unaffected.** `plan_drop` removes the whole filled-group slot, not by `essential`, so
   the sumo is still removed when hinge is filled. Matches the competition squat.
 - **The 20% combined load cap** still covers readiness+continuity only; a flare RIR hold is not a

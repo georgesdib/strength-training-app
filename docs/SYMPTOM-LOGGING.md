@@ -38,6 +38,12 @@ unrecorded answer counts as **not** settled, because a missing observation is no
 it settled (`DEC-SYMPTOM-04`). For level 2–3 the field is recorded but ignored, because
 severity already decides. The definition lives in one place, `domain/symptoms.py::flare_from`.
 
+On a flare, `MOD-BACK-001` holds the session's essential items and any high-fatigue spinal
+lift at a target of at least RIR 3 and re-solves their load from their own e1RM. Direct-erector
+work returns to **at most** the weeks 1–3 dose (3 sets at bodyweight); a set already removed by
+readiness stays removed. The prescription records which items were held, reviewed unchanged or
+given the dose in `notes["back_flare_review"]`.
+
 ## 3. Logging an episode
 
 1. **Onset.** Log the level you have, before the session:
