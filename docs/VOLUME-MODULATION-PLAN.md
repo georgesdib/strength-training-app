@@ -1108,3 +1108,115 @@ What exists now:
 **Deliberately not in chunk 1:** budget allocation, target/MEV/MAV/MRV re-basing, session caps,
 live activation, golden updates. Those need the retrospective effective/hard ratio and a reviewed
 target baseline (chunk 2), then UI/docs/rollback (chunk 3).
+## 16. Effective-set audit and the target decision (step 8, pre-activation)
+
+This section records the analysis and the exact decision. **Nothing here is live.** The live profile
+uses `volume.ledger.set_accounting=hard`; the budget still counts raw sets.
+
+### 16.1 The question
+
+Should the ledger count indirect work? If yes, what weight, and which numbers must change?
+
+### 16.2 Proposed unit
+
+- direct working set for its primary target group: **1.0**
+- configured indirect target group: **0.25** (revised down from 0.5)
+- no credit back to the same group
+- warm-ups/non-working sets: no credit
+- session caps and time estimates remain **raw hard sets**
+
+Pattern-level map:
+
+| direct | indirect 0.25 |
+|---|---|
+| horizontal push | vertical push |
+| vertical push | horizontal push |
+| horizontal pull | vertical pull |
+| vertical pull | horizontal pull |
+| squat | core |
+| hinge | core |
+| unilateral hinge | hinge |
+
+### 16.3 Numbers
+
+Hard target sum: **57 hard sets**.
+
+Target-implied effective target (direct target plus the indirect credit implied by the target map):
+
+| group | hard | effective |
+|---|---:|---:|
+| squat | 10 | 10 |
+| hinge | 6.5 | 6.5 |
+| hinge_unilateral | 0 | 0 |
+| horizontal push | 12 | 12.75 |
+| horizontal pull | 9 | 10.125 |
+| vertical push | 3 | 6 |
+| vertical pull | 4.5 | 6.75 |
+| core | 6 | 10.125 |
+| erector_extension | 3 | 3 |
+| power_jump | 3 | 3 |
+| **total** | **57** | **68.25** |
+
+The target table is stored under `budget.weekly_target_effective` / `weekly_total_effective`.
+It is not used while accounting is hard.
+
+### 16.4 The two audits
+
+**Observed 8-week ratio** (live data, complete coverage, one zero week):
+
+| group | hard avg | effective avg | ratio |
+|---|---:|---:|---:|
+| squat | 3.25 | 3.25 | 1.00 |
+| hinge | 4.50 | 4.50 | 1.00 |
+| horizontal push | 8.38 | 8.69 | 1.04 |
+| horizontal pull | 1.50 | 1.72 | 1.15 |
+| vertical push | 1.25 | 3.34 | 2.67 |
+| vertical pull | 0.88 | 1.25 | 1.42 |
+| core | 3.88 | 5.81 | 1.50 |
+
+Using observed ratios to re-base would have produced vertical push 13.1 and core 12.0, and a
+total of 80.4. Rejected: low direct denominators make the ratio unstable and amplify undertrained
+groups.
+
+**Historical decision audit** — 12 weekly closes, hard status versus effective status:
+
+- with MEV/MRV **kept at current numeric thresholds**, 7 week/group decisions changed, all
+  `under → within`: core (3), vertical push (3), vertical pull (1);
+- with MEV/MRV scaled by the target ratio, only 2 changed, both `within → under`.
+
+The second result shows that scaling the landmarks cancels most of the benefit. The first shows
+the indirect credit is doing real work in the groups it targets.
+
+### 16.5 Decision
+
+**Scale the weekly budget target to 68.25 effective sets. Do not scale MEV/MAV/MRV.** The
+landmarks remain the current numeric values as effective-set thresholds. MRV is an effective-set
+ceiling; the safety consequence is accepted for the step-8 evaluation. Raw sets remain visible.
+
+This is the only version where indirect credit changes the decision in a meaningful way. Scaling
+both the target and the landmarks would make the change mostly cosmetic.
+
+### 16.6 What is not yet done
+
+- The budget still counts raw sets. Target/landmark selection is stored but unused.
+- `allocate_items`, trim/top-up, compensation, drop, report and forecast are not migrated.
+- `volume.ledger.set_accounting` remains `hard`; do not switch it.
+- No golden prescription changed.
+
+### 16.7 Required before live activation
+
+1. Convert completed/today/projected budget counts to effective.
+2. Convert allocation, trim/top-up and compensation.
+3. Keep session caps and time raw.
+4. Run the hard-vs-effective prescription diff over the same 12 weeks.
+5. Review the diff.
+6. Set the profile to `effective`; keep the switch as rollback.
+7. Show raw + effective in the UI/CLI/API and update golden fixtures.
+
+### 16.8 Risks and limits
+
+- 0.25 is an assumption; there is no trial of cross-group set equivalence.
+- Effective MRV permits more raw sets than the hard MRV did.
+- The map is pattern-level and may over-credit low-direct/high-indirect groups.
+- Historical reports will change when recomputed; old prescriptions are not rewritten.
+- The audit is descriptive and from one athlete's log; it is not a validation of the weights.

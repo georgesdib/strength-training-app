@@ -77,6 +77,8 @@ def test_weekly_total_is_explicit_and_must_match_the_category_sum(tmp_path):
     consistent.write_text(
         text.replace("  weekly_total: 57", "  weekly_total: 60").replace(
             "    squat: 10", "    squat: 13"
+        ).replace(
+            "  weekly_total_effective: 68.25", "  weekly_total_effective: 71.25"
         ),
         encoding="utf-8",
     )

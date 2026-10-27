@@ -42,6 +42,21 @@ budget:
   # Explicit total. It must equal the sum of weekly_target below; the check catches editing only
   # one of the two numbers. Change both when changing the weekly dose.
   weekly_total: 57
+  # Effective-set target used only when ledger.set_accounting=effective. Direct 1.0,
+  # indirect 0.25; this preserves the current direct dose and is NOT applied while accounting
+  # remains hard. The total must equal the sum of weekly_target_effective.
+  weekly_total_effective: 68.25
+  weekly_target_effective:
+    squat: 10
+    hinge: 6.5
+    hinge_unilateral: 0
+    horizontal_push: 12.75
+    horizontal_pull: 10.125
+    vertical_push: 6
+    vertical_pull: 6.75
+    core: 10.125
+    erector_extension: 3
+    power_jump: 3
   # Opt-in reduce mode: keep at least this many sets of a filled group's main lift. A coaching
   # assumption, configurable; preserve never trims a main lift (ASSUMPTION-49).
   main_lift_floor: 3

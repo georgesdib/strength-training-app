@@ -115,6 +115,8 @@ class BudgetConfig:
     enabled: bool = False
     weekly_target: Mapping[str, float] = field(default_factory=lambda: dict(DEFAULT_TARGET))
     weekly_total: float | None = None
+    weekly_target_effective: Mapping[str, float] = field(default_factory=lambda: dict(DEFAULT_TARGET))
+    weekly_total_effective: float | None = None
     main_lift_floor: int = 3
     compensation_enabled: bool = False
     compensation_apply: bool = False
@@ -158,6 +160,16 @@ class BudgetConfig:
             return float(self.weekly_total)
         return sum(float(value) for value in self.weekly_target.values())
 
+    def targets_for(self, accounting: str) -> Mapping[str, float]:
+        if accounting == "effective":
+            return self.weekly_target_effective
+        return self.weekly_target
+
+    def total_for(self, accounting: str) -> float:
+        if accounting == "effective" and self.weekly_total_effective is not None:
+            return float(self.weekly_total_effective)
+        return self.total_target()
+
     @classmethod
     def load(
         cls, path: str | Path | None = None, *,
@@ -188,6 +200,24 @@ class BudgetConfig:
             )
         if any(value < 0 for value in targets.values()):
             raise ValueError("volume budget targets must be non-negative")
+        effective_targets = {
+            str(key): float(value)
+            for key, value in (body.get("weekly_target_effective") or targets).items()
+        }
+        if set(effective_targets) != set(TARGET_KEYS):
+            raise ValueError("volume budget effective targets must cover every target key")
+        if any(value < 0 for value in effective_targets.values()):
+            raise ValueError("volume budget effective targets must be non-negative")
+        raw_effective_total = body.get("weekly_total_effective")
+        effective_total = (
+            float(raw_effective_total) if raw_effective_total is not None
+            else sum(effective_targets.values())
+        )
+        if abs(effective_total - sum(effective_targets.values())) > 0.51:
+            raise ValueError(
+                "volume budget weekly_total_effective must equal the sum of "
+                "weekly_target_effective"
+            )
         raw_total = body.get("weekly_total")
         total = float(raw_total) if raw_total is not None else sum(targets.values())
         if total < 0:
@@ -323,6 +353,8 @@ class BudgetConfig:
             enabled=bool(body.get("enabled", False)),
             weekly_target=targets,
             weekly_total=total,
+            weekly_target_effective=effective_targets,
+            weekly_total_effective=effective_total,
             main_lift_floor=floor,
             compensation_enabled=comp_enabled,
             compensation_apply=comp_apply,
