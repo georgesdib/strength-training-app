@@ -221,7 +221,7 @@ never read `data/raw`.
 | `docs/INJURY-SIGNAL.md` | per-region injury signals, what "tolerated" loading means, injury-to-exercise links |
 | `docs/SYMPTOM-LOGGING.md` | the 0-3 reading: what counts as a flare, and what to log when a symptom settles |
 | `docs/AUDIT-FOLLOW-UP-PLAN.md` | implemented audit follow-up: back-flare scope, quality-limited power, programme-document drift, same-date accounting and the audit gate |
-| `docs/AUDIT-FOLLOW-UP-REPORT.md` | audit follow-up report: five previous fixes verified, residual risks and unverified areas |
+| `docs/AUDIT-FOLLOW-UP-REPORT.md` | closed audit follow-up report: five fixes verified, all residuals closed, accepted coverage limitations and no follow-up actions |
 | `docs/CORE-TRAINING.md` | core/trunk training evidence and the proposed programme amendment |
 | `docs/LONGEVITY-REVIEW.md` | modality review against the longevity-first goal: gaps, doses, priorities |
 | `docs/FATIGUE-FITNESS.md` | fatigue-fitness evidence, strength recovery, e1RM calibration and why no model drives loads |

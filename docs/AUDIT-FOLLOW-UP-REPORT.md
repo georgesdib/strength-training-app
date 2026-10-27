@@ -1,6 +1,9 @@
 # AUDIT FOLLOW-UP — report
 
 **Date:** 2026-10-27
+**Status: CLOSED 2026-10-27.** No open findings, residuals or follow-up actions. The owner
+backs up `data/coach.db` externally; browser-level UI tests and a SQLite concurrency test were
+explicitly declined as unnecessary. The pre-`0041` backup is retained locally (git-ignored).
 **Scope:** the five previous audit findings and the changed surfaces from
 [`AUDIT-FOLLOW-UP-PLAN.md`](AUDIT-FOLLOW-UP-PLAN.md): back-flare scope, quality-limited power,
 programme documentation, same-date accounting and the interaction tests. Risk-based T1/T2/T3
@@ -48,7 +51,7 @@ wrong number/state) finding remains open.
 | R1 | S3 (closed) | `plan_drop` and the under-MEV top-up were counting a same-date session as completed *and* adding the plan | Fixed by `DEC-VOLUME-32`: `_apply_under_mev` uses `prior_to(for_date)`; `plan_drop` supplies the template as the revision plan. `tests/test_same_date_accounting.py` covers both | Was a narrow opt-in edge; now the revision semantic is uniform across the budget paths |
 | R2 | S3 (closed, not a defect) | `features/baseline.working_rir_median` includes box-jump RIR values, though `rir_compliance_pct` excludes them | Descriptive median only; the value is recorded effort, not a target. DEC-POWER-03 excludes the window/compliance path | Intended behaviour: preserve the logged observation without scoring it as a target |
 | R3 | S3 (closed) | Readiness's own RIR bump was not re-solved against the load (pre-existing) | Fixed by `DEC-READINESS-18`: the load is re-solved at the bumped RIR from the factor-scaled e1RM. `tests/test_readiness_score.py` asserts the solver result and the changed-load case | Loads for readiness-reduced items changed; the printed RIR and load now describe the same set |
-| R4 | S3 (closed) | No browser-level UI test suite; ruff is configured but not installed; SQLite concurrency/lock not exercised. The populated-DB migration was rehearsed and applied on 2026-10-27 | Tooling limitation, stated rather than papered over; migration now verified on the real file | UI rendering and rare concurrency paths are not verified automatically |
+| R4 | S3 (closed, accepted coverage) | No browser-level UI test suite; ruff is configured but not installed; SQLite concurrency/lock not exercised. The populated-DB migration was rehearsed and applied on 2026-10-27 | Tooling limitation, stated rather than papered over; migration now verified on the real file. The owner declined browser and concurrency follow-up tests on 2026-10-27 and backs up the live DB externally | UI rendering and rare concurrency paths remain unverified but accepted |
 
 All four are closed. R1 and R3 are fixed with regression tests; R2 is not a defect; R4 is an
 accepted coverage limitation. No S3 residual remains open.
@@ -151,22 +154,26 @@ depend on the machine-local calendar.
   append-only behaviour, not a migration defect.
 - **Two-a-days** on one date are treated as that date's work (`ASSUMPTION-38`); a genuine second
   session would be undercounted by the revision view.
-- **No browser/lint gate** means UI and style regressions rely on tests and manual checks.
+- **No browser/lint gate** means UI and style regressions rely on tests and manual checks. This
+  is accepted as a coverage limitation; no browser or concurrency follow-up test is planned.
 
 ---
 
-## 7. Recommended next actions
+## 7. Closure
 
-All four residuals are closed; no code action remains. The migration `0041` rehearsal and live
-apply are complete; the pre-migration backup is retained under `data/` (git-ignored).
+**The audit is fully closed as of 2026-10-27.** There are no open findings, no open residual
+risks and no code follow-up actions.
 
-Operational follow-ups, none blocking:
-
-1. Keep a periodic backup of `data/coach.db`; the live file now records migration `0041`.
-2. If a browser-level UI test is added later, use it to cover the quality-stop and readiness
-   displays; R4 remains a coverage limitation, not a defect.
-3. If SQLite concurrency becomes real (more than one user/process), add a lock test; the current
-   app is single-user local.
+- **Backup — done by the owner.** `data/coach.db` is backed up externally; the local
+  pre-`0041` backup is also retained (git-ignored).
+- **Browser-level UI test — struck.** The owner declined it on 2026-10-27. R4 remains an
+  accepted coverage limitation, not an open action.
+- **SQLite concurrency test — struck.** The owner declined it on 2026-10-27; the app is
+  single-user local.
+- **Migration `0041` — complete.** Rehearsed on a copy, applied live, 41 migrations recorded,
+  `integrity_check = ok`, old rows default to `effort_model = 'rir'`, `quality_stop IS NULL`.
+- **`ruff` / live LLM — coverage notes only.** Not required for closure; the deterministic tests
+  and the `NullLLM` path are what the audit covered.
 
 The deterministic engine remains authoritative. R1 and R3 are implemented as recorded decisions;
 any further change to them needs a new decision.
