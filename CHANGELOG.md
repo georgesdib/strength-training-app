@@ -43,6 +43,8 @@
   preserve/reduce/drop and that the main-lift policy is ignored while the budget is off.
 - **Volume-ledger coverage plan**: recorded the calendar-window denominator and complete-coverage
   zero-fill design, including break/deload handling and under-MEV eligibility; not implemented.
+- **Roadmap placeholder**: nicer UI, adherence encouragement and KPI/adherence stats;
+  future only, no implementation or rule change.
 - **Volume-ledger coverage correction**: calendar-window denominator, opt-in complete-coverage
   zero-fill, coverage arithmetic, and an under-MEV clock that resets on break/deload/zero weeks.
   The live profile is set to complete. `unknown` remains the app default.

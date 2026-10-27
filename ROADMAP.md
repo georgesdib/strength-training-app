@@ -1062,6 +1062,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | v0.5 | Deeper labelled calibration set | in progress (§4.14) |
 | future | LLM-guided suggested programme | idea only (§4.18) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
+| future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
 
 ### 4.20 Post-review follow-ups  (unscheduled)
 
@@ -1151,6 +1152,26 @@ unscheduled.
 **v0.5:** see §4.13a. First actions are the cardio data audit, capture completion, impulse
 contract, and comparable workout data collection.
 
+### 4.23 Nicer UI, adherence encouragement and KPIs  (future; not scheduled)
+
+**Status:** placeholder only. No implementation date, no approved design, no rule change.
+
+The goal is to make the local UI easier to use and to make adherence visible without turning
+training into a streak contest. Planned scope:
+
+- **UI polish:** clearer visual hierarchy, less repetitive form work, better empty/loading/error
+  states, and a guided path from readiness to review.
+- **Adherence encouragement:** weekly planned-vs-completed view, gentle nudges, and explicit
+  handling of planned breaks, illness and deloads so they are not counted as failure.
+- **KPI panel:** planned sessions, completed sessions, adherence %, set completion, skipped or
+  voided sessions, and volume target hit/miss, with the same definitions exposed by the CLI/API.
+  Adherence is descriptive, never a reason to override pain, readiness or a safety rule.
+- **No new prescription controller:** KPIs and nudges are read-only; they do not add sets, change
+  loads, or punish a legitimate break.
+
+Design reference: [`docs/UI-IMPROVEMENT-PLAN.md`](docs/UI-IMPROVEMENT-PLAN.md). This placeholder
+does not schedule that plan; it records the next UI/adherence direction for a future pass.
+
 ## 5. Known gaps and risks
 
 This section keeps **no list**. Every accepted limitation is registered with an id, a status and
@@ -1180,6 +1201,7 @@ removed on 2026-10-25; their record is in `CHANGELOG.md`.
   volume per group/lift with calibrated uncertainty and a pre-registered prospective gate; no
   prescription change until validated. Fixed budget and safety guards remain authoritative.
   Idea only; see `docs/VOLUME-MODULATION-PLAN.md` §13 and Q28.
+- Nicer UI, adherence encouragement and KPI panel (placeholder §4.23; not scheduled).
 - LLM-guided suggested programme under the §4.18 guardrails (idea only).
 - Wider proposal licence (more than one increment on the menu) once the menu has proved itself
   in real sessions.
