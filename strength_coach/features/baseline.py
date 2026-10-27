@@ -135,7 +135,9 @@ def lift_baselines(
             row.velocity_n = int(len(measured))
 
         if not effort.empty:
-            row.rir_compliance_pct = round(100.0 * float(effort["in_rir_window"].mean()), 1)
+            window = effort["in_rir_window"].dropna()
+            if len(window):
+                row.rir_compliance_pct = round(100.0 * float(window.mean()), 1)
 
         result.append(row)
     return result

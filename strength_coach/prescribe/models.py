@@ -28,7 +28,7 @@ class PrescriptionItem:
     load_kg: float | None
     load_basis: str
     rounding_increment_kg: float
-    rir_target: int
+    rir_target: int | None
     rest_s: int | None
     essential: bool
     rationale_refs: tuple[str, ...] = ()
@@ -48,6 +48,9 @@ class PrescriptionItem:
     # Resolved flare policy: hold, reviewed, dose or none. Generation-time only; the stored
     # prescription is the outcome, not this policy (DEC-SPINE-07).
     flare: str = "none"
+    # Power work is quality-limited: no RIR target, a stored stop rule (DEC-POWER-02).
+    effort_model: str = "rir"
+    quality_stop: str | None = None
     # Main-lift ramp sets; empty for accessories and unknown loads.
     warmup: tuple[WarmupSet, ...] = ()
 
@@ -88,6 +91,8 @@ class Prescription:
                 "load_basis": item.load_basis,
                 "rounding_increment": item.rounding_increment_kg,
                 "rir_target": item.rir_target,
+                "effort_model": item.effort_model,
+                "quality_stop": item.quality_stop,
                 "rest_s": item.rest_s,
                 "time_cap_s": item.time_cap_s,
                 "essential": item.essential,

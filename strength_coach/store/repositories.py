@@ -880,10 +880,10 @@ def append_prescription(
             """
             INSERT INTO prescription_item (
                 prescription_id, order_index, exercise_id, sets, reps_low, reps_high,
-                load_kg, load_basis, rounding_increment, rir_target, velocity_target,
-                vbt_basis, e1rm_source_sets, rest_s, time_cap_s, essential, rationale_refs,
-                substitution_for, warmup_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                load_kg, load_basis, rounding_increment, rir_target, effort_model,
+                quality_stop, velocity_target, vbt_basis, e1rm_source_sets, rest_s,
+                time_cap_s, essential, rationale_refs, substitution_for, warmup_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 prescription_id,
@@ -896,6 +896,8 @@ def append_prescription(
                 str(item["load_basis"]),
                 item["rounding_increment"],
                 item["rir_target"],
+                item.get("effort_model") or "rir",
+                item.get("quality_stop"),
                 item.get("velocity_target"),
                 item.get("vbt_basis"),
                 item.get("e1rm_source_sets"),

@@ -64,6 +64,9 @@ Do not use `history_equivalent_of` for a different variant with different loads
   RIR-hold branch on a non-essential item, `erector_dose` forces the direct-erector dose branch,
   and `auto` (the default) derives from the taxonomy and `essential`. It is not a general effort
   setting (`DEC-SPINE-07`).
+- `quality_stop` is required for a `power: true` slot and forbidden otherwise. A power slot
+  carries no `rir`; the stop rule is persisted on the item and shown instead of an RIR target
+  (`DEC-POWER-02`).
 
 The engine still chooses the most recently trained variant. The shadow selection panel ranks
 all configured variants but does not change the prescription.

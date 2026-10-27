@@ -31,6 +31,8 @@ def _rows(plan: Mapping[str, Any]) -> list[dict]:
             "load_basis": str(item.get("load_basis") or "unknown"),
             "rounding_increment": item.get("rounding_increment_kg"),
             "rir_target": item.get("rir_target"),
+            "effort_model": item.get("effort_model") or "rir",
+            "quality_stop": item.get("quality_stop"),
             "velocity_target": item.get("velocity_target"),
             "vbt_basis": item.get("vbt_basis"),
             "e1rm_source_sets": item.get("e1rm_source_sets"),

@@ -31,8 +31,8 @@ class Slot:
     sets: int
     reps_low: int
     reps_high: int
-    rir_low: int
-    rir_high: int
+    rir_low: int | None
+    rir_high: int | None
     rest_s: int | None
     essential: bool
     load_source: str
@@ -44,6 +44,9 @@ class Slot:
     # Optional flare policy. None/auto derives from the taxonomy and the essential flag;
     # hold_effort and erector_dose are explicit template choices (DEC-SPINE-07).
     flare: str | None = None
+    # Power work is quality-limited: it carries this stop rule instead of an RIR target
+    # (DEC-POWER-02).
+    quality_stop: str | None = None
 
     @property
     def exercises(self) -> tuple[str, ...]:
@@ -137,29 +140,53 @@ def _parse_slot(entry: Mapping[str, Any], day: str) -> Slot:
         )
 
     reps = entry.get("reps") or {}
-    rir = entry.get("rir") or {}
+    power = bool(entry.get("power", False))
+    quality_stop = entry.get("quality_stop")
+    if power:
+        if entry.get("rir") is not None:
+            raise TemplateError(
+                f"{where}: power work must not carry an RIR target; use quality_stop "
+                "(DEC-POWER-02)"
+            )
+        if not isinstance(quality_stop, str) or not quality_stop.strip():
+            raise TemplateError(f"{where}: power work needs a quality_stop")
+        rir_low = rir_high = None
+    else:
+        if quality_stop is not None:
+            raise TemplateError(f"{where}: quality_stop is only for power work")
+        rir = entry.get("rir") or {}
+        try:
+            rir_low = int(rir["low"])
+            rir_high = int(rir["high"])
+        except KeyError as exc:
+            raise TemplateError(f"{where}: missing required field {exc}") from exc
     try:
         slot = Slot(
             id=str(entry["id"]),
             sets=int(entry.get("sets", 3)),
             reps_low=int(reps["low"]),
             reps_high=int(reps["high"]),
-            rir_low=int(rir["low"]),
-            rir_high=int(rir["high"]),
+            rir_low=rir_low,
+            rir_high=rir_high,
             rest_s=int(entry["rest_s"]) if entry.get("rest_s") is not None else None,
             essential=bool(entry.get("essential", True)),
             load_source=load_source,
             exercise=str(exercise) if exercise else None,
             variants=variants,
-            power=bool(entry.get("power", False)),
+            power=power,
             flare=str(flare) if flare is not None else None,
+            quality_stop=str(quality_stop) if power else None,
         )
     except KeyError as exc:
         raise TemplateError(f"{where}: missing required field {exc}") from exc
 
     if slot.reps_low > slot.reps_high:
         raise TemplateError(f"{where}: reps.low > reps.high")
-    if slot.rir_low > slot.rir_high:
+    if (
+        slot.rir_low is not None
+        and slot.rir_high is not None
+        and slot.rir_low > slot.rir_high
+    ):
         raise TemplateError(f"{where}: rir.low > rir.high")
     if slot.sets <= 0:
         raise TemplateError(f"{where}: sets must be positive")

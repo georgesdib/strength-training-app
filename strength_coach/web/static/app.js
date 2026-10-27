@@ -840,7 +840,9 @@ function renderPrescription(p) {
       ${item.unknown_load_reason ? '<div class="muted">' + esc(item.unknown_load_reason) + "</div>" : ""}
       ${item.warmup && item.warmup.length ? '<div class="muted">warm-up: ' + item.warmup.map((w) => `${Math.round(w.percent * 100)}% × ${w.reps} @ ${fmt(w.load_kg)} kg`).join(" · ") + "</div>" : ""}</td>
     <td>${item.sets}</td><td>${item.reps_low}–${item.reps_high}</td>
-    <td>${fmt(item.load_kg)}</td><td>${item.rir_target}</td>
+    <td>${fmt(item.load_kg)}</td><td>${item.effort_model === "quality"
+      ? `quality stop<div class="muted">${esc(item.quality_stop || "")}</div>`
+      : item.rir_target}</td>
     <td>${stressCell}</td>
     <td>${readyCell}</td>
     <td>${item.e1rm_source_sets == null ? "—" : item.e1rm_source_sets}</td>
@@ -2373,8 +2375,10 @@ function renderProgramme(entries) {
       const tag = st && st.status === "high" ? " · high stress" :
         (st && st.status === "normal" ? " · normal stress" : "");
       const rtag = lr && lr.status !== "ready" ? ` · readiness ${lr.score}` : "";
+      const effort = item.effort_model === "quality"
+        ? "quality stop" : `RIR ${esc(item.rir_target)}`;
       return `<li>${esc(item.exercise_id)} — ${item.sets}×${item.reps_low}-${item.reps_high}
-       @ ${fmt(item.load_kg)} kg, RIR ${esc(item.rir_target)}${tag}${rtag}</li>`;
+       @ ${fmt(item.load_kg)} kg, ${effort}${tag}${rtag}</li>`;
     }).join("");
     const vp = entry.prescription.notes?.volume_panel;
     const budgetOn = entry.prescription.notes?.volume_budget?.enabled;

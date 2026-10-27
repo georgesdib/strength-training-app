@@ -18,10 +18,12 @@ session_types:
           exercise: box_jump
           sets: 3
           reps: {low: 3, high: 5}
-          rir: {low: 4, high: 5}
           rest_s: 120
           essential: false
           power: true
+          # DEC-POWER-02: quality-limited work. There is no RIR target; the stop rule is the
+          # operative instruction and is stored on the prescribed item.
+          quality_stop: "Maximal intent; full recovery; stop when jump height or quality drops"
           # Quality/height, never an external load; no e1RM or double progression.
           load_source: bodyweight
         - id: squat_main

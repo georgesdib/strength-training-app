@@ -9,7 +9,7 @@ for any part.
 | part | finding | status | blocking input |
 |---|---|---|---|
 | A | back-flare scope misses a non-essential high-fatigue hinge; the sumo is not aligned with the competition squat; interaction tests are missing; the erector dose can be reset upward after a readiness cut | implemented 2026-10-27 (`DEC-SPINE-08`); dose ceiling and interaction matrix included | none |
-| B | power work is displayed as RIR-limited but instructed as quality-limited | decided (`DEC-POWER-02`), implementation pending | none (decision recorded) |
+| B | power work is displayed as RIR-limited but instructed as quality-limited | implemented 2026-10-27 (`DEC-POWER-03`) | none |
 | C | the programme review and dependent summaries describe the old bench+hinge support | agreed; docs/tooling only | none |
 | D | same-date recorded sets are counted as completed **and** added as proposed in the MRV cap, the spinal cap and the budget application | implemented 2026-10-27 (`DEC-VOLUME-31`) | none |
 | E | independent adversarial audit of the fixed system, including the five previous fixes | deferred until A–D are implemented | A–D merged; clean tree; green baseline |
@@ -417,7 +417,7 @@ number that every consumer has to remember to ignore.
 | `tests/test_templates.py` (or prescribe) | a power slot without `quality_stop` fails; a power slot with `rir` fails; a non-power slot without `rir` fails. |
 | `tests/test_store.py` | insert/read round-trip for the new columns; a legacy row defaults to `effort_model="rir"`. |
 | `tests/test_web.py` | `/api/prescribe` payload carries `effort_model`, `quality_stop` and a null RIR for box_jump. |
-| `tests/test_derived.py`, `tests/test_baseline.py` | power sets are NA for RIR window; compliance excludes them. |
+| `tests/test_power_work.py` | power sets are NA for the RIR window; the API/prompt/display paths carry the stop rule. |
 | `tests/test_readiness.py` / `test_continuity.py` / `test_deload.py` | a quality item's `rir_target` stays `None`; no `+1` RIR. |
 | `tests/test_proposal.py` | no RIR options for a quality item; a scheme rebuild keeps quality. |
 | `tests/test_cli.py` (if output is asserted) | `quality` label, no `None`. |

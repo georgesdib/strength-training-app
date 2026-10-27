@@ -95,6 +95,8 @@ def _item_dict(item) -> dict:
         "load_kg": item.load_kg,
         "load_basis": item.load_basis,
         "rir_target": item.rir_target,
+        "effort_model": item.effort_model,
+        "quality_stop": item.quality_stop,
         "rest_s": item.rest_s,
         "essential": item.essential,
         "refs": list(item.rationale_refs),

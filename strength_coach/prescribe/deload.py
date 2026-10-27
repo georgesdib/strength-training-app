@@ -81,8 +81,12 @@ def apply_items(
                 changed_loads += 1
                 new_load = candidate
                 applied_ratio = ratio
-        new_rir = item.rir_target + cfg.rir_add
-        if item.exercise_id in primary:
+        new_rir = (
+            item.rir_target
+            if item.effort_model == "quality" or item.rir_target is None
+            else item.rir_target + cfg.rir_add
+        )
+        if item.exercise_id in primary and new_rir is not None:
             capped = min(4, new_rir)
             if capped != new_rir:
                 capped_rir += 1

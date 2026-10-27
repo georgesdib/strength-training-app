@@ -210,6 +210,10 @@ def menu(prescription: Prescription, document) -> dict[str, dict[str, dict[str, 
         options: dict[str, dict[str, float | int | None]] = {
             "keep": {"load_kg": item.load_kg, "rir_target": item.rir_target},
         }
+        if item.effort_model == "quality":
+            # Quality work has no RIR/load menu; the stop rule is the instruction.
+            menus[item.exercise_id] = options
+            continue
         increment = item.rounding_increment_kg
         if item.load_kg is not None and item.load_kg > 0:
             options["heavier"] = {
@@ -287,11 +291,13 @@ def _last_main_substitution(conn) -> str | None:
 def scheme_options(prescription: Prescription, schemes: schemes_mod.Schemes) -> dict[str, list[str]]:
     """Rep schemes each item may use. Main lifts get strength schemes; accessories get volume."""
     return {
-        item.exercise_id: [
-            name for name in schemes.schemes
-            if schemes.applicable(name, exercise_id=item.exercise_id,
-                                  essential=item.essential)
-        ]
+        item.exercise_id: (
+            [] if item.effort_model == "quality" else [
+                name for name in schemes.schemes
+                if schemes.applicable(name, exercise_id=item.exercise_id,
+                                      essential=item.essential)
+            ]
+        )
         for item in prescription.items
     }
 
@@ -304,9 +310,14 @@ def prompt_for(
 ) -> str:
     items = []
     for item in prescription.items:
+        effort = (
+            f"quality stop: {item.quality_stop}"
+            if item.effort_model == "quality"
+            else f"@ RIR {item.rir_target}"
+        )
         line = (
             f"- {item.exercise_id}: {item.sets} x {item.reps_low}-{item.reps_high} "
-            f"@ RIR {item.rir_target}{' (essential)' if item.essential else ''}"
+            f"{effort}{' (essential)' if item.essential else ''}"
         )
         if item.exercise_id in allowed:
             alternatives = list(allowed[item.exercise_id])
@@ -382,6 +393,11 @@ def assess(
         item = by_id.get(change.exercise or "")
         if item is None:
             reasons.append(f"unknown exercise {change.exercise!r} in the prescription")
+            continue
+        if item.effort_model == "quality" and change.action != "keep":
+            reasons.append(
+                f"{item.exercise_id}: power work is quality-limited; no load, RIR or scheme change"
+            )
             continue
 
         if change.action == "substitute":

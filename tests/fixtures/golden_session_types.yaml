@@ -8,7 +8,7 @@ squat:
     reps_high: 5
     load_kg: 0.0
     load_basis: bodyweight_total
-    rir_target: 4
+    rir_target: null
     rest_s: 120
     essential: false
   - exercise_id: ssb_squat

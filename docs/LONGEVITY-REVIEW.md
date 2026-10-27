@@ -88,6 +88,10 @@ running/cycling load.
 **Applied 2026-10-20:** Day A opens with `box_jump` 3×3-5, RIR 4-5, full recovery
 (`DEC-POWER-01`). It is excluded from undulation and carries no double-progression citation.
 
+**Later amendment 2026-10-27 (`DEC-POWER-02/03`):** the power item is quality-limited. It has
+no RIR target; the stop rule is stored as `quality_stop` and shown in the prescription, API and
+UI. The lift, dose and placement are unchanged.
+
 **Target:** 1-2×/week, **2-3 sets of 3-5 reps**, maximal intent, full recovery, stop when
 velocity drops. Put it **before** the main lift on a non-hinge day (e.g. Day A or C), or as
 its own short block.

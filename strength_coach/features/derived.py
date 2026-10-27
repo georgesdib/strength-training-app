@@ -106,6 +106,19 @@ def add_effort_fields(frame: pd.DataFrame) -> pd.DataFrame:
             out["rir"], out["rir_target_low"], out["rir_target_high"], strict=True
         )
     ]
+    # Power work is quality-limited, not RIR-scored (DEC-POWER-02). Its RIR value is not a
+    # target, so it is excluded from the window rather than counted as a failure.
+    out["rir_target_low"] = out["rir_target_low"].astype("Float64")
+    out["rir_target_high"] = out["rir_target_high"].astype("Float64")
+    out["in_rir_window"] = out["in_rir_window"].astype("boolean")
+    power_ids = {
+        exercise_id for exercise_id, props in exercises.taxonomy().entities.items()
+        if props.get("pattern") == "power_jump"
+    }
+    power_mask = out["exercise_id"].astype(str).isin(power_ids)
+    out.loc[power_mask, "rir_target_low"] = pd.NA
+    out.loc[power_mask, "rir_target_high"] = pd.NA
+    out.loc[power_mask, "in_rir_window"] = pd.NA
     return out
 
 

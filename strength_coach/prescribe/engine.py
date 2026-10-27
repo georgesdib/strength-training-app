@@ -586,6 +586,9 @@ def build_prescription(
 
 # Lifts whose velocity signal is not trustworthy enough to prescribe from (docs/VBT-EVIDENCE.md).
 VBT_UNRELIABLE = {"trap_bar_deadlift"}
+QUALITY_STOP_DEFAULT = (
+    "Maximal intent; full recovery; stop when jump height or quality drops"
+)
 
 
 
@@ -1020,7 +1023,11 @@ def _apply_readiness_score(
                 item,
                 sets=new_sets,
                 load_kg=new_load,
-                rir_target=min(4, item.rir_target + rir_bump),
+                rir_target=(
+                    item.rir_target
+                    if item.effort_model == "quality" or item.rir_target is None
+                    else min(4, item.rir_target + rir_bump)
+                ),
                 rationale_refs=refs,
                 load_factor=item.load_factor * factor,
             )
@@ -1121,7 +1128,11 @@ def _apply_continuity(
     factors_out = dict(prior_factors or {})
     for item in items:
         refs = item.rationale_refs + ("MOD-GAP-001",)
-        rir = min(4, item.rir_target + bump)
+        rir = (
+            item.rir_target
+            if item.effort_model == "quality" or item.rir_target is None
+            else min(4, item.rir_target + bump)
+        )
         if multiplier < 1.0 and item.load_kg is not None and item.load_kg > 0:
             prior = prior_factors.get(item.exercise_id, 1.0)
             applied = multiplier
@@ -1564,8 +1575,12 @@ def build_item(
     # A power jump is never load-progressed, even if a proposal rebuilds the item through a
     # generic slot. The pattern check is the backstop; the template also uses bodyweight.
     power_exercise = bool(slot.power) or str(props.get("pattern")) == "power_jump"
+    effort_model = "quality" if power_exercise else "rir"
+    quality_stop = (
+        str(slot.quality_stop or QUALITY_STOP_DEFAULT) if power_exercise else None
+    )
     flare = _resolve_flare_policy(slot, props, power_exercise, context)
-    effective_rir = slot.rir_low
+    effective_rir = None if power_exercise else slot.rir_low
     if flare == "hold":
         effective_rir = max(int(slot.rir_low), int(thresholds.back_flare_main_rir))
         if effective_rir == slot.rir_low and slot.flare != "hold_effort":
@@ -1696,12 +1711,9 @@ def build_item(
 
     if power_exercise:
         # A power set is not progressed by load or scored by RIR; the rationale is intent and
-        # quality, so no rule citation is attached and the warning says what "RIR" means here.
+        # quality, so no rule citation is attached and the warning carries the stop rule.
         refs = ()
-        warnings.append(
-            f"{exercise_id}: power work — maximal intent, full recovery, stop when height or "
-            f"quality drops"
-        )
+        warnings.append(f"{exercise_id}: power work — {quality_stop}")
 
     if flare == "hold":
         refs = refs + ("MOD-BACK-001",)
@@ -1725,6 +1737,8 @@ def build_item(
         rest_s=slot.rest_s,
         essential=slot.essential,
         flare=flare,
+        effort_model=effort_model,
+        quality_stop=quality_stop,
         rationale_refs=refs,
         time_cap_s=template.time_cap_s if slot.essential else None,
         unknown_load_reason=unknown_reason,
@@ -1983,7 +1997,11 @@ def validate_prescription(
             # PRG-SCHED-001: direct erector work never belongs on the hinge day.
             issues.append(f"ERECTOR_ON_HINGE_DAY:{item.exercise_id}")
 
-        if context.entity(item.exercise_id).get("primary_compound", False):
+        if (
+            context.entity(item.exercise_id).get("primary_compound", False)
+            and item.effort_model == "rir"
+            and item.rir_target is not None
+        ):
             # PRG-RIR-001: the effort window is a rule, not a suggestion. This check was
             # missing until proposals could name a menu option, which is exactly when a
             # target RIR stopped being guaranteed by the template.

@@ -2355,8 +2355,15 @@ def _print_prescription(prescription) -> None:
         if show_velocity:
             velocity = (f"{item.velocity_target:>7.2f}"
                         if item.velocity_target is not None else f"{'-':>7}")
+        effort = (
+            "quality" if item.effort_model == "quality"
+            else f"{item.rir_target:>5}" if item.rir_target is not None else f"{'-':>5}"
+        )
         print(f"  {item.exercise_id:<24}{item.sets:>5}{reps:>8}{load:>9}"
-              f"{item.rir_target:>5}{velocity}  {', '.join(item.rationale_refs) or '-'}")
+              f"{effort}{velocity}  {', '.join(item.rationale_refs) or '-'}")
+    for item in prescription.items:
+        if item.effort_model == "quality" and item.quality_stop:
+            print(f"  quality stop ({item.exercise_id}): {item.quality_stop}")
     if prescription.issues:
         print("  issues: " + "; ".join(prescription.issues))
     stress = (prescription.notes or {}).get("recent_stress") or {}

@@ -63,6 +63,8 @@ def prescription_prompt(prescription) -> str:
                 "reps_high": item.reps_high,
                 "load_kg": item.load_kg,
                 "rir_target": item.rir_target,
+                "effort_model": item.effort_model,
+                "quality_stop": item.quality_stop,
                 "rest_s": item.rest_s,
                 "essential": item.essential,
                 "refs": list(item.rationale_refs),

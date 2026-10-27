@@ -302,13 +302,16 @@ function renderWorkout(w) {
         (form && Number(form.rating) === rating ? " selected" : "") + ">" + rating + "</option>");
     }
     return "<tr><td><strong>" + esc(item.exercise_id) + "</strong>" +
+      (item.effort_model === "quality" && item.quality_stop
+        ? '<div class="muted">' + esc(item.quality_stop) + "</div>" : "") +
       (item.substitution_for ? '<div class="muted">swapped from ' + esc(item.substitution_for) + "</div>" : "") +
       (item.added_during_workout ? '<div class="muted">added during workout</div>' : "") +
       '</td><td><button class="ghost" type="button" data-plan-set="-1" data-index="' +
       index + '">−</button> ' + item.sets +
       ' <button class="ghost" type="button" data-plan-set="1" data-index="' + index + '">+</button></td><td>' +
       item.reps_low + "–" + item.reps_high + "</td><td>" + fmt(item.load_kg) +
-      "</td><td>" + (item.rir_target == null ? "—" : item.rir_target) + "</td><td>" +
+      "</td><td>" + (item.effort_model === "quality" ? "quality" :
+        (item.rir_target == null ? "—" : item.rir_target)) + "</td><td>" +
       '<select data-form-exercise="' + esc(item.exercise_id) + '">' + formOptions.join("") + "</select></td><td>" +
       '<select data-swap-select="' + index + '">' + workoutExerciseOptions("") + "</select>" +
       ' <button class="ghost" type="button" data-swap-index="' + index + '">Swap</button></td><td>' +

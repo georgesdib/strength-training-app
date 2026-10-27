@@ -85,6 +85,10 @@ def apply(items: Iterable[PrescriptionItem], patterns: Mapping[str, str], *,
         if not _scoped(item, pattern, patterns):
             out.append(item)
             continue
+        if item.effort_model == "quality" or item.rir_target is None:
+            # Power work has no RIR target and cannot be throttled by one (DEC-POWER-02).
+            out.append(item)
+            continue
         rir = min(cfg.rir_cap, max(int(item.rir_target), cfg.rir_floor))
         new_load = item.load_kg
         new_factor = item.load_factor
