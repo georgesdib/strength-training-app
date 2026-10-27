@@ -1,16 +1,17 @@
 # VOLUME MODULATION — weekly target, session cap, and a settings layer
 
-**Status: design accepted; constitution 1.18.0; step 1 (read-only weekly budget), step 2
-(per-group budget behind the off-by-default profile flag), step 2b (opt-in main-lift reduce),
-step 9a (read-only compensation preview) and step 9b (opt-in compensation application) are
-implemented (2026-10-26).** This document specifies a volume budget (a weekly target plus a
+**Status: implemented and closed 2026-10-27; constitution 1.18.0.** All numbered steps,
+including 5b, 6, 5c and step 8 effective accounting, are implemented. Step 3 is no longer a
+tracked plan item; it is a standing Today-page review follow-up. Step 8 is live with the
+`hard`/`effective` profile switch. This document specifies a volume budget (a weekly target plus a
 per-session cap) and the settings/modality layer it must sit behind. It records the evidence,
 the rules, the decisions and a phased path. Step 1 is read-only; 9a is a preview; 9b is opt-in;
 9c-1 (drop engine), 9c-2 (identity/UX), 9c-3 (confirmation/settings), 7a (settings
 registry/snapshot), step 4 (profile store, precedence, CLI/API, budget wiring and prescription
-snapshot), 7b (profile-backed feature wiring, including DUP) and step 5 (Settings UI, guarded
+snapshot), 7b (profile-backed feature wiring, including DUP), step 5 (Settings UI, guarded
 MRV/spinal settings, drop panel profile), 5b (modality registry/UI), step 6 (budget-aware
-forecast and weekly panels) and 5c (remaining modules) are implemented; steps 3 and 8 remain.
+forecast and weekly panels), 5c (remaining modules) and step 8 (effective accounting) are
+implemented. The plan is closed.
 
 At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
 plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
@@ -790,12 +791,10 @@ deliberate golden update where a prescription changes.
 - Tests: filled group, floor, safety skip, preserve unchanged, no cross-group top-up, citation.
 - Gate: full suite and a real-week check; enable `reduce` in the profile only deliberately.
 
-**3. Top-up review (included in step 2).**
-- Step 2 already tops up non-essential accessories under the same profile flag; there is no
-  separate switch. Review 2–3 real weeks with the per-item/per-pattern/total/time caps and the
-  blocked warnings, then adjust the caps or defaults.
-- No new code is planned here unless the review shows a defect; any separate opt-in would be a
-  new decision.
+**3. Top-up review — closed as a tracked step (standing Today follow-up).**
+- The review is not a plan milestone. The Today **Volume review** reminder remains while the
+  budget is enabled: review trims/top-ups, caps, blocked warnings, effective accounting and time,
+  then decide keep/adjust/rollback. No separate opt-in.
 
 **4. Profile store and settings loader — implemented 2026-10-26.**
 - `settings_profile` append-only versions (complete override map, `effective_from`) and
@@ -858,8 +857,9 @@ deliberate golden update where a prescription changes.
   resolves per date. Review remains on the stored/prescription snapshot, not current settings.
   The MRV cap stays guarded/config-only; the Settings UI is step 5.
 
-**8. Later refinement.** Fractional/indirect sets (direct 1, indirect 0.5) if the ledger warrants
-it; not v1.
+**8. Effective-set accounting — implemented and live 2026-10-27.** Direct 1.0 and the revised
+indirect 0.25 map; target table 68.25; landmarks unscaled; session caps/time raw. The live
+profile is `effective`; rollback is one profile change.
 
 **9. Cross-group quota compensation (9a preview and 9b application implemented).**
 - 9a **implemented 2026-10-26**: one optional non-essential slot per session type, candidates
@@ -889,7 +889,7 @@ it; not v1.
 - registry: default profile reproduces today's prescriptions; disabling each module changes only
   its cited outputs; hard-safety waiver required.
 
-## 12. Decisions (accepted 2026-10-26; steps 1–2b, 9a and 9b implemented; steps 3–8 and 9c not)
+## 12. Decisions (accepted 2026-10-26; all steps implemented; plan closed 2026-10-27)
 
 | # | decision | accepted choice |
 |---|---|---|
@@ -931,7 +931,7 @@ Step 1 is implemented read-only (the module, the `volume_exemption` table and th
 section). Step 2 is implemented behind the off-by-default profile flag, step 2b adds the opt-in
 `reduce` mode, and 9b adds the opt-in compensation slot: `MOD-VOL-003`/`MOD-VOL-004` are in
 constitution 1.18.0, `_apply_volume_budget` runs after continuity, `plan_drop` handles 9c-1, and safety cuts are recorded
-in `volume_exemption`. Steps 3–8 and 9c (`drop`) remain unimplemented. The rationale and the rejected
+in `volume_exemption`. All steps, including 9c and step 8, are implemented; this plan is closed. The rationale and the rejected
 alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VOLUME-07` and
 `DEC-SPINE-06`.
 
@@ -1088,11 +1088,10 @@ Proposed behaviour:
 
 This is a ledger/coverage correction, not a new prescription rule: the budget's weekly target and
 the MRV/spinal guards remain unchanged.
-## 15. Effective-set accounting — step 8 chunk 1 (infrastructure only)
+## 15. Effective-set accounting — step 8 history (closed)
 
-**Status: implemented but not live.** The app default remains `volume.ledger.set_accounting: hard`;
-the live profile has not been switched. No budget target, MEV/MAV/MRV, trim/top-up, session cap or
-golden prescription changed.
+**Status: closed; step 8 is live.** This section records the initial infrastructure chunk. The
+app default remains `volume.ledger.set_accounting: hard`; the live profile is `effective`.
 
 What exists now:
 
@@ -1108,7 +1107,7 @@ What exists now:
 **Deliberately not in chunk 1:** budget allocation, target/MEV/MAV/MRV re-basing, session caps,
 live activation, golden updates. Those need the retrospective effective/hard ratio and a reviewed
 target baseline (chunk 2), then UI/docs/rollback (chunk 3).
-## 16. Effective-set audit and the target decision (step 8, pre-activation)
+## 16. Effective-set audit and the target decision (step 8, implemented and live)
 
 This section records the analysis and the exact decision. **Nothing here is live.** The live profile
 uses `volume.ledger.set_accounting=hard`; the budget still counts raw sets.
@@ -1196,30 +1195,22 @@ ceiling; the safety consequence is accepted for the step-8 evaluation. Raw sets 
 This is the only version where indirect credit changes the decision in a meaningful way. Scaling
 both the target and the landmarks would make the change mostly cosmetic.
 
-### 16.6 What is implemented so far
+### 16.6 Implemented and live
 
 - Effective target/total table is stored and validated.
-- Budget report selects targets/totals by `set_accounting` and counts completed, today and future
-  sets effectively via the 0.25 map.
-- `volume.ledger.set_accounting` remains `hard`; live is unchanged.
-- No golden prescription changed.
-
-### 16.7 What is not yet done
-
-- `allocate_items` is effective-aware when `set_accounting=effective`; trim/top-up
-  recompute through the indirect map. Compensation/drop use the effective report.
+- Budget report/allocation select targets/totals by `set_accounting`, count completed/today/future
+  sets through the 0.25 map, and trim/top-up effective totals.
 - Session caps/time remain raw.
-- The hard-vs-effective prescription diff and live switch remain; live accounting is still hard.
+- 12-week hard-vs-effective diff: 10/12 sessions changed; accepted before activation.
+- Live profile: `coverage=complete`, `set_accounting=effective`.
+- UI shows raw/wk, effective/wk, accounting mode and the rules link.
+- Rollback: set `volume.ledger.set_accounting=hard` and restart.
 
-### 16.7 Required before live activation
+### 16.7 Standing follow-up (not a plan step)
 
-1. Convert completed/today/projected budget counts to effective.
-2. Convert allocation, trim/top-up and compensation.
-3. Keep session caps and time raw.
-4. Run the hard-vs-effective prescription diff over the same 12 weeks.
-5. Review the diff.
-6. Set the profile to `effective`; keep the switch as rollback.
-7. Show raw + effective in the UI/CLI/API and update golden fixtures.
+- The Today **Volume review** reminder remains the real-use review; it is not a tracked milestone.
+- Review the accepted set changes, under-MEV/overage behaviour, time and breaks; then keep, adjust
+  or roll back. The plan itself is closed.
 
 ### 16.8 Risks and limits
 

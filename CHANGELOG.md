@@ -43,6 +43,8 @@
   preserve/reduce/drop and that the main-lift policy is ignored while the budget is off.
 - **Volume-ledger coverage plan**: recorded the calendar-window denominator and complete-coverage
   zero-fill design, including break/deload handling and under-MEV eligibility; not implemented.
+- **Volume-modulation plan closed**: step 3 is now a standing Today review, not a plan item;
+  step 8 effective accounting is live; future model and UI/KPI placeholders remain in the roadmap.
 - **Budget effective allocation**: trim/top-up recompute through the 0.25 map when effective;
   session caps/time stay raw. Live remains hard; diff/activation pending.
 - **Budget effective counts**: report target selection and effective completed/today/future
