@@ -100,11 +100,39 @@ A focused, non-systematic review of load-dependent spinal kinematics, disc loadi
 biomechanics and injury/load-management evidence is in
 [SPINAL-LOAD-EVIDENCE.md](SPINAL-LOAD-EVIDENCE.md).
 
-**Conclusion:** load clearly changes tissue loading, but there is no validated mapping from
-kg/%1RM/RIR/sets to a weekly spinal-risk unit. The ordinal variant ranking stays; load/RIR/set
-weighting is **not** added. The best-supported load principle is progressive loading and
-avoiding abrupt spikes, not a precise per-session cost.
+**Conclusion (2026-10-23):** load clearly changes tissue loading, but there is no validated
+mapping from kg/%1RM/RIR/sets to a weekly spinal-risk unit. The ordinal variant ranking stays;
+a precise load/RIR/set model was not added. The best-supported load principle is progressive
+loading and avoiding abrupt spikes, not a precise per-session cost.
 
 A separate observational advisory is now implemented: working sets on high-fatigue spinal
-exercises at RIR ≤ 1 are counted over the volume window and shown as context. It is not
-load-weighted and does not change the cap or prescription.
+exercises at RIR ≤ 1 are counted over the volume window and shown as context.
+
+## Effective-cost policy bands (2026-10-27)
+
+The cap now applies bounded **policy** factors to the ordinal base cost. This is deliberately
+not a calibrated equation; the evidence supports direction, not a coefficient.
+
+| working sets | factor |
+|---|---:|
+| 1–3 | 0.85 |
+| 4–5 | 1.00 |
+| 6+ | 1.15 |
+
+| mean working %e1RM | factor |
+|---|---:|
+| < 75% | 0.85 |
+| 75–85% | 1.00 |
+| > 85% | 1.15 |
+
+`effective cost = base spinal_cost × set factor × intensity factor`
+
+- Warm-ups / RIR 6 are excluded.
+- Unknown e1RM uses the neutral 1.00 intensity factor, not a low guess.
+- The existing 4–5 set / 75–85% baseline stays at the old cost, so the current normal week is
+  not silently re-priced.
+- A 12-set trap-bar session costs 15% more, not twelve exposures.
+- The cap remains **6** effective points and is configurable in Settings → Spinal (guarded
+  table) and in `config/rules/programme.v1.yaml` (`PRG-SPINE-001.params.cap`).
+- This is a policy choice recorded by `LIM-14`; it is not a measured threshold or a validated
+  load–risk model.

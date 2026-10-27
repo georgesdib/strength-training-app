@@ -665,11 +665,9 @@ def test_e1rm_source_width_is_exposed_on_the_item():
 # --- MOD-SPINE-001: trim non-essential spinal work -------------------------
 
 
-def test_a_non_essential_erector_exposure_is_trimmed_before_the_veto():
-    # Two performed days hold trap bar (2) plus direct erector work (1) each = 6, the cap.
-    # A squat session on Wednesday would add another erector exposure; the erector slot is
-    # the only non-essential spinal work, so it is removed rather than leaving a dead
-    # prescription.
+def test_weighted_spinal_cost_keeps_a_fitting_nonessential_exposure():
+    # The weighted policy lowers the same exposures enough that the squat session fits; the
+    # erector slot stays because the effective weekly cost no longer exceeds the cap.
     history = [
         {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
          "RIR": "2", "Reps_Done": "5"},
@@ -694,11 +692,9 @@ def test_a_non_essential_erector_exposure_is_trimmed_before_the_veto():
         )
 
     assert prescription.executable
-    assert not any(item.exercise_id == "back_extension" for item in prescription.items)
-    assert prescription.notes["spinal_trim"]["applied"] is True
-    assert prescription.notes["spinal_trim"]["removed"] == ["back_extension"]
-    assert prescription.notes["spinal_cap"]["cost"] == 6.0
-    assert any("MOD-SPINE-001" in warning for warning in prescription.warnings)
+    assert any(item.exercise_id == "back_extension" for item in prescription.items)
+    assert prescription.notes["spinal_trim"]["applied"] is False
+    assert prescription.notes["spinal_cap"]["cost"] <= prescription.notes["spinal_cap"]["cap"]
 
 
 def test_the_spinal_veto_survives_when_essential_work_causes_the_overage():

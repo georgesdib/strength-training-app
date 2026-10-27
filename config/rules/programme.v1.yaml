@@ -256,6 +256,16 @@ rules:
       # became a counted exposure and sumo replaced the bench+hinge support.
       cap: 6
       counting: weighted              # ASSUMPTION-02: ordinal spinal_cost, not a measurement
+      # LIM-14 policy bands: preserve the current 4-5 set / 75-85% baseline while making fewer
+      # or more sets and higher relative load visible. These are assumptions, not fitted values.
+      set_factors:
+        - {max: 3, factor: 0.85}
+        - {max: 5, factor: 1.0}
+        - {max: 1000, factor: 1.15}
+      intensity_factors:
+        - {max: 0.75, factor: 0.85}
+        - {max: 0.85, factor: 1.0}
+        - {max: 10, factor: 1.15}
       costs:
         back_extension: 1
         reverse_hyperextension: 1

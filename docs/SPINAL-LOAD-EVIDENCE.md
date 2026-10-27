@@ -127,3 +127,14 @@ Until then, a load-weighted cost would be fabricated precision.
   Med. 2016. doi:10.1007/s40279-016-0575-0.
 - Fischer SC, Calley DQ, Hollman JH. *Effect of an Exercise Program That Includes Deadlifts on
   Low Back Pain.* J Sport Rehabil. 2021. doi:10.1123/jsr.2020-0324.
+
+---
+
+## Update 2026-10-27 — policy bands, not calibration
+
+The cap now applies bounded set-count and mean-%e1RM factors (0.85/1.00/1.15 bands) to the
+ordinal base cost. This is an explicit **policy choice** recorded in `LIM-14`, not a validation
+of a load–risk equation. The evidence still does not support a per-kilogram or per-set
+coefficient; the factors preserve the existing 4–5 set / 75–85% baseline and make large set or
+intensity deviations visible. The cap remains configurable and the ordinal ranking remains the
+authoritative part of the model.

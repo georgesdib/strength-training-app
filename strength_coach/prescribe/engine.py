@@ -785,7 +785,10 @@ def _week_spinal(
     against the rule's own arithmetic rather than a second implementation of it.
     """
     week = registry.iso_week(for_date)
-    proposed = [(for_date, item.exercise_id, for_date) for item in items]
+    proposed = [
+        (for_date, item.exercise_id, for_date, item.sets, item.intensity)
+        for item in items
+    ]
     plan_context = context.prior_to(for_date)
     entry = registry.weekly_spinal_costs(rule, plan_context, proposed).get(week, {})
     mix = {str(ex): int(n) for ex, n in (entry.get("exercises") or {}).items()}
@@ -1650,6 +1653,7 @@ def build_item(
     refs: tuple[str, ...] = ()
     unknown_reason: str | None = None
     e1rm_source_sets: int | None = None
+    e1rm_for_intensity: float | None = None
     decayed = False
     decay_factor = 1.0
 
@@ -1702,6 +1706,7 @@ def build_item(
                 )
         else:
             e1rm_kg, ref, calibrated, decayed, coverage, decay_factor = found
+            e1rm_for_intensity = e1rm_kg
             e1rm_source_sets = coverage
             if coverage == 1:
                 warnings.append(
@@ -1804,6 +1809,11 @@ def build_item(
         time_cap_s=template.time_cap_s if slot.essential else None,
         unknown_load_reason=unknown_reason,
         e1rm_source_sets=e1rm_source_sets,
+        intensity=(
+            float(load) / float(e1rm_for_intensity)
+            if load not in (None, 0) and e1rm_for_intensity not in (None, 0)
+            else None
+        ),
         load_factor=decay_factor if decayed else 1.0,
     )
     return item, tuple(warnings)

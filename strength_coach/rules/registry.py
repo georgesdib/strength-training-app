@@ -428,52 +428,74 @@ def erector_dose_ramp(
     return Evaluation(PASS, None, evidence, (), details)
 
 
+def _band_factor(value: float | None, bands, default: float = 1.0) -> float:
+    if value is None:
+        return default
+    for band in bands or ():
+        limit = float(band.get("max", 1e9))
+        if value <= limit:
+            return float(band.get("factor", 1.0))
+    return default
+
+
 def spinal_exposures(
     rule: Rule,
     context: RuleContext,
-    extra: Iterable[tuple[str, str, Any]] = (),
+    extra: Iterable[tuple] = (),
 ) -> dict[str, dict[tuple[str, str], float]]:
-    """week -> {(session_id, exercise_id): spinal_cost} for performed and proposed work.
+    """week -> {(session_id, exercise_id): effective spinal_cost}.
 
-    `extra` lets the prescription engine cost a *proposed* session with the same function
-    that judges performed ones, so the engine cannot drift from the rule it must satisfy.
+    The base cost is ordinal. Set count and mean %e1RM apply bounded policy factors so five
+    heavy sets do not cost the same as one, while a normal 4-5 set exposure stays near the
+    old value. These factors are assumptions, not measured coefficients (LIM-14).
     """
     params = rule.params
     costs = dict(params.get("costs") or {})
     costs.update(dict(context.spinal_costs or {}))
     excluded = {str(p) for p in (params.get("excluded_patterns") or ())}
+    set_factors = params.get("set_factors") or ()
+    intensity_factors = params.get("intensity_factors") or ()
 
-    # An "exposure" is one exercise in one session, weighted by its spinal cost. Counting
-    # per set would make a 12-set trap-bar session equal to twelve exposures and fire the cap
-    # every week, which the constitution's own notes warn against; counting per week would
-    # almost never fire. The unit is recorded as OPEN-QUESTIONS Q8.
     exposures: dict[str, dict[tuple[str, str], float]] = defaultdict(dict)
+    groups: dict[tuple[str, str, str], dict[str, Any]] = {}
 
-    def add(session_id: str, exercise_id: str, week: str) -> None:
+    def add(session_id: str, exercise_id: str, week: str,
+            sets: int = 1, intensity: float | None = None) -> None:
         entity = context.entity(exercise_id)
         if not entity.get("high_fatigue_spinal", False):
             return
         if entity.get("pattern") in excluded:
             return
-        cost = costs.get(exercise_id, entity.get("spinal_cost"))
-        if cost is None:
+        base = costs.get(exercise_id, entity.get("spinal_cost"))
+        if base is None:
             return
-        exposures[week][(session_id, exercise_id)] = float(cost)
+        factor = _band_factor(float(sets), set_factors, 1.0)
+        factor *= _band_factor(intensity, intensity_factors, 1.0)
+        exposures[week][(session_id, exercise_id)] = float(base) * factor
 
-    # An exposure is per (session, exercise, week), so deduplicating before the loop is exact
-    # and cuts a set-level frame (thousands of rows) to the distinct pairs. An empty frame
-    # must be skipped explicitly: boolean-masking it drops the columns too, and `extra` can
-    # still contribute a proposed session.
     if not context.sets.empty:
         working = context.sets[context.sets["is_working_set"]]
-        columns = ["session_id", "exercise_id"]
-        has_week = "iso_week" in working.columns
-        rows = working[columns + (["iso_week"] if has_week else ["date"])].drop_duplicates()
-        for row in rows.itertuples(index=False):
-            add(str(row.session_id), str(row.exercise_id),
-                str(row.iso_week) if has_week else iso_week(row.date))
-    for session_id, exercise_id, when in extra:
-        add(str(session_id), str(exercise_id), iso_week(when))
+        for row in working.itertuples(index=False):
+            week = str(getattr(row, "iso_week", "") or iso_week(getattr(row, "date")))
+            key = (week, str(row.session_id), str(row.exercise_id))
+            item = groups.setdefault(key, {"sets": 0, "intensities": []})
+            item["sets"] += 1
+            e1rm = getattr(row, "e1rm_kg", None)
+            load = getattr(row, "load_kg", None)
+            if e1rm not in (None, 0) and load not in (None, 0):
+                item["intensities"].append(float(load) / float(e1rm))
+    for key, group in groups.items():
+        intensities = group["intensities"]
+        add(
+            key[1], key[2], key[0], int(group["sets"]),
+            sum(intensities) / len(intensities) if intensities else None,
+        )
+
+    for entry in extra:
+        session_id, exercise_id, when = entry[:3]
+        sets = int(entry[3]) if len(entry) > 3 and entry[3] is not None else 1
+        intensity = float(entry[4]) if len(entry) > 4 and entry[4] is not None else None
+        add(str(session_id), str(exercise_id), iso_week(when), sets, intensity)
     return exposures
 
 

@@ -139,16 +139,15 @@ def test_one_hinge_session_stays_under_the_cap(document):
     ctx = context(trap_bar("2024-01-01"))
     verdict = evaluate(document, ctx, rule_ids=["PRG-SPINE-001"]).verdict("PRG-SPINE-001")
     assert verdict.verdict == "pass"
-    assert verdict.details["weighted_costs"] == {"2024-W01": 2.0}
+    assert verdict.details["weighted_costs"] == {"2024-W01": 1.7}
 
 
-def test_sets_do_not_multiply_an_exposure(document):
-    # Same session, many sets: still one exposure. Counting per set would fire the cap
-    # on every trap-bar day, which is the failure mode the rule notes warn about.
+def test_sets_add_a_bounded_policy_surcharge(document):
+    # Sets are not counted one-for-one; the 6+ band adds 15%, not twelve exposures.
     ctx = context(trap_bar("2024-01-01", sets=12))
     verdict = evaluate(document, ctx, rule_ids=["PRG-SPINE-001"]).verdict("PRG-SPINE-001")
     assert verdict.verdict == "pass"
-    assert verdict.details["weighted_costs"] == {"2024-W01": 2.0}
+    assert verdict.details["weighted_costs"] == {"2024-W01": 2.3}
 
 
 def test_weeks_are_independent(document):
