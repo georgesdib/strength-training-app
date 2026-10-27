@@ -93,15 +93,22 @@ The final run includes the concurrent exercise-admin commit; the audit's own cha
 
 **exit 0, 55 passed.**
 
-### 4.3 Date-sensitive run in a non-local timezone
+### 4.3 Date-sensitive run in the production timezone
+
+The host and the running web process are `Europe/London` (`/etc/timezone`, `timedatectl`;
+the process has `TZ` unset and inherits the system zone). The full suite in §4.1 therefore ran
+in London.
 
 ```text
-TZ=America/New_York .venv/bin/python -m pytest \
+TZ=Europe/London .venv/bin/python -m pytest \
   tests/test_continuity.py tests/test_undulation.py \
   tests/test_same_date_accounting.py tests/test_declared_break.py -q
 ```
 
 **exit 0, 24 passed.**
+
+A second run under a non-local `TZ=America/New_York` also passed 24, so the date tests do not
+depend on the machine-local calendar.
 
 ### 4.4 Other checks
 
