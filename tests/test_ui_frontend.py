@@ -45,6 +45,26 @@ def test_every_referenced_script_exists() -> None:
         assert src.startswith("/static/"), src
         assert (STATIC / src.removeprefix("/static/")).is_file(), src
 
+def test_script_load_order() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    order = [src.removeprefix("/static/")
+             for src in re.findall(r'<script src="([^"]+)"', page)]
+    assert order.index("app.js") < order.index("history.js")
+    assert order.index("app.js") < order.index("workout.js")
+    if "core.js" in order:
+        assert order.index("core.js") == 0
+
+
+def test_scripts_parse() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    for path in sorted(STATIC.glob("*.js")):
+        subprocess.run([node, "--check", str(path)], check=True,
+                       capture_output=True, text=True)
+
+
 
 def test_esc_escapes_html_metacharacters() -> None:
     node = shutil.which("node")

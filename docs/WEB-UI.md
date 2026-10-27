@@ -179,6 +179,26 @@ The web layer is serialisation and routing only. It calls the same functions as 
 `build_prescription`, `build_facts`/`score_session`, `record_marks`, `record_manual`, and
 `backtest`. A missing value is still `unknown`; the UI does not fill it in.
 
+## Manual browser smoke checklist
+
+No browser automation is installed. Run this pass manually after any UI change; record the
+result in the change note. It is not a substitute for the HTTP and static tests, and a skipped
+browser check is not a passed browser check.
+
+1. Load `/`, open every primary nav view, and confirm the console has no errors and no static
+   request 404s.
+2. Open a docs deep link from a panel and from the Docs view; use the browser Back button.
+3. Save readiness for today, reload, and confirm the values and date survive. Apply a quick
+   preset and confirm it writes ordinary fields.
+4. Generate a prescription, inspect warnings and the volume panel, then start a workout.
+5. Add one set, then double-click the Add set button; confirm only one set appears. Edit a set,
+   remove one, and end the workout.
+6. Open History and Review; confirm the persisted session, sets, duration and any form rating.
+7. Import a small training/readiness pair; check the preview, apply it, then re-import to confirm
+   the idempotency message rather than duplicate rows.
+8. Stop the server or block one request and confirm the UI shows an error instead of silently
+   succeeding.
+
 ## Limitations
 
 - UI prescription previews are read-only. Starting a workout commits the plan as a stored
