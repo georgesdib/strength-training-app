@@ -20,9 +20,10 @@ regression tests. The full public+private suite passes, the generated programme 
 configuration, and the new prescription invariants hold across the four session types.
 
 It is **not** medically validated, and this audit does not establish that the training
-methodology is optimal. The four residuals below were reviewed with the owner on 2026-10-27 and
-**accepted**; none is a confirmed defect in normal use. R1 is the only one to revisit if
-`main_lift_policy: drop` or the under-MEV top-up is used.
+methodology is optimal. The four residuals below were reviewed with the owner on 2026-10-27.
+**R2 and R4 were accepted and closed** (R2 is not a defect; R4 is a coverage limitation).
+**R1 and R3 remain open** — they were not accepted or fixed, and are described here for the
+owner's decision.
 
 No S1 (wrong prescription/executability, cap breach, data loss) or S2 (material user-visible
 wrong number/state) finding remains open.
@@ -41,17 +42,18 @@ wrong number/state) finding remains open.
 | F4 | S2 (was) | A plan rebuilt on a date with a recorded session counted the same sets as completed and proposed in MRV, spinal and the budget | `tests/test_same_date_accounting.py`; revision view, plan counted once, report/apply agree | **closed** (`DEC-VOLUME-31`) |
 | F5 | S3 (was) | The symptom tests did not assert the sumo or the final prescription under combined modifiers | `tests/test_back_flare_interactions.py`; final item/RIR/load/issues for readiness, gap, deload, spinal and DUP | **closed** (A.4.1) |
 
-### 2.2 Residuals (accepted 2026-10-27; no code change)
+### 2.2 Residuals (R2/R4 closed; R1/R3 open)
 
 | id | severity | residual | evidence / why it remains | impact |
 |---|---|---|---|---|
 | R1 | S3 | `plan_drop` and the under-MEV top-up still read the full context for a plan date with a recorded session | Deliberately out of DEC-VOLUME-31; the plan's D.7 records it. Only reachable with `main_lift_policy: drop` or a persistent under-MEV pattern and a same-date rebuild | A drop/under-MEV decision could be based on a week that counts the date's recorded work twice; narrow, opt-in edge |
 | R2 | S3 | `features/baseline.working_rir_median` still includes box-jump RIR values, though `rir_compliance_pct` excludes them | Descriptive median only; the value is recorded effort, not a target. DEC-POWER-03 excludes the window/compliance path | A per-lift descriptive RIR median for box jumps is not a target; no prescription change |
-| R3 | S3 | Readiness's own RIR bump is not re-solved against the load (pre-existing) | A.8; fixing it would change every readiness-reduced session and needs its own decision | The printed RIR after a readiness bump can sit on a load solved for the previous RIR; conservative direction |
+| R3 | S3 | Readiness's own RIR bump is not re-solved against the load (pre-existing) | A.8; fixing it would change every readiness-reduced session and needs its own decision | The printed RIR after a readiness bump can sit on a load solved for the previous RIR; the direction is not guaranteed |
 | R4 | S3 | No browser-level UI test suite; ruff is configured but not installed; SQLite concurrency/lock and a real populated-DB migration were not exercised | Tooling limitation, stated rather than papered over | UI rendering and rare concurrency/populated-DB paths are not verified automatically |
 
-All four are **accepted** by the owner on 2026-10-27. They remain documented risks, not open
-findings; no code change is planned for them. R1 is the one to revisit if drop/under-MEV is used.
+**R1 and R3 are open**; no code change was made. R1 is the only one that can change an
+accounting decision in a narrow opt-in path; R3 would change loads if fixed. R2 and R4 are
+closed as described above.
 
 ---
 
@@ -132,11 +134,11 @@ TZ=America/New_York .venv/bin/python -m pytest \
 
 ## 6. Residual risks
 
-- **R1** is the most material residual: same-date accounting is fixed for MRV, the spinal cap and
-  budget allocation, but not for `plan_drop` or under-MEV. It is opt-in/narrow but real.
-- **R2** leaves a descriptive box-jump RIR median that is not a target; it cannot change a
-  prescription.
-- **R3** leaves the pre-existing readiness-RIR/load mismatch; the flare change fixed the same
+- **R1 is open** — the most material residual: same-date accounting is fixed for MRV, the spinal
+  cap and budget allocation, but not for `plan_drop` or under-MEV. It is opt-in/narrow but real.
+- **R2 is closed** — the descriptive box-jump RIR median is not a target and cannot change a
+  prescription; this is the intended behaviour.
+- **R3 is open** — the pre-existing readiness-RIR/load mismatch. The flare change fixed the same
   pattern for the flare, but readiness's own bump was explicitly out of scope.
 - **Old prescriptions** keep their recorded RIR, including historical box-jump rows; this is
   append-only behaviour, not a migration defect.
@@ -148,13 +150,17 @@ TZ=America/New_York .venv/bin/python -m pytest \
 
 ## 7. Recommended next actions
 
-No code action is required for R1–R4; they are accepted. Two optional operational checks remain
-worth doing before the next real block:
+No code action is required for **R2/R4**; both are closed. **R1 and R3 remain open** and need an
+owner decision before any code change:
 
-1. **Rehearse migration `0041` on a copy of `data/coach.db`** and verify an old prescription still
-   reads correctly. The migration is additive and old rows default to `effort_model = 'rir'`.
-2. **If `main_lift_policy: drop` or under-MEV is used**, revisit R1 and pass the revision view
-   into `plan_drop`/under-MEV with one same-date test each.
+1. **R1** — if `main_lift_policy: drop` or under-MEV is used, pass the revision view into
+   `plan_drop`/under-MEV and add one same-date test each. This is an accounting change, not a
+   training-rule change.
+2. **R3** — decide whether readiness should re-solve the load at the bumped RIR (a load change),
+   keep the current heuristic and document it, or change only one of the two outputs.
 
-The deterministic engine remains authoritative. None of the accepted residuals justifies a change
-to the training rules without a separate decision.
+Optional operational check: rehearse migration `0041` on a **copy** of `data/coach.db` and verify
+an old prescription still reads correctly. This is a migration safety check, not an R1/R3 fix.
+
+The deterministic engine remains authoritative. R1 and R3 must not be changed without a separate
+decision.
