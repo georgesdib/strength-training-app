@@ -1,8 +1,9 @@
 # UI AND FUNCTIONALITY IMPROVEMENT PLAN — UI-04, UI-08 AND FINAL AUDIT
 
-**Status:** proposed 2026-10-27. Phase 0 (the documentation audit and this plan) is committed.
-No implementation workstream has started. Browser verification is gated by the tooling decision
-in Workstream D.
+**Status:** implemented on branch `ui-improvement-plan` 2026-10-27; pending review and merge.
+Phase 0 (the documentation audit and this plan) is committed. Workstreams A1–F are implemented;
+the O1–O10 items in §14 remain deferred. Browser verification uses the manual checklist in
+`WEB-UI.md` because no browser automation is installed.
 **Scope:** the local web UI, the HTTP request boundary, date handling, backend error responses,
 data integrity, browser verification and frontend modularisation. No training calculations,
 prescription rules, readiness interpretation, database schema or historical data changes

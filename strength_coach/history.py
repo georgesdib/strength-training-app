@@ -14,7 +14,7 @@ import uuid
 from typing import Any
 
 from strength_coach import __version__
-from strength_coach.critique import build_facts, score_session
+from strength_coach.critique import score_session
 from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.domain import load as load_mod
 from strength_coach.store import db, queries, repositories
@@ -29,7 +29,7 @@ CURRENT = (
 
 
 def _now() -> str:
-    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    return dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
 
 
 def current_sets(conn, session_id: str) -> list[dict]:

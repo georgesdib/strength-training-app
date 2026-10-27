@@ -173,6 +173,32 @@ also disables while saving and reports the number of marks written.
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |
 
+## Request limits
+
+- A request body is capped at **64 MiB** (`MAX_BODY_BYTES`) before it is read. This covers two
+  20 MiB decoded CSVs plus JSON escaping and keys. The per-file limit remains **20 MiB** on the
+  decoded UTF-8 text (`MAX_IMPORT_FILE_BYTES`).
+- Oversized bodies return **413** before `rfile.read`; a missing length returns **411**;
+  invalid, negative or duplicate lengths and chunked transfer return **400**. The connection is
+  closed on every framing rejection.
+- The handler is HTTP/1.0 today. If it ever becomes HTTP/1.1, a rejected body must still be
+  closed or drained.
+- The import is JSON text, not multipart; the per-file check stays in the import handler.
+
+## Dates
+
+- The **local calendar date in YYYY-MM-DD** is authoritative for UI defaults and daily records.
+  The browser and server are expected to share the machine timezone in this local-only app.
+- Use `formatLocalDate`/`today`; never `toLocaleDateString` or a UTC
+  `toISOString().slice(0, 10)` for a date default.
+
+## Error responses
+
+- Expected validation failures keep their useful 400/404/409 JSON messages.
+- An unexpected server exception returns a stable `{"error": "internal server error"}` 500 and
+  is logged with method, path and traceback. Exception classes, filesystem paths and database
+  details are not returned to the client.
+
 ## Client modules
 
 No build step and no bundler. The scripts load in this order:

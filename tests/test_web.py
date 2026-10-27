@@ -6,15 +6,15 @@ import json
 import re
 import socket
 import threading
-from datetime import date
-from pathlib import Path
 import urllib.error
 import urllib.request
+from datetime import date
+from pathlib import Path
 from urllib.parse import quote, urlparse
 
 import pytest
-
 from conftest import make_readiness, make_training
+
 from strength_coach.store import db, importer, repositories
 from strength_coach.web import markdown
 from strength_coach.web import server as web_server
@@ -1256,9 +1256,8 @@ def test_unexpected_errors_are_generic_and_logged(caplog, monkeypatch, server):
         raise RuntimeError("secret path /tmp/coach.db")
 
     monkeypatch.setattr(web_server.Handler, "_overview", boom)
-    with caplog.at_level("ERROR"):
-        with pytest.raises(urllib.error.HTTPError) as excinfo:
-            get(server, "/api/overview")
+    with caplog.at_level("ERROR"), pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/overview")
     assert excinfo.value.code == 500
     body = excinfo.value.read().decode()
     assert "internal server error" in body

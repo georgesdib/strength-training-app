@@ -15,12 +15,13 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Mapping
 
 import pandas as pd
 
 from strength_coach import __version__
-from strength_coach.ingest import clean, readiness as readiness_mod, sessions as sessions_mod
+from strength_coach.ingest import clean
+from strength_coach.ingest import readiness as readiness_mod
+from strength_coach.ingest import sessions as sessions_mod
 from strength_coach.store import db
 from strength_coach.store import repositories as repo
 from strength_coach.utils import paths
@@ -100,7 +101,7 @@ def import_export(
 ) -> ImportReport:
     """Clean a raw export pair and persist it; idempotent in content."""
     input_hash = hashlib.sha256(
-        f"{training_sha256}:{readiness_sha256}".encode("utf-8")
+        f"{training_sha256}:{readiness_sha256}".encode()
     ).hexdigest()
 
     run = repo.start_run(

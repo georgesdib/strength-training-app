@@ -150,6 +150,15 @@ so silently erased genuine `RIR = 0` observations during development.
    `DEC-*`/`LIM-*` references exist, README/AGENTS status matches the roadmap, the W9 current
    state matches `PRG-SPINE-001`, public docs carry no exact return count, superseded
    decisions are in the table, and audit counts are dated.
+7. Multi-statement writes use `strength_coach.store.db.transaction`; a failed write must leave
+   no partial state.
+8. No dynamic inline event handlers. Use `data-action` plus delegation, and HTML-escaped
+   attributes for values; HTML escaping is not JavaScript-string escaping.
+9. Dates use `formatLocalDate`/`today`; never a UTC slice or a locale date string for a
+   machine-readable default.
+10. Unexpected web exceptions return a generic 500 and are logged server-side; expected
+    400/404/409 messages stay useful.
+11. HTTP request bodies respect `MAX_BODY_BYTES`; never read an unbounded `Content-Length`.
 
 ### 7.1 How to run tests without wasting ten minutes
 
@@ -241,7 +250,7 @@ never read `data/raw`.
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/UI-CLI-PARITY.md` | current first-class parity, intentional differences and remaining gaps |
 | `docs/UI-MAP.md` | web UI surface map: panels, routes, docs links and the behaviour each panel exposes |
-| `docs/UI-IMPROVEMENT-PLAN.md` | UI-04/UI-08 plus the final functionality/code audit: findings ledger, workstreams, permanent guardrails, commit sequence and optional follow-ups; proposed |
+| `docs/UI-IMPROVEMENT-PLAN.md` | UI-04/UI-08 plus the final functionality/code audit: findings ledger, workstreams, permanent guardrails, commit sequence and optional follow-ups; implemented on `ui-improvement-plan`, pending merge |
 | `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |
 | `docs/SPINAL-COST.md` | evidence behind the ordinal spinal-cost ratings |
 | `docs/SPINAL-LOAD-EVIDENCE.md` | focused review of load-weighting; keep ordinal, no load/RIR weighting |

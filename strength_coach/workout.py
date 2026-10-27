@@ -13,12 +13,13 @@ import io
 import json
 import math
 import uuid
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from strength_coach import __version__
-from strength_coach.domain import load as load_mod
 from strength_coach.critique import build_facts, score_session
 from strength_coach.critique.rubric import persist as persist_critique
+from strength_coach.domain import load as load_mod
 from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import session_identity
 from strength_coach.store import db, repositories
@@ -31,7 +32,7 @@ OPTIONAL_READINESS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "wearable
 
 
 def _now() -> str:
-    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    return dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
 
 
 def _parse(value: str | None) -> dt.datetime | None:
@@ -39,7 +40,7 @@ def _parse(value: str | None) -> dt.datetime | None:
         return None
     parsed = dt.datetime.fromisoformat(value)
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=dt.timezone.utc)
+        parsed = parsed.replace(tzinfo=dt.UTC)
     return parsed
 
 
@@ -321,7 +322,7 @@ def _elapsed(data: Mapping[str, Any]) -> int:
     start = _parse(data.get("started_at"))
     if start is None:
         return 0
-    end = _parse(data.get("ended_at")) or dt.datetime.now(dt.timezone.utc)
+    end = _parse(data.get("ended_at")) or dt.datetime.now(dt.UTC)
     return max(0, int((end - start).total_seconds()))
 
 
@@ -1039,7 +1040,6 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
     if existing is not None:
         return
     sets = _sets(conn, workout_id)
-    plan = workout.get("plan") or {}
     entities = exercises.taxonomy().entities
     # Main lifts are what was performed, not every item that appeared in the plan.
     main_lifts = []

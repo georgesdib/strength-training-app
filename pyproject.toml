@@ -19,6 +19,7 @@ dev = [
     # Parallel test runs: the suite is fixture-heavy, and 4 workers cut a full run from
     # ~8 min to ~4.5 min. `-n 0` is the serial escape hatch.
     "pytest-xdist>=3.6",
+    "ruff>=0.6",
 ]
 
 [project.scripts]

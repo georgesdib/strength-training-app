@@ -3,7 +3,7 @@
 The resume point for this project. If you are picking this up cold — human or agent — read
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
-Last updated: 2026-10-27 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 done, v0.5 in progress** · version `0.5.0-dev` · **906 public tests** (921 with the 15 private integration tests)
+Last updated: 2026-10-27 · **v0 complete, v0.1 done, v0.2 done, v0.3 done, v0.4 done, v0.5 in progress** · version `0.5.0-dev` · **930 public tests** (945 with the 15 private integration tests)
 
 ---
 
@@ -651,8 +651,8 @@ action leaves no partial write; API tests cover each new write; no load, score o
 computed in the browser.
 
 **Later UI and functionality work:** the UI-04/UI-08 brief and the final functionality/code
-audit are consolidated in [`docs/UI-IMPROVEMENT-PLAN.md`](docs/UI-IMPROVEMENT-PLAN.md); proposed,
-not started.
+audit are consolidated in [`docs/UI-IMPROVEMENT-PLAN.md`](docs/UI-IMPROVEMENT-PLAN.md); implemented
+on branch `ui-improvement-plan`, pending review and merge.
 
 ### 4.12 Continuity calibration from real returns  (v0.3, implemented; calibrated factor rejected)
 
