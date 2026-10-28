@@ -15,7 +15,7 @@ from decimal import Decimal
 from strength_coach.domain import e1rm as e1rm_mod
 
 # Floating point cannot represent 0.1 exactly, so equality tests on "is this a multiple of
-# 0.5" need a tolerance. A microgram is far below any plate.
+# 0.5" need a tolerance. A milligram is far below any plate.
 _TOLERANCE = Decimal("0.000001")
 
 
