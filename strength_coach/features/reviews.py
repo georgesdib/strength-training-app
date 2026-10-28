@@ -61,7 +61,7 @@ def _latest(conn, task_key: str) -> dict | None:
 
 def snooze_days(task_key: str) -> int:
     config = _config()
-    if task_key in {"readiness_thresholds", "exercise_substitution"}:
+    if task_key in {"readiness_thresholds", "exercise_substitution", "fatigue_signals"}:
         return int((config.get(task_key) or {}).get("snooze_days", 14))
     raise ValueError(f"no snooze policy for {task_key!r}")
 
@@ -72,6 +72,8 @@ def _task(conn, key: str, on_date: str, config: dict) -> ReviewTask:
         return _readiness_task(conn, on_date, cfg)
     if key == "exercise_substitution":
         return _substitution_task(conn, on_date, cfg)
+    if key == "fatigue_signals":
+        return _periodic_task(conn, on_date, "fatigue_signals", cfg, "Fatigue signals")
     if key == "rubric_labels":
         return _rubric_task(conn, on_date, cfg)
     if key == "strength_test":
@@ -260,8 +262,9 @@ def status(conn, on_date: str) -> dict:
     config = _config()
     tasks = []
     for key in (
-        "readiness_thresholds", "exercise_substitution", "rubric_labels",
-        "strength_test", "srpe_coverage", "readiness_baseline", "back_pattern",
+        "readiness_thresholds", "exercise_substitution", "fatigue_signals",
+        "rubric_labels", "strength_test", "srpe_coverage", "readiness_baseline",
+        "back_pattern",
     ):
         tasks.append(_task(conn, key, on_date, config).as_dict())
     profile = queries.athlete_profile(conn) or {}

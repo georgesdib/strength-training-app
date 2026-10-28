@@ -124,3 +124,29 @@ def test_substitution_review_is_a_periodic_task():
         assert after["status"] == "not_due"
     finally:
         store.close()
+
+def test_the_fatigue_signal_review_is_periodic_and_points_at_the_adr():
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        task = next(
+            t for t in reviews.status(conn, "2024-01-01")["tasks"]
+            if t["key"] == "fatigue_signals"
+        )
+        assert task["periodic"] is True
+        assert task["status"] == "due"
+        assert task["doc"] == "docs/FATIGUE-SIGNALS.md"
+        assert any("Shadow review" in step for step in task["steps"])
+        repositories.append_maintenance_review(
+            conn, task_key="fatigue_signals", action="completed",
+            reviewed_on="2024-01-01", decision="kept", note="no change",
+        )
+        after = next(
+            t for t in reviews.status(conn, "2024-01-02")["tasks"]
+            if t["key"] == "fatigue_signals"
+        )
+        assert after["status"] == "not_due"
+        assert after["due_on"] == (dt.date(2024, 1, 1) + dt.timedelta(weeks=8)).isoformat()
+        assert reviews.snooze_days("fatigue_signals") == 14
+    finally:
+        store.close()

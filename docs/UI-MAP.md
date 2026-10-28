@@ -58,7 +58,7 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 | Descriptive progress | Monitoring-only trends: sRPE coverage, attendance, volume, performance ratio | [OUTCOMES.md](OUTCOMES.md) |
 | Rubric calibration | Human marks vs engine scores; counts and gaps; never an automatic rubric change | [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md) |
 | Per-rep velocity | Optional device data, descriptive only | [REP-VELOCITY.md](REP-VELOCITY.md) |
-| Periodic reviews | Prompt list from `config/reviews.v1.yaml`; no automatic change | [ROADMAP.md](../ROADMAP.md) |
+| Periodic reviews | Prompt list from `config/reviews.v1.yaml`; no automatic change. Includes the 8-week **Fatigue-signal review** (rate unrated exercises, read the exposure ratio, open the shadow review, record a decision) | [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md), [ROADMAP.md](../ROADMAP.md) |
 | Session details | Read-only stored sets, RIR, VBT, reps, notes | [DATA-MODEL.md](DATA-MODEL.md) |
 | Edit session | Append-only supersede/tombstone correction; date and type fixed | [DATA-MODEL.md](DATA-MODEL.md) |
 | Outcome review | 4/8/12-week strength, attendance and volume review | [OUTCOMES.md](OUTCOMES.md) |

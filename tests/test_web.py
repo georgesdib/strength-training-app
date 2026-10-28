@@ -630,6 +630,17 @@ def test_a_same_origin_post_is_accepted(server):
     )
     assert status == 200, body
 
+def test_the_fatigue_review_can_be_acknowledged_over_the_api(server):
+    status, body = post_status(server, "/api/reviews", {
+        "task_key": "fatigue_signals", "action": "completed",
+        "date": "2024-01-01", "decision": "kept",
+    })
+    assert status == 200
+    data = json.loads(body)
+    task = next(t for t in data["tasks"] if t["key"] == "fatigue_signals")
+    assert task["status"] == "not_due"
+
+
 def test_readiness_settings_and_shadow_endpoints(server):
     data = post(server, "/api/readiness/settings", {
         "date": "2024-01-01",

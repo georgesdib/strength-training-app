@@ -241,6 +241,15 @@ attached: trigger frequency, abstention reasons, coverage, proposals declined, a
 two components fought over the same family. The trim flag stays off until then; Part B and
 auto-substitution have no flag at all.
 
+## Review cadence
+
+A **Fatigue-signal review** task ships in `config/reviews.v1.yaml` and appears on the Today
+page: due at first use, then every 8 weeks or 24 sessions, snoozable for 14 days. It asks the
+athlete to rate missing demand dimensions, read the exposure panel (signal, coverage,
+abstentions), open the shadow review and record a decision — including "kept" or
+"insufficient". It is a prompt to inspect evidence, never a controller: acknowledging it
+changes no threshold and enables no behaviour.
+
 ## Related
 
 - **UI surface:** [UI-MAP.md](UI-MAP.md), [WEB-UI.md](WEB-UI.md)

@@ -92,3 +92,26 @@ exercise_substitution:
   dont:
   - Do not enable automatic withholding from this review alone.
   - Do not change tax values without recording the reason.
+fatigue_signals:
+  label: Fatigue-signal review
+  interval_weeks: 8
+  interval_sessions: 24
+  snooze_days: 14
+  doc: docs/FATIGUE-SIGNALS.md
+  why: 'The exposure ratio, demand ratings and shadow decisions are descriptive evidence.
+    Review them on a cadence so the data stays honest; this reminder never enables a
+    behaviour.
+
+    '
+  steps:
+  - Rate any reachable exercise still missing an in-scope dimension (Exercises -> Details ->
+    Demand profile; 'exercise demands unrated' lists them).
+  - 'Read the Prescribe Exposure ratio panel: signal, coverage and abstentions, not just the
+    number.'
+  - Open Shadow review and check how often the signal fired, what it would have trimmed or
+    suggested, and which gate checks pass.
+  - Record a decision here, even when it is kept or insufficient.
+  dont:
+  - Do not enable the exposure trim because one week's ratio is high.
+  - Do not treat the ratio as an injury-risk rule (LIM-56).
+  - Do not edit the reviewed demand file; the local overlay is for your own ratings.
