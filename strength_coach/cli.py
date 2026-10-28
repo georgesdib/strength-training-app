@@ -54,6 +54,7 @@ from strength_coach.features import (
 )
 from strength_coach.features import deload as deload_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import exposure as exposure_ratio_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import injury_signal as injury_signal_mod
@@ -368,6 +369,11 @@ def main(argv: list[str] | None = None) -> int:
     exposure_log.add_argument("--note", default=None)
     exposure_status = exposure_sub.add_parser("status", help="show the recovery guard")
     exposure_status.add_argument("--date", default=None)
+    exposure_ratio = exposure_sub.add_parser(
+        "ratio", help="rolling hard-set exposure ratio (descriptive)"
+    )
+    exposure_ratio.add_argument("--date", default=None)
+    exposure_ratio.add_argument("--json", action="store_true")
 
     outcomes = sub.add_parser("outcomes", help="descriptive 4/8/12-week outcome review")
     outcomes.add_argument("--weeks", type=int, choices=(4, 8, 12), default=8)
@@ -1607,6 +1613,35 @@ def _cmd_exposure(args) -> int:
     try:
         conn = store.connection
         on_date = args.date or datetime.date.today().isoformat()
+        if args.action == "ratio":
+            report = exposure_ratio_feature.compute(conn, on_date)
+            if args.json:
+                print(json.dumps(report.as_dict(), indent=2))
+                return 0
+            print(
+                f"hard-set exposure {report.on_date}: {report.signal}"
+                + (f" (ratio {report.ratio:.2f})" if report.ratio is not None else "")
+            )
+            print(
+                f"  acute 7d: {report.acute_hard_sets} hard sets; "
+                f"chronic 28d: {report.chronic_hard_sets} "
+                f"(baseline {report.baseline:.2f}/week)"
+            )
+            print(
+                f"  coverage {report.coverage:.0%} over {report.sessions} sessions; "
+                f"largest gap {report.flags['gap_days']}d"
+            )
+            if report.abstain:
+                print("  abstained: " + ", ".join(report.abstain))
+            for group in report.groups:
+                ratio = "-" if group.ratio is None else f"{group.ratio:.2f}"
+                print(f"  {group.group:<18}{ratio:>6}  {group.signal}")
+            for advisory in report.advisories:
+                print(f"  advisory: {advisory}")
+            print(
+                "  descriptive only; the opt-in trim is off unless the profile enables it"
+            )
+            return 0
         if args.action == "log":
             exposure_id = exposure_feature.log_manual(
                 conn, performed_on=on_date, kind=args.kind, region_load=args.region,

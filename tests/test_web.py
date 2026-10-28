@@ -424,6 +424,16 @@ def post_status(base: str, path: str, payload: dict) -> tuple[int, str]:
         return exc.code, exc.read().decode()
 
 
+def test_the_exposure_ratio_endpoint_is_served(server):
+    status, body = get(server, "/api/exposure?date=2024-01-31")
+    data = json.loads(body)
+    assert status == 200
+    assert data["signal"] in {"high", "normal", "low", "unknown"}
+    assert data["windows"]["acute"]["start"] == "2024-01-25"
+    assert isinstance(data["abstain"], list)
+    assert data["flags"]["effort_max_rir"] == 4
+
+
 def test_programme_endpoint(server):
     data = post(server, "/api/programme", {
         "weeks": 2, "start": "2024-01-02", "start_session_type": "squat",

@@ -1,0 +1,26 @@
+# Rolling hard-set exposure (docs/FATIGUE-SIGNALS.md, DEC-EXPOSURE-01).
+#
+# The ratio compares the last seven days with the average week of the preceding 28 days. It is
+# an ACWR-shaped descriptive signal, NOT a fatigue or injury-risk model: the project already
+# rejected the "sweet spot" reading (DEC-ACWR-01). The only prescription effect is an opt-in
+# accessory trim, disabled by default (athlete_profile.exposure_trim_enabled).
+#
+# Windows are non-overlapping on purpose: the chronic window ends where the acute window
+# starts, so the comparison is not a week against itself.
+#
+# All numbers are design choices (ASSUMPTION-51/52), not measured cut-points.
+schema_version: "1.0.0"
+acute_days: 7
+chronic_days: 28
+effort_max_rir: 4        # a hard set; RIR 6 is a warm-up and is already non-working
+min_sessions: 8          # below this the 4-week baseline is too thin to compare
+min_coverage: 0.80       # share of working sets that carry an RIR
+high_ratio: 1.3
+low_ratio: 0.7
+gap_days: 10             # a larger gap inside the chronic window depresses the baseline
+
+trim:
+  # The trim is authoritative on the athlete profile; these are its guardrails.
+  max_sets_per_session: 2
+  max_sets_per_item: 1
+  floor_sets: 1

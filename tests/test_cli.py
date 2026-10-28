@@ -80,6 +80,15 @@ def test_run_persists_a_critique_and_a_prescription(database, capsys):
         run.close()
 
 
+def test_exposure_ratio_prints_the_read_only_report(database, capsys):
+    code = cli.main(["--db", str(database), "exposure", "ratio", "--date", "2024-01-31"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "hard-set exposure 2024-01-31" in out
+    assert "descriptive only" in out
+    assert "abstained:" in out  # the fixture has no chronic-window work for that date
+
+
 def test_programme_rejects_an_unbounded_horizon(tmp_path, capsys):
     code = cli.main(["--db", str(tmp_path / "x.db"), "programme", "--weeks", "27"])
     assert code == 2

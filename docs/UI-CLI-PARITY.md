@@ -74,6 +74,7 @@ These are known and intentional or still open.
 | Volume budget | `volume --budget`; `state --volume-budget/--main-lift-policy`; `run --drop-confirm` | Prescribe **Volume budget** panel; Athlete profile fields; compensation preview/application; Settings **Drop / volume fill**; `GET/POST /api/settings/drop` | full |
 | Settings profile (step 5) | `settings profile show/set/unset/reset --guard-confirm --reason` | Settings **Settings profile** editor; `GET/POST /api/settings/profile` | full |
 | Modalities (5b/5c) | `settings modalities list/show/set` with guard flags | Settings **Modules**; `GET/POST /api/modalities`; profile factor editor | full |
+| `exposure ratio` | Prescribe **Exposure ratio** panel (same `compute`) | full |
 | `continuity --date` | UI panel uses the default date | partial |
 | `fatigue --date` | UI panel uses the default date | partial |
 | `validate --max-dates` | UI button uses 12 dates | partial |

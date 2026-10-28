@@ -177,3 +177,13 @@ lower-axial squat alternatives; adding a leg press would be a taxonomy change fi
 4. Nordic curl: eccentric damage evidence is direct (injury literature), but is it damage or
    adaptation? Keep `eccentric_damage` provisional and `local_muscular` high.
 5. Any exercise where the specification's seed value cannot be defended: retain `unknown`.
+
+## Related
+
+- **Used by:** [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md) (Part C)
+- **Decisions:** [DECISIONS.md](DECISIONS.md) (`DEC-DEMAND-01`)
+- **Identity source:** [DATA-MODEL.md](DATA-MODEL.md), [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md) §4.19

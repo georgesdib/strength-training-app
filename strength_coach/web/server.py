@@ -56,6 +56,7 @@ from strength_coach.features import (
 )
 from strength_coach.features import deload as deload_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import exposure as exposure_ratio_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import form_assessment as form_assessment_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
@@ -632,6 +633,12 @@ class Handler(BaseHTTPRequestHandler):
                 weeks = int(query.get("weeks", ["4"])[0])
                 self._json(200, self._with_conn(
                     lambda c: self._volume(c, day, weeks)
+                ))
+            elif path == "/api/exposure":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0] or datetime.date.today().isoformat()
+                self._json(200, self._with_conn(
+                    lambda c: exposure_ratio_feature.compute(c, day).as_dict()
                 ))
             elif path == "/api/volume/budget":
                 query = parse_qs(urlparse(self.path).query)

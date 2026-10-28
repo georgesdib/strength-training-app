@@ -1,8 +1,10 @@
 # FATIGUE SIGNALS — exposure, residuals, substitution and advisories
 
-**Status:** Phase 0 design, 2026-10-28. Nothing here is implemented yet. This is the mapping of
-the approved specification onto the existing engine, with the thresholds that will be
-config and the abstention rules that make the signals honest.
+**Status:** Phase 0 design and Phase 2 (Part A read-only) implemented, 2026-10-28.
+`features/exposure.py` computes the ratio with windows, coverage, dedup and abstention;
+`exposure ratio` (CLI), `GET /api/exposure` and the Prescribe **Exposure ratio** panel expose it.
+Part D's low-exposure advisory is included. **Nothing changes a prescription**: the trim in §1 is
+designed and configured but not implemented, and Parts B/C remain design-only.
 
 Governing rule: these are **descriptive signals**, not physiological models. The app does not
 estimate fatigue, recovery time or injury probability. Everything is downward-only or
@@ -196,3 +198,14 @@ Shadow → report → explicit decision. A flag may only be enabled with the Pha
 attached: trigger frequency, abstention reasons, coverage, proposals declined, and whether any
 two components fought over the same family. The trim flag stays off until then; Part B and
 auto-substitution have no flag at all.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md), [WEB-UI.md](WEB-UI.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md) (`DEC-EXPOSURE-01`, `DEC-DEMAND-01`, `DEC-RESIDUAL-01`, `DEC-SELECT-08`, `DEC-SHADOW-01`)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Catalogue:** [EXERCISE-DEMANDS.md](EXERCISE-DEMANDS.md)
+- **Existing load logic:** [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md), [CONTINUITY.md](CONTINUITY.md), [READINESS.md](READINESS.md)
+- **Limitations:** [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md) (`LIM-56`)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md) §4.19

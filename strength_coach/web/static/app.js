@@ -29,7 +29,7 @@ function setView(name, options = {}) {
   if (name === "cardio") loadCardio();
   if (name === "measures") loadMeasurements();
   if (name === "prescribe") {
-    loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget();
+    loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget(); loadExposure();
     restoreProgramme();
   }
   if (name === "workout") { loadReadiness($("#readiness-date").value); updateWorkflowStep(); }
@@ -1901,6 +1901,40 @@ async function loadVolume() {
       <p class="muted">Effective/wk adds configured indirect work at 0.25; raw/wk is unchanged. MEV/MAV/MRV are configurable coaching landmarks, not measured individual thresholds. <a class="doc-link" href="#docs?doc=docs/VOLUME-MODULATION-PLAN.md&amp;anchor=16-effective-set-audit-and-the-target-decision-step-8-pre-activation">Accounting rules</a></p>`;
   } catch (error) {
     $("#volume-ledger").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function loadExposure() {
+  const date = $("#prescribe-date").value;
+  if (!date) { $("#exposure-report").innerHTML = "<p class='empty'>Choose a date.</p>"; return; }
+  try {
+    const data = await api(`/api/exposure?date=${encodeURIComponent(date)}`);
+    $("#exposure-signal").textContent = data.signal +
+      (data.ratio == null ? "" : ` (ratio ${data.ratio.toFixed(2)})`);
+    const facts = [
+      ["acute 7d", `${data.acute_hard_sets} hard sets`],
+      ["chronic 28d", `${data.chronic_hard_sets} (${data.baseline.toFixed(2)}/week)`],
+      ["coverage", `${Math.round(data.coverage * 100)}% over ${data.sessions} sessions`],
+      ["largest gap", `${data.flags.gap_days} days`],
+    ].map(([key, value]) => `<tr><th>${esc(key)}</th><td>${esc(value)}</td></tr>`).join("");
+    const abstain = data.abstain.length
+      ? `<p class="warnbox">Abstained: ${esc(data.abstain.join(", "))}</p>`
+      : "";
+    const advisories = data.advisories
+      .map((text) => `<p class="warnbox">${esc(text)}</p>`).join("");
+    const groups = data.groups.length
+      ? `<table><thead><tr><th>group</th><th>ratio</th><th>signal</th></tr></thead><tbody>${
+          data.groups.map((group) => `<tr><td><code>${esc(group.group)}</code></td>
+            <td>${group.ratio == null ? "—" : group.ratio}</td>
+            <td>${esc(group.signal)}</td></tr>`).join("")}</tbody></table>`
+      : "";
+    $("#exposure-report").innerHTML = `<p class="muted">${esc(data.windows.acute.start)} to ${esc(data.windows.acute.end)} acute;
+      ${esc(data.windows.chronic.start)} to ${esc(data.windows.chronic.end)} chronic.</p>
+      <table><tbody>${facts}</tbody></table>${abstain}${advisories}${groups}
+      <p class="muted">Hard set = working set at RIR ≤ ${data.flags.effort_max_rir}, or a max/test
+      exposure. Thresholds are config assumptions, not measured cut-points.</p>`;
+  } catch (error) {
+    $("#exposure-report").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
 
