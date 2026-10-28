@@ -45,6 +45,7 @@ READINESS_CSV = "readiness.csv"
 
 TAXONOMY_YAML = "exercises/taxonomy.v1.yaml"
 EXERCISE_OVERRIDES_YAML = "exercises/overrides.v1.yaml"
+EXERCISE_DEMANDS_YAML = "exercises/demands.v1.yaml"
 PROGRAMME_RULES_YAML = "rules/programme.v1.yaml"
 THRESHOLDS_YAML = "thresholds.v1.yaml"
 READINESS_YAML = "readiness.v1.yaml"
@@ -77,6 +78,10 @@ def taxonomy_yaml() -> Path:
 
 def exercise_overrides_yaml() -> Path:
     return config_dir(EXERCISE_OVERRIDES_YAML)
+
+
+def exercise_demands_yaml() -> Path:
+    return config_dir(EXERCISE_DEMANDS_YAML)
 
 
 def programme_rules_yaml() -> Path:

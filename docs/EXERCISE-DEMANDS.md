@@ -1,8 +1,9 @@
 # EXERCISE DEMANDS — companion demand catalogue
 
-**Status:** Phase 0 design, 2026-10-28. **No values are populated yet.** This document and
-`config/exercises/demands.v1.yaml` are the proposed shape for the fatigue-substitution work;
-the evidence table is filled in Phase 1.
+**Status:** Phase 1 scaffolding landed 2026-10-28; **no values are populated yet.** The
+catalogue file, its validator (`strength_coach/features/demands.py`), its tests and the
+coverage report (`tools/demands_report.py`) exist; the current report is **0/63 rated**, all
+six dimensions unknown. The evidence table is filled in the next Phase 1 step.
 
 **Why a companion file, not new taxonomy fields.** The taxonomy is exercise *identity*
 (patterns, muscles, loadability, history equivalence). Demand profiles are a separate,

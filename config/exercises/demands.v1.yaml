@@ -1,0 +1,20 @@
+# Companion demand catalogue (docs/EXERCISE-DEMANDS.md, DEC-DEMAND-01).
+#
+# Demand profiles are evidence claims about a movement, not fatigue scores. Values are
+# qualitative per dimension (low/moderate/high) and "unknown" is the default: an unrated
+# exercise is not a low-demand exercise. There is no aggregate score and none may be added.
+#
+# Levels are dimension-specific (see the doc): "high axial" and "high technical" are different
+# claims, and the same word is not comparable across dimensions.
+#
+# Every non-unknown value needs a reason and a confidence. "supported" or "contested" must cite
+# at least one evidence id defined below; evidence entries carry the citation, DOI/URL, study
+# type and applicability. Ranges collapse to the upper bound, with the range in the reason.
+#
+# Scope: canonical ids reachable from the shipped templates and their configured candidates.
+# An id absent here is unknown; synthetic/pattern ids are never rated.
+schema_version: "1.0.0"
+reviewed_on: "2026-10-28"
+# No values yet: Phase 1 populates these from the evidence table.
+evidence: {}
+exercises: {}
