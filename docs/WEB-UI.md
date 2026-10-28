@@ -137,7 +137,10 @@ also disables while saving and reports the number of marks written.
 | `GET /api/readiness/calibrate` | calibration report text (no auto-apply) |
 | `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, injury signal |
 | `GET /api/exercises` | canonical exercise catalogue for the pickers |
-| `POST /api/programme` | `{weeks, remaining?, start?, sessions_per_week?, start_session_type?, apply_selection?, selection_llm?, selection_confirmed?}` -> date entries; Apply selection mirrors `/api/prescribe`, and `selection_llm` lets the model choose only among filtered variants |
+| `POST /api/programme/key` | request body -> `{cache_key}` covering version, request, resolved profile and relevant config hashes |
+| `POST /api/programme/jobs` | starts a background build; returns `202` with `job_id` and status |
+| `GET /api/programme/jobs/<id>` | `running` / `done` with entries / `error`; has a one-hour in-memory TTL and is capped at 20 jobs |
+| `POST /api/programme` | synchronous compatibility endpoint -> date entries; Apply selection mirrors `/api/prescribe`, and `selection_llm` lets the model choose only among filtered variants |
 | `GET /api/cardio?weeks=N` | cardio summary for the window |
 | `POST /api/cardio` | `{date, modality, minutes, avg_hr, max_hr, distance_km, srpe, note}` -> summary |
 | `GET /api/fatigue?date=N` | strength fitness-fatigue diagnostic (per-lift state and status; not a predictor) |
@@ -248,6 +251,10 @@ browser check is not a passed browser check.
   are listed in `docs/UI-CLI-PARITY.md`.
 - Workout mode is UI-first for start; CLI covers status/add/update/remove/end/import. Completed workouts materialise into `session`/`clean_set`; review/rubric is built.
 - State editing is available; the taxonomy itself and programme rules remain config/CLI.
+- The Programme page uses the **job + sessionStorage cache** path. The cache key includes the
+  app version, request, resolved profile and relevant config hashes, so a profile or config
+  change cannot reuse an old forecast. The cache is transport-only: the CLI rebuilds the same
+  deterministic forecast directly and has no cached-forecast command (`LIM-27`).
 - No authentication; never expose beyond localhost.
 - No delete/void action for a completed workout; only active-workout abandon and set removal/edit. See DATA-MODEL §17 for the recommended void design.
 

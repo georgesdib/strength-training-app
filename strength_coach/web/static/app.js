@@ -28,7 +28,10 @@ function setView(name, options = {}) {
   if (name === "exercises") loadExerciseCatalog();
   if (name === "cardio") loadCardio();
   if (name === "measures") loadMeasurements();
-  if (name === "prescribe") { loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget(); }
+  if (name === "prescribe") {
+    loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget();
+    restoreProgramme();
+  }
   if (name === "workout") { loadReadiness($("#readiness-date").value); updateWorkflowStep(); }
   if (name === "docs") loadDocs(options.doc, options.anchor);
   if (name === "state") loadState();
@@ -2077,6 +2080,88 @@ function renderProgramme(entries) {
 let programmeBusy = false;
 let programmeQueued = false;
 let programmeHasResult = false;
+const PROGRAMME_JOB_STORAGE = "strength-coach.programme.job";
+const PROGRAMME_CACHE_PREFIX = "strength-coach.programme.cache:";
+
+function programmePayload() {
+  const applySelection = $("#programme-apply-selection").checked;
+  return {
+    weeks: Number($("#programme-weeks").value || 4),
+    remaining: $("#programme-remaining").checked,
+    start: $("#programme-start").value || null,
+    sessions_per_week: Number($("#programme-per-week").value || 3),
+    start_session_type: $("#programme-session-type").value || "auto",
+    apply_selection: applySelection,
+    selection_llm: applySelection && $("#programme-selection-llm").checked,
+    selection_confirmed: applySelection && $("#programme-selection-confirm").checked,
+  };
+}
+
+async function programmeKey(payload) {
+  const data = await api("/api/programme/key", {
+    method: "POST", body: JSON.stringify(payload),
+  });
+  return data.cache_key;
+}
+
+function readProgrammeCache(key) {
+  try {
+    const raw = sessionStorage.getItem(PROGRAMME_CACHE_PREFIX + key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function writeProgrammeCache(key, data) {
+  try {
+    sessionStorage.setItem(PROGRAMME_CACHE_PREFIX + key, JSON.stringify(data));
+  } catch (error) {
+    // A full sessionStorage must not break the forecast.
+  }
+}
+
+async function pollProgrammeJob(jobId, key) {
+  for (;;) {
+    const job = await api("/api/programme/jobs/" + encodeURIComponent(jobId));
+    if (job.status === "done") {
+      writeProgrammeCache(key, job.result);
+      sessionStorage.removeItem(PROGRAMME_JOB_STORAGE);
+      return job.result;
+    }
+    if (job.status === "error") {
+      sessionStorage.removeItem(PROGRAMME_JOB_STORAGE);
+      throw new Error(job.error || "programme build failed");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 700));
+  }
+}
+
+async function restoreProgramme() {
+  if (programmeBusy || programmeHasResult) return;
+  const payload = programmePayload();
+  if (!payload.start && !payload.remaining) return;
+  try {
+    const key = await programmeKey(payload);
+    const cached = readProgrammeCache(key);
+    if (cached) {
+      renderProgramme(cached.entries || []);
+      programmeHasResult = true;
+      return;
+    }
+    const jobId = sessionStorage.getItem(PROGRAMME_JOB_STORAGE);
+    if (!jobId) return;
+    programmeBusy = true;
+    const data = await pollProgrammeJob(jobId, key);
+    renderProgramme(data.entries || []);
+    programmeHasResult = true;
+  } catch (error) {
+    sessionStorage.removeItem(PROGRAMME_JOB_STORAGE);
+    $("#programme-result").innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
+  } finally {
+    programmeBusy = false;
+  }
+}
 
 function programmeSelectionChanged() {
   syncProgrammeSelection();
@@ -2103,35 +2188,45 @@ $("#programme-selection-llm")?.addEventListener("change", programmeSelectionChan
 $("#programme-selection-confirm")?.addEventListener("change", programmeSelectionChanged);
 syncProgrammeSelection();
 
+function programmeFormChanged() {
+  if (programmeBusy) return;
+  $("#programme-result").innerHTML =
+    "<p class='muted'>Inputs changed; build the forecast to refresh it.</p>";
+  programmeHasResult = false;
+}
+
 async function runProgramme() {
   if (programmeBusy) {
     programmeQueued = true;
     return;
   }
   programmeBusy = true;
-  const applySelection = $("#programme-apply-selection").checked;
-  const payload = {
-    weeks: Number($("#programme-weeks").value || 4),
-    remaining: $("#programme-remaining").checked,
-    start: $("#programme-start").value || null,
-    sessions_per_week: Number($("#programme-per-week").value || 3),
-    start_session_type: $("#programme-session-type").value || "auto",
-    apply_selection: applySelection,
-    selection_llm: applySelection && $("#programme-selection-llm").checked,
-    selection_confirmed: applySelection && $("#programme-selection-confirm").checked,
-  };
+  programmeQueued = false;
+  const payload = programmePayload();
   const button = $("#programme-form button[type='submit']");
-  $("#programme-result").innerHTML = "<p class='empty'>Building forecast… each week is three prescriptions, so this takes a few seconds.</p>";
+  $("#programme-result").innerHTML = "<p class='empty'>Building forecast… this can take a few seconds.</p>";
   button.disabled = true;
   try {
-    const data = await api("/api/programme", { method: "POST", body: JSON.stringify(payload) });
+    const key = await programmeKey(payload);
+    const cached = readProgrammeCache(key);
+    if (cached) {
+      renderProgramme(cached.entries || []);
+      programmeHasResult = true;
+      return;
+    }
+    const job = await api("/api/programme/jobs", {
+      method: "POST", body: JSON.stringify(payload),
+    });
+    sessionStorage.setItem(PROGRAMME_JOB_STORAGE, job.job_id);
+    const data = await pollProgrammeJob(job.job_id, key);
     if (!programmeQueued) {
-      renderProgramme(data.entries);
+      renderProgramme(data.entries || []);
       programmeHasResult = true;
     }
   } catch (error) {
+    sessionStorage.removeItem(PROGRAMME_JOB_STORAGE);
     if (!programmeQueued) {
-      $("#programme-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+      $("#programme-result").innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
     }
   } finally {
     button.disabled = false;
@@ -2307,6 +2402,7 @@ $("#programme-form").addEventListener("submit", (event) => {
   event.preventDefault();
   runProgramme();
 });
+$("#programme-form").addEventListener("input", programmeFormChanged);
 $("#terminal-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const command = $("#terminal-command").value;

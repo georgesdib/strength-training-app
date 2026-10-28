@@ -20,6 +20,7 @@ import shlex
 import subprocess
 import sys
 import threading
+import uuid
 import webbrowser
 from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -264,6 +265,133 @@ def _settled(value):
     if value in (None, "", "unknown"):
         return None
     return _truth(value)
+
+
+
+_PROGRAMME_JOBS: dict[str, dict[str, Any]] = {}
+_PROGRAMME_JOBS_LOCK = threading.Lock()
+_PROGRAMME_JOB_TTL_SECONDS = 3600
+_PROGRAMME_JOB_MAX = 20
+
+
+def _programme_request(body: dict) -> dict[str, Any]:
+    return {
+        "start": datetime.date.today().isoformat() if _truth(body.get("remaining"))
+        else (body.get("start") or None),
+        "weeks": int(body.get("weeks") or 4),
+        "sessions_per_week": int(body.get("sessions_per_week") or 3),
+        "start_session_type": body.get("start_session_type") or None,
+        "apply_selection": _truth(body.get("apply_selection")),
+        "selection_llm": _truth(body.get("selection_llm")),
+        "selection_confirmed": _truth(body.get("selection_confirmed")),
+    }
+
+
+def programme_payload(conn, body: dict) -> dict:
+    request = _programme_request(body)
+    chooser = (
+        agent_selection.chooser(build_client(load_settings()))
+        if request["apply_selection"] and request["selection_llm"] else None
+    )
+    pages = programme_feature.build_programme(
+        conn,
+        start=request["start"],
+        weeks=request["weeks"],
+        per_week=request["sessions_per_week"],
+        start_session_type=request["start_session_type"],
+        apply_deload=True,
+        apply_selection=request["apply_selection"],
+        selection_chooser=chooser,
+        selection_confirmed=request["selection_confirmed"],
+    )
+    return {"entries": [
+        {"date": entry.on_date,
+         "session_type": entry.session_type,
+         "deload_reason": entry.deload_reason,
+         "deload_suggestion": entry.deload_suggestion,
+         "deload_applied": entry.deload_applied,
+         "prescription": prescription_dict(entry.prescription)}
+        for entry in pages
+    ]}
+
+
+def programme_cache_key(conn, body: dict) -> str:
+    request = _programme_request(body)
+    day = request["start"] or datetime.date.today().isoformat()
+    state = settings_profile.state(conn, day)
+    state.pop("history", None)
+    material = {
+        "version": __version__,
+        "request": request,
+        "profile": state,
+        "config": {
+            relative: hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+            for relative in (
+                "config/templates/session-types.v1.yaml",
+                "config/volume.v1.yaml",
+                "config/deload.v1.yaml",
+                "config/rules/programme.v1.yaml",
+            )
+            if (ROOT / relative).is_file()
+        },
+    }
+    return hashlib.sha256(
+        json.dumps(material, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+
+
+def _programme_job_cleanup() -> None:
+    cutoff = datetime.datetime.now().timestamp() - _PROGRAMME_JOB_TTL_SECONDS
+    stale = [
+        job_id for job_id, job in _PROGRAMME_JOBS.items()
+        if job["created_at"] < cutoff
+    ]
+    for job_id in stale:
+        _PROGRAMME_JOBS.pop(job_id, None)
+    while len(_PROGRAMME_JOBS) > _PROGRAMME_JOB_MAX:
+        oldest = min(_PROGRAMME_JOBS, key=lambda key: _PROGRAMME_JOBS[key]["created_at"])
+        _PROGRAMME_JOBS.pop(oldest, None)
+
+
+def _run_programme_job(job_id: str, db_path, body: dict) -> None:
+    try:
+        with db.Store(db_path) as store:
+            result = programme_payload(store.connection, body)
+        with _PROGRAMME_JOBS_LOCK:
+            if job_id in _PROGRAMME_JOBS:
+                _PROGRAMME_JOBS[job_id].update(status="done", result=result)
+    except Exception as exc:  # expected validation failures are returned to the poller
+        with _PROGRAMME_JOBS_LOCK:
+            if job_id in _PROGRAMME_JOBS:
+                _PROGRAMME_JOBS[job_id].update(status="error", error=str(exc))
+
+
+def start_programme_job(db_path, body: dict) -> dict:
+    with _PROGRAMME_JOBS_LOCK:
+        _programme_job_cleanup()
+    job_id = uuid.uuid4().hex
+    job = {
+        "job_id": job_id,
+        "status": "running",
+        "created_at": datetime.datetime.now().timestamp(),
+        "result": None,
+        "error": None,
+    }
+    with _PROGRAMME_JOBS_LOCK:
+        _PROGRAMME_JOBS[job_id] = job
+    threading.Thread(
+        target=_run_programme_job, args=(job_id, db_path, body), daemon=True,
+    ).start()
+    return job
+
+
+def programme_job(job_id: str) -> dict:
+    with _PROGRAMME_JOBS_LOCK:
+        _programme_job_cleanup()
+        job = _PROGRAMME_JOBS.get(job_id)
+        if job is None:
+            raise KeyError("programme job not found")
+        return dict(job)
 
 
 class ReadinessRequired(Exception):
@@ -513,6 +641,14 @@ class Handler(BaseHTTPRequestHandler):
                         c, day, session_type, use_llm, include_different
                     )
                 ))
+            elif path.startswith("/api/programme/jobs/"):
+                job_id = path.rsplit("/", 1)[-1]
+                try:
+                    job = programme_job(job_id)
+                except KeyError as exc:
+                    self._error(404, str(exc.args[0]))
+                else:
+                    self._json(200, job)
             elif path == "/api/exercises/catalog":
                 self._json(200, exercise_admin.catalog())
             elif path == "/api/exercises":
@@ -640,6 +776,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._set_readiness_settings(c, body)))
             elif path == "/api/readiness/volume":
                 self._json(200, self._with_conn(lambda c: self._set_readiness_volume(c, body)))
+            elif path == "/api/programme/key":
+                self._json(200, {"cache_key": self._with_conn(
+                    lambda c: programme_cache_key(c, body)
+                )})
+            elif path == "/api/programme/jobs":
+                job = start_programme_job(self.db_path, body)
+                self._json(202, job)
             elif path == "/api/programme":
                 self._json(200, self._with_conn(lambda c: self._programme(c, body)))
             elif path == "/api/cardio":
@@ -1510,38 +1653,7 @@ class Handler(BaseHTTPRequestHandler):
         return self._measurements(conn)
 
     def _programme(self, conn, body: dict) -> dict:
-        start = body.get("start") or None
-        if body.get("remaining"):
-            start = datetime.date.today().isoformat()
-        apply_selection = _truth(body.get("apply_selection"))
-        selection_llm = apply_selection and _truth(body.get("selection_llm"))
-        selection_confirmed = apply_selection and _truth(body.get("selection_confirmed"))
-        # The model may choose only among the Python-filtered candidates; it never supplies a
-        # load, set or RIR. Without Apply selection the forecast stays the fixed plan.
-        chooser = (
-            agent_selection.chooser(build_client(load_settings()))
-            if selection_llm else None
-        )
-        pages = programme_feature.build_programme(
-            conn,
-            start=start,
-            weeks=int(body.get("weeks") or 4),
-            per_week=int(body.get("sessions_per_week") or 3),
-            start_session_type=body.get("start_session_type") or None,
-            apply_deload=True,
-            apply_selection=apply_selection,
-            selection_chooser=chooser,
-            selection_confirmed=selection_confirmed,
-        )
-        return {"entries": [
-            {"date": entry.on_date,
-             "session_type": entry.session_type,
-             "deload_reason": entry.deload_reason,
-             "deload_suggestion": entry.deload_suggestion,
-             "deload_applied": entry.deload_applied,
-             "prescription": prescription_dict(entry.prescription)}
-            for entry in pages
-        ]}
+        return programme_payload(conn, body)
 
     def _terminal(self, body: dict) -> dict:
         """Run one strength-coach command. No shell, no other executable."""

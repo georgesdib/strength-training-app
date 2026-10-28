@@ -6,6 +6,7 @@ import json
 import re
 import socket
 import threading
+import time
 import urllib.error
 import urllib.request
 from datetime import date
@@ -430,6 +431,28 @@ def test_programme_endpoint(server):
     assert data["entries"][0]["date"] == "2024-01-03"
     assert data["entries"][0]["session_type"] == "squat"
     assert data["entries"][0]["prescription"]["items"]
+
+
+
+
+def test_programme_job_endpoint_returns_a_pollable_result(server):
+    payload = {
+        "weeks": 2, "start": "2024-01-02", "start_session_type": "squat",
+    }
+    key = post(server, "/api/programme/key", payload)["cache_key"]
+    assert len(key) == 64
+    job = post(server, "/api/programme/jobs", payload)
+    assert job["status"] in {"running", "done"}
+    for _ in range(300):
+        status, body = get(server, "/api/programme/jobs/" + job["job_id"])
+        assert status == 200
+        current = json.loads(body)
+        if current["status"] == "done":
+            assert len(current["result"]["entries"]) == 6
+            return
+        assert current["status"] == "running"
+        time.sleep(0.2)
+    raise AssertionError("programme job did not finish")
 
 
 def test_programme_endpoint_accepts_selection_flags(server):

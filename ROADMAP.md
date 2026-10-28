@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-10-27 · **v1.0 beta released; v1.1 planned** · version `1.0.0b1` · **954 public tests passed**
+Last updated: 2026-10-27 · **v1.0 beta released; v1.1 planned** · version `1.0.0b1` · **955 public tests passed**
 
 
 ---
