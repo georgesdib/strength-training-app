@@ -149,6 +149,11 @@ set never reached the pattern that was actually under, so the rule re-fired inde
 
 This is a small deterministic progression, not an individual MRV or an experiment.
 
+**Precedence (`DEC-VOLUME-33`):** an item that readiness reduced this session is skipped, so
+an under-MEV week cannot undo the recovery valve by adding the set straight back. The pattern
+simply stays under target for that week. Safety modifiers run after volume elsewhere too (the
+spinal trim and the MRV cap), and this keeps that order consistent.
+
 ### Readiness valve
 
 The readiness set valve is separate: poor readiness removes one set from accessories and main

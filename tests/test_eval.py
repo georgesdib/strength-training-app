@@ -14,7 +14,7 @@ import pytest
 import yaml
 from conftest import make_readiness, make_training
 
-from strength_coach.critique.rubric import RUBRIC_WEIGHTS, Critique, RubricItem
+from strength_coach.critique.rubric import RUBRIC_VERSION, RUBRIC_WEIGHTS, Critique, RubricItem
 from strength_coach.eval import (
     ITEM_KEYS,
     LabelError,
@@ -23,12 +23,51 @@ from strength_coach.eval import (
     backtest,
     compare,
     load_labels,
+    load_marks,
     template,
     write_template,
 )
-from strength_coach.store import db, importer
+from strength_coach.store import db, importer, queries, repositories
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_marks_from_another_rubric_version_are_excluded():
+    # DEC-EVAL-06: a score answers the rubric definition it was made against, so a session
+    # marked under an older version is excluded whole and counted, never mixed in silently.
+    training = make_training([
+        {"Date": "2024-01-01", "Exercise": "Safety Squat Bar",
+         "Weight_Used": "100", "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2024-01-03", "Exercise": "Safety Squat Bar",
+         "Weight_Used": "100", "RIR": "2", "Reps_Done": "5"},
+    ])
+    readiness = make_readiness([{}])
+    store = db.Store(":memory:")
+    try:
+        importer.import_export(
+            store.connection, training, readiness,
+            training_sha256=importer.sha256_frame(training),
+            readiness_sha256=importer.sha256_frame(readiness),
+        )
+        conn = store.connection
+        sessions = queries.sessions(conn)
+        old_session = str(sessions.iloc[0]["session_id"])
+        new_session = str(sessions.iloc[1]["session_id"])
+        repositories.append_rubric_mark(
+            conn, session_id=old_session, item="RIR_ADHERENCE", score=1.0,
+            confidence="high", rubric_version="1.0.0",
+        )
+        repositories.append_rubric_mark(
+            conn, session_id=new_session, item="RIR_ADHERENCE", score=1.0,
+            confidence="high", rubric_version=RUBRIC_VERSION,
+        )
+        labels = load_marks(conn)
+        assert list(labels.sessions) == [new_session]
+        assert labels.sessions[new_session].rubric_version == RUBRIC_VERSION
+        assert labels.excluded_rubric_versions == {"1.0.0": 1}
+        assert labels.excluded_sessions == 1
+    finally:
+        store.close()
 
 
 def make_critique(scores: dict[str, float | None], session_id="2024-01-01") -> Critique:
@@ -234,9 +273,9 @@ def test_marks_append_and_the_latest_wins():
     with store_with(SESSION_ROWS) as store:
         conn = store.connection
         record_marks(conn, "2024-01-01", {"RIR_ADHERENCE": 0.5},
-                     confidence="high", rubric_version="1.0.0")
+                     confidence="high", rubric_version=RUBRIC_VERSION)
         record_marks(conn, "2024-01-01", {"RIR_ADHERENCE": 0.9, "REDUNDANCY": None},
-                     confidence="high", rubric_version="1.0.0")
+                     confidence="high", rubric_version=RUBRIC_VERSION)
 
         labels = load_marks(conn)
         session = labels.sessions["2024-01-01"]

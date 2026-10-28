@@ -2381,49 +2381,11 @@ $("#measure-form").addEventListener("submit", async (event) => {
   }
 });
 
-/* --- terminal ----------------------------------------------------------- */
-const terminalHistory = [];
-let terminalCursor = -1;
-
-async function runTerminal(command) {
-  const value = command.trim();
-  if (!value) return;
-  $("#terminal-output").textContent = "$ " + value + "\n\nRunning…";
-  try {
-    const data = await api("/api/terminal", { method: "POST", body: JSON.stringify({ command: value }) });
-    $("#terminal-output").textContent = "$ " + value + "\n\n" + data.output +
-      (data.returncode ? "\n[exit " + data.returncode + "]" : "");
-  } catch (error) {
-    $("#terminal-output").textContent = "$ " + value + "\n\n" + error.message;
-  }
-}
-
 $("#programme-form").addEventListener("submit", (event) => {
   event.preventDefault();
   runProgramme();
 });
 $("#programme-form").addEventListener("input", programmeFormChanged);
-$("#terminal-form").addEventListener("submit", (event) => {
-  event.preventDefault();
-  const command = $("#terminal-command").value;
-  if (command.trim()) {
-    terminalHistory.push(command.trim());
-    terminalCursor = terminalHistory.length;
-    $("#terminal-command").value = "";
-    runTerminal(command);
-  }
-});
-$("#terminal-command").addEventListener("keydown", (event) => {
-  if (event.key === "ArrowUp" && terminalHistory.length) {
-    terminalCursor = Math.max(0, terminalCursor - 1);
-    $("#terminal-command").value = terminalHistory[terminalCursor];
-    event.preventDefault();
-  } else if (event.key === "ArrowDown") {
-    terminalCursor = Math.min(terminalHistory.length, terminalCursor + 1);
-    $("#terminal-command").value = terminalHistory[terminalCursor] || "";
-    event.preventDefault();
-  }
-});
 
 /* --- settings ----------------------------------------------------------- */
 const SETTINGS_TARGET_KEY = "strength-coach.minimumTarget";

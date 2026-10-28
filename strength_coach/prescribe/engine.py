@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import replace
 from typing import Any
 
@@ -244,7 +244,8 @@ def build_prescription(
     vbt_cal = vbt
     if vbt_cal is None and not context.sets.empty:
         vbt_cal = vbt_calibration.calibrate(context.sets)
-    items, readiness_level, readiness_warnings, readiness_factors, lift_readiness = _apply_readiness_score(
+    (items, readiness_level, readiness_warnings, readiness_factors, lift_readiness,
+     readiness_sets_reduced) = _apply_readiness_score(
         conn, context, tuple(items), for_date, assessment, injury, trigger, thresholds,
         readiness_config=readiness_config, calibration=vbt_cal,
     )
@@ -325,8 +326,11 @@ def build_prescription(
         conn, context, tuple(items), for_date, fallback_level, calibration=vbt_cal
     )
 
+    # A readiness set cut is a safety valve, so the under-MEV progression must not re-add the
+    # same set in the same session (DEC-VOLUME-33). Safety wins; the volume target waits.
     items, under_warnings, under_note = _apply_under_mev(
-        context, tuple(items), for_date, conn=conn, config=resolved.volume
+        context, tuple(items), for_date, conn=conn, config=resolved.volume,
+        skip=readiness_sets_reduced,
     )
     warnings.extend(under_warnings)
     items, volume_warnings, volume_note = _apply_volume_cap(
@@ -647,12 +651,17 @@ def _apply_under_mev(
     *,
     conn=None,
     config: volume_feature.VolumeConfig | None = None,
+    skip: Collection[str] = (),
 ) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], dict]:
     """Add one accessory set to a pattern that has been below MEV for the configured window.
 
     Main lifts are intentionally excluded: this is a small accessory progression, not a
     licence to raise the primary strength dose. The MRV cap runs afterwards and can still
     remove a set if the result would exceed the ceiling.
+
+    `skip` names items a safety modifier already reduced this session. A readiness set cut is
+    a recovery valve, so the progression must not undo it (DEC-VOLUME-33); the pattern stays
+    under target for that week instead.
     """
     cfg = config or volume_feature.VolumeConfig.load()
     if not cfg.under_mev_enabled or not cfg.landmarks:
@@ -679,6 +688,7 @@ def _apply_under_mev(
             i for i, item in enumerate(out)
             if not item.essential
             and item.exercise_id
+            and item.exercise_id not in skip
             and volume_feature.volume_target_key(
                 context.entity(item.exercise_id).get("pattern") or ""
             ) == key
@@ -947,30 +957,24 @@ def _apply_readiness_score(
     # Per-lift readiness: a lower score may reduce this lift's load; a higher one never
     # raises it. Without a ready global score there is no base to adjust, so it stays empty.
     lift_scores: dict[str, lift_readiness_feature.LiftReadiness] = {}
+    # The injury ceiling is computed on every day, not only on scored days: a flaring region
+    # caps the lifts that load it regardless of whether a readiness score exists
+    # (DEC-INJURY-04). When no base score is available the effective score is the ceiling
+    # itself, so the factor is the ceiling and never an invented readiness number.
     prepared: dict[str, tuple[float | None, float, int, float]] = {}
+    for item in items:
+        entity = (context.entities or {}).get(item.exercise_id, {})
+        prepared[item.exercise_id] = readiness_score.effective(
+            assessment, conn, item.exercise_id, entity, signal=injury
+        )
     if assessment.status == "ready":
-        base_scores: dict[str, float] = {}
-        for item in items:
-            entity = (context.entities or {}).get(item.exercise_id, {})
-            effective = readiness_score.effective(
-                assessment, conn, item.exercise_id, entity, signal=injury
-            )
-            prepared[item.exercise_id] = effective
-            if effective[0] is not None:
-                base_scores[item.exercise_id] = float(effective[0])
+        base_scores = {
+            item.exercise_id: float(prepared[item.exercise_id][0])
+            for item in items if prepared[item.exercise_id][0] is not None
+        }
         lift_scores = lift_readiness_feature.compute(
             context.sets, base_scores, for_date, calibration=calibration
         )
-    elif assessment.overrides:
-        # No numeric score can be formed, but an explicit override is a dated athlete
-        # statement and still supplies the factor for the categories it covers
-        # (READINESS-SCORE §2.2a). The per-lift advisory is deliberately not computed: it
-        # needs a base score and must not invent one on a partial day.
-        for item in items:
-            entity = (context.entities or {}).get(item.exercise_id, {})
-            prepared[item.exercise_id] = readiness_score.effective(
-                assessment, conn, item.exercise_id, entity, signal=injury
-            )
     config = readiness_config or readiness_mod.ReadinessConfig.load()
     poor_for_sets = bool(
         config.set_reduction_enabled
@@ -1010,11 +1014,15 @@ def _apply_readiness_score(
                     lift_reduced.append(item.exercise_id)
                 scored = True
         elif scope in assessment.overrides or "global" in assessment.overrides:
-            # Only the covered categories take the override; an uncovered item keeps the
-            # plain session, and no injury ceiling is applied through this path alone.
+            # Only the covered categories take the override. The prepared tuple is still
+            # capped by the injury ceiling, so an override can never lift a flaring region.
             score, factor, rir_bump, ceiling = prepared[item.exercise_id]
             if factor < 1.0:
                 override_used = True
+        else:
+            # No readiness score and no override: the injury ceiling alone still applies.
+            # The score here is the ceiling, never a fabricated readiness value.
+            score, factor, rir_bump, ceiling = prepared[item.exercise_id]
         factor = min(factor, floor_factor)
         if trigger and floor_factor < 1.0:
             rir_bump = max(rir_bump, 1)
@@ -1102,7 +1110,7 @@ def _apply_readiness_score(
             "MOD-FAT-001: " + "; ".join(pieces) + "; session reduced"
         )
     return (tuple(out), ("fatigue_reduced" if reduced else "full"), tuple(warnings),
-            factors, lift_scores)
+            factors, lift_scores, tuple(sets_reduced))
 
 
 def _load_stack(items: tuple[PrescriptionItem, ...]) -> list[dict]:

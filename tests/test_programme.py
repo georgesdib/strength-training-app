@@ -37,6 +37,18 @@ def store_with(rows=ROWS):
         store.close()
 
 
+def test_the_horizon_is_bounded_in_the_core():
+    # DEC-PROGRAMME-09: the UI bounded weeks at 26; a direct call must not be able to start an
+    # unbounded forecast (the CLI passes --weeks straight through).
+    with store_with() as store:
+        try:
+            programme.build_programme(store.connection, weeks=27)
+        except ValueError as exc:
+            assert "between 1 and 26" in str(exc)
+        else:
+            raise AssertionError("27 weeks was accepted")
+
+
 def test_programme_is_a_weekday_abc_forecast_and_persists_nothing():
     with store_with() as store:
         before = store.connection.execute(

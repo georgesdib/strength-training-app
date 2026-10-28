@@ -53,6 +53,24 @@ def test_mrv_cap_never_cuts_an_essential_item():
     assert any("no non-essential sets" in warning for warning in warnings)
 
 
+def test_under_mev_does_not_restore_a_set_readiness_cut():
+    # DEC-VOLUME-33: a safety cut wins; the volume target waits for the next session.
+    rows = pd.DataFrame([
+        {"date": pd.Timestamp("2026-10-14"), "exercise_id": "dumbbell_row",
+         "is_working_set": True}
+    ])
+    context = RuleContext(
+        sets=rows, sessions=pd.DataFrame(), entities=exercises.taxonomy().entities,
+    )
+    items, warnings, note = _apply_under_mev(
+        context, (_item(sets=2),), "2026-10-20", skip={"dumbbell_row"}
+    )
+    assert items[0].sets == 2
+    assert "MOD-VOL-002" not in items[0].rationale_refs
+    assert note["applied"] is False
+    assert warnings == ()
+
+
 def test_under_mev_adds_one_accessory_set():
     from strength_coach.prescribe.engine import _apply_under_mev
 

@@ -41,9 +41,13 @@ Volume has no predictive model; selection has no counterfactual.
 ## 3. Interpretation
 
 - The fatigue model should **not** be adopted, and should not drive a load.
-- The calibrated continuity factor should **not** replace the fixed fallback.
+- The calibrated continuity factor should **not** replace the fixed fallback — **overruled
+  2026-10-28** (`DEC-CONTINUITY-06`): the athlete keeps it applied and accepts the retrospective
+  loss, with the fixed rule still the fallback for under-powered bands. This document remains
+  the record of the result; the decision is the later row.
 - No prospective shadow period is started for these candidates: they failed the retrospective
-  screen first.
+  screen first. The continuity factor therefore ships without prospective validation, and its
+  evidence label stays "insufficient, not validated".
 - This is a small, single-athlete, non-stationary record. The result is enough to reject
   adoption, not enough to prove the models can never work.
 - If a future model beats these baselines retrospectively, the next step is a frozen

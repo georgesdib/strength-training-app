@@ -58,8 +58,10 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
                     apply_deload: bool = True, apply_selection: bool = False,
                     selection_chooser=None,
                     selection_confirmed: bool = False) -> list[ProgrammeEntry]:
-    if weeks <= 0:
-        raise ValueError("weeks must be positive")
+    # The UI and API bound the horizon; the core enforces the same limit so a direct call
+    # cannot start an unbounded forecast (DEC-PROGRAMME-09).
+    if not 1 <= weeks <= 26:
+        raise ValueError("weeks must be between 1 and 26")
     if not 1 <= per_week <= len(WEEKDAYS):
         raise ValueError("per_week must be 1-3 for the programme forecast")
     first = dt.date.fromisoformat(start) if start else dt.date.today()

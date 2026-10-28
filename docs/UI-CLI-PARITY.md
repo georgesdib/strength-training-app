@@ -2,7 +2,8 @@
 
 **Status:** current audit, 2026-10-23.
 **Standard:** a capability has first-class parity when the UI calls the same core function as the
-CLI. The Terminal page is a fallback, not parity.
+CLI. The in-browser Terminal was removed on 2026-10-28 (`DEC-WEB-02`), so the fallback for an
+uncovered action is now the CLI itself; that is not parity either.
 
 ---
 
@@ -63,8 +64,8 @@ These are known and intentional or still open.
 |---|---|---|
 | UI prescribe preview artifact | `/api/prescribe` is read-only until workout start | intentional; start commits the artifact |
 | CLI `run --propose` / `--llm` narrative | no UI proposal/chat surface | documented CLI-only (`DEC-LLM-*` / WEB-UI limitations) |
-| `review --pending` bulk queue | UI reviews a selected recent session; no batch queue | open; terminal fallback |
-| `state --import` YAML | UI has individual state forms only | open; terminal fallback |
+| `review --pending` bulk queue | UI reviews a selected recent session; no batch queue | open; CLI only since `DEC-WEB-02` |
+| `state --import` YAML | UI has individual state forms only | open; CLI only since `DEC-WEB-02` |
 | `e1rm calibrate --window-days` | UI shows the calibration table, no window control | partial |
 | `e1rm tests-needed --window-days` | UI shows the same coverage table with the default window | partial |
 | `test --status` standalone cadence | cadence shown in prescription notes | partial |
@@ -77,7 +78,6 @@ These are known and intentional or still open.
 | `fatigue --date` | UI panel uses the default date | partial |
 | `validate --max-dates` | UI button uses 12 dates | partial |
 | `block --force` reset | profile/block form exists; explicit reset path is not first-class | partial |
-| Terminal fallback | any `strength-coach` command | fallback only; not parity |
 | `web` command | the UI is the web server | CLI-only by definition |
 
 ## 4. UI-only capabilities
@@ -85,7 +85,6 @@ These are known and intentional or still open.
 - Outcomes page (strength + longevity + data coverage).
 - Readiness feedback panel.
 - Quick readiness presets/context UI.
-- The browser terminal.
 
 These are UI surfaces over core functions; they do not violate parity.
 

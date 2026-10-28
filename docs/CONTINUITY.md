@@ -59,9 +59,14 @@ so declaring a holiday changes the record and the display, not the arithmetic.
 ### Retrospective walk-forward (2026-10-20)
 
 On a small number of observed returns (exact count private), the calibrated factor had ratio
-MAE 0.150 versus 0.128 for the fixed rule; the calibrated version lost. The fixed fallback
-therefore remains in use. This is retrospective, not prospective; see
-[RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md).
+MAE 0.150 versus 0.128 for the fixed rule; the calibrated version lost. This is retrospective,
+not prospective; see [RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md).
+
+**Owner decision (2026-10-28, `DEC-CONTINUITY-06`):** the calibrated factor stays **applied**.
+Every band currently qualifies on the live record and the estimate says retention about 100%, so
+the fixed post-gap reduction is deliberately relaxed rather than kept. The fixed rule remains
+the fallback for under-powered bands and wide intervals. The retrospective loss is accepted,
+and no prospective validation is claimed.
 
 ### Open questions — parked for calibration
 

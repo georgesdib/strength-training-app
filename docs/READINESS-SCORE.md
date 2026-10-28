@@ -197,6 +197,12 @@ lift_readiness = min(global_readiness,
 These numbers are **assumptions** (`ASSUMPTION-13`). A high readiness score can never lift an
 item above its injury ceiling, and an injury signal can never *increase* readiness.
 
+The ceiling is computed **whether or not a numeric readiness score exists** (`DEC-INJURY-04`).
+With no score and no override the effective value is the ceiling itself, never a fabricated
+readiness number, so a flaring knee caps its lifts on an un-scored day instead of only warning.
+The **low back is excluded** from this ceiling: `MOD-BACK-001` owns that flare (effort hold plus
+erector dose), and counting it here applied the back response twice.
+
 ### 2.2a Minimum data before a score is shown
 
 Decision: require **at least three of the five core subjective fields** for a numeric global

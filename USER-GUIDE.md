@@ -70,7 +70,7 @@ strength-coach web --port 8001
 ```
 
 It binds to **127.0.0.1 only** and has **no authentication**; do not expose it on a network.
-The pages are Today, Workflow, History, Outcomes, Longevity, Prescribe, Programme, Review, Readiness, Cardio, Measures, Import, Exercises, Athlete, Settings, Terminal and Docs. Every load, RIR, warning
+The pages are Today, Workflow, History, Outcomes, Longevity, Prescribe, Programme, Review, Readiness, Cardio, Measures, Import, Exercises, Athlete, Settings and Docs. Every load, RIR, warning
 and calibration number still comes from Python — the browser only displays and submits forms.
 Docs are rendered locally, so the UI works offline. **Import** accepts the training and
 readiness CSVs in the browser; the files are parsed in memory and stored in SQLite, not written
@@ -213,8 +213,9 @@ import  →  state (once)  →  readiness  →  prescribe  →  perform
 | baseline shadow | `readiness shadow` | Readiness → Run baseline shadow |
 | baseline settings | `readiness settings` | Readiness → Baseline settings |
 
-The Terminal page can run any of the CLI commands against the same database, but the dedicated
-pages are safer because they validate and show the result in context.
+The Terminal page was removed on 2026-10-28 (`DEC-WEB-02`): a browser command runner had no
+authentication. Anything the pages do not cover is run with the CLI, which validates and shows
+the result in context.
 
 ## 4. The routines
 

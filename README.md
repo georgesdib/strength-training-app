@@ -28,7 +28,7 @@ Delivered in v0.2/v0.3: readiness score and overrides, wearable/HRV/RHR baseline
 continuity calibration, cardio capture, measurements, session RPE/length, recent stress,
 per-lift readiness, e1RM calibration/decay, rolling session types, readiness volume valve,
 weekly volume ledger/MRV cap, exercise selection with A/B/C *variant* comparability, and the local web UI
-with import, state, Programme, Exercises, Terminal and calibration reports. v0.3 and v0.4 are
+with import, state, Programme, Exercises and calibration reports (the Terminal page was removed in 2026-10-28, `DEC-WEB-02`). v0.3 and v0.4 are
 complete. v0.4 packaged the audit, documentation and form closeout. **v1.0 beta** packages the
 workable app and guided Workflow UI for user testing. v1.1 will drop the beta label; the cardio
 capture audit, a reproducible cardio impulse/shadow load and comparable calibration depth remain

@@ -296,8 +296,18 @@ If a capability cannot reasonably live in the UI (interactive prompt, destructiv
 host-level operation), record the exception in `docs/WEB-UI.md` and `ROADMAP.md` §4.11 rather
 than leaving it silently missing.
 
-The in-browser terminal is the fallback for uncovered commands: it runs **only**
-`strength-coach`, never a shell, and is bound to the UI database.
+The in-browser terminal was **removed** on 2026-10-28 (`DEC-WEB-02`): a state-changing
+surface with no authentication. Uncovered commands are CLI-only; the CLI is the fallback and
+the remaining parity gaps stay listed in `docs/UI-CLI-PARITY.md`. Do not reintroduce a browser
+command runner without an authentication story.
+
+**Standing permission — restart the local UI (2026-10-28, owner instruction):** an agent may
+stop and restart the `strength-coach web` process whenever a code change makes the running
+process stale, without asking first. This overrides any earlier caution about starting a
+replacement server. Restart it the same way it was started (same database, same loopback host
+and port, detached so it outlives the session), then verify: `GET /` returns 200, `POST
+/api/programme` returns 200, and the served HTML no longer contains removed pages. Config-only
+edits do not need a restart; any change under `strength_coach/` does.
 
 ## 11. Things an agent should ask instead of doing
 

@@ -758,6 +758,9 @@ def _cmd_calibrate(args) -> int:
     store = db.Store(args.db)
     try:
         labels = load_marks(store.connection)
+        note = _excluded_marks_note(labels)
+        if note:
+            print(note)
         if not labels.sessions:
             print("no marks yet; run 'strength-coach review --session DATE' first")
             return 2
@@ -1061,6 +1064,9 @@ def _print_readiness_score(assessment) -> None:
 
 
 def _cmd_programme(args) -> int:
+    if not 1 <= args.weeks <= 26:
+        print(f"programme: --weeks must be between 1 and 26, got {args.weeks}")
+        return 2
     store = db.Store(args.db)
     try:
         conn = store.connection
@@ -1116,9 +1122,27 @@ def _cmd_programme(args) -> int:
         store.close()
 
 
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "[::1]"})
+
+
+def _is_loopback_host(host: str) -> bool:
+    value = str(host or "").strip().lower()
+    if value.startswith("["):
+        value = value.split("]", 1)[0] + "]"
+    return value in LOOPBACK_HOSTS
+
+
 def _cmd_web(args) -> int:
     from strength_coach.web.server import serve
 
+    # AGENTS.md: the UI has no authentication and must stay on loopback. run-web.sh already
+    # refuses other hosts; doing it here too means a direct CLI invocation cannot expose it.
+    if not _is_loopback_host(args.host):
+        print(
+            f"web: refusing non-loopback host {args.host!r}; the UI has no authentication "
+            "and must stay on 127.0.0.1, localhost or ::1"
+        )
+        return 2
     try:
         serve(args.db, host=args.host, port=args.port, open_browser=args.open)
     except OSError as exc:
@@ -2411,8 +2435,23 @@ def _print_critique(critique) -> None:
             print(f"  {item.key:<24}{'  n/a':>6}   {item.detail[:60]}")
 
 
+def _excluded_marks_note(labels) -> str | None:
+    """Say how many marks were dropped for a rubric-version mismatch (DEC-EVAL-06)."""
+    excluded = getattr(labels, "excluded_rubric_versions", {}) or {}
+    if not excluded:
+        return None
+    versions = ", ".join(f"{version}: {count}" for version, count in sorted(excluded.items()))
+    return (
+        f"excluded {sum(excluded.values())} session(s) marked under a different rubric "
+        f"version ({versions}); current is {RUBRIC_VERSION}"
+    )
+
+
 def _print_calibration(conn, tolerance: float) -> None:
     labels = load_marks(conn)
+    note = _excluded_marks_note(labels)
+    if note:
+        print(note)
     if not labels.sessions:
         return
     report = backtest(conn, labels, tolerance=tolerance)

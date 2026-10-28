@@ -2,8 +2,9 @@
 #
 # MEV/MAV/MRV are coaching landmarks, not measured individual thresholds. The values are broad
 # defaults informed by volume dose-response work and deliberately configurable; the cap only
-# trims non-essential sets when a pattern is already over MRV. Under-MEV is reported, never
-# auto-filled.
+# trims non-essential sets when a pattern is already over MRV. Under-MEV adds one accessory set
+# (DEC-VOLUME-03), but never on an item a safety modifier reduced in the same session
+# (DEC-VOLUME-33).
 schema_version: "1.0.0"
 window_weeks: 4
 # Ledger coverage: unknown = divide by observed weeks; complete = a week with no working

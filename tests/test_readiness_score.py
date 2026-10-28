@@ -200,10 +200,11 @@ def test_cli_rejects_an_unknown_category_scope(tmp_path, capsys):
 
 
 def test_injury_ceiling_caps_a_high_score():
+    # A non-back region: the low back is owned by MOD-BACK-001 and excluded from the ceiling.
     with store_with() as store:
         conn = store.connection
         repositories.append_symptom(
-            conn, logged_on=TODAY, timing="pre_session", region="low_back",
+            conn, logged_on=TODAY, timing="pre_session", region="knee",
             level=2, settled_within_48h=0,
         )
         assessment = readiness_score.compute(conn, TODAY)
@@ -211,6 +212,24 @@ def test_injury_ceiling_caps_a_high_score():
 
     assert assessment.score == 0.8
     assert item(prescription, "ssb_squat").load_kg < 105.5
+
+
+def test_injury_ceiling_applies_without_a_readiness_score():
+    # DEC-INJURY-04: a flaring region caps its lifts even on a day that cannot form a score.
+    with store_with() as store:
+        conn = store.connection
+        conn.execute("DELETE FROM readiness_day")
+        repositories.append_symptom(
+            conn, logged_on=TODAY, timing="pre_session", region="knee",
+            level=2, settled_within_48h=0,
+        )
+        assessment = readiness_score.compute(conn, TODAY)
+        prescription = build_prescription(conn, for_date=TODAY, session_type="squat")
+
+    assert assessment.score is None
+    assert item(prescription, "ssb_squat").load_kg < 105.5
+    assert any("injury ceiling applied" in w for w in prescription.warnings)
+    assert not any("readiness score" in w for w in prescription.warnings)
 
 
 def test_cli_requires_readiness_for_today(tmp_path):

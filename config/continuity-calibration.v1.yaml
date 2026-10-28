@@ -4,6 +4,10 @@
 # enough observed returns and the bootstrap interval is tight enough. It is deliberately
 # explicit: when a band is sufficiently observed and the interval is tight, the model may
 # replace the fixed reduction (including relaxing it); otherwise the fixed rule is kept.
+#
+# DEC-CONTINUITY-06: applying the calibrated factor is an accepted owner decision, even though
+# the retrospective walk-forward found it worse than the fixed rule (RETROSPECTIVE-VALIDATION).
+# The evidence is insufficient, not validated; set `apply: false` to revert to report-only.
 
 enabled: true
 apply: true

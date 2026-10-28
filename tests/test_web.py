@@ -88,7 +88,8 @@ def test_the_page_and_overview_are_served(server):
     status, page = get(server, "/")
     assert status == 200
     assert "Strength" in page
-    assert "Programme" in page and "Terminal" in page
+    assert "Programme" in page
+    assert "Terminal" not in page  # removed: a mutation surface with no auth
     assert "prescribe-selection-confirm" in page
     assert "Apply selection:" in page
     assert "class A" in page and "class B" in page and "class C" in page
@@ -466,38 +467,100 @@ def test_programme_endpoint_accepts_selection_flags(server):
     assert selection["llm_requested"] is True
 
 
-def test_terminal_accepts_only_strength_coach(server):
+def post_with_headers(base: str, path: str, payload: dict, headers: dict) -> tuple[int, str]:
+    request = urllib.request.Request(
+        base + path,
+        data=json.dumps(payload).encode() if not isinstance(payload, bytes) else payload,
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request) as response:
+            return response.status, response.read().decode()
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read().decode()
+
+
+def test_the_terminal_route_is_gone(server):
     status, body = post_status(server, "/api/terminal", {"command": "ls"})
+    assert status == 404
+    assert "not found" in body
+
+
+def test_a_cross_origin_post_is_refused(server):
+    status, body = post_with_headers(
+        server, "/api/reads", {"x": 1},
+        {"Content-Type": "application/json", "Origin": "http://evil.example"},
+    )
+    assert status == 403
+    assert "cross-origin" in body
+
+
+def test_cross_site_fetch_is_refused(server):
+    status, body = post_with_headers(
+        server, "/api/reads", {"x": 1},
+        {"Content-Type": "application/json", "Sec-Fetch-Site": "cross-site"},
+    )
+    assert status == 403
+    assert "cross-site" in body
+
+
+def test_a_foreign_host_header_is_refused(server):
+    status, body = post_with_headers(
+        server, "/api/reads", {"x": 1},
+        {"Content-Type": "application/json", "Host": "rebound.example:8000"},
+    )
+    assert status == 403
+    assert "loopback" in body
+
+
+def test_a_non_json_content_type_is_refused(server):
+    # text/plain is a browser "simple request": it skips the preflight, so it must not be a
+    # way around the origin check.
+    status, body = post_with_headers(
+        server, "/api/reads", b'{"x": 1}',
+        {"Content-Type": "text/plain"},
+    )
+    assert status == 415
+    assert "application/json" in body
+
+
+def test_the_programme_horizon_is_bounded(server):
+    status, body = post_status(server, "/api/programme", {"weeks": 27})
     assert status == 400
-    assert "only strength-coach" in body
-
-    status, body = post_status(server, "/api/terminal", {
-        "command": "strength-coach web",
-    })
-    assert status == 400
-    assert "cannot run" in body
-
-    status, body = post_status(server, "/api/terminal", {
-        "command": "strength-coach state --db other.db",
-    })
-    assert status == 400
-    assert "--db" in body
-
-    status, body = post_status(server, "/api/terminal", {
-        "command": "strength-coach review",
-    })
-    assert status == 400
-    assert "interactive" in body
+    assert "between 1 and 26" in body
 
 
-def test_terminal_runs_a_valid_command(server):
-    status, body = post_status(server, "/api/terminal", {
-        "command": "strength-coach programme --weeks 1 --start 2024-01-02 --start-session-type squat",
-    })
-    assert status == 200
-    data = json.loads(body)
-    assert data["returncode"] == 0
-    assert "forecast only" in data["output"]
+def test_only_one_programme_job_runs(monkeypatch, server):
+    import threading
+
+    from strength_coach.web import server as web_server
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def slow_payload(conn, body):
+        started.set()
+        release.wait(timeout=10)
+        return {}
+
+    monkeypatch.setattr(web_server, "programme_payload", slow_payload)
+    first = post(server, "/api/programme/jobs", {"weeks": 1, "sessions_per_week": 1})
+    assert first["status"] == "running"
+    assert started.wait(timeout=10)
+    status, body = post_status(server, "/api/programme/jobs", {"weeks": 1})
+    assert status == 409
+    assert "already running" in body
+    release.set()
+
+
+def test_a_same_origin_post_is_accepted(server):
+    status, body = post_with_headers(
+        server, "/api/reviews",
+        {"task_key": "exercise_substitution", "action": "snoozed", "date": "2024-01-01"},
+        {"Content-Type": "application/json", "Origin": server},
+    )
+    assert status == 200, body
 
 def test_readiness_settings_and_shadow_endpoints(server):
     data = post(server, "/api/readiness/settings", {
@@ -1227,7 +1290,11 @@ def test_malformed_json_and_non_object_are_400(server):
         (b"\xff", 1),
     ]
     for body, length in cases:
-        status, _ = _raw_post(server, [f"Content-Length: {length}"], body)
+        status, _ = _raw_post(
+            server,
+            [f"Content-Length: {length}", "Content-Type: application/json"],
+            body,
+        )
         assert status == 400, body
 
 
@@ -1244,7 +1311,7 @@ def test_body_at_limit_is_accepted_but_one_byte_over_is_413(monkeypatch, server)
 
 
 def test_zero_content_length_is_an_empty_object(server):
-    status, _ = _raw_post(server, ["Content-Length: 0"])
+    status, _ = _raw_post(server, ["Content-Length: 0", "Content-Type: application/json"])
     assert status == 400  # import handler, not a framing error
 
 

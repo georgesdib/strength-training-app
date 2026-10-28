@@ -95,8 +95,9 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 - **Settings** — appearance (System / Light / Dark), optional LLM configuration (enable/disable, model, endpoint, write-only key,
   temperature/tokens/timeout), browser-only Prescribe defaults, and read-only app/database paths.
   The key is masked and lives in git-ignored `config/llm.local.toml`.
-- **Terminal** — restricted `strength-coach` command runner bound to the UI database.
 - **Docs** — local Markdown rendered without external assets.
+
+The in-browser **Terminal** was removed on 2026-10-28 (`DEC-WEB-02`): it was a state-changing surface with no authentication. Actions the UI does not expose (bulk `review --pending`, `state --import`) stay CLI-only and are listed in [`UI-CLI-PARITY.md`](UI-CLI-PARITY.md).
 
 ## Feedback
 
@@ -171,10 +172,23 @@ also disables while saving and reports the number of marks written.
 | `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml` |
 | `GET /api/measurements` | metric catalogue, per-metric summary and recent entries |
 | `POST /api/measurements` | `{metric, value, date, method, note}` -> summary |
-| `POST /api/terminal` | one restricted `strength-coach` command |
 | `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy` |
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |
+
+## Request security
+
+Loopback is the only boundary; there is no login. Every mutating `POST` therefore checks
+(`DEC-WEB-01`):
+
+- the `Host` header names a loopback host (`127.0.0.1`, `localhost`, `::1`), which also blocks a
+  DNS-rebinding page that resolves its own name to 127.0.0.1;
+- `Sec-Fetch-Site` is not `cross-site`, and an `Origin` header, when present, matches the
+  request host exactly (a cross-origin `POST` otherwise executes without being readable);
+- `Content-Type` is `application/json`, because `text/plain` is a browser simple request that
+  skips the preflight and would slip past the origin check.
+
+`run-web.sh` and `strength-coach web --host` both refuse a non-loopback bind address.
 
 ## Request limits
 

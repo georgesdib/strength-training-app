@@ -248,6 +248,9 @@ a silent region that never loads.
 
 ---
 
-The proposed readiness score uses this signal as a **ceiling**, never an average: a high
-readiness score cannot raise a lift above its region's injury status. See
-[`READINESS-SCORE.md`](READINESS-SCORE.md) §2.2 and §2.6.
+The readiness score uses this signal as a **ceiling**, never an average: a high readiness score
+cannot raise a lift above its region's injury status. The ceiling is applied on days with **no
+numeric readiness score too** (`DEC-INJURY-04`), so a flaring non-back region caps its lifts
+rather than only warning. The low back is excluded from the ceiling because `MOD-BACK-001` owns
+that flare; the advisory warning for a flaring region still excludes it for the same reason.
+See [`READINESS-SCORE.md`](READINESS-SCORE.md) §2.2 and §2.6.

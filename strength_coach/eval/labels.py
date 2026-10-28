@@ -20,7 +20,7 @@ duplicate session ids.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -94,6 +94,9 @@ class LabelledSession:
     notes: str | None = None
     marked_at: str | None = None
     confidence: str = "unknown"
+    # The rubric definition the marks were made against. A score is only comparable with a
+    # prediction from the same definition, so the loader can exclude stale versions.
+    rubric_version: str | None = None
 
     @property
     def reliable(self) -> bool:
@@ -108,6 +111,13 @@ class LabelledSet:
     sessions: Mapping[str, LabelledSession]
     tolerance: float = 0.25
     source: str = ""
+    # Sessions dropped because their marks were made against an older rubric definition,
+    # keyed by version. Reported so the exclusion is visible, never silent.
+    excluded_rubric_versions: Mapping[str, int] = field(default_factory=dict)
+
+    @property
+    def excluded_sessions(self) -> int:
+        return sum(self.excluded_rubric_versions.values())
 
 
 def load_labels(path: str | Path) -> LabelledSet:

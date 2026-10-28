@@ -319,12 +319,21 @@ def injury_ceiling(conn, on_date: str, exercise_id: str,
                    entity: Mapping[str, Any] | None = None,
                    *, signal: injury_signal.InjurySignal | None = None,
                    config: injury_signal.InjuryConfig | None = None) -> float:
-    """Lowest ceiling among regions that load this exercise; 1.0 when none apply."""
+    """Lowest ceiling among regions that load this exercise; 1.0 when none apply.
+
+    The low back is excluded because `MOD-BACK-001` owns that flare: it holds effort and
+    caps the erector dose. Counting the region here as well applied the back response twice
+    (a readiness RIR bump on top of the flare's hold) and could push the RIR above the
+    flare's documented 3 (DEC-INJURY-04). This mirrors `_injury_warnings`, which also
+    skips the low back so the modifier's own warning is not duplicated.
+    """
     cfg = config or injury_signal.InjuryConfig.load()
     sig = signal or injury_signal.compute(conn, on_date)
     props = entity or {}
     ceiling = 1.0
     for rule in cfg.regions.values():
+        if rule.region == "low_back":
+            continue
         weight = rule.weight(exercise_id, props)
         if not weight:
             continue

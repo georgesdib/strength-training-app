@@ -26,8 +26,8 @@ Every linked document should end with:
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md)
 ```
 
-Operational pages (Appearance, Terminal, Docs) may replace “Evidence” with the relevant
-implementation or parity document.
+Operational pages (Settings, Docs) may replace “Evidence” with the relevant implementation
+or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 
 ## View map
 
@@ -48,7 +48,6 @@ implementation or parity document.
 | **Exercises** | Exercise catalogue; Edit exercise; Exercise details dialog | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md), [DATA-MODEL.md](DATA-MODEL.md) | [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Athlete** | Athlete state | [DATA-MODEL.md](DATA-MODEL.md), [INJURY-SIGNAL.md](INJURY-SIGNAL.md) | [READINESS.md](READINESS.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Settings** | Appearance; Language model; Prescribe defaults; App | [WEB-UI.md](WEB-UI.md), [ARCHITECTURE.md](ARCHITECTURE.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
-| **Terminal** | Terminal | [WEB-UI.md](WEB-UI.md), [UI-CLI-PARITY.md](UI-CLI-PARITY.md) | [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Docs** | Docs list and document viewer | [WEB-UI.md](WEB-UI.md), [METHODOLOGY.md](METHODOLOGY.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
 
 ## Panel-specific notes
@@ -99,7 +98,6 @@ implementation or parity document.
 | Language model | Optional narrator/proposer; never computes loads | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | Prescribe defaults | Browser-only form preferences | [WEB-UI.md](WEB-UI.md) |
 | App | Local-only status and data location | [WEB-UI.md](WEB-UI.md) |
-| Terminal | Runs only `strength-coach`, never a shell | [UI-CLI-PARITY.md](UI-CLI-PARITY.md) |
 | Docs | Local Markdown viewer and deep-link target | [WEB-UI.md](WEB-UI.md) |
 
 ## Build status

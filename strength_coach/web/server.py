@@ -16,9 +16,6 @@ import json
 import logging
 import mimetypes
 import os
-import shlex
-import subprocess
-import sys
 import threading
 import uuid
 import webbrowser
@@ -274,11 +271,21 @@ _PROGRAMME_JOB_TTL_SECONDS = 3600
 _PROGRAMME_JOB_MAX = 20
 
 
+MAX_PROGRAMME_WEEKS = 26
+
+
 def _programme_request(body: dict) -> dict[str, Any]:
+    # The UI already bounds the horizon; the API must too, or a huge forecast is a local DoS
+    # (DEC-PROGRAMME-09).
+    weeks = int(body.get("weeks") or 4)
+    if not 1 <= weeks <= MAX_PROGRAMME_WEEKS:
+        raise ValueError(
+            f"weeks must be between 1 and {MAX_PROGRAMME_WEEKS}, got {weeks}"
+        )
     return {
         "start": datetime.date.today().isoformat() if _truth(body.get("remaining"))
         else (body.get("start") or None),
-        "weeks": int(body.get("weeks") or 4),
+        "weeks": weeks,
         "sessions_per_week": int(body.get("sessions_per_week") or 3),
         "start_session_type": body.get("start_session_type") or None,
         "apply_selection": _truth(body.get("apply_selection")),
@@ -366,9 +373,20 @@ def _run_programme_job(job_id: str, db_path, body: dict) -> None:
                 _PROGRAMME_JOBS[job_id].update(status="error", error=str(exc))
 
 
+MAX_RUNNING_PROGRAMME_JOBS = 1
+
+
 def start_programme_job(db_path, body: dict) -> dict:
+    _programme_request(body)  # validate the horizon before spending a thread
     with _PROGRAMME_JOBS_LOCK:
         _programme_job_cleanup()
+        running = sum(
+            1 for job in _PROGRAMME_JOBS.values() if job["status"] == "running"
+        )
+        if running >= MAX_RUNNING_PROGRAMME_JOBS:
+            # A forecast is CPU-bound and reads the same database; queueing duplicates only
+            # makes both slower (DEC-PROGRAMME-09).
+            raise RequestError(409, "a programme forecast is already running")
     job_id = uuid.uuid4().hex
     job = {
         "job_id": job_id,
@@ -401,6 +419,7 @@ class ReadinessRequired(Exception):
 class Handler(BaseHTTPRequestHandler):
     db_path: str | Path | None = None
     server_version = "strength-coach-web"
+    LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "[::1]"})
 
     # --- plumbing ---------------------------------------------------------
     def log_message(self, fmt: str, *args) -> None:
@@ -423,6 +442,32 @@ class Handler(BaseHTTPRequestHandler):
     def _error(self, status: int, message: str) -> None:
         self._json(status, {"error": message})
 
+    def _require_same_origin(self) -> None:
+        """Refuse browser mutations that do not come from this loopback origin.
+
+        The UI has no authentication, so loopback is the whole boundary. Without this check a
+        page on another origin can POST JSON here (the browser sends it as a simple request
+        even though the response is unreadable), and a DNS-rebinding page can reach the port
+        with a foreign Host. Requiring a loopback Host plus a matching Origin, when one is
+        sent, closes both without inventing a login for a local single-user tool.
+        """
+        host = (self.headers.get("Host") or "").strip().lower()
+        host_name = host
+        if host.startswith("["):
+            host_name = host.split("]", 1)[0] + "]"
+        elif host.count(":") == 1:
+            host_name = host.rsplit(":", 1)[0]
+        if host_name not in self.LOOPBACK_HOSTS:
+            raise RequestError(403, "request Host is not loopback", close=True)
+        if (self.headers.get("Sec-Fetch-Site") or "").strip().lower() == "cross-site":
+            raise RequestError(403, "cross-site request refused", close=True)
+        origin = (self.headers.get("Origin") or "").strip()
+        if not origin:
+            return
+        parsed = urlparse(origin)
+        if parsed.scheme != "http" or parsed.netloc.strip().lower() != host:
+            raise RequestError(403, "cross-origin request refused", close=True)
+
     def _body(self) -> dict:
         if self.headers.get("Transfer-Encoding"):
             raise RequestError(400, "Transfer-Encoding is not supported", close=True)
@@ -438,6 +483,11 @@ class Handler(BaseHTTPRequestHandler):
         length = int(raw_length)
         if length > MAX_BODY_BYTES:
             raise RequestError(413, "request body too large", close=True)
+        media_type = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+        if media_type != "application/json":
+            # A text/plain body is a browser "simple request" that skips the CORS preflight,
+            # so accepting it would bypass the origin check instead of complementing it.
+            raise RequestError(415, "Content-Type must be application/json", close=True)
         if length == 0:
             return {}
         raw = self.rfile.read(length)
@@ -694,6 +744,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         path = unquote(urlparse(self.path).path)
         try:
+            self._require_same_origin()
             body = self._body()
             if path == "/api/import":
                 self._json(200, self._with_conn(lambda c: self._import(c, body)))
@@ -842,8 +893,6 @@ class Handler(BaseHTTPRequestHandler):
                         + ", ".join(templates.SESSION_TYPES)
                     )
                 self._json(200, exercise_admin.save(entity_id, props))
-            elif path == "/api/terminal":
-                self._json(200, self._terminal(body))
             elif path == "/api/state/profile":
                 self._json(200, self._with_conn(lambda c: self._save_profile(c, body)))
             elif path == "/api/state/constraint":
@@ -1321,13 +1370,15 @@ class Handler(BaseHTTPRequestHandler):
             str(row["session_id"]): int(row["n"])
             for row in conn.execute(
                 "SELECT session_id, COUNT(DISTINCT item) AS n FROM rubric_mark "
-                "WHERE confidence = 'high' GROUP BY session_id"
+                "WHERE confidence = 'high' AND rubric_version = ? GROUP BY session_id",
+                (RUBRIC_VERSION,),
             )
         }
         marks = Counter()
         for row in conn.execute(
             "SELECT item, COUNT(DISTINCT session_id) AS n FROM rubric_mark "
-            "WHERE confidence = 'high' GROUP BY item"
+            "WHERE confidence = 'high' AND rubric_version = ? GROUP BY item",
+            (RUBRIC_VERSION,),
         ):
             marks[str(row["item"])] = int(row["n"])
         comparable = Counter(str(item.key) for item in report.comparable_items)
@@ -1343,6 +1394,9 @@ class Handler(BaseHTTPRequestHandler):
         gaps = [item["item"] for item in items if item["status"] != "ready"]
         return {
             "high_sessions": len(high),
+            "excluded_sessions": labels.excluded_sessions,
+            "excluded_versions": dict(labels.excluded_rubric_versions),
+            "rubric_version": RUBRIC_VERSION,
             "comparable_items": len(report.comparable_items),
             "agreement": (round(report.agreement_rate * 100, 1)
                           if report.agreement_rate is not None else None),
@@ -1654,40 +1708,6 @@ class Handler(BaseHTTPRequestHandler):
 
     def _programme(self, conn, body: dict) -> dict:
         return programme_payload(conn, body)
-
-    def _terminal(self, body: dict) -> dict:
-        """Run one strength-coach command. No shell, no other executable."""
-        raw = str(body.get("command") or "").strip()
-        if not raw:
-            raise ValueError("enter a strength-coach command")
-        try:
-            tokens = shlex.split(raw)
-        except ValueError as exc:
-            raise ValueError(f"could not parse command: {exc}") from exc
-        if not tokens or tokens[0] not in {"strength-coach", "strength_coach"}:
-            raise ValueError("only strength-coach commands are allowed")
-        args = tokens[1:]
-        if any(arg == "--db" or arg.startswith("--db=") for arg in args):
-            raise ValueError("the terminal is bound to the UI database; do not pass --db")
-        subcommand = next((arg for arg in args if not arg.startswith("-")), None)
-        if subcommand == "web":
-            raise ValueError("the web command cannot run inside the web terminal")
-        if subcommand == "review" and "--scores" not in args:
-            raise ValueError("interactive review is not available here; use the Review page or pass --scores")
-        command = [sys.executable, "-m", "strength_coach.cli"]
-        if self.db_path is not None:
-            command += ["--db", str(self.db_path)]
-        command += args
-        try:
-            result = subprocess.run(
-                command, cwd=ROOT, capture_output=True, text=True, timeout=60,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise ValueError("command timed out after 60 seconds") from exc
-        output = (result.stdout or "") + (result.stderr or "")
-        if len(output) > 200_000:
-            output = output[:200_000] + "\n[output truncated]"
-        return {"output": output, "returncode": result.returncode}
 
     def _save_profile(self, conn, body: dict) -> dict:
         current = dict(queries.athlete_profile(conn) or {})

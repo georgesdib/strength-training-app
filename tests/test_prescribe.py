@@ -237,6 +237,20 @@ def test_fatigue_modifier_reduces_loads_and_cites_readiness():
         assert loads.is_multiple_of(item.load_kg, 0.5)
 
 
+def test_a_readiness_set_cut_is_not_undone_by_the_under_mev_top_up():
+    # DEC-VOLUME-33: the squat session's accessories are below MEV, so the progression would
+    # normally add a set back; a poor-readiness cut must win instead.
+    with store_with(BASE_HISTORY, readiness_rows=[{"Date": "2024-01-08", "Sleep": "2"}]) as store:
+        prescription = build_prescription(
+            store.connection, for_date="2024-01-08", session_type="squat"
+        )
+
+    row = next(i for i in prescription.items if i.exercise_id == "dumbbell_row")
+    assert row.sets == 2
+    assert "MOD-FAT-001" in row.rationale_refs
+    assert "MOD-VOL-002" not in row.rationale_refs
+
+
 def test_a_missing_e1rm_is_reported_not_invented():
     rows = [
         {"Date": "2024-01-01", "Exercise": "Competition Bench Press",

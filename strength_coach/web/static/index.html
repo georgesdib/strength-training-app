@@ -41,7 +41,6 @@
       <button data-view="exercises">Exercises</button>
       <button data-view="state">Athlete</button>
       <button data-view="settings">Settings</button>
-      <button data-view="terminal">Terminal</button>
       <button data-view="docs">Docs</button>
     </nav>
   </aside>
@@ -224,7 +223,7 @@
       <div class="panel" id="continuity-panel">
         <div class="panel-head"><h2>Continuity calibration</h2>
           <span class="muted" id="continuity-status">loading…</span></div>
-        <p class="section-help"><span>Shows return-to-training continuity evidence and the fixed fallback; no calibrated factor.</span> <a class="doc-link" href="#docs?doc=docs/CONTINUITY.md">Continuity</a></p>
+        <p class="section-help"><span>Shows return-to-training continuity evidence. A qualifying band replaces the fixed reduction; under-powered bands keep the fixed fallback (accepted by owner decision despite a negative retrospective check).</span> <a class="doc-link" href="#docs?doc=docs/CONTINUITY.md">Continuity</a></p>
         <p class="muted">Return-to-training retention from actual gaps. Each band uses a calibrated
           factor only when it has enough returns and a tight bootstrap interval; otherwise the
           fixed −5%/−10% rule remains. This is not the e1RM age decay.</p>
@@ -942,20 +941,6 @@
         <p>LLM file <code id="settings-config-path">—</code></p>
         <p class="muted">The server binds to <code>127.0.0.1</code> and has no authentication. Do
           not expose it to a network. Raw exports and the database stay git-ignored.</p>
-      </div>
-    </section>
-
-    <section id="view-terminal" class="view">
-      <div class="panel">
-        <div class="panel-head"><h2>Terminal</h2><span class="muted">strength-coach only</span></div>
-        <p class="section-help"><span>Runs one restricted strength-coach command, never a shell.</span> <a class="doc-link" href="#docs?doc=docs/UI-CLI-PARITY.md">CLI/UI parity</a></p>
-        <form id="terminal-form" class="form-row">
-          <label class="grow">Command <input id="terminal-command" autocomplete="off" spellcheck="false" placeholder="strength-coach programme --weeks 4"></label>
-          <button class="primary" type="submit">Run</button>
-        </form>
-        <p class="muted">Runs one command in the UI's database. No shell, no <code>web</code>, no <code>--db</code>;
-          interactive <code>review</code> is refused (use the Review page).</p>
-        <pre id="terminal-output" class="terminal"></pre>
       </div>
     </section>
 
