@@ -91,6 +91,20 @@ def test_a_family_scoped_target_is_not_used():
     assert any("lift-scoped" in reason for reason in report.abstain)
 
 
+def test_a_positive_residual_larger_than_its_spread_is_an_advisory_only():
+    dates = [day for day, _ in weeks_of(6)]
+    velocities = [0.54, 0.55, 0.56, 0.57, 0.58, 0.56]
+    store = store_with(list(zip(dates, velocities, strict=False)))
+    try:
+        report = residual.compute(store.connection, ON)
+    finally:
+        store.close()
+    assert report.lifts[0].mean_residual > 0
+    assert report.advisories
+    assert "prediction bias" in report.advisories[0]
+    assert report.lifts[0].gate == "signal"  # still not an evaluation
+
+
 def test_two_lifts_at_twenty_observations_over_eight_weeks_are_evaluation_ready():
     store = store_with(weeks_of(20, step=3), second=("high_bar_squat", weeks_of(20, step=3)))
     try:

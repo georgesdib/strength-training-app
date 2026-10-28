@@ -71,6 +71,7 @@ from strength_coach.features import regime_change as regime_feature
 from strength_coach.features import residual as residual_feature
 from strength_coach.features import reviews as reviews_feature
 from strength_coach.features import session_feedback as session_feedback_feature
+from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import (
     build_prescription,
@@ -647,6 +648,15 @@ class Handler(BaseHTTPRequestHandler):
                 day = query.get("date", [None])[0] or datetime.date.today().isoformat()
                 self._json(200, self._with_conn(
                     lambda c: exposure_ratio_feature.compute(c, day).as_dict()
+                ))
+            elif path == "/api/shadow":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0] or datetime.date.today().isoformat()
+                window = query.get("window_days", [None])[0]
+                self._json(200, self._with_conn(
+                    lambda c: shadow_report_feature.report(
+                        c, day, window_days=None if window in (None, "") else int(window)
+                    ).as_dict()
                 ))
             elif path == "/api/residual":
                 query = parse_qs(urlparse(self.path).query)

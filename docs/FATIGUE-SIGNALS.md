@@ -19,6 +19,13 @@ grouped by lift/reps/load basis, lift-scoped calibration only, over an 84-day wi
 (CLI), `GET /api/residual` and the Prescribe **Performance residual** panel expose it. Shadow
 only: it changes nothing, and its two gates are the same `ASSUMPTION-56` thresholds.
 
+**Phase 6 done 2026-10-28**: `prescribe/shadow.py` appends exposure and substitution rows when a
+prescription is persisted (never on a forecast build), `features/shadow_report.py` produces the
+review with four checks (span ≥ 56 days, ≥ 10 evaluations, ≥ 3 high-signal days, no trim +
+substitution conflict), exposed as `shadow` (CLI), `GET /api/shadow` and the Prescribe **Shadow
+review** panel. `activation_allowed` is hard-coded false: the gate can only say "ready to
+review"; enabling stays a recorded profile change after an explicit decision (`ASSUMPTION-57`).
+
 Governing rule: these are **descriptive signals**, not physiological models. The app does not
 estimate fatigue, recovery time or injury probability. Everything is downward-only or
 advisory, and every component starts in **shadow** (records what it would do, changes
@@ -146,6 +153,11 @@ Hard exclusions and safety rules always win.
   variability.
 - If planned progression looks unresponsive to performance, report it as a separate finding;
   never change progression.
+
+Both automated advisory branches are implemented: the low-exposure text in
+`features/exposure.py`, and the positive-residual text in `features/residual.py` (mean residual
+positive and larger than its own spread, with the "bias or variability" wording). The
+unresponsive-progression finding is not automated; it stays a review observation.
 
 ## 5. Where these sit in the engine
 

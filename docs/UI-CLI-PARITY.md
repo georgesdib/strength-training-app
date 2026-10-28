@@ -78,6 +78,7 @@ These are known and intentional or still open.
 | `select --fatigue` | Exercise selection panel **Fatigue-informed suggestion** block | full |
 | `exercise demands set/clear` | Exercises details `Demand profile` rating form | full |
 | `residual` | Prescribe **Performance residual** panel (same `compute`) | full |
+| `shadow` | Prescribe **Shadow review** panel (same `report`) | full |
 | `continuity --date` | UI panel uses the default date | partial |
 | `fatigue --date` | UI panel uses the default date | partial |
 | `validate --max-dates` | UI button uses 12 dates | partial |

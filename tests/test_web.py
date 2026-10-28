@@ -441,6 +441,15 @@ def post_status(base: str, path: str, payload: dict) -> tuple[int, str]:
         return exc.code, exc.read().decode()
 
 
+def test_the_shadow_review_endpoint_never_allows_activation(server):
+    status, body = get(server, "/api/shadow?date=2024-01-31")
+    data = json.loads(body)
+    assert status == 200
+    assert data["activation_allowed"] is False
+    assert data["checks"]
+    assert isinstance(data["rows"], int)
+
+
 def test_the_residual_endpoint_abstains_without_linked_sets(server):
     status, body = get(server, "/api/residual?date=2024-01-31")
     data = json.loads(body)

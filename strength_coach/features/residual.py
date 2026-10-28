@@ -56,6 +56,7 @@ class ResidualReport:
     signal_available: bool
     evaluation_ready: bool
     abstain: tuple[str, ...]
+    advisories: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -65,6 +66,7 @@ class ResidualReport:
             "signal_available": self.signal_available,
             "evaluation_ready": self.evaluation_ready,
             "abstain": list(self.abstain),
+            "advisories": list(self.advisories),
             "gates": {
                 "min_observations": MIN_OBSERVATIONS,
                 "evaluation_observations": EVAL_OBSERVATIONS,
@@ -156,6 +158,19 @@ def compute(conn, on_date: str, *, window_days: int = WINDOW_DAYS) -> ResidualRe
             calibration_scope=scope, gate=gate, reason=reason,
         ))
 
+    # Part D: a positive residual larger than its own spread is worth mentioning, not acting on.
+    # It may be prediction bias or ordinary variability, so the text says exactly that.
+    advisories: list[str] = []
+    for lift in lifts:
+        if lift.gate == "insufficient" or lift.spread is None:
+            continue
+        if lift.mean_residual > 0 and lift.mean_residual > lift.spread:
+            advisories.append(
+                f"{lift.exercise_id} {lift.reps}s: mean residual "
+                f"{lift.mean_residual:+.2f} m/s exceeds its spread {lift.spread:.2f}; "
+                "may be prediction bias or normal variability, not a reason to change load"
+            )
+
     evaluation_ready = sum(1 for lift in lifts if lift.gate == "evaluation") >= 2
     return ResidualReport(
         on_date=day.isoformat(),
@@ -164,4 +179,5 @@ def compute(conn, on_date: str, *, window_days: int = WINDOW_DAYS) -> ResidualRe
         signal_available=any(lift.gate in {"signal", "evaluation"} for lift in lifts),
         evaluation_ready=evaluation_ready,
         abstain=tuple(abstain),
+        advisories=tuple(advisories),
     )

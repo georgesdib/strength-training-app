@@ -14,6 +14,7 @@ from typing import Any
 
 from strength_coach import __version__, settings_profile
 from strength_coach.features import prescription_provenance
+from strength_coach.prescribe import shadow as shadow_mod
 from strength_coach.prescribe import volume_budget
 from strength_coach.store import repositories
 
@@ -82,4 +83,10 @@ def store_plan(conn, plan: Mapping[str, Any], *, approved_by: str = "determinist
     )
     settings_profile.snapshot_prescription(conn, prescription_id, str(plan["for_date"]))
     prescription_provenance.record_plan(conn, prescription_id, plan)
+    shadow_mod.record(
+        conn, prescription_id,
+        for_date=str(plan["for_date"]),
+        session_type=str(plan["session_type"]),
+        notes=plan.get("notes") or {},
+    )
     return prescription_id

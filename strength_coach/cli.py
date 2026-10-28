@@ -67,6 +67,7 @@ from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import regime_change as regime_feature
 from strength_coach.features import residual as residual_feature
 from strength_coach.features import session_feedback as session_feedback_feature
+from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import (
     build_prescription,
@@ -79,6 +80,7 @@ from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
 from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import selection as selection_mod
+from strength_coach.prescribe import shadow as shadow_feature
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.rules import RuleContext, evaluate, load_document
 from strength_coach.store import db, exercise_admin, importer, queries, repositories
@@ -380,6 +382,13 @@ def main(argv: list[str] | None = None) -> int:
     select.add_argument("--fatigue", action="store_true",
                         help="show the Part C fatigue-informed suggestion (suggest-only)")
 
+    shadow_cmd = sub.add_parser(
+        "shadow", help="review shadow decisions and the activation gate"
+    )
+    shadow_cmd.add_argument("--date", default=None)
+    shadow_cmd.add_argument("--window-days", type=int, default=None)
+    shadow_cmd.add_argument("--json", action="store_true")
+
     residual = sub.add_parser(
         "residual", help="VBT execution residual (shadow; read-only)"
     )
@@ -489,6 +498,7 @@ def main(argv: list[str] | None = None) -> int:
         "select": _cmd_select,
         "exposure": _cmd_exposure,
         "residual": _cmd_residual,
+        "shadow": _cmd_shadow,
         "outcomes": _cmd_outcomes,
         "prospective": _cmd_prospective,
         "regime": _cmd_regime,
@@ -645,6 +655,7 @@ def _cmd_run(args) -> int:
                 conn, prescription_id, prescription.for_date
             )
             prescription_provenance.record(conn, prescription_id, prescription)
+            shadow_feature.record_prescription(conn, prescription_id, prescription)
             trace.event("artifact", {
                 "critique": critique_id,
                 "prescription": prescription_id,
@@ -1741,6 +1752,36 @@ def _cmd_select(args) -> int:
     return 0
 
 
+def _cmd_shadow(args) -> int:
+    store = db.Store(args.db)
+    try:
+        report = shadow_report_feature.report(
+            store.connection,
+            args.date or datetime.date.today().isoformat(),
+            window_days=args.window_days,
+        )
+    finally:
+        store.close()
+    if args.json:
+        print(json.dumps(report.as_dict(), indent=2))
+        return 0
+    print(f"shadow review {report.on_date} window {report.window_days}d")
+    print(
+        f"  rows {report.rows} · applied {report.applied} · suggestions "
+        f"{report.suggestions} · high-signal days {report.high_signal_days}"
+    )
+    for name, count in sorted(report.by_action.items()):
+        print(f"  action {name}: {count}")
+    for check in report.checks:
+        mark = "PASS" if check.passed else "FAIL"
+        print(f"  [{mark}] {check.name}: {check.detail}")
+    for reason in report.abstentions:
+        print(f"  abstained: {reason}")
+    print(f"  gate: {'ready to review' if report.ready else 'not ready'}")
+    print("  activation allowed: no (the profile switch stays off until an explicit decision)")
+    return 0
+
+
 def _cmd_residual(args) -> int:
     store = db.Store(args.db)
     try:
@@ -1771,6 +1812,8 @@ def _cmd_residual(args) -> int:
         )
     for reason in report.abstain:
         print(f"  abstained: {reason}")
+    for advisory in report.advisories:
+        print(f"  advisory: {advisory}")
     return 0
 
 

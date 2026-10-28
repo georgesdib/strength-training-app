@@ -268,6 +268,14 @@
         <div id="residual-report"></div>
       </div>
       <div class="panel">
+        <div class="panel-head"><h2>Shadow review</h2>
+          <span class="muted" id="shadow-gate">loading…</span></div>
+        <p class="section-help"><span>Append-only record of what each reactive signal saw and would have done; the checklist gates a review, not an activation.</span> <a class="doc-link" href="#docs?doc=docs/FATIGUE-SIGNALS.md&amp;anchor=6-shadow-decision-append-only">Shadow table</a></p>
+        <p class="muted">Nothing here can switch a behaviour on. Enabling the exposure trim stays a
+          recorded profile change after an explicit decision (DEC-SHADOW-01).</p>
+        <div id="shadow-report"></div>
+      </div>
+      <div class="panel">
         <div class="panel-head"><h2>Regime change</h2><span class="muted">review question; no action</span></div>
         <p class="section-help"><span>Checks whether a main lift fell while a substitute rose; a review question, not an action.</span> <a class="doc-link" href="#docs?doc=docs/REGIME-CHANGE.md">Regime change</a></p>
         <p class="muted">Checks whether a main lift's working volume fell sharply while a

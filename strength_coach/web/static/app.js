@@ -29,7 +29,7 @@ function setView(name, options = {}) {
   if (name === "cardio") loadCardio();
   if (name === "measures") loadMeasurements();
   if (name === "prescribe") {
-    loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget(); loadExposure(); loadResidual();
+    loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget(); loadExposure(); loadResidual(); loadShadowReview();
     restoreProgramme();
   }
   if (name === "workout") { loadReadiness($("#readiness-date").value); updateWorkflowStep(); }
@@ -1989,12 +1989,44 @@ async function loadResidual() {
       : "";
     const abstain = (data.abstain || [])
       .map((reason) => `<p class="muted">${esc(reason)}</p>`).join("");
-    $("#residual-report").innerHTML = table + abstain
+    const advisories = (data.advisories || [])
+      .map((text) => `<p class="warnbox">${esc(text)}</p>`).join("");
+    $("#residual-report").innerHTML = table + abstain + advisories
       + `<p class="muted">Gates: ${data.gates.min_observations} sets for a signal,
          ${data.gates.evaluation_observations} over ${data.gates.evaluation_weeks} weeks for
          evaluation. Negative means slower than the target.</p>`;
   } catch (error) {
     $("#residual-report").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function loadShadowReview() {
+  const date = $("#prescribe-date").value;
+  if (!date) { $("#shadow-report").innerHTML = "<p class='empty'>Choose a date.</p>"; return; }
+  try {
+    const data = await api(`/api/shadow?date=${encodeURIComponent(date)}`);
+    $("#shadow-gate").textContent = data.ready ? "ready to review" : "not ready";
+    const checks = (data.checks || []).map((check) => `<tr>
+      <td>${esc(check.name)}</td>
+      <td>${check.passed ? "pass" : "fail"}</td>
+      <td class="muted">${esc(check.detail)}</td></tr>`).join("");
+    const actions = Object.entries(data.by_action || {})
+      .map(([action, count]) => `<tr><td>${esc(action)}</td><td>${count}</td></tr>`).join("");
+    const abstain = (data.abstentions || [])
+      .map((reason) => `<p class="muted">${esc(reason)}</p>`).join("");
+    $("#shadow-report").innerHTML =
+      `<p class="muted">${data.rows} rows over ${data.shadow_days} days · ${data.applied}
+        applied · ${data.suggestions} suggestions · ${data.high_signal_days} high-signal
+        days.</p>
+      <table><thead><tr><th>gate check</th><th>result</th><th>detail</th></tr></thead>
+      <tbody>${checks}</tbody></table>
+      <table><thead><tr><th>action</th><th>rows</th></tr></thead><tbody>${actions}</tbody></table>
+      ${abstain}
+      <p class="muted">Activation allowed: <strong>no</strong>. The gate says whether this
+        report is substantive enough for a decision; the switch stays off until that decision is
+        recorded.</p>`;
+  } catch (error) {
+    $("#shadow-report").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
 

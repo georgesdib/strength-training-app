@@ -192,6 +192,8 @@ without conditioning on provenance penalises the athlete for following the presc
 
 - **ASSUMPTION-54** — a VBT residual needs at least 5 comparable observations and the lift-scoped calibration target; this is a precision guard for a measured mean velocity, not a validated fatigue threshold.
 
+- **ASSUMPTION-57** — the Phase 6 gate thresholds (84-day window, ≥ 56 days of shadow records, ≥ 10 exposure evaluations, ≥ 3 high-signal days, no trim/substitution conflict) decide only whether a review is substantive. They never enable a behaviour; the report always returns `activation_allowed: false` (`DEC-SHADOW-01`).
+
 - **ASSUMPTION-56** — the Part B sufficiency gates (≥ 5 comparable observations for a signal; ≥ 20 per lift over ≥ 8 weeks on two lifts, with an estimated residual spread, for evaluation) and the 84-day comparison window are precision guards, not validated thresholds. Nothing may use a residual until the evaluation gate is met (`DEC-RESIDUAL-01`).
 
 - **ASSUMPTION-55** — the Part D advisory thresholds (low exposure below 0.7 for two weeks; a positive residual above its own spread) are display heuristics and never change a prescription.

@@ -1,0 +1,8 @@
+# Shadow review gates (ASSUMPTION-57).
+#
+# These decide when the Phase 6 report is substantive enough to put an activation decision to
+# the athlete. They never enable anything: the trim stays off until a recorded profile change.
+window_days: 84
+min_shadow_days: 56
+min_high_signal_days: 3
+min_exposure_evaluations: 10
