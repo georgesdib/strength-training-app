@@ -127,6 +127,21 @@ def test_limitation_ids_exist() -> None:
     assert dangling_ids(LIMITATION_RE, known) == []
 
 
+PROFILE_BIRTH_DATE_RE = re.compile(
+    r"birth date[^\n]{0,60}\b(?:19|20)\d{2}-\d{2}-\d{2}\b", re.IGNORECASE
+)
+TEMP_PASSWORD_RE = re.compile(r"temporary password\s+`[^`]+`", re.IGNORECASE)
+
+
+def test_public_docs_do_not_expose_profile_values() -> None:
+    # A real birth date and starting password leaked into the roadmap once. Public design
+    # documents must use placeholders; the exact values live only in private/ or the CLI.
+    for path in ("ROADMAP.md", "AGENTS.md", "USER-GUIDE.md", "docs/WEB-UI.md", "docs/PRIVACY.md"):
+        text = _read(path)
+        assert not PROFILE_BIRTH_DATE_RE.search(text), path
+        assert not TEMP_PASSWORD_RE.search(text), path
+
+
 def test_agents_map_lists_every_doc() -> None:
     mapped: set[str] = set()
     for line in _read("AGENTS.md").splitlines():

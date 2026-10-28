@@ -1,6 +1,8 @@
 # PRIVACY AND PUBLIC DOCS
 
-This repository is public. The app is local-only and has no authentication.
+This repository is public. The app is local-first and uses a single local data store. The web
+UI is exposed on the owner's home LAN with no authentication and no TLS for now; this is an
+explicitly accepted temporary risk (`LIM-57`) and must not be exposed to the public internet.
 
 ## 1. Rule
 
@@ -9,7 +11,10 @@ Public docs must not contain:
 - exact personal health history or symptom episodes;
 - exact personal performance values or body measurements;
 - exact single-athlete sample sizes or dates that identify a training history;
-- raw exports, database rows or workout logs.
+- raw exports, database rows or workout logs;
+- real usernames, passwords, birth dates, gender values or other account/profile values.
+  Design and roadmap examples must use placeholders; credentials and birth dates belong only in
+  the private setup record or the local CLI, never in the public repository.
 
 Use a general description, a synthetic example, or move the exact detail to `private/`.
 
@@ -45,5 +50,6 @@ Before committing a doc, ask:
 ## 6. Scope
 
 This policy does not make the repository anonymous. It keeps new public documentation free of
-personal health and performance detail. The app itself remains local-only: do not expose the
-server beyond `127.0.0.1`.
+personal health and performance detail. The app data stays on the owner's server, but the web
+UI is temporarily reachable on the home LAN over unauthenticated HTTP (`LIM-57`). Do not expose
+the server to the public internet or put it on an untrusted network.

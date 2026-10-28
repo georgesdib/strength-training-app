@@ -55,8 +55,8 @@ The same core is available in a local browser UI; the CLI remains the automation
 ```
 
 `run-web.sh` is a convenience launcher: it finds `.venv/bin/python` (falling back to
-`python3`), checks the dependencies, refuses a non-loopback `--host`, and then runs the same
-`strength-coach web` command. Everything else works unchanged:
+`python3`), checks the dependencies, and runs the same `strength-coach web` command. It binds
+all interfaces by default so the home network can reach it.
 
 ```bash
 ./run-web.sh                       # http://127.0.0.1:8000, opens a browser
@@ -69,7 +69,9 @@ strength-coach web --open
 strength-coach web --port 8001
 ```
 
-It binds to **127.0.0.1 only** and has **no authentication**; do not expose it on a network.
+It binds to **0.0.0.0** and has **no authentication**. Use it only on a trusted home network;
+never expose it to the public internet. Authentication, per-user data and TLS are backlog work
+in `ROADMAP.md` §4.19; the accepted temporary risk is `LIM-57`.
 The pages are Today, Workflow, History, Outcomes, Longevity, Prescribe, Programme, Review, Readiness, Cardio, Measures, Import, Exercises, Athlete, Settings and Docs. Every load, RIR, warning
 and calibration number still comes from Python — the browser only displays and submits forms.
 Docs are rendered locally, so the UI works offline. **Import** accepts the training and
@@ -401,7 +403,7 @@ The **Settings** page configures the optional model and browser-only defaults.
   the git-ignored `config/llm.local.toml`; environment variables override the file.
 - **Prescribe defaults** — default minimum-session target and whether to show different lifts
   (C) by default. These only pre-fill the Workflow preview.
-- **App** — version, database path and LLM config path, all local-only.
+- **App** — version, database path and LLM config path; all remain local to the server.
 
 With the model disabled, every deterministic feature still works; only the prose/selection
 choice is unavailable.

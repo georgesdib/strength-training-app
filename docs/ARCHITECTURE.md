@@ -104,19 +104,23 @@ place. DataFrames are for computation; SQLite is for memory.
 
 ## 6. Deliberate omissions and current surface
 
-- **No hosted UI, no multi-user, no cloud.** A local-only web UI exists in
-  `strength_coach/web/` and calls the same core; it is not a hosted product.
+- **No hosted UI, no multi-user, no cloud.** A home-network web UI exists in
+  `strength_coach/web/` and calls the same core; it is not a hosted product and has no
+authentication yet (`LIM-57`).
 - No vector database for v0: the rules document is small and cited by ID, so exact
   retrieval by ID beats semantic search. RAG is planned only for the *programme prose*,
   where chunk IDs must be stable.
-- No multi-user, no cloud, no authentication.
+- No multi-user, no cloud, no authentication yet; the owner accepted temporary
+  unauthenticated HTTP on the home LAN (`LIM-57`). Authentication and per-user data are
+  planned in `ROADMAP.md` §4.19.
 
 
 ## Local web UI
 
 `strength_coach/web/` is a thin HTTP layer above the same core. It serialises prescriptions,
 critiques, readiness score/overrides and calibration; it never computes a load or a score. The server binds to
-127.0.0.1 and has no authentication. The CLI remains the automation surface.
+0.0.0.0 and has no authentication; it is intended for the home LAN only. The CLI remains
+the automation surface. Auth/per-user/TLS are planned in `ROADMAP.md` §4.19.
 
 ## Related
 

@@ -32,11 +32,11 @@ def test_the_script_is_executable():
     assert os.access(SCRIPT, os.X_OK), "run-web.sh must be executable"
 
 
-def test_a_non_loopback_host_is_refused():
+def test_a_non_loopback_host_is_accepted():
     for host in ("0.0.0.0", "192.168.1.5", "example.com"):
-        result = run_launcher("--host", host, "--no-open")
-        assert result.returncode == 2, host
-        assert "local-only" in result.stderr
+        result = run_launcher("--host", host, "--help")
+        assert result.returncode == 0, host
+        assert "refusing" not in result.stderr
 
 
 def test_a_loopback_host_is_accepted_in_both_forms():

@@ -555,31 +555,14 @@ def test_the_terminal_route_is_gone(server):
     assert "not found" in body
 
 
-def test_a_cross_origin_post_is_refused(server):
-    status, body = post_with_headers(
+def test_http_requests_are_not_origin_restricted(server):
+    # The owner explicitly removed the loopback/origin boundary for home-network HTTP use.
+    status, _body = post_with_headers(
         server, "/api/reads", {"x": 1},
-        {"Content-Type": "application/json", "Origin": "http://evil.example"},
+        {"Content-Type": "application/json", "Host": "coach.home:8000",
+         "Origin": "http://coach.home:8000", "Sec-Fetch-Site": "cross-site"},
     )
-    assert status == 403
-    assert "cross-origin" in body
-
-
-def test_cross_site_fetch_is_refused(server):
-    status, body = post_with_headers(
-        server, "/api/reads", {"x": 1},
-        {"Content-Type": "application/json", "Sec-Fetch-Site": "cross-site"},
-    )
-    assert status == 403
-    assert "cross-site" in body
-
-
-def test_a_foreign_host_header_is_refused(server):
-    status, body = post_with_headers(
-        server, "/api/reads", {"x": 1},
-        {"Content-Type": "application/json", "Host": "rebound.example:8000"},
-    )
-    assert status == 403
-    assert "loopback" in body
+    assert status != 403
 
 
 def test_a_non_json_content_type_is_refused(server):

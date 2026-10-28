@@ -453,7 +453,6 @@ class ReadinessRequired(Exception):
 class Handler(BaseHTTPRequestHandler):
     db_path: str | Path | None = None
     server_version = "strength-coach-web"
-    LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "[::1]"})
 
     # --- plumbing ---------------------------------------------------------
     def log_message(self, fmt: str, *args) -> None:
@@ -477,32 +476,6 @@ class Handler(BaseHTTPRequestHandler):
 
     def _error(self, status: int, message: str) -> None:
         self._json(status, {"error": message})
-
-    def _require_same_origin(self) -> None:
-        """Refuse browser mutations that do not come from this loopback origin.
-
-        The UI has no authentication, so loopback is the whole boundary. Without this check a
-        page on another origin can POST JSON here (the browser sends it as a simple request
-        even though the response is unreadable), and a DNS-rebinding page can reach the port
-        with a foreign Host. Requiring a loopback Host plus a matching Origin, when one is
-        sent, closes both without inventing a login for a local single-user tool.
-        """
-        host = (self.headers.get("Host") or "").strip().lower()
-        host_name = host
-        if host.startswith("["):
-            host_name = host.split("]", 1)[0] + "]"
-        elif host.count(":") == 1:
-            host_name = host.rsplit(":", 1)[0]
-        if host_name not in self.LOOPBACK_HOSTS:
-            raise RequestError(403, "request Host is not loopback", close=True)
-        if (self.headers.get("Sec-Fetch-Site") or "").strip().lower() == "cross-site":
-            raise RequestError(403, "cross-site request refused", close=True)
-        origin = (self.headers.get("Origin") or "").strip()
-        if not origin:
-            return
-        parsed = urlparse(origin)
-        if parsed.scheme != "http" or parsed.netloc.strip().lower() != host:
-            raise RequestError(403, "cross-origin request refused", close=True)
 
     def _body(self) -> dict:
         if self.headers.get("Transfer-Encoding"):
@@ -833,7 +806,6 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         path = unquote(urlparse(self.path).path)
         try:
-            self._require_same_origin()
             body = self._body()
             if path == "/api/import":
                 self._json(200, self._with_conn(lambda c: self._import(c, body)))
@@ -2079,11 +2051,16 @@ def create_server(db_path: str | Path | None = None, host: str = "127.0.0.1",
     return server
 
 
-def serve(db_path: str | Path | None = None, host: str = "127.0.0.1", port: int = 8000,
+def serve(db_path: str | Path | None = None, host: str = "0.0.0.0", port: int = 8000,
           open_browser: bool = False) -> None:
     server = create_server(db_path, host=host, port=port)
-    url = f"http://{host}:{server.server_address[1]}/"
-    print(f"strength-coach web on {url} (local only; Ctrl-C to stop)")
+    port = server.server_address[1]
+    display_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
+    url = f"http://{display_host}:{port}/"
+    print(
+        f"strength-coach web bound {host}:{port} (home network, no authentication); "
+        f"open {url}; Ctrl-C to stop"
+    )
     if open_browser:
         threading.Timer(0.4, lambda: webbrowser.open(url)).start()
     try:

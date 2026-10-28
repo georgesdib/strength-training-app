@@ -7,8 +7,8 @@
 #   ./run-web.sh --db other.db   # another athlete database
 #   ./run-web.sh --help          # wrapper help plus every `strength-coach web` option
 #
-# The UI binds 127.0.0.1 and has no authentication: it must never be exposed on a network
-# (AGENTS.md). Non-loopback --host values are refused rather than forwarded.
+# The UI has no authentication. It is intended for the home network behind a trusted router,
+# never the public internet. --host is passed through unchanged.
 
 set -euo pipefail
 
@@ -21,12 +21,12 @@ Usage: ./run-web.sh [--no-open] [options passed to `strength-coach web`]
   --no-open        do not open a browser (default: open)
   --open           open a browser (default)
   --port N         port to bind (default 8000)
-  --host ADDR      bind address; loopback only
+  --host ADDR      bind address (default 0.0.0.0)
   --db PATH        database to serve (default data/coach.db)
   -h, --help       show this help
 
-The server binds 127.0.0.1 only and has no authentication. Any other option is
-passed through, so `--host` is accepted only for loopback addresses.
+The server binds 0.0.0.0 and has no authentication; use it only on the home network.
+Any other option is passed through.
 EOF
 }
 
@@ -54,17 +54,8 @@ ARGS=()
 # `--db` is a global option in the CLI, so it must precede the `web` subcommand.
 DB_ARGS=()
 
-refuse_host() {
-  echo "run-web: refusing --host $1: the UI is local-only (bind 127.0.0.1)" >&2
-  exit 2
-}
-
 for arg in "$@"; do
   if [ "$expect_host" = 1 ]; then
-    case "$arg" in
-      127.0.0.1 | localhost | ::1) ;;
-      *) refuse_host "$arg" ;;
-    esac
     ARGS+=("$arg")
     expect_host=0
     continue
@@ -97,11 +88,7 @@ for arg in "$@"; do
       ARGS+=("$arg")
       ;;
     --host=*)
-      value="${arg#--host=}"
-      case "$value" in
-        127.0.0.1 | localhost | ::1) ARGS+=("$arg") ;;
-        *) refuse_host "$value" ;;
-      esac
+      ARGS+=("$arg")
       ;;
     *)
       ARGS+=("$arg")

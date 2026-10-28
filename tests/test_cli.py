@@ -95,14 +95,6 @@ def test_programme_rejects_an_unbounded_horizon(tmp_path, capsys):
     assert "between 1 and 26" in capsys.readouterr().out
 
 
-def test_web_refuses_a_non_loopback_host(capsys):
-    # DEC-WEB-01: the guard lives in the CLI too, not only in run-web.sh.
-    for host in ("0.0.0.0", "192.168.1.5", "example.com"):
-        assert cli.main(["web", "--host", host, "--port", "0"]) == 2
-        out = capsys.readouterr().out
-        assert "non-loopback" in out
-
-
 def test_run_squat_uses_the_squat_template(tmp_path, capsys):
     path = tmp_path / "all_days.db"
     rows = []

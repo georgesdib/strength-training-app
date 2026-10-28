@@ -47,14 +47,14 @@ What exists today is:
   marks that make calibration continuous (`rubric_mark`, append-only).
 - `strength_coach/cli.py` — `import`, `run`, `review`, `calibrate`, `state`, `block`, `regime`, `e1rm`,
   `test`, `symptom`, `cardio`, `measure`, `fatigue`, `select`, `exercise`, `readiness`, `programme`, `validate`, `workout`, `web`. `review` (with `--pending`) is the routine that keeps calibration current.
-- `strength_coach/web/` — local-only HTTP UI and JSON API over the same core; no authentication, bind 127.0.0.1.
+- `strength_coach/web/` — home-network HTTP UI and JSON API over the same core; no authentication, bind 0.0.0.0 (temporary accepted risk `LIM-57`; never expose to the internet).
 - `strength_coach/agents/` — LLM interface, config, narrative and structured proposals.
   `NullLLM` is the default; the model may explain or propose, but never compute. Keys live in the git-ignored `config/llm.local.toml`
   or the environment (`config/llm.example.toml` is the committed template).
 - `ROADMAP.md` — phase status and next actions (update it in the same commit as the work).
 
 Build order, current status and the next actions live in `ROADMAP.md` — do not duplicate
-them here, because two copies drift. Do not add a hosted UI. The local web UI exists because the user asked for it and must stay 127.0.0.1-only.
+them here, because two copies drift. Do not add a public hosted UI. The web UI is for the owner's home network only; it has no authentication and is covered by the temporary accepted risk `LIM-57`.
 
 ## 3. Non-negotiable invariants
 
@@ -306,7 +306,7 @@ command runner without an authentication story.
 **Standing permission — restart the local UI (2026-10-28, owner instruction):** an agent may
 stop and restart the `strength-coach web` process whenever a code change makes the running
 process stale, without asking first. This overrides any earlier caution about starting a
-replacement server. Restart it the same way it was started (same database, same loopback host
+replacement server. Restart it the same way it was started (same database, same bind address
 and port, detached so it outlives the session), then verify: `GET /` returns 200, `POST
 /api/programme` returns 200, and the served HTML no longer contains removed pages. Config-only
 edits do not need a restart; any change under `strength_coach/` does.

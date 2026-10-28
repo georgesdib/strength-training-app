@@ -19,10 +19,27 @@ strength-coach web --open
 strength-coach web --port 8001
 ```
 
-`run-web.sh` refuses a non-loopback `--host` and moves `--db` before the subcommand (it is a
-global option in the CLI). It is convenience only: it ends in the same `strength-coach web`.
+`run-web.sh` moves `--db` before the subcommand (it is a global option in the CLI) and passes
+`--host` through. It is convenience only: it ends in the same `strength-coach web`.
 
-**Local only, no authentication.** The default bind is 127.0.0.1. Do not pass a public host.
+**Home network only, no authentication.** The default bind is `0.0.0.0`; use it only behind a
+trusted home router and never forward the port. The accepted temporary risk is `LIM-57`;
+authentication/per-user/TLS are planned in `ROADMAP.md` §4.19.
+
+### Autostart (systemd)
+
+The repository ships `deploy/strength-coach-web.service` and `tools/start_web.sh`. Install as
+root after stopping any ad-hoc server on port 8000:
+
+```bash
+sudo install -m 0644 deploy/strength-coach-web.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now strength-coach-web.service
+sudo systemctl status strength-coach-web.service
+```
+
+The unit runs as `dsh`, binds `0.0.0.0:8000`, restarts on failure and reads the same
+`data/coach.db`. Check logs with `sudo journalctl -u strength-coach-web.service -n 50`.
 
 ## Docs deep links
 
@@ -197,17 +214,18 @@ also disables while saving and reports the number of marks written.
 
 ## Request security
 
-Loopback is the only boundary; there is no login. Every mutating `POST` therefore checks
-(`DEC-WEB-01`):
+**Temporary home-network mode (2026-10-28, `DEC-WEB-03`):** the loopback Host, Origin and
+`Sec-Fetch-Site` guards were removed by owner decision; the UI binds `0.0.0.0` and has **no
+authentication**. The accepted risk is `LIM-57`. Never expose it to the public internet.
 
-- the `Host` header names a loopback host (`127.0.0.1`, `localhost`, `::1`), which also blocks a
-  DNS-rebinding page that resolves its own name to 127.0.0.1;
-- `Sec-Fetch-Site` is not `cross-site`, and an `Origin` header, when present, matches the
-  request host exactly (a cross-origin `POST` otherwise executes without being readable);
-- `Content-Type` is `application/json`, because `text/plain` is a browser simple request that
-  skips the preflight and would slip past the origin check.
+What remains:
 
-`run-web.sh` and `strength-coach web --host` both refuse a non-loopback bind address.
+- `Content-Type: application/json` is required for mutation bodies, so a `text/plain` simple
+  request cannot be used as a JSON body;
+- request bodies are capped at 64 MiB;
+- logs do not record passwords or session tokens;
+- authentication, per-user data, password reset, birth date/gender/timezone, CSRF and TLS are
+  the `ROADMAP.md` §4.19 backlog. They must land before any exposure beyond the home LAN.
 
 ## Request limits
 
@@ -224,7 +242,8 @@ Loopback is the only boundary; there is no login. Every mutating `POST` therefor
 ## Dates
 
 - The **local calendar date in YYYY-MM-DD** is authoritative for UI defaults and daily records.
-  The browser and server are expected to share the machine timezone in this local-only app.
+  The server's local timezone is authoritative today; a profile timezone (default
+  Europe/London) is part of the auth/per-user backlog. Do not assume a remote browser shares it.
 - Use `formatLocalDate`/`today`; never `toLocaleDateString` or a UTC
   `toISOString().slice(0, 10)` for a date default.
 

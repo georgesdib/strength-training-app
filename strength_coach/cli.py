@@ -456,9 +456,9 @@ def main(argv: list[str] | None = None) -> int:
     measure.add_argument("--note", default=None)
     measure.add_argument("--show", action="store_true", help="show the summary")
 
-    web = sub.add_parser("web", help="serve the local web UI (127.0.0.1 only)")
-    web.add_argument("--host", default="127.0.0.1",
-                     help="bind address (default 127.0.0.1; no authentication)")
+    web = sub.add_parser("web", help="serve the web UI on the home network")
+    web.add_argument("--host", default="0.0.0.0",
+                     help="bind address (default 0.0.0.0; no authentication, home network only)")
     web.add_argument("--port", type=int, default=8000, help="port (default 8000)")
     web.add_argument("--open", action="store_true", help="open a browser")
 
@@ -1182,27 +1182,9 @@ def _cmd_programme(args) -> int:
         store.close()
 
 
-LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "[::1]"})
-
-
-def _is_loopback_host(host: str) -> bool:
-    value = str(host or "").strip().lower()
-    if value.startswith("["):
-        value = value.split("]", 1)[0] + "]"
-    return value in LOOPBACK_HOSTS
-
-
 def _cmd_web(args) -> int:
     from strength_coach.web.server import serve
 
-    # AGENTS.md: the UI has no authentication and must stay on loopback. run-web.sh already
-    # refuses other hosts; doing it here too means a direct CLI invocation cannot expose it.
-    if not _is_loopback_host(args.host):
-        print(
-            f"web: refusing non-loopback host {args.host!r}; the UI has no authentication "
-            "and must stay on 127.0.0.1, localhost or ::1"
-        )
-        return 2
     try:
         serve(args.db, host=args.host, port=args.port, open_browser=args.open)
     except OSError as exc:

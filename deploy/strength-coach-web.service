@@ -1,0 +1,16 @@
+[Unit]
+Description=Strength Coach web UI (home network)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dsh
+Group=dsh
+WorkingDirectory=/home/dsh/projects/strength-training-app
+ExecStart=/home/dsh/projects/strength-training-app/tools/start_web.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
