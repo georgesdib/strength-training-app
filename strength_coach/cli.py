@@ -67,7 +67,12 @@ from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import regime_change as regime_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import volume as volume_feature
-from strength_coach.prescribe import build_prescription, demand_scope, session_identity
+from strength_coach.prescribe import (
+    build_prescription,
+    demand_scope,
+    fatigue_selection,
+    session_identity,
+)
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
@@ -371,6 +376,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="show class C (different lift/load basis) candidates")
     select.add_argument("--llm", action="store_true",
                         help="let the configured model choose from the filtered candidates")
+    select.add_argument("--fatigue", action="store_true",
+                        help="show the Part C fatigue-informed suggestion (suggest-only)")
 
     exposure = sub.add_parser("exposure", help="log or inspect high-intensity exposures")
     exposure_sub = exposure.add_subparsers(dest="action", required=True)
@@ -1682,8 +1689,28 @@ def _cmd_select(args) -> int:
             conn, None, args.date, args.session_type, chooser=chooser,
             include_different=args.include_different,
         )
+        fatigue = (
+            fatigue_selection.suggest(
+                conn, args.date, args.session_type, selection_report=rows
+            ) if args.fatigue else None
+        )
     finally:
         store.close()
+    if fatigue is not None:
+        ratio = f"{fatigue.ratio:.2f}" if fatigue.ratio is not None else "n/a"
+        print(f"fatigue-informed substitution (suggest-only) {args.date} "
+              f"{args.session_type}: signal {fatigue.signal}, ratio {ratio}")
+        if not fatigue.suggestions:
+            for reason in fatigue.abstentions:
+                print(f"  no suggestion: {reason}")
+            return 0
+        for suggestion in fatigue.suggestions:
+            confirm = " (needs confirmation)" if suggestion.requires_confirmation else ""
+            print(f"  {suggestion.current} -> {suggestion.candidate} on "
+                  f"{suggestion.dimension} ({suggestion.current_level} -> "
+                  f"{suggestion.candidate_level}; class {suggestion.comparison_class}{confirm})")
+            print(f"    {suggestion.reason}")
+        return 0
     print(f"exercise selection (shadow; no prescription change) {args.date} {args.session_type}")
     if not rows:
         print("no multi-variant slots on this day")

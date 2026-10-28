@@ -16,6 +16,7 @@ from urllib.parse import quote, urlparse
 import pytest
 from conftest import make_readiness, make_training
 
+from strength_coach.features import demands as demands_feature
 from strength_coach.store import db, importer, repositories
 from strength_coach.web import markdown
 from strength_coach.web import server as web_server
@@ -704,6 +705,21 @@ def test_exercise_selection_endpoint_is_shadow_only(server):
     assert isinstance(data["slots"], list)
 
 
+def test_the_substitution_endpoint_abstains_without_data(server):
+    status, body = get(server, "/api/substitution?date=2024-01-31&session_type=squat")
+    data = json.loads(body)
+    assert status == 200
+    assert data["applied"] is False
+    assert data["suggestions"] == []
+    assert data["abstentions"]
+
+
+def test_the_substitution_endpoint_rejects_an_unknown_session_type(server):
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/substitution?date=2024-01-31&session_type=nope")
+    assert excinfo.value.code == 400
+
+
 def test_exercise_catalog_endpoint(server):
     status, body = get(server, "/api/exercises/catalog")
     assert status == 200
@@ -721,6 +737,49 @@ def test_exercise_catalog_endpoint(server):
     seal = next(row for row in data["entities"] if row["id"] == "seal_row")
     assert seal["demands"]["rated"] == 0
     assert seal["demands"]["dimensions"]["axial_spinal"]["level"] == "unknown"
+
+
+def test_a_demand_rating_can_be_saved_and_cleared_in_the_ui(server, tmp_path, monkeypatch):
+    base = tmp_path / "demands.v1.yaml"
+    base.write_text(json.dumps({
+        "schema_version": "1.0.0",
+        "reviewed_on": "2026-10-28",
+        "evidence": {},
+        "exercises": {"seal_row": {"axial_spinal": {
+            "level": "low", "confidence": "provisional", "reason": "shipped read",
+        }}},
+    }), encoding="utf-8")
+    monkeypatch.setattr(demands_feature.paths, "exercise_demands_yaml", lambda: base)
+
+    data = post(server, "/api/exercises/demands", {
+        "exercise_id": "seal_row", "dimension": "axial_spinal",
+        "level": "moderate", "confidence": "provisional", "reason": "my own read",
+    })
+    assert data["demands"]["dimensions"]["axial_spinal"]["level"] == "moderate"
+    assert data["overlay"] is True
+    assert (tmp_path / "demands.local.yaml").is_file()
+
+    cleared = post(server, "/api/exercises/demands", {
+        "exercise_id": "seal_row", "dimension": "axial_spinal", "clear": True,
+    })
+    assert cleared["demands"]["dimensions"]["axial_spinal"]["level"] == "low"
+
+
+def test_a_supported_demand_rating_needs_evidence(server, tmp_path, monkeypatch):
+    base = tmp_path / "demands.v1.yaml"
+    base.write_text(json.dumps({
+        "schema_version": "1.0.0",
+        "reviewed_on": "2026-10-28",
+        "evidence": {},
+        "exercises": {},
+    }), encoding="utf-8")
+    monkeypatch.setattr(demands_feature.paths, "exercise_demands_yaml", lambda: base)
+    status, _ = post_status(server, "/api/exercises/demands", {
+        "exercise_id": "seal_row", "dimension": "axial_spinal",
+        "level": "moderate", "confidence": "supported", "reason": "unsupported",
+    })
+    assert status == 400
+    assert not (tmp_path / "demands.local.yaml").exists()
 
 
 def test_exercise_post_rejects_an_invalid_id_without_writing(server):

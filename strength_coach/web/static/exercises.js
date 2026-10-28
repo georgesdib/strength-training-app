@@ -82,6 +82,10 @@ function openExerciseDetails(row) {
     `${demands.rated}/${scope} in-scope dimensions rated · catalogue ${meta.digest || "none"}`
     + ` · reviewed ${meta.reviewed_on || "never"}`
     + (meta.overlay ? " · local overlay active" : "");
+  $("#exercise-demand-dimension").innerHTML = Object.keys(demands.dimensions)
+    .map((dimension) => `<option>${esc(dimension)}</option>`).join("");
+  $("#exercise-demand-msg").textContent =
+    "Writes config/exercises/demands.local.yaml; the reviewed file is untouched.";
   $("#exercise-details-dialog").showModal();
 }
 
@@ -229,6 +233,43 @@ async function openExerciseE1rm(exerciseId) {
   }
   panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
+
+async function saveDemandRating(clear) {
+  const exerciseId = window.__exerciseDetailsId;
+  if (!exerciseId) return;
+  const payload = {
+    exercise_id: exerciseId,
+    dimension: $("#exercise-demand-dimension").value,
+    clear: !!clear,
+    level: $("#exercise-demand-level").value,
+    confidence: $("#exercise-demand-confidence").value,
+    reason: $("#exercise-demand-reason").value,
+  };
+  try {
+    const data = await api("/api/exercises/demands", {
+      method: "POST", body: JSON.stringify(payload),
+    });
+    const catalogue = window.__exerciseCatalog;
+    if (catalogue) {
+      catalogue.demand_catalogue.digest = data.digest;
+      catalogue.demand_catalogue.overlay = data.overlay;
+      const row = catalogue.entities.find((item) => item.id === exerciseId);
+      if (row) {
+        row.demands = data.demands;
+        openExerciseDetails(row);
+      }
+    }
+    loadExerciseCatalog();
+    $("#exercise-demand-msg").textContent =
+      (clear ? "local rating cleared · " : "rating saved locally · ")
+      + "catalogue " + data.digest;
+  } catch (error) {
+    $("#exercise-demand-msg").innerHTML = `<span class="warnbox">${esc(error.message)}</span>`;
+  }
+}
+
+$("#exercise-demand-save").addEventListener("click", () => saveDemandRating(false));
+$("#exercise-demand-clear").addEventListener("click", () => saveDemandRating(true));
 
 $("#exercise-e1rm-close").addEventListener("click", () => {
   $("#exercise-e1rm-panel").hidden = true;

@@ -58,7 +58,11 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
   panel (predictive form rejected; per-lift + overall state is descriptive context with 95% intervals,
   R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only), the **per-rep velocity** panel (descriptive loss and associations; n ≥ 10 for correlations), the **continuity calibration** panel (per-band returns/fixed/applied and the
   `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings with A/B/C
-  comparison classes and a display-only own-history e1RM ratio; optional LLM chooser). The session is chosen by the rolling emphasis rule;
+  comparison classes and a display-only own-history e1RM ratio; optional LLM chooser). Under
+  the rankings it shows the **fatigue-informed suggestion** (Part C): at most one accessory
+  variant, only when the exposure signal is high and the candidate is rated strictly lower on
+  an in-scope demand dimension, covers the current lift's primary muscles and compares A/B;
+  it is suggest-only and abstains with a reason otherwise (`DEC-SELECT-08`). The session is chosen by the rolling emphasis rule;
   **Minimum session** is an explicit volume-only fallback (30/45/60 minutes); it never changes load/RIR, preserves main lifts by default, and has a separate deeper tier for main-lift floors. **Apply selection** reruns the per-slot ranking: A candidates replace the slot exercises
 automatically, **Confirm near-comparable** is required for B, and C is never applied (it is
 hidden unless **show different lifts** is ticked). Each applied substitution cites
@@ -83,9 +87,12 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 - **Exercises** — full canonical catalogue with search/filter, all properties per row, and an
   add/edit form. Edits are written to `config/exercises/overrides.v1.yaml`; ids are immutable.
   Each row carries a **Demands** count (`rated/4` in-scope dimensions) and the details dialog
-  shows the read-only demand profile with level, confidence and reason, plus the catalogue
-  digest and whether the git-ignored local overlay is active (`docs/EXERCISE-DEMANDS.md`).
-  Demands are rated with `strength-coach exercise demands set`; the UI does not edit them.
+  shows the demand profile with level, confidence and reason, plus the catalogue digest and
+  whether the git-ignored local overlay is active (`docs/EXERCISE-DEMANDS.md`). The profile is
+  editable there: **Rate this dimension** writes `config/exercises/demands.local.yaml` through
+  `POST /api/exercises/demands` (same `set_claim` the CLI uses), **Clear local rating** removes
+  the override, and a rejected write leaves the overlay untouched. The reviewed file is never
+  edited from the browser.
   A row's **e1RM** button opens an override panel for that lift: it shows the override currently
   in force and appends a new one (kg, effective-from, reason) through the same endpoint the
   Athlete page and `e1rm set` use, so the next prescription cites it.
@@ -176,6 +183,8 @@ also disables while saving and reports the number of marks written.
 | `POST /api/readiness/context` | append display-only context flags |
 | `GET /api/readiness/feedback?weeks=N&date=N` | descriptive follow-up of MOD-FAT-001 reductions, including completed workout snapshots and set adherence |
 | `GET /api/selection?date=N&session_type=X&llm=0\|1&include_different=0\|1` | exercise-selection rankings with A/B/C comparability classes |
+| `GET /api/substitution?date=N&session_type=X` | Part C fatigue-informed suggestion (at most one, suggest-only) plus abstention reasons |
+| `POST /api/exercises/demands` | `{exercise_id, dimension, level, confidence?, reason?, evidence?, clear?}` -> writes the git-ignored demand overlay and returns the merged profile; `supported` needs an existing evidence id |
 | `GET /api/exercises/catalog` | full exercise catalogue with source/properties |
 | `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml` |
 | `GET /api/measurements` | metric catalogue, per-metric summary and recent entries |

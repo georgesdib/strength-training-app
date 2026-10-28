@@ -299,6 +299,7 @@
           <button class="ghost" id="selection-run">Check selection</button>
         </div>
         <div id="selection-result"></div>
+        <div id="selection-fatigue" class="selection-fatigue"></div>
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Retrospective validation</h2>
@@ -1009,6 +1010,24 @@
             <p class="muted" id="exercise-detail-demands-note"></p>
             <table><thead><tr><th>dimension</th><th>level</th><th>confidence</th><th>reason</th></tr></thead>
             <tbody id="exercise-detail-demands"></tbody></table>
+            <div class="form-row">
+              <label>Dimension <select id="exercise-demand-dimension"></select></label>
+              <label>Level <select id="exercise-demand-level">
+                <option value="unknown">unknown</option>
+                <option value="none">none</option>
+                <option value="low">low</option>
+                <option value="moderate">moderate</option>
+                <option value="high">high</option></select></label>
+              <label>Confidence <select id="exercise-demand-confidence">
+                <option value="provisional">provisional</option>
+                <option value="supported">supported</option></select></label>
+              <label class="grow">Reason <input id="exercise-demand-reason" placeholder="why this rating"></label>
+            </div>
+            <div class="form-row">
+              <button class="ghost" type="button" id="exercise-demand-save">Rate this dimension</button>
+              <button class="ghost" type="button" id="exercise-demand-clear">Clear local rating</button>
+              <span id="exercise-demand-msg" class="muted">Writes config/exercises/demands.local.yaml; the reviewed file is untouched.</span>
+            </div>
           </div>
         </div>
         <div class="form-row">

@@ -1043,8 +1043,31 @@ async function loadSelection() {
       ? `<table><thead><tr><th>Slot</th><th>current → suggested</th><th>candidates</th></tr></thead>
          <tbody>${rows}</tbody></table>`
       : "<p class='empty'>No multi-variant slots on this day. Add more candidates in <code>config/variants.v1.yaml</code> and the taxonomy — see docs/EXERCISE-VARIANTS.md.</p>";
+    loadFatigueSuggestion(date, sessionType);
   } catch (error) {
     $("#selection-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function loadFatigueSuggestion(date, sessionType) {
+  const target = $("#selection-fatigue");
+  if (!target) return;
+  try {
+    const data = await api(`/api/substitution?date=${encodeURIComponent(date)}&session_type=${encodeURIComponent(sessionType)}`);
+    const suggestion = (data.suggestions || [])[0];
+    if (!suggestion) {
+      target.innerHTML = `<p class="muted">No fatigue-informed substitution (${esc(data.signal)}): ${esc((data.abstentions || []).join("; ") || "no reason recorded")}.</p>`;
+      return;
+    }
+    target.innerHTML = `<div class="panel-head"><h3>Fatigue-informed suggestion</h3>
+        <span class="muted">suggest-only; no prescription change</span></div>
+      <p>${esc(suggestion.reason)}</p>
+      <p class="muted">${esc(suggestion.current)} → <strong>${esc(suggestion.candidate)}</strong>
+        · <code>${esc(suggestion.dimension)}</code>: ${esc(suggestion.current_level)} →
+        ${esc(suggestion.candidate_level)} · class ${esc(suggestion.comparison_class)}${suggestion.requires_confirmation ? " (needs confirmation)" : ""}.
+        Applying stays the existing explicit action; the load is rebuilt from the candidate's own history.</p>`;
+  } catch (error) {
+    target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
 

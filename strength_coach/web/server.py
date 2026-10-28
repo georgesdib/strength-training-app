@@ -71,7 +71,13 @@ from strength_coach.features import regime_change as regime_feature
 from strength_coach.features import reviews as reviews_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import volume as volume_feature
-from strength_coach.prescribe import build_prescription, session_identity, templates, volume_settings
+from strength_coach.prescribe import (
+    build_prescription,
+    fatigue_selection,
+    session_identity,
+    templates,
+    volume_settings,
+)
 from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import persistence as prescription_persistence
 from strength_coach.prescribe import schedule as schedule_mod
@@ -714,6 +720,16 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: exposure_feature.status(c, day).as_dict()
                 ))
+            elif path == "/api/substitution":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [datetime.date.today().isoformat()])[0]
+                session_type = query.get("session_type", ["squat"])[0]
+                if session_type not in templates.SESSION_TYPES:
+                    self._json(400, {"error": f"unknown session type {session_type!r}"})
+                else:
+                    self._json(200, self._with_conn(
+                        lambda c: fatigue_selection.suggest(c, day, session_type).as_dict()
+                    ))
             elif path == "/api/selection":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [datetime.date.today().isoformat()])[0]
@@ -935,6 +951,8 @@ class Handler(BaseHTTPRequestHandler):
                 _write_template(text)
                 templates._parse_session_template.cache_clear()
                 self._json(200, {"ok": True, "path": str(paths.session_types_yaml().relative_to(ROOT))})
+            elif path == "/api/exercises/demands":
+                self._json(200, self._rate_demand(body))
             elif path == "/api/exercises":
                 entity_id = str(body.get("id") or "").strip()
                 props = body.get("props") or {}
@@ -1797,6 +1815,29 @@ class Handler(BaseHTTPRequestHandler):
             ),
         )
         return self._state(conn)
+
+    def _rate_demand(self, body: dict) -> dict:
+        """Write one demand rating to the git-ignored local overlay, then return the profile."""
+        exercise_id = str(body.get("exercise_id") or "").strip()
+        dimension = str(body.get("dimension") or "").strip()
+        if body.get("clear"):
+            catalogue = demands_feature.clear_claim(exercise_id, dimension)
+        else:
+            catalogue = demands_feature.set_claim(
+                exercise_id, dimension, str(body.get("level") or ""),
+                confidence=body.get("confidence"),
+                reason=body.get("reason"),
+                evidence=body.get("evidence") or (),
+            )
+        return {
+            "exercise_id": exercise_id,
+            "digest": catalogue.digest,
+            "overlay": catalogue.overlay_path is not None,
+            "demands": {
+                "rated": catalogue.in_scope_rated(exercise_id),
+                "dimensions": catalogue.profile(exercise_id),
+            },
+        }
 
     def _save_constraint(self, conn, body: dict) -> dict:
         repositories.append_athlete_constraint(

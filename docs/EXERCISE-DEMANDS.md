@@ -138,9 +138,12 @@ Rules the command enforces, because a rating is a claim rather than a preference
 - The digest covers the shipped file **and** the overlay, so a prescription can cite exactly
   which catalogue it used.
 
-Editing the YAML directly is supported and reviewed like any config change. The overlay is for
-quick, honest "I know this lift" corrections; anything with a citation belongs in the shipped
-file.
+The same write path is available in the app: **Exercises → Details → Demand profile → Rate this
+dimension** (or **Clear local rating**) posts to `/api/exercises/demands`, which calls the same
+`set_claim`/`clear_claim`. The table updates immediately and the reviewed file is never touched
+from the browser. Editing the YAML directly is supported and reviewed like any config change.
+The overlay is for quick, honest "I know this lift" corrections; anything with a citation
+belongs in the shipped file.
 
 ## 3. Scope and coverage
 

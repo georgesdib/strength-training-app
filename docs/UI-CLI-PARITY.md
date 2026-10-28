@@ -75,6 +75,8 @@ These are known and intentional or still open.
 | Settings profile (step 5) | `settings profile show/set/unset/reset --guard-confirm --reason` | Settings **Settings profile** editor; `GET/POST /api/settings/profile` | full |
 | Modalities (5b/5c) | `settings modalities list/show/set` with guard flags | Settings **Modules**; `GET/POST /api/modalities`; profile factor editor | full |
 | `exposure ratio` | Prescribe **Exposure ratio** panel (same `compute`) | full |
+| `select --fatigue` | Exercise selection panel **Fatigue-informed suggestion** block | full |
+| `exercise demands set/clear` | Exercises details `Demand profile` rating form | full |
 | `continuity --date` | UI panel uses the default date | partial |
 | `fatigue --date` | UI panel uses the default date | partial |
 | `validate --max-dates` | UI button uses 12 dates | partial |
