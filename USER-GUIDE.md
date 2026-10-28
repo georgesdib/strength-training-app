@@ -562,8 +562,8 @@ A set removed by readiness, deload or the spinal cap is recorded in `volume_exem
 never re-added. If a group is under but has no non-essential capacity (hinge on a hinge day is
 the usual case), the budget leaves it alone and says so.
 
-The multi-day `programme` forecast supports **1–5 sessions/week**. Four uses Mon/Tue/Thu/Fri;
-five uses Mon–Fri. Sessions keep the normal full-body templates, so four or five days add real
+The multi-day `programme` forecast supports **1–5 sessions/week**. Four uses Mon/Wed/Fri/Sun;
+five uses Mon/Tue/Thu/Fri/Sun. Sessions keep the normal full-body templates, so four or five days add real
 weekly volume; the budget, MRV/spinal caps and time estimate still apply. The weekly target
 remains the three-session average unless you set a higher `weekly_total` and matching per-group
 targets.

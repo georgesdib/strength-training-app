@@ -22,13 +22,12 @@ from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.rules import History, load_document
 
-WEEKDAYS = (0, 2, 4)          # legacy Monday/Wednesday/Friday for 1-3
 WEEKDAYS_BY_FREQUENCY = {
-    1: (0,),
-    2: (0, 2),
-    3: (0, 2, 4),
-    4: (0, 1, 3, 4),         # Mon, Tue, Thu, Fri
-    5: (0, 1, 2, 3, 4),      # weekdays
+    1: (0,),                   # Mon
+    2: (0, 3),                # Mon, Thu
+    3: (0, 2, 4),             # Mon, Wed, Fri
+    4: (0, 2, 4, 6),          # Mon, Wed, Fri, Sun
+    5: (0, 1, 3, 4, 6),       # Mon, Tue, Thu, Fri, Sun; rest Wed/Sat
 }
 
 

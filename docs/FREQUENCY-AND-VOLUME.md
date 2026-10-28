@@ -3,7 +3,7 @@
 **Status: Q26 closed 2026-10-27; LIM-51 closed as an accepted design choice.** Frequency
 remains dates-only: `--sessions-per-week 1..5` selects weekdays and keeps the normal per-session
 template; it does not scale main-lift sets or create extra sessions. The 4/5-day forecast uses
-Mon/Tue/Thu/Fri and Mon-Fri; extra full-body sessions increase weekly volume and are bounded by
+Mon/Wed/Fri/Sun and Mon/Tue/Thu/Fri/Sun; extra full-body sessions increase weekly volume and are bounded by
 the budget, MRV/spinal caps and time. Incomplete/low-volume
 weeks are handled by the live volume budget through policy-specific accessory top-up and
 under-MEV; `preserve` is where ordinary accessory make-up applies. The reproduced 1/week
