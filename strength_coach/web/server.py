@@ -1789,6 +1789,12 @@ class Handler(BaseHTTPRequestHandler):
             main_lift_policy=str(
                 body.get("main_lift_policy") or current.get("main_lift_policy") or "preserve"
             ),
+            # Absent from the body means "leave it alone": a profile edit must not silently
+            # switch the exposure trim off (DEC-EXPOSURE-01).
+            exposure_trim_enabled=(
+                None if "exposure_trim_enabled" not in body
+                else _truth(body.get("exposure_trim_enabled"))
+            ),
         )
         return self._state(conn)
 

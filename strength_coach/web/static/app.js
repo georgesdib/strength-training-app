@@ -1613,6 +1613,12 @@ function renderStateForms(data) {
             <option value="drop" ${p.main_lift_policy === "drop" ? "selected" : ""}>drop</option>
           </select>
         </label>
+        <label>Exposure trim
+          <select data-profile="exposure_trim_enabled">
+            <option value="off" ${p.exposure_trim_enabled ? "" : "selected"}>off</option>
+            <option value="on" ${p.exposure_trim_enabled ? "selected" : ""}>on</option>
+          </select>
+        </label>
         <button class="primary" type="submit">Save profile version</button>
       </form>
       <p class="muted">Budget <strong>on</strong> with <strong>preserve</strong> trims and tops up
@@ -1749,8 +1755,10 @@ function renderStateForms(data) {
   $("#profile-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const values = collect("profile");
+    const exposureTrim = values.exposure_trim_enabled === "on";
     save("/api/state/profile", {
       ...values,
+      exposure_trim_enabled: exposureTrim,
       sessions_per_week_target: values.sessions_per_week_target || null,
       max_session_minutes: values.max_session_minutes || null,
     }, "#state-result", "Profile saved — new version appended.");

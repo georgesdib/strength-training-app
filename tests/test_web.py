@@ -363,6 +363,22 @@ def test_readiness_calibration_endpoint(server):
     assert status == 200
     assert "readiness calibration" in json.loads(body)["text"]
 
+def test_the_exposure_trim_flag_survives_an_unrelated_profile_save(server):
+    state = post(server, "/api/state/profile", {
+        "primary_goal": "strength",
+        "goal_rank": [],
+        "focus_lifts": [],
+        "exposure_trim_enabled": True,
+    })
+    assert state["profile"]["exposure_trim_enabled"] == 1
+    state = post(server, "/api/state/profile", {
+        "primary_goal": "strength",
+        "goal_rank": [],
+        "focus_lifts": [],
+    })
+    assert state["profile"]["exposure_trim_enabled"] == 1
+
+
 def test_state_can_be_edited(server):
     state = post(server, "/api/state/profile", {
         "primary_goal": "strength",

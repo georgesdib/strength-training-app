@@ -3,8 +3,12 @@
 **Status:** Phase 0 design and Phase 2 (Part A read-only) implemented, 2026-10-28.
 `features/exposure.py` computes the ratio with windows, coverage, dedup and abstention;
 `exposure ratio` (CLI), `GET /api/exposure` and the Prescribe **Exposure ratio** panel expose it.
-Part D's low-exposure advisory is included. **Nothing changes a prescription**: the trim in §1 is
-designed and configured but not implemented, and Parts B/C remain design-only.
+Part D's low-exposure advisory is included. **Phase 3 done 2026-10-28**: the §1 trim is
+implemented as `MOD-EXP-001` (constitution 1.20.0), switched by
+`athlete_profile.exposure_trim_enabled`, default **off**; `shadow_decision` exists and is
+append-only, but the engine does not yet write shadow rows (they land with the Phase 6 review,
+so forecast builds never pollute the table). With the flag off nothing changes. Parts B/C
+remain design-only.
 
 Governing rule: these are **descriptive signals**, not physiological models. The app does not
 estimate fatigue, recovery time or injury probability. Everything is downward-only or

@@ -560,17 +560,29 @@ def append_athlete_profile(
     block_start_date: str | None = None,
     volume_budget_enabled: bool = False,
     main_lift_policy: str = "preserve",
+    exposure_trim_enabled: bool | None = None,
 ) -> None:
-    """Append a profile version. A reset or a goal change is a new row (DEC-RAMP-01)."""
+    """Append a profile version. A reset or a goal change is a new row (DEC-RAMP-01).
+
+    An omitted exposure-trim flag inherits the current value: a profile edit that does not
+    mention the switch must not silently turn it off (DEC-EXPOSURE-01).
+    """
     if main_lift_policy not in ("preserve", "reduce", "drop"):
         raise ValueError("main_lift_policy must be preserve, reduce or drop")
+    if exposure_trim_enabled is None:
+        row = conn.execute(
+            "SELECT exposure_trim_enabled FROM athlete_profile "
+            "ORDER BY effective_from DESC, profile_id DESC LIMIT 1"
+        ).fetchone()
+        exposure_trim_enabled = bool(row["exposure_trim_enabled"]) if row is not None else False
     conn.execute(
         """
         INSERT INTO athlete_profile (effective_from, primary_goal, goal_rank, focus_lifts,
                                      competition_date, sessions_per_week_target,
                                      max_session_minutes, block_start_date,
-                                     volume_budget_enabled, main_lift_policy)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                     volume_budget_enabled, main_lift_policy,
+                                     exposure_trim_enabled)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             effective_from,
@@ -583,6 +595,7 @@ def append_athlete_profile(
             block_start_date,
             1 if volume_budget_enabled else 0,
             main_lift_policy,
+            1 if exposure_trim_enabled else 0,
         ),
     )
 
@@ -1390,3 +1403,56 @@ def prescription_profile(
         (str(prescription_id),),
     ).fetchone()
     return dict(row) if row else None
+SHADOW_COMPONENTS = ("exposure", "residual", "substitution")
+SHADOW_ACTIONS = ("none", "trim_sets", "suggest_substitution", "advisory")
+
+
+def append_shadow_decision(
+    conn: sqlite3.Connection,
+    *,
+    evaluated_on: str,
+    component: str,
+    rule_id: str,
+    signal: Mapping[str, object] | None = None,
+    proposed: Mapping[str, object] | None = None,
+    reason: str = "",
+    action: str = "none",
+    applied: bool = False,
+    catalogue_digest: str | None = None,
+    config_digest: str | None = None,
+    prescription_id: str | None = None,
+) -> str:
+    """Append what a reactive signal proposed (DEC-SHADOW-01). Never edits a prescription.
+
+    Shadow decisions are the only durable record of a signal that fired and chose to do
+    nothing, so the Phase 6 review can count triggers and abstentions without recomputing.
+    """
+    if component not in SHADOW_COMPONENTS:
+        raise ValueError(f"component must be one of {SHADOW_COMPONENTS}")
+    if action not in SHADOW_ACTIONS:
+        raise ValueError(f"action must be one of {SHADOW_ACTIONS}")
+    decision_id = uuid.uuid4().hex
+    conn.execute(
+        """
+        INSERT INTO shadow_decision (
+            decision_id, evaluated_on, component, rule_id, signal_json,
+            catalogue_digest, config_digest, proposed_json, reason, action,
+            applied, prescription_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            decision_id,
+            str(evaluated_on),
+            component,
+            str(rule_id),
+            _json(dict(signal or {})),
+            catalogue_digest,
+            config_digest,
+            _json(dict(proposed or {})),
+            str(reason),
+            action,
+            1 if applied else 0,
+            prescription_id,
+        ),
+    )
+    return decision_id

@@ -89,7 +89,9 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
   A row's **e1RM** button opens an override panel for that lift: it shows the override currently
   in force and appends a new one (kg, effective-from, reason) through the same endpoint the
   Athlete page and `e1rm set` use, so the next prescription cites it.
-- **Athlete** — append-only editing of profile, constraints, suitability, e1RM overrides,
+- **Athlete** — append-only editing of profile (including the **Exposure trim** switch, off by
+  default; `DEC-EXPOSURE-01`; a profile edit that does not mention it preserves its value),
+  constraints, suitability, e1RM overrides,
   strength tests, block start and symptoms; shows the current tables, injury signal and the
   **e1RM calibration** report (current formula e1RM and last set for every lift, plus
   measured tests vs formula; a bounded correction is applied only when the confidence interval

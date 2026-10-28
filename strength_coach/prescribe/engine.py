@@ -28,6 +28,7 @@ from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import continuity_calibration, readiness_score, test_cadence, vbt_calibration
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
+from strength_coach.features import exposure as exposure_ratio_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import lift_readiness as lift_readiness_feature
@@ -342,6 +343,15 @@ def build_prescription(
         skip=readiness_sets_reduced,
     )
     warnings.extend(under_warnings)
+    # Off by default (DEC-EXPOSURE-01): the athlete enables the trim on the profile. It runs
+    # after under-MEV so it cannot be re-added, and skips anything those two rules touched.
+    profile = queries.athlete_profile(conn) or {}
+    items, exposure_warnings, exposure_note = _apply_exposure_trim(
+        context, tuple(items), for_date, conn=conn,
+        enabled=bool(profile.get("exposure_trim_enabled")),
+        skip=set(readiness_sets_reduced) | set(under_note.get("exercise_ids") or ()),
+    )
+    warnings.extend(exposure_warnings)
     items, volume_warnings, volume_note = _apply_volume_cap(
         context, tuple(items), for_date, config=resolved.volume
     )
@@ -590,6 +600,7 @@ def build_prescription(
             "constraints": constraint_report.status,
             "session_type": session_type,
             "under_mev": under_note,
+            "exposure_trim": exposure_note,
             "test_cadence": test_cadence.status(
                 conn, for_date, config=resolved.test_cadence
             ),
@@ -693,6 +704,7 @@ def _apply_under_mev(
         return items, (), {"applied": False}
     out = list(items)
     changed: list[str] = []
+    changed_ids: list[str] = []
     for key in sorted(under):
         indexes = [
             i for i, item in enumerate(out)
@@ -716,12 +728,15 @@ def _apply_under_mev(
             rationale_refs=item.rationale_refs + ("MOD-VOL-002",),
         )
         changed.append(f"{key}:{item.exercise_id}+{add}")
+        changed_ids.append(item.exercise_id)
     if not changed:
         return tuple(out), (), {"applied": False}
     warning = (
         "MOD-VOL-002: under-MEV accessory progression: " + ", ".join(changed)
     )
-    return tuple(out), (warning,), {"applied": True, "changes": changed}
+    return tuple(out), (warning,), {
+        "applied": True, "changes": changed, "exercise_ids": changed_ids,
+    }
 
 
 def _apply_volume_cap(
@@ -2181,3 +2196,81 @@ def validate_references(
             elif not policy_mod.resolve_reference(context, ref):
                 problems.append(f"{item.exercise_id}: unresolvable reference {ref}")
     return problems
+
+
+def _apply_exposure_trim(
+    context: RuleContext,
+    items: tuple[PrescriptionItem, ...],
+    for_date: str,
+    *,
+    conn,
+    enabled: bool,
+    skip: Collection[str] = (),
+    report: exposure_ratio_feature.ExposureReport | None = None,
+    config: exposure_ratio_feature.ExposureConfig | None = None,
+) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], dict]:
+    """Trim accessory sets when the rolling hard-set exposure is high (MOD-EXP-001).
+
+    Opt-in and off by default (DEC-EXPOSURE-01). The ratio is contested; this only ever
+    removes non-essential accessory sets, never a main lift or essential item, and never a set
+    readiness already reduced or under-MEV just added today.
+    """
+    if not enabled:
+        return items, (), {"enabled": False, "applied": False}
+    cfg = config or exposure_ratio_feature.ExposureConfig.load()
+    found = report or exposure_ratio_feature.compute(conn, for_date, cfg)
+    if found.signal != "high":
+        return items, (), {
+            "enabled": True, "applied": False, "signal": found.signal,
+            "ratio": found.ratio, "abstain": list(found.abstain),
+        }
+
+    def group_of(exercise_id: str) -> str:
+        return volume_feature.volume_target_key(
+            str(context.entity(exercise_id).get("pattern") or "")
+        )
+
+    out = list(items)
+    trimmed: list[str] = []
+    budget = cfg.trim_max_sets_per_session
+    for group in found.groups:
+        if group.signal != "high" or budget <= 0:
+            continue
+        for index, item in enumerate(out):
+            if budget <= 0:
+                break
+            if item.essential or not item.exercise_id:
+                continue
+            if item.exercise_id in skip or item.exercise_id in trimmed:
+                continue
+            if group_of(item.exercise_id) != group.group:
+                continue
+            if item.sets <= cfg.trim_floor_sets:
+                continue
+            take = min(cfg.trim_max_sets_per_item, item.sets - cfg.trim_floor_sets, budget)
+            if take <= 0:
+                continue
+            out[index] = replace(
+                item,
+                sets=item.sets - take,
+                rationale_refs=item.rationale_refs + ("MOD-EXP-001",),
+            )
+            trimmed.append(item.exercise_id)
+            budget -= take
+            break
+
+    if not trimmed:
+        return tuple(out), (), {
+            "enabled": True, "applied": False, "signal": "high",
+            "ratio": found.ratio, "reason": "no eligible accessory set",
+            "groups": [group.as_dict() for group in found.groups],
+        }
+    warning = (
+        f"MOD-EXP-001: exposure ratio {found.ratio:.2f} is high; trimmed "
+        + ", ".join(f"{exercise_id} -1" for exercise_id in trimmed)
+    )
+    return tuple(out), (warning,), {
+        "enabled": True, "applied": True, "signal": "high",
+        "ratio": found.ratio, "trimmed": trimmed,
+        "groups": [group.as_dict() for group in found.groups],
+    }

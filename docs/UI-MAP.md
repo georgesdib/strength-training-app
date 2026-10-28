@@ -46,7 +46,7 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 | **Measures** | Measurements; History | [OUTCOMES.md](OUTCOMES.md), [DATA-MODEL.md](DATA-MODEL.md) | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Import** | Import training/readiness; After the import | [USER-GUIDE.md](../USER-GUIDE.md), [DATA-QUALITY.md](DATA-QUALITY.md) | [PRIVACY.md](PRIVACY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Exercises** | Exercise catalogue; Edit exercise; Exercise details dialog; read-only Demand profile | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md), [DATA-MODEL.md](DATA-MODEL.md) | [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
-| **Athlete** | Athlete state | [DATA-MODEL.md](DATA-MODEL.md), [INJURY-SIGNAL.md](INJURY-SIGNAL.md) | [READINESS.md](READINESS.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Athlete** | Profile (incl. exposure trim), constraints, suitability, e1RM, tests, block start, symptoms | [DATA-MODEL.md](DATA-MODEL.md), [INJURY-SIGNAL.md](INJURY-SIGNAL.md) | [READINESS.md](READINESS.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Settings** | Appearance; Language model; Prescribe defaults; App | [WEB-UI.md](WEB-UI.md), [ARCHITECTURE.md](ARCHITECTURE.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Docs** | Docs list and document viewer | [WEB-UI.md](WEB-UI.md), [METHODOLOGY.md](METHODOLOGY.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
 

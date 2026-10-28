@@ -582,3 +582,21 @@ def readiness_context(conn, on_date: str) -> list[str]:
         if flag not in seen:
             seen.append(flag)
     return seen
+
+def shadow_decisions(conn, *, since: str | None = None,
+                     component: str | None = None, limit: int = 200) -> list[dict]:
+    """Append-only shadow decisions, newest first (DEC-SHADOW-01)."""
+    clauses: list[str] = []
+    params: list[object] = []
+    if since is not None:
+        clauses.append("evaluated_on >= ?")
+        params.append(str(since))
+    if component is not None:
+        clauses.append("component = ?")
+        params.append(str(component))
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    rows = conn.execute(
+        f"SELECT * FROM shadow_decision{where} ORDER BY evaluated_on DESC, created_at DESC LIMIT ?",
+        (*params, int(limit)),
+    ).fetchall()
+    return [dict(row) for row in rows]

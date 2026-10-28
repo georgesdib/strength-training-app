@@ -162,6 +162,9 @@ def main(argv: list[str] | None = None) -> int:
     state.add_argument("--main-lift-policy", choices=("preserve", "reduce", "drop"),
                        default=None,
                        help="preserve keeps main lifts even when the group quota is full")
+    state.add_argument("--exposure-trim", choices=("on", "off"), default=None,
+                       help="opt in to the rolling hard-set exposure accessory trim "
+                            "(off by default; DEC-EXPOSURE-01)")
 
     settings = sub.add_parser("settings", help="profile-backed settings (step 4)")
     settings_sub = settings.add_subparsers(dest="settings_action", required=True)
@@ -886,7 +889,8 @@ def _cmd_state(args) -> int:
         if args.import_file and args.rate:
             print("use either --import or --rate, not both")
             return 2
-        if args.volume_budget is not None or args.main_lift_policy is not None:
+        if (args.volume_budget is not None or args.main_lift_policy is not None
+                or args.exposure_trim is not None):
             current = queries.athlete_profile(conn)
             if current is None:
                 print("record an athlete profile first; run 'strength-coach state --import FILE'")
@@ -895,6 +899,9 @@ def _cmd_state(args) -> int:
             if args.volume_budget is not None:
                 enabled = args.volume_budget == "on"
             policy = args.main_lift_policy or current.get("main_lift_policy", "preserve")
+            exposure_trim = None
+            if args.exposure_trim is not None:
+                exposure_trim = args.exposure_trim == "on"
             repositories.append_athlete_profile(
                 conn,
                 effective_from=datetime.date.today().isoformat(),
@@ -907,9 +914,14 @@ def _cmd_state(args) -> int:
                 block_start_date=current["block_start_date"],
                 volume_budget_enabled=enabled,
                 main_lift_policy=policy,
+                exposure_trim_enabled=exposure_trim,
+            )
+            trim_state = (
+                "on" if exposure_trim else "off" if exposure_trim is False
+                else "on" if current.get("exposure_trim_enabled") else "off"
             )
             print(f"profile updated: volume_budget={'on' if enabled else 'off'}, "
-                  f"main_lift_policy={policy}")
+                  f"main_lift_policy={policy}, exposure_trim={trim_state}")
         if args.rate:
             repositories.append_exercise_suitability(
                 conn,
