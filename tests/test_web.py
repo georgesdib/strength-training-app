@@ -465,6 +465,15 @@ def test_programme_endpoint_accepts_selection_flags(server):
     selection = data["entries"][0]["prescription"]["notes"]["selection"]
     assert selection["requested"] is True
     assert selection["llm_requested"] is True
+    assert selection["llm_unavailable"] is True
+    assert any("NullLLM" in warning for warning in data["entries"][0]["prescription"]["warnings"])
+
+
+def test_logs_endpoint_returns_the_recent_tail(server):
+    status, body = get(server, "/api/logs?limit=10")
+    assert status == 200
+    data = json.loads(body)
+    assert isinstance(data["logs"], list)
 
 
 def post_with_headers(base: str, path: str, payload: dict, headers: dict) -> tuple[int, str]:

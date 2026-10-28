@@ -19,6 +19,7 @@ import os
 import threading
 import uuid
 import webbrowser
+from collections import deque
 from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -90,6 +91,29 @@ TOLERANCE = 0.25
 MAX_BODY_BYTES = 64 * 1024 * 1024
 MAX_IMPORT_FILE_BYTES = 20 * 1024 * 1024
 LOGGER = logging.getLogger(__name__)
+_LOG_BUFFER: deque[dict[str, Any]] = deque(maxlen=500)
+_LOG_LOCK = threading.Lock()
+
+
+class _BufferLogHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            message = record.getMessage()
+        except Exception:
+            message = str(record.msg)
+        with _LOG_LOCK:
+            _LOG_BUFFER.append({
+                "time": datetime.datetime.fromtimestamp(record.created).isoformat(timespec="seconds"),
+                "level": record.levelname,
+                "logger": record.name,
+                "message": message,
+            })
+
+
+if not any(isinstance(handler, _BufferLogHandler) for handler in logging.getLogger().handlers):
+    _log_handler = _BufferLogHandler()
+    _log_handler.setLevel(logging.INFO)
+    logging.getLogger().addHandler(_log_handler)
 
 
 class RequestError(Exception):
@@ -423,7 +447,9 @@ class Handler(BaseHTTPRequestHandler):
 
     # --- plumbing ---------------------------------------------------------
     def log_message(self, fmt: str, *args) -> None:
-        print(f"{self.address_string()} - {fmt % args}")
+        message = f"{self.address_string()} - {fmt % args}"
+        LOGGER.info(message)
+        print(message)
 
     def _send(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)
@@ -699,6 +725,12 @@ class Handler(BaseHTTPRequestHandler):
                     self._error(404, str(exc.args[0]))
                 else:
                     self._json(200, job)
+            elif path == "/api/logs":
+                query = parse_qs(urlparse(self.path).query)
+                limit = max(1, min(500, int(query.get("limit", ["200"])[0])))
+                with _LOG_LOCK:
+                    records = list(_LOG_BUFFER)[-limit:]
+                self._json(200, {"logs": records})
             elif path == "/api/exercises/catalog":
                 self._json(200, exercise_admin.catalog())
             elif path == "/api/exercises":

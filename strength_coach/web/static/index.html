@@ -41,6 +41,7 @@
       <button data-view="exercises">Exercises</button>
       <button data-view="state">Athlete</button>
       <button data-view="settings">Settings</button>
+      <button data-view="logs">Logs</button>
       <button data-view="docs">Docs</button>
     </nav>
   </aside>
@@ -941,6 +942,16 @@
         <p>LLM file <code id="settings-config-path">—</code></p>
         <p class="muted">The server binds to <code>127.0.0.1</code> and has no authentication. Do
           not expose it to a network. Raw exports and the database stay git-ignored.</p>
+      </div>
+    </section>
+
+    <section id="view-logs" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Application logs</h2><span class="muted">last 200 events</span>
+          <button class="ghost" id="logs-refresh" type="button">Refresh</button></div>
+        <p class="section-help"><span>In-memory app and HTTP log tail. It resets when the web process restarts.</span>
+          <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI</a></p>
+        <div id="logs-output"></div>
       </div>
     </section>
 

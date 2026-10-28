@@ -136,6 +136,7 @@ also disables while saving and reports the number of marks written.
 | `POST /api/readiness` | `{date, values, note}` -> merged readiness + score |
 | `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |
 | `GET /api/readiness/calibrate` | calibration report text (no auto-apply) |
+| `GET /api/logs?limit=N` | recent in-memory application/HTTP log records (max 500; cleared on restart) |
 | `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, injury signal |
 | `GET /api/exercises` | canonical exercise catalogue for the pickers |
 | `POST /api/programme/key` | request body -> `{cache_key}` covering version, request, resolved profile and relevant config hashes |
@@ -265,6 +266,10 @@ browser check is not a passed browser check.
   are listed in `docs/UI-CLI-PARITY.md`.
 - Workout mode is UI-first for start; CLI covers status/add/update/remove/end/import. Completed workouts materialise into `session`/`clean_set`; review/rubric is built.
 - State editing is available; the taxonomy itself and programme rules remain config/CLI.
+- The **Logs** page shows the in-memory application/HTTP tail (`/api/logs`); it is a local
+  diagnostic surface and resets when the web process restarts.
+- When **Use LLM** is requested without a configured model, the prescription carries a warning
+  and `selection.llm_unavailable = true`; the UI says that NullLLM fallback was used.
 - The Programme page uses the **job + sessionStorage cache** path. The cache key includes the
   app version, request, resolved profile and relevant config hashes, so a profile or config
   change cannot reuse an old forecast. The cache is transport-only: the CLI rebuilds the same

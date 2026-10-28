@@ -238,6 +238,8 @@ never read `data/raw`.
 | `docs/FATIGUE-FITNESS.md` | fatigue-fitness evidence, strength recovery, e1RM calibration and why no model drives loads |
 | `docs/LIFT-READINESS.md` | per-lift readiness evidence, components, weights and downward-only rule |
 | `docs/EXERCISE-VARIANTS.md` | how to add a canonical variant, slot wiring, history caveat, selection tuning |
+| `docs/EXERCISE-DEMANDS.md` | companion demand catalogue: six dimensions, per-dimension levels, provenance, coverage, upper-bound rule and no aggregate |
+| `docs/FATIGUE-SIGNALS.md` | Parts A–D: exposure ratio, VBT residual, suggest-only substitution, advisories, shadow table, flags and activation gates |
 | `docs/SESSION-TEMPLATES.md` | field guide to session templates: scheduling source of truth, prescription blocks, slot fields, variants, day roles and safety rules |
 | `docs/VARIANT-PATTERN-AUDIT.md` | 2026-10-20 variant pattern/muscle audit: checked exceptions and applied corrections |
 | `docs/SELECTION-COMPARABILITY.md` | evidence and proposed three-class guard for variant substitution |

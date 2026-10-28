@@ -34,6 +34,7 @@ function setView(name, options = {}) {
   }
   if (name === "workout") { loadReadiness($("#readiness-date").value); updateWorkflowStep(); }
   if (name === "docs") loadDocs(options.doc, options.anchor);
+  if (name === "logs") loadLogs();
   if (name === "state") loadState();
   if (name === "settings") loadSettings();
   if (name === "history") loadHistory();
@@ -1809,6 +1810,20 @@ function renderStateForms(data) {
 }
 
 /* --- docs --------------------------------------------------------------- */
+async function loadLogs() {
+  try {
+    const data = await api("/api/logs?limit=200");
+    const rows = (data.logs || []).map((row) =>
+      "<tr><td>" + esc(row.time) + "</td><td>" + esc(row.level) + "</td><td>" +
+      esc(row.logger) + "</td><td>" + esc(row.message) + "</td></tr>").join("");
+    $("#logs-output").innerHTML = rows
+      ? "<table><thead><tr><th>time</th><th>level</th><th>logger</th><th>message</th></tr></thead><tbody>" + rows + "</tbody></table>"
+      : "<p class='empty'>No log entries yet.</p>";
+  } catch (error) {
+    $("#logs-output").innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
+  }
+}
+
 async function loadDocs(requested, anchor) {
   try {
     const docs = await api("/api/docs");
@@ -2389,6 +2404,7 @@ $("#programme-form").addEventListener("submit", (event) => {
   runProgramme();
 });
 $("#programme-form").addEventListener("input", programmeFormChanged);
+$("#logs-refresh").addEventListener("click", loadLogs);
 
 /* --- settings ----------------------------------------------------------- */
 const SETTINGS_TARGET_KEY = "strength-coach.minimumTarget";

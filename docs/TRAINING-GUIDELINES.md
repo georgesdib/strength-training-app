@@ -91,7 +91,10 @@ Acute:chronic workload ratio is **contested** — the "sweet spot" interpretatio
 directly challenged ([Europe PMC 7485291](https://europepmc.org/article/pmc/7485291)), and
 workload monitoring is broader than a single ratio
 ([Gabbett, 2017](https://www.taylorfrancis.com/chapters/edit/10.4324/9781315542348-9/workload-monitoring-athlete-management-tim-gabbett)).
-**Decision:** ACWR is computed as an advisory feature only and may never veto a prescription.
+**Decision:** ACWR is advisory only and may never veto a prescription. No ACWR feature is
+implemented today. The planned rolling exposure ratio is the same arithmetic family and is
+also descriptive; its only prescription effect is an opt-in, disabled-by-default accessory
+set trim (`DEC-EXPOSURE-01`, `LIM-56`). See [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md).
 
 ## 6. Where the literature is too weak to settle the programme
 

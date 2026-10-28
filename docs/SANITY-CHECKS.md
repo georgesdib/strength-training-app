@@ -184,6 +184,16 @@ without conditioning on provenance penalises the athlete for following the presc
 - **ASSUMPTION-48** — the compensation slot pool (`dumbbell_bench_press`, `rdl`) and the similarity matrix are design heuristics, not measured equivalence; the slot is non-essential and the main lift stays in `preserve` (`docs/VOLUME-MODULATION-PLAN.md` §4.2).
 - **ASSUMPTION-49** — the reduce floor default (three sets) is a coaching assumption, configurable, not a measured minimum; the main lift stays in the session (`docs/VOLUME-MODULATION-PLAN.md` §4.2/§10).
 
+- **ASSUMPTION-51** — the exposure windows (acute 7 days, chronic the preceding 28), the 8-session and 80 % RIR-coverage minimums and the high-ratio threshold of 1.3 are design choices, not measured cut-points. The ratio is ACWR-shaped and contested; it is descriptive and the trim is off by default (`DEC-EXPOSURE-01`, `LIM-56`).
+
+- **ASSUMPTION-52** — the exposure trim caps (1 set per item, 2 sets per session, floor 1 working set, non-essential accessories only) are coaching guardrails, not measured maxima.
+
+- **ASSUMPTION-53** — the substitution caps (one per slot, one per session) and the priority order injury > readiness > exposure > substitution are design choices; no trial compares them.
+
+- **ASSUMPTION-54** — a VBT residual needs at least 5 comparable observations and the lift-scoped calibration target; this is a precision guard for a measured mean velocity, not a validated fatigue threshold.
+
+- **ASSUMPTION-55** — the Part D advisory thresholds (low exposure below 0.7 for two weeks; a positive residual above its own spread) are display heuristics and never change a prescription.
+
 - **ASSUMPTION-50** — the knee-flexion landmarks (MEV 3 / MAV 4–8 / MRV 10), the 6-set weekly target, the 4-set session cap and the 63-set weekly total are coaching estimates chosen to fit the two-exposure template, not measurements; MEV 3 is a maintenance floor, not a validated minimum (`docs/VOLUME-MODULATION-PLAN.md` §13, `DEC-KNEEFLEX-01`).
 
 - **ASSUMPTION-38** — a session is one calendar date. Unverifiable without timestamps.

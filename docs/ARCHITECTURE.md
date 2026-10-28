@@ -18,8 +18,8 @@ structural edits*. Policy validates every edit.
                     └──────────────────┬──────────────────────────┘
                                        ▼
         ┌──────────────────────────────┴───────────────────────────┐
-        │ features   tonnage · e1RM · ACWR · readiness score · injury signal   │
-        │            weekly spinal cost · erector dose             │
+        │ features   tonnage · e1RM · exposure ratio (planned) · readiness     │
+        │            score · injury signal · weekly spinal cost · erector dose │
         │ vbt        calibration records (versioned)               │
         └──────────────────────────────┬───────────────────────────┘
                                        ▼
