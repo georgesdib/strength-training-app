@@ -104,6 +104,22 @@ class DemandCatalogue:
         """True only when both sides are rated on the same dimension."""
         return self.rated(left, dimension) and self.rated(right, dimension)
 
+    def profile(self, exercise_id: str) -> dict[str, dict[str, Any]]:
+        """Every dimension for one exercise, with unknowns made explicit."""
+        out: dict[str, dict[str, Any]] = {}
+        for dimension in DIMENSIONS:
+            claim = self.claim(exercise_id, dimension)
+            out[dimension] = {
+                "level": "unknown" if claim is None else claim.level,
+                "confidence": None if claim is None else claim.confidence,
+                "reason": None if claim is None else claim.reason,
+                "evidence": [] if claim is None else list(claim.evidence),
+            }
+        return out
+
+    def in_scope_rated(self, exercise_id: str) -> int:
+        return sum(1 for dimension in IN_SCOPE if self.rated(exercise_id, dimension))
+
     def coverage(self, exercise_ids: Iterable[str]) -> dict[str, Any]:
         """Unknown rate per dimension over the ids that are actually reachable.
 

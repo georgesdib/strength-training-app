@@ -68,6 +68,20 @@ function openExerciseDetails(row) {
   $("#exercise-detail-extra").value = Object.keys(extra).length
     ? JSON.stringify(extra, null, 2) : "{}";
   $("#exercise-details-msg").textContent = "source: " + row.source;
+  const demands = row.demands || { rated: 0, dimensions: {} };
+  const meta = window.__exerciseCatalog?.demand_catalogue || {};
+  const scope = (meta.in_scope || []).length || 4;
+  $("#exercise-detail-demands").innerHTML = Object.entries(demands.dimensions)
+    .map(([dimension, claim]) => `<tr>
+      <td><code>${esc(dimension)}</code></td>
+      <td>${esc(claim.level)}</td>
+      <td>${esc(claim.confidence || "—")}</td>
+      <td class="muted">${esc(claim.reason || "—")}</td></tr>`)
+    .join("");
+  $("#exercise-detail-demands-note").textContent =
+    `${demands.rated}/${scope} in-scope dimensions rated · catalogue ${meta.digest || "none"}`
+    + ` · reviewed ${meta.reviewed_on || "never"}`
+    + (meta.overlay ? " · local overlay active" : "");
   $("#exercise-details-dialog").showModal();
 }
 
@@ -144,6 +158,11 @@ function renderExerciseCatalog() {
       p.high_fatigue_spinal ? "high spinal" : "",
     ].filter(Boolean).map((f) => `<span class="pill">${esc(f)}</span>`).join("");
     const names = (p.log_names || []).map((n) => `<code>${esc(n)}</code>`).join(", ");
+    const scope = (window.__exerciseCatalog?.demand_catalogue?.in_scope || []).length || 4;
+    const demands = row.demands
+      ? `<span title="${esc(Object.entries(row.demands.dimensions)
+            .map(([dim, claim]) => dim + ": " + claim.level).join(", "))}">${row.demands.rated}/${scope}</span>`
+      : "—";
     return `<tr>
       <td><strong>${esc(row.display)}</strong><div class="muted"><code>${esc(row.id)}</code>
         · ${esc(row.source)}</div></td>
@@ -151,6 +170,7 @@ function renderExerciseCatalog() {
       <td>${(p.primary_muscles || []).map((m) => `<span class="pill">${esc(m)}</span>`).join("") || "—"}</td>
       <td>${flags || "—"}</td>
       <td>${names || "—"}</td>
+      <td>${demands}</td>
       <td><button class="ghost" data-details-exercise="${esc(row.id)}">Details</button>
         <button class="ghost" data-edit-exercise="${esc(row.id)}">Edit</button>
         <button class="ghost" data-e1rm-exercise="${esc(row.id)}" title="Append an e1RM override for this lift">e1RM</button>
@@ -160,7 +180,7 @@ function renderExerciseCatalog() {
   }).join("");
   $("#exercise-catalog").innerHTML = `<div class="table-scroll"><table class="exercise-table">
     <thead><tr><th>Exercise</th><th>Pattern</th><th>Primary muscles</th><th>Flags</th>
-    <th>Log names</th><th></th></tr></thead><tbody>${body}</tbody></table></div>`;
+    <th>Log names</th><th>Demands</th><th></th></tr></thead><tbody>${body}</tbody></table></div>`;
   document.querySelectorAll("[data-edit-exercise]").forEach((button) => {
     button.addEventListener("click", () => {
       const row = window.__exerciseCatalog.entities.find((e) => e.id === button.dataset.editExercise);

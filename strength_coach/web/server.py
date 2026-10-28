@@ -55,6 +55,7 @@ from strength_coach.features import (
     retrospective_validation,
 )
 from strength_coach.features import deload as deload_feature
+from strength_coach.features import demands as demands_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import exposure as exposure_ratio_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
@@ -739,7 +740,20 @@ class Handler(BaseHTTPRequestHandler):
                     records = list(_LOG_BUFFER)[-limit:]
                 self._json(200, {"logs": records})
             elif path == "/api/exercises/catalog":
-                self._json(200, exercise_admin.catalog())
+                catalogue = demands_feature.load()
+                payload = exercise_admin.catalog()
+                for row in payload["entities"]:
+                    row["demands"] = {
+                        "rated": catalogue.in_scope_rated(row["id"]),
+                        "dimensions": catalogue.profile(row["id"]),
+                    }
+                payload["demand_catalogue"] = {
+                    "digest": catalogue.digest,
+                    "reviewed_on": catalogue.reviewed_on,
+                    "overlay": catalogue.overlay_path is not None,
+                    "in_scope": list(demands_feature.IN_SCOPE),
+                }
+                self._json(200, payload)
             elif path == "/api/exercises":
                 self._json(200, [
                     {"id": key, "display": str(value.get("display") or key),

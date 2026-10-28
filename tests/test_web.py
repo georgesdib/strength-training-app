@@ -695,6 +695,16 @@ def test_exercise_catalog_endpoint(server):
     assert data["entities"]
     assert "patterns" in data
     assert any(row["id"] == "ssb_squat" for row in data["entities"])
+    assert data["demand_catalogue"]["in_scope"] == [
+        "axial_spinal", "trunk_stability", "technical", "local_muscular"
+    ]
+    ssb = next(row for row in data["entities"] if row["id"] == "ssb_squat")
+    assert ssb["demands"]["rated"] == 4
+    assert ssb["demands"]["dimensions"]["axial_spinal"]["level"] == "high"
+    assert ssb["demands"]["dimensions"]["axial_spinal"]["confidence"] == "provisional"
+    seal = next(row for row in data["entities"] if row["id"] == "seal_row")
+    assert seal["demands"]["rated"] == 0
+    assert seal["demands"]["dimensions"]["axial_spinal"]["level"] == "unknown"
 
 
 def test_exercise_post_rejects_an_invalid_id_without_writing(server):

@@ -82,6 +82,10 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
   nothing changes a load.
 - **Exercises** — full canonical catalogue with search/filter, all properties per row, and an
   add/edit form. Edits are written to `config/exercises/overrides.v1.yaml`; ids are immutable.
+  Each row carries a **Demands** count (`rated/4` in-scope dimensions) and the details dialog
+  shows the read-only demand profile with level, confidence and reason, plus the catalogue
+  digest and whether the git-ignored local overlay is active (`docs/EXERCISE-DEMANDS.md`).
+  Demands are rated with `strength-coach exercise demands set`; the UI does not edit them.
   A row's **e1RM** button opens an override panel for that lift: it shows the override currently
   in force and appends a new one (kg, effective-from, reason) through the same endpoint the
   Athlete page and `e1rm set` use, so the next prescription cites it.
