@@ -528,6 +528,16 @@ def test_programme_endpoint_accepts_selection_flags(server):
     assert any("NullLLM" in warning for warning in data["entries"][0]["prescription"]["warnings"])
 
 
+def test_programme_cache_key_separates_llm_and_python_options(server):
+    base = {
+        "weeks": 1, "start": "2024-01-02", "start_session_type": "squat",
+        "apply_selection": True, "selection_confirmed": True,
+    }
+    python_key = post(server, "/api/programme/key", {**base, "selection_llm": False})["cache_key"]
+    llm_key = post(server, "/api/programme/key", {**base, "selection_llm": True})["cache_key"]
+    assert python_key != llm_key
+
+
 def test_logs_endpoint_returns_the_recent_tail(server):
     status, body = get(server, "/api/logs?limit=10")
     assert status == 200

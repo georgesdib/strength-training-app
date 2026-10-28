@@ -2176,11 +2176,23 @@ function programmeStatus(entry) {
   return entry.prescription.fallback_level || "forecast";
 }
 
-function renderProgramme(entries) {
+function renderProgramme(entries, fromCache = false) {
   if (!entries.length) {
     $("#programme-result").innerHTML = "<p class='warnbox'>No sessions in that horizon.</p>";
     return;
   }
+  const llmFallback = entries.some(
+    (entry) => entry.prescription.notes?.selection?.llm_unavailable
+  );
+  const llmWarning = llmFallback
+    ? `<p class="warnbox"><strong>LLM requested but not configured.</strong>
+       NullLLM fallback was used for exercise selection. Configure an LLM in Settings or untick
+       <em>Use LLM</em>.</p>`
+    : "";
+  const cacheNote = fromCache
+    ? `<p class="muted">Loaded from this session's cache for these form options. Switching an
+       option back can restore its earlier build without rebuilding.</p>`
+    : "";
   const rows = entries.map((entry) => {
     const stress = entry.prescription.notes?.recent_stress || {};
     const items = entry.prescription.items.map((item) => {
@@ -2216,7 +2228,7 @@ function renderProgramme(entries) {
         ${warn}</td>
     </tr>`;
   }).join("");
-  $("#programme-result").innerHTML = `<div class="panel"><table>
+  $("#programme-result").innerHTML = `<div class="panel">${llmWarning}${cacheNote}<table>
     <thead><tr><th>Date</th><th>Session type</th><th>Status</th><th>Session</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
@@ -2289,7 +2301,7 @@ async function restoreProgramme() {
     const key = await programmeKey(payload);
     const cached = readProgrammeCache(key);
     if (cached) {
-      renderProgramme(cached.entries || []);
+      renderProgramme(cached.entries || [], true);
       programmeHasResult = true;
       return;
     }
@@ -2313,7 +2325,7 @@ function programmeSelectionChanged() {
     programmeQueued = true;
   } else if (programmeHasResult) {
     $("#programme-result").innerHTML =
-      "<p class='muted'>Selection options changed; build the forecast again to apply them.</p>";
+      "<p class='muted'>Selection options changed. The previous result is hidden; cached builds are kept per option set, so unticking an option can restore its earlier build.</p>";
     programmeHasResult = false;
   }
 }
@@ -2354,7 +2366,7 @@ async function runProgramme() {
     const key = await programmeKey(payload);
     const cached = readProgrammeCache(key);
     if (cached) {
-      renderProgramme(cached.entries || []);
+      renderProgramme(cached.entries || [], true);
       programmeHasResult = true;
       return;
     }
