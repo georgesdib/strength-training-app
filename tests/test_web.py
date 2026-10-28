@@ -446,6 +446,19 @@ def test_programme_endpoint(server):
 
 
 
+def test_programme_supports_four_and_five_days(server):
+    four = post(server, "/api/programme", {
+        "weeks": 1, "start": "2024-01-02", "sessions_per_week": 4,
+        "start_session_type": "squat",
+    })
+    five = post(server, "/api/programme", {
+        "weeks": 1, "start": "2024-01-02", "sessions_per_week": 5,
+        "start_session_type": "squat",
+    })
+    assert len(four["entries"]) == 4
+    assert len(five["entries"]) == 5
+
+
 def test_programme_job_endpoint_returns_a_pollable_result(server):
     payload = {
         "weeks": 2, "start": "2024-01-02", "start_session_type": "squat",

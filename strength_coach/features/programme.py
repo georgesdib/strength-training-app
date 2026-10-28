@@ -22,7 +22,14 @@ from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.rules import History, load_document
 
-WEEKDAYS = (0, 2, 4)          # Monday, Wednesday, Friday
+WEEKDAYS = (0, 2, 4)          # legacy Monday/Wednesday/Friday for 1-3
+WEEKDAYS_BY_FREQUENCY = {
+    1: (0,),
+    2: (0, 2),
+    3: (0, 2, 4),
+    4: (0, 1, 3, 4),         # Mon, Tue, Thu, Fri
+    5: (0, 1, 2, 3, 4),      # weekdays
+}
 
 
 @dataclass(frozen=True)
@@ -37,7 +44,7 @@ class ProgrammeEntry:
 
 def _dates(start: dt.date, weeks: int, per_week: int) -> list[dt.date]:
     """Exactly weeks*per_week session dates from start, on the selected weekdays."""
-    selected = WEEKDAYS[:per_week]
+    selected = WEEKDAYS_BY_FREQUENCY[per_week]
     out: list[dt.date] = []
     cursor = start
     while len(out) < weeks * per_week:
@@ -62,8 +69,8 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
     # cannot start an unbounded forecast (DEC-PROGRAMME-09).
     if not 1 <= weeks <= 26:
         raise ValueError("weeks must be between 1 and 26")
-    if not 1 <= per_week <= len(WEEKDAYS):
-        raise ValueError("per_week must be 1-3 for the programme forecast")
+    if per_week not in WEEKDAYS_BY_FREQUENCY:
+        raise ValueError("per_week must be 1-5 for the programme forecast")
     first = dt.date.fromisoformat(start) if start else dt.date.today()
     dates = _dates(first, weeks, per_week)
     prior: list[str] = []

@@ -1,8 +1,10 @@
 # FREQUENCY AND VOLUME — what `--sessions-per-week` actually changes
 
 **Status: Q26 closed 2026-10-27; LIM-51 closed as an accepted design choice.** Frequency
-remains dates-only: `--sessions-per-week` selects weekdays and keeps the normal per-session
-template; it does not scale main-lift sets or create extra sessions. Incomplete/low-volume
+remains dates-only: `--sessions-per-week 1..5` selects weekdays and keeps the normal per-session
+template; it does not scale main-lift sets or create extra sessions. The 4/5-day forecast uses
+Mon/Tue/Thu/Fri and Mon-Fri; extra full-body sessions increase weekly volume and are bounded by
+the budget, MRV/spinal caps and time. Incomplete/low-volume
 weeks are handled by the live volume budget through policy-specific accessory top-up and
 under-MEV; `preserve` is where ordinary accessory make-up applies. The reproduced 1/week
 difference is a consequence of that design, not an unhandled limitation.
@@ -42,7 +44,7 @@ all in the example week.
 
 ## 2. Why it behaves that way
 
-`features/programme.py` chooses dates with `WEEKDAYS[:per_week]` and then runs the same
+`features/programme.py` chooses dates from a frequency-to-weekdays map and then runs the same
 deterministic engine per date. Nothing reads `per_week` afterwards. The module docstring says
 this is deliberate: *"The programme is the existing three-session full-body rotation; a
 different frequency would need a scheduling decision, not a silent guess."*

@@ -323,9 +323,9 @@ the floor instead. A fourth heavy full-body day can also collide with the MRV, s
 caps. The sensible first design is a fourth **accessory/weak-point** session, not another heavy
 squat/hinge day; that is a programme decision.
 
-The scheduler is **out of scope for now**: `programme --sessions-per-week` stays 1–3. A
-four-session week is manual single-session training; the budget report still projects four when
-the profile target is 4. No four-day forecast is planned.
+The scheduler now supports **1–5** sessions/week: 4 uses Mon/Tue/Thu/Fri and 5 uses Mon–Fri.
+The sessions keep the normal full-body templates, so four or five days add real weekly volume;
+the budget, MRV/spinal caps and time estimate still apply.
 
 ### 4.4 What steps 2 and 2b actually do (implemented)
 
@@ -917,7 +917,7 @@ profile is `effective`; rollback is one profile change.
 | 12 | Cross-group compensation | confirmed as a later **volume-first mode**: per-group quotas, inverse-similarity weights, `main_lift_policy` preserve by default, `drop` opt-in; parameters and evidence still open |
 | 13 | Strength-preserving default | main lifts stay at template sets even when the group quota is full; `main_lift_policy` is an append-only `athlete_profile` field (`preserve` default, `reduce`/`drop` opt-in); compensation is accessory-only under `preserve`; "no squats" is `drop` |
 | 14 | Compensation parameters | one optional non-essential compensation slot per session type; candidates `dumbbell_bench_press` (push) and `rdl` (hinge), executable load only; weights squat↔hinge 0.7, squat↔bench 0.2, hinge↔bench 0.2, push↔pull 0.3, floor 0.1; all sets count; main lifts stay in `preserve`; main-lift top-up opt-in; `MOD-VOL-004` for slot replacement |
-| 15 | Frequency above three | the budget supports 4+ by spreading the same 63-set target (57 when this was decided), or an explicit higher target; the programme/forecast stays 1–3 and four-plus is manual single-session only; a fourth heavy full-body day is not assumed |
+| 15 | Frequency above three | the budget supports 4/5 by spreading the same 63-set target (57 when this was decided), or an explicit higher target; the programme forecast now supports 1–5 (4 = Mon/Tue/Thu/Fri, 5 = Mon–Fri). The extra full-body sessions add real volume and remain bounded by the budget, MRV/spinal caps and time |
 | 16 | Reduce/drop timing | `reduce` is **step 2b, implemented 2026-10-26**: it trims a filled group's main lift to the configured floor, keeps the session type, and disables top-up; `drop` remains **step 9c**, after the 9a compensation slot pool, because it removes and relabels a main lift; both are opt-in via `main_lift_policy` |
 | 17 | All parameters config-backed | total/per-group targets, daily/session total and per-group caps, tolerance/band minimum, trim/top-up switches, accessory floor and per-item top-up ceiling, set seconds/warm-up/time cap, and the reduce floor all live in `config/volume.v1.yaml`; the profile only adds on/off, policy and a tightening `max_session_minutes` (`DEC-VOLUME-12`) |
 | 18 | 9a/9b compensation | 9a preview: slot pool, similarity weights and `compensation` report. 9b application: with `apply: true` and the budget on, one non-essential slot is added with a real load (`MOD-VOL-004`, constitution 1.17.0); no history refuses. 9c is `drop` |

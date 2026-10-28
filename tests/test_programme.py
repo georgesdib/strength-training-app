@@ -271,3 +271,10 @@ def test_scheduled_deload_can_be_applied_after_confirmation():
     assert any("MOD-DELOAD-001" in warning for warning in applied.warnings)
     squat = next(item for item in applied.items if item.exercise_id == "ssb_squat")
     assert squat.sets == 4
+
+def test_four_and_five_day_programmes_use_distinct_weekdays():
+    four = programme._dates(dt.date(2024, 1, 1), 1, 4)
+    five = programme._dates(dt.date(2024, 1, 1), 1, 5)
+    assert [day.weekday() for day in four] == [0, 1, 3, 4]
+    assert [day.weekday() for day in five] == [0, 1, 2, 3, 4]
+    assert len(four) == 4 and len(five) == 5
