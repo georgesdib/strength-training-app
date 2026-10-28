@@ -29,7 +29,7 @@ function setView(name, options = {}) {
   if (name === "cardio") loadCardio();
   if (name === "measures") loadMeasurements();
   if (name === "prescribe") {
-    loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget(); loadExposure();
+    loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget(); loadExposure(); loadResidual();
     restoreProgramme();
   }
   if (name === "workout") { loadReadiness($("#readiness-date").value); updateWorkflowStep(); }
@@ -1966,6 +1966,35 @@ async function loadExposure() {
       exposure. Thresholds are config assumptions, not measured cut-points.</p>`;
   } catch (error) {
     $("#exposure-report").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function loadResidual() {
+  const date = $("#prescribe-date").value;
+  if (!date) { $("#residual-report").innerHTML = "<p class='empty'>Choose a date.</p>"; return; }
+  try {
+    const data = await api(`/api/residual?date=${encodeURIComponent(date)}`);
+    $("#residual-signal").textContent =
+      (data.signal_available ? "signal available" : "no signal")
+      + (data.evaluation_ready ? " · evaluation-ready" : "");
+    const rows = (data.lifts || []).map((lift) => `<tr>
+      <td><code>${esc(lift.exercise_id)}</code></td><td>${lift.reps}</td>
+      <td>${lift.n}</td><td>${lift.weeks}</td>
+      <td>${lift.mean_residual}</td><td>${lift.spread ?? "—"}</td>
+      <td>${esc(lift.calibration_scope)}</td><td>${esc(lift.gate)}</td></tr>`).join("");
+    const table = rows
+      ? `<table><thead><tr><th>lift</th><th>reps</th><th>n</th><th>weeks</th>
+         <th>mean residual (m/s)</th><th>spread</th><th>scope</th><th>gate</th></tr></thead>
+         <tbody>${rows}</tbody></table>`
+      : "";
+    const abstain = (data.abstain || [])
+      .map((reason) => `<p class="muted">${esc(reason)}</p>`).join("");
+    $("#residual-report").innerHTML = table + abstain
+      + `<p class="muted">Gates: ${data.gates.min_observations} sets for a signal,
+         ${data.gates.evaluation_observations} over ${data.gates.evaluation_weeks} weeks for
+         evaluation. Negative means slower than the target.</p>`;
+  } catch (error) {
+    $("#residual-report").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
 

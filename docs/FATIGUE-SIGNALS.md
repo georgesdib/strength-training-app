@@ -13,7 +13,11 @@ so forecast builds never pollute the table). With the flag off nothing changes. 
 under the Exercise-selection panel, `GET /api/substitution` and `select --fatigue`; at most one
 accessory suggestion, A/B comparability, stimulus coverage, rated-and-strictly-lower demand,
 and no suggestion when the trim (or any other action) already fired. Nothing is applied
-automatically. Part B remains design-only.
+automatically. **Phase 5 done 2026-10-28**: `features/residual.py` computes the VBT execution
+residual from stored workout sets that were performed against a stored prescription target,
+grouped by lift/reps/load basis, lift-scoped calibration only, over an 84-day window; `residual`
+(CLI), `GET /api/residual` and the Prescribe **Performance residual** panel expose it. Shadow
+only: it changes nothing, and its two gates are the same `ASSUMPTION-56` thresholds.
 
 Governing rule: these are **descriptive signals**, not physiological models. The app does not
 estimate fatigue, recovery time or injury probability. Everything is downward-only or
@@ -88,7 +92,9 @@ Overlapping rolling windows are not independent evidence: the report shows the w
 significance claim.
 
 **Effect.** Shadow only. No modifier, no flag to enable one in this release. A future
-downward-only modifier requires a prospective evaluation and an explicit decision.
+downward-only modifier requires a prospective evaluation and an explicit decision. Implemented
+in `features/residual.py` over an 84-day window; imported sets without a stored target are
+excluded, because comparing them with a later calibration would not be the prescribed target.
 
 **When there is enough data to evaluate it.** Two different gates, so "enough" is never
 vague:

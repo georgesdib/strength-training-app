@@ -65,6 +65,7 @@ from strength_coach.features import programme as programme_feature
 from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import regime_change as regime_feature
+from strength_coach.features import residual as residual_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import (
@@ -379,6 +380,13 @@ def main(argv: list[str] | None = None) -> int:
     select.add_argument("--fatigue", action="store_true",
                         help="show the Part C fatigue-informed suggestion (suggest-only)")
 
+    residual = sub.add_parser(
+        "residual", help="VBT execution residual (shadow; read-only)"
+    )
+    residual.add_argument("--date", default=None)
+    residual.add_argument("--window-days", type=int, default=84)
+    residual.add_argument("--json", action="store_true")
+
     exposure = sub.add_parser("exposure", help="log or inspect high-intensity exposures")
     exposure_sub = exposure.add_subparsers(dest="action", required=True)
     exposure_log = exposure_sub.add_parser("log", help="record a non-test exposure")
@@ -480,6 +488,7 @@ def main(argv: list[str] | None = None) -> int:
         "fatigue": _cmd_fatigue,
         "select": _cmd_select,
         "exposure": _cmd_exposure,
+        "residual": _cmd_residual,
         "outcomes": _cmd_outcomes,
         "prospective": _cmd_prospective,
         "regime": _cmd_regime,
@@ -1729,6 +1738,39 @@ def _cmd_select(args) -> int:
                            if hc.ratio is not None else f"  own-history {hc.status}")
             print(f"    {candidate.exercise_id:<24} {candidate.score:.3f}  "
                   f"{', '.join(candidate.reasons)}{context}")
+    return 0
+
+
+def _cmd_residual(args) -> int:
+    store = db.Store(args.db)
+    try:
+        report = residual_feature.compute(
+            store.connection,
+            args.date or datetime.date.today().isoformat(),
+            window_days=args.window_days,
+        )
+    finally:
+        store.close()
+    if args.json:
+        print(json.dumps(report.as_dict(), indent=2))
+        return 0
+    print(
+        f"VBT execution residual (shadow; no prescription change) {report.on_date} "
+        f"window {report.window_days}d"
+    )
+    print(
+        f"  signal available: {'yes' if report.signal_available else 'no'}; "
+        f"evaluation-ready: {'yes' if report.evaluation_ready else 'no'}"
+    )
+    for lift in report.lifts:
+        print(
+            f"  {lift.exercise_id:<22}{lift.reps:>3} reps  n={lift.n:<3}"
+            f"mean {lift.mean_residual:+.3f} m/s  spread "
+            f"{'n/a' if lift.spread is None else f'{lift.spread:.3f}'}  "
+            f"{lift.gate}  ({lift.reason})"
+        )
+    for reason in report.abstain:
+        print(f"  abstained: {reason}")
     return 0
 
 

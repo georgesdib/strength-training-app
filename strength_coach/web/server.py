@@ -68,6 +68,7 @@ from strength_coach.features import progress as progress_feature
 from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import regime_change as regime_feature
+from strength_coach.features import residual as residual_feature
 from strength_coach.features import reviews as reviews_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import volume as volume_feature
@@ -646,6 +647,15 @@ class Handler(BaseHTTPRequestHandler):
                 day = query.get("date", [None])[0] or datetime.date.today().isoformat()
                 self._json(200, self._with_conn(
                     lambda c: exposure_ratio_feature.compute(c, day).as_dict()
+                ))
+            elif path == "/api/residual":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0] or datetime.date.today().isoformat()
+                window = int(query.get("window_days", ["84"])[0])
+                self._json(200, self._with_conn(
+                    lambda c: residual_feature.compute(
+                        c, day, window_days=window
+                    ).as_dict()
                 ))
             elif path == "/api/volume/budget":
                 query = parse_qs(urlparse(self.path).query)

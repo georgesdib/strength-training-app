@@ -77,6 +77,7 @@ These are known and intentional or still open.
 | `exposure ratio` | Prescribe **Exposure ratio** panel (same `compute`) | full |
 | `select --fatigue` | Exercise selection panel **Fatigue-informed suggestion** block | full |
 | `exercise demands set/clear` | Exercises details `Demand profile` rating form | full |
+| `residual` | Prescribe **Performance residual** panel (same `compute`) | full |
 | `continuity --date` | UI panel uses the default date | partial |
 | `fatigue --date` | UI panel uses the default date | partial |
 | `validate --max-dates` | UI button uses 12 dates | partial |

@@ -441,6 +441,16 @@ def post_status(base: str, path: str, payload: dict) -> tuple[int, str]:
         return exc.code, exc.read().decode()
 
 
+def test_the_residual_endpoint_abstains_without_linked_sets(server):
+    status, body = get(server, "/api/residual?date=2024-01-31")
+    data = json.loads(body)
+    assert status == 200
+    assert data["signal_available"] is False
+    assert data["evaluation_ready"] is False
+    assert data["abstain"]
+    assert data["gates"]["min_observations"] == 5
+
+
 def test_the_exposure_ratio_endpoint_is_served(server):
     status, body = get(server, "/api/exposure?date=2024-01-31")
     data = json.loads(body)
