@@ -25,26 +25,28 @@ from strength_coach.prescribe import schedule, templates
 from strength_coach.store import queries, repositories
 from strength_coach.utils import exercises, paths
 
-# The ledger's target keys. The first eight have MEV/MAV/MRV landmarks and are managed by the
+# The ledger's target keys. The managed keys have MEV/MAV/MRV landmarks and are managed by the
 # budget; erector and power work are fixed template doses, included in the weekly total and the
 # session cap but never trimmed or topped up.
 TARGET_KEYS = (
-    "squat", "hinge", "hinge_unilateral", "horizontal_push", "horizontal_pull",
-    "vertical_push", "vertical_pull", "core", "erector_extension", "power_jump",
+    "squat", "hinge", "hinge_unilateral", "knee_flexion", "horizontal_push",
+    "horizontal_pull", "vertical_push", "vertical_pull", "core", "erector_extension",
+    "power_jump",
 )
 MANAGED_KEYS = (
-    "squat", "hinge", "hinge_unilateral", "horizontal_push", "horizontal_pull",
-    "vertical_push", "vertical_pull", "core",
+    "squat", "hinge", "hinge_unilateral", "knee_flexion", "horizontal_push",
+    "horizontal_pull", "vertical_push", "vertical_pull", "core",
 )
 
 DEFAULT_TARGET = {
-    "squat": 10.0, "hinge": 6.5, "hinge_unilateral": 0.0, "horizontal_push": 12.0,
-    "horizontal_pull": 9.0, "vertical_push": 3.0, "vertical_pull": 4.5, "core": 6.0,
-    "erector_extension": 3.0, "power_jump": 3.0,
+    "squat": 10.0, "hinge": 6.5, "hinge_unilateral": 0.0, "knee_flexion": 6.0,
+    "horizontal_push": 12.0, "horizontal_pull": 9.0, "vertical_push": 3.0,
+    "vertical_pull": 4.5, "core": 6.0, "erector_extension": 3.0, "power_jump": 3.0,
 }
 DEFAULT_CAPS = {
-    "squat": 8, "hinge": 6, "hinge_unilateral": 5, "horizontal_push": 8,
-    "horizontal_pull": 8, "vertical_push": 5, "vertical_pull": 5, "core": 6,
+    "squat": 8, "hinge": 6, "hinge_unilateral": 5, "knee_flexion": 4,
+    "horizontal_push": 8, "horizontal_pull": 8, "vertical_push": 5, "vertical_pull": 5,
+    "core": 6,
 }
 
 # Matches the minimum-session planner's set cost. It is a planning estimate, not the clock.

@@ -37,7 +37,8 @@ def test_drop_settings_save_to_the_local_overlay(tmp_path):
     assert result["competition_confirm_days"] == 10
     assert result["max_slots_per_group"] == 2
     assert result["technique_minutes"] == 20
-    assert result["high_band"] == pytest.approx(68.4)
+    # 63-set weekly total x (1 + 0.2 tolerance); it was 68.4 before knee flexion was added.
+    assert result["high_band"] == pytest.approx(75.6)
     assert (tmp_path / "volume.local.yaml").is_file()
     cfg = volume_budget.BudgetConfig.load(base)
     assert cfg.drop_competition_confirm_days == 10

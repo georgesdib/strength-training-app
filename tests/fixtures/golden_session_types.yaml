@@ -47,6 +47,15 @@ squat:
     rir_target: 2
     rest_s: 90
     essential: false
+  - exercise_id: lying_leg_curls
+    sets: 4
+    reps_low: 8
+    reps_high: 12
+    load_kg: 30.0
+    load_basis: external
+    rir_target: 2
+    rest_s: 90
+    essential: false
   - exercise_id: ab_wheel
     sets: 4
     reps_low: 6
@@ -100,6 +109,15 @@ hinge:
     sets: 4
     reps_low: 8
     reps_high: 10
+    load_kg: 30.0
+    load_basis: external
+    rir_target: 2
+    rest_s: 90
+    essential: false
+  - exercise_id: lying_leg_curls
+    sets: 4
+    reps_low: 8
+    reps_high: 12
     load_kg: 30.0
     load_basis: external
     rir_target: 2

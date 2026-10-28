@@ -53,6 +53,8 @@ def history(loads=None):
                          "RIR": "2", "Reps_Done": "10"})
             rows.append({"Date": day, "Exercise": "Split Squat", "Weight_Used": "30",
                          "RIR": "3", "Reps_Done": "8"})
+            rows.append({"Date": day, "Exercise": "Lying Leg Curls", "Weight_Used": "30",
+                         "RIR": "2", "Reps_Done": "10"})
     return rows
 
 
@@ -99,6 +101,8 @@ def test_the_advisory_is_silent_when_the_reference_is_too_thin():
          "RIR": "2", "Reps_Done": "10"},
         {"Date": "2024-01-18", "Exercise": "Split Squat", "Weight_Used": "30",
          "RIR": "3", "Reps_Done": "8"},
+        {"Date": "2024-01-18", "Exercise": "Lying Leg Curls", "Weight_Used": "30",
+         "RIR": "2", "Reps_Done": "10"},
     ]
     override = {"exercise_id": "trap_bar_deadlift", "e1rm_kg": 260.0,
                 "effective_from": "2024-01-20", "source": "measured"}

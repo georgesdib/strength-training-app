@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-10-27 · **v1.0 beta released; v1.1 planned** · version `1.0.0b1` · **955 public tests passed**
+Last updated: 2026-10-28 · **v1.0 beta released; v1.1 planned** · version `1.0.0b1` · **955 public tests passed**
 
 
 ---
@@ -51,6 +51,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.0 beta | Workable app + guided Workflow UI | **released 2026-10-27** | full strength loop, guided readiness → preview → workout → post-workout, effective volume accounting, template editor, schedule fallback/rebalance; user testing in progress |
 | v1.1 | Beta removal + cardio + calibration depth | **planned; plan at §4.13a** | drop the beta label after user testing; pending: cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
 | — | 2026-10-26 pass | **done 2026-10-26** | declared breaks — append-only range, `break` CLI, Athlete panel, freeze in the trained-week cycle (`DEC-CONTINUITY-04`, `LIM-50`); P1 measured-test coverage view (`e1rm tests-needed` + Athlete table); symptom settling made fail-safe — a level-1 reading without a recorded 48 h settlement is a flare (`DEC-SYMPTOM-04`, Q25 closed) and `docs/SYMPTOM-LOGGING.md` documents the episode workflow; minimum-session target shown against the measured clock (`DEC-MIN-02`, `LIM-47` mitigated); gaps table folded into `docs/LIMITATIONS-REGISTER.md` |
+| — | 2026-10-28 knee-flexion accessory | **done 2026-10-28** | `lying_leg_curls` 3×8-12 added to the squat and hinge sessions with `nordic_curl` as an opt-in candidate; `knee_flexion` is a managed ledger key (MEV 3 / MAV 4–8 / MRV 10, target 6/week, cap 4) and the `hamstring_eccentric` pattern maps onto it; weekly total 57→63, effective 68.25→74.25; programme summary regenerated; remaining unprescribed groups recorded as accepted gaps (`LIM-54`) (`DEC-KNEEFLEX-01`, `ASSUMPTION-50`) |
 | — | 2026-10-27 audit follow-up | **done 2026-10-27** | back-flare alignment (`DEC-SPINE-07/08`), quality-limited power (`DEC-POWER-02/03`), same-date plan accounting (`DEC-VOLUME-30/31/32`), readiness RIR re-solve (`DEC-READINESS-18`), generated programme summary; independent audit report [`docs/AUDIT-FOLLOW-UP-REPORT.md`](docs/AUDIT-FOLLOW-UP-REPORT.md); `LIM-53` closed; **audit fully closed 2026-10-27, no open follow-ups** |
 | — | 2026-10-25 corrective pass | **done 2026-10-25** | e1RM selector + plausibility advisory (`DEC-E1RM-SOURCE-01`, `DEC-E1RM-PLAUS-01`), `MOD-SPINE-001` spinal trim, group-level volume status (`DEC-VOLUME-05`), technique throttle in the API and Prescribe form (`MOD-TECH-001`), e1RM overrides in Exercises and post-workout; legacy A/B/C labels removed from rule scopes and taxonomy `day_roles`; squat loading kept out of the spinal cap as a recorded scope decision (`DEC-SPINE-04`, later superseded by `DEC-SPINE-05`); constitution 1.13.1 (`DEC-RIR-04`; `MOD-TECH-001`/`MOD-MIN-001` declared) |
 | — | Post-workout form assessment | **done 2026-10-25** | optional per-lift 1–5; Workout + History edit; rubric 1.2.0 |

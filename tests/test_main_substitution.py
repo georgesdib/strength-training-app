@@ -24,6 +24,8 @@ ROWS = [
      "RIR": "2", "Reps_Done": "5"},
     {"Date": "2026-09-01", "Exercise": "Dumbbell Row", "Weight_Used": "30",
      "RIR": "2", "Reps_Done": "10"},
+    {"Date": "2026-09-01", "Exercise": "Lying Leg Curls", "Weight_Used": "30",
+     "RIR": "2", "Reps_Done": "10"},
 ]
 ROWS += [
     {"Date": day, "Exercise": "Competition Squat", "Weight_Used": "120",

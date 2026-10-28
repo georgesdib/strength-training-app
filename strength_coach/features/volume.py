@@ -138,9 +138,12 @@ def volume_target_key(pattern: str) -> str:
       `hinge_unilateral` landmark, and a single-leg RDL is a low-axial-load accessory that
       should not consume the trap bar's recovery budget;
     * `erector_extension` stays under its own key, which has no landmark at all: direct
-      erector work is dosed by PRG-EREC-001 and capped by PRG-SPINE-001, not by MEV/MRV.
+      erector work is dosed by PRG-EREC-001 and capped by PRG-SPINE-001, not by MEV/MRV;
+    * `hamstring_eccentric` joins `knee_flexion` because a Nordic curl trains the same
+      knee-flexion hamstring tissue as a leg curl; without the mapping those sets would fall
+      outside every target key and silently vanish from the ledger (DEC-KNEEFLEX-01).
 
-    `tests/test_volume.py` asserts all three, so changing the mapping without changing the
+    `tests/test_volume.py` asserts all four, so changing the mapping without changing the
     configured volumes is a test failure rather than a silent drift.
     """
     raw = str(pattern)
@@ -154,6 +157,8 @@ def volume_target_key(pattern: str) -> str:
         return "core"
     if raw == "squat_unilateral":
         return "squat"
+    if raw == "hamstring_eccentric":
+        return "knee_flexion"
     return raw
 
 

@@ -137,6 +137,9 @@ slots:
     erector: *id003
     accessory_vertical_press: *id004
     accessory_split_squat: *id005
+    accessory_knee_flexion: &id013
+    - lying_leg_curls
+    - nordic_curl
     core_anti_extension: *id006
     core_flexion: *id007
   hinge:
@@ -146,6 +149,7 @@ slots:
     erector: *id003
     accessory_vertical_press: *id004
     accessory_split_squat: *id005
+    accessory_knee_flexion: *id013
     core_anti_extension: *id006
     core_flexion: *id007
   bench_squat:

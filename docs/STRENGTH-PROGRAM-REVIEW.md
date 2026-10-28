@@ -6,7 +6,7 @@ of scope. This is the evidence snapshot; implementation status is recorded in th
 **Review status: CLOSED 2026-10-20.** No open programme-design items remain here. Future
 validation, parent-ratio and targeting work is tracked in [ROADMAP.md](../ROADMAP.md) §4.20.
 
-**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload is now implemented as an optional suggestion with automatic reactive triggers; a standardised warm-up, a 3RM/5RM cadence and accessory under-MEV progression are implemented. Individualized MRV is closed as not estimable from the available data; main-lift volume experimentation is deliberately not done. The retrospective walk-forward check is done; continuity and fatigue lost to their baselines, so neither is adopted; prospective validation is a future gate only for a candidate that first beats the retrospective baseline. Weakness/injury targeting is deliberately deferred (`DEC-SELECT-04/05`). There are no open programme-design items left in this review.
+**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload is now implemented as an optional suggestion with automatic reactive triggers; a standardised warm-up, a 3RM/5RM cadence and accessory under-MEV progression are implemented. Individualized MRV is closed as not estimable from the available data; main-lift volume experimentation is deliberately not done. The retrospective walk-forward check is done; continuity and fatigue lost to their baselines, so neither is adopted; prospective validation is a future gate only for a candidate that first beats the retrospective baseline. Weakness/injury targeting is deliberately deferred (`DEC-SELECT-04/05`). There are no open programme-design items left in this review. On 2026-10-28 a knee-flexion accessory (`lying_leg_curls`, 3×8-12) was added to the squat and hinge sessions and `knee_flexion` became a managed ledger key (`DEC-KNEEFLEX-01`, weekly total 57→63); the groups that remain unprescribed are recorded as accepted gaps in `LIM-54`.
 
 **Method:** read the templates, constitution, prescription engine, evidence notes and references;
 generated A/B/C prescriptions from the local database; checked the planned weekly dose and the
@@ -27,17 +27,17 @@ after a template change. A stale block fails `tests/test_programme_summary.py`.
 not the single-leg RDL.
 
 <!-- BEGIN GENERATED PROGRAMME SUMMARY -->
-<!-- source:sha256:5ad19aa49fde8ca8 -->
+<!-- source:sha256:2f3036df7196e423 -->
 
 | session type | work | sets | spinal cost |
 |---|---|---|---:|
-| **squat** | Box Jump 3×3–5 @ quality stop; SSB Squat 5×3–5 @ RIR 2–3; Bench Press 4×3–5 @ RIR 2–3; Back Extension 3×10–12 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 21 | 1 |
-| **hinge** | Trap-Bar Deadlift 5×3–5 @ RIR 2–3; Bench Press (narrow grip) / Bench Press (pause) 4×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Split Squat 3×8–10 @ RIR 2–3 | 18 | 2 |
+| **squat** | Box Jump 3×3–5 @ quality stop; SSB Squat 5×3–5 @ RIR 2–3; Bench Press 4×3–5 @ RIR 2–3; Back Extension 3×10–12 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 24 | 1 |
+| **hinge** | Trap-Bar Deadlift 5×3–5 @ RIR 2–3; Bench Press (narrow grip) / Bench Press (pause) 4×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Split Squat 3×8–10 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3 | 21 | 2 |
 | **bench_squat** | Bench Press 4×3–5 @ RIR 2–3; Competition Squat 4×3–5 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 17 | 1 |
 | **bench_hinge** | Bench Press 4×3–5 @ RIR 2–3; Sumo Deadlift 3×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Hanging Leg Raise 3×8–12 @ RIR 2–3 | 19 | 2.5 |
 
 Over six sessions (two weeks): squat, hinge, bench+squat, squat, hinge, bench+hinge.
-Planned average is **57 working sets/week** across three sessions.
+Planned average is **63 working sets/week** across three sessions.
 
 | lift group | sets/week |
 |---|---:|
@@ -50,9 +50,10 @@ Planned average is **57 working sets/week** across three sessions.
 | vertical pull | 4.5 |
 | overhead press | 3 |
 | split squat | 3 |
+| knee-flexion hamstrings | 6 |
 | core | 6 |
 | power | 3 |
-| **total** | **57** |
+| **total** | **63** |
 
 Counted spinal cost: **4** for the first week (squat, hinge, bench+squat) and **5.5** for the second (squat, hinge, bench+hinge), against a cap of **6**.
 <!-- END GENERATED PROGRAMME SUMMARY -->

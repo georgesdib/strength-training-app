@@ -43,6 +43,10 @@ def history_rows_all_days() -> list[dict]:
              "RIR": "3", "Reps_Done": "8"},
             {"Date": day, "Exercise": "Dumbbell Row", "Weight_Used": "30",
              "RIR": "2", "Reps_Done": "10"},
+            # DEC-KNEEFLEX-01: the knee-flexion accessory needs history to be executable and
+            # to carry a double-progression load.
+            {"Date": day, "Exercise": "Lying Leg Curls", "Weight_Used": "30",
+             "RIR": "2", "Reps_Done": "10"},
             {"Date": day, "Exercise": "Overhead Press (seated)", "Weight_Used": "40",
              "RIR": "2", "Reps_Done": "8"},
             {"Date": day, "Exercise": "Single Leg DB RDL", "Weight_Used": "20",

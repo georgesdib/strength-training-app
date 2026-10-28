@@ -60,6 +60,8 @@ BASE_HISTORY = [
     {"Date": "2024-01-01", "Exercise": "Split Squat", "Weight_Used": "30", "RIR": "3", "Reps_Done": "8"},
     {"Date": "2024-01-01", "Exercise": "Pull-ups (wide grip)", "Weight_Used": "0", "RIR": "2", "Reps_Done": "8"},
     {"Date": "2024-01-01", "Exercise": "Dumbbell Row", "Weight_Used": "30", "RIR": "2", "Reps_Done": "10"},
+    # DEC-KNEEFLEX-01: the knee-flexion accessory needs history or the session is not executable.
+    {"Date": "2024-01-01", "Exercise": "Lying Leg Curls", "Weight_Used": "30", "RIR": "2", "Reps_Done": "10"},
 ]
 
 
@@ -110,6 +112,7 @@ def test_day_b_template_has_no_erector_work():
     assert set(exercises) == {
         "trap_bar_deadlift", "bench_press_narrow", "bench_press_pause",
         "split_squat", "pull_up", "lat_pulldown", "dumbbell_row",
+        "lying_leg_curls", "nordic_curl",
     }
     assert template.rep_ranges()["split_squat"] == (8, 10)
     assert template.time_cap_s == 4800
@@ -168,6 +171,8 @@ def test_stale_e1rm_falls_back_to_the_last_working_load():
         {"Date": "2023-01-01", "Exercise": "Lateral Raise", "Weight_Used": "12.5",
          "RIR": "2", "Reps_Done": "10"},
         {"Date": "2024-01-07", "Exercise": "Dumbbell Row", "Weight_Used": "30",
+         "RIR": "2", "Reps_Done": "10"},
+        {"Date": "2024-01-07", "Exercise": "Lying Leg Curls", "Weight_Used": "30",
          "RIR": "2", "Reps_Done": "10"},
         # A recent session for a lift the test does not inspect, so the gap is not the variable
         # under test (continuity is covered in test_continuity.py).
@@ -684,6 +689,8 @@ def test_weighted_spinal_cost_keeps_a_fitting_nonessential_exposure():
         {"Date": "2024-01-01", "Exercise": "Competition Bench Press", "Weight_Used": "90",
          "RIR": "2", "Reps_Done": "5"},
         {"Date": "2024-01-01", "Exercise": "Dumbbell Row", "Weight_Used": "30",
+         "RIR": "2", "Reps_Done": "10"},
+        {"Date": "2024-01-01", "Exercise": "Lying Leg Curls", "Weight_Used": "30",
          "RIR": "2", "Reps_Done": "10"},
     ]
     with store_with(history) as store:

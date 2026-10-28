@@ -184,6 +184,8 @@ without conditioning on provenance penalises the athlete for following the presc
 - **ASSUMPTION-48** — the compensation slot pool (`dumbbell_bench_press`, `rdl`) and the similarity matrix are design heuristics, not measured equivalence; the slot is non-essential and the main lift stays in `preserve` (`docs/VOLUME-MODULATION-PLAN.md` §4.2).
 - **ASSUMPTION-49** — the reduce floor default (three sets) is a coaching assumption, configurable, not a measured minimum; the main lift stays in the session (`docs/VOLUME-MODULATION-PLAN.md` §4.2/§10).
 
+- **ASSUMPTION-50** — the knee-flexion landmarks (MEV 3 / MAV 4–8 / MRV 10), the 6-set weekly target, the 4-set session cap and the 63-set weekly total are coaching estimates chosen to fit the two-exposure template, not measurements; MEV 3 is a maintenance floor, not a validated minimum (`docs/VOLUME-MODULATION-PLAN.md` §13, `DEC-KNEEFLEX-01`).
+
 - **ASSUMPTION-38** — a session is one calendar date. Unverifiable without timestamps.
 
 ## E. What these checks deliberately did not do

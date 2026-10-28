@@ -31,8 +31,9 @@ def test_the_weekly_totals_are_the_documented_cycle():
     assert totals["trap-bar deadlift"] == 5
     assert totals["sumo deadlift"] == 1.5
     assert totals["vertical pull"] == 4.5
-    assert sum(totals.values()) == 57
-    assert summary.render().count("**57 working sets/week**") == 1
+    assert totals["knee-flexion hamstrings"] == 6
+    assert sum(totals.values()) == 63
+    assert summary.render().count("**63 working sets/week**") == 1
 
 
 def test_the_spinal_costs_match_the_cycle():

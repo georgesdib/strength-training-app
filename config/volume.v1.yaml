@@ -26,6 +26,10 @@ landmarks:
   squat: {mev: 6, mav: [8, 12], mrv: 14}
   hinge: {mev: 6, mav: [6, 9], mrv: 10}
   hinge_unilateral: {mev: 0, mav: [0, 6], mrv: 8}
+  # DEC-KNEEFLEX-01 / ASSUMPTION-50: a hip-dominant hinge leaves the knee-flexion hamstrings
+  # untrained, and the template supplies 6 sets/week across the squat and hinge sessions. The
+  # landmark numbers are coaching estimates (MEV 3 is a maintenance floor), not measurements.
+  knee_flexion: {mev: 3, mav: [4, 8], mrv: 10}
   horizontal_push: {mev: 8, mav: [10, 16], mrv: 18}
   vertical_push: {mev: 3, mav: [4, 8], mrv: 10}
   horizontal_pull: {mev: 4, mav: [6, 10], mrv: 12}
@@ -41,15 +45,16 @@ budget:
   enabled: false
   # Explicit total. It must equal the sum of weekly_target below; the check catches editing only
   # one of the two numbers. Change both when changing the weekly dose.
-  weekly_total: 57
+  weekly_total: 63
   # Effective-set target used only when ledger.set_accounting=effective. Direct 1.0,
   # indirect 0.25; this preserves the current direct dose and is NOT applied while accounting
   # remains hard. The total must equal the sum of weekly_target_effective.
-  weekly_total_effective: 68.25
+  weekly_total_effective: 74.25
   weekly_target_effective:
     squat: 10
     hinge: 6.5
     hinge_unilateral: 0
+    knee_flexion: 6
     horizontal_push: 12.75
     horizontal_pull: 10.125
     vertical_push: 6
@@ -67,6 +72,7 @@ budget:
     squat: 10
     hinge: 6.5
     hinge_unilateral: 0
+    knee_flexion: 6
     horizontal_push: 12
     horizontal_pull: 9
     vertical_push: 3
@@ -84,6 +90,7 @@ budget:
       squat: 8
       hinge: 6
       hinge_unilateral: 5
+      knee_flexion: 4
       horizontal_push: 8
       horizontal_pull: 8
       vertical_push: 5

@@ -59,6 +59,18 @@ session_types:
           rest_s: 90
           essential: false
           load_source: double_progression
+        # DEC-KNEEFLEX-01: a hip-dominant hinge does not train knee-flexion hamstrings, so
+        # without this slot the hamstrings get no direct work at all. Lying leg curl is the
+        # default because it is loadable and already has history; the Nordic curl stays an
+        # explicit selection candidate rather than the default.
+        - id: accessory_knee_flexion
+          exercise_variants: [lying_leg_curls, nordic_curl]
+          sets: 3
+          reps: {low: 8, high: 12}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
         - id: core_anti_extension
           exercise: ab_wheel
           sets: 3
@@ -110,6 +122,17 @@ session_types:
           exercise: split_squat
           sets: 3
           reps: {low: 8, high: 10}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
+        # DEC-KNEEFLEX-01: two exposures per week (squat + hinge) = 6 sets, matching the
+        # knee_flexion weekly target. It is not a spinal lift and cannot spend the hinge
+        # session's axial budget.
+        - id: accessory_knee_flexion
+          exercise_variants: [lying_leg_curls, nordic_curl]
+          sets: 3
+          reps: {low: 8, high: 12}
           rir: {low: 2, high: 3}
           rest_s: 90
           essential: false

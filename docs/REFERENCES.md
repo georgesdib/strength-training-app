@@ -313,6 +313,12 @@ conclusion is weaker than it looks.
 | 172 | Joseph L, Reilly J, Sweezey K, Waugh R, Carlson LA, Lawrence MA. *Activity of trunk and lower extremity musculature: comparison between parallel back squats and belt squats.* J Hum Kinet, 2020;72:223-228. | 10.2478/hukin-2019-0126 | Belt squat reduced lumbar/trunk and gluteal activation with similar quadriceps; acute. |
 | 173 | Glassbrook DJ, Helms ER, Brown SR, Storey AG. *A review of the biomechanical differences between the high-bar and low-bar back-squat.* J Strength Cond Res, 2017;31(9):2618-2634. | 10.1519/JSC.0000000000002007 | Low-bar: greater hip flexion, forward lean and erector spinae activity; high-bar: more upright, knee-dominant. Why squat variants are not equal (SPINAL-COST). |
 
+## 26. Knee-flexion hamstring work
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 174 | van Dyk N, Behan FP, Whiteley R. *Including the Nordic hamstring exercise in injury prevention programmes halves the rate of hamstring injuries: a systematic review and meta-analysis of 8459 athletes.* Br J Sports Med, 2019;53(21):1362-1370. PMID 30808663. | 10.1136/bjsports-2018-100045 | Nordic curl roughly halves hamstring injury rates; the reason a knee-flexion accessory is prescribed for a strength-and-longevity goal even though the programme is not hypertrophy-led (`DEC-KNEEFLEX-01`). It supports the exercise choice, not the exact sets, reps or landmarks. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow
@@ -332,3 +338,4 @@ claim that the study is definitive; the evidence notes state the limitations.
 - `ROADMAP.md` §4.13 — cardio load and impulse-fatigue model plan
 - `docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md` — variant ratios, weakness assessment and screening
 - `docs/REVERSE-HYPER-BELT-SQUAT-EVIDENCE.md` — reverse hyperextension and belt squat evidence
+- `docs/VOLUME-MANAGEMENT.md` / `docs/VOLUME-MODULATION-PLAN.md` — volume landmarks, the knee-flexion row and its targets

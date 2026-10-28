@@ -65,6 +65,7 @@ defaults and are `ASSUMPTION-31`.
 | squat | 6 | 8–12 | 14 |
 | hinge | 6 | 6–9 | 10 |
 | hinge unilateral | 0 | 0–6 | 8 |
+| knee flexion | 3 | 4–8 | 10 |
 | horizontal push | 8 | 10–16 | 18 |
 | vertical push | 3 | 4–8 | 10 |
 | horizontal pull | 4 | 6–10 | 12 |
@@ -76,6 +77,9 @@ Why these values:
 - they sit around the broad dose-response ranges, with a lower hinge MRV because the hinge is
   the highest spinal-cost pattern and the athlete has a back history;
 - unilateral hinge and core have lower MEV because they are accessory patterns;
+- knee flexion is the row added on 2026-10-28 (`DEC-KNEEFLEX-01`, `ASSUMPTION-50`): MEV 3
+  is a maintenance floor, and the 6-set weekly target is what the two template exposures
+  (squat + hinge, 3 sets each) supply, so no third lower-body day is needed;
 - horizontal push has a higher MRV because it is the largest current strength emphasis;
 - none of these is an individual measurement.
 

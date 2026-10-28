@@ -40,6 +40,8 @@ HISTORY = [
      "RIR": "2", "Reps_Done": "8"},
     {"Date": "2024-01-01", "Exercise": "Dumbbell Row", "Weight_Used": "30",
      "RIR": "2", "Reps_Done": "10"},
+    {"Date": "2024-01-01", "Exercise": "Lying Leg Curls", "Weight_Used": "30",
+     "RIR": "2", "Reps_Done": "10"},
     {"Date": "2024-01-01", "Exercise": "Overhead Press (seated)", "Weight_Used": "40",
      "RIR": "2", "Reps_Done": "8"},
     {"Date": "2024-01-01", "Exercise": "Pull-ups (wide grip)", "Weight_Used": "0",

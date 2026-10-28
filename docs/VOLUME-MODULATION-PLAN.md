@@ -13,7 +13,8 @@ MRV/spinal settings, drop panel profile), 5b (modality registry/UI), step 6 (bud
 forecast and weekly panels), 5c (remaining modules) and step 8 (effective accounting) are
 implemented. The plan is closed.
 
-At a glance: weekly target **57 sets** (51 targeted + 6 untargeted), session cap **30** total
+At a glance: weekly target **63 sets** (51 targeted + 6 untargeted + 6 knee flexion since
+2026-10-28; it was 57 before that, `DEC-KNEEFLEX-01`), session cap **30** total
 plus per-pattern and time caps, allocation against the **projected week** with a ±10% deadband,
 safety cuts lower the **effective target**, no cross-week debt, phased automatic accessory
 trim/top-up, and a settings/modality registry with append-only profiles. `MOD-VOL-003` is
@@ -81,7 +82,7 @@ back (see §6).
 
 | term | meaning |
 |---|---|
-| `weekly_total` | explicit total for one week; must equal the sum of `weekly_target`; default 57 |
+| `weekly_total` | explicit total for one week; must equal the sum of `weekly_target`; default 63 (57 before 2026-10-28) |
 | `weekly_target[pattern]` | hard working sets for one week, by ledger group (default: the cycle average above) |
 | `weekly_floor[pattern]` | MEV; the level below which the week is "under" (report only) |
 | `weekly_ceiling[pattern]` | MRV; the hard ceiling already enforced by `MOD-VOL-001` |
@@ -127,8 +128,10 @@ Three caps, whichever binds first:
    the athlete's `max_session_minutes` (80 planned, 90 hard). If the set cap would exceed the
    time cap, the time cap wins and the plan reports the set count achieved.
 
-At 57 weekly sets and a 30-set cap, **two sessions can meet the target and one cannot**. That is
-the honest answer to the original complaint, and it should be stated, not hidden.
+At 63 weekly sets and a 30-set cap, **three sessions are needed**; a two-session week is now
+flagged as infeasible instead of being silently overloaded (at the original 57, two sessions
+could still meet it). That is the honest answer to the original complaint, and it should be
+stated, not hidden.
 
 ### 3.4 Feasibility check
 
@@ -137,9 +140,10 @@ For the chosen target, cap and frequency:
 `min_sessions = max( ceil(total_target / session_cap), max over patterns ceil(target[p] / pattern_cap[p]) )`
 
 Also check time: `ceil(total_estimated_minutes / time_cap)`. With the recommended numbers this
-is 2 sessions/week. Feasibility uses the nominal target at the start of the week; an exemption can
-only lower it, so a week that starts infeasible can still become feasible. If the athlete picks
-`--sessions-per-week 1`, the forecast must say "target 57, cap 30, minimum 2 sessions: 27 sets
+is 3 sessions/week (2 before the knee-flexion row). Feasibility uses the nominal target at the
+start of the week; an exemption can only lower it, so a week that starts infeasible can still
+become feasible. If the athlete picks
+`--sessions-per-week 1`, the forecast must say "target 63, cap 30, minimum 3 sessions: 33 sets
 unreachable" rather than silently delivering 19.
 
 ### 3.5 Week window and tolerance
@@ -335,7 +339,7 @@ This is the current, implemented behaviour; it is the reference for the reduce/d
 
 **Targets and inputs**
 - `budget.weekly_total` is explicit and must equal the sum of `budget.weekly_target`; config
-  load fails if only one side is edited. The default is 57.
+  load fails if only one side is edited. The default is 63 (57 before the knee-flexion row).
 - `effective_target = max(0, weekly_target - exempt)`. Fixed template doses (erector,
   power jump) count in the total but are never changed.
 - Completed = stored working sets in the ISO week. Projected = completed + today's items + the
@@ -349,7 +353,7 @@ hidden allocation threshold):
 | config key | default | role |
 |---|---|---|
 | `enabled` | false | fallback only when no profile flag is recorded |
-| `weekly_total` | 57 | explicit total; must equal the sum of `weekly_target` |
+| `weekly_total` | 63 | explicit total; must equal the sum of `weekly_target` |
 | `weekly_target[pattern]` | 10/6.5/... | per-group target; fixed doses included |
 | `main_lift_floor` | 3 | reduce mode: minimum main-lift sets of a filled group |
 | `trim_enabled` | true | allow accessory trim |
@@ -538,6 +542,10 @@ The drop decision is made at the start of a session, from the remaining week, no
 - `MOD-VOL-005` covers the 9c engine; `MOD-VOL-004` remains the 9b single-slot application.
 
 ## 5. Worked examples
+
+The examples below use the original 57-set target. Since 2026-10-28 the target is 63
+(`DEC-KNEEFLEX-01`), so every total and band in them shifts by +6 (bands 56.7–69.3); the
+arithmetic and the behaviour they illustrate are unchanged.
 
 - **Normal week:** projected 56–58 vs target 57; inside the band; no change.
 - **Readiness cuts two squat sets on Monday:** the squat effective target becomes 8, and those
@@ -958,6 +966,10 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
   and the main lift stays in `preserve`.
 - **ASSUMPTION-49** — the reduce floor default (three sets) is a coaching assumption,
   configurable, not a measured minimum; the main lift stays in the session.
+- **ASSUMPTION-50** — the knee-flexion row added on 2026-10-28 (MEV 3 / MAV 4–8 / MRV 10,
+  6-set weekly target, 4-set session cap, 63-set weekly total) is a coaching estimate, not a
+  measurement. MEV 3 is a maintenance floor; the numbers were chosen so the two template
+  exposures (squat + hinge) reach the target without a third lower-body day.
 
 ## 14. Evidence
 
@@ -1138,7 +1150,8 @@ Pattern-level map:
 
 ### 16.3 Numbers
 
-Hard target sum: **57 hard sets**.
+Hard target sum: **63 hard sets** (57 at implementation; +6 knee flexion on 2026-10-28,
+`DEC-KNEEFLEX-01`).
 
 Target-implied effective target (direct target plus the indirect credit implied by the target map):
 
@@ -1147,6 +1160,7 @@ Target-implied effective target (direct target plus the indirect credit implied 
 | squat | 10 | 10 |
 | hinge | 6.5 | 6.5 |
 | hinge_unilateral | 0 | 0 |
+| knee_flexion | 6 | 6 |
 | horizontal push | 12 | 12.75 |
 | horizontal pull | 9 | 10.125 |
 | vertical push | 3 | 6 |
@@ -1154,7 +1168,7 @@ Target-implied effective target (direct target plus the indirect credit implied 
 | core | 6 | 10.125 |
 | erector_extension | 3 | 3 |
 | power_jump | 3 | 3 |
-| **total** | **57** | **68.25** |
+| **total** | **63** | **74.25** |
 
 The target table is stored under `budget.weekly_target_effective` / `weekly_total_effective`.
 It is not used while accounting is hard.

@@ -122,6 +122,22 @@ a row (barbell, dumbbell, cable or inverted).
 prescription regardless of mortality evidence. It also gives the grip and upper back the
 longevity argument cannot supply on its own.
 
+### 3.3a Knee-flexion hamstrings — applied 2026-10-28
+
+**Applied 2026-10-28 (`DEC-KNEEFLEX-01`):** the squat and hinge sessions now carry
+`lying_leg_curls` 3×8-12 at RIR 2-3 (with `nordic_curl` as an opt-in selection candidate),
+and `knee_flexion` is a managed ledger key with a 6-set weekly target.
+
+**What it fixes:** the hinge is hip-dominant, so the hamstrings' knee-flexion function was not
+trained by any template. For a strength-and-longevity goal that is the one accessory-side gap
+worth closing: hamstrings are the most commonly strained muscle in strength sport, the Nordic
+curl roughly halves injury rates, and knee-flexion strength supports walking, stairs and
+stumble recovery. It is accessorised, not a new emphasis: 6 sets/week, no spinal cost.
+
+**Still not prescribed:** calves, grip/loaded carry, rear delt/external rotators, direct arm
+work and balance. Those remain accepted coverage gaps (`LIM-54`), not oversights to close
+silently.
+
 ### 3.4 Assessment — make the goal measurable (applied)
 
 **Applied 2026-10-20 (`DEC-MEASURE-01`):** the `measure` command and Measures page record

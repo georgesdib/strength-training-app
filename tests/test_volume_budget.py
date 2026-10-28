@@ -61,7 +61,9 @@ def test_weekly_target_matches_the_six_session_template_sum():
     assert {key: totals[key] / 2 for key in totals} == pytest.approx(
         dict(config.weekly_target)
     )
-    assert config.total_target() == 57
+    # 63 = 57 + 6 knee-flexion sets (DEC-KNEEFLEX-01). The template sum and the explicit
+    # total must move together, which is what this test protects.
+    assert config.total_target() == 63
 
 
 def test_weekly_total_is_explicit_and_must_match_the_category_sum(tmp_path):
@@ -69,21 +71,21 @@ def test_weekly_total_is_explicit_and_must_match_the_category_sum(tmp_path):
     text = source.read_text(encoding="utf-8")
     mismatch = tmp_path / "mismatch.yaml"
     mismatch.write_text(
-        text.replace("  weekly_total: 57", "  weekly_total: 60"), encoding="utf-8"
+        text.replace("  weekly_total: 63", "  weekly_total: 66"), encoding="utf-8"
     )
     with pytest.raises(ValueError, match="weekly_total"):
         volume_budget.BudgetConfig.load(mismatch)
     consistent = tmp_path / "consistent.yaml"
     consistent.write_text(
-        text.replace("  weekly_total: 57", "  weekly_total: 60").replace(
+        text.replace("  weekly_total: 63", "  weekly_total: 66").replace(
             "    squat: 10", "    squat: 13"
         ).replace(
-            "  weekly_total_effective: 68.25", "  weekly_total_effective: 71.25"
+            "  weekly_total_effective: 74.25", "  weekly_total_effective: 77.25"
         ),
         encoding="utf-8",
     )
     config = volume_budget.BudgetConfig.load(consistent)
-    assert config.total_target() == 60
+    assert config.total_target() == 66
     assert config.weekly_target["squat"] == 13
 
 
@@ -202,10 +204,13 @@ def test_feasibility_flags_a_frequency_below_the_minimum():
     effective = dict(config.weekly_target)
     reachable = volume_budget.feasibility(effective, config, current_frequency=3)
     unreachable = volume_budget.feasibility(effective, config, current_frequency=1)
-    assert reachable["min_sessions"] == 2
+    # 63 sets against the 30-set session cap needs three sessions; adding knee flexion moved
+    # this from two, so a two-session week is now correctly flagged instead of silently
+    # overloaded.
+    assert reachable["min_sessions"] == 3
     assert reachable["reachable"] is True
     assert unreachable["reachable"] is False
-    assert unreachable["unreachable_sets"] == 27.0
+    assert unreachable["unreachable_sets"] == 33.0
 
 
 def _rows():
@@ -674,8 +679,11 @@ def test_compensation_applies_the_selected_slot_with_a_real_load():
         if item.exercise_id == "dumbbell_bench_press"
     ]
     assert len(added) == 1
-    assert added[0].sets >= 3  # a later under-MEV rule may add one set
-    assert prescription.notes["compensation"]["selected"]["sets"] == 3
+    selected = prescription.notes["compensation"]["selected"]
+    # The slot is capped by the candidate's configured sets, the cross-group shortfall and the
+    # weekly headroom; a later under-MEV rule may then add a set to the item.
+    assert 1 <= selected["sets"] <= 3
+    assert added[0].sets >= selected["sets"]
     assert "MOD-VOL-004" in added[0].rationale_refs
     assert prescription.notes["compensation"]["status"] == "applied"
 

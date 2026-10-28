@@ -203,3 +203,6 @@ def test_unilateral_patterns_keep_the_documented_landmarks():
     assert volume.volume_target_key("hinge_unilateral") == "hinge_unilateral"
     assert volume.volume_target_key("squat_unilateral") == "squat"
     assert volume.volume_target_key("erector_extension") == "erector_extension"
+    # DEC-KNEEFLEX-01: a Nordic curl trains the same knee-flexion hamstring tissue as a leg
+    # curl, so its sets must not fall outside the ledger.
+    assert volume.volume_target_key("hamstring_eccentric") == "knee_flexion"

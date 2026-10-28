@@ -25,6 +25,8 @@ DAY_A = [
      "RIR": "2", "Reps_Done": "12"},
     {"Date": "2024-01-01", "Exercise": "Dumbbell Row", "Weight_Used": "30",
      "RIR": "2", "Reps_Done": "10"},
+    {"Date": "2024-01-01", "Exercise": "Lying Leg Curls", "Weight_Used": "30",
+     "RIR": "2", "Reps_Done": "10"},
 ]
 
 DAY_C = [

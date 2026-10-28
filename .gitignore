@@ -13,6 +13,8 @@ data/*.db*
 *.db-wal
 *.db-shm
 *.sqlite3
+# The local web server writes its stdout log here; it is machine state, not source.
+data/*.log
 
 # ---------------------------------------------------------------------------
 # LLM credentials. config/llm.example.toml is the committed template; the local
