@@ -2871,16 +2871,28 @@ async function saveProfileDraft() {
 }
 
 async function loadSettings() {
+  let data;
   try {
-    const data = await api("/api/settings");
-    const profile = await api("/api/settings/profile");
-    const modalityData = await api("/api/modalities");
+    data = await api("/api/settings");
     renderSettings(data);
-    renderProfileSettings(data.registry || [], profile);
-    renderModalities(modalityData);
   } catch (error) {
     $("#settings-llm-status").textContent = "error";
     $("#settings-llm-msg").textContent = error.message;
+    return;
+  }
+  // The profile and modality panels are secondary. A transient failure there must not leave
+  // the main Settings fields (LLM, drop, app facts) blank after the settings response arrived.
+  try {
+    const profile = await api("/api/settings/profile");
+    renderProfileSettings(data.registry || [], profile);
+  } catch (error) {
+    $("#settings-profile-msg").textContent = "Profile settings failed: " + error.message;
+  }
+  try {
+    const modalityData = await api("/api/modalities");
+    renderModalities(modalityData);
+  } catch (error) {
+    $("#settings-profile-msg").textContent = "Modality settings failed: " + error.message;
   }
 }
 
