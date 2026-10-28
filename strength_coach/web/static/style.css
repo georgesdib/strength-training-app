@@ -135,6 +135,12 @@ details summary { cursor: pointer; color: var(--muted); }
 .exercise-table th:nth-child(6), .exercise-table td:nth-child(6) { width: 13%; }
 .exercise-table .props { white-space: pre-wrap; overflow-wrap: anywhere; }
 #exercise-catalog .props { margin: 4px 0 0; font-size: 12px; max-height: 220px; overflow: auto; }
+.row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.row-actions details { flex-basis: 100%; }
+@media (max-width: 760px) {
+  .row-actions button { padding: 4px 8px; font-size: 11px; }
+  .row-actions details { display: none; }
+}
 #exercise-catalog .pill { display: inline-block; border: 1px solid var(--line); border-radius: 999px;
   padding: 1px 7px; margin: 1px 3px 1px 0; font-size: 12px; color: var(--muted); }
 #exercise-editor textarea { width: 100%; }
@@ -147,11 +153,12 @@ details summary { cursor: pointer; color: var(--muted); }
 @media (max-width: 760px) {
   .exercise-table { font-size: 12px; }
   .exercise-table th:nth-child(3), .exercise-table td:nth-child(3),
-  .exercise-table th:nth-child(5), .exercise-table td:nth-child(5) { display: none; }
-  .exercise-table th:nth-child(1), .exercise-table td:nth-child(1) { width: 28%; }
-  .exercise-table th:nth-child(2), .exercise-table td:nth-child(2) { width: 18%; }
-  .exercise-table th:nth-child(4), .exercise-table td:nth-child(4) { width: 27%; }
-  .exercise-table th:nth-child(6), .exercise-table td:nth-child(6) { width: 27%; }
+  .exercise-table th:nth-child(5), .exercise-table td:nth-child(5),
+  .exercise-table th:nth-child(6), .exercise-table td:nth-child(6) { display: none; }
+  .exercise-table th:nth-child(1), .exercise-table td:nth-child(1) { width: 34%; }
+  .exercise-table th:nth-child(2), .exercise-table td:nth-child(2) { width: 16%; }
+  .exercise-table th:nth-child(4), .exercise-table td:nth-child(4) { width: 20%; }
+  .exercise-table th:nth-child(7), .exercise-table td:nth-child(7) { width: 30%; }
 }
 
 /* Panels with wide generated tables scroll inside the card instead of pushing the page. */

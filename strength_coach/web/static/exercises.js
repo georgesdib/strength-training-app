@@ -175,11 +175,13 @@ function renderExerciseCatalog() {
       <td>${flags || "—"}</td>
       <td>${names || "—"}</td>
       <td>${demands}</td>
-      <td><button class="ghost" data-details-exercise="${esc(row.id)}">Details</button>
+      <td><div class="row-actions">
+        <button class="ghost" data-details-exercise="${esc(row.id)}">Details</button>
         <button class="ghost" data-edit-exercise="${esc(row.id)}">Edit</button>
         <button class="ghost" data-e1rm-exercise="${esc(row.id)}" title="Append an e1RM override for this lift">e1RM</button>
         <details><summary class="muted">all fields</summary>
-        <pre class="props">${esc(JSON.stringify(p, null, 2))}</pre></details></td>
+        <pre class="props">${esc(JSON.stringify(p, null, 2))}</pre></details>
+      </div></td>
     </tr>`;
   }).join("");
   $("#exercise-catalog").innerHTML = `<div class="table-scroll"><table class="exercise-table">
