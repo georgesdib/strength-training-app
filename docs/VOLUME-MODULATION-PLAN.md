@@ -51,7 +51,9 @@ into the engine would be a fifth scattered `enabled` flag.
 ## 2. What the programme delivers today
 
 The four session types form a six-session (two-week) cycle. Building one full cycle gives
-**114 working sets**, i.e. **57/week**:
+**114 working sets**, i.e. **57/week**. (Since 2026-10-28 the cycle also carries 6
+`knee_flexion` sets/week, `DEC-KNEEFLEX-01`, making the live totals **63 hard / 74.25
+effective**; the table below is the derivation at the time the plan was written.)
 
 | pattern (ledger group) | sets/week | MEV | MAV | MRV |
 |---|---:|---:|---:|---:|
@@ -309,14 +311,14 @@ compensation preview (step 9a) → opt-in compensation application (9b) → volu
 
 The budget math is frequency-agnostic: `sessions_per_week_target` can be 4, the report projects
 four sessions, and the per-session cap applies to each. The target is still the three-session
-average (57 sets), so four sessions **spread** the same dose; they do not automatically add
-volume. To use the fourth session for more volume, set an explicit `weekly_total` and matching
+average (57 sets when this was written; 63 since 2026-10-28), so four sessions **spread** the
+same dose; they do not automatically add volume. To use the fourth session for more volume, set an explicit `weekly_total` and matching
 `weekly_target` in `config/volume.v1.yaml` (the report and engine read it), or set a higher value
 per group.
 
 Strength-preserving still applies by default: the main lifts stay at template sets, so four
-full-body sessions add main-lift frequency and may exceed the 57-set target; the budget trims
-accessories only and warns. In the opt-in `reduce` mode a filled group's main lift is trimmed to
+full-body sessions add main-lift frequency and may exceed the weekly target (63); the budget
+trims accessories only and warns. In the opt-in `reduce` mode a filled group's main lift is trimmed to
 the floor instead. A fourth heavy full-body day can also collide with the MRV, spinal and readiness
 caps. The sensible first design is a fourth **accessory/weak-point** session, not another heavy
 squat/hinge day; that is a programme decision.
@@ -901,7 +903,7 @@ profile is `effective`; rollback is one profile change.
 
 | # | decision | accepted choice |
 |---|---|---|
-| 1 | Target source | cycle average (51 targeted + 6 untargeted = 57/week) |
+| 1 | Target source | cycle average (51 targeted + 6 untargeted = 57/week; **63/week since 2026-10-28**, `DEC-KNEEFLEX-01`) |
 | 2 | Session cap | 30 sets total plus the per-pattern table and the time cap |
 | 3 | Automation | automatic trim + automatic accessory top-up, phased |
 | 4 | Exemptions | safety/recovery removals lower the **effective weekly target**, not the session cap; missed sessions, early ends and minimum sessions are debt by default |
@@ -915,7 +917,7 @@ profile is `effective`; rollback is one profile change.
 | 12 | Cross-group compensation | confirmed as a later **volume-first mode**: per-group quotas, inverse-similarity weights, `main_lift_policy` preserve by default, `drop` opt-in; parameters and evidence still open |
 | 13 | Strength-preserving default | main lifts stay at template sets even when the group quota is full; `main_lift_policy` is an append-only `athlete_profile` field (`preserve` default, `reduce`/`drop` opt-in); compensation is accessory-only under `preserve`; "no squats" is `drop` |
 | 14 | Compensation parameters | one optional non-essential compensation slot per session type; candidates `dumbbell_bench_press` (push) and `rdl` (hinge), executable load only; weights squat↔hinge 0.7, squat↔bench 0.2, hinge↔bench 0.2, push↔pull 0.3, floor 0.1; all sets count; main lifts stay in `preserve`; main-lift top-up opt-in; `MOD-VOL-004` for slot replacement |
-| 15 | Frequency above three | the budget supports 4+ by spreading the same 57-set target, or an explicit higher target; the programme/forecast stays 1–3 and four-plus is manual single-session only; a fourth heavy full-body day is not assumed |
+| 15 | Frequency above three | the budget supports 4+ by spreading the same 63-set target (57 when this was decided), or an explicit higher target; the programme/forecast stays 1–3 and four-plus is manual single-session only; a fourth heavy full-body day is not assumed |
 | 16 | Reduce/drop timing | `reduce` is **step 2b, implemented 2026-10-26**: it trims a filled group's main lift to the configured floor, keeps the session type, and disables top-up; `drop` remains **step 9c**, after the 9a compensation slot pool, because it removes and relabels a main lift; both are opt-in via `main_lift_policy` |
 | 17 | All parameters config-backed | total/per-group targets, daily/session total and per-group caps, tolerance/band minimum, trim/top-up switches, accessory floor and per-item top-up ceiling, set seconds/warm-up/time cap, and the reduce floor all live in `config/volume.v1.yaml`; the profile only adds on/off, policy and a tightening `max_session_minutes` (`DEC-VOLUME-12`) |
 | 18 | 9a/9b compensation | 9a preview: slot pool, similarity weights and `compensation` report. 9b application: with `apply: true` and the budget on, one non-essential slot is added with a real load (`MOD-VOL-004`, constitution 1.17.0); no history refuses. 9c is `drop` |
@@ -981,7 +983,7 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
   distributed group (+58% squat, +76% leg press), with strength differences only directional
   (p ≈ 0.07): https://doi.org/10.1519/JSC.0000000000005665
   This is the closest direct support for compressing a weekly target into fewer sessions, but it
-  used a small weekly dose, not 57 sets.
+  used a small weekly dose, not the programme's 57 sets then (63 now).
 - **Frequency mostly distributes volume; once a week per muscle is the weak end.** Schoenfeld
   2016 (2× > 1× for hypertrophy at equal volume; 3× vs 2× unresolved):
   https://doi.org/10.1007/s40279-016-0543-8 ; Grgic 2018 (no strength effect when volume is

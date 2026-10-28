@@ -151,6 +151,15 @@ def build_prescription(
         )
     selection_rows: dict[str, selection_mod.SlotSelection] = {}
     selection_notes: list[dict] = []
+    selection_llm_unavailable = bool(
+        apply_selection
+        and selection_chooser is not None
+        and getattr(selection_chooser, "llm_available", True) is False
+    )
+    if selection_llm_unavailable:
+        warnings.append(
+            "selection LLM requested but no LLM is configured; NullLLM fallback was used"
+        )
     if apply_selection:
         selected = selection_mod.select(
             conn, context, for_date, session_type,
@@ -603,6 +612,7 @@ def build_prescription(
                 "applied": any(row.get("applied") for row in selection_notes),
                 "llm_requested": bool(selection_chooser),
                 "llm_used": any(row.get("source") == "llm" for row in selection_notes),
+                "llm_unavailable": selection_llm_unavailable,
                 "slots": selection_notes,
             },
         },

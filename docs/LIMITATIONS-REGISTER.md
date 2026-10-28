@@ -44,7 +44,7 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-31 | The prospective evaluation protocol has not yet been run for a new block | open | W5 | 8–12 weeks of prospective data |
 | LIM-32 | A stable-lift ±2.5% change threshold is a practical noise guard, not a validated minimal important difference | open | W5 | a defensible individual change threshold exists |
 | LIM-33 | Prospective review remains observational; it cannot establish causation | open | W5, W6 | a controlled or natural-experiment design |
-| LIM-34 | The weekly split is bench-heavy (12 bench vs 7 squat and 5 hinge sets); the exact ratio is a strength-priority choice, not an evidence-derived optimum | open | W8 | a user volume-balance decision |
+| LIM-34 | The weekly split is bench-heavy (12 bench vs 7 squat and 6.5 hinge sets, plus 6 knee-flexion and 6 core sets); the exact ratio is a strength-priority choice, not an evidence-derived optimum | open | W8, DEC-KNEEFLEX-01 | a user volume-balance decision |
 | LIM-35 | Age is not recorded in athlete state, so age-conditional power/balance evidence cannot be personalized | open | W10 | `birth_year` is added and used only for wording/priority |
 | LIM-36 | Public guidance says “age-dependent” without a recorded age; this must not read as a personal prescription | open | W10 | age is recorded or wording is generalised |
 | LIM-37 | `metric_definition` is a catalogue, not a live readiness-composite driver; adding a readiness metric intentionally requires code/config, weights, baselines and shadow validation | closed 2026-10-27 (design decision) | W11 follow-up / DATA-MODEL §11.4 | closed: catalogue-only by design; a future composite is a separate feature |

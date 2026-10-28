@@ -47,8 +47,9 @@ dose; squat and hinge are lower.
   for longevity is not supported.**
 - Strength is more specific than hypertrophy; the exact bench:squat:hinge ratio is not
   established by trials.
-- The current total (57 sets/week) is coherent for strength and above the longevity dose; the
-  question is distribution, not “more”.
+- The current total (57 sets/week when this audit ran; **63 since 2026-10-28** with the
+  knee-flexion row, `DEC-KNEEFLEX-01`) is coherent for strength and above the longevity dose;
+  the question is distribution, not “more”.
 - Any increase in direct erector or hinge work would consume the last spinal headroom. All
   options below keep spinal cost at 3.
 

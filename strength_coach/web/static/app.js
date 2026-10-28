@@ -839,13 +839,16 @@ function renderPrescription(p) {
   const selectionSuggestions = (selection?.slots || []).filter(
     (s) => s.trigger && s.trigger !== "none" && s.changed
   );
-  const selectionBox = selection?.applied
+  const selectionLlmWarning = selection?.llm_unavailable
+    ? '<p class="warnbox">LLM requested but not configured; NullLLM fallback was used.</p>'
+    : "";
+  const selectionBox = selectionLlmWarning + (selection?.applied
     ? `<p class="muted">Selection applied (${esc(selection.llm_used ? "LLM" : "Python")}); substituted slots are cited as <code>MOD-SELECT-001</code>.</p>`
     : selection?.slots?.some((s) => s.blocked_reason)
       ? `<p class="warnbox">Selection skipped: ${esc(selection.slots.filter((s) => s.blocked_reason).map((s) => s.slot_id + " (" + s.blocked_reason + ")").join("; "))}</p>`
       : selectionSuggestions.length
         ? `<p class="warnbox">Substitution suggested: ${esc(selectionSuggestions.map((s) => s.slot_id + " → " + s.suggested + " (" + s.trigger + ")").join("; "))}. Use the selection panel to apply explicitly.</p>`
-        : "";
+        : "");
   const signal = p.notes?.injury_signal;
   const signalBox = signal ? `<p class="muted">Injury signal: <strong>${esc(signal.status)}</strong>
     — ${esc(signal.summary)}</p>` : "";

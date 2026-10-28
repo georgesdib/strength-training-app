@@ -11,7 +11,7 @@ import json
 import re
 from collections.abc import Callable
 
-from strength_coach.agents.client import LLMClient, LLMError
+from strength_coach.agents.client import LLMClient, LLMError, NullLLM
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import templates
 
@@ -44,4 +44,7 @@ def chooser(client: LLMClient) -> Callable:
             raise LLMError(f"invalid selection response: {exc}") from exc
         return exercise_id, reason
 
+    # Engine/UI can distinguish an intentional Python-only choice from a requested model
+    # that was not configured, without inspecting the client internals.
+    choose.llm_available = not isinstance(client, NullLLM)
     return choose
