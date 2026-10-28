@@ -15,6 +15,196 @@
 # An id absent here is unknown; synthetic/pattern ids are never rated.
 schema_version: "1.0.0"
 reviewed_on: "2026-10-28"
-# No values yet: Phase 1 populates these from the evidence table.
-evidence: {}
-exercises: {}
+
+evidence:
+  EV-CHOLEWICKI-1991:
+    citation: "Cholewicki J, McGill SM, Norman RW. Lumbar spine loads during the lifting of extremely heavy weights. Med Sci Sports Exerc, 1991;23(10):1179-1186."
+    doi: "10.1249/00005768-199110000-00012"
+    study_type: controlled
+    population: "experienced lifters, maximal and near-maximal deadlifts"
+    outcome: "L4/L5 compression and shear; the sumo stance reduced the moment and shear versus conventional"
+    applicability: "barbell deadlift variants; not a trap-bar, belt-squat or machine transfer"
+    confidence: supported
+  EV-YANAGISAWA-2020:
+    citation: "Yanagisawa O, Oshikawa T, Matsunaga N, Adachi G, Kaneoka K. Acute Physiological Response of Lumbar Intervertebral Discs to High-load Deadlift Exercise. Magn Reson Med Sci, 2020."
+    doi: "10.2463/mrms.mp.2020-0052"
+    study_type: controlled
+    population: "healthy adults"
+    outcome: "acute lumbar intervertebral disc response after high-load deadlifting"
+    applicability: "deadlift; evidence that the lumbar spine is loaded, not a per-exercise ranking"
+    confidence: supported
+  EV-JOSEPH-2020:
+    citation: "Joseph L, Reilly J, Sweezey K, Waugh R, Carlson LA, Lawrence MA. Activity of trunk and lower extremity musculature: comparison between parallel back squats and belt squats. J Hum Kinet, 2020;72:223-228."
+    doi: "10.2478/hukin-2019-0126"
+    study_type: controlled
+    population: "resistance-trained adults"
+    outcome: "trunk and lower-extremity muscle activity in back squat versus belt squat"
+    applicability: "belt squat is a squat variant with hip-applied load; activity is not spinal load"
+    confidence: supported
+  EV-NORDIC-DAMAGE-2025:
+    citation: "Coratella G, Ce E, D'Orlando A, Steri E, Padovan R, Spina O, Esposito F, Longo S. Muscle Damage and the Repeated-bout Effect After a Typical Nordic Hamstring Exercise Session. Int J Sports Med, 2025."
+    doi: "10.1055/a-2595-3622"
+    study_type: controlled
+    population: "13 trained male adults, 24 Nordic repetitions"
+    outcome: "eccentric strength and range of motion fell for 3-4 days, soreness peaked on days 2-3, with a repeated-bout effect"
+    applicability: "Nordic curl; direct evidence of acute eccentric damage, not of long-term injury risk"
+    confidence: supported
+
+exercises:
+  # --- squat family -------------------------------------------------------
+  ssb_squat:
+    axial_spinal: {level: high, confidence: provisional, reason: "barbell on the upper back; the trunk is a loaded structure at working loads"}
+    trunk_stability: {level: high, confidence: provisional, reason: "bilateral free-weight squat; position must be actively controlled"}
+    technical: {level: high, confidence: provisional, reason: "multi-joint free-weight lift with positions that fail quietly; the handles make it more forgiving than a straight bar"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range bilateral leg work at the prescribed effort"}
+  competition_squat:
+    axial_spinal: {level: high, confidence: provisional, reason: "low-bar barbell squat; trunk loading at least as high as the SSB"}
+    trunk_stability: {level: high, confidence: provisional, reason: "free-weight bilateral squat with a real positional requirement"}
+    technical: {level: high, confidence: provisional, reason: "competition-style squat: bar position, bracing and depth are all technical"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range bilateral leg work"}
+  front_squat:
+    axial_spinal: {level: high, confidence: provisional, reason: "range moderate-high; upper bound recorded. Front-rack position keeps the trunk loaded"}
+    trunk_stability: {level: high, confidence: provisional, reason: "upright trunk under a front rack demands active control"}
+    technical: {level: high, confidence: provisional, reason: "front-rack position and elbow height fail silently"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range bilateral leg work with a quadriceps emphasis"}
+  high_bar_squat:
+    axial_spinal: {level: high, confidence: provisional, reason: "barbell squat; high-bar position still loads the trunk, with a more upright torso"}
+    trunk_stability: {level: high, confidence: provisional, reason: "free-weight bilateral squat"}
+    technical: {level: high, confidence: provisional, reason: "free-weight squat with depth and position requirements"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range bilateral leg work"}
+  belt_squat:
+    axial_spinal: {level: low, confidence: provisional, reason: "load is applied at the hips with no bar on the trunk; the lower axial demand is a biomechanical inference, not a measured compression difference"}
+    trunk_stability: {level: moderate, confidence: provisional, reason: "standing, but the load path is guided by the belt; less postural demand than a barbell squat"}
+    technical: {level: low, confidence: provisional, reason: "fixed load path removes most positional risk"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range leg work; comparable lower-body activity to the back squat in the cited study", evidence: [EV-JOSEPH-2020]}
+  hack_squat:
+    axial_spinal: {level: low, confidence: provisional, reason: "machine back support; the spine is not the limiting structure"}
+    trunk_stability: {level: low, confidence: provisional, reason: "fixed path with back support"}
+    technical: {level: low, confidence: provisional, reason: "fixed-path machine"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range quadriceps work"}
+
+  # --- hinge family -------------------------------------------------------
+  trap_bar_deadlift:
+    axial_spinal: {level: high, confidence: provisional, reason: "heavy hinge; the trunk resists a large moment even with the handles reducing reach"}
+    trunk_stability: {level: moderate, confidence: provisional, reason: "the handles reduce the positional demand versus a straight bar, but the trunk still braces"}
+    technical: {level: moderate, confidence: provisional, reason: "more forgiving setup than a barbell deadlift; still a hinge that can fail quietly"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range hip and trunk work"}
+  sumo_deadlift:
+    axial_spinal: {level: high, confidence: supported, reason: "measured lumbar compression and shear during heavy deadlifting; the sumo stance reduced, but did not remove, the load", evidence: [EV-CHOLEWICKI-1991, EV-YANAGISAWA-2020]}
+    trunk_stability: {level: high, confidence: provisional, reason: "wide-stance free-weight hinge with a large bracing demand"}
+    technical: {level: high, confidence: provisional, reason: "stance, grip and bar path all matter; positions fail quietly"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range hinge at near-maximal loads"}
+  rdl:
+    axial_spinal: {level: high, confidence: provisional, reason: "hip hinge held under load through a long range; the trunk resists a sustained moment"}
+    trunk_stability: {level: high, confidence: provisional, reason: "free-weight hinge with no support; position must be controlled"}
+    technical: {level: high, confidence: provisional, reason: "range moderate-high; upper bound. Hinge timing and bar path are technical"}
+    local_muscular: {level: high, confidence: provisional, reason: "long-range hamstring and hip work"}
+  back_extension:
+    axial_spinal: {level: moderate, confidence: provisional, reason: "trunk is loaded in extension, but the external load is far below a barbell lift"}
+    trunk_stability: {level: moderate, confidence: provisional, reason: "bodyweight or added-load extension; some position control"}
+    technical: {level: low, confidence: provisional, reason: "simple movement pattern"}
+    local_muscular: {level: high, confidence: provisional, reason: "direct erector and hip-extensor work to the prescribed effort"}
+
+  # --- horizontal push ----------------------------------------------------
+  bench_press:
+    axial_spinal: {level: low, confidence: provisional, reason: "supported on a bench; the spine is not a load-bearing structure"}
+    trunk_stability: {level: moderate, confidence: provisional, reason: "scapular and trunk position must be controlled, but the bench supports the body"}
+    technical: {level: high, confidence: provisional, reason: "range moderate-high; upper bound. Grip, arch and bar path fail quietly"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range chest, shoulder and triceps work"}
+  bench_press_narrow:
+    axial_spinal: {level: low, confidence: provisional, reason: "bench-supported"}
+    trunk_stability: {level: moderate, confidence: provisional, reason: "bench-supported position control"}
+    technical: {level: high, confidence: provisional, reason: "narrower grip changes the load basis and the touch point"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range press with a triceps emphasis"}
+  bench_press_pause:
+    axial_spinal: {level: low, confidence: provisional, reason: "bench-supported"}
+    trunk_stability: {level: moderate, confidence: provisional, reason: "bench-supported position control"}
+    technical: {level: high, confidence: provisional, reason: "the pause adds a positional requirement"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range press without a stretch-reflex assist"}
+  dumbbell_bench_press:
+    axial_spinal: {level: low, confidence: provisional, reason: "bench-supported"}
+    trunk_stability: {level: high, confidence: provisional, reason: "two independent bells require more positional control than a barbell"}
+    technical: {level: moderate, confidence: provisional, reason: "stable variant with a real setup, but no bar path to manage"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range press"}
+  incline_db_bench_press:
+    axial_spinal: {level: low, confidence: provisional, reason: "bench-supported"}
+    trunk_stability: {level: high, confidence: provisional, reason: "independent bells on an incline"}
+    technical: {level: moderate, confidence: provisional, reason: "stable variant with a real setup"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range press with an upper-chest emphasis"}
+
+  # --- vertical push ------------------------------------------------------
+  overhead_press_seated:
+    axial_spinal: {level: moderate, confidence: provisional, reason: "range low-moderate; upper bound. Seated with back support, but the trunk still braces"}
+    trunk_stability: {level: moderate, confidence: provisional, reason: "seated press; less postural demand than standing"}
+    technical: {level: moderate, confidence: provisional, reason: "stable variant with a real positional requirement"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range shoulder and triceps work"}
+  landmine_press:
+    axial_spinal: {level: low, confidence: provisional, reason: "standing but the arc keeps the load close; little spinal compression"}
+    trunk_stability: {level: moderate, confidence: provisional, reason: "standing, with a partly guided path"}
+    technical: {level: low, confidence: provisional, reason: "fixed arc, simple to execute"}
+    local_muscular: {level: moderate, confidence: provisional, reason: "single-arm pressing with a smaller absolute load"}
+
+  # --- horizontal and vertical pull --------------------------------------
+  dumbbell_row:
+    axial_spinal: {level: moderate, confidence: provisional, reason: "range low-moderate; upper bound. Hinged or bench-supported rowing loads the trunk moderately"}
+    trunk_stability: {level: moderate, confidence: provisional, reason: "often one hand on a bench; less free-standing control than a bent-over row"}
+    technical: {level: moderate, confidence: provisional, reason: "simple pull with a real position to hold"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range upper-back work"}
+  bent_over_row:
+    axial_spinal: {level: high, confidence: provisional, reason: "range moderate-high; upper bound. The torso is held horizontal under load"}
+    trunk_stability: {level: high, confidence: provisional, reason: "free-standing hinge; the trunk must resist collapse"}
+    technical: {level: high, confidence: provisional, reason: "position fails quietly as fatigue arrives"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range upper-back work"}
+  seated_cable_row:
+    axial_spinal: {level: low, confidence: provisional, reason: "seated and supported; the spine is not load-bearing"}
+    trunk_stability: {level: low, confidence: provisional, reason: "supported torso with a fixed path"}
+    technical: {level: low, confidence: provisional, reason: "fixed path, simple execution"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range upper-back work"}
+  dumbbell_chest_supported_row:
+    axial_spinal: {level: low, confidence: provisional, reason: "chest-supported; no trunk load"}
+    trunk_stability: {level: low, confidence: provisional, reason: "the bench supports the torso"}
+    technical: {level: low, confidence: provisional, reason: "supported, simple execution"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range upper-back work"}
+  pull_up:
+    axial_spinal: {level: low, confidence: provisional, reason: "hanging decompresses the spine; no external axial compression"}
+    trunk_stability: {level: moderate, confidence: provisional, reason: "the trunk must stay controlled under the bar"}
+    technical: {level: moderate, confidence: provisional, reason: "bodyweight position and range must be controlled"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range bodyweight pulling"}
+  lat_pulldown:
+    axial_spinal: {level: low, confidence: provisional, reason: "seated and supported"}
+    trunk_stability: {level: low, confidence: provisional, reason: "supported torso with a fixed path"}
+    technical: {level: low, confidence: provisional, reason: "fixed path"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range lat work"}
+
+  # --- unilateral, knee flexion, core and power ---------------------------
+  split_squat:
+    axial_spinal: {level: moderate, confidence: provisional, reason: "unilateral loading keeps absolute spinal load below a bilateral barbell squat"}
+    trunk_stability: {level: high, confidence: provisional, reason: "single-leg stance with dumbbells; balance and position are limiting"}
+    technical: {level: high, confidence: provisional, reason: "range moderate-high; upper bound. Single-leg position fails quietly"}
+    local_muscular: {level: high, confidence: provisional, reason: "large-range unilateral leg work"}
+  lying_leg_curls:
+    axial_spinal: {level: low, confidence: provisional, reason: "machine, lying; no spinal load"}
+    trunk_stability: {level: low, confidence: provisional, reason: "supported throughout"}
+    technical: {level: low, confidence: provisional, reason: "fixed path"}
+    local_muscular: {level: high, confidence: provisional, reason: "direct hamstring work to the prescribed effort"}
+  nordic_curl:
+    axial_spinal: {level: low, confidence: provisional, reason: "kneeling bodyweight; no external axial load"}
+    trunk_stability: {level: moderate, confidence: provisional, reason: "the trunk must stay rigid while the hamstrings resist extension"}
+    technical: {level: moderate, confidence: provisional, reason: "the eccentric is hard to pace and easy to fall out of"}
+    local_muscular: {level: high, confidence: provisional, reason: "very high hamstring demand at bodyweight"}
+    eccentric_damage: {level: high, confidence: supported, reason: "a typical session reduced eccentric strength and range of motion for 3-4 days and raised soreness", evidence: [EV-NORDIC-DAMAGE-2025]}
+  ab_wheel:
+    axial_spinal: {level: low, confidence: provisional, reason: "the spine is loaded in anti-extension, not compressed"}
+    trunk_stability: {level: high, confidence: provisional, reason: "the whole point of the exercise is resisting extension"}
+    technical: {level: moderate, confidence: provisional, reason: "range and rib position are easy to lose"}
+    local_muscular: {level: high, confidence: provisional, reason: "direct trunk work to the prescribed effort"}
+  hanging_leg_raise:
+    axial_spinal: {level: low, confidence: provisional, reason: "hanging decompresses the spine; no external compression"}
+    trunk_stability: {level: high, confidence: provisional, reason: "the trunk must resist swing and extension"}
+    technical: {level: moderate, confidence: provisional, reason: "range and control are easy to lose"}
+    local_muscular: {level: high, confidence: provisional, reason: "direct trunk and hip-flexor work"}
+  box_jump:
+    axial_spinal: {level: moderate, confidence: provisional, reason: "landing imposes an impact load, but there is no external axial load"}
+    trunk_stability: {level: moderate, confidence: provisional, reason: "landing position must be controlled"}
+    technical: {level: moderate, confidence: provisional, reason: "quality-limited by height; landing mechanics matter"}
+    local_muscular: {level: moderate, confidence: provisional, reason: "short, high-intent sets rather than volume work"}

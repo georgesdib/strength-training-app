@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from strength_coach.features import demands
+from strength_coach.utils import exercises
 
 BASE = """schema_version: "1.0.0"
 reviewed_on: "2026-10-28"
@@ -32,14 +33,25 @@ def write(tmp_path, text: str):
     return path
 
 
-def test_the_shipped_catalogue_is_all_unknown_and_still_valid():
+def test_the_shipped_catalogue_loads_and_keeps_unknown_as_the_default():
     catalogue = demands.load()
-    assert catalogue.claims == {}
     assert catalogue.reviewed_on == "2026-10-28"
-    coverage = catalogue.coverage(["ssb_squat", "bench_press"])
+    assert catalogue.claims  # Phase 1 populated the core lifts
+    for exercise_id, claims in catalogue.claims.items():
+        assert exercise_id in exercises.taxonomy().entities
+        for claim in claims.values():
+            if claim.level == "unknown":
+                continue
+            assert claim.reason
+            assert claim.confidence in demands.CONFIDENCES
+            if claim.confidence in {"supported", "contested"}:
+                assert claim.evidence
+    # An id outside the populated set is unrated, not low-demand.
+    assert catalogue.level("seal_row", "axial_spinal") == "unknown"
+    coverage = catalogue.coverage(["ssb_squat", "seal_row"])
     assert coverage["total"] == 2
-    assert coverage["rated_exercises"] == 0
-    assert coverage["per_dimension"]["axial_spinal"]["unknown_rate"] == 1.0
+    assert coverage["rated_exercises"] == 1
+    assert coverage["per_dimension"]["axial_spinal"]["unknown_rate"] == 0.5
 
 
 def test_a_rated_claim_loads_with_its_evidence(tmp_path):
@@ -135,8 +147,8 @@ def test_the_coverage_report_covers_every_reachable_id():
     data = demands_report.report()
     assert data["total"] == len(demands_report.reachable_ids())
     assert data["total"] >= 50  # the shipped templates plus configured candidates
-    assert data["rated_exercises"] == 0  # nothing is rated until Phase 1 populates values
-    assert data["per_dimension"]["axial_spinal"]["unknown_rate"] == 1.0
+    assert 0 < data["rated_exercises"] < data["total"]  # populated core, honest unknowns
+    assert data["per_dimension"]["axial_spinal"]["rated"] == data["rated_exercises"]
     rendered = demands_report.render(data)
-    assert "100.0%" in rendered
+    assert "exercises rated" in rendered
     assert data["unrated_ids"]

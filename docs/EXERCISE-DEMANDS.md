@@ -1,9 +1,11 @@
 # EXERCISE DEMANDS — companion demand catalogue
 
-**Status:** Phase 1 scaffolding landed 2026-10-28; **no values are populated yet.** The
-catalogue file, its validator (`strength_coach/features/demands.py`), its tests and the
-coverage report (`tools/demands_report.py`) exist; the current report is **0/63 rated**, all
-six dimensions unknown. The evidence table is filled in the next Phase 1 step.
+**Status:** Phase 1 populated 2026-10-28. **28 of the 63 reachable ids are rated**; the four
+in-scope dimensions cover them at 55.6 %, `systemic` is 0 % and `eccentric_damage` 1.6 % (the
+Nordic curl only). Two claims are `supported` (sumo axial loading, Nordic eccentric damage);
+the rest are `provisional` expert classification. The validator, coverage report and tests
+live in `strength_coach/features/demands.py`, `tools/demands_report.py` and
+`tests/test_demands.py`.
 
 **Why a companion file, not new taxonomy fields.** The taxonomy is exercise *identity*
 (patterns, muscles, loadability, history equivalence). Demand profiles are a separate,
@@ -124,7 +126,47 @@ Not allowed: ranking all exercises, aggregating dimensions, converting to a fati
 sending values to the LLM as if they were measured, or treating `low` as safe. A demand
 profile is evidence about a movement, not a prediction about a person on a given day.
 
-## 5. Open evidence questions for Phase 1
+## 5. Populated evidence and coverage (2026-10-28)
+
+Only two claims meet the `supported` bar in this pass. The rest are `provisional` expert
+classification, which is what the specification asked for as a seed.
+
+| evidence id | supports | study type | limits |
+|---|---|---|---|
+| `EV-CHOLEWICKI-1991` | sumo deadlift axial demand is `high` (measured L4/L5 load; sumo reduced but did not remove it) | controlled, heavy deadlifts | barbell variants only; no trap-bar transfer |
+| `EV-YANAGISAWA-2020` | deadlift loads the lumbar discs (corroborates axial `high`) | controlled, MRI | deadlift only |
+| `EV-JOSEPH-2020` | belt squat is a real squat variant with comparable lower-body activity | controlled, EMG | activity is not spinal load; the `low` axial rating is inference |
+| `EV-NORDIC-DAMAGE-2025` | Nordic curl `eccentric_damage` is `high` (strength and ROM fell 3-4 days, soreness days 2-3) | controlled, 13 trained men | one session, small sample; damage ≠ injury risk |
+
+| dimension | rated | unknown | rate | supported | provisional |
+|---|---:|---:|---:|---:|---:|
+| axial_spinal | 28 | 35 | 55.6% | 1 | 27 |
+| trunk_stability | 28 | 35 | 55.6% | 0 | 28 |
+| technical | 28 | 35 | 55.6% | 0 | 28 |
+| local_muscular | 28 | 35 | 55.6% | 0 | 28 |
+| systemic | 0 | 63 | 100% | 0 | 0 |
+| eccentric_damage | 1 | 62 | 98.4% | 1 | 0 |
+
+Rated ids: the squat family (SSB, competition, front, high-bar, belt, hack), the hinge family
+(trap bar, sumo, RDL, back extension), horizontal press (bench, narrow, pause, dumbbell,
+incline DB), vertical press (seated, landmine), horizontal and vertical pull (DB row,
+bent-over row, seated cable, chest-supported row, pull-up, pulldown), plus split squat, lying
+leg curl, Nordic curl, ab wheel, hanging leg raise and box jump.
+
+`rdl` is rated as well, although it is prescribable only through the compensation slot, not as
+a template candidate; it is therefore outside the 63-id coverage denominator.
+
+Deliberately left `unknown`: the 11 remaining bench variants (they share the bench's demand
+profile but the exact variant differences are not evidenced), the pause/pin/chain/band squat
+variants, and the row/press variants that duplicate a rated family (`seal_row`, `t_bar_row`,
+`1_arm_row`, `side_lunges`, `close_grip_pulldown`, `landmine_squat`, `deep_squat`,
+`front_squat_to_box`, `reverse_hyperextension`, `hyperextension`). A substitution may not use
+an unknown dimension, so these abstain until someone rates them.
+
+**Note on the specification's leg-press example:** there is no `leg_press` entity in the
+taxonomy, so it cannot be a configured candidate. Belt squat and hack squat are the available
+lower-axial squat alternatives; adding a leg press would be a taxonomy change first.
+## 6. Open evidence questions
 
 1. Which of the four in-scope dimensions has enough exercise-specific evidence to be
    `supported` rather than `provisional`? (Expect: axial only, and even then partly
