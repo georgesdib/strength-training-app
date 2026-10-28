@@ -107,6 +107,41 @@ Every non-unknown entry carries a single `level`, a `reason`, and — when the c
   used for stimulus preservation in Phase 4.
 - Nothing here changes load, RIR, sets or progression.
 
+## 2.3 How to add or change a rating
+
+The shipped file is reviewed evidence. The athlete's own ratings go to a **git-ignored local
+overlay**, `config/exercises/demands.local.yaml`, which is merged over it per exercise and
+dimension:
+
+```bash
+# what is still missing (four in-scope dimensions, reachable ids only)
+strength-coach exercise demands unrated
+
+# rate one dimension; confidence defaults to provisional
+strength-coach exercise demands set --exercise seal_row --dimension axial_spinal \
+  --level low --reason "chest-supported frame, no trunk load"
+
+# remove a local override (the shipped claim, if any, applies again)
+strength-coach exercise demands clear --exercise seal_row --dimension axial_spinal
+
+# force a dimension to unknown even when the shipped file rates it
+strength-coach exercise demands set --exercise ssb_squat --dimension technical \
+  --level unknown
+```
+
+Rules the command enforces, because a rating is a claim rather than a preference:
+
+- `supported` needs at least one evidence id that already exists in the shipped file; the
+  overlay cannot invent evidence.
+- A non-unknown level needs a `--reason`; the overlay never adds a source it does not have.
+- A rejected write leaves the previous overlay byte-for-byte intact.
+- The digest covers the shipped file **and** the overlay, so a prescription can cite exactly
+  which catalogue it used.
+
+Editing the YAML directly is supported and reviewed like any config change. The overlay is for
+quick, honest "I know this lift" corrections; anything with a citation belongs in the shipped
+file.
+
 ## 3. Scope and coverage
 
 - **Coverage target:** the 63 canonical ids reachable from the shipped templates and their

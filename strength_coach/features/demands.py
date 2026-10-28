@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import os
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -85,6 +86,7 @@ class DemandCatalogue:
     reviewed_on: str
     digest: str
     source_path: Path
+    overlay_path: Path | None = None
 
     def claim(self, exercise_id: str, dimension: str) -> DemandClaim | None:
         """The claim for one exercise/dimension, or None when nothing is recorded."""
@@ -245,19 +247,58 @@ def _claims(raw: Any, evidence: Mapping[str, EvidenceEntry],
     return out
 
 
-def load(path: str | Path | None = None) -> DemandCatalogue:
-    source = Path(path or paths.exercise_demands_yaml())
+def _read(source: Path) -> tuple[dict[str, Any], bytes]:
     if not source.is_file():
-        # A missing file is "no claims", which is the same as all-unknown. It must not crash a
-        # prescription; the coverage report makes the gap visible instead.
-        return DemandCatalogue({}, {}, "", "", source)
+        return {}, b""
     raw_bytes = source.read_bytes()
     try:
         raw = yaml.safe_load(raw_bytes.decode("utf-8")) or {}
     except (UnicodeDecodeError, yaml.YAMLError) as exc:
         raise DemandError(f"could not parse {source}: {exc}") from exc
     if not isinstance(raw, Mapping):
-        raise DemandError("the catalogue must be an object")
+        raise DemandError(f"{source}: the catalogue must be an object")
+    return dict(raw), raw_bytes
+
+
+def _merge(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> dict[str, Any]:
+    """Overlay wins per exercise/dimension; evidence entries merge by id."""
+    merged: dict[str, Any] = {**base}
+    merged["schema_version"] = overlay.get("schema_version") or base.get("schema_version")
+    merged["reviewed_on"] = overlay.get("reviewed_on") or base.get("reviewed_on")
+    merged["evidence"] = {
+        **(base.get("evidence") or {}), **(overlay.get("evidence") or {})
+    }
+    base_exercises = base.get("exercises") or {}
+    overlay_exercises = overlay.get("exercises") or {}
+    merged["exercises"] = {
+        exercise_id: {
+            **(base_exercises.get(exercise_id) or {}),
+            **(overlay_exercises.get(exercise_id) or {}),
+        }
+        for exercise_id in set(base_exercises) | set(overlay_exercises)
+    }
+    return merged
+
+
+def load(path: str | Path | None = None, *,
+         overlay: str | Path | None = None) -> DemandCatalogue:
+    """Load the shipped catalogue merged with the local overlay.
+
+    The overlay (`config/exercises/demands.local.yaml`) is git-ignored, so the athlete can rate
+    or correct a dimension without editing the reviewed file. It wins per dimension and never
+    invents evidence: `supported` still has to cite an evidence id that exists.
+    """
+    source = Path(path or paths.exercise_demands_yaml())
+    overlay_path = Path(overlay) if overlay is not None else source.with_name(
+        "demands.local.yaml"
+    )
+    base_raw, base_bytes = _read(source)
+    overlay_raw, overlay_bytes = _read(overlay_path)
+    if not base_raw and not overlay_raw:
+        # A missing file is "no claims", which is the same as all-unknown. It must not crash a
+        # prescription; the coverage report makes the gap visible instead.
+        return DemandCatalogue({}, {}, "", "", source)
+    raw = _merge(base_raw, overlay_raw)
     unknown_root = sorted(set(map(str, raw)) - _ROOT_KEYS)
     if unknown_root:
         # A "score" or any other aggregate is refused by design; there is no total demand.
@@ -275,11 +316,137 @@ def load(path: str | Path | None = None) -> DemandCatalogue:
     taxonomy = exercises.taxonomy().entities
     evidence = _evidence(raw.get("evidence"))
     claims = _claims(raw.get("exercises"), evidence, taxonomy)
-    digest = hashlib.sha256(raw_bytes).hexdigest()[:16]
+    digest = hashlib.sha256(base_bytes + b"\0" + overlay_bytes).hexdigest()[:16]
     return DemandCatalogue(
         claims=claims,
         evidence=evidence,
         reviewed_on=reviewed_on,
         digest=digest,
         source_path=source,
+        overlay_path=overlay_path if overlay_path.is_file() else None,
     )
+
+
+def missing(exercise_ids: Iterable[str],
+            dimensions: Iterable[str] = IN_SCOPE) -> dict[str, tuple[str, ...]]:
+    """Dimensions with no non-unknown claim, per exercise. Empty when fully rated."""
+    out: dict[str, tuple[str, ...]] = {}
+    catalogue = load()
+    for exercise_id in exercise_ids:
+        gaps = tuple(
+            dimension for dimension in dimensions
+            if not catalogue.rated(str(exercise_id), dimension)
+        )
+        if gaps:
+            out[str(exercise_id)] = gaps
+    return out
+
+
+def _overlay_template(base: DemandCatalogue, reviewed_on: str | None) -> dict[str, Any]:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "reviewed_on": reviewed_on or base.reviewed_on
+        or dt.date.today().isoformat(),
+        "evidence": {},
+        "exercises": {},
+    }
+
+
+def set_claim(exercise_id: str, dimension: str, level: str, *,
+              confidence: str | None = None, reason: str | None = None,
+              evidence: Iterable[str] = (), reviewed_on: str | None = None,
+              path: str | Path | None = None,
+              overlay: str | Path | None = None) -> DemandCatalogue:
+    """Write one rating to the local overlay and return the merged catalogue.
+
+    The shipped file stays untouched: the overlay is git-ignored local state, so a rating the
+    athlete adds is visible to the app without looking like a reviewed claim in the repo.
+    Writing 'unknown' clears a local rating while leaving the base claim intact.
+    """
+    if dimension not in DIMENSIONS:
+        raise DemandError(f"unknown dimension {dimension!r}; choose from {DIMENSIONS}")
+    if level not in LEVELS:
+        raise DemandError(f"level {level!r} not one of {LEVELS}")
+    if level != "unknown":
+        if not str(reason or "").strip():
+            raise DemandError("a rated dimension needs a reason")
+        confidence = str(confidence or "provisional").strip()
+        if confidence not in CONFIDENCES:
+            raise DemandError(f"confidence {confidence!r} not one of {CONFIDENCES}")
+
+    source = Path(path or paths.exercise_demands_yaml())
+    overlay_path = Path(overlay) if overlay is not None else source.with_name(
+        "demands.local.yaml"
+    )
+    base = load(source, overlay=overlay_path)
+    taxonomy = exercises.taxonomy().entities
+    if exercise_id not in taxonomy:
+        raise DemandError(f"{exercise_id}: not a canonical exercise id")
+    if taxonomy[exercise_id].get("synthetic"):
+        raise DemandError(f"{exercise_id}: synthetic ids cannot be rated")
+    evidence_ids = tuple(str(item) for item in evidence if str(item).strip())
+    unknown_ids = sorted(set(evidence_ids) - set(base.evidence))
+    if unknown_ids:
+        raise DemandError(f"{exercise_id}.{dimension}: unknown evidence ids {unknown_ids}")
+
+    raw, _old_bytes = _read(overlay_path)
+    raw = raw or _overlay_template(base, reviewed_on)
+    raw.setdefault("schema_version", SCHEMA_VERSION)
+    raw.setdefault("reviewed_on", reviewed_on or base.reviewed_on
+                   or dt.date.today().isoformat())
+    raw.setdefault("evidence", {})
+    raw.setdefault("exercises", {})
+    claim: dict[str, Any] = {"level": level}
+    if level != "unknown":
+        claim["confidence"] = confidence
+        claim["reason"] = str(reason).strip()
+        if evidence_ids:
+            claim["evidence"] = list(evidence_ids)
+    raw["exercises"].setdefault(exercise_id, {})[dimension] = claim
+
+    previous = overlay_path.read_bytes() if overlay_path.is_file() else None
+    return _write_overlay(overlay_path, raw, source, previous)
+
+
+def _write_overlay(overlay_path: Path, raw: Mapping[str, Any], source: Path,
+                   previous: bytes | None) -> DemandCatalogue:
+    overlay_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = overlay_path.with_suffix(".tmp")
+    tmp.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+    os.replace(tmp, overlay_path)
+    try:
+        return load(source, overlay=overlay_path)
+    except Exception:
+        # A rejected write must leave the previous overlay (or none) in place.
+        if previous is None:
+            overlay_path.unlink(missing_ok=True)
+        else:
+            overlay_path.write_bytes(previous)
+        raise
+
+
+def clear_claim(exercise_id: str, dimension: str, *,
+                path: str | Path | None = None,
+                overlay: str | Path | None = None) -> DemandCatalogue:
+    """Remove a local override so the shipped claim (if any) applies again.
+
+    To force a dimension to unknown even when the shipped file rates it, set the level to
+    unknown instead; that writes an explicit tombstone.
+    """
+    source = Path(path or paths.exercise_demands_yaml())
+    overlay_path = Path(overlay) if overlay is not None else source.with_name(
+        "demands.local.yaml"
+    )
+    raw, _old = _read(overlay_path)
+    if not raw:
+        return load(source, overlay=overlay_path)
+    exercises_raw = dict(raw.get("exercises") or {})
+    entry = dict(exercises_raw.get(exercise_id) or {})
+    entry.pop(dimension, None)
+    if entry:
+        exercises_raw[exercise_id] = entry
+    else:
+        exercises_raw.pop(exercise_id, None)
+    raw["exercises"] = exercises_raw
+    previous = overlay_path.read_bytes() if overlay_path.is_file() else None
+    return _write_overlay(overlay_path, raw, source, previous)

@@ -192,6 +192,8 @@ without conditioning on provenance penalises the athlete for following the presc
 
 - **ASSUMPTION-54** — a VBT residual needs at least 5 comparable observations and the lift-scoped calibration target; this is a precision guard for a measured mean velocity, not a validated fatigue threshold.
 
+- **ASSUMPTION-56** — the Part B sufficiency gates (≥ 5 comparable observations for a signal; ≥ 20 per lift over ≥ 8 weeks on two lifts, with an estimated residual spread, for evaluation) are precision guards, not validated thresholds. Nothing may use a residual until the evaluation gate is met (`DEC-RESIDUAL-01`).
+
 - **ASSUMPTION-55** — the Part D advisory thresholds (low exposure below 0.7 for two weeks; a positive residual above its own spread) are display heuristics and never change a prescription.
 
 - **ASSUMPTION-50** — the knee-flexion landmarks (MEV 3 / MAV 4–8 / MRV 10), the 6-set weekly target, the 4-set session cap and the 63-set weekly total are coaching estimates chosen to fit the two-exposure template, not measurements; MEV 3 is a maintenance floor, not a validated minimum (`docs/VOLUME-MODULATION-PLAN.md` §13, `DEC-KNEEFLEX-01`).

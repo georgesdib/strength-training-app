@@ -53,6 +53,7 @@ from strength_coach.features import (
     retrospective_validation,
 )
 from strength_coach.features import deload as deload_feature
+from strength_coach.features import demands as demands_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import exposure as exposure_ratio_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
@@ -66,7 +67,7 @@ from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import regime_change as regime_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import volume as volume_feature
-from strength_coach.prescribe import build_prescription, session_identity
+from strength_coach.prescribe import build_prescription, demand_scope, session_identity
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
@@ -184,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     programme.add_argument("--remaining", action="store_true",
                            help="start today instead of the block anchor")
     programme.add_argument("--start", default=None, help="YYYY-MM-DD")
-    programme.add_argument("--sessions-per-week", type=int, choices=(1, 2, 3), default=3)
+    programme.add_argument("--sessions-per-week", type=int, choices=(1, 2, 3, 4, 5), default=3)
     programme.add_argument("--start-session-type",
                            choices=("auto", "squat", "hinge", "bench_squat", "bench_hinge"),
                            default=None,
@@ -257,6 +258,20 @@ def main(argv: list[str] | None = None) -> int:
     editor.add_argument("--id", required=True, help="lower_snake_case canonical id")
     editor.add_argument("--json", required=True, dest="props_json",
                         help='JSON object of properties, e.g. {"pattern":"squat"}')
+    demands_cmd = exercise_sub.add_parser(
+        "demands", help="rate or inspect the companion demand catalogue"
+    )
+    demands_cmd.add_argument(
+        "demands_action", choices=("report", "unrated", "set", "clear")
+    )
+    demands_cmd.add_argument("--exercise", default=None)
+    demands_cmd.add_argument("--dimension", choices=demands_feature.DIMENSIONS, default=None)
+    demands_cmd.add_argument("--level", choices=demands_feature.LEVELS, default=None)
+    demands_cmd.add_argument("--confidence", choices=demands_feature.CONFIDENCES,
+                             default=None)
+    demands_cmd.add_argument("--reason", default=None)
+    demands_cmd.add_argument("--evidence", default=None, help="comma-separated evidence ids")
+    demands_cmd.add_argument("--json", action="store_true")
 
     readiness = sub.add_parser("readiness", help="record a readiness day")
     readiness.add_argument("action", choices=("set", "override", "calibrate", "settings", "shadow", "preset", "context", "feedback"))
@@ -1500,7 +1515,77 @@ def _print_cardio(conn, *, weeks: int = 12, on_date: str | None = None) -> None:
     print(f"  {summary.reference_note}")
 
 
+def _cmd_exercise_demands(args) -> int:
+    if args.demands_action in {"set", "clear"}:
+        if not args.exercise or not args.dimension:
+            print("--exercise and --dimension are required")
+            return 2
+        if args.demands_action == "clear":
+            catalogue = demands_feature.clear_claim(args.exercise, args.dimension)
+            print(f"{args.exercise}.{args.dimension}: cleared locally (now unknown)")
+            return 0
+        if not args.level:
+            print("--level is required for set")
+            return 2
+        evidence = tuple(
+            item.strip() for item in (args.evidence or "").split(",") if item.strip()
+        )
+        catalogue = demands_feature.set_claim(
+            args.exercise, args.dimension, args.level,
+            confidence=args.confidence, reason=args.reason, evidence=evidence,
+        )
+        claim = catalogue.claim(args.exercise, args.dimension)
+        print(
+            f"{args.exercise}.{args.dimension} = {claim.level} "
+            f"({claim.confidence}); overlay: {catalogue.overlay_path or 'none'}"
+        )
+        return 0
+
+    catalogue = demands_feature.load()
+    ids = demand_scope.reachable_ids()
+    if args.demands_action == "report":
+        coverage = catalogue.coverage(ids)
+        if args.json:
+            print(json.dumps(coverage, indent=2, sort_keys=True))
+            return 0
+        print(
+            f"demand catalogue: {coverage['rated_exercises']}/{coverage['total']} "
+            f"rated (digest {coverage['digest']})"
+        )
+        for dimension, row in coverage["per_dimension"].items():
+            print(
+                f"  {dimension:<18}{row['rated']:>6} rated, "
+                f"{row['unknown_rate'] * 100:.1f}% unknown"
+            )
+        return 0
+
+    pending = {
+        exercise_id: tuple(
+            dimension for dimension in demands_feature.IN_SCOPE
+            if not catalogue.rated(exercise_id, dimension)
+        )
+        for exercise_id in ids
+    }
+    pending = {key: value for key, value in pending.items() if value}
+    if args.json:
+        print(json.dumps(pending, indent=2))
+        return 0
+    if not pending:
+        print("every reachable exercise is rated on all four in-scope dimensions")
+        return 0
+    for exercise_id, dimensions in pending.items():
+        print(f"  {exercise_id:<32} missing {', '.join(dimensions)}")
+    print(
+        f"{len(pending)} of {len(ids)} reachable exercises have gaps. Rate one with: "
+        "strength-coach exercise demands set --exercise ID --dimension DIM "
+        "--level L --reason TEXT"
+    )
+    return 0
+
+
 def _cmd_exercise(args) -> int:
+    if args.action == "demands":
+        return _cmd_exercise_demands(args)
     if args.action == "list":
         catalog = exercise_admin.catalog()
         for row in catalog["entities"]:

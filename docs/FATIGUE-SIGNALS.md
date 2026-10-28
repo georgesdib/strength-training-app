@@ -81,6 +81,21 @@ significance claim.
 **Effect.** Shadow only. No modifier, no flag to enable one in this release. A future
 downward-only modifier requires a prospective evaluation and an explicit decision.
 
+**When there is enough data to evaluate it.** Two different gates, so "enough" is never
+vague:
+
+- *signal available* — at least 5 comparable observations in the window, with a lift-scoped
+  calibration target (not pooled/family), for the same lift, rep count and load basis. This
+  only lets the report print a residual; it does not justify a modifier.
+- *evaluation-ready* — at least 20 comparable observations per lift across at least 8 weeks,
+  two lifts with sufficient volume, and an estimated residual spread (so "worse than usual"
+  can be separated from measurement noise). `ASSUMPTION-56`.
+
+A read-only *residual readiness* report will print, per lift: comparable observations, rep
+bands, calibration scope (lift vs family vs pooled), weeks covered, and which gate is unmet.
+That is how you will know it is enough; until both gates are met on at least one lift, Part B
+stays off.
+
 ## 3. Part C — fatigue-informed substitution (suggest-only)
 
 A suggestion may be produced only when Part A has an active signal (or a future Part B signal
@@ -167,7 +182,7 @@ the Phase 6 review can count triggers, abstentions and declines without recomput
 - Every threshold is an `ASSUMPTION-n` and is printed with the signal so a reader can see the
   rule that fired: `ASSUMPTION-51` (windows, coverage, 1.3 threshold), `ASSUMPTION-52` (trim
   caps), `ASSUMPTION-53` (substitution caps and priority), `ASSUMPTION-54` (residual minimum),
-  `ASSUMPTION-55` (Part D thresholds).
+  `ASSUMPTION-55` (Part D thresholds), `ASSUMPTION-56` (Part B sufficiency gates).
 
 ## 8. What this explicitly is not
 

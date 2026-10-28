@@ -16,28 +16,10 @@ import json
 import sys
 from pathlib import Path
 
-import yaml
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from strength_coach.features import demands  # noqa: E402
-from strength_coach.prescribe import templates  # noqa: E402
-from strength_coach.utils import paths  # noqa: E402
-
-
-def reachable_ids() -> list[str]:
-    """Every canonical id a shipped template or a configured candidate can select."""
-    ids: set[str] = set()
-    for session_type in templates.SESSION_TYPES:
-        for slot in templates.SessionTemplate.load(session_type).slots:
-            ids.update(str(item) for item in slot.exercises)
-    source = paths.config_dir("variants.v1.yaml")
-    if source.is_file():
-        variants = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
-        for slots in (variants.get("slots") or {}).values():
-            for candidates in (slots or {}).values():
-                ids.update(str(item) for item in (candidates or ()))
-    return sorted(ids)
+from strength_coach.prescribe.demand_scope import reachable_ids  # noqa: E402
 
 
 def report() -> dict:

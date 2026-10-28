@@ -152,3 +152,54 @@ def test_the_coverage_report_covers_every_reachable_id():
     rendered = demands_report.render(data)
     assert "exercises rated" in rendered
     assert data["unrated_ids"]
+
+
+def test_a_local_override_merges_and_clears(tmp_path):
+    base = write(tmp_path, VALID)
+    overlay = tmp_path / "demands.local.yaml"
+    catalogue = demands.set_claim(
+        "ssb_squat", "axial_spinal", "moderate",
+        confidence="provisional", reason="my own read of the bar position",
+        path=base, overlay=overlay,
+    )
+    assert catalogue.level("ssb_squat", "axial_spinal") == "moderate"
+    assert catalogue.claim("ssb_squat", "axial_spinal").confidence == "provisional"
+    assert catalogue.overlay_path == overlay
+    cleared = demands.clear_claim(
+        "ssb_squat", "axial_spinal", path=base, overlay=overlay
+    )
+    assert cleared.level("ssb_squat", "axial_spinal") == "high"  # shipped claim returns
+
+
+def test_an_unknown_tombstone_hides_a_shipped_claim(tmp_path):
+    base = write(tmp_path, VALID)
+    overlay = tmp_path / "demands.local.yaml"
+    catalogue = demands.set_claim(
+        "ssb_squat", "axial_spinal", "unknown", path=base, overlay=overlay
+    )
+    assert catalogue.level("ssb_squat", "axial_spinal") == "unknown"
+    assert not catalogue.comparable("ssb_squat", "bench_press", "axial_spinal")
+
+
+def test_a_rejected_rating_leaves_the_overlay_untouched(tmp_path):
+    base = write(tmp_path, VALID)
+    overlay = tmp_path / "demands.local.yaml"
+    overlay.write_text(BASE, encoding="utf-8")
+    before = overlay.read_text(encoding="utf-8")
+    with pytest.raises(demands.DemandError, match="canonical"):
+        demands.set_claim(
+            "not_a_lift", "axial_spinal", "low", confidence="provisional",
+            reason="typo", path=base, overlay=overlay,
+        )
+    assert overlay.read_text(encoding="utf-8") == before
+
+
+def test_the_digest_changes_when_the_overlay_changes(tmp_path):
+    base = write(tmp_path, VALID)
+    overlay = tmp_path / "demands.local.yaml"
+    before = demands.load(base, overlay=overlay).digest
+    after = demands.set_claim(
+        "ssb_squat", "technical", "high", confidence="provisional",
+        reason="free-weight squat", path=base, overlay=overlay,
+    ).digest
+    assert after != before
