@@ -538,6 +538,16 @@ def test_programme_cache_key_separates_llm_and_python_options(server):
     assert python_key != llm_key
 
 
+def test_programme_cache_key_changes_after_a_database_write(server):
+    payload = {"weeks": 1, "start": "2024-01-02", "sessions_per_week": 1}
+    before = post(server, "/api/programme/key", payload)["cache_key"]
+    post(server, "/api/readiness", {
+        "date": "2024-01-01", "values": {"sleep": 3}, "note": "cache revision",
+    })
+    after = post(server, "/api/programme/key", payload)["cache_key"]
+    assert before != after
+
+
 def test_logs_endpoint_returns_the_recent_tail(server):
     status, body = get(server, "/api/logs?limit=10")
     assert status == 200

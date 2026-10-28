@@ -169,7 +169,7 @@ also disables while saving and reports the number of marks written.
 | `GET /api/logs?limit=N` | recent in-memory application/HTTP log records (max 500; cleared on restart) |
 | `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, injury signal |
 | `GET /api/exercises` | canonical exercise catalogue for the pickers |
-| `POST /api/programme/key` | request body -> `{cache_key}` covering version, request, resolved profile and relevant config hashes |
+| `POST /api/programme/key` | request body -> `{cache_key}` covering version, request, resolved profile, database revision and relevant config hashes |
 | `POST /api/programme/jobs` | starts a background build; returns `202` with `job_id` and status |
 | `GET /api/programme/jobs/<id>` | `running` / `done` with entries / `error`; has a one-hour in-memory TTL and is capped at 20 jobs |
 | `POST /api/programme` | synchronous compatibility endpoint -> date entries; Apply selection mirrors `/api/prescribe`, and `selection_llm` lets the model choose only among filtered variants |
@@ -308,10 +308,12 @@ browser check is not a passed browser check.
 - When **Use LLM** is requested without a configured model, the prescription carries a warning
   and `selection.llm_unavailable = true`; the UI says that NullLLM fallback was used.
 - The Programme page uses the **job + sessionStorage cache** path. The cache key includes the
-  app version, request, resolved profile and relevant config hashes, so a profile or config
-  change cannot reuse an old forecast. The cache is transport-only: the CLI rebuilds the same
-  deterministic forecast directly and has no cached-forecast command (`LIM-27`).
-- No authentication; never expose beyond localhost.
+  app version, request, resolved profile, database revision and relevant config hashes, so a
+  profile/config change or a database write cannot reuse an old forecast. Settings has a
+  **Clear cached forecasts** button; entries otherwise live for the browser tab and have no
+  TTL. The cache is transport-only: the CLI rebuilds the same deterministic forecast directly
+  and has no cached-forecast command (`LIM-27`).
+- No authentication; home-network HTTP only, never public.
 - No delete/void action for a completed workout; only active-workout abandon and set removal/edit. See DATA-MODEL §17 for the recommended void design.
 
 

@@ -2239,6 +2239,24 @@ let programmeHasResult = false;
 const PROGRAMME_JOB_STORAGE = "strength-coach.programme.job";
 const PROGRAMME_CACHE_PREFIX = "strength-coach.programme.cache:";
 
+function clearProgrammeCache() {
+  let removed = 0;
+  for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
+    const key = sessionStorage.key(index);
+    if (key && key.startsWith(PROGRAMME_CACHE_PREFIX)) {
+      sessionStorage.removeItem(key);
+      removed += 1;
+    }
+  }
+  sessionStorage.removeItem(PROGRAMME_JOB_STORAGE);
+  programmeHasResult = false;
+  $("#programme-result").innerHTML =
+    "<p class='muted'>Cached forecasts cleared. Build the forecast to create a new one.</p>";
+  $("#settings-clear-programme-cache-msg").textContent =
+    `Cleared ${removed} cached forecast${removed === 1 ? "" : "s"}.`;
+}
+$("#settings-clear-programme-cache")?.addEventListener("click", clearProgrammeCache);
+
 function programmePayload() {
   const applySelection = $("#programme-apply-selection").checked;
   return {

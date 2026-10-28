@@ -356,6 +356,29 @@ def programme_payload(conn, body: dict) -> dict:
     ]}
 
 
+def _database_revision(conn) -> list[list[str | int]]:
+    """Cheap fingerprint of the live database files for the programme cache.
+
+    Hashing every history row would make the key as expensive as the build. SQLite writes
+    update the database or WAL file metadata, so size/mtime is enough to stop a cached
+    forecast surviving newly imported sessions, readiness or profile state. The `-shm` file
+    is deliberately excluded: it changes on ordinary reads and would defeat the cache.
+    """
+    row = conn.execute("PRAGMA database_list").fetchone()
+    path = str(row[2]) if row and row[2] else ""
+    if not path:
+        return []
+    revision: list[list[str | int]] = []
+    for suffix in ("", "-wal"):
+        candidate = Path(path + suffix)
+        try:
+            stat = candidate.stat()
+        except FileNotFoundError:
+            continue
+        revision.append([suffix, stat.st_size, stat.st_mtime_ns])
+    return revision
+
+
 def programme_cache_key(conn, body: dict) -> str:
     request = _programme_request(body)
     day = request["start"] or datetime.date.today().isoformat()
@@ -364,6 +387,7 @@ def programme_cache_key(conn, body: dict) -> str:
     material = {
         "version": __version__,
         "request": request,
+        "database_revision": _database_revision(conn),
         "profile": state,
         "config": {
             relative: hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()

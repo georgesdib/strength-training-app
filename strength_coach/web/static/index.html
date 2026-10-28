@@ -960,13 +960,26 @@
       </div>
 
       <div class="panel">
+        <div class="panel-head"><h2>Programme cache</h2><span class="muted">this browser tab</span></div>
+        <p class="section-help"><span>Forecasts are cached in this tab per form option set and database revision.</span>
+          <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI</a></p>
+        <div class="form-row">
+          <button class="ghost" type="button" id="settings-clear-programme-cache">Clear cached forecasts</button>
+          <span class="muted" id="settings-clear-programme-cache-msg"></span>
+        </div>
+        <p class="muted">This removes only the browser-tab forecast cache. Training data and settings
+          are not touched.</p>
+      </div>
+
+      <div class="panel">
         <div class="panel-head"><h2>App</h2><span class="muted">local only</span></div>
         <p class="section-help"><span>Shows local-only runtime and storage facts; no hosted service.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI</a></p>
         <p>Version <code id="settings-version">—</code></p>
         <p>Database <code id="settings-database">—</code></p>
         <p>LLM file <code id="settings-config-path">—</code></p>
-        <p class="muted">The server binds to <code>127.0.0.1</code> and has no authentication. Do
-          not expose it to a network. Raw exports and the database stay git-ignored.</p>
+        <p class="muted">The server binds to <code>0.0.0.0</code> and has no authentication. Use it
+          only on the trusted home network; never expose it to the internet. Raw exports and the
+          database stay git-ignored.</p>
       </div>
     </section>
 
