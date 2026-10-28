@@ -137,7 +137,7 @@ details summary { cursor: pointer; color: var(--muted); }
 #exercise-catalog .props { margin: 4px 0 0; font-size: 12px; max-height: 220px; overflow: auto; }
 .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .row-actions details { flex-basis: 100%; }
-@media (max-width: 760px) {
+@media (max-width: 760px), (orientation: landscape) and (max-height: 500px) {
   .row-actions button { padding: 4px 8px; font-size: 11px; }
   .row-actions details { display: none; }
 }
@@ -149,8 +149,9 @@ details summary { cursor: pointer; color: var(--muted); }
 /* `hidden` must beat the flex display on form-row labels. */
 [hidden] { display: none !important; }
 
-/* Keep the exercise table widths authoritative after the base rules above. */
-@media (max-width: 760px) {
+/* Keep the exercise table widths authoritative after the base rules above. Landscape phones
+   are wider than the portrait breakpoint but still too narrow for seven desktop columns. */
+@media (max-width: 760px), (orientation: landscape) and (max-height: 500px) {
   .exercise-table { font-size: 12px; }
   .exercise-table th:nth-child(3), .exercise-table td:nth-child(3),
   .exercise-table th:nth-child(5), .exercise-table td:nth-child(5),
