@@ -80,15 +80,28 @@ The default branch should require pull requests, the checks reported by the comp
 branches to be up to date with main, and conversation resolution. Disable force pushes and
 deletion. Do not require multiple independent reviewers for this solo-maintained repository.
 
-The check names are the exact names reported by GitHub after the first successful CI run. On
-the current workflow they are expected to be:
+A successful CI run on commit 05f79fe (run 40881926929) reported these check-run names:
 
-- CI / quality (3.11)
-- CI / quality (3.12)
-- CI / package and smoke
+- quality (3.11)
+- quality (3.12)
+- package and smoke
 
-These names must be verified in the repository's Actions run before saving branch protection;
-do not guess if GitHub reports a different display name.
+GitHub displays them under the workflow as CI / quality (3.11), CI / quality (3.12) and
+CI / package and smoke. Use the names shown in the branch-protection picker after the run.
+
+**Current status: branch protection is not enabled by this documentation pass.** The workspace
+has no authenticated GitHub CLI or API token, so the repository settings could not be changed
+from here. An owner with admin access must enable:
+
+- Require a pull request before merging.
+- Require status checks to pass before merging: the three checks above.
+- Require branches to be up to date with main.
+- Require conversation resolution.
+- Block force pushes and branch deletion.
+- No required reviewer count for this solo-maintained repository.
+
+Do not claim protection is active until the GitHub Branches settings page or the branch
+protection API confirms it.
 
 ## Limitations
 
