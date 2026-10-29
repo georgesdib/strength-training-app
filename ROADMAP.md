@@ -50,7 +50,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v0.4 | Audit, documentation and form closeout | **done 2026-10-25** | form assessment/prospective follow-up, fatigue diagnostic closure, UI documentation P0–P4, parent-ratio evidence review, weakness test plan, calibration milestone (§4.22) |
 | v1.0 beta | Workable app + guided Workflow UI | **released 2026-10-27** | full strength loop, guided readiness → preview → workout → post-workout, effective volume accounting, template editor, schedule fallback/rebalance; user testing in progress |
 | v1.1 | Beta removal + cardio + calibration depth | **planned; plan at §4.13a** | drop the beta label after user testing; pending: cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
-| future | LLM integration: analyst, explainer, constrained proposer | **planned; dependency-ordered after v1.1** | phased workstream at §4.24; architecture and contracts in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
+| future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.1; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
 | — | 2026-10-26 pass | **done 2026-10-26** | declared breaks — append-only range, `break` CLI, Athlete panel, freeze in the trained-week cycle (`DEC-CONTINUITY-04`, `LIM-50`); P1 measured-test coverage view (`e1rm tests-needed` + Athlete table); symptom settling made fail-safe — a level-1 reading without a recorded 48 h settlement is a flare (`DEC-SYMPTOM-04`, Q25 closed) and `docs/SYMPTOM-LOGGING.md` documents the episode workflow; minimum-session target shown against the measured clock (`DEC-MIN-02`, `LIM-47` mitigated); gaps table folded into `docs/LIMITATIONS-REGISTER.md` |
 | — | 2026-10-28 fatigue signals Phase 0 | **done 2026-10-28** | five decisions (`DEC-EXPOSURE-02`, `DEC-DEMAND-01`, `DEC-RESIDUAL-01`, `DEC-SELECT-12`, `DEC-SHADOW-01`), five assumptions, `LIM-56`, ACWR doc drift corrected; `docs/FATIGUE-SIGNALS.md` maps Parts A–D onto the real engine stages and `docs/EXERCISE-DEMANDS.md` defines the companion catalogue. No code, no behaviour change |
 | — | 2026-10-28 audit fixes | **done 2026-10-28** | independent beta audit: continuity calibration **accepted** and the decision rewritten (`DEC-CONTINUITY-06`); injury ceiling applied independently of readiness, low back excluded (`DEC-INJURY-04`); readiness set cut takes precedence over the under-MEV top-up (`DEC-VOLUME-33`); browser mutations require loopback Host + same Origin + JSON content type and the CLI refuses non-loopback `--host` (`DEC-WEB-01`); Terminal removed (`DEC-WEB-02`); rubric calibration filtered to the current version (`DEC-EVAL-06`); programme horizon 1–26 weeks and one job per database (`DEC-PROGRAMME-09`) |
@@ -72,7 +72,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.0 beta | workable app, guided Workflow UI and the current strength/volume feature set | **released 2026-10-27; beta** |
 | v1.1 | beta removal plus cardio depth and comparable calibration data | **planned; see §4.13a** |
 | — | post-workout form assessment | **done 2026-10-25** |
-| future | LLM integration: analyst, explainer, constrained proposer | **planned §4.24; dependency-ordered after v1.1** |
+| future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.1; Iteration 2 conditional (§4.24)** |
 
 **Rule:** cardio work does not enter v0.3; video is descoped. The strength model (§4.16) is
 strength-only and closed with v0.3. Audit/documentation/form closeout is v0.4. v1.0 is the beta
@@ -1099,7 +1099,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | v1.1 | Fatigue signals: exposure, substitution, advisories | **Phase 0 done 2026-10-28** (five decisions; `docs/FATIGUE-SIGNALS.md`, `docs/EXERCISE-DEMANDS.md`). **Phase 1 done 2026-10-28**: `config/exercises/demands.v1.yaml` populated for **28/63** reachable ids (4 in-scope dimensions at 55.6 % known, 2 `supported` claims, 4 evidence entries). **Rating path done 2026-10-28**: git-ignored `config/exercises/demands.local.yaml` overlay merged over the reviewed file, with `exercise demands report|unrated|set|clear` and automatic rollback on a rejected write (digest covers both files). **Phase 2 done 2026-10-28**: `features/exposure.py` (7/28-day ratio, coverage, gap/deload/break abstention, exposure dedup, per-group ratios), `exposure ratio` CLI, `GET /api/exposure`, Prescribe **Exposure ratio** panel and the Part D low-exposure advisory; report-only, trim not implemented. **Demand display done 2026-10-28**: Exercises rows show `rated/4` and the details dialog shows the profile with confidence, reason, catalogue digest and overlay state; the same form rates or clears a dimension (`POST /api/exercises/demands`, same `set_claim` as the CLI). **Phase 3 done 2026-10-28**: `MOD-EXP-001` (constitution 1.20.0) trims at most one non-essential accessory set per affected group (≤2/session, floor 1) when `athlete_profile.exposure_trim_enabled` is on (default off), skipping main lifts, essential items, readiness cuts and under-MEV additions; `shadow_decision` table + repository exist (append-only triggers). Shadow writes and the review report land in Phase 6 so forecast builds never write rows. **Phase 4 done 2026-10-28**: `prescribe/fatigue_selection.py` suggests at most one accessory substitution when the exposure signal is high, the candidate is A/B comparable, covers the current lift's primary muscles and is rated strictly lower on an in-scope demand dimension; `GET /api/substitution`, the Exercise-selection panel block and `select --fatigue` expose it. Suggest-only; abstains when the trim already acted or the metadata is unknown. **Phase 5 done 2026-10-28**: `features/residual.py` computes the VBT-only execution residual (observed minus prescribed velocity) from linked workout sets, lift-scoped, 84-day window, with the ≥5 signal and ≥20/8-week/two-lift evaluation gates; `residual`, `GET /api/residual` and the Prescribe panel expose it. Shadow only. **Phase 6 done 2026-10-28**: `prescribe/shadow.py` writes exposure + substitution rows only when a prescription is persisted; `features/shadow_report.py` and `shadow`/`GET /api/shadow`/Prescribe **Shadow review** expose counts, abstentions, conflicts and the four gate checks. The gate never enables anything (`activation_allowed: false`); the fatigue-signals specification is fully implemented. |
 | v1.1 | Cardio depth and shadow cardio load | planned (§4.13a, Q14) |
 | v1.1 | Deeper labelled calibration set | planned (§4.14) |
-| future | LLM integration: analyst, explainer, constrained proposer | planned, dependency-ordered (§4.24; [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md)) |
+| future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
 
@@ -1245,32 +1245,63 @@ layer but have different permissions:
   the user must explicitly approve; shadow/opt-in rollout only.
 
 The deterministic engine, taxonomy, comparability rules, history and prescription validation
-remain authoritative. The minimal LLM exercise-variant selector is scheduled for retirement
-after its replacement passes the gates, but remains untouched now.
+remain authoritative. If no LLM is configured, the analyst/explainer/proposer functions are
+simply unavailable; deterministic training is unchanged.
+
+### Iteration 1 — practical capabilities, minimal infrastructure
+
+Iteration 1 uses the existing LLM client, structured proposal path, deterministic context
+builder and trace. It does **not** require a vector database, RAG, embeddings, tool framework or
+autonomous agent framework.
 
 | phase | scope | depends on | status |
 |---|---|---|---|
-| 1 | Architecture and contracts: capability boundaries, permissions, context/evidence schema, prompt/schema versions, privacy, selector-deprecation plan | owner approval | **planned** |
+| 1 | Architecture and contracts: capability boundaries, permissions, context/evidence schema, prompt/schema versions, privacy, iteration boundary | owner approval | **planned** |
+| 1b | **Retire the minimal LLM exercise selector** as a separate work item: remove chooser/client and its CLI/API/UI/engine/tests/docs plumbing; preserve deterministic selection, taxonomy, comparability, class-B confirmation and history | phase 1; **independent of the proposer** | **planned** |
 | 2 | Shared context builder + athlete analyst: lift progression, programme status, strength/power/longevity review | phase 1; existing features | **planned** |
 | 3 | Programme explainer: persisted prescription, modifiers, baseline/previous comparison, concise + detailed | phase 2; prescription provenance | **planned** |
 | 4 | Constrained proposer in shadow: structured schema, deterministic validation, Python load resolution, baseline comparison; no application | phases 1–3; existing proposal/validator path | **planned** |
-| 5 | Opt-in approval + evaluation + selector retirement: diff UI/CLI, explicit approval, provenance, shadow/opt-in gates | phase 4; owner-approved gates; privacy review | **planned** |
+| 5 | Opt-in approval + evaluation: diff UI/CLI, explicit approval, provenance, shadow/opt-in gates; no selector work | phase 4; phase 1b; approved gates; privacy review | **planned** |
+| exit | Iteration 1 exit gate: selector retired; analyst/explainer accepted; proposer shadow/opt-in gates green; no-LLM path tested | phases 1–5 | **gate** |
 
-**Dependency order:** v1.1 cardio/calibration work, then phase 1, then 2 → 3 → 4 → 5. Phase 1
-can be reviewed independently of a date, but no capability code starts before the owner approves
-its contracts. Phase 4 and 5 do not run on sessions already downgraded by a safety modifier
-(`DEC-LLM-04`); any relaxation is a new decision.
+**Dependency order:** v1.1 cardio/calibration work, then phase 1, then 2 → 3 → 4 → 5; phase 1b
+runs after phase 1, in parallel with 2/3 if useful, and must finish before the Iteration 1 exit.
+No capability code starts before the owner approves its contracts. Phases 4–5 do not run on
+sessions already downgraded by a safety modifier (`DEC-LLM-04`); any relaxation is a new
+decision.
 
-**Non-goals:** autonomous workout replacement, LLM arithmetic, LLM vetoes, vector databases,
-RAG/embeddings, autonomous agent frameworks, a new provider/dependency without a demonstrated
-need, and any change to the fixed programme methodology. Analyst and explainer outputs do not
-change training; proposer changes require explicit approval.
+**Selector retirement is not a refactor and not a proposer dependency.** The deterministic
+selection engine, taxonomy, movement-family classifications, comparability rules, validation,
+class-B `selection_confirmed` confirmation and history remain. Only the minimal LLM chooser is
+removed. The new proposer is decision `DEC-LLM-09`; it is not a continuation of the chooser.
 
-**Exit gates:** phase 1 owner-approved contracts; phase 2 evidence-linked reports with zero
-sampled factual defects; phase 3 explanations that match the stored prescription; phase 4 zero
-hard-constraint/schema defects in shadow; phase 5 explicit approval, fallback and prospective
-review before any broader autonomy. No phase claims that prose quality or acceptance rate proves
-better coaching.
+### Iteration 2 — evidence retrieval and advanced architecture (conditional)
+
+Iteration 2 begins only after the Iteration 1 exit gate. It starts with a needs assessment, not
+with technology adoption. RAG, semantic/hybrid retrieval, a vector database and advanced
+orchestration/tool use are candidates, not requirements; any one may be rejected. A vector
+database is permitted only if the retrieval benchmark shows a simpler deterministic/keyword or
+hybrid approach is insufficient.
+
+| phase | scope | depends on | status |
+|---|---|---|---|
+| 6 | Needs assessment: recurring gaps, trusted corpus, retrieval requirements, simpler alternatives, benchmark, cost/latency/privacy/maintenance case | Iteration 1 exit gate; owner authorisation | **conditional** |
+| 7 | Advanced component trial: one approved component at a time (RAG, hybrid retrieval or bounded orchestration), off by default, baseline comparison | phase 6 decision; privacy review | **conditional** |
+
+**Proceed criteria for any Iteration 2 component:** documented recurring need; simpler
+alternative tested; measurable benefit on a pre-registered evaluation set; acceptable cost,
+latency, privacy and maintenance; no safety or deterministic-fallback regression; owner approval
+and a new decision. No dates are assigned.
+
+**Non-goals:** autonomous workout replacement, LLM arithmetic, LLM vetoes, unsupervised tool
+use, self-directed database writes, adopting RAG/vector databases/agent frameworks merely
+because they exist, a new provider/dependency without a demonstrated need, and any change to the
+fixed programme methodology. Analyst and explainer outputs do not change training; proposer
+changes require explicit approval.
+
+**Exit gates:** Iteration 1 as above; Iteration 2 phase 6 owner disposition; phase 7 measured
+benefit and no regression. No phase claims that prose quality or acceptance rate proves better
+coaching.
 
 ## 5. Known gaps and risks
 

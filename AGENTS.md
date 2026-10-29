@@ -253,7 +253,7 @@ never read `data/raw`.
 | `docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md` | why parent-variant ratios are not weakness or injury measures |
 | `docs/REVERSE-HYPER-BELT-SQUAT-EVIDENCE.md` | reverse hyperextension and belt squat evidence; optional accessories, no programme change |
 | `docs/WEAKNESS-TARGETING-PLAN.md` | gated weakness metric, retrospective screen and N-of-1 test plan |
-| `docs/LLM-INTEGRATION-PLAN.md` | future LLM analyst/explainer/constrained-proposer architecture, shared context/evidence contracts, phased implementation, approval, privacy and evaluation gates; plan only |
+| `docs/LLM-INTEGRATION-PLAN.md` | future LLM analyst/explainer/constrained-proposer architecture: Iteration 1 (practical capabilities, selector retirement), conditional Iteration 2 (retrieval/RAG/advanced orchestration), shared context/evidence contracts, approval, privacy and evaluation gates; plan only |
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/UI-CLI-PARITY.md` | current first-class parity, intentional differences and remaining gaps |
 | `docs/UI-MAP.md` | web UI surface map: panels, routes, docs links and the behaviour each panel exposes |
