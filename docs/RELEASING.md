@@ -69,10 +69,12 @@ fails if the tag and project version disagree.
    that the tag matches pyproject.toml, builds the source archive and wheel from that tag,
    runs the smoke test, writes SHA256SUMS and only then publishes the GitHub Release.
 
-The release job refuses to replace an existing release. If a release run fails before a
-release is created, fix the cause and move the tag deliberately; do not force-push a protected
-branch. If a release already exists, do not silently overwrite its assets: publish a new
-version or handle the existing release manually with an explicit decision.
+Tags containing a, b or rc are published as GitHub prereleases and are not marked latest.
+A stable tag such as v1.0.0 is published normally. The release job refuses to replace an
+existing release. If a release run fails before a release is created, fix the cause and move
+the tag deliberately; do not force-push a protected branch. If a release already exists, do
+not silently overwrite its assets: publish a new version or handle the existing release
+manually with an explicit decision.
 
 ## Branch protection
 

@@ -92,7 +92,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
+          PRERELEASE=""
+          case "${TAG}" in
+            *a*|*b*|*rc*) PRERELEASE="--prerelease --latest=false" ;;
+          esac
           gh release create "${TAG}" dist/* \
             --verify-tag \
             --title "${TAG}" \
-            --notes "Source archive, wheel and checksums for ${TAG}. See CHANGELOG.md and docs/RELEASING.md."
+            --notes "Source archive, wheel and checksums for ${TAG}. See CHANGELOG.md and docs/RELEASING.md." \
+            ${PRERELEASE}
