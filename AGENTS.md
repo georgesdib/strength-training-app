@@ -21,6 +21,11 @@ remain (see ROADMAP §4.13a/§4.14).
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
 expensive to reverse.
 
+**Working branch:** all development happens on the `development` branch unless the owner
+explicitly says otherwise. Commit and push development there, not to `main`. Keep the same CI
+workflow files as `main`; branch protection and workflow triggers decide what runs, not
+divergent files.
+
 What exists today is:
 
 - `docs/` — the proposal and design record (public).
