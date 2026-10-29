@@ -10,6 +10,7 @@ Design constraints, deliberately:
 
 from __future__ import annotations
 
+import copy
 import datetime
 import hashlib
 import json
@@ -653,6 +654,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: modalities.show(c, module_id, day)
                 ))
+            elif path == "/api/settings/volume":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0] or datetime.date.today().isoformat()
+                self._json(200, self._with_conn(lambda c: self._volume_settings(c, day)))
             elif path == "/api/settings/profile":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0] or datetime.date.today().isoformat()
@@ -988,6 +993,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._save_llm_settings(body))
             elif path == "/api/settings/drop":
                 self._json(200, self._with_conn(lambda c: self._save_drop_settings(c, body)))
+            elif path == "/api/settings/volume":
+                self._json(200, self._with_conn(lambda c: self._save_volume_settings(c, body)))
             elif path == "/api/settings/profile":
                 self._json(200, self._with_conn(lambda c: self._save_settings_profile(c, body)))
             elif path.startswith("/api/modalities/"):
@@ -1198,6 +1205,169 @@ class Handler(BaseHTTPRequestHandler):
             "competition_date": window["competition_date"],
             "reason": reason,
         }
+
+    def _volume_settings(self, conn, day: str) -> dict:
+        cfg = volume_budget_mod.BudgetConfig.load(conn=conn, on_date=day)
+        state = settings_profile.state(conn, day)
+        policy = {
+            key: value for key, value in state["resolved"].items()
+            if key.startswith("volume.")
+        }
+        policy_overrides = {
+            key: value for key, value in state["overrides"].items()
+            if key.startswith("volume.")
+        }
+        athlete = dict(queries.athlete_profile(conn) or {})
+        overlay = paths.config_dir("volume.v1.yaml").with_name("volume.local.yaml")
+        budget_overrides = settings_profile.budget_overrides(conn, day)
+        if budget_overrides or policy_overrides:
+            source = "profile"
+        elif overlay.is_file():
+            source = "local overlay"
+        else:
+            source = "config"
+        warnings = []
+        if overlay.is_file():
+            warnings.append(
+                "config/volume.local.yaml is present. Profile values override it, but it still "
+                "supplies any values the profile does not set."
+            )
+        return {
+            "date": day,
+            "source": source,
+            "budget": cfg.as_config_dict(),
+            "policy": policy,
+            "policy_overrides": policy_overrides,
+            "athlete": {
+                "volume_budget_enabled": bool(athlete.get("volume_budget_enabled", 0)),
+                "main_lift_policy": str(athlete.get("main_lift_policy") or "preserve"),
+                "sessions_per_week_target": athlete.get("sessions_per_week_target"),
+                "max_session_minutes": athlete.get("max_session_minutes"),
+            },
+            "profile": {
+                "profile_id": state.get("profile_id"),
+                "effective_from": state.get("effective_from"),
+                "reason": state.get("reason"),
+            },
+            "high_band": round(cfg.total_target() * (1.0 + cfg.tolerance), 1),
+            "has_local_overlay": overlay.is_file(),
+            "warnings": warnings,
+        }
+
+    @staticmethod
+    def _merge_volume_budget(base: dict, patch: dict) -> None:
+        for key, value in patch.items():
+            if isinstance(value, dict) and isinstance(base.get(key), dict):
+                Handler._merge_volume_budget(base[key], value)
+            else:
+                base[key] = value
+
+    @staticmethod
+    def _volume_mapping_changed(current, candidate) -> bool:
+        left = {str(key): float(value) for key, value in (current or {}).items()}
+        right = {str(key): float(value) for key, value in (candidate or {}).items()}
+        return left.keys() != right.keys() or any(
+            abs(left[key] - right[key]) > 1e-9 for key in left
+        )
+
+    @classmethod
+    def _volume_high_impact_changes(
+        cls, current_cfg, candidate_cfg, current_policy: dict, candidate_policy: dict
+    ) -> list[str]:
+        changes = []
+        if cls._volume_mapping_changed(
+            current_cfg.weekly_target, candidate_cfg.weekly_target
+        ):
+            changes.append("weekly targets")
+        if cls._volume_mapping_changed(
+            current_cfg.weekly_target_effective, candidate_cfg.weekly_target_effective
+        ):
+            changes.append("effective weekly targets")
+        if int(current_cfg.session_cap_total) != int(candidate_cfg.session_cap_total):
+            changes.append("session cap")
+        if cls._volume_mapping_changed(
+            current_cfg.session_cap_pattern, candidate_cfg.session_cap_pattern
+        ):
+            changes.append("per-pattern session caps")
+        if bool(current_policy.get("volume.apply_mrv_cap")) != bool(
+            candidate_policy.get("volume.apply_mrv_cap")
+        ):
+            changes.append("MRV cap")
+        current_landmarks = {
+            key: value for key, value in current_policy.items()
+            if key.startswith("volume.landmarks.")
+        }
+        candidate_landmarks = {
+            key: value for key, value in candidate_policy.items()
+            if key.startswith("volume.landmarks.")
+        }
+        if cls._volume_mapping_changed(current_landmarks, candidate_landmarks):
+            changes.append("volume landmarks")
+        return changes
+
+    def _save_volume_settings(self, conn, body: dict) -> dict:
+        day = str(body.get("effective_from") or datetime.date.today().isoformat())
+        try:
+            datetime.date.fromisoformat(day)
+        except ValueError as exc:
+            raise FieldError("effective date must be YYYY-MM-DD", {"effective_from": str(exc)}) from exc
+        budget_patch = body.get("budget") or {}
+        policy_patch = body.get("policy") or {}
+        if not isinstance(budget_patch, dict):
+            raise FieldError("budget must be an object", {"budget": "must be an object"})
+        if not isinstance(policy_patch, dict):
+            raise FieldError("policy must be an object", {"policy": "must be an object"})
+        unknown = [
+            key for key in policy_patch
+            if key not in settings_registry.BY_KEY or not str(key).startswith("volume.")
+        ]
+        if unknown:
+            raise FieldError(
+                f"unknown volume setting(s): {', '.join(sorted(unknown))}",
+                {"policy": f"unknown: {', '.join(sorted(unknown))}"},
+            )
+        reason = str(body.get("reason") or "").strip()
+        if not reason:
+            raise FieldError("a reason is required for a volume settings change", {"reason": "required"})
+
+        current_cfg = volume_budget_mod.BudgetConfig.load(conn=conn, on_date=day)
+        current_budget_overrides = settings_profile.budget_overrides(conn, day)
+        merged_budget_overrides = copy.deepcopy(current_budget_overrides)
+        self._merge_volume_budget(merged_budget_overrides, budget_patch)
+        candidate_budget = copy.deepcopy(current_cfg.as_config_dict())
+        self._merge_volume_budget(candidate_budget, budget_patch)
+        candidate_cfg = volume_budget_mod.BudgetConfig.load(profile_budget=candidate_budget)
+        state = settings_profile.state(conn, day)
+        current_policy = {
+            key: value for key, value in state["resolved"].items()
+            if key.startswith("volume.")
+        }
+        candidate_policy = {**current_policy, **policy_patch}
+        changes = self._volume_high_impact_changes(
+            current_cfg, candidate_cfg, current_policy, candidate_policy
+        )
+        confirm = str(body.get("confirm_text") or "").strip().upper()
+        if changes and confirm != "VOLUME":
+            raise FieldError(
+                f"type VOLUME to confirm changes to {', '.join(changes)}",
+                {"confirm_text": "type VOLUME"},
+            )
+        set_values = dict(policy_patch)
+        if merged_budget_overrides:
+            set_values["budget"] = merged_budget_overrides
+        try:
+            settings_profile.save(
+                conn,
+                set_values=set_values,
+                effective_from=day,
+                guard_confirmed=True,
+                reason=reason,
+            )
+        except ValueError as exc:
+            text = str(exc)
+            field = "reason" if "reason" in text else "budget" if "budget" in text else "policy"
+            raise FieldError(text, {field: text}) from exc
+        return self._volume_settings(conn, day)
 
     def _save_settings_profile(self, conn, body: dict) -> dict:
         try:

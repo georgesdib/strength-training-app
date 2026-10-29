@@ -1016,6 +1016,50 @@ def test_settings_drop_endpoint_writes_the_profile(server):
     assert json.loads(body)["budget"]["tolerance"] == 0.2
 
 
+def test_volume_settings_endpoint_reads_effective_budget_and_policy(server):
+    status, body = get(server, "/api/settings/volume?date=2024-01-01")
+    assert status == 200
+    data = json.loads(body)
+    assert data["date"] == "2024-01-01"
+    assert data["budget"]["weekly_target"]["squat"] == 10
+    assert data["budget"]["session_cap"]["total"] == 30
+    assert data["policy"]["volume.ledger.coverage"] == "unknown"
+    assert data["athlete"]["main_lift_policy"] == "preserve"
+    assert data["source"] in ("config", "local overlay", "profile")
+
+
+def test_volume_policy_changes_do_not_need_typed_confirmation(server):
+    saved = post(server, "/api/settings/volume", {
+        "policy": {"volume.ledger.coverage": "complete"},
+        "reason": "switch coverage",
+    })
+    assert saved["policy"]["volume.ledger.coverage"] == "complete"
+    assert saved["source"] == "profile"
+
+
+def test_volume_settings_requires_reason_and_high_impact_confirmation(server):
+    status, body = post_status(server, "/api/settings/volume", {
+        "budget": {"tolerance": 0.2},
+    })
+    assert status == 400
+    assert "reason" in body
+
+    status, body = post_status(server, "/api/settings/volume", {
+        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 64},
+        "reason": "increase squat target",
+    })
+    assert status == 400
+    assert "VOLUME" in body
+
+    saved = post(server, "/api/settings/volume", {
+        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 64},
+        "reason": "increase squat target",
+        "confirm_text": "VOLUME",
+    })
+    assert saved["budget"]["weekly_target"]["squat"] == 11
+    assert saved["source"] == "profile"
+
+
 def test_drop_window_endpoint_is_explicit_when_drop_mode_is_inactive(server):
     status, body = get(server, "/api/settings/drop/window?date=2024-01-01")
     assert status == 200

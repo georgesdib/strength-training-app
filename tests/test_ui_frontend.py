@@ -243,7 +243,8 @@ def test_remaining_ui_controls_are_present() -> None:
     workout = (STATIC / "workout.js").read_text(encoding="utf-8")
     assert 'id="exercise-detail-spinal-cost" type="number" step="0.5" min="0" max="5"' in page
     assert 'id="exercise-extra"' in page and '<details class="advanced">' in page
-    assert 'id="settings-drop-slots"' in page
+    assert 'id="settings-volume-form"' in page
+    assert 'id="settings-volume-fields"' in page
     assert "review-table" in app and "review-why" in app
     assert "search-select" in core and "filterNativeSelect" in core
     assert "exercisePickerHtml" in app
@@ -260,10 +261,39 @@ def test_remaining_forms_use_field_errors() -> None:
     assert "applyFieldErrors(error, $(" in app
     for marker in (
         '[data-symptom="region"]', '[data-block="date"]', '[data-break="starts_on"]',
-        '#cardio-modality', '#measure-metric', '#settings-drop-tolerance',
+        '#cardio-modality', '#measure-metric', '#settings-volume-fields',
+        '#settings-volume-reason', '#settings-volume-confirm',
         '#settings-llm-model', '#settings-profile-guard',
     ):
         assert marker in app, marker
+
+
+def test_volume_panel_is_consolidated_and_linked_to_its_guide() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="settings-volume-form"' in page
+    assert 'href="#docs?doc=docs/VOLUME-BUDGET.md"' in page
+    assert 'id="settings-drop-form"' not in page
+    assert 'id="profile-volume' not in page
+    assert 'setting.group === "Volume"' in app
+    assert "renderVolumeSettings" in app
+    assert "/api/settings/volume" in app
+    assert "budgetValue(key)" in app
+    assert "settings-volume-cap-sum" in app
+
+    node = shutil.which("node")
+    if node:
+        match = re.search(r"function volumeNestedValue\([^)]*\) \{[\s\S]*?\n\}", app)
+        assert match, "volumeNestedValue() not found"
+        script = (
+            f"eval({json.dumps(match.group(0))});"
+            "const budget = {session_cap: {total: 30}, tolerance: 0.1};"
+            "if (volumeNestedValue(budget, 'session_cap.total') !== 30) throw new Error('nested cap');"
+            "if (volumeNestedValue(budget, 'tolerance') !== 0.1) throw new Error('flat value');"
+            "if (volumeNestedValue(budget, 'missing.total') !== undefined) throw new Error('missing');"
+        )
+        subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
 
 
 def test_technique_throttle_scope_is_a_constrained_select() -> None:

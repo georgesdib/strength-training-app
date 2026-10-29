@@ -1513,43 +1513,6 @@ $("#volume-form").addEventListener("submit", async (event) => {
   }
 });
 
-$("#settings-drop-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  let slots;
-  try {
-    slots = JSON.parse($("#settings-drop-slots").value || "{}");
-  } catch (error) {
-    $("#settings-drop-msg").textContent = "Candidate pool JSON is invalid: " + error.message;
-    $("#settings-drop-slots").setAttribute("aria-invalid", "true");
-    $("#settings-drop-slots").focus();
-    return;
-  }
-  try {
-    const data = await api("/api/settings/drop", {
-      method: "POST",
-      body: JSON.stringify({
-        enabled: $("#settings-drop-enabled").checked,
-        competition_confirm_days: Number($("#settings-drop-days").value),
-        max_slots_per_group: Number($("#settings-drop-max").value),
-        technique_minutes: Number($("#settings-drop-technique").value),
-        tolerance: Number($("#settings-drop-tolerance").value),
-        slots,
-      }),
-    });
-    renderSettings(data);
-    notify("Drop settings saved.");
-  } catch (error) {
-    applyFieldErrors(error, $("#settings-drop-msg"), {
-      competition_confirm_days: "#settings-drop-days",
-      max_slots_per_group: "#settings-drop-max",
-      technique_minutes: "#settings-drop-technique",
-      tolerance: "#settings-drop-tolerance",
-      slots: "#settings-drop-slots",
-      enabled: "#settings-drop-enabled",
-    });
-  }
-});
-
 $("#settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const payload = {
@@ -3173,20 +3136,314 @@ function renderSettings(data) {
   applyStoredUiDefaults();
   applyTheme(storedThemeMode());
   syncLlmFields();
-  renderDropSettings(data.drop || {});
 }
 
-function renderDropSettings(drop) {
-  $("#settings-drop-enabled").checked = !!drop.enabled;
-  $("#settings-drop-days").value = drop.competition_confirm_days ?? 7;
-  $("#settings-drop-max").value = drop.max_slots_per_group ?? 1;
-  $("#settings-drop-technique").value = drop.technique_minutes ?? 30;
-  $("#settings-drop-tolerance").value = drop.tolerance ?? 0.1;
-  $("#settings-drop-high").textContent = drop.high_band ?? "—";
-  $("#settings-drop-slots").value = JSON.stringify(drop.slots || {}, null, 2);
-  $("#settings-drop-msg").textContent = "source: " + (drop.source || "—");
-  loadDropWindow();
+function volumePolicyValue(node) {
+  if (node.type === "checkbox") return node.checked;
+  if (node.dataset.kind === "int") return Number(node.value);
+  if (node.dataset.kind === "float") return Number(node.value);
+  return node.value;
 }
+
+function volumeDiff(current, next) {
+  if (JSON.stringify(current) === JSON.stringify(next)) return undefined;
+  if (!current || typeof current !== "object" || Array.isArray(current)
+      || !next || typeof next !== "object" || Array.isArray(next)) {
+    return next;
+  }
+  const patch = {};
+  let changed = false;
+  Object.keys(next).forEach((key) => {
+    const child = volumeDiff(current[key], next[key]);
+    if (child !== undefined) {
+      patch[key] = child;
+      changed = true;
+    }
+  });
+  return changed ? patch : undefined;
+}
+
+function volumeNestedValue(value, key) {
+  return key.split(".").reduce(
+    (current, part) => (current == null ? undefined : current[part]), value
+  );
+}
+
+function volumeJson(text, label) {
+  try {
+    return JSON.parse(text || "{}");
+  } catch (error) {
+    throw new Error(label + ": invalid JSON — " + error.message);
+  }
+}
+
+function volumeNumber(selector) {
+  const node = document.querySelector(selector);
+  return node ? Number(node.value) : 0;
+}
+
+function updateVolumeTotals() {
+  const total = [...document.querySelectorAll("[data-volume-target]")]
+    .reduce((sum, node) => sum + Number(node.value || 0), 0);
+  const effective = [...document.querySelectorAll("[data-volume-effective]")]
+    .reduce((sum, node) => sum + Number(node.value || 0), 0);
+  const tolerance = volumeNumber('[data-volume-budget="tolerance"]');
+  const totalBox = $("#settings-volume-total");
+  const effectiveBox = $("#settings-volume-effective-total");
+  const highBox = $("#settings-volume-high");
+  const capSumBox = $("#settings-volume-cap-sum");
+  const capSum = [...document.querySelectorAll("[data-volume-cap]")]
+    .reduce((sum, node) => sum + Number(node.value || 0), 0);
+  if (totalBox) totalBox.textContent = fmt(total, 1);
+  if (effectiveBox) effectiveBox.textContent = fmt(effective, 1);
+  if (highBox) highBox.textContent = fmt(total * (1 + tolerance), 1);
+  if (capSumBox) capSumBox.textContent = fmt(capSum, 0);
+}
+
+function renderVolumeSettings(data) {
+  window.__volumeSettings = data || {};
+  const budget = data.budget || {};
+  const policy = data.policy || {};
+  const athlete = data.athlete || {};
+  const profile = data.profile || {};
+  const targets = budget.weekly_target || {};
+  const effectiveTargets = budget.weekly_target_effective || {};
+  const caps = (budget.session_cap || {}).per_pattern || {};
+  const drop = budget.drop || {};
+  const comp = budget.compensation || {};
+  const targetRows = Object.keys(targets).map((key) => `
+    <tr><td><code>${esc(key)}</code></td>
+      <td><input type="number" step="0.5" min="0" data-volume-target="${esc(key)}"
+        aria-label="${esc(key)} weekly target" value="${esc(targets[key])}"></td>
+      <td><input type="number" step="0.5" min="0" data-volume-effective="${esc(key)}"
+        aria-label="${esc(key)} effective weekly target" value="${esc(effectiveTargets[key] ?? targets[key])}"></td>
+    </tr>`).join("");
+  const capRows = Object.keys(caps).map((key) => `
+    <tr><td><code>${esc(key)}</code></td>
+      <td><input type="number" step="1" min="1" data-volume-cap="${esc(key)}"
+        aria-label="${esc(key)} session cap" value="${esc(caps[key])}"></td>
+    </tr>`).join("");
+  const landmarkGroups = [...new Set(Object.keys(policy)
+    .filter((key) => key.startsWith("volume.landmarks."))
+    .map((key) => key.split(".")[2]))].sort();
+  const landmarkRows = landmarkGroups.map((group) => {
+    const cells = ["mev", "mav_low", "mav_high", "mrv"].map((name) => {
+      const key = "volume.landmarks." + group + "." + name;
+      return `<td><input type="number" step="0.5" min="0" data-volume-policy="${esc(key)}"
+        data-kind="float" aria-label="${esc(group)} ${name}" value="${esc(policy[key] ?? 0)}"></td>`;
+    }).join("");
+    return `<tr><td><code>${esc(group)}</code></td>${cells}</tr>`;
+  }).join("");
+  const budgetValue = (key) => volumeNestedValue(budget, key);
+  const budgetField = (key, label, step = "0.01", min = "0", max = "") => `
+    <label>${esc(label)}<input type="number" step="${step}" min="${min}"${max ? ` max="${max}"` : ""}
+      data-volume-budget="${esc(key)}" value="${esc(budgetValue(key) ?? "")}"></label>`;
+  const policyInput = (key, label, kind, step = "1", min = "0") => `
+    <label>${esc(label)}<input type="number" step="${step}" min="${min}"
+      data-volume-policy="${esc(key)}" data-kind="${kind}" value="${esc(policy[key] ?? 0)}"></label>`;
+  const policyCheck = (key, label) => `
+    <label><input type="checkbox" data-volume-policy="${esc(key)}" data-kind="bool"
+      ${policy[key] ? "checked" : ""}> ${esc(label)}</label>`;
+  const policySelect = (key, label, choices) => `
+    <label>${esc(label)}<select data-volume-policy="${esc(key)}" data-kind="str">
+      ${choices.map((choice) => `<option value="${esc(choice)}"${policy[key] === choice ? " selected" : ""}>${esc(choice)}</option>`).join("")}
+    </select></label>`;
+  const athleteLine = "Budget " + (athlete.volume_budget_enabled ? "on" : "off")
+    + " · main-lift policy " + esc(athlete.main_lift_policy || "preserve")
+    + " · sessions/week " + esc(athlete.sessions_per_week_target ?? "—")
+    + " · max session " + esc(athlete.max_session_minutes ?? "—") + " min. "
+    + 'These athlete decisions stay in <a href="#state" data-view-link="state">State</a>.';
+  $("#settings-volume-athlete").innerHTML = athleteLine;
+  $("#settings-volume-warnings").innerHTML = (data.warnings || [])
+    .map((warning) => `<p class="warnbox">${esc(warning)}</p>`).join("");
+  $("#settings-volume-fields").innerHTML = `
+    <div class="panel" style="margin:0 0 10px">
+      <div class="panel-head"><h3>Targets and caps</h3><span class="muted">weekly and per session</span></div>
+      <div class="table-scroll"><table><thead><tr><th>movement group</th><th>weekly target</th>
+        <th>effective target</th></tr></thead><tbody>${targetRows}</tbody></table></div>
+      <p class="muted">Base total <strong id="settings-volume-total"></strong> ·
+        effective total <strong id="settings-volume-effective-total"></strong> ·
+        high band <strong id="settings-volume-high"></strong>
+        (totals are derived from the rows and tolerance).</p>
+      <div class="form-row">
+        ${budgetField("session_cap.total", "Session total cap", "1", "1")}
+        <span class="muted">Per-pattern cap sum: <code id="settings-volume-cap-sum"></code>
+          (diagnostic only; not the session cap)</span>
+        ${budgetField("tolerance", "Tolerance", "0.01", "0", "1")}
+        ${budgetField("band_min", "Band minimum", "0.5")}
+        ${budgetField("main_lift_floor", "Main-lift floor", "1", "1")}
+        ${budgetField("min_accessory_sets", "Accessory floor", "1", "1")}
+        ${budgetField("top_up_max_sets_per_item", "Top-up max", "1", "1")}
+      </div>
+      <div class="form-row">
+        <label><input type="checkbox" data-volume-budget="trim_enabled" ${budget.trim_enabled ? "checked" : ""}> Trim above target</label>
+        <label><input type="checkbox" data-volume-budget="top_up_enabled" ${budget.top_up_enabled ? "checked" : ""}> Top up below target</label>
+        ${budgetField("set_seconds", "Seconds per set", "1", "1")}
+        ${budgetField("warmup_estimate_minutes", "Warm-up allowance min", "1", "0")}
+        ${budgetField("session_time_cap_minutes", "Session time cap min", "1", "1")}
+      </div>
+      <details class="advanced"><summary>Per-pattern session caps</summary>
+        <div class="table-scroll"><table><thead><tr><th>movement group</th><th>cap</th></tr></thead>
+          <tbody>${capRows}</tbody></table></div>
+      </details>
+    </div>
+    <div class="panel" style="margin:0 0 10px">
+      <div class="panel-head"><h3>Volume policy</h3><span class="muted">ledger, MRV and under-MEV</span></div>
+      <div class="form-row">
+        ${policyCheck("volume.apply_mrv_cap", "Apply MRV cap")}
+        ${policySelect("volume.ledger.coverage", "Ledger coverage", ["unknown", "complete"])}
+        ${policySelect("volume.ledger.set_accounting", "Set accounting", ["hard", "effective"])}
+      </div>
+      <div class="form-row">
+        ${policyCheck("volume.under_mev.enabled", "Under-MEV progression")}
+        ${policyInput("volume.under_mev.weeks", "Under-MEV weeks", "int", "1", "1")}
+        ${policyInput("volume.under_mev.add_sets", "Under-MEV add sets", "int", "1", "1")}
+        ${policyInput("volume.under_mev.max_sets_per_item", "Under-MEV per-item max", "int", "1", "1")}
+      </div>
+      <details class="advanced"><summary>MEV / MAV / MRV landmarks</summary>
+        <div class="table-scroll"><table><thead><tr><th>group</th><th>MEV</th><th>MAV low</th>
+          <th>MAV high</th><th>MRV</th></tr></thead><tbody>${landmarkRows}</tbody></table></div>
+      </details>
+    </div>
+    <div class="panel" style="margin:0 0 10px">
+      <div class="panel-head"><h3>Drop / volume fill</h3><span class="muted">competition and technique branch</span></div>
+      <div class="form-row">
+        <label><input type="checkbox" data-volume-drop="enabled" ${drop.enabled ? "checked" : ""}> Enable drop</label>
+        <label>Competition confirm days<input type="number" min="0" max="28" step="1"
+          data-volume-drop="competition_confirm_days" value="${esc(drop.competition_confirm_days ?? 7)}"></label>
+        <label>Max slots/group<input type="number" min="1" max="4" step="1"
+          data-volume-drop="max_slots_per_group" value="${esc(drop.max_slots_per_group ?? 1)}"></label>
+        <label>Technique minutes<input type="number" min="1" max="120" step="1"
+          data-volume-drop="technique_minutes" value="${esc(drop.technique_minutes ?? 30)}"></label>
+      </div>
+      <details class="advanced"><summary>Drop candidate pool JSON</summary>
+        <label>Candidate pool<textarea id="settings-volume-drop-slots" rows="12" spellcheck="false"></textarea></label>
+      </details>
+    </div>
+    <div class="panel" style="margin:0 0 10px">
+      <div class="panel-head"><h3>Compensation</h3><span class="muted">advanced; cross-group simulation/application</span></div>
+      <div class="form-row">
+        <label><input type="checkbox" data-volume-comp="enabled" ${comp.enabled ? "checked" : ""}> Enable preview</label>
+        <label><input type="checkbox" data-volume-comp="apply" ${comp.apply ? "checked" : ""}> Apply compensation slot</label>
+        <label>Floor<input type="number" min="0" max="1" step="0.01" data-volume-comp="floor"
+          value="${esc(comp.floor ?? 0.1)}"></label>
+      </div>
+      <details class="advanced"><summary>Similarity and candidate slots JSON</summary>
+        <label>Similarity<textarea id="settings-volume-comp-similarity" rows="8" spellcheck="false"></textarea></label>
+        <label>Slots<textarea id="settings-volume-comp-slots" rows="14" spellcheck="false"></textarea></label>
+      </details>
+    </div>`;
+  $("#settings-volume-drop-slots").value = JSON.stringify(drop.slots || {}, null, 2);
+  $("#settings-volume-comp-similarity").value = JSON.stringify(comp.similarity || {}, null, 2);
+  $("#settings-volume-comp-slots").value = JSON.stringify(comp.slots || {}, null, 2);
+  const meta = $("#settings-volume-meta");
+  if (meta) {
+    meta.textContent = "source " + (data.source || "config") +
+      (profile.profile_id == null ? "" : " · profile " + profile.profile_id);
+    meta.className = "badge";
+  }
+  const effectiveInput = $("#settings-volume-effective");
+  if (effectiveInput && !effectiveInput.value) effectiveInput.value = today();
+  updateVolumeTotals();
+  document.querySelectorAll("#settings-volume-fields input, #settings-volume-fields select").forEach((node) => {
+    node.addEventListener("input", updateVolumeTotals);
+    node.addEventListener("change", updateVolumeTotals);
+  });
+}
+
+function volumeDraft() {
+  const data = window.__volumeSettings || {};
+  const current = data.budget || {};
+  const budget = JSON.parse(JSON.stringify(current));
+  budget.weekly_target = Object.fromEntries([...document.querySelectorAll("[data-volume-target]")]
+    .map((node) => [node.dataset.volumeTarget, Number(node.value)]));
+  budget.weekly_target_effective = Object.fromEntries([...document.querySelectorAll("[data-volume-effective]")]
+    .map((node) => [node.dataset.volumeEffective, Number(node.value)]));
+  budget.weekly_total = Object.values(budget.weekly_target).reduce((sum, value) => sum + value, 0);
+  budget.weekly_total_effective = Object.values(budget.weekly_target_effective)
+    .reduce((sum, value) => sum + value, 0);
+  budget.session_cap = {
+    total: Number(document.querySelector('[data-volume-budget="session_cap.total"]').value),
+    per_pattern: Object.fromEntries([...document.querySelectorAll("[data-volume-cap]")]
+      .map((node) => [node.dataset.volumeCap, Number(node.value)])),
+  };
+  document.querySelectorAll("[data-volume-budget]").forEach((node) => {
+    const key = node.dataset.volumeBudget;
+    if (key === "session_cap.total") return;
+    budget[key] = node.type === "checkbox" ? node.checked : Number(node.value);
+  });
+  budget.drop = { ...(current.drop || {}) };
+  document.querySelectorAll("[data-volume-drop]").forEach((node) => {
+    budget.drop[node.dataset.volumeDrop] = node.type === "checkbox" ? node.checked : Number(node.value);
+  });
+  budget.drop.slots = volumeJson($("#settings-volume-drop-slots").value, "Drop candidate pool");
+  budget.compensation = { ...(current.compensation || {}) };
+  document.querySelectorAll("[data-volume-comp]").forEach((node) => {
+    budget.compensation[node.dataset.volumeComp] = node.type === "checkbox" ? node.checked : Number(node.value);
+  });
+  budget.compensation.similarity = volumeJson(
+    $("#settings-volume-comp-similarity").value, "Compensation similarity"
+  );
+  budget.compensation.slots = volumeJson(
+    $("#settings-volume-comp-slots").value, "Compensation slots"
+  );
+  const budgetPatch = volumeDiff(current, budget) || {};
+  if (budgetPatch.weekly_target) budgetPatch.weekly_total = budget.weekly_total;
+  if (budgetPatch.weekly_target_effective) {
+    budgetPatch.weekly_total_effective = budget.weekly_total_effective;
+  }
+  const policy = {};
+  document.querySelectorAll("[data-volume-policy]").forEach((node) => {
+    policy[node.dataset.volumePolicy] = volumePolicyValue(node);
+  });
+  const policyPatch = {};
+  Object.entries(policy).forEach(([key, value]) => {
+    if (JSON.stringify(value) !== JSON.stringify((data.policy || {})[key])) {
+      policyPatch[key] = value;
+    }
+  });
+  return { budgetPatch, policyPatch };
+}
+
+async function saveVolumeSettings(event) {
+  event.preventDefault();
+  try {
+    const { budgetPatch, policyPatch } = volumeDraft();
+    if (!Object.keys(budgetPatch).length && !Object.keys(policyPatch).length) {
+      $("#settings-volume-msg").textContent = "No changes to save.";
+      return;
+    }
+    const reason = $("#settings-volume-reason").value.trim();
+    if (!reason) throw new Error("A reason is required for a volume settings change.");
+    const data = await api("/api/settings/volume", {
+      method: "POST",
+      body: JSON.stringify({
+        budget: budgetPatch,
+        policy: policyPatch,
+        effective_from: $("#settings-volume-effective").value || today(),
+        reason,
+        confirm_text: $("#settings-volume-confirm").value.trim(),
+      }),
+    });
+    renderVolumeSettings(data);
+    $("#settings-volume-reason").value = "";
+    $("#settings-volume-confirm").value = "";
+    $("#settings-volume-msg").textContent = "Saved a new profile version.";
+    notify("Volume settings saved.");
+    loadDropWindow();
+    loadOverview();
+  } catch (error) {
+    applyFieldErrors(error, $("#settings-volume-msg"), {
+      reason: "#settings-volume-reason",
+      confirm_text: "#settings-volume-confirm",
+      effective_from: "#settings-volume-effective",
+      budget: "#settings-volume-fields",
+      policy: "#settings-volume-fields",
+    });
+  }
+}
+
+$("#settings-volume-form").addEventListener("submit", saveVolumeSettings);
 
 function renderProfileSettings(registry, profile) {
   window.__profileSettings = profile || {};
@@ -3195,6 +3452,8 @@ function renderProfileSettings(registry, profile) {
   if (!fields) return;
   const groups = {};
   (registry || []).forEach((setting) => {
+    // Volume settings live in the consolidated Volume budget panel, not here.
+    if (setting.group === "Volume") return;
     (groups[setting.group] = groups[setting.group] || []).push(setting);
   });
   const resolved = window.__profileSettings.resolved || {};
@@ -3364,6 +3623,11 @@ async function loadSettings() {
     renderProfileSettings(data.registry || [], profile);
   } catch (error) {
     $("#settings-profile-msg").textContent = "Profile settings failed: " + error.message;
+  }
+  try {
+    renderVolumeSettings(await api("/api/settings/volume"));
+  } catch (error) {
+    $("#settings-volume-msg").textContent = "Volume settings failed: " + error.message;
   }
   try {
     const modalityData = await api("/api/modalities");

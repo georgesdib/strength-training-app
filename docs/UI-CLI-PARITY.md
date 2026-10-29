@@ -71,7 +71,7 @@ These are known and intentional or still open.
 | `test --status` standalone cadence | cadence shown in prescription notes | partial |
 | `symptom --show` raw history | UI shows injury signal/current tables | partial |
 | `volume --weeks/--date` | UI panel uses the default 4-week window | partial |
-| Volume budget | `volume --budget`; `state --volume-budget/--main-lift-policy`; `run --drop-confirm` | Prescribe **Volume budget** panel; Athlete profile fields; compensation preview/application; Settings **Drop / volume fill**; `GET/POST /api/settings/drop` | full |
+| Volume budget | `volume --budget`; `state --volume-budget/--main-lift-policy`; `run --drop-confirm` | Prescribe **Weekly volume** panel; Athlete profile fields; compensation preview/application; Settings **Volume budget**; `GET/POST /api/settings/volume` | full |
 | Settings profile (step 5) | `settings profile show/set/unset/reset --guard-confirm --reason` | Settings **Settings profile** editor; `GET/POST /api/settings/profile` | full |
 | Modalities (5b/5c) | `settings modalities list/show/set` with guard flags | Settings **Modules**; `GET/POST /api/modalities`; profile factor editor | full |
 | `exposure ratio` | Prescribe **Exposure ratio** panel (same `compute`) | full |

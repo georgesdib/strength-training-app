@@ -175,6 +175,57 @@ class BudgetConfig:
             return float(self.weekly_total_effective)
         return self.total_target()
 
+    def as_config_dict(self) -> dict[str, Any]:
+        """The YAML-shaped budget block, for a validated settings panel."""
+        return {
+            "enabled": self.enabled,
+            "weekly_total": self.weekly_total,
+            "weekly_target": {str(k): float(v) for k, v in self.weekly_target.items()},
+            "weekly_total_effective": self.weekly_total_effective,
+            "weekly_target_effective": {
+                str(k): float(v) for k, v in self.weekly_target_effective.items()
+            },
+            "main_lift_floor": self.main_lift_floor,
+            "trim_enabled": self.trim_enabled,
+            "top_up_enabled": self.top_up_enabled,
+            "session_cap": {
+                "total": self.session_cap_total,
+                "per_pattern": {
+                    str(k): int(v) for k, v in self.session_cap_pattern.items()
+                },
+            },
+            "tolerance": self.tolerance,
+            "band_min": self.band_min,
+            "min_accessory_sets": self.min_accessory_sets,
+            "top_up_max_sets_per_item": self.top_up_max_sets_per_item,
+            "set_seconds": self.set_seconds,
+            "warmup_estimate_minutes": self.warmup_estimate_minutes,
+            "session_time_cap_minutes": self.session_time_cap_minutes,
+            "compensation": {
+                "enabled": self.compensation_enabled,
+                "apply": self.compensation_apply,
+                "floor": self.compensation_floor,
+                "similarity": {
+                    str(group): {str(k): float(v) for k, v in row.items()}
+                    for group, row in self.compensation_similarity.items()
+                },
+                "slots": {
+                    str(session): [dict(entry) for entry in entries]
+                    for session, entries in self.compensation_slots.items()
+                },
+            },
+            "drop": {
+                "enabled": self.drop_enabled,
+                "competition_confirm_days": self.drop_competition_confirm_days,
+                "max_slots_per_group": self.drop_max_slots_per_group,
+                "technique_minutes": self.drop_technique_minutes,
+                "slots": {
+                    str(group): [dict(entry) for entry in entries]
+                    for group, entries in self.drop_slots.items()
+                },
+            },
+        }
+
     @classmethod
     def load(
         cls, path: str | Path | None = None, *,

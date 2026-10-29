@@ -938,32 +938,23 @@
         <p class="muted">These only pre-fill the Prescribe page; they do not change the engine.</p>
       </div>
 
-      <div class="panel">
-        <div class="panel-head"><h2>Drop / volume fill</h2><span class="muted">local config overlay</span></div>
-        <p class="section-help"><span>9c drop policy and candidate pool; saved in config/volume.local.yaml.</span> <a class="doc-link" href="#docs?doc=docs/VOLUME-MODULATION-PLAN.md">Volume plan</a></p>
-        <form id="settings-drop-form">
+      <div class="panel" id="settings-volume-panel">
+        <div class="panel-head"><h2>Volume budget</h2>
+          <span class="badge" id="settings-volume-meta">loading…</span></div>
+        <p class="section-help"><span>Weekly targets, session caps, floors, volume policy, drop and compensation. Saves append a settings-profile version.</span> <a class="doc-link" href="#docs?doc=docs/VOLUME-BUDGET.md">Volume budget guide</a></p>
+        <p class="muted" id="settings-volume-athlete"></p>
+        <div id="settings-volume-warnings"></div>
+        <form id="settings-volume-form">
+          <div id="settings-volume-fields"></div>
           <div class="form-row">
-            <label><input type="checkbox" id="settings-drop-enabled"> Enable drop</label>
-            <label>Competition confirm days <input type="number" min="0" max="28" id="settings-drop-days"></label>
-            <label>Max slots/group <input type="number" min="1" max="4" id="settings-drop-max"></label>
-            <label>Technique minutes <input type="number" min="1" max="120" id="settings-drop-technique"></label>
-            <label>Tolerance <input type="number" min="0" max="1" step="0.01" id="settings-drop-tolerance"></label>
-            <span class="muted">High band <code id="settings-drop-high">—</code></span>
+            <label>Effective from <input type="date" id="settings-volume-effective"></label>
+            <label class="grow">Reason <input id="settings-volume-reason" placeholder="required"></label>
+            <label>Type VOLUME <input id="settings-volume-confirm" placeholder="required for targets/caps/landmarks" autocomplete="off"></label>
+            <button class="primary" type="submit">Save volume settings</button>
+            <span class="muted" id="settings-volume-msg" role="status" aria-live="polite"></span>
           </div>
-          <details class="advanced">
-            <summary>Candidate pool (advanced JSON, keyed by movement group)</summary>
-            <label>Candidate pool JSON
-              <textarea id="settings-drop-slots" rows="12" spellcheck="false"></textarea>
-            </label>
-          </details>
-          <div class="form-row">
-            <button class="primary" type="submit">Save drop settings</button>
-            <span class="muted" id="settings-drop-msg"></span>
-          </div>
+          <p class="muted">A reason is always required. Changing weekly targets, session caps, the MRV cap or landmarks also requires typing <code>VOLUME</code>. The server validates the whole object before writing and never edits an old profile version.</p>
         </form>
-        <p class="muted">The high band is derived from the total target and tolerance, not a
-          separate value. Candidate pools need a real exercise id, sets, reps, RIR, rest and
-          load source; the server validates before writing.</p>
       </div>
 
       <div class="panel">
@@ -986,8 +977,9 @@
         </div>
         <div id="settings-profile-diff" class="muted">No changes.</div>
         <p class="muted" id="settings-profile-msg"></p>
-        <p class="muted">Guarded values are the MRV cap and the spinal cap/costs. They require the
-          confirmation tick, the typed word and a reason; the server rejects otherwise.</p>
+        <p class="muted">Guarded values here are the spinal cap and costs. They require the
+          confirmation tick, the typed word and a reason; the server rejects otherwise. Volume
+          budget values, including the MRV cap and landmarks, live in the Volume budget panel.</p>
       </div>
 
       <div class="panel">

@@ -274,6 +274,7 @@ personal training values from screenshots or pasted logs before sharing.
 - [Readiness score](docs/READINESS-SCORE.md) — score inputs, assumptions and limitations.
 - [Injury signal](docs/INJURY-SIGNAL.md) — symptom signal design and caveats.
 - [Volume management](docs/VOLUME-MANAGEMENT.md) — volume landmarks, MRV cap and limitations.
+- [Volume budget guide](docs/VOLUME-BUDGET.md) — how to use the consolidated Volume budget settings panel.
 - [Data schema](data/README.md) — import file format.
 - [Privacy](docs/PRIVACY.md) — handling private data.
 

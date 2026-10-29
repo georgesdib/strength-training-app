@@ -193,9 +193,11 @@ also disables while saving and reports the number of marks written.
 | `GET /api/prospective?weeks=N&date=N` | W5 read-only prospective summary: statuses, attendance, work, RIR, duration, flags |
 | `GET /api/regime?weeks=N&date=N` | read-only main-lift/substitute regime check |
 | `GET /api/settings` | masked LLM settings, drop settings, config/database paths and app version |
+| `GET /api/settings/volume?date=N` | consolidated volume panel: effective budget, volume policy, landmarks, athlete-level values, profile source and local-overlay warning |
+| `POST /api/settings/volume` | validate and append a settings-profile version for volume budget/policy; requires reason and typed VOLUME for target/cap/MRV/landmark changes |
 | `GET /api/settings/drop/window?date=N` | whether per-session drop confirmation applies on that date; the Prescribe checkbox is hidden when false |
 | `POST /api/settings/llm` | save local LLM settings; blank key keeps the stored key |
-| `POST /api/settings/drop` | save drop policy/candidate pool to the local `config/volume.local.yaml` overlay |
+| `POST /api/settings/drop` | legacy drop-only save path; the consolidated volume panel uses `/api/settings/volume` |
 | `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset, effective_from, guard_confirmed and reason |
 | `GET /api/modalities` | module list with class, enabled source, dependencies, citations and factors |
 | `GET/POST /api/modalities/<id>` | module state or enabled/factor update; guarded modules need guard_confirmed and reason |

@@ -22,7 +22,8 @@ declared in constitution 1.16.0; it only runs when the athlete profile enables i
 document yet (`DEC-VOLUME-06`, `DEC-VOLUME-07`).
 
 Related: [FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md),
-Q26 in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), LIM-51 in [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md).
+operator guide [VOLUME-BUDGET.md](VOLUME-BUDGET.md), Q26 in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md),
+LIM-51 in [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md).
 
 ---
 
@@ -536,7 +537,10 @@ The drop decision is made at the start of a session, from the remaining week, no
   `drop_confirmed` field and the Prescribe checkbox; it applies to both `volume_fill` and
   `technique` and is recorded in the prescription notes. The Prescribe checkbox is shown only
   when the budget and drop policy are active and the selected date is inside the configured
-  competition window; outside it the control is hidden rather than inert.
+  competition window; outside it the control is hidden rather than inert. The drop controls,
+  volume policy and budget targets now live in one Settings **Volume budget** panel backed by
+  `GET/POST /api/settings/volume`; see the operator guide [VOLUME-BUDGET.md](VOLUME-BUDGET.md).
+  The older `/api/settings/drop` endpoint remains as a compatibility path.
 
 **Activation and safety**
 - Only when the budget is enabled and `main_lift_policy: drop` is selected; `preserve`/`reduce`

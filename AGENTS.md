@@ -214,6 +214,7 @@ never read `data/raw`.
 | `docs/FORM-USE-EVIDENCE.md` | form evidence review, retrospective association and allowed uses |
 | `docs/FREQUENCY-AND-VOLUME.md` | reproduced `programme --sessions-per-week` behaviour, existing volume rules, evidence and the closed Q26 dates-only decision |
 | `docs/VOLUME-MODULATION-PLAN.md` | implemented and closed weekly target/session cap volume budget, exemptions, effective accounting and modality layer |
+| `docs/VOLUME-BUDGET.md` | operator guide to the consolidated Volume budget panel: targets, caps, floors, policy, drop, compensation, profile storage and validation |
 | `docs/FORM-ASSESSMENT.md` | optional per-lift 1-5 form assessment; Workout/History and rubric 1.2.0 |
 | `docs/REGIME-CHANGE.md` | read-only main-lift/substitute regime check; thresholds and limits |
 | `docs/AUDIT-CLOSEOUT.md` | final W0–W12 audit outcome, implemented fixes and remaining limitations |
