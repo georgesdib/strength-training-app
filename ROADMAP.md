@@ -665,6 +665,13 @@ computed in the browser.
 audit are consolidated in [`docs/UI-IMPROVEMENT-PLAN.md`](docs/UI-IMPROVEMENT-PLAN.md); closed
 2026-10-27 (implemented and merged into `main`; merge `db1cc8f`, lint `49a49cd`).
 
+**Mobile UI audit (2026-10-28):** the consolidated iPhone/form-control audit lives in
+[`docs/UI-MOBILE-AUDIT.md`](docs/UI-MOBILE-AUDIT.md). Checkpoints 1–4 fixed the P0 contract
+failures, canonical athlete/exercise choices, the active-workout/readiness presentation, mobile
+cards, searchable pickers, touch/dialog/safe-area rules and the accessibility/field-error gaps.
+The owner completed the native-iPhone pass and the full automated suite is green; the audit is
+closed.
+
 **Deferred UI follow-ups (not scheduled).** The plan's O1–O10 are kept here so they are not
 lost; details and evidence live in the plan's §14:
 

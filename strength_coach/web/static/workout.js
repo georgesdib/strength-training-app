@@ -19,10 +19,7 @@ function workoutField(key, required) {
     return label + '<input type="number" step="0.1" data-workout-field="' + key + '"' +
       (required ? ' required' : '') + '></label>';
   }
-  var options = '<option value="">—</option>';
-  [1, 2, 3, 4, 5].forEach(function (n) {
-    options += '<option value="' + n + '">' + n + '</option>';
-  });
+  var options = readinessScaleOptions(key);
   return label + '<select data-workout-field="' + key + '"' +
     (required ? ' required' : '') + '>' + options + '</select></label>';
 }
@@ -138,6 +135,13 @@ function stopWorkoutTimer() {
 
 let workoutExerciseList = [];
 
+function workoutExerciseLabel(exerciseId) {
+  var match = workoutExerciseList.find(function (item) {
+    return String(item.id || item.exercise_id) === String(exerciseId);
+  });
+  return match ? (match.display || match.id || exerciseId) : exerciseId;
+}
+
 function workoutExerciseOptions(selected) {
   return '<option value="">choose…</option>' + workoutExerciseList.map(function (item) {
     var id = item.id || item.exercise_id;
@@ -147,6 +151,65 @@ function workoutExerciseOptions(selected) {
   }).join("");
 }
 
+function numericOrNull(selector) {
+  var value = $(selector).value;
+  return value === "" ? null : Number(value);
+}
+
+function workoutPlanItem(exerciseId) {
+  var data = window.__workoutData || {};
+  var items = (data.plan && data.plan.items) || [];
+  return items.find(function (item) { return String(item.exercise_id) === String(exerciseId); }) || null;
+}
+
+function nextWorkoutSetNumber(exerciseId) {
+  var data = window.__workoutData || {};
+  var used = (data.sets || []).filter(function (set) {
+    return String(set.exercise_id) === String(exerciseId);
+  });
+  return used.reduce(function (max, set) {
+    return Math.max(max, Number(set.set_index) || 0);
+  }, 0) + 1;
+}
+
+function updateWorkoutSetTarget() {
+  var target = document.getElementById("workout-set-target");
+  if (!target) return;
+  var exerciseId = $("#workout-set-exercise").value;
+  var item = workoutPlanItem(exerciseId);
+  if (!exerciseId) {
+    target.textContent = "Choose an exercise to see the planned target.";
+    return;
+  }
+  if (!item) {
+    target.textContent = "This exercise is not in the current plan; log it anyway if intended.";
+    return;
+  }
+  var effort = item.effort_model === "quality"
+    ? (item.quality_stop || "quality stop")
+    : (item.rir_target == null ? "no RIR target" : "RIR " + item.rir_target);
+  target.innerHTML = "Planned <strong>" + esc(item.sets) + " × " + esc(item.reps_low) +
+    "–" + esc(item.reps_high) + " @ " + (item.load_kg == null ? "load unknown" : fmt(item.load_kg) + " kg") +
+    "</strong>, " + esc(effort) + ". Logging set <strong>" +
+    nextWorkoutSetNumber(exerciseId) + "</strong>.";
+}
+
+function prefillWorkoutSetFields(force) {
+  var item = workoutPlanItem($("#workout-set-exercise").value);
+  if (!item) return;
+  if (force || $("#workout-set-load").value === "") {
+    $("#workout-set-load").value = item.load_kg == null ? "" : item.load_kg;
+  }
+  if (force || $("#workout-set-reps").value === "") {
+    $("#workout-set-reps").value = item.reps_low == null ? "" : item.reps_low;
+  }
+  if (force || $("#workout-set-rir").value === "") {
+    $("#workout-set-rir").value = item.effort_model === "quality" || item.rir_target == null
+      ? "" : item.rir_target;
+  }
+  if (force) $("#workout-set-velocity").value = "";
+}
+
 function loadWorkoutExercises() {
   if (workoutExerciseList.length) return Promise.resolve(workoutExerciseList);
   return api("/api/exercises").then(function (list) {
@@ -154,6 +217,35 @@ function loadWorkoutExercises() {
     if (activeWorkoutId) loadActiveWorkout();
     return workoutExerciseList;
   }).catch(function () { return []; });
+}
+
+function openWorkoutSwapDialog(index) {
+  var data = window.__workoutData || {};
+  var item = ((data.plan && data.plan.items) || [])[index];
+  if (!item) return;
+  window.__workoutSwapIndex = index;
+  $("#workout-swap-current").textContent = workoutExerciseLabel(item.exercise_id);
+  $("#workout-swap-exercise").innerHTML = workoutExerciseOptions("");
+  var filter = $("#workout-swap-filter");
+  filter.value = "";
+  filterNativeSelect(filter);
+  $("#workout-swap-msg").textContent = "";
+  $("#workout-swap-dialog").showModal();
+  filter.focus();
+}
+
+function submitWorkoutSwap(event) {
+  event.preventDefault();
+  var exerciseId = $("#workout-swap-exercise").value;
+  var index = window.__workoutSwapIndex;
+  if (!exerciseId) {
+    $("#workout-swap-msg").textContent = "Choose a replacement exercise.";
+    $("#workout-swap-exercise").focus();
+    return;
+  }
+  $("#workout-swap-dialog").close();
+  window.__workoutSwapIndex = null;
+  planAction("swap", { item_index: Number(index), exercise_id: exerciseId });
 }
 
 function planAction(action, body) {
@@ -204,12 +296,12 @@ function renderImportPreview(preview) {
   $("#workout-import-preview-area").innerHTML =
     (errors ? '<div class="warnbox"><strong>Errors</strong><ul class="list">' + errors + "</ul></div>" : "") +
     (warnings ? '<div class="warnbox"><strong>Warnings</strong><ul class="list">' + warnings + "</ul></div>" : "") +
-    (rows ? "<table><thead><tr><th>line</th><th>exercise</th><th>canonical</th><th>set</th>" +
+    (rows ? "<div class='table-scroll'><table><thead><tr><th>line</th><th>exercise</th><th>canonical</th><th>set</th>" +
       "<th>RPE</th><th>RIR</th><th>kg</th><th>reps</th><th>m/s</th><th>manual → import</th></tr></thead><tbody>" +
-      rows + "</tbody></table>" : "<p class='empty'>No rows parsed.</p>") +
-    (repRows ? "<h4>Per-rep detail</h4><table><thead><tr><th>exercise</th><th>set</th>" +
+      rows + "</tbody></table></div>" : "<p class='empty'>No rows parsed.</p>") +
+    (repRows ? "<h4>Per-rep detail</h4><div class='table-scroll'><table><thead><tr><th>exercise</th><th>set</th>" +
       "<th>mean</th><th>reps</th><th>first → last</th></tr></thead><tbody>" +
-      repRows + "</tbody></table>" : "");
+      repRows + "</tbody></table></div>" : "");
 }
 
 function submitImport(apply) {
@@ -259,10 +351,10 @@ function saveWorkoutSetEdit() {
     method: "POST",
     body: JSON.stringify({
       set_id: Number(window.__editingSetId),
-      load_kg: $("#workout-edit-load").value || null,
-      reps: $("#workout-edit-reps").value || null,
-      rir: $("#workout-edit-rir").value || null,
-      velocity: $("#workout-edit-velocity").value || null
+      load_kg: numericOrNull("#workout-edit-load"),
+      reps: numericOrNull("#workout-edit-reps"),
+      rir: numericOrNull("#workout-edit-rir"),
+      velocity: numericOrNull("#workout-edit-velocity")
     })
   }).then(function (data) {
     $("#workout-set-edit").hidden = true;
@@ -270,7 +362,12 @@ function saveWorkoutSetEdit() {
     notify("Set updated.");
     renderWorkout(data.workout);
   }).catch(function (error) {
-    $("#workout-set-edit-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>";
+    applyFieldErrors(error, $("#workout-set-edit-msg"), {
+      load_kg: "#workout-edit-load",
+      reps: "#workout-edit-reps",
+      rir: "#workout-edit-rir",
+      velocity: "#workout-edit-velocity",
+    });
   });
 }
 
@@ -302,35 +399,46 @@ function renderWorkout(w) {
       formOptions.push('<option value="' + rating + '"' +
         (form && Number(form.rating) === rating ? " selected" : "") + ">" + rating + "</option>");
     }
-    return "<tr><td><strong>" + esc(item.exercise_id) + "</strong>" +
-      (item.effort_model === "quality" && item.quality_stop
-        ? '<div class="muted">' + esc(item.quality_stop) + "</div>" : "") +
-      (item.substitution_for ? '<div class="muted">swapped from ' + esc(item.substitution_for) + "</div>" : "") +
-      (item.added_during_workout ? '<div class="muted">added during workout</div>' : "") +
-      '</td><td><button class="ghost" type="button" data-plan-set="-1" data-index="' +
-      index + '">−</button> ' + item.sets +
-      ' <button class="ghost" type="button" data-plan-set="1" data-index="' + index + '">+</button></td><td>' +
-      item.reps_low + "–" + item.reps_high + "</td><td>" + fmt(item.load_kg) +
-      "</td><td>" + (item.effort_model === "quality" ? "quality" :
-        (item.rir_target == null ? "—" : item.rir_target)) + "</td><td>" +
-      '<select data-form-exercise="' + esc(item.exercise_id) + '">' + formOptions.join("") + "</select></td><td>" +
-      '<select data-swap-select="' + index + '">' + workoutExerciseOptions("") + "</select>" +
-      ' <button class="ghost" type="button" data-swap-index="' + index + '">Swap</button></td><td>' +
-      '<button class="ghost" type="button" data-remove-item="' + index + '">Remove</button></td></tr>';
+    var effort = item.effort_model === "quality"
+      ? (item.quality_stop || "quality stop")
+      : (item.rir_target == null ? "no RIR target" : "RIR " + item.rir_target);
+    return '<article class="workout-plan-card">' +
+      '<div class="workout-plan-card-head"><strong>' + esc(workoutExerciseLabel(item.exercise_id)) + '</strong>' +
+      '<span class="badge">' + item.sets + ' sets</span></div>' +
+      '<p class="workout-plan-prescription">' + item.reps_low + "–" + item.reps_high +
+      ' reps · ' + (item.load_kg == null ? "load unknown" : fmt(item.load_kg) + " kg") +
+      ' · ' + esc(effort) + '</p>' +
+      (item.substitution_for ? '<p class="muted">swapped from ' + esc(item.substitution_for) + '</p>' : "") +
+      (item.added_during_workout ? '<p class="muted">added during workout</p>' : "") +
+      '<div class="workout-plan-actions">' +
+      '<div class="set-stepper" role="group" aria-label="Planned sets for ' + esc(item.exercise_id) + '">' +
+      '<button class="ghost" type="button" data-plan-set="-1" data-index="' + index +
+      '" aria-label="Remove one planned set">−</button><span>' + item.sets + '</span>' +
+      '<button class="ghost" type="button" data-plan-set="1" data-index="' + index +
+      '" aria-label="Add one planned set">+</button></div>' +
+      '<label class="inline-field">Form ' +
+      '<select data-form-exercise="' + esc(item.exercise_id) + '" aria-label="Form rating for ' +
+      esc(item.exercise_id) + '">' + formOptions.join("") + '</select></label>' +
+      '</div>' +
+      '<details class="plan-options"><summary>Swap or remove</summary>' +
+      '<button class="ghost" type="button" aria-label="Swap ' + esc(item.exercise_id) +
+      '" data-swap-open="' + index + '">Swap exercise</button> ' +
+      '<button class="ghost danger" type="button" aria-label="Remove ' + esc(item.exercise_id) + ' from plan" data-remove-item="' + index + '">Remove from plan</button>' +
+      '</details></article>';
   }).join("");
-  $("#workout-plan").innerHTML = "<p class='muted'>This is the editable workout plan; the original prescription is kept separately.</p>" +
-    "<table><thead><tr><th>Planned</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th>" +
-    "<th>Form</th><th>Swap</th><th></th></tr></thead><tbody>" + rows + "</tbody></table>" +
-    '<details><summary class="muted">Form scale (optional)</summary><p class="muted">5 = intended technique on every rep; 4 = minor deviation, no compromised rep; 3 = clear deviation in at least one rep; 2 = multiple compromised reps or a noticeably altered rep; 1 = technique broke down / set stopped. Rate after the lift, per exercise.</p></details>' +
-    '<div class="form-row" style="margin-top:0.75rem">' +
-    '<label>Add exercise <select id="workout-add-exercise">' + workoutExerciseOptions("") + "</select></label>" +
+  $("#workout-plan").innerHTML = '<div id="workout-plan-msg" role="status" aria-live="polite"></div>' +
+    (rows || "<p class='empty'>No planned exercises.</p>") +
+    '<details class="advanced"><summary>Form scale (optional)</summary><p class="muted">5 = intended technique on every rep; 4 = minor deviation, no compromised rep; 3 = clear deviation in at least one rep; 2 = multiple compromised reps or a noticeably altered rep; 1 = technique broke down / set stopped. Rate after the lift, per exercise.</p></details>' +
+    '<details class="advanced"><summary>Add an exercise to the plan</summary><div class="form-row">' +
+    '<label>Add exercise <span class="search-select">' +
+    '<input type="search" class="search-select-filter" placeholder="Filter exercises…" aria-label="Filter exercise list">' +
+    '<select id="workout-add-exercise" aria-label="Exercise to add">' + workoutExerciseOptions("") + "</select></span></label>" +
     '<label>Sets <input id="workout-add-sets" type="number" min="1" max="20" value="3"></label>' +
     '<label>Reps low <input id="workout-add-reps-low" type="number" min="1" max="50" value="8"></label>' +
     '<label>Reps high <input id="workout-add-reps-high" type="number" min="1" max="50" value="12"></label>' +
     '<label>kg <input id="workout-add-load" type="number" step="0.5"></label>' +
-    '<label>RIR <input id="workout-add-rir" type="number" min="0" max="10" value="2"></label>' +
-    '<button class="ghost" type="button" id="workout-add-exercise-run">Add to plan</button></div>' +
-    '<div id="workout-plan-msg"></div>';
+    '<label>RIR <input id="workout-add-rir" type="number" min="0" max="6" value="2"></label>' +
+    '<button class="ghost" type="button" id="workout-add-exercise-run">Add to plan</button></div></details>';
   document.querySelectorAll("[data-form-exercise]").forEach(function (select) {
     select.addEventListener("change", function () {
       if (!select.value || !activeWorkoutId) return;
@@ -352,18 +460,15 @@ function renderWorkout(w) {
   });
   document.querySelectorAll("[data-remove-item]").forEach(function (button) {
     button.addEventListener("click", function () {
+      var item = items[Number(button.dataset.removeItem)];
+      var name = item ? workoutExerciseLabel(item.exercise_id) : "this exercise";
+      if (!window.confirm("Remove " + name + " from the workout plan? The original prescription stays.")) return;
       planAction("remove-exercise", { item_index: Number(button.dataset.removeItem) });
     });
   });
-  document.querySelectorAll("[data-swap-index]").forEach(function (button) {
+  document.querySelectorAll("[data-swap-open]").forEach(function (button) {
     button.addEventListener("click", function () {
-      var index = Number(button.dataset.swapIndex);
-      var select = document.querySelector('[data-swap-select="' + index + '"]');
-      if (!select || !select.value) {
-        $("#workout-plan-msg").textContent = "Choose an exercise to swap to.";
-        return;
-      }
-      planAction("swap", { item_index: index, exercise_id: select.value });
+      openWorkoutSwapDialog(Number(button.dataset.swapOpen));
     });
   });
   var add = document.getElementById("workout-add-exercise-run");
@@ -382,27 +487,47 @@ function renderWorkout(w) {
 
   var seen = {};
   var options = "";
+  var previousExercise = $("#workout-set-exercise").value;
   items.forEach(function (item) {
     if (seen[item.exercise_id]) return;
     seen[item.exercise_id] = true;
     options += '<option value="' + esc(item.exercise_id) + '">' + esc(item.exercise_id) + "</option>";
   });
   $("#workout-set-exercise").innerHTML = options;
+  var desired = previousExercise || (items[0] && items[0].exercise_id) || "";
+  $("#workout-set-exercise").value = desired;
+  if (!$("#workout-set-exercise").value) {
+    $("#workout-set-exercise").selectedIndex = 0;
+  }
+  var keptSelection = Boolean(
+    previousExercise && $("#workout-set-exercise").value === previousExercise
+  );
+  $("#workout-set-exercise").addEventListener("change", function () {
+    prefillWorkoutSetFields(true);
+    updateWorkoutSetTarget();
+  });
 
   var setRows = (w.sets || []).map(function (set) {
-    return "<tr><td>" + esc(set.exercise_id) + "</td><td>" + set.set_index + "</td><td>" +
-      fmt(set.load_kg) + "</td><td>" + (set.reps == null ? "—" : set.reps) + "</td><td>" +
-      (set.rir == null ? "—" : set.rir) + "</td><td>" +
-      (set.velocity == null ? "—" : set.velocity) +
-      (set.rep_summary ? '<div class="muted">loss ' + set.rep_summary.loss_pct + '%</div>' : "") + "</td><td>" +
-      '<button class="ghost" type="button" data-edit-set="' + set.set_id + '">Edit</button> ' +
-      '<button class="ghost" type="button" data-remove-set="' + set.set_id + '">Remove</button>' +
-      "</td></tr>";
+    return '<article class="workout-set-card"><div class="workout-set-card-head">' +
+      '<strong>' + esc(workoutExerciseLabel(set.exercise_id)) + '</strong><span class="badge">Set ' +
+      set.set_index + '</span></div><p class="workout-set-values">' +
+      (set.load_kg == null ? "load —" : fmt(set.load_kg) + " kg") + " · " +
+      (set.reps == null ? "reps —" : set.reps + " reps") + " · RIR " +
+      (set.rir == null ? "—" : set.rir) +
+      (set.velocity == null ? "" : " · " + set.velocity + " m/s") +
+      (set.rep_summary ? " · loss " + set.rep_summary.loss_pct + "%" : "") +
+      '</p><div class="workout-set-actions">' +
+      '<button class="ghost" type="button" aria-label="Edit ' + esc(workoutExerciseLabel(set.exercise_id)) +
+      ' set ' + set.set_index + '" data-edit-set="' + set.set_id + '">Edit</button> ' +
+      '<button class="ghost danger" type="button" aria-label="Remove ' + esc(workoutExerciseLabel(set.exercise_id)) +
+      ' set ' + set.set_index + '" data-remove-set="' + set.set_id + '">Remove</button>' +
+      '</div></article>';
   }).join("");
   $("#workout-sets").innerHTML = setRows
-    ? "<table><thead><tr><th>Exercise</th><th>Set</th><th>kg</th><th>Reps</th><th>RIR</th>" +
-      "<th>Velocity</th><th></th></tr></thead><tbody>" + setRows + "</tbody></table>"
+    ? '<div class="workout-set-list">' + setRows + '</div>'
     : "<p class='empty'>No sets logged yet.</p>";
+  updateWorkoutSetTarget();
+  prefillWorkoutSetFields(!keptSelection);
   document.querySelectorAll("[data-remove-set]").forEach(function (button) {
     button.addEventListener("click", function () { removeWorkoutSet(button.dataset.removeSet); });
   });
@@ -462,9 +587,9 @@ function renderWorkoutEnded(w) {
       summary.loss_abs + " (" + summary.loss_pct + "%)</td></tr>";
   }).join("");
   var repBlock = repRows
-    ? "<h3>Per-rep velocity</h3><table><thead><tr><th>Exercise</th><th>Set</th><th>Reps</th>" +
+    ? "<h3>Per-rep velocity</h3><div class='table-scroll'><table><thead><tr><th>Exercise</th><th>Set</th><th>Reps</th>" +
       "<th>First</th><th>Last</th><th>Loss</th></tr></thead><tbody>" + repRows +
-      "</tbody></table><p class=\"muted\">Descriptive only; no prescription or autoregulation reads this.</p>"
+      "</tbody></table></div><p class=\"muted\">Descriptive only; no prescription or autoregulation reads this.</p>"
     : "";
   var extra = comparison.extra.length
     ? "<p class='muted'>Extra sets: " + comparison.extra.map(function (row) {
@@ -479,7 +604,8 @@ function renderWorkoutEnded(w) {
   postSource.forEach(function (item) {
     if (seenPost[item.exercise_id]) return;
     seenPost[item.exercise_id] = true;
-    postOptions += '<option value="' + esc(item.exercise_id) + '">' + esc(item.exercise_id) + "</option>";
+    postOptions += '<option value="' + esc(item.exercise_id) + '">' +
+      esc(workoutExerciseLabel(item.exercise_id)) + "</option>";
   });
   var postBlock = postOptions
     ? '<div class="panel" id="post-e1rm-panel" style="margin-top:1rem">' +
@@ -503,13 +629,13 @@ function renderWorkoutEnded(w) {
     fmt(w.duration_min) + " min</strong> (" + esc(w.duration_source || "measured") +
     "), session RPE <strong>" + rpe + "</strong>.</p>" +
     minimumLine +
-    "<table><thead><tr><th>Exercise</th><th>Status</th><th>Sets actual / planned</th>" +
-    "<th>Reps</th><th>kg</th><th>RIR</th></tr></thead><tbody>" + compRows + "</tbody></table>" +
+    "<div class='table-scroll'><table><thead><tr><th>Exercise</th><th>Status</th><th>Sets actual / planned</th>" +
+    "<th>Reps</th><th>kg</th><th>RIR</th></tr></thead><tbody>" + compRows + "</tbody></table></div>" +
     extra +
     repBlock +
     (w.plan_modified
-      ? '<h3>Original prescription</h3><table><thead><tr><th>Exercise</th><th>Status</th>' +
-        '<th>Actual / planned sets</th></tr></thead><tbody>' + origRows + '</tbody></table>' +
+      ? '<h3>Original prescription</h3><div class="table-scroll"><table><thead><tr><th>Exercise</th><th>Status</th>' +
+        '<th>Actual / planned sets</th></tr></thead><tbody>' + origRows + '</tbody></table></div>' +
         '<p class="muted">The table above compares against the modified workout plan; this table compares against the original prescription.</p>'
       : "") +
     postBlock +
@@ -588,6 +714,12 @@ function loadActiveWorkout() {
 
 function removeWorkoutSet(setId) {
   if (!activeWorkoutId) return;
+  var data = window.__workoutData || {};
+  var set = (data.sets || []).find(function (item) {
+    return String(item.set_id) === String(setId);
+  });
+  var label = set ? workoutExerciseLabel(set.exercise_id) + " set " + set.set_index : "this set";
+  if (!window.confirm("Remove " + label + "? This records a removal event.")) return;
   api("/api/workout/" + activeWorkoutId + "/remove-set", {
     method: "POST", body: JSON.stringify({ set_id: setId })
   }).then(function (data) {
@@ -601,21 +733,28 @@ function removeWorkoutSet(setId) {
 function submitWorkoutSet(event) {
   event.preventDefault();
   if (!activeWorkoutId || workoutSetBusy) return;
-  var data = window.__workoutData || {};
   var exerciseId = $("#workout-set-exercise").value;
-  var used = (data.sets || []).filter(function (set) {
-    return set.exercise_id === exerciseId;
-  });
-  var next = used.reduce(function (max, set) {
-    return Math.max(max, Number(set.set_index) || 0);
-  }, 0) + 1;
+  if (!exerciseId) {
+    $("#workout-set-msg").textContent = "Choose an exercise first.";
+    $("#workout-set-exercise").setAttribute("aria-invalid", "true");
+    $("#workout-set-exercise").focus();
+    return;
+  }
+  $("#workout-set-exercise").removeAttribute("aria-invalid");
+  if ($("#workout-set-reps").value === "") {
+    $("#workout-set-msg").textContent = "Enter reps (or seconds for a timed movement).";
+    $("#workout-set-reps").setAttribute("aria-invalid", "true");
+    $("#workout-set-reps").focus();
+    return;
+  }
+  $("#workout-set-reps").removeAttribute("aria-invalid");
   var body = {
     exercise_id: exerciseId,
-    load_kg: $("#workout-set-load").value || null,
-    reps: $("#workout-set-reps").value || null,
-    rir: $("#workout-set-rir").value || null,
-    velocity: $("#workout-set-velocity").value || null,
-    set_index: next
+    load_kg: numericOrNull("#workout-set-load"),
+    reps: numericOrNull("#workout-set-reps"),
+    rir: numericOrNull("#workout-set-rir"),
+    velocity: numericOrNull("#workout-set-velocity"),
+    set_index: nextWorkoutSetNumber(exerciseId)
   };
   workoutSetBusy = true;
   var submit = document.querySelector('#workout-set-form button[type="submit"]');
@@ -625,14 +764,19 @@ function submitWorkoutSet(event) {
     method: "POST", body: JSON.stringify(body)
   }).then(function (data) {
     $("#workout-set-msg").textContent = "";
-    $("#workout-set-load").value = "";
-    $("#workout-set-reps").value = "";
-    $("#workout-set-rir").value = "";
+    // Keep the exercise and the last set's values for the next set; the athlete can edit
+    // any field or add a deliberate different set. Only velocity is optional per set.
     $("#workout-set-velocity").value = "";
     notify("Set added.");
     renderWorkout(data.workout);
   }).catch(function (error) {
-    $("#workout-set-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>";
+    applyFieldErrors(error, $("#workout-set-msg"), {
+      exercise_id: "#workout-set-exercise",
+      load_kg: "#workout-set-load",
+      reps: "#workout-set-reps",
+      rir: "#workout-set-rir",
+      velocity: "#workout-set-velocity",
+    });
   }).finally(function () {
     workoutSetBusy = false;
     if (submit) submit.disabled = false;
@@ -676,6 +820,17 @@ document.addEventListener("DOMContentLoaded", function () {
   if (start) start.addEventListener("submit", submitWorkoutStart);
   var setForm = document.getElementById("workout-set-form");
   if (setForm) setForm.addEventListener("submit", submitWorkoutSet);
+  var swapForm = document.getElementById("workout-swap-form");
+  if (swapForm) swapForm.addEventListener("submit", submitWorkoutSwap);
+  var swapCancel = document.getElementById("workout-swap-cancel");
+  if (swapCancel) swapCancel.addEventListener("click", () => $("#workout-swap-dialog").close());
+  ["#workout-set-exercise", "#workout-set-reps"].forEach(function (selector) {
+    var input = document.querySelector(selector);
+    if (!input) return;
+    ["input", "change"].forEach(function (eventName) {
+      input.addEventListener(eventName, function () { input.removeAttribute("aria-invalid"); });
+    });
+  });
   var endForm = document.getElementById("workout-end-form");
   if (endForm) endForm.addEventListener("submit", submitWorkoutEnd);
   var abandon = document.getElementById("workout-abandon");

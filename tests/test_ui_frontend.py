@@ -116,3 +116,151 @@ def test_format_local_date_uses_the_local_calendar_day() -> None:
     )
     env = {**os.environ, "TZ": "America/New_York"}
     subprocess.run([node, "-e", script], check=True, capture_output=True, text=True, env=env)
+
+
+def test_constrained_controls_are_not_free_text() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    assert '<select id="exercise-pattern" required>' in page
+    assert 'id="exercise-muscles" class="choice-list"' in page
+    assert 'id="exercise-detail-pattern" required>' in page
+    assert 'id="exercise-detail-muscles" class="choice-list"' in page
+    assert '<select id="exercise-vbt"></select>' in page
+    assert 'id="exercise-vbt-new"' in page
+    assert '<select id="exercise-detail-vbt"></select>' in page
+    assert 'id="exercise-detail-vbt-new"' in page
+    assert 'exercise-vbt-families' not in page
+    exercises_js = (STATIC / "exercises.js").read_text(encoding="utf-8")
+    assert "VBT_NEW_VALUE" in exercises_js
+    assert "Add new family" in exercises_js
+    assert "vbtFamilyOptions" in exercises_js
+
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert 'choiceOptions(opts.goals' in app
+    assert 'choiceChecklist("forbidden_patterns"' in app
+    assert 'choiceChecklist("forbidden_exercises"' in app
+    assert 'data-constraint="kind"' in app
+    assert 'data-constraint="region"' in app
+
+
+def test_dead_controls_have_regression_guards() -> None:
+    exercises = (STATIC / "exercises.js").read_text(encoding="utf-8")
+    history = (STATIC / "history.js").read_text(encoding="utf-8")
+    assert "props.day_roles.length" not in exercises
+    assert 'document.getElementById("history-edit-sets")' in history
+    assert "wireHistorySetButtons()" in history
+    assert "wireHistoryRemoveButtons" not in history
+
+
+def test_active_workout_is_card_based_and_keeps_context() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    assert 'id="workout-set-target"' in page
+    assert 'id="workout-plan-details"' in page
+    assert 'id="workout-import-details"' in page
+    assert 'id="workout-set-rir"' in page and 'max="6"' in page
+    assert 'id="workout-logger-title"' in page
+
+    workout = (STATIC / "workout.js").read_text(encoding="utf-8")
+    assert "workout-plan-card" in workout
+    assert "workout-set-card" in workout
+    assert "updateWorkoutSetTarget" in workout
+    assert "numericOrNull" in workout
+    assert 'id="workout-set-load").value = ""' not in workout
+
+
+def test_readiness_scale_labels_are_shared() -> None:
+    core = (STATIC / "core.js").read_text(encoding="utf-8")
+    assert "READINESS_SCALE_ENDS" in core
+    assert "stress: [\"extreme\", \"none\"]" in core
+    assert "soreness: [\"severe\", \"none\"]" in core
+    page = INDEX.read_text(encoding="utf-8")
+    assert 'id="workflow-readiness-presets"' in page
+    assert "5 means none" in page
+
+
+def test_workout_logger_precedes_plan_and_import() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    assert page.index('id="workout-set-form"') < page.index('id="workout-plan-details"')
+    assert page.index('id="workout-plan-details"') < page.index('id="workout-end-form"')
+    assert page.index('id="workout-end-form"') < page.index('id="workout-import-details"')
+
+
+def test_mobile_cards_replace_core_tables_on_narrow_screens() -> None:
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    history = (STATIC / "history.js").read_text(encoding="utf-8")
+    css = (STATIC / "style.css").read_text(encoding="utf-8")
+    assert "prescription-cards" in app
+    assert "history-card" in history
+    assert "mobile-cards" in css
+    assert "desktop-table" in css
+    assert ".app-dialog" in css
+    assert "font-size: 16px" in css
+
+
+def test_accessibility_and_navigation_guards() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    workout = (STATIC / "workout.js").read_text(encoding="utf-8")
+    assert 'aria-controls="sidebar"' in page
+    assert 'aria-labelledby="exercise-details-title"' in page
+    assert 'aria-labelledby="template-dialog-title"' in page
+    assert 'id="today-session"' in page
+    assert 'id="workflow-readiness-presets"' in page
+    assert "aria-current" in app
+    assert "sidebarFocusables" in app
+    assert "main.inert" in app
+    assert "goalRankHtml" in app and "checkedGoalRank" in app
+    assert 'choiceChecklist("focus_lifts"' in app
+    assert 'id="focus-lift-search"' in app
+    assert "aria-invalid" in workout
+    assert "setAttribute(\"aria-invalid\"" in workout
+    assert "role=\"status\"" in page
+
+
+def test_checkbox_states_are_read_from_checked_not_value() -> None:
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert "Boolean(values.max)" not in app
+    assert "Boolean(values.force)" not in app
+    assert "[data-test=\"max\"]" in app
+    assert "[data-block=\"force\"]" in app
+
+
+def test_readiness_presets_show_values_and_open_yaml_editor() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert 'id="readiness-preset-dialog"' in page
+    assert 'id="readiness-preset-yaml"' in page
+    assert "/api/readiness/presets" in app
+    assert "edit-readiness-presets" in app
+    assert "preset-values" in app
+    assert "openReadinessPresetEditor" in app
+    assert "saveReadinessPresetEditor" in app
+
+
+def test_remaining_ui_controls_are_present() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    core = (STATIC / "core.js").read_text(encoding="utf-8")
+    workout = (STATIC / "workout.js").read_text(encoding="utf-8")
+    assert 'id="exercise-detail-spinal-cost" type="number" step="0.5" min="0" max="5"' in page
+    assert 'id="exercise-extra"' in page and '<details class="advanced">' in page
+    assert 'id="settings-drop-slots"' in page
+    assert "review-table" in app and "review-why" in app
+    assert "search-select" in core and "filterNativeSelect" in core
+    assert "exercisePickerHtml" in app
+    assert 'id="workout-swap-dialog"' in page
+    assert "openWorkoutSwapDialog" in workout
+    assert "applyFieldErrors" in core
+    assert "PROFILE_ERRORS" in app and "CONSTRAINT_ERRORS" in app
+
+
+def test_remaining_forms_use_field_errors() -> None:
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    core = (STATIC / "core.js").read_text(encoding="utf-8")
+    assert "applyFieldErrors" in core
+    assert "applyFieldErrors(error, $(" in app
+    for marker in (
+        '[data-symptom="region"]', '[data-block="date"]', '[data-break="starts_on"]',
+        '#cardio-modality', '#measure-metric', '#settings-drop-tolerance',
+        '#settings-llm-model', '#settings-profile-guard',
+    ):
+        assert marker in app, marker

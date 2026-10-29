@@ -12,13 +12,17 @@ document.addEventListener("click", (event) => {
   else if (action === "suggested-deload") applySuggestedDeload();
   else if (action === "open-workout-start") openWorkoutStart();
   else if (action === "readiness-preset") applyReadinessPreset(element.dataset.preset);
+  else if (action === "edit-readiness-presets") openReadinessPresetEditor();
 });
 
 
 
 function setView(name, options = {}) {
   document.querySelectorAll("#nav button").forEach((b) => {
-    b.classList.toggle("active", b.dataset.view === name);
+    const active = b.dataset.view === name;
+    b.classList.toggle("active", active);
+    if (active) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
   });
   document.querySelectorAll(".view").forEach((v) => {
     v.classList.toggle("active", v.id === "view-" + name);
@@ -69,16 +73,46 @@ document.addEventListener("click", (event) => {
   });
   history.replaceState(null, "", href);
 });
-/* Collapsible left menu. */
+/* Collapsible left menu. The menu is modal on every viewport: focus moves into it,
+   the page behind it is inert, Tab is trapped, and Escape returns focus to the toggle. */
+let sidebarReturnFocus = null;
+
+function sidebarFocusables() {
+  const sidebar = document.querySelector("#sidebar");
+  if (!sidebar) return [];
+  return [...sidebar.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter((node) => !node.disabled && !node.hidden);
+}
+
 function setSidebar(open) {
   const sidebar = document.querySelector("#sidebar");
   const backdrop = document.querySelector("#sidebar-backdrop");
   const toggle = document.querySelector("#menu-toggle");
+  const main = document.querySelector("main");
   if (!sidebar || !backdrop || !toggle) return;
-  sidebar.hidden = !open;
-  backdrop.hidden = !open;
-  toggle.setAttribute("aria-expanded", open ? "true" : "false");
-  document.body.classList.toggle("menu-open", open);
+  if (open && sidebar.hidden) {
+    sidebarReturnFocus = document.activeElement;
+    sidebar.hidden = false;
+    backdrop.hidden = false;
+    sidebar.setAttribute("aria-modal", "true");
+    sidebar.setAttribute("role", "dialog");
+    if (main) main.inert = true;
+    toggle.setAttribute("aria-expanded", "true");
+    document.body.classList.add("menu-open");
+    const close = document.querySelector("#sidebar-close");
+    if (close) close.focus();
+  } else if (!open && !sidebar.hidden) {
+    sidebar.hidden = true;
+    backdrop.hidden = true;
+    sidebar.removeAttribute("aria-modal");
+    sidebar.removeAttribute("role");
+    if (main) main.inert = false;
+    toggle.setAttribute("aria-expanded", "false");
+    document.body.classList.remove("menu-open");
+    const target = sidebarReturnFocus instanceof HTMLElement ? sidebarReturnFocus : toggle;
+    sidebarReturnFocus = null;
+    if (target && typeof target.focus === "function") target.focus();
+  }
 }
 document.querySelector("#menu-toggle")?.addEventListener("click", () => setSidebar(true));
 document.querySelector("#sidebar-close")?.addEventListener("click", () => setSidebar(false));
@@ -87,7 +121,25 @@ document.querySelectorAll("#nav button").forEach((button) => {
   button.addEventListener("click", () => setSidebar(false));
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") setSidebar(false);
+  const sidebar = document.querySelector("#sidebar");
+  if (!sidebar || sidebar.hidden) return;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    setSidebar(false);
+    return;
+  }
+  if (event.key !== "Tab") return;
+  const focusables = sidebarFocusables();
+  if (!focusables.length) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
 });
 
 function routeFromHash() {
@@ -178,6 +230,20 @@ async function refreshToday() {
 
 const todayRefresh = $("#today-refresh");
 if (todayRefresh) todayRefresh.addEventListener("click", refreshToday);
+
+function openTodaySession() {
+  setView("workout");
+  requestAnimationFrame(() => {
+    const active = $("#workout-active-panel");
+    const start = $("#workout-start-panel");
+    const readiness = $("#workflow-readiness");
+    const target = active && !active.hidden ? active
+      : start && !start.hidden ? start : readiness;
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+const todaySession = $("#today-session");
+if (todaySession) todaySession.addEventListener("click", openTodaySession);
 
 function renderFormFollowup(formEval) {
   const target = $("#form-followup");
@@ -381,14 +447,14 @@ function reviewWorkoutSummary(workout) {
     <td>${row.actual_reps.length ? row.actual_reps.join(", ") : "—"}</td>
     <td>${row.actual_load_kg.length ? row.actual_load_kg.join(", ") : "—"}</td></tr>`).join("");
   const original = workout.plan_modified && workout.original_comparison
-    ? `<h3>Original prescription</h3><table><thead><tr><th>Exercise</th><th>Status</th>
+    ? `<h3>Original prescription</h3><div class="table-scroll"><table><thead><tr><th>Exercise</th><th>Status</th>
        <th>Actual / planned</th></tr></thead><tbody>${(workout.original_comparison.items || [])
        .map((row) => `<tr><td>${esc(row.exercise_id)}</td><td>${esc(row.status)}</td>
-       <td>${row.actual_sets} / ${row.planned_sets}</td></tr>`).join("")}</tbody></table>`
+       <td>${row.actual_sets} / ${row.planned_sets}</td></tr>`).join("")}</tbody></table></div>`
     : "";
   return `<details open><summary><strong>Actual vs planned</strong></summary>
-    <table><thead><tr><th>Exercise</th><th>Status</th><th>Sets actual / planned</th>
-    <th>Reps</th><th>kg</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="table-scroll"><table><thead><tr><th>Exercise</th><th>Status</th><th>Sets actual / planned</th>
+    <th>Reps</th><th>kg</th></tr></thead><tbody>${rows}</tbody></table></div>
     ${original}</details>`;
 }
 
@@ -878,18 +944,38 @@ function renderPrescription(p) {
     — ${esc(suggestion.reason)}.<br>
     <button type="button" data-action="suggested-deload">Deload this workout</button>
     <span class="muted">Or train as planned; the suggestion will return next workout this week.</span></div>` : "";
-  $("#prescribe-result").innerHTML = `<div class="panel">
-    <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_label || sessionLabel(p.session_type || "unknown"))}</h2>
-      <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
-    ${volumeBox}${compBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
-    <div class="form-row">
+  const cards = p.items.map((item) => {
+    const st = stress[item.exercise_id];
+    const lr = liftReady[item.exercise_id];
+    const effort = item.effort_model === "quality"
+      ? `quality stop${item.quality_stop ? " · " + esc(item.quality_stop) : ""}`
+      : `RIR ${item.rir_target == null ? "—" : item.rir_target}`;
+    return `<article class="prescription-card">
+      <div class="prescription-card-head"><strong>${esc(item.exercise_id)}</strong>
+        ${item.essential ? '<span class="badge">essential</span>' : ""}</div>
+      <p class="prescription-dose">${item.sets} × ${item.reps_low}–${item.reps_high} @ ${fmt(item.load_kg)} kg</p>
+      <p class="muted">${effort}${item.e1rm_source_sets == null ? "" : " · e1RM n " + item.e1rm_source_sets}</p>
+      ${st ? `<p class="muted">stress: ${esc(st.status)} · ${st.decayed_sets} sets · ${st.last_hours}h</p>` : ""}
+      ${lr ? `<p class="muted">readiness: ${esc(lr.status)} · ${lr.score}</p>` : ""}
+      ${item.unknown_load_reason ? `<p class="muted">${esc(item.unknown_load_reason)}</p>` : ""}
+      ${item.warmup && item.warmup.length ? `<p class="muted">warm-up: ${item.warmup.map((w) => `${Math.round(w.percent * 100)}% × ${w.reps} @ ${fmt(w.load_kg)} kg`).join(" · ")}</p>` : ""}
+      <p class="muted">${esc(item.refs.slice(-2).join(", "))}</p>
+    </article>`;
+  }).join("");
+  const startAction = `<div class="form-row">
       ${p.executable
         ? '<button class="primary" type="button" data-action="open-workout-start">Start workout</button>'
         : '<button class="primary" type="button" disabled>Start workout</button>'}
       <span class="muted">${p.executable ? "Freezes this plan and opens the start form." : "Fix the warnings above before starting."}</span>
-    </div>
-    <table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>e1RM n</th><th>refs</th></tr></thead>
-    <tbody>${rows}</tbody></table>
+    </div>`;
+  $("#prescribe-result").innerHTML = `<div class="panel">
+    <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_label || sessionLabel(p.session_type || "unknown"))}</h2>
+      <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
+    ${volumeBox}${compBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
+    <div class="table-scroll desktop-table"><table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>e1RM n</th><th>refs</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+    <div class="mobile-cards prescription-cards">${cards}</div>
+    ${startAction}
     <p class="muted">Loads are solved from estimated e1RM, not a measured maximum; treat the kg as a starting estimate.</p>
     <details><summary class="muted">notes (JSON)</summary><pre>${esc(JSON.stringify(p.notes, null, 2))}</pre></details>
   </div>`;
@@ -927,19 +1013,21 @@ async function loadReview(session) {
   try {
     const data = await api("/api/review/" + encodeURIComponent(session));
     const items = data.items.map((item) => `<tr>
-      <td><strong>${esc(item.key)}</strong><div class="muted">${esc(item.question)}</div>
-        <div class="muted">${esc(item.anchors)}</div></td>
-      <td class="muted">${item.measurable ? fmt(item.score, 2) : "n/a"}</td>
-      <td><input type="number" min="0" max="1" step="0.05" data-key="${esc(item.key)}"
-        value="${item.existing ?? ""}" placeholder="skip"></td>
-      <td class="muted">${esc(item.detail)}</td></tr>`).join("");
+      <td data-label="Item"><strong>${esc(item.key)}</strong><div class="muted">${esc(item.question)}</div>
+        <details class="review-anchors"><summary>Anchors</summary>
+          <p class="muted">${esc(item.anchors)}</p></details></td>
+      <td data-label="Engine" class="muted">${item.measurable ? fmt(item.score, 2) : "n/a"}</td>
+      <td data-label="Your score"><input type="number" min="0" max="1" step="0.05" data-key="${esc(item.key)}"
+        aria-label="Your score for ${esc(item.key)}" value="${item.existing ?? ""}" placeholder="skip"></td>
+      <td data-label="Why" class="muted"><details class="review-why"><summary>Why</summary>
+        <p>${esc(item.detail)}</p></details></td></tr>`).join("");
     const formRows = (data.form_context?.forms || []).map((form) => `
       <tr><td><code>${esc(form.exercise_id)}</code></td><td>${form.rating}/5</td>
       <td>${form.prior_avg ?? "—"} <span class="muted">(n=${form.prior_n})</span></td>
       <td>${form.prior_latest == null ? "—" : form.prior_latest + "/5"}</td></tr>`).join("");
     const formContext = formRows
-      ? `<h3>Form context</h3><table><thead><tr><th>Lift</th><th>this session</th>
-         <th>prior average</th><th>prior latest</th></tr></thead><tbody>${formRows}</tbody></table>`
+      ? `<h3>Form context</h3><div class="table-scroll"><table><thead><tr><th>Lift</th><th>this session</th>
+         <th>prior average</th><th>prior latest</th></tr></thead><tbody>${formRows}</tbody></table></div>`
       : "";
     $("#review-result").innerHTML = `<div class="panel">
       <div class="panel-head"><h2>${esc(data.session)} · ${esc(sessionLabel(data.session_type))}</h2>
@@ -947,8 +1035,9 @@ async function loadReview(session) {
       <p class="muted">Week ${esc(data.week)} · spinal cost ${fmt(data.week_cost, 2)}</p>
       ${reviewWorkoutSummary(data.workout)}
       ${formContext}
-      <table><thead><tr><th>Item</th><th>engine</th><th>your score</th><th>why</th></tr></thead>
-      <tbody>${items}</tbody></table>
+      <div class="table-scroll review-table-wrap"><table class="review-table">
+      <thead><tr><th>Item</th><th>engine</th><th>your score</th><th>why</th></tr></thead>
+      <tbody>${items}</tbody></table></div>
       <div class="form-row">
         <label>Remembrance <select id="review-confidence">
           <option value="high" ${data.confidence === "high" ? "selected" : ""}>high</option>
@@ -1122,12 +1211,16 @@ const LABELS = { sleep: "Sleep", energy: "Energy", mood: "Mood", soreness: "Sore
   bodyweight_kg: "Bodyweight (kg)", fat_pct: "Body fat (%)",
   wearable_score: "Wearable readiness (0-100)" };
 
+const READINESS_FIELD_MAP = Object.fromEntries(
+  [...SCORE_FIELDS, ...DEVICE_FIELDS].map((field) => [field, `[data-field="${field}"]`])
+);
+READINESS_FIELD_MAP.date = "#readiness-date";
+READINESS_FIELD_MAP.values = "#readiness-fields";
+
 function fieldInput(field, device = false) {
   if (device) return `<label>${esc(LABELS[field])} <input type="number" step="0.1" min="0"
     data-field="${field}" placeholder=""></label>`;
-  const options = ['<option value="">—</option>']
-    .concat([1, 2, 3, 4, 5].map((n) => `<option value="${n}">${n}</option>`)).join("");
-  return `<label>${esc(LABELS[field])} <select data-field="${field}">${options}</select></label>`;
+  return `<label>${esc(LABELS[field])} <select data-field="${field}">${readinessScaleOptions(field)}</select></label>`;
 }
 
 /* --- workout workflow -------------------------------------------------- */
@@ -1205,9 +1298,22 @@ async function loadReadiness(date) {
       input.value = value ?? "";
     });
     const presets = data.presets || {};
-    $("#readiness-presets").innerHTML = Object.entries(presets).map(([name, preset]) =>
-      `<button type="button" class="ghost" data-action="readiness-preset" data-preset="${esc(name)}">${esc(preset.label || name)}</button>`
-    ).join("");
+    const presetHtml = Object.entries(presets).map(([name, preset]) => {
+      const values = preset.values || {};
+      const compact = [values.sleep, values.energy, values.soreness, values.stress]
+        .map((value) => value == null ? "—" : value).join("/");
+      const aria = `${preset.label || name}: sleep ${values.sleep}, energy ${values.energy}, ` +
+        `soreness ${values.soreness}, stress ${values.stress}`;
+      return `<button type="button" class="ghost preset-button"
+        data-action="readiness-preset" data-preset="${esc(name)}" aria-label="${esc(aria)}"
+        title="${esc(aria)}">${esc(preset.label || name)}
+        <span class="preset-values">${esc(compact)}</span></button>`;
+    }).join("") +
+      '<span class="muted preset-legend">Values: sleep / energy / soreness / stress</span>' +
+      '<button type="button" class="ghost" data-action="edit-readiness-presets">Edit preset YAML</button>';
+    $("#readiness-presets").innerHTML = presetHtml;
+    const workflowPresets = $("#workflow-readiness-presets");
+    if (workflowPresets) workflowPresets.innerHTML = presetHtml;
     const flags = ["travel", "timezone_change", "illness", "alcohol", "poor_sleep_environment", "high_work_stress"];
     const active = new Set(data.context_flags || []);
     $("#readiness-context").innerHTML = flags.map((flag) =>
@@ -1246,6 +1352,46 @@ async function applyReadinessPreset(name) {
     $("#readiness-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
+
+async function openReadinessPresetEditor() {
+  const dialog = $("#readiness-preset-dialog");
+  if (!dialog) return;
+  $("#readiness-preset-msg").textContent = "Loading…";
+  try {
+    const data = await api("/api/readiness/presets");
+    $("#readiness-preset-yaml").value = data.yaml || "";
+    $("#readiness-preset-path").textContent = data.path || "";
+    $("#readiness-preset-msg").textContent = "";
+    dialog.showModal();
+    $("#readiness-preset-yaml").focus();
+  } catch (error) {
+    notify(error.message, "error");
+    $("#readiness-preset-msg").textContent = error.message;
+  }
+}
+
+async function saveReadinessPresetEditor(event) {
+  event.preventDefault();
+  const text = $("#readiness-preset-yaml").value;
+  if (!text.trim()) {
+    $("#readiness-preset-msg").textContent = "Preset YAML is empty.";
+    return;
+  }
+  $("#readiness-preset-msg").textContent = "Saving…";
+  try {
+    await api("/api/readiness/presets", {
+      method: "POST", body: JSON.stringify({ yaml: text }),
+    });
+    $("#readiness-preset-dialog").close();
+    notify("Readiness presets saved.");
+    await loadReadiness($("#readiness-date").value);
+  } catch (error) {
+    $("#readiness-preset-msg").textContent = error.message;
+  }
+}
+
+$("#readiness-preset-form")?.addEventListener("submit", saveReadinessPresetEditor);
+$("#readiness-preset-cancel")?.addEventListener("click", () => $("#readiness-preset-dialog").close());
 
 async function saveReadinessContext() {
   const day = $("#readiness-date").value;
@@ -1291,6 +1437,8 @@ $("#settings-drop-form").addEventListener("submit", async (event) => {
     slots = JSON.parse($("#settings-drop-slots").value || "{}");
   } catch (error) {
     $("#settings-drop-msg").textContent = "Candidate pool JSON is invalid: " + error.message;
+    $("#settings-drop-slots").setAttribute("aria-invalid", "true");
+    $("#settings-drop-slots").focus();
     return;
   }
   try {
@@ -1308,7 +1456,14 @@ $("#settings-drop-form").addEventListener("submit", async (event) => {
     renderSettings(data);
     notify("Drop settings saved.");
   } catch (error) {
-    $("#settings-drop-msg").textContent = error.message;
+    applyFieldErrors(error, $("#settings-drop-msg"), {
+      competition_confirm_days: "#settings-drop-days",
+      max_slots_per_group: "#settings-drop-max",
+      technique_minutes: "#settings-drop-technique",
+      tolerance: "#settings-drop-tolerance",
+      slots: "#settings-drop-slots",
+      enabled: "#settings-drop-enabled",
+    });
   }
 });
 
@@ -1400,7 +1555,7 @@ $("#readiness-form").addEventListener("submit", async (event) => {
     notify("Readiness saved.");
     loadOverview();
   } catch (error) {
-    $("#readiness-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+    applyFieldErrors(error, $("#readiness-result"), READINESS_FIELD_MAP);
   }
 });
 
@@ -1589,11 +1744,140 @@ function profileField(name, label, value, type = "text") {
   return `<label>${label}<input data-profile="${name}" type="${type}" value="${esc(value ?? "")}"></label>`;
 }
 
+function choiceOptions(choices, selected) {
+  const items = choices || [];
+  const values = new Set(items.map((item) => String(item.value)));
+  let markup = items.map((item) => {
+    const value = esc(item.value);
+    const label = esc(item.label || item.value);
+    return `<option value="${value}"${String(selected ?? "") === String(item.value) ? " selected" : ""}>${label}</option>`;
+  }).join("");
+  // Never silently drop an existing value that is no longer in the current list.
+  if (selected != null && selected !== "" && !values.has(String(selected))) {
+    markup += `<option value="${esc(selected)}" selected>${esc(selected)} (legacy — not in current list)</option>`;
+  }
+  return markup;
+}
+
+function exerciseSelectOptions(selected, choices) {
+  return '<option value="">choose…</option>' + (choices || []).map((item) =>
+    `<option value="${esc(item.value)}"${String(selected ?? "") === String(item.value) ? " selected" : ""}>${esc(item.label || item.value)}</option>`
+  ).join("");
+}
+
+function exercisePickerHtml(attrs, choices, selected) {
+  return `<div class="search-select">
+    <input type="search" class="search-select-filter" placeholder="Filter exercises…"
+      aria-label="Filter exercise list" autocomplete="off">
+    <select ${attrs} aria-label="Exercise">${exerciseSelectOptions(selected, choices)}</select>
+  </div>`;
+}
+
+function choiceChecklist(name, choices, selected) {
+  const chosen = new Set((selected || []).map(String));
+  return `<div class="choice-list" data-choice-group="${esc(name)}">` +
+    (choices || []).map((item) => `<label class="choice">
+      <input type="checkbox" data-choice-choice value="${esc(item.value)}"${chosen.has(String(item.value)) ? " checked" : ""}>
+      <span>${esc(item.label || item.value)}</span></label>`).join("") +
+    "</div>";
+}
+
+function checkedChoices(name) {
+  return [...document.querySelectorAll(`[data-choice-group="${name}"] input[type="checkbox"]:checked`)]
+    .map((input) => input.value);
+}
+
+function wireChoiceSearch(inputId, groupName) {
+  const input = document.getElementById(inputId);
+  const group = document.querySelector(`[data-choice-group="${groupName}"]`);
+  if (!input || !group) return;
+  input.addEventListener("input", () => {
+    const query = input.value.trim().toLowerCase();
+    group.querySelectorAll("label.choice").forEach((label) => {
+      label.hidden = Boolean(query) && !label.textContent.toLowerCase().includes(query);
+    });
+  });
+}
+
+function goalRankHtml(selected, choices) {
+  const known = new Map((choices || []).map((item) => [String(item.value), item]));
+  const ordered = [];
+  (selected || []).forEach((value) => {
+    if (known.has(String(value))) ordered.push(known.get(String(value)));
+  });
+  (choices || []).forEach((item) => {
+    if (!ordered.some((row) => String(row.value) === String(item.value))) ordered.push(item);
+  });
+  (selected || []).forEach((value) => {
+    if (!known.has(String(value))) ordered.push({ value, label: value + " (legacy)" });
+  });
+  return `<div class="rank-list" id="goal-rank-list">` + ordered.map((item) => {
+    const chosen = (selected || []).some((value) => String(value) === String(item.value));
+    return `<div class="rank-row" data-goal-value="${esc(item.value)}">
+      <label class="choice"><input type="checkbox" data-goal-rank-check${chosen ? " checked" : ""}>
+      <span>${esc(item.label || item.value)}</span></label>
+      <span class="rank-index" aria-hidden="true"></span>
+      <button class="ghost" type="button" data-goal-up aria-label="Move ${esc(item.label || item.value)} up">↑</button>
+      <button class="ghost" type="button" data-goal-down aria-label="Move ${esc(item.label || item.value)} down">↓</button>
+    </div>`;
+  }).join("") + "</div>";
+}
+
+function updateGoalRankIndices() {
+  const rows = [...document.querySelectorAll("#goal-rank-list .rank-row")];
+  let index = 0;
+  rows.forEach((row) => {
+    const checked = row.querySelector("[data-goal-rank-check]");
+    if (checked && checked.checked) {
+      index += 1;
+      row.querySelector(".rank-index").textContent = String(index);
+    } else {
+      row.querySelector(".rank-index").textContent = "";
+    }
+  });
+}
+
+function checkedGoalRank() {
+  return [...document.querySelectorAll("#goal-rank-list .rank-row")]
+    .filter((row) => row.querySelector("[data-goal-rank-check]").checked)
+    .map((row) => row.dataset.goalValue);
+}
+
+function wireGoalRank() {
+  const list = document.getElementById("goal-rank-list");
+  if (!list) return;
+  updateGoalRankIndices();
+  list.addEventListener("change", updateGoalRankIndices);
+  list.addEventListener("click", (event) => {
+    const up = event.target.closest("[data-goal-up]");
+    const down = event.target.closest("[data-goal-down]");
+    if (!up && !down) return;
+    const row = event.target.closest(".rank-row");
+    if (!row) return;
+    const sibling = up ? row.previousElementSibling : row.nextElementSibling;
+    if (!sibling) return;
+    if (up) list.insertBefore(row, sibling);
+    else list.insertBefore(sibling, row);
+    updateGoalRankIndices();
+  });
+}
+
 function renderStateForms(data) {
   const p = data.profile || {};
-  const regions = Object.keys(data.injury_signal?.regions || {});
-  const regionOptions = (regions.length ? regions : ["low_back"]).map((r) =>
-    `<option value="${esc(r)}">${esc(r)}</option>`).join("");
+  const opts = data.options || {};
+  const regionChoices = (opts.regions || []).length
+    ? opts.regions
+    : Object.keys(data.injury_signal?.regions || {}).map((key) => ({ value: key, label: key }));
+  const regionOptions = choiceOptions(regionChoices, "");
+  const exerciseChoices = (opts.exercises || []).slice();
+  // Keep a legacy focus-lift id visible and selected rather than silently dropping it. Do not
+  // add it to the canonical exercise pickers: those writes must stay constrained.
+  const focusChoices = exerciseChoices.slice();
+  (p.focus_lifts || []).forEach((value) => {
+    if (!focusChoices.some((item) => String(item.value) === String(value))) {
+      focusChoices.push({ value, label: value + " (legacy)" });
+    }
+  });
   // A declared break freezes its weeks; the list is the record, the form appends to it.
   const todayDate = today();
   const breaks = data.declared_breaks || [];
@@ -1616,9 +1900,19 @@ function renderStateForms(data) {
   $("#state-forms").innerHTML = `
     <div class="panel"><div class="panel-head"><h2>Edit profile</h2><span class="muted">appends a new version</span></div>
       <form id="profile-form" class="grid-fields">
-        ${profileField("primary_goal", "Primary goal", p.primary_goal)}
-        ${profileField("goal_rank", "Goal rank (comma)", (p.goal_rank || []).join(", "))}
-        ${profileField("focus_lifts", "Focus lifts (comma)", (p.focus_lifts || []).join(", "))}
+        <label>Primary goal
+          <select data-profile="primary_goal">${choiceOptions(opts.goals, p.primary_goal)}</select>
+        </label>
+        <div class="grow">
+          <span class="field-label">Goal rank (ordered; use ↑/↓)</span>
+          ${goalRankHtml(p.goal_rank || [], opts.goals || [])}
+        </div>
+        <details class="advanced choice-details">
+          <summary>Focus lifts (optional)</summary>
+          <label class="grow">Search exercises
+            <input id="focus-lift-search" type="search" placeholder="type a name or id"></label>
+          ${choiceChecklist("focus_lifts", focusChoices, p.focus_lifts || [])}
+        </details>
         ${profileField("competition_date", "Competition date", p.competition_date, "date")}
         ${profileField("sessions_per_week_target", "Sessions/week", p.sessions_per_week_target, "number")}
         ${profileField("max_session_minutes", "Max minutes", p.max_session_minutes, "number")}
@@ -1653,21 +1947,30 @@ function renderStateForms(data) {
 
     <div class="panel"><div class="panel-head"><h2>Add constraint</h2></div>
       <form id="constraint-form" class="grid-fields">
-        <label>Kind<select data-constraint="kind"><option>injury</option><option>rom</option><option>preference</option></select></label>
-        <label>Region<input data-constraint="region" placeholder="low_back"></label>
-        <label>Severity<select data-constraint="severity"><option>monitor</option><option>caution</option><option>hard_exclude</option></select></label>
-        <label>Forbidden exercises<input data-constraint="forbidden_exercises" placeholder="a, b"></label>
-        <label>Forbidden patterns<input data-constraint="forbidden_patterns" placeholder="hinge, squat"></label>
-        <label>Since<input data-constraint="since" placeholder="YYYY-MM"></label>
-        <label>Settled on<input data-constraint="settled_on" placeholder="YYYY-MM"></label>
+        <label>Kind<select data-constraint="kind">${choiceOptions(opts.constraint_kinds, "")}</select></label>
+        <label>Region<select data-constraint="region">${regionOptions}</select></label>
+        <label>Severity<select data-constraint="severity">${choiceOptions(opts.severities, "monitor")}</select></label>
+        <label>Since<input data-constraint="since" type="month"></label>
+        <label>Settled on<input data-constraint="settled_on" type="month"></label>
         <label class="grow">Evidence<input data-constraint="evidence"></label>
+        <details class="advanced choice-details">
+          <summary>Forbidden patterns</summary>
+          ${choiceChecklist("forbidden_patterns", opts.patterns || [])}
+        </details>
+        <details class="advanced choice-details">
+          <summary>Forbidden exercises</summary>
+          <label class="grow">Search exercises
+            <input id="constraint-exercise-search" type="search" placeholder="type a name or id">
+          </label>
+          ${choiceChecklist("forbidden_exercises", exerciseChoices)}
+        </details>
         <button class="primary" type="submit">Append constraint</button>
       </form>
     </div>
 
     <div class="panel"><div class="panel-head"><h2>Rate suitability</h2></div>
       <form id="suitability-form" class="grid-fields">
-        <label>Exercise<input data-suit="exercise_id" list="exercise-options" placeholder="canonical id"></label>
+        <label>Exercise${exercisePickerHtml('data-suit="exercise_id"', exerciseChoices)}</label>
         <label>Can do<select data-suit="can_do"><option>yes</option><option>no</option></select></label>
         <label>Will do<select data-suit="will_do"><option>yes</option><option>no</option></select></label>
         <label>Feels bad<select data-suit="feels_bad"><option>no</option><option>yes</option></select></label>
@@ -1678,7 +1981,7 @@ function renderStateForms(data) {
 
     <div class="panel"><div class="panel-head"><h2>e1RM override</h2></div>
       <form id="e1rm-form" class="grid-fields">
-        <label>Exercise<input data-e1rm="exercise_id" list="exercise-options" placeholder="canonical id"></label>
+        <label>Exercise${exercisePickerHtml('data-e1rm="exercise_id"', exerciseChoices)}</label>
         <label>kg<input data-e1rm="e1rm_kg" type="number" step="0.5"></label>
         <label>Effective from<input data-e1rm="effective_from" type="date"></label>
         <label>Expires<input data-e1rm="expires_on" type="date"></label>
@@ -1689,7 +1992,7 @@ function renderStateForms(data) {
 
     <div class="panel"><div class="panel-head"><h2>Strength test</h2><span class="muted">records a measured e1RM; exposure is automatic</span></div>
       <form id="test-form" class="grid-fields">
-        <label>Exercise<input data-test="exercise_id" list="exercise-options" placeholder="canonical id"></label>
+        <label>Exercise${exercisePickerHtml('data-test="exercise_id"', exerciseChoices)}</label>
         <label>kg<input data-test="kg" type="number" step="0.5"></label>
         <label>Reps<input data-test="reps" type="number" min="1" max="10"></label>
         <label>Date<input data-test="date" type="date"></label>
@@ -1715,7 +2018,7 @@ function renderStateForms(data) {
           <option value="upper">upper</option><option value="mixed">mixed</option>
           <option value="unknown">unknown</option>
         </select></label>
-        <label>Exercise<input data-exposure="exercise_id" list="exercise-options" placeholder="optional"></label>
+        <label>Exercise${exercisePickerHtml('data-exposure="exercise_id"', exerciseChoices)}</label>
         <label>Intensity<select data-exposure="intensity_class">
           <option value="near_max">near max</option><option value="high">high</option>
           <option value="moderate">moderate</option><option value="unknown">unknown</option>
@@ -1762,33 +2065,62 @@ function renderStateForms(data) {
       </form>
     </div>`;
 
+  wireGoalRank();
+  wireChoiceSearch("focus-lift-search", "focus_lifts");
+  wireChoiceSearch("constraint-exercise-search", "forbidden_exercises");
+
   const collect = (prefix) => Object.fromEntries(
     [...document.querySelectorAll(`[data-${prefix}]`)].map((el) => [el.dataset[prefix], el.value])
   );
-  const save = async (path, payload, target = "#state-result", message = "Saved.") => {
+  const PROFILE_ERRORS = {
+    primary_goal: '[data-profile="primary_goal"]',
+    goal_rank: "#goal-rank-list [data-goal-rank-check]",
+    focus_lifts: "#focus-lift-search",
+    competition_date: '[data-profile="competition_date"]',
+    sessions_per_week_target: '[data-profile="sessions_per_week_target"]',
+    max_session_minutes: '[data-profile="max_session_minutes"]',
+    block_start_date: '[data-profile="block_start_date"]',
+    main_lift_policy: '[data-profile="main_lift_policy"]',
+  };
+  const CONSTRAINT_ERRORS = {
+    kind: '[data-constraint="kind"]',
+    region: '[data-constraint="region"]',
+    severity: '[data-constraint="severity"]',
+    forbidden_patterns: '[data-choice-group="forbidden_patterns"] input',
+    forbidden_exercises: '[data-choice-group="forbidden_exercises"] input',
+    since: '[data-constraint="since"]',
+    settled_on: '[data-constraint="settled_on"]',
+    evidence: '[data-constraint="evidence"]',
+  };
+  const save = async (path, payload, target = "#state-result", message = "Saved.", mapping = {}) => {
     try {
       await api(path, { method: "POST", body: JSON.stringify(payload) });
       notify(message);
       loadState();
       loadOverview();
     } catch (error) {
-      $(target).innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+      applyFieldErrors(error, $(target), mapping);
     }
   };
   $("#profile-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const values = collect("profile");
+    values.goal_rank = checkedGoalRank();
+    values.focus_lifts = checkedChoices("focus_lifts");
     const exposureTrim = values.exposure_trim_enabled === "on";
     save("/api/state/profile", {
       ...values,
       exposure_trim_enabled: exposureTrim,
       sessions_per_week_target: values.sessions_per_week_target || null,
       max_session_minutes: values.max_session_minutes || null,
-    }, "#state-result", "Profile saved — new version appended.");
+    }, "#state-result", "Profile saved — new version appended.", PROFILE_ERRORS);
   });
   $("#constraint-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    save("/api/state/constraint", collect("constraint"));
+    const values = collect("constraint");
+    values.forbidden_patterns = checkedChoices("forbidden_patterns");
+    values.forbidden_exercises = checkedChoices("forbidden_exercises");
+    save("/api/state/constraint", values, "#state-result", "Constraint appended.", CONSTRAINT_ERRORS);
   });
   $("#suitability-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -1798,16 +2130,27 @@ function renderStateForms(data) {
       can_do: values.can_do === "yes",
       will_do: values.will_do === "yes",
       feels_bad: values.feels_bad === "yes",
-    });
+    }, "#state-result", "Suitability appended.", { exercise_id: '[data-suit="exercise_id"]' });
   });
   $("#e1rm-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    save("/api/state/e1rm", collect("e1rm"));
+    save("/api/state/e1rm", collect("e1rm"), "#state-result", "e1RM override appended.", {
+      exercise_id: '[data-e1rm="exercise_id"]',
+      e1rm_kg: '[data-e1rm="e1rm_kg"]',
+      effective_from: '[data-e1rm="effective_from"]',
+    });
   });
   $("#test-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const values = collect("test");
-    save("/api/state/test", { ...values, max: Boolean(values.max) });
+    const max = document.querySelector('[data-test="max"]');
+    save("/api/state/test", { ...values, max: Boolean(max && max.checked) },
+      "#state-result", "Strength test recorded.", {
+        exercise_id: '[data-test="exercise_id"]',
+        kg: '[data-test="kg"]',
+        reps: '[data-test="reps"]',
+        date: '[data-test="date"]',
+      });
   });
   $("#exposure-form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1816,21 +2159,37 @@ function renderStateForms(data) {
       await api("/api/exposures", { method: "POST", body: JSON.stringify(values) });
       await loadExposureStatus();
     } catch (error) {
-      $("#exposure-status").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+      applyFieldErrors(error, $("#exposure-status"), {
+        exercise_id: '[data-exposure="exercise_id"]',
+      });
     }
   });
   $("#symptom-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    save("/api/state/symptom", collect("symptom"));
+    save("/api/state/symptom", collect("symptom"), "#state-result", "Symptom appended.", {
+      date: '[data-symptom="date"]',
+      region: '[data-symptom="region"]',
+      level: '[data-symptom="level"]',
+      settled: '[data-symptom="settled"]',
+    });
   });
   $("#block-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const values = collect("block");
-    save("/api/state/block", { ...values, force: Boolean(values.force) });
+    const force = document.querySelector('[data-block="force"]');
+    save("/api/state/block", { ...values, force: Boolean(force && force.checked) },
+      "#state-result", "Block start recorded.", {
+        date: '[data-block="date"]',
+        force: '[data-block="force"]',
+      });
   });
   $("#break-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    save("/api/state/break", collect("break"), "#break-msg");
+    save("/api/state/break", collect("break"), "#break-msg", "Declared break recorded.", {
+      starts_on: '[data-break="starts_on"]',
+      ends_on: '[data-break="ends_on"]',
+      reason: '[data-break="reason"]',
+    });
   });
   document.querySelectorAll("[data-cancel-break]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1893,9 +2252,12 @@ async function loadDoc(name, anchor) {
 async function loadExercises() {
   try {
     const list = await api("/api/exercises");
-    $("#exercise-options").innerHTML = list.map((e) =>
-      `<option value="${esc(e.id)}">${esc(e.display)}</option>`).join("");
-  } catch (error) { /* the page still works without the picker */ }
+    // Shared by the history editor's canonical exercise selects.
+    window.__exerciseList = list;
+    return list;
+  } catch (error) {
+    return [];
+  }
 }
 
 
@@ -2470,7 +2832,15 @@ $("#cardio-form").addEventListener("submit", async (event) => {
     await loadCardio();
     $("#cardio-form").reset();
   } catch (error) {
-    $("#cardio-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+    applyFieldErrors(error, $("#cardio-result"), {
+      date: "#cardio-date",
+      modality: "#cardio-modality",
+      minutes: "#cardio-minutes",
+      avg_hr: "#cardio-avg-hr",
+      max_hr: "#cardio-max-hr",
+      distance_km: "#cardio-distance",
+      srpe: "#cardio-srpe",
+    });
   } finally {
     button.disabled = false;
   }
@@ -2549,7 +2919,12 @@ $("#measure-form").addEventListener("submit", async (event) => {
     $("#measure-value").value = "";
     $("#measure-note").value = "";
   } catch (error) {
-    $("#measure-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+    applyFieldErrors(error, $("#measure-result"), {
+      metric: "#measure-metric",
+      date: "#measure-date",
+      value: "#measure-value",
+      method: "#measure-method",
+    });
   } finally {
     button.disabled = false;
   }
@@ -2681,7 +3056,12 @@ async function updateModality(moduleId) {
     $("#settings-profile-msg").textContent = "Module updated: " + moduleId;
     await loadSettings();
   } catch (error) {
-    $("#settings-profile-msg").textContent = error.message;
+    applyFieldErrors(error, $("#settings-profile-msg"), {
+      guard_confirmed: "#settings-profile-guard",
+      reason: "#settings-profile-reason",
+      factors: "#settings-profile-fields",
+      settings: "#settings-profile-fields",
+    });
   }
 }
 
@@ -2851,7 +3231,13 @@ async function saveProfileDraft() {
     if (guarded.length) {
       if (!$("#settings-profile-guard").checked ||
           $("#settings-profile-guard-text").value.trim() !== "SPINAL" || !reason) {
-        throw new Error("Guarded changes need the confirmation tick, SPINAL and a reason.");
+        const error = new Error("Guarded changes need the confirmation tick, SPINAL and a reason.");
+        error.fields = {
+          guard_confirmed: "tick the confirmation",
+          guard_text: "type SPINAL",
+          reason: "give a reason",
+        };
+        throw error;
       }
     }
     await api("/api/settings/profile", {
@@ -2866,7 +3252,14 @@ async function saveProfileDraft() {
     $("#settings-profile-reason").value = "";
     await loadSettings();
   } catch (error) {
-    $("#settings-profile-msg").textContent = error.message;
+    applyFieldErrors(error, $("#settings-profile-msg"), (field) => {
+      if (field === "guard_confirmed") return "#settings-profile-guard";
+      if (field === "guard_text") return "#settings-profile-guard-text";
+      if (field === "reason") return "#settings-profile-reason";
+      if (field === "settings") return "#settings-profile-fields";
+      const id = "profile-" + String(field).replace(/[^a-zA-Z0-9_-]/g, "-");
+      return "#" + id;
+    });
   }
 }
 
@@ -2930,7 +3323,14 @@ $("#settings-llm-form").addEventListener("submit", async (event) => {
     $("#settings-llm-msg").textContent = "Saved.";
     notify("LLM settings saved.");
   } catch (error) {
-    $("#settings-llm-msg").textContent = error.message;
+    applyFieldErrors(error, $("#settings-llm-msg"), {
+      model: "#settings-llm-model",
+      base_url: "#settings-llm-base-url",
+      temperature: "#settings-llm-temperature",
+      max_tokens: "#settings-llm-max-tokens",
+      timeout_s: "#settings-llm-timeout",
+      settings: "#settings-llm-enabled",
+    });
   }
 });
 $("#settings-llm-test").addEventListener("click", async () => {

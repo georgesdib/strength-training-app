@@ -49,8 +49,18 @@ h2 { font-size: 20px; margin: 0; }
 .panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .form-row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; margin: 10px 0; }
 label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
+label:has(> input[type="checkbox"]), label.choice { flex-direction: row; align-items: center;
+  gap: 8px; color: var(--ink); font-size: 13px; }
+label.choice { align-items: flex-start; }
 input, select, textarea { font: inherit; color: var(--ink); background: var(--input-bg); border: 1px solid var(--line);
   border-radius: 9px; padding: 8px 10px; min-width: 120px; }
+input[type="checkbox"], input[type="radio"] { min-width: 0; width: auto; }
+.field-label { display: block; font-size: 12px; color: var(--muted); margin: 0 0 5px; }
+.choice-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 4px 12px; max-height: 220px; overflow: auto; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--input-bg); }
+.choice-details { grid-column: 1 / -1; }
+.choice-details summary { margin-bottom: 6px; }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--focus); border-color: var(--accent); }
 .grow { flex: 1; min-width: 220px; }
 button { font: inherit; cursor: pointer; }
@@ -207,7 +217,8 @@ details summary { cursor: pointer; color: var(--muted); }
 .history-set { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--paper); }
 .history-set-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
 .history-set-head strong { min-width: 52px; }
-.history-set-head input { flex: 1; min-width: 180px; }
+.history-set-head input, .history-set-head select { flex: 1; min-width: 0; }
+.history-set-head .search-select { flex: 1; min-width: 180px; }
 .history-set-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
 .history-set-grid label, .history-meta label { min-width: 0; }
 .history-set-grid input, .history-meta input { width: 100%; min-width: 0; }
@@ -277,3 +288,116 @@ body.menu-open { overflow: hidden; }
 .workflow-lock { border: 1px dashed var(--line); border-radius: 10px; padding: 14px;
   color: var(--muted); background: var(--soft); }
 #workflow-preview.locked .workflow-step-head { opacity: .7; }
+
+/* Active workout: the logger is the primary surface; plan and import are secondary. */
+.workout-logger { border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+  background: var(--paper); margin: 14px 0; }
+.workout-target { margin: 0 0 10px; padding: 8px 10px; border-radius: 9px;
+  background: var(--soft); color: var(--ink); font-size: 14px; }
+.field-hint { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+.workout-set-list, .workout-set-list + * { display: grid; gap: 8px; }
+.workout-set-card, .workout-plan-card { border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px; background: var(--paper); margin: 8px 0; }
+.workout-set-card-head, .workout-plan-card-head { display: flex; align-items: center;
+  justify-content: space-between; gap: 10px; }
+.workout-set-values, .workout-plan-prescription { margin: 6px 0; color: var(--muted); }
+.workout-set-actions, .workout-plan-actions { display: flex; flex-wrap: wrap;
+  align-items: center; gap: 8px; margin-top: 8px; }
+.workout-plan-actions .inline-field { flex: 1 1 130px; min-width: 0; }
+.set-stepper { display: inline-flex; align-items: center; gap: 6px; }
+.set-stepper button { min-width: 36px; min-height: 36px; }
+.plan-options { flex-basis: 100%; margin-top: 4px; }
+.plan-options summary { cursor: pointer; color: var(--accent); }
+.plan-options select { min-width: 0; width: 100%; }
+.workout-plan-card .plan-options { border-top: 1px solid var(--line); padding-top: 8px; }
+
+/* Theme-aware dialogs, mobile target sizes and safe areas. */
+.app-dialog { width: 94%; max-width: 720px; max-height: calc(100vh - 24px); overflow: auto;
+  padding: 16px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--paper); color: var(--ink); }
+.app-dialog.wide { max-width: 900px; }
+.app-dialog::backdrop { background: rgba(20, 24, 20, .45); }
+
+@media (max-width: 760px) {
+  input, select, textarea { font-size: 16px; }
+  button.primary, .menu-toggle, #workout-set-form button[type="submit"],
+  .workout-set-actions button, .workout-plan-actions button { min-height: 44px; }
+  button.ghost { min-height: 36px; }
+  .topbar { padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-top: max(12px, env(safe-area-inset-top)); }
+  main { padding-bottom: max(60px, env(safe-area-inset-bottom)); }
+  .toast { bottom: max(12px, env(safe-area-inset-bottom)); }
+  .app-dialog { width: 96%; max-height: calc(100dvh - 16px); }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  input, select, textarea { font-size: 16px; }
+  button.primary, .menu-toggle, #workout-set-form button[type="submit"],
+  .workout-set-actions button, .workout-plan-actions button { min-height: 44px; }
+  .topbar { padding-top: max(6px, env(safe-area-inset-top)); padding-bottom: 6px; }
+  main { padding-top: 12px; }
+  h1 { font-size: 24px; }
+  .panel { padding: 12px; margin-bottom: 10px; }
+  .form-row { gap: 8px; margin: 6px 0; }
+  .workflow-steps { gap: 4px; }
+  .workflow-steps li { padding: 4px 8px; }
+  .app-dialog { max-height: calc(100dvh - 8px); }
+}
+
+/* Mobile cards for core dense views; desktop keeps the table. */
+.mobile-cards { display: none; }
+.prescription-card { border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px; background: var(--paper); }
+.prescription-card-head { display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; }
+.prescription-dose { margin: 6px 0; font-weight: 600; }
+.prescription-card p { margin: 4px 0; }
+@media (max-width: 760px) {
+  .desktop-table { display: none; }
+  .mobile-cards { display: grid; gap: 8px; margin: 10px 0; }
+}
+
+.history-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+  background: var(--paper); }
+.history-card-head { display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; }
+.history-card p { margin: 4px 0; }
+.card-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.card-actions button { min-height: 44px; }
+
+[aria-invalid="true"] { border-color: var(--bad); outline: 2px solid var(--bad-bg); }
+
+.rank-list { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--line);
+  border-radius: 9px; background: var(--input-bg); }
+.rank-row { display: flex; align-items: center; gap: 8px; }
+.rank-row .choice { flex: 1; min-width: 0; }
+.rank-index { min-width: 1.2em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rank-row button { min-width: 32px; padding: 2px 6px; }
+
+.preset-button { display: inline-flex; align-items: center; gap: 8px; }
+.preset-values { display: inline-block; padding: 1px 6px; border-radius: 999px;
+  background: var(--soft); color: var(--muted); font-size: 12px;
+  font-variant-numeric: tabular-nums; }
+.preset-legend { flex-basis: 100%; font-size: 12px; }
+
+/* Review rubric: one table on desktop, readable cards on narrow screens. */
+.review-why, .review-anchors { margin: 4px 0; }
+.review-why summary, .review-anchors summary { color: var(--accent); cursor: pointer; }
+@media (max-width: 760px) {
+  .review-table-wrap { overflow: visible; }
+  .review-table, .review-table tbody, .review-table tr, .review-table td { display: block; width: 100%; }
+  .review-table thead { display: none; }
+  .review-table tr { border: 1px solid var(--line); border-radius: 12px;
+    background: var(--paper); margin: 8px 0; padding: 10px 12px; }
+  .review-table td { border: 0; padding: 4px 0; white-space: normal; }
+  .review-table td::before { content: attr(data-label); display: block;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); margin-bottom: 2px; }
+  .review-table td:first-child::before { display: none; }
+  .review-table input { width: 100%; }
+}
+
+.search-select { display: grid; gap: 4px; min-width: 0; }
+.search-select .search-select-filter { min-width: 0; width: 100%; }
+.search-select select { min-width: 0; width: 100%; }

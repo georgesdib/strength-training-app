@@ -13,7 +13,11 @@ import pytest
 import yaml
 from conftest import make_readiness, make_training
 
-from strength_coach.features.readiness import ReadinessConfig, ReadinessConfigError
+from strength_coach.features.readiness import (
+    ReadinessConfig,
+    ReadinessConfigError,
+    validate_presets_text,
+)
 from strength_coach.prescribe import build_prescription
 from strength_coach.store import db, importer
 
@@ -131,3 +135,27 @@ def test_engine_uses_the_configured_fields():
     assert widened.fallback_level == "fatigue_reduced"
     assert default.notes["readiness_fields"] == ["sleep", "energy"]
     assert widened.notes["readiness_fields"] == ["sleep", "soreness"]
+
+
+def test_preset_yaml_validation_accepts_a_well_formed_document():
+    presets = validate_presets_text("""
+presets:
+  good:
+    label: Good
+    values: {sleep: 4, energy: 4, soreness: 5, stress: 4}
+    context_flags: [travel]
+""")
+    assert presets["good"]["label"] == "Good"
+    assert presets["good"]["values"] == {
+        "sleep": 4, "energy": 4, "soreness": 5, "stress": 4,
+    }
+    assert presets["good"]["context_flags"] == ("travel",)
+
+
+def test_preset_yaml_validation_rejects_bad_values():
+    with pytest.raises(ValueError, match="1-5"):
+        validate_presets_text("""
+presets:
+  bad:
+    values: {sleep: 9, energy: 4, soreness: 5, stress: 4}
+""")

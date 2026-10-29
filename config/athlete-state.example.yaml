@@ -8,7 +8,7 @@
 
 profile:
   effective_from: "YYYY-MM-DD"
-  primary_goal: longevity          # or strength / hypertrophy / health
+  primary_goal: longevity          # or strength / hypertrophy / body_comp / pain_free / competition
   goal_rank: [longevity, strength] # tie-breaker order
   focus_lifts: []                  # canonical ids that matter most, if any
   competition_date: null

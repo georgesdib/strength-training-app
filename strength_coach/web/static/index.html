@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Strength Coach</title>
   <script>
     (function () {
@@ -18,7 +18,7 @@
 </head>
 <body>
   <header class="topbar">
-    <button id="menu-toggle" class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false">☰</button>
+    <button id="menu-toggle" class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">☰</button>
     <div class="brand">Strength<span>Coach</span></div>
     <div class="local">local only · <code>127.0.0.1:8000</code></div>
   </header>
@@ -56,7 +56,8 @@
           <p class="muted" id="today-sub"></p>
         </div>
         <div class="hero-actions">
-          <button class="primary" id="today-refresh" type="button">Refresh</button>
+          <button class="primary" id="today-session" type="button">Start today’s session</button>
+          <button class="ghost" id="today-refresh" type="button">Refresh</button>
           <span class="muted" id="today-updated"></span>
         </div>
       </div>
@@ -154,7 +155,7 @@
         <div class="form-row">
           <button class="primary" type="button" id="history-save">Save correction</button>
           <button class="ghost" type="button" id="history-cancel">Cancel</button>
-          <span class="muted" id="history-edit-msg"></span>
+          <span class="muted" id="history-edit-msg" role="status" aria-live="polite"></span>
         </div>
         <p class="muted">Saving supersedes the old sets, rebuilds the session totals and critique, and marks the session for re-review. Old rows and marks stay for audit.</p>
       </div>
@@ -351,6 +352,9 @@
             <label>Date <input type="date" id="readiness-date" required></label>
             <label class="grow">Note <input type="text" id="readiness-note" placeholder="optional"></label>
           </div>
+          <div class="form-row" id="workflow-readiness-presets"></div>
+          <p class="field-hint">1–5, higher is better. For <strong>stress</strong> and
+            <strong>soreness</strong>, 5 means none. Any subset is valid.</p>
           <div id="readiness-fields" class="grid-fields"></div>
           <details class="advanced">
             <summary>Device fields (optional)</summary>
@@ -454,67 +458,81 @@
       <div class="panel" id="workout-active-panel" hidden>
         <div class="panel-head"><h2 id="workout-title">Workout in progress</h2>
           <span class="badge" id="workout-timer">00:00</span></div>
-        <p class="section-help"><span>Log actual sets, edit them, add optional device data, and end from here.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
+        <p class="section-help"><span>Log actual sets first; plan edits, device import and end-session data are secondary.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
         <div id="workout-meta" class="muted"></div>
         <div id="workout-volume"></div>
-        <div id="workout-plan"></div>
 
-        <div class="panel-head" style="margin-top:1rem"><h3>Log a set</h3></div>
-        <p class="section-help"><span>Adds one actual set to the active workout; the frozen plan is never rewritten.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=16-workout-session-workout-set-workout-event-live-workout-mode">Live workout model</a></p>
-        <form id="workout-set-form" class="form-row">
-          <label>Exercise <select id="workout-set-exercise" required></select></label>
-          <label>Load kg <input type="number" step="0.5" id="workout-set-load"></label>
-          <label>Reps <input type="number" step="1" min="0" id="workout-set-reps"></label>
-          <label>RIR <input type="number" step="1" min="0" max="10" id="workout-set-rir"></label>
-          <label>Velocity <input type="number" step="0.01" id="workout-set-velocity" placeholder="optional"></label>
-          <button class="primary" type="submit">Add set</button>
-        </form>
-        <div id="workout-set-msg"></div>
-        <div id="workout-sets"></div>
+        <section class="workout-logger" aria-labelledby="workout-logger-title">
+          <div class="panel-head"><h3 id="workout-logger-title">Log a set</h3></div>
+          <p class="section-help"><span>Adds one actual set to the active workout; the frozen plan is never rewritten.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=16-workout-session-workout-set-workout-event-live-workout-mode">Live workout model</a></p>
+          <p class="workout-target" id="workout-set-target">Choose an exercise to see the planned target.</p>
+          <form id="workout-set-form" class="form-row workout-set-form">
+            <label>Exercise <select id="workout-set-exercise" required aria-describedby="workout-set-msg"></select></label>
+            <label>Load kg <input type="number" inputmode="decimal" step="0.5" id="workout-set-load" placeholder="added load"></label>
+            <label>Reps / sec <input type="number" inputmode="numeric" step="1" min="0" id="workout-set-reps" required aria-describedby="workout-set-msg"></label>
+            <label>RIR <input type="number" inputmode="numeric" step="1" min="0" max="6" id="workout-set-rir"></label>
+            <label>Velocity m/s <input type="number" inputmode="decimal" step="0.01" id="workout-set-velocity" placeholder="optional"></label>
+            <button class="primary" type="submit">Add set</button>
+          </form>
+          <p class="field-hint">RIR 0 = failure; 6 = warm-up. Load is added load for bodyweight movements.</p>
+          <div id="workout-set-msg" role="status" aria-live="polite"></div>
+        </section>
+
+        <div id="workout-sets" class="workout-sets"></div>
+
         <div class="panel" id="workout-set-edit" hidden style="margin-top:1rem">
           <div class="panel-head"><h3>Edit actual set</h3>
             <button class="ghost" type="button" id="workout-set-edit-cancel">Cancel</button></div>
         <p class="section-help"><span>Corrects an active-workout set by appending a replacement; the original stays auditable.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=16-workout-session-workout-set-workout-event-live-workout-mode">Live workout model</a></p>
           <div class="form-row">
-            <label>Load kg <input id="workout-edit-load" type="number" step="0.5"></label>
-            <label>Reps <input id="workout-edit-reps" type="number" step="1" min="0"></label>
-            <label>RIR <input id="workout-edit-rir" type="number" step="1" min="0" max="10"></label>
-            <label>Velocity <input id="workout-edit-velocity" type="number" step="0.01"></label>
+            <label>Load kg <input id="workout-edit-load" type="number" step="0.5" inputmode="decimal"></label>
+            <label>Reps <input id="workout-edit-reps" type="number" step="1" min="0" inputmode="numeric"></label>
+            <label>RIR <input id="workout-edit-rir" type="number" step="1" min="0" max="6" inputmode="numeric"></label>
+            <label>Velocity m/s <input id="workout-edit-velocity" type="number" step="0.01" inputmode="decimal"></label>
             <button class="primary" type="button" id="workout-set-edit-save">Save set</button>
           </div>
-          <div id="workout-set-edit-msg"></div>
+          <div id="workout-set-edit-msg" role="status" aria-live="polite"></div>
         </div>
 
+        <details class="advanced" id="workout-plan-details">
+          <summary>Plan and plan edits</summary>
+          <p class="section-help"><span>The editable workout plan; the original prescription is kept separately.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
+          <div id="workout-plan"></div>
+        </details>
 
-
-        <div class="panel-head" style="margin-top:1rem"><h3>Import workout CSV</h3></div>
-        <p class="section-help"><span>Imports device rows into this active workout; preview first, then apply, with undo.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=16-workout-session-workout-set-workout-event-live-workout-mode">Workout import</a></p>
-        <p class="muted">Columns: Exercise, Set, RPE, Value, Weight, Reps. No date column; import goes into this active workout. Preview first; apply replaces the same exercise/set and leaves other manual sets alone.</p>
-        <label>CSV file <input type="file" id="workout-import-file" accept=".csv,text/csv"></label>
-        <textarea id="workout-import-text" rows="6" style="width:100%" placeholder="Or paste the CSV here..."></textarea>
-        <div class="panel-head" style="margin-top:1rem"><h3>Per-rep velocity (optional)</h3></div>
-        <p class="section-help"><span>Joins optional device reps to an existing set; it never creates a set.</span> <a class="doc-link" href="#docs?doc=docs/REP-VELOCITY.md&amp;anchor=per-rep-csv-optional">Per-rep contract</a></p>
-        <p class="muted">Optional second CSV: Exercise Name, Set Number, Metric Name, Rep Number, Velocity. A blank Rep Number is the set mean. It is joined to the matching exercise/set above; it never creates a set.</p>
-        <label>Per-rep CSV file <input type="file" id="workout-rep-import-file" accept=".csv,text/csv"></label>
-        <textarea id="workout-rep-import-text" rows="4" style="width:100%" placeholder="Or paste per-rep rows here (optional)..."></textarea>
-        <div id="workout-rep-import-msg" class="muted"></div>
-        <div class="form-row">
-          <button class="ghost" type="button" id="workout-import-preview">Preview import</button>
-          <button class="primary" type="button" id="workout-import-apply">Apply import</button>
-          <button class="ghost" type="button" id="workout-import-undo">Undo last import</button>
-        </div>
-        <div id="workout-import-msg"></div>
-        <div id="workout-import-preview-area"></div>
         <div class="panel-head" style="margin-top:1rem"><h3>End workout</h3></div>
         <p class="section-help"><span>Stores duration and sRPE, materialises the session, and sends you to Review.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md&amp;anchor=4-10i-workout-mode-start-log-end">Workout guide</a></p>
         <form id="workout-end-form" class="form-row">
           <label>Duration min <input type="number" step="1" min="1" id="workout-end-duration" placeholder="measured if blank"></label>
           <label>Session RPE <input type="number" step="0.5" min="1" max="10" id="workout-end-srpe"></label>
           <label><input type="checkbox" id="workout-end-not-recorded"> sRPE not recorded</label>
-          <label>Note <input type="text" id="workout-end-note" placeholder="optional"></label>
+          <label class="grow">Note <input type="text" id="workout-end-note" placeholder="optional"></label>
           <button class="primary" type="submit">End workout</button>
         </form>
-        <div id="workout-end-msg"></div>
+        <div id="workout-end-msg" role="status" aria-live="polite"></div>
+
+        <details class="advanced" id="workout-import-details">
+          <summary>Import device data (optional)</summary>
+          <div class="panel-head"><h3>Import workout CSV</h3></div>
+          <p class="section-help"><span>Imports device rows into this active workout; preview first, then apply, with undo.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=16-workout-session-workout-set-workout-event-live-workout-mode">Workout import</a></p>
+          <p class="muted">Columns: Exercise, Set, RPE, Value, Weight, Reps. No date column; import goes into this active workout. Preview first; apply replaces the same exercise/set and leaves other manual sets alone.</p>
+          <label>CSV file <input type="file" id="workout-import-file" accept=".csv,text/csv"></label>
+          <textarea id="workout-import-text" rows="6" style="width:100%" placeholder="Or paste the CSV here..."></textarea>
+          <div class="panel-head" style="margin-top:1rem"><h3>Per-rep velocity (optional)</h3></div>
+          <p class="section-help"><span>Joins optional device reps to an existing set; it never creates a set.</span> <a class="doc-link" href="#docs?doc=docs/REP-VELOCITY.md&amp;anchor=per-rep-csv-optional">Per-rep contract</a></p>
+          <p class="muted">Optional second CSV: Exercise Name, Set Number, Metric Name, Rep Number, Velocity. A blank Rep Number is the set mean. It is joined to the matching exercise/set above; it never creates a set.</p>
+          <label>Per-rep CSV file <input type="file" id="workout-rep-import-file" accept=".csv,text/csv"></label>
+          <textarea id="workout-rep-import-text" rows="4" style="width:100%" placeholder="Or paste per-rep rows here (optional)..."></textarea>
+          <div id="workout-rep-import-msg" class="muted"></div>
+          <div class="form-row">
+            <button class="ghost" type="button" id="workout-import-preview">Preview import</button>
+            <button class="primary" type="button" id="workout-import-apply">Apply import</button>
+            <button class="ghost" type="button" id="workout-import-undo">Undo last import</button>
+          </div>
+          <div id="workout-import-msg"></div>
+          <div id="workout-import-preview-area"></div>
+        </details>
+
         <p><button class="ghost" type="button" id="workout-abandon">Abandon workout</button></p>
       </div>
 
@@ -805,13 +823,20 @@
           <div class="form-row">
             <label>ID <input id="exercise-id" required pattern="[a-z][a-z0-9_]*"></label>
             <label class="grow">Display name <input id="exercise-display" required></label>
-            <label>Pattern <input id="exercise-pattern" list="exercise-patterns" required></label>
-            <label>VBT family <input id="exercise-vbt"></label>
+            <label>Pattern <select id="exercise-pattern" required></select></label>
+            <label>VBT family
+              <select id="exercise-vbt"></select>
+            </label>
+            <label id="exercise-vbt-new-wrap" hidden>New VBT family
+              <input id="exercise-vbt-new" placeholder="lower_snake_case" pattern="[a-z][a-z0-9_]*">
+            </label>
           </div>
           <label class="grow">Log names — one exact raw name per line
             <textarea id="exercise-log-names" rows="4"></textarea></label>
-          <label class="grow">Primary muscles — comma separated
-            <input id="exercise-muscles"></label>
+          <div class="grow">
+            <span class="field-label">Primary muscles</span>
+            <div id="exercise-muscles" class="choice-list" data-muscle-group="exercise"></div>
+          </div>
           <div class="form-row">
             <label><input type="checkbox" id="exercise-compound"> primary compound</label>
             <label><input type="checkbox" id="exercise-loadable"> loadable</label>
@@ -823,11 +848,14 @@
             <label><input type="checkbox" id="exercise-erector"> erector family</label>
             <label><input type="checkbox" id="exercise-direct-erector"> direct erector</label>
           </div>
-          <label class="grow">Additional properties (JSON object; unknown fields are preserved)
-            <textarea id="exercise-extra" rows="5" spellcheck="false"></textarea></label>
+          <details class="advanced">
+            <summary>Additional properties (advanced JSON; unknown fields are preserved)</summary>
+            <label class="grow">Properties JSON
+              <textarea id="exercise-extra" rows="5" spellcheck="false"></textarea></label>
+          </details>
           <div class="form-row">
             <button class="primary" type="submit">Save exercise</button>
-            <span id="exercise-msg" class="muted"></span>
+            <span id="exercise-msg" class="muted" role="status" aria-live="polite"></span>
           </div>
         </form>
         <datalist id="exercise-patterns"></datalist>
@@ -838,9 +866,8 @@
       <div class="panel">
         <div class="panel-head"><h2>Athlete state</h2><span class="muted">stored in the database, not prompt text</span></div>
         <p class="section-help"><span>Stores goals, constraints, suitability and symptoms as state, not prompt text.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=11-athlete-state-goals-constraints-suitability-metric-definitions">Athlete state</a></p>
-        <div id="state-result" class="state-grid"></div>
+        <div id="state-result" class="state-grid" role="status" aria-live="polite"></div>
         <div id="state-forms" class="state-grid" style="margin-top:16px"></div>
-        <datalist id="exercise-options"></datalist>
       </div>
     </section>
 
@@ -922,9 +949,12 @@
             <label>Tolerance <input type="number" min="0" max="1" step="0.01" id="settings-drop-tolerance"></label>
             <span class="muted">High band <code id="settings-drop-high">—</code></span>
           </div>
-          <label>Candidate pool (JSON, keyed by movement group)
-            <textarea id="settings-drop-slots" rows="12" spellcheck="false"></textarea>
-          </label>
+          <details class="advanced">
+            <summary>Candidate pool (advanced JSON, keyed by movement group)</summary>
+            <label>Candidate pool JSON
+              <textarea id="settings-drop-slots" rows="12" spellcheck="false"></textarea>
+            </label>
+          </details>
           <div class="form-row">
             <button class="primary" type="submit">Save drop settings</button>
             <span class="muted" id="settings-drop-msg"></span>
@@ -1002,21 +1032,31 @@
       </div>
     </section>
 
-    <dialog id="exercise-details-dialog" style="max-width:720px;width:90%;border:1px solid #444;border-radius:8px;padding:1rem;background:#171a1f;color:#eee">
+    <dialog id="exercise-details-dialog" class="app-dialog" aria-labelledby="exercise-details-title">
       <div class="panel-head"><h2 id="exercise-details-title">Exercise details</h2>
         <button class="ghost" type="button" id="exercise-details-cancel">Close</button></div>
         <p class="section-help"><span>Edits local exercise properties without rewriting history; ids stay immutable.</span> <a class="doc-link" href="#docs?doc=docs/EXERCISE-VARIANTS.md&amp;anchor=0-web-exercises-tab">Exercise editing</a></p>
       <form id="exercise-details-form">
         <div class="form-row">
           <label>Display name <input id="exercise-detail-display" required></label>
-          <label>Pattern <input id="exercise-detail-pattern" required></label>
-          <label>VBT family <input id="exercise-detail-vbt"></label>
-          <label>Spinal cost <input id="exercise-detail-spinal-cost" type="number" step="0.5" min="0"></label>
+          <label>Pattern <select id="exercise-detail-pattern" required></select></label>
+          <label>VBT family
+            <select id="exercise-detail-vbt"></select>
+          </label>
+          <label id="exercise-detail-vbt-new-wrap" hidden>New VBT family
+            <input id="exercise-detail-vbt-new" placeholder="lower_snake_case" pattern="[a-z][a-z0-9_]*">
+          </label>
+          <label>Spinal cost
+            <input id="exercise-detail-spinal-cost" type="number" step="0.5" min="0" max="5">
+            <span class="field-hint">Ordinal 0–5 in half steps; 0 = non-counting.</span>
+          </label>
         </div>
         <label class="grow">Log names — one exact raw name per line
           <textarea id="exercise-detail-log-names" rows="3"></textarea></label>
-        <label class="grow">Primary muscles — comma separated
-          <input id="exercise-detail-muscles"></label>
+        <div class="grow">
+          <span class="field-label">Primary muscles</span>
+          <div id="exercise-detail-muscles" class="choice-list" data-muscle-group="detail"></div>
+        </div>
         <div class="form-row">
           <label><input type="checkbox" id="exercise-detail-compound"> primary compound</label>
           <label><input type="checkbox" id="exercise-detail-loadable"> loadable</label>
@@ -1030,8 +1070,11 @@
         </div>
         <div class="form-row">
           <label>Day roles (derived) <input id="exercise-detail-day-roles" readonly title="Derived from the session templates"></label>
-          <label class="grow">Additional properties (JSON)
-            <textarea id="exercise-detail-extra" rows="3" spellcheck="false"></textarea></label>
+          <details class="advanced">
+            <summary>Additional properties (advanced JSON)</summary>
+            <label class="grow">Properties JSON
+              <textarea id="exercise-detail-extra" rows="3" spellcheck="false"></textarea></label>
+          </details>
         </div>
         <div class="form-row">
           <div class="grow">
@@ -1061,14 +1104,49 @@
         </div>
         <div class="form-row">
           <button class="primary" type="submit">Save details</button>
-          <span id="exercise-details-msg" class="muted"></span>
+          <span id="exercise-details-msg" class="muted" role="status" aria-live="polite"></span>
         </div>
       </form>
     </dialog>
 
-    <dialog id="template-dialog" style="max-width:900px;width:94%;border:1px solid #444;border-radius:8px;padding:1rem;background:#171a1f;color:#eee">
+    <dialog id="workout-swap-dialog" class="app-dialog" aria-labelledby="workout-swap-title">
+      <form id="workout-swap-form">
+        <div class="panel-head"><h2 id="workout-swap-title">Swap exercise</h2></div>
+        <p class="section-help"><span>Replaces the selected lift in the current workout plan; the original prescription stays frozen.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
+        <p class="muted">Replace <strong id="workout-swap-current"></strong> with:</p>
+        <label>Exercise
+          <span class="search-select">
+            <input id="workout-swap-filter" type="search" class="search-select-filter"
+              placeholder="Filter exercises…" aria-label="Filter exercise list" autocomplete="off">
+            <select id="workout-swap-exercise" aria-label="Replacement exercise"></select>
+          </span>
+        </label>
+        <div class="form-row">
+          <button class="primary" type="submit">Swap</button>
+          <button class="ghost" type="button" id="workout-swap-cancel">Cancel</button>
+          <span id="workout-swap-msg" class="muted" role="status" aria-live="polite"></span>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="readiness-preset-dialog" class="app-dialog wide" aria-labelledby="readiness-preset-title">
+      <form id="readiness-preset-form">
+        <div class="panel-head"><h2 id="readiness-preset-title">Quick readiness presets</h2>
+          <span class="muted" id="readiness-preset-path"></span></div>
+        <p class="section-help"><span>Edits <code>config/readiness-presets.v1.yaml</code>. Values are ordinary 1–5 readings; saving validates every preset before replacing the file. The quick buttons reload from the saved file.</span> <a class="doc-link" href="#docs?doc=docs/READINESS.md">Readiness</a></p>
+        <p class="warnbox">A preset writes sleep, energy, soreness and stress and may add context flags. It never bypasses the readiness gate.</p>
+        <label class="grow">Preset YAML<textarea id="readiness-preset-yaml" rows="18" spellcheck="false" style="width:100%;font-family:monospace"></textarea></label>
+        <div class="form-row">
+          <button class="primary" type="submit">Save presets</button>
+          <button class="ghost" type="button" id="readiness-preset-cancel">Cancel</button>
+          <span class="muted" id="readiness-preset-msg" role="status" aria-live="polite"></span>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="template-dialog" class="app-dialog wide" aria-labelledby="template-dialog-title">
       <form id="template-form" method="dialog">
-        <div class="panel-head"><h2>Session templates</h2><span class="muted" id="template-path"></span></div>
+        <div class="panel-head"><h2 id="template-dialog-title">Session templates</h2><span class="muted" id="template-path"></span></div>
         <p class="section-help"><span>Edit the YAML that defines every session: <code>session_types</code> → <code>prescription</code> → <code>slots</code>. A slot has an <code>id</code>, one <code>exercise</code> or <code>exercise_variants</code>, <code>sets</code>, <code>reps.low/high</code>, <code>rir.low/high</code>, <code>rest_s</code>, <code>essential</code> and <code>load_source</code>. Power slots use <code>power: true</code> and <code>quality_stop</code> instead of RIR. Changing a slot changes the derived day roles for that exercise.</span> <a class="doc-link" href="#docs?doc=docs/SESSION-TEMPLATES.md">Full field guide</a></p>
         <p class="warnbox">Saving validates all four session types and every exercise id before writing. A bad edit is rejected; the current file is left untouched.</p>
         <label class="grow">Template YAML<textarea id="template-yaml" rows="28" spellcheck="false" style="width:100%;font-family:monospace"></textarea></label>

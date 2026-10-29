@@ -19,6 +19,7 @@ import yaml
 from strength_coach.utils import exercises, paths
 
 ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+VBT_FAMILY_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _SKIP = {"id"}
 
 
@@ -78,10 +79,66 @@ def _normalise(entity_id: str, props: Mapping[str, Any], current: Mapping[str, A
     pattern = str(merged.get("pattern") or "").strip()
     if not pattern:
         raise ValueError("pattern is required")
+    # A new pattern is a taxonomy change, not a free-text value. Editing an existing row
+    # whose legacy pattern is no longer in the catalogue must still be able to keep it.
+    current_pattern = str(current.get("pattern") or "").strip()
+    known_patterns = set(exercises.canonical_patterns())
+    if pattern not in known_patterns and pattern != current_pattern:
+        raise ValueError(
+            "pattern must be a canonical taxonomy pattern: "
+            + ", ".join(sorted(known_patterns))
+        )
     merged["pattern"] = pattern
 
     muscles = [str(m).strip() for m in _as_list(merged.get("primary_muscles"), "primary_muscles")]
+    current_muscles = {str(m).strip() for m in (current.get("primary_muscles") or [])}
+    known_muscles = set(exercises.canonical_muscles())
+    unknown_muscles = sorted({
+        m for m in muscles if m and m not in known_muscles and m not in current_muscles
+    })
+    if unknown_muscles:
+        raise ValueError(
+            "primary_muscles contains unknown value(s): "
+            + ", ".join(unknown_muscles)
+            + "; known: " + ", ".join(sorted(known_muscles))
+        )
     merged["primary_muscles"] = [m for m in muscles if m]
+
+    # Explicit null/blank means "clear this optional property". A field that is simply absent
+    # from the patch preserves the current value.
+    for key in ("vbt_family", "spinal_cost"):
+        if merged.get(key) in (None, ""):
+            merged.pop(key, None)
+
+    # VBT family is extensible by design: a genuinely new movement may need a new family.
+    # The UI offers the existing families but an explicit new-family path is allowed. A new
+    # family must be a stable lower_snake_case key; an existing legacy value is preserved.
+    if "vbt_family" in merged:
+        family = str(merged["vbt_family"]).strip()
+        current_family = str(current.get("vbt_family") or "").strip()
+        if family != current_family and not VBT_FAMILY_RE.match(family):
+            raise ValueError(
+                "vbt_family must be lower_snake_case and start with a letter"
+            )
+        merged["vbt_family"] = family
+
+    # Spinal cost is an ordinal design assumption on a 0-5 scale (DEC-SPINE-06), not a
+    # measurement. Half steps are deliberate (DEC-SPINE-01).
+    if "spinal_cost" in merged:
+        try:
+            cost = float(merged["spinal_cost"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError("spinal_cost must be a number between 0 and 5") from exc
+        try:
+            current_cost = float(current.get("spinal_cost"))
+        except (TypeError, ValueError):
+            current_cost = None
+        if cost != current_cost:
+            if not 0 <= cost <= 5:
+                raise ValueError("spinal_cost must be between 0 and 5")
+            if abs(cost * 2 - round(cost * 2)) > 1e-9:
+                raise ValueError("spinal_cost must be in 0.5 steps")
+        merged["spinal_cost"] = cost
 
     for key in (
         "primary_compound", "loadable", "bodyweight_type", "time_based",
@@ -159,6 +216,15 @@ def catalog() -> dict[str, Any]:
         })
     return {
         "patterns": sorted({str(e.get("pattern")) for e in entities.values() if e.get("pattern")}),
+        "vbt_families": sorted({
+            str(e.get("vbt_family")) for e in entities.values() if e.get("vbt_family")
+        }),
+        "muscles": sorted({
+            str(muscle)
+            for e in entities.values()
+            for muscle in (e.get("primary_muscles") or [])
+            if str(muscle).strip()
+        }),
         "entities": rows,
     }
 

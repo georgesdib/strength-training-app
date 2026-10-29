@@ -4,7 +4,98 @@ const EXERCISE_KNOWN = [
   "display", "log_names", "pattern", "primary_muscles", "primary_compound",
   "loadable", "bodyweight_type", "time_based", "e1rm_applicable", "vbt_family",
   "main_lift", "high_fatigue_spinal", "erector_family", "direct_erector",
+  "day_roles",
 ];
+
+function patternSelectHtml(selected) {
+  const patterns = (window.__exerciseCatalog?.patterns || []);
+  const values = new Set(patterns.map(String));
+  let options = patterns.map((value) =>
+    `<option value="${esc(value)}"${String(selected ?? "") === String(value) ? " selected" : ""}>${esc(value)}</option>`
+  ).join("");
+  if (selected && !values.has(String(selected))) {
+    options += `<option value="${esc(selected)}" selected>${esc(selected)} (legacy — not in current list)</option>`;
+  }
+  return `<option value="">choose…</option>${options}`;
+}
+
+function setPatternSelect(selector, selected) {
+  const node = $(selector);
+  if (!node) return;
+  node.innerHTML = patternSelectHtml(selected);
+  node.value = selected || "";
+}
+
+const VBT_NEW_VALUE = "__new__";
+
+function vbtFamilyOptions(selected) {
+  const families = (window.__exerciseCatalog?.vbt_families || []).map(String);
+  const values = new Set(families);
+  let markup = '<option value="">— none —</option>' + families.map((value) =>
+    `<option value="${esc(value)}"${String(selected ?? "") === value ? " selected" : ""}>${esc(value)}</option>`
+  ).join("");
+  if (selected && !values.has(String(selected))) {
+    markup += `<option value="${esc(selected)}" selected>${esc(selected)} (legacy — not in current list)</option>`;
+  }
+  markup += `<option value="${VBT_NEW_VALUE}">Add new family…</option>`;
+  return markup;
+}
+
+function setVbtFamily(selectSelector, newSelector, wrapSelector, value) {
+  const select = $(selectSelector);
+  const wrap = $(wrapSelector);
+  const input = $(newSelector);
+  if (!select) return;
+  select.innerHTML = vbtFamilyOptions(value);
+  select.value = value || "";
+  if (input) input.value = "";
+  if (wrap) wrap.hidden = true;
+}
+
+function syncVbtFamily(selectSelector, newSelector, wrapSelector) {
+  const select = $(selectSelector);
+  const wrap = $(wrapSelector);
+  const input = $(newSelector);
+  if (!select || !wrap) return;
+  const adding = select.value === VBT_NEW_VALUE;
+  wrap.hidden = !adding;
+  if (adding && input) input.focus();
+}
+
+function readVbtFamily(selectSelector, newSelector) {
+  const select = $(selectSelector);
+  const input = $(newSelector);
+  if (!select) return "";
+  if (select.value === VBT_NEW_VALUE) return input ? input.value.trim() : "";
+  return select.value.trim();
+}
+
+function muscleChoicesHtml(selected) {
+  const muscles = (window.__exerciseCatalog?.muscles || []);
+  const chosen = new Set((selected || []).map(String));
+  const values = new Set(muscles.map(String));
+  let markup = muscles.map((value) => `<label class="choice">
+    <input type="checkbox" data-muscle value="${esc(value)}"${chosen.has(String(value)) ? " checked" : ""}>
+    <span>${esc(value)}</span></label>`).join("");
+  for (const legacy of chosen) {
+    if (!values.has(legacy)) {
+      markup += `<label class="choice">
+        <input type="checkbox" data-muscle value="${esc(legacy)}" checked>
+        <span>${esc(legacy)} (legacy — not in current list)</span></label>`;
+    }
+  }
+  return markup;
+}
+
+function setMuscleChoices(selector, selected) {
+  const node = $(selector);
+  if (node) node.innerHTML = muscleChoicesHtml(selected);
+}
+
+function selectedMusclesIn(selector) {
+  return [...document.querySelectorAll(`${selector} [data-muscle]:checked`)]
+    .map((input) => input.value);
+}
 
 function openExerciseEditor(row) {
   const props = row ? JSON.parse(JSON.stringify(row.props || {})) : {
@@ -17,10 +108,10 @@ function openExerciseEditor(row) {
   $("#exercise-id").value = row ? row.id : "";
   $("#exercise-id").readOnly = !!row;
   $("#exercise-display").value = props.display || "";
-  $("#exercise-pattern").value = props.pattern || "";
-  $("#exercise-vbt").value = props.vbt_family || "";
+  setPatternSelect("#exercise-pattern", props.pattern || "");
+  setVbtFamily("#exercise-vbt", "#exercise-vbt-new", "#exercise-vbt-new-wrap", props.vbt_family || "");
   $("#exercise-log-names").value = (props.log_names || []).join("\n");
-  $("#exercise-muscles").value = (props.primary_muscles || []).join(", ");
+  setMuscleChoices("#exercise-muscles", props.primary_muscles || []);
   $("#exercise-compound").checked = !!props.primary_compound;
   $("#exercise-loadable").checked = props.loadable !== false;
   $("#exercise-bodyweight").checked = !!props.bodyweight_type;
@@ -44,11 +135,12 @@ function openExerciseDetails(row) {
   window.__exerciseDetailsId = row.id;
   $("#exercise-details-title").textContent = row.id + " · " + (row.display || "");
   $("#exercise-detail-display").value = props.display || row.display || "";
-  $("#exercise-detail-pattern").value = props.pattern || row.pattern || "";
-  $("#exercise-detail-vbt").value = props.vbt_family || "";
+  setPatternSelect("#exercise-detail-pattern", props.pattern || row.pattern || "");
+  setVbtFamily("#exercise-detail-vbt", "#exercise-detail-vbt-new",
+    "#exercise-detail-vbt-new-wrap", props.vbt_family || "");
   $("#exercise-detail-spinal-cost").value = props.spinal_cost == null ? "" : props.spinal_cost;
   $("#exercise-detail-log-names").value = (props.log_names || []).join("\n");
-  $("#exercise-detail-muscles").value = (props.primary_muscles || []).join(", ");
+  setMuscleChoices("#exercise-detail-muscles", props.primary_muscles || []);
   $("#exercise-detail-compound").checked = !!props.primary_compound;
   $("#exercise-detail-loadable").checked = props.loadable !== false;
   $("#exercise-detail-bodyweight").checked = !!props.bodyweight_type;
@@ -104,7 +196,7 @@ function saveExerciseDetails(event) {
     display: $("#exercise-detail-display").value.trim(),
     log_names: $("#exercise-detail-log-names").value.split("\n").filter((line) => line.length > 0),
     pattern: $("#exercise-detail-pattern").value.trim(),
-    primary_muscles: $("#exercise-detail-muscles").value.split(",").map((m) => m.trim()).filter(Boolean),
+    primary_muscles: selectedMusclesIn("#exercise-detail-muscles"),
     primary_compound: $("#exercise-detail-compound").checked,
     loadable: $("#exercise-detail-loadable").checked,
     bodyweight_type: $("#exercise-detail-bodyweight").checked,
@@ -115,14 +207,21 @@ function saveExerciseDetails(event) {
     erector_family: $("#exercise-detail-erector").checked,
     direct_erector: $("#exercise-detail-direct-erector").checked,
   });
-  if ($("#exercise-detail-vbt").value.trim()) props.vbt_family = $("#exercise-detail-vbt").value.trim();
-  else delete props.vbt_family;
+  const detailVbt = readVbtFamily("#exercise-detail-vbt", "#exercise-detail-vbt-new");
+  if ($("#exercise-detail-vbt").value === VBT_NEW_VALUE && !detailVbt) {
+    $("#exercise-details-msg").textContent = "Enter a name for the new VBT family, or choose an existing one.";
+    $("#exercise-detail-vbt-new").focus();
+    return;
+  }
+  props.vbt_family = detailVbt || null;
   if ($("#exercise-detail-spinal-cost").value !== "") {
     props.spinal_cost = Number($("#exercise-detail-spinal-cost").value);
   } else {
-    delete props.spinal_cost;
+    props.spinal_cost = null;
   }
-  if (!props.day_roles.length) delete props.day_roles;
+  // day_roles are derived from the session templates by the server; never send or
+  // reconstruct them here.
+  delete props.day_roles;
   $("#exercise-details-msg").textContent = "Saving…";
   api("/api/exercises", { method: "POST", body: JSON.stringify({ id, props }) })
     .then((data) => {
@@ -131,7 +230,16 @@ function saveExerciseDetails(event) {
       loadExerciseCatalog();
       loadExercises();
     })
-    .catch((error) => { $("#exercise-details-msg").textContent = error.message; });
+    .catch((error) => applyFieldErrors(error, $("#exercise-details-msg"), {
+      id: "#exercise-id",
+      display: "#exercise-detail-display",
+      pattern: "#exercise-detail-pattern",
+      primary_muscles: "#exercise-detail-muscles input",
+      log_names: "#exercise-detail-log-names",
+      vbt_family: "#exercise-detail-vbt",
+      spinal_cost: "#exercise-detail-spinal-cost",
+      props: "#exercise-detail-extra",
+    }));
 }
 
 $("#exercise-details-cancel").addEventListener("click", () => $("#exercise-details-dialog").close());
@@ -318,6 +426,12 @@ async function loadExerciseCatalog() {
   }
 }
 
+$("#exercise-vbt").addEventListener("change", function () {
+  syncVbtFamily("#exercise-vbt", "#exercise-vbt-new", "#exercise-vbt-new-wrap");
+});
+$("#exercise-detail-vbt").addEventListener("change", function () {
+  syncVbtFamily("#exercise-detail-vbt", "#exercise-detail-vbt-new", "#exercise-detail-vbt-new-wrap");
+});
 $("#exercise-search").addEventListener("input", renderExerciseCatalog);
 $("#exercise-filter").addEventListener("change", renderExerciseCatalog);
 $("#exercise-refresh").addEventListener("click", loadExerciseCatalog);
@@ -337,23 +451,28 @@ $("#exercise-form").addEventListener("submit", async (event) => {
     $("#exercise-msg").textContent = "Additional properties must be a JSON object.";
     return;
   }
+  const vbt = readVbtFamily("#exercise-vbt", "#exercise-vbt-new");
+  if ($("#exercise-vbt").value === VBT_NEW_VALUE && !vbt) {
+    $("#exercise-msg").textContent = "Enter a name for the new VBT family, or choose an existing one.";
+    $("#exercise-vbt-new").focus();
+    return;
+  }
   const props = Object.assign({}, extra, {
     display: $("#exercise-display").value.trim(),
     log_names: $("#exercise-log-names").value.split("\n").filter((line) => line.length > 0),
     pattern: $("#exercise-pattern").value.trim(),
-    primary_muscles: $("#exercise-muscles").value.split(",").map((m) => m.trim()).filter(Boolean),
+    primary_muscles: selectedMusclesIn("#exercise-muscles"),
     primary_compound: $("#exercise-compound").checked,
     loadable: $("#exercise-loadable").checked,
     bodyweight_type: $("#exercise-bodyweight").checked,
     time_based: $("#exercise-timed").checked,
     e1rm_applicable: $("#exercise-e1rm").checked,
-    vbt_family: $("#exercise-vbt").value.trim() || null,
+    vbt_family: vbt || null,
     main_lift: $("#exercise-main").checked,
     high_fatigue_spinal: $("#exercise-spinal").checked,
     erector_family: $("#exercise-erector").checked,
     direct_erector: $("#exercise-direct-erector").checked,
   });
-  if (!props.vbt_family) delete props.vbt_family;
   $("#exercise-msg").textContent = "Saving…";
   try {
     const data = await api("/api/exercises", { method: "POST", body: JSON.stringify({ id, props }) });
@@ -363,6 +482,15 @@ $("#exercise-form").addEventListener("submit", async (event) => {
     await loadExerciseCatalog();
     await loadExercises();
   } catch (error) {
-    $("#exercise-msg").textContent = error.message;
+    applyFieldErrors(error, $("#exercise-msg"), {
+      id: "#exercise-id",
+      display: "#exercise-display",
+      pattern: "#exercise-pattern",
+      primary_muscles: "#exercise-muscles input",
+      log_names: "#exercise-log-names",
+      vbt_family: "#exercise-vbt",
+      spinal_cost: "#exercise-extra",
+      props: "#exercise-extra",
+    });
   }
 });

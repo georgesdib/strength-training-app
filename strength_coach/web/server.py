@@ -31,6 +31,7 @@ from strength_coach.agents import selection as agent_selection
 from strength_coach.agents.client import LLMError
 from strength_coach.agents.config import (
     PROVIDERS,
+    LLMConfigError,
     build_client,
     config_path,
     describe,
@@ -39,6 +40,7 @@ from strength_coach.agents.config import (
 )
 from strength_coach.critique import UnknownSessionError, build_facts, score_session
 from strength_coach.critique.rubric import RUBRIC_VERSION
+from strength_coach.domain import athlete_state
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, load_marks, record_marks
 from strength_coach.features import breaks as breaks_feature
@@ -90,7 +92,9 @@ from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
 from strength_coach.store import db, exercise_admin, importer, queries, repositories
 from strength_coach.utils import exercises, io_utils, paths
-from strength_coach.web import markdown
+from strength_coach.utils import readiness as readiness_utils
+from strength_coach.web import markdown, validation
+from strength_coach.web import options as options_mod
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).resolve().parent / "static"
@@ -136,6 +140,14 @@ class RequestError(Exception):
         self.close = close
 
 
+class FieldError(ValueError):
+    """A validation failure that names the form fields responsible."""
+
+    def __init__(self, message: str, fields: dict[str, str] | None = None) -> None:
+        super().__init__(message)
+        self.fields = dict(fields or {})
+
+
 TEMPLATE_BACKUPS = ROOT / "data" / "template-backups"
 TEMPLATE_BACKUP_KEEP = 20
 
@@ -153,6 +165,14 @@ def _write_template(text: str) -> None:
     path = paths.session_types_yaml()
     if path.exists():
         _backup_template(path)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _write_readiness_presets(text: str) -> None:
+    """Atomically replace the preset YAML after the caller has validated it."""
+    path = paths.config_dir("readiness-presets.v1.yaml")
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(text, encoding="utf-8")
     os.replace(tmp, path)
@@ -272,6 +292,67 @@ def _integer(value):
     if number != int(number):
         raise ValueError("integer value expected")
     return int(number)
+
+
+def _exercise_fields(message: str) -> dict[str, str]:
+    """Map the exercise writer's messages to the editor's form fields."""
+    text = message.lower()
+    if "id must" in text:
+        field = "id"
+    elif "display" in text:
+        field = "display"
+    elif "log name" in text:
+        field = "log_names"
+    elif "pattern" in text:
+        field = "pattern"
+    elif "primary_muscles" in text:
+        field = "primary_muscles"
+    elif "vbt_family" in text:
+        field = "vbt_family"
+    elif "spinal_cost" in text:
+        field = "spinal_cost"
+    else:
+        field = "props"
+    return {field: message}
+
+
+def _manual_set_values(body: dict) -> tuple[int, int | None, float | None, float | None]:
+    """Validate one manually entered set; imports keep their own legacy path."""
+    try:
+        reps = _integer(body.get("reps"))
+    except (TypeError, ValueError) as exc:
+        raise FieldError("reps must be an integer", {"reps": "must be an integer"}) from exc
+    try:
+        rir = _integer(body.get("rir"))
+    except (TypeError, ValueError) as exc:
+        raise FieldError("RIR must be an integer", {"rir": "must be an integer"}) from exc
+    try:
+        load = _number(body.get("load_kg"))
+    except (TypeError, ValueError) as exc:
+        raise FieldError("load must be a number", {"load_kg": "must be a number"}) from exc
+    try:
+        velocity = _number(body.get("velocity"))
+    except (TypeError, ValueError) as exc:
+        raise FieldError("velocity must be a number", {"velocity": "must be a number"}) from exc
+    if reps is None:
+        raise FieldError("reps are required", {"reps": "required"})
+    if reps < 0:
+        raise FieldError("reps cannot be negative", {"reps": "must be non-negative"})
+    if rir is not None and not 0 <= rir <= 6:
+        raise FieldError("RIR must be 0-6", {"rir": "must be 0-6"})
+    if load is not None and load < 0:
+        raise FieldError("load cannot be negative", {"load_kg": "must be non-negative"})
+    if velocity is not None and velocity < 0:
+        raise FieldError("velocity cannot be negative", {"velocity": "must be non-negative"})
+    return reps, rir, load, velocity
+
+
+def _field_call(fn, field: str, *args, **kwargs):
+    """Run one validator and turn its message into a field-scoped 400."""
+    try:
+        return fn(*args, **kwargs)
+    except ValueError as exc:
+        raise FieldError(str(exc), {field: str(exc)}) from exc
 
 
 def _list(value, default=None) -> list[str]:
@@ -498,8 +579,11 @@ class Handler(BaseHTTPRequestHandler):
         body = json.dumps(payload, default=_json_default).encode("utf-8")
         self._send(status, body, "application/json; charset=utf-8")
 
-    def _error(self, status: int, message: str) -> None:
-        self._json(status, {"error": message})
+    def _error(self, status: int, message: str, fields: dict[str, str] | None = None) -> None:
+        payload: dict[str, Any] = {"error": message}
+        if fields:
+            payload["fields"] = fields
+        self._json(status, payload)
 
     def _body(self) -> dict:
         if self.headers.get("Transfer-Encoding"):
@@ -772,6 +856,8 @@ class Handler(BaseHTTPRequestHandler):
                 with _LOG_LOCK:
                     records = list(_LOG_BUFFER)[-limit:]
                 self._json(200, {"logs": records})
+            elif path == "/api/options":
+                self._json(200, options_mod.canonical_options())
             elif path == "/api/exercises/catalog":
                 catalogue = demands_feature.load()
                 payload = exercise_admin.catalog()
@@ -812,6 +898,13 @@ class Handler(BaseHTTPRequestHandler):
             elif path.startswith("/api/review/"):
                 session = path[len("/api/review/"):]
                 self._json(200, self._with_conn(lambda c: self._review_sheet(c, session)))
+            elif path == "/api/readiness/presets":
+                source = paths.config_dir("readiness-presets.v1.yaml")
+                self._json(200, {
+                    "yaml": source.read_text(encoding="utf-8"),
+                    "path": str(source.relative_to(ROOT)),
+                    "presets": readiness_feature.presets(),
+                })
             elif path.startswith("/api/readiness/"):
                 day = path[len("/api/readiness/"):]
                 self._json(200, self._with_conn(lambda c: self._readiness(c, day)))
@@ -900,6 +993,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._test_llm())
             elif path == "/api/prescribe":
                 self._json(200, self._with_conn(lambda c: self._prescribe(c, body)))
+            elif path == "/api/readiness/presets":
+                text = str(body.get("yaml") or "")
+                if not text.strip():
+                    raise ValueError("readiness preset YAML is empty")
+                presets = readiness_feature.validate_presets_text(text)
+                _write_readiness_presets(text)
+                self._json(200, {"ok": True, "presets": presets})
             elif path == "/api/readiness":
                 self._json(200, self._with_conn(lambda c: self._set_readiness(c, body)))
             elif path == "/api/readiness/override":
@@ -979,7 +1079,11 @@ class Handler(BaseHTTPRequestHandler):
                         "day_roles must be canonical session types: "
                         + ", ".join(templates.SESSION_TYPES)
                     )
-                self._json(200, exercise_admin.save(entity_id, props))
+                try:
+                    payload = exercise_admin.save(entity_id, props)
+                except ValueError as exc:
+                    raise FieldError(str(exc), _exercise_fields(str(exc))) from exc
+                self._json(200, payload)
             elif path == "/api/state/profile":
                 self._json(200, self._with_conn(lambda c: self._save_profile(c, body)))
             elif path == "/api/state/constraint":
@@ -1011,6 +1115,8 @@ class Handler(BaseHTTPRequestHandler):
             if exc.close:
                 self.close_connection = True
             self._error(exc.status, exc.message)
+        except FieldError as exc:
+            self._error(400, str(exc), exc.fields)
         except (ValueError, KeyError) as exc:
             self._error(400, str(exc))
         except Exception:
@@ -1063,56 +1169,112 @@ class Handler(BaseHTTPRequestHandler):
         }
 
     def _save_settings_profile(self, conn, body: dict) -> dict:
-        return settings_profile.save(
-            conn,
-            set_values=body.get("set") or {},
-            unset=list(body.get("unset") or []),
-            reset=_truth(body.get("reset")),
-            effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
-            guard_confirmed=_truth(body.get("guard_confirmed")),
-            reason=(str(body.get("reason")) if body.get("reason") else None),
-        )
+        try:
+            return settings_profile.save(
+                conn,
+                set_values=body.get("set") or {},
+                unset=list(body.get("unset") or []),
+                reset=_truth(body.get("reset")),
+                effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
+                guard_confirmed=_truth(body.get("guard_confirmed")),
+                reason=(str(body.get("reason")) if body.get("reason") else None),
+            )
+        except ValueError as exc:
+            text = str(exc)
+            if "guarded settings require confirmation" in text:
+                field = "guard_confirmed"
+            elif "guarded settings require a reason" in text:
+                field = "reason"
+            else:
+                candidates = list((body.get("set") or {}).keys())
+                field = next((key for key in candidates if str(key) in text), "settings")
+            raise FieldError(text, {field: text}) from exc
 
     def _save_modality(self, conn, module_id: str, body: dict) -> dict:
-        return modalities.update(
-            conn, module_id,
-            enabled=(_truth(body.get("enabled")) if "enabled" in body else None),
-            factors=body.get("factors") or {},
-            guard_confirmed=_truth(body.get("guard_confirmed")),
-            reason=(str(body.get("reason")) if body.get("reason") else None),
-            effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
-        )
+        try:
+            return modalities.update(
+                conn, module_id,
+                enabled=(_truth(body.get("enabled")) if "enabled" in body else None),
+                factors=body.get("factors") or {},
+                guard_confirmed=_truth(body.get("guard_confirmed")),
+                reason=(str(body.get("reason")) if body.get("reason") else None),
+                effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
+            )
+        except ValueError as exc:
+            text = str(exc)
+            if "confirmation" in text:
+                field = "guard_confirmed"
+            elif "reason" in text:
+                field = "reason"
+            elif "factor" in text:
+                field = "factors"
+            else:
+                field = "settings"
+            raise FieldError(text, {field: text}) from exc
 
     def _save_drop_settings(self, conn, body: dict) -> dict:
         day = datetime.date.today().isoformat()
         current = settings_profile.budget_overrides(conn, day)
         drop = dict(current.get("drop") or {})
-        for field in (
-            "enabled", "competition_confirm_days", "max_slots_per_group",
-            "technique_minutes", "slots",
+        for field, low, high in (
+            ("competition_confirm_days", 0, 28),
+            ("max_slots_per_group", 1, 4),
+            ("technique_minutes", 1, 120),
         ):
             if field in body:
-                drop[field] = body[field]
+                try:
+                    value = int(body[field])
+                except (TypeError, ValueError) as exc:
+                    raise FieldError(f"{field} must be an integer", {field: "must be an integer"}) from exc
+                if not low <= value <= high:
+                    raise FieldError(
+                        f"{field} must be between {low} and {high}",
+                        {field: f"must be between {low} and {high}"},
+                    )
+                drop[field] = value
+        if "slots" in body:
+            if not isinstance(body["slots"], dict):
+                raise FieldError("slots must be a JSON object", {"slots": "must be an object"})
+            drop["slots"] = body["slots"]
+        if "enabled" in body:
+            drop["enabled"] = _truth(body["enabled"])
         budget = dict(current)
         budget["drop"] = drop
         if "tolerance" in body:
-            budget["tolerance"] = body["tolerance"]
+            try:
+                tolerance = float(body["tolerance"])
+            except (TypeError, ValueError) as exc:
+                raise FieldError("tolerance must be a number", {"tolerance": "must be a number"}) from exc
+            if not 0 <= tolerance <= 1:
+                raise FieldError("tolerance must be between 0 and 1", {"tolerance": "must be 0-1"})
+            budget["tolerance"] = tolerance
         settings_profile.save(
             conn, set_values={"budget": budget}, effective_from=day,
         )
         return self._settings(conn)
 
     def _save_llm_settings(self, body: dict) -> dict:
-        return update_llm_settings(
-            enabled=_truth(body.get("enabled")),
-            model=str(body.get("model") or ""),
-            base_url=str(body.get("base_url") or ""),
-            api_key=(str(body["api_key"]) if body.get("api_key") else None),
-            clear_api_key=_truth(body.get("clear_api_key")),
-            temperature=float(body.get("temperature", 0.2)),
-            max_tokens=int(body.get("max_tokens", 700)),
-            timeout_s=float(body.get("timeout_s", 30.0)),
-        )
+        try:
+            return update_llm_settings(
+                enabled=_truth(body.get("enabled")),
+                model=str(body.get("model") or ""),
+                base_url=str(body.get("base_url") or ""),
+                api_key=(str(body["api_key"]) if body.get("api_key") else None),
+                clear_api_key=_truth(body.get("clear_api_key")),
+                temperature=float(body.get("temperature", 0.2)),
+                max_tokens=int(body.get("max_tokens", 700)),
+                timeout_s=float(body.get("timeout_s", 30.0)),
+            )
+        except LLMConfigError as exc:
+            text = str(exc)
+            field = next(
+                (name for name in ("model", "base_url", "temperature", "max_tokens", "timeout_s")
+                 if name in text),
+                "settings",
+            )
+            raise FieldError(text, {field: text}) from exc
+        except (TypeError, ValueError) as exc:
+            raise FieldError(str(exc), {"temperature": str(exc)}) from exc
 
     def _test_llm(self) -> dict:
         settings = load_settings()
@@ -1295,23 +1457,32 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 raise ValueError("unknown plan action")
         elif action == "sets":
+            source = str(body.get("source") or "manual")
+            if source == "manual":
+                reps, rir, load, velocity = _manual_set_values(body)
+            else:
+                reps = _integer(body.get("reps"))
+                rir = _integer(body.get("rir"))
+                load = _number(body.get("load_kg"))
+                velocity = _number(body.get("velocity"))
             result = workout.add_set(
                 conn, workout_id,
                 exercise_id=str(body.get("exercise_id") or ""),
-                load_kg=_number(body.get("load_kg")),
-                reps=_integer(body.get("reps")),
-                rir=_integer(body.get("rir")),
-                velocity=_number(body.get("velocity")),
-                source=str(body.get("source") or "manual"),
+                load_kg=load,
+                reps=reps,
+                rir=rir,
+                velocity=velocity,
+                source=source,
                 set_index=_integer(body.get("set_index")),
             )
         elif action == "update-set":
+            reps, rir, load, velocity = _manual_set_values(body)
             result = workout.update_set(
                 conn, workout_id, _integer(body.get("set_id")),
-                load_kg=_number(body.get("load_kg")),
-                reps=_integer(body.get("reps")),
-                rir=_integer(body.get("rir")),
-                velocity=_number(body.get("velocity")),
+                load_kg=load,
+                reps=reps,
+                rir=rir,
+                velocity=velocity,
             )
         elif action == "remove-set":
             result = workout.remove_set(conn, workout_id, _integer(body.get("set_id")))
@@ -1504,6 +1675,46 @@ class Handler(BaseHTTPRequestHandler):
         sets = body.get("sets")
         if not isinstance(sets, list):
             raise ValueError("sets must be a list")
+        # A correction must not introduce an unknown exercise id into the clean-set store,
+        # and a manually changed set must satisfy the same reps/RIR bounds as the logger.
+        detail = history.detail(conn, session)
+        existing = {int(row["set_id"]): row for row in (detail.get("sets") or [])}
+        for index, item in enumerate(sets):
+            if not isinstance(item, dict):
+                continue
+            validation.exercise_id(item.get("exercise_id"), f"sets[{index}].exercise_id")
+            old = None
+            if item.get("set_id") not in (None, ""):
+                try:
+                    old = existing.get(int(item["set_id"]))
+                except (TypeError, ValueError):
+                    old = None
+            try:
+                reps = None if item.get("reps") in (None, "") else int(item["reps"])
+                rir = None if item.get("rir") in (None, "") else int(item["rir"])
+            except (TypeError, ValueError) as exc:
+                raise FieldError(
+                    f"set {index + 1}: reps and RIR must be integers",
+                    {f"sets[{index}].reps": "must be an integer"},
+                ) from exc
+            unchanged = old is not None and reps == old.get("reps") and rir == old.get("rir")
+            if unchanged:
+                continue
+            if reps is None:
+                raise FieldError(
+                    f"set {index + 1}: reps are required",
+                    {f"sets[{index}].reps": "required"},
+                )
+            if reps < 0:
+                raise FieldError(
+                    f"set {index + 1}: reps cannot be negative",
+                    {f"sets[{index}].reps": "must be non-negative"},
+                )
+            if rir is not None and not 0 <= rir <= 6:
+                raise FieldError(
+                    f"set {index + 1}: RIR must be 0-6",
+                    {f"sets[{index}].rir": "must be 0-6"},
+                )
         return history.edit_session(
             conn, session, sets=sets,
             forms=body.get("forms"),
@@ -1581,10 +1792,19 @@ class Handler(BaseHTTPRequestHandler):
 
     def _set_readiness(self, conn, body: dict) -> dict:
         day = str(body.get("date") or datetime.date.today().isoformat())
+        try:
+            datetime.date.fromisoformat(day)
+        except ValueError as exc:
+            raise FieldError("date must be YYYY-MM-DD", {"date": "must be YYYY-MM-DD"}) from exc
         values = body.get("values") or {}
         if not isinstance(values, dict):
-            raise ValueError("values must be an object")
+            raise FieldError("values must be an object", {"values": "must be an object"})
         clean = {key: value for key, value in values.items() if value not in (None, "")}
+        for field, value in clean.items():
+            try:
+                readiness_utils.validate(field, value)
+            except ValueError as exc:
+                raise FieldError(str(exc), {str(field): str(exc)}) from exc
         readiness_feature.record_manual(conn, day, clean, note=body.get("note") or None)
         return self._readiness(conn, day)
 
@@ -1681,6 +1901,8 @@ class Handler(BaseHTTPRequestHandler):
             "injury_signal": injury_signal.compute(
                 conn, today, ramp_week=context.block_week_index
             ).as_dict(),
+            # Canonical choices for the athlete forms. The browser must not own these lists.
+            "options": options_mod.canonical_options(),
         }
 
     def _cardio(self, conn, body: dict | None = None) -> dict:
@@ -1697,19 +1919,65 @@ class Handler(BaseHTTPRequestHandler):
             value = body.get(name)
             return None if value in (None, "") else value
 
+        day = str(body.get("date") or datetime.date.today().isoformat())
+        try:
+            datetime.date.fromisoformat(day)
+        except ValueError as exc:
+            raise FieldError("date must be YYYY-MM-DD", {"date": "must be YYYY-MM-DD"}) from exc
+        modality = str(body.get("modality") or "").strip()
+        if not modality:
+            raise FieldError("modality is required", {"modality": "required"})
         minutes = optional("minutes")
         if minutes is None:
-            raise ValueError("minutes is required")
+            raise FieldError("minutes is required", {"minutes": "required"})
+        try:
+            minutes_value = float(minutes)
+        except (TypeError, ValueError) as exc:
+            raise FieldError("minutes must be a number", {"minutes": "must be a number"}) from exc
+        if minutes_value <= 0:
+            raise FieldError("minutes must be positive", {"minutes": "must be positive"})
+        avg_hr = optional("avg_hr")
+        max_hr = optional("max_hr")
         distance_km = optional("distance_km")
+        srpe = optional("srpe")
+        for name, value, low, high in (
+            ("avg_hr", avg_hr, 30, 230),
+            ("max_hr", max_hr, 30, 250),
+            ("srpe", srpe, 1, 10),
+        ):
+            if value is None:
+                continue
+            try:
+                number = float(value)
+            except (TypeError, ValueError) as exc:
+                raise FieldError(f"{name} must be a number", {name: "must be a number"}) from exc
+            if not low <= number <= high:
+                raise FieldError(
+                    f"{name} must be between {low} and {high}",
+                    {name: f"must be between {low} and {high}"},
+                )
+        distance_value = None
+        if distance_km is not None:
+            try:
+                distance_value = float(distance_km)
+            except (TypeError, ValueError) as exc:
+                raise FieldError(
+                    "distance_km must be a number", {"distance_km": "must be a number"}
+                ) from exc
+            if distance_value < 0:
+                raise FieldError(
+                    "distance_km must be non-negative",
+                    {"distance_km": "must be non-negative"},
+                )
         repositories.append_cardio(
             conn,
-            performed_on=str(body.get("date") or datetime.date.today().isoformat()),
-            modality=str(body.get("modality") or ""),
-            duration_s=round(float(minutes) * 60),
-            avg_hr=optional("avg_hr"),
-            max_hr=optional("max_hr"),
-            distance_m=None if distance_km is None else float(distance_km) * 1000,
-            srpe=optional("srpe"),
+            performed_on=day,
+            modality=modality,
+            duration_s=round(minutes_value * 60),
+            avg_hr=avg_hr,
+            max_hr=max_hr,
+            distance_m=None if distance_value is None else distance_value * 1000,
+            srpe=srpe,
             note=body.get("note") or None,
         )
         return self._cardio(conn, body)
@@ -1785,14 +2053,27 @@ class Handler(BaseHTTPRequestHandler):
         }
 
     def _save_measurement(self, conn, body: dict) -> dict:
-        measurements_feature.record(
-            conn,
-            metric_key=str(body.get("metric") or ""),
-            value=body.get("value"),
-            measured_on=body.get("date") or None,
-            method=body.get("method") or None,
-            note=body.get("note") or None,
-        )
+        metric = str(body.get("metric") or "").strip()
+        try:
+            measurements_feature.record(
+                conn,
+                metric_key=metric,
+                value=body.get("value"),
+                measured_on=body.get("date") or None,
+                method=body.get("method") or None,
+                note=body.get("note") or None,
+            )
+        except measurements_feature.MeasurementError as exc:
+            text = str(exc)
+            if "unknown measurement metric" in text:
+                field = "metric"
+            elif "date must" in text:
+                field = "date"
+            else:
+                field = "value"
+            raise FieldError(text, {field: text}) from exc
+        except (TypeError, ValueError) as exc:
+            raise FieldError("value must be a number", {"value": "must be a number"}) from exc
         return self._measurements(conn)
 
     def _programme(self, conn, body: dict) -> dict:
@@ -1805,16 +2086,52 @@ class Handler(BaseHTTPRequestHandler):
                 return json.loads(current.get(key) or "[]")
             except (TypeError, ValueError):
                 return []
-        goal = str(body.get("primary_goal") or current.get("primary_goal") or "").strip()
-        if not goal:
-            raise ValueError("primary_goal is required")
+        try:
+            goal = validation.choice(
+                body.get("primary_goal") or current.get("primary_goal"),
+                athlete_state.GOALS,
+                "primary_goal",
+            )
+        except ValueError as exc:
+            raise FieldError(str(exc), {"primary_goal": str(exc)}) from exc
+        # A client that omits these lists is preserving them. A client that sends the same
+        # list is also preserving it, which lets an existing legacy value survive an unrelated
+        # profile edit; a changed list is an assertion and must be canonical.
+        goal_rank = current_list("goal_rank")
+        if "goal_rank" in body:
+            incoming_rank = _list(body.get("goal_rank"))
+            if incoming_rank != goal_rank:
+                try:
+                    goal_rank = validation.goal_rank(incoming_rank)
+                except ValueError as exc:
+                    raise FieldError(str(exc), {"goal_rank": str(exc)}) from exc
+            else:
+                goal_rank = incoming_rank
+        focus = current_list("focus_lifts")
+        if "focus_lifts" in body:
+            incoming_focus = _list(body.get("focus_lifts"))
+            if incoming_focus != focus:
+                try:
+                    focus = validation.focus_lifts(incoming_focus)
+                except ValueError as exc:
+                    raise FieldError(str(exc), {"focus_lifts": str(exc)}) from exc
+            else:
+                focus = incoming_focus
+        try:
+            main_lift_policy = validation.choice(
+                body.get("main_lift_policy") or current.get("main_lift_policy") or "preserve",
+                ("preserve", "reduce", "drop"),
+                "main_lift_policy",
+            )
+        except ValueError as exc:
+            raise FieldError(str(exc), {"main_lift_policy": str(exc)}) from exc
         block_start = body.get("block_start_date", current.get("block_start_date"))
         repositories.append_athlete_profile(
             conn,
             effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
             primary_goal=goal,
-            goal_rank=_list(body.get("goal_rank"), current_list("goal_rank")),
-            focus_lifts=_list(body.get("focus_lifts"), current_list("focus_lifts")),
+            goal_rank=goal_rank,
+            focus_lifts=focus,
             competition_date=body.get("competition_date") or None,
             sessions_per_week_target=_int_or_none(body.get("sessions_per_week_target")),
             max_session_minutes=_int_or_none(body.get("max_session_minutes")),
@@ -1822,9 +2139,7 @@ class Handler(BaseHTTPRequestHandler):
             volume_budget_enabled=_truth(
                 body.get("volume_budget_enabled", current.get("volume_budget_enabled", 0))
             ),
-            main_lift_policy=str(
-                body.get("main_lift_policy") or current.get("main_lift_policy") or "preserve"
-            ),
+            main_lift_policy=main_lift_policy,
             # Absent from the body means "leave it alone": a profile edit must not silently
             # switch the exposure trim off (DEC-EXPOSURE-01).
             exposure_trim_enabled=(
@@ -1860,11 +2175,25 @@ class Handler(BaseHTTPRequestHandler):
     def _save_constraint(self, conn, body: dict) -> dict:
         repositories.append_athlete_constraint(
             conn,
-            kind=str(body.get("kind") or "").strip(),
-            region=str(body.get("region") or "").strip(),
-            severity=str(body.get("severity") or "monitor").strip(),
-            forbidden_patterns=_list(body.get("forbidden_patterns")),
-            forbidden_exercises=_list(body.get("forbidden_exercises")),
+            kind=_field_call(
+                validation.choice, "kind",
+                body.get("kind"), athlete_state.CONSTRAINT_KINDS, "kind",
+            ),
+            region=_field_call(validation.region, "region", body.get("region")),
+            severity=_field_call(
+                validation.choice, "severity",
+                body.get("severity") or "monitor", athlete_state.SEVERITIES, "severity",
+            ),
+            forbidden_patterns=_field_call(
+                validation.list_choice, "forbidden_patterns",
+                _list(body.get("forbidden_patterns")),
+                exercises.canonical_patterns(),
+                "forbidden_patterns",
+            ),
+            forbidden_exercises=_field_call(
+                validation.exercise_ids, "forbidden_exercises",
+                _list(body.get("forbidden_exercises")), "forbidden_exercises",
+            ),
             rom_limit=body.get("rom_limit") or None,
             since=body.get("since") or None,
             settled_on=body.get("settled_on") or None,
@@ -1873,9 +2202,9 @@ class Handler(BaseHTTPRequestHandler):
         return self._state(conn)
 
     def _save_suitability(self, conn, body: dict) -> dict:
-        exercise_id = str(body.get("exercise_id") or "").strip()
-        if not exercise_id:
-            raise ValueError("exercise_id is required")
+        exercise_id = _field_call(
+            validation.exercise_id, "exercise_id", body.get("exercise_id")
+        )
         repositories.append_exercise_suitability(
             conn,
             exercise_id=exercise_id,
@@ -1897,13 +2226,25 @@ class Handler(BaseHTTPRequestHandler):
 
     def _save_break(self, conn, body: dict) -> dict:
         """Record a break through the same writer the CLI uses; nothing is edited later."""
-        break_id = breaks_feature.record(
-            conn,
-            starts_on=str(body.get("starts_on") or "").strip(),
-            ends_on=str(body.get("ends_on") or "").strip(),
-            reason=str(body.get("reason") or "").strip(),
-            note=body.get("note") or None,
-        )
+        try:
+            break_id = breaks_feature.record(
+                conn,
+                starts_on=str(body.get("starts_on") or "").strip(),
+                ends_on=str(body.get("ends_on") or "").strip(),
+                reason=str(body.get("reason") or "").strip(),
+                note=body.get("note") or None,
+            )
+        except ValueError as exc:
+            text = str(exc)
+            if "starts_on" in text:
+                field = "starts_on"
+            elif "ends_on" in text:
+                field = "ends_on"
+            elif "reason" in text:
+                field = "reason"
+            else:
+                field = "starts_on"
+            raise FieldError(text, {field: text}) from exc
         return {"break_id": break_id, **self._breaks(conn)}
 
     def _cancel_break(self, conn, body: dict) -> dict:
@@ -1913,13 +2254,17 @@ class Handler(BaseHTTPRequestHandler):
         return {"cancel_id": cancel_id, **self._breaks(conn)}
 
     def _save_e1rm(self, conn, body: dict) -> dict:
-        exercise_id = str(body.get("exercise_id") or "").strip()
+        exercise_id = _field_call(
+            validation.exercise_id, "exercise_id", body.get("exercise_id")
+        )
         try:
             kg = float(body.get("e1rm_kg"))
         except (TypeError, ValueError) as exc:
-            raise ValueError("e1rm_kg must be a number") from exc
-        if not exercise_id or kg <= 0:
-            raise ValueError("exercise_id and a positive e1rm_kg are required")
+            raise FieldError("e1rm_kg must be a number", {"e1rm_kg": "must be a number"}) from exc
+        if kg <= 0:
+            raise FieldError(
+                "a positive e1rm_kg is required", {"e1rm_kg": "must be positive"}
+            )
         repositories.append_e1rm_override(
             conn,
             exercise_id=exercise_id,
@@ -1931,16 +2276,21 @@ class Handler(BaseHTTPRequestHandler):
         return self._state(conn)
 
     def _save_symptom(self, conn, body: dict) -> dict:
-        region = str(body.get("region") or "low_back").strip()
-        config = injury_signal.InjuryConfig.load()
-        if region not in config.regions:
-            raise ValueError(f"unknown injury region {region!r}; known: {sorted(config.regions)}")
-        level = int(body.get("level"))
+        region = _field_call(validation.region, "region", body.get("region") or "low_back")
+        try:
+            level = int(body.get("level"))
+        except (TypeError, ValueError) as exc:
+            raise FieldError("level must be an integer 0-3", {"level": "must be 0-3"}) from exc
         if not 0 <= level <= 3:
-            raise ValueError("symptom level must be 0-3")
+            raise FieldError("symptom level must be 0-3", {"level": "must be 0-3"})
+        day = str(body.get("date") or datetime.date.today().isoformat())
+        try:
+            datetime.date.fromisoformat(day)
+        except ValueError as exc:
+            raise FieldError("date must be YYYY-MM-DD", {"date": "must be YYYY-MM-DD"}) from exc
         repositories.append_symptom(
             conn,
-            logged_on=str(body.get("date") or datetime.date.today().isoformat()),
+            logged_on=day,
             timing="pre_session",
             region=region,
             level=level,
@@ -1950,17 +2300,28 @@ class Handler(BaseHTTPRequestHandler):
         return self._state(conn)
 
     def _save_test(self, conn, body: dict) -> dict:
-        exercise_id = str(body.get("exercise_id") or "").strip()
+        exercise_id = _field_call(
+            validation.exercise_id, "exercise_id", body.get("exercise_id")
+        )
         try:
             kg = float(body.get("kg"))
+        except (TypeError, ValueError) as exc:
+            raise FieldError("kg must be a number", {"kg": "must be a number"}) from exc
+        try:
             reps = int(body.get("reps"))
         except (TypeError, ValueError) as exc:
-            raise ValueError("kg and reps are required") from exc
-        if not exercise_id or kg <= 0 or not 1 <= reps <= 10:
-            raise ValueError("exercise, a positive load and 1-10 reps are required")
+            raise FieldError("reps must be an integer", {"reps": "must be an integer"}) from exc
+        if kg <= 0:
+            raise FieldError("a positive load is required", {"kg": "must be positive"})
+        if not 1 <= reps <= 10:
+            raise FieldError("reps must be 1-10", {"reps": "must be 1-10"})
         if reps == 1 and not _truth(body.get("max", False)):
             raise ValueError("a single-rep test must be confirmed with max=true")
         on_date = str(body.get("date") or datetime.date.today().isoformat())
+        try:
+            datetime.date.fromisoformat(on_date)
+        except ValueError as exc:
+            raise FieldError("date must be YYYY-MM-DD", {"date": "must be YYYY-MM-DD"}) from exc
         thresholds = Thresholds.load()
         previous = queries.last_measured_override(conn, exercise_id)
         if reps == 1 and previous is not None:
@@ -2002,7 +2363,9 @@ class Handler(BaseHTTPRequestHandler):
             performed_on=day,
             kind=kind,
             region_load=region,
-            exercise_id=body.get("exercise_id") or None,
+            exercise_id=_field_call(
+                validation.optional_exercise_id, "exercise_id", body.get("exercise_id")
+            ),
             intensity_class=intensity,
             axial_cost=body.get("axial_cost"),
             test_type=body.get("test_type") or None,
@@ -2015,9 +2378,18 @@ class Handler(BaseHTTPRequestHandler):
     def _save_block(self, conn, body: dict) -> dict:
         current = queries.athlete_profile(conn)
         if current is None:
-            raise ValueError("record an athlete profile first")
+            raise FieldError("record an athlete profile first", {})
+        block_date = str(body.get("date") or "").strip() or None
+        if block_date is not None:
+            try:
+                datetime.date.fromisoformat(block_date)
+            except ValueError as exc:
+                raise FieldError("date must be YYYY-MM-DD", {"date": "must be YYYY-MM-DD"}) from exc
         if current["block_start_date"] and not _truth(body.get("force", False)):
-            raise ValueError("the block already started; pass force=true to reset it")
+            raise FieldError(
+                "the block already started; tick reset to replace it",
+                {"force": "tick to reset an existing block start"},
+            )
         repositories.append_athlete_profile(
             conn,
             effective_from=datetime.date.today().isoformat(),
@@ -2027,7 +2399,7 @@ class Handler(BaseHTTPRequestHandler):
             competition_date=current["competition_date"],
             sessions_per_week_target=current["sessions_per_week_target"],
             max_session_minutes=current["max_session_minutes"],
-            block_start_date=str(body.get("date") or "").strip() or None,
+            block_start_date=block_date,
             volume_budget_enabled=bool(current.get("volume_budget_enabled", 0)),
             main_lift_policy=current.get("main_lift_policy", "preserve"),
         )

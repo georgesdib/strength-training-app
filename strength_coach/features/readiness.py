@@ -262,24 +262,50 @@ def record_manual(conn, on_date: str, values: Mapping[str, float],
 PRESET_FIELDS = ("sleep", "energy", "soreness", "stress")
 
 
+def _parse_presets(raw: object) -> dict[str, dict]:
+    if not isinstance(raw, dict):
+        raise ValueError("readiness presets YAML must be a mapping")
+    presets_raw = raw.get("presets") or {}
+    if not isinstance(presets_raw, dict):
+        raise ValueError("readiness presets must be a mapping")
+    out = {}
+    for name, body in presets_raw.items():
+        if not isinstance(body, dict):
+            raise ValueError(f"preset {name!r} must be a mapping")
+        values = body.get("values") or {}
+        if not isinstance(values, dict) or not all(field in values for field in PRESET_FIELDS):
+            raise ValueError(f"preset {name!r} must define {PRESET_FIELDS}")
+        try:
+            clean = {field: int(values[field]) for field in PRESET_FIELDS}
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"preset {name!r} values must be integers") from exc
+        if not all(1 <= value <= 5 for value in clean.values()):
+            raise ValueError(f"preset {name!r} values must be 1-5")
+        flags = body.get("context_flags") or ()
+        if not isinstance(flags, (list, tuple)):
+            raise ValueError(f"preset {name!r} context_flags must be a list")
+        out[str(name)] = {
+            "label": str(body.get("label") or name),
+            "values": clean,
+            "context_flags": tuple(str(v) for v in flags),
+        }
+    return out
+
+
 def presets(path: str | Path | None = None) -> dict[str, dict]:
     """Configured quick-readiness presets. Values are ordinary 1-5 readings."""
     source = Path(path or paths.config_dir("readiness-presets.v1.yaml"))
     raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
-    out = {}
-    for name, body in (raw.get("presets") or {}).items():
-        values = body.get("values") or {}
-        if not all(field in values for field in PRESET_FIELDS):
-            raise ValueError(f"preset {name!r} must define {PRESET_FIELDS}")
-        clean = {field: int(values[field]) for field in PRESET_FIELDS}
-        if not all(1 <= value <= 5 for value in clean.values()):
-            raise ValueError(f"preset {name!r} values must be 1-5")
-        out[str(name)] = {
-            "label": str(body.get("label") or name),
-            "values": clean,
-            "context_flags": tuple(str(v) for v in (body.get("context_flags") or ())),
-        }
-    return out
+    return _parse_presets(raw)
+
+
+def validate_presets_text(text: str) -> dict[str, dict]:
+    """Validate an edited preset document without touching the configured file."""
+    try:
+        raw = yaml.safe_load(text) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"invalid readiness preset YAML: {exc}") from exc
+    return _parse_presets(raw)
 
 
 def record_preset(conn, on_date: str, name: str, note: str | None = None) -> int:

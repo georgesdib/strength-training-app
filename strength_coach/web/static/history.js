@@ -27,24 +27,36 @@ async function loadHistory() {
   try {
     var data = await api("/api/history" + query);
     historyTotal = data.total;
-    var rows = (data.sessions || []).map(function (s) {
+    var rows = [];
+    var cards = [];
+    (data.sessions || []).forEach(function (s) {
       var edited = s.edited_at ? '<span class="badge warn">edited</span>' : "";
       var review = s.needs_review ? '<span class="badge bad">re-review</span>' : "";
       var voided = s.voided ? '<span class="badge bad">voided</span>' : "";
-      return "<tr><td>" + esc(s.occurred_on) + "</td><td>" + esc(s.session_id) +
+      var state = (s.marks ? '<span class="badge">' + s.marks + "</span>" : '<span class="badge warn">none</span>') +
+        " " + edited + " " + review + " " + voided;
+      var when = esc(s.occurred_on);
+      var actions =
+        '<button class="ghost" type="button" aria-label="Details for ' + when + '" data-history-details="' + esc(s.session_id) + '">Details</button> ' +
+        '<button class="ghost" type="button" aria-label="Edit session on ' + when + '" data-history-edit="' + esc(s.session_id) + '">Edit</button> ' +
+        '<button class="ghost" type="button" aria-label="Review session on ' + when + '" data-history-review="' + esc(s.session_id) + '">Review</button> ' +
+        '<button class="ghost" type="button" aria-label="' + (s.voided ? "Unvoid" : "Void") + ' session on ' + when + '" data-history-void="' + esc(s.session_id) + '">' +
+        (s.voided ? "Unvoid" : "Void") + "</button>";
+      rows.push("<tr><td>" + esc(s.occurred_on) + "</td><td>" + esc(s.session_id) +
         "</td><td>" + esc(s.session_type) + "</td><td>" + s.working_set_count + "/" + s.set_count +
-        "</td><td>" + esc((s.main_lifts || []).join(", ")) + "</td><td>" +
-        (s.marks ? '<span class="badge">' + s.marks + "</span>" : '<span class="badge warn">none</span>') +
-        " " + edited + " " + review + " " + voided + "</td><td>" +
-        '<button class="ghost" type="button" data-history-details="' + esc(s.session_id) + '">Details</button> ' +
-        '<button class="ghost" type="button" data-history-edit="' + esc(s.session_id) + '">Edit</button> ' +
-        '<button class="ghost" type="button" data-history-review="' + esc(s.session_id) + '">Review</button> ' +
-        '<button class="ghost" type="button" data-history-void="' + esc(s.session_id) + '">' + (s.voided ? "Unvoid" : "Void") + "</button>" +
-        "</td></tr>";
-    }).join("");
-    target.innerHTML = rows
-      ? "<table><thead><tr><th>Date</th><th>Session</th><th>Type</th><th>Sets</th>" +
-        "<th>Main lifts</th><th>Marks</th><th></th></tr></thead><tbody>" + rows + "</tbody></table>"
+        "</td><td>" + esc((s.main_lifts || []).join(", ")) + "</td><td>" + state +
+        "</td><td>" + actions + "</td></tr>");
+      cards.push('<article class="history-card"><div class="history-card-head">' +
+        '<strong>' + esc(s.occurred_on) + '</strong><span class="badge">' +
+        esc(s.session_type) + '</span></div><p class="muted">' +
+        esc(s.session_id) + ' · sets ' + s.working_set_count + "/" + s.set_count +
+        (s.main_lifts && s.main_lifts.length ? " · " + esc(s.main_lifts.join(", ")) : "") +
+        '</p><p>' + state + '</p><div class="card-actions">' + actions + '</div></article>');
+    });
+    target.innerHTML = rows.length
+      ? '<div class="desktop-table"><table><thead><tr><th>Date</th><th>Session</th><th>Type</th><th>Sets</th>' +
+        "<th>Main lifts</th><th>Marks</th><th></th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" +
+        '<div class="mobile-cards">' + cards.join("") + "</div>"
       : "<p class='empty'>No sessions in this range.</p>";
     document.getElementById("history-total").textContent =
       historyTotal + " session(s) · showing " + (data.sessions || []).length;
@@ -90,6 +102,21 @@ function historyRepValues(item) {
     });
 }
 
+function historyExerciseOptions(selected) {
+  var list = window.__exerciseList || [];
+  var values = new Set(list.map(function (row) { return String(row.id); }));
+  var markup = '<option value="">choose…</option>' + list.map(function (row) {
+    return '<option value="' + esc(row.id) + '"' +
+      (String(selected || "") === String(row.id) ? " selected" : "") + ">" +
+      esc(row.display || row.id) + "</option>";
+  }).join("");
+  if (selected && !values.has(String(selected))) {
+    markup += '<option value="' + esc(selected) + '" selected>' +
+      esc(selected) + " (legacy — not in current list)</option>";
+  }
+  return markup;
+}
+
 function historySetRow(item, index) {
   var reps = historyRepValues(item);
   var repRows = reps.map(function (rep, repIndex) {
@@ -102,8 +129,11 @@ function historySetRow(item, index) {
     (item && item.set_id ? item.set_id : "") + '" data-original-velocity="' +
     (item && item.velocity_mps != null ? item.velocity_mps : "") + '">' +
     '<div class="history-set-head"><strong>Set ' + (index + 1) + '</strong>' +
-    '<input list="exercise-options" data-h-exercise value="' +
-    esc(item ? item.exercise_id : "") + '"></div>' +
+    '<div class="search-select"><input type="search" class="search-select-filter" ' +
+    'placeholder="Filter exercises…" aria-label="Filter exercise list">' +
+    '<select data-h-exercise aria-label="Exercise">' +
+    historyExerciseOptions(item ? item.exercise_id : "") +
+    '</select></div></div>' +
     '<div class="history-set-grid">' +
     '<label>Load kg <input type="number" step="0.5" data-h-load value="' +
     (item && item.load_kg != null ? item.load_kg : "") + '"></label>' +
@@ -148,6 +178,9 @@ async function openHistoryEdit(sessionId) {
   panel.hidden = false;
   document.getElementById("history-edit-msg").textContent = "Loading…";
   try {
+    if (!window.__exerciseList && typeof loadExercises === "function") {
+      await loadExercises();
+    }
     var data = await api("/api/history/" + encodeURIComponent(sessionId));
     historyDetail = data;
     document.getElementById("history-edit-title").textContent =
@@ -230,10 +263,10 @@ document.getElementById("history-next").addEventListener("click", function () {
   if (historyOffset + historyLimit < historyTotal) { historyOffset += historyLimit; loadHistory(); }
 });
 document.getElementById("history-add-set").addEventListener("click", function () {
-  var body = document.querySelector("#history-edit-sets tbody");
+  var body = document.getElementById("history-edit-sets");
   if (!body) return;
   body.insertAdjacentHTML("beforeend", historySetRow(null));
-  wireHistoryRemoveButtons();
+  wireHistorySetButtons();
 });
 document.getElementById("history-save").addEventListener("click", saveHistoryEdit);
 document.getElementById("history-vbt-save").addEventListener("click", saveHistoryVbt);

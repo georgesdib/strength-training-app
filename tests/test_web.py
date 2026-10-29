@@ -359,6 +359,21 @@ def test_legacy_readiness_field_is_not_an_input(server):
         })
     assert excinfo.value.code == 400
 
+def test_readiness_preset_yaml_is_served_and_invalid_edits_rejected(server):
+    status, body = get(server, "/api/readiness/presets")
+    assert status == 200
+    data = json.loads(body)
+    assert "presets:" in data["yaml"]
+    assert data["presets"]["good_to_train"]["values"]["sleep"] == 4
+    assert data["path"].endswith("config/readiness-presets.v1.yaml")
+
+    code, body = post_status(server, "/api/readiness/presets", {
+        "yaml": "presets:\n  bad:\n    values: {sleep: 9, energy: 4, soreness: 5, stress: 4}\n",
+    })
+    assert code == 400
+    assert "1-5" in body
+
+
 def test_readiness_calibration_endpoint(server):
     status, body = get(server, "/api/readiness/calibrate")
     assert status == 200
@@ -378,6 +393,94 @@ def test_the_exposure_trim_flag_survives_an_unrelated_profile_save(server):
         "focus_lifts": [],
     })
     assert state["profile"]["exposure_trim_enabled"] == 1
+
+
+def test_canonical_options_are_served(server):
+    status, body = get(server, "/api/options")
+    assert status == 200
+    options = json.loads(body)
+    assert {row["value"] for row in options["goals"]} >= {"strength", "longevity"}
+    assert {row["value"] for row in options["constraint_kinds"]} == {
+        "injury", "contraindication", "mobility", "asymmetry",
+    }
+    assert "low_back" in {row["value"] for row in options["regions"]}
+    assert "squat" in {row["value"] for row in options["patterns"]}
+
+
+def test_athlete_state_rejects_noncanonical_values(server):
+    cases = [
+        ("/api/state/profile", {
+            "primary_goal": "health", "goal_rank": [], "focus_lifts": [],
+        }),
+        ("/api/state/profile", {
+            "primary_goal": "strength", "goal_rank": ["health"], "focus_lifts": [],
+        }),
+        ("/api/state/profile", {
+            "primary_goal": "strength", "goal_rank": [], "focus_lifts": ["not_a_lift"],
+        }),
+        ("/api/state/constraint", {
+            "kind": "rom", "region": "low_back", "severity": "monitor",
+        }),
+        ("/api/state/constraint", {
+            "kind": "injury", "region": "elbow", "severity": "monitor",
+        }),
+        ("/api/state/constraint", {
+            "kind": "injury", "region": "low_back", "severity": "monitor",
+            "forbidden_patterns": ["sqaut"],
+        }),
+        ("/api/state/constraint", {
+            "kind": "injury", "region": "low_back", "severity": "monitor",
+            "forbidden_exercises": ["not_a_lift"],
+        }),
+        ("/api/state/suitability", {
+            "exercise_id": "not_a_lift", "can_do": True, "will_do": True,
+            "feels_bad": False,
+        }),
+    ]
+    for path, payload in cases:
+        code, body = post_status(server, path, payload)
+        assert code == 400, (path, payload, body)
+
+
+def test_validation_errors_name_the_field(server):
+    cases = [
+        ("/api/state/profile", {"primary_goal": "health"}, "primary_goal"),
+        ("/api/state/constraint", {"kind": "rom", "region": "low_back"}, "kind"),
+        ("/api/state/suitability", {"exercise_id": "not_a_lift"}, "exercise_id"),
+        ("/api/state/e1rm", {"exercise_id": "ssb_squat", "e1rm_kg": "bad"}, "e1rm_kg"),
+        ("/api/state/test", {"exercise_id": "ssb_squat", "kg": 100, "reps": 99}, "reps"),
+        ("/api/readiness", {"date": "2024-01-08", "values": {"sleep": 9}}, "sleep"),
+        ("/api/exercises", {
+            "id": "bad_pattern_lift",
+            "props": {
+                "display": "Bad Pattern", "log_names": ["Bad Pattern"], "pattern": "sqaut",
+            },
+        }, "pattern"),
+        ("/api/cardio", {"modality": "walk", "minutes": 0}, "minutes"),
+        ("/api/measurements", {"metric": "not_a_metric", "value": 1}, "metric"),
+        ("/api/state/symptom", {"region": "low_back", "level": 9}, "level"),
+        ("/api/state/break", {
+            "starts_on": "bad", "ends_on": "bad", "reason": "holiday",
+        }, "starts_on"),
+        ("/api/settings/drop", {"tolerance": 2}, "tolerance"),
+        ("/api/settings/llm", {
+            "enabled": True, "model": "x", "base_url": "bad",
+            "temperature": 0.2, "max_tokens": 1, "timeout_s": 1,
+        }, "base_url"),
+    ]
+    for path, payload, field in cases:
+        code, body = post_status(server, path, payload)
+        assert code == 400, (path, body)
+        assert field in json.loads(body).get("fields", {}), (path, body)
+
+
+def test_block_start_names_the_date_field(server):
+    post(server, "/api/state/profile", {
+        "primary_goal": "strength", "goal_rank": [], "focus_lifts": [],
+    })
+    code, body = post_status(server, "/api/state/block", {"date": "not-a-date"})
+    assert code == 400
+    assert "date" in json.loads(body).get("fields", {})
 
 
 def test_state_can_be_edited(server):
@@ -1005,6 +1108,49 @@ def test_workout_start_active_and_end(server):
     assert json.loads(get(server, "/api/workout/active")[1])["workout"] is None
 
 
+def test_manual_workout_sets_require_reps_and_bound_rir(server):
+    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
+    readiness = {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+    workout_id = post(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": plan, "readiness": readiness,
+    })["workout"]["workout_id"]
+
+    code, body = post_status(server, f"/api/workout/{workout_id}/sets", {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100,
+    })
+    assert code == 400
+    assert "reps" in json.loads(body).get("fields", {})
+
+    code, body = post_status(server, f"/api/workout/{workout_id}/sets", {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 9,
+    })
+    assert code == 400
+    assert "rir" in json.loads(body).get("fields", {})
+
+    added = post(server, f"/api/workout/{workout_id}/sets", {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
+    })
+    assert len(added["workout"]["sets"]) == 1
+
+
+def test_history_correction_bounds_reps_and_rir(server):
+    _, body = get(server, "/api/history?limit=1")
+    session_id = json.loads(body)["sessions"][0]["session_id"]
+    _, body = get(server, f"/api/history/{session_id}")
+    detail = json.loads(body)
+    first = detail["sets"][0]
+    code, body = post_status(server, f"/api/history/{session_id}/edit", {
+        "sets": [{**first, "reps": None, "rir": 9}],
+        "reason": "test",
+    })
+    assert code == 400
+    fields = json.loads(body).get("fields", {})
+    assert any(k.endswith(".reps") or k.endswith(".rir") for k in fields), fields
+
+
 def test_review_marks_close_the_workout(server):
     plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
     readiness = {
@@ -1213,6 +1359,20 @@ def test_history_endpoint_lists_and_edits_a_session(server):
     assert result["session"]["needs_review"] == 1
     assert result["session"]["edited_at"]
     assert result["session"]["forms"][0]["rating"] == 4
+
+
+def test_history_edit_rejects_an_unknown_exercise(server):
+    _, body = get(server, "/api/history?limit=1")
+    session_id = json.loads(body)["sessions"][0]["session_id"]
+    _, body = get(server, f"/api/history/{session_id}")
+    detail = json.loads(body)
+    first = detail["sets"][0]
+    code, body = post_status(server, f"/api/history/{session_id}/edit", {
+        "sets": [{**first, "exercise_id": "not_a_lift"}],
+        "reason": "test",
+    })
+    assert code == 400, body
+    assert "unknown exercise id" in body
 
 
 def test_history_void_and_vbt_endpoints(server):

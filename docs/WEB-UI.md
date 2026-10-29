@@ -67,7 +67,10 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
 - **Readiness** — baseline and policy settings; the daily log lives in Workflow;
   the computed global/category score is shown in Workflow; per-athlete
   baseline settings and the shadow baseline report are available; overrides take 0.00–1.00
-  with a reason; the **Volume valve** sets the poor-readiness accessory set reduction; the volume ledger and MRV cap are on Prescribe. A current workout is refused until readiness is ready.
+  with a reason; quick presets show their sleep/energy/soreness/stress values and an **Edit preset
+  YAML** action edits `config/readiness-presets.v1.yaml` with validation before saving; the
+  **Volume valve** sets the poor-readiness accessory set reduction; the volume ledger and MRV cap
+  are on Prescribe. A current workout is refused until readiness is ready.
 - **Prescribe** — analysis for continuity, volume, regime, fatigue, selection and validation; the prescription form lives in Workflow; the preview builds the deterministic prescription with date + session type (`auto` rolling, squat, hinge, bench+squat, bench+hinge), an optional one-session **Technique throttle** (`MOD-TECH-001`: 90% load cap and RIR floor 3 on the session's essential items, or on one named movement pattern; it never reads a form rating and stores no state), warnings and notes; every item cites
   rule ids and shows the e1RM source-set count where one exists. The page labels e1RM as an estimate, readiness as a bounded heuristic, MEV/MAV/MRV
   as configurable landmarks, the spinal cap as ordinal, and deload/minimum-session evidence
@@ -89,7 +92,7 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 - **Outcomes → Form trend** — current vs previous equal window, latest rating, change and
   session counts; descriptive only.
 - **History** — paginated list of every completed/imported session, date filters, session detail and append-only correction. Edits rebuild totals/critique and mark the session re-review; date/type are fixed. The edit sheet also carries optional per-lift **Form** 1–5 ratings. Review shows the current rating beside up to five prior ratings for the same lift.
-- **Workflow → Workout** — start from the preview with a score-ready assessment or an explicit unknown/partial acknowledgement (device fields optional), log sets manually, remove a set, end with measured/manual duration and sRPE or mark sRPE not recorded, or abandon. A prescription snapshot is frozen at start. During the workout the plan is editable: adjust planned sets, swap/add/remove exercises; each change is an append-only event and the original prescription stays frozen. On completion the workout materialises, the end screen shows actual vs modified plan and actual vs original prescription, and the deterministic rubric is persisted. **Review workout** opens the rubric sheet; saving marks runs calibration and closes the workout. In-workout CSV import is available by paste or file with columns `Exercise,Set,RPE,Value,Weight,Reps`; preview first, then apply. A recognised exercise absent from the prescription is added to the workout plan; an unrecognised exercise is shown as unknown and blocks apply. The file has no date, so backfill is not supported. Each planned lift has an optional **Form** 1–5 rating, editable later in History. An optional second per-rep CSV (`Exercise Name,Set Number,Metric Name,Rep Number,Velocity`) can be added in the same panel; it joins by exercise + set, never creates a set, and is shown descriptively after the workout. The ended screen also offers an optional **e1RM**
+- **Workflow → Workout** — start from the preview with a score-ready assessment or an explicit unknown/partial acknowledgement (device fields optional), log sets manually, remove a set, end with measured/manual duration and sRPE or mark sRPE not recorded, or abandon. A prescription snapshot is frozen at start. During the workout the plan is editable: adjust planned sets, swap/add/remove exercises; swap opens one searchable exercise dialog, each add/swap is an append-only event and the original prescription stays frozen. On completion the workout materialises, the end screen shows actual vs modified plan and actual vs original prescription, and the deterministic rubric is persisted. **Review workout** opens the rubric sheet; saving marks runs calibration and closes the workout. In-workout CSV import is available by paste or file with columns `Exercise,Set,RPE,Value,Weight,Reps`; preview first, then apply. A recognised exercise absent from the prescription is added to the workout plan; an unrecognised exercise is shown as unknown and blocks apply. The file has no date, so backfill is not supported. Each planned lift has an optional **Form** 1–5 rating, editable later in History. An optional second per-rep CSV (`Exercise Name,Set Number,Metric Name,Rep Number,Velocity`) can be added in the same panel; it joins by exercise + set, never creates a set, and is shown descriptively after the workout. The ended screen also offers an optional **e1RM**
   record: a measured test from a set (kg x reps, which registers a high-intensity exposure and
   rejects a 1RM until the interval allows it) or a direct override. Both append; nothing is edited.
 - **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
@@ -102,7 +105,9 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
   value, change and entries, filtered by metric. Metrics and directions are config;
   nothing changes a load.
 - **Exercises** — full canonical catalogue with search/filter, all properties per row, and an
-  add/edit form. Edits are written to `config/exercises/overrides.v1.yaml`; ids are immutable.
+  add/edit form. Pattern, VBT family and primary muscles are constrained controls (VBT offers
+  existing families plus an explicit new-family path); additional-properties JSON is under an
+  advanced disclosure. Edits are written to `config/exercises/overrides.v1.yaml`; ids are immutable.
   Each row carries a **Demands** count (`rated/4` in-scope dimensions) and the details dialog
   shows the demand profile with level, confidence and reason, plus the catalogue digest and
   whether the git-ignored local overlay is active (`docs/EXERCISE-DEMANDS.md`). The profile is
@@ -146,7 +151,7 @@ also disables while saving and reports the number of marks written.
 | `GET /api/workout/<id>` | workout detail |
 | `GET /api/form-trend?weeks=N&date=N` | descriptive current/baseline form trend |
 | `POST /api/workout/<id>/form` | `{exercise_id, rating 1-5}` -> optional post-lift form rating |
-| `POST /api/workout/<id>/sets` | `{exercise_id, load_kg, reps, rir, velocity?}` -> add manual set |
+| `POST /api/workout/<id>/sets` | `{exercise_id, load_kg, reps, rir, velocity?}` -> add manual set; manual reps are required and RIR is restricted to 0-6 |
 | `POST /api/workout/<id>/remove-set` | `{set_id}` -> append a removal event |
 | `POST /api/workout/<id>/end` | `{session_rpe?, not_recorded?, duration_min?, notes?}` -> completed |
 | `POST /api/workout/<id>/update-set` | `{set_id, load_kg, reps, rir, velocity}` -> append correction event |
@@ -198,17 +203,20 @@ also disables while saving and reports the number of marks written.
 | `POST /api/exposures` | log a manual max/competition/unplanned exposure; tests use the test endpoint |
 | `POST /api/continuity/settings` | `{allow_relax_fixed}` -> update the calibration policy |
 | `POST /api/readiness/volume` | update the readiness volume valve (enabled, score below, sets, include essentials — main lifts opt-in) |
+| `GET /api/readiness/presets` | raw `config/readiness-presets.v1.yaml`, its path and the parsed presets |
+| `POST /api/readiness/presets` | `{yaml}` -> validate and atomically replace the preset YAML; no schema change |
 | `POST /api/readiness/preset` | write a quick-readiness preset as ordinary entries with `source=preset` |
 | `POST /api/readiness/context` | append display-only context flags |
 | `GET /api/readiness/feedback?weeks=N&date=N` | descriptive follow-up of MOD-FAT-001 reductions, including completed workout snapshots and set adherence |
 | `GET /api/selection?date=N&session_type=X&llm=0\|1&include_different=0\|1` | exercise-selection rankings with A/B/C comparability classes |
 | `GET /api/substitution?date=N&session_type=X` | Part C fatigue-informed suggestion (at most one, suggest-only) plus abstention reasons |
 | `POST /api/exercises/demands` | `{exercise_id, dimension, level, confidence?, reason?, evidence?, clear?}` -> writes the git-ignored demand overlay and returns the merged profile; `supported` needs an existing evidence id |
-| `GET /api/exercises/catalog` | full exercise catalogue with source/properties |
-| `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml` |
+| `GET /api/options` | canonical goal, constraint, severity, region, pattern, VBT-family, muscle and exercise choices |
+| `GET /api/exercises/catalog` | full exercise catalogue with source/properties, patterns, VBT families and muscles |
+| `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml`; unknown new patterns/muscles are rejected, legacy values are preserved |
 | `GET /api/measurements` | metric catalogue, per-metric summary and recent entries |
 | `POST /api/measurements` | `{metric, value, date, method, note}` -> summary |
-| `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy` |
+| `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy`; goals, constraint kinds/regions, forbidden patterns/exercises and exercise ids are validated against the canonical vocabulary |
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |
 
@@ -250,6 +258,9 @@ What remains:
 ## Error responses
 
 - Expected validation failures keep their useful 400/404/409 JSON messages.
+- Form-validation 400s may add a `fields` map, for example
+  `{"error": "...", "fields": {"primary_goal": "..."}}`. This is additive; clients that only
+  read `error` keep working. Forms mark the named input `aria-invalid` and focus it.
 - An unexpected server exception returns a stable `{"error": "internal server error"}` 500 and
   is logged with method, path and traceback. Exception classes, filesystem paths and database
   details are not returned to the client.
@@ -293,6 +304,31 @@ browser check is not a passed browser check.
    the idempotency message rather than duplicate rows.
 8. Stop the server or block one request and confirm the UI shows an error instead of silently
    succeeding.
+
+### Mobile pass (iPhone-class viewport)
+
+Run at 440 x 956 and 956 x 440 CSS pixels, in both orientations:
+
+1. Confirm the document does not scroll horizontally. The active workout plan and set list
+   must be cards; the plan and import sections must be collapsed by default.
+2. Confirm the set logger is the first actionable section after the workout header. Add two
+   sets of the same lift and check that the exercise and values persist, with the planned
+   target and next set number visible.
+3. Check that readiness endpoint labels and the Workflow presets are visible, including their
+   sleep/energy/soreness/stress values; stress and soreness must read 5 = none. Open the preset
+   YAML editor, save a valid edit, and confirm the buttons reload with the new values.
+4. Open the menu and a details dialog; confirm focus moves in, Tab stays inside the menu,
+   Escape/close restores focus, and dialog text is readable in light and dark themes.
+5. Rotate during a partial readiness form and a partial set entry; values must survive.
+6. Confirm the Today "Start today's session" action opens the current Workflow stage.
+7. Check that removing a set or planned exercise asks first, and that the error message is
+   announced and the offending field is marked invalid.
+8. Open Review on the phone and confirm each rubric item is one card with a single score input,
+   with anchors and the long explanation behind disclosures. Use the workout Swap action and
+   confirm one searchable dialog opens rather than a long select per card.
+
+A skipped browser check is not a passed browser check. Native Safari keyboard and picker
+behaviour still require a physical-device pass.
 
 ## Limitations
 

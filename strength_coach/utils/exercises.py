@@ -278,6 +278,39 @@ def canonical_id(name: str | None, on_date: str | None = None) -> str | None:
     return resolved.id if resolved else None
 
 
+def taxonomy_values(key: str) -> tuple[str, ...]:
+    """Distinct non-empty values of one property across the current taxonomy.
+
+    Used by the UI to build constrained controls and by the exercise writer to reject a typo.
+    This is deliberately data-derived: a new movement pattern or muscle is a taxonomy change,
+    not a free-text field in the browser.
+    """
+    values = {
+        str(entity.get(key)).strip()
+        for entity in taxonomy().entities.values()
+        if entity.get(key) not in (None, "")
+    }
+    return tuple(sorted(values))
+
+
+def canonical_patterns() -> tuple[str, ...]:
+    return taxonomy_values("pattern")
+
+
+def canonical_vbt_families() -> tuple[str, ...]:
+    return taxonomy_values("vbt_family")
+
+
+def canonical_muscles() -> tuple[str, ...]:
+    values = {
+        str(muscle).strip()
+        for entity in taxonomy().entities.values()
+        for muscle in (entity.get("primary_muscles") or [])
+        if str(muscle).strip()
+    }
+    return tuple(sorted(values))
+
+
 def history_equivalents(exercise_id: str) -> tuple[str, ...]:
     """Ids whose rows count as history for this lift.
 
