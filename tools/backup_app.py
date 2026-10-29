@@ -97,7 +97,6 @@ def _ignore(source_only: bool):
         rel = _relative(Path(directory))
         skipped: set[str] = set()
         for name in names:
-            path = rel / name if rel != Path(".") else Path(name)
             if name in SKIP_NAMES or name.endswith(".egg-info") or name.endswith(SKIP_SUFFIXES):
                 skipped.add(name)
                 continue
@@ -110,14 +109,13 @@ def _ignore(source_only: bool):
             if name == ".env" or name.startswith(".env."):
                 skipped.add(name)
                 continue
-            if rel == Path("data"):
-                # The current DB is snapshotted separately; old DB/WAL files are not copied.
-                if name.startswith("coach") and (".db" in name or name.endswith(".sqlite3")):
-                    skipped.add(name)
-                elif name.endswith(".sqlite3"):
-                    skipped.add(name)
-                elif source_only and name in {"raw", "export"}:
-                    skipped.add(name)
+            # The current DB is snapshotted separately; old DB/WAL files are not copied.
+            if rel == Path("data") and (
+                name.endswith(".sqlite3")
+                or (name.startswith("coach") and ".db" in name)
+                or (source_only and name in {"raw", "export"})
+            ):
+                skipped.add(name)
             if rel == Path("private") and source_only:
                 skipped.add(name)
             if rel == Path(".") and name in {"backups"}:
@@ -132,9 +130,11 @@ def _snapshot_database(staging: Path, source_only: bool) -> Path | None:
         return None
     destination = staging / "data" / "coach.db"
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(f"file:{source}?mode=ro", uri=True) as src:
-        with sqlite3.connect(destination) as dst:
-            src.backup(dst)
+    with (
+        sqlite3.connect(f"file:{source}?mode=ro", uri=True) as src,
+        sqlite3.connect(destination) as dst,
+    ):
+        src.backup(dst)
     return destination
 
 
