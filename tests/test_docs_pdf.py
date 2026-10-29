@@ -72,13 +72,17 @@ def test_fenced_markdown_examples_are_not_rewritten():
     assert docs_pdf.rewrite_links(text, source, documents) == text
 
 
-def test_every_document_receives_a_unique_section_and_heading_prefix():
+def test_every_document_receives_a_unique_section_id():
     documents = docs_pdf.collect_documents()
     section_ids = [document.section_id for document in documents]
     slugs = [document.slug for document in documents]
     assert len(set(section_ids)) == len(section_ids)
     assert len(set(slugs)) == len(slugs)
 
+
+def test_build_html_prefixes_heading_ids_and_includes_a_toc():
+    pytest.importorskip("markdown")
+    documents = docs_pdf.collect_documents()
     body = docs_pdf.build_html(documents[:2])
     assert 'id="doc-readme"' in body
     assert 'id="doc-user-guide"' in body
