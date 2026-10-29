@@ -14,6 +14,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Optional tooling for tools/docs_pdf.py. Kept out of runtime dependencies because PDF
+# generation is a documentation build step, not part of the coaching engine.
+docs = [
+    "Markdown>=3.5",
+    "WeasyPrint>=62",
+]
 dev = [
     "pytest>=8.0",
     # Parallel test runs: the suite is fixture-heavy, and 4 workers cut a full run from
