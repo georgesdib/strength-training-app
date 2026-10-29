@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.0-beta.2] — 2026-10-29
+
+### Added
+
+- **CI and release gates**: pinned CI dependencies in `requirements.lock`, GitHub Actions
+  quality checks on Python 3.11 and 3.12, a source-archive/wheel build, an HTTP smoke test, a
+  tag-gated release workflow and protected `main`/release tags.
+- **Generated workout-generation example**: a synthetic hinge prescription is rendered from
+  the real engine, committed in `docs/WORKOUT-GENERATION.md` and checked for staleness.
+- Documentation drift checks for CLI examples, key configuration defaults, audit regressions
+  and troubleshooting guidance.
+
+### Changed
+
+- Release documentation now covers local checks, tag/version rules, recovery and branch
+  protection.
+
 ## [1.0.0-beta.1] — 2026-10-27
 
 First **v1.0 beta**: the workable app for user testing. The beta label is removed in v1.1.

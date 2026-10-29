@@ -35,7 +35,7 @@ The canonical flow is documented in [`METHODOLOGY.md`](METHODOLOGY.md). In broad
 2. **Resolve readiness for the requested date.** The readiness record is date-scoped. If a score is unavailable, the UI requires the supported acknowledgement rather than silently treating missing data as normal. Readiness may only move the prescription in a more conservative direction.
 3. **Choose the session type.** The rolling sequence uses four canonical types: `squat`, `hinge`, `bench_squat`, and `bench_hinge`. A user may select a supported type. The Programme view is a projection; the actual day's prescription is built when requested.
 4. **Select exercises within the template.** Each session type has ordered slots. Some slots allow variants. The selector may choose only configured alternatives that satisfy the app's comparability and suitability rules; it does not freely invent exercises.
-5. **Resolve the load source.** A slot may use an e1RM-based load, double progression, or bodyweight according to its configuration. The engine uses the relevant stored estimate, permitted override, or recent performance data. It applies the configured formula and rounds to real loading increments.
+5. **Resolve the load source.** A slot may use an e1RM-based load, double progression, or bodyweight according to its configuration. The engine uses the relevant stored estimate, permitted override, or recent performance data. It applies the configured formula and rounds down to valid loading increments.
 6. **Set reps and effort targets.** Rep ranges and RIR windows come from the selected template and programme rules. RIR means estimated repetitions in reserve; it is not a directly measured value.
 7. **Apply modifiers in a defined order.** Readiness, continuity-related logic where applicable, deload policy, volume management, spinal-load constraints and a supported minimum-session option are applied according to the methodology. A later convenience must not undo an earlier safety rule.
 8. **Build warm-up guidance.** The system may include a standardised warm-up ramp derived from the working prescription.
@@ -135,6 +135,107 @@ Important limitations include:
 
 The programme should therefore be treated as an inspectable decision aid. Check the output, use judgement, and report actual outcomes if you want the tool to have a meaningful history to review.
 
+## 12. Worked example: a deterministic hinge prescription
+
+This example is generated from a deterministic synthetic fixture, [`tests/fixtures/workout_generation_example.yaml`](../tests/fixtures/workout_generation_example.yaml). The fixture holds the same rows and dates as `tests/test_prescribe.py::BASE_HISTORY`, and the test suite asserts that the two stay equal. It is intended to make the arithmetic and decision order inspectable, not to imply that these synthetic numbers represent a real athlete or that the resulting programme is validated.
+
+The block below is rendered from the actual `build_prescription` output by [`tools/workout_generation_example.py`](../tools/workout_generation_example.py). Do not edit it by hand: after a template, threshold or engine change run `python tools/workout_generation_example.py --write`. [`tests/test_workout_generation_doc.py`](../tests/test_workout_generation_doc.py) fails when the committed block is stale.
+
+<!-- BEGIN GENERATED WORKOUT EXAMPLE -->
+<!-- source:sha256:975f0c7fb766b2e1 -->
+
+### 12.1 Inputs
+
+- **Prescription date:** `2024-01-08`
+- **Requested session:** `hinge`
+- **Readiness fields considered:** sleep, energy. There is no readiness row for this date, so the engine reports readiness unknown and applies no fatigue modifier.
+- **Load increment:** 0.5 kg; loads are rounded down.
+- **History available:** only rows dated on or before the prescription date.
+
+| Exercise in import | Load | Reps | RIR | Date |
+|---|---:|---:|---:|---|
+| Trap Bar Deadlift | 150 kg | 5 | 2 | 2024-01-01 |
+| Bench Press (narrow grip) | 90 kg | 5 | 2 | 2024-01-01 |
+| Lateral Raise | 12.5 kg | 10 | 2 | 2024-01-01 |
+| Split Squat | 30 kg | 8 | 3 | 2024-01-01 |
+| Pull-ups (wide grip) | bodyweight | 8 | 2 | 2024-01-01 |
+| Dumbbell Row | 30 kg | 10 | 2 | 2024-01-01 |
+| Lying Leg Curls | 30 kg | 10 | 2 | 2024-01-01 |
+
+The Lateral Raise row is part of the shared fixture but has no slot in the `hinge` template, so it does not enter this session. Its presence also shows that the engine selects by template rather than prescribing every recorded exercise.
+
+### 12.2 Solved loads
+
+- **Trap-Bar Deadlift:** e1RM = 150 × (1 + (5 + 2) / 30) = **185 kg**; load = 185 / (1 + (3 + 2) / 30) = 158.57 kg → **158.5 kg** (round down to 0.5 kg).
+- **Bench Press (narrow grip):** e1RM = 90 × (1 + (5 + 2) / 30) = **111 kg**; load = 111 / (1 + (3 + 2) / 30) = 95.14 kg → **95 kg** (round down to 0.5 kg).
+
+### 12.3 Resulting prescription
+
+| Order | Exercise selected | Sets | Reps | Target effort | Load | Load basis | Rest | Warm-up | Provenance |
+|---:|---|---:|---:|---|---:|---|---:|---|---|
+| 1 | Trap-Bar Deadlift | 5 | 3–5 | RIR 2 | 158.5 kg | e1RM | 180 s | 79 kg × 5; 110.5 kg × 3; 134.5 kg × 2 | PRG-RIR-001, set:2024-01-01/1 |
+| 2 | Bench Press (narrow grip) | 4 | 3–5 | RIR 2 | 95 kg | e1RM | 180 s | 47.5 kg × 5; 66.5 kg × 3; 80.5 kg × 2 | PRG-RIR-001, set:2024-01-01/2 |
+| 3 | Pull-up | 4 | 6–10 | RIR 2 | bodyweight (0 kg external) | Bodyweight | 90 s | — | PRG-DP-001, set:2024-01-01/5, MOD-VOL-002 |
+| 4 | Dumbbell Row | 4 | 8–12 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/6, MOD-VOL-002 |
+| 5 | Split Squat | 4 | 8–10 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/4, MOD-VOL-002 |
+| 6 | Lying Leg Curls | 4 | 8–12 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/7, MOD-VOL-002 |
+
+Time cap: **4,800 s** (80 min). Engine estimate: **66.5 min**. The cap is a planning ceiling, not a measured duration.
+Spinal cost: **2.3** against a cap of **6.0** (week 2024-W02).
+
+Executable: **True**. Issues: none.
+
+Engine warnings:
+
+- trap_bar_deadlift: e1RM source has one eligible set; confidence limited
+- bench_main: chose bench_press_narrow from ['bench_press_narrow', 'bench_press_pause']
+- bench_press_narrow: e1RM source has one eligible set; confidence limited
+- accessory_pull_up: chose pull_up from ['pull_up', 'lat_pulldown']
+- pull_up: bodyweight, progress by reps or sets, not load
+- accessory_knee_flexion: chose lying_leg_curls from ['lying_leg_curls', 'nordic_curl']
+- readiness unknown for 2024-01-08; fatigue modifier not applied
+- MOD-VOL-002: under-MEV accessory progression: horizontal_pull:dumbbell_row+1, knee_flexion:lying_leg_curls+1, squat:split_squat+1, vertical_pull:pull_up+1
+- athlete state not recorded: constraints were not evaluated (they are unknown, not absent)
+- PRG-EREC-001 not assessable: missing symptom.flare, block.week_index
+
+### 12.4 Poor-readiness comparison
+
+The same fixture with a readiness row for `2024-01-08` and `Sleep = 2` produces fallback level `fatigue_reduced` (readiness score 0.72). This is the implemented policy path, not evidence that the threshold is a validated individual fatigue threshold.
+
+| Exercise | Sets | Reps | Load | Target effort | Provenance |
+|---|---:|---:|---:|---|---|
+| Trap-Bar Deadlift | 5 | 3–5 | 146 kg | RIR 3 | PRG-RIR-001, set:2024-01-01/1, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
+| Bench Press (narrow grip) | 4 | 3–5 | 87.5 kg | RIR 3 | PRG-RIR-001, set:2024-01-01/2, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
+| Pull-up | 2 | 6–10 | bodyweight (0 kg external) | RIR 3 | PRG-DP-001, set:2024-01-01/5, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
+| Dumbbell Row | 2 | 8–12 | 27.5 kg | RIR 3 | PRG-DP-001, set:2024-01-01/6, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
+| Split Squat | 2 | 8–10 | 27.5 kg | RIR 3 | PRG-DP-001, set:2024-01-01/4, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
+| Lying Leg Curls | 2 | 8–12 | 27.5 kg | RIR 3 | PRG-DP-001, set:2024-01-01/7, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
+
+Readiness warnings:
+
+- MOD-FAT-001: readiness score 0.72; floor sleep=2; sets reduced: pull_up, dumbbell_row, split_squat, lying_leg_curls; session reduced
+<!-- END GENERATED WORKOUT EXAMPLE -->
+
+### 12.5 What the example demonstrates—and what it does not
+
+It demonstrates that the engine:
+
+- chooses only exercises configured for the requested session type, and selects among allowed variants using the recorded history;
+- calculates main-lift loads from an RIR-adjusted e1RM and the template's rep/RIR target, then rounds down to the available increment;
+- uses the configured progression source for accessories and preserves bodyweight semantics;
+- applies the under-MEV accessory top-up: the four-set accessories in §12.3 are not the template's three sets, because `MOD-VOL-002` added one set to each;
+- reports readiness as unknown when no dated row exists, rather than inventing a score or claiming a readiness downgrade;
+- records provenance, a time estimate and the spinal-cost position for the run;
+- can attach a readiness modifier and re-solve loads when the required dated input exists.
+
+It does **not** demonstrate that the e1RM equation, readiness policy, volume landmarks, or complete programme have been prospectively validated, nor that the prescription is optimal for an individual. Those are separate empirical questions.
+
+### 12.6 The poor-readiness comparison
+
+The poor-readiness run in §12.4 uses the same fixture and date with one addition: `Sleep = 2` for `2024-01-08`. The engine raises the target RIR to 3, applies the 5% readiness load multiplier after re-solving, and removes one set from each non-essential slot. The `under_mev` note is false, so the under-MEV top-up does not restore the cut sets.
+
+The named regression test `tests/test_prescribe.py::test_a_readiness_set_cut_is_not_undone_by_the_under_mev_top_up` covers the same cut-versus-top-up interaction on the `squat` session, where the accessory is below MEV; it is not the hinge run shown here. The precise load change and final prescription should always be read from that run's output, not inferred from a readiness score alone. The rule is intentionally conservative, and the threshold is not a validated individual fatigue threshold.
+
 ## Related
 
 - **Methodology:** [METHODOLOGY.md](METHODOLOGY.md)
@@ -148,4 +249,4 @@ The programme should therefore be treated as an inspectable decision aid. Check 
 - **Evidence:** [REFERENCES.md](REFERENCES.md)
 - **Decisions:** [DECISIONS.md](DECISIONS.md)
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
-- **Roadmap:** [ROADMAP.md](../ROADMAP.md)
+- **Roadmap:** [../ROADMAP.md](../ROADMAP.md)

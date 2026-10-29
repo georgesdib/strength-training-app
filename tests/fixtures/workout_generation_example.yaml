@@ -1,0 +1,24 @@
+# Synthetic inputs for the worked example in docs/WORKOUT-GENERATION.md.
+#
+# This is deliberately small and fixed: every value the document shows is rendered from these
+# rows by tools/workout_generation_example.py, so an engine change either updates the document
+# or fails tests/test_workout_generation_doc.py. The rows are the same as
+# tests/test_prescribe.py::BASE_HISTORY; the test asserts that they stay in sync.
+#
+# No real athlete data belongs here (AGENTS.md §3.13).
+for_date: "2024-01-08"
+session_type: "hinge"
+history:
+  - {Date: "2024-01-01", Exercise: "Trap Bar Deadlift", Weight_Used: "150", RIR: "2", Reps_Done: "5"}
+  - {Date: "2024-01-01", Exercise: "Bench Press (narrow grip)", Weight_Used: "90", RIR: "2", Reps_Done: "5"}
+  - {Date: "2024-01-01", Exercise: "Lateral Raise", Weight_Used: "12.5", RIR: "2", Reps_Done: "10"}
+  - {Date: "2024-01-01", Exercise: "Split Squat", Weight_Used: "30", RIR: "3", Reps_Done: "8"}
+  - {Date: "2024-01-01", Exercise: "Pull-ups (wide grip)", Weight_Used: "0", RIR: "2", Reps_Done: "8"}
+  - {Date: "2024-01-01", Exercise: "Dumbbell Row", Weight_Used: "30", RIR: "2", Reps_Done: "10"}
+  - {Date: "2024-01-01", Exercise: "Lying Leg Curls", Weight_Used: "30", RIR: "2", Reps_Done: "10"}
+# No readiness row for the prescription date: the engine must report unknown, not invent a score.
+readiness:
+  - {}
+# The poor-readiness comparison on the same fixture. Sleep=2 is below the configured floor.
+poor_readiness:
+  - {Date: "2024-01-08", Sleep: "2"}
