@@ -244,3 +244,10 @@ The web UI is the recommended route for routine use. The CLI remains useful for 
 ```
 
 Use the command's own help as the authority for exact options, because options can change as the app evolves.
+
+
+## Related
+
+- **Decisions:** [DECISIONS.md](docs/DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](docs/OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](ROADMAP.md)

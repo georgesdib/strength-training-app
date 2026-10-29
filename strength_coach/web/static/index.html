@@ -334,7 +334,7 @@
     <section id="view-workout" class="view">
       <div class="workflow-intro panel">
         <div class="panel-head"><h2>Workout workflow</h2><span class="muted">readiness → preview → workout → post-workout</span></div>
-        <p class="section-help"><span>One guided path from today's readiness to a saved session and its comparison.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md&amp;anchor=4-10i-workout-mode-start-log-end">Workout guide</a></p>
+        <p class="section-help"><span>One guided path from today's readiness to a saved session and its comparison.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md&amp;anchor=4-your-normal-workout-workflow">Workout guide</a></p>
         <ol class="workflow-steps">
           <li data-workflow-step="readiness"><strong>1</strong><span>Readiness</span></li>
           <li data-workflow-step="preview"><strong>2</strong><span>Preview</span></li>
@@ -380,7 +380,7 @@
         <div id="workflow-preview-content" hidden>
 <div class="panel">
         <div class="panel-head"><h2>Prescribe a session</h2></div>
-        <p class="section-help"><span>Builds the deterministic prescription with hard constraints, fallback and provenance.</span> <a class="doc-link" href="#docs?doc=docs/METHODOLOGY.md">Methodology</a></p>
+        <p class="section-help"><span>Builds the deterministic prescription with hard constraints, fallback and provenance.</span> <a class="doc-link" href="#docs?doc=docs/WORKOUT-GENERATION.md">How this workout is built</a></p>
         <form id="prescribe-form" class="form-row">
           <label>Date <input type="date" id="prescribe-date" required></label>
           <label>Session
@@ -443,7 +443,7 @@
           <div id="workout-readiness-required" class="grid-fields"></div>
           <label id="workout-start-ack-wrap" hidden><input type="checkbox" id="workout-start-ack"> Start without a complete readiness score</label>
           <div class="panel-head" style="margin-top:1rem"><h3>Optional device data</h3></div>
-        <p class="section-help"><span>Optional wearable fields are stored alongside the required readiness fields, not instead of them.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md&amp;anchor=4-10i-workout-mode-start-log-end">Workout guide</a></p>
+        <p class="section-help"><span>Optional wearable fields are stored alongside the required readiness fields, not instead of them.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md&amp;anchor=4-your-normal-workout-workflow">Workout guide</a></p>
           <div id="workout-readiness-optional" class="grid-fields"></div>
           <label>Readiness note <input type="text" id="workout-readiness-note" placeholder="optional"></label>
           <label>Workout note <input type="text" id="workout-start-note" placeholder="optional"></label>
@@ -501,7 +501,7 @@
         </details>
 
         <div class="panel-head" style="margin-top:1rem"><h3>End workout</h3></div>
-        <p class="section-help"><span>Stores duration and sRPE, materialises the session, and sends you to Review.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md&amp;anchor=4-10i-workout-mode-start-log-end">Workout guide</a></p>
+        <p class="section-help"><span>Stores duration and sRPE, materialises the session, and sends you to Review.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md&amp;anchor=4-your-normal-workout-workflow">Workout guide</a></p>
         <form id="workout-end-form" class="form-row">
           <label>Duration min <input type="number" step="1" min="1" id="workout-end-duration" placeholder="measured if blank"></label>
           <label>Session RPE <input type="number" step="0.5" min="1" max="10" id="workout-end-srpe"></label>

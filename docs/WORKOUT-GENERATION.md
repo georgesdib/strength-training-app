@@ -135,15 +135,17 @@ Important limitations include:
 
 The programme should therefore be treated as an inspectable decision aid. Check the output, use judgement, and report actual outcomes if you want the tool to have a meaningful history to review.
 
-## 12. Related documents
+## Related
 
-- [`METHODOLOGY.md`](METHODOLOGY.md) — canonical decision flow and hard boundaries.
-- [`SESSION-TEMPLATES.md`](SESSION-TEMPLATES.md) — template structure and validation.
-- [`READINESS-SCORE.md`](READINESS-SCORE.md) — readiness inputs and limitations.
-- [`INJURY-SIGNAL.md`](INJURY-SIGNAL.md) — symptom signal.
-- [`VOLUME-MANAGEMENT.md`](VOLUME-MANAGEMENT.md) — volume ledger and MRV cap.
-- [`MINIMUM-SESSION.md`](MINIMUM-SESSION.md) — minimum-session behaviour.
-- [`STRENGTH-PROGRAM-REVIEW.md`](STRENGTH-PROGRAM-REVIEW.md) — current programme review and generated weekly summary.
-- [`REFERENCES.md`](REFERENCES.md) — evidence bibliography.
-- [`DECISIONS.md`](DECISIONS.md) — decision records.
-- [`ROADMAP.md`](../ROADMAP.md) — project status and future work.
+- **Methodology:** [METHODOLOGY.md](METHODOLOGY.md)
+- **Template structure:** [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md)
+- **Readiness:** [READINESS-SCORE.md](READINESS-SCORE.md)
+- **Injury signal:** [INJURY-SIGNAL.md](INJURY-SIGNAL.md)
+- **Volume:** [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md)
+- **Minimum session:** [MINIMUM-SESSION.md](MINIMUM-SESSION.md)
+- **Programme review:** [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md)
+- **User workflow:** [../USER-GUIDE.md](../USER-GUIDE.md)
+- **Evidence:** [REFERENCES.md](REFERENCES.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

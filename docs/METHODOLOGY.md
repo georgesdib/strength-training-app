@@ -129,9 +129,9 @@ deeper tier reduces main-lift sets to a floor of two. See
 
 ## Related
 
-- **UI surface:** [UI-MAP.md](UI-MAP.md)- **User workflow:** [../USER-GUIDE.md](../USER-GUIDE.md)
-- **Workout generation:** [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md)
 - **UI surface:** [UI-MAP.md](UI-MAP.md)
+- **User workflow:** [../USER-GUIDE.md](../USER-GUIDE.md)
+- **Workout generation:** [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md)
 - **Evidence:** [REFERENCES.md](REFERENCES.md)
 - **Decisions:** [DECISIONS.md](DECISIONS.md)
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
