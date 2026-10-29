@@ -48,7 +48,7 @@ What exists today is:
 - `strength_coach/cli.py` — `import`, `run`, `review`, `calibrate`, `state`, `block`, `regime`, `e1rm`,
   `test`, `symptom`, `cardio`, `measure`, `fatigue`, `select`, `exercise`, `readiness`, `programme`, `validate`, `workout`, `web`. `review` (with `--pending`) is the routine that keeps calibration current.
 - `strength_coach/web/` — home-network HTTP UI and JSON API over the same core; no authentication, bind 0.0.0.0 (temporary accepted risk `LIM-57`; never expose to the internet).
-- `strength_coach/agents/` — LLM interface, config, narrative and structured proposals.
+- `strength_coach/agents/` — LLM interface, config, narrative, exercise-selection chooser and structured proposals.
   `NullLLM` is the default; the model may explain or propose, but never compute. Keys live in the git-ignored `config/llm.local.toml`
   or the environment (`config/llm.example.toml` is the committed template).
 - `ROADMAP.md` — phase status and next actions (update it in the same commit as the work).
@@ -63,7 +63,8 @@ Break any of these and the result is wrong even if the tests pass.
 1. **The constitution (`docs/RULES-FORMAT.md`, `config/rules/`) is the source of truth.**
    Never silently reinterpret an ambiguous rule. Raise it as an open question.
 2. **Never let the LLM do arithmetic.** Every number in a prescription comes from a
-   Python function via a tool call.
+   Python function; the transport may be supplied facts, a Python-computed menu, or a future
+   tool call. The current LLM client has no tool protocol.
 3. **The LLM may never veto the rules.** The policy engine may veto or downgrade an LLM
    suggestion; the reverse is not allowed.
 4. **Readiness scales are 1–5, higher is better.** `Stress = 5` means *no stress*.
@@ -252,6 +253,7 @@ never read `data/raw`.
 | `docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md` | why parent-variant ratios are not weakness or injury measures |
 | `docs/REVERSE-HYPER-BELT-SQUAT-EVIDENCE.md` | reverse hyperextension and belt squat evidence; optional accessories, no programme change |
 | `docs/WEAKNESS-TARGETING-PLAN.md` | gated weakness metric, retrospective screen and N-of-1 test plan |
+| `docs/LLM-INTEGRATION-PLAN.md` | future LLM analyst/explainer/constrained-proposer architecture, shared context/evidence contracts, phased implementation, approval, privacy and evaluation gates; plan only |
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/UI-CLI-PARITY.md` | current first-class parity, intentional differences and remaining gaps |
 | `docs/UI-MAP.md` | web UI surface map: panels, routes, docs links and the behaviour each panel exposes |

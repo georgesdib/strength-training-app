@@ -76,10 +76,11 @@ result: Python bounds it (`proposal_max_sets` / `proposal_max_set_change`) and r
 
 Three hard boundaries:
 
-1. **Computed numbers arrive by tool call.** If the prescription agent wants a load, it
-   calls `compute_load_from_velocity(...)` or `next_load(...)`; the tool returns the value and
-   the agent may only echo it. Set counts are not computed; they are bounded structural
-   proposals.
+1. **Computed numbers are supplied, never generated.** The current client is text-in/text-out
+   and has no tool protocol: facts arrive in the prompt, and menu values are computed by Python
+   before the model chooses among them. A future tool-call interface would still return the
+   value from Python; the boundary, not the transport, is the invariant. Set counts are not
+   computed; they are bounded structural proposals.
 2. **Every LLM output is validated.** The policy engine re-checks the composed
    prescription against the hard rules. Failure ⇒ deterministic fallback prescription is
    used, and the run is marked `llm_downgraded`.
@@ -87,12 +88,24 @@ Three hard boundaries:
    with no narrative. This path is exercised by a test, so "LLM unavailable" is a tested
    state, not a hope.
 
+### 3.1 Future direction (planned, not implemented)
+
+The proposed next layer separates three permissions while keeping this diagram's deterministic
+core unchanged: a read-only **athlete analyst**, a read-only **programme explainer** and a
+**constrained proposer** whose structural changes are rebuilt and validated by Python and
+require explicit approval. All three use one deterministic, versioned context/evidence package;
+the LLM never becomes the source of a load, e1RM, volume or safety verdict. The phased plan,
+contracts and evaluation gates are in
+[`LLM-INTEGRATION-PLAN.md`](LLM-INTEGRATION-PLAN.md); ROADMAP §4.24 tracks status. Nothing in
+this subsection is a current runtime capability.
+
 ## 4. Run lifecycle and trace
 
 A run is identified by `run_id` and records, in order: the input window, the hash of the
 two CSVs' relevant rows, the code version, the config/rule versions, the computed
-features, the candidate prescriptions, every tool call with arguments and result, the raw
-LLM output, each policy verdict, and the final artifacts. Replaying a day means re-running
+features, the candidate prescriptions, every tool call with arguments and result (when a
+client uses tools), the raw LLM output, each policy verdict, and the final artifacts. Replaying
+a day means re-running
 with the same `run_id` inputs and diffing.
 
 ## 5. Why SQLite and not "just CSVs"

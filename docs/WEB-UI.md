@@ -334,7 +334,7 @@ behaviour still require a physical-device pass.
 
 - UI prescription previews are read-only. Starting a workout commits the plan as a stored
   prescription, its items and modifier provenance in one transaction. See `docs/UI-CLI-PARITY.md`.
-- No LLM proposal/chat UI; this is closed as CLI-only (`run --propose`), not pending.
+- No LLM proposal/chat UI today; proposals remain CLI-only (`run --propose`). A future phased plan for analyst, explainer and constrained-proposer surfaces is in [`docs/LLM-INTEGRATION-PLAN.md`](LLM-INTEGRATION-PLAN.md); it is not implemented and does not change the current limitation.
 - Remaining first-class parity gaps (bulk review, state YAML import, report window controls)
   are listed in `docs/UI-CLI-PARITY.md`.
 - Workout mode is UI-first for start; CLI covers status/add/update/remove/end/import. Completed workouts materialise into `session`/`clean_set`; review/rubric is built.

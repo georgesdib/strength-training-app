@@ -63,7 +63,7 @@ These are known and intentional or still open.
 | Gap | Current state | Decision |
 |---|---|---|
 | UI prescribe preview artifact | `/api/prescribe` is read-only until workout start | intentional; start commits the artifact |
-| CLI `run --propose` / `--llm` narrative | no UI proposal/chat surface | documented CLI-only (`DEC-LLM-*` / WEB-UI limitations) |
+| CLI `run --propose` / `--llm` narrative | no UI proposal/chat surface today | documented CLI-only (`DEC-LLM-*` / WEB-UI limitations); future analyst/explainer/proposer surfaces are planned in [`LLM-INTEGRATION-PLAN.md`](LLM-INTEGRATION-PLAN.md), not implemented |
 | `review --pending` bulk queue | UI reviews a selected recent session; no batch queue | open; CLI only since `DEC-WEB-02` |
 | `state --import` YAML | UI has individual state forms only | open; CLI only since `DEC-WEB-02` |
 | `e1rm calibrate --window-days` | UI shows the calibration table, no window control | partial |
