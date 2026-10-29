@@ -39,6 +39,7 @@ function setView(name, options = {}) {
   if (name === "workout") {
     loadReadiness($("#readiness-date").value);
     loadDropWindow();
+    loadThrottlePatterns();
     updateWorkflowStep();
   }
   if (name === "docs") loadDocs(options.doc, options.anchor);
@@ -771,11 +772,49 @@ function syncMinimumSession() {
 }
 $("#prescribe-minimum").addEventListener("change", syncMinimumSession);
 
+function populateThrottlePatterns(patterns) {
+  const select = $("#prescribe-throttle-pattern");
+  if (!select) return;
+  const values = [...new Set((patterns || []).map((pattern) =>
+    typeof pattern === "string" ? pattern : pattern?.value
+  ).filter(Boolean))];
+  const chosen = new Set([...select.selectedOptions].map((option) => option.value));
+  const mainSelected = !chosen.size || chosen.has("");
+  select.innerHTML = `<option value=""${mainSelected ? " selected" : ""}>All lifts (main work)</option>`
+    + values.map((value) =>
+      `<option value="${esc(value)}"${chosen.has(value) ? " selected" : ""}>${esc(value)}</option>`
+    ).join("");
+  if (!select.selectedOptions.length) select.options[0].selected = true;
+  select.dataset.loaded = "1";
+}
+
+async function loadThrottlePatterns() {
+  const select = $("#prescribe-throttle-pattern");
+  if (!select || select.dataset.loaded === "1") return;
+  const cached = window.__exerciseCatalog?.patterns;
+  if (cached && cached.length) {
+    populateThrottlePatterns(cached);
+    return;
+  }
+  try {
+    const data = await api("/api/options");
+    populateThrottlePatterns(data.patterns || []);
+  } catch (error) {
+    // Keep the "all lifts" option; the server still reports no-match for an empty scope.
+  }
+}
+
 function syncTechniqueThrottle() {
   $("#prescribe-throttle-pattern-wrap").hidden = !$("#prescribe-technique").checked;
 }
 
-$("#prescribe-technique").addEventListener("change", syncTechniqueThrottle);
+$("#prescribe-technique").addEventListener("change", () => {
+  syncTechniqueThrottle();
+  if ($("#prescribe-technique").checked) loadThrottlePatterns();
+});
+$("#prescribe-throttle-pattern").addEventListener("change", (event) => {
+  if (!event.currentTarget.selectedOptions.length) event.currentTarget.options[0].selected = true;
+});
 syncMinimumSession();
 
 let prescribeBusy = false;
@@ -824,7 +863,8 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
     target_minutes: Number($("#prescribe-target").value),
     minimum_include_main: $("#prescribe-minimum-main").checked,
     technique_throttle: $("#prescribe-technique").checked,
-    technique_throttle_pattern: ($("#prescribe-throttle-pattern").value || "").trim() || null,
+    technique_throttle_pattern: [...$("#prescribe-throttle-pattern").selectedOptions]
+      .map((option) => option.value),
     drop_confirmed: $("#prescribe-drop-confirm").checked,
     allow_unknown_readiness: !scoreReady && Boolean(window.__workflowAllowUnknown),
   };
@@ -901,6 +941,10 @@ function volumePanelHtml(panel, label = "Weekly volume") {
 
 function renderPrescription(p) {
   window.__lastPrescription = p;
+  const sessionTime = p.notes?.session_time || {};
+  const timeLine = sessionTime.estimated_minutes == null ? "" :
+    `<p class="muted"><strong>Estimated session time:</strong> ~${fmt(sessionTime.estimated_minutes)} min
+      <span class="muted">(planning estimate; excludes transitions and idle time)</span></p>`;
   const stress = p.notes?.recent_stress || {};
   const liftReady = p.notes?.per_lift_readiness || {};
   const rows = p.items.map((item) => {
@@ -1010,7 +1054,7 @@ function renderPrescription(p) {
   $("#prescribe-result").innerHTML = `<div class="panel">
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_label || sessionLabel(p.session_type || "unknown"))}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
-    ${volumeBox}${compBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
+    ${timeLine}${volumeBox}${compBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <div class="table-scroll desktop-table"><table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>e1RM n</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table></div>
     <div class="mobile-cards prescription-cards">${cards}</div>

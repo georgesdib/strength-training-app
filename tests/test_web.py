@@ -1541,6 +1541,30 @@ def test_the_technique_throttle_can_be_scoped_to_one_pattern(server):
     assert scoped_loads["bench_press"] == base["bench_press"]
 
 
+def test_the_technique_throttle_can_be_scoped_to_several_patterns(server):
+    baseline = post(server, "/api/prescribe", {"date": "2024-01-08", "session_type": "squat"})
+    scoped = post(server, "/api/prescribe", {
+        "date": "2024-01-08", "session_type": "squat",
+        "technique_throttle": True,
+        "technique_throttle_pattern": ["squat", "horizontal_push"],
+    })
+    assert any("MOD-TECH-001" in warning for warning in scoped["warnings"])
+    base = {item["exercise_id"]: item["load_kg"] for item in baseline["items"]}
+    scoped_loads = {item["exercise_id"]: item["load_kg"] for item in scoped["items"]}
+    assert scoped_loads["ssb_squat"] < base["ssb_squat"]
+    assert scoped_loads["bench_press"] < base["bench_press"]
+
+
+def test_all_lifts_and_a_pattern_are_combined(server):
+    scoped = post(server, "/api/prescribe", {
+        "date": "2024-01-08", "session_type": "squat",
+        "technique_throttle": True,
+        "technique_throttle_pattern": ["", "core"],
+    })
+    assert any("MOD-TECH-001" in warning for warning in scoped["warnings"])
+    assert scoped["notes"]["technique_throttle"]["pattern"] == ["", "core"]
+
+
 def test_a_technique_throttle_pattern_with_no_match_says_so(server):
     data = post(server, "/api/prescribe", {
         "date": "2024-01-08", "session_type": "squat",
@@ -1553,7 +1577,9 @@ def test_the_page_exposes_the_technique_throttle_controls(server):
     status, page = get(server, "/")
     assert status == 200
     assert 'id="prescribe-technique"' in page
-    assert 'id="prescribe-throttle-pattern"' in page
+    assert '<select id="prescribe-throttle-pattern" multiple size="6">' in page
+    assert '<option value="" selected>All lifts (main work)</option>' in page
+    assert 'list="exercise-patterns"' not in page
 
 def _raw_post(base: str, headers: list[str], body: bytes = b"") -> tuple[int, str]:
     parsed = urlparse(base)

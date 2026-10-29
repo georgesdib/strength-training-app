@@ -133,9 +133,9 @@ def main(argv: list[str] | None = None) -> int:
                           "(MOD-TECH-001)")
     run.add_argument("--drop-confirm", action="store_true",
                       help="confirm a drop inside the competition window")
-    run.add_argument("--throttle-pattern", default=None, metavar="PATTERN",
-                     help="restrict the throttle to one movement pattern (e.g. squat, hinge); "
-                          "default is the session's main lifts")
+    run.add_argument("--throttle-pattern", action="append", default=None, metavar="PATTERN",
+                     help="restrict the throttle to a movement pattern (e.g. squat, hinge); "
+                          "repeat for several patterns; default is the session's main lifts")
 
     review = sub.add_parser("review", help="mark a session and update calibration")
     review.add_argument("--session", default=None, help="session id (YYYY-MM-DD)")
@@ -2599,6 +2599,10 @@ def _print_import(report) -> None:
 def _print_prescription(prescription) -> None:
     print(f"\nprescription {prescription.for_date}  "
           f"({session_identity.label(prescription.session_type)}, {prescription.fallback_level})")
+    session_time = (prescription.notes or {}).get("session_time") or {}
+    if session_time.get("estimated_minutes") is not None:
+        print(f"  estimated time: ~{session_time['estimated_minutes']:g} min "
+              "(planning estimate; excludes transitions and idle time)")
     show_velocity = any(item.velocity_target is not None for item in prescription.items)
     header = (f"  {'exercise':<24}{'sets':>5}{'reps':>8}{'load':>9}{'rir':>5}"
               + (f"{'vel':>7}" if show_velocity else "") + "  refs")

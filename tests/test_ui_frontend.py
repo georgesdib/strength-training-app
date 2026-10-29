@@ -266,6 +266,33 @@ def test_remaining_forms_use_field_errors() -> None:
         assert marker in app, marker
 
 
+def test_technique_throttle_scope_is_a_constrained_select() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    exercises = (STATIC / "exercises.js").read_text(encoding="utf-8")
+
+    assert '<select id="prescribe-throttle-pattern" multiple size="6">' in page
+    assert '<option value="" selected>All lifts (main work)</option>' in page
+    assert 'list="exercise-patterns"' not in page
+    assert "populateThrottlePatterns" in app
+    assert "loadThrottlePatterns" in app
+    assert "mainSelected" in app
+    assert "selectedOptions" in app
+    assert "syncThrottleSelection" not in app
+    assert "/api/options" in app
+    assert "populateThrottlePatterns(data.patterns)" in exercises
+
+
+def test_estimated_session_time_is_at_the_top_of_a_generated_workout() -> None:
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    workout = (STATIC / "workout.js").read_text(encoding="utf-8")
+
+    assert "Estimated session time:" in app
+    assert "sessionTime.estimated_minutes" in app
+    assert "estimated ~" in workout
+    assert "startEstimate" in workout
+
+
 def test_drop_confirmation_is_only_offered_inside_the_competition_window() -> None:
     page = INDEX.read_text(encoding="utf-8")
     app = (STATIC / "app.js").read_text(encoding="utf-8")

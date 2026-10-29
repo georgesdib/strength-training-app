@@ -47,32 +47,72 @@ class TechniqueThrottleConfig:
         return cls(load_multiplier=multiplier, rir_floor=floor, rir_cap=cap)
 
 
-def _scoped(item: PrescriptionItem, pattern: str | None,
-            patterns: Mapping[str, str]) -> bool:
-    """Default scope is the session's main work; a named pattern widens it to that pattern."""
+def _scope_patterns(
+    pattern: str | Iterable[str] | None,
+) -> tuple[bool, set[str] | None]:
+    """Normalise the pattern scope into (include main work, named patterns).
+
+    An empty value or an empty list means the default main work. A list may also contain an
+    empty string, which represents the UI's selected "All lifts (main work)" option: that
+    adds the essential items to any named patterns instead of replacing them.
+    """
     if pattern is None:
+        return True, None
+    if isinstance(pattern, str):
+        return (False, {pattern}) if pattern else (True, None)
+    values = [str(value) for value in pattern]
+    chosen = {value for value in values if value}
+    if not chosen:
+        return True, None
+    return any(value == "" for value in values), chosen
+
+
+def _scoped(item: PrescriptionItem, include_main: bool, scope: set[str] | None,
+            patterns: Mapping[str, str]) -> bool:
+    """Throttle main work and/or the selected movement patterns."""
+    if scope is None:
         return bool(item.essential)
-    return patterns.get(item.exercise_id) == pattern
+    if patterns.get(item.exercise_id) in scope:
+        return True
+    return include_main and bool(item.essential)
+
+
+def _note_pattern(
+    pattern: str | Iterable[str] | None, include_main: bool, scope: set[str] | None
+) -> str | list[str] | None:
+    """Keep one pattern as a string; list scopes are sorted and show the main-work flag."""
+    if scope is None:
+        return None
+    if isinstance(pattern, str):
+        return pattern
+    return (["", *sorted(scope)] if include_main else sorted(scope))
 
 
 def apply(items: Iterable[PrescriptionItem], patterns: Mapping[str, str], *,
-          pattern: str | None = None,
+          pattern: str | Iterable[str] | None = None,
           config: TechniqueThrottleConfig | None = None) -> dict[str, Any]:
     """Return items with the throttle applied, plus a provenance note.
 
     `patterns` maps exercise_id to its taxonomy movement pattern; it is only read when the
-    caller names a pattern. Bodyweight work cannot shed external load, so it keeps its load
-    and gets the RIR floor only — never a silently scaled total mass.
+    caller names one or more patterns. Bodyweight work cannot shed external load, so it keeps
+    its load and gets the RIR floor only — never a silently scaled total mass.
     """
     cfg = config or TechniqueThrottleConfig.load()
     current = list(items)
-    scoped = [item for item in current if _scoped(item, pattern, patterns)]
+    include_main, scope = _scope_patterns(pattern)
+    scoped = [item for item in current if _scoped(item, include_main, scope, patterns)]
     if not scoped:
+        if scope is None:
+            reason = "no main-lift item to throttle"
+        elif len(scope) == 1:
+            reason = f"no exercise in this session matches pattern {next(iter(scope))!r}"
+        else:
+            reason = f"no exercise in this session matches patterns {sorted(scope)!r}"
         return {
             "requested": True, "applied": False, "status": "no_match",
-            "reason": (f"no exercise in this session matches pattern {pattern!r}"
-                       if pattern else "no main-lift item to throttle"),
-            "pattern": pattern, "load_multiplier": cfg.load_multiplier,
+            "reason": reason,
+            "pattern": _note_pattern(pattern, include_main, scope),
+            "load_multiplier": cfg.load_multiplier,
             "rir_floor": cfg.rir_floor, "changed": [], "load_not_reducible": [],
             "items": tuple(current),
         }
@@ -83,7 +123,7 @@ def apply(items: Iterable[PrescriptionItem], patterns: Mapping[str, str], *,
     floored: list[str] = []
     not_reducible: list[str] = []
     for item in current:
-        if not _scoped(item, pattern, patterns):
+        if not _scoped(item, include_main, scope, patterns):
             out.append(item)
             continue
         if item.effort_model == "quality" or item.rir_target is None:
@@ -144,7 +184,8 @@ def apply(items: Iterable[PrescriptionItem], patterns: Mapping[str, str], *,
                   f"{cfg.load_multiplier:.2f} load factor and RIR floor")
     return {
         "requested": True, "applied": bool(changed), "status": status, "reason": reason,
-        "pattern": pattern, "load_multiplier": cfg.load_multiplier,
+        "pattern": _note_pattern(pattern, include_main, scope),
+        "load_multiplier": cfg.load_multiplier,
         "rir_floor": cfg.rir_floor, "changed": changed,
         "load_not_reducible": not_reducible, "items": tuple(out),
     }

@@ -161,6 +161,18 @@ def test_engine_builds_an_executable_prescription():
         assert item.rationale_refs
 
 
+def test_cli_prescription_header_shows_the_estimated_time(capsys):
+    with store_with(BASE_HISTORY) as store:
+        prescription = build_prescription(store.connection, for_date="2024-01-08")
+
+    from strength_coach import cli
+
+    cli._print_prescription(prescription)
+    output = capsys.readouterr().out
+    minutes = prescription.notes["session_time"]["estimated_minutes"]
+    assert f"estimated time: ~{minutes:g} min" in output
+
+
 def test_stale_e1rm_falls_back_to_the_last_working_load():
     # History older than the 84-day window: no e1RM, but a real load was managed before.
     rows = [

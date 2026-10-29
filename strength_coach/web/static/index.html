@@ -411,7 +411,9 @@
           <label><input type="checkbox" id="prescribe-technique"> Technique throttle</label>
           <label id="prescribe-drop-confirm-wrap" hidden><input type="checkbox" id="prescribe-drop-confirm"> Confirm drop in competition window</label>
           <label id="prescribe-throttle-pattern-wrap" hidden>Scope
-            <input id="prescribe-throttle-pattern" list="exercise-patterns" placeholder="all lifts">
+            <select id="prescribe-throttle-pattern" multiple size="6">
+              <option value="" selected>All lifts (main work)</option>
+            </select>
           </label>
           <button class="primary" type="submit">Build prescription</button>
         </form>
@@ -858,7 +860,6 @@
             <span id="exercise-msg" class="muted" role="status" aria-live="polite"></span>
           </div>
         </form>
-        <datalist id="exercise-patterns"></datalist>
       </div>
     </section>
 

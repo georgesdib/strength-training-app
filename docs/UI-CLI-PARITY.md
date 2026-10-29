@@ -39,7 +39,7 @@ This is deliberate: the UI is a planning surface until the athlete starts the wo
 | Review one session | `review` | Review page | same marks/rubric |
 | Post-lift form rating | no CLI command | Workout + History edit | UI-only capture; same rubric item from stored ratings |
 | Minimum effective session | `run --minimum-session` | Prescribe controls | same volume-only core; `MOD-MIN-001` |
-| Technique throttle | `run --technique-throttle [--throttle-pattern]` | Prescribe controls | same load/RIR core; `MOD-TECH-001` |
+| Technique throttle | `run --technique-throttle [--throttle-pattern ...]` | Prescribe controls | same load/RIR core; repeatable pattern scope; `MOD-TECH-001` |
 | Programme forecast | `programme` | Programme page | same forecast |
 | Outcomes | `outcomes` | Outcomes page | same report |
 | Readiness feedback | `readiness feedback` | Outcomes panel | same report; workout snapshots included |

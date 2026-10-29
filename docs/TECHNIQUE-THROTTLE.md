@@ -29,18 +29,22 @@ derived rule. No `form_rating` is read anywhere in the path.
 UI:
 
 ```text
-Prescribe → tick Technique throttle → optional pattern (squat, hinge, push, pull, ...)
-→ build
+Prescribe → tick Technique throttle → select one or more movement patterns from the
+multi-select → build. Keeping "All lifts (main work)" selected adds the main work to any
+selected patterns; deselect it to throttle only the named patterns.
 ```
 
 The API takes the same two fields (`technique_throttle`, `technique_throttle_pattern`)
-from `POST /api/prescribe`; the UI form above is a thin wrapper over it.
+from `POST /api/prescribe`; `technique_throttle_pattern` may be one pattern or a list.
+The UI form above is a thin wrapper over it.
 
 CLI:
 
 ```bash
 strength-coach run --date 2026-10-23 --technique-throttle
 strength-coach run --date 2026-10-23 --technique-throttle --throttle-pattern squat
+strength-coach run --date 2026-10-23 --technique-throttle \
+  --throttle-pattern squat --throttle-pattern horizontal_push
 ```
 
 It is never selected automatically, and it is not offered from the calendar or the
@@ -52,7 +56,7 @@ programme forecast: it is a decision about one session.
 |---|---|---|
 | load | cap at **90%** of the current item load, rounded down to the increment | `load_multiplier` |
 | RIR | **floor 3**, capped at 4 (`DEC-RIR-02`: RIR 0 forbidden, window 1–4) | `rir_floor`, `rir_cap` |
-| scope | the session's essential/main-lift items | `--throttle-pattern` widens it to one pattern |
+| scope | the session's essential/main-lift items | "All lifts" plus named patterns adds both; named patterns alone restrict the scope to those patterns |
 | sets, reps, rest, exercise identity | unchanged | — |
 
 The RIR floor is a floor, not a target: an item already prescribed at RIR 4 stays at RIR 4.

@@ -55,6 +55,7 @@ PATTERNS = {
     "ssb_squat": "squat",
     "competition_bench_press": "horizontal_push",
     "leg_press": "squat",
+    "leg_curl": "knee_flexion",
 }
 
 
@@ -101,6 +102,43 @@ def test_naming_a_pattern_leaves_other_patterns_alone():
     assert bench.load_kg == 80.0
     assert bench.rir_target == 2
     assert "MOD-TECH-001" not in bench.rationale_refs
+
+
+def test_naming_several_patterns_throttles_their_union_only():
+    before = (
+        item(0, "ssb_squat"),
+        item(1, "competition_bench_press", load=80.0),
+        item(2, "leg_curl", essential=False, load=200.0),
+    )
+    result = apply(before, PATTERNS, pattern=["squat", "horizontal_push"])
+    assert by_id(result, "ssb_squat").load_kg == 90.0
+    assert by_id(result, "competition_bench_press").load_kg == 70.0
+    accessory = by_id(result, "leg_curl")
+    assert accessory.load_kg == 200.0
+    assert "MOD-TECH-001" not in accessory.rationale_refs
+    assert result["pattern"] == ["horizontal_push", "squat"]
+
+
+def test_all_lifts_plus_a_pattern_throttles_main_work_and_that_pattern():
+    before = (
+        item(0, "ssb_squat"),
+        item(1, "competition_bench_press", load=80.0),
+        item(2, "leg_curl", essential=False, load=200.0),
+        item(3, "leg_press", essential=False, load=200.0),
+    )
+    result = apply(before, PATTERNS, pattern=["", "knee_flexion"])
+    assert by_id(result, "ssb_squat").load_kg == 90.0
+    assert by_id(result, "competition_bench_press").load_kg == 70.0
+    assert by_id(result, "leg_curl").load_kg == 180.0
+    assert by_id(result, "leg_press").load_kg == 200.0
+    assert result["pattern"] == ["", "knee_flexion"]
+
+
+def test_an_empty_pattern_list_keeps_the_default_main_work_scope():
+    before = (item(0, "ssb_squat"), item(1, "leg_press", essential=False, load=200.0))
+    result = apply(before, PATTERNS, pattern=[])
+    assert by_id(result, "ssb_squat").load_kg == 90.0
+    assert by_id(result, "leg_press").load_kg == 200.0
 
 
 def test_default_scope_is_main_lifts_only():

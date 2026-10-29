@@ -31,8 +31,11 @@ function openWorkoutStart() {
   $("#workout-active-panel").hidden = true;
   $("#workout-ended-panel").hidden = true;
   $("#workout-start-panel").hidden = false;
+  var startTime = plan.notes && plan.notes.session_time;
+  var startEstimate = startTime && startTime.estimated_minutes != null
+    ? " · estimated ~" + fmt(startTime.estimated_minutes) + " min" : "";
   $("#workout-start-summary").textContent =
-    plan.for_date + " · " + (plan.session_type || "unknown");
+    plan.for_date + " · " + (plan.session_type || "unknown") + startEstimate;
   $("#workout-readiness-required").innerHTML =
     WORKOUT_REQUIRED.map(function (key) { return workoutField(key, false); }).join("");
   $("#workout-readiness-optional").innerHTML =
@@ -380,10 +383,12 @@ function renderWorkout(w) {
   $("#workout-active-panel").hidden = false;
   if (typeof setWorkflowStep === "function") setWorkflowStep("active");
   $("#workout-title").textContent = w.for_date + " · " + (w.session_type || "unknown");
-  $("#workout-meta").innerHTML = "Started " + esc(w.started_at) + " · status <strong>" +
-    esc(w.status) + "</strong>";
-
   var plan = w.plan || {};
+  var sessionTime = plan.notes && plan.notes.session_time;
+  var timeEstimate = sessionTime && sessionTime.estimated_minutes != null
+    ? " · estimated ~" + fmt(sessionTime.estimated_minutes) + " min" : "";
+  $("#workout-meta").innerHTML = "Started " + esc(w.started_at) + " · status <strong>" +
+    esc(w.status) + "</strong>" + timeEstimate;
   var volumeBox = document.getElementById("workout-volume");
   if (volumeBox) {
     volumeBox.innerHTML = plan.volume_panel

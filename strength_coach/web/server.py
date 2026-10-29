@@ -1577,10 +1577,22 @@ class Handler(BaseHTTPRequestHandler):
         )
         minimum_session = _truth(body.get("minimum_session"))
         minimum_include_main = _truth(body.get("minimum_include_main")) and minimum_session
-        # MOD-TECH-001 is a user request, so it only runs when explicitly asked for; the
-        # pattern narrows it to one movement pattern, empty means the whole session.
+        # MOD-TECH-001 is a user request, so it only runs when explicitly asked for; selected
+        # patterns narrow it to those movement patterns, and an empty list means main work.
         technique_throttle = _truth(body.get("technique_throttle"))
-        technique_pattern = str(body.get("technique_throttle_pattern") or "").strip() or None
+        raw_patterns = body.get("technique_throttle_pattern")
+        if isinstance(raw_patterns, list):
+            # An empty string is the UI's "All lifts (main work)" choice. Keep one sentinel
+            # so it can be combined with named patterns; only an empty list is the default.
+            technique_patterns = list(dict.fromkeys(
+                str(value).strip() for value in raw_patterns
+            ))
+            if technique_patterns == [""] or not technique_patterns:
+                technique_patterns = None
+        elif isinstance(raw_patterns, str):
+            technique_patterns = raw_patterns.strip() or None
+        else:
+            technique_patterns = None
         target = body.get("target_minutes")
         target_minutes = int(target) if target not in (None, "") else None
         # Resolve deload before building: it must run before minimum session and final
@@ -1610,7 +1622,7 @@ class Handler(BaseHTTPRequestHandler):
             minimum_include_main=minimum_include_main,
             deload_decision=deload_decision,
             technique_throttle=technique_throttle,
-            technique_throttle_pattern=technique_pattern,
+            technique_throttle_pattern=technique_patterns,
             drop_confirmed=_truth(body.get("drop_confirmed")),
         )
         if scheduled_suggestion is not None:

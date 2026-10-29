@@ -75,7 +75,7 @@ def build_prescription(
     minimum_target_minutes: int | None = None,
     minimum_include_main: bool = False,
     technique_throttle: bool = False,
-    technique_throttle_pattern: str | None = None,
+    technique_throttle_pattern: str | Collection[str] | None = None,
     deload_decision: Any | None = None,
     drop_confirmed: bool = False,
     projected_items: tuple[Mapping[str, Any], ...] = (),
