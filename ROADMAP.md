@@ -1283,20 +1283,24 @@ removed. The new proposer is decision `DEC-LLM-09`; it is not a continuation of 
 ### Iteration 2 — evidence retrieval and advanced architecture (conditional)
 
 Iteration 2 begins only after the Iteration 1 exit gate. It starts with a needs assessment, not
-with technology adoption. RAG, semantic/hybrid retrieval, a vector database and advanced
-orchestration/tool use are candidates, not requirements; any one may be rejected. A vector
-database is permitted only if the retrieval benchmark shows a simpler deterministic/keyword or
-hybrid approach is insufficient.
+with technology adoption. RAG, semantic/hybrid retrieval, a vector database, advanced
+orchestration/tool use and an owner-operated MCP server over Tailscale are candidates, not
+requirements; any one may be rejected. A vector database is permitted only if the retrieval
+benchmark shows a simpler deterministic/keyword or hybrid approach is insufficient. The MCP
+server is owner intent only: Tailscale is network reachability, not application authentication,
+and no app integration is implemented or approved.
 
 | phase | scope | depends on | status |
 |---|---|---|---|
-| 6 | Needs assessment: recurring gaps, trusted corpus, retrieval requirements, simpler alternatives, benchmark, cost/latency/privacy/maintenance case | Iteration 1 exit gate; owner authorisation | **conditional** |
-| 7 | Advanced component trial: one approved component at a time (RAG, hybrid retrieval or bounded orchestration), off by default, baseline comparison | phase 6 decision; privacy review | **conditional** |
+| 6 | Needs assessment: recurring gaps, trusted corpus, retrieval requirements, simpler alternatives, MCP/Tailscale tool boundary and authorization, benchmark, cost/latency/privacy/maintenance case | Iteration 1 exit gate; owner authorisation | **conditional** |
+| 7 | Advanced component trial: one approved component at a time (RAG, hybrid retrieval, bounded orchestration or MCP transport), off by default, baseline comparison | phase 6 decision; privacy review | **conditional** |
 
 **Proceed criteria for any Iteration 2 component:** documented recurring need; simpler
 alternative tested; measurable benefit on a pre-registered evaluation set; acceptable cost,
 latency, privacy and maintenance; no safety or deterministic-fallback regression; owner approval
-and a new decision. No dates are assigned.
+and a new decision. Any MCP component must also be tailnet-only, application-authenticated,
+read-only until separately approved, and prohibited from direct writes/prescription commitment.
+No dates are assigned.
 
 **Non-goals:** autonomous workout replacement, LLM arithmetic, LLM vetoes, unsupervised tool
 use, self-directed database writes, adopting RAG/vector databases/agent frameworks merely

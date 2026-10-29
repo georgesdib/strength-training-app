@@ -94,9 +94,10 @@ advanced retrieval architecture:
   embeddings, tool framework or autonomous agent framework is a prerequisite. This is the
   default plan.
 - **Iteration 2 — evidence retrieval and advanced architecture.** RAG, semantic/hybrid
-  retrieval (including a vector database only if justified), advanced orchestration/tool use
-  and expanded source attribution. Iteration 2 begins with a needs assessment and may conclude
-  that none of these additions is justified. It is not a prerequisite for Iteration 1.
+  retrieval (including a vector database only if justified), advanced orchestration/tool use,
+  expanded source attribution and an optional owner-operated MCP server over Tailscale.
+  Iteration 2 begins with a needs assessment and may conclude that none of these additions is
+  justified. It is not a prerequisite for Iteration 1.
 
 **No configured LLM:** when provider is null, unconfigured or unavailable, the analyst,
 explainer and proposer functionality is simply not available. The UI/CLI must say so and must
@@ -550,6 +551,38 @@ the need is recurring and documented; a simpler alternative was tested and insuf
 benefit, cost, privacy and maintenance case is approved by the owner; and a new decision records
 the choice. No dates are implied.
 
+### 9.2 Owner-operated MCP server over Tailscale (Iteration 2 candidate)
+
+**Status:** owner intent only. The owner plans to set up a Model Context Protocol (MCP) server
+served over Tailscale; it is not implemented, is not a prerequisite for Iteration 1 and has no
+approved integration yet. Tailscale is network reachability, not application authentication.
+
+If the Iteration 1 exit gate and Phase 6 needs assessment support it, the MCP server may expose a
+small set of approved app tools to compatible MCP clients. It must not become a second
+prescription engine or a general database proxy.
+
+Minimum conditions for a future proposal:
+
+- **Network:** serve only over the private tailnet; no public bind, no port-forward and no
+  exposure beyond the owner's devices. Tailscale ACLs and application-level authorization are
+  both required; a tailnet address is not sufficient authorization.
+- **Tool scope:** start read-only (status, summaries, permitted exercise/selection lookups).
+  Writes, prescription commitment and approvals remain in the existing app. A proposal tool, if
+  ever added, returns a structured proposal for the app's Python validation and explicit user
+  approval; it cannot persist or start a workout.
+- **Core reuse:** every tool calls the existing Python functions and validators; no MCP-side
+  calculations, no direct database writes and no bypass of hard constraints or the deterministic
+  fallback.
+- **Privacy:** the outbound-data inventory in section 8.1 applies to MCP tool inputs/results;
+  no API keys, whole-database dumps, unrelated history or free-text notes by default. Sensitive
+  structured fields need explicit disposition.
+- **Audit and abuse:** record caller/tool/arguments/result/validation metadata, rate-limit and
+  time out calls, and test prompt/tool injection, confused-deputy and over-broad-tool cases.
+- **Evaluation:** benchmark actual usefulness, latency, maintenance and failure modes against
+  the simpler in-app/API path. The owner may reject MCP integration even if the server exists.
+- **Decision:** adoption requires Phase 6 approval and a new decision. This paragraph does not
+  claim the server exists or that any MCP integration is implemented.
+
 ## 10. Phases
 
 These are dependency-ordered, not date-ordered. The workstream starts after the v1.1
@@ -686,7 +719,8 @@ no-LLM path is tested; and the owner has not identified a blocking safety or pri
 
 - **Scope:** identify recurring questions that Iteration 1 cannot answer, define the trusted
   corpus, retrieval requirements, simpler alternatives, evaluation set, cost/latency/privacy
-  and maintenance case for RAG, semantic retrieval, vector storage and advanced orchestration.
+  and maintenance case for RAG, semantic retrieval, vector storage, advanced orchestration and
+  the owner-operated MCP server/Tailscale tool boundary.
 - **Non-goals:** no vector database, embedding pipeline, RAG implementation, agent framework or
   new dependency is added in this phase. A negative result is valid.
 - **Dependencies:** Iteration 1 exit gate; owner authorisation to investigate.
@@ -696,14 +730,15 @@ no-LLM path is tested; and the owner has not identified a blocking safety or pri
   simpler-alternative result, cost/risk/privacy case and explicit owner disposition.
 - **Tests:** retrieval evaluation design only; no implementation tests claimed.
 - **Data/schema:** none; a proposed schema is part of the decision, not applied here.
-- **Safety/privacy:** source sensitivity, redaction and provider data flow assessed.
+- **Safety/privacy:** source sensitivity, redaction, provider data flow, Tailscale ACL/application
+  authorization, MCP tool scope and confused-deputy/over-broad-tool risks assessed.
 - **Exit:** owner approves a component trial or closes the item; no default adoption.
 
 ### Phase 7 — Advanced component trial (conditional; only if Phase 6 approves)
 
-- **Scope:** implement one approved component at a time — RAG grounding, hybrid retrieval or a
-  bounded orchestration improvement — behind an off-by-default configuration, with a baseline
-  comparison.
+- **Scope:** implement one approved component at a time — RAG grounding, hybrid retrieval, a
+  bounded orchestration improvement or the MCP/Tailscale transport — behind an off-by-default
+  configuration, with a baseline comparison.
 - **Non-goals:** autonomous agents, unsupervised tool use, self-directed database writes,
   replacing deterministic rules, or adopting a component merely because it is available.
 - **Dependencies:** Phase 6 decision; Iteration 1 evidence; privacy review.
@@ -712,7 +747,8 @@ no-LLM path is tested; and the owner has not identified a blocking safety or pri
 - **Acceptance:** measured improvement on the pre-registered evaluation set; no safety,
   privacy or deterministic-fallback regression; citations resolve; owner approval.
 - **Tests:** retrieval quality, unsupported-claim adversarial cases, source-freshness,
-  provider failure, fallback and regression.
+  provider failure, fallback and regression; for MCP, authorization, ACL boundary, tool-scope,
+  injection and no-write/no-approval-bypass cases.
 - **Data/schema:** only the approved additive schema; no vector store without a demonstrated
   retrieval requirement.
 - **Safety/privacy:** minimal source/query data; no external corpus upload without approval.
@@ -729,6 +765,7 @@ no-LLM path is tested; and the owner has not identified a blocking safety or pri
 | agents/explainer.py | prescription explanation prompt/call/validation |
 | agents/proposal.py | extend the existing structured proposal path; do not fork it |
 | agents/retrieval.py (Iteration 2 only) | curated-source retrieval, citation and evaluation; conditional on Phase 6 |
+| mcp/ (Iteration 2 only) | owner-operated MCP tools over Tailscale; read-only initially, existing core only; conditional and separately approved |
 | eval/retrieval (Iteration 2 only) | retrieval benchmark, unsupported-claim and source-freshness checks; conditional |
 | features/, prescribe/ | facts/validation reused; no agent imports; no new calculations in agents |
 | store/, trace/ | provenance and append-only records; schema changes only by separate decision |
@@ -775,11 +812,14 @@ they do not authorise implementation now.
    (Phase 1b).
 6. **No configured LLM:** analyst/explainer/proposer entry points are unavailable, with a clear
    message; no deterministic behaviour changes and no pseudo-report is produced.
+7. **MCP server via Tailscale:** the owner intends to set up an MCP server reachable over the
+   private tailnet. App integration remains an Iteration 2 candidate, not an Iteration 1
+   prerequisite; no MCP tool, authorization model or integration exists yet.
 
 **Remaining Iteration 2 questions (Phase 6, not blockers for Iteration 1):** the trusted source
 corpus, retrieval requirements and benchmark, whether a vector store is justified, which
-orchestration improvement (if any) is needed, and the privacy/cost case for each. These are
-assessed only after the Iteration 1 exit gate.
+orchestration improvement (if any) is needed, the MCP tool scope/Tailscale authorization model,
+and the privacy/cost case for each. These are assessed only after the Iteration 1 exit gate.
 
 ## 14. Documentation discrepancies and resolutions
 
