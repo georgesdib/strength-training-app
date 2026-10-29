@@ -54,8 +54,8 @@ capabilities:
 5. It is an optional choice inside a deterministic audit trail, not a general LLM service.
 
 The deterministic selection engine, taxonomy, comparability classes, history and prescription
-engine remain useful and stay. The selector LLM is scheduled for replacement, not immediate
-removal.
+engine remain useful and stay. The minimal-prompt LLM selector is scheduled for retirement, not
+immediate removal.
 
 ## 3. Target capability boundaries
 
@@ -87,8 +87,10 @@ The work is split into two iterations so that the useful capabilities do not dep
 advanced retrieval architecture:
 
 - **Iteration 1 — practical capabilities with minimal additional infrastructure.** Analyst,
-  explainer and constrained proposer, using the existing LLM client, existing structured
-  proposal path, deterministic context builder and existing trace. No vector database, RAG,
+  explainer and constrained proposer, reusing the existing LLM client, structured proposal
+  path, feature calculations, repositories, prescription provenance, validators and trace. The
+  shared deterministic context/evidence builder is **new Phase 2 work**, not an existing
+  component. No vector database, RAG,
   embeddings, tool framework or autonomous agent framework is a prerequisite. This is the
   default plan.
 - **Iteration 2 — evidence retrieval and advanced architecture.** RAG, semantic/hybrid
@@ -104,6 +106,23 @@ selection, validation and review paths are unchanged and remain fully usable.
 ## 4. Shared context and evidence layer
 
 ### 4.1 Deterministic builder
+
+**Current implementation status:** no shared AthleteContextBuilder exists today. The repository
+has useful partial inputs but not the versioned package this plan requires:
+
+- rules/context.py RuleContext: sets/sessions/entities/readiness/symptom state and evidence
+  indices for rule evaluation; it is a rule-engine input, not a capability context package.
+- prescribe/selection.py HistoryContext: a display-only own-history e1RM context for selection;
+  it is narrow and not a general athlete context.
+- features/form_assessment.py review_context: prior form ratings for one session; it is a
+  form-review query, not a shared context.
+- prescription provenance, persistence, feature functions, constraints and validators: reusable
+  facts and validation, but no single context/evidence contract, hash or capability filter.
+
+What remains to be built in Phase 2: the canonical context/evidence schema, field-level
+selection, relevance rules, stable evidence ids, hashing/versioning, capability filtering,
+privacy inventory serialisation and independent tests. Until then, do not describe an
+AthleteContextBuilder as existing.
 
 Create one Python-owned AthleteContextBuilder (future path:
 strength_coach/agents/context.py) used by every capability. It must not call an LLM. It
@@ -352,10 +371,11 @@ downgraded by a safety modifier. Any future relaxation requires a new decision a
 - **Latency/cost:** explicit user action; one request at a time; configurable timeout; bounded
   context and max tokens; no background calls; report context token estimate. Cache only by
   context/prompt/model hash and make the cache transport/local, not a training artifact.
-- **Privacy:** minimise the payload; do not send raw free-text notes by default, and never send
-  API keys or unrelated history. Keep full context in the local database; log hashes and
-  metadata, not prompt bodies, by default. Document which fields are redacted. A future remote
-  or multi-user deployment needs the auth/privacy work in ROADMAP section 4.19 first.
+- **Privacy:** follow the field-level inventory and sensitive-field rules in section 8.1.
+  Minimise the payload; do not send raw free-text notes or API keys by default, and treat
+  structured injury/symptom/health data as sensitive. Keep full context local; log hashes and
+  metadata, not prompt bodies, by default. A future remote or multi-user deployment needs the
+  auth/privacy work in ROADMAP section 4.19 first.
 - **UI/CLI parity:** each capability gets both interfaces, or a documented exception in
   docs/UI-CLI-PARITY.md. Analyst/explainer are read-only; proposer approval is explicit in both.
   The iPhone UI uses cards/disclosures and cannot start a proposal automatically.
@@ -363,7 +383,43 @@ downgraded by a safety modifier. Any future relaxation requires a new decision a
   the independent removal work item; it does not wait for the proposer. The deterministic
   selection engine and its comparability/taxonomy rules remain.
 
-### 8.1 Selector retirement (Iteration 1, Phase 1b)
+### 8.1 Outbound data inventory and sensitive fields
+
+Excluding free-text notes is necessary but not sufficient: structured injury, symptom,
+health, body-measurement and suitability data can also be sensitive. Before any new external
+LLM capability is enabled, require a **field-level outbound-data inventory** for every
+capability and provider. This applies to the existing narrative/selection calls as well as the
+future analyst, explainer and proposer; this planning task does not change their current
+behaviour.
+
+The inventory must record, for every field:
+
+- name and source table/calculation;
+- whether it is retained locally, transmitted, or derived only in memory;
+- sensitivity class (safety-critical, health/symptom, performance, identity, operational);
+- disposition: exclude, minimise, aggregate/transform, or send only with separate informed
+  opt-in;
+- the prompt/context version and the test that proves the disposition.
+
+Mandatory defaults:
+
+- API keys, unrelated history and free-text notes are never sent by default.
+- Injuries, symptoms, health measurements and suitability judgements are explicit sensitive
+  fields; each needs a documented decision, not an implicit inclusion.
+- Prefer local-only full context and send the smallest derived facts needed for the task.
+- Minimise identifiers and dates where the task does not need them; do not send the whole
+  database.
+- The UI must disclose what will be sent (and to which configured provider) before the user
+  enables the capability; the disclosure must be reachable without reading source/config.
+- Tests must verify redaction and payload minimisation, including negative cases for notes,
+  API keys and excluded health fields.
+- Reassess the privacy/security case before any remote or multi-user deployment; the current
+  home-LAN/no-auth state is not a basis for sending more data.
+
+This does not add a privacy framework, dependency or service. It is an implementation
+acceptance requirement for the existing plan.
+
+### 8.2 Selector retirement (Iteration 1, Phase 1b)
 
 This is a distinct work item, not a side effect of the proposer and not a reason to keep the
 selector. It may run after Phase 1 in parallel with the analyst/explainer; it does not depend
@@ -395,15 +451,29 @@ on the proposer being finished.
 - `selection_confirmed` for class-B confirmation; it is a user confirmation, not an LLM path.
 - `DEC-SELECT-*` decisions and the deterministic selection tests. The new proposer is a
   separate decision (`DEC-LLM-09`) and does not inherit or extend the chooser.
+- **Shared LLM infrastructure:** `agents/client.py`, `agents/config.py`, provider settings and
+  diagnostics, `agents/narrative.py` and the existing `agents/proposal.py`/validation path.
+  These serve the analyst, explainer and proposer and must remain functional. The selector has
+  no separate provider/client/config key; it uses the shared LLM settings.
 
 **API/CLI compatibility:** remove `selection_llm` from the documented contract; a legacy client
 that still sends it gets the deterministic result with no model call (or an explicit validation
 error if the implementation prefers that, decided in Phase 1b). No compatibility promise should
 keep a hidden LLM path alive.
 
-**Acceptance:** no active UI, CLI, API or engine path constructs a selection chooser; the old
-prompt/client is absent; deterministic selection output and class-B confirmation are unchanged;
-obsolete docs/tests are removed or rewritten; full regression and selection tests pass.
+**Acceptance criteria (all required):**
+
+1. No active UI, CLI, API or engine path invokes the obsolete LLM selector.
+2. No selector-specific prompt, flag, setting or obsolete product copy remains. (The shared
+   provider settings are not selector-specific and stay.)
+3. Shared LLM client/provider functionality required by the analyst, explainer and proposer
+   remains intact; a smoke test proves the shared client/config and narrative/proposal paths
+   still work after removal.
+4. Deterministic selection behaviour and class-B confirmation are unchanged, including the
+   existing deterministic test fixtures.
+5. Regression tests pass for deterministic selection and the other remaining LLM consumers.
+   A dependency/reference search must be recorded before deletion; a name containing
+   "selection" is not by itself evidence of obsolescence.
 
 ## 9. Evaluation and controlled rollout
 
@@ -481,8 +551,9 @@ shippable; no phase may silently produce the next phase's capability.
 ### Phase 1 — Architecture and contracts (planning/implementation gate)
 
 - **Scope:** approve the capability boundaries, permissions, context/evidence schema, prompt/
-  schema/version contracts, privacy policy, evaluation definitions and the selector-deprecation
-  plan. Define interfaces and the migration-free trace payloads.
+  schema/version contracts, privacy policy, field-level outbound-data inventory template,
+  evaluation definitions and the selector-deprecation plan. Define interfaces and the
+  migration-free trace payloads.
 - **Non-goals:** no analyst/explainer/proposer runtime, no prompt calls, no UI, no selector
   removal, no schema change.
 - **Dependencies:** owner approval; no current v1.1 work is a hard dependency.
@@ -498,7 +569,7 @@ shippable; no phase may silently produce the next phase's capability.
 ### Phase 1b — Retire the minimal LLM exercise selector (independent)
 
 - **Scope:** remove the minimal-prompt chooser and every active product path that constructs
-  it, using the inventory in section 8.1. Keep deterministic selection, taxonomy,
+  it, using the inventory in section 8.2. Keep deterministic selection, taxonomy,
   comparability, confirmation and history untouched.
 - **Non-goals:** no change to deterministic selection ranking or apply rules; no removal of
   exercise taxonomy/history; no new proposer work.
@@ -518,9 +589,9 @@ shippable; no phase may silently produce the next phase's capability.
 
 ### Phase 2 — Shared context builder and athlete analyst
 
-- **Scope:** deterministic context/evidence builder; analyst lift-progression and
-  programme-status reports (and the strength/power/longevity review if the first two pass).
-  Read-only CLI/API/UI.
+- **Scope:** build the **new** shared deterministic context/evidence package; then analyst
+  lift-progression and programme-status reports (and the strength/power/longevity review if the
+  first two pass). Read-only CLI/API/UI.
 - **Non-goals:** explainer, proposer, autonomous actions. Selection retirement is the separate
   Phase 1b work item, not part of this phase.
 - **Dependencies:** Phase 1; existing features/readiness/outcomes/volume code.
@@ -530,7 +601,8 @@ shippable; no phase may silently produce the next phase's capability.
   plateau/inconclusive distinctions are correct; missing data is unknown; LLM-off path still
   shows deterministic data; no numerical invention.
 - **Tests:** context determinism/hash, relevance selection, evidence links, comparison windows,
-  prompt injection, forbidden numeric invention, malformed output, provider failure, UI/CLI.
+  prompt injection, forbidden numeric invention, malformed output, provider failure, UI/CLI,
+  outbound redaction and payload-minimisation checks.
 - **Data/schema:** none; run/run_event payloads.
 - **Safety/privacy:** read-only; minimal context; no raw notes by default.
 - **Exit:** owner review of sample reports; zero factual/evidence defects in the sampled set.
@@ -666,17 +738,21 @@ no-LLM path is tested; and the owner has not identified a blocking safety or pri
   clauses remain in force.
 - DEC-LLM-10 is superseded by DEC-LLM-14: removal is the separate, independent Phase 1b work
   item and is not dependent on the proposer. DEC-LLM-09 remains the separate proposer decision.
-- DEC-LLM-12 records the two-iteration boundary. DEC-LLM-13 records the owner's Iteration 1
-  choices and the no-LLM behaviour. DEC-LLM-14 records the selector-retirement scope. None of
-  these changes current behaviour.
+- DEC-LLM-12 records the two-iteration boundary; DEC-LLM-15 corrects its context-builder
+  inventory clause (the shared builder is new Phase 2 work).
+- DEC-LLM-13 records the owner's Iteration 1 choices and the no-LLM behaviour.
+  DEC-LLM-14 and DEC-LLM-16 record the selector-retirement scope and the shared-infrastructure
+  guardrail. DEC-LLM-17 records the outbound-data inventory requirement.
+- None of these changes current behaviour.
 
 ## 13. Owner decisions (resolved 2026-10-29)
 
 The owner approved the defaults below. They are recorded in DEC-LLM-13 and govern Iteration 1;
 they do not authorise implementation now.
 
-1. **Provider/privacy tier — default:** minimal structured context only. Free-text notes are
-   excluded unless the owner explicitly opts in; full context remains local.
+1. **Provider/privacy tier — default:** minimal structured context only, subject to the
+   field-level inventory in section 8.1. Free-text notes are excluded unless the owner
+   explicitly opts in; full context remains local.
 2. **Report persistence — default:** ephemeral UI/CLI results plus local run_event/cache
    first. No new artifact table in Iteration 1.
 3. **Proposal gates:** approved as provisional. Exact shadow/opt-in thresholds remain a Phase 5
@@ -696,8 +772,13 @@ assessed only after the Iteration 1 exit gate.
 
 ## 14. Documentation discrepancies and resolutions
 
-The review found four documentation/implementation mismatches worth recording:
+The review found five documentation/implementation mismatches worth recording:
 
+- **Context-builder inventory:** the roadmap said Iteration 1 used an existing deterministic
+  context builder. No shared AthleteContextBuilder exists; RuleContext, HistoryContext,
+  form-review context, feature calculations, repositories, provenance, validators and trace
+  are inputs. The builder is new Phase 2 work; this is corrected in section 4.1 and ROADMAP
+  section 4.24.
 - **ARCHITECTURE.md** said computed numbers arrive by tool call. The current client is
   text-in/text-out and has no tool protocol. The text now says numbers are supplied facts or
   Python-computed menus, and a future tool call would only be another transport for the same
@@ -710,17 +791,18 @@ The review found four documentation/implementation mismatches worth recording:
   point to this plan's future surfaces, while explicitly retaining the current limitation.
 
 No historical decision is edited or silently superseded. DEC-LLM-01, DEC-LLM-04, DEC-LLM-05
-and DEC-LLM-06 continue to govern current behaviour; DEC-LLM-07..14 describe the future intent.
+and DEC-LLM-06 continue to govern current behaviour; DEC-LLM-07..17 describe the future intent.
 The optional chooser clause of DEC-SELECT-01 and the scheduling decision DEC-LLM-10 are mapped
-to DEC-LLM-14 in the Superseded table; the deterministic selection clauses and the retirement
-intent remain.
+to DEC-LLM-14 in the Superseded table; the context-builder inventory clause of DEC-LLM-12 is
+mapped to DEC-LLM-15. The deterministic selection clauses and the retirement intent remain.
 
 ## 15. Definition of done for this planning task
 
 - This plan and the ROADMAP workstream exist and agree, including the Iteration 1/Iteration 2
-  boundary and the independent Phase 1b selector retirement.
+  boundary, the new Phase 2 context builder and the independent Phase 1b selector retirement.
 - New decisions are appended; no historical decision is overwritten. The affected clauses of
-  DEC-SELECT-01 and DEC-LLM-10 are recorded in Superseded.
-- Owner choices for privacy, persistence, gates, approval UX and no-LLM behaviour are recorded.
+  DEC-SELECT-01, DEC-LLM-10 and DEC-LLM-12 are recorded in Superseded.
+- Owner choices for privacy, persistence, gates, approval UX and no-LLM behaviour are recorded,
+  and the field-level outbound-data inventory is a Phase 1/2 acceptance requirement.
 - Current runtime, prompts, API, schema, dependencies and training rules are unchanged.
 - No test claims cover unimplemented capabilities.

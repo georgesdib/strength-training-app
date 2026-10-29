@@ -50,6 +50,25 @@ Before committing a doc, ask:
 ## 6. Scope
 
 This policy does not make the repository anonymous. It keeps new public documentation free of
-personal health and performance detail. The app data stays on the owner's server, but the web
-UI is temporarily reachable on the home LAN over unauthenticated HTTP (`LIM-57`). Do not expose
-the server to the public internet or put it on an untrusted network.
+personal health and performance detail. The app data stays on the owner's server except when
+the owner explicitly configures an external LLM provider: the selected feature then sends its
+constructed prompt/payload to that provider. The web UI is temporarily reachable on the home
+LAN over unauthenticated HTTP (`LIM-57`). Do not expose the server to the public internet or put
+it on an untrusted network.
+
+## 7. External LLM provider
+
+`provider = "null"` is the default; an unconfigured checkout sends nothing. When an external
+provider is configured, the current narrative/selection/proposal paths send only the facts,
+candidate ids or proposed structural options they construct; the deterministic core and the
+local database remain local. API keys, unrelated history and free-text notes are not sent by
+default.
+
+Structured injury, symptom, health and suitability data can also be sensitive. Before a new
+LLM capability is enabled, it must have the field-level outbound-data inventory required by
+[`LLM-INTEGRATION-PLAN.md`](LLM-INTEGRATION-PLAN.md) §8.1: what is transmitted, what stays
+local, the sensitivity class and the exclude/minimise/transform/informed-opt-in decision for
+each field. Payload-minimisation and redaction tests, a user-facing disclosure before enabling,
+and a fresh privacy/security review before remote or multi-user deployment are required. This
+is a documentation requirement for the future work, not a claim that all of it is implemented
+today.

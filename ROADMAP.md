@@ -1246,19 +1246,24 @@ layer but have different permissions:
 
 The deterministic engine, taxonomy, comparability rules, history and prescription validation
 remain authoritative. If no LLM is configured, the analyst/explainer/proposer functions are
-simply unavailable; deterministic training is unchanged.
+simply unavailable; deterministic training is unchanged. External calls require the
+field-level outbound-data inventory and sensitive-field safeguards in
+[`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md) §8.1; structured injury,
+symptom and health data are not assumed non-sensitive.
 
 ### Iteration 1 — practical capabilities, minimal infrastructure
 
-Iteration 1 uses the existing LLM client, structured proposal path, deterministic context
-builder and trace. It does **not** require a vector database, RAG, embeddings, tool framework or
-autonomous agent framework.
+Iteration 1 reuses the existing LLM client, structured proposal path, feature calculations,
+repositories, prescription provenance, validators and trace. The shared deterministic
+context/evidence builder is **new Phase 2 work**, not an existing component. Iteration 1 does
+**not** require a vector database, RAG, embeddings, tool framework or autonomous agent
+framework.
 
 | phase | scope | depends on | status |
 |---|---|---|---|
 | 1 | Architecture and contracts: capability boundaries, permissions, context/evidence schema, prompt/schema versions, privacy, iteration boundary | owner approval | **planned** |
-| 1b | **Retire the minimal LLM exercise selector** as a separate work item: remove chooser/client and its CLI/API/UI/engine/tests/docs plumbing; preserve deterministic selection, taxonomy, comparability, class-B confirmation and history | phase 1; **independent of the proposer** | **planned** |
-| 2 | Shared context builder + athlete analyst: lift progression, programme status, strength/power/longevity review | phase 1; existing features | **planned** |
+| 1b | **Retire the minimal LLM exercise selector** as a separate work item: remove only selector-specific chooser/CLI/API/UI/engine/tests/docs plumbing; preserve shared LLM client/config, narrative/proposal, deterministic selection, taxonomy, comparability, class-B confirmation and history; acceptance in plan §8.2 | phase 1; **independent of the proposer** | **planned** |
+| 2 | **New** shared context/evidence builder + athlete analyst: lift progression, programme status, strength/power/longevity review | phase 1; existing features/repositories/provenance | **planned** |
 | 3 | Programme explainer: persisted prescription, modifiers, baseline/previous comparison, concise + detailed | phase 2; prescription provenance | **planned** |
 | 4 | Constrained proposer in shadow: structured schema, deterministic validation, Python load resolution, baseline comparison; no application | phases 1–3; existing proposal/validator path | **planned** |
 | 5 | Opt-in approval + evaluation: diff UI/CLI, explicit approval, provenance, shadow/opt-in gates; no selector work | phase 4; phase 1b; approved gates; privacy review | **planned** |
