@@ -46,6 +46,28 @@ import tempfile
 import time
 from pathlib import Path
 
+HELP_TEXT = """Full backup (source, docs, config, .git, current DB snapshot, data/raw, private/):
+  python3 tools/backup_app.py
+
+Choose the backup directory:
+  python3 tools/backup_app.py /path/to/backups
+
+Source-only backup (no database, raw exports, private data or local secrets):
+  python3 tools/backup_app.py --source-only /path/to/backups
+
+Default destination: ../<repo-name>-backups (outside the repository).
+Output: <repo-name>-YYYYmmdd-HHMMSS.tar.gz plus .sha256, both mode 600.
+
+Restore outline:
+  mkdir -p ~/restore/strength-training-app
+  tar -xzf strength-training-app-*.tar.gz -C ~/restore
+  cd ~/restore/strength-training-app
+  python3 -m venv .venv && .venv/bin/pip install -e .
+
+Full archives contain health data and possibly API keys and are NOT encrypted by this
+script. Store them encrypted and restrict access.
+"""
+
 ROOT = Path(__file__).resolve().parent.parent
 SKIP_NAMES = {
     ".venv", "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache",
@@ -125,7 +147,11 @@ def _sha256(path: Path) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Back up the strength-training app.")
+    parser = argparse.ArgumentParser(
+        description="Create a restorable strength-training app archive.",
+        epilog=HELP_TEXT,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("destination", nargs="?", help="Backup directory (default: sibling directory outside the repo)")
     parser.add_argument("--source-only", action="store_true", help="Exclude database, raw exports, private data and local secrets")
     args = parser.parse_args()
