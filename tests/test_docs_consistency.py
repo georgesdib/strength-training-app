@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import yaml
@@ -209,3 +211,92 @@ def test_superseded_decisions_are_recorded() -> None:
 def test_audit_closeout_has_no_undated_register_count() -> None:
     text = _read("docs", "AUDIT-CLOSEOUT.md")
     assert not re.search(r"register has \*\*\d+ entries\*\*", text, re.IGNORECASE)
+
+
+# --- documentation/source-of-truth contracts ---------------------------------
+
+CLI_EXAMPLE_RE = re.compile(r"(?:^|\s)(?:\.venv/bin/)?strength-coach ([a-z][a-z-]*)")
+
+
+def _cli_help(*args: str) -> str:
+    result = subprocess.run(
+        [sys.executable, "-m", "strength_coach.cli", *args, "--help"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout
+
+
+def _help_commands(text: str) -> set[str]:
+    match = re.search(r"\{([a-z0-9_,-]+)\}", text)
+    assert match, "CLI help has no subcommand set"
+    return set(match.group(1).split(","))
+
+
+def _guide_commands(text: str) -> set[str]:
+    return set(CLI_EXAMPLE_RE.findall(text))
+
+
+def test_documented_cli_commands_and_options_still_exist() -> None:
+    help_text = _cli_help()
+    available = _help_commands(help_text)
+    documented = _guide_commands(_read("USER-GUIDE.md"))
+    assert documented, "USER-GUIDE has no strength-coach examples"
+    assert documented <= available, f"documented commands missing from the parser: {documented - available}"
+
+    for command, options in {
+        "run": ("--date", "--session-type", "--llm", "--propose"),
+        "review": ("--session", "--pending"),
+        "programme": ("--weeks", "--remaining"),
+        "readiness": ("set", "calibrate", "shadow"),
+        "block": ("--date",),
+    }.items():
+        command_help = _cli_help(command)
+        missing = [option for option in options if option not in command_help]
+        assert not missing, f"documented options missing from {command}: {missing}"
+
+
+def test_cli_contract_detects_a_removed_documented_command() -> None:
+    documented = _guide_commands("Run: strength-coach run\nAnd: strength-coach removed-command")
+    assert documented == {"run", "removed-command"}
+    assert documented - {"run"} == {"removed-command"}
+
+
+def test_documented_rir_and_readiness_valve_match_config() -> None:
+    rules = yaml.safe_load(_read("config", "rules", "programme.v1.yaml"))
+    rule = next(item for item in rules["rules"] if item["id"] == "PRG-RIR-001")
+    rir = rule["params"]["default_rir"]
+    review = _read("docs", "STRENGTH-PROGRAM-REVIEW.md")
+    assert f"RIR {rir['min']}–{rir['max']}" in review
+    assert "RIR 2 target" in review
+
+    readiness = yaml.safe_load(_read("config", "readiness.v1.yaml"))
+    assert readiness["set_reduction"]["include_essential"] is False
+    readiness_doc = _read("docs", "READINESS.md")
+    assert "`include_essential` is **false**" in readiness_doc
+
+
+def test_documented_exposure_default_matches_schema() -> None:
+    from strength_coach.store import db
+
+    store = db.Store(":memory:")
+    try:
+        columns = {
+            row["name"]: row
+            for row in store.connection.execute("PRAGMA table_info(athlete_profile)")
+        }
+    finally:
+        store.close()
+    assert columns["exposure_trim_enabled"]["dflt_value"] == "0"
+    assert "default **off**" in _read("docs", "FATIGUE-SIGNALS.md")
+
+
+def test_documented_llm_default_matches_settings() -> None:
+    from strength_coach.agents.client import NullLLM
+    from strength_coach.agents.config import LLMSettings, build_client
+
+    assert LLMSettings().provider == "null"
+    assert isinstance(build_client(LLMSettings()), NullLLM)
+    assert "NullLLM" in _read("README.md")

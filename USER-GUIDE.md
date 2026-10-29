@@ -222,6 +222,49 @@ The model is optional. Without it, deterministic prescriptions and reports still
 
 **Can I expose the UI outside my home?** No—not in its current unauthenticated form. Keep it on a trusted network.
 
+### First diagnostic steps
+
+1. Note the exact symptom, the page or command, and the full error text.
+2. Check the **Logs** page in the UI, or the terminal that started `./run-web.sh`; the in-memory log resets when the server restarts.
+3. Confirm which database is in use. The default is `data/coach.db`; `./run-web.sh --db PATH` selects another one.
+4. Reproduce once after a reload. Do not delete or rewrite the database to "fix" a display error.
+
+### Symptom guide
+
+**The page will not load.** Confirm the server is running with `./run-web.sh --no-open`, then open
+`http://127.0.0.1:8000/`. If the port is already in use, stop the other process or start with
+`./run-web.sh --port 8001`. A terminal traceback and the Logs page are the useful diagnostics.
+
+**A panel says "internal server error".** The server logs the underlying exception. Open
+**Logs**, copy the timestamp and message, and check the terminal for the traceback. Reload once;
+if it persists, report the page, action, timestamp and log line. Do not assume the database is
+corrupt.
+
+**A form rejects a value.** Read the message next to the field. The API returns the same
+message and, where supported, a field-specific error. Check the input against the documented
+range or canonical option list; do not bypass validation by editing the database.
+
+**A prescription is empty or has unknown loads.** First complete readiness or use the
+Workflow's explicit partial/unknown acknowledgement. Then inspect the prescription warnings:
+unknown loads usually mean there is no usable e1RM/history, while a blocked or reduced plan can
+come from a hard constraint, injury ceiling or other safety rule. The deterministic warnings
+are authoritative; do not invent a load to fill the gap.
+
+**An optional LLM feature does nothing.** Check **Settings → Language model** and run
+`.venv/bin/python tools/llm_check.py`; add `--call` to test the configured endpoint. With no
+provider configured, `NullLLM` is active: deterministic training works, but narrative and
+LLM-assisted selection/proposal are unavailable. A configured-but-failing provider should show
+an error in the UI and the server log; the deterministic path remains usable.
+
+**Displayed data looks stale.** Reload the page, confirm the date selector, and check that a
+save reported success. Programme entries are forecasts rebuilt for their dates, not committed
+workouts. If a saved record is missing, use **Logs** and the database path before considering
+any data repair.
+
+When escalating, include the app version (`strength-coach --version`), the page or command,
+the exact error, the relevant Logs lines, and whether a non-default database was used. Remove
+personal training values from screenshots or pasted logs before sharing.
+
 ## 8. Further reading
 
 - [How workout generation works](docs/WORKOUT-GENERATION.md) — plain-English explanation of the prescription pipeline.

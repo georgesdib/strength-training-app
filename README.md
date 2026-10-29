@@ -116,8 +116,9 @@ If you run this yourself, everything you generate stays local unless you choose 
 
 The LLM is optional. With no configuration the system runs with `NullLLM`:
 deterministic prescriptions, scores and rule verdicts still work. Optional
-LLM-generated narrative and LLM-assisted selection are unavailable; no
-prescription, score or rule verdict depends on a model being present.
+LLM-generated narrative, LLM-assisted selection and the CLI LLM-proposal path
+are unavailable; no prescription, score or rule verdict depends on a model being
+present.
 
 To enable narration:
 
