@@ -221,6 +221,7 @@ never read `data/raw`.
 | `docs/LIMITATIONS-REGISTER.md` | living index of known limitations from all audits |
 | `docs/METHODOLOGY.md` | canonical versioned decision flow, limitations, never-do list and change control |
 | `docs/PRIVACY.md` | public/private documentation boundary; no new personal health/performance data; external-LLM payload and sensitive-field rules |
+| `docs/RELEASING.md` | CI checks, pinned dependencies, release tagging, artifact generation and branch-protection requirements |
 | `docs/DECISIONS.md` | append-only decision log (`DEC-*`) with where each is enforced |
 | `docs/REFERENCES.md` | consolidated scientific bibliography with DOIs and where each is used |
 | `docs/ARCHITECTURE.md` | layers, data flow, where the LLM sits |

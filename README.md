@@ -83,6 +83,15 @@ source .venv/bin/activate           # so `strength-coach` is on PATH
 The tools read `data/raw/training_log.csv` and `data/raw/readiness.csv`. See
 [`data/README.md`](data/README.md) for the expected schema.
 
+## CI and releases
+
+CI installs the pinned [`requirements.lock`](requirements.lock), runs Ruff, the public
+unit/golden suite on Python 3.11 and 3.12, builds a source archive and wheel, and starts the
+real web server against a disposable database for a smoke test. Release tags matching `v*`
+re-run those gates and publish only after they pass. See
+[`docs/RELEASING.md`](docs/RELEASING.md) for local commands, tag/version rules, branch
+protection and recovery from a failed release.
+
 ## Using it
 
 ```bash

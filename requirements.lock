@@ -1,0 +1,16 @@
+# Reproducible CI/release dependencies for the Python 3.11+ local web app.
+# Generated from pyproject.toml runtime + dev constraints and pinned for a clean runner.
+# Install with: python -m pip install -r requirements.lock
+execnet==2.1.2
+iniconfig==2.3.1
+numpy==2.3.5
+packaging==26.3
+pandas==3.0.6
+pluggy==1.7.0
+Pygments==2.21.0
+pytest==9.1.1
+pytest-xdist==3.8.0
+python-dateutil==2.9.0.post0
+PyYAML==6.0.3
+ruff==0.17.3
+six==1.17.0

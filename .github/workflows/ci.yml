@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: quality (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements.lock
+
+      - name: Install pinned dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.lock
+
+      - name: Install project without resolving unpinned dependencies
+        run: python -m pip install --no-deps -e .
+
+      - name: Dependency consistency
+        run: python -m pip check
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Unit and golden tests
+        run: pytest -m "not integration"
+
+  package:
+    name: package and smoke
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.lock
+
+      - name: Install pinned dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.lock
+
+      - name: Install project without resolving unpinned dependencies
+        run: python -m pip install --no-deps -e .
+
+      - name: Build source archive and wheel
+        run: |
+          mkdir -p dist
+          SHA="${GITHUB_SHA::12}"
+          git archive --format=tar.gz --prefix="strength-coach-${SHA}/" \
+            -o "dist/strength-coach-${SHA}.tar.gz" HEAD
+          python -m pip wheel . --no-deps --wheel-dir dist
+
+      - name: Smoke-test production source archive
+        run: |
+          SHA="${GITHUB_SHA::12}"
+          python tools/smoke_release.py "dist/strength-coach-${SHA}.tar.gz"
+
+      - name: Verify artifacts and checksums
+        run: |
+          test -s dist/*.whl
+          test -s dist/*.tar.gz
+          sha256sum dist/* > dist/SHA256SUMS
+          cat dist/SHA256SUMS
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
