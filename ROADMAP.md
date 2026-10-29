@@ -1070,7 +1070,7 @@ This is explicitly future work, not a v0.3 deliverable. The existing invariants 
 
 **Prerequisite:** a stable programme schema, a validated volume/selection policy and enough
 reviewed sessions to evaluate whether the suggestions are better than the fixed programme.
-**Status:** idea only; no implementation. It is now developed as the broader, phased workstream
+**Status:** idea only; no implementation. It is now developed as the two-iteration workstream
 in §4.24 and [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); this subsection is
 kept as the original idea record.
 
@@ -1262,7 +1262,7 @@ autonomous agent framework.
 | 3 | Programme explainer: persisted prescription, modifiers, baseline/previous comparison, concise + detailed | phase 2; prescription provenance | **planned** |
 | 4 | Constrained proposer in shadow: structured schema, deterministic validation, Python load resolution, baseline comparison; no application | phases 1–3; existing proposal/validator path | **planned** |
 | 5 | Opt-in approval + evaluation: diff UI/CLI, explicit approval, provenance, shadow/opt-in gates; no selector work | phase 4; phase 1b; approved gates; privacy review | **planned** |
-| exit | Iteration 1 exit gate: selector retired; analyst/explainer accepted; proposer shadow/opt-in gates green; no-LLM path tested | phases 1–5 | **gate** |
+| exit | Iteration 1 exit gate: selector retired; analyst/explainer accepted; proposer shadow/opt-in gates green; no-LLM path tested | phases 1, 1b and 2–5 | **gate** |
 
 **Dependency order:** v1.1 cardio/calibration work, then phase 1, then 2 → 3 → 4 → 5; phase 1b
 runs after phase 1, in parallel with 2/3 if useful, and must finish before the Iteration 1 exit.

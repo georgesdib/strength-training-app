@@ -672,7 +672,7 @@ no-LLM path is tested; and the owner has not identified a blocking safety or pri
 
 ## 13. Owner decisions (resolved 2026-10-29)
 
-The owner approved the defaults below. They are recorded in DEC-LLM-13 and govern Phase 1;
+The owner approved the defaults below. They are recorded in DEC-LLM-13 and govern Iteration 1;
 they do not authorise implementation now.
 
 1. **Provider/privacy tier — default:** minimal structured context only. Free-text notes are
