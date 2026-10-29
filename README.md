@@ -8,6 +8,10 @@ rules, prescribes the next session, and explains both with citations to the exac
 [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md); public/private documentation rules are in
 [`docs/PRIVACY.md`](docs/PRIVACY.md).
 
+For a plain-English explanation of how a prescription is assembled—from athlete state and
+readiness through exercise selection, load calculation, modifiers and validation—see
+[`docs/WORKOUT-GENERATION.md`](docs/WORKOUT-GENERATION.md).
+
 **Design principle:** *Python writes the what, the LLM writes the why.* All arithmetic,
 cleaning, calibration and prescription generation is deterministic Python. The LLM layer is
 small, tool-bound and auditable — and the system still emits a safe, valid prescription if the
@@ -54,6 +58,8 @@ What runs today:
 The CLI that ties these together is `strength-coach`; see the [user guide](USER-GUIDE.md).
 For the decision order, limitations and hard boundaries, read
 [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md).
+For the end-to-end explanation of workout generation and its assumptions, read
+[`docs/WORKOUT-GENERATION.md`](docs/WORKOUT-GENERATION.md).
 
 ## Quickstart
 

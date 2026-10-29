@@ -5,6 +5,10 @@
 This is the canonical one-page summary. Detailed schemas, evidence and decisions stay in their
 existing documents; this file does not replace them.
 
+For the beginner-facing walkthrough, see [`../USER-GUIDE.md`](../USER-GUIDE.md). For a
+plain-English explanation of the prescription pipeline and the factors that can affect a
+workout, see [`WORKOUT-GENERATION.md`](WORKOUT-GENERATION.md).
+
 ---
 
 ## 1. Purpose
@@ -125,6 +129,8 @@ deeper tier reduces main-lift sets to a floor of two. See
 
 ## Related
 
+- **UI surface:** [UI-MAP.md](UI-MAP.md)- **User workflow:** [../USER-GUIDE.md](../USER-GUIDE.md)
+- **Workout generation:** [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md)
 - **UI surface:** [UI-MAP.md](UI-MAP.md)
 - **Evidence:** [REFERENCES.md](REFERENCES.md)
 - **Decisions:** [DECISIONS.md](DECISIONS.md)
