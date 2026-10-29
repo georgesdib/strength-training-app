@@ -97,9 +97,10 @@ require explicit approval. All three use one deterministic, versioned context/ev
 the LLM never becomes the source of a load, e1RM, volume or safety verdict. The phased plan,
 contracts and evaluation gates are in
 [`LLM-INTEGRATION-PLAN.md`](LLM-INTEGRATION-PLAN.md); ROADMAP §4.24 tracks status. Iteration 1
-delivers the practical capabilities on the existing infrastructure; retrieval/RAG and advanced
-orchestration are conditional Iteration 2 work. Nothing in this subsection is a current runtime
-capability.
+reuses the existing client, proposal, feature, repository, provenance and trace infrastructure
+and adds the new shared deterministic context/evidence builder in Phase 2; retrieval/RAG and
+advanced orchestration are conditional Iteration 2 work. Nothing in this subsection is a
+current runtime capability.
 
 ## 4. Run lifecycle and trace
 

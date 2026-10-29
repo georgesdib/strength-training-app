@@ -64,11 +64,13 @@ candidate ids or proposed structural options they construct; the deterministic c
 local database remain local. API keys, unrelated history and free-text notes are not sent by
 default.
 
-Structured injury, symptom, health and suitability data can also be sensitive. Before a new
-LLM capability is enabled, it must have the field-level outbound-data inventory required by
+Structured injury, symptom, health and suitability data can also be sensitive. The current
+narrative/selection/proposal payloads and every new LLM capability must be covered by the
+field-level outbound-data inventory required by
 [`LLM-INTEGRATION-PLAN.md`](LLM-INTEGRATION-PLAN.md) §8.1: what is transmitted, what stays
 local, the sensitivity class and the exclude/minimise/transform/informed-opt-in decision for
-each field. Payload-minimisation and redaction tests, a user-facing disclosure before enabling,
-and a fresh privacy/security review before remote or multi-user deployment are required. This
-is a documentation requirement for the future work, not a claim that all of it is implemented
-today.
+each field. No new capability may be enabled until its inventory is complete; the current
+calls must be included in that review. Payload-minimisation and redaction tests, a user-facing
+disclosure before enabling, and a fresh privacy/security review before remote or multi-user
+deployment are required. This is a documentation requirement for the work, not a claim that
+all of it is implemented today.
