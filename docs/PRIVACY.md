@@ -59,14 +59,14 @@ it on an untrusted network.
 ## 7. External LLM provider
 
 `provider = "null"` is the default; an unconfigured checkout sends nothing. When an external
-provider is configured, the current narrative/selection/proposal paths send only the facts,
-candidate ids or proposed structural options they construct; the deterministic core and the
-local database remain local. API keys, unrelated history and free-text notes are not sent by
-default.
+provider is configured, the current narrative, minimal-selector (while it remains) and
+structured-proposal paths send only the facts, candidate ids or proposed structural options
+they construct; the deterministic core and the local database remain local. API keys, unrelated
+history and free-text notes are not sent by default.
 
-Structured injury, symptom, health and suitability data can also be sensitive. The current
-narrative/selection/proposal payloads and every new LLM capability must be covered by the
-field-level outbound-data inventory required by
+Structured injury, symptom, health and suitability data can also be sensitive. The actual
+outbound payloads of the current narrative, selector and proposal paths, and every new LLM
+capability, must be covered by the field-level outbound-data inventory required by
 [`LLM-INTEGRATION-PLAN.md`](LLM-INTEGRATION-PLAN.md) §8.1: what is transmitted, what stays
 local, the sensitivity class and the exclude/minimise/transform/informed-opt-in decision for
 each field. No new capability may be enabled until its inventory is complete; the current

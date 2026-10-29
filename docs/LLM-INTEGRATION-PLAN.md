@@ -386,11 +386,20 @@ downgraded by a safety modifier. Any future relaxation requires a new decision a
 ### 8.1 Outbound data inventory and sensitive fields
 
 Excluding free-text notes is necessary but not sufficient: structured injury, symptom,
-health, body-measurement and suitability data can also be sensitive. Before any new external
-LLM capability is enabled, require a **field-level outbound-data inventory** for every
-capability and provider. This applies to the existing narrative/selection calls as well as the
-future analyst, explainer and proposer; this planning task does not change their current
-behaviour.
+health, body-measurement and suitability data can also be sensitive. Require a **field-level
+outbound-data inventory** for the actual payload of every path and provider, not merely its
+intended purpose. It must cover:
+
+- existing narrative calls;
+- existing minimal LLM exercise-selector calls for as long as that selector remains in the
+  implementation;
+- existing structured proposal calls;
+- every future analyst, programme-explainer and constrained-proposer capability.
+
+The inventory must be completed before a new capability is enabled and must include the
+current calls in the same review. This planning task does not change their current behaviour,
+does not imply that the selector is already removed, and does not claim that the inventory or
+its tests exist yet.
 
 The inventory must record, for every field:
 
@@ -557,7 +566,8 @@ shippable; no phase may silently produce the next phase's capability.
 - **Non-goals:** no analyst/explainer/proposer runtime, no prompt calls, no UI, no selector
   removal, no schema change.
 - **Dependencies:** owner approval; no current v1.1 work is a hard dependency.
-- **Expected code/docs:** this document, ROADMAP section 4.24, new DEC-LLM-07..14, future
+- **Expected code/docs:** this document, ROADMAP section 4.24, decisions DEC-LLM-07 through
+  DEC-LLM-17 (their scopes differ; see section 12), future
   agents/context.py/contracts. No source change.
 - **Acceptance:** owner signs off the decisions; interfaces and schemas are reviewable; no
   unresolved blocking design question.
@@ -738,8 +748,9 @@ no-LLM path is tested; and the owner has not identified a blocking safety or pri
   clauses remain in force.
 - DEC-LLM-10 is superseded by DEC-LLM-14: removal is the separate, independent Phase 1b work
   item and is not dependent on the proposer. DEC-LLM-09 remains the separate proposer decision.
-- DEC-LLM-12 records the two-iteration boundary; DEC-LLM-15 corrects its context-builder
-  inventory clause (the shared builder is new Phase 2 work).
+- DEC-LLM-12 now records the two-iteration boundary, the reuse of existing inputs, the new
+  Phase 2 context builder and the conditional Iteration 2 gate. DEC-LLM-15 retains the
+  context-builder inventory record.
 - DEC-LLM-13 records the owner's Iteration 1 choices and the no-LLM behaviour.
   DEC-LLM-14 and DEC-LLM-16 record the selector-retirement scope and the shared-infrastructure
   guardrail. DEC-LLM-17 records the outbound-data inventory requirement.
@@ -793,15 +804,16 @@ The review found five documentation/implementation mismatches worth recording:
 No historical decision is edited or silently superseded. DEC-LLM-01, DEC-LLM-04, DEC-LLM-05
 and DEC-LLM-06 continue to govern current behaviour; DEC-LLM-07..17 describe the future intent.
 The optional chooser clause of DEC-SELECT-01 and the scheduling decision DEC-LLM-10 are mapped
-to DEC-LLM-14 in the Superseded table; the context-builder inventory clause of DEC-LLM-12 is
-mapped to DEC-LLM-15. The deterministic selection clauses and the retirement intent remain.
+to DEC-LLM-14 in the Superseded table. DEC-LLM-12 is corrected in place; DEC-LLM-15 retains the
+context-builder inventory record. The deterministic selection clauses and retirement intent
+remain.
 
 ## 15. Definition of done for this planning task
 
 - This plan and the ROADMAP workstream exist and agree, including the Iteration 1/Iteration 2
   boundary, the new Phase 2 context builder and the independent Phase 1b selector retirement.
 - New decisions are appended; no historical decision is overwritten. The affected clauses of
-  DEC-SELECT-01, DEC-LLM-10 and DEC-LLM-12 are recorded in Superseded.
+  DEC-SELECT-01 and DEC-LLM-10 are recorded in Superseded; DEC-LLM-12 is corrected in place.
 - Owner choices for privacy, persistence, gates, approval UX and no-LLM behaviour are recorded,
   and the field-level outbound-data inventory is a Phase 1/2 acceptance requirement.
 - Current runtime, prompts, API, schema, dependencies and training rules are unchanged.
