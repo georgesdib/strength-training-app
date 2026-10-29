@@ -78,9 +78,9 @@ manually with an explicit decision.
 
 ## Branch protection
 
-The default branch should require pull requests, the checks reported by the completed CI run,
-branches to be up to date with main, and conversation resolution. Disable force pushes and
-deletion. Do not require multiple independent reviewers for this solo-maintained repository.
+The default branch is protected with pull requests, the checks reported by the completed CI
+run, branches up to date with main, and conversation resolution. Force pushes and deletion are
+disabled. No multiple independent reviewers are required for this solo-maintained repository.
 
 A successful CI run on commit 05f79fe (run 40881926929) reported these check-run names:
 
@@ -89,21 +89,19 @@ A successful CI run on commit 05f79fe (run 40881926929) reported these check-run
 - package and smoke
 
 GitHub displays them under the workflow as CI / quality (3.11), CI / quality (3.12) and
-CI / package and smoke. Use the names shown in the branch-protection picker after the run.
+CI / package and smoke.
 
-**Current status: branch protection is not enabled by this documentation pass.** The workspace
-has no authenticated GitHub CLI or API token, so the repository settings could not be changed
-from here. An owner with admin access must enable:
+**Current status: enabled and verified 2026-10-29.** The main branch now requires:
 
-- Require a pull request before merging.
-- Require status checks to pass before merging: the three checks above.
-- Require branches to be up to date with main.
-- Require conversation resolution.
-- Block force pushes and branch deletion.
-- No required reviewer count for this solo-maintained repository.
+- a pull request before merging;
+- those three status checks, with strict up-to-date enforcement;
+- conversation resolution;
+- no required reviewer count, appropriate for a solo maintainer;
+- no force pushes and no branch deletion;
+- admin enforcement.
 
-Do not claim protection is active until the GitHub Branches settings page or the branch
-protection API confirms it.
+Release tags matching v* are also protected by an active tag ruleset: deletion and
+non-fast-forward updates are blocked. Do not delete or re-point an existing release tag.
 
 ## Limitations
 
