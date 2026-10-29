@@ -1,4 +1,4 @@
-"""The combined documentation PDF must include every public Markdown document."""
+"""The combined documentation PDF must include public docs and optional private docs."""
 
 from __future__ import annotations
 
@@ -25,8 +25,24 @@ def test_collection_covers_root_docs_and_the_whole_docs_tree():
     expected_docs = sorted(
         path.relative_to(ROOT).as_posix() for path in (ROOT / "docs").rglob("*.md")
     )
-    assert relative[5:] == expected_docs
+    private_dir = ROOT / "private" / "docs"
+    expected_private = sorted(
+        path.relative_to(ROOT).as_posix() for path in private_dir.rglob("*.md")
+    ) if private_dir.is_dir() else []
+    assert relative[5:] == expected_docs + expected_private
     assert len({document.path for document in documents}) == len(documents)
+
+
+def test_collection_includes_private_docs_when_present(tmp_path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "private" / "docs").mkdir(parents=True)
+    (tmp_path / "README.md").write_text("# Root\n", encoding="utf-8")
+    (tmp_path / "docs" / "PUBLIC.md").write_text("# Public\n", encoding="utf-8")
+    (tmp_path / "private" / "docs" / "PRIVATE.md").write_text("# Private\n", encoding="utf-8")
+
+    relative = [document.relative for document in docs_pdf.collect_documents(root=tmp_path)]
+
+    assert relative == ["README.md", "docs/PUBLIC.md", "private/docs/PRIVATE.md"]
 
 
 def test_titles_come_from_the_first_heading():
@@ -94,7 +110,7 @@ def test_help_documents_usage_and_options(capsys):
         docs_pdf.main(["--help"])
     assert exc.value.code == 0
     output = capsys.readouterr().out
-    assert "Build one PDF from the public documentation set." in output
+    assert "Build one PDF from public docs plus local private notes when present." in output
     assert "--output" in output
     assert "--include" in output
     assert "tools/docs_pdf.py --help" in output
