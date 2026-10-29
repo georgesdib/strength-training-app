@@ -172,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
                        help="preserve keeps main lifts even when the group quota is full")
     state.add_argument("--exposure-trim", choices=("on", "off"), default=None,
                        help="opt in to the rolling hard-set exposure accessory trim "
-                            "(off by default; DEC-EXPOSURE-01)")
+                            "(off by default; DEC-EXPOSURE-02)")
 
     settings = sub.add_parser("settings", help="profile-backed settings (step 4)")
     settings_sub = settings.add_subparsers(dest="settings_action", required=True)

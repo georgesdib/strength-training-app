@@ -82,7 +82,7 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
   the rankings it shows the **fatigue-informed suggestion** (Part C): at most one accessory
   variant, only when the exposure signal is high and the candidate is rated strictly lower on
   an in-scope demand dimension, covers the current lift's primary muscles and compares A/B;
-  it is suggest-only and abstains with a reason otherwise (`DEC-SELECT-08`). The session is chosen by the rolling emphasis rule;
+  it is suggest-only and abstains with a reason otherwise (`DEC-SELECT-12`). The session is chosen by the rolling emphasis rule;
   **Minimum session** is an explicit volume-only fallback (30/45/60 minutes); it never changes load/RIR, preserves main lifts by default, and has a separate deeper tier for main-lift floors. **Apply selection** reruns the per-slot ranking: A candidates replace the slot exercises
 automatically, **Confirm near-comparable** is required for B, and C is never applied (it is
 hidden unless **show different lifts** is ticked). Each applied substitution cites
@@ -119,7 +119,7 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
   in force and appends a new one (kg, effective-from, reason) through the same endpoint the
   Athlete page and `e1rm set` use, so the next prescription cites it.
 - **Athlete** — append-only editing of profile (including the **Exposure trim** switch, off by
-  default; `DEC-EXPOSURE-01`; a profile edit that does not mention it preserves its value),
+  default; `DEC-EXPOSURE-02`; a profile edit that does not mention it preserves its value),
   constraints, suitability, e1RM overrides,
   strength tests, block start and symptoms; shows the current tables, injury signal and the
   **e1RM calibration** report (current formula e1RM and last set for every lift, plus
@@ -186,7 +186,7 @@ also disables while saving and reports the number of marks written.
 | `GET /api/volume?date=N&weeks=4` | weekly hard-set ledger by movement pattern (advisory) |
 | `GET /api/shadow?date=N&window_days=84` | shadow review: rows by component/action, applied/applied-nothing counts, high-signal days, abstention reasons and the four gate checks; `activation_allowed` is always false |
 | `GET /api/residual?date=N&window_days=84` | VBT execution residual grouped by lift/reps/load basis, lift-scoped only, with the signal/evaluation gates and abstention reasons (shadow) |
-| `GET /api/exposure?date=N` | rolling hard-set exposure ratio with windows, coverage, abstention reasons, per-group ratios and Part D advisories (read-only; `DEC-EXPOSURE-01`) |
+| `GET /api/exposure?date=N` | rolling hard-set exposure ratio with windows, coverage, abstention reasons, per-group ratios and Part D advisories (read-only; `DEC-EXPOSURE-02`) |
 | `GET /api/volume/budget?date=N` | read-only weekly volume budget: target, exemptions, completed, projection, session cap, feasibility and per-group status/persistent/top-up capacity |
 | `GET /api/progress?date=N` | descriptive progress: sRPE coverage, performance ratio, volume status, latest back symptom |
 | `GET /api/outcomes?weeks=N&date=N` | read-only 4/8/12-week strength, longevity and coverage review |

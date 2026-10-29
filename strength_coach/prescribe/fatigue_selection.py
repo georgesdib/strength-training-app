@@ -1,4 +1,4 @@
-"""Part C: fatigue-informed substitution that only suggests (DEC-SELECT-08).
+"""Part C: fatigue-informed substitution that only suggests (DEC-SELECT-12).
 
 A suggestion is produced only when the rolling exposure signal is active, the slot is an
 accessory variant slot, the candidate is comparable, covers the current lift's primary

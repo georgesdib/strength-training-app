@@ -2141,7 +2141,7 @@ class Handler(BaseHTTPRequestHandler):
             ),
             main_lift_policy=main_lift_policy,
             # Absent from the body means "leave it alone": a profile edit must not silently
-            # switch the exposure trim off (DEC-EXPOSURE-01).
+            # switch the exposure trim off (DEC-EXPOSURE-02).
             exposure_trim_enabled=(
                 None if "exposure_trim_enabled" not in body
                 else _truth(body.get("exposure_trim_enabled"))

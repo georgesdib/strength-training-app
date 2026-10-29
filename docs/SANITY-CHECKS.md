@@ -184,7 +184,7 @@ without conditioning on provenance penalises the athlete for following the presc
 - **ASSUMPTION-48** — the compensation slot pool (`dumbbell_bench_press`, `rdl`) and the similarity matrix are design heuristics, not measured equivalence; the slot is non-essential and the main lift stays in `preserve` (`docs/VOLUME-MODULATION-PLAN.md` §4.2).
 - **ASSUMPTION-49** — the reduce floor default (three sets) is a coaching assumption, configurable, not a measured minimum; the main lift stays in the session (`docs/VOLUME-MODULATION-PLAN.md` §4.2/§10).
 
-- **ASSUMPTION-51** — the exposure windows (acute 7 days, chronic the preceding 28), the 8-session and 80 % RIR-coverage minimums and the high-ratio threshold of 1.3 are design choices, not measured cut-points. The ratio is ACWR-shaped and contested; it is descriptive and the trim is off by default (`DEC-EXPOSURE-01`, `LIM-56`).
+- **ASSUMPTION-51** — the exposure windows (acute 7 days, chronic the preceding 28), the 8-session and 80 % RIR-coverage minimums and the high-ratio threshold of 1.3 are design choices, not measured cut-points. The ratio is ACWR-shaped and contested; it is descriptive and the trim is off by default (`DEC-EXPOSURE-02`, `LIM-56`).
 
 - **ASSUMPTION-52** — the exposure trim caps (1 set per item, 2 sets per session, floor 1 working set, non-essential accessories only) are coaching guardrails, not measured maxima.
 

@@ -343,7 +343,7 @@ def build_prescription(
         skip=readiness_sets_reduced,
     )
     warnings.extend(under_warnings)
-    # Off by default (DEC-EXPOSURE-01): the athlete enables the trim on the profile. It runs
+    # Off by default (DEC-EXPOSURE-02): the athlete enables the trim on the profile. It runs
     # after under-MEV so it cannot be re-added, and skips anything those two rules touched.
     profile = queries.athlete_profile(conn) or {}
     items, exposure_warnings, exposure_note = _apply_exposure_trim(
@@ -2211,7 +2211,7 @@ def _apply_exposure_trim(
 ) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...], dict]:
     """Trim accessory sets when the rolling hard-set exposure is high (MOD-EXP-001).
 
-    Opt-in and off by default (DEC-EXPOSURE-01). The ratio is contested; this only ever
+    Opt-in and off by default (DEC-EXPOSURE-02). The ratio is contested; this only ever
     removes non-essential accessory sets, never a main lift or essential item, and never a set
     readiness already reduced or under-MEV just added today.
     """

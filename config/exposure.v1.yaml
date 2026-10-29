@@ -1,4 +1,4 @@
-# Rolling hard-set exposure (docs/FATIGUE-SIGNALS.md, DEC-EXPOSURE-01).
+# Rolling hard-set exposure (docs/FATIGUE-SIGNALS.md, DEC-EXPOSURE-02).
 #
 # The ratio compares the last seven days with the average week of the preceding 28 days. It is
 # an ACWR-shaped descriptive signal, NOT a fatigue or injury-risk model: the project already

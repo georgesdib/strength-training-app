@@ -4,7 +4,7 @@ This is the arithmetic family of ACWR, which the project already rejected as an 
 rule (DEC-ACWR-01). It is therefore kept descriptive: it counts hard sets, compares the last
 seven days with the preceding four weeks, abstains whenever the data cannot support the
 comparison, and never changes a prescription unless the athlete explicitly enables the
-accessory trim (DEC-EXPOSURE-01, docs/FATIGUE-SIGNALS.md).
+accessory trim (DEC-EXPOSURE-02, docs/FATIGUE-SIGNALS.md).
 
 Definitions:
 * hard set = a working set with RIR <= effort_max_rir, or a max/test exposure;

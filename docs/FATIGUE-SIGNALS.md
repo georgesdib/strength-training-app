@@ -215,7 +215,7 @@ the Phase 6 review can count triggers, abstentions and declines without recomput
 
 - Not a Banister impulse-response model, not a fitted fatigue-decay model.
 - Not ACWR as an injury-risk rule; the ratio is descriptive, and even the opt-in trim is an
-  owner decision recorded as contested (`DEC-EXPOSURE-01`, `LIM-56`).
+  owner decision recorded as contested (`DEC-EXPOSURE-02`, `LIM-56`).
 - Not a per-exercise "fatigue score"; the demand catalogue is qualitative and never aggregated.
 - Not a reason to raise volume, load, frequency or planned progression.
 - Not validated by tests passing; validation is the shadow review plus prospective use.
@@ -254,7 +254,7 @@ changes no threshold and enables no behaviour.
 
 - **UI surface:** [UI-MAP.md](UI-MAP.md), [WEB-UI.md](WEB-UI.md)
 - **Evidence:** [REFERENCES.md](REFERENCES.md)
-- **Decisions:** [DECISIONS.md](DECISIONS.md) (`DEC-EXPOSURE-01`, `DEC-DEMAND-01`, `DEC-RESIDUAL-01`, `DEC-SELECT-08`, `DEC-SHADOW-01`)
+- **Decisions:** [DECISIONS.md](DECISIONS.md) (`DEC-EXPOSURE-02`, `DEC-DEMAND-01`, `DEC-RESIDUAL-01`, `DEC-SELECT-12`, `DEC-SHADOW-01`)
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
 - **Catalogue:** [EXERCISE-DEMANDS.md](EXERCISE-DEMANDS.md)
 - **Existing load logic:** [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md), [CONTINUITY.md](CONTINUITY.md), [READINESS.md](READINESS.md)

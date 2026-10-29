@@ -565,7 +565,7 @@ def append_athlete_profile(
     """Append a profile version. A reset or a goal change is a new row (DEC-RAMP-01).
 
     An omitted exposure-trim flag inherits the current value: a profile edit that does not
-    mention the switch must not silently turn it off (DEC-EXPOSURE-01).
+    mention the switch must not silently turn it off (DEC-EXPOSURE-02).
     """
     if main_lift_policy not in ("preserve", "reduce", "drop"):
         raise ValueError("main_lift_policy must be preserve, reduce or drop")

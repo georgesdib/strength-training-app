@@ -1,4 +1,4 @@
-"""Part C suggestions: one at most, accessory only, unknown never compares (DEC-SELECT-08)."""
+"""Part C suggestions: one at most, accessory only, unknown never compares (DEC-SELECT-12)."""
 
 from __future__ import annotations
 

@@ -94,7 +94,7 @@ workload monitoring is broader than a single ratio
 **Decision:** ACWR is advisory only and may never veto a prescription. No ACWR feature is
 implemented today. The planned rolling exposure ratio is the same arithmetic family and is
 also descriptive; its only prescription effect is an opt-in, disabled-by-default accessory
-set trim (`DEC-EXPOSURE-01`, `LIM-56`). See [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md).
+set trim (`DEC-EXPOSURE-02`, `LIM-56`). See [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md).
 
 ## 6. Where the literature is too weak to settle the programme
 
