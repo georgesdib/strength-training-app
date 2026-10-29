@@ -1,7 +1,8 @@
 # LIMITATIONS REGISTER
 
-**Status:** living register, 2026-10-26. Since that date it is also the only place accepted
-limitations are listed; the roadmap keeps no second table.
+**Status:** living register, updated 2026-10-29. It is the only public place accepted
+limitations are listed; the roadmap keeps no second table. Private historical-data limitations
+are kept in the git-ignored private record only.
 **Purpose:** keep every known limitation from the audits in one place so later work can revisit
 it deliberately instead of rediscovering it.
 
@@ -18,7 +19,7 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-07 | `SESSION_DURATION` remains unmeasurable for imported sessions | mitigated | W0-C2, W11/B7 | imported timestamps become available |
 | LIM-08 | Session duration outside live workouts is an estimate, not measured | open | W0-C4, W1 | measured duration is available |
 | LIM-09 | UI prescription preview and committed workout artifact are different states | documented | W0-C5, UI-CLI-PARITY | never; it is intentional |
-| LIM-10 | Imported logs lack reliable timestamps and include late/backfilled rows | open | W0-C7 | source data gains timestamps |
+| LIM-10 | Imported logs lack reliable timestamps and include late/backfilled rows; this is accepted as a fact of life for the historical export | accepted (fact of life) | W0-C7 | no action; new live sessions carry measured timestamps |
 | LIM-11 | Minimum-session deep-tier main floor of 2 is a heuristic, not trial evidence | open | W0-C8, DEC-MIN-01 | evidence for a different minimum dose |
 | LIM-12 | Last-working-load fallback is not decayed; continuity handles the gap separately | open | W2 | evidence for decaying the fallback |
 | LIM-13 | e1RM coverage is visible as a source-set count; a single-set source still has low confidence | closed | W2 / DEC-E1RM-COVERAGE-01 | reopened if coverage needs a confidence model |
@@ -35,21 +36,20 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-24 | e1RM/formula precision overstates the underlying RIR/measurement precision. The default selector is now a 28-day median (`DEC-E1RM-SOURCE-01`), which counters best-of-window optimism but does not fix the RIR-adjusted Epley bias itself | open | W4, STRENGTH-PROGRAM-REVIEW / DEC-E1RM-SOURCE-01 | calibration/measurement study |
 | LIM-44 | The weekly spinal cap now counts the low-bar competition squat at cost 1, but the taxonomy still has no bar-position field; high-bar and SSB are excluded by exercise identity, not by a measured bar position | closed | DEC-SPINE-05 / Q24 | reopened only if a general bar-position model replaces the explicit classification |
 | LIM-43 | The e1RM plausibility advisory is display-only and generation-time only (warnings are not persisted with a stored prescription), needs at least 3 recent working sets to speak, cannot see the last-working-load fallback (which has no e1RM at all), and cannot detect a systematic level bias in the whole e1RM distribution — that is `MOD-E1RM-001`'s job and needs measured tests | open | DEC-E1RM-PLAUS-01 | a level-bias estimate from repeated measured tests |
-| LIM-25 | Public Git history still contains earlier personal details; current docs were generalised, not rewritten | accepted | F, PRIVACY | a history-rewrite decision |
 | LIM-26 | Single-athlete observational data cannot support causal claims | open | W4/W5, METHODOLOGY | prospective design |
 | LIM-27 | The UI still lacks first-class surfaces for `review --pending`, bulk state YAML and some report date controls (e1RM window, volume weeks, test-coverage window); LLM proposals are intentionally CLI-only. The Programme job/result cache is UI-transport only: the CLI rebuilds the forecast directly and does not expose a cached-forecast command | open | UI-CLI-PARITY, WEB-UI, Programme job/cache | parity work for the remaining items; keep the Programme cache transport-only or promote it to a core feature with CLI access |
-| LIM-28 | The engine does not enforce measured session duration; it only warns against the planned cap | open | W1, DEC-W1-01 | duration becomes a hard input |
+| LIM-28 | The engine does not enforce measured session duration; it only warns against the planned cap | accepted (design decision) | W1, DEC-W1-01 | intentional; the cap remains advisory |
 | LIM-29 | Forecast deload is now build-time, but a forecast is still not a persisted plan | documented | W1 | a persisted plan is introduced |
 | LIM-30 | W3 interaction fixes are regression-tested for the audited cases, not every imaginable combination | open | W3 | a broader property matrix is run |
 | LIM-31 | The prospective evaluation protocol has not yet been run for a new block | open | W5 | 8–12 weeks of prospective data |
 | LIM-32 | A stable-lift ±2.5% change threshold is a practical noise guard, not a validated minimal important difference | open | W5 | a defensible individual change threshold exists |
 | LIM-33 | Prospective review remains observational; it cannot establish causation | open | W5, W6 | a controlled or natural-experiment design |
-| LIM-34 | The weekly split is bench-heavy (12 bench vs 7 squat and 6.5 hinge sets, plus 6 knee-flexion and 6 core sets); the exact ratio is a strength-priority choice, not an evidence-derived optimum | open | W8, DEC-KNEEFLEX-01 | a user volume-balance decision |
+| LIM-34 | The weekly split is bench-heavy (12 bench vs 7 squat and 6.5 hinge sets, plus 6 knee-flexion and 6 core sets); the exact ratio is a strength-priority choice, not an evidence-derived optimum | accepted (policy choice) | W8, DEC-KNEEFLEX-01 | intentional policy; revisit only for a different strength priority |
 | LIM-35 | Age is not recorded in athlete state, so age-conditional power/balance evidence cannot be personalized | open | W10 | `birth_year` is added and used only for wording/priority |
 | LIM-36 | Public guidance says “age-dependent” without a recorded age; this must not read as a personal prescription | open | W10 | age is recorded or wording is generalised |
 | LIM-37 | `metric_definition` is a catalogue, not a live readiness-composite driver; adding a readiness metric intentionally requires code/config, weights, baselines and shadow validation | closed 2026-10-27 (design decision) | W11 follow-up / DATA-MODEL §11.4 | closed: catalogue-only by design; a future composite is a separate feature |
 | LIM-38 | Regime-change thresholds (4 baseline sets, ≤25% current, ≥2 substitute rise) are descriptive heuristics, not validated cut-points | open | DEC-REGIME-01 | prospective evidence or a different review policy |
-| LIM-39 | Post-lift form is a subjective 1–5 self-rating; its rubric weight (0.05) and aggregation are policy choices, not validated. Imported Form backfill uses 1=best, 5=worst, 0=missing and half-up rounding; retrospective associations with e1RM/next performance/sRPE were near zero | open | DEC-FORM-01/02/04 | prospective evidence or a coach comparison |
+| LIM-39 | Post-lift form is a subjective 1–5 self-rating; its rubric weight (0.05) and aggregation are policy choices, not validated. Imported Form backfill uses 1=best, 5=worst, 0=missing and half-up rounding; retrospective associations with e1RM/next performance/sRPE were near zero | accepted (policy choice) | DEC-FORM-01/02/04 | intentional policy; prospective evidence may revisit the weight |
 | LIM-40 | Form-trend status uses a ±0.5 descriptive threshold; it is not a validated minimal important difference | closed 2026-10-27 (policy decision) | DEC-FORM-04 | closed: ±0.5 is the accepted display policy; reconsider only with a validated change threshold |
 | LIM-41 | The prospective form evaluation has not run; low-form-event and next-performance associations remain unknown | open | FORM-PROSPECTIVE | 12 weeks / 10 low-form events across ≥4 lifts |
 | LIM-42 | Total automatic load reduction could exceed the readiness+continuity 20% cap when e1RM decay was also active; the total was warned below 0.80 but not capped | closed 2026-10-27 | DEC-W3-02 | closed: automatic decay/readiness/continuity stack now floors at 0.80; explicit deload/technique may go below by design. Test in `tests/test_w3_interactions.py` |
