@@ -264,3 +264,17 @@ def test_remaining_forms_use_field_errors() -> None:
         '#settings-llm-model', '#settings-profile-guard',
     ):
         assert marker in app, marker
+
+
+def test_drop_confirmation_is_only_offered_inside_the_competition_window() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    core = (STATIC / "core.js").read_text(encoding="utf-8")
+
+    assert 'id="prescribe-drop-confirm-wrap" hidden' in page
+    assert "updateDropConfirmVisibility" in app
+    assert "loadDropWindow" in app
+    assert "/api/settings/drop/window" in app
+    # The window rule lives in Python; the browser must not grow a second copy.
+    assert "localDateOrdinal" not in core
+    assert "dropConfirmationApplies" not in app

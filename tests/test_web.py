@@ -1016,6 +1016,17 @@ def test_settings_drop_endpoint_writes_the_profile(server):
     assert json.loads(body)["budget"]["tolerance"] == 0.2
 
 
+def test_drop_window_endpoint_is_explicit_when_drop_mode_is_inactive(server):
+    status, body = get(server, "/api/settings/drop/window?date=2024-01-01")
+    assert status == 200
+    data = json.loads(body)
+    assert data["date"] == "2024-01-01"
+    assert data["applies"] is False
+    assert data["drop_mode_active"] is False
+    assert data["in_window"] is False
+    assert data["reason"] == "drop mode is not active"
+
+
 def test_settings_profile_endpoint(server):
     status, body = get(server, "/api/settings/profile?date=2024-01-01")
     assert status == 200

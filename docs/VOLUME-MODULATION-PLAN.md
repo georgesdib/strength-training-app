@@ -534,7 +534,9 @@ The drop decision is made at the start of a session, from the remaining week, no
   band read-only) and the full per-group candidate pool as editable JSON, validated server-side.
   The competition confirmation is per session via `--drop-confirm`, the API
   `drop_confirmed` field and the Prescribe checkbox; it applies to both `volume_fill` and
-  `technique` and is recorded in the prescription notes.
+  `technique` and is recorded in the prescription notes. The Prescribe checkbox is shown only
+  when the budget and drop policy are active and the selected date is inside the configured
+  competition window; outside it the control is hidden rather than inert.
 
 **Activation and safety**
 - Only when the budget is enabled and `main_lift_policy: drop` is selected; `preserve`/`reduce`

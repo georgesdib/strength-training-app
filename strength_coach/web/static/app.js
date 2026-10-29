@@ -36,7 +36,11 @@ function setView(name, options = {}) {
     loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget(); loadExposure(); loadResidual(); loadShadowReview();
     restoreProgramme();
   }
-  if (name === "workout") { loadReadiness($("#readiness-date").value); updateWorkflowStep(); }
+  if (name === "workout") {
+    loadReadiness($("#readiness-date").value);
+    loadDropWindow();
+    updateWorkflowStep();
+  }
   if (name === "docs") loadDocs(options.doc, options.anchor);
   if (name === "logs") loadLogs();
   if (name === "state") loadState();
@@ -162,6 +166,7 @@ async function loadOverview() {
   try {
     const data = await api("/api/overview");
     window.__overview = data;
+    loadDropWindow();
     $("#today-title").textContent = data.profile?.primary_goal
       ? "Coach for " + data.profile.primary_goal : "No athlete state yet";
     $("#today-sub").textContent = "Block week " + (data.block_week ?? "unknown")
@@ -722,7 +727,41 @@ async function loadReadinessFeedback(weeks, day) {
 
 /* --- prescribe ---------------------------------------------------------- */
 $("#prescribe-date").value = today();
-$("#prescribe-date").addEventListener("change", loadVolumeBudget);
+$("#prescribe-date").addEventListener("change", () => {
+  loadDropWindow();
+  loadVolumeBudget();
+});
+
+/* The server owns the competition-window rule. Ask it whether the confirmation applies, rather
+   than duplicating the date arithmetic in the browser; hide the control when it is inert and
+   never send a stale true after it disappears. */
+let dropWindowRequest = 0;
+async function loadDropWindow() {
+  const date = $("#prescribe-date")?.value;
+  const request = ++dropWindowRequest;
+  let result = {applies: false};
+  if (date) {
+    try {
+      result = await api("/api/settings/drop/window?date=" + encodeURIComponent(date));
+    } catch (error) {
+      result = {applies: false};
+    }
+  }
+  if (request !== dropWindowRequest) return;
+  window.__dropWindow = result;
+  updateDropConfirmVisibility();
+}
+
+function updateDropConfirmVisibility() {
+  const wrap = $("#prescribe-drop-confirm-wrap");
+  const input = $("#prescribe-drop-confirm");
+  if (!wrap || !input) return;
+  const show = Boolean(window.__dropWindow?.applies);
+  wrap.hidden = !show;
+  input.disabled = !show;
+  if (!show) input.checked = false;
+}
+
 function syncMinimumSession() {
   const on = $("#prescribe-minimum").checked;
   $("#prescribe-minimum-options").hidden = !on;
@@ -3102,6 +3141,7 @@ function renderDropSettings(drop) {
   $("#settings-drop-high").textContent = drop.high_band ?? "—";
   $("#settings-drop-slots").value = JSON.stringify(drop.slots || {}, null, 2);
   $("#settings-drop-msg").textContent = "source: " + (drop.source || "—");
+  loadDropWindow();
 }
 
 function renderProfileSettings(registry, profile) {

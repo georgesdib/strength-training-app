@@ -793,6 +793,25 @@ def test_drop_builds_a_volume_fill_session():
     assert any("MOD-VOL-005" in warning for warning in prescription.warnings)
 
 
+def test_drop_window_is_inclusive_and_shared_with_the_ui():
+    cfg = volume_budget.BudgetConfig()
+    profile = {
+        "volume_budget_enabled": 1,
+        "main_lift_policy": "drop",
+        "competition_date": "2026-11-01",
+    }
+    assert volume_budget.drop_mode_active(profile, cfg) is True
+    assert volume_budget.drop_competition_window(profile, "2026-10-25", 7)["in_window"] is True
+    assert volume_budget.drop_competition_window(profile, "2026-10-24", 7)["in_window"] is False
+    assert volume_budget.drop_competition_window(profile, "2026-11-01", 7)["in_window"] is True
+    assert volume_budget.drop_competition_window(profile, "2026-11-02", 7)["in_window"] is False
+    assert volume_budget.drop_competition_window(
+        {**profile, "competition_date": None}, "2026-10-25", 7
+    )["in_window"] is False
+    assert volume_budget.drop_mode_active({**profile, "volume_budget_enabled": 0}, cfg) is False
+    assert volume_budget.drop_mode_active({**profile, "main_lift_policy": "preserve"}, cfg) is False
+
+
 def test_drop_requires_confirmation_in_the_competition_window():
     rows = [
         {"Date": "2026-10-26", "Exercise": "Safety Squat Bar", "Weight_Used": "100",

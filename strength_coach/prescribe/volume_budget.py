@@ -1115,6 +1115,49 @@ def simulate_compensation(
     }
 
 
+def drop_mode_active(profile: Mapping[str, Any], cfg: BudgetConfig) -> bool:
+    """Whether the 9c drop branch is switched on for this athlete."""
+    enabled = (
+        bool(profile.get("volume_budget_enabled"))
+        if "volume_budget_enabled" in profile else cfg.enabled
+    )
+    return enabled and cfg.drop_enabled and profile.get("main_lift_policy") == "drop"
+
+
+def drop_competition_window(
+    profile: Mapping[str, Any], on_date: str, window_days: int
+) -> dict[str, Any]:
+    """Whether a drop needs per-session confirmation on this date.
+
+    This is shared by the engine and the web UI: the checkbox exists only inside this
+    window, so the browser must ask Python rather than duplicate the date arithmetic.
+    """
+    competition = profile.get("competition_date")
+    if not competition:
+        return {
+            "in_window": False,
+            "days_until": None,
+            "window_days": int(window_days),
+            "competition_date": None,
+            "reason": "no competition date",
+        }
+    days = (
+        dt.date.fromisoformat(str(competition))
+        - dt.date.fromisoformat(str(on_date))
+    ).days
+    in_window = 0 <= days <= int(window_days)
+    return {
+        "in_window": in_window,
+        "days_until": days,
+        "window_days": int(window_days),
+        "competition_date": str(competition),
+        "reason": (
+            f"competition is in {days} days"
+            if in_window else "outside competition window"
+        ),
+    }
+
+
 def plan_drop(
     conn,
     on_date: str,
@@ -1128,28 +1171,19 @@ def plan_drop(
     """Choose the 9c branch: technique at the high band, else a volume_fill session."""
     cfg = config or BudgetConfig.load(conn=conn, on_date=on_date)
     profile = queries.athlete_profile(conn) or {}
-    enabled = (
-        bool(profile.get("volume_budget_enabled"))
-        if "volume_budget_enabled" in profile else cfg.enabled
-    )
-    if not enabled or not cfg.drop_enabled or profile.get("main_lift_policy") != "drop":
+    if not drop_mode_active(profile, cfg):
         return {"applied": False, "status": "disabled"}
 
-    competition = profile.get("competition_date")
-    if competition and not confirmed:
-        days = (
-            dt.date.fromisoformat(str(competition))
-            - dt.date.fromisoformat(str(on_date))
-        ).days
-        if 0 <= days <= cfg.drop_competition_confirm_days:
-            return {
-                "applied": False,
-                "status": "competition_confirmation",
-                "note": (
-                    f"competition is in {days} days; drop needs confirmation within "
-                    f"{cfg.drop_competition_confirm_days} days"
-                ),
-            }
+    window = drop_competition_window(profile, on_date, cfg.drop_competition_confirm_days)
+    if window["in_window"] and not confirmed:
+        return {
+            "applied": False,
+            "status": "competition_confirmation",
+            "note": (
+                f"competition is in {window['days_until']} days; drop needs confirmation within "
+                f"{window['window_days']} days"
+            ),
+        }
 
     template = templates.SessionTemplate.load(session_type)
     # A same-date plan is a revision of the recorded session, not a second session. Supply the

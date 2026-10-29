@@ -193,6 +193,7 @@ also disables while saving and reports the number of marks written.
 | `GET /api/prospective?weeks=N&date=N` | W5 read-only prospective summary: statuses, attendance, work, RIR, duration, flags |
 | `GET /api/regime?weeks=N&date=N` | read-only main-lift/substitute regime check |
 | `GET /api/settings` | masked LLM settings, drop settings, config/database paths and app version |
+| `GET /api/settings/drop/window?date=N` | whether per-session drop confirmation applies on that date; the Prescribe checkbox is hidden when false |
 | `POST /api/settings/llm` | save local LLM settings; blank key keeps the stored key |
 | `POST /api/settings/drop` | save drop policy/candidate pool to the local `config/volume.local.yaml` overlay |
 | `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset, effective_from, guard_confirmed and reason |

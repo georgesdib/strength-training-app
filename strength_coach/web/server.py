@@ -636,6 +636,12 @@ class Handler(BaseHTTPRequestHandler):
                                  mimetypes.guess_type(path)[0] or "application/octet-stream")
             elif path == "/api/settings":
                 self._json(200, self._with_conn(lambda c: self._settings(c)))
+            elif path == "/api/settings/drop/window":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0] or datetime.date.today().isoformat()
+                self._json(200, self._with_conn(
+                    lambda c: self._drop_confirmation_window(c, day)
+                ))
             elif path == "/api/modalities":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0] or datetime.date.today().isoformat()
@@ -1166,6 +1172,31 @@ class Handler(BaseHTTPRequestHandler):
                 for setting in settings_registry.SETTINGS
             ],
             "local_only": True,
+        }
+
+    def _drop_confirmation_window(self, conn, day: str) -> dict:
+        """The single server-side answer for whether the Prescribe checkbox applies."""
+        profile = dict(queries.athlete_profile(conn) or {})
+        cfg = volume_budget_mod.BudgetConfig.load(conn=conn, on_date=day)
+        active = volume_budget_mod.drop_mode_active(profile, cfg)
+        window = volume_budget_mod.drop_competition_window(
+            profile, day, cfg.drop_competition_confirm_days
+        )
+        applies = bool(active and window["in_window"])
+        reason = (
+            "confirmation required" if applies
+            else "drop mode is not active" if not active
+            else window["reason"]
+        )
+        return {
+            "date": day,
+            "applies": applies,
+            "drop_mode_active": active,
+            "in_window": window["in_window"],
+            "days_until": window["days_until"],
+            "window_days": window["window_days"],
+            "competition_date": window["competition_date"],
+            "reason": reason,
         }
 
     def _save_settings_profile(self, conn, body: dict) -> dict:
