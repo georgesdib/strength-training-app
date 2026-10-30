@@ -10,12 +10,63 @@
 | Baseline commit | 2711a6e (approved specification) |
 | Specification | [Training monitoring design specification](TRAINING-MONITORING-SPEC.md) |
 | Document date | 2026-10-30 |
+| Plan revision | 2 — approved decisions and gated execution |
 | Scope | Phase 0 through Phase 5 planning; individual calibration architecture; no code, schema, config or test changes |
 | Intended reader | Human approver first, then one coding agent per phase |
 
 > The approved specification is authoritative for metric definitions. If this plan and the specification disagree, the specification wins and the discrepancy must be raised rather than silently resolved.
 
 ---
+
+## 0. Binding execution model and approved decisions
+
+### 0.1 Gated execution — mandatory
+
+Execution is **gated by phase**. The coding agent must:
+
+1. implement **Phase 0 only**;
+2. run its required tests and produce its deliverables;
+3. stop and report the results;
+4. wait for explicit user approval before starting Phase 1;
+5. repeat for every subsequent phase.
+
+There is **no automatic progression**, even when tests pass. Phase 0 and Phase 1 must remain separate. No two phases may be combined into one implementation or one PR unless the user separately approves that change.
+
+The productivity migration is approved for its planned Phase 2 implementation, but the agent must still stop at the Phase 2 gate and obtain approval before Phase 3.
+
+### 0.2 Required report at every phase gate
+
+The agent must provide:
+
+- summary of changes;
+- files created, modified or deleted;
+- tests executed and their results;
+- any deviations from the plan;
+- data, schema and configuration implications;
+- outstanding risks or decisions;
+- commit SHA or PR reference, where applicable;
+- an explicit statement that it has stopped and is awaiting approval.
+
+### 0.3 Approved decision register
+
+| ID | Decision | Status | Conditions |
+|---|---|---|---|
+| D1 | Productivity field and session_feedback rebuild migration | **Approved for planned Phase 2** | Recoverable backup; migration tested on a representative copy; all existing feedback preserved; triggers/indexes/FKs/constraints preserved; nullable 1–5 productivity; productivity-only rows; reads/writes verified; failure/rollback tested; row counts/invariants verified; safe under the migration framework. Approval does not authorise running the migration now. |
+| D2 | Gated phase execution | **Approved** | One phase at a time; stop and report after each; explicit user approval before the next; no automatic progression; no combined phases without separate approval. |
+| D3 | Preserve the existing active e1RM calibration mechanism | **Approved baseline** | Do not change its calculations, gates, thresholds or prescription application in this project without separate approval. |
+
+### 0.4 Calibration status — do not misdescribe
+
+The repository already has an **active, dynamically recalculated calibration mechanism** for the prescription load base. It is not future work:
+
+- measured tests are recorded in e1rm_override and linked to high_intensity_exposure;
+- e1rm_calibration.build constructs calibration observations and correction factors;
+- e1rm_calibration.factors returns factors in force on a date;
+- prescribe/engine.py consumes them and applies the correction when building a prescription;
+- factors are recalculated from stored measured-test history on prescription build;
+- this applies to the **prescription load base**, never to the raw monitoring performance series.
+
+The monitoring project adds a **raw, uncalibrated** performance series and a read-only transparency layer around the existing calibration. It does not invent calibration, activate it for the first time, or create a second factor path.
 
 ## 1. Executive summary
 
@@ -28,7 +79,7 @@ This plan translates the approved multi-dimensional monitoring design into a sta
 - creates a separate raw formula-derived performance layer;
 - adds the descriptive workout summary;
 - adds longitudinal strength, dose and relative-strength views;
-- prepares, but does not activate, individual calibration from genuine measured tests.
+- adds a read-only transparency layer around the existing active calibration and defers any calibration changes.
 
 It reuses the existing store, enrichment, workout comparison, volume, exposure, spinal, high-intensity, demand, feedback and web layers. It does not create a second monitoring store or a parallel calculation stack.
 
@@ -38,23 +89,23 @@ It reuses the existing store, enrichment, workout comparison, volume, exposure, 
 |---|---|---|---|
 | 0 | Historical data and estimator audit | Reproducible report on what existing data can support | No |
 | 1 | Shared measurement core | Load-base selector extracted; raw performance observations; monitoring definitions | No |
-| 2 | Descriptive workout summary | Session summary API, CLI and end-screen UI | Conditional: productivity only |
+| 2 | Descriptive workout summary | Session summary API, CLI and end-screen UI | Approved: productivity rebuild, safety-gated |
 | 3 | Longitudinal strength and relative strength | Performance view, trends, configured ratios | No |
-| 4 | Exploratory analysis and calibration preparation | Descriptive analysis, calibration observation read model | No |
-| 5 | Prospective validation and future calibration | Deferred activation of individual calibration | Deferred, only if approved |
+| 4 | Exploratory analysis and calibration transparency | Descriptive analysis, read-only calibration observation layer | No |
+| 5 | Prospective validation and possible future calibration improvements | Validation and possible enhancements; no new activation | Deferred, only if approved |
 
 ### 1.3 Key engineering conclusions
 
 1. **Do not build the UI first.** Phase 0 must establish coverage, eligibility, measured-test availability and formula behaviour. The existing local data may contain few or no genuine measured tests; that must be measured, not assumed.
 2. **The load base and the performance series are separate code paths.** The prescription selector keeps its existing median/best/most-recent, decay, calibration and override behaviour. Monitoring uses a raw formula-derived estimator with no decay and no calibration.
-3. **The only near-term migration is productivity, and it is not a simple ALTER.** The existing session_feedback table has a CHECK requiring sRPE, duration or note. A productivity-only row would fail. The plan therefore proposes a table rebuild migration, conditional on Domain G approval.
+3. **The productivity migration is approved for Phase 2, and it is not a simple ALTER.** The existing session_feedback table has a CHECK requiring sRPE, duration or note. A productivity-only row would fail. The approved migration rebuilds the table under backup, copy-test, rollback and invariant checks.
 4. **The biggest behaviour-preservation risk is the load-base extraction.** It must be an adapter around the existing algorithm, with golden-prescription and selector-parity tests before any UI work.
 5. **No new dependencies are needed.** The existing pandas/numpy/PyYAML stack and vanilla JavaScript/SVG are sufficient.
-6. **Individual calibration is prepared, not activated.** No factor is fitted now. The plan preserves raw observations, defines provenance and validation requirements, and defers promotion criteria until data exists.
+6. **Calibration is already active for the load base.** The plan preserves the existing measured-test recording, observation construction, factor calculation and dynamic application. It adds a raw monitoring series and a read-only transparency layer; no second factor path is created.
 
 ### 1.4 What is explicitly not planned
 
-No composite score, no automatic prescription change, no injury prediction, no fatigue-fitness integration, no calibration or age decay on the performance series, no ordinary training set treated as a criterion test, no new monitoring tables, and no UI redesign outside the monitoring views.
+No composite score, no automatic prescription change, no injury prediction, no fatigue-fitness integration, no calibration or age decay on the performance series, no ordinary training set treated as a criterion test, no new monitoring tables, no second calibration engine, and no UI redesign outside the monitoring views.
 
 ---
 
@@ -79,7 +130,7 @@ Implications for this work:
 | RIR semantics | domain/rir.py; features/derived.add_effort_fields | Reuse the classifier |
 | e1RM formula | domain/e1rm.py; features/derived.add_e1rm | Reuse Epley/Epley+RIR; new raw estimator applies the monitoring guard |
 | Load-base selector | prescribe/engine.py::_latest_e1rm | Extract pure selector; preserve exactly |
-| Calibration | features/e1rm_calibration.py | Reuse report/points; do not change activation |
+| Calibration | features/e1rm_calibration.py; prescribe/engine.py | Existing active mechanism; preserve calculations, gates and application |
 | Age decay | features/e1rm_decay.py | Reuse for load base only |
 | Completion comparison | workout.py::_comparison and workout.get | Reuse directly |
 | Workout lifecycle | workout.py start/add/update/end/_materialise | Extend with summary and feedback only |
@@ -100,7 +151,7 @@ There are multiple independent e1RM computations today:
 | Location | What it computes | Window/aggregation | Decay/calibration | Suitability |
 |---|---|---|---|---|
 | prescribe/engine.py::_latest_e1rm | Prescription load base | 84 days; median 28 days, best usable, or most recent | Decay and calibration; override wins | Correct for prescription; extract, do not change |
-| features/e1rm_calibration.py::build | Calibration report and points | 84 days; max per lift, decayed once | Reports correction | Reuse points for audit; do not use as monitoring series |
+| features/e1rm_calibration.py::build / factors | Calibration observations, correction factors and active factors | 84 days; measured tests vs prior formula estimate | Reports and applies bounded correction | Existing active load-base mechanism; reuse read-only; do not duplicate |
 | features/baseline.py::lift_baselines | Baseline report | 84-day window, all-time best | None | Display only |
 | features/progress.py::_session_lift_e1rms | Today performance ratio | Per session max | None | Does not check e1rm_applicable; keep separate |
 | features/fatigue_fitness.py | Shadow model observations | Per session max | None | Do not connect |
@@ -110,6 +161,41 @@ Consequences:
 - A new raw monitoring estimator is needed; it must not be a sixth load-base selector.
 - The load-base extraction must be a pure adapter, not a second implementation.
 - The known progress applicability defect and the e1rm_calibration date-label defect are recorded as out-of-scope existing behaviour. Fixing either is a separate change with its own review.
+
+### 2.3a Existing calibration mechanism (active, not future work)
+
+| Capability | Actual status |
+|---|---|
+| Measured-test recording | Existing: test path writes e1rm_override(source=measured) and links high_intensity_exposure(source_id=e1rm_override:<id>) |
+| Calibration observation construction | Existing: e1rm_calibration.build finds measured overrides and the prior formula estimate within its window |
+| Correction-factor calculation | Existing: median measured/formula ratio with minimum tests, bootstrap percentile CI, CI-must-exclude-1 rule, and bounded correction |
+| Dynamic recalculation | Existing: e1rm_calibration.factors is called during prescription construction |
+| Application to prescription load base | Existing: prescribe/engine.py passes factors into the load-base selector; formula estimates are multiplied by the factor; measured overrides are not |
+| Raw uncalibrated monitoring series | New work in this plan |
+| Calibration observation transparency/read model | Planned Phase 4 |
+| Prospective validation and possible improvements | Deferred Phase 5 |
+| Versioned factor history and richer test provenance | Potential future enhancement; not implemented |
+
+Exact current gates:
+
+- minimum measured tests configured by e1rm-calibration.v1.yaml (currently 3);
+- bootstrap confidence interval (currently 95%) of the median measured/formula ratio;
+- no correction when the interval includes 1.0;
+- median bias must be within the configured bound (currently ±10%);
+- correction clamped to that bound;
+- apply flag must be enabled;
+- factors are recalculated from stored history on each prescription build.
+
+Known limitations relevant to the audit:
+
+- prior-estimate matching uses an 84-day window and a maximum/decayed estimate, not the raw session-best series;
+- the reported latest_e1rm and latest_on can come from different rows;
+- measured-test protocol/equipment are not stored;
+- there is no formula/method version column;
+- sample sizes are likely small, so the bootstrap interval may be uninformative;
+- adding one test can change or remove a factor.
+
+The monitoring project must preserve this mechanism exactly unless a separate change is approved. It must not create a second calculation or application path, and it must not apply calibration to the raw performance series.
 
 ### 2.4 Data structures and constraints
 
@@ -129,7 +215,7 @@ Consequences:
 
 | # | Specification statement | Current code | Decision for this plan |
 |---|---|---|---|
-| 1 | Add one nullable productivity column to session_feedback | No productivity column; CHECK requires srpe, duration or note | Conditional Phase 2 migration must rebuild the table, not merely add a column |
+| 1 | Add one nullable productivity column to session_feedback | No productivity column; CHECK requires srpe, duration or note | Approved Phase 2 rebuild migration must satisfy the D1 safety gates |
 | 2 | plan_json can carry the load-base e1RM provenance | PrescriptionItem has intensity/e1rm_source_sets, but _item_dict omits e1RM value/reference/quality/age | Phase 1/2 adds optional plan provenance fields; no DB migration |
 | 3 | Monitoring uses raw formula-derived e1RM | No raw session-best module; derived.add_e1rm is set-level and does not cap reps+rir | Phase 0/1 creates separate raw observation module |
 | 4 | No decay/calibration on performance series | Existing selectors differ; progress uses none, calibration max uses decay | New raw module applies neither; load base unchanged |
@@ -191,7 +277,7 @@ Consequences:
 
 ### 4.1 Objective
 
-Produce a deterministic, reproducible, read-only report of what existing training history can support before building any monitoring UI. Establish coverage, eligibility, measured-test availability, formula behaviour, outliers and comparability. Do not fit a correction factor.
+Produce a deterministic, reproducible, read-only report of what existing training history can support before building any monitoring UI. Establish coverage, eligibility, measured-test availability, formula behaviour, existing calibration behaviour, outliers and comparability. Do not fit a new correction factor or change the existing one.
 
 ### 4.2 Why Phase 0 is first
 
@@ -209,6 +295,7 @@ In scope:
 - data coverage by exercise, rep range, RIR and load basis;
 - eligible raw e1RM observations under the approved eligibility/quality rules;
 - measured 1RM/3RM/5RM test count and linkability;
+- existing calibration factors, eligibility and application status;
 - formula behaviour, outliers and comparability breaks;
 - simple baseline comparison on next-observation errors;
 - a local-only or redacted report;
@@ -217,8 +304,8 @@ In scope:
 Out of scope:
 
 - UI or API;
-- any correction factor;
-- any change to prescription, calibration activation or age decay;
+- any change to the existing correction factor, its gates or its application;
+- any change to prescription, calibration configuration or age decay;
 - any write to historical records;
 - any new database table.
 
@@ -243,10 +330,27 @@ Required report sections:
 1. **Data inventory** — sessions, sets, working sets, date range, canonical exercises, load-basis counts, RIR coverage, warm-up share.
 2. **Eligibility** — eligible raw e1RM observations per exercise and rep range; rejected reasons (warm-up, missing RIR, reps+rir >20, load basis unknown, not applicable, power/test).
 3. **Measured tests** — count of e1rm_override rows with source measured; test_type from linked high_intensity_exposure; whether each test links to a prior raw estimate; date gap; protocol/equipment availability (expected unknown).
+3a. **Existing calibration** — recorded measured-test count vs eligible calibration-test count; test coverage by exercise and rep range; current correction factor and applied flag per lift; bootstrap CI low/high/width; whether the CI includes 1.0; whether the factor is bounded; whether adding/removing one test would change the factor; prior-estimate matching gaps and the 84-day window; provenance sufficiency; outliers and instability.
 4. **Formula behaviour** — session-best distribution, rep/RIR strata, outliers, change across equipment/variant boundaries.
 5. **Simple baselines** — next-observation error for: last session best, rolling median of 3, rolling median of 5 (sensitivity), 84-day best. Report MAE and median absolute error; label these as descriptive stability checks, not criterion accuracy.
 6. **Measured-test error** — only if genuine tests exist: per-lift bias, MAE and MAPE of the formula estimate available before each test; sample size and rep coverage; chronological holdout where sample permits.
-7. **Limitations and recommendations** — what is not established, which exercises have enough data, whether ratio pairs meet the 2-observation rule, whether individual calibration is currently possible.
+7. **Limitations and recommendations** — what is not established, which exercises have enough data, whether ratio pairs meet the 2-observation rule, whether the existing calibration gates are informative at the observed sample sizes, and whether any methodology change is justified.
+
+### 4.4a Existing calibration audit (read-only)
+
+The audit must not change calibration configuration, gates, calculations or prescription behaviour. It reports:
+
+- recorded measured-test count versus the count that is eligible for calibration;
+- test coverage by canonical exercise and relevant rep range;
+- linkage between measured e1rm_override rows and high_intensity_exposure records, including missing/unlinked tests;
+- current correction factors and whether each is actually applied;
+- the effect of adding a new eligible test: leave-one-out or leave-one-in influence on the factor, using the existing calibration logic in memory or on a read-only copy;
+- bootstrap confidence-interval low/high/width and whether it excludes 1.0 at the observed sample size;
+- prior-estimate matching: 84-day window, date gaps, missing prior estimates and whether the matched estimate is a maximum/decayed value rather than the raw session best;
+- whether existing test and observation provenance is sufficient to interpret the factor;
+- instability, sparse-data and outlier concerns, including factors that appear or disappear after one test.
+
+The audit must not refit, retune or apply a new factor. It reports the existing mechanism as found.
 
 ### 4.5 Pure raw-observation module (created in Phase 0)
 
@@ -290,6 +394,8 @@ Cases:
 - deterministic output: two runs with the same args produce identical bytes, excluding an explicit data fingerprint;
 - no measured tests: report says criterion calibration is not possible;
 - measured tests: report links e1rm_override to high_intensity_exposure and prior formula estimate;
+- existing calibration: report current factors, applied flags, CI width and eligibility counts from a synthetic measured-test fixture;
+- calibration read-only: audit does not change e1rm-calibration.v1.yaml, e1rm_override rows or prescription output;
 - privacy: default output path is private/docs, not docs/;
 - malformed/missing DB produces a clear error and no partial report.
 
@@ -305,7 +411,8 @@ Optional integration file: tests/test_monitoring_historical_audit_integration.py
 - Coverage, missingness, eligible observations and measured-test counts are explicit.
 - Measured tests are not assumed; absence is reported.
 - Simple baselines are compared descriptively.
-- No correction factor is fitted.
+- No new correction factor is fitted; existing factors are reported read-only.
+- Existing calibration eligibility, factors, applied flags, CI behaviour, prior matching and provenance are reported.
 - The report states whether monitoring can proceed descriptively and which exercises/pairs are too sparse.
 - All Phase 0 tests pass; ruff passes.
 
@@ -320,7 +427,7 @@ Risks:
 Exclusions:
 
 - no UI, API, schema, migration or prescription change;
-- no calibration engine;
+- no new calibration engine or change to the existing one;
 - no ordinary training set treated as measured strength.
 
 ---
@@ -480,6 +587,7 @@ New or extended:
 ### 5.10 Acceptance criteria
 
 - Golden prescriptions byte-identical.
+- Existing calibration factors and applied flags are unchanged for a fixed synthetic measured-test fixture.
 - Load-base selector parity test proves the same result, reference, calibration flag, decay flag, coverage and decay factor.
 - Raw observations apply no age decay or calibration factor.
 - Raw series uses exact exercise identity and rejects invalid sets.
@@ -499,7 +607,7 @@ Exclusions:
 
 - no summary UI/API yet;
 - no ratio or trend;
-- no calibration activation;
+- no change to existing calibration;
 - no changes to volume, exposure, spinal, critique or fatigue-fitness.
 
 
@@ -508,7 +616,7 @@ Exclusions:
 
 ### 6.1 Objective
 
-Add a read-only, completed-workout summary that composes existing data into the six approved sections, while preserving the existing end-screen comparison and adding no automatic behaviour.
+Add a read-only, completed-workout summary that composes existing data into approved sections 1–5, while preserving the existing end-screen comparison and adding no automatic behaviour.
 
 ### 6.2 Scope
 
@@ -516,7 +624,7 @@ Add a read-only, completed-workout summary that composes existing data into the 
 - GET /api/workout/<workout_id>/summary;
 - CLI summary;
 - end-screen UI sections 1–5 (historical context section 6 and ratios are deferred to Phase 3);
-- conditional productivity capture;
+- approved productivity capture (safety-gated);
 - per-field session feedback merge;
 - plan snapshot e1RM provenance consumption.
 
@@ -524,7 +632,7 @@ Out of scope:
 
 - ratios and Performance view;
 - longitudinal trends;
-- calibration activation;
+- any change to the existing calibration mechanism;
 - any prescription change.
 
 ### 6.3 Orchestration and files
@@ -615,7 +723,20 @@ Modify strength_coach/cli.py:
 
 ### 6.6 Productivity migration and feedback
 
-This is the only Phase 2 migration and it is conditional on Domain G remaining approved.
+This is the only Phase 2 migration and it is **approved** (decision D1), subject to the safety gates below. Approval does not authorise running the migration now; it is approval to include it in the planned Phase 2 implementation, after the Phase 2 gate.
+
+Mandatory safety gates:
+
+1. Create and verify a recoverable database backup before migration.
+2. Test the migration against a copy of a representative pre-migration database.
+3. Preserve every existing session_feedback record: feedback_id, session_id, srpe, duration_min, note and recorded_at.
+4. Preserve append-only triggers, indexes, foreign keys and existing constraints.
+5. Add nullable productivity with a validated 1–5 range.
+6. Support productivity-only feedback rows.
+7. Verify existing feedback reads and writes continue to work.
+8. Test migration failure and rollback/recovery procedures.
+9. Verify row counts and key data invariants before and after migration.
+10. Execute through the repository migration framework with its normal ordering and checksums.
 
 Critical constraint: SQLite cannot drop or alter the existing CHECK on session_feedback. A simple ALTER TABLE ADD COLUMN would allow the column but still reject a productivity-only row. The migration must rebuild the table.
 
@@ -777,6 +898,14 @@ Extend tests/test_web.py and test_ui_frontend.py:
 - Productivity optional and absent from every calculation.
 - No automatic prescription change.
 - Migration tested with old and new rows.
+- Recoverable backup created and verified before migration.
+- Migration tested on a representative pre-migration copy.
+- Row counts and key data invariants match before and after.
+- Existing feedback ids, session ids, sRPE, duration, notes and timestamps preserved.
+- Triggers, indexes, foreign keys and constraints preserved.
+- Productivity-only rows accepted; out-of-range values rejected.
+- Failure and rollback/recovery procedure tested.
+- Migration runs through the repository migration framework.
 - No ratios, longitudinal trends or historical comparison yet.
 
 ### 6.10 Risks and exclusions
@@ -792,7 +921,7 @@ Exclusions:
 
 - no ratio display on the end screen in Phase 2 (Phase 3 adds at most two);
 - no Performance page;
-- no calibration factor;
+- no new calibration factor and no change to the existing calibration mechanism;
 - no automatic conclusions.
 
 ---
@@ -964,24 +1093,25 @@ Risks:
 Exclusions:
 
 - no exploratory dose-response modelling;
-- no calibration factor;
+- no new calibration factor or change to the existing one;
 - no automatic conclusions.
 
 
 
-## 8. Phase 4 — Exploratory analysis and calibration preparation
+## 8. Phase 4 — Exploratory analysis and calibration transparency
 
 ### 8.1 Objective
 
-Add defensible comparable-session summaries and descriptive analysis, and prepare the calibration observation layer without activating any calibration factor.
+Add descriptive analysis and a read-only observation layer around the existing active calibration. Do not change calibration calculations, gates or application.
 
 ### 8.2 Scope
 
 - descriptive dose-response and recovery analysis;
-- calibration observation read model;
+- calibration observation read model around the existing mechanism;
 - formula/method version exposure;
 - no new comparison engine (Phase 3 owns the comparable-session summary);
-- no active calibration factor;
+- no new calibration factor or parallel calibration engine;
+- no change to existing calibration factors, gates or prescription output;
 - no new schema.
 
 ### 8.3 Comparison boundary
@@ -1014,7 +1144,7 @@ No new dependency. Use pandas/numpy only.
 
 New file: strength_coach/features/calibration_observations.py
 
-This is a read-only builder, not a calibration engine.
+This is a read-only builder, not a calibration engine and not a second factor path. It may read the existing e1rm_calibration.build/factors output; it must not independently recalculate or apply a factor.
 
 Function:
 
@@ -1038,7 +1168,11 @@ CalibrationObservation fields:
 - protocol: unknown (not captured);
 - equipment: unknown (not captured);
 - eligibility / exclusion reason;
-- linked_exposure_id.
+- linked_exposure_id;
+- existing_calibration_factor (read from e1rm_calibration.build; 1.0 when not applied);
+- existing_factor_applied (correction_applied flag);
+- calibration_ci_low, calibration_ci_high and CI width at the current sample;
+- calibration_eligibility_reason.
 
 Linking rules:
 
@@ -1048,7 +1182,7 @@ Linking rules:
 - same exercise identity;
 - no ordinary training set used as a criterion.
 
-No factor, no promotion, no historical rewrite.
+No new factor, no independent calculation, no promotion, no historical rewrite. Existing factors are reported as found.
 
 ### 8.6 Formula version
 
@@ -1061,7 +1195,7 @@ Reuse the Phase 1 E1RM_METHOD_VERSION constant from strength_coach/domain/e1rm.p
   - prior estimate strictly before test;
   - missing exposure yields test_type unknown;
   - ordinary set is never a criterion;
-  - no calibration factor is produced;
+  - no new calibration factor is produced; the existing factor is reported as found;
   - method version present.
 - tests/test_monitoring_analysis.py
   - lags, missingness, reproducible output;
@@ -1070,7 +1204,7 @@ Reuse the Phase 1 E1RM_METHOD_VERSION constant from strength_coach/domain/e1rm.p
 ### 8.8 Acceptance criteria
 
 - Phase 3 comparable-session summaries remain the only comparison engine.
-- Calibration observation read model is read-only and does not fit a factor.
+- Calibration observation read model is read-only, reports existing factors, and does not fit or apply a new factor.
 - Formula/method version is exposed in raw outputs.
 - No new schema.
 - No automatic promotion.
@@ -1085,20 +1219,20 @@ Risks:
 
 Exclusions:
 
-- no calibration engine;
+- no new calibration engine or second factor path;
 - no factor table;
-- no prospective activation;
+- no change to existing calibration gates or prescription output;
 - no causal claims.
 
 ---
 
-## 9. Phase 5 — Prospective validation and future calibration (deferred activation)
+## 9. Phase 5 — Prospective validation and possible future improvements to the existing calibration architecture
 
 ### 9.1 Objective
 
-Define the gate for any future individual calibration. Do not implement an active factor in this plan.
+Define the evidence gate for any future change to the existing active calibration architecture. Do not implement any calibration change in this plan.
 
-### 9.2 Required data before activation
+### 9.2 Required data before considering changes
 
 - repeated standardised measured tests with known test_type, protocol, equipment and date;
 - per-lift coverage across rep ranges and time;
@@ -1133,16 +1267,16 @@ Proposed, not approved:
 
 3. No monitoring-metric table and no rewriting of clean_set.
 
-### 9.4 Promotion criteria
+### 9.4 Adoption criteria for any future change
 
-A calibration factor may be promoted only when all hold:
+A change to the existing calibration architecture may be adopted only when all hold:
 
 - derived from genuine measured tests, not ordinary sets;
 - per-lift sample size and rep-range coverage are pre-registered and adequate for the method;
 - chronological out-of-sample validation shows lower MAE/MAPE than the uncalibrated formula;
 - the improvement is stable across rep ranges and time periods;
 - the factor is bounded and its uncertainty is reported;
-- no historical observation is rewritten; the factor applies only to future load-base calculations;
+- no historical observation is rewritten; any change applies only to future load-base calculations;
 - versioned, auditable and reversible;
 - reviewed and approved as a decision record.
 
@@ -1151,21 +1285,23 @@ A calibration factor may be promoted only when all hold:
 | G1 | Genuine measured tests only; no ordinary training set is a criterion | Required |
 | G2 | Per-lift sample and rep-range coverage are pre-registered from the Phase 0/4 data, not invented in advance | Open; depends on data |
 | G3 | Chronological out-of-sample validation: fit on earlier tests, evaluate on later tests | Required |
-| G4 | Calibrated MAE/MAPE is lower than the uncalibrated formula by a pre-specified margin | Required |
+| G4 | Calibrated MAE/MAPE is lower than the uncalibrated formula by a pre-specified margin; for a change to the current mechanism, it is also no worse than the current calibration on the holdout | Required |
 | G5 | The improvement is stable across rep ranges and time periods, and does not worsen any stratum | Required |
-| G6 | Factor is bounded, its uncertainty is reported, and the existing MOD-E1RM-001 gates are satisfied | Required |
-| G7 | Factor is versioned, auditable, reversible, and never rewrites raw historical observations | Required |
+| G6 | Any revised factor/gate is bounded, its uncertainty is reported, and the existing MOD-E1RM-001 gates are either retained or explicitly superseded by an approved decision | Required |
+| G7 | Any change is versioned, auditable, reversible, and never rewrites raw historical observations or silently changes prescription output | Required |
 
-No factor is promoted because a sample-count threshold was reached. G1–G7 are process gates; G2 is deliberately unresolved until the audit establishes what the data can support.
+No change is adopted because a sample-count threshold was reached. G1–G7 are process gates; G2 is deliberately unresolved until the audit establishes what the data can support. These gates govern future changes, not the existing active calibration.
 
-The existing MOD-E1RM-001 gates (minimum tests, bootstrap CI excluding 1, ±10% bound) remain the starting point, not a sufficient promotion rule.
+The existing MOD-E1RM-001 gates (minimum tests, bootstrap CI excluding 1, ±10% bound) are the current active behaviour. They remain in force and are not changed by this plan; any revision needs a separate evidence-based decision.
 
 ### 9.5 What remains deferred
 
-- active factor calculation or application;
-- automatic promotion on sample count;
+- any change to the existing factor calculation, eligibility gates or bounded correction;
+- a second factor calculation or application path;
+- automatic promotion or automatic gate changes on sample count;
 - calibration on the raw performance series;
 - calibration of relative-strength ratios;
+- versioned factor history and richer test provenance;
 - any prescription change from monitoring data.
 
 ---
@@ -1190,7 +1326,7 @@ The existing MOD-E1RM-001 gates (minimum tests, bootstrap CI excluding 1, ±10% 
 | tests/test_e1rm_source_shared.py | Create | 1 | Selector parity |
 | tests/test_monitoring_definitions.py | Create | 1 | Definition tests |
 | strength_coach/workout.py | Modify | 2 | summary(); end productivity; plan fields |
-| strength_coach/store/migrations/0045_session_productivity.sql | Create conditional | 2 | Rebuild session_feedback with productivity |
+| strength_coach/store/migrations/0045_session_productivity.sql | Create (approved, safety-gated) | 2 | Rebuild session_feedback with productivity |
 | strength_coach/store/repositories.py | Modify | 2 | append_session_feedback productivity |
 | strength_coach/web/static/summary.js | Create | 2 | End-screen summary |
 | strength_coach/web/static/workout.js | Modify | 2 | End form and summary hook |
@@ -1229,7 +1365,18 @@ All monitoring metrics are computed on read from immutable rows. Do not create t
 
 ### 11.2 Phase 2 productivity migration
 
-Only if Domain G remains approved. Because of the existing CHECK, use a rebuild migration, not a bare ALTER.
+Approved for the planned Phase 2 implementation. Because of the existing CHECK, use a rebuild migration, not a bare ALTER. The migration must not be run as part of this planning task and must pass the Phase 2 safety gates first.
+
+Safety prerequisites:
+
+- verified recoverable backup;
+- representative pre-migration copy test;
+- row counts and invariants before/after;
+- preservation of every feedback field and timestamp;
+- preservation of triggers, indexes, foreign keys and constraints;
+- productivity-only rows accepted;
+- failure/rollback/recovery tested;
+- execution through the migration framework.
 
 SQL shape (implementation detail, not executed here):
 
@@ -1261,19 +1408,22 @@ SQL shape (implementation detail, not executed here):
     CREATE TRIGGER session_feedback_no_delete BEFORE DELETE ON session_feedback
     BEGIN SELECT RAISE(ABORT, 'append-only: session_feedback rows cannot be deleted'); END;
 
-Migration tests must verify old rows, productivity-only rows, range checks, triggers, index and latest/merged reads.
+Migration tests must verify old rows, productivity-only rows, range checks, triggers, index, foreign keys, latest/merged reads, row counts, invariants, failure and rollback/recovery.
 
 ### 11.3 No migration for plan provenance
 
 PrescriptionItem and plan_json are JSON/serialisation changes. Do not add prescription_item columns for e1RM provenance in this plan.
 
-### 11.4 Future calibration migrations (deferred)
+### 11.4 Future calibration enhancements (deferred)
 
-Only after Phase 4/5 and approval:
+The existing calibration is active and uses the current schema. Potential future enhancements, only after Phase 4/5 and separate approval:
 
 - nullable measured-test metadata on e1rm_override, or a companion table;
-- append-only e1rm_calibration_factor;
+- append-only e1rm_calibration_factor history;
+- formula/method version columns;
 - no raw-estimate persistence and no monitoring-metric tables.
+
+These are not required for the monitoring series and must not be added speculatively.
 
 ### 11.5 Indexes and performance
 
@@ -1287,15 +1437,16 @@ Existing indexes on clean_set support session, date and exercise queries. Do not
 |---|---|---|---|---|---|
 | 0 | Raw observation rules; audit counts | None | Synthetic DB; optional populated_db | None | Read-only, private default |
 | 1 | Selector parity; monitoring definitions | Golden prescriptions; existing e1RM tests | Selector on populated data | None | No writes |
-| 2 | Summary definitions; feedback merge | Workout end/comparison unchanged | Summary API; migration | End form, summary rendering | Migration rehearsal; backup |
+| 2 | Summary definitions; feedback merge | Workout end/comparison unchanged | Summary API; migration | End form, summary rendering | Backup, copy test, rollback, invariants |
 | 3 | Trend, ratios, comparability | Existing progress unchanged | Performance API | Performance view | No writes |
-| 4 | Calibration observations; exploratory analysis | None | Descriptive analysis | Table only | Local report |
-| 5 | Future | Future | Future | Future | Deferred |
+| 4 | Existing calibration read-only; exploratory analysis | None | Descriptive analysis | Table only | Local report |
+| 5 | Future improvements | Future | Future | Future | Deferred; separate approval |
 
 ### 12.1 Required regression gates
 
 - tests/test_golden_prescription.py passes unchanged.
-- tests/test_prescribe.py and tests/test_e1rm_source.py pass unchanged.
+- tests/test_prescribe.py, tests/test_e1rm_source.py and tests/test_e1rm_calibration.py pass unchanged.
+- Existing calibration factors for a fixed synthetic measured-test fixture are identical before and after the load-base extraction.
 - tests/test_workout.py comparison and end behaviour pass.
 - tests/test_web.py existing endpoints pass.
 - tests/test_ui_frontend.py script and handler contracts pass.
@@ -1337,83 +1488,102 @@ Existing indexes on clean_set support session, date and exercise queries. Do not
 | Audit leaks personal data | Medium | High | private/docs default, no commit, redacted summary only if approved |
 | Sparse accessory data creates misleading trends | High | Medium | Unavailable/insufficient states, no interpolation |
 | Formula bias is mistaken for accuracy | Medium | High | Phase 0 report, raw bias caveat, no criterion from ordinary sets |
-| Future calibration overfits | Medium | High | Chronological holdout, promotion gates, no auto activation |
+| Future calibration change overfits | Medium | High | Chronological holdout, adoption gates, separate approval; existing calibration unchanged |
 | Duplicate calculations | Medium | Medium | Shared features modules; code review against mapping |
 | Existing e1rm_calibration date/progress defects confuse monitoring | Low | Medium | Do not reuse those outputs; document as out of scope |
 | Migration ordering/CI | Low | High | Numbered migration, test on copy, docs consistency |
+| Phase combined or autonomous progression | Medium | High | Binding §0 gate; one phase per implementation/PR; explicit user approval |
+| Second calibration path or silent prescription change | Medium | High | Code review against §2.3a and §14.6; parity/golden tests; no duplicate factor logic |
 
 ---
 
 ## 14. Individual calibration roadmap
 
-### 14.1 Current state
+### 14.1 Existing calibration is active
 
-- Measured tests are recorded through the test path into e1rm_override(source=measured) and a linked high_intensity_exposure(source_id=e1rm_override:<id>).
-- e1rm_calibration.build reports calibration points from measured overrides and prior formula estimates.
-- e1rm_calibration.factors supplies a correction to the load-base selector only.
-- No formula version, protocol, equipment, calibration-factor table or promotion workflow exists.
-- Ordinary training sets are not criterion measurements.
+The repository already has a working calibration pipeline for the prescription load base:
 
-### 14.2 Architectural separation
+- measured tests are recorded in e1rm_override(source=measured) and linked to high_intensity_exposure;
+- e1rm_calibration.build constructs calibration observations from measured tests and prior formula estimates;
+- e1rm_calibration._correction applies the configured minimum-test count, bootstrap CI, CI-excludes-1 rule and bounded correction;
+- e1rm_calibration.factors returns the factors in force on a date;
+- prescribe/engine.py calls factors during prescription construction and passes them into the load-base selector;
+- factors are recalculated from stored history on each build;
+- measured overrides are not calibration-adjusted.
 
-| Layer | Definition | State now | Future |
-|---|---|---|---|
-| Raw performance observation | Epley/Epley+RIR set/session best, no decay/calibration | New module in Phase 0/1 | Permanent primary series |
-| Load-base e1RM | Existing selector + calibration + decay + override | Existing engine; extracted adapter | May consume a validated factor later |
-| Individual calibration | Measured-test observations and factor | Read model only in Phase 4 | Versioned factor table and promotion in Phase 5 |
+This is existing behaviour and must be preserved. The monitoring project does not create, activate or replace it.
+
+### 14.2 Separation of layers
+
+| Layer | Definition | Status |
+|---|---|---|
+| Raw performance observation | Epley/Epley+RIR set/session best; no decay, no calibration | New monitoring work |
+| Prescription load base | Existing selector + override + calibration + decay | Existing; extracted adapter only |
+| Calibration observation transparency | Read-only view of measured tests, prior estimates, factors and CIs | Planned Phase 4 |
+| Calibration improvements | Provenance, versioned history, validation, possible gate changes | Deferred Phase 5 and separate approval |
 
 ### 14.3 Now
 
-- raw observation method/version;
-- keep raw series untouched by calibration/decay;
-- expose method version in API/pseudocode outputs;
-- no factor engine.
+- implement the raw observation module and keep it uncalibrated and undecayed;
+- expose method/version on raw outputs;
+- preserve every existing calibration calculation, gate, config value and application path;
+- add parity/golden tests around the load-base extraction;
+- no new factor engine.
 
-### 14.4 Prepared
+### 14.4 Phase 4 transparency
 
-- calibration observation read model (Phase 4);
-- linking e1rm_override to high_intensity_exposure;
-- prior raw estimate before the test;
-- method version;
-- explicit unknown protocol/equipment fields;
-- tests for linkability and no leakage.
+- read existing e1rm_calibration.build/factors output;
+- link measured overrides to high-intensity exposures;
+- report prior estimate, date gap, factor, applied flag and CI;
+- report eligibility and sample coverage;
+- never recalculate or apply a factor independently;
+- never alter the existing configuration or prescription output.
 
-### 14.5 Deferred
+### 14.5 Deferred potential enhancements
 
-- measured-test metadata schema;
-- calibration-factor table;
-- fitting/promotion;
-- applying a factor to the load base;
-- prospective validation.
+- richer measured-test protocol and equipment provenance;
+- formula/method version columns;
+- append-only calibration-factor history;
+- prospective validation of any revised gate or factor;
+- revised eligibility or uncertainty methods, only if evidence justifies them;
+- any change to load-base application, with separate approval.
 
-### 14.6 Promotion principles
+### 14.6 Prohibitions
+
+- no second correction-factor calculation path;
+- no second factor-application path in prescription generation;
+- no calibration or decay on raw monitoring observations;
+- no change to existing calibration thresholds, gates or algorithm during this project without separate approval;
+- no silent change to prescription output;
+- no ordinary training sets treated as criterion measurements.
+
+### 14.7 Adoption principles for future changes
 
 - genuine measured tests only;
 - pre-registered sample/rep-range requirements;
 - chronological out-of-sample validation;
-- calibrated error lower than uncalibrated, stable across strata;
+- calibrated error lower than the current mechanism, stable across strata;
 - bounded, versioned, reversible;
 - no rewriting of raw history;
-- explicit decision record.
+- explicit evidence-based decision record.
 
-### 14.7 What would make calibration inappropriate
+### 14.8 What would make a change inappropriate
 
 - too few tests;
 - unknown protocol/equipment;
 - bias not stable across rep ranges;
 - improvement disappears out of sample;
-- factor larger than the existing bounded correction without justification.
-
----
+- factor larger than the existing bound without justification;
+- a change that silently alters historical prescriptions or raw observations.
 
 ## 15. Dependencies and recommended execution order
 
     0. Phase 0 audit
     1. Phase 1 core (depends on Phase 0)
-    2. Phase 2 summary (depends on Phase 1; productivity decision/migration)
+    2. Phase 2 summary (depends on Phase 1; approved productivity migration)
     3. Phase 3 trends/ratios (depends on Phase 2)
-    4. Phase 4 exploratory analysis/calibration prep (depends on Phase 3)
-    5. Phase 5 prospective/future calibration (depends on Phase 4 and data)
+    4. Phase 4 exploratory analysis/calibration transparency (depends on Phase 3)
+    5. Phase 5 prospective validation/future improvements (depends on Phase 4 and data)
 
 Phase 0 and Phase 1 must not be merged: the audit informs whether the raw observation rules leave enough data, and Phase 1 should not build UI on unmeasured assumptions.
 
@@ -1437,7 +1607,7 @@ Phase 2 and Phase 3 may be developed in parallel only after Phase 1 stabilizes t
 12. Cross-exercise e1RM conversion or variant pooling.
 13. Ratio targets, population norms or weakness diagnosis.
 14. A new monitoring-metric table or persisted derived metrics.
-15. A calibration factor engine or active calibration now.
+15. A second calibration-factor engine, a second factor-application path, or calibration applied to raw observations. The existing calibration mechanism is already active and must be preserved.
 16. A second specification or parallel calculation stack.
 17. Changes to critique, fatigue-fitness, volume, exposure or spinal models.
 18. New dependencies or chart libraries.
@@ -1450,34 +1620,35 @@ Phase 2 and Phase 3 may be developed in parallel only after Phase 1 stabilizes t
 
 | # | Question | Why it blocks | Recommendation |
 |---|---|---|---|
-| Q1 | Is the productivity migration approved, given the table rebuild? | It is the only Phase 2 migration and carries data risk | Approve rebuild with backup and migration tests, or defer Domain G |
-| Q2 | Should the Phase 0 report be committed or local-only? | Privacy | Default private/docs; commit only a redacted summary if approved |
-| Q3 | Are plan-JSON e1RM provenance fields added in Phase 1 or recomputed in Phase 2? | Affects summary traceability | Add optional fields in Phase 1; old snapshots recompute |
-| Q4 | How many genuine measured tests are available? | Determines whether calibration is possible | Phase 0 establishes; do not assume |
-| Q5 | What sample size and strata are required for future calibration promotion? | Cannot be invented now | Phase 0/4 feasibility; separate decision |
+| Q1 | Should the Phase 0 report be committed or local-only? | Privacy | Default private/docs; commit only a redacted summary if approved |
+| Q2 | Are plan-JSON e1RM provenance fields added in Phase 1 or recomputed in Phase 2? | Affects summary traceability | Add optional fields in Phase 1; old snapshots recompute |
+| Q3 | How many genuine measured tests are available? | Determines whether calibration evidence exists | Phase 0 establishes; do not assume |
+| Q4 | Are the existing calibration gates statistically informative at the observed sample sizes? | Determines whether any methodology change is justified | Phase 0 reports n, CI width, factor stability and leave-one-out influence; no gate change now |
+| Q5 | What sample sizes and strata would future calibration validation require? | Cannot be invented now | Phase 0/4 feasibility; separate decision |
 | Q6 | Should the progress applicability and e1rm_calibration date-label defects be fixed in this work? | They are existing behaviour | No; separate change, documented |
 | Q7 | Should manual duration be reclassified from measured to manual? | Affects rubric/attendance | No; summary labels it, preserves behaviour |
-| Q8 | Is a new Performance top-level view approved? | UI scope | Yes per specification; implement as specified |
-| Q9 | Should ratios appear on the end screen in Phase 2? | Density | No; Phase 3 adds at most two |
-| Q10 | Should best-recent/personal-best appear on the summary or only details? | UI density | Summary context line; details expandable |
+| Q8 | Should best-recent and personal-best appear on the summary or only in details? | UI density | Summary context line; details expandable |
 
----
+Resolved decisions D1–D3 are recorded in §0.3. They must not remain as open questions.
 
 ## 18. Final checklist for approving implementation
 
 - [ ] The specification remains unchanged and authoritative.
+- [ ] Gated execution is approved: one phase at a time, stop and report, explicit approval before the next.
 - [ ] Phase 0 is approved as the first deliverable.
 - [ ] The load-base selector extraction plan has a parity test and golden-prescription gate.
 - [ ] Raw performance observations are explicitly raw; no decay/calibration.
 - [ ] Ratio minimum 2 per side is implemented in one place and tested.
-- [ ] session_feedback migration is approved as a rebuild, or Domain G is deferred.
+- [ ] session_feedback rebuild migration is approved with backup, copy test, rollback and invariant gates.
 - [ ] No monitoring metric is persisted in a new table.
 - [ ] No composite score exists in API/UI.
 - [ ] No automatic prescription/injury/fatigue connection exists.
+- [ ] Phase 0 audits existing calibration factors and gates read-only.
+- [ ] No second calibration-factor calculation or application path exists.
 - [ ] UI plan is mobile-first and uses existing components.
 - [ ] Tests are mapped to every phase.
 - [ ] Privacy plan keeps personal data out of Git.
-- [ ] Future calibration is read-only/preparatory, not active.
+- [ ] Existing calibration remains active and unchanged; Phase 4 is read-only; Phase 5 is validation/future improvements only.
 - [ ] Unresolved questions have owners and decisions.
 
 ---
@@ -1511,4 +1682,5 @@ Phase 2 and Phase 3 may be developed in parallel only after Phase 1 stabilizes t
 | Date | Revision | Change |
 |---|---|---|
 | 2026-10-30 | 1 | Initial implementation plan for the approved specification at 2711a6e |
+| 2026-10-30 | 2 | Approved productivity migration and gated execution; corrected the description of the existing active calibration mechanism; Phase 0 calibration audit; Phase 4 read-only transparency; Phase 5 future improvements; decision register and checklist updated |
 
