@@ -14,7 +14,6 @@
 | Revision basis commit | 0fa4711 (baseline document); implementation closed from aeba4ff |
 | Scope | Metrics and methodology; implementation plan closed after Phase 0–4; Phase 5A active, Phase 5B gated. |
 | Intended next reader | Phase 5A reviewer and future evidence-driven implementation. |
-| Location note | This file lives in docs/design/ rather than directly in docs/ because the repository's documentation-map test requires every top-level docs/*.md to be listed in AGENTS.md, and this task forbids editing AGENTS.md. Adoption should add it to that map. |
 
 > **Non-negotiable framing.** The system described here is a set of **separate descriptive measurements**. It is not a universal workout score, not a fatigue model, not an injury predictor and not a prescription controller. Where the evidence is weak, this document says so and withholds the feature.
 
