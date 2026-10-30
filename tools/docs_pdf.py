@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Build one PDF from the public documentation set.
+"""Build one PDF from the public documentation set plus local private notes.
 
 Usage
 -----
@@ -10,9 +10,10 @@ Usage
     .venv/bin/python tools/docs_pdf.py --title "My docs" --include data/README.md
 
 By default the bundle contains README, USER-GUIDE, ROADMAP, AGENTS, CHANGELOG and every
-Markdown file under docs/, in that order. Links between included documents become internal
-PDF links; links to code, config or personal paths stay readable text rather than dangling
-targets. The PDF is a build artifact, not source (dist/ is git-ignored).
+Markdown file under docs/, followed by every Markdown file under private/docs/ when that
+directory exists. Links between included documents become internal PDF links; links to code,
+config or personal paths stay readable text rather than dangling targets. The PDF is a local
+build artifact, not source (dist/ is git-ignored).
 
 Install the optional docs dependencies once:
 
@@ -96,7 +97,7 @@ def title_for(path: Path) -> str:
 def collect_documents(
     root: Path = ROOT, include: list[str] | tuple[str, ...] = ()
 ) -> list[Document]:
-    """All public Markdown docs, in reading order, with no duplicates."""
+    """Public Markdown docs plus local private notes, with no duplicates."""
     paths: list[Path] = []
     for name in ROOT_DOCUMENTS:
         path = root / name
@@ -105,6 +106,9 @@ def collect_documents(
     docs_dir = root / "docs"
     if docs_dir.is_dir():
         paths.extend(sorted(docs_dir.rglob("*.md")))
+    private_dir = root / "private" / "docs"
+    if private_dir.is_dir():
+        paths.extend(sorted(private_dir.rglob("*.md")))
     for item in include:
         path = Path(item)
         if not path.is_absolute():
@@ -224,7 +228,7 @@ def build_html(documents: list[Document], title: str = DEFAULT_TITLE) -> str:
     <section class="cover">
       <div class="cover-kicker">Documentation bundle</div>
       <h1>{html.escape(title)}</h1>
-      <p class="cover-copy">All public Markdown documentation rendered as one searchable PDF.</p>
+      <p class="cover-copy">Public documentation and local private notes rendered as one searchable PDF.</p>
       <p class="cover-meta">{len(documents)} documents · generated {date.today().isoformat()}</p>
     </section>
     """
@@ -389,7 +393,7 @@ def render_pdf(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Build one PDF from the public documentation set.",
+        description="Build one PDF from public docs plus local private notes when present.",
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
