@@ -24,3 +24,12 @@ relationships:
     max_age_days: 42
     min_observations: 2
     notes: Descriptive relative performance only; not a weakness diagnosis.
+  - id: competition_squat_to_ssb_squat
+    label: Competition Squat / SSB Squat
+    numerator: competition_squat
+    denominator: ssb_squat
+    relationship_type: variant_to_main
+    max_gap_days: 14
+    max_age_days: 42
+    min_observations: 2
+    notes: Descriptive relative performance only; not a weakness diagnosis.
