@@ -4,6 +4,7 @@ var performanceExercisesLoaded = false;
 var monitoringAnalysisData = null;
 var performanceRelationshipOptions = null;
 var monitoringAnalysisShowAll = false;
+var monitoringAnalysisShowAllDose = false;
 
 function performanceDate(daysAgo) {
   var date = new Date();
@@ -302,7 +303,9 @@ function renderMonitoringAnalysis(data) {
   if (!target) return;
   var meta = data.meta || {};
   var coverage = data.missingness || {};
-  var rows = (data.dose || []).map(function (row) {
+  var allDoseRows = data.dose || [];
+  var doseRows = monitoringAnalysisShowAllDose ? allDoseRows : allDoseRows.slice(-8);
+  var rows = doseRows.map(function (row) {
     return "<tr><td>" + esc(row.date) + "</td><td>" + esc(row.session_type) +
       "</td><td>" + row.working_sets + "</td><td>" + row.hard_sets +
       "</td><td>" + (row.tonnage_kg == null ? "Unavailable" :
@@ -358,7 +361,9 @@ function renderMonitoringAnalysis(data) {
     " · sets " + (coverage.sets == null ? "Unavailable" : coverage.sets) +
     " · exercises " + (coverage.exercises == null ? "Unavailable" : coverage.exercises) + "</p>" +
     "<h3>Training dose over time</h3>" + analysisLineChart(data.dose || []) +
-    (rows ? "<div class='table-scroll'><table><thead><tr><th>Date</th><th>Type</th><th>Working sets</th><th>Hard sets</th><th>Tonnage</th><th>Session load</th></tr></thead><tbody>" + rows + "</tbody></table></div>" : "<p class='empty'>No session dose observations.</p>") +
+    (rows ? "<h4>Dose by session</h4><div class='table-scroll'><table><thead><tr><th>Date</th><th>Type</th><th>Working sets</th><th>Hard sets</th><th>Tonnage</th><th>Session load</th></tr></thead><tbody>" + rows + "</tbody></table></div>" : "<p class='empty'>No session dose observations.</p>") +
+    (allDoseRows.length > 8 ? "<button type='button' class='ghost' id='monitoring-analysis-toggle-dose'>" +
+      (monitoringAnalysisShowAllDose ? "Show latest dose only" : "Show full dose list (" + allDoseRows.length + ")") + "</button>" : "") +
     "<h3>Hard sets vs subsequent e1RM</h3><p class='muted'>Session dose precedes the next session best for the same lift. Correlation is descriptive and not causal.</p>" +
     (selectedAssociation ? "<h4>" + esc(selectedAssociation.exercise_id) + "</h4>" +
       analysisScatter(selectedAssociation.hard_sets_points, selectedAssociation.hard_sets_vs_next_e1rm, selectedAssociation.exercise_id + " hard sets vs next e1RM") +
@@ -373,6 +378,31 @@ function renderMonitoringAnalysis(data) {
     "; historical calibration state is not reconstructed. Method version: " + esc(calibration.method_version || "Unavailable") + ".</p>" +
     (calibrationRows ? "<div class='table-scroll'><table><thead><tr><th>Test</th><th>Context as of</th><th>Exercise</th><th>Measured</th><th>Prior raw</th><th>Method</th><th>Version</th><th>Factor</th><th>Applied</th><th>CI</th></tr></thead><tbody>" + calibrationRows + "</tbody></table></div>" : "<p class='empty'>No measured tests in this analysis.</p>") +
     "<p class='muted'>" + esc((calibration.note || "")) + "</p>";
+  wireMonitoringAnalysisControls();
+}
+
+function wireMonitoringAnalysisControls() {
+  var toggleList = document.getElementById("monitoring-analysis-toggle-list");
+  if (toggleList) {
+    toggleList.addEventListener("click", function () {
+      monitoringAnalysisShowAll = !monitoringAnalysisShowAll;
+      if (monitoringAnalysisData) renderMonitoringAnalysis(monitoringAnalysisData);
+    });
+  }
+  var toggleDose = document.getElementById("monitoring-analysis-toggle-dose");
+  if (toggleDose) {
+    toggleDose.addEventListener("click", function () {
+      monitoringAnalysisShowAllDose = !monitoringAnalysisShowAllDose;
+      if (monitoringAnalysisData) renderMonitoringAnalysis(monitoringAnalysisData);
+    });
+  }
+  var associationSelect = document.getElementById("monitoring-analysis-association");
+  if (associationSelect && !associationSelect.dataset.wired) {
+    associationSelect.dataset.wired = "1";
+    associationSelect.addEventListener("change", function () {
+      if (monitoringAnalysisData) renderMonitoringAnalysis(monitoringAnalysisData);
+    });
+  }
 }
 
 async function loadMonitoringAnalysis() {
@@ -384,22 +414,9 @@ async function loadMonitoringAnalysis() {
     var data = await api("/api/monitoring-analysis?as_of=" +
       encodeURIComponent((date && date.value) || today()));
     monitoringAnalysisData = data;
+    monitoringAnalysisShowAll = false;
+    monitoringAnalysisShowAllDose = false;
     renderMonitoringAnalysis(data);
-    var toggleList = document.getElementById("monitoring-analysis-toggle-list");
-    if (toggleList && !toggleList.dataset.wired) {
-      toggleList.dataset.wired = "1";
-      toggleList.addEventListener("click", function () {
-        monitoringAnalysisShowAll = !monitoringAnalysisShowAll;
-        if (monitoringAnalysisData) renderMonitoringAnalysis(monitoringAnalysisData);
-      });
-    }
-    var associationSelect = document.getElementById("monitoring-analysis-association");
-    if (associationSelect && !associationSelect.dataset.wired) {
-      associationSelect.dataset.wired = "1";
-      associationSelect.addEventListener("change", function () {
-        if (monitoringAnalysisData) renderMonitoringAnalysis(monitoringAnalysisData);
-      });
-    }
   } catch (error) {
     target.innerHTML = "<p class='warnbox'>Analysis unavailable: " + esc(error.message) + "</p>";
   }

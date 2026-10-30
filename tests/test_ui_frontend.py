@@ -92,6 +92,7 @@ def test_phase5a_review_actions_are_exposed() -> None:
 def test_performance_full_list_and_pair_editor_are_exposed() -> None:
     source = (STATIC / "performance.js").read_text(encoding="utf-8")
     assert "Show full association list" in source
+    assert "Show full dose list" in source
     assert "Add a configured pair" in source
     assert "/api/performance/relationship-options" in source
     assert "/api/performance/relationships" in source
@@ -451,7 +452,7 @@ def test_monitoring_analysis_charts_and_missingness_render() -> None:
         pytest.skip("node is not installed")
     source = (STATIC / "performance.js").read_text(encoding="utf-8")
     script = r"""
-global.__target = {innerHTML: ""};
+global.__target = {innerHTML: "", dataset: {}, addEventListener: function () {}};
 global.document = {getElementById: function () { return global.__target; }};
 global.esc = function (value) { return String(value == null ? "" : value); };
 global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
