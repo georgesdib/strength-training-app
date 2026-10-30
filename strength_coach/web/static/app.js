@@ -48,6 +48,7 @@ function setView(name, options = {}) {
   if (name === "settings") loadSettings();
   if (name === "history") loadHistory();
   if (name === "outcomes") loadOutcomes();
+  if (name === "performance") loadPerformance();
   if (name === "longevity") loadLongevity();
   if (!options.fromHash && location.hash !== "#" + name) {
     history.replaceState(null, "", "#" + name);

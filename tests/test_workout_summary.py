@@ -88,7 +88,7 @@ def test_summary_has_completion_strength_dose_special_and_feedback(conn):
     assert summary["strength"]
     assert summary["strength"][0]["post"]["status"] == "estimated"
     assert "score" not in summary
-    assert summary["comparison"] is None
+    assert summary["comparison"]["status"] == "unavailable"
 
 
 def test_summary_exposes_power_velocity_and_not_recorded_quality_stop(conn):

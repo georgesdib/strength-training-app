@@ -29,6 +29,7 @@
       <button data-view="dashboard" class="active">Today</button>
       <button data-view="history">History</button>
       <button data-view="outcomes">Outcomes</button>
+      <button data-view="performance">Performance</button>
       <button data-view="longevity">Longevity</button>
       <button data-view="prescribe">Prescribe</button>
       <button data-view="workout">Workflow</button>
@@ -192,6 +193,35 @@
         <p class="section-help"><span>Associates readiness reductions with the next session; no tuning.</span> <a class="doc-link" href="#docs?doc=docs/READINESS.md">Readiness</a></p>
           <div id="readiness-feedback-result"><p class="empty">No readiness reductions in this window.</p></div>
         </div>
+      </div>
+    </section>
+
+    <section id="view-performance" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Performance</h2><span class="muted">raw formula observations; descriptive only</span></div>
+        <p class="section-help"><span>Raw e1RM session bests, rolling median, configured ratios and descriptive dose. No decay or calibration; no target ratio.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Performance view</a></p>
+        <form id="performance-form" class="form-row">
+          <label>Exercise<select id="performance-exercise"></select></label>
+          <label>From <input type="date" id="performance-from"></label>
+          <label>To <input type="date" id="performance-to"></label>
+          <label>Session type
+            <select id="performance-session-type">
+              <option value="">All</option>
+              <option value="squat">Squat</option>
+              <option value="hinge">Hinge</option>
+              <option value="bench_squat">Bench + squat</option>
+              <option value="bench_hinge">Bench + hinge</option>
+            </select>
+          </label>
+          <label><input type="checkbox" id="performance-include-deloads"> Include deloads</label>
+          <label>Minimum quality
+            <select id="performance-quality"><option value="ok">ok only</option><option value="degraded">include degraded</option></select>
+          </label>
+          <button class="primary" type="submit">Load</button>
+        </form>
+        <div id="performance-e1rm"></div>
+        <div id="performance-dose"></div>
+        <div id="performance-ratios"></div>
       </div>
     </section>
 
@@ -1171,5 +1201,6 @@
   <script src="/static/history.js"></script>
   <script src="/static/workout.js"></script>
   <script src="/static/summary.js"></script>
+  <script src="/static/performance.js"></script>
 </body>
 </html>

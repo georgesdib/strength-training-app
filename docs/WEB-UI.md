@@ -53,6 +53,7 @@ links for every view. Run `python tools/check_ui_docs.py` to validate the contra
 The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the backdrop or Escape closes it. The main content stays full width.
 
 - **Outcomes** — read-only 4/8/12-week strength review, attendance, volume and **Prospective check**; no prescription effect.
+- **Performance** — raw e1RM session bests, rolling median, series breaks, descriptive dose and explicitly configured relative-strength ratios; no targets, diagnosis, decay or calibration.
 - **Longevity** — consolidated cardio, measurement, readiness and symptom context with deterministic **Going well / Needs attention** labels; no targets beyond the WHO cardio reference and no prescription effect.
 - **Today** — goal, block week, readiness, injury signal, unreviewed count, **rubric calibration** (high-confidence sessions, agreement, per-item marks/comparable counts, gaps), recent sessions, and a **Descriptive progress** panel (sRPE coverage, attendance, family exposures, performance ratio, weekly volume status, latest back symptom; monitoring only). The **periodic reviews** list is fed by `config/reviews.v1.yaml` and includes the 8-week **Fatigue-signal review** (rate missing demand dimensions, read the exposure ratio, open the shadow review, record a decision); acknowledging a review writes an append-only human record and changes no threshold or flag.
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
@@ -144,6 +145,9 @@ also disables while saving and reports the number of marks written.
 | route | purpose |
 |---|---|
 | `GET /api/overview` | dashboard data |
+| `GET /api/performance/e1rm?exercise_id=&from=&to=` | raw e1RM observations, rolling median, breaks and descriptive summary |
+| `GET /api/performance/dose?from=&to=&group_by=session` | descriptive session dose |
+| `GET /api/performance/ratios?relationship_id=&from=&to=` | configured ratio current value and paired history |
 | `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
 | `POST /api/prescribe` | `{date, session_type?, apply_selection?, selection_confirmed?, selection_llm?, minimum_session?, target_minutes?, minimum_include_main?, allow_unknown_readiness?}` -> prescription; `session_type=auto` uses the rolling rule; unknown readiness requires the explicit flag |
 | `POST /api/workout/start` | `{date, plan, readiness, readiness_ack?, note?}` -> live workout; a score-ready assessment or explicit acknowledgement is required; partial readiness stays partial |

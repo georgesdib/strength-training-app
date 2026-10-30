@@ -52,6 +52,14 @@ def test_summary_script_and_panel_are_wired() -> None:
     assert (STATIC / "summary.js").is_file()
 
 
+def test_performance_script_and_view_are_wired() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    assert 'id="view-performance"' in page
+    assert 'data-view="performance"' in page
+    assert "/static/performance.js" in page
+    assert (STATIC / "performance.js").is_file()
+
+
 def test_script_load_order() -> None:
     page = INDEX.read_text(encoding="utf-8")
     order = [src.removeprefix("/static/")

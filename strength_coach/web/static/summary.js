@@ -48,6 +48,34 @@ function summaryCounts(counts) {
   }).join(" · ");
 }
 
+
+function summaryComparisonHtml(comparison) {
+  if (!comparison) return "";
+  if (comparison.status !== "available") {
+    return "<h3>Historical comparison</h3><p class='muted'>Unavailable: " +
+      esc(comparison.reason || comparison.status || "unknown") + "</p>";
+  }
+  return "<h3>Historical comparison</h3><p>Median of " + comparison.n +
+    " prior comparable sessions; working sets " + fmt(comparison.metrics.working_sets) +
+    ", hard sets " + fmt(comparison.metrics.hard_sets) +
+    ", tonnage " + fmt(comparison.metrics.tonnage_kg) + " kg.</p>";
+}
+
+function summaryRatiosHtml(ratios) {
+  if (!Array.isArray(ratios) || !ratios.length) return "";
+  var rows = ratios.map(function (row) {
+    return "<tr><td>" + esc(row.label || row.relationship_id) + "</td><td>" +
+      (row.ratio_pct == null ? "Unavailable" : fmt(row.ratio_pct) + "%") + "</td><td>" +
+      esc(row.numerator_date || "Unavailable") + "</td><td>" +
+      esc(row.denominator_date || "Unavailable") + "</td><td>" +
+      (row.gap_days == null ? "Unavailable" : row.gap_days) + "</td><td>" +
+      esc(row.status) + "</td></tr>";
+  }).join("");
+  return "<h3>Relative strength</h3><div class='table-scroll'><table><thead><tr>" +
+    "<th>Pair</th><th>Ratio</th><th>Numerator date</th><th>Denominator date</th>" +
+    "<th>Gap days</th><th>Status</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+}
+
 function renderWorkoutSummary(summary) {
   var target = document.getElementById("workout-ended-summary");
   if (!target) return;
@@ -97,6 +125,8 @@ function renderWorkoutSummary(summary) {
     summaryValue(spinal.weekly_cost) + " / cap " + summaryValue(spinal.weekly_cap) + "</p>" +
     "<p>Heavy spinal sets: " + esc(summaryHeavy(spinal.heavy_sets)) + "</p>" +
     "<p>Axial demand: " + esc(summaryAxial(spinal.axial_demand)) + "</p>" +
+    summaryComparisonHtml(summary.comparison) +
+    summaryRatiosHtml(summary.ratios) +
     "<h3>Feedback</h3>" +
     "<p>sRPE: " + summaryValue(feedback.srpe) + " · Duration: " + summaryValue(feedback.duration_min, " min") +
     " · Session load: " + summaryValue(feedback.session_load_au, " AU") + "</p>" +

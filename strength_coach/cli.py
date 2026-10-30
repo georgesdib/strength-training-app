@@ -23,6 +23,7 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
+import pandas as pd
 import yaml
 
 from strength_coach import __version__, modalities, settings_profile, workout
@@ -65,9 +66,11 @@ from strength_coach.features import programme as programme_feature
 from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import regime_change as regime_feature
+from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import residual as residual_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import shadow_report as shadow_report_feature
+from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import (
     build_prescription,
@@ -370,6 +373,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     summary_parser.add_argument("workout_id")
     summary_parser.add_argument("--json", action="store_true")
+
+    performance = sub.add_parser("performance", help="longitudinal strength and configured ratios")
+    performance_sub = performance.add_subparsers(dest="performance_action", required=True)
+    pe = performance_sub.add_parser("e1rm", help="raw e1RM observations and rolling median")
+    pe.add_argument("--exercise", required=True)
+    pe.add_argument("--from", dest="from_date", default="1900-01-01")
+    pe.add_argument("--to", dest="to_date", default=None)
+    pe.add_argument("--json", action="store_true")
+    pdose = performance_sub.add_parser("dose", help="descriptive dose by session")
+    pdose.add_argument("--from", dest="from_date", default=None)
+    pdose.add_argument("--to", dest="to_date", default=None)
+    pdose.add_argument("--json", action="store_true")
+    pr = performance_sub.add_parser("ratios", help="configured relative-strength ratios")
+    pr.add_argument("--relationship", default=None)
+    pr.add_argument("--from", dest="from_date", default="1900-01-01")
+    pr.add_argument("--to", dest="to_date", default=None)
+    pr.add_argument("--json", action="store_true")
     wi = workout_sub.add_parser("import", help="preview/apply the workout CSV to the active workout")
     wi.add_argument("--file", required=True)
     wi.add_argument("--rep-file", default=None,
@@ -514,6 +534,7 @@ def main(argv: list[str] | None = None) -> int:
         "validate": _cmd_validate,
         "workout": _cmd_workout,
         "summary": _cmd_summary,
+        "performance": _cmd_performance,
         "exercise": _cmd_exercise,
         "block": _cmd_block,
         "break": _cmd_break,
@@ -1720,6 +1741,86 @@ def _cmd_summary(args) -> int:
         print(f"  RIR {payload['dose']['rir']}")
         print(f"  feedback {payload['feedback']}")
         print(f"  special {payload['special']}")
+        return 0
+    finally:
+        store.close()
+
+
+def _cmd_performance(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        to_date = args.to_date or datetime.date.today().isoformat()
+        if args.performance_action == "e1rm":
+            points = strength_trend_feature.observations(
+                conn, args.exercise, args.from_date, to_date
+            )
+            trend = strength_trend_feature.rolling_median(points)
+            payload = {
+                "exercise_id": args.exercise,
+                "from": args.from_date,
+                "to": to_date,
+                "basis": "raw_formula_epley_rir",
+                "decay": "not_applied",
+                "calibration": "not_applied",
+                "points": [
+                    {
+                        "date": point.date,
+                        "kg": round(point.kg, 1),
+                        "rolling_median_kg": round(point.rolling_median_kg, 1),
+                        "n_window": point.n_window,
+                    }
+                    for point in trend
+                ],
+                "summary": strength_trend_feature.summarize(points),
+            }
+        elif args.performance_action == "dose":
+            from_date = args.from_date or to_date
+            frame = queries.clean_sets(conn, start=from_date, end=to_date)
+            sessions = queries.sessions(conn, start=from_date, end=to_date)
+            buckets = []
+            for _, row in sessions.iterrows():
+                session_id = str(row["session_id"])
+                group = frame[frame["session_id"].astype(str).eq(session_id)] if not frame.empty else frame
+                work = group[group["is_working_set"].fillna(False).astype(bool)] if not group.empty else group
+                tonnage = pd.to_numeric(work.get("tonnage_kg"), errors="coerce").dropna().sum() if not work.empty else 0.0
+                buckets.append({
+                    "session_id": session_id,
+                    "date": str(row["occurred_on"])[:10],
+                    "session_type": row.get("session_type"),
+                    "working_sets": int(len(work)),
+                    "hard_sets": exposure_ratio_feature.hard_set_mask(
+                        work, exposure_ratio_feature.ExposureConfig.load()
+                    ).sum(),
+                    "tonnage_kg": round(float(tonnage), 1),
+                })
+            payload = {"from": from_date, "to": to_date, "group_by": "session", "buckets": buckets}
+        else:
+            relationships = relative_strength_feature.load_relationships()
+            if args.relationship:
+                relationships = [item for item in relationships if item.id == args.relationship]
+            payload = {
+                "from": args.from_date,
+                "to": to_date,
+                "basis": "raw_formula_epley_rir",
+                "relationships": [
+                    {
+                        "current": (
+                            value.as_dict()
+                            if hasattr((value := relative_strength_feature.current_ratio(conn, relationship, to_date)), "as_dict")
+                            else value
+                        ),
+                        "trend": relative_strength_feature.ratio_trend(
+                            conn, relationship, args.from_date, to_date
+                        ),
+                    }
+                    for relationship in relationships
+                ],
+            }
+        if args.json:
+            print(json.dumps(payload, indent=2, default=str))
+        else:
+            print(json.dumps(payload, indent=2, default=str))
         return 0
     finally:
         store.close()

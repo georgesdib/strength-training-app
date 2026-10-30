@@ -27,6 +27,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
+import pandas as pd
+
 from strength_coach import __version__, history, modalities, settings_profile, settings_registry, workout
 from strength_coach.agents import selection as agent_selection
 from strength_coach.agents.client import LLMError
@@ -50,6 +52,7 @@ from strength_coach.features import (
     continuity_calibration,
     heavy_spinal,
     injury_signal,
+    monitoring,
     readiness_baseline,
     readiness_calibration,
     readiness_feedback,
@@ -71,10 +74,12 @@ from strength_coach.features import progress as progress_feature
 from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import regime_change as regime_feature
+from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import residual as residual_feature
 from strength_coach.features import reviews as reviews_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import shadow_report as shadow_report_feature
+from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import (
     build_prescription,
@@ -688,6 +693,21 @@ class Handler(BaseHTTPRequestHandler):
                 workout_id = path.rsplit("/", 1)[-1]
                 self._json(200, self._with_conn(
                     lambda c: {"workout": self._workout_or_404(c, workout_id)}
+                ))
+            elif path == "/api/performance/e1rm":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(
+                    lambda c: self._performance_e1rm(c, query)
+                ))
+            elif path == "/api/performance/dose":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(
+                    lambda c: self._performance_dose(c, query)
+                ))
+            elif path == "/api/performance/ratios":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(
+                    lambda c: self._performance_ratios(c, query)
                 ))
             elif path == "/api/sessions":
                 self._json(200, self._with_conn(lambda c: _session_rows(c, 40)))
@@ -1577,6 +1597,83 @@ class Handler(BaseHTTPRequestHandler):
         if result is None:
             raise ValueError("workout not found")
         return result
+
+    def _performance_e1rm(self, conn, query: dict) -> dict:
+        exercise_id = query.get("exercise_id", [None])[0]
+        if not exercise_id:
+            raise ValueError("exercise_id is required")
+        to_date = query.get("to", [datetime.date.today().isoformat()])[0]
+        from_date = query.get("from", ["1900-01-01"])[0]
+        points = strength_trend_feature.observations(conn, exercise_id, from_date, to_date)
+        trend = strength_trend_feature.rolling_median(points)
+        return {
+            "exercise_id": exercise_id,
+            "from": from_date,
+            "to": to_date,
+            "basis": "raw_formula_epley_rir",
+            "decay": "not_applied",
+            "calibration": "not_applied",
+            "points": [
+                {
+                    "date": point.date,
+                    "kg": round(point.kg, 1),
+                    "rolling_median_kg": round(point.rolling_median_kg, 1),
+                    "n_window": point.n_window,
+                }
+                for point in trend
+            ],
+            "breaks": [
+                {"date": item.date, "reason": item.reason}
+                for item in strength_trend_feature.series_breaks(points)
+            ],
+            "summary": strength_trend_feature.summarize(points),
+        }
+
+    def _performance_dose(self, conn, query: dict) -> dict:
+        to_date = query.get("to", [datetime.date.today().isoformat()])[0]
+        from_date = query.get("from", [to_date])[0]
+        group_by = query.get("group_by", ["session"])[0]
+        if group_by != "session":
+            raise ValueError("group_by must be session")
+        sets = queries.clean_sets(conn, start=from_date, end=to_date)
+        sessions = queries.sessions(conn, start=from_date, end=to_date)
+        buckets = []
+        for _, row in sessions.iterrows():
+            session_id = str(row["session_id"])
+            group = sets[sets["session_id"].astype(str).eq(session_id)] if not sets.empty else sets
+            work = group[group["is_working_set"].fillna(False).astype(bool)] if not group.empty else group
+            tonnage = pd.to_numeric(work.get("tonnage_kg"), errors="coerce").dropna().sum() if not work.empty else 0.0
+            buckets.append({
+                "session_id": session_id,
+                "date": str(row["occurred_on"])[:10],
+                "session_type": row.get("session_type"),
+                "working_sets": int(len(work)),
+                "hard_sets": monitoring.hard_sets(work, exposure_ratio_feature.ExposureConfig.load()),
+                "tonnage_kg": round(float(tonnage), 1),
+            })
+        return {"from": from_date, "to": to_date, "group_by": "session", "buckets": buckets}
+
+    def _performance_ratios(self, conn, query: dict) -> dict:
+        to_date = query.get("to", [datetime.date.today().isoformat()])[0]
+        from_date = query.get("from", [to_date])[0]
+        relationship_id = query.get("relationship_id", [None])[0]
+        relationships = relative_strength_feature.load_relationships()
+        selected = [item for item in relationships if relationship_id in (None, item.id)]
+        values = []
+        for relationship in selected:
+            current = relative_strength_feature.current_ratio(conn, relationship, to_date)
+            values.append({
+                "current": current.as_dict() if hasattr(current, "as_dict") else current,
+                "trend": relative_strength_feature.ratio_trend(
+                    conn, relationship, from_date, to_date
+                ),
+            })
+        return {
+            "from": from_date,
+            "to": to_date,
+            "basis": "raw_formula_epley_rir",
+            "relationships": values,
+        }
 
     def _summary_or_error(self, conn, workout_id: str) -> dict:
         result = workout.get(conn, workout_id)

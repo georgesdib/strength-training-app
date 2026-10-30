@@ -22,11 +22,13 @@ from strength_coach import __version__
 from strength_coach.critique import build_facts, score_session
 from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.domain import load as load_mod
+from strength_coach.features import comparisons as comparisons_feature
 from strength_coach.features import demands as demands_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
 from strength_coach.features import e1rm_source as e1rm_source_feature
 from strength_coach.features import heavy_spinal, monitoring, strength_observations
+from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import minimum_session as minimum_session_mod
@@ -547,6 +549,23 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
     special = _summary_special(
         conn, data, session_id, frame, entities, config, linked_exposures
     )
+    comparison = comparisons_feature.comparable_sessions(
+        conn,
+        session_id,
+        window_days=config.comparability_window_weeks * 7,
+        min_overlap=config.comparability_min_overlap,
+        min_prior_sessions=config.comparability_min_prior_sessions,
+    )
+    ratios = []
+    selected_ids = set(actual_ids)
+    for relationship in relative_strength_feature.load_relationships():
+        if (
+            relationship.numerator in selected_ids
+            or relationship.denominator in selected_ids
+        ):
+            ratios.append(relative_strength_feature.current_ratio(conn, relationship, for_date))
+        if len(ratios) >= 2:
+            break
     working = frame[frame["is_working_set"].fillna(False).astype(bool)] if not frame.empty else frame
     rir_coverage = (
         float(working["rir"].notna().mean()) if not working.empty else None
@@ -571,7 +590,11 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
         },
         "special": special,
         "feedback": feedback,
-        "comparison": None,
+        "ratios": [
+            value.as_dict() if hasattr(value, "as_dict") else value
+            for value in ratios
+        ],
+        "comparison": comparison,
         "quality": {
             "flags": [],
             "coverage": {

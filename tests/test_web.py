@@ -65,7 +65,7 @@ def get(base: str, path: str) -> tuple[int, str]:
 
 def client_js(base: str) -> str:
     """The whole client bundle, so a feature move does not break a string contract."""
-    names = ("core.js", "app.js", "exercises.js", "history.js", "workout.js", "summary.js")
+    names = ("core.js", "app.js", "exercises.js", "history.js", "workout.js", "summary.js", "performance.js")
     parts = []
     for name in names:
         status, body = get(base, "/static/" + name)
@@ -115,6 +115,9 @@ def test_the_page_and_overview_are_served(server):
     assert "view-longevity" in page and "longevity-form" in page
     assert "workout.js" in page
     assert "summary.js" in page
+    assert "performance.js" in page
+    assert 'data-view="performance"' in page
+    assert 'id="view-performance"' in page
     assert "workout-end-productivity" in page
     assert page.count('class="section-help"') >= 60
     assert page.count("#docs?doc=") >= 50
@@ -1773,3 +1776,26 @@ def test_workout_summary_api_status_and_productivity(server):
         assert exc.code == 404
     else:
         raise AssertionError("unknown summary should be 404")
+
+
+def test_performance_api_e1rm_dose_and_ratios(server):
+    e1rm = json.loads(get(
+        server,
+        "/api/performance/e1rm?exercise_id=ssb_squat&from=2024-01-01&to=2024-01-02",
+    )[1])
+    assert e1rm["basis"] == "raw_formula_epley_rir"
+    assert len(e1rm["points"]) == 1
+    assert e1rm["summary"]["n"] == 1
+
+    dose = json.loads(get(
+        server, "/api/performance/dose?from=2024-01-01&to=2024-01-02"
+    )[1])
+    assert dose["group_by"] == "session"
+    assert dose["buckets"]
+
+    ratios = json.loads(get(
+        server, "/api/performance/ratios?from=2024-01-01&to=2024-01-02"
+    )[1])
+    assert ratios["basis"] == "raw_formula_epley_rir"
+    assert ratios["relationships"]
+    assert "current" in ratios["relationships"][0]
