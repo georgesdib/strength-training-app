@@ -394,6 +394,54 @@ def _summary_feedback(conn, workout: Mapping[str, Any], session_id: str) -> dict
     }
 
 
+def _summary_power_velocity(
+    sets: pd.DataFrame,
+    exercises: list[str],
+) -> list[dict[str, Any]]:
+    """Expose the existing same-load mean-velocity helper for power exercise/load pairs."""
+    rows: list[dict[str, Any]] = []
+    for exercise_id in exercises:
+        work = sets[sets["exercise_id"].astype(str).eq(exercise_id)] if not sets.empty else sets
+        loads = sorted({
+            float(value)
+            for value in pd.to_numeric(work.get("load_kg"), errors="coerce").dropna()
+            if float(value) > 0
+        }) if not work.empty else []
+        for load_kg in loads:
+            result = monitoring.mean_velocity_change(sets, exercise_id, load_kg)
+            if isinstance(result, monitoring.VelocityChange):
+                rows.append(result.as_dict())
+            else:
+                rows.append({
+                    "exercise_id": exercise_id,
+                    "load_kg": load_kg,
+                    "status": result.status,
+                    "reason": result.reason,
+                })
+    return rows
+
+
+def _summary_quality_stop(conn, workout_id: str) -> dict[str, Any]:
+    """A quality stop is recorded only if an explicit event exists; never inferred."""
+    rows = [
+        dict(row)
+        for row in conn.execute(
+            "SELECT event_type, payload_json FROM workout_event "
+            "WHERE workout_id = ? AND event_type = 'quality_stop' ORDER BY event_id",
+            (str(workout_id),),
+        )
+    ]
+    if not rows:
+        return {"status": "not_recorded"}
+    return {
+        "status": "recorded",
+        "events": [
+            {"event_type": row["event_type"], "payload": json.loads(row["payload_json"] or "{}")}
+            for row in rows
+        ],
+    }
+
+
 def _summary_special(
     conn,
     workout: Mapping[str, Any],
@@ -411,8 +459,11 @@ def _summary_special(
     weekly = costs.get(week, {"cost": 0.0, "exercises": {}})
     heavy = heavy_spinal.compute(context.sets, on_date=for_date)
     demand_catalogue = demands_feature.load()
+    power = monitoring.power_exposure(sets, entities, config)
+    power["mean_velocity_change"] = _summary_power_velocity(sets, power.get("exercises", []))
     return {
-        "power": monitoring.power_exposure(sets, entities, config),
+        "power": power,
+        "quality_stop": _summary_quality_stop(conn, session_id),
         "high_intensity": [
             {
                 "exposure_id": row.get("exposure_id"),

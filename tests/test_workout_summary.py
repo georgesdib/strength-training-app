@@ -91,6 +91,35 @@ def test_summary_has_completion_strength_dose_special_and_feedback(conn):
     assert summary["comparison"] is None
 
 
+def test_summary_exposes_power_velocity_and_not_recorded_quality_stop(conn):
+    plan = {
+        "for_date": "2024-01-01",
+        "session_type": "hinge",
+        "items": [{
+            "exercise_id": "jump_squats", "sets": 2, "reps_low": 5,
+            "reps_high": 5, "load_kg": 20, "rir_target": None,
+            "quality_stop": "stop when height drops",
+        }],
+    }
+    started = workout.start(conn, for_date="2024-01-01", plan=plan, readiness=READINESS)
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="jump_squats",
+        load_kg=20, reps=5, rir=4, velocity=0.50,
+    )
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="jump_squats",
+        load_kg=20, reps=5, rir=4, velocity=0.45,
+    )
+    ended = workout.end(conn, started["workout_id"], session_rpe=6, duration_min=20)
+    summary = workout.summary(conn, ended["workout_id"])
+
+    power = summary["special"]["power"]
+    assert power["sets"] == 2
+    assert len(power["mean_velocity_change"]) == 1
+    assert power["mean_velocity_change"][0]["change_pct"] == pytest.approx(-10.0)
+    assert summary["special"]["quality_stop"]["status"] == "not_recorded"
+
+
 def test_summary_rejects_in_progress(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
 

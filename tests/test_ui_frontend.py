@@ -342,3 +342,58 @@ def test_drop_confirmation_is_only_offered_inside_the_competition_window() -> No
     # The window rule lives in Python; the browser must not grow a second copy.
     assert "localDateOrdinal" not in core
     assert "dropConfirmationApplies" not in app
+
+
+def test_summary_rendering_contracts() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "summary.js").read_text(encoding="utf-8")
+    script = r"""
+global.__summaryTarget = {innerHTML: ""};
+global.document = {getElementById: function () { return global.__summaryTarget; }};
+global.esc = function (value) { return String(value == null ? "" : value); };
+global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
+global.api = function () { return Promise.resolve({}); };
+eval(SOURCE);
+function render(payload) {
+  renderWorkoutSummary(payload);
+  return global.__summaryTarget.innerHTML;
+}
+var base = {
+  completion: {items: [], planned_sets: 0, completed_sets: 0},
+  strength: [{exercise_id: "squat", post: {status: "estimated", kg: 100},
+              recent_reference: {}, difference: {status: "unavailable"}}],
+  dose: {per_exercise: [], relative_intensity: {}, rir: {},
+         patterns: {squat: 2, hinge: 1}},
+  special: {power: {sets: 2, reps: 8,
+                    mean_velocity_change: [{exercise_id: "jump_squats", load_kg: 20,
+                                            n: 2, change_pct: -10.0}]},
+            high_intensity: [],
+            quality_stop: {status: "not_recorded"},
+            spinal: {label: "ordinal exposure", weekly_cost: 1, weekly_cap: 6,
+                     heavy_sets: {total_sets: 1, rir_max: 1},
+                     axial_demand: {high: 1, moderate: 2, low: 3, unknown: 4}}},
+  feedback: {}, basis: {}
+};
+var html = render(base);
+if (html.indexOf("estimated") < 0 || html.indexOf("observed") >= 0) throw new Error("status");
+if (html.indexOf("squat: 2") < 0 || html.indexOf("hinge: 1") < 0) throw new Error("patterns");
+if (html.indexOf("high: 1") < 0 || html.indexOf("moderate: 2") < 0 ||
+    html.indexOf("low: 3") < 0 || html.indexOf("unknown: 4") < 0) throw new Error("axial");
+if (html.indexOf("1 heavy spinal sets") < 0) throw new Error("heavy");
+if (html.indexOf("-10%") < 0) throw new Error("velocity");
+if (html.indexOf("Quality stop: Not recorded") < 0) throw new Error("quality");
+base.special.power.mean_velocity_change = [{exercise_id: "jump_squats", load_kg: 20,
+                                             status: "unavailable", reason: "fewer than two"}];
+base.special.quality_stop = {status: "recorded"};
+html = render(base);
+if (html.indexOf("Unavailable (fewer than two)") < 0) throw new Error("velocity unavailable");
+if (html.indexOf("Quality stop: Recorded") < 0) throw new Error("quality recorded");
+base.strength[0].post.status = "degraded";
+html = render(base);
+if (html.indexOf("degraded") < 0) throw new Error("degraded status");
+"""
+    script = script.replace("SOURCE", json.dumps(source))
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)

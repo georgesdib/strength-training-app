@@ -6,8 +6,39 @@ function summaryValue(value, suffix) {
 }
 
 function summaryStatus(row) {
-  if (!row) return "Unavailable";
-  return row.status === "estimated" ? "observed" : (row.status || "Unavailable");
+  if (!row || !row.status) return "Unavailable";
+  return row.status;
+}
+
+function summaryPatterns(patterns) {
+  return summaryCounts(patterns);
+}
+
+function summaryAxial(axial) {
+  if (!axial) return "Unavailable";
+  return ["high", "moderate", "low", "unknown"].map(function (key) {
+    return key + ": " + (axial[key] == null ? "Unavailable" : axial[key]);
+  }).join(" · ");
+}
+
+function summaryHeavy(heavy) {
+  if (!heavy || heavy.total_sets == null) return "Unavailable";
+  var rir = heavy.rir_max == null ? "≤1" : "≤" + heavy.rir_max;
+  return heavy.total_sets + " heavy spinal sets (RIR " + rir + ", context only)";
+}
+
+function summaryPowerVelocity(rows) {
+  if (!Array.isArray(rows) || !rows.length) return "Unavailable";
+  return rows.map(function (row) {
+    if (row.status) return "Unavailable (" + esc(row.reason || row.status) + ")";
+    return row.exercise_id + " @ " + fmt(row.load_kg) + " kg: " +
+      fmt(row.change_pct) + "% (" + row.n + " sets)";
+  }).join(" · ");
+}
+
+function summaryQualityStop(value) {
+  if (!value || value.status !== "recorded") return "Not recorded";
+  return "Recorded";
 }
 
 function summaryCounts(counts) {
@@ -56,11 +87,16 @@ function renderWorkoutSummary(summary) {
     (doseRows ? "<div class='table-scroll'><table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Tonnage</th><th>Hard</th><th>Near failure</th></tr></thead><tbody>" + doseRows + "</tbody></table></div>" : "<p class='muted'>No completed sets.</p>") +
     "<p>Relative intensity: " + esc(summaryCounts((summary.dose || {}).relative_intensity)) + "</p>" +
     "<p>RIR: " + esc(summaryCounts((summary.dose || {}).rir)) + "</p>" +
+    "<p>Patterns: " + esc(summaryPatterns((summary.dose || {}).patterns)) + "</p>" +
     "<h3>Special exposure</h3>" +
     "<p>Power: " + (special.power ? special.power.sets + " sets, " + special.power.reps + " reps" : "Unavailable") +
-    " · High-intensity records: " + ((special.high_intensity || []).length) + "</p>" +
+    " · Mean velocity change: " + esc(summaryPowerVelocity((special.power || {}).mean_velocity_change)) + "</p>" +
+    "<p>Quality stop: " + esc(summaryQualityStop(special.quality_stop)) + "</p>" +
+    "<p>High-intensity records: " + ((special.high_intensity || []).length) + "</p>" +
     "<p>Spinal: " + esc(spinal.label || "ordinal exposure") + " · weekly cost " +
     summaryValue(spinal.weekly_cost) + " / cap " + summaryValue(spinal.weekly_cap) + "</p>" +
+    "<p>Heavy spinal sets: " + esc(summaryHeavy(spinal.heavy_sets)) + "</p>" +
+    "<p>Axial demand: " + esc(summaryAxial(spinal.axial_demand)) + "</p>" +
     "<h3>Feedback</h3>" +
     "<p>sRPE: " + summaryValue(feedback.srpe) + " · Duration: " + summaryValue(feedback.duration_min, " min") +
     " · Session load: " + summaryValue(feedback.session_load_au, " AU") + "</p>" +
