@@ -4,16 +4,16 @@
 
 | Item | Value |
 |---|---|
-| Status | Proposal for review. **Not approved, not implemented.** |
+| Status | **Implemented for Phases 0–4; Phase 5A prospective validation active. Authoritative for metric definitions.** |
 | Repository | strength-training-app |
 | Branch audited | development |
-| Commit audited | bd9c796bebce3c6289c2b8d885f9336e6452c760 |
+| Commit audited | aeba4ff (implementation closure baseline) |
 | Commit date | 2026-10-30 |
 | Document date | 2026-10-30 |
-| Revision | 3 — final methodological revision |
-| Revision basis commit | 0fa4711 (baseline document commit); implementation audited at bd9c796 |
-| Scope | Research, audit and design only. No code, schema, config, API, UI, migration or dependency change. |
-| Intended next reader | A human reviewer first, then a coding agent implementing an approved phase. |
+| Revision | 4 — implementation status reconciled |
+| Revision basis commit | 0fa4711 (baseline document); implementation closed from aeba4ff |
+| Scope | Metrics and methodology; implementation plan closed after Phase 0–4; Phase 5A active, Phase 5B gated. |
+| Intended next reader | Phase 5A reviewer and future evidence-driven implementation. |
 | Location note | This file lives in docs/design/ rather than directly in docs/ because the repository's documentation-map test requires every top-level docs/*.md to be listed in AGENTS.md, and this task forbids editing AGENTS.md. Adoption should add it to that map. |
 
 > **Non-negotiable framing.** The system described here is a set of **separate descriptive measurements**. It is not a universal workout score, not a fatigue model, not an injury predictor and not a prescription controller. Where the evidence is weak, this document says so and withholds the feature.

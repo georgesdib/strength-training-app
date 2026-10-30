@@ -7,7 +7,7 @@ produces an `unknown` verdict rather than a silent guess.
 > Quantitative evidence for each question is kept out of this public repository. The
 > questions themselves are methodology questions and apply to any athlete using the system.
 
-**Live register (2026-10-27):** one open question (Q14) and one deferred decision (Q22).
+**Live register (2026-10-30):** one open question (Q14), one deferred decision (Q22) and the Phase 5A evidence gate (Q30).
 The 22 questions decided since the register was created were removed from the live text on
 2026-10-25; each outcome and decision record is indexed under
 [Closed](#closed--index-only). Reopening a closed question is a new decision, not an edit.
@@ -33,6 +33,18 @@ baseline win, and an opt-in N-of-1/alternating test. See
 [WEAKNESS-TARGETING-PLAN.md](WEAKNESS-TARGETING-PLAN.md).
 
 ---
+
+---
+
+## Q30. Which monitoring metrics are supported by the Phase 5A evidence?
+
+**Open; formal review due 2027-01-22.** Phase 5A is a 12-week prospective observation window
+(2026-10-30 to 2027-01-22) with no monitoring parameter, calibration, threshold or prescription
+changes. At the gate, classify each metric as supported, provisionally supported, insufficient
+evidence, not validated or not applicable, with rationale. Default until then: every metric is
+provisional and no monitoring change is approved. The gate may result in proceeding to Phase 5B,
+one ~4-week extension, or closing Phase 5A without Phase 5B. See
+[MONITORING-ANALYSIS.md](MONITORING-ANALYSIS.md) and [ROADMAP.md](../ROADMAP.md) section 2A.
 
 ---
 

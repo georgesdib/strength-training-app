@@ -165,6 +165,8 @@ C. close Phase 5A without Phase 5B, documenting which metrics remain unvalidated
 Completing the Today follow-up requires an explicit decision; it never starts Phase 5B or
 changes monitoring automatically.
 
+**Closed-item check:** parent/variant e1RM ratios remain closed as weakness, injury or automatic-selection measures (DEC-SELECT-09). The configured relative-strength ratios in Performance are descriptive only and do not reopen that decision. See DEC-MON-03.
+
 ### Phase 5B — Evidence-driven implementation (gated)
 
 | Item | Value |

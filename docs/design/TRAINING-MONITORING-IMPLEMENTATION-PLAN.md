@@ -4,14 +4,14 @@
 
 | Item | Value |
 |---|---|
-| Status | Planning only. **No implementation approved or started.** |
+| Status | **Closed 2026-10-30.** Phases 0–4 implemented and reviewed; Phase 5A prospective validation is the active roadmap follow-up; Phase 5B is gated and not approved. |
 | Repository | strength-training-app |
 | Branch | development |
 | Baseline commit | 2711a6e (approved specification) |
 | Specification | [Training monitoring design specification](TRAINING-MONITORING-SPEC.md) |
 | Document date | 2026-10-30 |
-| Plan revision | 3 — sequential gate clarification |
-| Scope | Phase 0 through Phase 5 planning; individual calibration architecture; no code, schema, config or test changes |
+| Plan revision | 4 — implementation closed; Phase 5A/5B split |
+| Scope | Phase 0–4 implemented; Phase 5A active validation; Phase 5B gated; closure, decisions and follow-ups recorded |
 | Intended reader | Human approver first, then one coding agent per phase |
 
 > The approved specification is authoritative for metric definitions. If this plan and the specification disagree, the specification wins and the discrepancy must be raised rather than silently resolved.
@@ -1700,4 +1700,55 @@ Resolved decisions D1–D3 are recorded in §0.3. They must not remain as open q
 | 2026-10-30 | 1 | Initial implementation plan for the approved specification at 2711a6e |
 | 2026-10-30 | 2 | Approved productivity migration and gated execution; corrected the description of the existing active calibration mechanism; Phase 0 calibration audit; Phase 4 read-only transparency; Phase 5 future improvements; decision register and checklist updated |
 | 2026-10-30 | 3 | Clarified that this plan revision does not authorise implementation and Phase 0 is not yet authorised; removed the Phase 2/Phase 3 parallel-development exception; reconciled execution order and checklist |
+| 2026-10-30 | 4 | Closed the implementation plan after Phase 0–4; recorded Phase 5A as active prospective validation and Phase 5B as gated; linked closure decisions, follow-ups and open questions |
 
+---
+
+## 21. Closure, decisions and follow-ups
+
+**Plan status: closed 2026-10-30.** Phases 0–4 were implemented and reviewed. Phase 5A is the
+active prospective-validation stage (2026-10-30 to 2027-01-22); Phase 5B is gated and has not
+started or been approved. See [ROADMAP.md](../../ROADMAP.md) section 2A.
+
+### 21.1 Closed items
+
+- Raw monitoring performance and prescription load base are separate calculations; no decay or
+  calibration is applied to the raw series.
+- The existing active calibration mechanism is preserved; transparency is read-only and
+  current-as-of, not a reconstructed historical snapshot.
+- Productivity 1–5 is stored append-only in session_feedback; it is not a workload or
+  prescription input.
+- Descriptive configured relative-strength ratios are implemented in Performance; they are not
+  weakness diagnoses, targets or load-conversion rules.
+- **Parent/variant e1RM ratio as a weakness or injury measure remains closed**
+  (DEC-SELECT-09). The configured ratios in Performance are descriptive only. Any
+  weakness/selection use remains deferred to the separate Q22 gate.
+- No universal composite score, automatic prescription change, injury prediction, or monitoring
+  feedback into prescription/calibration behaviour was introduced.
+
+### 21.2 Follow-ups
+
+- Complete the Phase 5A review by 2027-01-22 and classify each metric as supported,
+  provisionally supported, insufficient evidence, not validated or not applicable.
+- Decide proceed/extend/close at the gate; Phase 5B requires explicit approval.
+- Capture measured-test protocol/equipment and formula version only through a separately
+  approved future schema enhancement (LIM-59).
+- Equipment changes remain undetectable in trend series (LIM-58).
+- Monitoring metrics remain provisional until Phase 5A (LIM-61).
+- Existing out-of-scope data/interpretation defects recorded during the audit remain separate:
+  manual duration labelling, progress e1RM applicability, and the calibration latest-date
+  label.
+
+### 21.3 Decisions and open questions
+
+The closure decisions are recorded in [DECISIONS.md](../DECISIONS.md) (DEC-MON-01 to
+DEC-MON-04). The remaining Phase 5A evidence classification is recorded as Q30 in
+[OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md). Phase 5B proposals are not decisions and must trace
+to Phase 5A findings.
+
+### 21.4 UI and documentation links
+
+- Performance and Monitoring analysis: [MONITORING-ANALYSIS.md](../MONITORING-ANALYSIS.md)
+- Web surface and API: [WEB-UI.md](../WEB-UI.md)
+- Dashboard/task map: [UI-MAP.md](../UI-MAP.md)
+- Limitations: [LIMITATIONS-REGISTER.md](../LIMITATIONS-REGISTER.md)
