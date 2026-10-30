@@ -381,16 +381,12 @@ def test_readiness_calibration_endpoint(server):
 
 def test_the_exposure_trim_flag_survives_an_unrelated_profile_save(server):
     state = post(server, "/api/state/profile", {
-        "primary_goal": "strength",
-        "goal_rank": [],
-        "focus_lifts": [],
+        "sessions_per_week_target": 3,
         "exposure_trim_enabled": True,
     })
     assert state["profile"]["exposure_trim_enabled"] == 1
     state = post(server, "/api/state/profile", {
-        "primary_goal": "strength",
-        "goal_rank": [],
-        "focus_lifts": [],
+        "sessions_per_week_target": 3,
     })
     assert state["profile"]["exposure_trim_enabled"] == 1
 
@@ -399,7 +395,7 @@ def test_canonical_options_are_served(server):
     status, body = get(server, "/api/options")
     assert status == 200
     options = json.loads(body)
-    assert {row["value"] for row in options["goals"]} >= {"strength", "longevity"}
+    assert "goals" not in options
     assert {row["value"] for row in options["constraint_kinds"]} == {
         "injury", "contraindication", "mobility", "asymmetry",
     }
@@ -409,15 +405,7 @@ def test_canonical_options_are_served(server):
 
 def test_athlete_state_rejects_noncanonical_values(server):
     cases = [
-        ("/api/state/profile", {
-            "primary_goal": "health", "goal_rank": [], "focus_lifts": [],
-        }),
-        ("/api/state/profile", {
-            "primary_goal": "strength", "goal_rank": ["health"], "focus_lifts": [],
-        }),
-        ("/api/state/profile", {
-            "primary_goal": "strength", "goal_rank": [], "focus_lifts": ["not_a_lift"],
-        }),
+        ("/api/state/profile", {"main_lift_policy": "ignore"}),
         ("/api/state/constraint", {
             "kind": "rom", "region": "low_back", "severity": "monitor",
         }),
@@ -444,7 +432,7 @@ def test_athlete_state_rejects_noncanonical_values(server):
 
 def test_validation_errors_name_the_field(server):
     cases = [
-        ("/api/state/profile", {"primary_goal": "health"}, "primary_goal"),
+        ("/api/state/profile", {"main_lift_policy": "ignore"}, "main_lift_policy"),
         ("/api/state/constraint", {"kind": "rom", "region": "low_back"}, "kind"),
         ("/api/state/suitability", {"exercise_id": "not_a_lift"}, "exercise_id"),
         ("/api/state/e1rm", {"exercise_id": "ssb_squat", "e1rm_kg": "bad"}, "e1rm_kg"),
@@ -475,9 +463,7 @@ def test_validation_errors_name_the_field(server):
 
 
 def test_block_start_names_the_date_field(server):
-    post(server, "/api/state/profile", {
-        "primary_goal": "strength", "goal_rank": [], "focus_lifts": [],
-    })
+    post(server, "/api/state/profile", {"sessions_per_week_target": 3})
     code, body = post_status(server, "/api/state/block", {"date": "not-a-date"})
     assert code == 400
     assert "date" in json.loads(body).get("fields", {})
@@ -485,15 +471,12 @@ def test_block_start_names_the_date_field(server):
 
 def test_state_can_be_edited(server):
     state = post(server, "/api/state/profile", {
-        "primary_goal": "strength",
-        "goal_rank": ["strength", "longevity"],
-        "focus_lifts": ["ssb_squat"],
         "sessions_per_week_target": 3,
         "max_session_minutes": 90,
         "block_start_date": "2024-01-01",
     })
-    assert state["profile"]["primary_goal"] == "strength"
-    assert state["profile"]["goal_rank"] == ["strength", "longevity"]
+    assert state["profile"]["sessions_per_week_target"] == 3
+    assert state["profile"]["block_start_date"] == "2024-01-01"
 
     post(server, "/api/state/constraint", {
         "kind": "injury", "region": "low_back", "severity": "monitor",
@@ -1095,7 +1078,7 @@ def test_programme_accepts_a_start_session_type(server):
 
 def test_prescribe_suggests_a_scheduled_deload_and_applies_only_when_confirmed(server):
     post(server, "/api/state/profile", {
-        "primary_goal": "strength", "effective_from": "2024-01-01",
+        "effective_from": "2024-01-01",
         "block_start_date": "2024-01-01",
     })
     suggested = post(server, "/api/prescribe", {

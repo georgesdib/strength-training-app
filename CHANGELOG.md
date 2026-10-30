@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Removed the unused athlete-profile fields `primary_goal`, `goal_rank` and `focus_lifts`
+  from the database (migration 0044), CLI state import/show, web API and profile form. No rule,
+  feature or prescription read them, so behaviour is unchanged. An old state file that still
+  sets them is rejected with a clear message instead of silently ignoring the keys
+  (`DEC-STATE-02`).
+
 ## [1.0.0-beta.2] — 2026-10-29
 
 ### Added

@@ -49,9 +49,6 @@ def store_with(rows, *, volume_budget=False, main_lift_policy="preserve"):
             repositories.append_athlete_profile(
                 store.connection,
                 effective_from="2024-01-01",
-                primary_goal="longevity",
-                goal_rank=["longevity", "strength"],
-                focus_lifts=[],
                 block_start_date="2024-01-01",
                 volume_budget_enabled=True,
                 main_lift_policy=main_lift_policy,

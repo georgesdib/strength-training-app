@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from strength_coach.domain import athlete_state
 from strength_coach.features.injury_signal import InjuryConfig
 from strength_coach.utils import exercises
 
@@ -81,10 +80,6 @@ def region(value: object, field: str = "region") -> str:
     return text
 
 
-def goal_rank(values: object) -> list[str]:
-    return list_choice(values, athlete_state.GOALS, "goal_rank")
-
-
 def exercise_ids(values: object, field: str = "exercise_ids") -> list[str]:
     if values in (None, ""):
         return []
@@ -95,7 +90,3 @@ def exercise_ids(values: object, field: str = "exercise_ids") -> list[str]:
     else:
         raise ValueError(f"{field} must be a list")
     return [exercise_id(item, field) for item in items]
-
-
-def focus_lifts(values: object) -> list[str]:
-    return exercise_ids(values, "focus_lifts")

@@ -28,8 +28,7 @@ def test_dashboard_reports_coverage_performance_and_volume():
             store.connection, session_id="2024-01-08", srpe=6, duration_min=45,
         )
         repositories.append_athlete_profile(
-            store.connection, effective_from="2024-01-01", primary_goal="strength",
-            goal_rank=["strength"], focus_lifts=["ssb_squat"],
+            store.connection, effective_from="2024-01-01",
             sessions_per_week_target=3,
         )
         report = progress.dashboard(store.connection, "2024-01-08")

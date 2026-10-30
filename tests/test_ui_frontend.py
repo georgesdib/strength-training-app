@@ -135,7 +135,7 @@ def test_constrained_controls_are_not_free_text() -> None:
     assert "vbtFamilyOptions" in exercises_js
 
     app = (STATIC / "app.js").read_text(encoding="utf-8")
-    assert 'choiceOptions(opts.goals' in app
+    assert "choiceOptions(opts.constraint_kinds" in app
     assert 'choiceChecklist("forbidden_patterns"' in app
     assert 'choiceChecklist("forbidden_exercises"' in app
     assert 'data-constraint="kind"' in app
@@ -208,9 +208,9 @@ def test_accessibility_and_navigation_guards() -> None:
     assert "aria-current" in app
     assert "sidebarFocusables" in app
     assert "main.inert" in app
-    assert "goalRankHtml" in app and "checkedGoalRank" in app
-    assert 'choiceChecklist("focus_lifts"' in app
-    assert 'id="focus-lift-search"' in app
+    assert "goalRankHtml" not in app
+    assert "primary_goal" not in app
+    assert "focus_lifts" not in app
     assert "aria-invalid" in workout
     assert "setAttribute(\"aria-invalid\"" in workout
     assert "role=\"status\"" in page

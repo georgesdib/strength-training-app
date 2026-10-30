@@ -168,8 +168,7 @@ async function loadOverview() {
     const data = await api("/api/overview");
     window.__overview = data;
     loadDropWindow();
-    $("#today-title").textContent = data.profile?.primary_goal
-      ? "Coach for " + data.profile.primary_goal : "No athlete state yet";
+    $("#today-title").textContent = data.profile ? "Coach" : "No athlete state yet";
     $("#today-sub").textContent = "Block week " + (data.block_week ?? "unknown")
       + " · " + data.today + " · " + (data.unreviewed.length ? data.unreviewed.length
         + " unreviewed session(s)" : "reviews up to date");
@@ -1845,69 +1844,6 @@ function wireChoiceSearch(inputId, groupName) {
   });
 }
 
-function goalRankHtml(selected, choices) {
-  const known = new Map((choices || []).map((item) => [String(item.value), item]));
-  const ordered = [];
-  (selected || []).forEach((value) => {
-    if (known.has(String(value))) ordered.push(known.get(String(value)));
-  });
-  (choices || []).forEach((item) => {
-    if (!ordered.some((row) => String(row.value) === String(item.value))) ordered.push(item);
-  });
-  (selected || []).forEach((value) => {
-    if (!known.has(String(value))) ordered.push({ value, label: value + " (legacy)" });
-  });
-  return `<div class="rank-list" id="goal-rank-list">` + ordered.map((item) => {
-    const chosen = (selected || []).some((value) => String(value) === String(item.value));
-    return `<div class="rank-row" data-goal-value="${esc(item.value)}">
-      <label class="choice"><input type="checkbox" data-goal-rank-check${chosen ? " checked" : ""}>
-      <span>${esc(item.label || item.value)}</span></label>
-      <span class="rank-index" aria-hidden="true"></span>
-      <button class="ghost" type="button" data-goal-up aria-label="Move ${esc(item.label || item.value)} up">↑</button>
-      <button class="ghost" type="button" data-goal-down aria-label="Move ${esc(item.label || item.value)} down">↓</button>
-    </div>`;
-  }).join("") + "</div>";
-}
-
-function updateGoalRankIndices() {
-  const rows = [...document.querySelectorAll("#goal-rank-list .rank-row")];
-  let index = 0;
-  rows.forEach((row) => {
-    const checked = row.querySelector("[data-goal-rank-check]");
-    if (checked && checked.checked) {
-      index += 1;
-      row.querySelector(".rank-index").textContent = String(index);
-    } else {
-      row.querySelector(".rank-index").textContent = "";
-    }
-  });
-}
-
-function checkedGoalRank() {
-  return [...document.querySelectorAll("#goal-rank-list .rank-row")]
-    .filter((row) => row.querySelector("[data-goal-rank-check]").checked)
-    .map((row) => row.dataset.goalValue);
-}
-
-function wireGoalRank() {
-  const list = document.getElementById("goal-rank-list");
-  if (!list) return;
-  updateGoalRankIndices();
-  list.addEventListener("change", updateGoalRankIndices);
-  list.addEventListener("click", (event) => {
-    const up = event.target.closest("[data-goal-up]");
-    const down = event.target.closest("[data-goal-down]");
-    if (!up && !down) return;
-    const row = event.target.closest(".rank-row");
-    if (!row) return;
-    const sibling = up ? row.previousElementSibling : row.nextElementSibling;
-    if (!sibling) return;
-    if (up) list.insertBefore(row, sibling);
-    else list.insertBefore(sibling, row);
-    updateGoalRankIndices();
-  });
-}
-
 function renderStateForms(data) {
   const p = data.profile || {};
   const opts = data.options || {};
@@ -1916,14 +1852,6 @@ function renderStateForms(data) {
     : Object.keys(data.injury_signal?.regions || {}).map((key) => ({ value: key, label: key }));
   const regionOptions = choiceOptions(regionChoices, "");
   const exerciseChoices = (opts.exercises || []).slice();
-  // Keep a legacy focus-lift id visible and selected rather than silently dropping it. Do not
-  // add it to the canonical exercise pickers: those writes must stay constrained.
-  const focusChoices = exerciseChoices.slice();
-  (p.focus_lifts || []).forEach((value) => {
-    if (!focusChoices.some((item) => String(item.value) === String(value))) {
-      focusChoices.push({ value, label: value + " (legacy)" });
-    }
-  });
   // A declared break freezes its weeks; the list is the record, the form appends to it.
   const todayDate = today();
   const breaks = data.declared_breaks || [];
@@ -1946,19 +1874,6 @@ function renderStateForms(data) {
   $("#state-forms").innerHTML = `
     <div class="panel"><div class="panel-head"><h2>Edit profile</h2><span class="muted">appends a new version</span></div>
       <form id="profile-form" class="grid-fields">
-        <label>Primary goal
-          <select data-profile="primary_goal">${choiceOptions(opts.goals, p.primary_goal)}</select>
-        </label>
-        <div class="grow">
-          <span class="field-label">Goal rank (ordered; use ↑/↓)</span>
-          ${goalRankHtml(p.goal_rank || [], opts.goals || [])}
-        </div>
-        <details class="advanced choice-details">
-          <summary>Focus lifts (optional)</summary>
-          <label class="grow">Search exercises
-            <input id="focus-lift-search" type="search" placeholder="type a name or id"></label>
-          ${choiceChecklist("focus_lifts", focusChoices, p.focus_lifts || [])}
-        </details>
         ${profileField("competition_date", "Competition date", p.competition_date, "date")}
         ${profileField("sessions_per_week_target", "Sessions/week", p.sessions_per_week_target, "number")}
         ${profileField("max_session_minutes", "Session minutes", p.max_session_minutes, "number")}
@@ -2111,17 +2026,12 @@ function renderStateForms(data) {
       </form>
     </div>`;
 
-  wireGoalRank();
-  wireChoiceSearch("focus-lift-search", "focus_lifts");
   wireChoiceSearch("constraint-exercise-search", "forbidden_exercises");
 
   const collect = (prefix) => Object.fromEntries(
     [...document.querySelectorAll(`[data-${prefix}]`)].map((el) => [el.dataset[prefix], el.value])
   );
   const PROFILE_ERRORS = {
-    primary_goal: '[data-profile="primary_goal"]',
-    goal_rank: "#goal-rank-list [data-goal-rank-check]",
-    focus_lifts: "#focus-lift-search",
     competition_date: '[data-profile="competition_date"]',
     sessions_per_week_target: '[data-profile="sessions_per_week_target"]',
     max_session_minutes: '[data-profile="max_session_minutes"]',
@@ -2151,8 +2061,6 @@ function renderStateForms(data) {
   $("#profile-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const values = collect("profile");
-    values.goal_rank = checkedGoalRank();
-    values.focus_lifts = checkedChoices("focus_lifts");
     const exposureTrim = values.exposure_trim_enabled === "on";
     save("/api/state/profile", {
       ...values,

@@ -932,9 +932,6 @@ def _cmd_state(args) -> int:
             repositories.append_athlete_profile(
                 conn,
                 effective_from=datetime.date.today().isoformat(),
-                primary_goal=current["primary_goal"],
-                goal_rank=json.loads(current["goal_rank"] or "[]"),
-                focus_lifts=json.loads(current["focus_lifts"] or "[]"),
                 competition_date=current["competition_date"],
                 sessions_per_week_target=current["sessions_per_week_target"],
                 max_session_minutes=current["max_session_minutes"],
@@ -2181,9 +2178,6 @@ def _cmd_block(args) -> int:
         repositories.append_athlete_profile(
             conn,
             effective_from=datetime.date.today().isoformat(),
-            primary_goal=current["primary_goal"],
-            goal_rank=json.loads(current["goal_rank"] or "[]"),
-            focus_lifts=json.loads(current["focus_lifts"] or "[]"),
             competition_date=current["competition_date"],
             sessions_per_week_target=current["sessions_per_week_target"],
             max_session_minutes=current["max_session_minutes"],
@@ -2282,12 +2276,20 @@ def _import_state(conn, path: Path, *, force: bool) -> int:
     if not profile:
         print("state file has no profile section")
         return 2
+    # These fields were removed because no decision read them (DEC-STATE-02). Reject a
+    # state file that still sets them rather than silently importing a promise we no longer keep.
+    retired = [
+        key for key in ("primary_goal", "goal_rank", "focus_lifts") if key in profile
+    ]
+    if retired:
+        print(
+            "profile no longer stores " + ", ".join(retired)
+            + "; remove those keys from the state file (DEC-STATE-02)"
+        )
+        return 2
     repositories.append_athlete_profile(
         conn,
         effective_from=str(profile.get("effective_from") or datetime.date.today().isoformat()),
-        primary_goal=str(profile["primary_goal"]),
-        goal_rank=profile.get("goal_rank") or [],
-        focus_lifts=profile.get("focus_lifts") or [],
         competition_date=profile.get("competition_date"),
         sessions_per_week_target=profile.get("sessions_per_week_target"),
         max_session_minutes=profile.get("max_session_minutes"),
@@ -2391,9 +2393,6 @@ def _print_state(conn) -> None:
         print("no athlete state recorded; run 'strength-coach state --import FILE'")
         return
     print("athlete profile")
-    print(f"  primary goal        {profile['primary_goal']}")
-    print(f"  goal rank           {profile['goal_rank']}")
-    print(f"  focus lifts         {profile['focus_lifts']}")
     print(f"  sessions/week       {profile['sessions_per_week_target']}")
     print(f"  session target      {profile['max_session_minutes']} min")
     print(f"  block start         {profile['block_start_date'] or 'not declared'}")

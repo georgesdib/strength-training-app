@@ -28,8 +28,7 @@ def _store():
         readiness_sha256=importer.sha256_frame(readiness),
     )
     repositories.append_athlete_profile(
-        store.connection, effective_from="2023-12-01", primary_goal="strength",
-        goal_rank=["strength"], focus_lifts=["ssb_squat"],
+        store.connection, effective_from="2023-12-01",
         sessions_per_week_target=3,
     )
     return store

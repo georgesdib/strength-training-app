@@ -70,9 +70,6 @@ def store_with(rows, *, readiness_rows=None, block_start=None):
             repositories.append_athlete_profile(
                 store.connection,
                 effective_from=block_start,
-                primary_goal="longevity",
-                goal_rank=["longevity", "strength"],
-                focus_lifts=[],
                 block_start_date=block_start,
             )
         yield store

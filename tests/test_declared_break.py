@@ -109,8 +109,7 @@ def test_a_declared_break_resets_the_scheduled_deload_clock():
     with _store() as store:
         conn = store.connection
         repositories.append_athlete_profile(
-            conn, effective_from="2024-01-01", primary_goal="strength",
-            goal_rank=["strength"], focus_lifts=[], sessions_per_week_target=3,
+            conn, effective_from="2024-01-01", sessions_per_week_target=3,
             max_session_minutes=90, block_start_date="2024-01-01",
         )
         assert deload.scheduled_reason(conn, "2024-02-05") is not None

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 from conftest import make_readiness, make_training
 
@@ -435,13 +433,10 @@ def _profile(
     conn, *, enabled: bool, policy: str = "preserve", sessions: int = 3,
     competition: str | None = None, max_minutes: int = 80,
 ):
-    current = queries.athlete_profile(conn) or {}
     repositories.append_athlete_profile(
-        conn, effective_from=TODAY, primary_goal=current.get("primary_goal") or "strength",
-        goal_rank=current.get("goal_rank") and json.loads(current["goal_rank"]) or ["strength"],
-        focus_lifts=[], competition_date=competition, sessions_per_week_target=sessions,
-        max_session_minutes=max_minutes, block_start_date=None,
-        volume_budget_enabled=enabled, main_lift_policy=policy,
+        conn, effective_from=TODAY, competition_date=competition,
+        sessions_per_week_target=sessions, max_session_minutes=max_minutes,
+        block_start_date=None, volume_budget_enabled=enabled, main_lift_policy=policy,
     )
 
 
@@ -897,8 +892,7 @@ def test_cli_updates_the_budget_profile(tmp_path, capsys):
     path = tmp_path / "coach.db"
     store = db.Store(path)
     repositories.append_athlete_profile(
-        store.connection, effective_from=TODAY, primary_goal="strength",
-        goal_rank=["strength"], focus_lifts=[], competition_date=None,
+        store.connection, effective_from=TODAY, competition_date=None,
         sessions_per_week_target=3, max_session_minutes=90, block_start_date=None,
         volume_budget_enabled=False, main_lift_policy="preserve",
     )

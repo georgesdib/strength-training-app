@@ -669,16 +669,14 @@ def test_profile_session_minutes_sets_the_planned_target_without_cutting_sets():
 
     with store_with(BASE_HISTORY) as store:
         repositories.append_athlete_profile(
-            store.connection, effective_from="2024-01-01", primary_goal="strength",
-            goal_rank=["strength"], focus_lifts=["ssb_squat"],
+            store.connection, effective_from="2024-01-01",
             sessions_per_week_target=3, max_session_minutes=45,
         )
         lowered = build_prescription(
             store.connection, for_date="2024-01-15", session_type="hinge",
         )
         repositories.append_athlete_profile(
-            store.connection, effective_from="2024-01-15", primary_goal="strength",
-            goal_rank=["strength"], focus_lifts=["ssb_squat"],
+            store.connection, effective_from="2024-01-15",
             sessions_per_week_target=3, max_session_minutes=120,
         )
         raised = build_prescription(

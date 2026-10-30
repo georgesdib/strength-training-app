@@ -81,9 +81,6 @@ sources and server-side 400 validation.
 | Exercise editor | `primary_muscles` | taxonomy muscle keys | comma text | multi-select/chips |
 | Exercise editor | `log_names` | arbitrary strings | textarea | textarea (correct) |
 | Exercise editor | `spinal_cost` | ordinal 1/2/2.5/3 | number | constrained select or validated number |
-| Athlete | `primary_goal` | six database values | text | select |
-| Athlete | `goal_rank` | ordered goal keys | comma text | ordered multi-select |
-| Athlete | `focus_lifts` | exercise ids | comma text | searchable multi-select |
 | Athlete | constraint `kind` | four database values | select with two invalid options | canonical select |
 | Athlete | constraint `region` | configured injury regions | text | select |
 | Athlete | `forbidden_patterns` | taxonomy patterns | comma text | multi-select |
@@ -102,6 +99,10 @@ sources and server-side 400 validation.
 | Cardio | modality | open vocabulary | text | keep text; optional suggestions |
 | Measures | metric | configured metric keys | select from API | correct |
 | Settings profile | registry fields | registry `kind`/`choices` | generated | keep; this is the model |
+
+Later change: the three goal controls once listed here (`primary_goal`, `goal_rank`,
+`focus_lifts`) were removed on 2026-10-30 because no rule, feature or prescription read them
+(`DEC-STATE-02`); the profile form no longer contains them.
 
 ## 6. Mobile and interaction plan
 

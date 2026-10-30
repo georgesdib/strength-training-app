@@ -26,7 +26,6 @@ def canonical_options() -> dict[str, Any]:
         for entity_id, entity in sorted(taxonomy.entities.items())
     ]
     return {
-        "goals": athlete_state.choices(athlete_state.GOALS, athlete_state.GOAL_LABELS),
         "constraint_kinds": athlete_state.choices(
             athlete_state.CONSTRAINT_KINDS, athlete_state.CONSTRAINT_KIND_LABELS
         ),

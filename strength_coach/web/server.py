@@ -2093,12 +2093,6 @@ class Handler(BaseHTTPRequestHandler):
                     data[key] = []
             constraints.append(data)
         profile = dict(queries.athlete_profile(conn) or {}) or None
-        if profile:
-            for key in ("goal_rank", "focus_lifts"):
-                try:
-                    profile[key] = json.loads(profile.get(key) or "[]")
-                except (TypeError, ValueError):
-                    profile[key] = []
         return {
             "profile": profile,
             "constraints": constraints,
@@ -2294,42 +2288,6 @@ class Handler(BaseHTTPRequestHandler):
 
     def _save_profile(self, conn, body: dict) -> dict:
         current = dict(queries.athlete_profile(conn) or {})
-        def current_list(key):
-            try:
-                return json.loads(current.get(key) or "[]")
-            except (TypeError, ValueError):
-                return []
-        try:
-            goal = validation.choice(
-                body.get("primary_goal") or current.get("primary_goal"),
-                athlete_state.GOALS,
-                "primary_goal",
-            )
-        except ValueError as exc:
-            raise FieldError(str(exc), {"primary_goal": str(exc)}) from exc
-        # A client that omits these lists is preserving them. A client that sends the same
-        # list is also preserving it, which lets an existing legacy value survive an unrelated
-        # profile edit; a changed list is an assertion and must be canonical.
-        goal_rank = current_list("goal_rank")
-        if "goal_rank" in body:
-            incoming_rank = _list(body.get("goal_rank"))
-            if incoming_rank != goal_rank:
-                try:
-                    goal_rank = validation.goal_rank(incoming_rank)
-                except ValueError as exc:
-                    raise FieldError(str(exc), {"goal_rank": str(exc)}) from exc
-            else:
-                goal_rank = incoming_rank
-        focus = current_list("focus_lifts")
-        if "focus_lifts" in body:
-            incoming_focus = _list(body.get("focus_lifts"))
-            if incoming_focus != focus:
-                try:
-                    focus = validation.focus_lifts(incoming_focus)
-                except ValueError as exc:
-                    raise FieldError(str(exc), {"focus_lifts": str(exc)}) from exc
-            else:
-                focus = incoming_focus
         try:
             main_lift_policy = validation.choice(
                 body.get("main_lift_policy") or current.get("main_lift_policy") or "preserve",
@@ -2342,9 +2300,6 @@ class Handler(BaseHTTPRequestHandler):
         repositories.append_athlete_profile(
             conn,
             effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
-            primary_goal=goal,
-            goal_rank=goal_rank,
-            focus_lifts=focus,
             competition_date=body.get("competition_date") or None,
             sessions_per_week_target=_int_or_none(body.get("sessions_per_week_target")),
             max_session_minutes=_int_or_none(body.get("max_session_minutes")),
@@ -2606,9 +2561,6 @@ class Handler(BaseHTTPRequestHandler):
         repositories.append_athlete_profile(
             conn,
             effective_from=datetime.date.today().isoformat(),
-            primary_goal=current["primary_goal"],
-            goal_rank=json.loads(current["goal_rank"] or "[]"),
-            focus_lifts=json.loads(current["focus_lifts"] or "[]"),
             competition_date=current["competition_date"],
             sessions_per_week_target=current["sessions_per_week_target"],
             max_session_minutes=current["max_session_minutes"],

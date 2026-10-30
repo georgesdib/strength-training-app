@@ -55,9 +55,6 @@ def declare_block(conn, start="2024-01-01"):
     repositories.append_athlete_profile(
         conn,
         effective_from=start,
-        primary_goal="longevity",
-        goal_rank=["longevity", "strength"],
-        focus_lifts=[],
         block_start_date=start,
     )
 

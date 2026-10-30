@@ -49,8 +49,7 @@ def test_volume_review_reminder_appears_only_after_budget_is_enabled():
             t["key"] == "volume_review" for t in reviews.status(conn, "2026-10-26")["tasks"]
         )
         repositories.append_athlete_profile(
-            conn, effective_from="2026-10-26", primary_goal="strength",
-            goal_rank=["strength"], focus_lifts=["squat"],
+            conn, effective_from="2026-10-26",
             volume_budget_enabled=True,
         )
         task = next(

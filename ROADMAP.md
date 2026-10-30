@@ -144,8 +144,8 @@ estimate and is cited in the prescription.
 Input: `private/docs/INFO-REQUESTS.md` §1-3, read back for confirmation before being written.
 **Status: the core answers are collected in `private/docs/ATHLETE-STATE.md`** (goals, back
 history, suitability, equipment, schedule). Two consequences are already decided: `longevity`
-joins the `primary_goal` enum, and training-log gaps are recorded as **non-adherence**, never
-as symptoms.
+was the recorded goal at the time (the goal fields were later retired, `DEC-STATE-02`), and
+training-log gaps are recorded as **non-adherence**, never as symptoms.
 
 ### 3.2 Squat-led and bench-led templates (legacy Days A/C)  (done)
 

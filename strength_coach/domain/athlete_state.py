@@ -7,16 +7,6 @@ strength_coach/store/migrations/0003_athlete_state.sql (there is a test for that
 
 from __future__ import annotations
 
-GOALS = ("strength", "hypertrophy", "body_comp", "pain_free", "longevity", "competition")
-GOAL_LABELS = {
-    "strength": "Strength",
-    "hypertrophy": "Hypertrophy",
-    "body_comp": "Body composition",
-    "pain_free": "Pain-free",
-    "longevity": "Longevity",
-    "competition": "Competition",
-}
-
 CONSTRAINT_KINDS = ("injury", "contraindication", "mobility", "asymmetry")
 CONSTRAINT_KIND_LABELS = {
     "injury": "Injury",

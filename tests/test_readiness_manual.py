@@ -138,7 +138,6 @@ def test_readiness_set_cli_and_bulk_import(tmp_path):
     state.write_text(
         "profile:\n"
         "  effective_from: '2024-01-01'\n"
-        "  primary_goal: longevity\n"
         "readiness:\n"
         "  - date: '2024-01-03'\n"
         "    sleep: 1\n",

@@ -1,4 +1,4 @@
-"""Athlete state (DATA-MODEL §11): goals, constraints, suitability, symptoms.
+"""Athlete state (DATA-MODEL §11): constraints, suitability, symptoms.
 
 The acceptance criteria for this phase are about *effect*, not storage: a stored hard
 constraint must veto a proposed exercise deterministically, a suitability rating must be
@@ -50,13 +50,10 @@ def store_with(rows=ROWS):
         store.close()
 
 
-def add_profile(conn, *, goal="longevity", block_start=None):
+def add_profile(conn, *, effective_from="2026-10-17", block_start=None):
     repositories.append_athlete_profile(
         conn,
-        effective_from="2026-10-17",
-        primary_goal=goal,
-        goal_rank=["longevity", "strength"],
-        focus_lifts=[],
+        effective_from=effective_from,
         sessions_per_week_target=3,
         max_session_minutes=90,
         block_start_date=block_start,
@@ -95,14 +92,14 @@ def test_the_five_tables_exist():
 def test_latest_profile_wins_and_history_is_kept():
     with db.Store(":memory:") as store:
         conn = store.connection
-        add_profile(conn, goal="strength")
-        add_profile(conn, goal="longevity")
-        assert queries.athlete_profile(conn)["primary_goal"] == "longevity"
+        add_profile(conn, effective_from="2026-10-17")
+        add_profile(conn, effective_from="2026-11-01", block_start="2026-11-01")
+        assert queries.athlete_profile(conn)["effective_from"] == "2026-11-01"
         count = conn.execute("SELECT COUNT(*) c FROM athlete_profile").fetchone()["c"]
         assert count == 2
 
         with pytest.raises(sqlite3.IntegrityError, match="append-only"):
-            conn.execute("UPDATE athlete_profile SET primary_goal = 'competition'")
+            conn.execute("UPDATE athlete_profile SET max_session_minutes = 60")
 
 
 def test_suitability_latest_rating_wins():
@@ -185,8 +182,6 @@ def test_state_import_and_show(tmp_path, capsys):
         """
 profile:
   effective_from: "2026-10-17"
-  primary_goal: longevity
-  goal_rank: [longevity, strength]
   sessions_per_week_target: 3
   max_session_minutes: 90
 constraints:
@@ -203,11 +198,23 @@ suitability:
     )
     assert cli.main(["--db", str(path), "state", "--import", str(state)]) == 0
     out = capsys.readouterr().out
-    assert "primary goal        longevity" in out
+    assert "sessions/week       3" in out
     assert "will not do         ['split_squat']" in out
 
     # Importing again is refused rather than silently duplicating state.
     assert cli.main(["--db", str(path), "state", "--import", str(state)]) == 2
+
+
+def test_state_import_rejects_removed_profile_fields(tmp_path, capsys):
+    path = tmp_path / "coach.db"
+    seed_db(path)
+    state = tmp_path / "state.yaml"
+    state.write_text(
+        'profile:\n  effective_from: "2026-10-17"\n  focus_lifts: [ssb_squat]\n',
+        encoding="utf-8",
+    )
+    assert cli.main(["--db", str(path), "state", "--import", str(state)]) == 2
+    assert "profile no longer stores focus_lifts" in capsys.readouterr().out
 
 
 def test_block_start_declares_week_one_and_reset_replaces_it(tmp_path, capsys):
@@ -215,7 +222,7 @@ def test_block_start_declares_week_one_and_reset_replaces_it(tmp_path, capsys):
     seed_db(path)
     state = tmp_path / "state.yaml"
     state.write_text(
-        'profile:\n  effective_from: "2026-10-17"\n  primary_goal: longevity\n',
+        'profile:\n  effective_from: "2026-10-17"\n',
         encoding="utf-8",
     )
     cli.main(["--db", str(path), "state", "--import", str(state)])

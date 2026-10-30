@@ -60,8 +60,7 @@ def test_volume_budget_toggle_uses_the_athlete_profile():
     try:
         conn = store.connection
         repositories.append_athlete_profile(
-            conn, effective_from="2026-10-26", primary_goal="strength",
-            goal_rank=["strength"], focus_lifts=["squat"],
+            conn, effective_from="2026-10-26",
         )
         assert modalities.show(conn, "volume_budget", "2026-10-26")["enabled"] is False
         modalities.update(conn, "volume_budget", enabled=True)

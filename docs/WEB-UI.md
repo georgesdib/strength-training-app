@@ -262,7 +262,7 @@ What remains:
 
 - Expected validation failures keep their useful 400/404/409 JSON messages.
 - Form-validation 400s may add a `fields` map, for example
-  `{"error": "...", "fields": {"primary_goal": "..."}}`. This is additive; clients that only
+  `{"error": "...", "fields": {"main_lift_policy": "..."}}`. This is additive; clients that only
   read `error` keep working. Forms mark the named input `aria-invalid` and focus it.
 - An unexpected server exception returns a stable `{"error": "internal server error"}` 500 and
   is logged with method, path and traceback. Exception classes, filesystem paths and database

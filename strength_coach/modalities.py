@@ -8,7 +8,6 @@ path (settings profile or athlete profile). Factors are references to the same r
 from __future__ import annotations
 
 import datetime as dt
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -151,9 +150,6 @@ def _update_athlete_budget(conn, *, enabled: bool, effective_from: str) -> None:
     repositories.append_athlete_profile(
         conn,
         effective_from=effective_from,
-        primary_goal=current["primary_goal"],
-        goal_rank=json.loads(current["goal_rank"] or "[]"),
-        focus_lifts=json.loads(current["focus_lifts"] or "[]"),
         competition_date=current["competition_date"],
         sessions_per_week_target=current["sessions_per_week_target"],
         max_session_minutes=current["max_session_minutes"],
