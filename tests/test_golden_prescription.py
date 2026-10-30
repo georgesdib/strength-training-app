@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -17,6 +19,12 @@ pytestmark = pytest.mark.golden
 FIXTURE = Path(__file__).parent / "fixtures" / "golden_session_types.yaml"
 HISTORY_DAYS = ("2024-01-04", "2024-01-11", "2024-01-18", "2024-01-25")
 SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
+GOLDEN_ROWS_SHA256 = {
+    "squat": "1d0126791c3140ee1955b7cf35ff7a8317186f0d25c32f9965ee1d4d00659a92",
+    "hinge": "556ca1bfbe806f21706b5110db98c33da1a1a76c8b0ce3b88fc92cf9f74304da",
+    "bench_squat": "8e4b05240a42beb4ffeefe788a66cb15c6921bb907954ac887522247e3222b32",
+    "bench_hinge": "58f42760ecb829fe75bda87a5497ee6f9e17945fb802b8181b02f54196797c25",
+}
 
 
 def history_rows_all_days() -> list[dict]:
@@ -98,6 +106,19 @@ def test_golden_session_types(session_type):
         assert item.rir_target == target["rir_target"]
         assert item.rest_s == target["rest_s"]
         assert item.essential is target["essential"]
+
+
+@pytest.mark.parametrize("session_type", SESSION_TYPES)
+def test_golden_prescription_rows_are_byte_stable(session_type):
+    with build_store([{}]) as store:
+        prescription = build_prescription(
+            store.connection, for_date="2024-02-01", session_type=session_type
+        )
+
+    payload = json.dumps(
+        prescription.as_rows(), sort_keys=True, separators=(",", ":")
+    )
+    assert hashlib.sha256(payload.encode()).hexdigest() == GOLDEN_ROWS_SHA256[session_type]
 
 
 def test_golden_fatigue_reduction():

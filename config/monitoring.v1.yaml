@@ -22,6 +22,22 @@ relative_intensity:
     light: 0.60
     very_light: 0.0
 
+difference:
+  # These are labels, not thresholds. A difference is descriptive and never a change claim.
+  statuses:
+    descriptive: "three or more recent observations; show the difference"
+    limited: "two recent observations; show but label limited"
+    single_prior: "one prior observation; no difference is shown"
+    insufficient_quality: "post-session estimate is degraded; no difference is shown"
+    unavailable: "a required observation or load base is unavailable"
+
+ratios:
+  # PA-04: explicit relationship gates, not a statistical finding. Both sides need at least
+  # two eligible observations; the latest per side must be close enough in time.
+  max_gap_days: 14
+  max_age_days: 42
+  min_observations: 2
+
 hard_sets:
   # Reuse exposure.v1.yaml effort_max_rir; this is the near-failure display cut only.
   near_failure_max_rir: 2

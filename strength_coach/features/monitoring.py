@@ -23,7 +23,7 @@ from strength_coach.domain import rir as rir_mod
 from strength_coach.features import exposure as exposure_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.features.strength_observations import Unavailable
-from strength_coach.utils import paths
+from strength_coach.utils import exercises, paths
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,16 @@ class MonitoringConfig:
     )
     near_failure_max_rir: int = 2
     power_pattern: str = "power_jump"
+    difference_statuses: Mapping[str, str] = field(default_factory=lambda: {
+        "descriptive": "three or more recent observations; show the difference",
+        "limited": "two recent observations; show but label limited",
+        "single_prior": "one prior observation; no difference is shown",
+        "insufficient_quality": "post-session estimate is degraded; no difference is shown",
+        "unavailable": "a required observation or load base is unavailable",
+    })
+    ratio_max_gap_days: int = 14
+    ratio_max_age_days: int = 42
+    ratio_min_observations: int = 2
     late_feedback_days: int = 1
     long_session_multiplier: float = 1.5
     comparability_window_weeks: int = 8
@@ -60,6 +70,8 @@ class MonitoringConfig:
         bands = (raw.get("relative_intensity") or {}).get("bands") or {}
         hard = raw.get("hard_sets") or {}
         power = raw.get("power") or {}
+        difference = raw.get("difference") or {}
+        ratios = raw.get("ratios") or {}
         feedback = raw.get("session_load") or {}
         comparison = raw.get("comparability") or {}
         display = raw.get("display") or {}
@@ -71,6 +83,13 @@ class MonitoringConfig:
             } or cls().relative_bands,
             near_failure_max_rir=int(hard.get("near_failure_max_rir", 2)),
             power_pattern=str(power.get("pattern", "power_jump")),
+            difference_statuses={
+                str(key): str(value)
+                for key, value in (difference.get("statuses") or {}).items()
+            } or cls().difference_statuses,
+            ratio_max_gap_days=int(ratios.get("max_gap_days", 14)),
+            ratio_max_age_days=int(ratios.get("max_age_days", 42)),
+            ratio_min_observations=int(ratios.get("min_observations", 2)),
             late_feedback_days=int(feedback.get("late_feedback_days", 1)),
             long_session_multiplier=float(feedback.get("long_session_multiplier", 1.5)),
             comparability_window_weeks=int(comparison.get("window_weeks", 8)),
@@ -124,16 +143,6 @@ def _working(frame: pd.DataFrame, session_id: str | None = None) -> pd.DataFrame
     if "is_working_set" in work.columns:
         work = work[work["is_working_set"].fillna(False).astype(bool)]
     return work
-
-
-def _excluded(set_row: Mapping[str, Any], excluded_set_kinds: Mapping[int, str] | None) -> bool:
-    if not excluded_set_kinds:
-        return False
-    try:
-        set_id = int(set_row.get("set_id"))
-    except (TypeError, ValueError):
-        return False
-    return set_id in excluded_set_kinds
 
 
 def completed_working_sets(frame: pd.DataFrame, session_id: str) -> int:
@@ -239,30 +248,75 @@ def relative_intensity_distribution(
     load_base_by_exercise: Mapping[str, float | Any],
     config: MonitoringConfig | None = None,
     *,
+    taxonomy: Mapping[str, Mapping[str, Any]] | None = None,
     excluded_set_kinds: Mapping[int, str] | None = None,
 ) -> dict[str, Any]:
+    """Band counts for working sets with an explicit exclusion and denominator audit.
+
+    Power-classified sets and set-linked high-intensity exposures are not silently skipped:
+    they are counted in the exclusion block. A set with no load base is counted as unknown and
+    as a missing denominator. The band counts therefore sum to the included count, and
+    included + unknown + excluded_total equals n.
+    """
     cfg = config or MonitoringConfig.load()
-    counts: dict[str, int] = {band: 0 for band in cfg.relative_bands}
-    counts["unknown"] = 0
+    props_by_exercise = taxonomy or {
+        str(key): dict(value) for key, value in exercises.taxonomy().entities.items()
+    }
+    counts: dict[str, Any] = {band: 0 for band in cfg.relative_bands}
+    counts.update(
+        {
+            "unknown": 0,
+            "included": 0,
+            "missing_load_base": 0,
+            "excluded_power": 0,
+            "excluded_high_intensity": 0,
+            "excluded_total": 0,
+            "excluded_by_kind": {},
+            "n": 0,
+        }
+    )
     if sets is None or sets.empty:
-        counts["n"] = 0
         return counts
     work = _working(sets)
+    counts["n"] = int(work.shape[0])
     for row in work.to_dict("records"):
-        if _excluded(row, excluded_set_kinds):
-            continue
         exercise_id = str(row.get("exercise_id") or "")
-        value = relative_intensity(row, load_base_by_exercise.get(exercise_id, 0.0))
+        props = props_by_exercise.get(exercise_id, {})
+        if str(props.get("pattern") or "") == cfg.power_pattern:
+            counts["excluded_power"] += 1
+            counts["excluded_total"] += 1
+            continue
+        if excluded_set_kinds:
+            try:
+                set_id = int(row.get("set_id"))
+            except (TypeError, ValueError):
+                set_id = None
+            if set_id is not None and set_id in excluded_set_kinds:
+                kind = str(excluded_set_kinds[set_id])
+                counts["excluded_high_intensity"] += 1
+                counts["excluded_total"] += 1
+                by_kind = dict(counts["excluded_by_kind"])
+                by_kind[kind] = by_kind.get(kind, 0) + 1
+                counts["excluded_by_kind"] = by_kind
+                continue
+
+        raw_base = load_base_by_exercise.get(exercise_id)
+        base = _number(getattr(raw_base, "kg", raw_base))
+        if base is None or base <= 0:
+            counts["missing_load_base"] += 1
+            counts["unknown"] += 1
+            continue
+        value = relative_intensity(row, base)
         if isinstance(value, Unavailable):
             counts["unknown"] += 1
             continue
+        counts["included"] += 1
         for band, threshold in sorted(
             cfg.relative_bands.items(), key=lambda item: item[1], reverse=True
         ):
             if value >= threshold:
                 counts[band] += 1
                 break
-    counts["n"] = int(work.shape[0])
     return counts
 
 

@@ -41,6 +41,10 @@ def test_monitoring_config_loads_the_display_parameters():
     assert cfg.relative_bands["heavy"] == 0.80
     assert cfg.relative_bands["very_light"] == 0.0
     assert cfg.comparability_min_overlap == 0.50
+    assert cfg.ratio_min_observations == 2
+    assert cfg.ratio_max_gap_days == 14
+    assert cfg.ratio_max_age_days == 42
+    assert "descriptive" in cfg.difference_statuses
 
 
 def test_completion_reps_and_tonnage_exclude_warmups():
@@ -98,6 +102,40 @@ def test_relative_intensity_and_bands():
     assert result["very_light"] == 1
     assert result["unknown"] == 1
     assert result["n"] == 5
+
+
+def test_relative_intensity_exclusions_and_counts_are_explicit():
+    data = frame(
+        [
+            row(set_id=1, load_kg=80.0),
+            row(set_id=2, exercise_id="jump_squats", load_kg=20.0),
+            row(set_id=3, load_kg=70.0),
+            row(set_id=4, exercise_id="curl", load_kg=20.0),
+            row(set_id=5, load_kg=None),
+        ]
+    )
+    taxonomy = {
+        "squat": {"pattern": "squat"},
+        "jump_squats": {"pattern": "power_jump"},
+        "curl": {"pattern": "elbow_flexion"},
+    }
+
+    result = monitoring.relative_intensity_distribution(
+        data,
+        {"squat": 100.0},
+        taxonomy=taxonomy,
+        excluded_set_kinds={3: "max_attempt"},
+    )
+
+    assert result["n"] == 5
+    assert result["included"] == 1
+    assert result["excluded_power"] == 1
+    assert result["excluded_high_intensity"] == 1
+    assert result["excluded_by_kind"] == {"max_attempt": 1}
+    assert result["excluded_total"] == 2
+    assert result["missing_load_base"] == 1
+    assert result["unknown"] == 2
+    assert result["included"] + result["unknown"] + result["excluded_total"] == result["n"]
 
 
 def test_added_load_without_total_is_unavailable_for_relative_intensity():
