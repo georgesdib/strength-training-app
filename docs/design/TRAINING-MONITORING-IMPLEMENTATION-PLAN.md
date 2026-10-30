@@ -10,7 +10,7 @@
 | Baseline commit | 2711a6e (approved specification) |
 | Specification | [Training monitoring design specification](TRAINING-MONITORING-SPEC.md) |
 | Document date | 2026-10-30 |
-| Plan revision | 2 — approved decisions and gated execution |
+| Plan revision | 3 — sequential gate clarification |
 | Scope | Phase 0 through Phase 5 planning; individual calibration architecture; no code, schema, config or test changes |
 | Intended reader | Human approver first, then one coding agent per phase |
 
@@ -22,15 +22,17 @@
 
 ### 0.1 Gated execution — mandatory
 
-Execution is **gated by phase**. The coding agent must:
+Execution is **gated by phase**. This plan revision does **not** authorise implementation, and **Phase 0 has not been authorised to start**. Phase 0 is the first implementation phase only once the user separately authorises commencement. After that authorisation, the coding agent may implement **Phase 0 only**, run its required tests, produce its deliverables, stop and report, and wait for review and explicit approval before Phase 1.
 
-1. implement **Phase 0 only**;
+The coding agent must:
+
+1. implement **Phase 0 only** after separate authorisation;
 2. run its required tests and produce its deliverables;
 3. stop and report the results;
 4. wait for explicit user approval before starting Phase 1;
 5. repeat for every subsequent phase.
 
-There is **no automatic progression**, even when tests pass. Phase 0 and Phase 1 must remain separate. No two phases may be combined into one implementation or one PR unless the user separately approves that change.
+There is **no automatic progression**, even when tests pass. Phase 0 and Phase 1 must remain separate. No two phases may be combined into one implementation, one PR, or developed in parallel unless the user separately approves a change to this execution model.
 
 The productivity migration is approved for its planned Phase 2 implementation, but the agent must still stop at the Phase 2 gate and obtain approval before Phase 3.
 
@@ -52,7 +54,7 @@ The agent must provide:
 | ID | Decision | Status | Conditions |
 |---|---|---|---|
 | D1 | Productivity field and session_feedback rebuild migration | **Approved for planned Phase 2** | Recoverable backup; migration tested on a representative copy; all existing feedback preserved; triggers/indexes/FKs/constraints preserved; nullable 1–5 productivity; productivity-only rows; reads/writes verified; failure/rollback tested; row counts/invariants verified; safe under the migration framework. Approval does not authorise running the migration now. |
-| D2 | Gated phase execution | **Approved** | One phase at a time; stop and report after each; explicit user approval before the next; no automatic progression; no combined phases without separate approval. |
+| D2 | Gated phase execution | **Approved** | One phase at a time; stop and report after each; explicit user approval before the next; no automatic progression; no combined or parallel phases without a separately approved change to this execution model. |
 | D3 | Preserve the existing active e1RM calibration mechanism | **Approved baseline** | Do not change its calculations, gates, thresholds or prescription application in this project without separate approval. |
 
 ### 0.4 Calibration status — do not misdescribe
@@ -1587,7 +1589,7 @@ This is existing behaviour and must be preserved. The monitoring project does no
 
 Phase 0 and Phase 1 must not be merged: the audit informs whether the raw observation rules leave enough data, and Phase 1 should not build UI on unmeasured assumptions.
 
-Phase 2 and Phase 3 may be developed in parallel only after Phase 1 stabilizes the observation API; the summary should land first because it validates the metric composition.
+Phase 2 and Phase 3 must **not** be developed in parallel. Every phase must be completed, reported, reviewed and explicitly approved by the user before the next phase begins. The chain is strictly sequential. No parallel phase implementation is permitted without a separately approved change to the execution model in §0.
 
 ---
 
@@ -1634,8 +1636,8 @@ Resolved decisions D1–D3 are recorded in §0.3. They must not remain as open q
 ## 18. Final checklist for approving implementation
 
 - [ ] The specification remains unchanged and authoritative.
-- [ ] Gated execution is approved: one phase at a time, stop and report, explicit approval before the next.
-- [ ] Phase 0 is approved as the first deliverable.
+- [ ] Gated execution is approved: one phase at a time, stop and report, explicit approval before the next, and no parallel phase implementation.
+- [ ] Phase 0 has **not** yet been authorised to start; a separate user authorisation is required before implementation.
 - [ ] The load-base selector extraction plan has a parity test and golden-prescription gate.
 - [ ] Raw performance observations are explicitly raw; no decay/calibration.
 - [ ] Ratio minimum 2 per side is implemented in one place and tested.
@@ -1683,4 +1685,5 @@ Resolved decisions D1–D3 are recorded in §0.3. They must not remain as open q
 |---|---|---|
 | 2026-10-30 | 1 | Initial implementation plan for the approved specification at 2711a6e |
 | 2026-10-30 | 2 | Approved productivity migration and gated execution; corrected the description of the existing active calibration mechanism; Phase 0 calibration audit; Phase 4 read-only transparency; Phase 5 future improvements; decision register and checklist updated |
+| 2026-10-30 | 3 | Clarified that this plan revision does not authorise implementation and Phase 0 is not yet authorised; removed the Phase 2/Phase 3 parallel-development exception; reconciled execution order and checklist |
 
