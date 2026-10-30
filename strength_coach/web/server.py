@@ -17,6 +17,7 @@ import json
 import logging
 import mimetypes
 import os
+import sqlite3
 import threading
 import uuid
 import webbrowser
@@ -566,6 +567,15 @@ class ReadinessRequired(Exception):
     """The date needs a usable readiness score before a workout is generated."""
 
 
+def analysis_readonly_connection(db_path: str | Path) -> sqlite3.Connection:
+    """Dedicated read-only connection for the monitoring-analysis endpoint."""
+    path = Path(db_path)
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA query_only=ON")
+    return conn
+
+
 class Handler(BaseHTTPRequestHandler):
     db_path: str | Path | None = None
     server_version = "strength-coach-web"
@@ -635,6 +645,13 @@ class Handler(BaseHTTPRequestHandler):
             return fn(store.connection)
         finally:
             store.close()
+
+    def _with_analysis_conn(self, fn):
+        conn = analysis_readonly_connection(self.db_path)
+        try:
+            return fn(conn)
+        finally:
+            conn.close()
 
     # --- routes -----------------------------------------------------------
     def do_GET(self) -> None:
@@ -717,7 +734,7 @@ class Handler(BaseHTTPRequestHandler):
                     datetime.date.fromisoformat(as_of)
                 except ValueError as exc:
                     raise ValueError("as_of must be YYYY-MM-DD") from exc
-                self._json(200, self._with_conn(
+                self._json(200, self._with_analysis_conn(
                     lambda c: monitoring_analysis_feature.build_analysis(
                         c, as_of=as_of
                     )

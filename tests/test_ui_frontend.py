@@ -426,3 +426,52 @@ if (html.indexOf("degraded") < 0) throw new Error("degraded status");
 """
     script = script.replace("SOURCE", json.dumps(source))
     subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+
+def test_monitoring_analysis_charts_and_missingness_render() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    script = r"""
+global.__target = {innerHTML: ""};
+global.document = {getElementById: function () { return global.__target; }};
+global.esc = function (value) { return String(value == null ? "" : value); };
+global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
+global.today = function () { return "2024-01-31"; };
+global.api = function () { return Promise.resolve({}); };
+eval(SOURCE);
+renderMonitoringAnalysis({
+  meta: {as_of: "2024-01-31", analysis_version: "monitoring-analysis-v1",
+         seed: 0, database_fingerprint: "abc"},
+  missingness: {sessions: 3, sessions_with_feedback: 2, sets: 10, exercises: 1},
+  dose: [{date: "2024-01-01", session_type: "hinge", working_sets: 2, hard_sets: 1,
+          tonnage_kg: null, tonnage_status: "unavailable_missing_tonnage", session_load_au: null},
+         {date: "2024-01-08", session_type: "hinge", working_sets: 3, hard_sets: 2,
+          tonnage_kg: 0, tonnage_status: "observed_zero", session_load_au: 100},
+         {date: "2024-01-15", session_type: "hinge", working_sets: 4, hard_sets: 3,
+          tonnage_kg: 500, tonnage_status: "observed", session_load_au: 200}],
+  associations: [{exercise_id: "squat", observations: 4,
+    hard_sets_vs_next_e1rm: {n: 3, r: 0.5, status: "descriptive"},
+    session_load_vs_next_e1rm: {n: 2, r: null, status: "insufficient"},
+    hard_sets_points: [{x: 1, y: 100}, {x: 2, y: 110}, {x: 3, y: 120}],
+    session_load_points: [{x: 100, y: 100}, {x: 200, y: 110}]}],
+  calibration: {as_of: "2024-01-31", method_version: "epley_rir_v1",
+    historical_state_reconstructable: false,
+    note: "Current as-of state.", observations: [{performed_on: "2024-01-20",
+    calibration_context_as_of: "2024-01-31", exercise_id: "squat", measured_kg: 120,
+    prior_raw_e1rm_kg: 110, prior_raw_method: "epley_plus_rir",
+    prior_raw_method_version: "epley_rir_v1", existing_calibration_factor: 1.0,
+    existing_factor_applied: false, calibration_ci_low: null, calibration_ci_high: null}]},
+  limitations: []
+});
+var html = global.__target.innerHTML;
+if (html.indexOf("<svg") < 0) throw new Error("charts missing");
+if (html.indexOf("Insufficient observations for squat session load vs next e1RM") < 0) throw new Error("insufficient chart state");
+if (html.indexOf("2024-01-31") < 0) throw new Error("calibration context date");
+if (html.indexOf("Unavailable") < 0) throw new Error("missing tonnage shown as unavailable");
+if (html.indexOf("0 kg (observed_zero)") < 0) throw new Error("genuine zero lost");
+"""
+    script = script.replace("SOURCE", json.dumps(source))
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)

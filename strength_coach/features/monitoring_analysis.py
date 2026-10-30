@@ -51,6 +51,19 @@ def _corr(pairs: list[tuple[float, float]]) -> dict[str, Any]:
     return {"n": len(pairs), "r": round(float(np.corrcoef(x, y)[0, 1]), 3), "status": "descriptive"}
 
 
+def _session_tonnage(group: pd.DataFrame, work: pd.DataFrame) -> tuple[float | None, str]:
+    """Distinguish a genuine zero-dose session from absent/unclassifiable tonnage."""
+    if work.empty and group.empty:
+        return 0.0, "zero_no_sets"
+    if work.empty:
+        return None, "unavailable_no_working_sets"
+    values = pd.to_numeric(work["tonnage_kg"], errors="coerce").dropna()
+    if values.empty:
+        return None, "unavailable_missing_tonnage"
+    total = float(values.sum())
+    return total, ("observed_zero" if total == 0 else "observed")
+
+
 def build_analysis(
     conn: sqlite3.Connection,
     *,
@@ -70,17 +83,15 @@ def build_analysis(
         if feedback:
             feedback_count += 1
         load = monitoring.session_load(feedback) if feedback else monitoring.Unavailable("no feedback")
-        tonnage = (
-            float(pd.to_numeric(work["tonnage_kg"], errors="coerce").dropna().sum())
-            if not work.empty else 0.0
-        )
+        tonnage, tonnage_status = _session_tonnage(group, work)
         dose_rows.append({
             "session_id": session_id,
             "date": str(session["occurred_on"])[:10],
             "session_type": str(session.get("session_type") or ""),
             "working_sets": int(len(work)),
             "hard_sets": monitoring.hard_sets(work),
-            "tonnage_kg": round(tonnage, 1),
+            "tonnage_kg": None if tonnage is None else round(tonnage, 1),
+            "tonnage_status": tonnage_status,
             "session_load_au": None if isinstance(load, monitoring.Unavailable) else round(float(load), 1),
         })
 
@@ -109,6 +120,12 @@ def build_analysis(
             "last": dates[-1],
             "hard_sets_vs_next_e1rm": _corr(hard_pairs),
             "session_load_vs_next_e1rm": _corr(load_pairs),
+            "hard_sets_points": [
+                {"x": round(x, 1), "y": round(y, 1)} for x, y in hard_pairs
+            ],
+            "session_load_points": [
+                {"x": round(x, 1), "y": round(y, 1)} for x, y in load_pairs
+            ],
         })
 
     calibration = calibration_observations.observations(conn, to_date=as_of)
@@ -192,9 +209,13 @@ def render_markdown(report: dict[str, Any]) -> str:
     ])
     for row in report["dose"]:
         load = row["session_load_au"] if row["session_load_au"] is not None else "Unavailable"
+        tonnage = (
+            "Unavailable" if row["tonnage_kg"] is None
+            else f"{row['tonnage_kg']} ({row['tonnage_status']})"
+        )
         lines.append(
             f"| {row['date']} | {row['session_type']} | {row['working_sets']} | "
-            f"{row['hard_sets']} | {row['tonnage_kg']} | {load} |"
+            f"{row['hard_sets']} | {tonnage} | {load} |"
         )
     lines.extend([
         "",

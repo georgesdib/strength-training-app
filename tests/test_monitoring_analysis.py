@@ -6,6 +6,7 @@ import hashlib
 import json
 import subprocess
 
+import pandas as pd
 from conftest import make_readiness, make_training
 
 from strength_coach.features import monitoring_analysis as analysis_service
@@ -46,6 +47,19 @@ def test_analysis_is_deterministic_and_read_only(tmp_path):
     assert payload["meta"]["seed"] == 0
     assert payload["dose"]
     assert payload["associations"]
+
+
+def test_tonnage_distinguishes_zero_from_missing():
+    empty = pd.DataFrame()
+    assert analysis_service._session_tonnage(empty, empty) == (0.0, "zero_no_sets")
+
+    timed = pd.DataFrame([{"tonnage_kg": None}])
+    assert analysis_service._session_tonnage(timed, timed) == (
+        None, "unavailable_missing_tonnage"
+    )
+
+    zero = pd.DataFrame([{"tonnage_kg": 0.0}])
+    assert analysis_service._session_tonnage(zero, zero) == (0.0, "observed_zero")
 
 
 def test_analysis_association_statuses_are_explicit():

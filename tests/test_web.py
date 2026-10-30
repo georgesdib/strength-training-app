@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import socket
+import sqlite3
 import threading
 import time
 import urllib.error
@@ -20,7 +21,7 @@ from strength_coach.features import demands as demands_feature
 from strength_coach.store import db, importer, repositories
 from strength_coach.web import markdown
 from strength_coach.web import server as web_server
-from strength_coach.web.server import create_server
+from strength_coach.web.server import analysis_readonly_connection, create_server
 
 ROWS = [
     {"Date": "2024-01-01", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
@@ -1813,6 +1814,17 @@ def test_performance_api_e1rm_dose_and_ratios(server):
     assert ratios["basis"] == "raw_formula_epley_rir"
     assert ratios["relationships"]
     assert "current" in ratios["relationships"][0]
+
+
+def test_analysis_readonly_connection_rejects_writes(tmp_path):
+    path = tmp_path / "coach.db"
+    db.Store(path).close()
+    conn = analysis_readonly_connection(path)
+    try:
+        with pytest.raises(sqlite3.OperationalError, match="readonly"):
+            conn.execute("CREATE TABLE forbidden_write (id INTEGER)")
+    finally:
+        conn.close()
 
 
 def test_monitoring_analysis_api_structure_and_date_validation(server):

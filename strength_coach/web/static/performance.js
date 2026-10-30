@@ -163,6 +163,48 @@ function monitoringAnalysisAssociation(row) {
   return "r = " + fmt(row.r, 2) + " (n=" + row.n + "; " + esc(row.status) + ")";
 }
 
+
+function analysisLineChart(rows) {
+  if (!Array.isArray(rows) || rows.length < 2) return "<p class='empty'>Insufficient session dose observations for a chart.</p>";
+  var width = 640, height = 220, max = 1;
+  rows.forEach(function (row) {
+    max = Math.max(max, Number(row.hard_sets || 0), Number(row.working_sets || 0));
+  });
+  function coords(key) {
+    return rows.map(function (row, index) {
+      var x = (index / (rows.length - 1)) * (width - 40) + 20;
+      var y = height - 20 - (Number(row[key] || 0) / max) * (height - 40);
+      return x.toFixed(1) + "," + y.toFixed(1);
+    }).join(" ");
+  }
+  return "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
+    "' role='img' aria-label='Session dose over time'><title>Session dose over time: hard sets and working sets</title>" +
+    "<polyline points='" + coords("working_sets") + "' fill='none' stroke='currentColor' stroke-width='2'></polyline>" +
+    "<polyline points='" + coords("hard_sets") + "' fill='none' stroke='currentColor' stroke-width='2' stroke-dasharray='5 3'></polyline></svg>" +
+    "<p class='muted'>Solid: working sets. Dashed: hard sets. Missing values are not plotted as zero.</p>";
+}
+
+function analysisScatter(points, association, label) {
+  if (!Array.isArray(points) || points.length < 3) {
+    return "<p class='empty'>Insufficient observations for " + esc(label) + " chart.</p>";
+  }
+  var width = 640, height = 220;
+  var xs = points.map(function (point) { return Number(point.x); });
+  var ys = points.map(function (point) { return Number(point.y); });
+  var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
+  var yMin = Math.min.apply(null, ys), yMax = Math.max.apply(null, ys);
+  var xSpan = Math.max(1, xMax - xMin), ySpan = Math.max(1, yMax - yMin);
+  var circles = points.map(function (point) {
+    var x = 20 + ((Number(point.x) - xMin) / xSpan) * (width - 40);
+    var y = height - 20 - ((Number(point.y) - yMin) / ySpan) * (height - 40);
+    return "<circle cx='" + x.toFixed(1) + "' cy='" + y.toFixed(1) + "' r='4'></circle>";
+  }).join("");
+  return "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
+    "' role='img' aria-label='" + esc(label) + "'><title>" + esc(label) + "</title>" + circles + "</svg>" +
+    "<p class='muted'>" + esc(monitoringAnalysisAssociation(association)) +
+    ". The displayed correlation is calculated by the analysis service, never by this page.</p>";
+}
+
 function renderMonitoringAnalysis(data) {
   var target = document.getElementById("monitoring-analysis-result");
   if (!target) return;
@@ -171,7 +213,8 @@ function renderMonitoringAnalysis(data) {
   var rows = (data.dose || []).map(function (row) {
     return "<tr><td>" + esc(row.date) + "</td><td>" + esc(row.session_type) +
       "</td><td>" + row.working_sets + "</td><td>" + row.hard_sets +
-      "</td><td>" + (row.tonnage_kg == null ? "Unavailable" : fmt(row.tonnage_kg) + " kg") +
+      "</td><td>" + (row.tonnage_kg == null ? "Unavailable" :
+        fmt(row.tonnage_kg) + " kg (" + esc(row.tonnage_status || "observed") + ")") +
       "</td><td>" + (row.session_load_au == null ? "Unavailable" : fmt(row.session_load_au) + " AU") +
       "</td></tr>";
   }).join("");
@@ -186,7 +229,7 @@ function renderMonitoringAnalysis(data) {
     var prior = row.prior_raw_e1rm_kg == null ? "Unavailable" : fmt(row.prior_raw_e1rm_kg) + " kg";
     var ci = row.calibration_ci_low == null ? "Unavailable" :
       fmt(row.calibration_ci_low, 2) + "–" + fmt(row.calibration_ci_high, 2);
-    return "<tr><td>" + esc(row.performed_on) + "</td><td>" + esc(row.exercise_id) +
+    return "<tr><td>" + esc(row.performed_on) + "</td><td>" + esc(row.calibration_context_as_of || "Unavailable") + "</td><td>" + esc(row.exercise_id) +
       "</td><td>" + fmt(row.measured_kg) + " kg</td><td>" + prior +
       "</td><td>" + esc(row.prior_raw_method || "Unavailable") +
       "</td><td>" + esc(row.prior_raw_method_version || "Unavailable") +
@@ -203,15 +246,20 @@ function renderMonitoringAnalysis(data) {
     " · with feedback " + (coverage.sessions_with_feedback == null ? "Unavailable" : coverage.sessions_with_feedback) +
     " · sets " + (coverage.sets == null ? "Unavailable" : coverage.sets) +
     " · exercises " + (coverage.exercises == null ? "Unavailable" : coverage.exercises) + "</p>" +
-    "<h3>Training dose over time</h3>" +
+    "<h3>Training dose over time</h3>" + analysisLineChart(data.dose || []) +
     (rows ? "<div class='table-scroll'><table><thead><tr><th>Date</th><th>Type</th><th>Working sets</th><th>Hard sets</th><th>Tonnage</th><th>Session load</th></tr></thead><tbody>" + rows + "</tbody></table></div>" : "<p class='empty'>No session dose observations.</p>") +
     "<h3>Hard sets vs subsequent e1RM</h3><p class='muted'>Session dose precedes the next session best for the same lift. Correlation is descriptive and not causal.</p>" +
-    (associations ? "<div class='table-scroll'><table><thead><tr><th>Exercise</th><th>Obs</th><th>Hard sets vs next e1RM</th><th>Session load vs next e1RM</th></tr></thead><tbody>" + associations + "</tbody></table></div>" : "<p class='empty'>Insufficient observations for lagged associations.</p>") +
+    ((data.associations || []).length ? (data.associations || []).map(function (row) {
+      return "<h4>" + esc(row.exercise_id) + "</h4>" +
+        analysisScatter(row.hard_sets_points, row.hard_sets_vs_next_e1rm, row.exercise_id + " hard sets vs next e1RM") +
+        analysisScatter(row.session_load_points, row.session_load_vs_next_e1rm, row.exercise_id + " session load vs next e1RM");
+    }).join("") : "<p class='empty'>Insufficient observations for lagged associations.</p>") +
+    (associations ? "<div class='table-scroll'><table><thead><tr><th>Exercise</th><th>Obs</th><th>Hard sets vs next e1RM</th><th>Session load vs next e1RM</th></tr></thead><tbody>" + associations + "</tbody></table></div>" : "") +
     "<h3>Data coverage and missingness</h3><p class='muted'>Unavailable values are not zero. Missing feedback reduces session-load coverage.</p>" +
     "<h3>Calibration transparency</h3>" +
     "<p class='muted'>Factor and CI are the state available as of " + esc(calibration.as_of || "Unavailable") +
     "; historical calibration state is not reconstructed. Method version: " + esc(calibration.method_version || "Unavailable") + ".</p>" +
-    (calibrationRows ? "<div class='table-scroll'><table><thead><tr><th>Test</th><th>Exercise</th><th>Measured</th><th>Prior raw</th><th>Method</th><th>Version</th><th>Factor</th><th>Applied</th><th>CI</th></tr></thead><tbody>" + calibrationRows + "</tbody></table></div>" : "<p class='empty'>No measured tests in this analysis.</p>") +
+    (calibrationRows ? "<div class='table-scroll'><table><thead><tr><th>Test</th><th>Context as of</th><th>Exercise</th><th>Measured</th><th>Prior raw</th><th>Method</th><th>Version</th><th>Factor</th><th>Applied</th><th>CI</th></tr></thead><tbody>" + calibrationRows + "</tbody></table></div>" : "<p class='empty'>No measured tests in this analysis.</p>") +
     "<p class='muted'>" + esc((calibration.note || "")) + "</p>";
 }
 

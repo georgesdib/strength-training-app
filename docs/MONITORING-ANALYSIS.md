@@ -6,7 +6,9 @@ factor, volume target, or recommendation.
 
 ## Entry points
 
-- **Performance -> Monitoring analysis** in the web UI.
+- **Performance -> Monitoring analysis** in the web UI: explicit Run analysis, optional
+  as-of date, dose chart, two lagged scatter charts, supporting tables and calibration
+  transparency.
 - The standalone CLI is tools/monitoring_analysis.py.
 - GET /api/monitoring-analysis?as_of=YYYY-MM-DD.
 
@@ -16,12 +18,14 @@ HTTP server does not invoke the CLI.
 ## What it reports
 
 - session-level working sets, hard sets, tonnage and session load where available;
+- tonnage is null with an explicit status when no working sets or no tonnage values exist;
+  a genuine recorded zero remains 0;
 - hard sets and session load versus the next session-best raw e1RM for the same exact exercise;
 - sample size and an explicit insufficient or no_variation status when a correlation
   cannot be calculated;
 - coverage and missingness counts;
 - measured-test calibration observations, prior raw estimates and the factor/CI available as
-  of the selected report date.
+  of the selected report date, including the calibration context date for every row.
 
 ## Interpretation
 
@@ -44,6 +48,7 @@ Protocol and equipment are reported as unknown because the current tables do not
 
 ## Reproducibility and privacy
 
+The analysis endpoint opens a dedicated SQLite connection with mode=ro and query_only=ON.
 The response includes the analysis version, seed, selected as_of date and a database
 fingerprint. It does not expose a filesystem path. The CLI defaults to
 private/docs/MONITORING-ANALYSIS.md; that path is git-ignored and personal output must not be
