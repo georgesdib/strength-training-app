@@ -1778,6 +1778,20 @@ def test_workout_summary_api_status_and_productivity(server):
         raise AssertionError("unknown summary should be 404")
 
 
+def test_performance_filters_change_e1rm_results(server):
+    sessions = json.loads(get(server, "/api/sessions")[1])
+    actual_type = sessions[0]["session_type"]
+    base = "/api/performance/e1rm?exercise_id=ssb_squat&from=2024-01-01&to=2024-01-02"
+    all_points = json.loads(get(server, base + "&session_type=" + actual_type)[1])
+    excluded = json.loads(get(server, base + "&session_type=definitely-not-a-type")[1])
+    degraded = json.loads(get(server, base + "&quality=degraded")[1])
+
+    assert all_points["points"]
+    assert excluded["points"] == []
+    assert degraded["degraded"] == []
+    assert degraded["filters"]["quality"] == "degraded"
+
+
 def test_performance_api_e1rm_dose_and_ratios(server):
     e1rm = json.loads(get(
         server,

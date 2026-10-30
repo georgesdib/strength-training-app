@@ -50,6 +50,12 @@ function renderPerformanceE1rm(data) {
     performanceSvg(points) +
     (rows ? "<div class='table-scroll'><table><thead><tr><th>Date</th><th>e1RM kg</th><th>Rolling median</th><th>Window n</th></tr></thead><tbody>" + rows + "</tbody></table></div>" : "<p class='empty'>No eligible observations in this range.</p>") +
     ((data.breaks || []).length ? "<p class='muted'>Series breaks: " + data.breaks.map(function (item) { return esc(item.date + " — " + item.reason); }).join("; ") + "</p>" : "") +
+    ((data.break_detection && data.break_detection.equipment === false)
+      ? "<p class='muted'>Equipment changes are not stored and cannot be detected.</p>" : "") +
+    ((data.degraded || []).length
+      ? "<details><summary>Degraded observations (not in line or median)</summary><div class='table-scroll'><table><thead><tr><th>Date</th><th>e1RM kg</th><th>Quality</th></tr></thead><tbody>" +
+        data.degraded.map(function (point) { return "<tr><td>" + esc(point.date) + "</td><td>" + fmt(point.kg) + "</td><td>" + esc(point.quality) + "</td></tr>"; }).join("") +
+        "</tbody></table></div></details>" : "") +
     "</div>";
 }
 
@@ -90,9 +96,15 @@ async function loadPerformanceData() {
   if (!exercise || !exercise.value) return;
   var e1rmTarget = document.getElementById("performance-e1rm");
   if (e1rmTarget) e1rmTarget.innerHTML = "<p class='empty'>Loading performance…</p>";
+  var sessionType = document.getElementById("performance-session-type");
+  var includeDeloads = document.getElementById("performance-include-deloads");
+  var quality = document.getElementById("performance-quality");
   var query = "?exercise_id=" + encodeURIComponent(exercise.value) +
     "&from=" + encodeURIComponent(from.value || "") +
-    "&to=" + encodeURIComponent(to.value || today());
+    "&to=" + encodeURIComponent(to.value || today()) +
+    "&session_type=" + encodeURIComponent(sessionType ? sessionType.value : "") +
+    "&include_deloads=" + (includeDeloads && includeDeloads.checked ? "true" : "false") +
+    "&quality=" + encodeURIComponent(quality ? quality.value : "ok");
   try {
     var results = await Promise.all([
       api("/api/performance/e1rm" + query),

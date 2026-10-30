@@ -1604,12 +1604,34 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("exercise_id is required")
         to_date = query.get("to", [datetime.date.today().isoformat()])[0]
         from_date = query.get("from", ["1900-01-01"])[0]
-        points = strength_trend_feature.observations(conn, exercise_id, from_date, to_date)
+        session_type = query.get("session_type", [None])[0] or None
+        include_deloads = str(query.get("include_deloads", ["false"])[0]).lower() in {
+            "1", "true", "yes", "on"
+        }
+        min_quality = str(query.get("quality", ["ok"])[0]).lower()
+        if min_quality not in {"ok", "degraded"}:
+            raise ValueError("quality must be ok or degraded")
+        points = strength_trend_feature.observations(
+            conn, exercise_id, from_date, to_date,
+            session_type=session_type, include_deloads=include_deloads,
+        )
         trend = strength_trend_feature.rolling_median(points)
+        degraded = (
+            strength_trend_feature.degraded_observations(
+                conn, exercise_id, from_date, to_date,
+                session_type=session_type, include_deloads=include_deloads,
+            )
+            if min_quality == "degraded" else []
+        )
         return {
             "exercise_id": exercise_id,
             "from": from_date,
             "to": to_date,
+            "filters": {
+                "session_type": session_type,
+                "include_deloads": include_deloads,
+                "quality": min_quality,
+            },
             "basis": "raw_formula_epley_rir",
             "decay": "not_applied",
             "calibration": "not_applied",
@@ -1622,10 +1644,25 @@ class Handler(BaseHTTPRequestHandler):
                 }
                 for point in trend
             ],
+            "degraded": [
+                {
+                    "date": point.date,
+                    "kg": round(point.estimate.kg, 1),
+                    "quality": point.estimate.quality,
+                    "reason": "degraded observation; excluded from primary line and median",
+                }
+                for point in degraded
+            ],
             "breaks": [
                 {"date": item.date, "reason": item.reason}
                 for item in strength_trend_feature.series_breaks(points)
             ],
+            "break_detection": {
+                "raw_exercise_alias": True,
+                "load_basis": True,
+                "equipment": False,
+                "limitation": "equipment changes are not stored and cannot be detected",
+            },
             "summary": strength_trend_feature.summarize(points),
         }
 

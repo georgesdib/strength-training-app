@@ -964,7 +964,10 @@ Rules:
 - <3 observations: points only; <5: no trend statement;
 - rolling median of 3 is descriptive, not a model;
 - series break markers on exercise/equipment/load-basis changes;
-- degraded observations shown separately, not in the primary line.
+- degraded observations shown separately, not in the primary line or rolling median;
+- the API exposes primary ok points and a separate degraded list; the minimum-quality control
+  only decides whether that secondary list is returned;
+- session-type, include-deloads and minimum-quality filters are applied server-side.
 
 ### 7.4 Relative strength design
 
@@ -987,6 +990,9 @@ Rules:
 - date gap ≤14 days; age ≤42 days;
 - dates, gap, counts and data-sufficiency status always returned;
 - no independent smoothing then division;
+- historical ratio points apply the same minimum-observation, age and date-gap gates as the
+  current ratio; history before the requested range is retrieved so early points are not lost;
+  invalid points return an explicit status rather than being silently omitted;
 - no target ratio or diagnosis.
 
 ### 7.5 API and CLI
@@ -1019,7 +1025,8 @@ Modify index.html:
 
 - add Performance nav button and view section;
 - add performance.js script tag;
-- add filters: exercise, date range, session type, include deloads, minimum quality.
+- add filters: exercise, date range, session type, include deloads, minimum quality;
+  all filters affect the API request and displayed results.
 
 Modify app.js:
 
@@ -1031,8 +1038,9 @@ UI components:
 - summary cards for latest, recent median, change from median (descriptive), coverage;
 - inline SVG line/points with accessible title and table fallback;
 - ratio table with numerator/denominator dates, gap, counts, status;
-- sparse states;
-- no hover-only tooltips; use details blocks.
+- sparse states and a separate degraded-observation details block;
+- no hover-only tooltips; use details blocks;
+- equipment changes are explicitly shown as not detectable because equipment is not stored.
 
 ### 7.7 Comparable-session comparison
 
@@ -1085,6 +1093,12 @@ UI tests:
 - No migration.
 
 ### 7.10 Risks and exclusions
+
+Known limitations:
+
+- series breaks detect raw-exercise aliases and load-basis changes only; equipment is not stored,
+  so equipment changes cannot be detected and are never inferred;
+- degraded observations remain visible separately but are not part of the primary median/line.
 
 Risks:
 

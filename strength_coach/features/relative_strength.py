@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import yaml
 
 from strength_coach.features import strength_trend
@@ -110,13 +111,18 @@ def validate_relationships(taxonomy: Any, relationships: list[Relationship]) -> 
     return issues
 
 
+def _history(points, on_date: str):
+    eligible = [point for point in points if point.date <= on_date]
+    return eligible
+
+
 def _latest_within(points, on_date: str, max_age_days: int):
-    eligible = [
-        point for point in points
-        if point.date <= on_date
-        and (pd_timestamp(on_date) - pd_timestamp(point.date)).days <= max_age_days
+    eligible = _history(points, on_date)
+    recent = [
+        point for point in eligible
+        if (pd_timestamp(on_date) - pd_timestamp(point.date)).days <= max_age_days
     ]
-    return eligible[-1] if eligible else None, len(eligible)
+    return recent[-1] if recent else None, len(eligible)
 
 
 def pd_timestamp(value: str):
@@ -168,23 +174,57 @@ def current_ratio(conn, relationship: Relationship, on_date: str) -> Ratio | dic
 
 
 def ratio_trend(conn, relationship: Relationship, from_date: str, to_date: str) -> list[dict[str, Any]]:
-    numerator_points = strength_trend.observations(conn, relationship.numerator, from_date, to_date)
-    denominator_points = strength_trend.observations(conn, relationship.denominator, from_date, to_date)
-    out = []
+    """Paired historical ratios with the same eligibility rules as the current ratio."""
+    lookback_days = max(relationship.max_age_days, relationship.max_gap_days)
+    history_from = (
+        pd_timestamp(from_date) - pd.Timedelta(days=lookback_days)
+    ).date().isoformat()
+    numerator_points = strength_trend.observations(
+        conn, relationship.numerator, history_from, to_date
+    )
+    denominator_points = strength_trend.observations(
+        conn, relationship.denominator, history_from, to_date
+    )
+    out: list[dict[str, Any]] = []
     for point in numerator_points:
-        latest_denominator, denominator_count = _latest_within(
-            denominator_points, point.date, relationship.max_gap_days
+        if point.date < from_date:
+            continue
+        numerator_history = _history(numerator_points, point.date)
+        denominator_history = _history(denominator_points, point.date)
+        latest_denominator, _ = _latest_within(
+            denominator_points, point.date, relationship.max_age_days
         )
+        base = {
+            "date": point.date,
+            "numerator_date": point.date,
+            "numerator_kg": round(point.estimate.kg, 1),
+            "numerator_observations": len(numerator_history),
+            "denominator_date": None if latest_denominator is None else latest_denominator.date,
+            "denominator_kg": None if latest_denominator is None else round(latest_denominator.estimate.kg, 1),
+            "denominator_observations": len(denominator_history),
+            "gap_days": None if latest_denominator is None else abs(
+                (pd_timestamp(point.date) - pd_timestamp(latest_denominator.date)).days
+            ),
+        }
         if latest_denominator is None:
+            out.append({**base, "ratio_pct": None, "status": "unavailable",
+                        "reason": "denominator has no observation on or before this date"})
+            continue
+        if (
+            len(numerator_history) < relationship.min_observations
+            or len(denominator_history) < relationship.min_observations
+        ):
+            out.append({**base, "ratio_pct": None, "status": "insufficient_history",
+                        "reason": "fewer than the configured observations"})
+            continue
+        if abs((pd_timestamp(point.date) - pd_timestamp(latest_denominator.date)).days) > relationship.max_gap_days:
+            out.append({**base, "ratio_pct": None, "status": "stale_or_gap",
+                        "reason": "observation dates are too far apart"})
             continue
         out.append({
-            "date": point.date,
+            **base,
             "ratio_pct": round(100.0 * point.estimate.kg / latest_denominator.estimate.kg, 1),
-            "numerator_kg": round(point.estimate.kg, 1),
-            "denominator_kg": round(latest_denominator.estimate.kg, 1),
-            "denominator_date": latest_denominator.date,
-            "gap_days": abs((pd_timestamp(point.date) - pd_timestamp(latest_denominator.date)).days),
-            "numerator_observations": len(numerator_points),
-            "denominator_observations": denominator_count,
+            "status": "available",
+            "reason": "",
         })
     return out

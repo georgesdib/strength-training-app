@@ -60,6 +60,15 @@ def test_performance_script_and_view_are_wired() -> None:
     assert (STATIC / "performance.js").is_file()
 
 
+def test_performance_filters_are_sent_to_the_api() -> None:
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    assert 'session_type=' in source
+    assert 'include_deloads=' in source
+    assert 'quality=' in source
+    assert 'Degraded observations' in source
+    assert 'Equipment changes are not stored' in source
+
+
 def test_script_load_order() -> None:
     page = INDEX.read_text(encoding="utf-8")
     order = [src.removeprefix("/static/")

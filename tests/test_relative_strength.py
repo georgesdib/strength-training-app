@@ -64,6 +64,27 @@ def test_ratio_with_one_side_sparse_is_insufficient_history():
     assert ratio["status"] == "insufficient_history"
 
 
+def test_ratio_trend_uses_history_before_the_range_and_keeps_invalid_statuses():
+    relationship = relative_strength.Relationship(
+        id="test", label="Front / competition", numerator="front_squat",
+        denominator="competition_squat", relationship_type="variant_to_main",
+        max_gap_days=14, max_age_days=42, min_observations=2, notes="test",
+    )
+    with _store() as store:
+        trend = relative_strength.ratio_trend(
+            store.connection, relationship, "2024-01-15", "2024-01-20"
+        )
+        sparse = relative_strength.ratio_trend(
+            store.connection, relationship, "2024-01-01", "2024-01-20"
+        )
+
+    assert trend[0]["status"] == "available"
+    assert trend[0]["denominator_date"] == "2024-01-15"
+    assert trend[0]["denominator_observations"] == 3
+    assert sparse[0]["status"] == "insufficient_history"
+    assert sparse[0]["ratio_pct"] is None
+
+
 def test_config_relationships_validate_against_taxonomy():
     relationships = relative_strength.load_relationships()
     issues = relative_strength.validate_relationships(

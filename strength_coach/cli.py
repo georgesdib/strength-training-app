@@ -380,6 +380,9 @@ def main(argv: list[str] | None = None) -> int:
     pe.add_argument("--exercise", required=True)
     pe.add_argument("--from", dest="from_date", default="1900-01-01")
     pe.add_argument("--to", dest="to_date", default=None)
+    pe.add_argument("--session-type", default=None)
+    pe.add_argument("--include-deloads", action="store_true")
+    pe.add_argument("--quality", choices=("ok", "degraded"), default="ok")
     pe.add_argument("--json", action="store_true")
     pdose = performance_sub.add_parser("dose", help="descriptive dose by session")
     pdose.add_argument("--from", dest="from_date", default=None)
@@ -1753,9 +1756,18 @@ def _cmd_performance(args) -> int:
         to_date = args.to_date or datetime.date.today().isoformat()
         if args.performance_action == "e1rm":
             points = strength_trend_feature.observations(
-                conn, args.exercise, args.from_date, to_date
+                conn, args.exercise, args.from_date, to_date,
+                session_type=args.session_type,
+                include_deloads=args.include_deloads,
             )
             trend = strength_trend_feature.rolling_median(points)
+            degraded = (
+                strength_trend_feature.degraded_observations(
+                    conn, args.exercise, args.from_date, to_date,
+                    session_type=args.session_type,
+                    include_deloads=args.include_deloads,
+                ) if args.quality == "degraded" else []
+            )
             payload = {
                 "exercise_id": args.exercise,
                 "from": args.from_date,
@@ -1771,6 +1783,11 @@ def _cmd_performance(args) -> int:
                         "n_window": point.n_window,
                     }
                     for point in trend
+                ],
+                "degraded": [
+                    {"date": point.date, "kg": round(point.estimate.kg, 1),
+                     "quality": point.estimate.quality}
+                    for point in degraded
                 ],
                 "summary": strength_trend_feature.summarize(points),
             }
