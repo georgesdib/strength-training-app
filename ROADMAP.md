@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-10-29 · **v1.0 beta released; v1.1 planned** · version `1.0.0b2` · **1025 public tests passed**
+Last updated: 2026-10-30 · **v1.0 beta released; v1.1 planned** · version `1.0.0b2` · **1025 public tests passed**
 
 
 ---
@@ -54,6 +54,8 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | — | 2026-10-26 pass | **done 2026-10-26** | declared breaks — append-only range, `break` CLI, Athlete panel, freeze in the trained-week cycle (`DEC-CONTINUITY-04`, `LIM-50`); P1 measured-test coverage view (`e1rm tests-needed` + Athlete table); symptom settling made fail-safe — a level-1 reading without a recorded 48 h settlement is a flare (`DEC-SYMPTOM-04`, Q25 closed) and `docs/SYMPTOM-LOGGING.md` documents the episode workflow; minimum-session target shown against the measured clock (`DEC-MIN-02`, `LIM-47` mitigated); gaps table folded into `docs/LIMITATIONS-REGISTER.md` |
 | — | 2026-10-28 fatigue signals Phase 0 | **done 2026-10-28** | five decisions (`DEC-EXPOSURE-02`, `DEC-DEMAND-01`, `DEC-RESIDUAL-01`, `DEC-SELECT-12`, `DEC-SHADOW-01`), five assumptions, `LIM-56`, ACWR doc drift corrected; `docs/FATIGUE-SIGNALS.md` maps Parts A–D onto the real engine stages and `docs/EXERCISE-DEMANDS.md` defines the companion catalogue. No code, no behaviour change |
 | — | 2026-10-28 audit fixes | **done 2026-10-28** | independent beta audit: continuity calibration **accepted** and the decision rewritten (`DEC-CONTINUITY-06`); injury ceiling applied independently of readiness, low back excluded (`DEC-INJURY-04`); readiness set cut takes precedence over the under-MEV top-up (`DEC-VOLUME-33`); browser mutations require loopback Host + same Origin + JSON content type and the CLI refuses non-loopback `--host` (`DEC-WEB-01`); Terminal removed (`DEC-WEB-02`); rubric calibration filtered to the current version (`DEC-EVAL-06`); programme horizon 1–26 weeks and one job per database (`DEC-PROGRAMME-09`) |
+| Phase 5A | Prospective validation | **active next stage; 2026-10-30 to 2027-01-22** | `phase5a_review` Today follow-up; see §2A |
+| Phase 5B | Evidence-driven implementation | **gated; not approved or underway** | starts only after Phase 5A gate and explicit approval; see §2A |
 | — | 2026-10-30 monitoring Phase 4 | **done 2026-10-30** | read-only calibration observation layer around the active calibration; formula/method version and current-as-of semantics exposed; reusable descriptive dose/lag/missingness analysis service with Performance UI and GET /api/monitoring-analysis; CLI remains a thin wrapper; no calibration calculation/application changes, no model adoption and no schema change |
 | — | 2026-10-30 monitoring Phase 3 | **done 2026-10-30** | Performance view and API/CLI for raw e1RM observations, rolling median, series breaks and dose; functional session-type/deload/quality filters; degraded observations shown separately; explicitly configured relative-strength ratios with eligibility-aware history; comparable-session descriptive summary; no target ratios, diagnosis, decay or calibration. Equipment breaks remain undetectable because equipment is not stored |
 | — | 2026-10-30 monitoring Phase 2 | **done 2026-10-30** | completed-workout descriptive summary (completion, raw strength, dose, special exposure, feedback) with API/CLI/end-screen; approved append-only `session_feedback.productivity` 1–5 migration preserving existing rows; no ratios, longitudinal trends or prescription control |
@@ -114,6 +116,75 @@ that cites a rule or a stored fact. `review` is the calibration loop: it shows t
 beside the rubric's scores, takes marks, stores them append-only, and reports running
 agreement immediately. Two of the three marks are reconstructed from memory and excluded;
 agreement is reported against the remembered marks; exact counts are private (`DEC-EVAL-03/04`).
+
+## 2A. Phase 5 — prospective validation and evidence-driven improvements
+
+Phase 5 is split into two gated stages. Only Phase 5A is active. Phase 5B must not begin
+until the 22 January 2027 review gate is completed and the user explicitly approves it.
+
+### Phase 5A — Prospective validation
+
+| Item | Value |
+|---|---|
+| Status | **active next stage** |
+| Observation start | 2026-10-30 |
+| Formal review date | 2027-01-22 |
+| Duration | 12 weeks |
+| Today follow-up | `phase5a_review` — Phase 5A — Prospective validation review |
+
+Objective: evaluate the existing monitoring system prospectively on real training data
+collected during normal use.
+
+During Phase 5A:
+
+- do not change monitoring model parameters, thresholds, metric definitions or eligibility;
+- do not change calibration factors/logic or prescription/optimisation behaviour;
+- do not introduce predictive models or tune thresholds to observations;
+- do not treat correlations as causal or silently change a metric because its result is unexpected;
+- data-integrity or incorrect-calculation bug fixes are permitted only when documented,
+  justified and tested.
+
+Evaluate/classify every metric using the existing monitoring analysis infrastructure:
+
+- data quality: completeness, missingness, consistency, provenance;
+- measurement reliability: stability and repeatability;
+- metric behaviour: distributions, variability, sensitivity, responsiveness;
+- calibration: evidence supporting the existing approach;
+- training response: plausible correspondence with performance and exposure, without causal claims;
+- practical utility: interpretability without overstated certainty.
+
+Evidence classes: **supported**, **provisionally supported**, **insufficient evidence**,
+**not validated**, **not applicable**, each with rationale.
+
+**22 January 2027 review gate:** document the evidence and choose exactly one:
+
+A. proceed to Phase 5B;
+B. extend Phase 5A once by approximately four weeks, documenting the missing evidence;
+C. close Phase 5A without Phase 5B, documenting which metrics remain unvalidated.
+
+Completing the Today follow-up requires an explicit decision; it never starts Phase 5B or
+changes monitoring automatically.
+
+### Phase 5B — Evidence-driven implementation (gated)
+
+| Item | Value |
+|---|---|
+| Status | **gated; not approved or underway** |
+| Start | only after the Phase 5A gate and explicit user approval |
+| Initial duration | 4–8 weeks |
+
+Each proposed change must identify the Phase 5A finding, evidence, expected effect,
+unintended consequences, acceptance criteria, tests and documentation/limitations updates.
+Changes must be classified as measurement/data-quality correction, metric-definition
+correction, calibration improvement, threshold/classification adjustment, new analytical
+capability, or rejected proposal. Rejected proposals are documented with reasons.
+
+Phase 5B is complete only when every Phase 5A finding is assessed, supported changes are
+implemented or explicitly rejected, tests pass, no critical data-integrity/monitoring defect
+remains, and validated versus unvalidated capabilities are clearly distinguished.
+
+Phase 5B must not introduce predictive/prescriptive behaviour merely from a descriptive
+association without separate justification and validation.
 
 ## 3. v0.1 — complete
 

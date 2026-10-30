@@ -377,13 +377,18 @@ async function loadReviews() {
       const doc = task.doc
         ? `<a href="#docs?doc=${encodeURIComponent(task.doc)}">${esc(task.doc)}</a>`
         : "";
+      const decisions = task.key === "phase5a_review"
+        ? `<option value="changed">Proceed to Phase 5B</option>
+           <option value="insufficient">Extend Phase 5A once</option>
+           <option value="not_applicable">Close Phase 5A without Phase 5B</option>`
+        : `<option value="kept">kept</option><option value="changed">changed</option>
+           <option value="insufficient">insufficient</option>
+           <option value="not_applicable">not applicable</option>`;
       const actions = task.periodic
         ? `<details><summary>Mark reviewed</summary>
              <div class="form-row">
                <label>Decision <select id="review-decision-${esc(task.key)}">
-                 <option value="kept">kept</option><option value="changed">changed</option>
-                 <option value="insufficient">insufficient</option>
-                 <option value="not_applicable">not applicable</option>
+                 ${decisions}
                </select></label>
                <label class="grow">Note <input id="review-note-${esc(task.key)}" placeholder="optional"></label>
                <button type="button" data-action="review-complete" data-task-key="${esc(task.key)}">Save review</button>

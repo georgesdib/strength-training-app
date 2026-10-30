@@ -81,6 +81,14 @@ def test_monitoring_analysis_is_in_performance_view() -> None:
     assert "historical calibration state is not reconstructed" in source
 
 
+def test_phase5a_review_actions_are_exposed() -> None:
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert "phase5a_review" in source
+    assert "Proceed to Phase 5B" in source
+    assert "Extend Phase 5A once" in source
+    assert "Close Phase 5A without Phase 5B" in source
+
+
 def test_script_load_order() -> None:
     page = INDEX.read_text(encoding="utf-8")
     order = [src.removeprefix("/static/")

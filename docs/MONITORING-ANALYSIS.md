@@ -61,6 +61,16 @@ committed.
 - Calibration factor/CI is current-as-of, not a historical snapshot.
 - Protocol/equipment provenance is unavailable.
 
+## Phase 5A and Phase 5B
+
+Phase 5A is the active prospective-validation stage (2026-10-30 to 2027-01-22). It evaluates
+the existing system without changing monitoring parameters, calibration, metric definitions or
+prescription behaviour. The Today-page follow-up is phase5a_review; completing it requires an
+explicit decision.
+
+Phase 5B is gated and not approved or underway. It may begin only after the Phase 5A review and
+explicit user approval, and every change must trace to a documented Phase 5A finding.
+
 ## Related
 
 - [Training monitoring specification](design/TRAINING-MONITORING-SPEC.md)

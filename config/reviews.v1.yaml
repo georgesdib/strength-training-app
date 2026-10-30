@@ -115,3 +115,25 @@ fatigue_signals:
   - Do not enable the exposure trim because one week's ratio is high.
   - Do not treat the ratio as an injury-risk rule (LIM-56).
   - Do not edit the reviewed demand file; the local overlay is for your own ratings.
+
+phase5a_review:
+  label: Phase 5A — Prospective validation review
+  start_date: "2026-10-30"
+  due_date: "2027-01-22"
+  snooze_days: 14
+  doc: docs/MONITORING-ANALYSIS.md
+  why: >
+    The 12-week prospective observation window must be reviewed before any monitoring
+    improvement is approved. This is a review gate, not an automatic change.
+  steps:
+  - Review data quality, completeness, missingness and provenance across the observation window.
+  - Assess measurement reliability, metric distributions, variability and responsiveness.
+  - Review the existing calibration evidence and current-as-of factor/CI transparency.
+  - Compare monitoring changes with training performance and exposure without claiming causality.
+  - Classify every metric as supported, provisionally supported, insufficient evidence,
+    not validated or not applicable, and record the rationale.
+  - Decide whether to proceed to Phase 5B, extend Phase 5A once by about four weeks, or close Phase 5A without Phase 5B.
+  dont:
+  - Do not change monitoring parameters, calibration, thresholds or prescriptions during Phase 5A.
+  - Do not treat an observed correlation as causal or as a validated predictor.
+  - Do not begin Phase 5B before an explicit review decision.

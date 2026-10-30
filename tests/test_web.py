@@ -1845,3 +1845,19 @@ def test_monitoring_analysis_api_structure_and_date_validation(server):
         assert exc.code == 400
     else:
         raise AssertionError("invalid as_of should be 400")
+
+
+def test_phase5a_review_completion_through_api_is_persisted(server):
+    payload = post(server, "/api/reviews", {
+        "task_key": "phase5a_review",
+        "action": "completed",
+        "date": "2027-01-22",
+        "decision": "changed",
+        "note": "proceed after review",
+    })
+    task = next(
+        item for item in payload["tasks"] if item["key"] == "phase5a_review"
+    )
+    assert task["status"] == "completed"
+    assert task["details"]["decision"] == "changed"
+    assert task["details"]["last_completed"] == "2027-01-22"
