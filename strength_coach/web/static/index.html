@@ -222,6 +222,16 @@
         <div id="performance-e1rm"></div>
         <div id="performance-dose"></div>
         <div id="performance-ratios"></div>
+        <div class="panel" id="monitoring-analysis-panel">
+          <div class="panel-head"><h3>Monitoring analysis</h3><span class="muted">exploratory; read-only</span></div>
+          <p class="section-help"><span>Descriptive dose and lagged associations plus calibration transparency. It never changes a prescription or calibration.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Analysis documentation</a></p>
+          <p class="warnbox">These are exploratory observational associations. They do not establish causation, validate a predictive model, or identify an optimal training prescription.</p>
+          <div class="form-row">
+            <label>As of <input type="date" id="monitoring-analysis-date"></label>
+            <button class="primary" type="button" id="monitoring-analysis-run">Run analysis</button>
+          </div>
+          <div id="monitoring-analysis-result"><p class="empty">Run the analysis to load a descriptive snapshot.</p></div>
+        </div>
       </div>
     </section>
 

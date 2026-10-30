@@ -68,6 +68,7 @@ from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import form_assessment as form_assessment_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import measurements as measurements_feature
+from strength_coach.features import monitoring_analysis as monitoring_analysis_feature
 from strength_coach.features import outcomes as outcomes_feature
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import progress as progress_feature
@@ -708,6 +709,18 @@ class Handler(BaseHTTPRequestHandler):
                 query = parse_qs(urlparse(self.path).query)
                 self._json(200, self._with_conn(
                     lambda c: self._performance_ratios(c, query)
+                ))
+            elif path == "/api/monitoring-analysis":
+                query = parse_qs(urlparse(self.path).query)
+                as_of = query.get("as_of", [datetime.date.today().isoformat()])[0]
+                try:
+                    datetime.date.fromisoformat(as_of)
+                except ValueError as exc:
+                    raise ValueError("as_of must be YYYY-MM-DD") from exc
+                self._json(200, self._with_conn(
+                    lambda c: monitoring_analysis_feature.build_analysis(
+                        c, as_of=as_of
+                    )
                 ))
             elif path == "/api/sessions":
                 self._json(200, self._with_conn(lambda c: _session_rows(c, 40)))

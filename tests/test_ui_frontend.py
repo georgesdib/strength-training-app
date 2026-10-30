@@ -69,6 +69,18 @@ def test_performance_filters_are_sent_to_the_api() -> None:
     assert 'Equipment changes are not stored' in source
 
 
+def test_monitoring_analysis_is_in_performance_view() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    assert 'id="monitoring-analysis-panel"' in page
+    assert 'id="monitoring-analysis-run"' in page
+    assert 'id="monitoring-analysis-date"' in page
+    assert "/api/monitoring-analysis" in source
+    assert "Run the analysis" in page
+    assert "exploratory observational associations" in page
+    assert "historical calibration state is not reconstructed" in source
+
+
 def test_script_load_order() -> None:
     page = INDEX.read_text(encoding="utf-8")
     order = [src.removeprefix("/static/")

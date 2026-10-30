@@ -1813,3 +1813,23 @@ def test_performance_api_e1rm_dose_and_ratios(server):
     assert ratios["basis"] == "raw_formula_epley_rir"
     assert ratios["relationships"]
     assert "current" in ratios["relationships"][0]
+
+
+def test_monitoring_analysis_api_structure_and_date_validation(server):
+    payload = json.loads(get(
+        server, "/api/monitoring-analysis?as_of=2024-01-02"
+    )[1])
+    assert payload["meta"]["analysis_version"] == "monitoring-analysis-v1"
+    assert payload["meta"]["as_of"] == "2024-01-02"
+    assert payload["meta"]["read_only"] is True
+    assert "database_fingerprint" in payload["meta"]
+    assert "dose" in payload and "associations" in payload
+    assert payload["calibration"]["historical_state_reconstructable"] is False
+    assert isinstance(payload["calibration"]["observations"], list)
+
+    try:
+        get(server, "/api/monitoring-analysis?as_of=not-a-date")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 400
+    else:
+        raise AssertionError("invalid as_of should be 400")

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 
 from conftest import make_readiness, make_training
 
+from strength_coach.features import monitoring_analysis as analysis_service
 from strength_coach.store import db, importer
 from tools import monitoring_analysis
 
@@ -46,12 +48,28 @@ def test_analysis_is_deterministic_and_read_only(tmp_path):
     assert payload["associations"]
 
 
+def test_analysis_association_statuses_are_explicit():
+    assert analysis_service._corr([(1.0, 2.0)])["status"] == "insufficient"
+    assert analysis_service._corr([(1.0, 2.0), (1.0, 3.0), (1.0, 4.0)])["status"] == "no_variation"
+
+
 def test_analysis_default_output_is_private(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    (repo / ".gitignore").write_text("private/\n", encoding="utf-8")
     path = _store(tmp_path)
-    output = tmp_path / "analysis.md"
-    assert monitoring_analysis.main([
-        "--db", str(path), "--out", str(output), "--as-of", "2024-01-31",
-    ]) == 0
-    text = output.read_text()
-    assert "Monitoring exploratory analysis" in text
-    assert "Descriptive associations only" in text
+    monkeypatch.chdir(repo)
+
+    assert monitoring_analysis.main(["--db", str(path), "--as-of", "2024-01-31"]) == 0
+    output = repo / "private" / "docs" / "MONITORING-ANALYSIS.md"
+    assert output.is_file()
+    subprocess.run(
+        ["git", "check-ignore", "-q", str(output)], cwd=repo, check=True
+    )
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", str(output)], cwd=repo, check=True,
+        capture_output=True, text=True,
+    ).stdout
+    assert tracked.strip() == ""
+    assert "Monitoring exploratory analysis" in output.read_text()

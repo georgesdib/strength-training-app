@@ -43,6 +43,8 @@ class CalibrationObservation:
     calibration_ci_high: float | None
     calibration_ci_width: float | None
     calibration_eligibility_reason: str
+    calibration_context_as_of: str | None = None
+    historical_calibration_available: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -80,6 +82,8 @@ class CalibrationObservation:
                 else round(self.calibration_ci_width, 4)
             ),
             "calibration_eligibility_reason": self.calibration_eligibility_reason,
+            "calibration_context_as_of": self.calibration_context_as_of,
+            "historical_calibration_available": self.historical_calibration_available,
         }
 
 
@@ -183,5 +187,7 @@ def observations(
                 "no calibration row for this lift" if calibration is None
                 else calibration.correction_reason
             ),
+            calibration_context_as_of=as_of,
+            historical_calibration_available=False,
         ))
     return out

@@ -37,7 +37,7 @@ def test_measured_test_links_prior_raw_and_existing_factor_is_read_only():
             conn, override_id=override_id, exercise_id="ssb_squat",
             performed_on="2024-02-01", test_type="3RM",
         )
-        values = calibration_observations.observations(conn)
+        values = calibration_observations.observations(conn, to_date="2024-02-01")
 
     assert len(values) == 1
     value = values[0]
@@ -52,6 +52,8 @@ def test_measured_test_links_prior_raw_and_existing_factor_is_read_only():
     assert value.linked_exposure_id
     assert value.existing_calibration_factor == 1.0
     assert value.existing_factor_applied is False
+    assert value.calibration_context_as_of == "2024-02-01"
+    assert value.historical_calibration_available is False
 
 
 def test_test_without_prior_raw_estimate_is_explicitly_excluded():

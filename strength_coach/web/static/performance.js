@@ -139,6 +139,13 @@ async function loadPerformance() {
       select.innerHTML = "";
     }
   }
+  var analysisDate = document.getElementById("monitoring-analysis-date");
+  if (analysisDate && !analysisDate.value) analysisDate.value = today();
+  var analysisButton = document.getElementById("monitoring-analysis-run");
+  if (analysisButton && !analysisButton.dataset.wired) {
+    analysisButton.dataset.wired = "1";
+    analysisButton.addEventListener("click", loadMonitoringAnalysis);
+  }
   var form = document.getElementById("performance-form");
   if (form && !form.dataset.wired) {
     form.dataset.wired = "1";
@@ -148,4 +155,76 @@ async function loadPerformance() {
     });
   }
   loadPerformanceData();
+}
+
+function monitoringAnalysisAssociation(row) {
+  if (!row) return "Unavailable";
+  if (row.r == null) return esc(row.status + " (n=" + row.n + ")");
+  return "r = " + fmt(row.r, 2) + " (n=" + row.n + "; " + esc(row.status) + ")";
+}
+
+function renderMonitoringAnalysis(data) {
+  var target = document.getElementById("monitoring-analysis-result");
+  if (!target) return;
+  var meta = data.meta || {};
+  var coverage = data.missingness || {};
+  var rows = (data.dose || []).map(function (row) {
+    return "<tr><td>" + esc(row.date) + "</td><td>" + esc(row.session_type) +
+      "</td><td>" + row.working_sets + "</td><td>" + row.hard_sets +
+      "</td><td>" + (row.tonnage_kg == null ? "Unavailable" : fmt(row.tonnage_kg) + " kg") +
+      "</td><td>" + (row.session_load_au == null ? "Unavailable" : fmt(row.session_load_au) + " AU") +
+      "</td></tr>";
+  }).join("");
+  var associations = (data.associations || []).map(function (row) {
+    return "<tr><td>" + esc(row.exercise_id) + "</td><td>" + row.observations +
+      "</td><td>" + monitoringAnalysisAssociation(row.hard_sets_vs_next_e1rm) +
+      "</td><td>" + monitoringAnalysisAssociation(row.session_load_vs_next_e1rm) +
+      "</td></tr>";
+  }).join("");
+  var calibration = data.calibration || {};
+  var calibrationRows = (calibration.observations || []).map(function (row) {
+    var prior = row.prior_raw_e1rm_kg == null ? "Unavailable" : fmt(row.prior_raw_e1rm_kg) + " kg";
+    var ci = row.calibration_ci_low == null ? "Unavailable" :
+      fmt(row.calibration_ci_low, 2) + "–" + fmt(row.calibration_ci_high, 2);
+    return "<tr><td>" + esc(row.performed_on) + "</td><td>" + esc(row.exercise_id) +
+      "</td><td>" + fmt(row.measured_kg) + " kg</td><td>" + prior +
+      "</td><td>" + esc(row.prior_raw_method || "Unavailable") +
+      "</td><td>" + esc(row.prior_raw_method_version || "Unavailable") +
+      "</td><td>" + fmt(row.existing_calibration_factor, 3) +
+      "</td><td>" + esc(String(row.existing_factor_applied)) +
+      "</td><td>" + ci + "</td></tr>";
+  }).join("");
+  target.innerHTML =
+    "<p class='muted'>As of <strong>" + esc(meta.as_of || "Unavailable") +
+    "</strong> · analysis " + esc(meta.analysis_version || "Unavailable") +
+    " · seed " + esc(String(meta.seed)) + " · database fingerprint " +
+    esc(meta.database_fingerprint || "Unavailable") + "</p>" +
+    "<p class='muted'>Sessions " + (coverage.sessions == null ? "Unavailable" : coverage.sessions) +
+    " · with feedback " + (coverage.sessions_with_feedback == null ? "Unavailable" : coverage.sessions_with_feedback) +
+    " · sets " + (coverage.sets == null ? "Unavailable" : coverage.sets) +
+    " · exercises " + (coverage.exercises == null ? "Unavailable" : coverage.exercises) + "</p>" +
+    "<h3>Training dose over time</h3>" +
+    (rows ? "<div class='table-scroll'><table><thead><tr><th>Date</th><th>Type</th><th>Working sets</th><th>Hard sets</th><th>Tonnage</th><th>Session load</th></tr></thead><tbody>" + rows + "</tbody></table></div>" : "<p class='empty'>No session dose observations.</p>") +
+    "<h3>Hard sets vs subsequent e1RM</h3><p class='muted'>Session dose precedes the next session best for the same lift. Correlation is descriptive and not causal.</p>" +
+    (associations ? "<div class='table-scroll'><table><thead><tr><th>Exercise</th><th>Obs</th><th>Hard sets vs next e1RM</th><th>Session load vs next e1RM</th></tr></thead><tbody>" + associations + "</tbody></table></div>" : "<p class='empty'>Insufficient observations for lagged associations.</p>") +
+    "<h3>Data coverage and missingness</h3><p class='muted'>Unavailable values are not zero. Missing feedback reduces session-load coverage.</p>" +
+    "<h3>Calibration transparency</h3>" +
+    "<p class='muted'>Factor and CI are the state available as of " + esc(calibration.as_of || "Unavailable") +
+    "; historical calibration state is not reconstructed. Method version: " + esc(calibration.method_version || "Unavailable") + ".</p>" +
+    (calibrationRows ? "<div class='table-scroll'><table><thead><tr><th>Test</th><th>Exercise</th><th>Measured</th><th>Prior raw</th><th>Method</th><th>Version</th><th>Factor</th><th>Applied</th><th>CI</th></tr></thead><tbody>" + calibrationRows + "</tbody></table></div>" : "<p class='empty'>No measured tests in this analysis.</p>") +
+    "<p class='muted'>" + esc((calibration.note || "")) + "</p>";
+}
+
+async function loadMonitoringAnalysis() {
+  var target = document.getElementById("monitoring-analysis-result");
+  var date = document.getElementById("monitoring-analysis-date");
+  if (!target) return;
+  target.innerHTML = "<p class='empty'>Running analysis…</p>";
+  try {
+    var data = await api("/api/monitoring-analysis?as_of=" +
+      encodeURIComponent((date && date.value) || today()));
+    renderMonitoringAnalysis(data);
+  } catch (error) {
+    target.innerHTML = "<p class='warnbox'>Analysis unavailable: " + esc(error.message) + "</p>";
+  }
 }
