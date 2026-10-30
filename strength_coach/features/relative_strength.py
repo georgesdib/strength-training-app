@@ -130,12 +130,22 @@ def pd_timestamp(value: str):
     return pd.Timestamp(value)
 
 
-def current_ratio(conn, relationship: Relationship, on_date: str) -> Ratio | dict[str, Any]:
-    numerator_points = strength_trend.observations(
-        conn, relationship.numerator, "1900-01-01", on_date
+def current_ratio(
+    conn, relationship: Relationship, on_date: str, *, points=None,
+) -> Ratio | dict[str, Any]:
+    numerator_points = (
+        points.get(relationship.numerator)
+        if points and relationship.numerator in points
+        else strength_trend.observations(
+            conn, relationship.numerator, "1900-01-01", on_date
+        )
     )
-    denominator_points = strength_trend.observations(
-        conn, relationship.denominator, "1900-01-01", on_date
+    denominator_points = (
+        points.get(relationship.denominator)
+        if points and relationship.denominator in points
+        else strength_trend.observations(
+            conn, relationship.denominator, "1900-01-01", on_date
+        )
     )
     numerator, numerator_count = _latest_within(
         numerator_points, on_date, relationship.max_age_days
@@ -172,17 +182,27 @@ def current_ratio(conn, relationship: Relationship, on_date: str) -> Ratio | dic
     )
 
 
-def ratio_trend(conn, relationship: Relationship, from_date: str, to_date: str) -> list[dict[str, Any]]:
+def ratio_trend(
+    conn, relationship: Relationship, from_date: str, to_date: str, *, points=None,
+) -> list[dict[str, Any]]:
     """Paired historical ratios with the same eligibility rules as the current ratio."""
     lookback_days = max(relationship.max_age_days, relationship.max_gap_days)
     history_from = (
         pd_timestamp(from_date) - pd.Timedelta(days=lookback_days)
     ).date().isoformat()
-    numerator_points = strength_trend.observations(
-        conn, relationship.numerator, history_from, to_date
+    numerator_points = (
+        points.get(relationship.numerator)
+        if points and relationship.numerator in points
+        else strength_trend.observations(
+            conn, relationship.numerator, history_from, to_date
+        )
     )
-    denominator_points = strength_trend.observations(
-        conn, relationship.denominator, history_from, to_date
+    denominator_points = (
+        points.get(relationship.denominator)
+        if points and relationship.denominator in points
+        else strength_trend.observations(
+            conn, relationship.denominator, history_from, to_date
+        )
     )
     out: list[dict[str, Any]] = []
     for point in numerator_points:

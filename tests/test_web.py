@@ -1814,6 +1814,8 @@ def test_performance_api_e1rm_dose_and_ratios(server):
     assert ratios["basis"] == "raw_formula_epley_rir"
     assert ratios["relationships"]
     assert "current" in ratios["relationships"][0]
+    assert "reason" in ratios["relationships"][0]["current"]
+    assert "numerator_observations" in ratios["relationships"][0]["current"]
 
 
 def test_analysis_readonly_connection_rejects_writes(tmp_path):
@@ -1861,3 +1863,20 @@ def test_phase5a_review_completion_through_api_is_persisted(server):
     assert task["status"] == "completed"
     assert task["details"]["decision"] == "changed"
     assert task["details"]["last_completed"] == "2027-01-22"
+
+
+def test_performance_ratios_are_cached(server, monkeypatch):
+    from strength_coach.web import server as web_server
+
+    calls = []
+    original = web_server.Handler._performance_ratios
+
+    def counted(self, conn, query):
+        calls.append(1)
+        return original(self, conn, query)
+
+    monkeypatch.setattr(web_server.Handler, "_performance_ratios", counted)
+    url = "/api/performance/ratios?from=2024-01-01&to=2024-01-02"
+    assert get(server, url)[0] == 200
+    assert get(server, url)[0] == 200
+    assert len(calls) == 1

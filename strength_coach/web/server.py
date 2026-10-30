@@ -394,6 +394,26 @@ def _settled(value):
 
 _PROGRAMME_JOBS: dict[str, dict[str, Any]] = {}
 _PROGRAMME_JOBS_LOCK = threading.Lock()
+_READ_CACHE: dict[tuple, dict] = {}
+_READ_CACHE_LOCK = threading.Lock()
+_READ_CACHE_MAX = 16
+
+
+def _db_stamp(path: str | Path) -> tuple[int, int]:
+    stat = Path(path).stat()
+    return stat.st_mtime_ns, stat.st_size
+
+
+def _cache_get(key: tuple) -> dict | None:
+    with _READ_CACHE_LOCK:
+        return _READ_CACHE.get(key)
+
+
+def _cache_set(key: tuple, value: dict) -> None:
+    with _READ_CACHE_LOCK:
+        _READ_CACHE[key] = value
+        while len(_READ_CACHE) > _READ_CACHE_MAX:
+            _READ_CACHE.pop(next(iter(_READ_CACHE)))
 _PROGRAMME_JOB_TTL_SECONDS = 3600
 _PROGRAMME_JOB_MAX = 20
 
@@ -653,6 +673,35 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             conn.close()
 
+    def _monitoring_analysis(self, as_of: str) -> dict:
+        key = (
+            "monitoring-analysis", str(self.db_path), _db_stamp(self.db_path),
+            as_of, monitoring_analysis_feature.ANALYSIS_VERSION,
+        )
+        cached = _cache_get(key)
+        if cached is not None:
+            return cached
+        value = self._with_analysis_conn(
+            lambda c: monitoring_analysis_feature.build_analysis(c, as_of=as_of)
+        )
+        _cache_set(key, value)
+        return value
+
+    def _performance_ratios_cached(self, query: dict) -> dict:
+        to_date = query.get("to", [datetime.date.today().isoformat()])[0]
+        from_date = query.get("from", [to_date])[0]
+        relationship_id = query.get("relationship_id", [None])[0]
+        key = (
+            "performance-ratios", str(self.db_path), _db_stamp(self.db_path),
+            from_date, to_date, relationship_id,
+        )
+        cached = _cache_get(key)
+        if cached is not None:
+            return cached
+        value = self._with_conn(lambda c: self._performance_ratios(c, query))
+        _cache_set(key, value)
+        return value
+
     # --- routes -----------------------------------------------------------
     def do_GET(self) -> None:
         path = unquote(urlparse(self.path).path)
@@ -724,9 +773,7 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             elif path == "/api/performance/ratios":
                 query = parse_qs(urlparse(self.path).query)
-                self._json(200, self._with_conn(
-                    lambda c: self._performance_ratios(c, query)
-                ))
+                self._json(200, self._performance_ratios_cached(query))
             elif path == "/api/monitoring-analysis":
                 query = parse_qs(urlparse(self.path).query)
                 as_of = query.get("as_of", [datetime.date.today().isoformat()])[0]
@@ -734,11 +781,7 @@ class Handler(BaseHTTPRequestHandler):
                     datetime.date.fromisoformat(as_of)
                 except ValueError as exc:
                     raise ValueError("as_of must be YYYY-MM-DD") from exc
-                self._json(200, self._with_analysis_conn(
-                    lambda c: monitoring_analysis_feature.build_analysis(
-                        c, as_of=as_of
-                    )
-                ))
+                self._json(200, self._monitoring_analysis(as_of))
             elif path == "/api/sessions":
                 self._json(200, self._with_conn(lambda c: _session_rows(c, 40)))
             elif path == "/api/history":
@@ -1704,6 +1747,7 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("group_by must be session")
         sets = queries.clean_sets(conn, start=from_date, end=to_date)
         sessions = queries.sessions(conn, start=from_date, end=to_date)
+        exposure_config = exposure_ratio_feature.ExposureConfig.load()
         buckets = []
         for _, row in sessions.iterrows():
             session_id = str(row["session_id"])
@@ -1715,7 +1759,7 @@ class Handler(BaseHTTPRequestHandler):
                 "date": str(row["occurred_on"])[:10],
                 "session_type": row.get("session_type"),
                 "working_sets": int(len(work)),
-                "hard_sets": monitoring.hard_sets(work, exposure_ratio_feature.ExposureConfig.load()),
+                "hard_sets": monitoring.hard_sets(work, exposure_config),
                 "tonnage_kg": round(float(tonnage), 1),
             })
         return {"from": from_date, "to": to_date, "group_by": "session", "buckets": buckets}
@@ -1726,13 +1770,26 @@ class Handler(BaseHTTPRequestHandler):
         relationship_id = query.get("relationship_id", [None])[0]
         relationships = relative_strength_feature.load_relationships()
         selected = [item for item in relationships if relationship_id in (None, item.id)]
+        exercise_ids = sorted({
+            exercise for item in selected for exercise in (item.numerator, item.denominator)
+        })
+        sets = queries.clean_sets(conn, end=to_date)
+        points_by_exercise = {
+            exercise: strength_trend_feature.observations(
+                conn, exercise, "1900-01-01", to_date, frame=sets
+            )
+            for exercise in exercise_ids
+        }
         values = []
         for relationship in selected:
-            current = relative_strength_feature.current_ratio(conn, relationship, to_date)
+            current = relative_strength_feature.current_ratio(
+                conn, relationship, to_date, points=points_by_exercise
+            )
             values.append({
                 "current": current.as_dict() if hasattr(current, "as_dict") else current,
                 "trend": relative_strength_feature.ratio_trend(
-                    conn, relationship, from_date, to_date
+                    conn, relationship, from_date, to_date,
+                    points=points_by_exercise,
                 ),
             })
         return {

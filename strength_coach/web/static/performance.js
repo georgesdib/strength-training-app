@@ -82,10 +82,13 @@ function renderPerformanceRatios(data) {
       esc(row.numerator_date || "Unavailable") + "</td><td>" +
       esc(row.denominator_date || "Unavailable") + "</td><td>" +
       (row.gap_days == null ? "Unavailable" : row.gap_days) + "</td><td>" +
-      esc(row.status || "unavailable") + "</td></tr>");
+      (row.numerator_observations == null ? "?" : row.numerator_observations) + "/" +
+      (row.denominator_observations == null ? "?" : row.denominator_observations) +
+      "</td><td>" + esc(row.status || "unavailable") + "</td><td>" +
+      esc(row.reason || "") + "</td></tr>");
   });
   target.innerHTML = "<div class='panel'><h3>Configured relative strength</h3>" +
-    (rows.length ? "<div class='table-scroll'><table><thead><tr><th>Pair</th><th>Ratio</th><th>Numerator date</th><th>Denominator date</th><th>Gap days</th><th>Status</th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" : "<p class='empty'>No configured relationships.</p>") +
+    (rows.length ? "<div class='table-scroll'><table><thead><tr><th>Pair</th><th>Ratio</th><th>Numerator date</th><th>Denominator date</th><th>Gap days</th><th>Recent obs (num/den)</th><th>Status</th><th>Reason</th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" : "<p class='empty'>No configured relationships.</p>") +
     "<p class='muted'>Descriptive ratio of two raw estimates; no target, diagnosis or confidence claim.</p></div>";
 }
 
