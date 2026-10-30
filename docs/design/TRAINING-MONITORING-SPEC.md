@@ -10,6 +10,8 @@
 | Commit audited | bd9c796bebce3c6289c2b8d885f9336e6452c760 |
 | Commit date | 2026-10-30 |
 | Document date | 2026-10-30 |
+| Revision | 2 — scientific and methodological revision |
+| Revision basis commit | 2739599 (document commit); implementation audited at bd9c796 |
 | Scope | Research, audit and design only. No code, schema, config, API, UI, migration or dependency change. |
 | Intended next reader | A human reviewer first, then a coding agent implementing an approved phase. |
 | Location note | This file lives in docs/design/ rather than directly in docs/ because the repository's documentation-map test requires every top-level docs/*.md to be listed in AGENTS.md, and this task forbids editing AGENTS.md. Adoption should add it to that map. |
@@ -30,8 +32,8 @@ The repository already contains most of the **raw material** for the proposed sy
 
 Three existing facts change the proposal:
 
-1. **"Pre-workout e1RM" is overloaded.** The app already has a prescription e1RM selector (median by default, 28-day robust window, 84-day outer window, age decay, measured-test calibration, overrides). That value is the **load base** used to solve the prescribed load. It is not the same quantity as "best recent demonstrated performance". Using one number for both relative intensity and the within-session change creates a **max-versus-median mismatch** that biases the change upward. This specification therefore defines two named quantities and keeps them separate.
-2. **A within-session e1RM change is not a strength gain.** It is a re-estimate of the same latent capacity from a different set. A direct 1RM test has a median test–retest coefficient of variation of about **4.2%** in a 32-study systematic review (Grgic 2020). A formula-plus-RIR estimate has additional error. A reported change of +2.8% therefore lies inside ordinary measurement noise. The UI must say so rather than celebrate it.
+1. **"Pre-workout e1RM" is overloaded.** The app already has a prescription e1RM selector (median by default, 28-day robust window, 84-day outer window, age decay, measured-test calibration, overrides). That value is the **load base** used to solve the prescribed load. It is not the same quantity as "recent demonstrated performance". Using one number for both relative intensity and the recent comparison would mix a robust median load base with a session-level performance reference. This specification defines the load base, the recent reference, the best recent single session and the all-time best as separate quantities.
+2. **A within-session e1RM difference is not a strength gain, and the 4.2% figure is not a threshold for this application.** Grgic 2020 reports test–retest reliability for direct 1RM tests. This app estimates 1RM from load, repetitions and self-reported RIR, so formula error and RIR error add uncertainty. The 4.2% figure is retained only as a literature reference for actual 1RM test–retest variability; it is not a validated measurement-error or meaningful-change threshold for estimated 1RM. The UI shows the absolute and percentage difference descriptively and does not classify it as clear, meaningful or within typical variation.
 3. **The existing session-RPE capture is immediate, not the validated 30-minute protocol.** Sweet 2004 and Day 2004 collected session RPE about 30 minutes after exercise. The app asks at the end of the workout. That is a defensible friction trade-off, but it must be labelled as immediate sRPE, and the app must not claim the 30-minute protocol until it collects a delayed value.
 
 ### 1.3 What is recommended
@@ -49,9 +51,9 @@ Three existing facts change the proposal:
 |---|---|
 | A. External dose | **Build it**, from completed clean_set rows only. Tonnage stays exercise-specific. |
 | B. Internal load | **Build it** as sRPE × duration in AU, with explicit missingness and timing labels. |
-| C. Estimated strength | **Build it**, but split load base from best-performance comparison and do not call the change adaptation. |
+| C. Estimated strength | **Build it**, but split the load base from the recent-reference comparison and do not call the difference adaptation. |
 | D. Relative strength | **Build it as a descriptive, explicitly configured, date-stamped ratio**, with no targets and no weakness diagnosis. |
-| E. Power exposure | **Build the count and the set-to-set velocity retention**; do not claim within-set loss or quality from mean velocity. |
+| E. Power exposure | **Build the count and a descriptive mean velocity change across sets**; do not call it retention or a quality score, and do not claim within-set loss from mean velocity. |
 | F. Axial/spinal exposure | **Present the existing ordinal exposure**; do not create a new spinal-load number. |
 | G. Productivity | **Add one optional item**; keep it subjective and out of every calculation. |
 
@@ -199,7 +201,7 @@ The local store contains several years of training history and dense main-lift r
 - **Main lifts** have dense history; **variation/accessory** lifts are sparser and more irregular.
 - **RIR** is present on essentially all imported working sets, but RIR 4 is almost absent and RIR 5 is common. Live-workout RIR is optional.
 - **Session feedback** covers only a subset of sessions; older sessions were intentionally left blank. Session-load trends must show coverage, not assume completeness.
-- **Measured e1RM tests** are absent or very few. The calibration report may have no points, so there is no athlete-specific e1RM error estimate yet. The 4.2% population CV is a reference, not a personal calibration.
+- **Measured e1RM tests** are absent or very few. The calibration report may have no points, so there is no athlete-specific e1RM error estimate yet. The 4.2% figure from Grgic 2020 is a literature reference for direct 1RM test–retest variability, not a personal measurement-error estimate for this application's e1RM.
 - **Per-rep velocity** is sparse. Mean velocity exists on some sets. Power data is essentially box jumps; there is no jump height or contact time.
 - **High-intensity exposures** may be absent. A zero is a valid zero only when the recording path was available.
 - **Trap-bar history** starts after the documented switch, so trap-bar/sumo ratios are not contemporaneous over most of the record.
@@ -212,8 +214,8 @@ This is why Phase 2 must show coverage and "unavailable" states prominently, and
 |---|---|
 | Exists and is reused unchanged | clean_set and load resolution; RIR classes; Epley/Epley+RIR; measured-test calibration; age decay; workout plan snapshot and completion comparison; volume ledger; hard-set exposure; high-intensity exposure; demand catalogue; spinal registry; session_form_rating; progress dashboard; rubric |
 | Exists but requires a bounded extension | e1RM selector (extract a shared function with a session cutoff); session feedback (per-field merge and timing label); plan JSON (add e1RM value/reference/quality/intensity at generation); bodyweight total read for added-load rows; power classification (config, not names) |
-| Genuinely missing | session-level e1RM pre/post summary; relative intensity; exercise-specific tonnage report; session hard-set/near-failure summary; session load AU; configured relative-strength ratios; longitudinal e1RM series and rolling median; comparable-session comparison; power set-to-set retention; productivity field; structured power quality-stop event |
-| Data structures sufficient? | Yes for Domains A, B, C, E (counts and retention), F, and D (via config). No for G without one nullable productivity column. No for within-set velocity loss or measured spinal load, which are explicitly excluded. |
+| Genuinely missing | session-level recent-reference and descriptive difference; relative intensity; exercise-specific tonnage report; session hard-set/near-failure summary; session load AU; configured relative-strength ratios; longitudinal e1RM series and rolling median; comparable-session comparison; power mean velocity change across sets; productivity field; structured power quality-stop event |
+| Data structures sufficient? | Yes for Domains A, B, C, E (counts and mean velocity change), F, and D (via config). No for G without one nullable productivity column. No for within-set velocity loss or measured spinal load, which are explicitly excluded. |
 
 The free-text session_feedback.note is **not** a substitute for a productivity field: it is unvalidated free text, cannot be queried as an ordinal scale, and would conflate a subjective judgement with a comment. If Domain G is approved, the one nullable integer column is the minimum sufficient change.
 
@@ -250,15 +252,18 @@ The free-text session_feedback.note is **not** a substitute for a productivity f
 
 features/monitoring.py must not import prescribe or web. features/e1rm_source.py may import domain, store.queries and taxonomy utilities, but **not** prescribe. The engine imports the feature; the dependency arrow does not reverse.
 
-### 3.3 The two e1RM quantities
+### 3.3 The e1RM reference quantities
 
-| Quantity | Purpose | Estimator | Window | Cutoff | Used by |
-|---|---|---|---|---|---|
+| Quantity | Purpose | Estimator | Window | Used by |
+|---|---|---|---|---|
 | load_base_e1rm | Denominator for relative intensity; the load the prescription was solved from | Prescription selector: median by default, fallback best_usable | 84 days outer, 28 days robust | Strictly before the session; override in force | A2 relative intensity; plan-drift check |
-| pre_best_e1rm | Best recent demonstrated performance, comparable to today's best set | Highest eligible set-level estimate, age-decayed to today | 84 days | Strictly before the session | C1/C3 within-session change |
-| post_best_e1rm | Best demonstrated performance in the session | Highest eligible set-level estimate | Current session only | Current session | C2/C3, longitudinal series |
+| recent_reference_e1rm | Typical recent performance; primary comparator for today's best | Median of the last 3 eligible per-session best e1RM observations | Each observation within 84 days | Strictly before the session | C1/C3 difference vs recent performance |
+| best_recent_e1rm | Best single recent performance; separate reference | Highest eligible per-session best e1RM | 84 days | Strictly before the session | C1.2 display only; never a typical baseline |
+| personal_best_e1rm | All-time best estimate; PR display | Highest eligible per-session best e1RM, raw | All time | Strictly before the session | C1.3 display only |
+| post_best_e1rm | Best demonstrated performance in the session | Highest eligible set-level e1RM | Current session only | Current session | C2/C3, longitudinal series |
+| difference_vs_recent | Descriptive difference between today's best and the recent reference | post_best − recent_reference | Current session vs recent reference | Both sides eligible | C3 display only |
 
-Why two pre values: the prescription's median is a **robust central** estimate, while the session's best set is a **maximum**. Comparing a maximum to a median creates a positive bias even when nothing changed. Using the best recent set for both sides makes the change like-for-like. Using the median for relative intensity keeps the percentage consistent with the load the athlete was actually prescribed. The UI must name them differently and never show one while implying the other.
+Why these are separate: a historical maximum is selected from many more sets than today's maximum, so comparing a maximum to a maximum from a different sampling opportunity is not a like-for-like change. The primary comparison is today's best against the **median of the last three eligible per-session bests**, which reduces the influence of one exceptional day and equalises the sampling unit (one session, one best set). A separate best-performance reference is retained for context, but it is never presented as a typical baseline. The load base remains separate again, because it is the robust median the prescription used to solve the load.
 
 ### 3.4 Data flow for a completed workout
 
@@ -278,7 +283,7 @@ Why two pre values: the prescription's median is a **robust central** estimate, 
                      ├── feedback: merged sRPE/duration → AU, productivity
                      └── comparison: comparable prior sessions (if any)
 
-**Critical ordering rule:** the summary is computed **after** materialisation, but the pre-session estimate must exclude the current session. The cutoff is by session_id and by date, not by "today". See §5.3.
+**Critical ordering rule:** the summary is computed **after** materialisation, but the recent-reference observations must exclude the current session. The cutoff is by session_id and by date, not by "today". See §5.6.
 
 ### 3.5 What is persisted
 
@@ -342,20 +347,23 @@ The table below is the normative definition. "Type" uses D = descriptive, I = in
 | B1.1 | Session RPE | Latest non-null srpe for the session, with source and timing | session_feedback, session, workout_session | 1–10 | Session completed | unknown; never 0 | FEEDBACK_LATE, SRPE_IMMEDIATE | Within athlete only | Perceived, not objective; immediate vs 30-min | D | Card 5 | No |
 | B1.2 | Duration | Latest non-null duration_min, with source (measured / manual / unavailable) | Same | minutes | Session completed | unknown if absent | DURATION_MANUAL | Within athlete only | Manual may include idle time; imported rows have no clock | D | Card 5 | No |
 | B1.3 | Session load | srpe × duration_min | B1.1, B1.2 | AU | Both known | unknown if either missing; never 0 | SESSION_LOAD_UNKNOWN, FEEDBACK_LATE | Within athlete, same feedback protocol | Internal load, not physiological stress; arbitrary units | D | Card 5 | No |
-| C1.1 | Pre-session best e1RM | Highest eligible set-level e1RM in the 84 days **strictly before** the session, age-decayed to the session date | clean_set, decay, calibration | kg | e1rm_applicable; quality ok preferred; load basis resolvable | unavailable if none | E1RM_STALE, E1RM_DEGRADED, E1RM_PRE_RECONSTRUCTED | Exact exercise only | Single-set max is noisy; decay assumption | D | Card 2 | No |
-| C2.1 | Post-session best e1RM | Highest eligible set-level e1RM in the current session | clean_set | kg | Same as C1.1, current session only | unavailable if none | E1RM_POST_MISSING, E1RM_DEGRADED | Exact exercise only | Best-of-set max; fatigue/back-off selection | D | Card 2 | No |
-| C3.1 | e1RM change (kg) | post_best − pre_best | C1.1, C2.1 | kg | Both ok | unavailable if either missing | E1RM_CHANGE_LOW_CONFIDENCE | Same exercise, same general method | Difference of two estimates, not a measured change | D | Card 2 | No |
-| C3.2 | e1RM change (%) | 100 × (post_best − pre_best) / pre_best | C1.1, C2.1 | % | Both ok; pre > 0 | unavailable | Same | Same | Small values are noise; 4.2% population CV reference | D | Card 2 | No |
+| C1.1 | Recent reference e1RM | Median of the last 3 eligible per-session best e1RM observations strictly before the session, each within 84 days | clean_set, decay, calibration | kg | ok session bests only; same exercise; each observation within 84 days | unavailable if none; single_prior if 1; limited if 2; never a historical maximum presented as typical | E1RM_REFERENCE_SPARSE, E1RM_DEGRADED | Exact exercise only | Rolling median of 3 is a descriptive summary, not a model; a median of 2 is labelled limited | D | Card 2 | No |
+| C1.2 | Best recent performance e1RM | Highest eligible per-session best e1RM in the 84 days before the session | clean_set, decay, calibration | kg | ok, same exercise, within 84 days | unavailable if none | E1RM_DEGRADED | Exact exercise only | A maximum selected from more sets than today is not a typical baseline; display separately | D | Card 2, details | No |
+| C1.3 | Personal best estimate | Highest eligible per-session best e1RM all time (raw, no decay) | clean_set | kg | ok, same exercise | unavailable if none | E1RM_DEGRADED | Exact exercise only | All-time best may be old or from a different rep range; PR display only | D | Card 2, details | No |
+| C2.1 | Post-session best e1RM | Highest eligible set-level e1RM in the current session | clean_set | kg | ok only for the headline; degraded display only; current session; same exercise | unavailable if none | E1RM_POST_MISSING, E1RM_DEGRADED | Exact exercise only | Best-of-set max; fatigue/back-off selection; a single-set estimate is noisy | D | Card 2 | No |
+| C3.1 | Difference vs recent reference (kg) | post_best − recent_reference | C1.1, C2.1 | kg | both ok and recent_reference has ≥2 observations | unavailable/insufficient if either missing, degraded or <2 | E1RM_DIFFERENCE_INSUFFICIENT_OBS, E1RM_DIFFERENCE_INSUFFICIENT_QUALITY | Same exercise, same general method | A descriptive difference of estimates; not a measured change, not significance, not adaptation; 2 observations is limited | D | Card 2 | No |
+| C3.2 | Difference vs recent reference (%) | 100 × (post_best − recent_reference) / recent_reference | C1.1, C2.1 | % | same as C3.1; recent_reference > 0 | unavailable | same | Same | No threshold; do not classify as clear/meaningful/within typical; measurement error not established | D | Card 2 | No |
+| C3.3 | Difference data sufficiency | descriptive / limited / single_prior / insufficient_quality / unavailable | C1.1, C2.1 | status | derived from C1.1 count and C2.1 quality | status only, never a substitute value | E1RM_REFERENCE_SPARSE, E1RM_DIFFERENCE_INSUFFICIENT_QUALITY | Same exercise | Data sufficiency is not statistical confidence; single_prior shows no difference | D | Card 2 badge | No |
 | C4.1 | Source set | The set_id, load, reps, RIR, exercise, method, quality, flags of the post estimate | clean_set | row | C2.1 known | unknown | E1RM_DEGRADED | Same exercise | One set can be an outlier | D | Expandable details | No |
 | C5.1 | Exercise identity | Exact exercise_id, with display and documented equivalence | taxonomy | id | — | unknown if unresolved | IDENTITY_EQUIVALENT | Exact only, except documented history equivalence | Variant differences are real | D | Card 2/3 | No |
 | C6.1 | e1RM observation | Per-session best eligible e1RM for one exercise | clean_set | kg | ok sets only for the primary series; degraded points shown separately | Gap, not interpolation | E1RM_DEGRADED | Exact exercise | Selection of best set; sparse | D | Performance view | No |
 | C6.2 | Rolling median | Median of the last 3 observations (configurable) | C6.1 | kg | ≥3 observations | No line below 3; points only | SPARSE_SERIES | Exact exercise | Descriptive smoother, not a model | D | Performance view | No |
-| D1.1 | Relative-strength ratio | 100 × numerator_e1RM / denominator_e1RM | C1.1/C6.1 for both, config relationship | % | Both eligible, both ok, date gap ≤ configured, both within max age | unavailable if either missing or stale | RATIO_GAP, RATIO_SPARSE, RATIO_ONE_SIDED | Explicitly configured pair only | Ratio of two noisy estimates; no diagnostic validity | D | Performance view; max 2 on summary | No |
-| D1.2 | Ratio dates/gap | Numerator date, denominator date, absolute gap | C1.1/C6.1 | days | As D1.1 | unknown | RATIO_GAP | Same pair | A large gap makes the ratio historical, not current | D | Ratio detail | No |
+| D1.1 | Relative-strength ratio | 100 × latest_e1RM(numerator) / latest_e1RM(denominator) | C6.1 for both, config relationship | % | Both ok; latest eligible per-session best per side; date gap ≤ configured; both within max age | unavailable if either missing, stale or degraded | RATIO_GAP, RATIO_SPARSE, RATIO_ONE_SIDED | Explicitly configured pair only | Ratio of two noisy estimates; latest observation can be unrepresentative; no diagnostic validity | D | Performance view; max 2 on summary | No |
+| D1.2 | Ratio dates/gap | Numerator date, denominator date, absolute gap | C6.1 | days | As D1.1 | unknown | RATIO_GAP | Same pair | A large gap makes the ratio historical, not current | D | Ratio detail | No |
 | D1.3 | Ratio trend | Paired observations over time; no interpolation | D1.1 | % | ≥2 paired observations for a line; ≥5 for a change statement | Points only if sparse | SPARSE_SERIES | Same pair | Selection and measurement drift | D | Performance view | No |
 | E1.1 | Power sets | Count of working sets on power-classified exercises (pattern == power_jump) | clean_set, taxonomy | sets | Power-classified exercise | unknown if classification missing; zero is valid if classification is complete | POWER_CLASS_UNKNOWN | Same exercise/session | Taxonomy coverage; Olympic lifts absent | D | Card 4 | No |
 | E1.2 | Power repetitions | Sum of reps on power sets | clean_set | reps | Power sets | As E1.1 | — | Same exercise | Reps are not a quality measure | D | Card 4 | No |
-| E1.3 | Set-to-set velocity retention | last_set_mean_velocity / first_set_mean_velocity for the same exercise and load | clean_set | % | ≥2 power sets, same exercise and load, velocity_present | unavailable if not measurable | POWER_VELOCITY_PARTIAL | Same exercise/load/equipment | Mean velocity only; no within-set loss; load must match | D | Card 4 | No |
+| E1.3 | Mean velocity change across sets | 100 × (last_set_mean_velocity − first_set_mean_velocity) / first_set_mean_velocity for the same exercise and load | clean_set | % | ≥2 power sets, same exercise and load, velocity_present | unavailable if not measurable | POWER_VELOCITY_PARTIAL | Same exercise/load/equipment | Descriptive only; rest, technique, readiness, noise and execution can change mean velocity; not power quality or within-set loss | D | Card 4 | No |
 | E1.4 | Power quality stop | Whether the athlete recorded a quality stop (height/technique/velocity drop) | workout_event payload or explicit flag | yes/no/not recorded | Power set | unknown; never inferred from velocity | POWER_QUALITY_UNRECORDED | Same exercise | Current prescription has text, not a structured event | D | Card 4 | No |
 | E1.5 | Within-set velocity loss | Not computable from a mean | — | — | — | unavailable | VELOCITY_LOSS_UNAVAILABLE | — | A mean has no within-set variance | D | "Not available" | No |
 | F1.1 | Spinal exposures | Per (session, exercise) effective ordinal cost from weekly_spinal_costs | clean_set, rule params, taxonomy | ordinal units | Working sets on high_fatigue_spinal exercises | zero if none and sets are present; unknown if no sets | SPINAL_UNRATED | Same rule/config; weekly ledger | Ordinal, not load; policy factors are assumptions | D | Card 4 | No |
@@ -364,6 +372,8 @@ The table below is the normative definition. "Type" uses D = descriptive, I = in
 | G1.1 | Productivity | Single optional item: 1–5 | session_feedback.productivity (new) | 1–5 | Session completed | unknown if skipped; never 0 | PRODUCTIVITY_NOT_RECORDED | Within athlete only | Single item, unvalidated; subjective | D | Card 5 | No |
 | H1.1 | Feedback completeness | Which of sRPE, duration, productivity are present | Same | booleans | Session completed | unknown | — | Same session | — | D | Card 5 | No |
 | H2.1 | Comparable-session summary | Median of a metric over up to 5 prior comparable sessions | clean_set, session type, main lifts | metric unit | Comparability rule (§10.3) | unavailable if <3 comparable sessions | COMPARISON_WITHHELD | Same session type + common main lift + no deload/minimum/technique | Still observational; exercise mix varies | D | Card 6 | No |
+
+The Type column (D/I/P) describes whether a metric is descriptive, inferential or predictive. It is **not** an evidence grade. The decision basis for each design choice is in §11.5, and the product assumptions are in §11.7.
 
 ### 4.4 Detailed notes on the contentious metrics
 
@@ -382,7 +392,7 @@ Therefore: show tonnage per exercise on the session summary and in exercise-spec
 
 The denominator is load_base_e1rm, not the post-session best. It must be the estimate that was available **before** the session. If the frozen plan snapshot carries the e1RM used, use it; otherwise recompute with the strict cutoff and flag reconstructed.
 
-Bands (proposed ASSUMPTION-58, to be registered):
+Bands (product assumption PA-04, to be registered):
 
 | Band | Range | Interpretation |
 |---|---|---|
@@ -407,7 +417,7 @@ RIR is an ordinal self-report with error that grows with distance from failure (
 
 #### B1.3 Session load
 
-session_load_au = sRPE × duration_min. Both inputs are required. This is an **internal-load** measure in arbitrary units. It reflects perceived session demand, not objective physiological stress. It must not be added to tonnage, hard sets or e1RM change. It must not be compared across athletes.
+session_load_au = sRPE × duration_min. Both inputs are required. This is an **internal-load** measure in arbitrary units. It reflects perceived session demand, not objective physiological stress. It must not be added to tonnage, hard sets or the e1RM difference vs recent performance. It must not be compared across athletes.
 
 Missingness:
 
@@ -446,16 +456,49 @@ The existing prescription must keep its current e1RM behaviour (including degrad
 
 #### C3 interpretation
 
-- **Improved post e1RM**: "Best estimate today was higher than the best recent estimate." Add: "This is an estimate from one or more sets; it is not evidence that strength increased during the session."
-- **Lower post e1RM**: "Best estimate today was lower than the best recent estimate." Add possible explanations: fatigue, set selection, RIR error, technique, equipment, readiness. Do not say "you lost strength".
-- **No change**: if |Δ%| < 4.2%, say "within typical 1RM test–retest variation; no clear change". If ≥ 4.2%, say "larger than typical test–retest variation, but still an estimate". The 4.2% is the median CV from Grgic 2020, a population reference, not an individual threshold.
-- **New personal best**: compare the post raw estimate with the all-time raw best (same exercise, ok quality). If higher, "new best estimate" and show the previous best/date. Do not call it a competition PR; it is an estimate.
-- **Different rep range**: label the source reps/RIR. A 3-rep estimate and a 10-rep estimate have different error. Do not compare them without the label.
-- **After a long interruption**: if the pre estimate is >28 days old, label "after a break" and show the decay factor. Do not interpret the change as adaptation; the pre is a decayed prediction.
+**No automatic classification.** A difference between two e1RM estimates is displayed as an absolute value and a percentage, with the observation count and dates. It is not labelled "clear", "meaningful", "significant" or "within typical variation". No threshold is applied. The 4.2% figure from Grgic 2020 is retained only as a literature reference for direct 1RM test–retest variability; it is not a validated threshold for this app's estimated 1RM.
+
+**What the difference can and cannot mean.** The observed difference is a mixture of at least:
+
+| Component | What it is | Can the current app estimate it? |
+|---|---|---|
+| Measurement error | Technical/protocol variability of the measurement itself (load, reps, RIR, device, test protocol) | Not for e1RM. The existing calibration reports prediction error against measured tests, not test–retest error. |
+| Day-to-day biological variation | Real short-term fluctuation in capacity due to sleep, readiness, fatigue, stress, nutrition, motivation | No. It is confounded with measurement error in a single session. |
+| Actual training adaptation | A slow change in capacity over weeks or months | No. It requires repeated observations and a design that separates it from noise. |
+| Equation and RIR uncertainty | Error from Epley extrapolation and from self-reported RIR | Partly. The calibration report estimates formula-vs-test bias/MAE; RIR error is not directly measured. |
+| Set-selection and sampling | Which sets were performed, how many, and whether they were top sets or back-offs | No. It is visible only as the difference between sessions and is not modelled. |
+
+A single session difference cannot separate these. The UI therefore says "descriptive difference", not "strength increased" or "strength decreased".
+
+**Status vocabulary.**
+
+| Status | Condition | Display |
+|---|---|---|
+| descriptive | both sides ok; recent reference has ≥3 observations | show values, absolute and percentage difference, n and dates |
+| limited | both sides ok; recent reference has exactly 2 observations | show values and difference, label "limited recent observations; not a trend" |
+| single_prior | both sides ok; recent reference has exactly 1 observation | show the single prior value and date; no difference |
+| insufficient_quality | either side degraded | show both estimates with their quality labels; no difference |
+| unavailable | either side missing | show "unavailable" and the reason; no substitute |
+
+**Improved / lower / unchanged.** If the post estimate is higher, say "today's best estimate was higher than the recent reference"; if lower, say "lower". Add possible explanations from the list above. Do not say "you gained/lost strength". If the values are equal, say "no difference at the displayed precision"; do not imply adaptation.
+
+**New personal best.** Compare the post raw estimate with the all-time raw best (same exercise, ok quality). If higher, "new best estimate" and show the previous best/date. Do not call it a competition PR; it is an estimate. Do not use a decayed historical value as the record.
+
+**Different rep range or a long interruption.** Label the source reps/RIR and the age of the reference observations. A 3-rep estimate and a 10-rep estimate have different error. After a break, the recent reference may be old or decayed; show the dates and the gap. Do not interpret the difference as adaptation.
+
+#### C4 individual measurement error (future)
+
+The current app has no defensible individual error estimate for its e1RM. The existing calibration report compares measured tests with the formula estimate and reports bias and MAE, but that is **prediction error against a test**, not test–retest error. A future method should estimate both, separately:
+
+1. **Repeated measured tests.** For each main lift, perform two standardized 1RM or 3RM assessments 48–72 hours apart, with no training between, the same equipment, ROM, warm-up and attempt protocol. Repeat this pair at least twice. Compute the within-athlete test–retest CV, ICC and typical error. This estimates **measurement error plus short-term biological variation**.
+2. **Formula and RIR error.** Use the existing e1rm_calibration points (measured test vs the formula estimate the app would have used before the test) to estimate per-lift bias, MAE and MAPE. This estimates **equation and RIR error against a measured criterion**.
+3. **Combined display.** When both exist, show the individual error estimate as a descriptive error band (for example plus or minus the estimated typical error). Do not present it as a confidence interval or a significance test, do not convert it into a binary significant/not-significant label, and do not introduce a new arbitrary percentage threshold.
+4. **Protocol assumptions.** The 48–72 hour spacing, two-pair minimum and standardized warm-up are measurement-protocol assumptions, not findings. They should be pre-registered and checked for feasibility before use.
+5. **Until then.** Display the difference descriptively with "measurement error not established for this lift". Do not use the population 4.2% as if it were the athlete's error.
 
 #### D1 ratios
 
-The ratio is 100 × e1RM(numerator) / e1RM(denominator). Both sides must be eligible, ok estimates, within max_age_days of the evaluation date, and within max_gap_days of each other. Defaults are proposed assumptions (ASSUMPTION-59): max_gap_days = 14, max_age_days = 42. The gap is a product judgement: short enough that both reflect the same training period, long enough to occur at 2–3 sessions/week. It is not a validated window. If the gap is larger, show the ratio as historical with both dates and a warning, or withhold it.
+The ratio is 100 × latest eligible per-session best e1RM(numerator) / latest eligible per-session best e1RM(denominator). Both sides must be ok estimates, within max_age_days of the evaluation date, and within max_gap_days of each other. The dates, gap and per-side observation counts are always shown; data sufficiency is not statistical confidence. Defaults are product assumptions PA-05 and PA-06: max_gap_days = 14, max_age_days = 42. The gap is a product judgement: short enough that both reflect the same training period, long enough to occur at 2–3 sessions/week. It is not a validated window. If the gap is larger, show the ratio as historical with both dates and a warning, or withhold it.
 
 Do not use raw training loads as substitutes for e1RM. Do not infer a relationship from programme_slot_of, vbt_family or names. Configure each pair explicitly.
 
@@ -463,7 +506,11 @@ Do not use raw training loads as substitutes for e1RM. Do not infer a relationsh
 
 Power work is classified by pattern == power_jump today. The taxonomy does not include Olympic lifts; if they are added, the classification must be extended in config, not by name matching. Power sets are quality-limited, not RIR-scored (DEC-POWER-02). Count them, show the stop rule text, and exclude them from the ordinary RIR/relative-intensity distributions.
 
-velocity_mps is a **mean per set**. It cannot yield within-set velocity loss. Set-to-set retention is possible when the same exercise and load are repeated. If the load changes between sets, do not compute retention; report unavailable.
+velocity_mps is a **mean per set**. It cannot yield within-set velocity loss. When the same exercise and load are repeated, the app may compute a **mean velocity change across sets**:
+
+    mean_velocity_change_pct = 100 × (last_set_mean_velocity − first_set_mean_velocity) / first_set_mean_velocity
+
+Its only practical value is to show whether later sets at the same exercise and load were slower; it cannot attribute the cause. This is a descriptive calculation, not a validated power-retention or movement-quality score. Mean velocity can change because of rest intervals, technique, readiness, measurement noise, execution differences or fatigue, and the app cannot attribute the cause. If the load changes between sets, do not compute it; report unavailable. Do not call it "retention". Do not infer a quality stop from it.
 
 A structured quality-stop event does not exist. quality_stop is a text field on the prescription item and effort_model = quality marks the item. Until an explicit event/flag is recorded, power_quality_stop = unknown, not "met".
 
@@ -497,77 +544,108 @@ Store 1–5; null if skipped. Do not use a 0. Do not compute a session "quality"
 ---
 
 
-## 5. e1RM pre/post-workout methodology (normative)
+## 5. e1RM recent-reference methodology (normative)
 
 ### 5.1 Definitions
 
-- E = a set-level e1RM estimate in kg.
-- Q(E) = quality class (ok / degraded / invalid).
-- D(E, t) = age-decay factor from features/e1rm_decay at date t.
-- C = calibration factor for the lift, if MOD-E1RM-001 is in force; otherwise 1.0.
-- O = the override in force on the session date, if any.
+- session_best(exercise, session) = the highest eligible **ok** set-level e1RM in that session. One observation per session. Degraded estimates are excluded from the reference series and displayed separately.
+- recent_reference_e1rm = the median of the last **3** session_best observations strictly before the current session, each within 84 days. This is the primary comparator.
+- best_recent_e1rm = the highest session_best in the 84 days before the session. This is a separate best-performance reference; it is never used as a typical baseline.
+- personal_best_e1rm = the highest session_best all time (raw, no decay). This is for the PR display only.
+- post_best_e1rm = session_best for the current session.
+- difference_vs_recent = post_best_e1rm − recent_reference_e1rm; the percentage uses recent_reference as the denominator.
+- load_base_e1rm = the prescription selector value (median by default, with decay, calibration and override), used only for relative intensity.
 
-pre_best_e1rm(session):
+### 5.2 Why a rolling median rather than a historical maximum
 
-1. Take all clean_set rows with the same exercise_id, e1rm_applicable, eligible per §4.4, and **strictly before** the session (see §5.3).
-2. Keep rows with date >= session_date − 84 days.
-3. If an override O is in force on the session date, it wins: pre_best = O.e1rm_kg × D(O, session_date), source = override.
-4. Otherwise compute E_i × D(E_i, session_date) × C for each eligible set.
-5. Restrict to Q = ok if any exist; otherwise use degraded and flag.
-6. pre_best = max(effective). Tie-break: most recent date, then highest set_id.
-7. If no eligible row: unavailable.
+The previous draft compared today's best set with the highest eligible set in the preceding 84 days. That is not like-for-like:
 
-post_best_e1rm(session):
+- the historical maximum is selected from many sessions and many sets, while today's maximum is selected from one session;
+- a single exceptional day in the window can set the reference for weeks;
+- the maximum is an optimistic estimator by construction;
+- recency is ignored inside the window, so an 80-day-old session competes equally with a 3-day-old one.
 
-1. Take all clean_set rows with session_id == current, same exercise, eligible per §4.4.
-2. Compute E_i × C (no decay; age 0).
-3. Restrict to Q = ok if any exist; otherwise degraded and flag.
-4. post_best = max(E_i). Tie-break: most recent set_id.
-5. If none: unavailable.
+The alternatives:
 
-load_base_e1rm(session):
+| Method | Advantages | Disadvantages | Verdict |
+|---|---|---|---|
+| Historical maximum in 84 days | Simple; represents a known best | Unequal sampling; upward bias; one outlier dominates; ignores recency | Do not use as the typical baseline |
+| Last single session best | Most recent; no lag | Very noisy; one bad day dominates | Display only, not a reference |
+| Median of the last 3 session bests | Equal sampling unit; robust to one outlier; recency-bounded; transparent | Lags a real change by up to 3 sessions; can span a long break if sessions are sparse | **Primary comparator** |
+| Median of the last 5 session bests | More robust | More lag; hides short blocks; needs more data | Optional sensitivity, not default |
+| Complex time-series model | Could model trend and uncertainty | Overfits sparse data; adds assumptions; unvalidated | Do not implement |
 
-- If the frozen plan snapshot has e1rm_kg, use it (with e1rm_ref, quality, age).
-- Else recompute with the prescription selector (median default) on history strictly before the session, including override, decay and calibration.
-- If none: unavailable.
+The median of three is a **product/engineering choice**, not a statistically validated threshold. It is the smallest sample that is not simply the latest value and is still easy to explain. When only 2 or 1 observations exist, the median of the available observations is shown with the limited or single_prior status; it is not treated as a 3-observation median. Observations must be the same exercise identity; variants and equipment changes are not pooled. The observation dates are always shown. If fewer than three eligible observations exist, the comparison is labelled limited (2 observations), single_prior (1 observation) or unavailable (0); the app does not invent a reference.
 
-### 5.2 Which value goes where
+### 5.3 Which value goes where
 
 | Display | Value | Why |
 |---|---|---|
-| "Best recent estimate" | pre_best_e1rm | Comparable to "best today" |
-| "Best estimate today" | post_best_e1rm | Same estimator |
-| "Change during this session" | post_best − pre_best | Same estimator, both maxima |
+| "Recent reference" | recent_reference_e1rm | Typical recent performance; primary comparator |
+| "Best recent single session" | best_recent_e1rm | Context only; not a baseline |
+| "Personal best estimate" | personal_best_e1rm | PR display only |
+| "Best estimate today" | post_best_e1rm | Same session-level estimator |
+| "Difference vs recent performance" | post_best_e1rm − recent_reference_e1rm | Descriptive; no significance or adaptation claim |
 | "Relative intensity" | load_base_e1rm | The load was solved from this estimate |
-| "Planned intensity" (if shown) | plan item intensity | The prescription's own number |
-| "Personal best estimate" | all-time raw best, same exercise | A record, not a decayed prediction |
 
-Do **not** use pre_best as the relative-intensity denominator. Do **not** use load_base as the pre-change baseline. The UI labels must make the distinction obvious.
+Do **not** use recent_reference as the relative-intensity denominator. Do **not** use the historical maximum as the recent reference. Do **not** call the difference "acute strength change" or "adaptation".
 
-### 5.3 The cutoff rule (the circularity guard)
+### 5.4 Minimum observations and sparse display
 
-The session summary is computed after materialisation, so the current session's sets are already in clean_set. A naive date <= session_date filter would include them and inflate pre_best.
+| Eligible session observations before the current session | Status | Display |
+|---|---|---|
+| ≥3 | descriptive | show median, n, date range, post value, absolute and percentage difference |
+| 2 | limited | show median, n, dates, values and difference; label "limited recent observations; not a trend" |
+| 1 | single_prior | show the single prior value and date; no difference; label "insufficient recent observations for a comparison" |
+| 0 | unavailable | show "no recent eligible session best"; no substitute |
+
+A session observation requires an **ok** estimate. A session with only degraded estimates does not enter the reference series; it is shown separately with its quality label.
+
+### 5.5 Degraded, invalid and missing estimates
+
+One policy, applied everywhere:
+
+| Class | Meaning | Display | Used in difference? |
+|---|---|---|---|
+| ok | High-quality estimate: reps ≤10, RIR ≤3, reps+rir ≤20, load basis resolvable, not warm-up or power; a test is eligible and marked as test | normal estimate with method | yes |
+| degraded | Low-quality estimate: reps 11–20, RIR 4–5, or another quality limitation | show the number with a visible "degraded" label, method and reason | **no** |
+| invalid | Fails a hard eligibility rule (reps+rir >20, load basis unknown, typo flag, non-e1RM exercise) | do not show as an estimate; show the exclusion reason | no |
+| missing | No eligible set | "unavailable" | no |
+
+Rules:
+
+- If either side is degraded, the difference status is **insufficient_quality**. Both estimates may be displayed if useful, clearly labelled, but no difference is calculated. Do not silently replace the degraded estimate with a different set, exercise or method.
+- If either side is missing, the difference status is **unavailable**.
+- A degraded estimate may be shown next to the "best recent" or "personal best" context with the same label; it is never used as the reference value or to claim a PR.
+- The existing prescription keeps its current e1RM behaviour, including degraded sets, to avoid changing loads. The stricter policy applies to the monitoring headline, not to the load solver.
+
+### 5.6 The cutoff rule (the circularity guard)
+
+The session summary is computed after materialisation, so the current session's sets are already in clean_set. A naive date <= session_date filter would include them.
 
 The rule:
 
 - Exclude session_id == current_session_id always.
 - Include occurred_on < session_date.
-- For occurred_on == session_date, include a set only if it belongs to a **different session** whose workout_session.started_at is earlier than the current workout's started_at. If either timestamp is missing (imported rows), exclude same-date sets.
-- Never use a set from the current session, even if its date is earlier (e.g., a workout that spans midnight).
+- For occurred_on == session_date, include a set only if it belongs to a different session whose workout_session.started_at is earlier than the current workout's started_at. If either timestamp is missing (imported rows), exclude same-date sets.
+- Never use a set from the current session, even if its date is earlier (for example, a workout that spans midnight).
 
-This rule must have a regression test: compute pre_best, add the current session's sets, recompute, and assert equality.
+Regression test: compute recent_reference, add the current session's sets, recompute, and assert equality.
 
-### 5.4 planned vs reconstructed load base
+### 5.7 planned vs reconstructed load base
 
-- If plan_json has e1rm_kg, e1rm_ref, e1rm_quality, e1rm_age_days, mark source = planned.
-- Else recompute and mark source = reconstructed.
-- If both exist and differ by more than the lift's noise band (or 4.2% if unknown), show a plan_drift note: "The plan was generated from X kg; the estimate immediately before the session was Y kg." Do not silently pick one.
+- If plan_json has e1rm_kg, e1rm_ref, e1rm_quality and e1rm_age_days, mark source = planned.
+- Else recompute with the prescription selector on history strictly before the session and mark source = reconstructed.
+- If both exist and differ, show both values and the difference. Do not apply a tolerance or classify one as correct. The plan may have been generated earlier and the history may have changed.
+- The plan-drift note is descriptive: "The plan was generated from X kg; the estimate immediately before the session was Y kg." It is not a verdict.
 
-### 5.5 Worked examples
+### 5.8 Individual measurement error
+
+The method for estimating individual measurement error from repeated measured tests and the existing calibration report is in §4.4 C4. Until it exists, the app does not apply a meaningful-change threshold. It shows the difference descriptively and states that measurement error is not established for that lift.
+
+### 5.9 Worked examples
 
 See §16.4–§16.5.
-
----
 
 ## 6. Longitudinal e1RM methodology
 
@@ -609,13 +687,13 @@ No interpolation. No extrapolation. If there are fewer than 3 observations, show
 - X-axis: date, with gaps; do not compress gaps to equal spacing without saying so.
 - Series breaks: vertical line + label.
 - Sparse state: "3 observations; no trend line yet."
-- Confidence: high / moderate / low / unavailable based on quality, recency and count. No numeric confidence.
+- Data sufficiency: sufficient / limited / insufficient / unavailable based on observation count, recency and quality. This is not statistical confidence, and no numeric confidence is shown.
 
 ### 6.5 Interpretation
 
 - "The latest estimate is above/below the recent median" — descriptive.
 - "The trend over the last N observations is upward/downward" — only with ≥5 observations and a clear separation; still not proof of adaptation.
-- "No clear change" if the change is within the 4.2% reference band.
+- "No automatic meaningful-change label. The app shows the raw difference and the observation dates; it does not classify the change."
 - "After a break" if the gap is ≥28 days; show the gap and the decay.
 - "Exercise changed" if the series broke; do not compare across the break.
 
@@ -638,8 +716,8 @@ Create config/strength-relationships.v1.yaml with entries like:
         numerator: front_squat
         denominator: competition_squat
         relationship_type: variant_to_main
-        max_gap_days: 14        # ASSUMPTION-59
-        max_age_days: 42        # ASSUMPTION-59
+        max_gap_days: 14        # proposed assumption PA-05
+        max_age_days: 42        # proposed assumption PA-06
         min_observations: 2
         notes: "Descriptive relative performance only; not a weakness diagnosis."
 
@@ -654,41 +732,56 @@ Required fields: id, numerator, denominator, relationship_type, max_gap_days, ma
 
 Do **not** use programme_slot_of as the relationship graph. It is a prescription-slot hint (currently one entry), not a strength comparison. Do **not** use vbt_family; it pools load-velocity data for calibration, not strength.
 
-### 7.2 Calculation and comparability
+### 7.2 Which observation to use
 
-ratio = 100 × e1RM(numerator) / e1RM(denominator).
+The ratio can be built from several observation choices, and they can give materially different answers:
+
+| Method | What it uses | Advantages | Limitations | Verdict |
+|---|---|---|---|---|
+| Latest eligible per-session best, each side | The most recent ok session best for the numerator and denominator | Transparent; dates explicit; no smoothing; reflects current performance | A single session can be unrepresentative; needs both sides recent | **Primary provisional method** |
+| Median of recent per-session bests, each side | Median of up to 3 recent session bests per side | More stable; less sensitive to one day | Requires equal-ish sampling; blurs dates; can mix different training periods; more complex to explain | Sensitivity check only, when both sides have ≥3 observations |
+| Best in a rolling window, each side | Maximum session best in a window | Represents best known performance | Optimistic; unequal sampling; one outlier dominates | Do not use as the typical ratio |
+| Independently smoothed series, then divide | Two smoothed lines divided at a date | Looks stable | Loses observation dates; double-smooths noise; can create a ratio where no paired data exist | **Reject** |
+
+Recommendation: use the **latest eligible per-session best for each side**, each within max_age_days of the evaluation date, with a date gap no larger than max_gap_days. The dates are always visible. A recent-median ratio may be shown as a **sensitivity check** only when both sides have at least 3 observations and the two methods are displayed side by side; it is not the primary number.
+
+### 7.3 Calculation, data sufficiency and quality
+
+    ratio_pct = 100 × e1RM(numerator) / e1RM(denominator)
 
 Both sides:
 
 - exact configured exercise ids;
-- Q = ok;
-- within max_age_days of the evaluation date;
-- date gap ≤ max_gap_days for a **contemporaneous** ratio;
-- ≥ min_observations eligible observations per side for a "current" ratio (otherwise "provisional" with the count).
+- ok quality; a degraded side makes the ratio unavailable for the headline (it may be shown with both estimates and a degraded label, but not as a current ratio);
+- latest eligible session best within max_age_days of the evaluation date;
+- date gap ≤ max_gap_days for a contemporaneous ratio;
+- at least min_observations eligible session observations per side for a "sufficient" ratio.
 
-If the gap is larger but both are within max_age_days, show a **historical** ratio with both dates and a warning. If either is stale or missing, unavailable.
+Data sufficiency is **not** statistical confidence:
 
-### 7.3 Display
+| Status | Condition | Display |
+|---|---|---|
+| sufficient | ≥2 eligible observations per side; both within max_age; gap ≤ max_gap; both ok | show ratio, both latest values, both dates, gap, n per side |
+| limited | 1 eligible observation per side; both within max_age; gap ≤ max_gap; both ok | show ratio labelled "single-observation ratio"; no trend |
+| insufficient | <1 observation on either side, stale beyond max_age, gap too large, or either side degraded | show "unavailable" and the reason; do not compute a headline ratio |
+
+If the gap is larger than max_gap_days but both sides are within max_age_days, show a **historical** ratio with both dates and a warning, or withhold it. Do not silently divide a recent numerator by an old denominator. If two sessions share a date and no start timestamp can order them, the latest observation cannot be determined; mark the ratio insufficient rather than guessing.
+
+### 7.4 Display
 
 | Field | Example |
 |---|---|
-| Ratio | 75.5% |
-| Numerator | Front squat 123.3 kg (2026-10-20) |
-| Denominator | Competition squat 163.3 kg (2026-10-23) |
+| Ratio | Relative strength | C6 + config | latest per side; num/den ×100 | Gap; programme_slot_of insufficient | PARENT-VARIANT; Parkinson | Stage 1/2/3 | Performance; max 2 on summary |
+| Numerator | Front squat 123.3 kg (2026-10-20; 2 observations) |
+| Denominator | Competition squat 163.3 kg (2026-10-23; 4 observations) |
 | Gap | 3 days |
-| Quality | both ok; 2 and 4 observations |
-| Confidence | moderate |
-| Trend | paired points only; no target line |
+| Data sufficiency | sufficient (2 and 4 observations) |
+| Quality | both ok |
+| Sensitivity check | recent-median ratio 75.0% (only if both sides have ≥3 observations) |
 
-Do not show a target band. Do not colour a low ratio as "bad". Do not rank the athlete against a population.
+Do not show a target band. Do not colour a low ratio as "bad". Do not use a "confidence" label based on n alone. Do not rank the athlete against a population.
 
-### 7.4 Interpretation and limitations
-
-A ratio is influenced by anthropometry, technique, execution, ROM, equipment, specialisation, fatigue and e1RM error. A low ratio does not identify a weak muscle. A change in ratio does not establish that the accessory caused a change in the main lift. The existing evidence review PARENT-VARIANT-WEAKNESS-EVIDENCE.md already reached this conclusion; this specification adopts it rather than reopening it.
-
-Labels: "relative performance", "ratio of estimates", "descriptive". Never "weakness", "imbalance", "diagnostic", "injury risk" or "target".
-
-### 7.4a What a ratio can and cannot be used for
+### 7.5 What a ratio can and cannot be used for
 
 | Use | Status | Reason |
 |---|---|---|
@@ -696,7 +789,17 @@ Labels: "relative performance", "ratio of estimates", "descriptive". Never "weak
 | Population reference values | **Not appropriate** | There are no validated individual norms; anthropometry, technique, ROM, equipment and specialisation differ. |
 | Evidence that a ratio predicts or explains main-lift performance | **None found** | The literature supports task specificity and performance profiling, not a causal or diagnostic ratio. Any longitudinal association is an exploratory hypothesis. |
 
-### 7.5 Future analysis (Domain D6)
+### 7.6 Interpretation and limitations
+
+A ratio is influenced by anthropometry, technique, execution, ROM, equipment, specialisation, fatigue and e1RM error. A low ratio does not identify a weak muscle. A change in ratio does not establish that the accessory caused a change in the main lift. The existing evidence review PARENT-VARIANT-WEAKNESS-EVIDENCE.md already reached this conclusion; this specification adopts it rather than reopening it.
+
+Labels: "relative performance", "ratio of estimates", "descriptive". Never "weakness", "imbalance", "diagnostic", "injury risk" or "target".
+
+### 7.7 Historical ratio trends
+
+Use **paired observations** only: a numerator and denominator observation whose dates are within max_gap_days. Each point displays both dates. Do not independently smooth the two series and divide the smoothed values. Do not interpolate between pairs. If fewer than 2 paired observations exist, show points only and do not state a trend.
+
+### 7.8 Future analysis (Domain D6)
 
 Only after enough paired observations:
 
@@ -706,8 +809,6 @@ Only after enough paired observations:
 - report n, missingness, effect size and stability;
 - no causal language;
 - no automatic exercise selection, volume change or "weakness" targeting.
-
----
 
 ## 8. Data-quality and missing-data rules
 
@@ -739,11 +840,12 @@ Do not convert missing to zero. Do not convert unknown to zero. Do not render an
 | Load basis unknown | e1RM/RI/tonnage = not applicable; set still counts for completion. |
 | Bodyweight unknown | e1RM/RI = unavailable for bodyweight lifts; set still counts. |
 | No eligible post set | post e1RM = unavailable; do not substitute another exercise or a warm-up. |
-| No eligible pre set | pre e1RM = unavailable; do not use post as pre. |
+| Degraded estimate on either side | show both estimates with their method/quality labels; difference status = insufficient_quality; no difference. |
+| Fewer than 3 recent session observations | recent reference = limited (2) or single_prior (1); at 2 show a limited comparison, at 1 show the value/date and no comparison; show the available dates. |
 | e1RM older than 84 days | unavailable; show the last date and "too old". |
 | Tonnage partial | sum known sets; show known/total; never impute. |
-| Ratio one side missing | unavailable. |
-| Ratio gap too large | unavailable or historical with warning. |
+| Ratio one side missing or degraded | unavailable; if degraded, show both estimates with the degraded label but no headline ratio. |
+| Ratio gap too large | unavailable or historical with warning; data sufficiency is not confidence. |
 | Power quality not recorded | unknown, not "met". |
 | No power work | 0 if the session's exercise classification is complete; unknown if classification is missing. |
 | No spinal exposures | 0 if working sets are present and all are classified; unknown if no sets or classification missing. |
@@ -751,7 +853,7 @@ Do not convert missing to zero. Do not convert unknown to zero. Do not render an
 
 ### 8.3 Data-quality flags (derived, not stored)
 
-E1RM_PRE_MISSING, E1RM_PRE_RECONSTRUCTED, E1RM_POST_MISSING, E1RM_DEGRADED, E1RM_REPS_RIR_OVER_CAP, E1RM_NO_RIR, E1RM_LOAD_BASIS_UNKNOWN, E1RM_BODYWEIGHT_UNKNOWN, E1RM_STALE, E1RM_OVERRIDE, E1RM_CALIBRATED, E1RM_CHANGE_LOW_CONFIDENCE, RI_NO_DENOM, RI_PARTIAL_COVERAGE, TONNAGE_PARTIAL, SESSION_LOAD_UNKNOWN, FEEDBACK_LATE, DURATION_MANUAL, LONG_SESSION, RIR_UNKNOWN, RIR_OFF_SCALE, POWER_CLASS_UNKNOWN, POWER_QUALITY_UNRECORDED, POWER_VELOCITY_PARTIAL, VELOCITY_LOSS_UNAVAILABLE, SPINAL_UNRATED, RATIO_GAP, RATIO_SPARSE, RATIO_ONE_SIDED, COMPARISON_WITHHELD, PRODUCTIVITY_NOT_RECORDED.
+E1RM_REFERENCE_MISSING, E1RM_REFERENCE_SPARSE, E1RM_REFERENCE_RECONSTRUCTED, E1RM_POST_MISSING, E1RM_DEGRADED, E1RM_DEGRADED_ONLY, E1RM_REPS_RIR_OVER_CAP, E1RM_NO_RIR, E1RM_LOAD_BASIS_UNKNOWN, E1RM_BODYWEIGHT_UNKNOWN, E1RM_STALE, E1RM_OVERRIDE, E1RM_CALIBRATED, E1RM_DIFFERENCE_INSUFFICIENT_OBS, E1RM_DIFFERENCE_INSUFFICIENT_QUALITY, RI_NO_DENOM, RI_PARTIAL_COVERAGE, TONNAGE_PARTIAL, SESSION_LOAD_UNKNOWN, FEEDBACK_LATE, DURATION_MANUAL, LONG_SESSION, RIR_UNKNOWN, RIR_OFF_SCALE, POWER_CLASS_UNKNOWN, POWER_QUALITY_UNRECORDED, POWER_VELOCITY_PARTIAL, VELOCITY_LOSS_UNAVAILABLE, SPINAL_UNRATED, RATIO_GAP, RATIO_SPARSE, RATIO_ONE_SIDED, COMPARISON_WITHHELD, PRODUCTIVITY_NOT_RECORDED.
 
 These are **derived display flags**, not new persisted state. Do not reuse an existing ingest flag for a different meaning.
 
@@ -813,10 +915,11 @@ These are **derived display flags**, not new persisted state. Do not reuse an ex
     ├──────────────────────────────────────────────┤
     │  2  STRENGTH PERFORMANCE                     │
     │  Bench press                                 │
-    │  best recent   156.0 kg   20 Oct             │
-    │  best today    158.7 kg   set 2: 140×3 @2    │
-    │  change        +2.7 kg  (+1.7%)              │
-    │  ≈ within typical test–retest variation      │
+    │  recent ref   157.5 kg  median of 3 sessions │
+    │  best recent  158.4 kg  single session       │
+    │  best today   158.7 kg  set 2: 140×3 @2      │
+    │  difference   +1.2 kg (+0.8%) · descriptive  │
+    │  measurement error not established           │
     │  [Why this set?]  [All eligible sets]        │
     ├──────────────────────────────────────────────┤
     │  3  TRAINING DOSE                            │
@@ -827,7 +930,7 @@ These are **derived display flags**, not new persisted state. Do not reuse an ex
     │  Patterns  push 3 · squat 3 · hinge 3        │
     ├──────────────────────────────────────────────┤
     │  4  SPECIAL EXPOSURE                         │
-    │  Power      3 sets · 15 reps · retention 94% │
+    │  Power      3 sets · 15 reps · velocity −5.7%│
     │  Quality    not recorded                     │
     │  High int.  none                             │
     │  Spinal     trap bar 2.0 · back ext 0.85 ... │
@@ -864,13 +967,14 @@ These are **derived display flags**, not new persisted state. Do not reuse an ex
 
 **Section 2 — Strength performance**
 
-- One row per main lift that has either a pre or post estimate; not every accessory.
-- Columns: exercise, best recent (date), best today (source set), Δ kg, Δ %, interpretation badge.
-- Interpretation badges: clear increase, clear decrease, within typical variation, low confidence, unavailable. "Clear" means |Δ%| ≥ 4.2% and both estimates ok; it still does not mean adaptation.
+- One row per main lift that has a post estimate or at least one recent reference observation; not every accessory.
+- Columns: exercise, recent reference (median, n, date range), best recent single session (context), best today (source set), difference kg, difference %, status.
+- Status labels: descriptive, limited, single_prior, insufficient_quality, unavailable. Do not use clear increase, clear decrease, within typical variation or significance language.
+- The difference is descriptive only. Show the observation count and dates next to it. State "measurement error not established for this lift" unless an individual error estimate exists.
 - [Why this set?] expands: load, reps, RIR, exercise, method, quality, flags, decay factor, calibration factor, source (planned/reconstructed/override).
-- [All eligible sets] expands a table with each set's e1RM and exclusion reason (warm-up, RIR missing, reps >10, reps+rir >20, load basis unknown, quality degraded, test-linked).
-- If no post set: "No eligible set today" + the reason. If no pre: "No recent eligible estimate" + the last date if any.
-- Do not label the change "strength gain" or "PR" unless the PR rule is met (and then "new best estimate", not "competition PR").
+- [All eligible sets] expands a table with each set's e1RM and exclusion reason (warm-up, RIR missing, reps >10, reps+rir >20, load basis unknown, quality degraded). Test-linked sets are marked and shown in Special exposure, not excluded from e1RM.
+- If no post set: "No eligible set today" + the reason. If exactly 2 recent observations: show the limited comparison. If fewer than 2: "Insufficient recent observations for a comparison" + the available dates.
+- Do not label the difference "strength gain", "acute strength change", "adaptation" or "PR". Use "new best estimate" only when the PR rule is met.
 
 **Section 3 — External training dose**
 
@@ -882,7 +986,7 @@ These are **derived display flags**, not new persisted state. Do not reuse an ex
 
 **Section 4 — Special exposure**
 
-- Power: sets, reps, exercise, set-to-set retention if measurable, quality stop status. "Within-set velocity loss is not available from mean velocity."
+- Power: sets, reps, exercise, mean velocity change across sets if measurable (same exercise and load), and quality stop status. Label it "mean velocity change", not retention or quality. "Within-set velocity loss is not available from mean velocity."
 - High-intensity: list exposures linked to the session, kind, exercise, intensity class, guard status. "Not counted as working volume."
 - Spinal: per-exercise effective cost, weekly total/cap, heavy-spinal count, axial demand mix with unknown count. Label "ordinal exposure, not lumbar load".
 - If no special exposure: "None recorded" — a valid zero if the session's classification is complete.
@@ -919,10 +1023,11 @@ These are **derived display flags**, not new persisted state. Do not reuse an ex
 
 | Do say | Do not say |
 |---|---|
-| "Best recent estimate" | "Current max" |
+| "Recent reference (median of 3 sessions)" | "Typical max" |
+| "Best recent single session" | "Current max" |
 | "Best estimate today" | "New 1RM" |
-| "Change during this session" | "Strength gain" |
-| "Within typical test–retest variation" | "No progress" |
+| "Difference vs recent performance" | "Strength gain" |
+| "Descriptive difference; measurement error not established" | "No progress" or "clear change" |
 | "Estimated from Epley + RIR" | "Measured" |
 | "Unavailable" | "0" or "—" without explanation |
 | "Hard sets (RIR ≤ 4)" | "Effective sets" |
@@ -942,11 +1047,13 @@ The Performance view (new top-level page, or a section under Outcomes) should su
 - exercise-specific tonnage and hard-set counts;
 - relative-intensity distribution over time;
 - session load AU over time, with sRPE coverage;
-- power sets/reps and set-to-set retention;
+- power sets/reps and mean velocity change across sets;
 - axial/spinal exposure over time;
-- configured ratios and their paired observations.
+- configured ratios using latest contemporaneous observations, and paired observations for historical trends.
 
 Filters: date range, exercise, session type, include/exclude deloads, minimum quality. Always show n and coverage. Never interpolate.
+
+The Performance view shows the raw session observations and the rolling median. It does not apply the 4.2% figure, a "clear change" label or a "within typical variation" band. If it shows a difference between the latest observation and the rolling median, that difference is descriptive and accompanied by the observation dates and n; no significance or adaptation claim is made.
 
 ### 10.2 Dose–response (exploratory)
 
@@ -1009,6 +1116,16 @@ It cannot, from observational data alone, establish that one configuration is be
 
 ## 11. Scientific evidence review
 
+### 11.0 Decision basis
+
+| Basis | Meaning | How it is labelled |
+|---|---|---|
+| A — Evidence-supported | A finding directly supported by relevant research, with the population and limits stated | cites a source; the inference is limited to what the source supports |
+| B — Engineering decision | A deterministic, testable choice needed to make the software consistent: cutoffs, status vocabulary, missing-data rules, date handling | states why it is needed and what test pins it |
+| C — Product assumption | A pragmatic choice about windows, display bands, sample sizes or user experience that is not a validated scientific rule | states the choice, why it was chosen and what evidence would justify changing it |
+
+A source grade (A–F in §11.1) describes the **study design**, not the decision basis. For example, a meta-analysis can support a general principle (basis A) while the specific window used in the app remains a product assumption (basis C).
+
 ### 11.1 Evidence grades
 
 | Grade | Meaning |
@@ -1020,7 +1137,7 @@ It cannot, from observational data alone, establish that one configuration is be
 | E | Narrative review, expert consensus or proposal |
 | F | Engineering/product judgement |
 
-A grade describes the **source**, not the strength of the inference for this athlete. A group-level meta-analysis does not validate an individual metric.
+A grade describes the **source**, not the strength of the inference for this athlete. A group-level meta-analysis does not validate an individual metric. The decision-basis labels in §11.0 are the ones that say whether a specific design choice is evidence-supported or a product assumption.
 
 ### 11.2 Required sources, verified
 
@@ -1041,7 +1158,7 @@ A grade describes the **source**, not the strength of the inference for this ath
 | # | Verified record | Supports | Grade |
 |---|---|---|---|
 | 10 | Day ML, McGuigan MR, Brice G, Foster C. Monitoring exercise intensity during resistance training using the session RPE scale. J Strength Cond Res. 2004;18(2):353–358. DOI 10.1519/R-13113.1. PMID 15142026. | Session RPE reliability across resistance-training intensities (ICC 0.88). | B |
-| 11 | Grgic J, Lazinica B, Schoenfeld BJ, Pedisic Z. Test-Retest Reliability of the One-Repetition Maximum (1RM) Strength Assessment: a Systematic Review. Sports Med Open. 2020;6(1):31. DOI 10.1186/s40798-020-00260-z. PMID 32681399. | 32 studies, median ICC 0.97, median CV 4.2%. The 4.2% reference band for "within typical variation". | A |
+| 11 | Grgic J, Lazinica B, Schoenfeld BJ, Pedisic Z. Test-Retest Reliability of the One-Repetition Maximum (1RM) Strength Assessment: a Systematic Review. Sports Med Open. 2020;6(1):31. DOI 10.1186/s40798-020-00260-z. PMID 32681399. | 32 studies, median ICC 0.97, median CV 4.2% for **direct 1RM tests**. This is a literature reference for actual 1RM test–retest variability; it is not a validated threshold for this application's estimated e1RM, which adds formula and RIR error. | A |
 | 12 | Zourdos MC, Goldsmith JA, Helms ER, et al. Proximity to Failure and Total Repetitions Performed in a Set Influences Accuracy of Intraset Repetitions in Reserve-Based Rating of Perceived Exertion. J Strength Cond Res. 2021;35(2S):S158–S165. DOI 10.1519/JSC.0000000000002995. | RIR error grows with distance from failure (~2 reps at 1 RIR, ~3.7 at 3, ~5 at 5 in the squat). | B |
 | 13 | Refalo MC, Remmert JF, Pelland JC, Robinson ZP, Zourdos MC, Hamilton DL, Fyfe JJ, Helms ER. Accuracy of Intraset Repetitions-in-Reserve Predictions During the Bench Press Exercise in Resistance-Trained Male and Female Subjects. J Strength Cond Res. 2024;38(3):e78–e85. DOI 10.1519/JSC.0000000000004653. PMID 37967832. | RIR prediction error is a property of the method, not just experience. | B |
 | 14 | Reynolds JM, Gordon TJ, Robergs RA. Prediction of one repetition maximum strength from multiple repetition maximum testing and anthropometry. J Strength Cond Res. 2006;20(3):584–592. DOI 10.1519/R-15304.1. PMID 16937972. | 1RM prediction from multiple-RM testing has non-trivial standard error; accuracy varies by lift. | C |
@@ -1076,7 +1193,7 @@ A grade describes the **source**, not the strength of the inference for this ath
 
 | Question | What exists | What is missing |
 |---|---|---|
-| Does a within-session e1RM change measure adaptation? | No. It is a re-estimate from a different set. Indirect context: bar velocity is sensitive to acute fatigue (Moura 2024), and RIR error is large (Zourdos 2021; Refalo 2024). | No study validates a pre/post e1RM difference as a meaningful performance change, and none establishes a minimal detectable change for Epley+RIR. The 4.2% direct-1RM CV is a reference, not a validated e1RM threshold. |
+| Does a difference vs recent performance measure adaptation? | No. It is a re-estimate from a different set. Indirect context: bar velocity is sensitive to acute fatigue (Moura 2024), and RIR error is large (Zourdos 2021; Refalo 2024). | No study validates a difference vs recent performance as a meaningful change, and none establishes a minimal detectable change for Epley+RIR. The 4.2% direct-1RM CV is a literature reference, not a validated e1RM threshold; using it as one would confuse direct 1RM test–retest variability with formula-plus-RIR error. |
 | Does an accessory-to-main ratio explain main-lift performance? | Specificity evidence (Spitz 2019; Lockie 2017; Herrera-Bermudo 2024) and ratio-reporting inconsistency (Parkinson 2021). | No prospective study showing that a ratio change predicts a main-lift change, or that targeting a ratio improves the main lift. |
 | Does session load AU predict recovery or adaptation? | sRPE is a reliable internal-load rating (Sweet 2004; Day 2004). | No resistance-training study validates AU thresholds, a dose-response curve, or an individual recovery window. |
 | Does power quality relate to adaptation? | Power training improves power/function in older adults (Balachandran 2022; El Hadouchi 2022); velocity loss has trade-offs (Jukic 2023). | No validated field metric for jump quality in this athlete, and no within-set loss from mean velocity. |
@@ -1084,27 +1201,27 @@ A grade describes the **source**, not the strength of the inference for this ath
 
 ### 11.5 Evidence-to-design trace
 
-| Design choice | Evidence | Grade | Confidence |
+| Design choice | Basis | Evidence | What would change it |
 |---|---|---|---|
-| Keep domains separate | Scott 2016; Helms 2020; ACSM 2026 | A/E | High |
-| sRPE × duration as internal load | Sweet 2004; Day 2004 | B | Moderate |
-| Label immediate sRPE | Sweet 2004; Day 2004 | B | High (the protocol difference is clear) |
-| e1RM as estimate, not measurement | Reynolds 2006; Mayhew 2008; Grgic 2020 | C/A | High |
-| 4.2% "typical variation" reference | Grgic 2020 | A | Moderate (population, not individual) |
-| Best-set pre/post comparison | Measurement logic; no direct trial | F | Moderate |
-| RIR distribution, no mean | Zourdos 2021; Refalo 2024; Pelland 2022 | B/E | High |
-| Hard sets RIR ≤4 | Existing config; ACSM/Robinson | A/F | Moderate |
-| Relative-intensity bands | ACSM 2026 (80%); other cuts product judgement | A/F | Low–moderate |
-| Tonnage within exercise only | Mechanics; ACSM volume load discussion | F | High (as a limitation) |
-| Power separate, 30–70% 1RM, low volume | ACSM 2026; Balachandran 2022; El Hadouchi 2022 | A | Moderate (population caveat) |
-| No within-set velocity loss | DEC-VELOCITY-01; mean-only data | F | High |
-| Spinal ordinal, not load | Swinton 2011; Hanen 2025; Cholewicki 1991; SPINAL-COST | D | High (as ordinal) |
-| Ratios descriptive only | PARENT-VARIANT-WEAKNESS-EVIDENCE; Parkinson 2021; Spitz 2019 | A/E | High |
-| No fitness-fatigue controller | Marchal 2025; RETROSPECTIVE-VALIDATION | A/C | High |
-| Productivity optional, subjective | No direct validation | F | Low |
-
----
-
+| Keep domains separate | A | Scott 2016; Helms 2020; ACSM 2026 | A validated composite that outperforms separate interpretation |
+| sRPE × duration as internal load | A/B | Sweet 2004; Day 2004 | Evidence that another internal-load measure is more valid and practical |
+| Label immediate sRPE | B | Sweet 2004; Day 2004 | Adopting a delayed 30-minute capture with a timing field |
+| e1RM as estimate, not measurement | A | Reynolds 2006; Mayhew 2008; Grgic 2020 | A test-anchored estimator with lower individual error |
+| 4.2% retained only as a direct-1RM literature reference | C (source grade A, but no threshold is a product decision) | Grgic 2020 | Repeated measured tests producing an individual error estimate; even then, no binary threshold is planned |
+| Median of last 3 session bests as primary comparator | C | Engineering judgement; no direct trial | Prospective comparison showing another simple reference predicts better or is more interpretable |
+| Best recent single session displayed separately | B/C | Measurement logic | Evidence that a best-performance reference is misleading or unused |
+| Difference displayed descriptively, no classification | B/C | Grgic 2020 (source only); RIR error evidence | A validated individual error model; still no automatic significance label planned |
+| RIR distribution, no mean | A/B | Zourdos 2021; Refalo 2024; Pelland 2022 | A validated RIR measurement method |
+| Hard sets RIR ≤4 | B/C | Existing config; ACSM/Robinson | A validated per-athlete effort threshold |
+| Relative-intensity bands | C (80% anchor A) | ACSM 2026 (80%); other cuts product judgement | Individual load–velocity/1RM data supporting different bins |
+| Tonnage within exercise only | A/B | Mechanics; ACSM volume-load discussion | A validated cross-exercise common currency |
+| Power separate, 30–70% 1RM, low volume | A | ACSM 2026; Balachandran 2022; El Hadouchi 2022 | Direct evidence in adult recreational lifters that contradicts the general prescription |
+| Mean velocity change across sets, descriptive only | B/C | Moura 2024; Jukic 2023 | A validated quality metric with a known error model |
+| No within-set velocity loss | B | DEC-VELOCITY-01; mean-only data | Per-rep velocity capture for the sets in question |
+| Spinal ordinal, not load | A/D | Swinton 2011; Hanen 2025; Cholewicki 1991; SPINAL-COST | A validated individual load–tissue model |
+| Ratios descriptive only | A/C | PARENT-VARIANT-WEAKNESS-EVIDENCE; Parkinson 2021; Spitz 2019 | Prospective evidence that a ratio predicts or explains main-lift performance |
+| No fitness-fatigue controller | A/C | Marchal 2025; RETROSPECTIVE-VALIDATION | Out-of-sample improvement over simple baselines across lifts and periods |
+| Productivity optional, subjective | C | No direct validation | Prospective evidence of a stable, useful relationship; still not a workload |
 
 ### 11.6 Direct links for the verified sources
 
@@ -1139,6 +1256,29 @@ A grade describes the **source**, not the strength of the inference for this ath
 - [Moura 2024, bar velocity and fatigue](https://doi.org/10.1055/a-2316-7966) · [PubMed 38684188](https://pubmed.ncbi.nlm.nih.gov/38684188/)
 - [Refalo 2023, proximity to failure and hypertrophy](https://doi.org/10.1007/s40279-022-01784-y) · [PubMed 36334240](https://pubmed.ncbi.nlm.nih.gov/36334240/)
 
+### 11.7 Product assumptions register
+
+These are the important **product/engineering assumptions** in this specification. They are not presented as physiological thresholds. Each must be registered as an ASSUMPTION-n at approval; the local IDs are for review.
+
+| ID | Assumption | Why chosen | Evidence that would justify changing it |
+|---|---|---|---|
+| PA-01 | e1RM outer window 84 days; robust median window 28 days | About one mesocycle; matches the existing prescription selector; long enough to smooth one outlier, short enough to track form | Individual error/trend analysis showing a different window predicts or describes better |
+| PA-02 | ok estimate: reps ≤10, RIR ≤3, reps+rir ≤20 | RIR error grows with distance from failure; a 20-rep extrapolation is not a strength estimate | Repeated measured tests with per-rep-range error estimates |
+| PA-03 | Recent reference = median of last 3 session bests | Smallest sample that is not the latest value; robust to one outlier; explainable | Prospective comparison of 3 vs 5 observations or a simple time-series baseline |
+| PA-04 | Relative-intensity bands <60/60–70/70–80/80–90/≥90% | 80% is anchored to the ACSM strength finding; the other cuts are display bins | Individual load–velocity/1RM data or a validated %1RM taxonomy |
+| PA-05 | Ratio max gap 14 days | Short enough to represent the same training period at 2–3 sessions/week; long enough to occur | Paired-observation analysis showing 14 days is too short or too long |
+| PA-06 | Ratio max age 42 days | Allows a recent observation while limiting staleness | Evidence that older observations still represent current performance |
+| PA-07 | Ratio min observations 2 per side | Data-sufficiency gate, not confidence; one observation is a single-session ratio | Evidence that a different minimum is needed for a stable ratio |
+| PA-08 | Ratio uses latest eligible per-session best per side | Transparent, date-stamped, no smoothing; avoids dividing independently smoothed series | Evidence that a recent median is more stable without hiding real change |
+| PA-09 | Longitudinal trend = rolling median of last 3 observations | Simple, robust, observation-based; handles irregular spacing | Prospective comparison against last observation or a simple model |
+| PA-10 | Comparable session: same type, ≥1 common main lift, ≥50% exercise overlap, ≥3 priors, 8-week window | Avoids comparing unlike sessions; still yields enough comparisons | Analysis showing the key is too strict or too loose |
+| PA-11 | Hard set = working set with RIR ≤4 | Existing exposure config; broad enough to include hard work | A validated effort threshold or a change in RIR reporting behaviour |
+| PA-12 | Late feedback = >24 h after a live workout; long session = >2× recent comparable median | Practical data-quality flags, not physiological rules | Data showing a different threshold identifies problematic feedback |
+| PA-13 | Productivity is a 5-point labelled item | Consistent with the app's 1–5 scales; low friction | Cognitive testing or prospective evidence supporting a different scale |
+| PA-14 | Mean velocity change requires the same exercise and load | Otherwise the comparison is uninterpretable | A validated method that adjusts for load/equipment changes |
+| PA-15 | Degraded estimates are displayed but excluded from headline differences | Preserves transparency without pretending precision | An individual error model that quantifies degraded estimates |
+| PA-16 | Repeated-test protocol: two standardized 1RM/3RM assessments 48–72 h apart, no training between, repeat the pair twice | Feasible short-term protocol that separates test–retest error from long-term adaptation | Feasibility or reliability data showing a different spacing/pair count is needed |
+
 ## 12. Validation methodology
 
 ### 12.1 Stage 1 — Measurement validity
@@ -1155,10 +1295,14 @@ Test that the calculations reflect the data. Required unit tests:
 | e1RM eligibility | 20 reps + RIR 5 | Rejected for headline (reps+rir >20) |
 | e1RM eligibility | 11 reps @ RIR 2 | Degraded; not headline |
 | e1RM eligibility | 3 reps @ RIR 0 | ok, flagged suspect |
-| Pre/post separation | Compute pre, then add current sets, recompute | Pre unchanged |
+| Reference cutoff | Compute recent reference, then add current sets, recompute | Reference unchanged |
 | Same-date ordering | Two workouts same date, one earlier start | Earlier included; later not |
 | Post source | Two eligible sets | Best selected; source set correct |
 | Post missing | Only warm-up/unknown RIR | Unavailable, not 0 |
+| Recent reference count | 0, 1, 2, 3 eligible session bests | unavailable, single_prior, limited, descriptive respectively |
+| Degraded post | Post estimate degraded | insufficient_quality; both estimates shown with labels; no difference |
+| No threshold classification | Any difference value | Only descriptive/limited/single_prior/insufficient_quality/unavailable; never clear/meaningful/within typical |
+| Ratio method | Latest per side, dates and gap | Latest values used; dates visible; gap/age/degraded gates applied |
 | Velocity quality | 0.000000 | velocity_present = false; not a measurement |
 | Power exclusion | Box jump set | Not in RIR/RI/hard-set counts; counted in power |
 | Substitution | Plan A, actual B | Completion against modified plan; original comparison shows A missing; no e1RM mapping |
@@ -1179,7 +1323,7 @@ Check that each metric behaves like what it claims:
 
 - **External dose** changes only when completed working sets/reps/load change; it is invariant to prescribed changes.
 - **Internal load** changes with sRPE and duration, and is independent of tonnage (except through perception).
-- **e1RM** changes when the underlying set changes; it is invariant to unrelated exercises; it does not change when only the plan changes.
+- **e1RM estimates** change when the underlying session best observations change; the difference is a derived descriptive value, not a significance label. It is invariant to unrelated exercises and does not change when only the plan changes.
 - **Relative strength** changes only when one of the two configured e1RMs changes; it is unavailable when either is stale.
 - **Power exposure** counts only power-classified sets; it does not increase hypertrophy hard sets.
 - **Axial/spinal exposure** equals the registry output; it is invariant to tonnage.
@@ -1219,6 +1363,9 @@ Do not change prescriptions, deloads, exercise selection or injury rules during 
 - No new composite scalar in any API response.
 - Every "unavailable" state is rendered as such, not as 0.
 - Every headline estimate exposes its method and source.
+- Degraded estimates never enter a headline difference.
+- No automatic clear/meaningful/significant/within-typical classification exists for any e1RM difference.
+- The recent reference requires 3 eligible session observations for a descriptive comparison; 2 is limited; 1 is single_prior; 0 is unavailable.
 - ruff check . and python -m pytest pass at the end of the phase.
 
 ---
@@ -1253,7 +1400,7 @@ Do not change prescriptions, deloads, exercise selection or injury rules during 
 
 - All existing e1RM/calibration/prescription tests.
 - New tests for eligibility, cutoff, quality, missingness, and no-composite.
-- Property test: pre estimate invariant to current-session sets.
+- Property test: recent reference invariant to current-session sets.
 
 **Acceptance criteria**
 
@@ -1264,8 +1411,8 @@ Do not change prescriptions, deloads, exercise selection or injury rules during 
 
 **Scientific limitations**
 
-- Bands, windows and quality cuts are assumptions; register them.
-- The 4.2% reference is population-level.
+- Bands, windows and quality cuts are assumptions; register them (PA-01 to PA-16).
+- No meaningful-change threshold is implemented; 4.2% is a direct-1RM literature reference only.
 
 ### Phase 2 — Descriptive workout summary
 
@@ -1273,7 +1420,7 @@ Do not change prescriptions, deloads, exercise selection or injury rules during 
 
 - API GET /api/workout/<id>/summary and CLI summary.
 - UI sections 1, 2, 3, 5, and a condensed 4.
-- e1RM pre/post, relative intensity, RIR distribution, hard sets, tonnage per exercise, session load AU.
+- Recent reference, post best, descriptive difference vs recent performance, relative intensity, RIR distribution, hard sets, tonnage per exercise, session load AU.
 - Optional productivity (see migration).
 
 **Dependencies**
@@ -1293,7 +1440,7 @@ Do not change prescriptions, deloads, exercise selection or injury rules during 
 
 **Testing**
 
-- API contract, missing data, source transparency, manual duration, late feedback, productivity skip, no composite.
+- API contract, missing data, source transparency, recent-reference count, degraded policy, no threshold classification, manual duration, late feedback, productivity skip, no composite.
 - UI rendering tests for "Unavailable"/"Not recorded".
 
 **Acceptance criteria**
@@ -1305,7 +1452,7 @@ Do not change prescriptions, deloads, exercise selection or injury rules during 
 
 **Scientific limitations**
 
-- Within-session change is not adaptation.
+- The difference vs recent performance is descriptive, not acute strength change or adaptation.
 - Session load is internal, not objective stress.
 - Tonnage is exercise-specific.
 - Power quality is not measurable from mean velocity.
@@ -1316,7 +1463,7 @@ Do not change prescriptions, deloads, exercise selection or injury rules during 
 
 - Performance view: e1RM series, rolling median, exercise filters, series breaks.
 - Dose trends: hard sets, relative intensity, tonnage per exercise, session load.
-- Accessory-to-main ratios (configured, date-stamped).
+- Accessory-to-main ratios (configured, latest contemporaneous observation per side, date-stamped).
 - Comparable-session comparison.
 - CLI performance with parity.
 
@@ -1339,19 +1486,19 @@ Do not change prescriptions, deloads, exercise selection or injury rules during 
 - Sparse data: 1, 2, 3, 5 points.
 - Series break on identity/equipment change.
 - No interpolation.
-- Ratio gap/staleness/one-sided.
-- No target ratio, no ranking.
+- Ratio gap/staleness/one-sided/degraded; latest-observation method.
+- No target ratio, no ranking, no confidence label from n alone.
 
 **Acceptance criteria**
 
 - Trend lines only with ≥3 observations.
 - No statement of change with <5 observations.
-- Ratio unavailable when dates are too far apart.
-- Every ratio displays both dates and both estimates.
+- Ratio unavailable when dates are too far apart or either side is degraded.
+- Every ratio displays both dates and both estimates, plus data sufficiency (not confidence).
 
 **Scientific limitations**
 
-- Rolling median is descriptive, not a model.
+- Rolling median is descriptive, not a model; 3 observations is a product assumption.
 - Ratios have no diagnostic validity.
 - Cross-exercise comparisons are limited by specificity.
 
@@ -1360,6 +1507,7 @@ Do not change prescriptions, deloads, exercise selection or injury rules during 
 **Scope**
 
 - Descriptive dose–response and recovery associations.
+- Document the repeated-measured-test error protocol (see §4.4 C4); do not implement a threshold.
 - Pre-registered, small set of exposures/outcomes.
 - Reports, not controllers.
 - Compare against simple baselines.
@@ -1408,6 +1556,7 @@ Do not change prescriptions, deloads, exercise selection or injury rules during 
 **Files**
 
 - Capture changes only if justified: session_feedback.srpe_timing, structured power quality event, per-rep velocity capture.
+- Conduct repeated standardized 1RM/3RM pairs for the main lifts and record them through the existing measured-test path.
 - docs/MONITORING-PROSPECTIVE.md (protocol and results).
 
 **Schema changes**
@@ -1447,13 +1596,13 @@ Do not change prescriptions, deloads, exercise selection or injury rules during 
 
 | # | Decision | Options | Recommendation | Evidence | Revisit if |
 |---|---|---|---|---|---|
-| Q1 | Pre/post estimator | median vs best vs most recent | **Best eligible set for both**, with load base kept separate | Measurement logic; Grgic 2020 | Measured tests show the best set is unstable |
-| Q2 | "Meaningful change" band | none / 4.2% / athlete-specific | **4.2% default**, athlete-specific once ≥3 tests exist | Grgic 2020 | Calibration data show a different error |
-| Q3 | Ratio gap window | 7 / 14 / 28 days | **14 days**, configurable | Product judgement | Paired data show 14 days is too short/long |
+| Q1 | Primary recent comparator | historical max / last session / median of last 3 / median of last 5 | **Median of last 3 eligible per-session bests**, with best-recent and all-time best kept separate | Engineering judgement; no direct trial | Prospective data show another simple reference is more stable or interpretable |
+| Q2 | Meaningful-change rule | none / individual error model / validated minimal detectable change | **None initially**; display descriptively; develop an individual error estimate from repeated measured tests | Grgic 2020 is direct-1RM only; its 4.2% is not transferable to estimated e1RM | Repeated-test data produce a defensible individual error model |
+| Q3 | Ratio observation and gap | latest per side / recent median / best in window / smoothed | **Latest eligible per-session best per side**, gap ≤14 days, max age 42 days; recent median only as a sensitivity check | Product judgement; PARENT-VARIANT evidence | Paired data show the latest method is too noisy or the gap is wrong |
 | Q4 | Productivity scale | 5-point / 7-point / free text | **5-point labelled**, optional | Product judgement | Users find it ambiguous |
 | Q5 | sRPE timing | immediate / 30 min / both | **Keep immediate, label it; add delayed later** | Sweet 2004; Day 2004 | Friction data show a delayed value is feasible |
 | Q6 | Session tonnage total | hide / advanced / headline | **Advanced only**, with a caveat | Mechanics; ACSM | Users need a total for a specific comparison |
-| Q7 | Ratios on the end screen | none / 2 / all | **Max 2, only if contemporaneous and reliable** | PARENT-VARIANT evidence | The Performance view is enough |
+| Q7 | Ratios on the end screen | none / 2 / all | **Max 2, only if data-sufficient and both sides ok** | PARENT-VARIANT evidence | The Performance view is enough |
 | Q8 | Performance view location | new page / Outcomes / Today | **New top-level Performance page** | UI complexity | The page becomes too large |
 | Q9 | Persist derived metrics | yes / no | **No**, recompute; cache in memory only | Single source of truth | Performance becomes a problem |
 | Q10 | Same-date multiple sessions | include / exclude | **Include only with a proven earlier start**, else exclude | No timestamps for imports | Timestamps are captured for all sessions |
@@ -1467,6 +1616,8 @@ Do not change prescriptions, deloads, exercise selection or injury rules during 
 | Q18 | Warm-up display | hide / count | **Count separately**, never in dose | DEC-RIR-01 | None |
 | Q19 | e1RM display precision | 0.1 / 0.5 / integer | **0.5 kg** | Measurement error | None |
 | Q20 | Late feedback threshold | 24 h / 7 days / none | **24 h for live workouts**, N/A for imports | Product judgement | Data show a different pattern |
+| Q21 | Degraded estimate display | hide / show with label / use in difference | **Show with label; never in headline difference**; if either side degraded, insufficient_quality | Engineering decision | An individual error model quantifies degraded estimates |
+| Q22 | Mean velocity change across sets | hide / descriptive / quality score | **Descriptive only**, same exercise and load; never a quality or retention score | Engineering decision; Moura 2024 | A validated quality metric with known error |
 
 ---
 
@@ -1478,7 +1629,7 @@ The following are explicitly **out of scope** and should be rejected in review u
 2. **A composite readiness/fatigue/performance score.** Readiness already exists as a bounded heuristic; do not multiply constructs.
 3. **ACWR-based injury-risk prediction or a "sweet spot" recommendation.** The project already rejected this (DEC-ACWR-01, DEC-EXPOSURE-02); the ratio stays descriptive.
 4. **Automatic prescription changes** from any new metric: load, sets, RIR, deload, exercise selection or substitution.
-5. **A "strength gain" label for a within-session e1RM change.** It is an estimate, not adaptation.
+5. **A "strength gain" or "acute strength change" label for a difference vs recent performance.** It is a descriptive difference of estimates, not adaptation.
 6. **A "weakness" diagnosis from an accessory-to-main ratio.** Ratios are descriptive relative performance.
 7. **Universal target ratios or population percentiles.** No validated individual targets.
 8. **Cross-exercise e1RM conversion** (trap bar ↔ sumo ↔ conventional; SSB ↔ competition squat; bench ↔ close-grip). Identity is explicit.
@@ -1498,6 +1649,8 @@ The following are explicitly **out of scope** and should be rejected in review u
 22. **A change to the rubric weights or composite** to accommodate monitoring. Keep the rubric separate.
 23. **A change to the volume ledger landmarks** based on the new metrics. They remain config assumptions.
 24. **A change to the spinal cap** based on the new metrics. It remains an ordinal guard.
+25. **Any automatic clear/meaningful/significant/within-typical classification of an e1RM difference.** No threshold is implemented; the 4.2% figure is a direct-1RM literature reference only.
+26. **A mean-velocity "retention" or power-quality score.** The calculation is descriptive only and cannot attribute cause.
 
 ---
 
@@ -1521,7 +1674,7 @@ Calculation:
 - B: 127.5 / 150 = 0.850 = **85.0%** → heavy.
 - C: 105 / 150 = 0.700 = **70.0%** → moderate.
 
-Interpretation: three of three working sets have a denominator; distribution 2 heavy, 1 moderate, 0 unknown. Do not say "average intensity 78.3%" unless you also show the distribution; the average hides the range and weights sets equally. Do not use the best recent e1RM (156.0) as the denominator; that would produce 76.9/81.7/67.3 and would not match the load base the prescription used.
+Interpretation: three of three working sets have a denominator; distribution 2 heavy, 1 moderate, 0 unknown. Do not say "average intensity 78.3%" unless you also show the distribution; the average hides the range and weights sets equally. Do not use a best recent single-session estimate (for example 158.4) as the denominator; that would produce different percentages and would not match the load base the prescription used.
 
 ### 16.2 Session load
 
@@ -1543,59 +1696,69 @@ Working sets: RIR 2, 3, 4, 5, missing.
 
 If all five had missing RIR, the hard-set result is **unknown**, not 0. If the session had five working sets all at RIR 5, the hard-set result is a valid **0**, with RIR 5 sets shown.
 
-### 16.4 Pre/post e1RM and change
+### 16.4 Recent reference and descriptive difference
 
-Pre-session best eligible set (2026-10-20):
+Synthetic session-level best observations for the bench press before the current session:
 
-- 130 kg × 4 @ RIR 2 → 130 × (1 + 6/30) = 130 × 1.2 = 156.0 kg.
-- Quality: reps ≤10, RIR ≤3 → ok.
-- Age at session (2026-10-28): 8 days → decay factor 1.0 (within the 21-day grace).
-- pre_best = 156.0 kg.
+- 2026-10-14: 130 kg × 4 @ RIR 2 → 130 × (1 + 6/30) = 156.0 kg (ok).
+- 2026-10-18: 135 kg × 3 @ RIR 2 → 135 × (1 + 5/30) = 157.5 kg (ok).
+- 2026-10-23: 132 kg × 4 @ RIR 2 → 132 × (1 + 6/30) = 158.4 kg (ok).
 
-Post-session best eligible set (set 2):
+recent_reference = median(156.0, 157.5, 158.4) = **157.5 kg**; n = 3; dates span 9 days.
+best_recent_e1rm = **158.4 kg** (a separate best-performance reference, not the baseline).
 
-- 140 kg × 3 @ RIR 1 → 140 × (1 + 4/30) = 140 × 1.1333 = 158.67 → 158.7 kg.
-- Quality: ok.
+Current session:
+
+- 140 kg × 3 @ RIR 1 → 140 × (1 + 4/30) = 158.67 → **158.7 kg** (ok).
 - post_best = 158.7 kg.
 
-Change:
+Difference vs recent performance:
 
-- Absolute: 158.7 − 156.0 = +2.7 kg.
-- Percentage: 2.7 / 156.0 × 100 = +1.73%.
-- The 4.2% reference: 1.73% < 4.2% → **within typical test–retest variation; no clear change**.
-- Do not say "strength increased". Do say "the best estimate today was 2.7 kg higher; this is within typical variation".
+- Absolute: 158.7 − 157.5 = **+1.2 kg**.
+- Percentage: 1.2 / 157.5 × 100 = **+0.76%**.
+- Status: **descriptive** (both ok; n = 3).
+- Display: "Today's best estimate was 1.2 kg (0.8%) higher than the recent reference (median of 3 sessions, 14–23 Oct). Descriptive difference; measurement error not established for this lift."
+- Do not say "strength increased", "clear increase", "within typical variation" or "adaptation".
 
-A clearer increase:
+A larger descriptive difference, still not a verdict:
 
-- Post 150 kg × 2 @ RIR 1 → 150 × (1 + 3/30) = 165.0 kg.
-- Δ = +9.0 kg; % = +5.77% → above 4.2% → "larger than typical test–retest variation, but still an estimate; not evidence of adaptation".
+- Post 150 kg × 2 @ RIR 1 → 165.0 kg.
+- Difference = +7.5 kg; +4.76%.
+- Display the number and the observation dates. Do not label it significant or meaningful. Do not use 4.2% as a cutoff.
 
-A decrease:
+A lower value:
 
-- Pre 174.0 kg (145 × 4 @ RIR 2 → 145 × 1.2 = 174.0).
-- Post 140 kg × 2 @ RIR 2 → 140 × (1 + 4/30) = 158.67 kg.
-- Δ = −15.3 kg; % = −8.8% → clear decrease. Possible explanations: fatigue, set selection, RIR error, technique, readiness. Do not say "lost strength".
+- Post 135 kg × 2 @ RIR 2 → 135 × (1 + 4/30) = 153.0 kg.
+- Difference = 153.0 − 157.5 = −4.5 kg; −2.86%.
+- Display descriptively; possible explanations include fatigue, set selection, RIR error, technique, equipment and readiness. Do not say "lost strength".
 
-Unavailable cases:
+Degraded estimate:
 
-- No eligible pre set → pre unavailable; do not use post as pre.
-- No eligible post set → post unavailable; do not use a warm-up or another exercise.
-- Post only 100 kg × 15 @ RIR 5 → 15 + 5 = 20, reps > 10, rir > 3 → degraded/invalid for the headline; not used.
+- Post 100 kg × 15 @ RIR 5 → 15 + 5 = 20; reps >10 and RIR >3 → **degraded**.
+- Show the estimate with the degraded label; difference status = **insufficient_quality**; do not compute a headline difference. Do not substitute another set.
 
-### 16.5 e1RM absolute and percentage change
+Sparse reference:
 
-The formula is in §16.4. Additional cases:
+- Only 2 prior session bests → status **limited**; show the median and the difference, but label "limited recent observations; not a trend".
+- Only 1 prior session best → status **single_prior**; show the value and date; no difference.
+- No prior session best → **unavailable**.
 
-| Case | Pre | Post | Δ kg | Δ % | Label |
+### 16.5 Difference examples and status
+
+The formula is in §16.4. The table is descriptive; no row is a significance test.
+
+| Case | Recent reference | Post | Δ kg | Δ % | Status |
 |---|---:|---:|---:|---:|---|
-| Within noise | 156.0 | 158.7 | +2.7 | +1.73% | Within typical variation |
-| Just above | 174.0 | 181.3 | +7.3 | +4.20% | Borderline; larger than typical variation |
-| Clear increase | 156.0 | 165.0 | +9.0 | +5.77% | Larger than typical variation |
-| Clear decrease | 174.0 | 158.7 | −15.3 | −8.79% | Larger than typical variation |
-| No pre | — | 158.7 | — | — | Unavailable |
-| No post | 156.0 | — | — | — | Unavailable |
+| Descriptive, n=3 | 157.5 | 158.7 | +1.2 | +0.76% | descriptive |
+| Descriptive, larger difference | 157.5 | 165.0 | +7.5 | +4.76% | descriptive |
+| Descriptive, lower | 157.5 | 153.0 | −4.5 | −2.86% | descriptive |
+| Limited, n=2 | 157.5 | 158.7 | +1.2 | +0.76% | limited |
+| Single prior, n=1 | 158.4 | 158.7 | — | — | single_prior (no difference) |
+| Degraded post | 157.5 | 158.7 (degraded) | — | — | insufficient_quality |
+| No reference | — | 158.7 | — | — | unavailable |
+| No post | 157.5 | — | — | — | unavailable |
 
-The labels are descriptive. A "clear increase" is still an estimate, not proof of adaptation.
+Do not add a "clear", "meaningful", "significant" or "within typical" column. Do not use a fixed percentage threshold.
 
 ### 16.6 Exercise-specific tonnage
 
@@ -1617,30 +1780,35 @@ Do not add 1,980 kg (bench) to a squat tonnage and call it "session workload". I
 
 Inputs:
 
-- Front squat e1RM: 100 kg × 5 @ RIR 2 → 100 × (1 + 7/30) = 123.33 → 123.3 kg, date 2026-10-20.
-- Competition squat e1RM: 140 kg × 3 @ RIR 2 → 140 × (1 + 5/30) = 163.33 → 163.3 kg, date 2026-10-23.
+- Front squat latest eligible session best: 100 kg × 5 @ RIR 2 → 100 × (1 + 7/30) = 123.33 → 123.3 kg, date 2026-10-20; 2 observations.
+- Competition squat latest eligible session best: 140 kg × 3 @ RIR 2 → 140 × (1 + 5/30) = 163.33 → 163.3 kg, date 2026-10-23; 4 observations.
 
 Calculation: 100 × 123.3 / 163.3 = **75.5%**.
 
-Dates: gap = 3 days ≤ 14 → contemporaneous. Both ok; both have ≥2 observations → "moderate confidence".
+Dates: gap = 3 days ≤ 14; both within 42 days; both ok; both have at least 2 observations → **data sufficiency: sufficient** (not "confidence"). Display both dates and n.
+
+Sensitivity check (optional): if the recent medians were front squat 120.0 kg and competition squat 160.0 kg, the recent-median ratio would be 75.0%. Show it only as a side-by-side sensitivity check when both sides have at least 3 observations; the primary ratio remains the latest-observation ratio.
 
 Do not say "the front squat is 75.5% of the competition squat, therefore the quads are weak". Do say "the ratio of the two estimates is 75.5%; both are estimates and the ratio is descriptive".
 
-If the denominator were 2026-09-01, the gap would be 49 days > 14 → **unavailable** as a current ratio; show it as historical with both dates, or withhold it. Do not divide a recent numerator by an old denominator without a warning.
+If the denominator were 2026-09-01, the gap would be 49 days > 14 → **insufficient** as a current ratio; show it as historical with both dates, or withhold it. Do not divide a recent numerator by an old denominator without a warning.
 
-If the numerator were SSB squat instead of front squat, that is a different configured relationship. Do not infer it from the name.
+If either side is degraded → **insufficient** for the headline ratio; show both estimates with their labels and no ratio.
 
-### 16.8 Power exposure
+Do not independently smooth the two series and divide the smoothed values. For a historical trend, use paired observations whose dates are within the gap window.
 
-Inputs: box jump 3 × 5, mean velocities 2.10, 2.05, 1.98 m/s.
+### 16.8 Power exposure and mean velocity change
+
+Inputs: box jump 3 × 5, mean velocities 2.10, 2.05, 1.98 m/s; same exercise and load.
 
 - Power sets = **3**.
 - Explosive repetitions = **15**.
-- Set-to-set retention = 1.98 / 2.10 = 0.9429 → **94.3%** (drop 5.7%).
+- Mean velocity change across sets = 100 × (1.98 − 2.10) / 2.10 = **−5.7%**.
 - Within-set loss: **unavailable** (mean only).
-- Quality stop: if no explicit event, **not recorded**. Do not infer "quality maintained" from 94.3%.
+- Quality stop: if no explicit event, **not recorded**. Do not infer "quality maintained" or "quality lost" from the change.
+- Label: "mean velocity change across sets; descriptive only; rest, technique, readiness and noise may explain it". Do not call it retention or a power-quality score.
 
-If per-rep data exist (2.20, 2.10, 2.00, 1.90, 1.75), first-to-last loss = (2.20 − 1.75) / 2.20 = 20.5%; this is descriptive, not an RIR proxy.
+If per-rep data exist (2.20, 2.10, 2.00, 1.90, 1.75), first-to-last loss = (2.20 − 1.75) / 2.20 = 20.5%; this is descriptive, not an RIR proxy and not a quality score.
 
 Do not count the 15 reps as 15 hypertrophy working sets. They are power exposure and, where the weekly ledger already includes power_jump, they count in that group.
 
@@ -1675,18 +1843,21 @@ Session: trap bar 4 sets, back extension 3 sets, competition squat 3 sets.
 | sRPE | Perceived difficulty | session_feedback | Latest non-null | Exists | Sweet; Day | Stage 1 | Card 5 |
 | Duration | Time | feedback/session/workout | Latest non-null | Exists, duplicated | DQ-SESSION-01 | Stage 1 | Card 5 |
 | Session load AU | Internal load | sRPE × duration | Multiply | Gap | Sweet | Stage 1 | Card 5 |
-| Pre best e1RM | Performance baseline | clean_set | Max eligible, decayed | baseline.best_e1rm (different) | Grgic | Stage 1 | Card 2 |
+| Recent reference e1RM | Typical recent performance | clean_set | Median of last 3 session bests | Gap; no shared estimator | Engineering judgement | Stage 1/2 | Card 2 |
+| Best recent e1RM | Best single recent session | clean_set | Max session best in 84 days | Gap | Measurement logic | Stage 1 | Card 2/details |
+| Personal best estimate | PR display | clean_set | Max session best all time | baseline.best_e1rm (different) | Grgic | Stage 1 | Card 2/details |
 | Post best e1RM | Performance today | clean_set | Max eligible | Gap | Grgic | Stage 1 | Card 2 |
-| e1RM change | Within-session | C1/C2 | Δ, % | Gap | Grgic; measurement logic | Stage 1/2 | Card 2 |
+| Difference vs recent performance | Descriptive comparison | C1/C2 | post_best − recent_reference; % | Gap | Grgic (source only; no threshold) | Stage 1/2 | Card 2 |
+| Difference status | Data sufficiency/quality | C1/C2 | descriptive/limited/single_prior/insufficient_quality/unavailable | Gap | Engineering decision | Stage 1 | Card 2 badge |
 | Source set | Transparency | C4 | Row fields | Gap | — | Stage 1 | Details |
 | Exercise identity | Comparability | taxonomy | Exact id | Exists | Spitz; Lockie; Herrera | Stage 1 | Card 2/3 |
 | e1RM series | Longitudinal | C6 | Per-session best | progress ratio (different) | Grgic; FFM rejection | Stage 2/3 | Performance |
 | Rolling median | Smoother | C6 | Median of last 3 | Gap | Descriptive | Stage 3 | Performance |
-| Ratio | Relative strength | C6 + config | num/den ×100 | Gap; programme_slot_of insufficient | PARENT-VARIANT; Parkinson | Stage 1/2/3 | Performance; max 2 on summary |
+| Ratio | Relative strength | C6 + config | latest per side; num/den ×100 | Gap; programme_slot_of insufficient | PARENT-VARIANT; Parkinson | Stage 1/2/3 | Performance; max 2 on summary |
 | Ratio dates | Comparability | C6 | Dates/gap | Gap | Product judgement | Stage 1 | Ratio detail |
 | Power sets | Power exposure | clean_set, taxonomy | Count power_jump | derived excludes from RIR; no count | ACSM; Balachandran | Stage 1 | Card 4 |
 | Power reps | Power volume | clean_set | Sum reps | Gap | ACSM | Stage 1 | Card 4 |
-| Set-to-set retention | Consistency | clean_set.velocity | last/first | rep_velocity has within-set; no power summary | Moura; Jukic | Stage 1/2 | Card 4 |
+| Mean velocity change across sets | Descriptive power context | clean_set.velocity | 100 × (last − first)/first | rep_velocity has within-set; no power summary | Moura; Jukic | Stage 1/2 | Card 4 |
 | Power quality stop | Quality | workout_event/plan | Event/flag | Gap; text only | DEC-POWER-02 | Stage 1 | Card 4 |
 | Within-set loss | Not available | mean velocity | — | Explicitly unavailable | DEC-VELOCITY-01 | Stage 1 | "Unavailable" |
 | Spinal exposures | Ordinal exposure | clean_set, registry | weekly_spinal_costs | Exists | Swinton; Hanen; Cholewicki | Stage 1 | Card 4 |
@@ -1706,14 +1877,18 @@ Session: trap bar 4 sets, back extension 3 sets, competition squat 3 sets.
 | Term | Meaning |
 |---|---|
 | load_base_e1rm | The e1RM the prescription used to solve the load; median selector by default |
-| pre_best_e1rm | Best eligible demonstrated estimate before the session; used for the within-session change |
+| recent_reference_e1rm | Median of the last 3 eligible per-session best e1RM observations before the session; primary comparator |
+| best_recent_e1rm | Highest eligible per-session best in the 84 days before the session; separate best-performance reference |
+| personal_best_e1rm | Highest eligible per-session best all time; PR display only |
+| difference_vs_recent | post_best − recent_reference; descriptive, no significance claim |
+| data_sufficiency | sufficient/limited/insufficient for a ratio or comparison; not statistical confidence |
 | post_best_e1rm | Best eligible estimate in the session |
 | hard set | Working set with RIR ≤ effort_max_rir (default 4) |
 | near-failure set | Working set with RIR ≤2 |
 | session load | sRPE × duration in minutes, AU |
 | relative intensity | Set load / load_base_e1rm |
 | relative strength ratio | Configured numerator e1RM / denominator e1RM ×100 |
-| power exposure | Count of quality-limited power sets/reps; not hypertrophy volume |
+| power exposure | Count of power-classified sets/reps; the quality stop is separate and may be unknown; not hypertrophy volume |
 | spinal exposure | Ordinal (session, exercise) cost from the rule registry; not lumbar load |
 | productivity | Optional 1–5 self-report of how productive the session felt |
 | comparable session | Same type + common main lift + overlap + not deload/technique/minimum + ≥3 priors |
@@ -1725,18 +1900,24 @@ Session: trap bar 4 sets, back extension 3 sets, competition squat 3 sets.
     effective_e1RM(t)    = e1RM × decay(age_days) × calibration_factor
     decay(age)           = 1                                   if age <= 21
                          = max(0.90, 1 - 0.01 × (age - 21)/7)  otherwise
-    pre_best             = max(effective_e1RM_i) over eligible sets strictly before session
-    post_best            = max(e1RM_i) over eligible sets in session
-    delta_kg             = post_best - pre_best
-    delta_pct            = 100 × delta_kg / pre_best
+    session_best(s)      = max(e1RM_i) over eligible ok sets in session s
+    recent_reference     = median(last 3 session_best observations strictly before current session)
+    best_recent          = max(session_best in the 84 days before current session)
+    personal_best        = max(session_best all time)
+    post_best            = session_best(current session)
+    difference_kg        = post_best - recent_reference
+    difference_pct       = 100 × difference_kg / recent_reference
     relative_intensity   = load / load_base_e1rm
     session_load_au      = sRPE × duration_min
     ratio_pct            = 100 × numerator_e1RM / denominator_e1RM
+    mean_velocity_change = 100 × (last_set_mean_velocity - first_set_mean_velocity) / first_set_mean_velocity
     tonnage_exercise     = Σ(external_load_kg × reps)
     hard_sets            = count(working sets with 0 <= rir <= effort_max_rir)
     near_failure_sets    = count(working sets with 0 <= rir <= 2)
 
-The constants 21 days, 1%/week and 10% max are the existing e1rm_decay assumptions, not new findings. The 30 and 4.2% references are from the cited literature/implementation, not universal truths.
+When fewer than 3 eligible observations exist, recent_reference is the median of the available observations but the status is limited (2) or single_prior (1); it is not treated as a 3-observation median.
+
+The constants 21 days, 1%/week and 10% max are the existing e1rm_decay assumptions, not new findings. The Epley divisor 30 is the existing formula convention. The 4.2% figure from Grgic 2020 is a direct-1RM test–retest reference only; it is not used in any formula or threshold here.
 
 ### 18.3 Pseudocode contracts
 
@@ -1754,8 +1935,12 @@ The constants 21 days, 1%/week and 10% max are the existing e1rm_decay assumptio
         ...
 
     # features/monitoring.py
-    def pre_best(conn, session_id: str, exercise_id: str) -> Estimate | Unavailable: ...
+    def session_best(conn, session_id: str, exercise_id: str) -> Estimate | Unavailable: ...
+    def recent_reference(conn, session_id: str, exercise_id: str) -> Reference | Unavailable: ...
+    def best_recent(conn, session_id: str, exercise_id: str) -> Estimate | Unavailable: ...
+    def personal_best(conn, session_id: str, exercise_id: str) -> Estimate | Unavailable: ...
     def post_best(conn, session_id: str, exercise_id: str) -> Estimate | Unavailable: ...
+    def difference(conn, session_id: str, exercise_id: str) -> Difference | Unavailable: ...
     def load_base(conn, session_id: str, exercise_id: str) -> Estimate | Unavailable: ...
     def session_load(conn, session_id: str) -> Load | Unavailable: ...
     def relative_intensity(set_row, load_base: Estimate) -> float | Unavailable: ...
@@ -1785,9 +1970,11 @@ The constants 21 days, 1%/week and 10% max are the existing e1rm_decay assumptio
         },
         "strength": [{
           "exercise_id": "bench_press",
-          "pre": {"kg": 156.0, "date": "2026-10-20", "method": "epley_plus_rir", "quality": "ok", "source": "set:…"},
+          "recent_reference": {"kg": 157.5, "n": 3, "dates": ["2026-10-14","2026-10-18","2026-10-23"], "method": "median_session_best", "quality": "ok"},
+          "best_recent": {"kg": 158.4, "date": "2026-10-23", "quality": "ok"},
+          "personal_best": {"kg": 158.4, "date": "2026-10-23", "quality": "ok"},
           "post": {"kg": 158.7, "set_id": 123, "load_kg": 140, "reps": 3, "rir": 1, "method": "epley_plus_rir", "quality": "ok"},
-          "change": {"kg": 2.7, "pct": 1.73, "label": "within_typical_variation"},
+          "difference": {"kg": 1.2, "pct": 0.76, "status": "descriptive", "measurement_error": "not_established"},
           "excluded": [{"set_id": 124, "reason": "rir_above_3"}]
         }],
         "dose": {
@@ -1797,7 +1984,7 @@ The constants 21 days, 1%/week and 10% max are the existing e1rm_decay assumptio
           "patterns": {"horizontal_push": 3, "squat": 3, "hinge": 3}
         },
         "special": {
-          "power": {"sets": 3, "reps": 15, "retention_pct": 94.3, "quality_stop": "not_recorded"},
+          "power": {"sets": 3, "reps": 15, "mean_velocity_change_pct": -5.7, "quality_stop": "not_recorded"},
           "high_intensity": [],
           "spinal": {"exposures": [], "weekly_cost": 3.7, "weekly_cap": 6.0, "heavy_sets": 1}
         },
@@ -1817,11 +2004,11 @@ Null means unknown/unavailable; the UI must map it to the correct label. A 0 is 
 The agent implementing an approved phase must not invent:
 
 - the e1RM selector or its window;
-- the pre/post estimator (best vs median);
+- the recent-reference estimator or the number of observations;
 - the cutoff rule;
 - the eligibility/quality bands;
 - the relative-intensity bands;
-- the "meaningful change" threshold;
+- any meaningful-change threshold or significance label;
 - the ratio gap/age windows;
 - the productivity wording/scale;
 - the comparable-session key;
@@ -1834,15 +2021,15 @@ Those are settled here or must be raised as open questions. If a value is missin
 - [ ] Does the document distinguish observed, estimated, unknown, not applicable, invalid, unavailable and zero?
 - [ ] Is every headline number traceable to a row?
 - [ ] Is the pre-session cutoff leakage-proof?
-- [ ] Is the load base separate from the best-performance baseline?
-- [ ] Is the within-session change labelled as an estimate, not adaptation?
-- [ ] Are ratios configured, date-stamped and non-diagnostic?
-- [ ] Is power quality explicitly unmeasured without an event?
+- [ ] Is the load base separate from the recent reference and from the best-performance reference?
+- [ ] Is the difference vs recent performance labelled descriptive, not acute change or adaptation?
+- [ ] Are ratios configured, latest-observation, date-stamped and non-diagnostic?
+- [ ] Is mean velocity change descriptive only, with power quality explicitly unmeasured without an event?
 - [ ] Is the spinal exposure still ordinal?
 - [ ] Is productivity optional and outside every calculation?
 - [ ] Is there any new composite scalar? (It must be "no".)
 - [ ] Is there any automatic prescription change? (It must be "no".)
-- [ ] Is every new threshold marked as an assumption?
+- [ ] Is every new threshold marked as an assumption, and is the 4.2% figure used only as a direct-1RM literature reference?
 - [ ] Are the sources verified with DOI/PMID?
 - [ ] Does the plan avoid unnecessary migrations?
 
@@ -1872,3 +2059,21 @@ Those are settled here or must be raised as open questions. If a value is missin
 - [Repository instructions](../../AGENTS.md)
 - [Roadmap](../../ROADMAP.md)
 
+---
+
+## 20. Revision history
+
+### Revision 2 — 2026-10-30
+
+**Sections changed:** 1.2, 1.4, 2.9, 2.10, 3.3, 4.3, 4.4 (C3, C4, E1), 5, 6.4, 6.5, 7, 8.2, 8.3, 9.3, 9.4, 9.6, 10.1, 11.0, 11.1, 11.3, 11.4a, 11.5, 11.7, 12.1, 12.2, 12.5, 13, 14, 15, 16.4, 16.5, 16.7, 16.8, 17, 18.1–18.6, 20.
+
+**Main methodological changes:**
+
+- The 4.2% figure is retained only as a literature reference for **direct 1RM test–retest variability**. It is no longer a meaningful-change threshold for the app's estimated e1RM. No automatic clear/meaningful/significant/within-typical classification remains.
+- The primary recent comparator is now the **median of the last 3 eligible per-session best e1RM observations** (recent reference), not the 84-day historical maximum. The best recent single session and the all-time personal best are separate context values and are not used as typical baselines.
+- One degraded-estimate policy applies everywhere: degraded estimates are displayed with their method and limitations, never used in headline differences; if either side is degraded the difference status is insufficient_quality.
+- The relative-strength ratio now uses the **latest eligible per-session best for each side**, with visible dates, a 14-day gap and 42-day age gate, and a data-sufficiency status rather than a confidence label. Independent smoothing and division are rejected; historical trends use paired observations.
+- The power metric is renamed **mean velocity change across sets** and is explicitly descriptive; it is not retention, quality or within-set velocity loss.
+- Evidence is classified by decision basis (A evidence-supported, B engineering decision, C product assumption), with a new product-assumptions register (PA-01–PA-16).
+
+**Still unresolved:** the individual measurement-error model (repeated measured tests), the ratio gap/age windows, the 3-observation reference choice, the productivity scale and the sRPE timing protocol. These are documented as assumptions or open decisions, not presented as validated rules.
