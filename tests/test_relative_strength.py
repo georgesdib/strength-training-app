@@ -85,6 +85,35 @@ def test_ratio_trend_uses_history_before_the_range_and_keeps_invalid_statuses():
     assert sparse[0]["ratio_pct"] is None
 
 
+def test_ratio_trend_counts_only_recent_observations_for_the_minimum():
+    stale_relationship = relative_strength.Relationship(
+        id="test", label="Front / competition", numerator="front_squat",
+        denominator="competition_squat", relationship_type="variant_to_main",
+        max_gap_days=10, max_age_days=5, min_observations=2, notes="test",
+    )
+    recent_relationship = relative_strength.Relationship(
+        id="test", label="Front / competition", numerator="front_squat",
+        denominator="competition_squat", relationship_type="variant_to_main",
+        max_gap_days=10, max_age_days=10, min_observations=2, notes="test",
+    )
+    with _store() as store:
+        stale = relative_strength.ratio_trend(
+            store.connection, stale_relationship, "2024-01-15", "2024-01-15"
+        )
+        recent = relative_strength.ratio_trend(
+            store.connection, recent_relationship, "2024-01-15", "2024-01-15"
+        )
+
+    assert stale[0]["status"] == "insufficient_history"
+    assert stale[0]["ratio_pct"] is None
+    assert stale[0]["numerator_observations"] == 1
+    assert stale[0]["denominator_observations"] == 1
+    assert recent[0]["status"] == "available"
+    assert recent[0]["ratio_pct"] is not None
+    assert recent[0]["numerator_observations"] == 2
+    assert recent[0]["denominator_observations"] == 2
+
+
 def test_config_relationships_validate_against_taxonomy():
     relationships = relative_strength.load_relationships()
     issues = relative_strength.validate_relationships(

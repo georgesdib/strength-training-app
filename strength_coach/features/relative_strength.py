@@ -111,18 +111,17 @@ def validate_relationships(taxonomy: Any, relationships: list[Relationship]) -> 
     return issues
 
 
-def _history(points, on_date: str):
-    eligible = [point for point in points if point.date <= on_date]
-    return eligible
+def _within_age(points, on_date: str, max_age_days: int):
+    return [
+        point for point in points
+        if point.date <= on_date
+        and (pd_timestamp(on_date) - pd_timestamp(point.date)).days <= max_age_days
+    ]
 
 
 def _latest_within(points, on_date: str, max_age_days: int):
-    eligible = _history(points, on_date)
-    recent = [
-        point for point in eligible
-        if (pd_timestamp(on_date) - pd_timestamp(point.date)).days <= max_age_days
-    ]
-    return recent[-1] if recent else None, len(eligible)
+    recent = _within_age(points, on_date, max_age_days)
+    return recent[-1] if recent else None, len(recent)
 
 
 def pd_timestamp(value: str):
@@ -189,8 +188,12 @@ def ratio_trend(conn, relationship: Relationship, from_date: str, to_date: str) 
     for point in numerator_points:
         if point.date < from_date:
             continue
-        numerator_history = _history(numerator_points, point.date)
-        denominator_history = _history(denominator_points, point.date)
+        numerator_history = _within_age(
+            numerator_points, point.date, relationship.max_age_days
+        )
+        denominator_history = _within_age(
+            denominator_points, point.date, relationship.max_age_days
+        )
         latest_denominator, _ = _latest_within(
             denominator_points, point.date, relationship.max_age_days
         )
