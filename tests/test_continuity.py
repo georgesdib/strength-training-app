@@ -34,8 +34,7 @@ def store_with(rows=ROWS, block_start=None):
         if block_start:
             repositories.append_athlete_profile(
                 store.connection, effective_from=block_start,
-                primary_goal="longevity", goal_rank=["longevity", "strength"],
-                focus_lifts=[], block_start_date=block_start,
+                block_start_date=block_start,
             )
         yield store
     finally:

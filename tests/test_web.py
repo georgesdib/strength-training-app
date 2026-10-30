@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import socket
+import sqlite3
 import threading
 import time
 import urllib.error
@@ -20,7 +21,7 @@ from strength_coach.features import demands as demands_feature
 from strength_coach.store import db, importer, repositories
 from strength_coach.web import markdown
 from strength_coach.web import server as web_server
-from strength_coach.web.server import create_server
+from strength_coach.web.server import analysis_readonly_connection, create_server
 
 ROWS = [
     {"Date": "2024-01-01", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
@@ -65,7 +66,7 @@ def get(base: str, path: str) -> tuple[int, str]:
 
 def client_js(base: str) -> str:
     """The whole client bundle, so a feature move does not break a string contract."""
-    names = ("core.js", "app.js", "exercises.js", "history.js", "workout.js")
+    names = ("core.js", "app.js", "exercises.js", "history.js", "workout.js", "summary.js", "performance.js")
     parts = []
     for name in names:
         status, body = get(base, "/static/" + name)
@@ -114,6 +115,11 @@ def test_the_page_and_overview_are_served(server):
     assert "core.js" in page and "exercises.js" in page
     assert "view-longevity" in page and "longevity-form" in page
     assert "workout.js" in page
+    assert "summary.js" in page
+    assert "performance.js" in page
+    assert 'data-view="performance"' in page
+    assert 'id="view-performance"' in page
+    assert "workout-end-productivity" in page
     assert page.count('class="section-help"') >= 60
     assert page.count("#docs?doc=") >= 50
     assert "&amp;anchor=" in page  # nested/dialog links use section anchors
@@ -381,16 +387,12 @@ def test_readiness_calibration_endpoint(server):
 
 def test_the_exposure_trim_flag_survives_an_unrelated_profile_save(server):
     state = post(server, "/api/state/profile", {
-        "primary_goal": "strength",
-        "goal_rank": [],
-        "focus_lifts": [],
+        "sessions_per_week_target": 3,
         "exposure_trim_enabled": True,
     })
     assert state["profile"]["exposure_trim_enabled"] == 1
     state = post(server, "/api/state/profile", {
-        "primary_goal": "strength",
-        "goal_rank": [],
-        "focus_lifts": [],
+        "sessions_per_week_target": 3,
     })
     assert state["profile"]["exposure_trim_enabled"] == 1
 
@@ -399,7 +401,7 @@ def test_canonical_options_are_served(server):
     status, body = get(server, "/api/options")
     assert status == 200
     options = json.loads(body)
-    assert {row["value"] for row in options["goals"]} >= {"strength", "longevity"}
+    assert "goals" not in options
     assert {row["value"] for row in options["constraint_kinds"]} == {
         "injury", "contraindication", "mobility", "asymmetry",
     }
@@ -409,15 +411,7 @@ def test_canonical_options_are_served(server):
 
 def test_athlete_state_rejects_noncanonical_values(server):
     cases = [
-        ("/api/state/profile", {
-            "primary_goal": "health", "goal_rank": [], "focus_lifts": [],
-        }),
-        ("/api/state/profile", {
-            "primary_goal": "strength", "goal_rank": ["health"], "focus_lifts": [],
-        }),
-        ("/api/state/profile", {
-            "primary_goal": "strength", "goal_rank": [], "focus_lifts": ["not_a_lift"],
-        }),
+        ("/api/state/profile", {"main_lift_policy": "ignore"}),
         ("/api/state/constraint", {
             "kind": "rom", "region": "low_back", "severity": "monitor",
         }),
@@ -444,7 +438,7 @@ def test_athlete_state_rejects_noncanonical_values(server):
 
 def test_validation_errors_name_the_field(server):
     cases = [
-        ("/api/state/profile", {"primary_goal": "health"}, "primary_goal"),
+        ("/api/state/profile", {"main_lift_policy": "ignore"}, "main_lift_policy"),
         ("/api/state/constraint", {"kind": "rom", "region": "low_back"}, "kind"),
         ("/api/state/suitability", {"exercise_id": "not_a_lift"}, "exercise_id"),
         ("/api/state/e1rm", {"exercise_id": "ssb_squat", "e1rm_kg": "bad"}, "e1rm_kg"),
@@ -475,9 +469,7 @@ def test_validation_errors_name_the_field(server):
 
 
 def test_block_start_names_the_date_field(server):
-    post(server, "/api/state/profile", {
-        "primary_goal": "strength", "goal_rank": [], "focus_lifts": [],
-    })
+    post(server, "/api/state/profile", {"sessions_per_week_target": 3})
     code, body = post_status(server, "/api/state/block", {"date": "not-a-date"})
     assert code == 400
     assert "date" in json.loads(body).get("fields", {})
@@ -485,15 +477,12 @@ def test_block_start_names_the_date_field(server):
 
 def test_state_can_be_edited(server):
     state = post(server, "/api/state/profile", {
-        "primary_goal": "strength",
-        "goal_rank": ["strength", "longevity"],
-        "focus_lifts": ["ssb_squat"],
         "sessions_per_week_target": 3,
         "max_session_minutes": 90,
         "block_start_date": "2024-01-01",
     })
-    assert state["profile"]["primary_goal"] == "strength"
-    assert state["profile"]["goal_rank"] == ["strength", "longevity"]
+    assert state["profile"]["sessions_per_week_target"] == 3
+    assert state["profile"]["block_start_date"] == "2024-01-01"
 
     post(server, "/api/state/constraint", {
         "kind": "injury", "region": "low_back", "severity": "monitor",
@@ -1016,6 +1005,61 @@ def test_settings_drop_endpoint_writes_the_profile(server):
     assert json.loads(body)["budget"]["tolerance"] == 0.2
 
 
+def test_volume_settings_endpoint_reads_effective_budget_and_policy(server):
+    status, body = get(server, "/api/settings/volume?date=2024-01-01")
+    assert status == 200
+    data = json.loads(body)
+    assert data["date"] == "2024-01-01"
+    assert data["budget"]["weekly_target"]["squat"] == 10
+    assert data["budget"]["session_cap"]["total"] == 30
+    assert data["policy"]["volume.ledger.coverage"] == "unknown"
+    assert data["athlete"]["main_lift_policy"] == "preserve"
+    assert data["source"] in ("config", "local overlay", "profile")
+
+
+def test_volume_policy_changes_do_not_need_typed_confirmation(server):
+    saved = post(server, "/api/settings/volume", {
+        "policy": {"volume.ledger.coverage": "complete"},
+        "reason": "switch coverage",
+    })
+    assert saved["policy"]["volume.ledger.coverage"] == "complete"
+    assert saved["source"] == "profile"
+
+
+def test_volume_settings_requires_reason_and_high_impact_confirmation(server):
+    status, body = post_status(server, "/api/settings/volume", {
+        "budget": {"tolerance": 0.2},
+    })
+    assert status == 400
+    assert "reason" in body
+
+    status, body = post_status(server, "/api/settings/volume", {
+        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 64},
+        "reason": "increase squat target",
+    })
+    assert status == 400
+    assert "VOLUME" in body
+
+    saved = post(server, "/api/settings/volume", {
+        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 64},
+        "reason": "increase squat target",
+        "confirm_text": "VOLUME",
+    })
+    assert saved["budget"]["weekly_target"]["squat"] == 11
+    assert saved["source"] == "profile"
+
+
+def test_drop_window_endpoint_is_explicit_when_drop_mode_is_inactive(server):
+    status, body = get(server, "/api/settings/drop/window?date=2024-01-01")
+    assert status == 200
+    data = json.loads(body)
+    assert data["date"] == "2024-01-01"
+    assert data["applies"] is False
+    assert data["drop_mode_active"] is False
+    assert data["in_window"] is False
+    assert data["reason"] == "drop mode is not active"
+
+
 def test_settings_profile_endpoint(server):
     status, body = get(server, "/api/settings/profile?date=2024-01-01")
     assert status == 200
@@ -1040,7 +1084,7 @@ def test_programme_accepts_a_start_session_type(server):
 
 def test_prescribe_suggests_a_scheduled_deload_and_applies_only_when_confirmed(server):
     post(server, "/api/state/profile", {
-        "primary_goal": "strength", "effective_from": "2024-01-01",
+        "effective_from": "2024-01-01",
         "block_start_date": "2024-01-01",
     })
     suggested = post(server, "/api/prescribe", {
@@ -1530,6 +1574,30 @@ def test_the_technique_throttle_can_be_scoped_to_one_pattern(server):
     assert scoped_loads["bench_press"] == base["bench_press"]
 
 
+def test_the_technique_throttle_can_be_scoped_to_several_patterns(server):
+    baseline = post(server, "/api/prescribe", {"date": "2024-01-08", "session_type": "squat"})
+    scoped = post(server, "/api/prescribe", {
+        "date": "2024-01-08", "session_type": "squat",
+        "technique_throttle": True,
+        "technique_throttle_pattern": ["squat", "horizontal_push"],
+    })
+    assert any("MOD-TECH-001" in warning for warning in scoped["warnings"])
+    base = {item["exercise_id"]: item["load_kg"] for item in baseline["items"]}
+    scoped_loads = {item["exercise_id"]: item["load_kg"] for item in scoped["items"]}
+    assert scoped_loads["ssb_squat"] < base["ssb_squat"]
+    assert scoped_loads["bench_press"] < base["bench_press"]
+
+
+def test_all_lifts_and_a_pattern_are_combined(server):
+    scoped = post(server, "/api/prescribe", {
+        "date": "2024-01-08", "session_type": "squat",
+        "technique_throttle": True,
+        "technique_throttle_pattern": ["", "core"],
+    })
+    assert any("MOD-TECH-001" in warning for warning in scoped["warnings"])
+    assert scoped["notes"]["technique_throttle"]["pattern"] == ["", "core"]
+
+
 def test_a_technique_throttle_pattern_with_no_match_says_so(server):
     data = post(server, "/api/prescribe", {
         "date": "2024-01-08", "session_type": "squat",
@@ -1542,7 +1610,9 @@ def test_the_page_exposes_the_technique_throttle_controls(server):
     status, page = get(server, "/")
     assert status == 200
     assert 'id="prescribe-technique"' in page
-    assert 'id="prescribe-throttle-pattern"' in page
+    assert '<select id="prescribe-throttle-pattern" multiple size="6">' in page
+    assert '<option value="" selected>All lifts (main work)</option>' in page
+    assert 'list="exercise-patterns"' not in page
 
 def _raw_post(base: str, headers: list[str], body: bytes = b"") -> tuple[int, str]:
     parsed = urlparse(base)
@@ -1663,3 +1733,177 @@ def test_unexpected_errors_are_generic_and_logged(caplog, monkeypatch, server):
     assert "internal server error" in body
     assert "secret path" not in body
     assert "RuntimeError" in caplog.text
+
+
+def test_workout_summary_api_status_and_productivity(server):
+    plan = {
+        "for_date": "2024-01-02",
+        "session_type": "hinge",
+        "items": [
+            {"exercise_id": "trap_bar_deadlift", "sets": 2, "reps_low": 3,
+             "reps_high": 5, "load_kg": 100, "rir_target": 2,
+             "e1rm_kg": 120.0, "e1rm_ref": "set:s0/1",
+             "e1rm_quality": "ok", "e1rm_age_days": 2},
+        ],
+    }
+    readiness = {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-02", "plan": plan, "readiness": readiness,
+    })["workout"]
+    workout_id = started["workout_id"]
+    post(server, f"/api/workout/{workout_id}/sets", {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
+    })
+    try:
+        get(server, f"/api/workout/{workout_id}/summary")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 409
+    else:
+        raise AssertionError("in-progress summary should be 409")
+
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 50, "productivity": 4,
+    })
+    payload = json.loads(get(server, f"/api/workout/{workout_id}/summary")[1])
+    assert payload["summary"]["feedback"]["productivity"] == 4
+    assert payload["summary"]["dose"]["per_exercise"]
+
+    try:
+        get(server, "/api/workout/missing/summary")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 404
+    else:
+        raise AssertionError("unknown summary should be 404")
+
+
+def test_performance_filters_change_e1rm_results(server):
+    sessions = json.loads(get(server, "/api/sessions")[1])
+    actual_type = sessions[0]["session_type"]
+    base = "/api/performance/e1rm?exercise_id=ssb_squat&from=2024-01-01&to=2024-01-02"
+    all_points = json.loads(get(server, base + "&session_type=" + actual_type)[1])
+    excluded = json.loads(get(server, base + "&session_type=definitely-not-a-type")[1])
+    degraded = json.loads(get(server, base + "&quality=degraded")[1])
+
+    assert all_points["points"]
+    assert excluded["points"] == []
+    assert degraded["degraded"] == []
+    assert degraded["filters"]["quality"] == "degraded"
+
+
+def test_performance_api_e1rm_dose_and_ratios(server):
+    e1rm = json.loads(get(
+        server,
+        "/api/performance/e1rm?exercise_id=ssb_squat&from=2024-01-01&to=2024-01-02",
+    )[1])
+    assert e1rm["basis"] == "raw_formula_epley_rir"
+    assert len(e1rm["points"]) == 1
+    assert e1rm["summary"]["n"] == 1
+
+    dose = json.loads(get(
+        server, "/api/performance/dose?from=2024-01-01&to=2024-01-02"
+    )[1])
+    assert dose["group_by"] == "session"
+    assert dose["buckets"]
+
+    ratios = json.loads(get(
+        server, "/api/performance/ratios?from=2024-01-01&to=2024-01-02"
+    )[1])
+    assert ratios["basis"] == "raw_formula_epley_rir"
+    assert ratios["relationships"]
+    assert "current" in ratios["relationships"][0]
+    assert "reason" in ratios["relationships"][0]["current"]
+    assert "numerator_observations" in ratios["relationships"][0]["current"]
+
+
+def test_analysis_readonly_connection_rejects_writes(tmp_path):
+    path = tmp_path / "coach.db"
+    db.Store(path).close()
+    conn = analysis_readonly_connection(path)
+    try:
+        with pytest.raises(sqlite3.OperationalError, match="readonly"):
+            conn.execute("CREATE TABLE forbidden_write (id INTEGER)")
+    finally:
+        conn.close()
+
+
+def test_monitoring_analysis_api_structure_and_date_validation(server):
+    payload = json.loads(get(
+        server, "/api/monitoring-analysis?as_of=2024-01-02"
+    )[1])
+    assert payload["meta"]["analysis_version"] == "monitoring-analysis-v1"
+    assert payload["meta"]["as_of"] == "2024-01-02"
+    assert payload["meta"]["read_only"] is True
+    assert "database_fingerprint" in payload["meta"]
+    assert "dose" in payload and "associations" in payload
+    assert payload["calibration"]["historical_state_reconstructable"] is False
+    assert isinstance(payload["calibration"]["observations"], list)
+
+    try:
+        get(server, "/api/monitoring-analysis?as_of=not-a-date")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 400
+    else:
+        raise AssertionError("invalid as_of should be 400")
+
+
+def test_phase5a_review_completion_through_api_is_persisted(server):
+    payload = post(server, "/api/reviews", {
+        "task_key": "phase5a_review",
+        "action": "completed",
+        "date": "2027-01-22",
+        "decision": "changed",
+        "note": "proceed after review",
+    })
+    task = next(
+        item for item in payload["tasks"] if item["key"] == "phase5a_review"
+    )
+    assert task["status"] == "completed"
+    assert task["details"]["decision"] == "changed"
+    assert task["details"]["last_completed"] == "2027-01-22"
+
+
+def test_performance_ratios_are_cached(server, monkeypatch):
+    from strength_coach.web import server as web_server
+
+    calls = []
+    original = web_server.Handler._performance_ratios
+
+    def counted(self, conn, query):
+        calls.append(1)
+        return original(self, conn, query)
+
+    monkeypatch.setattr(web_server.Handler, "_performance_ratios", counted)
+    url = "/api/performance/ratios?from=2024-01-01&to=2024-01-02"
+    assert get(server, url)[0] == 200
+    assert get(server, url)[0] == 200
+    assert len(calls) == 1
+
+
+def test_relationship_options_and_validated_add(server, monkeypatch):
+    from strength_coach.web import server as web_server
+
+    options = json.loads(get(server, "/api/performance/relationship-options")[1])
+    assert "variant_to_main" in options["relationship_types"]
+    assert any(item["id"] == "bench_press" for item in options["exercises"])
+    assert options["criteria"]
+
+    captured = []
+    monkeypatch.setattr(
+        web_server.relative_strength_feature,
+        "append_relationship",
+        lambda relationship: captured.append(relationship) or [relationship],
+    )
+    payload = post(server, "/api/performance/relationships", {
+        "numerator": "front_squat",
+        "denominator": "bench_press",
+        "relationship_type": "variant_to_main",
+        "max_gap_days": 14,
+        "max_age_days": 42,
+        "min_observations": 2,
+    })
+    assert payload["ok"] is True
+    assert captured[0].numerator == "front_squat"
+    assert captured[0].denominator == "bench_press"

@@ -10,12 +10,14 @@ Design constraints, deliberately:
 
 from __future__ import annotations
 
+import copy
 import datetime
 import hashlib
 import json
 import logging
 import mimetypes
 import os
+import sqlite3
 import threading
 import uuid
 import webbrowser
@@ -25,6 +27,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
+
+import pandas as pd
 
 from strength_coach import __version__, history, modalities, settings_profile, settings_registry, workout
 from strength_coach.agents import selection as agent_selection
@@ -49,6 +53,7 @@ from strength_coach.features import (
     continuity_calibration,
     heavy_spinal,
     injury_signal,
+    monitoring,
     readiness_baseline,
     readiness_calibration,
     readiness_feedback,
@@ -58,22 +63,26 @@ from strength_coach.features import (
 )
 from strength_coach.features import deload as deload_feature
 from strength_coach.features import demands as demands_feature
+from strength_coach.features import derived as derived_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import exposure as exposure_ratio_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import form_assessment as form_assessment_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import measurements as measurements_feature
+from strength_coach.features import monitoring_analysis as monitoring_analysis_feature
 from strength_coach.features import outcomes as outcomes_feature
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import progress as progress_feature
 from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import regime_change as regime_feature
+from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import residual as residual_feature
 from strength_coach.features import reviews as reviews_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import shadow_report as shadow_report_feature
+from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import (
     build_prescription,
@@ -204,6 +213,10 @@ def _item_dict(item) -> dict:
         "substitution_for": item.substitution_for,
         "vbt_basis": item.vbt_basis,
         "e1rm_source_sets": item.e1rm_source_sets,
+        "e1rm_kg": item.e1rm_kg,
+        "e1rm_ref": item.e1rm_ref,
+        "e1rm_quality": item.e1rm_quality,
+        "e1rm_age_days": item.e1rm_age_days,
         "velocity_target": item.velocity_target,
         "unknown_load_reason": item.unknown_load_reason,
         "warmup": [
@@ -382,6 +395,26 @@ def _settled(value):
 
 _PROGRAMME_JOBS: dict[str, dict[str, Any]] = {}
 _PROGRAMME_JOBS_LOCK = threading.Lock()
+_READ_CACHE: dict[tuple, dict] = {}
+_READ_CACHE_LOCK = threading.Lock()
+_READ_CACHE_MAX = 16
+
+
+def _db_stamp(path: str | Path) -> tuple[int, int]:
+    stat = Path(path).stat()
+    return stat.st_mtime_ns, stat.st_size
+
+
+def _cache_get(key: tuple) -> dict | None:
+    with _READ_CACHE_LOCK:
+        return _READ_CACHE.get(key)
+
+
+def _cache_set(key: tuple, value: dict) -> None:
+    with _READ_CACHE_LOCK:
+        _READ_CACHE[key] = value
+        while len(_READ_CACHE) > _READ_CACHE_MAX:
+            _READ_CACHE.pop(next(iter(_READ_CACHE)))
 _PROGRAMME_JOB_TTL_SECONDS = 3600
 _PROGRAMME_JOB_MAX = 20
 
@@ -555,6 +588,15 @@ class ReadinessRequired(Exception):
     """The date needs a usable readiness score before a workout is generated."""
 
 
+def analysis_readonly_connection(db_path: str | Path) -> sqlite3.Connection:
+    """Dedicated read-only connection for the monitoring-analysis endpoint."""
+    path = Path(db_path)
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA query_only=ON")
+    return conn
+
+
 class Handler(BaseHTTPRequestHandler):
     db_path: str | Path | None = None
     server_version = "strength-coach-web"
@@ -625,6 +667,42 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             store.close()
 
+    def _with_analysis_conn(self, fn):
+        conn = analysis_readonly_connection(self.db_path)
+        try:
+            return fn(conn)
+        finally:
+            conn.close()
+
+    def _monitoring_analysis(self, as_of: str) -> dict:
+        key = (
+            "monitoring-analysis", str(self.db_path), _db_stamp(self.db_path),
+            as_of, monitoring_analysis_feature.ANALYSIS_VERSION,
+        )
+        cached = _cache_get(key)
+        if cached is not None:
+            return cached
+        value = self._with_analysis_conn(
+            lambda c: monitoring_analysis_feature.build_analysis(c, as_of=as_of)
+        )
+        _cache_set(key, value)
+        return value
+
+    def _performance_ratios_cached(self, query: dict) -> dict:
+        to_date = query.get("to", [datetime.date.today().isoformat()])[0]
+        from_date = query.get("from", [to_date])[0]
+        relationship_id = query.get("relationship_id", [None])[0]
+        key = (
+            "performance-ratios", str(self.db_path), _db_stamp(self.db_path),
+            from_date, to_date, relationship_id,
+        )
+        cached = _cache_get(key)
+        if cached is not None:
+            return cached
+        value = self._with_conn(lambda c: self._performance_ratios(c, query))
+        _cache_set(key, value)
+        return value
+
     # --- routes -----------------------------------------------------------
     def do_GET(self) -> None:
         path = unquote(urlparse(self.path).path)
@@ -636,6 +714,12 @@ class Handler(BaseHTTPRequestHandler):
                                  mimetypes.guess_type(path)[0] or "application/octet-stream")
             elif path == "/api/settings":
                 self._json(200, self._with_conn(lambda c: self._settings(c)))
+            elif path == "/api/settings/drop/window":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0] or datetime.date.today().isoformat()
+                self._json(200, self._with_conn(
+                    lambda c: self._drop_confirmation_window(c, day)
+                ))
             elif path == "/api/modalities":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0] or datetime.date.today().isoformat()
@@ -647,6 +731,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: modalities.show(c, module_id, day)
                 ))
+            elif path == "/api/settings/volume":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [None])[0] or datetime.date.today().isoformat()
+                self._json(200, self._with_conn(lambda c: self._volume_settings(c, day)))
             elif path == "/api/settings/profile":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0] or datetime.date.today().isoformat()
@@ -664,11 +752,39 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: {"workout": workout.active_workout(c)}
                 ))
+            elif path.startswith("/api/workout/") and path.endswith("/summary"):
+                workout_id = path[len("/api/workout/"):-len("/summary")].strip("/")
+                self._json(200, self._with_conn(
+                    lambda c: {"summary": self._summary_or_error(c, workout_id)}
+                ))
             elif path.startswith("/api/workout/"):
                 workout_id = path.rsplit("/", 1)[-1]
                 self._json(200, self._with_conn(
                     lambda c: {"workout": self._workout_or_404(c, workout_id)}
                 ))
+            elif path == "/api/performance/e1rm":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(
+                    lambda c: self._performance_e1rm(c, query)
+                ))
+            elif path == "/api/performance/dose":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(
+                    lambda c: self._performance_dose(c, query)
+                ))
+            elif path == "/api/performance/ratios":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._performance_ratios_cached(query))
+            elif path == "/api/performance/relationship-options":
+                self._json(200, self._relationship_options())
+            elif path == "/api/monitoring-analysis":
+                query = parse_qs(urlparse(self.path).query)
+                as_of = query.get("as_of", [datetime.date.today().isoformat()])[0]
+                try:
+                    datetime.date.fromisoformat(as_of)
+                except ValueError as exc:
+                    raise ValueError("as_of must be YYYY-MM-DD") from exc
+                self._json(200, self._monitoring_analysis(as_of))
             elif path == "/api/sessions":
                 self._json(200, self._with_conn(lambda c: _session_rows(c, 40)))
             elif path == "/api/history":
@@ -912,6 +1028,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._error(404, "not found")
         except ReadinessRequired as exc:
             self._error(409, str(exc))
+        except workout.WorkoutNotCompleted as exc:
+            self._error(409, str(exc))
         except UnknownSessionError as exc:
             self._error(404, str(exc))
         except (ValueError, KeyError) as exc:
@@ -946,6 +1064,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: history.apply_vbt(
                     c, session_id, body.get("sets") or [], reason=body.get("reason"),
                 )))
+            elif path == "/api/performance/relationships":
+                self._json(200, self._add_relationship(body))
             elif path == "/api/reviews":
                 self._json(200, self._with_conn(lambda c: self._save_review_task(c, body)))
             elif path == "/api/readiness/feedback":
@@ -982,6 +1102,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._save_llm_settings(body))
             elif path == "/api/settings/drop":
                 self._json(200, self._with_conn(lambda c: self._save_drop_settings(c, body)))
+            elif path == "/api/settings/volume":
+                self._json(200, self._with_conn(lambda c: self._save_volume_settings(c, body)))
             elif path == "/api/settings/profile":
                 self._json(200, self._with_conn(lambda c: self._save_settings_profile(c, body)))
             elif path.startswith("/api/modalities/"):
@@ -1167,6 +1289,194 @@ class Handler(BaseHTTPRequestHandler):
             ],
             "local_only": True,
         }
+
+    def _drop_confirmation_window(self, conn, day: str) -> dict:
+        """The single server-side answer for whether the Prescribe checkbox applies."""
+        profile = dict(queries.athlete_profile(conn) or {})
+        cfg = volume_budget_mod.BudgetConfig.load(conn=conn, on_date=day)
+        active = volume_budget_mod.drop_mode_active(profile, cfg)
+        window = volume_budget_mod.drop_competition_window(
+            profile, day, cfg.drop_competition_confirm_days
+        )
+        applies = bool(active and window["in_window"])
+        reason = (
+            "confirmation required" if applies
+            else "drop mode is not active" if not active
+            else window["reason"]
+        )
+        return {
+            "date": day,
+            "applies": applies,
+            "drop_mode_active": active,
+            "in_window": window["in_window"],
+            "days_until": window["days_until"],
+            "window_days": window["window_days"],
+            "competition_date": window["competition_date"],
+            "reason": reason,
+        }
+
+    def _volume_settings(self, conn, day: str) -> dict:
+        cfg = volume_budget_mod.BudgetConfig.load(conn=conn, on_date=day)
+        state = settings_profile.state(conn, day)
+        policy = {
+            key: value for key, value in state["resolved"].items()
+            if key.startswith("volume.")
+        }
+        policy_overrides = {
+            key: value for key, value in state["overrides"].items()
+            if key.startswith("volume.")
+        }
+        athlete = dict(queries.athlete_profile(conn) or {})
+        overlay = paths.config_dir("volume.v1.yaml").with_name("volume.local.yaml")
+        budget_overrides = settings_profile.budget_overrides(conn, day)
+        if budget_overrides or policy_overrides:
+            source = "profile"
+        elif overlay.is_file():
+            source = "local overlay"
+        else:
+            source = "config"
+        warnings = []
+        if overlay.is_file():
+            warnings.append(
+                "config/volume.local.yaml is present. Profile values override it, but it still "
+                "supplies any values the profile does not set."
+            )
+        return {
+            "date": day,
+            "source": source,
+            "budget": cfg.as_config_dict(),
+            "policy": policy,
+            "policy_overrides": policy_overrides,
+            "athlete": {
+                "volume_budget_enabled": bool(athlete.get("volume_budget_enabled", 0)),
+                "main_lift_policy": str(athlete.get("main_lift_policy") or "preserve"),
+                "sessions_per_week_target": athlete.get("sessions_per_week_target"),
+                "max_session_minutes": athlete.get("max_session_minutes"),
+            },
+            "profile": {
+                "profile_id": state.get("profile_id"),
+                "effective_from": state.get("effective_from"),
+                "reason": state.get("reason"),
+            },
+            "high_band": round(cfg.total_target() * (1.0 + cfg.tolerance), 1),
+            "has_local_overlay": overlay.is_file(),
+            "warnings": warnings,
+        }
+
+    @staticmethod
+    def _merge_volume_budget(base: dict, patch: dict) -> None:
+        for key, value in patch.items():
+            if isinstance(value, dict) and isinstance(base.get(key), dict):
+                Handler._merge_volume_budget(base[key], value)
+            else:
+                base[key] = value
+
+    @staticmethod
+    def _volume_mapping_changed(current, candidate) -> bool:
+        left = {str(key): float(value) for key, value in (current or {}).items()}
+        right = {str(key): float(value) for key, value in (candidate or {}).items()}
+        return left.keys() != right.keys() or any(
+            abs(left[key] - right[key]) > 1e-9 for key in left
+        )
+
+    @classmethod
+    def _volume_high_impact_changes(
+        cls, current_cfg, candidate_cfg, current_policy: dict, candidate_policy: dict
+    ) -> list[str]:
+        changes = []
+        if cls._volume_mapping_changed(
+            current_cfg.weekly_target, candidate_cfg.weekly_target
+        ):
+            changes.append("weekly targets")
+        if cls._volume_mapping_changed(
+            current_cfg.weekly_target_effective, candidate_cfg.weekly_target_effective
+        ):
+            changes.append("effective weekly targets")
+        if int(current_cfg.session_cap_total) != int(candidate_cfg.session_cap_total):
+            changes.append("session cap")
+        if cls._volume_mapping_changed(
+            current_cfg.session_cap_pattern, candidate_cfg.session_cap_pattern
+        ):
+            changes.append("per-pattern session caps")
+        if bool(current_policy.get("volume.apply_mrv_cap")) != bool(
+            candidate_policy.get("volume.apply_mrv_cap")
+        ):
+            changes.append("MRV cap")
+        current_landmarks = {
+            key: value for key, value in current_policy.items()
+            if key.startswith("volume.landmarks.")
+        }
+        candidate_landmarks = {
+            key: value for key, value in candidate_policy.items()
+            if key.startswith("volume.landmarks.")
+        }
+        if cls._volume_mapping_changed(current_landmarks, candidate_landmarks):
+            changes.append("volume landmarks")
+        return changes
+
+    def _save_volume_settings(self, conn, body: dict) -> dict:
+        day = str(body.get("effective_from") or datetime.date.today().isoformat())
+        try:
+            datetime.date.fromisoformat(day)
+        except ValueError as exc:
+            raise FieldError("effective date must be YYYY-MM-DD", {"effective_from": str(exc)}) from exc
+        budget_patch = body.get("budget") or {}
+        policy_patch = body.get("policy") or {}
+        if not isinstance(budget_patch, dict):
+            raise FieldError("budget must be an object", {"budget": "must be an object"})
+        if not isinstance(policy_patch, dict):
+            raise FieldError("policy must be an object", {"policy": "must be an object"})
+        unknown = [
+            key for key in policy_patch
+            if key not in settings_registry.BY_KEY or not str(key).startswith("volume.")
+        ]
+        if unknown:
+            raise FieldError(
+                f"unknown volume setting(s): {', '.join(sorted(unknown))}",
+                {"policy": f"unknown: {', '.join(sorted(unknown))}"},
+            )
+        reason = str(body.get("reason") or "").strip()
+        if not reason:
+            raise FieldError("a reason is required for a volume settings change", {"reason": "required"})
+
+        current_cfg = volume_budget_mod.BudgetConfig.load(conn=conn, on_date=day)
+        current_budget_overrides = settings_profile.budget_overrides(conn, day)
+        merged_budget_overrides = copy.deepcopy(current_budget_overrides)
+        self._merge_volume_budget(merged_budget_overrides, budget_patch)
+        candidate_budget = copy.deepcopy(current_cfg.as_config_dict())
+        self._merge_volume_budget(candidate_budget, budget_patch)
+        candidate_cfg = volume_budget_mod.BudgetConfig.load(profile_budget=candidate_budget)
+        state = settings_profile.state(conn, day)
+        current_policy = {
+            key: value for key, value in state["resolved"].items()
+            if key.startswith("volume.")
+        }
+        candidate_policy = {**current_policy, **policy_patch}
+        changes = self._volume_high_impact_changes(
+            current_cfg, candidate_cfg, current_policy, candidate_policy
+        )
+        confirm = str(body.get("confirm_text") or "").strip().upper()
+        if changes and confirm != "VOLUME":
+            raise FieldError(
+                f"type VOLUME to confirm changes to {', '.join(changes)}",
+                {"confirm_text": "type VOLUME"},
+            )
+        set_values = dict(policy_patch)
+        if merged_budget_overrides:
+            set_values["budget"] = merged_budget_overrides
+        try:
+            settings_profile.save(
+                conn,
+                set_values=set_values,
+                effective_from=day,
+                guard_confirmed=True,
+                reason=reason,
+            )
+        except ValueError as exc:
+            text = str(exc)
+            field = "reason" if "reason" in text else "budget" if "budget" in text else "policy"
+            raise FieldError(text, {field: text}) from exc
+        return self._volume_settings(conn, day)
 
     def _save_settings_profile(self, conn, body: dict) -> dict:
         try:
@@ -1366,6 +1676,225 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("workout not found")
         return result
 
+    def _performance_e1rm(self, conn, query: dict) -> dict:
+        exercise_id = query.get("exercise_id", [None])[0]
+        if not exercise_id:
+            raise ValueError("exercise_id is required")
+        to_date = query.get("to", [datetime.date.today().isoformat()])[0]
+        from_date = query.get("from", ["1900-01-01"])[0]
+        session_type = query.get("session_type", [None])[0] or None
+        include_deloads = str(query.get("include_deloads", ["false"])[0]).lower() in {
+            "1", "true", "yes", "on"
+        }
+        min_quality = str(query.get("quality", ["ok"])[0]).lower()
+        if min_quality not in {"ok", "degraded"}:
+            raise ValueError("quality must be ok or degraded")
+        points = strength_trend_feature.observations(
+            conn, exercise_id, from_date, to_date,
+            session_type=session_type, include_deloads=include_deloads,
+        )
+        trend = strength_trend_feature.rolling_median(points)
+        degraded = (
+            strength_trend_feature.degraded_observations(
+                conn, exercise_id, from_date, to_date,
+                session_type=session_type, include_deloads=include_deloads,
+            )
+            if min_quality == "degraded" else []
+        )
+        return {
+            "exercise_id": exercise_id,
+            "from": from_date,
+            "to": to_date,
+            "filters": {
+                "session_type": session_type,
+                "include_deloads": include_deloads,
+                "quality": min_quality,
+            },
+            "basis": "raw_formula_epley_rir",
+            "decay": "not_applied",
+            "calibration": "not_applied",
+            "points": [
+                {
+                    "date": point.date,
+                    "kg": round(point.kg, 1),
+                    "rolling_median_kg": round(point.rolling_median_kg, 1),
+                    "n_window": point.n_window,
+                }
+                for point in trend
+            ],
+            "degraded": [
+                {
+                    "date": point.date,
+                    "kg": round(point.estimate.kg, 1),
+                    "quality": point.estimate.quality,
+                    "reason": "degraded observation; excluded from primary line and median",
+                }
+                for point in degraded
+            ],
+            "breaks": [
+                {"date": item.date, "reason": item.reason}
+                for item in strength_trend_feature.series_breaks(points)
+            ],
+            "break_detection": {
+                "raw_exercise_alias": True,
+                "load_basis": True,
+                "equipment": False,
+                "limitation": "equipment changes are not stored and cannot be detected",
+            },
+            "summary": strength_trend_feature.summarize(points),
+        }
+
+    def _performance_dose(self, conn, query: dict) -> dict:
+        to_date = query.get("to", [datetime.date.today().isoformat()])[0]
+        from_date = query.get("from", [to_date])[0]
+        group_by = query.get("group_by", ["session"])[0]
+        if group_by != "session":
+            raise ValueError("group_by must be session")
+        sets = queries.clean_sets(conn, start=from_date, end=to_date)
+        sessions = queries.sessions(conn, start=from_date, end=to_date)
+        exposure_config = exposure_ratio_feature.ExposureConfig.load()
+        buckets = []
+        for _, row in sessions.iterrows():
+            session_id = str(row["session_id"])
+            group = sets[sets["session_id"].astype(str).eq(session_id)] if not sets.empty else sets
+            work = group[group["is_working_set"].fillna(False).astype(bool)] if not group.empty else group
+            tonnage = pd.to_numeric(work.get("tonnage_kg"), errors="coerce").dropna().sum() if not work.empty else 0.0
+            buckets.append({
+                "session_id": session_id,
+                "date": str(row["occurred_on"])[:10],
+                "session_type": row.get("session_type"),
+                "working_sets": int(len(work)),
+                "hard_sets": monitoring.hard_sets(work, exposure_config),
+                "tonnage_kg": round(float(tonnage), 1),
+            })
+        return {"from": from_date, "to": to_date, "group_by": "session", "buckets": buckets}
+
+    def _relationship_options(self) -> dict:
+        entities = exercises.taxonomy().entities
+        choices = [
+            {"id": str(key), "label": str(value.get("display") or key)}
+            for key, value in entities.items()
+            if derived_feature.e1rm_applicable(dict(value))
+        ]
+        return {
+            "relationship_types": list(relative_strength_feature.relationship_types()),
+            "exercises": sorted(choices, key=lambda item: item["label"].lower()),
+            "criteria": [
+                "numerator and denominator are distinct known exercises",
+                "both sides support a formula e1RM",
+                "the pair is not already configured",
+                "max_gap_days is positive",
+                "max_age_days is at least max_gap_days",
+                "min_observations is at least 2",
+                "notes are present; ratios are descriptive only",
+            ],
+        }
+
+    def _add_relationship(self, body: dict) -> dict:
+        numerator = str(body.get("numerator") or "").strip()
+        denominator = str(body.get("denominator") or "").strip()
+        entities = exercises.taxonomy().entities
+        if numerator not in entities or denominator not in entities:
+            raise ValueError("choose two known exercises")
+        relationship_type = str(body.get("relationship_type") or "").strip()
+        try:
+            max_gap_days = int(body.get("max_gap_days", 14))
+            max_age_days = int(body.get("max_age_days", 42))
+            min_observations = int(body.get("min_observations", 2))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("gap, age and observation fields must be integers") from exc
+        label = str(body.get("label") or "").strip() or (
+            f"{entities[numerator].get('display') or numerator} / "
+            f"{entities[denominator].get('display') or denominator}"
+        )
+        notes = str(body.get("notes") or "").strip() or (
+            "Descriptive relative performance only; not a weakness diagnosis."
+        )
+        relationship = relative_strength_feature.Relationship(
+            id=f"{numerator}_to_{denominator}",
+            label=label,
+            numerator=numerator,
+            denominator=denominator,
+            relationship_type=relationship_type,
+            max_gap_days=max_gap_days,
+            max_age_days=max_age_days,
+            min_observations=min_observations,
+            notes=notes,
+        )
+        relationships = relative_strength_feature.append_relationship(relationship)
+        _READ_CACHE.clear()
+        return {
+            "ok": True,
+            "relationships": [
+                {
+                    "id": item.id, "label": item.label,
+                    "numerator": item.numerator, "denominator": item.denominator,
+                    "relationship_type": item.relationship_type,
+                    "max_gap_days": item.max_gap_days,
+                    "max_age_days": item.max_age_days,
+                    "min_observations": item.min_observations,
+                }
+                for item in relationships
+            ],
+        }
+
+    def _performance_ratios(self, conn, query: dict) -> dict:
+        to_date = query.get("to", [datetime.date.today().isoformat()])[0]
+        from_date = query.get("from", [to_date])[0]
+        relationship_id = query.get("relationship_id", [None])[0]
+        relationships = relative_strength_feature.load_relationships()
+        selected = [item for item in relationships if relationship_id in (None, item.id)]
+        exercise_ids = sorted({
+            exercise for item in selected for exercise in (item.numerator, item.denominator)
+        })
+        lookback_starts = [
+            (
+                datetime.date.fromisoformat(from_date)
+                - datetime.timedelta(days=max(item.max_age_days, item.max_gap_days))
+            ).isoformat()
+            for item in selected
+        ] + [
+            (
+                datetime.date.fromisoformat(to_date)
+                - datetime.timedelta(days=item.max_age_days)
+            ).isoformat()
+            for item in selected
+        ]
+        history_start = min(lookback_starts) if lookback_starts else to_date
+        sets = queries.clean_sets(conn, start=history_start, end=to_date)
+        points_by_exercise = {
+            exercise: strength_trend_feature.observations(
+                conn, exercise, "1900-01-01", to_date, frame=sets
+            )
+            for exercise in exercise_ids
+        }
+        values = []
+        for relationship in selected:
+            current = relative_strength_feature.current_ratio(
+                conn, relationship, to_date, points=points_by_exercise
+            )
+            values.append({
+                "current": current.as_dict() if hasattr(current, "as_dict") else current,
+                "trend": relative_strength_feature.ratio_trend(
+                    conn, relationship, from_date, to_date,
+                    points=points_by_exercise,
+                ),
+            })
+        return {
+            "from": from_date,
+            "to": to_date,
+            "basis": "raw_formula_epley_rir",
+            "relationships": values,
+        }
+
+    def _summary_or_error(self, conn, workout_id: str) -> dict:
+        result = workout.get(conn, workout_id)
+        if result is None:
+            raise UnknownSessionError("workout not found")
+        if result.get("status") != "completed":
+            raise workout.WorkoutNotCompleted("workout is not completed")
+        return workout.summary(conn, workout_id)
+
     def _workout_start(self, conn, body: dict) -> dict:
         for_date = str(body.get("date") or datetime.date.today().isoformat())
         plan = body.get("plan")
@@ -1492,6 +2021,7 @@ class Handler(BaseHTTPRequestHandler):
                 session_rpe=_number(body.get("session_rpe")),
                 not_recorded=_truth(body.get("not_recorded")),
                 duration_min=_number(body.get("duration_min")),
+                productivity=_integer(body.get("productivity")),
                 notes=body.get("notes") or None,
             )
         elif action == "abandon":
@@ -1504,6 +2034,7 @@ class Handler(BaseHTTPRequestHandler):
         task_key = str(body.get("task_key") or "").strip()
         if task_key not in {
             "readiness_thresholds", "exercise_substitution", "fatigue_signals",
+            "phase5a_review",
         }:
             raise ValueError("unknown periodic review task")
         action = str(body.get("action") or "completed").strip().lower()
@@ -1546,10 +2077,22 @@ class Handler(BaseHTTPRequestHandler):
         )
         minimum_session = _truth(body.get("minimum_session"))
         minimum_include_main = _truth(body.get("minimum_include_main")) and minimum_session
-        # MOD-TECH-001 is a user request, so it only runs when explicitly asked for; the
-        # pattern narrows it to one movement pattern, empty means the whole session.
+        # MOD-TECH-001 is a user request, so it only runs when explicitly asked for; selected
+        # patterns narrow it to those movement patterns, and an empty list means main work.
         technique_throttle = _truth(body.get("technique_throttle"))
-        technique_pattern = str(body.get("technique_throttle_pattern") or "").strip() or None
+        raw_patterns = body.get("technique_throttle_pattern")
+        if isinstance(raw_patterns, list):
+            # An empty string is the UI's "All lifts (main work)" choice. Keep one sentinel
+            # so it can be combined with named patterns; only an empty list is the default.
+            technique_patterns = list(dict.fromkeys(
+                str(value).strip() for value in raw_patterns
+            ))
+            if technique_patterns == [""] or not technique_patterns:
+                technique_patterns = None
+        elif isinstance(raw_patterns, str):
+            technique_patterns = raw_patterns.strip() or None
+        else:
+            technique_patterns = None
         target = body.get("target_minutes")
         target_minutes = int(target) if target not in (None, "") else None
         # Resolve deload before building: it must run before minimum session and final
@@ -1579,7 +2122,7 @@ class Handler(BaseHTTPRequestHandler):
             minimum_include_main=minimum_include_main,
             deload_decision=deload_decision,
             technique_throttle=technique_throttle,
-            technique_throttle_pattern=technique_pattern,
+            technique_throttle_pattern=technique_patterns,
             drop_confirmed=_truth(body.get("drop_confirmed")),
         )
         if scheduled_suggestion is not None:
@@ -1747,6 +2290,7 @@ class Handler(BaseHTTPRequestHandler):
             conn, session,
             srpe=body.get("session_rpe"),
             duration_min=body.get("session_minutes"),
+            productivity=body.get("productivity"),
         )
         written = record_marks(
             conn, session, scores, confidence=confidence,
@@ -1880,12 +2424,6 @@ class Handler(BaseHTTPRequestHandler):
                     data[key] = []
             constraints.append(data)
         profile = dict(queries.athlete_profile(conn) or {}) or None
-        if profile:
-            for key in ("goal_rank", "focus_lifts"):
-                try:
-                    profile[key] = json.loads(profile.get(key) or "[]")
-                except (TypeError, ValueError):
-                    profile[key] = []
         return {
             "profile": profile,
             "constraints": constraints,
@@ -2081,42 +2619,6 @@ class Handler(BaseHTTPRequestHandler):
 
     def _save_profile(self, conn, body: dict) -> dict:
         current = dict(queries.athlete_profile(conn) or {})
-        def current_list(key):
-            try:
-                return json.loads(current.get(key) or "[]")
-            except (TypeError, ValueError):
-                return []
-        try:
-            goal = validation.choice(
-                body.get("primary_goal") or current.get("primary_goal"),
-                athlete_state.GOALS,
-                "primary_goal",
-            )
-        except ValueError as exc:
-            raise FieldError(str(exc), {"primary_goal": str(exc)}) from exc
-        # A client that omits these lists is preserving them. A client that sends the same
-        # list is also preserving it, which lets an existing legacy value survive an unrelated
-        # profile edit; a changed list is an assertion and must be canonical.
-        goal_rank = current_list("goal_rank")
-        if "goal_rank" in body:
-            incoming_rank = _list(body.get("goal_rank"))
-            if incoming_rank != goal_rank:
-                try:
-                    goal_rank = validation.goal_rank(incoming_rank)
-                except ValueError as exc:
-                    raise FieldError(str(exc), {"goal_rank": str(exc)}) from exc
-            else:
-                goal_rank = incoming_rank
-        focus = current_list("focus_lifts")
-        if "focus_lifts" in body:
-            incoming_focus = _list(body.get("focus_lifts"))
-            if incoming_focus != focus:
-                try:
-                    focus = validation.focus_lifts(incoming_focus)
-                except ValueError as exc:
-                    raise FieldError(str(exc), {"focus_lifts": str(exc)}) from exc
-            else:
-                focus = incoming_focus
         try:
             main_lift_policy = validation.choice(
                 body.get("main_lift_policy") or current.get("main_lift_policy") or "preserve",
@@ -2129,9 +2631,6 @@ class Handler(BaseHTTPRequestHandler):
         repositories.append_athlete_profile(
             conn,
             effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
-            primary_goal=goal,
-            goal_rank=goal_rank,
-            focus_lifts=focus,
             competition_date=body.get("competition_date") or None,
             sessions_per_week_target=_int_or_none(body.get("sessions_per_week_target")),
             max_session_minutes=_int_or_none(body.get("max_session_minutes")),
@@ -2393,9 +2892,6 @@ class Handler(BaseHTTPRequestHandler):
         repositories.append_athlete_profile(
             conn,
             effective_from=datetime.date.today().isoformat(),
-            primary_goal=current["primary_goal"],
-            goal_rank=json.loads(current["goal_rank"] or "[]"),
-            focus_lifts=json.loads(current["focus_lifts"] or "[]"),
             competition_date=current["competition_date"],
             sessions_per_week_target=current["sessions_per_week_target"],
             max_session_minutes=current["max_session_minutes"],

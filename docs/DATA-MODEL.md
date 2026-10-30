@@ -328,25 +328,26 @@ is scored.
 
 ---
 
-## 11. Athlete state — goals, constraints, suitability, metric definitions
+## 11. Athlete state — constraints, suitability, metric definitions, symptoms
 
-These four tables exist so that *you* (goals, injuries, tightness, preferences) are
+These tables exist so that constraints, injuries, tightness, suitability and preferences are
 **state**, not prompt text. A hard constraint stored here can veto a prescription
 deterministically, no matter what the LLM says. They are empty until the user answers
 `docs/INFO-REQUESTS.md`.
 
 ### 11.1 `athlete_profile` — singleton, versioned
 
+The former goal fields (`primary_goal`, `goal_rank`, `focus_lifts`) were removed in
+migration 0044: no rule, feature, prescription or rubric read them, so keeping them implied
+a behaviour the system did not have (`DEC-STATE-02`).
+
 | column | notes |
 |---|---|
 | profile_id PK | |
-| effective_from / effective_to | goals change; old prescriptions must still explain themselves |
-| primary_goal | `strength` \| `hypertrophy` \| `body_comp` \| `pain_free` \| `longevity` \| `competition` |
-| goal_rank | JSON ordered list; a conflict between erector ramp and squat volume is resolved by this |
-| focus_lifts | JSON list of exercise ids that matter most |
+| effective_from / effective_to | state changes; old prescriptions must still explain themselves |
 | competition_date | nullable |
-| sessions_per_week_target | the *intended* frequency, so the rubric can separate intent from execution |
-| max_session_minutes | the real ceiling, used once duration becomes measurable |
+| sessions_per_week_target | the *intended* frequency used by attendance/outcomes and the volume-budget projection; it does not schedule the programme |
+| max_session_minutes | planned session-time target; may be raised or lowered by the athlete |
 | block_start_date | week 1 of the **erector ramp**, as the athlete declared it; it does not bound the programme (DEC-PROGRAMME-01). Resetting means a new profile row, never an edit (DEC-RAMP-01/02) |
 | volume_budget_enabled | master switch for the weekly volume budget; 0 default. With it off the main-lift policy is ignored. With it on, the budget trims/tops up accessories and the main-lift policy controls main-lift treatment (DEC-VOLUME-06/08) |
 | main_lift_policy | `preserve` (default) leaves main lifts at template sets; `reduce` trims a filled group's main lift to `main_lift_floor`; `drop` removes it and relabels the session as `volume_fill_<original>`/`technique` (9c) |

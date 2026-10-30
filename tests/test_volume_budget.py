@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 from conftest import make_readiness, make_training
 
@@ -433,16 +431,25 @@ def test_record_exemptions_writes_the_safety_cut():
 
 def _profile(
     conn, *, enabled: bool, policy: str = "preserve", sessions: int = 3,
-    competition: str | None = None,
+    competition: str | None = None, max_minutes: int = 80,
 ):
-    current = queries.athlete_profile(conn) or {}
     repositories.append_athlete_profile(
-        conn, effective_from=TODAY, primary_goal=current.get("primary_goal") or "strength",
-        goal_rank=current.get("goal_rank") and json.loads(current["goal_rank"]) or ["strength"],
-        focus_lifts=[], competition_date=competition, sessions_per_week_target=sessions,
-        max_session_minutes=90, block_start_date=None,
-        volume_budget_enabled=enabled, main_lift_policy=policy,
+        conn, effective_from=TODAY, competition_date=competition,
+        sessions_per_week_target=sessions, max_session_minutes=max_minutes,
+        block_start_date=None, volume_budget_enabled=enabled, main_lift_policy=policy,
     )
+
+
+def test_budget_time_cap_follows_a_raised_profile_session_target():
+    store = store_with()
+    try:
+        _profile(store.connection, enabled=True, max_minutes=120)
+        data = volume_budget.report(
+            store.connection, "2026-10-27", session_type="squat"
+        )
+    finally:
+        store.close()
+    assert data["plan"]["time_cap_minutes"] == 120
 
 
 def test_the_budget_is_off_by_default_and_enabled_by_the_profile():
@@ -793,6 +800,25 @@ def test_drop_builds_a_volume_fill_session():
     assert any("MOD-VOL-005" in warning for warning in prescription.warnings)
 
 
+def test_drop_window_is_inclusive_and_shared_with_the_ui():
+    cfg = volume_budget.BudgetConfig()
+    profile = {
+        "volume_budget_enabled": 1,
+        "main_lift_policy": "drop",
+        "competition_date": "2026-11-01",
+    }
+    assert volume_budget.drop_mode_active(profile, cfg) is True
+    assert volume_budget.drop_competition_window(profile, "2026-10-25", 7)["in_window"] is True
+    assert volume_budget.drop_competition_window(profile, "2026-10-24", 7)["in_window"] is False
+    assert volume_budget.drop_competition_window(profile, "2026-11-01", 7)["in_window"] is True
+    assert volume_budget.drop_competition_window(profile, "2026-11-02", 7)["in_window"] is False
+    assert volume_budget.drop_competition_window(
+        {**profile, "competition_date": None}, "2026-10-25", 7
+    )["in_window"] is False
+    assert volume_budget.drop_mode_active({**profile, "volume_budget_enabled": 0}, cfg) is False
+    assert volume_budget.drop_mode_active({**profile, "main_lift_policy": "preserve"}, cfg) is False
+
+
 def test_drop_requires_confirmation_in_the_competition_window():
     rows = [
         {"Date": "2026-10-26", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
@@ -866,8 +892,7 @@ def test_cli_updates_the_budget_profile(tmp_path, capsys):
     path = tmp_path / "coach.db"
     store = db.Store(path)
     repositories.append_athlete_profile(
-        store.connection, effective_from=TODAY, primary_goal="strength",
-        goal_rank=["strength"], focus_lifts=[], competition_date=None,
+        store.connection, effective_from=TODAY, competition_date=None,
         sessions_per_week_target=3, max_session_minutes=90, block_start_date=None,
         volume_budget_enabled=False, main_lift_policy="preserve",
     )

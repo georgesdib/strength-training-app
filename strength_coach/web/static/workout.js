@@ -31,8 +31,11 @@ function openWorkoutStart() {
   $("#workout-active-panel").hidden = true;
   $("#workout-ended-panel").hidden = true;
   $("#workout-start-panel").hidden = false;
+  var startTime = plan.notes && plan.notes.session_time;
+  var startEstimate = startTime && startTime.estimated_minutes != null
+    ? " · estimated ~" + fmt(startTime.estimated_minutes) + " min" : "";
   $("#workout-start-summary").textContent =
-    plan.for_date + " · " + (plan.session_type || "unknown");
+    plan.for_date + " · " + (plan.session_type || "unknown") + startEstimate;
   $("#workout-readiness-required").innerHTML =
     WORKOUT_REQUIRED.map(function (key) { return workoutField(key, false); }).join("");
   $("#workout-readiness-optional").innerHTML =
@@ -380,10 +383,12 @@ function renderWorkout(w) {
   $("#workout-active-panel").hidden = false;
   if (typeof setWorkflowStep === "function") setWorkflowStep("active");
   $("#workout-title").textContent = w.for_date + " · " + (w.session_type || "unknown");
-  $("#workout-meta").innerHTML = "Started " + esc(w.started_at) + " · status <strong>" +
-    esc(w.status) + "</strong>";
-
   var plan = w.plan || {};
+  var sessionTime = plan.notes && plan.notes.session_time;
+  var timeEstimate = sessionTime && sessionTime.estimated_minutes != null
+    ? " · estimated ~" + fmt(sessionTime.estimated_minutes) + " min" : "";
+  $("#workout-meta").innerHTML = "Started " + esc(w.started_at) + " · status <strong>" +
+    esc(w.status) + "</strong>" + timeEstimate;
   var volumeBox = document.getElementById("workout-volume");
   if (volumeBox) {
     volumeBox.innerHTML = plan.volume_panel
@@ -551,6 +556,8 @@ function renderWorkoutEnded(w) {
   $("#workout-start-panel").hidden = true;
   $("#workout-empty").hidden = true;
   $("#workout-ended-panel").hidden = false;
+  var summaryTarget = document.getElementById("workout-ended-summary");
+  if (summaryTarget) summaryTarget.innerHTML = "<p class='muted'>Loading summary…</p>";
   if (typeof setWorkflowStep === "function") setWorkflowStep("post");
   var rpe = w.session_rpe_recorded ? fmt(w.session_rpe) : "not recorded";
   var minimum = w.minimum_session;
@@ -644,6 +651,7 @@ function renderWorkoutEnded(w) {
     '<span class="muted">The deterministic rubric was saved at End workout.</span></div>';
   var review = document.getElementById("workout-review");
   if (review) review.addEventListener("click", function () { openReview(w.workout_id); });
+  if (typeof loadWorkoutSummary === "function") loadWorkoutSummary(w.workout_id);
   var postTest = document.getElementById("post-test-form");
   if (postTest) postTest.addEventListener("submit", function (event) {
     event.preventDefault();
@@ -790,6 +798,7 @@ function submitWorkoutEnd(event) {
     duration_min: $("#workout-end-duration").value || null,
     session_rpe: $("#workout-end-srpe").value || null,
     not_recorded: $("#workout-end-not-recorded").checked,
+    productivity: $("#workout-end-productivity").value || null,
     notes: $("#workout-end-note").value || null
   };
   $("#workout-end-msg").textContent = "Ending…";

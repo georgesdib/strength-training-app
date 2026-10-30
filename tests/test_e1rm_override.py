@@ -149,7 +149,6 @@ def test_state_import_accepts_overrides(tmp_path, capsys):
         """
 profile:
   effective_from: "2026-10-17"
-  primary_goal: longevity
 e1rm_overrides:
   - exercise_id: ssb_squat
     e1rm_kg: 160

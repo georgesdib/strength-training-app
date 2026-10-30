@@ -45,6 +45,60 @@ def test_every_referenced_script_exists() -> None:
         assert src.startswith("/static/"), src
         assert (STATIC / src.removeprefix("/static/")).is_file(), src
 
+def test_summary_script_and_panel_are_wired() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    assert 'id="workout-ended-summary"' in page
+    assert "/static/summary.js" in page
+    assert (STATIC / "summary.js").is_file()
+
+
+def test_performance_script_and_view_are_wired() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    assert 'id="view-performance"' in page
+    assert 'data-view="performance"' in page
+    assert "/static/performance.js" in page
+    assert (STATIC / "performance.js").is_file()
+
+
+def test_performance_filters_are_sent_to_the_api() -> None:
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    assert 'session_type=' in source
+    assert 'include_deloads=' in source
+    assert 'quality=' in source
+    assert 'Degraded observations' in source
+    assert 'Equipment changes are not stored' in source
+
+
+def test_monitoring_analysis_is_in_performance_view() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    assert 'id="monitoring-analysis-panel"' in page
+    assert 'id="monitoring-analysis-run"' in page
+    assert 'id="monitoring-analysis-date"' in page
+    assert "/api/monitoring-analysis" in source
+    assert "Run the analysis" in page
+    assert "exploratory observational associations" in page
+    assert "historical calibration state is not reconstructed" in source
+
+
+def test_phase5a_review_actions_are_exposed() -> None:
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert "phase5a_review" in source
+    assert "Proceed to Phase 5B" in source
+    assert "Extend Phase 5A once" in source
+    assert "Close Phase 5A without Phase 5B" in source
+
+
+def test_performance_full_list_and_pair_editor_are_exposed() -> None:
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    assert "Show full association list" in source
+    assert "Show full dose list" in source
+    assert "performance-dose-toggle" in source
+    assert "Add a configured pair" in source
+    assert "/api/performance/relationship-options" in source
+    assert "/api/performance/relationships" in source
+
+
 def test_script_load_order() -> None:
     page = INDEX.read_text(encoding="utf-8")
     order = [src.removeprefix("/static/")
@@ -135,7 +189,7 @@ def test_constrained_controls_are_not_free_text() -> None:
     assert "vbtFamilyOptions" in exercises_js
 
     app = (STATIC / "app.js").read_text(encoding="utf-8")
-    assert 'choiceOptions(opts.goals' in app
+    assert "choiceOptions(opts.constraint_kinds" in app
     assert 'choiceChecklist("forbidden_patterns"' in app
     assert 'choiceChecklist("forbidden_exercises"' in app
     assert 'data-constraint="kind"' in app
@@ -208,9 +262,9 @@ def test_accessibility_and_navigation_guards() -> None:
     assert "aria-current" in app
     assert "sidebarFocusables" in app
     assert "main.inert" in app
-    assert "goalRankHtml" in app and "checkedGoalRank" in app
-    assert 'choiceChecklist("focus_lifts"' in app
-    assert 'id="focus-lift-search"' in app
+    assert "goalRankHtml" not in app
+    assert "primary_goal" not in app
+    assert "focus_lifts" not in app
     assert "aria-invalid" in workout
     assert "setAttribute(\"aria-invalid\"" in workout
     assert "role=\"status\"" in page
@@ -243,7 +297,8 @@ def test_remaining_ui_controls_are_present() -> None:
     workout = (STATIC / "workout.js").read_text(encoding="utf-8")
     assert 'id="exercise-detail-spinal-cost" type="number" step="0.5" min="0" max="5"' in page
     assert 'id="exercise-extra"' in page and '<details class="advanced">' in page
-    assert 'id="settings-drop-slots"' in page
+    assert 'id="settings-volume-form"' in page
+    assert 'id="settings-volume-fields"' in page
     assert "review-table" in app and "review-why" in app
     assert "search-select" in core and "filterNativeSelect" in core
     assert "exercisePickerHtml" in app
@@ -260,7 +315,181 @@ def test_remaining_forms_use_field_errors() -> None:
     assert "applyFieldErrors(error, $(" in app
     for marker in (
         '[data-symptom="region"]', '[data-block="date"]', '[data-break="starts_on"]',
-        '#cardio-modality', '#measure-metric', '#settings-drop-tolerance',
+        '#cardio-modality', '#measure-metric', '#settings-volume-fields',
+        '#settings-volume-reason', '#settings-volume-confirm',
         '#settings-llm-model', '#settings-profile-guard',
     ):
         assert marker in app, marker
+
+
+def test_volume_panel_is_consolidated_and_linked_to_its_guide() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="settings-volume-form"' in page
+    assert 'href="#docs?doc=docs/VOLUME-BUDGET.md"' in page
+    assert 'id="settings-drop-form"' not in page
+    assert 'id="profile-volume' not in page
+    assert 'setting.group === "Volume"' in app
+    assert "renderVolumeSettings" in app
+    assert "/api/settings/volume" in app
+    assert "budgetValue(key)" in app
+    assert "settings-volume-cap-sum" in app
+
+    node = shutil.which("node")
+    if node:
+        match = re.search(r"function volumeNestedValue\([^)]*\) \{[\s\S]*?\n\}", app)
+        assert match, "volumeNestedValue() not found"
+        script = (
+            f"eval({json.dumps(match.group(0))});"
+            "const budget = {session_cap: {total: 30}, tolerance: 0.1};"
+            "if (volumeNestedValue(budget, 'session_cap.total') !== 30) throw new Error('nested cap');"
+            "if (volumeNestedValue(budget, 'tolerance') !== 0.1) throw new Error('flat value');"
+            "if (volumeNestedValue(budget, 'missing.total') !== undefined) throw new Error('missing');"
+        )
+        subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+
+def test_technique_throttle_scope_is_a_constrained_select() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    exercises = (STATIC / "exercises.js").read_text(encoding="utf-8")
+
+    assert '<select id="prescribe-throttle-pattern" multiple size="6">' in page
+    assert '<option value="" selected>All lifts (main work)</option>' in page
+    assert 'list="exercise-patterns"' not in page
+    assert "populateThrottlePatterns" in app
+    assert "loadThrottlePatterns" in app
+    assert "mainSelected" in app
+    assert "selectedOptions" in app
+    assert "syncThrottleSelection" not in app
+    assert "/api/options" in app
+    assert "populateThrottlePatterns(data.patterns)" in exercises
+
+
+def test_estimated_session_time_is_at_the_top_of_a_generated_workout() -> None:
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    workout = (STATIC / "workout.js").read_text(encoding="utf-8")
+
+    assert "Estimated session time:" in app
+    assert "sessionTime.estimated_minutes" in app
+    assert "estimated ~" in workout
+    assert "startEstimate" in workout
+
+
+def test_drop_confirmation_is_only_offered_inside_the_competition_window() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    core = (STATIC / "core.js").read_text(encoding="utf-8")
+
+    assert 'id="prescribe-drop-confirm-wrap" hidden' in page
+    assert "updateDropConfirmVisibility" in app
+    assert "loadDropWindow" in app
+    assert "/api/settings/drop/window" in app
+    # The window rule lives in Python; the browser must not grow a second copy.
+    assert "localDateOrdinal" not in core
+    assert "dropConfirmationApplies" not in app
+
+
+def test_summary_rendering_contracts() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "summary.js").read_text(encoding="utf-8")
+    script = r"""
+global.__summaryTarget = {innerHTML: ""};
+global.document = {getElementById: function () { return global.__summaryTarget; }};
+global.esc = function (value) { return String(value == null ? "" : value); };
+global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
+global.api = function () { return Promise.resolve({}); };
+eval(SOURCE);
+function render(payload) {
+  renderWorkoutSummary(payload);
+  return global.__summaryTarget.innerHTML;
+}
+var base = {
+  completion: {items: [], planned_sets: 0, completed_sets: 0},
+  strength: [{exercise_id: "squat", post: {status: "estimated", kg: 100},
+              recent_reference: {}, difference: {status: "unavailable"}}],
+  dose: {per_exercise: [], relative_intensity: {}, rir: {},
+         patterns: {squat: 2, hinge: 1}},
+  special: {power: {sets: 2, reps: 8,
+                    mean_velocity_change: [{exercise_id: "jump_squats", load_kg: 20,
+                                            n: 2, change_pct: -10.0}]},
+            high_intensity: [],
+            quality_stop: {status: "not_recorded"},
+            spinal: {label: "ordinal exposure", weekly_cost: 1, weekly_cap: 6,
+                     heavy_sets: {total_sets: 1, rir_max: 1},
+                     axial_demand: {high: 1, moderate: 2, low: 3, unknown: 4}}},
+  feedback: {}, basis: {}
+};
+var html = render(base);
+if (html.indexOf("estimated") < 0 || html.indexOf("observed") >= 0) throw new Error("status");
+if (html.indexOf("squat: 2") < 0 || html.indexOf("hinge: 1") < 0) throw new Error("patterns");
+if (html.indexOf("high: 1") < 0 || html.indexOf("moderate: 2") < 0 ||
+    html.indexOf("low: 3") < 0 || html.indexOf("unknown: 4") < 0) throw new Error("axial");
+if (html.indexOf("1 heavy spinal sets") < 0) throw new Error("heavy");
+if (html.indexOf("-10%") < 0) throw new Error("velocity");
+if (html.indexOf("Quality stop: Not recorded") < 0) throw new Error("quality");
+base.special.power.mean_velocity_change = [{exercise_id: "jump_squats", load_kg: 20,
+                                             status: "unavailable", reason: "fewer than two"}];
+base.special.quality_stop = {status: "recorded"};
+html = render(base);
+if (html.indexOf("Unavailable (fewer than two)") < 0) throw new Error("velocity unavailable");
+if (html.indexOf("Quality stop: Recorded") < 0) throw new Error("quality recorded");
+base.strength[0].post.status = "degraded";
+html = render(base);
+if (html.indexOf("degraded") < 0) throw new Error("degraded status");
+"""
+    script = script.replace("SOURCE", json.dumps(source))
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+
+def test_monitoring_analysis_charts_and_missingness_render() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    script = r"""
+global.__target = {innerHTML: "", dataset: {}, addEventListener: function () {}};
+global.document = {getElementById: function () { return global.__target; }};
+global.esc = function (value) { return String(value == null ? "" : value); };
+global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
+global.today = function () { return "2024-01-31"; };
+global.api = function () { return Promise.resolve({}); };
+eval(SOURCE);
+renderMonitoringAnalysis({
+  meta: {as_of: "2024-01-31", analysis_version: "monitoring-analysis-v1",
+         seed: 0, database_fingerprint: "abc"},
+  missingness: {sessions: 3, sessions_with_feedback: 2, sets: 10, exercises: 1},
+  dose: [{date: "2024-01-01", session_type: "hinge", working_sets: 2, hard_sets: 1,
+          tonnage_kg: null, tonnage_status: "unavailable_missing_tonnage", session_load_au: null},
+         {date: "2024-01-08", session_type: "hinge", working_sets: 3, hard_sets: 2,
+          tonnage_kg: 0, tonnage_status: "observed_zero", session_load_au: 100},
+         {date: "2024-01-15", session_type: "hinge", working_sets: 4, hard_sets: 3,
+          tonnage_kg: 500, tonnage_status: "observed", session_load_au: 200}],
+  associations: [{exercise_id: "squat", observations: 4,
+    hard_sets_vs_next_e1rm: {n: 3, r: 0.5, status: "descriptive"},
+    session_load_vs_next_e1rm: {n: 2, r: null, status: "insufficient"},
+    hard_sets_points: [{x: 1, y: 100}, {x: 2, y: 110}, {x: 3, y: 120}],
+    session_load_points: [{x: 100, y: 100}, {x: 200, y: 110}]}],
+  calibration: {as_of: "2024-01-31", method_version: "epley_rir_v1",
+    historical_state_reconstructable: false,
+    note: "Current as-of state.", observations: [{performed_on: "2024-01-20",
+    calibration_context_as_of: "2024-01-31", exercise_id: "squat", measured_kg: 120,
+    prior_raw_e1rm_kg: 110, prior_raw_method: "epley_plus_rir",
+    prior_raw_method_version: "epley_rir_v1", existing_calibration_factor: 1.0,
+    existing_factor_applied: false, calibration_ci_low: null, calibration_ci_high: null}]},
+  limitations: []
+});
+var html = global.__target.innerHTML;
+if (html.indexOf("<svg") < 0) throw new Error("charts missing");
+if (html.indexOf("Insufficient observations for squat session load vs next e1RM") < 0) throw new Error("insufficient chart state");
+if (html.indexOf("2024-01-31") < 0) throw new Error("calibration context date");
+if (html.indexOf("Unavailable") < 0) throw new Error("missing tonnage shown as unavailable");
+if (html.indexOf("0 kg (observed_zero)") < 0) throw new Error("genuine zero lost");
+"""
+    script = script.replace("SOURCE", json.dumps(source))
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)

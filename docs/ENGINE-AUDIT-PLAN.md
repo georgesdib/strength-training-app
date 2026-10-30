@@ -581,7 +581,7 @@ Recommended wording for the box jump:
 
 | ID | item | finding | classification |
 |---|---|---|---|
-| B6 | Session-length cap inconsistent | **Resolved in current tree.** The policy is 80 minutes planned / 90 minutes hard; templates use 80; `LONGEVITY-REVIEW` and the rubric docs now match. `max_session_minutes` remains informational until duration is consumed by the engine. | Documentation fixed; engine consumption still open |
+| B6 | Session-length cap inconsistent | **Resolved in current tree, then superseded 2026-10-29 by `DEC-W1-02`.** The old policy was 80 minutes planned / 90 minutes hard; the hard ceiling is now removed and the athlete may raise or lower the target. | Superseded; see B6 detail |
 | B7 | Duration marked unmeasurable | **Resolved for live workouts; imported sessions remain unmeasurable.** Rubric 1.1.0 scores measured duration against 80/90 and stores imported duration as `measurable=0`. | Rubric version 1.1.0 |
 | B8 | Test counts conflict | **Resolved.** `ROADMAP.md` is the current source; older counts are labelled historical. | Documentation maintenance |
 | B9 | Architecture says no UI / no LLM numbers | **Resolved.** `ARCHITECTURE.md` describes the local web UI and bounded structural proposals; Python still computes all numbers. | Documentation contract fixed |
@@ -592,6 +592,10 @@ Recommended wording for the box jump:
 The policy is **80 minutes planned / 90 minutes hard ceiling**. Templates use 80. The docs
 now match. `max_session_minutes` remains informational until the engine consumes measured
 duration. No template change is needed for this documentation pass.
+
+**Superseded 2026-10-29 by `DEC-W1-02`.** The hard ceiling is removed: the configured default
+is a session-time target, the athlete may raise or lower it, and the estimate/warning path is
+unchanged.
 
 #### B7 detail — duration
 

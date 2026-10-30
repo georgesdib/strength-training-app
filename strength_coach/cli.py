@@ -23,6 +23,7 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
+import pandas as pd
 import yaml
 
 from strength_coach import __version__, modalities, settings_profile, workout
@@ -65,9 +66,11 @@ from strength_coach.features import programme as programme_feature
 from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import regime_change as regime_feature
+from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import residual as residual_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import shadow_report as shadow_report_feature
+from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import (
     build_prescription,
@@ -133,9 +136,9 @@ def main(argv: list[str] | None = None) -> int:
                           "(MOD-TECH-001)")
     run.add_argument("--drop-confirm", action="store_true",
                       help="confirm a drop inside the competition window")
-    run.add_argument("--throttle-pattern", default=None, metavar="PATTERN",
-                     help="restrict the throttle to one movement pattern (e.g. squat, hinge); "
-                          "default is the session's main lifts")
+    run.add_argument("--throttle-pattern", action="append", default=None, metavar="PATTERN",
+                     help="restrict the throttle to a movement pattern (e.g. squat, hinge); "
+                          "repeat for several patterns; default is the session's main lifts")
 
     review = sub.add_parser("review", help="mark a session and update calibration")
     review.add_argument("--session", default=None, help="session id (YYYY-MM-DD)")
@@ -150,6 +153,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="optional session RPE 1-10 (also asked interactively at review)")
     review.add_argument("--session-minutes", type=float, default=None,
                         help="optional session length in minutes")
+    review.add_argument("--productivity", type=int, choices=range(1, 6), default=None,
+                        help="optional productivity rating 1-5")
 
     calibrate = sub.add_parser("calibrate", help="report agreement between rubric and marks")
     calibrate.add_argument("--tolerance", type=float, default=None)
@@ -359,8 +364,35 @@ def main(argv: list[str] | None = None) -> int:
     we.add_argument("--session-rpe", type=float, default=None)
     we.add_argument("--duration-min", type=float, default=None)
     we.add_argument("--not-recorded", action="store_true")
+    we.add_argument("--productivity", type=int, choices=range(1, 6), default=None)
     we.add_argument("--note", default=None)
     workout_sub.add_parser("abandon", help="abandon the active workout")
+
+    summary_parser = sub.add_parser(
+        "summary", help="show the descriptive summary of a completed workout"
+    )
+    summary_parser.add_argument("workout_id")
+    summary_parser.add_argument("--json", action="store_true")
+
+    performance = sub.add_parser("performance", help="longitudinal strength and configured ratios")
+    performance_sub = performance.add_subparsers(dest="performance_action", required=True)
+    pe = performance_sub.add_parser("e1rm", help="raw e1RM observations and rolling median")
+    pe.add_argument("--exercise", required=True)
+    pe.add_argument("--from", dest="from_date", default="1900-01-01")
+    pe.add_argument("--to", dest="to_date", default=None)
+    pe.add_argument("--session-type", default=None)
+    pe.add_argument("--include-deloads", action="store_true")
+    pe.add_argument("--quality", choices=("ok", "degraded"), default="ok")
+    pe.add_argument("--json", action="store_true")
+    pdose = performance_sub.add_parser("dose", help="descriptive dose by session")
+    pdose.add_argument("--from", dest="from_date", default=None)
+    pdose.add_argument("--to", dest="to_date", default=None)
+    pdose.add_argument("--json", action="store_true")
+    pr = performance_sub.add_parser("ratios", help="configured relative-strength ratios")
+    pr.add_argument("--relationship", default=None)
+    pr.add_argument("--from", dest="from_date", default="1900-01-01")
+    pr.add_argument("--to", dest="to_date", default=None)
+    pr.add_argument("--json", action="store_true")
     wi = workout_sub.add_parser("import", help="preview/apply the workout CSV to the active workout")
     wi.add_argument("--file", required=True)
     wi.add_argument("--rep-file", default=None,
@@ -504,6 +536,8 @@ def main(argv: list[str] | None = None) -> int:
         "regime": _cmd_regime,
         "validate": _cmd_validate,
         "workout": _cmd_workout,
+        "summary": _cmd_summary,
+        "performance": _cmd_performance,
         "exercise": _cmd_exercise,
         "block": _cmd_block,
         "break": _cmd_break,
@@ -761,11 +795,16 @@ def _collect_session_feedback(args) -> dict | None:
     A file-based review (`--scores`) stays non-interactive; flags still work there. The prompt
     is only for the interactive path, because these fields are useful but never required.
     """
-    if args.session_rpe is not None or args.session_minutes is not None:
+    if (
+        args.session_rpe is not None
+        or args.session_minutes is not None
+        or args.productivity is not None
+    ):
         return {
             key: value for key, value in {
                 "srpe": args.session_rpe,
                 "duration_min": args.session_minutes,
+                "productivity": args.productivity,
             }.items() if value is not None
         }
     if args.scores:
@@ -932,9 +971,6 @@ def _cmd_state(args) -> int:
             repositories.append_athlete_profile(
                 conn,
                 effective_from=datetime.date.today().isoformat(),
-                primary_goal=current["primary_goal"],
-                goal_rank=json.loads(current["goal_rank"] or "[]"),
-                focus_lifts=json.loads(current["focus_lifts"] or "[]"),
                 competition_date=current["competition_date"],
                 sessions_per_week_target=current["sessions_per_week_target"],
                 max_session_minutes=current["max_session_minutes"],
@@ -1647,7 +1683,7 @@ def _cmd_workout(args) -> int:
             result = workout.end(
                 conn, identifier, session_rpe=args.session_rpe,
                 not_recorded=args.not_recorded, duration_min=args.duration_min,
-                notes=args.note,
+                productivity=args.productivity, notes=args.note,
             )
         elif args.action == "abandon":
             result = workout.abandon(conn, identifier)
@@ -1666,6 +1702,142 @@ def _cmd_workout(args) -> int:
             print(f"unknown workout action: {args.action}")
             return 2
         print(json.dumps(result, indent=2, default=str))
+        return 0
+    finally:
+        store.close()
+
+
+def _cmd_summary(args) -> int:
+    store = db.Store(args.db)
+    try:
+        try:
+            payload = workout.summary(store.connection, args.workout_id)
+        except (workout.WorkoutNotCompleted, ValueError) as exc:
+            print(str(exc))
+            return 2
+        if args.json:
+            print(json.dumps({"summary": payload}, indent=2, default=str))
+            return 0
+        print(f"summary {payload['for_date']} ({payload['session_type']})")
+        completion = payload["completion"]
+        print(
+            f"  completion      {completion.get('completed_sets', 0)} / "
+            f"{completion.get('planned_sets', 0)} sets"
+        )
+        print("  strength")
+        for row in payload["strength"]:
+            post = row["post"]
+            ref = row["recent_reference"]
+            diff = row["difference"]
+            print(
+                f"    {row['exercise_id']:<28} post {post.get('kg', 'unavailable')} kg; "
+                f"recent {ref.get('kg', 'unavailable')} kg; "
+                f"difference {diff.get('kg', 'unavailable')} kg ({diff.get('status')})"
+            )
+        print("  dose")
+        for row in payload["dose"]["per_exercise"]:
+            print(
+                f"    {row['exercise_id']:<28} sets {row['sets']} "
+                f"hard {row['hard_sets']} near-failure {row['near_failure_sets']}"
+            )
+        print(f"  relative intensity {payload['dose']['relative_intensity']}")
+        print(f"  RIR {payload['dose']['rir']}")
+        print(f"  feedback {payload['feedback']}")
+        print(f"  special {payload['special']}")
+        return 0
+    finally:
+        store.close()
+
+
+def _cmd_performance(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        to_date = args.to_date or datetime.date.today().isoformat()
+        if args.performance_action == "e1rm":
+            points = strength_trend_feature.observations(
+                conn, args.exercise, args.from_date, to_date,
+                session_type=args.session_type,
+                include_deloads=args.include_deloads,
+            )
+            trend = strength_trend_feature.rolling_median(points)
+            degraded = (
+                strength_trend_feature.degraded_observations(
+                    conn, args.exercise, args.from_date, to_date,
+                    session_type=args.session_type,
+                    include_deloads=args.include_deloads,
+                ) if args.quality == "degraded" else []
+            )
+            payload = {
+                "exercise_id": args.exercise,
+                "from": args.from_date,
+                "to": to_date,
+                "basis": "raw_formula_epley_rir",
+                "decay": "not_applied",
+                "calibration": "not_applied",
+                "points": [
+                    {
+                        "date": point.date,
+                        "kg": round(point.kg, 1),
+                        "rolling_median_kg": round(point.rolling_median_kg, 1),
+                        "n_window": point.n_window,
+                    }
+                    for point in trend
+                ],
+                "degraded": [
+                    {"date": point.date, "kg": round(point.estimate.kg, 1),
+                     "quality": point.estimate.quality}
+                    for point in degraded
+                ],
+                "summary": strength_trend_feature.summarize(points),
+            }
+        elif args.performance_action == "dose":
+            from_date = args.from_date or to_date
+            frame = queries.clean_sets(conn, start=from_date, end=to_date)
+            sessions = queries.sessions(conn, start=from_date, end=to_date)
+            buckets = []
+            for _, row in sessions.iterrows():
+                session_id = str(row["session_id"])
+                group = frame[frame["session_id"].astype(str).eq(session_id)] if not frame.empty else frame
+                work = group[group["is_working_set"].fillna(False).astype(bool)] if not group.empty else group
+                tonnage = pd.to_numeric(work.get("tonnage_kg"), errors="coerce").dropna().sum() if not work.empty else 0.0
+                buckets.append({
+                    "session_id": session_id,
+                    "date": str(row["occurred_on"])[:10],
+                    "session_type": row.get("session_type"),
+                    "working_sets": int(len(work)),
+                    "hard_sets": exposure_ratio_feature.hard_set_mask(
+                        work, exposure_ratio_feature.ExposureConfig.load()
+                    ).sum(),
+                    "tonnage_kg": round(float(tonnage), 1),
+                })
+            payload = {"from": from_date, "to": to_date, "group_by": "session", "buckets": buckets}
+        else:
+            relationships = relative_strength_feature.load_relationships()
+            if args.relationship:
+                relationships = [item for item in relationships if item.id == args.relationship]
+            payload = {
+                "from": args.from_date,
+                "to": to_date,
+                "basis": "raw_formula_epley_rir",
+                "relationships": [
+                    {
+                        "current": (
+                            value.as_dict()
+                            if hasattr((value := relative_strength_feature.current_ratio(conn, relationship, to_date)), "as_dict")
+                            else value
+                        ),
+                        "trend": relative_strength_feature.ratio_trend(
+                            conn, relationship, args.from_date, to_date
+                        ),
+                    }
+                    for relationship in relationships
+                ],
+            }
+        if args.json:
+            print(json.dumps(payload, indent=2, default=str))
+        else:
+            print(json.dumps(payload, indent=2, default=str))
         return 0
     finally:
         store.close()
@@ -2181,9 +2353,6 @@ def _cmd_block(args) -> int:
         repositories.append_athlete_profile(
             conn,
             effective_from=datetime.date.today().isoformat(),
-            primary_goal=current["primary_goal"],
-            goal_rank=json.loads(current["goal_rank"] or "[]"),
-            focus_lifts=json.loads(current["focus_lifts"] or "[]"),
             competition_date=current["competition_date"],
             sessions_per_week_target=current["sessions_per_week_target"],
             max_session_minutes=current["max_session_minutes"],
@@ -2282,12 +2451,20 @@ def _import_state(conn, path: Path, *, force: bool) -> int:
     if not profile:
         print("state file has no profile section")
         return 2
+    # These fields were removed because no decision read them (DEC-STATE-02). Reject a
+    # state file that still sets them rather than silently importing a promise we no longer keep.
+    retired = [
+        key for key in ("primary_goal", "goal_rank", "focus_lifts") if key in profile
+    ]
+    if retired:
+        print(
+            "profile no longer stores " + ", ".join(retired)
+            + "; remove those keys from the state file (DEC-STATE-02)"
+        )
+        return 2
     repositories.append_athlete_profile(
         conn,
         effective_from=str(profile.get("effective_from") or datetime.date.today().isoformat()),
-        primary_goal=str(profile["primary_goal"]),
-        goal_rank=profile.get("goal_rank") or [],
-        focus_lifts=profile.get("focus_lifts") or [],
         competition_date=profile.get("competition_date"),
         sessions_per_week_target=profile.get("sessions_per_week_target"),
         max_session_minutes=profile.get("max_session_minutes"),
@@ -2391,11 +2568,8 @@ def _print_state(conn) -> None:
         print("no athlete state recorded; run 'strength-coach state --import FILE'")
         return
     print("athlete profile")
-    print(f"  primary goal        {profile['primary_goal']}")
-    print(f"  goal rank           {profile['goal_rank']}")
-    print(f"  focus lifts         {profile['focus_lifts']}")
     print(f"  sessions/week       {profile['sessions_per_week_target']}")
-    print(f"  max session         {profile['max_session_minutes']} min")
+    print(f"  session target      {profile['max_session_minutes']} min")
     print(f"  block start         {profile['block_start_date'] or 'not declared'}")
     print(f"  volume budget       {'on' if profile.get('volume_budget_enabled') else 'off'}")
     print(f"  main-lift policy    {profile.get('main_lift_policy', 'preserve')}")
@@ -2599,6 +2773,10 @@ def _print_import(report) -> None:
 def _print_prescription(prescription) -> None:
     print(f"\nprescription {prescription.for_date}  "
           f"({session_identity.label(prescription.session_type)}, {prescription.fallback_level})")
+    session_time = (prescription.notes or {}).get("session_time") or {}
+    if session_time.get("estimated_minutes") is not None:
+        print(f"  estimated time: ~{session_time['estimated_minutes']:g} min "
+              "(planning estimate; excludes transitions and idle time)")
     show_velocity = any(item.velocity_target is not None for item in prescription.items)
     header = (f"  {'exercise':<24}{'sets':>5}{'reps':>8}{'load':>9}{'rir':>5}"
               + (f"{'vel':>7}" if show_velocity else "") + "  refs")

@@ -15,6 +15,7 @@ from conftest import make_readiness, make_training
 
 from strength_coach.prescribe import build_prescription, config
 from strength_coach.store import db, importer
+from strength_coach.web.server import _item_dict
 
 
 def store_with(rows):
@@ -107,6 +108,23 @@ def test_the_median_reports_what_it_summarised():
     assert any("median of" in warning for warning in prescription.warnings)
     # Five training days x three sets each, all inside the 28-day robust window.
     assert item.e1rm_source_sets == 15
+
+
+def test_plan_snapshot_carries_load_base_provenance_without_a_schema_row():
+    with store_with(history(OUTLIER_HISTORY)) as store:
+        item, prescription = prescribed(store, config.E1RM_MEDIAN)
+
+    assert item.e1rm_kg is not None
+    assert item.e1rm_ref.startswith("set:")
+    assert item.e1rm_quality == "ok"
+    assert item.e1rm_age_days is not None
+    assert "e1rm_kg" not in prescription.as_rows()[0]
+    assert "e1rm_ref" not in prescription.as_rows()[0]
+    payload = _item_dict(item)
+    assert payload["e1rm_kg"] is not None
+    assert payload["e1rm_ref"].startswith("set:")
+    assert payload["e1rm_quality"] == "ok"
+    assert payload["e1rm_age_days"] is not None
 
 
 def test_an_unknown_selector_is_rejected(tmp_path):

@@ -10,9 +10,6 @@ from strength_coach.web import validation
 
 
 def test_athlete_state_constants_match_the_schema_check_values():
-    assert set(athlete_state.GOALS) == {
-        "strength", "hypertrophy", "body_comp", "pain_free", "longevity", "competition",
-    }
     assert set(athlete_state.CONSTRAINT_KINDS) == {
         "injury", "contraindication", "mobility", "asymmetry",
     }
@@ -21,7 +18,7 @@ def test_athlete_state_constants_match_the_schema_check_values():
 
 def test_canonical_options_are_derived_from_the_taxonomy_and_config():
     options = options_mod.canonical_options()
-    assert [row["value"] for row in options["goals"]] == list(athlete_state.GOALS)
+    assert "goals" not in options
     assert {row["value"] for row in options["regions"]} >= {"low_back", "biceps", "knee"}
     assert "squat" in {row["value"] for row in options["patterns"]}
     assert "quadriceps" in {row["value"] for row in options["muscles"]}
@@ -30,8 +27,6 @@ def test_canonical_options_are_derived_from_the_taxonomy_and_config():
 
 
 @pytest.mark.parametrize(("value", "allowed", "field"), [
-    ("health", athlete_state.GOALS, "primary_goal"),
-    ("Strength", athlete_state.GOALS, "primary_goal"),
     ("rom", athlete_state.CONSTRAINT_KINDS, "kind"),
     ("preference", athlete_state.CONSTRAINT_KINDS, "kind"),
     ("blocked", athlete_state.SEVERITIES, "severity"),
@@ -42,7 +37,7 @@ def test_choice_rejects_unknown_values(value, allowed, field):
 
 
 def test_choice_returns_the_canonical_value():
-    assert validation.choice(" strength ", athlete_state.GOALS, "primary_goal") == "strength"
+    assert validation.choice(" injury ", athlete_state.CONSTRAINT_KINDS, "kind") == "injury"
 
 
 def test_list_choice_rejects_an_unknown_member():

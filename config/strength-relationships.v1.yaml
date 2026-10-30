@@ -1,0 +1,35 @@
+# Explicit relative-strength relationships.
+#
+# Each pair is a descriptive ratio between two raw session-best e1RM estimates. It is not a
+# weakness diagnosis, a target, or a population norm. PA-05/PA-06 are product assumptions.
+
+schema_version: "1.0.0"
+relationships:
+  - id: front_squat_to_competition_squat
+    label: Front squat / competition squat
+    numerator: front_squat
+    denominator: competition_squat
+    relationship_type: variant_to_main
+    max_gap_days: 14
+    max_age_days: 42
+    min_observations: 2
+    notes: Descriptive relative performance only; not a weakness diagnosis.
+
+  - id: narrow_bench_to_bench
+    label: Narrow-grip bench / bench press
+    numerator: bench_press_narrow
+    denominator: bench_press
+    relationship_type: equipment_variant
+    max_gap_days: 14
+    max_age_days: 42
+    min_observations: 2
+    notes: Descriptive relative performance only; not a weakness diagnosis.
+  - id: competition_squat_to_ssb_squat
+    label: Competition Squat / SSB Squat
+    numerator: competition_squat
+    denominator: ssb_squat
+    relationship_type: variant_to_main
+    max_gap_days: 14
+    max_age_days: 42
+    min_observations: 2
+    notes: Descriptive relative performance only; not a weakness diagnosis.

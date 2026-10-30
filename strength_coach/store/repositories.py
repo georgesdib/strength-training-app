@@ -551,9 +551,6 @@ def append_athlete_profile(
     conn: sqlite3.Connection,
     *,
     effective_from: str,
-    primary_goal: str,
-    goal_rank: Sequence[str],
-    focus_lifts: Sequence[str],
     competition_date: str | None = None,
     sessions_per_week_target: int | None = None,
     max_session_minutes: int | None = None,
@@ -562,7 +559,7 @@ def append_athlete_profile(
     main_lift_policy: str = "preserve",
     exposure_trim_enabled: bool | None = None,
 ) -> None:
-    """Append a profile version. A reset or a goal change is a new row (DEC-RAMP-01).
+    """Append a profile version. A reset or a profile change is a new row (DEC-RAMP-01).
 
     An omitted exposure-trim flag inherits the current value: a profile edit that does not
     mention the switch must not silently turn it off (DEC-EXPOSURE-02).
@@ -577,18 +574,14 @@ def append_athlete_profile(
         exposure_trim_enabled = bool(row["exposure_trim_enabled"]) if row is not None else False
     conn.execute(
         """
-        INSERT INTO athlete_profile (effective_from, primary_goal, goal_rank, focus_lifts,
-                                     competition_date, sessions_per_week_target,
-                                     max_session_minutes, block_start_date,
-                                     volume_budget_enabled, main_lift_policy,
-                                     exposure_trim_enabled)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO athlete_profile (effective_from, competition_date,
+                                     sessions_per_week_target, max_session_minutes,
+                                     block_start_date, volume_budget_enabled,
+                                     main_lift_policy, exposure_trim_enabled)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             effective_from,
-            primary_goal,
-            _json(list(goal_rank)),
-            _json(list(focus_lifts)),
             competition_date,
             sessions_per_week_target,
             max_session_minutes,
@@ -1165,11 +1158,17 @@ def append_session_feedback(
     session_id: str,
     srpe: float | None = None,
     duration_min: float | None = None,
+    productivity: int | None = None,
     note: str | None = None,
 ) -> str:
     """Append optional post-session feedback; latest row per session wins at read time."""
-    if srpe is None and duration_min is None and not (note or "").strip():
-        raise ValueError("at least one of srpe, duration_min or note is required")
+    if (
+        srpe is None
+        and duration_min is None
+        and productivity is None
+        and not (note or "").strip()
+    ):
+        raise ValueError("at least one of srpe, duration_min, productivity or note is required")
     if srpe is not None:
         srpe = float(srpe)
         if not 1 <= srpe <= 10:
@@ -1178,13 +1177,21 @@ def append_session_feedback(
         duration_min = float(duration_min)
         if not 0 < duration_min <= 600:
             raise ValueError("session length must be between 0 and 600 minutes")
+    if productivity is not None:
+        productivity = int(productivity)
+        if not 1 <= productivity <= 5:
+            raise ValueError("productivity must be between 1 and 5")
     feedback_id = uuid.uuid4().hex
     conn.execute(
         """
-        INSERT INTO session_feedback (feedback_id, session_id, srpe, duration_min, note)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO session_feedback
+            (feedback_id, session_id, srpe, duration_min, productivity, note)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (feedback_id, str(session_id), srpe, duration_min, (note or "").strip() or None),
+        (
+            feedback_id, str(session_id), srpe, duration_min, productivity,
+            (note or "").strip() or None,
+        ),
     )
     return feedback_id
 

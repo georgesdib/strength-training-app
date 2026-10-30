@@ -8,12 +8,9 @@
 
 profile:
   effective_from: "YYYY-MM-DD"
-  primary_goal: longevity          # or strength / hypertrophy / body_comp / pain_free / competition
-  goal_rank: [longevity, strength] # tie-breaker order
-  focus_lifts: []                  # canonical ids that matter most, if any
   competition_date: null
   sessions_per_week_target: 3
-  max_session_minutes: 90
+  max_session_minutes: 80         # session-time target; may be raised or lowered
   # Week 1 of the erector ramp. Leave null until the athlete declares it (DEC-RAMP-01).
   block_start_date: null
   # Off by default. On changes accessory sets only; main lifts stay at template sets.

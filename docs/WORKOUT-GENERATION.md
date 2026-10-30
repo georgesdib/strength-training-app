@@ -104,7 +104,7 @@ For current rules and caveats, see [`INJURY-SIGNAL.md`](INJURY-SIGNAL.md). Seek 
 
 Where supported, the user can choose a minimum-session option to make a workout more feasible when time is limited. This is a planning aid, not a measured guarantee of session duration. The standard tier removes non-essential accessory work first; a deeper tier may reduce main-lift sets to the configured floor. It preserves load and RIR targets and cannot override hard constraints.
 
-The time estimate depends on template time budgets, work slots and configured assumptions. Actual duration is only captured when recorded, such as in live workout mode. See [`MINIMUM-SESSION.md`](MINIMUM-SESSION.md).
+The time estimate depends on template time budgets, work slots and configured assumptions. The generated prescription and active workout show it at the top as a planning estimate; it excludes transitions and idle time. Actual duration is only captured when recorded, such as in live workout mode. See [`MINIMUM-SESSION.md`](MINIMUM-SESSION.md).
 
 ## 10. What calibration does—and does not do
 
@@ -142,7 +142,7 @@ This example is generated from a deterministic synthetic fixture, [`tests/fixtur
 The block below is rendered from the actual `build_prescription` output by [`tools/workout_generation_example.py`](../tools/workout_generation_example.py). Do not edit it by hand: after a template, threshold or engine change run `python tools/workout_generation_example.py --write`. [`tests/test_workout_generation_doc.py`](../tests/test_workout_generation_doc.py) fails when the committed block is stale.
 
 <!-- BEGIN GENERATED WORKOUT EXAMPLE -->
-<!-- source:sha256:975f0c7fb766b2e1 -->
+<!-- source:sha256:e4cd31c1995d361e -->
 
 ### 12.1 Inputs
 

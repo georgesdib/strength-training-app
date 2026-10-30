@@ -61,7 +61,10 @@ def _latest(conn, task_key: str) -> dict | None:
 
 def snooze_days(task_key: str) -> int:
     config = _config()
-    if task_key in {"readiness_thresholds", "exercise_substitution", "fatigue_signals"}:
+    if task_key in {
+        "readiness_thresholds", "exercise_substitution", "fatigue_signals",
+        "phase5a_review",
+    }:
         return int((config.get(task_key) or {}).get("snooze_days", 14))
     raise ValueError(f"no snooze policy for {task_key!r}")
 
@@ -84,6 +87,8 @@ def _task(conn, key: str, on_date: str, config: dict) -> ReviewTask:
         return _baseline_task(conn, on_date, cfg)
     if key == "back_pattern":
         return _back_task(conn, on_date, cfg)
+    if key == "phase5a_review":
+        return _phase5a_task(conn, on_date, cfg)
     raise ValueError(f"unknown review task {key!r}")
 
 
@@ -125,6 +130,48 @@ def _periodic_task(
         tuple(cfg.get("dont") or ()), str(cfg.get("doc", "")), True,
         {"last_completed": completed, "interval_weeks": cfg.get("interval_weeks", 12),
          "sessions_since": sessions_since},
+    )
+
+
+def _phase5a_task(conn, on_date: str, cfg: dict) -> ReviewTask:
+    """Explicit Phase 5A gate; never starts Phase 5B or changes monitoring."""
+    start = str(cfg.get("start_date", "2026-10-30"))
+    due = str(cfg.get("due_date", "2027-01-22"))
+    last = _latest(conn, "phase5a_review")
+    if last and last["action"] == "completed":
+        return ReviewTask(
+            "phase5a_review", str(cfg.get("label", "Phase 5A — Prospective validation review")),
+            "roadmap", "completed", due,
+            f"Completed {last['reviewed_on']}; decision {last.get('decision')}.",
+            str(cfg.get("why", "")), tuple(cfg.get("steps") or ()),
+            tuple(cfg.get("dont") or ()), str(cfg.get("doc", "")), True,
+            {"start_date": start, "due_date": due, "last_completed": last.get("reviewed_on"),
+             "decision": last.get("decision")},
+        )
+    if last and last["action"] == "snoozed" and str(last["snoozed_until"]) >= on_date:
+        return ReviewTask(
+            "phase5a_review", str(cfg.get("label", "Phase 5A — Prospective validation review")),
+            "roadmap", "snoozed", str(last["snoozed_until"]),
+            f"Snoozed until {last['snoozed_until']}.",
+            str(cfg.get("why", "")), tuple(cfg.get("steps") or ()),
+            tuple(cfg.get("dont") or ()), str(cfg.get("doc", "")), True,
+            {"start_date": start, "due_date": due, "last_completed": None},
+        )
+    if on_date < start:
+        status = "planned"
+        summary = f"Planned to start {start}; due {due}."
+    elif on_date >= due:
+        status = "attention"
+        summary = f"Phase 5A review is due (window ended {due})."
+    else:
+        status = "due"
+        summary = f"Phase 5A observation window is active until {due}; review remains pending."
+    return ReviewTask(
+        "phase5a_review", str(cfg.get("label", "Phase 5A — Prospective validation review")),
+        "roadmap", status, due, summary, str(cfg.get("why", "")),
+        tuple(cfg.get("steps") or ()), tuple(cfg.get("dont") or ()),
+        str(cfg.get("doc", "")), True,
+        {"start_date": start, "due_date": due, "last_completed": None},
     )
 
 
@@ -264,7 +311,7 @@ def status(conn, on_date: str) -> dict:
     for key in (
         "readiness_thresholds", "exercise_substitution", "fatigue_signals",
         "rubric_labels", "strength_test", "srpe_coverage", "readiness_baseline",
-        "back_pattern",
+        "back_pattern", "phase5a_review",
     ):
         tasks.append(_task(conn, key, on_date, config).as_dict())
     profile = queries.athlete_profile(conn) or {}

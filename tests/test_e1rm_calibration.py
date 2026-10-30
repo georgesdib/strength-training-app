@@ -141,6 +141,17 @@ def test_the_prescription_applies_the_calibrated_factor_and_cites_it():
     assert any("e1RM calibrated" in warning for warning in prescription.warnings)
 
 
+def test_fixed_measured_test_fixture_keeps_exact_factor_and_applied_flag():
+    with _store_with_three_tests() as store:
+        factors = e1rm_calibration.factors(store.connection, "2024-04-02", window_days=84)
+
+    row = factors["ssb_squat"]
+    assert row.correction_factor == 1.0135135135135134
+    assert row.correction_applied is True
+    assert row.ci_low == 1.0135135135135134
+    assert row.ci_high == 1.0135135135135134
+
+
 def test_formula_only_lifts_are_still_shown_with_their_current_e1rm():
     with store_with_sets() as store:
         report = e1rm_calibration.build(store.connection, as_of="2024-01-02")

@@ -13,13 +13,19 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**v1.0 beta is released; v1.1 is planned.** v1.0 packages the workable app and guided Workflow
-UI for user testing. v1.1 drops the beta label; cardio depth and comparable calibration data
-remain (see ROADMAP §4.13a/§4.14).
+**v1.1 beta is released; v1.2 is planned.** v1.0 packaged the workable app and guided Workflow
+UI for user testing. v1.1 beta adds the Performance and monitoring-analysis surfaces. v1.2 is
+planned to drop the beta label; cardio depth and comparable calibration data remain (see
+ROADMAP §4.13a/§4.14).
 
 **Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
 expensive to reverse.
+
+**Working branch:** all development happens on the `development` branch unless the owner
+explicitly says otherwise. Commit and push development there, not to `main`. Keep the same CI
+workflow files as `main`; branch protection and workflow triggers decide what runs, not
+divergent files.
 
 What exists today is:
 
@@ -209,6 +215,7 @@ never read `data/raw`.
 | `docs/FORM-USE-EVIDENCE.md` | form evidence review, retrospective association and allowed uses |
 | `docs/FREQUENCY-AND-VOLUME.md` | reproduced `programme --sessions-per-week` behaviour, existing volume rules, evidence and the closed Q26 dates-only decision |
 | `docs/VOLUME-MODULATION-PLAN.md` | implemented and closed weekly target/session cap volume budget, exemptions, effective accounting and modality layer |
+| `docs/VOLUME-BUDGET.md` | operator guide to the consolidated Volume budget panel: targets, caps, floors, policy, drop, compensation, profile storage and validation |
 | `docs/FORM-ASSESSMENT.md` | optional per-lift 1-5 form assessment; Workout/History and rubric 1.2.0 |
 | `docs/REGIME-CHANGE.md` | read-only main-lift/substitute regime check; thresholds and limits |
 | `docs/AUDIT-CLOSEOUT.md` | final W0–W12 audit outcome, implemented fixes and remaining limitations |
@@ -256,6 +263,7 @@ never read `data/raw`.
 | `docs/WEAKNESS-TARGETING-PLAN.md` | gated weakness metric, retrospective screen and N-of-1 test plan |
 | `docs/LLM-INTEGRATION-PLAN.md` | future LLM analyst/explainer/constrained-proposer architecture: Iteration 1 (practical capabilities, selector retirement), conditional Iteration 2 (retrieval/RAG/advanced orchestration), shared context/evidence contracts, approval, privacy and evaluation gates; plan only |
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
+| `docs/MONITORING-ANALYSIS.md` | read-only exploratory monitoring analysis: dose, lagged associations, calibration transparency, API/UI/CLI, non-causal limits and privacy |
 | `docs/WORKOUT-GENERATION.md` | Plain-English explanation of the deterministic prescription pipeline, inputs, modifiers, validation and limitations |
 | `docs/UI-CLI-PARITY.md` | current first-class parity, intentional differences and remaining gaps |
 | `docs/UI-MAP.md` | web UI surface map: panels, routes, docs links and the behaviour each panel exposes |

@@ -21,7 +21,7 @@ LLM call fails entirely.
 
 ## Status
 
-**v1.0 beta is released; v1.1 is planned.** The full slice runs:
+**v1.1 beta is released; v1.2 is planned.** The full slice runs:
 import → readiness → prescribe a day → critique the last session → review it → calibrate. Days
 are prescribable through rolling session types (squat, hinge, bench+squat, bench+hinge); athlete
 state, constraints, suitability, e1RM overrides, symptoms and the exercise catalogue are editable
@@ -33,9 +33,11 @@ continuity calibration, cardio capture, measurements, session RPE/length, recent
 per-lift readiness, e1RM calibration/decay, rolling session types, readiness volume valve,
 weekly volume ledger/MRV cap, exercise selection with A/B/C *variant* comparability, and the local web UI
 with import, state, Programme, Exercises and calibration reports (the Terminal page was removed in 2026-10-28, `DEC-WEB-02`). v0.3 and v0.4 are
-complete. v0.4 packaged the audit, documentation and form closeout. **v1.0 beta** packages the
-workable app and guided Workflow UI for user testing. v1.1 will drop the beta label; the cardio
-capture audit, a reproducible cardio impulse/shadow load and comparable calibration depth remain
+complete. v0.4 packaged the audit, documentation and form closeout. **v1.0 beta** packaged the
+workable app and guided Workflow UI for user testing. **v1.1 beta** adds the raw Performance
+view, configured relative-strength ratios, read-only monitoring analysis and the Phase 5A
+review follow-up. v1.2 is planned to drop the beta label; the cardio capture audit, a
+reproducible cardio impulse/shadow load and comparable calibration depth remain
 (ROADMAP §4.13a/§4.14). Prospective validation
 remains a future gate, not an active candidate; review follow-ups are in ROADMAP §4.20.
 See [ROADMAP.md](ROADMAP.md).

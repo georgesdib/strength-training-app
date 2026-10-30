@@ -16,13 +16,25 @@ import uuid
 from collections.abc import Mapping
 from typing import Any
 
+import pandas as pd
+
 from strength_coach import __version__
 from strength_coach.critique import build_facts, score_session
 from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.domain import load as load_mod
+from strength_coach.features import comparisons as comparisons_feature
+from strength_coach.features import demands as demands_feature
+from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import e1rm_decay as e1rm_decay_feature
+from strength_coach.features import e1rm_source as e1rm_source_feature
+from strength_coach.features import heavy_spinal, monitoring, strength_observations
+from strength_coach.features import relative_strength as relative_strength_feature
+from strength_coach.features import session_feedback as session_feedback_feature
+from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import session_identity
-from strength_coach.store import db, repositories
+from strength_coach.rules import RuleContext, load_document, registry
+from strength_coach.store import db, queries, repositories
 from strength_coach.utils import exercises
 
 REQUIRED_READINESS = (
@@ -162,6 +174,441 @@ def get(conn, workout_id: str) -> dict | None:
     data["original_comparison"] = _comparison({**data, "plan": original})
     data["minimum_session"] = _minimum_session_summary(data)
     return data
+
+
+class WorkoutNotCompleted(ValueError):
+    """A summary is available only after the workout has been materialised."""
+
+
+def _unavailable_dict(value) -> dict[str, Any]:
+    return value.as_dict() if hasattr(value, "as_dict") else {"status": "unavailable"}
+
+
+def _summary_value(value):
+    return value.as_dict() if hasattr(value, "as_dict") else value
+
+
+def _summary_session_exposures(conn, session_id: str) -> tuple[dict[int, str], list[dict[str, Any]]]:
+    rows = [
+        dict(row)
+        for row in conn.execute(
+            "SELECT * FROM high_intensity_exposure WHERE session_id = ? "
+            "ORDER BY performed_on, exposure_id",
+            (str(session_id),),
+        )
+    ]
+    linked = {
+        int(row["set_id"]): str(row["kind"])
+        for row in rows
+        if row.get("set_id") is not None
+    }
+    return linked, rows
+
+
+def _summary_is_power(exercise_id: str, entities: Mapping[str, Any], config) -> bool:
+    return str(entities.get(exercise_id, {}).get("pattern") or "") == config.power_pattern
+
+
+def _summary_ordinary_sets(
+    frame: pd.DataFrame,
+    *,
+    excluded_set_kinds: Mapping[int, str],
+    entities: Mapping[str, Any],
+    config,
+) -> pd.DataFrame:
+    if frame is None or frame.empty:
+        return frame
+    work = frame[frame["is_working_set"].fillna(False).astype(bool)]
+    if "set_id" in work.columns and excluded_set_kinds:
+        work = work[~work["set_id"].astype(int).isin(set(excluded_set_kinds))]
+    if not work.empty:
+        work = work[
+            ~work["exercise_id"].astype(str).map(
+                lambda exercise_id: _summary_is_power(exercise_id, entities, config)
+            )
+        ]
+    return work
+
+
+def _summary_load_bases(
+    conn,
+    workout: Mapping[str, Any],
+    sets: pd.DataFrame,
+    entities: Mapping[str, Any],
+    *,
+    for_date: str,
+) -> tuple[dict[str, float], dict[str, dict[str, Any]]]:
+    """Plan provenance first; strict pre-session recomputation only when it is absent."""
+    values: dict[str, float] = {}
+    info: dict[str, dict[str, Any]] = {}
+    plan_items = {
+        str(item.get("exercise_id")): item
+        for item in (workout.get("plan") or {}).get("items") or []
+    }
+    missing = []
+    for exercise_id in sorted(
+        set(plan_items) | set(sets["exercise_id"].astype(str)) if not sets.empty else set(plan_items)
+    ):
+        item = plan_items.get(exercise_id) or {}
+        provenance = item.get("e1rm_kg")
+        if provenance not in (None, "") and float(provenance) > 0:
+            values[exercise_id] = float(provenance)
+            info[exercise_id] = {
+                "kg": round(float(provenance), 1),
+                "source": "plan_snapshot",
+                "ref": item.get("e1rm_ref"),
+                "quality": item.get("e1rm_quality"),
+                "age_days": item.get("e1rm_age_days"),
+            }
+        else:
+            missing.append(exercise_id)
+
+    if not missing:
+        return values, info
+
+    context = RuleContext.from_store(conn, end=for_date).prior_to(for_date)
+    thresholds = prescribe_config.Thresholds.load()
+    factors = e1rm_calibration_feature.factors(
+        conn, for_date, window_days=thresholds.e1rm_window_days
+    )
+    for exercise_id in missing:
+        calibration = factors.get(exercise_id)
+        factor = 1.0 if calibration is None else float(calibration.correction_factor)
+        estimate = e1rm_source_feature.select_load_base(
+            context.sets,
+            exercise_id=exercise_id,
+            for_date=for_date,
+            window_days=thresholds.e1rm_window_days,
+            robust_window_days=thresholds.e1rm_robust_window_days,
+            source=thresholds.e1rm_source,
+            override=queries.e1rm_override(conn, exercise_id, for_date),
+            calibration_factor=factor,
+            decay_factor=lambda age: (
+                1.0 if context.gap_days is not None and context.gap_days >= 28
+                else e1rm_decay_feature.factor(age)
+            ),
+            history_equivalents=exercises.history_equivalents(exercise_id),
+        )
+        if estimate is not None:
+            values[exercise_id] = estimate.kg
+            info[exercise_id] = {
+                "kg": round(estimate.kg, 1),
+                "source": "reconstructed",
+                "ref": estimate.ref,
+                "quality": estimate.quality,
+                "age_days": estimate.age_days,
+            }
+        else:
+            info[exercise_id] = {"kg": None, "source": "unavailable"}
+    return values, info
+
+
+def _summary_strength(
+    conn,
+    session_id: str,
+    for_date: str,
+    sets: pd.DataFrame,
+    entities: Mapping[str, Any],
+    excluded_set_kinds: Mapping[int, str],
+    config,
+) -> list[dict[str, Any]]:
+    exercises = sorted({str(value) for value in sets["exercise_id"]}) if not sets.empty else []
+    rows: list[dict[str, Any]] = []
+    for exercise_id in exercises:
+        props = dict(entities.get(exercise_id, {}))
+        post = strength_observations.session_best(
+            sets, session_id, exercise_id, props,
+            excluded_set_kinds=excluded_set_kinds,
+        )
+        observations = strength_observations.session_observations(
+            sets, exercise_id, before_date=for_date, cutoff_session_id=session_id,
+            excluded_set_kinds=excluded_set_kinds,
+        )
+        reference = strength_observations.recent_reference(
+            observations,
+            n=config.recent_observations,
+            max_age_days=config.recent_max_age_days,
+            as_of=for_date,
+        )
+        best = strength_observations.best_recent(
+            observations, max_age_days=config.recent_max_age_days, as_of=for_date
+        )
+        personal = strength_observations.personal_best(observations)
+        if isinstance(post, strength_observations.RawEstimate):
+            personal = strength_observations.personal_best(
+                observations + [strength_observations.SessionObservation(
+                    exercise_id=exercise_id,
+                    session_id=session_id,
+                    occurred_on=post.occurred_on,
+                    estimate=post,
+                )]
+            )
+        difference = strength_observations.difference_vs_recent(post, reference)
+        excluded = []
+        for row in sets[sets["exercise_id"].astype(str).eq(exercise_id)].to_dict("records"):
+            result = strength_observations.raw_set_e1rm(
+                row, props, excluded_set_kinds=excluded_set_kinds
+            )
+            if isinstance(result, strength_observations.Unavailable):
+                excluded.append({"set_id": row.get("set_id"), "reason": result.reason})
+            elif result.quality != strength_observations.QUALITY_OK:
+                excluded.append({"set_id": row.get("set_id"), "reason": "degraded"})
+        rows.append({
+            "exercise_id": exercise_id,
+            "post": _unavailable_dict(post),
+            "recent_reference": _unavailable_dict(reference),
+            "best_recent": _unavailable_dict(best),
+            "personal_best": _unavailable_dict(personal),
+            "difference": difference.as_dict(),
+            "excluded": excluded,
+        })
+    return rows
+
+
+def _summary_feedback(conn, workout: Mapping[str, Any], session_id: str) -> dict[str, Any]:
+    merged = session_feedback_feature.merged(conn, session_id) or {}
+    session_row = conn.execute(
+        "SELECT session_rpe, duration_min, duration_basis FROM session WHERE session_id = ?",
+        (str(session_id),),
+    ).fetchone()
+    srpe = merged.get("srpe")
+    if srpe is None and session_row is not None:
+        srpe = session_row["session_rpe"]
+    if srpe is None:
+        srpe = workout.get("session_rpe")
+    duration = merged.get("duration_min")
+    if duration is None and session_row is not None:
+        duration = session_row["duration_min"]
+    if duration is None:
+        duration = workout.get("duration_min")
+    duration_source = workout.get("duration_source") or (
+        None if session_row is None else session_row["duration_basis"]
+    )
+    load = monitoring.session_load({"srpe": srpe, "duration_min": duration})
+    return {
+        "srpe": None if srpe is None else float(srpe),
+        "duration_min": None if duration is None else float(duration),
+        "duration_source": duration_source,
+        "session_load_au": None if isinstance(load, monitoring.Unavailable) else float(load),
+        "session_load_status": load.as_dict() if isinstance(load, monitoring.Unavailable) else "observed",
+        "productivity": merged.get("productivity"),
+        "sources": merged.get("sources", {}),
+    }
+
+
+def _summary_power_velocity(
+    sets: pd.DataFrame,
+    exercises: list[str],
+) -> list[dict[str, Any]]:
+    """Expose the existing same-load mean-velocity helper for power exercise/load pairs."""
+    rows: list[dict[str, Any]] = []
+    for exercise_id in exercises:
+        work = sets[sets["exercise_id"].astype(str).eq(exercise_id)] if not sets.empty else sets
+        loads = sorted({
+            float(value)
+            for value in pd.to_numeric(work.get("load_kg"), errors="coerce").dropna()
+            if float(value) > 0
+        }) if not work.empty else []
+        for load_kg in loads:
+            result = monitoring.mean_velocity_change(sets, exercise_id, load_kg)
+            if isinstance(result, monitoring.VelocityChange):
+                rows.append(result.as_dict())
+            else:
+                rows.append({
+                    "exercise_id": exercise_id,
+                    "load_kg": load_kg,
+                    "status": result.status,
+                    "reason": result.reason,
+                })
+    return rows
+
+
+def _summary_quality_stop(conn, workout_id: str) -> dict[str, Any]:
+    """A quality stop is recorded only if an explicit event exists; never inferred."""
+    rows = [
+        dict(row)
+        for row in conn.execute(
+            "SELECT event_type, payload_json FROM workout_event "
+            "WHERE workout_id = ? AND event_type = 'quality_stop' ORDER BY event_id",
+            (str(workout_id),),
+        )
+    ]
+    if not rows:
+        return {"status": "not_recorded"}
+    return {
+        "status": "recorded",
+        "events": [
+            {"event_type": row["event_type"], "payload": json.loads(row["payload_json"] or "{}")}
+            for row in rows
+        ],
+    }
+
+
+def _summary_special(
+    conn,
+    workout: Mapping[str, Any],
+    session_id: str,
+    sets: pd.DataFrame,
+    entities: Mapping[str, Any],
+    config,
+    linked_exposures: list[dict[str, Any]],
+) -> dict[str, Any]:
+    for_date = str(workout["for_date"])
+    context = RuleContext.from_store(conn, end=for_date)
+    rule = load_document().rule("PRG-SPINE-001")
+    costs = registry.weekly_spinal_costs(rule, context)
+    week = registry.iso_week(for_date)
+    weekly = costs.get(week, {"cost": 0.0, "exercises": {}})
+    heavy = heavy_spinal.compute(context.sets, on_date=for_date)
+    demand_catalogue = demands_feature.load()
+    power = monitoring.power_exposure(sets, entities, config)
+    power["mean_velocity_change"] = _summary_power_velocity(sets, power.get("exercises", []))
+    return {
+        "power": power,
+        "quality_stop": _summary_quality_stop(conn, session_id),
+        "high_intensity": [
+            {
+                "exposure_id": row.get("exposure_id"),
+                "kind": row.get("kind"),
+                "exercise_id": row.get("exercise_id"),
+                "set_id": row.get("set_id"),
+                "test_type": row.get("test_type"),
+                "performed_on": row.get("performed_on"),
+            }
+            for row in linked_exposures
+        ],
+        "spinal": {
+            **monitoring.spinal_summary({week: weekly}, session_id),
+            "week": week,
+            "weekly_cost": float(weekly.get("cost", 0.0)),
+            "weekly_cap": float(rule.params.get("cap", 0)),
+            "heavy_sets": heavy,
+            "axial_demand": monitoring.axial_demand_counts(sets, demand_catalogue),
+            "label": "ordinal exposure, not lumbar load",
+        },
+    }
+
+
+def summary(conn, workout_id: str) -> dict[str, Any]:
+    """Read-only descriptive summary for a completed workout.
+
+    Sections 1-5 only. No historical comparability, ratios or longitudinal trend is computed
+    in Phase 2. Raw performance is formula-derived; load-base provenance is used only for
+    relative intensity.
+    """
+    data = get(conn, workout_id)
+    if data is None:
+        raise ValueError("workout not found")
+    if data.get("status") != "completed":
+        raise WorkoutNotCompleted("workout must be completed before a summary is available")
+    session_id = str(data["workout_id"])
+    for_date = str(data["for_date"])
+    frame = queries.clean_sets(conn, start=for_date, end=for_date)
+    if not frame.empty:
+        frame = frame[frame["session_id"].astype(str).eq(session_id)].copy()
+    entities = exercises.taxonomy().entities
+    config = monitoring.MonitoringConfig.load()
+    excluded_set_kinds, linked_exposures = _summary_session_exposures(conn, session_id)
+    ordinary = _summary_ordinary_sets(
+        frame, excluded_set_kinds=excluded_set_kinds, entities=entities, config=config
+    )
+    load_values, load_info = _summary_load_bases(
+        conn, data, frame, entities, for_date=for_date
+    )
+    relative = monitoring.relative_intensity_distribution(
+        frame,
+        load_values,
+        config,
+        taxonomy=entities,
+        excluded_set_kinds=excluded_set_kinds,
+    )
+    actual_ids = sorted({str(value) for value in frame["exercise_id"]}) if not frame.empty else []
+    per_exercise = []
+    for exercise_id in actual_ids:
+        exercise_sets = frame[frame["exercise_id"].astype(str).eq(exercise_id)]
+        per_exercise.append({
+            "exercise_id": exercise_id,
+            "sets": int(len(exercise_sets[exercise_sets["is_working_set"].fillna(False).astype(bool)])),
+            "reps": _summary_value(monitoring.completed_reps(exercise_sets, session_id)),
+            "tonnage_kg": _summary_value(monitoring.exercise_tonnage(exercise_sets, exercise_id)),
+            "hard_sets": monitoring.hard_sets(exercise_sets),
+            "near_failure_sets": monitoring.near_failure_sets(exercise_sets),
+            "load_base": load_info.get(exercise_id, {"kg": None, "source": "unavailable"}),
+        })
+    completion = dict(data.get("comparison") or {})
+    completion["planned_sets"] = sum(
+        int(item.get("planned_sets") or 0) for item in completion.get("items") or []
+    )
+    completion["completed_sets"] = sum(
+        int(item.get("actual_sets") or 0) for item in completion.get("items") or []
+    )
+    feedback = _summary_feedback(conn, data, session_id)
+    strength = _summary_strength(
+        conn, session_id, for_date, frame, entities, excluded_set_kinds, config
+    )
+    special = _summary_special(
+        conn, data, session_id, frame, entities, config, linked_exposures
+    )
+    comparison = comparisons_feature.comparable_sessions(
+        conn,
+        session_id,
+        window_days=config.comparability_window_weeks * 7,
+        min_overlap=config.comparability_min_overlap,
+        min_prior_sessions=config.comparability_min_prior_sessions,
+    )
+    ratios = []
+    selected_ids = set(actual_ids)
+    for relationship in relative_strength_feature.load_relationships():
+        if (
+            relationship.numerator in selected_ids
+            or relationship.denominator in selected_ids
+        ):
+            ratios.append(relative_strength_feature.current_ratio(conn, relationship, for_date))
+        if len(ratios) >= 2:
+            break
+    working = frame[frame["is_working_set"].fillna(False).astype(bool)] if not frame.empty else frame
+    rir_coverage = (
+        float(working["rir"].notna().mean()) if not working.empty else None
+    )
+    raw_ok = sum(
+        1 for item in strength
+        if item.get("post", {}).get("status") == strength_observations.STATUS_ESTIMATED
+    )
+    payload = {
+        "workout_id": data["workout_id"],
+        "session_id": session_id,
+        "for_date": for_date,
+        "session_type": data.get("session_type"),
+        "status": data.get("status"),
+        "completion": completion,
+        "strength": strength,
+        "dose": {
+            "per_exercise": per_exercise,
+            "relative_intensity": relative,
+            "rir": monitoring.rir_distribution(ordinary),
+            "patterns": monitoring.pattern_distribution(ordinary, entities),
+        },
+        "special": special,
+        "feedback": feedback,
+        "ratios": [
+            value.as_dict() if hasattr(value, "as_dict") else value
+            for value in ratios
+        ],
+        "comparison": comparison,
+        "quality": {
+            "flags": [],
+            "coverage": {
+                "rir": rir_coverage,
+                "e1rm": None if not strength else raw_ok / len(strength),
+            },
+        },
+        "basis": {
+            "performance": "raw_formula_epley_rir",
+            "decay": "not_applied",
+            "calibration": "not_applied",
+        },
+    }
+    return payload
 
 
 def _minimum_session_summary(workout: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -1027,7 +1474,8 @@ def _comparison(workout: Mapping[str, Any]) -> dict:
 
 def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: float,
                  duration_source: str, session_rpe: float | None,
-                 session_rpe_recorded: bool, notes: str | None) -> None:
+                 session_rpe_recorded: bool, notes: str | None,
+                 productivity: int | None = None) -> None:
     """Write the completed workout into session/clean_set once.
 
     The workout is the draft; the normal session is the durable record that reports and
@@ -1148,10 +1596,11 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
                 (int(clean_cursor.lastrowid), int(rep["rep_index"]),
                  float(rep["velocity_mps"]), str((detail or {}).get("source") or "import")),
             )
-    if session_rpe is not None or notes:
+    if session_rpe is not None or notes or productivity is not None:
         repositories.append_session_feedback(
             conn, session_id=workout_id, srpe=session_rpe,
-            duration_min=duration if duration > 0 else None, note=notes,
+            duration_min=duration if duration > 0 else None,
+            productivity=productivity, note=notes,
         )
 
 
@@ -1162,6 +1611,7 @@ def end(
     session_rpe: float | None,
     not_recorded: bool = False,
     duration_min: float | None = None,
+    productivity: int | None = None,
     notes: str | None = None,
 ) -> dict:
     workout = get(conn, workout_id)
@@ -1193,6 +1643,7 @@ def end(
         _materialise(
             conn, workout, ended=ended, duration=duration, duration_source=source,
             session_rpe=rpe, session_rpe_recorded=not not_recorded, notes=notes,
+            productivity=productivity,
         )
         # A technique session is attendance only: it has no template and no normal rubric.
         critique_id = (None if session_identity.is_technique(workout["session_type"])
@@ -1210,7 +1661,8 @@ def end(
         )
         _event(conn, workout_id, "end", {"duration_min": duration,
                                           "session_rpe": rpe,
-                                          "not_recorded": bool(not_recorded)})
+                                          "not_recorded": bool(not_recorded),
+                                          "productivity": productivity})
     return get(conn, workout_id)
 
 

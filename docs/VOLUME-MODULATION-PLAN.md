@@ -22,7 +22,8 @@ declared in constitution 1.16.0; it only runs when the athlete profile enables i
 document yet (`DEC-VOLUME-06`, `DEC-VOLUME-07`).
 
 Related: [FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md),
-Q26 in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), LIM-51 in [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md).
+operator guide [VOLUME-BUDGET.md](VOLUME-BUDGET.md), Q26 in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md),
+LIM-51 in [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md).
 
 ---
 
@@ -127,8 +128,9 @@ Three caps, whichever binds first:
    vertical pull 5, core 6, hinge unilateral 5.** These are roughly `ceil(weekly_target / 2)`
    rounded up, and never above the pattern's weekly MRV.
 3. **Time.** The existing estimator (`sets × (30 s + rest_s)`, plus warm-ups) must stay within
-   the athlete's `max_session_minutes` (80 planned, 90 hard). If the set cap would exceed the
-   time cap, the time cap wins and the plan reports the set count achieved.
+   the athlete's `max_session_minutes` (default 80; the athlete may raise or lower it). If the
+   set cap would exceed the time target, the time target wins and the plan reports the set count
+   achieved.
 
 At 63 weekly sets and a 30-set cap, **three sessions are needed**; a two-session week is now
 flagged as infeasible instead of being silently overloaded (at the original 57, two sessions
@@ -369,12 +371,13 @@ hidden allocation threshold):
 | `top_up_max_sets_per_item` | 8 | per-item top-up ceiling |
 | `set_seconds` | 30 | execution seconds per set in the time estimate |
 | `warmup_estimate_minutes` | 5 | planning warm-up allowance |
-| `session_time_cap_minutes` | 80 | upper bound for the budget time cap |
+| `session_time_cap_minutes` | 80 | fallback budget time cap when the profile has no session target |
 
 The profile adds only `volume_budget_enabled` (authoritative on/off),
-`main_lift_policy` (`preserve`/`reduce`/`drop`), and `max_session_minutes`, which can
-only **lower** the config time ceiling. The engine's own planned-minutes ceiling may be lower
-still. Nothing in the allocation is hardcoded except the rule IDs and the safety-reference set.
+`main_lift_policy` (`preserve`/`reduce`/`drop`), and `max_session_minutes`, which sets
+the session time target and may raise or lower the budget fallback. The prescription default
+comes from `config/thresholds.v1.yaml`. Nothing in the allocation is hardcoded except the rule
+IDs and the safety-reference set.
 
 **Allocation**
 1. A group acts when its own projected week is outside its band, and either the total is outside
@@ -534,7 +537,12 @@ The drop decision is made at the start of a session, from the remaining week, no
   band read-only) and the full per-group candidate pool as editable JSON, validated server-side.
   The competition confirmation is per session via `--drop-confirm`, the API
   `drop_confirmed` field and the Prescribe checkbox; it applies to both `volume_fill` and
-  `technique` and is recorded in the prescription notes.
+  `technique` and is recorded in the prescription notes. The Prescribe checkbox is shown only
+  when the budget and drop policy are active and the selected date is inside the configured
+  competition window; outside it the control is hidden rather than inert. The drop controls,
+  volume policy and budget targets now live in one Settings **Volume budget** panel backed by
+  `GET/POST /api/settings/volume`; see the operator guide [VOLUME-BUDGET.md](VOLUME-BUDGET.md).
+  The older `/api/settings/drop` endpoint remains as a compatibility path.
 
 **Activation and safety**
 - Only when the budget is enabled and `main_lift_policy: drop` is selected; `preserve`/`reduce`
@@ -920,7 +928,7 @@ profile is `effective`; rollback is one profile change.
 | 14 | Compensation parameters | one optional non-essential compensation slot per session type; candidates `dumbbell_bench_press` (push) and `rdl` (hinge), executable load only; weights squat↔hinge 0.7, squat↔bench 0.2, hinge↔bench 0.2, push↔pull 0.3, floor 0.1; all sets count; main lifts stay in `preserve`; main-lift top-up opt-in; `MOD-VOL-004` for slot replacement |
 | 15 | Frequency above three | the budget supports 4/5 by spreading the same 63-set target (57 when this was decided), or an explicit higher target; the programme forecast now supports 1–5 (4 = Mon/Wed/Fri/Sun, 5 = Mon/Tue/Thu/Fri/Sun). The extra full-body sessions add real volume and remain bounded by the budget, MRV/spinal caps and time |
 | 16 | Reduce/drop timing | `reduce` is **step 2b, implemented 2026-10-26**: it trims a filled group's main lift to the configured floor, keeps the session type, and disables top-up; `drop` remains **step 9c**, after the 9a compensation slot pool, because it removes and relabels a main lift; both are opt-in via `main_lift_policy` |
-| 17 | All parameters config-backed | total/per-group targets, daily/session total and per-group caps, tolerance/band minimum, trim/top-up switches, accessory floor and per-item top-up ceiling, set seconds/warm-up/time cap, and the reduce floor all live in `config/volume.v1.yaml`; the profile only adds on/off, policy and a tightening `max_session_minutes` (`DEC-VOLUME-12`) |
+| 17 | All parameters config-backed | total/per-group targets, daily/session total and per-group caps, tolerance/band minimum, trim/top-up switches, accessory floor and per-item top-up ceiling, set seconds/warm-up/time cap, and the reduce floor all live in `config/volume.v1.yaml`; the profile adds on/off, policy and a session target that may raise or lower the budget fallback (`DEC-VOLUME-12`, `DEC-W1-02`) |
 | 18 | 9a/9b compensation | 9a preview: slot pool, similarity weights and `compensation` report. 9b application: with `apply: true` and the budget on, one non-essential slot is added with a real load (`MOD-VOL-004`, constitution 1.17.0); no history refuses. 9c is `drop` |
 | 19 | 9b application | one slot added through `build_item`; executable load required; refusal is a warning, not a guessed load; `MOD-VOL-004`; all later caps still run (`DEC-VOLUME-14`) |
 | 20 | Missing compensation load | retry with the e1RM basis, then ask the athlete for an e1RM (UI prompt/CLI) and rebuild; refuse only if still unusable (`DEC-VOLUME-15`) |

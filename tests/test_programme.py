@@ -76,8 +76,7 @@ def test_programme_simulates_projected_sessions_for_the_budget():
     with store_with() as store:
         conn = store.connection
         repositories.append_athlete_profile(
-            conn, effective_from="2024-01-01", primary_goal="strength",
-            goal_rank=["strength"], focus_lifts=["squat"],
+            conn, effective_from="2024-01-01",
             volume_budget_enabled=True,
         )
         entries = programme.build_programme(
@@ -211,8 +210,7 @@ def test_scheduled_deload_is_suggested_not_applied():
     with store_with() as store:
         conn = store.connection
         repositories.append_athlete_profile(
-            conn, effective_from="2024-01-01", primary_goal="strength",
-            goal_rank=["strength"], focus_lifts=["ssb_squat"],
+            conn, effective_from="2024-01-01",
             block_start_date="2024-01-01",
         )
         entries = programme.build_programme(
@@ -254,8 +252,7 @@ def test_scheduled_deload_can_be_applied_after_confirmation():
     with store_with() as store:
         conn = store.connection
         repositories.append_athlete_profile(
-            conn, effective_from="2024-01-01", primary_goal="strength",
-            goal_rank=["strength"], focus_lifts=["ssb_squat"],
+            conn, effective_from="2024-01-01",
             block_start_date="2024-01-01",
         )
         suggestion = deload_feature.scheduled_decision(conn, "2024-02-05")

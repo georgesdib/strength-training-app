@@ -109,6 +109,8 @@ budget:
   # Warm-ups are attached after deload, so the budget uses a planning allowance instead of the
   # final warm-up list (step 0 implementation decision).
   warmup_estimate_minutes: 5
+  # Fallback budget-planning time cap when the athlete profile has no session target. The
+  # profile session target wins and may be higher or lower; this is not the prescription default.
   session_time_cap_minutes: 80
   # Step 9a: read-only cross-group compensation simulation. enabled controls the preview;
   # apply is reserved for 9b and must stay false (no prescription change yet).

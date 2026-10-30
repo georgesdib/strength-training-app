@@ -41,8 +41,8 @@ def store_with(trim: bool):
         readiness_sha256=importer.sha256_frame(readiness),
     )
     repositories.append_athlete_profile(
-        store.connection, effective_from="2026-01-01", primary_goal="strength",
-        goal_rank=[], focus_lifts=[], exposure_trim_enabled=trim,
+        store.connection, effective_from="2026-01-01",
+        exposure_trim_enabled=trim,
     )
     return store
 
@@ -99,8 +99,7 @@ def test_the_flag_survives_a_profile_edit():
     try:
         conn = store.connection
         repositories.append_athlete_profile(
-            conn, effective_from="2026-02-01", primary_goal="strength",
-            goal_rank=[], focus_lifts=[],
+            conn, effective_from="2026-02-01",
         )
         current = conn.execute(
             "SELECT exposure_trim_enabled FROM athlete_profile "

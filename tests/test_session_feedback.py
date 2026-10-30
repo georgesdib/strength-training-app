@@ -59,6 +59,20 @@ def test_feedback_is_append_only_and_latest_wins():
             conn.execute("UPDATE session_feedback SET srpe = 5")
 
 
+def test_merged_feedback_keeps_latest_non_null_per_field():
+    with store_with_session() as store:
+        conn = store.connection
+        session_feedback.record(conn, "2024-01-01", srpe=7, duration_min=75)
+        session_feedback.record(conn, "2024-01-01", srpe=8)
+        merged = session_feedback.merged(conn, "2024-01-01")
+        latest = session_feedback.latest(conn, "2024-01-01")
+
+    assert merged["srpe"] == 8
+    assert merged["duration_min"] == 75
+    assert merged["sources"]["duration_min"]["feedback_id"]
+    assert latest["duration_min"] is None
+
+
 def test_cli_review_flags_store_optional_detail(tmp_path):
     training = make_training(ROWS)
     readiness = make_readiness([{}])
@@ -78,11 +92,11 @@ def test_cli_review_flags_store_optional_detail(tmp_path):
     }), encoding="utf-8")
     assert cli.main(["--db", str(path), "review", "--session", "2024-01-01",
                      "--scores", str(marks), "--session-rpe", "7",
-                     "--session-minutes", "75"]) == 0
+                     "--session-minutes", "75", "--productivity", "4"]) == 0
 
     store = db.Store(path)
     try:
         feedback = queries.session_feedback(store.connection, "2024-01-01")
     finally:
         store.close()
-    assert (feedback["srpe"], feedback["duration_min"]) == (7.0, 75.0)
+    assert (feedback["srpe"], feedback["duration_min"], feedback["productivity"]) == (7.0, 75.0, 4)

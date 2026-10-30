@@ -53,6 +53,7 @@ links for every view. Run `python tools/check_ui_docs.py` to validate the contra
 The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the backdrop or Escape closes it. The main content stays full width.
 
 - **Outcomes** — read-only 4/8/12-week strength review, attendance, volume and **Prospective check**; no prescription effect.
+- **Performance** — raw e1RM session bests, rolling median, series breaks, separate degraded observations, descriptive dose and explicitly configured relative-strength ratios; filters apply server-side. A read-only **[Monitoring analysis](MONITORING-ANALYSIS.md)** section runs on demand and reports dose, lagged associations, coverage and calibration transparency. No targets, diagnosis, decay or calibration change; equipment changes cannot be detected because equipment is not stored.
 - **Longevity** — consolidated cardio, measurement, readiness and symptom context with deterministic **Going well / Needs attention** labels; no targets beyond the WHO cardio reference and no prescription effect.
 - **Today** — goal, block week, readiness, injury signal, unreviewed count, **rubric calibration** (high-confidence sessions, agreement, per-item marks/comparable counts, gaps), recent sessions, and a **Descriptive progress** panel (sRPE coverage, attendance, family exposures, performance ratio, weekly volume status, latest back symptom; monitoring only). The **periodic reviews** list is fed by `config/reviews.v1.yaml` and includes the 8-week **Fatigue-signal review** (rate missing demand dimensions, read the exposure ratio, open the shadow review, record a decision); acknowledging a review writes an append-only human record and changes no threshold or flag.
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
@@ -92,7 +93,7 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 - **Outcomes → Form trend** — current vs previous equal window, latest rating, change and
   session counts; descriptive only.
 - **History** — paginated list of every completed/imported session, date filters, session detail and append-only correction. Edits rebuild totals/critique and mark the session re-review; date/type are fixed. The edit sheet also carries optional per-lift **Form** 1–5 ratings. Review shows the current rating beside up to five prior ratings for the same lift.
-- **Workflow → Workout** — start from the preview with a score-ready assessment or an explicit unknown/partial acknowledgement (device fields optional), log sets manually, remove a set, end with measured/manual duration and sRPE or mark sRPE not recorded, or abandon. A prescription snapshot is frozen at start. During the workout the plan is editable: adjust planned sets, swap/add/remove exercises; swap opens one searchable exercise dialog, each add/swap is an append-only event and the original prescription stays frozen. On completion the workout materialises, the end screen shows actual vs modified plan and actual vs original prescription, and the deterministic rubric is persisted. **Review workout** opens the rubric sheet; saving marks runs calibration and closes the workout. In-workout CSV import is available by paste or file with columns `Exercise,Set,RPE,Value,Weight,Reps`; preview first, then apply. A recognised exercise absent from the prescription is added to the workout plan; an unrecognised exercise is shown as unknown and blocks apply. The file has no date, so backfill is not supported. Each planned lift has an optional **Form** 1–5 rating, editable later in History. An optional second per-rep CSV (`Exercise Name,Set Number,Metric Name,Rep Number,Velocity`) can be added in the same panel; it joins by exercise + set, never creates a set, and is shown descriptively after the workout. The ended screen also offers an optional **e1RM**
+- **Workflow → Workout** — start from the preview with a score-ready assessment or an explicit unknown/partial acknowledgement (device fields optional), log sets manually, remove a set, end with measured/manual duration and sRPE or mark sRPE not recorded, or abandon. A prescription snapshot is frozen at start. During the workout the plan is editable: adjust planned sets, swap/add/remove exercises; swap opens one searchable exercise dialog, each add/swap is an append-only event and the original prescription stays frozen. On completion the workout materialises, the end screen shows actual vs modified plan, actual vs original prescription, the deterministic rubric, and a descriptive Phase 2 summary. **Review workout** opens the rubric sheet; saving marks runs calibration and closes the workout. In-workout CSV import is available by paste or file with columns `Exercise,Set,RPE,Value,Weight,Reps`; preview first, then apply. A recognised exercise absent from the prescription is added to the workout plan; an unrecognised exercise is shown as unknown and blocks apply. The file has no date, so backfill is not supported. Each planned lift has an optional **Form** 1–5 rating, editable later in History. An optional second per-rep CSV (`Exercise Name,Set Number,Metric Name,Rep Number,Velocity`) can be added in the same panel; it joins by exercise + set, never creates a set, and is shown descriptively after the workout. The ended screen also offers an optional **e1RM**
   record: a measured test from a set (kg x reps, which registers a high-intensity exposure and
   rejects a 1RM until the interval allows it) or a direct override. Both append; nothing is edited.
 - **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
@@ -144,16 +145,21 @@ also disables while saving and reports the number of marks written.
 | route | purpose |
 |---|---|
 | `GET /api/overview` | dashboard data |
+| `GET /api/performance/e1rm?exercise_id=&from=&to=` | raw e1RM observations, rolling median, breaks and descriptive summary |
+| `GET /api/performance/dose?from=&to=&group_by=session` | descriptive session dose |
+| `GET /api/performance/ratios?relationship_id=&from=&to=` | configured ratio current value and paired history |
+| `GET /api/monitoring-analysis?as_of=` | read-only dose, lagged associations, coverage and calibration transparency; no path disclosure |
 | `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
 | `POST /api/prescribe` | `{date, session_type?, apply_selection?, selection_confirmed?, selection_llm?, minimum_session?, target_minutes?, minimum_include_main?, allow_unknown_readiness?}` -> prescription; `session_type=auto` uses the rolling rule; unknown readiness requires the explicit flag |
 | `POST /api/workout/start` | `{date, plan, readiness, readiness_ack?, note?}` -> live workout; a score-ready assessment or explicit acknowledgement is required; partial readiness stays partial |
 | `GET /api/workout/active` | active workout, or `{workout: null}` |
 | `GET /api/workout/<id>` | workout detail |
+| `GET /api/workout/<id>/summary` | completed-workout descriptive summary; 404 unknown, 409 in progress |
 | `GET /api/form-trend?weeks=N&date=N` | descriptive current/baseline form trend |
 | `POST /api/workout/<id>/form` | `{exercise_id, rating 1-5}` -> optional post-lift form rating |
 | `POST /api/workout/<id>/sets` | `{exercise_id, load_kg, reps, rir, velocity?}` -> add manual set; manual reps are required and RIR is restricted to 0-6 |
 | `POST /api/workout/<id>/remove-set` | `{set_id}` -> append a removal event |
-| `POST /api/workout/<id>/end` | `{session_rpe?, not_recorded?, duration_min?, notes?}` -> completed |
+| `POST /api/workout/<id>/end` | `{session_rpe?, not_recorded?, duration_min?, productivity?, notes?}` -> completed |
 | `POST /api/workout/<id>/update-set` | `{set_id, load_kg, reps, rir, velocity}` -> append correction event |
 | `POST /api/workout/<id>/import` | `{text, rep_text?, apply}` -> parse/preview/apply workout CSV; optional per-rep table; no date column |
 | `POST /api/workout/<id>/import/undo` | undo the latest import batch, including rep detail |
@@ -166,7 +172,7 @@ also disables while saving and reports the number of marks written.
 | `GET /api/rep-velocity/analysis?weeks=&date=` | stratified cross-session descriptive report |
 | `POST /api/workout/<id>/abandon` | abandon the active workout |
 | `GET /api/review/<session>` | session sheet |
-| `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes}` -> marks + optional session detail |
+| `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes, productivity}` -> marks + optional session detail |
 | `GET /api/readiness/<date>` | merged readiness |
 | `POST /api/readiness` | `{date, values, note}` -> merged readiness + score |
 | `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |
@@ -193,8 +199,11 @@ also disables while saving and reports the number of marks written.
 | `GET /api/prospective?weeks=N&date=N` | W5 read-only prospective summary: statuses, attendance, work, RIR, duration, flags |
 | `GET /api/regime?weeks=N&date=N` | read-only main-lift/substitute regime check |
 | `GET /api/settings` | masked LLM settings, drop settings, config/database paths and app version |
+| `GET /api/settings/volume?date=N` | consolidated volume panel: effective budget, volume policy, landmarks, athlete-level values, profile source and local-overlay warning |
+| `POST /api/settings/volume` | validate and append a settings-profile version for volume budget/policy; requires reason and typed VOLUME for target/cap/MRV/landmark changes |
+| `GET /api/settings/drop/window?date=N` | whether per-session drop confirmation applies on that date; the Prescribe checkbox is hidden when false |
 | `POST /api/settings/llm` | save local LLM settings; blank key keeps the stored key |
-| `POST /api/settings/drop` | save drop policy/candidate pool to the local `config/volume.local.yaml` overlay |
+| `POST /api/settings/drop` | legacy drop-only save path; the consolidated volume panel uses `/api/settings/volume` |
 | `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset, effective_from, guard_confirmed and reason |
 | `GET /api/modalities` | module list with class, enabled source, dependencies, citations and factors |
 | `GET/POST /api/modalities/<id>` | module state or enabled/factor update; guarded modules need guard_confirmed and reason |
@@ -259,7 +268,7 @@ What remains:
 
 - Expected validation failures keep their useful 400/404/409 JSON messages.
 - Form-validation 400s may add a `fields` map, for example
-  `{"error": "...", "fields": {"primary_goal": "..."}}`. This is additive; clients that only
+  `{"error": "...", "fields": {"main_lift_policy": "..."}}`. This is additive; clients that only
   read `error` keep working. Forms mark the named input `aria-invalid` and focus it.
 - An unexpected server exception returns a stable `{"error": "internal server error"}` 500 and
   is logged with method, path and traceback. Exception classes, filesystem paths and database

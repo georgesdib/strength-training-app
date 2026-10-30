@@ -418,7 +418,7 @@ async function loadExerciseCatalog() {
     select.innerHTML = "<option value=''>all patterns</option>" +
       data.patterns.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join("");
     select.value = current;
-    $("#exercise-patterns").innerHTML = data.patterns.map((p) => `<option value="${esc(p)}">`).join("");
+    if (typeof populateThrottlePatterns === "function") populateThrottlePatterns(data.patterns);
     renderExerciseCatalog();
     loadTemplateStatus().catch(() => {});
   } catch (error) {
