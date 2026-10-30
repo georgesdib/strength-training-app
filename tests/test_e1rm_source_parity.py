@@ -5,7 +5,11 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from strength_coach.features import e1rm_source
+from strength_coach.features import e1rm_decay, e1rm_source
+from strength_coach.prescribe import engine
+from strength_coach.rules import RuleContext
+from strength_coach.store import db
+from strength_coach.utils import exercises
 
 
 def legacy_select(
@@ -201,12 +205,55 @@ def test_calibration_factor_parity():
     assert_parity([row(1, "2026-01-01", e1rm=100.0)], calibration_factor=1.1)
 
 
-def test_long_gap_decay_exception_parity():
-    def decay(age):
-        return 1.0 if age >= 28 else 0.99 ** age
-
-    assert_parity(
-        [row(1, "2025-12-01", e1rm=150.0), row(2, "2025-12-15", e1rm=140.0)],
-        source="most_recent",
-        decay_factor=decay,
+def context(gap_days):
+    return RuleContext(
+        sets=pd.DataFrame(),
+        sessions=pd.DataFrame(),
+        entities=exercises.taxonomy().entities,
+        gap_days=gap_days,
     )
+
+
+def test_e1rm_decay_uses_context_gap_not_set_age():
+    old_set_age = 62
+    assert engine._e1rm_decay(context(30), old_set_age) == 1.0
+    normal = engine._e1rm_decay(context(10), old_set_age)
+    assert normal == pytest.approx(e1rm_decay.factor(old_set_age))
+    assert normal < 1.0
+
+
+def test_latest_load_base_passes_context_long_gap_exception_through():
+    sets = frame([row(1, "2025-12-01", e1rm=150.0)])
+    with db.Store(":memory:") as store:
+        long_gap = engine._latest_load_base(
+            store.connection,
+            RuleContext(
+                sets=sets,
+                sessions=pd.DataFrame(),
+                entities=exercises.taxonomy().entities,
+                gap_days=30,
+            ),
+            "squat",
+            "2026-02-01",
+            84,
+            source="best_usable",
+        )
+        short_gap = engine._latest_load_base(
+            store.connection,
+            RuleContext(
+                sets=sets,
+                sessions=pd.DataFrame(),
+                entities=exercises.taxonomy().entities,
+                gap_days=10,
+            ),
+            "squat",
+            "2026-02-01",
+            84,
+            source="best_usable",
+        )
+
+    assert long_gap is not None and short_gap is not None
+    assert long_gap.decay == 1.0
+    assert long_gap.decayed is False
+    assert short_gap.decay == pytest.approx(e1rm_decay.factor(62))
+    assert short_gap.decayed is True

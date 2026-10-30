@@ -19,6 +19,10 @@ pytestmark = pytest.mark.golden
 FIXTURE = Path(__file__).parent / "fixtures" / "golden_session_types.yaml"
 HISTORY_DAYS = ("2024-01-04", "2024-01-11", "2024-01-18", "2024-01-25")
 SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
+# Provenance: computed at baseline 6cf77d5, the parent of the selector-extraction commit
+# 5e40080, by running the same build_store/build_prescription fixture and hashing
+# json.dumps(p.as_rows(), sort_keys=True, separators=(",", ":")). They are not regenerated
+# from the extracted implementation.
 GOLDEN_ROWS_SHA256 = {
     "squat": "1d0126791c3140ee1955b7cf35ff7a8317186f0d25c32f9965ee1d4d00659a92",
     "hinge": "556ca1bfbe806f21706b5110db98c33da1a1a76c8b0ce3b88fc92cf9f74304da",
