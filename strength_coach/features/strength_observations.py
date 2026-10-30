@@ -37,6 +37,11 @@ STATUS_UNAVAILABLE = "unavailable"
 STATUS_INVALID = "invalid"
 STATUS_NOT_APPLICABLE = "not_applicable"
 
+# Explicit exclusion reasons. The audit groups these rather than inferring an exclusion from
+# a generic "invalid" bucket.
+REASON_POWER = "power-classified exercise (pattern=power_jump)"
+REASON_EXPOSURE_PREFIX = "linked to high-intensity exposure: "
+
 
 @dataclass(frozen=True)
 class RawEstimate:
@@ -223,9 +228,23 @@ def _raw_load(row: Mapping[str, Any]) -> tuple[float, float] | Unavailable:
     return Unavailable("load basis is unknown", STATUS_INVALID)
 
 
+def _exclusion_kind(
+    set_row: Mapping[str, Any],
+    excluded_set_kinds: Mapping[int, str] | None,
+) -> str | None:
+    if not excluded_set_kinds:
+        return None
+    set_id = _integer(_value(set_row, "set_id"))
+    if set_id is None:
+        return None
+    return excluded_set_kinds.get(int(set_id))
+
+
 def raw_set_e1rm(
     set_row: Mapping[str, Any],
     taxonomy_props: Mapping[str, Any] | None = None,
+    *,
+    excluded_set_kinds: Mapping[int, str] | None = None,
 ) -> RawEstimate | Unavailable:
     """Compute one eligible raw e1RM from a completed set.
 
@@ -235,6 +254,16 @@ def raw_set_e1rm(
     """
     exercise_id = str(_value(set_row, "exercise_id", "") or "")
     props = dict(taxonomy_props) if taxonomy_props is not None else _props_for(exercise_id)
+
+    # Power/plyometric work is not a strength e1RM observation, even if a loadable variant
+    # would otherwise pass the structural e1rm_applicable rule.
+    if str(props.get("pattern") or "") == "power_jump":
+        return Unavailable(REASON_POWER, STATUS_INVALID)
+
+    exposure_kind = _exclusion_kind(set_row, excluded_set_kinds)
+    if exposure_kind is not None:
+        return Unavailable(f"{REASON_EXPOSURE_PREFIX}{exposure_kind}", STATUS_INVALID)
+
     if not derived.e1rm_applicable(props):
         return Unavailable("e1RM is not applicable to this exercise", STATUS_NOT_APPLICABLE)
 
@@ -279,10 +308,17 @@ def raw_set_e1rm(
         return Unavailable("session id or date is missing", STATUS_INVALID)
 
     set_id_value = _integer(_value(set_row, "set_id"))
+    # Phase 0 quality is deliberately explicit: domain.e1rm classifies by reps only,
+    # while monitoring also treats RIR 4-5 as degraded. Invalid RIR/reps were rejected above.
+    quality = (
+        QUALITY_OK
+        if reps <= e1rm_mod.MAX_RELIABLE_REPS and rir <= 3
+        else QUALITY_DEGRADED
+    )
     return RawEstimate(
         kg=float(estimate.value_kg),
         method=estimate.method,
-        quality=estimate.quality,
+        quality=quality,
         session_id=session_id,
         occurred_on=occurred_on,
         exercise_id=exercise_id,
@@ -300,6 +336,8 @@ def session_best(
     session_id: str,
     exercise_id: str,
     taxonomy_props: Mapping[str, Any] | None = None,
+    *,
+    excluded_set_kinds: Mapping[int, str] | None = None,
 ) -> RawEstimate | Unavailable:
     """Highest eligible *ok* set-level raw e1RM in one session/exercise.
 
@@ -320,7 +358,7 @@ def session_best(
     best: RawEstimate | None = None
     degraded = False
     for row in rows:
-        result = raw_set_e1rm(row, props)
+        result = raw_set_e1rm(row, props, excluded_set_kinds=excluded_set_kinds)
         if isinstance(result, Unavailable):
             continue
         if result.quality != QUALITY_OK:
@@ -340,6 +378,8 @@ def session_observations(
     exercise_id: str,
     before_date: str,
     cutoff_session_id: str | None = None,
+    *,
+    excluded_set_kinds: Mapping[int, str] | None = None,
 ) -> list[SessionObservation]:
     """Eligible session bests for one exercise strictly before the given date.
 
@@ -368,7 +408,13 @@ def session_observations(
     props = _props_for(exercise_id)
     observations: list[SessionObservation] = []
     for session_id, group in work.groupby("session_id", sort=True):
-        best = session_best(group, str(session_id), exercise_id, props)
+        best = session_best(
+            group,
+            str(session_id),
+            exercise_id,
+            props,
+            excluded_set_kinds=excluded_set_kinds,
+        )
         if isinstance(best, Unavailable):
             continue
         observations.append(

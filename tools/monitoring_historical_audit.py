@@ -29,6 +29,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from strength_coach.domain import rir as rir_mod  # noqa: E402
 from strength_coach.features import e1rm_calibration  # noqa: E402
 from strength_coach.features import strength_observations as obs  # noqa: E402
 from strength_coach.store import queries  # noqa: E402
@@ -124,14 +125,46 @@ def _entities() -> dict[str, dict[str, Any]]:
     }
 
 
+def _excluded_sets(conn: sqlite3.Connection) -> tuple[dict[int, str], dict[str, int], int]:
+    """Set-linked high-intensity exposures, using the stored set_id link only.
+
+    The schema forbids a test exposure from linking directly to a set; a test can still be
+    reported separately. Other exposure kinds (max_attempt, competition, unplanned, other)
+    can link a set and therefore make that set ineligible for the ordinary series.
+    """
+    rows = [
+        dict(row)
+        for row in conn.execute(
+            "SELECT set_id, kind FROM high_intensity_exposure WHERE set_id IS NOT NULL"
+        )
+    ]
+    mapping = {
+        int(row["set_id"]): str(row["kind"])
+        for row in rows
+        if row.get("set_id") is not None
+    }
+    counts = Counter(str(row["kind"]) for row in rows)
+    test_exposures = int(
+        conn.execute(
+            "SELECT count(*) FROM high_intensity_exposure WHERE kind = 'test'"
+        ).fetchone()[0]
+    )
+    return mapping, dict(sorted(counts.items())), test_exposures
+
+
 def _iter_estimates(
     frame: pd.DataFrame,
     entities: Mapping[str, Mapping[str, Any]],
+    excluded_set_kinds: Mapping[int, str] | None = None,
 ) -> Iterable[tuple[dict[str, Any], obs.RawEstimate | obs.Unavailable]]:
     for row in frame.to_dict("records"):
         exercise_id = str(row.get("exercise_id", "") or "")
         props = dict(entities.get(exercise_id, {}))
-        yield row, obs.raw_set_e1rm(row, props)
+        yield row, obs.raw_set_e1rm(
+            row,
+            props,
+            excluded_set_kinds=excluded_set_kinds,
+        )
 
 
 def _session_bests(
@@ -350,7 +383,8 @@ def build_audit(
     """Build the audit payload. The caller supplies a read-only connection."""
     frame = _load_frame(conn)
     entities = _entities()
-    estimates = list(_iter_estimates(frame, entities))
+    excluded_set_kinds, exposure_counts, test_exposures = _excluded_sets(conn)
+    estimates = list(_iter_estimates(frame, entities, excluded_set_kinds))
     observations = _session_bests(estimates)
 
     status_counts: Counter[str] = Counter()
@@ -366,6 +400,11 @@ def build_audit(
             "eligible_ok": 0,
             "eligible_degraded": 0,
             "rejected": 0,
+            "rir_missing": 0,
+            "rir_warmup": 0,
+            "rir_effort": 0,
+            "rir_other": 0,
+            "rep_ranges": defaultdict(int),
         }
     )
     rep_ranges: dict[str, list[float]] = defaultdict(list)
@@ -380,17 +419,27 @@ def build_audit(
         basis = str(row.get("load_basis") or "unknown")
         load_basis[basis] += 1
 
-        rir_value = row.get("rir")
-        if rir_value is None or pd.isna(rir_value):
+        rir_reading = rir_mod.classify(row.get("rir"))
+        if rir_reading.klass == "missing":
             rir_counts["missing"] += 1
+            stats["rir_missing"] += 1
+        elif rir_reading.klass == "warmup":
+            rir_counts["6_warmup"] += 1
+            stats["rir_warmup"] += 1
+        elif rir_reading.klass == "effort":
+            rir_counts[str(int(rir_reading.value))] += 1
+            stats["rir_effort"] += 1
         else:
-            rir_counts[str(int(round(float(rir_value))))] += 1
+            rir_counts["other"] += 1
+            stats["rir_other"] += 1
 
         if isinstance(result, obs.RawEstimate):
             status_counts[result.status] += 1
             quality_counts[result.quality] += 1
             stats[f"eligible_{result.quality}"] += 1
-            rep_ranges[_rep_bucket(result.reps)].append(result.kg)
+            bucket = _rep_bucket(result.reps)
+            stats["rep_ranges"][bucket] += 1
+            rep_ranges[bucket].append(result.kg)
             rir_estimates[str(result.rir)].append(result.kg)
             for flag in result.flags:
                 flags[flag] += 1
@@ -401,12 +450,15 @@ def build_audit(
 
     session_count = int(frame["session_id"].nunique()) if not frame.empty else 0
     working_count = int(frame["is_working_set"].fillna(False).astype(bool).sum()) if not frame.empty else 0
+    warmup_count = int(len(frame) - working_count) if not frame.empty else 0
+    warmup_share = (warmup_count / len(frame)) if len(frame) else 0.0
     date_values = frame["date"].dropna() if not frame.empty else pd.Series(dtype="datetime64[ns]")
 
     by_exercise_rows = []
     for exercise_id in sorted(by_exercise):
         stats = dict(by_exercise[exercise_id])
         stats["exercise_id"] = exercise_id
+        stats["rep_ranges"] = dict(sorted(stats["rep_ranges"].items()))
         stats["observations"] = len(observations.get(exercise_id, []))
         by_exercise_rows.append(stats)
 
@@ -510,6 +562,8 @@ def build_audit(
             "sessions": session_count,
             "exercises": int(frame["exercise_id"].nunique()) if not frame.empty else 0,
             "working_sets": working_count,
+            "warmup_sets": warmup_count,
+            "warmup_share": _round(warmup_share),
             "date_first": _date(date_values.min()) if not date_values.empty else None,
             "date_last": _date(date_values.max()) if not date_values.empty else None,
             "load_basis": dict(sorted(load_basis.items())),
@@ -534,6 +588,13 @@ def build_audit(
                 for key, values in sorted(rir_estimates.items())
             },
             "by_exercise": by_exercise_rows,
+            "exclusions": {
+                "power_sets": int(reason_counts.get(obs.REASON_POWER, 0)),
+                "set_linked_total": len(excluded_set_kinds),
+                "set_linked_by_kind": exposure_counts,
+                "test_exposures": test_exposures,
+                "test_linked_sets": int(exposure_counts.get("test", 0)),
+            },
         },
         "observations": {
             "exercises_with_observations": len(observations),
@@ -633,6 +694,8 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         f"- Sessions: {inventory['sessions']}",
         f"- Exercises: {inventory['exercises']}",
         f"- Working sets: {inventory['working_sets']}",
+        f"- Warm-up sets: {inventory['warmup_sets']}",
+        f"- Warm-up share: {inventory['warmup_share']}",
         f"- Date range: {inventory['date_first']} to {inventory['date_last']}",
         f"- Load basis: {inventory['load_basis']}",
         "",
@@ -649,6 +712,20 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         "Rejection reasons:",
         "",
         *(_table(["reason", "count"], sorted(eligibility["reasons"].items()))),
+        "",
+        "Explicit exclusions:",
+        "",
+        *(_table(
+            ["exclusion", "count"],
+            [
+                ["power-classified sets", eligibility["exclusions"]["power_sets"]],
+                ["set-linked high-intensity exposures", eligibility["exclusions"]["set_linked_total"]],
+                ["set-linked test exposures", eligibility["exclusions"]["test_linked_sets"]],
+                ["all test exposures", eligibility["exclusions"]["test_exposures"]],
+            ],
+        )),
+        "",
+        f"Set-linked exposures by kind: {eligibility['exclusions']['set_linked_by_kind']}",
         "",
         "Raw RIR values:",
         "",
@@ -677,6 +754,45 @@ def render_markdown(report: Mapping[str, Any]) -> str:
                     row["eligible_degraded"],
                     row["rejected"],
                     row["observations"],
+                ]
+                for row in sorted(
+                    eligibility["by_exercise"],
+                    key=lambda item: (-item["observations"], item["exercise_id"]),
+                )[:20]
+            ],
+        )),
+        "",
+        "Eligible set counts by exercise and rep range (top 20 by observations):",
+        "",
+        *(_table(
+            ["exercise", "1-5", "6-10", "11-15", "16-20", "observations"],
+            [
+                [
+                    row["exercise_id"],
+                    row["rep_ranges"].get("1-5", 0),
+                    row["rep_ranges"].get("6-10", 0),
+                    row["rep_ranges"].get("11-15", 0),
+                    row["rep_ranges"].get("16-20", 0),
+                    row["observations"],
+                ]
+                for row in sorted(
+                    eligibility["by_exercise"],
+                    key=lambda item: (-item["observations"], item["exercise_id"]),
+                )[:20]
+            ],
+        )),
+        "",
+        "RIR coverage by exercise (top 20 by observations):",
+        "",
+        *(_table(
+            ["exercise", "missing", "warm-up (6)", "effort 0-5", "other"],
+            [
+                [
+                    row["exercise_id"],
+                    row["rir_missing"],
+                    row["rir_warmup"],
+                    row["rir_effort"],
+                    row["rir_other"],
                 ]
                 for row in sorted(
                     eligibility["by_exercise"],
@@ -842,9 +958,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    conn = connect_readonly(args.db)
+    try:
+        conn = connect_readonly(args.db)
+    except (FileNotFoundError, sqlite3.DatabaseError) as exc:
+        print(f"audit error: {exc}", file=sys.stderr)
+        return 2
+
     try:
         report = build_audit(conn, as_of=args.as_of, db_path=args.db)
+    except (sqlite3.DatabaseError, ValueError) as exc:
+        print(f"audit error: {exc}", file=sys.stderr)
+        return 2
     finally:
         conn.close()
 

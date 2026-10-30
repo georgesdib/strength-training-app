@@ -8,39 +8,51 @@ import json
 from conftest import make_readiness, make_training
 
 from strength_coach.features import high_intensity_exposure
+from strength_coach.features import strength_observations as obs
 from strength_coach.store import db, importer
 from strength_coach.store import repositories as repo
 from tools import monitoring_historical_audit as audit
 
 
-def _store(tmp_path):
+def _store(tmp_path, *, include_power=False):
     database = db.Store(tmp_path / "coach.db")
     dates = ["2024-01-01", "2024-01-03", "2024-01-05"]
-    training = make_training(
-        [
+    rows = [
+        {
+            "Date": date,
+            "Workout": "Sheiko",
+            "Exercise": "Competition Squat",
+            "Weight_Used": str(100 + index * 5),
+            "Reps_Done": "5",
+            "RIR": "2",
+        }
+        for index, date in enumerate(dates)
+    ] + [
+        {
+            "Date": date,
+            "Workout": "Sheiko",
+            "Exercise": "Bench Press",
+            "Weight_Used": "80",
+            "Reps_Done": "5",
+            "RIR": "2",
+        }
+        for date in dates
+    ]
+    readiness_dates = list(dates)
+    if include_power:
+        rows.append(
             {
-                "Date": date,
+                "Date": "2024-01-06",
                 "Workout": "Sheiko",
-                "Exercise": "Competition Squat",
-                "Weight_Used": str(100 + index * 5),
+                "Exercise": "Jump Squats",
+                "Weight_Used": "20",
                 "Reps_Done": "5",
                 "RIR": "2",
             }
-            for index, date in enumerate(dates)
-        ]
-        + [
-            {
-                "Date": date,
-                "Workout": "Sheiko",
-                "Exercise": "Bench Press",
-                "Weight_Used": "80",
-                "Reps_Done": "5",
-                "RIR": "2",
-            }
-            for date in dates
-        ]
-    )
-    readiness = make_readiness([{"Date": date} for date in dates])
+        )
+        readiness_dates.append("2024-01-06")
+    training = make_training(rows)
+    readiness = make_readiness([{"Date": date} for date in readiness_dates])
     importer.import_export(
         database.connection,
         training,
@@ -123,6 +135,96 @@ def test_audit_links_measured_tests_and_reports_calibration(tmp_path):
     assert row["ci_low"] is not None
     assert row["ci_high"] is not None
     assert row["leave_one_out"]["factor_min"] is not None
+
+
+def test_audit_reports_power_and_exposure_exclusions(tmp_path):
+    database = _store(tmp_path, include_power=True)
+    try:
+        set_row = database.connection.execute(
+            "SELECT set_id, session_id FROM clean_set "
+            "WHERE exercise_id = 'competition_squat' ORDER BY set_id LIMIT 1"
+        ).fetchone()
+        repo.append_high_intensity_exposure(
+            database.connection,
+            performed_on="2024-01-01",
+            kind="max_attempt",
+            exercise_id="competition_squat",
+            session_id=str(set_row["session_id"]),
+            set_id=int(set_row["set_id"]),
+            region_load="lower",
+            source="set_link",
+            source_id=f"set:{int(set_row['set_id'])}",
+        )
+        report = audit.build_audit(
+            database.connection,
+            as_of="2024-02-10",
+            db_path=database.path,
+        )
+    finally:
+        database.close()
+
+    reasons = report["eligibility"]["reasons"]
+    exclusions = report["eligibility"]["exclusions"]
+    assert exclusions["power_sets"] >= 1
+    assert exclusions["set_linked_total"] == 1
+    assert exclusions["set_linked_by_kind"] == {"max_attempt": 1}
+    assert any(obs.REASON_POWER in reason for reason in reasons)
+    assert any(obs.REASON_EXPOSURE_PREFIX in reason for reason in reasons)
+    assert report["inventory"]["warmup_sets"] == 0
+    assert report["inventory"]["warmup_share"] == 0.0
+    by_exercise = {row["exercise_id"]: row for row in report["eligibility"]["by_exercise"]}
+    assert "jump_squats" in by_exercise
+    assert by_exercise["competition_squat"]["rep_ranges"]["1-5"] >= 1
+    assert "rir_missing" in by_exercise["competition_squat"]
+
+
+def test_missing_database_returns_error(tmp_path, capsys):
+    output = tmp_path / "audit.md"
+    code = audit.main(
+        [
+            "--db",
+            str(tmp_path / "missing.db"),
+            "--out",
+            str(output),
+            "--as-of",
+            "2024-02-10",
+        ]
+    )
+
+    assert code == 2
+    assert "does not exist" in capsys.readouterr().err
+    assert not output.exists()
+
+
+def test_malformed_database_returns_error(tmp_path, capsys):
+    bad = tmp_path / "bad.db"
+    bad.write_text("not a sqlite database")
+    output = tmp_path / "audit.md"
+    code = audit.main(
+        [
+            "--db",
+            str(bad),
+            "--out",
+            str(output),
+            "--as-of",
+            "2024-02-10",
+        ]
+    )
+
+    assert code == 2
+    assert "audit error" in capsys.readouterr().err
+    assert not output.exists()
+
+
+def test_deterministic_markdown_output(tmp_path):
+    database = _store(tmp_path)
+    try:
+        first = audit.build_audit(database.connection, as_of="2024-02-10")
+        second = audit.build_audit(database.connection, as_of="2024-02-10")
+    finally:
+        database.close()
+
+    assert audit.render_markdown(first) == audit.render_markdown(second)
 
 
 def test_audit_is_deterministic_and_json_serialisable(tmp_path):

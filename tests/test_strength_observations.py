@@ -110,6 +110,54 @@ def test_bodyweight_total_uses_logged_total():
     assert result.total_load_kg == 80.0
 
 
+
+def test_quality_uses_reps_and_rir_thresholds():
+    cases = [
+        (5, 3, "ok"),
+        (5, 4, "degraded"),
+        (5, 5, "degraded"),
+        (11, 2, "degraded"),
+    ]
+    for reps, rir, expected in cases:
+        result = obs.raw_set_e1rm(base_row(reps=reps, rir=rir), PROPS)
+        assert isinstance(result, obs.RawEstimate)
+        assert result.quality == expected, (reps, rir, result.quality)
+
+
+def test_power_classified_exercise_is_explicitly_excluded():
+    result = obs.raw_set_e1rm(base_row(exercise_id="jump_squats"), {"pattern": "power_jump"})
+
+    assert isinstance(result, obs.Unavailable)
+    assert result.reason == obs.REASON_POWER
+    assert result.status == "invalid"
+
+
+def test_set_linked_to_high_intensity_exposure_is_explicitly_excluded():
+    result = obs.raw_set_e1rm(
+        base_row(set_id=99),
+        PROPS,
+        excluded_set_kinds={99: "test"},
+    )
+
+    assert isinstance(result, obs.Unavailable)
+    assert result.reason == f"{obs.REASON_EXPOSURE_PREFIX}test"
+    assert result.status == "invalid"
+
+
+def test_session_best_honours_excluded_sets():
+    frame = pd.DataFrame(
+        [
+            base_row(set_id=1, load_kg=200.0),
+            base_row(set_id=2, load_kg=100.0),
+        ]
+    )
+
+    best = obs.session_best(frame, "s1", "squat", PROPS, excluded_set_kinds={1: "max_attempt"})
+
+    assert isinstance(best, obs.RawEstimate)
+    assert best.set_id == 2
+
+
 def test_session_best_picks_highest_ok_and_excludes_degraded():
     frame = pd.DataFrame(
         [
