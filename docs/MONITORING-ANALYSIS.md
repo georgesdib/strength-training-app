@@ -27,6 +27,27 @@ HTTP server does not invoke the CLI.
 - measured-test calibration observations, prior raw estimates and the factor/CI available as
   of the selected report date, including the calibration context date for every row.
 
+## Configuring relative-strength pairs
+
+The Performance view lists only explicitly configured pairs; it is not an exhaustive lift
+catalogue. The UI can append a pair to `config/strength-relationships.v1.yaml` only after
+server-side validation against the taxonomy and the complete existing config.
+
+A pair is accepted only when:
+
+- numerator and denominator are distinct, known exercises;
+- both sides support a formula-derived e1RM;
+- the pair is not already configured;
+- the relationship type is one of `variant_to_main`, `accessory_to_main`,
+  `equipment_variant` or `range_variant`;
+- `max_gap_days` is positive;
+- `max_age_days` is at least `max_gap_days`;
+- `min_observations` is at least 2;
+- descriptive-only notes are present.
+
+The config write is atomic. Adding a pair does not change eligibility rules, calibration,
+prescriptions or any ratio calculation; it only makes another descriptive pair visible.
+
 ## Interpretation
 
 These are exploratory observational associations. They do not establish causation, validate a

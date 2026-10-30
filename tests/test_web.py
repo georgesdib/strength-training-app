@@ -1880,3 +1880,30 @@ def test_performance_ratios_are_cached(server, monkeypatch):
     assert get(server, url)[0] == 200
     assert get(server, url)[0] == 200
     assert len(calls) == 1
+
+
+def test_relationship_options_and_validated_add(server, monkeypatch):
+    from strength_coach.web import server as web_server
+
+    options = json.loads(get(server, "/api/performance/relationship-options")[1])
+    assert "variant_to_main" in options["relationship_types"]
+    assert any(item["id"] == "bench_press" for item in options["exercises"])
+    assert options["criteria"]
+
+    captured = []
+    monkeypatch.setattr(
+        web_server.relative_strength_feature,
+        "append_relationship",
+        lambda relationship: captured.append(relationship) or [relationship],
+    )
+    payload = post(server, "/api/performance/relationships", {
+        "numerator": "front_squat",
+        "denominator": "bench_press",
+        "relationship_type": "variant_to_main",
+        "max_gap_days": 14,
+        "max_age_days": 42,
+        "min_observations": 2,
+    })
+    assert payload["ok"] is True
+    assert captured[0].numerator == "front_squat"
+    assert captured[0].denominator == "bench_press"

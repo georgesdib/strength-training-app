@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shutil
+
 import pytest
 from conftest import make_readiness, make_training
 
@@ -120,3 +122,37 @@ def test_config_relationships_validate_against_taxonomy():
         exercises.taxonomy(), relationships
     )
     assert issues == []
+
+
+def test_append_relationship_validates_and_reloads(tmp_path):
+    source = relative_strength.paths.config_dir("strength-relationships.v1.yaml")
+    target = tmp_path / "strength-relationships.v1.yaml"
+    shutil.copyfile(source, target)
+    relationship = relative_strength.Relationship(
+        id="front_squat_to_bench_press",
+        label="Front squat / bench press",
+        numerator="front_squat",
+        denominator="bench_press",
+        relationship_type="variant_to_main",
+        max_gap_days=14,
+        max_age_days=42,
+        min_observations=2,
+        notes="Descriptive only.",
+    )
+    result = relative_strength.append_relationship(relationship, path=target)
+    assert len(result) == 3
+    assert relative_strength.validate_relationships(exercises.taxonomy(), result) == []
+    with pytest.raises(ValueError, match="duplicate"):
+        relative_strength.append_relationship(relationship, path=target)
+
+
+def test_append_relationship_rejects_non_e1rm_exercise(tmp_path):
+    target = tmp_path / "strength-relationships.v1.yaml"
+    shutil.copyfile(relative_strength.paths.config_dir("strength-relationships.v1.yaml"), target)
+    relationship = relative_strength.Relationship(
+        id="plank_to_squat", label="Plank / squat", numerator="plank",
+        denominator="competition_squat", relationship_type="accessory_to_main",
+        max_gap_days=14, max_age_days=42, min_observations=2, notes="test",
+    )
+    with pytest.raises(ValueError, match="does not support an e1RM"):
+        relative_strength.append_relationship(relationship, path=target)

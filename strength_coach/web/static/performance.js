@@ -2,6 +2,8 @@
  * Descriptive only; no decay, calibration, target ratio or diagnosis. */
 var performanceExercisesLoaded = false;
 var monitoringAnalysisData = null;
+var performanceRelationshipOptions = null;
+var monitoringAnalysisShowAll = false;
 
 function performanceDate(daysAgo) {
   var date = new Date();
@@ -72,6 +74,52 @@ function renderPerformanceDose(data) {
     (rows ? "<div class='table-scroll'><table><thead><tr><th>Date</th><th>Type</th><th>Working sets</th><th>Hard sets</th><th>Tonnage</th></tr></thead><tbody>" + rows + "</tbody></table></div>" : "<p class='empty'>No sessions in this range.</p>") + "</div>";
 }
 
+
+async function loadRelationshipOptions() {
+  if (performanceRelationshipOptions) return performanceRelationshipOptions;
+  performanceRelationshipOptions = await api("/api/performance/relationship-options");
+  return performanceRelationshipOptions;
+}
+
+function fillRelationshipOptions(options) {
+  var numerator = document.getElementById("relationship-numerator");
+  var denominator = document.getElementById("relationship-denominator");
+  var type = document.getElementById("relationship-type");
+  if (!numerator || !denominator || !type) return;
+  var choices = (options.exercises || []).map(function (item) {
+    return "<option value='" + esc(item.id) + "'>" + esc(item.label) + "</option>";
+  }).join("");
+  numerator.innerHTML = choices;
+  denominator.innerHTML = choices;
+  type.innerHTML = (options.relationship_types || []).map(function (item) {
+    return "<option value='" + esc(item) + "'>" + esc(item) + "</option>";
+  }).join("");
+}
+
+async function addRelationship(event) {
+  event.preventDefault();
+  var status = document.getElementById("relationship-add-status");
+  var body = {
+    numerator: document.getElementById("relationship-numerator").value,
+    denominator: document.getElementById("relationship-denominator").value,
+    relationship_type: document.getElementById("relationship-type").value,
+    max_gap_days: Number(document.getElementById("relationship-gap").value),
+    max_age_days: Number(document.getElementById("relationship-age").value),
+    min_observations: Number(document.getElementById("relationship-min").value),
+  };
+  if (status) status.textContent = "Saving…";
+  try {
+    await api("/api/performance/relationships", {
+      method: "POST", body: JSON.stringify(body),
+    });
+    performanceRelationshipOptions = null;
+    if (status) status.textContent = "Pair added.";
+    await loadPerformanceData();
+  } catch (error) {
+    if (status) status.textContent = error.message;
+  }
+}
+
 function renderPerformanceRatios(data) {
   var target = document.getElementById("performance-ratios");
   if (!target) return;
@@ -100,6 +148,18 @@ function renderPerformanceRatios(data) {
   }).join("");
   target.innerHTML = "<div class='panel'><h3>Configured relative strength</h3>" +
     "<div class='form-row'><label>Pair<select id='performance-ratio-filter'>" + options + "</select></label></div>" +
+    "<details><summary>Add a configured pair</summary>" +
+    "<form id='relationship-add-form' class='form-row'>" +
+    "<label>Numerator<select id='relationship-numerator'></select></label>" +
+    "<label>Denominator<select id='relationship-denominator'></select></label>" +
+    "<label>Type<select id='relationship-type'></select></label>" +
+    "<label>Gap days<input type='number' id='relationship-gap' value='14' min='1'></label>" +
+    "<label>Max age<input type='number' id='relationship-age' value='42' min='1'></label>" +
+    "<label>Min obs<input type='number' id='relationship-min' value='2' min='2'></label>" +
+    "<button type='submit' class='primary'>Add pair</button></form>" +
+    "<p id='relationship-add-status' class='muted'></p>" +
+    "<p class='muted'>Only pairs that meet the configured criteria can be added: distinct known exercises that support an e1RM, a unique pair, positive gap, age at least the gap, at least two observations, and descriptive-only notes.</p>" +
+    "</details>" +
     (rows.length ? "<div class='table-scroll'><table><thead><tr><th>Pair</th><th>Ratio</th><th>Numerator date</th><th>Denominator date</th><th>Gap days</th><th>Recent obs (num/den)</th><th>Status</th><th>Reason</th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" : "<p class='empty'>No configured relationships.</p>") +
     "<p class='muted'>Only the explicitly configured pairs are shown; this is not an exhaustive lift catalogue. Descriptive ratio of two raw estimates; no target, diagnosis or confidence claim.</p></div>";
   var nextFilter = document.getElementById("performance-ratio-filter");
@@ -107,6 +167,15 @@ function renderPerformanceRatios(data) {
     nextFilter.dataset.wired = "1";
     nextFilter.addEventListener("change", function () {
       renderPerformanceRatios(data);
+    });
+  }
+  var addForm = document.getElementById("relationship-add-form");
+  if (addForm && !addForm.dataset.wired) {
+    addForm.dataset.wired = "1";
+    addForm.addEventListener("submit", addRelationship);
+    loadRelationshipOptions().then(fillRelationshipOptions).catch(function (error) {
+      var status = document.getElementById("relationship-add-status");
+      if (status) status.textContent = error.message;
     });
   }
 }
@@ -240,7 +309,10 @@ function renderMonitoringAnalysis(data) {
       "</td><td>" + (row.session_load_au == null ? "Unavailable" : fmt(row.session_load_au) + " AU") +
       "</td></tr>";
   }).join("");
-  var associations = (data.associations || []).map(function (row) {
+  var associationTableRows = monitoringAnalysisShowAll ? associationRows : (
+    selectedAssociation ? [selectedAssociation] : []
+  );
+  var associations = associationTableRows.map(function (row) {
     return "<tr><td>" + esc(row.exercise_id) + "</td><td>" + row.observations +
       "</td><td>" + monitoringAnalysisAssociation(row.hard_sets_vs_next_e1rm) +
       "</td><td>" + monitoringAnalysisAssociation(row.session_load_vs_next_e1rm) +
@@ -292,6 +364,8 @@ function renderMonitoringAnalysis(data) {
       analysisScatter(selectedAssociation.session_load_points, selectedAssociation.session_load_vs_next_e1rm, selectedAssociation.exercise_id + " session load vs next e1RM") :
       "<p class='empty'>Insufficient observations for lagged associations.</p>") +
     (associations ? "<div class='table-scroll'><table><thead><tr><th>Exercise</th><th>Obs</th><th>Hard sets vs next e1RM</th><th>Session load vs next e1RM</th></tr></thead><tbody>" + associations + "</tbody></table></div>" : "") +
+    (associationRows.length > 1 ? "<button type='button' class='ghost' id='monitoring-analysis-toggle-list'>" +
+      (monitoringAnalysisShowAll ? "Show selected only" : "Show full association list") + "</button>" : "") +
     "<h3>Data coverage and missingness</h3><p class='muted'>Unavailable values are not zero. Missing feedback reduces session-load coverage.</p>" +
     "<h3>Calibration transparency</h3>" +
     "<p class='muted'>Factor and CI are the state available as of " + esc(calibration.as_of || "Unavailable") +
@@ -310,6 +384,14 @@ async function loadMonitoringAnalysis() {
       encodeURIComponent((date && date.value) || today()));
     monitoringAnalysisData = data;
     renderMonitoringAnalysis(data);
+    var toggleList = document.getElementById("monitoring-analysis-toggle-list");
+    if (toggleList && !toggleList.dataset.wired) {
+      toggleList.dataset.wired = "1";
+      toggleList.addEventListener("click", function () {
+        monitoringAnalysisShowAll = !monitoringAnalysisShowAll;
+        if (monitoringAnalysisData) renderMonitoringAnalysis(monitoringAnalysisData);
+      });
+    }
     var associationSelect = document.getElementById("monitoring-analysis-association");
     if (associationSelect && !associationSelect.dataset.wired) {
       associationSelect.dataset.wired = "1";

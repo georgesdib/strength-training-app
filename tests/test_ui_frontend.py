@@ -89,6 +89,14 @@ def test_phase5a_review_actions_are_exposed() -> None:
     assert "Close Phase 5A without Phase 5B" in source
 
 
+def test_performance_full_list_and_pair_editor_are_exposed() -> None:
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    assert "Show full association list" in source
+    assert "Add a configured pair" in source
+    assert "/api/performance/relationship-options" in source
+    assert "/api/performance/relationships" in source
+
+
 def test_script_load_order() -> None:
     page = INDEX.read_text(encoding="utf-8")
     order = [src.removeprefix("/static/")

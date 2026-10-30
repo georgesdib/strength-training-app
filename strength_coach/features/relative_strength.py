@@ -6,6 +6,7 @@ target, a weakness diagnosis, a population norm, or a confidence interval.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,7 +14,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from strength_coach.features import strength_trend
+from strength_coach.features import derived, strength_trend
 from strength_coach.utils import paths
 
 RELATIONSHIP_TYPES = {
@@ -87,11 +88,19 @@ def validate_relationships(taxonomy: Any, relationships: list[Relationship]) -> 
     entities = getattr(taxonomy, "entities", taxonomy)
     issues = []
     seen = set()
+    seen_ids = set()
     for relationship in relationships:
+        if relationship.id in seen_ids:
+            issues.append(f"{relationship.id}: duplicate relationship id")
+        seen_ids.add(relationship.id)
         if relationship.numerator not in entities:
             issues.append(f"{relationship.id}: unknown numerator {relationship.numerator}")
         if relationship.denominator not in entities:
             issues.append(f"{relationship.id}: unknown denominator {relationship.denominator}")
+        for side in (relationship.numerator, relationship.denominator):
+            props = dict(entities.get(str(side), {}))
+            if side in entities and not derived.e1rm_applicable(props):
+                issues.append(f"{relationship.id}: {side} does not support an e1RM")
         if relationship.numerator == relationship.denominator:
             issues.append(f"{relationship.id}: numerator equals denominator")
         pair = (relationship.numerator, relationship.denominator)
@@ -251,3 +260,54 @@ def ratio_trend(
             "reason": "",
         })
     return out
+
+
+RELATIONSHIP_TYPES_ORDER = (
+    "variant_to_main",
+    "accessory_to_main",
+    "equipment_variant",
+    "range_variant",
+)
+
+
+def relationship_types() -> tuple[str, ...]:
+    return RELATIONSHIP_TYPES_ORDER
+
+
+def append_relationship(relationship: Relationship, path: str | Path | None = None) -> list[Relationship]:
+    """Validate and append one explicit descriptive pair to the config.
+
+    The file is rewritten atomically. Validation runs against the taxonomy and the complete
+    existing config, so a UI add cannot create an unknown, duplicate, non-e1RM or malformed
+    relationship.
+    """
+    from strength_coach.utils import exercises
+
+    existing = load_relationships(path)
+    issues = validate_relationships(exercises.taxonomy(), [*existing, relationship])
+    if issues:
+        raise ValueError("; ".join(issues))
+    source = Path(path or paths.config_dir("strength-relationships.v1.yaml"))
+    payload = yaml.safe_dump(
+        [{
+            "id": relationship.id,
+            "label": relationship.label,
+            "numerator": relationship.numerator,
+            "denominator": relationship.denominator,
+            "relationship_type": relationship.relationship_type,
+            "max_gap_days": relationship.max_gap_days,
+            "max_age_days": relationship.max_age_days,
+            "min_observations": relationship.min_observations,
+            "notes": relationship.notes,
+        }],
+        sort_keys=False,
+        allow_unicode=True,
+    )
+    block = "\n".join("  " + line for line in payload.rstrip().splitlines()) + "\n"
+    text = source.read_text(encoding="utf-8")
+    if not text.endswith("\n"):
+        text += "\n"
+    tmp = source.with_name(source.name + ".tmp")
+    tmp.write_text(text + block, encoding="utf-8")
+    os.replace(tmp, source)
+    return load_relationships(path)

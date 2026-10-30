@@ -63,6 +63,7 @@ from strength_coach.features import (
 )
 from strength_coach.features import deload as deload_feature
 from strength_coach.features import demands as demands_feature
+from strength_coach.features import derived as derived_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import exposure as exposure_ratio_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
@@ -774,6 +775,8 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/performance/ratios":
                 query = parse_qs(urlparse(self.path).query)
                 self._json(200, self._performance_ratios_cached(query))
+            elif path == "/api/performance/relationship-options":
+                self._json(200, self._relationship_options())
             elif path == "/api/monitoring-analysis":
                 query = parse_qs(urlparse(self.path).query)
                 as_of = query.get("as_of", [datetime.date.today().isoformat()])[0]
@@ -1061,6 +1064,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: history.apply_vbt(
                     c, session_id, body.get("sets") or [], reason=body.get("reason"),
                 )))
+            elif path == "/api/performance/relationships":
+                self._json(200, self._add_relationship(body))
             elif path == "/api/reviews":
                 self._json(200, self._with_conn(lambda c: self._save_review_task(c, body)))
             elif path == "/api/readiness/feedback":
@@ -1763,6 +1768,75 @@ class Handler(BaseHTTPRequestHandler):
                 "tonnage_kg": round(float(tonnage), 1),
             })
         return {"from": from_date, "to": to_date, "group_by": "session", "buckets": buckets}
+
+    def _relationship_options(self) -> dict:
+        entities = exercises.taxonomy().entities
+        choices = [
+            {"id": str(key), "label": str(value.get("display") or key)}
+            for key, value in entities.items()
+            if derived_feature.e1rm_applicable(dict(value))
+        ]
+        return {
+            "relationship_types": list(relative_strength_feature.relationship_types()),
+            "exercises": sorted(choices, key=lambda item: item["label"].lower()),
+            "criteria": [
+                "numerator and denominator are distinct known exercises",
+                "both sides support a formula e1RM",
+                "the pair is not already configured",
+                "max_gap_days is positive",
+                "max_age_days is at least max_gap_days",
+                "min_observations is at least 2",
+                "notes are present; ratios are descriptive only",
+            ],
+        }
+
+    def _add_relationship(self, body: dict) -> dict:
+        numerator = str(body.get("numerator") or "").strip()
+        denominator = str(body.get("denominator") or "").strip()
+        entities = exercises.taxonomy().entities
+        if numerator not in entities or denominator not in entities:
+            raise ValueError("choose two known exercises")
+        relationship_type = str(body.get("relationship_type") or "").strip()
+        try:
+            max_gap_days = int(body.get("max_gap_days", 14))
+            max_age_days = int(body.get("max_age_days", 42))
+            min_observations = int(body.get("min_observations", 2))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("gap, age and observation fields must be integers") from exc
+        label = str(body.get("label") or "").strip() or (
+            f"{entities[numerator].get('display') or numerator} / "
+            f"{entities[denominator].get('display') or denominator}"
+        )
+        notes = str(body.get("notes") or "").strip() or (
+            "Descriptive relative performance only; not a weakness diagnosis."
+        )
+        relationship = relative_strength_feature.Relationship(
+            id=f"{numerator}_to_{denominator}",
+            label=label,
+            numerator=numerator,
+            denominator=denominator,
+            relationship_type=relationship_type,
+            max_gap_days=max_gap_days,
+            max_age_days=max_age_days,
+            min_observations=min_observations,
+            notes=notes,
+        )
+        relationships = relative_strength_feature.append_relationship(relationship)
+        _READ_CACHE.clear()
+        return {
+            "ok": True,
+            "relationships": [
+                {
+                    "id": item.id, "label": item.label,
+                    "numerator": item.numerator, "denominator": item.denominator,
+                    "relationship_type": item.relationship_type,
+                    "max_gap_days": item.max_gap_days,
+                    "max_age_days": item.max_age_days,
+                    "min_observations": item.min_observations,
+                }
+                for item in relationships
+            ],
+        }
 
     def _performance_ratios(self, conn, query: dict) -> dict:
         to_date = query.get("to", [datetime.date.today().isoformat()])[0]
