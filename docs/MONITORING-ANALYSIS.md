@@ -98,3 +98,6 @@ explicit user approval, and every change must trace to a documented Phase 5A fin
 - [Web UI](WEB-UI.md)
 - [Limitations register](LIMITATIONS-REGISTER.md)
 - [Data model](DATA-MODEL.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

@@ -1,14 +1,31 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.0-beta.1] — 2026-10-30
+
+Monitoring and longitudinal-performance beta.
+
+### Added
+
+- Raw **Performance** view and read-only monitoring API: formula-derived session-best e1RM,
+  rolling median, series breaks, separate degraded observations, session-type/deload/quality
+  filters and descriptive dose.
+- Configured **relative-strength ratios**, with eligibility-aware history, pair filtering,
+  validated in-UI pair configuration and a descriptive-only warning.
+- Read-only **monitoring analysis** service: dose and lagged associations, coverage,
+  missingness and calibration transparency, exposed through the Performance UI, CLI and
+  GET /api/monitoring-analysis.
+- Completed-workout descriptive summary and append-only session_feedback.productivity.
+- Phase 5A prospective-validation review task on Today (2026-10-30 to 2027-01-22).
 
 ### Changed
 
-- Removed the unused athlete-profile fields `primary_goal`, `goal_rank` and `focus_lifts`
+- Removed the unused athlete-profile fields primary_goal, goal_rank and focus_lifts
   from the database (migration 0044), CLI state import/show, web API and profile form. No rule,
   feature or prescription read them, so behaviour is unchanged. An old state file that still
   sets them is rejected with a clear message instead of silently ignoring the keys
-  (`DEC-STATE-02`).
+  (DEC-STATE-02).
+- Read-only analysis/cache and Performance selector/chart fixes; no prescription, calibration
+  or optimisation behaviour changed.
 
 ## [1.0.0-beta.2] — 2026-10-29
 

@@ -13,9 +13,10 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**v1.0 beta is released; v1.1 is planned.** v1.0 packages the workable app and guided Workflow
-UI for user testing. v1.1 drops the beta label; cardio depth and comparable calibration data
-remain (see ROADMAP §4.13a/§4.14).
+**v1.1 beta is released; v1.2 is planned.** v1.0 packaged the workable app and guided Workflow
+UI for user testing. v1.1 beta adds the Performance and monitoring-analysis surfaces. v1.2 is
+planned to drop the beta label; cardio depth and comparable calibration data remain (see
+ROADMAP §4.13a/§4.14).
 
 **Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is

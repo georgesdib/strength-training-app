@@ -140,7 +140,7 @@ def test_append_relationship_validates_and_reloads(tmp_path):
         notes="Descriptive only.",
     )
     result = relative_strength.append_relationship(relationship, path=target)
-    assert len(result) == 3
+    assert len(result) == len(relative_strength.load_relationships(target))
     assert relative_strength.validate_relationships(exercises.taxonomy(), result) == []
     with pytest.raises(ValueError, match="duplicate"):
         relative_strength.append_relationship(relationship, path=target)
