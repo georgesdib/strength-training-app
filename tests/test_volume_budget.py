@@ -433,16 +433,28 @@ def test_record_exemptions_writes_the_safety_cut():
 
 def _profile(
     conn, *, enabled: bool, policy: str = "preserve", sessions: int = 3,
-    competition: str | None = None,
+    competition: str | None = None, max_minutes: int = 80,
 ):
     current = queries.athlete_profile(conn) or {}
     repositories.append_athlete_profile(
         conn, effective_from=TODAY, primary_goal=current.get("primary_goal") or "strength",
         goal_rank=current.get("goal_rank") and json.loads(current["goal_rank"]) or ["strength"],
         focus_lifts=[], competition_date=competition, sessions_per_week_target=sessions,
-        max_session_minutes=90, block_start_date=None,
+        max_session_minutes=max_minutes, block_start_date=None,
         volume_budget_enabled=enabled, main_lift_policy=policy,
     )
+
+
+def test_budget_time_cap_follows_a_raised_profile_session_target():
+    store = store_with()
+    try:
+        _profile(store.connection, enabled=True, max_minutes=120)
+        data = volume_budget.report(
+            store.connection, "2026-10-27", session_type="squat"
+        )
+    finally:
+        store.close()
+    assert data["plan"]["time_cap_minutes"] == 120
 
 
 def test_the_budget_is_off_by_default_and_enabled_by_the_profile():

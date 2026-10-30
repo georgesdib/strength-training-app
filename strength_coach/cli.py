@@ -2395,7 +2395,7 @@ def _print_state(conn) -> None:
     print(f"  goal rank           {profile['goal_rank']}")
     print(f"  focus lifts         {profile['focus_lifts']}")
     print(f"  sessions/week       {profile['sessions_per_week_target']}")
-    print(f"  max session         {profile['max_session_minutes']} min")
+    print(f"  session target      {profile['max_session_minutes']} min")
     print(f"  block start         {profile['block_start_date'] or 'not declared'}")
     print(f"  volume budget       {'on' if profile.get('volume_budget_enabled') else 'off'}")
     print(f"  main-lift policy    {profile.get('main_lift_policy', 'preserve')}")

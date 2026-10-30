@@ -510,24 +510,25 @@ def build_prescription(
         stress, tuple(item.exercise_id for item in items)
     ))
 
-    # The profile ceiling is informational/constraining metadata, not a silent set cut.
-    # Planned target stays 80 min; the athlete's lower value can tighten it; 90 is the hard cap.
+    # The session time is a target, not a silent set cut or a hard ceiling. The configured
+    # default comes from thresholds; an athlete value may raise or lower it without changing
+    # sets, loads or exercise selection.
     profile = queries.athlete_profile(conn) or {}
     configured = profile.get("max_session_minutes")
-    hard_minutes = 90
-    planned_minutes = 80
-    if configured is not None:
-        planned_minutes = min(planned_minutes, hard_minutes, max(1, int(configured)))
+    default_minutes = max(1, int(round(thresholds.session_time_cap_s / 60)))
+    planned_minutes = (
+        max(1, int(configured)) if configured is not None else default_minutes
+    )
     time_cap_s = planned_minutes * 60
     estimated_minutes = minimum_session_mod.estimate_minutes(tuple(items))
     if estimated_minutes > planned_minutes:
         warnings.append(
             f"session time: estimated {estimated_minutes:g} min exceeds the planned "
-            f"{planned_minutes} min ceiling; use the minimum-session option or shorten it"
+            f"{planned_minutes} min target; use the minimum-session option or shorten it"
         )
     session_time = {
         "planned_minutes": planned_minutes,
-        "hard_ceiling_minutes": hard_minutes,
+        "default_minutes": default_minutes,
         "estimated_minutes": estimated_minutes,
         "over_planned": estimated_minutes > planned_minutes,
         "configured_max_minutes": configured,

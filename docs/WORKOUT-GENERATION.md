@@ -142,7 +142,7 @@ This example is generated from a deterministic synthetic fixture, [`tests/fixtur
 The block below is rendered from the actual `build_prescription` output by [`tools/workout_generation_example.py`](../tools/workout_generation_example.py). Do not edit it by hand: after a template, threshold or engine change run `python tools/workout_generation_example.py --write`. [`tests/test_workout_generation_doc.py`](../tests/test_workout_generation_doc.py) fails when the committed block is stale.
 
 <!-- BEGIN GENERATED WORKOUT EXAMPLE -->
-<!-- source:sha256:975f0c7fb766b2e1 -->
+<!-- source:sha256:e4cd31c1995d361e -->
 
 ### 12.1 Inputs
 

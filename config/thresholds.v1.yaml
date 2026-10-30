@@ -74,9 +74,9 @@ modifiers:
   back_flare_main_rir: 3
 
 prescription:
-  # A hinge session at ~20 working sets fits comfortably inside the constitution's 60-80 min
-  # guidance. Recorded because the prescription row stores a time cap even when it cannot be
-  # measured (no timestamps in the export).
+  # Default session-time target. The athlete profile may raise or lower it; this is a planning
+  # target, not a hard ceiling. Recorded because the prescription row stores a time target even
+  # when it cannot be measured (no timestamps in the export).
   session_time_cap_s: 4800
   # A proposal may change set counts but never loads, RIR or the exercise taxonomy. These bounds
   # are the whole of its licence: anything outside them is rejected, not clamped.

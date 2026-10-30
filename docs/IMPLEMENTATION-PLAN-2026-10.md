@@ -18,7 +18,7 @@ A0–F are implemented, including the canonical methodology/privacy docs. The fu
 | first implementation slice | **read-only outcome review** |
 | readiness gate | keep mandatory until the readiness audit is complete |
 | outcome storage | compute on demand; no snapshot table in v1 |
-| session cap | **80 minutes planned; 90 minutes hard ceiling** |
+| session target | **80 minutes default; athlete may raise or lower it** |
 | minimum effective session | user-selected; offered when readiness is poor; never automatic |
 | public-doc privacy | generalise current docs and move details to `private/`; do not rewrite Git history |
 | readiness weights | unchanged; no automatic tuning |

@@ -119,7 +119,7 @@ These are athlete decisions, not settings-profile defaults:
 - volume budget on/off
 - main-lift policy: `preserve`, `reduce` or `drop`
 - sessions per week target
-- maximum session minutes
+- session minutes target
 
 The Volume budget panel shows their current values. Change them in **State → Edit profile**.
 

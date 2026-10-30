@@ -1961,7 +1961,7 @@ function renderStateForms(data) {
         </details>
         ${profileField("competition_date", "Competition date", p.competition_date, "date")}
         ${profileField("sessions_per_week_target", "Sessions/week", p.sessions_per_week_target, "number")}
-        ${profileField("max_session_minutes", "Max minutes", p.max_session_minutes, "number")}
+        ${profileField("max_session_minutes", "Session minutes", p.max_session_minutes, "number")}
         ${profileField("block_start_date", "Block start", p.block_start_date, "date")}
         <label>Volume budget
           <select data-profile="volume_budget_enabled">
@@ -3251,7 +3251,7 @@ function renderVolumeSettings(data) {
   const athleteLine = "Budget " + (athlete.volume_budget_enabled ? "on" : "off")
     + " · main-lift policy " + esc(athlete.main_lift_policy || "preserve")
     + " · sessions/week " + esc(athlete.sessions_per_week_target ?? "—")
-    + " · max session " + esc(athlete.max_session_minutes ?? "—") + " min. "
+    + " · session target " + esc(athlete.max_session_minutes ?? "—") + " min. "
     + 'These athlete decisions stay in <a href="#state" data-view-link="state">State</a>.';
   $("#settings-volume-athlete").innerHTML = athleteLine;
   $("#settings-volume-warnings").innerHTML = (data.warnings || [])

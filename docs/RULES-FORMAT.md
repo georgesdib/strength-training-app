@@ -241,6 +241,6 @@ notes: >
   (`DEC-POWER-01`, squat-emphasis session `box_jump`), but still **not a rule**: the log has no rep-level power
   data, so compliance cannot be scored (Q4). The slot is excluded from rep-scheme undulation
   and carries no rule citation; the prescription warns to stop when height or quality drops.
-- Session time cap: **80 minutes planned / 90 minutes hard ceiling** — cannot be measured
-  from imported timestamps. Encoded as an `advisory` placeholder that always returns
+- Session time target: **80 minutes default, athlete may raise or lower it** — cannot be
+  measured from imported timestamps. Encoded as an `advisory` placeholder that always returns
   `unknown` today, so the gap is visible instead of forgotten. Live workouts measure duration.

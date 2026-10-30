@@ -664,7 +664,7 @@ def test_minimum_session_refuses_a_hard_constraint_veto():
     assert "CONSTRAINT_VETO" in note["reason"]
 
 
-def test_profile_max_session_minutes_consumes_planned_cap_without_cutting_sets():
+def test_profile_session_minutes_sets_the_planned_target_without_cutting_sets():
     from strength_coach.store import repositories
 
     with store_with(BASE_HISTORY) as store:
@@ -673,13 +673,26 @@ def test_profile_max_session_minutes_consumes_planned_cap_without_cutting_sets()
             goal_rank=["strength"], focus_lifts=["ssb_squat"],
             sessions_per_week_target=3, max_session_minutes=45,
         )
-        prescription = build_prescription(
+        lowered = build_prescription(
             store.connection, for_date="2024-01-15", session_type="hinge",
         )
-    assert prescription.time_cap_s == 45 * 60
-    assert prescription.notes["session_time"]["planned_minutes"] == 45
-    assert prescription.notes["session_time"]["hard_ceiling_minutes"] == 90
-    assert any("session time" in warning for warning in prescription.warnings)
+        repositories.append_athlete_profile(
+            store.connection, effective_from="2024-01-15", primary_goal="strength",
+            goal_rank=["strength"], focus_lifts=["ssb_squat"],
+            sessions_per_week_target=3, max_session_minutes=120,
+        )
+        raised = build_prescription(
+            store.connection, for_date="2024-01-16", session_type="hinge",
+        )
+    assert lowered.time_cap_s == 45 * 60
+    assert lowered.notes["session_time"]["planned_minutes"] == 45
+    assert lowered.notes["session_time"]["default_minutes"] == 80
+    assert "hard_ceiling_minutes" not in lowered.notes["session_time"]
+    assert any("session time" in warning for warning in lowered.warnings)
+
+    assert raised.time_cap_s == 120 * 60
+    assert raised.notes["session_time"]["planned_minutes"] == 120
+    assert not any("session time" in warning for warning in raised.warnings)
 
 
 def test_e1rm_source_width_is_exposed_on_the_item():

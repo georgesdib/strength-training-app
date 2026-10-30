@@ -1392,9 +1392,10 @@ def report(
     profile = queries.athlete_profile(conn) or {}
     target_frequency = int(profile.get("sessions_per_week_target") or 3)
     profile_max = profile.get("max_session_minutes")
-    time_cap = float(cfg.session_time_cap_minutes)
-    if profile_max is not None:
-        time_cap = min(time_cap, float(profile_max))
+    time_cap = (
+        float(profile_max) if profile_max is not None
+        else float(cfg.session_time_cap_minutes)
+    )
 
     projected_rows = list(projected_items)
     today_sessions = queries.sessions(conn, start=str(on_date), end=str(on_date))
@@ -1685,9 +1686,10 @@ def apply(
         key: diag.get("persistent") for key, diag in data["per_pattern"].items()
     }
     profile_max = profile.get("max_session_minutes")
-    time_cap = float(cfg.session_time_cap_minutes)
-    if profile_max is not None:
-        time_cap = min(time_cap, float(profile_max))
+    time_cap = (
+        float(profile_max) if profile_max is not None
+        else float(cfg.session_time_cap_minutes)
+    )
     result = allocate_items(
         rows,
         effective=data["effective_targets"],

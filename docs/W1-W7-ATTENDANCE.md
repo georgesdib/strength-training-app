@@ -83,10 +83,11 @@ pipeline as the CLI/web paths.
 **W1-07 — `max_session_minutes` is not consumed.**  
 Classification: resolved as an explicit metadata/planned-cap rule.
 
-`athlete_profile.max_session_minutes` now tightens the planned cap (default 80 minutes, maximum
-90) and adds a `notes.session_time` estimate plus a warning when the estimate exceeds it. It
-does **not** silently cut sets or load; the optional minimum session remains the explicit
-reduction. The hard ceiling is 90 minutes.
+`athlete_profile.max_session_minutes` now sets the planned session target (default from
+`config/thresholds.v1.yaml`, currently 80 minutes) and adds a `notes.session_time` estimate
+plus a warning when the estimate exceeds it. The athlete may raise or lower the target; there is
+no hard ceiling. It does **not** silently cut sets or load; the optional minimum session remains
+the explicit reduction.
 
 **W1-08 — Session duration is not enforced.**  
 Classification: confirmed limitation.
@@ -161,7 +162,8 @@ Classification: resolved. The shared attendance summary feeds both surfaces.
 ## Implemented follow-up
 
 - Forecast deload now uses the build-time path.
-- `max_session_minutes` now sets the planned cap and emits a warning; it does not cut sets.
+- `max_session_minutes` now sets the planned session target, may be raised or lowered, and
+  emits a warning; it does not cut sets.
 - `features/attendance.py` is the single attendance summary.
 - Today and Outcomes render it.
 - No stored plan, backlog or catch-up mechanism was added.
