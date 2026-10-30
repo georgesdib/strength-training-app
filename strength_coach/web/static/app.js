@@ -1132,6 +1132,16 @@ async function loadReview(session) {
         <label>Length (min) <input id="review-minutes" type="number" min="1" max="600"
           step="1" placeholder="optional"
           value="${data.feedback && data.feedback.duration_min != null ? data.feedback.duration_min : ""}"></label>
+        <label>Productivity
+          <select id="review-productivity">
+            <option value="">Not recorded</option>
+            <option value="1" ${data.feedback && data.feedback.productivity === 1 ? "selected" : ""}>1 — not at all</option>
+            <option value="2" ${data.feedback && data.feedback.productivity === 2 ? "selected" : ""}>2 — slightly</option>
+            <option value="3" ${data.feedback && data.feedback.productivity === 3 ? "selected" : ""}>3 — moderately</option>
+            <option value="4" ${data.feedback && data.feedback.productivity === 4 ? "selected" : ""}>4 — very</option>
+            <option value="5" ${data.feedback && data.feedback.productivity === 5 ? "selected" : ""}>5 — extremely</option>
+          </select>
+        </label>
         <label class="grow">Note <input id="review-note" placeholder="optional"></label>
         <button class="primary" id="save-review">End review</button>
       </div>
@@ -1159,6 +1169,7 @@ async function saveReview(session) {
     note: $("#review-note").value || null,
     session_rpe: $("#review-srpe").value || null,
     session_minutes: $("#review-minutes").value || null,
+    productivity: $("#review-productivity").value || null,
   };
   try {
     const data = await api("/api/review/" + encodeURIComponent(session), {

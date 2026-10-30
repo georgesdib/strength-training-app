@@ -45,6 +45,13 @@ def test_every_referenced_script_exists() -> None:
         assert src.startswith("/static/"), src
         assert (STATIC / src.removeprefix("/static/")).is_file(), src
 
+def test_summary_script_and_panel_are_wired() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    assert 'id="workout-ended-summary"' in page
+    assert "/static/summary.js" in page
+    assert (STATIC / "summary.js").is_file()
+
+
 def test_script_load_order() -> None:
     page = INDEX.read_text(encoding="utf-8")
     order = [src.removeprefix("/static/")

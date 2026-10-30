@@ -150,6 +150,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="optional session RPE 1-10 (also asked interactively at review)")
     review.add_argument("--session-minutes", type=float, default=None,
                         help="optional session length in minutes")
+    review.add_argument("--productivity", type=int, choices=range(1, 6), default=None,
+                        help="optional productivity rating 1-5")
 
     calibrate = sub.add_parser("calibrate", help="report agreement between rubric and marks")
     calibrate.add_argument("--tolerance", type=float, default=None)
@@ -359,8 +361,15 @@ def main(argv: list[str] | None = None) -> int:
     we.add_argument("--session-rpe", type=float, default=None)
     we.add_argument("--duration-min", type=float, default=None)
     we.add_argument("--not-recorded", action="store_true")
+    we.add_argument("--productivity", type=int, choices=range(1, 6), default=None)
     we.add_argument("--note", default=None)
     workout_sub.add_parser("abandon", help="abandon the active workout")
+
+    summary_parser = sub.add_parser(
+        "summary", help="show the descriptive summary of a completed workout"
+    )
+    summary_parser.add_argument("workout_id")
+    summary_parser.add_argument("--json", action="store_true")
     wi = workout_sub.add_parser("import", help="preview/apply the workout CSV to the active workout")
     wi.add_argument("--file", required=True)
     wi.add_argument("--rep-file", default=None,
@@ -504,6 +513,7 @@ def main(argv: list[str] | None = None) -> int:
         "regime": _cmd_regime,
         "validate": _cmd_validate,
         "workout": _cmd_workout,
+        "summary": _cmd_summary,
         "exercise": _cmd_exercise,
         "block": _cmd_block,
         "break": _cmd_break,
@@ -761,11 +771,16 @@ def _collect_session_feedback(args) -> dict | None:
     A file-based review (`--scores`) stays non-interactive; flags still work there. The prompt
     is only for the interactive path, because these fields are useful but never required.
     """
-    if args.session_rpe is not None or args.session_minutes is not None:
+    if (
+        args.session_rpe is not None
+        or args.session_minutes is not None
+        or args.productivity is not None
+    ):
         return {
             key: value for key, value in {
                 "srpe": args.session_rpe,
                 "duration_min": args.session_minutes,
+                "productivity": args.productivity,
             }.items() if value is not None
         }
     if args.scores:
@@ -1644,7 +1659,7 @@ def _cmd_workout(args) -> int:
             result = workout.end(
                 conn, identifier, session_rpe=args.session_rpe,
                 not_recorded=args.not_recorded, duration_min=args.duration_min,
-                notes=args.note,
+                productivity=args.productivity, notes=args.note,
             )
         elif args.action == "abandon":
             result = workout.abandon(conn, identifier)
@@ -1663,6 +1678,48 @@ def _cmd_workout(args) -> int:
             print(f"unknown workout action: {args.action}")
             return 2
         print(json.dumps(result, indent=2, default=str))
+        return 0
+    finally:
+        store.close()
+
+
+def _cmd_summary(args) -> int:
+    store = db.Store(args.db)
+    try:
+        try:
+            payload = workout.summary(store.connection, args.workout_id)
+        except (workout.WorkoutNotCompleted, ValueError) as exc:
+            print(str(exc))
+            return 2
+        if args.json:
+            print(json.dumps({"summary": payload}, indent=2, default=str))
+            return 0
+        print(f"summary {payload['for_date']} ({payload['session_type']})")
+        completion = payload["completion"]
+        print(
+            f"  completion      {completion.get('completed_sets', 0)} / "
+            f"{completion.get('planned_sets', 0)} sets"
+        )
+        print("  strength")
+        for row in payload["strength"]:
+            post = row["post"]
+            ref = row["recent_reference"]
+            diff = row["difference"]
+            print(
+                f"    {row['exercise_id']:<28} post {post.get('kg', 'unavailable')} kg; "
+                f"recent {ref.get('kg', 'unavailable')} kg; "
+                f"difference {diff.get('kg', 'unavailable')} kg ({diff.get('status')})"
+            )
+        print("  dose")
+        for row in payload["dose"]["per_exercise"]:
+            print(
+                f"    {row['exercise_id']:<28} sets {row['sets']} "
+                f"hard {row['hard_sets']} near-failure {row['near_failure_sets']}"
+            )
+        print(f"  relative intensity {payload['dose']['relative_intensity']}")
+        print(f"  RIR {payload['dose']['rir']}")
+        print(f"  feedback {payload['feedback']}")
+        print(f"  special {payload['special']}")
         return 0
     finally:
         store.close()

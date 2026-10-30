@@ -65,7 +65,7 @@ def get(base: str, path: str) -> tuple[int, str]:
 
 def client_js(base: str) -> str:
     """The whole client bundle, so a feature move does not break a string contract."""
-    names = ("core.js", "app.js", "exercises.js", "history.js", "workout.js")
+    names = ("core.js", "app.js", "exercises.js", "history.js", "workout.js", "summary.js")
     parts = []
     for name in names:
         status, body = get(base, "/static/" + name)
@@ -114,6 +114,8 @@ def test_the_page_and_overview_are_served(server):
     assert "core.js" in page and "exercises.js" in page
     assert "view-longevity" in page and "longevity-form" in page
     assert "workout.js" in page
+    assert "summary.js" in page
+    assert "workout-end-productivity" in page
     assert page.count('class="section-help"') >= 60
     assert page.count("#docs?doc=") >= 50
     assert "&amp;anchor=" in page  # nested/dialog links use section anchors
@@ -1727,3 +1729,47 @@ def test_unexpected_errors_are_generic_and_logged(caplog, monkeypatch, server):
     assert "internal server error" in body
     assert "secret path" not in body
     assert "RuntimeError" in caplog.text
+
+
+def test_workout_summary_api_status_and_productivity(server):
+    plan = {
+        "for_date": "2024-01-02",
+        "session_type": "hinge",
+        "items": [
+            {"exercise_id": "trap_bar_deadlift", "sets": 2, "reps_low": 3,
+             "reps_high": 5, "load_kg": 100, "rir_target": 2,
+             "e1rm_kg": 120.0, "e1rm_ref": "set:s0/1",
+             "e1rm_quality": "ok", "e1rm_age_days": 2},
+        ],
+    }
+    readiness = {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-02", "plan": plan, "readiness": readiness,
+    })["workout"]
+    workout_id = started["workout_id"]
+    post(server, f"/api/workout/{workout_id}/sets", {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
+    })
+    try:
+        get(server, f"/api/workout/{workout_id}/summary")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 409
+    else:
+        raise AssertionError("in-progress summary should be 409")
+
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 50, "productivity": 4,
+    })
+    payload = json.loads(get(server, f"/api/workout/{workout_id}/summary")[1])
+    assert payload["summary"]["feedback"]["productivity"] == 4
+    assert payload["summary"]["dose"]["per_exercise"]
+
+    try:
+        get(server, "/api/workout/missing/summary")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 404
+    else:
+        raise AssertionError("unknown summary should be 404")

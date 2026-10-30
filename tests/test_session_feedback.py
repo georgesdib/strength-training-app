@@ -92,11 +92,11 @@ def test_cli_review_flags_store_optional_detail(tmp_path):
     }), encoding="utf-8")
     assert cli.main(["--db", str(path), "review", "--session", "2024-01-01",
                      "--scores", str(marks), "--session-rpe", "7",
-                     "--session-minutes", "75"]) == 0
+                     "--session-minutes", "75", "--productivity", "4"]) == 0
 
     store = db.Store(path)
     try:
         feedback = queries.session_feedback(store.connection, "2024-01-01")
     finally:
         store.close()
-    assert (feedback["srpe"], feedback["duration_min"]) == (7.0, 75.0)
+    assert (feedback["srpe"], feedback["duration_min"], feedback["productivity"]) == (7.0, 75.0, 4)

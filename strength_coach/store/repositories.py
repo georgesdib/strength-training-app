@@ -1158,11 +1158,17 @@ def append_session_feedback(
     session_id: str,
     srpe: float | None = None,
     duration_min: float | None = None,
+    productivity: int | None = None,
     note: str | None = None,
 ) -> str:
     """Append optional post-session feedback; latest row per session wins at read time."""
-    if srpe is None and duration_min is None and not (note or "").strip():
-        raise ValueError("at least one of srpe, duration_min or note is required")
+    if (
+        srpe is None
+        and duration_min is None
+        and productivity is None
+        and not (note or "").strip()
+    ):
+        raise ValueError("at least one of srpe, duration_min, productivity or note is required")
     if srpe is not None:
         srpe = float(srpe)
         if not 1 <= srpe <= 10:
@@ -1171,13 +1177,21 @@ def append_session_feedback(
         duration_min = float(duration_min)
         if not 0 < duration_min <= 600:
             raise ValueError("session length must be between 0 and 600 minutes")
+    if productivity is not None:
+        productivity = int(productivity)
+        if not 1 <= productivity <= 5:
+            raise ValueError("productivity must be between 1 and 5")
     feedback_id = uuid.uuid4().hex
     conn.execute(
         """
-        INSERT INTO session_feedback (feedback_id, session_id, srpe, duration_min, note)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO session_feedback
+            (feedback_id, session_id, srpe, duration_min, productivity, note)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (feedback_id, str(session_id), srpe, duration_min, (note or "").strip() or None),
+        (
+            feedback_id, str(session_id), srpe, duration_min, productivity,
+            (note or "").strip() or None,
+        ),
     )
     return feedback_id
 

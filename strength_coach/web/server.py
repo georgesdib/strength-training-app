@@ -679,6 +679,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: {"workout": workout.active_workout(c)}
                 ))
+            elif path.startswith("/api/workout/") and path.endswith("/summary"):
+                workout_id = path[len("/api/workout/"):-len("/summary")].strip("/")
+                self._json(200, self._with_conn(
+                    lambda c: {"summary": self._summary_or_error(c, workout_id)}
+                ))
             elif path.startswith("/api/workout/"):
                 workout_id = path.rsplit("/", 1)[-1]
                 self._json(200, self._with_conn(
@@ -926,6 +931,8 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._error(404, "not found")
         except ReadinessRequired as exc:
+            self._error(409, str(exc))
+        except workout.WorkoutNotCompleted as exc:
             self._error(409, str(exc))
         except UnknownSessionError as exc:
             self._error(404, str(exc))
@@ -1571,6 +1578,14 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("workout not found")
         return result
 
+    def _summary_or_error(self, conn, workout_id: str) -> dict:
+        result = workout.get(conn, workout_id)
+        if result is None:
+            raise UnknownSessionError("workout not found")
+        if result.get("status") != "completed":
+            raise workout.WorkoutNotCompleted("workout is not completed")
+        return workout.summary(conn, workout_id)
+
     def _workout_start(self, conn, body: dict) -> dict:
         for_date = str(body.get("date") or datetime.date.today().isoformat())
         plan = body.get("plan")
@@ -1697,6 +1712,7 @@ class Handler(BaseHTTPRequestHandler):
                 session_rpe=_number(body.get("session_rpe")),
                 not_recorded=_truth(body.get("not_recorded")),
                 duration_min=_number(body.get("duration_min")),
+                productivity=_integer(body.get("productivity")),
                 notes=body.get("notes") or None,
             )
         elif action == "abandon":
@@ -1964,6 +1980,7 @@ class Handler(BaseHTTPRequestHandler):
             conn, session,
             srpe=body.get("session_rpe"),
             duration_min=body.get("session_minutes"),
+            productivity=body.get("productivity"),
         )
         written = record_marks(
             conn, session, scores, confidence=confidence,

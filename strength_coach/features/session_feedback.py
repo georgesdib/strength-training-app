@@ -25,6 +25,7 @@ def record(
     *,
     srpe: Any = None,
     duration_min: Any = None,
+    productivity: Any = None,
     note: str | None = None,
 ) -> dict | None:
     """Store optional feedback; return None when everything was left blank.
@@ -34,14 +35,21 @@ def record(
     """
     srpe_value = _number(srpe)
     duration_value = _number(duration_min)
+    productivity_value = None if productivity in (None, "") else int(productivity)
     note_value = (note or "").strip() or None
-    if srpe_value is None and duration_value is None and note_value is None:
+    if (
+        srpe_value is None
+        and duration_value is None
+        and productivity_value is None
+        and note_value is None
+    ):
         return None
     repositories.append_session_feedback(
         conn,
         session_id=session_id,
         srpe=srpe_value,
         duration_min=duration_value,
+        productivity=productivity_value,
         note=note_value,
     )
     return queries.session_feedback(conn, session_id)
@@ -67,12 +75,13 @@ def merged(conn, session_id: str) -> dict | None:
         "session_id": str(session_id),
         "srpe": None,
         "duration_min": None,
+        "productivity": None,
         "note": None,
         "recorded_at": rows[-1]["recorded_at"],
         "sources": {},
     }
     for row in rows:
-        for field in ("srpe", "duration_min", "note"):
+        for field in ("srpe", "duration_min", "productivity", "note"):
             if row.get(field) is not None:
                 result[field] = row[field]
                 result["sources"][field] = {
