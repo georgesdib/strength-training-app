@@ -93,6 +93,7 @@ def test_performance_full_list_and_pair_editor_are_exposed() -> None:
     source = (STATIC / "performance.js").read_text(encoding="utf-8")
     assert "Show full association list" in source
     assert "Show full dose list" in source
+    assert "performance-dose-toggle" in source
     assert "Add a configured pair" in source
     assert "/api/performance/relationship-options" in source
     assert "/api/performance/relationships" in source

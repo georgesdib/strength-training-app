@@ -3,6 +3,7 @@
 var performanceExercisesLoaded = false;
 var monitoringAnalysisData = null;
 var performanceRelationshipOptions = null;
+var performanceDoseShowAll = false;
 var monitoringAnalysisShowAll = false;
 var monitoringAnalysisShowAllDose = false;
 
@@ -66,15 +67,26 @@ function renderPerformanceE1rm(data) {
 function renderPerformanceDose(data) {
   var target = document.getElementById("performance-dose");
   if (!target) return;
-  var rows = (data.buckets || []).map(function (row) {
+  var allRows = data.buckets || [];
+  var shown = performanceDoseShowAll ? allRows : allRows.slice(-8);
+  var rows = shown.map(function (row) {
     return "<tr><td>" + esc(row.date) + "</td><td>" + esc(row.session_type) +
       "</td><td>" + row.working_sets + "</td><td>" + row.hard_sets +
       "</td><td>" + fmt(row.tonnage_kg) + " kg</td></tr>";
   }).join("");
   target.innerHTML = "<div class='panel'><h3>Dose by session</h3>" +
-    (rows ? "<div class='table-scroll'><table><thead><tr><th>Date</th><th>Type</th><th>Working sets</th><th>Hard sets</th><th>Tonnage</th></tr></thead><tbody>" + rows + "</tbody></table></div>" : "<p class='empty'>No sessions in this range.</p>") + "</div>";
+    (rows ? "<div class='table-scroll'><table><thead><tr><th>Date</th><th>Type</th><th>Working sets</th><th>Hard sets</th><th>Tonnage</th></tr></thead><tbody>" + rows + "</tbody></table></div>" : "<p class='empty'>No sessions in this range.</p>") +
+    (allRows.length > 8 ? "<button type='button' class='ghost' id='performance-dose-toggle'>" +
+      (performanceDoseShowAll ? "Show latest dose only" : "Show full dose list (" + allRows.length + ")") + "</button>" : "") +
+    "</div>";
+  var toggle = document.getElementById("performance-dose-toggle");
+  if (toggle) {
+    toggle.addEventListener("click", function () {
+      performanceDoseShowAll = !performanceDoseShowAll;
+      renderPerformanceDose(data);
+    });
+  }
 }
-
 
 async function loadRelationshipOptions() {
   if (performanceRelationshipOptions) return performanceRelationshipOptions;
@@ -189,6 +201,7 @@ async function loadPerformanceData() {
   if (!exercise || !exercise.value) return;
   var e1rmTarget = document.getElementById("performance-e1rm");
   if (e1rmTarget) e1rmTarget.innerHTML = "<p class='empty'>Loading performance…</p>";
+  performanceDoseShowAll = false;
   var sessionType = document.getElementById("performance-session-type");
   var includeDeloads = document.getElementById("performance-include-deloads");
   var quality = document.getElementById("performance-quality");
