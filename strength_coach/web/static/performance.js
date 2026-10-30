@@ -161,7 +161,8 @@ function renderPerformanceRatios(data) {
     "<p class='muted'>Only pairs that meet the configured criteria can be added: distinct known exercises that support an e1RM, a unique pair, positive gap, age at least the gap, at least two observations, and descriptive-only notes.</p>" +
     "</details>" +
     (rows.length ? "<div class='table-scroll'><table><thead><tr><th>Pair</th><th>Ratio</th><th>Numerator date</th><th>Denominator date</th><th>Gap days</th><th>Recent obs (num/den)</th><th>Status</th><th>Reason</th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" : "<p class='empty'>No configured relationships.</p>") +
-    "<p class='muted'>Only the explicitly configured pairs are shown; this is not an exhaustive lift catalogue. Descriptive ratio of two raw estimates; no target, diagnosis or confidence claim.</p></div>";
+    "<p class='muted'>Only the explicitly configured pairs are shown; this is not an exhaustive lift catalogue. Descriptive ratio of two raw estimates; no target, diagnosis or confidence claim.</p>" +
+    "<p class='section-help'><a class='doc-link' href='#docs?doc=docs/MONITORING-ANALYSIS.md&anchor=configuring-relative-strength-pairs'>Pair criteria and documentation</a></p></div>";
   var nextFilter = document.getElementById("performance-ratio-filter");
   if (nextFilter && !nextFilter.dataset.wired) {
     nextFilter.dataset.wired = "1";
@@ -309,15 +310,6 @@ function renderMonitoringAnalysis(data) {
       "</td><td>" + (row.session_load_au == null ? "Unavailable" : fmt(row.session_load_au) + " AU") +
       "</td></tr>";
   }).join("");
-  var associationTableRows = monitoringAnalysisShowAll ? associationRows : (
-    selectedAssociation ? [selectedAssociation] : []
-  );
-  var associations = associationTableRows.map(function (row) {
-    return "<tr><td>" + esc(row.exercise_id) + "</td><td>" + row.observations +
-      "</td><td>" + monitoringAnalysisAssociation(row.hard_sets_vs_next_e1rm) +
-      "</td><td>" + monitoringAnalysisAssociation(row.session_load_vs_next_e1rm) +
-      "</td></tr>";
-  }).join("");
   var calibration = data.calibration || {};
   var associationSelect = document.getElementById("monitoring-analysis-association");
   var selectedAssociationId = associationSelect ? associationSelect.value : "";
@@ -335,6 +327,15 @@ function renderMonitoringAnalysis(data) {
   var selectedAssociation = associationRows.find(function (row) {
     return row.exercise_id === selectedAssociationId;
   }) || associationRows[0];
+  var associationTableRows = monitoringAnalysisShowAll ? associationRows : (
+    selectedAssociation ? [selectedAssociation] : []
+  );
+  var associations = associationTableRows.map(function (row) {
+    return "<tr><td>" + esc(row.exercise_id) + "</td><td>" + row.observations +
+      "</td><td>" + monitoringAnalysisAssociation(row.hard_sets_vs_next_e1rm) +
+      "</td><td>" + monitoringAnalysisAssociation(row.session_load_vs_next_e1rm) +
+      "</td></tr>";
+  }).join("");
   var calibrationRows = (calibration.observations || []).map(function (row) {
     var prior = row.prior_raw_e1rm_kg == null ? "Unavailable" : fmt(row.prior_raw_e1rm_kg) + " kg";
     var ci = row.calibration_ci_low == null ? "Unavailable" :
