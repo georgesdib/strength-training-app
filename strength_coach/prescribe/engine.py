@@ -28,6 +28,7 @@ from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import continuity_calibration, readiness_score, test_cadence, vbt_calibration
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
+from strength_coach.features import e1rm_source as e1rm_source_feature
 from strength_coach.features import exposure as exposure_ratio_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import injury_signal as injury_signal_mod
@@ -1709,6 +1710,9 @@ def build_item(
     unknown_reason: str | None = None
     e1rm_source_sets: int | None = None
     e1rm_for_intensity: float | None = None
+    e1rm_ref: str | None = None
+    e1rm_quality: str | None = None
+    e1rm_age_days: int | None = None
     decayed = False
     decay_factor = 1.0
 
@@ -1735,10 +1739,10 @@ def build_item(
                 f"{exercise_id}: bodyweight load_source on a non-bodyweight exercise"
             )
     elif slot.load_source == "e1rm":
-        found = _latest_e1rm(conn, context, exercise_id, for_date,
-                              thresholds.e1rm_window_days, calibration_factors,
-                              source=thresholds.e1rm_source,
-                              robust_window_days=thresholds.e1rm_robust_window_days)
+        found = _latest_load_base(conn, context, exercise_id, for_date,
+                                  thresholds.e1rm_window_days, calibration_factors,
+                                  source=thresholds.e1rm_source,
+                                  robust_window_days=thresholds.e1rm_robust_window_days)
         if found is None:
             # No recent e1RM is common after a layoff. Reusing the last working load is
             # safer than refusing to prescribe: the load is a real, previously managed
@@ -1760,9 +1764,17 @@ def build_item(
                     f"{thresholds.e1rm_window_days} days; reused the last working load"
                 )
         else:
-            e1rm_kg, ref, calibrated, decayed, coverage, decay_factor = found
+            e1rm_kg = found.kg
+            ref = found.ref
+            calibrated = found.calibrated
+            decayed = found.decayed
+            coverage = found.coverage
+            decay_factor = found.decay
             e1rm_for_intensity = e1rm_kg
             e1rm_source_sets = coverage
+            e1rm_ref = ref
+            e1rm_quality = found.quality
+            e1rm_age_days = found.age_days
             if coverage == 1:
                 warnings.append(
                     f"{exercise_id}: e1RM source has one eligible set; confidence limited"
@@ -1864,6 +1876,10 @@ def build_item(
         time_cap_s=template.time_cap_s if slot.essential else None,
         unknown_load_reason=unknown_reason,
         e1rm_source_sets=e1rm_source_sets,
+        e1rm_kg=e1rm_for_intensity,
+        e1rm_ref=e1rm_ref,
+        e1rm_quality=e1rm_quality,
+        e1rm_age_days=e1rm_age_days,
         intensity=(
             float(load) / float(e1rm_for_intensity)
             if load not in (None, 0) and e1rm_for_intensity not in (None, 0)
@@ -1906,6 +1922,35 @@ def _e1rm_decay(context: RuleContext, age_days: float) -> float:
     return e1rm_decay_feature.factor(age_days)
 
 
+def _latest_load_base(
+    conn, context: RuleContext, exercise_id: str, for_date: str, window_days: int,
+    calibration_factors: Mapping[str, object] | None = None,
+    *,
+    source: str = config_mod.E1RM_BEST_USABLE,
+    robust_window_days: int = 28,
+) -> e1rm_source_feature.LoadBaseEstimate | None:
+    """Adapter around the pure load-base selector.
+
+    The selector owns the algorithm; this function owns the store lookup and the engine's
+    continuity-aware decay. Calibration factors are already in force when they arrive.
+    """
+    override = queries.e1rm_override(conn, exercise_id, for_date)
+    calibration = (calibration_factors or {}).get(exercise_id)
+    calibration_factor = 1.0 if calibration is None else float(calibration.correction_factor)
+    return e1rm_source_feature.select_load_base(
+        context.sets,
+        exercise_id=exercise_id,
+        for_date=for_date,
+        window_days=window_days,
+        robust_window_days=robust_window_days,
+        source=source,
+        override=override,
+        calibration_factor=calibration_factor,
+        decay_factor=lambda age: _e1rm_decay(context, age),
+        history_equivalents=exercises_mod.history_equivalents(exercise_id),
+    )
+
+
 def _latest_e1rm(
     conn, context: RuleContext, exercise_id: str, for_date: str, window_days: int,
     calibration_factors: Mapping[str, object] | None = None,
@@ -1913,101 +1958,27 @@ def _latest_e1rm(
     source: str = config_mod.E1RM_BEST_USABLE,
     robust_window_days: int = 28,
 ) -> tuple[float, str, bool, bool, int | None, float] | None:
-    """The e1RM to prescribe from, with a citable reference.
-
-    A manual override in force on the date outranks every computed estimate: the athlete may
-    know a tested value the formula cannot see. Otherwise one of three selectors picks a
-    value from the window ending at `for_date` (DEC-E1RM-SOURCE-01):
-
-    * `best_usable` — the highest age-decayed estimate. The maximum of noisy observations is
-      an optimistic estimator by construction, which is why it is no longer the default.
-    * `median` — the median set-level estimate in the shorter robust window, falling back to
-      `best_usable` when that window holds nothing. One great day cannot pin twelve weeks.
-    * `most_recent` — the latest usable set.
-
-    Every selector compares *age-decayed* values, so an old observation competes with a
-    recent one on equal terms rather than by raw value alone. The window is measured from the
-    prescription date, not the last session, so a returning athlete is not prescribed from a
-    pre-break peak.
-    """
-    override = queries.e1rm_override(conn, exercise_id, for_date)
-    if override is not None:
-        age = (pd.Timestamp(for_date) - pd.Timestamp(override["effective_from"])).days
-        decay = _e1rm_decay(context, age)
-        return (float(override["e1rm_kg"]) * decay,
-                f"e1rm_override:{override['override_id']}", False, decay != 1.0, None,
-                decay)
-
-    if context.sets.empty or "e1rm_kg" not in context.sets:
-        return None
-    frame = context.sets
-    cutoff = pd.Timestamp(for_date) - pd.Timedelta(days=window_days)
-    usable = frame[
-        (frame["exercise_id"].isin(exercises_mod.history_equivalents(exercise_id)))
-        & frame["e1rm_kg"].notna()
-        & (frame["date"] >= cutoff)
-    ]
-    # Only working sets. A warm-up still carries a (much lower) formula e1RM; it can never win
-    # a maximum, so `best_usable` was accidentally immune, but it drags a median down and can
-    # be the "most recent" set. A lift with nothing but warm-ups has no usable e1RM, which is
-    # the same answer the domain gives (DEC-RIR-01).
-    if "is_working_set" in usable.columns:
-        usable = usable[usable["is_working_set"].astype(bool)]
-    if usable.empty:
-        return None
-    usable = usable.assign(
-        _age_days=(pd.Timestamp(for_date) - usable["date"]).dt.days,
+    """Compatibility wrapper returning the engine's original tuple shape."""
+    estimate = _latest_load_base(
+        conn,
+        context,
+        exercise_id,
+        for_date,
+        window_days,
+        calibration_factors,
+        source=source,
+        robust_window_days=robust_window_days,
     )
-    usable["_decay"] = [_e1rm_decay(context, age) for age in usable["_age_days"]]
-    usable["_effective"] = usable["e1rm_kg"] * usable["_decay"]
-    calibration = (calibration_factors or {}).get(exercise_id)
-    factor = 1.0 if calibration is None else float(calibration.correction_factor)
-
-    if source == config_mod.E1RM_MEDIAN:
-        robust_start = pd.Timestamp(for_date) - pd.Timedelta(days=robust_window_days)
-        pool = usable[usable["date"] >= robust_start]
-        if pool.empty:
-            # Nothing recent: the median falls back to the best usable estimate rather than
-            # to "no e1RM", which would throw away real history on a returning athlete.
-            pool = usable
-        raw_median = float(pool["e1rm_kg"].median())
-        effective_median = float(pool["_effective"].median())
-        # The implied decay is the ratio of the two medians: it says how much age cost the
-        # typical observation, without pretending any single set is the source.
-        decay = effective_median / raw_median if raw_median > 0 else 1.0
-        # Cite the most recent contributor: the reference proves the estimate came from
-        # stored sets, and the warning says how many it summarised.
-        row = pool.sort_values(["date", "set_id"]).iloc[-1]
-        return (effective_median * factor,
-                f"set:{row['session_id']}/{int(row['set_id'])}",
-                factor != 1.0,
-                decay < 1.0 - 1e-9,
-                int(len(pool)),
-                decay)
-
-    if source == config_mod.E1RM_MOST_RECENT:
-        row = usable.sort_values(["date", "set_id"]).iloc[-1]
-        decay = float(row["_decay"])
-        return (float(row["e1rm_kg"]) * factor * decay,
-                f"set:{row['session_id']}/{int(row['set_id'])}",
-                factor != 1.0,
-                decay != 1.0,
-                int(len(usable)),
-                decay)
-
-    # best_usable: the highest *current* estimate. The same e1RM from an older set decays
-    # more, and a tie should prefer the more recent observation; selecting by raw e1RM first
-    # made the oldest of several identical sets the winner.
-    row = usable.sort_values(
-        ["_effective", "date", "set_id"], ascending=[False, False, False]
-    ).iloc[0]
-    decay = float(row["_decay"])
-    return (float(row["e1rm_kg"]) * factor * decay,
-            f"set:{row['session_id']}/{int(row['set_id'])}",
-            factor != 1.0,
-            decay != 1.0,
-            int(len(usable)),
-            decay)
+    if estimate is None:
+        return None
+    return (
+        estimate.kg,
+        estimate.ref,
+        estimate.calibrated,
+        estimate.decayed,
+        estimate.coverage,
+        estimate.decay,
+    )
 
 
 def _e1rm_plausibility(

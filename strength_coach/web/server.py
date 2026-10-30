@@ -205,6 +205,10 @@ def _item_dict(item) -> dict:
         "substitution_for": item.substitution_for,
         "vbt_basis": item.vbt_basis,
         "e1rm_source_sets": item.e1rm_source_sets,
+        "e1rm_kg": item.e1rm_kg,
+        "e1rm_ref": item.e1rm_ref,
+        "e1rm_quality": item.e1rm_quality,
+        "e1rm_age_days": item.e1rm_age_days,
         "velocity_target": item.velocity_target,
         "unknown_load_reason": item.unknown_load_reason,
         "warmup": [

@@ -47,5 +47,40 @@ def record(
     return queries.session_feedback(conn, session_id)
 
 
+def merged(conn, session_id: str) -> dict | None:
+    """Latest non-null value per field, without changing the append-only history.
+
+    A later row that records only sRPE must not hide an earlier duration or note. This read is
+    for monitoring; existing callers of latest() keep their row-wise behaviour.
+    """
+    rows = [
+        dict(row)
+        for row in conn.execute(
+            "SELECT * FROM session_feedback WHERE session_id = ? "
+            "ORDER BY recorded_at, rowid",
+            (str(session_id),),
+        )
+    ]
+    if not rows:
+        return None
+    result: dict[str, Any] = {
+        "session_id": str(session_id),
+        "srpe": None,
+        "duration_min": None,
+        "note": None,
+        "recorded_at": rows[-1]["recorded_at"],
+        "sources": {},
+    }
+    for row in rows:
+        for field in ("srpe", "duration_min", "note"):
+            if row.get(field) is not None:
+                result[field] = row[field]
+                result["sources"][field] = {
+                    "feedback_id": row["feedback_id"],
+                    "recorded_at": row["recorded_at"],
+                }
+    return result
+
+
 def latest(conn, session_id: str) -> dict | None:
     return queries.session_feedback(conn, session_id)

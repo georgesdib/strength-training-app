@@ -43,6 +43,11 @@ class PrescriptionItem:
     vbt_basis: str | None = None
     # Number of usable sets behind a formula e1RM; None for overrides/fallbacks/accessories.
     e1rm_source_sets: int | None = None
+    # Plan-snapshot provenance. These are serialised into plan_json, never prescription_item.
+    e1rm_kg: float | None = None
+    e1rm_ref: str | None = None
+    e1rm_quality: str | None = None
+    e1rm_age_days: int | None = None
     # Mean working-set intensity as a fraction of e1RM; None when it cannot be estimated.
     intensity: float | None = None
     # Cumulative load multiplier from e1RM decay, readiness, continuity and deload. Display

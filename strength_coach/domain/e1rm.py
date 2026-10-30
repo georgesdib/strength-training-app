@@ -27,6 +27,10 @@ MAX_RELIABLE_REPS = 10
 MAX_USABLE_REPS = 20
 EPLEY_DIVISOR = 30.0
 
+# Version tag for stored or exported observations. Changing the formula or its inputs must
+# change this string so a series can be recomputed without silently mixing methods.
+E1RM_METHOD_VERSION = "epley_rir_v1"
+
 
 @dataclass(frozen=True)
 class E1RMEstimate:

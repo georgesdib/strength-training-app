@@ -1,0 +1,53 @@
+# Monitoring display and definition parameters.
+#
+# These values do not change a prescription. They decide how a session summary groups and
+# displays observations. Product assumptions are marked PA-* and are not scientific
+# thresholds. The monitoring layer must never turn a band into a diagnosis.
+
+schema_version: "1.0.0"
+
+recent_reference:
+  # PA-01: three session bests is a stability/reporting choice, not a validated predictor.
+  observations: 3
+  # PA-02: 84 days matches the existing prescription e1RM window; it is not a biological law.
+  max_age_days: 84
+
+relative_intensity:
+  # PA-03: display bins. The 0.80 cut is anchored to the ACSM overview of reviews; the other
+  # cuts are presentation choices, not physiological thresholds.
+  bands:
+    near_max: 0.90
+    heavy: 0.80
+    moderate: 0.70
+    light: 0.60
+    very_light: 0.0
+
+hard_sets:
+  # Reuse exposure.v1.yaml effort_max_rir; this is the near-failure display cut only.
+  near_failure_max_rir: 2
+
+power:
+  # Existing taxonomy classification; do not add Olympic-lift name matching.
+  pattern: power_jump
+
+session_load:
+  # PA-05: a feedback value entered this many days after the session is labelled late.
+  late_feedback_days: 1
+  # PA-06: display-only context for unusually long sessions; it changes no metric.
+  long_session_multiplier: 1.5
+
+comparability:
+  # PA-07: session matching choices for a descriptive historical comparison.
+  window_weeks: 8
+  min_exercise_overlap: 0.50
+  min_prior_sessions: 3
+
+display:
+  precision_kg: 1
+  precision_pct: 1
+
+features:
+  # Optional sections are enabled in a later phase; the definitions exist now.
+  ratios: false
+  longitudinal: false
+  calibration_transparency: false

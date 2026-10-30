@@ -59,6 +59,7 @@ class RawEstimate:
     reps: int
     rir: int
     flags: tuple[str, ...]
+    method_version: str = e1rm_mod.E1RM_METHOD_VERSION
     status: str = STATUS_ESTIMATED
 
     @property
@@ -69,6 +70,7 @@ class RawEstimate:
         return {
             "kg": round(self.kg, 3),
             "method": self.method,
+            "method_version": self.method_version,
             "quality": self.quality,
             "session_id": self.session_id,
             "occurred_on": self.occurred_on,
@@ -328,6 +330,7 @@ def raw_set_e1rm(
         reps=reps,
         rir=rir,
         flags=flags,
+        method_version=e1rm_mod.E1RM_METHOD_VERSION,
     )
 
 

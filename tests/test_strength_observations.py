@@ -33,6 +33,7 @@ def test_raw_set_uses_epley_rir_without_decay_or_calibration():
 
     assert isinstance(result, obs.RawEstimate)
     assert result.method == "epley_plus_rir"
+    assert result.method_version == "epley_rir_v1"
     assert result.quality == "ok"
     assert result.kg == 100.0 * (1.0 + 7.0 / 30.0)
 

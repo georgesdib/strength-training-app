@@ -16,6 +16,7 @@ Definitions:
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -157,8 +158,38 @@ def _dates(frame: pd.DataFrame) -> pd.Series:
     return pd.to_datetime(frame["date"]).dt.date
 
 
+def hard_set_mask(frame: pd.DataFrame, config: ExposureConfig) -> pd.Series:
+    """Boolean hard-set mask shared by exposure and monitoring.
+
+    A hard set is a working set with a known RIR at or below the configured effort ceiling.
+    Missing RIR is unknown, not easy and not hard. Warm-ups are not working sets.
+    """
+    if frame.empty:
+        return pd.Series(False, index=frame.index, dtype=bool)
+    working = (
+        frame["is_working_set"].fillna(False).astype(bool)
+        if "is_working_set" in frame.columns
+        else pd.Series(True, index=frame.index, dtype=bool)
+    )
+    rir = pd.to_numeric(frame["rir"], errors="coerce") if "rir" in frame.columns else pd.Series(
+        float("nan"), index=frame.index
+    )
+    return working & rir.notna() & (rir <= config.effort_max_rir)
+
+
+def is_hard_set(set_row: Mapping[str, Any], config: ExposureConfig) -> bool:
+    """Scalar form of hard_set_mask for one already-selected set."""
+    if not bool(set_row.get("is_working_set", True)):
+        return False
+    try:
+        rir = float(set_row.get("rir"))
+    except (TypeError, ValueError):
+        return False
+    return rir == rir and rir <= config.effort_max_rir
+
+
 def _hard(frame: pd.DataFrame, config: ExposureConfig) -> pd.DataFrame:
-    return frame[frame["rir"].notna() & (frame["rir"] <= config.effort_max_rir)]
+    return frame[hard_set_mask(frame, config)]
 
 
 def _count(frame: pd.DataFrame, start: dt.date, end: dt.date,
