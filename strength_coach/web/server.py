@@ -1773,7 +1773,21 @@ class Handler(BaseHTTPRequestHandler):
         exercise_ids = sorted({
             exercise for item in selected for exercise in (item.numerator, item.denominator)
         })
-        sets = queries.clean_sets(conn, end=to_date)
+        lookback_starts = [
+            (
+                datetime.date.fromisoformat(from_date)
+                - datetime.timedelta(days=max(item.max_age_days, item.max_gap_days))
+            ).isoformat()
+            for item in selected
+        ] + [
+            (
+                datetime.date.fromisoformat(to_date)
+                - datetime.timedelta(days=item.max_age_days)
+            ).isoformat()
+            for item in selected
+        ]
+        history_start = min(lookback_starts) if lookback_starts else to_date
+        sets = queries.clean_sets(conn, start=history_start, end=to_date)
         points_by_exercise = {
             exercise: strength_trend_feature.observations(
                 conn, exercise, "1900-01-01", to_date, frame=sets

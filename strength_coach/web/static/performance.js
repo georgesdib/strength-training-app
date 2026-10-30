@@ -1,6 +1,7 @@
 /* Performance view: raw e1RM observations, rolling median and configured ratios.
  * Descriptive only; no decay, calibration, target ratio or diagnosis. */
 var performanceExercisesLoaded = false;
+var monitoringAnalysisData = null;
 
 function performanceDate(daysAgo) {
   var date = new Date();
@@ -74,9 +75,13 @@ function renderPerformanceDose(data) {
 function renderPerformanceRatios(data) {
   var target = document.getElementById("performance-ratios");
   if (!target) return;
+  var filter = document.getElementById("performance-ratio-filter");
+  var selected = filter ? filter.value : "";
+  var relationships = data.relationships || [];
   var rows = [];
-  (data.relationships || []).forEach(function (item) {
+  relationships.forEach(function (item) {
     var row = item.current || {};
+    if (selected && row.relationship_id !== selected) return;
     rows.push("<tr><td>" + esc(row.label || row.relationship_id) + "</td><td>" +
       (row.ratio_pct == null ? "Unavailable" : fmt(row.ratio_pct) + "%") + "</td><td>" +
       esc(row.numerator_date || "Unavailable") + "</td><td>" +
@@ -87,9 +92,23 @@ function renderPerformanceRatios(data) {
       "</td><td>" + esc(row.status || "unavailable") + "</td><td>" +
       esc(row.reason || "") + "</td></tr>");
   });
+  var options = "<option value=''>All configured pairs</option>" + relationships.map(function (item) {
+    var row = item.current || {};
+    var chosen = selected === row.relationship_id ? " selected" : "";
+    return "<option value='" + esc(row.relationship_id) + "'" + chosen + ">" +
+      esc(row.label || row.relationship_id) + "</option>";
+  }).join("");
   target.innerHTML = "<div class='panel'><h3>Configured relative strength</h3>" +
+    "<div class='form-row'><label>Pair<select id='performance-ratio-filter'>" + options + "</select></label></div>" +
     (rows.length ? "<div class='table-scroll'><table><thead><tr><th>Pair</th><th>Ratio</th><th>Numerator date</th><th>Denominator date</th><th>Gap days</th><th>Recent obs (num/den)</th><th>Status</th><th>Reason</th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" : "<p class='empty'>No configured relationships.</p>") +
-    "<p class='muted'>Descriptive ratio of two raw estimates; no target, diagnosis or confidence claim.</p></div>";
+    "<p class='muted'>Only the explicitly configured pairs are shown; this is not an exhaustive lift catalogue. Descriptive ratio of two raw estimates; no target, diagnosis or confidence claim.</p></div>";
+  var nextFilter = document.getElementById("performance-ratio-filter");
+  if (nextFilter && !nextFilter.dataset.wired) {
+    nextFilter.dataset.wired = "1";
+    nextFilter.addEventListener("change", function () {
+      renderPerformanceRatios(data);
+    });
+  }
 }
 
 async function loadPerformanceData() {
@@ -228,6 +247,22 @@ function renderMonitoringAnalysis(data) {
       "</td></tr>";
   }).join("");
   var calibration = data.calibration || {};
+  var associationSelect = document.getElementById("monitoring-analysis-association");
+  var selectedAssociationId = associationSelect ? associationSelect.value : "";
+  var associationRows = data.associations || [];
+  if (!selectedAssociationId && associationRows.length) {
+    selectedAssociationId = associationRows[0].exercise_id;
+  }
+  if (associationSelect) {
+    associationSelect.innerHTML = associationRows.map(function (row) {
+      var chosen = row.exercise_id === selectedAssociationId ? " selected" : "";
+      return "<option value='" + esc(row.exercise_id) + "'" + chosen + ">" +
+        esc(row.exercise_id) + "</option>";
+    }).join("");
+  }
+  var selectedAssociation = associationRows.find(function (row) {
+    return row.exercise_id === selectedAssociationId;
+  }) || associationRows[0];
   var calibrationRows = (calibration.observations || []).map(function (row) {
     var prior = row.prior_raw_e1rm_kg == null ? "Unavailable" : fmt(row.prior_raw_e1rm_kg) + " kg";
     var ci = row.calibration_ci_low == null ? "Unavailable" :
@@ -252,11 +287,10 @@ function renderMonitoringAnalysis(data) {
     "<h3>Training dose over time</h3>" + analysisLineChart(data.dose || []) +
     (rows ? "<div class='table-scroll'><table><thead><tr><th>Date</th><th>Type</th><th>Working sets</th><th>Hard sets</th><th>Tonnage</th><th>Session load</th></tr></thead><tbody>" + rows + "</tbody></table></div>" : "<p class='empty'>No session dose observations.</p>") +
     "<h3>Hard sets vs subsequent e1RM</h3><p class='muted'>Session dose precedes the next session best for the same lift. Correlation is descriptive and not causal.</p>" +
-    ((data.associations || []).length ? (data.associations || []).map(function (row) {
-      return "<h4>" + esc(row.exercise_id) + "</h4>" +
-        analysisScatter(row.hard_sets_points, row.hard_sets_vs_next_e1rm, row.exercise_id + " hard sets vs next e1RM") +
-        analysisScatter(row.session_load_points, row.session_load_vs_next_e1rm, row.exercise_id + " session load vs next e1RM");
-    }).join("") : "<p class='empty'>Insufficient observations for lagged associations.</p>") +
+    (selectedAssociation ? "<h4>" + esc(selectedAssociation.exercise_id) + "</h4>" +
+      analysisScatter(selectedAssociation.hard_sets_points, selectedAssociation.hard_sets_vs_next_e1rm, selectedAssociation.exercise_id + " hard sets vs next e1RM") +
+      analysisScatter(selectedAssociation.session_load_points, selectedAssociation.session_load_vs_next_e1rm, selectedAssociation.exercise_id + " session load vs next e1RM") :
+      "<p class='empty'>Insufficient observations for lagged associations.</p>") +
     (associations ? "<div class='table-scroll'><table><thead><tr><th>Exercise</th><th>Obs</th><th>Hard sets vs next e1RM</th><th>Session load vs next e1RM</th></tr></thead><tbody>" + associations + "</tbody></table></div>" : "") +
     "<h3>Data coverage and missingness</h3><p class='muted'>Unavailable values are not zero. Missing feedback reduces session-load coverage.</p>" +
     "<h3>Calibration transparency</h3>" +
@@ -274,7 +308,15 @@ async function loadMonitoringAnalysis() {
   try {
     var data = await api("/api/monitoring-analysis?as_of=" +
       encodeURIComponent((date && date.value) || today()));
+    monitoringAnalysisData = data;
     renderMonitoringAnalysis(data);
+    var associationSelect = document.getElementById("monitoring-analysis-association");
+    if (associationSelect && !associationSelect.dataset.wired) {
+      associationSelect.dataset.wired = "1";
+      associationSelect.addEventListener("change", function () {
+        if (monitoringAnalysisData) renderMonitoringAnalysis(monitoringAnalysisData);
+      });
+    }
   } catch (error) {
     target.innerHTML = "<p class='warnbox'>Analysis unavailable: " + esc(error.message) + "</p>";
   }

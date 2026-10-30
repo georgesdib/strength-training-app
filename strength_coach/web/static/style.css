@@ -404,3 +404,8 @@ body.menu-open { overflow: hidden; }
 .search-select { display: grid; gap: 4px; min-width: 0; }
 .search-select .search-select-filter { min-width: 0; width: 100%; }
 .search-select select { min-width: 0; width: 100%; }
+
+/* Performance and monitoring charts: responsive SVG, never zero-height. */
+.performance-chart { display: block; width: 100%; height: auto; min-height: 140px; overflow: visible; }
+.performance-chart polyline { stroke: var(--ink); }
+.performance-chart circle { fill: var(--accent); }
