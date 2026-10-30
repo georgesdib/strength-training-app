@@ -32,6 +32,21 @@ def _store(tmp_path):
     return path
 
 
+def test_analysis_reuses_set_frame_instead_of_rescanning(tmp_path, monkeypatch):
+    path = _store(tmp_path)
+    calls = []
+    original = analysis_service.queries.clean_sets
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(analysis_service.queries, "clean_sets", counted)
+    with db.Store(path) as store:
+        analysis_service.build_analysis(store.connection, as_of="2024-01-31")
+    assert len(calls) <= 2
+
+
 def test_analysis_is_deterministic_and_read_only(tmp_path):
     path = _store(tmp_path)
     before = hashlib.sha256(path.read_bytes()).hexdigest()

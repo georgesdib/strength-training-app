@@ -107,21 +107,29 @@ def _observations(
     quality: str,
     session_type: str | None,
     include_deloads: bool,
+    frame=None,
+    session_ids: set[str] | None = None,
+    excluded: dict[int, str] | None = None,
 ) -> list[RawObservation]:
-    frame = queries.clean_sets(conn, start=from_date, end=to_date)
+    if frame is None:
+        frame = queries.clean_sets(conn, start=from_date, end=to_date)
     if frame.empty:
         return []
     frame = frame[frame["exercise_id"].astype(str).eq(str(exercise_id))]
     if frame.empty:
         return []
-    allowed = _session_ids(conn, from_date, to_date, session_type, include_deloads)
+    allowed = (
+        _session_ids(conn, from_date, to_date, session_type, include_deloads)
+        if session_ids is None else session_ids
+    )
     if allowed is not None:
         frame = frame[frame["session_id"].astype(str).isin(allowed)]
     if frame.empty:
         return []
     entities = exercises.taxonomy().entities
     props = dict(entities.get(str(exercise_id), {}))
-    excluded = _excluded_sets(conn)
+    if excluded is None:
+        excluded = _excluded_sets(conn)
     out: list[RawObservation] = []
     for session_id, group in frame.groupby("session_id", sort=True):
         best = _best_with_quality(group, str(session_id), exercise_id, props, excluded, quality)
@@ -150,6 +158,9 @@ def observations(
     *,
     session_type: str | None = None,
     include_deloads: bool = True,
+    frame=None,
+    session_ids: set[str] | None = None,
+    excluded: dict[int, str] | None = None,
 ) -> list[RawObservation]:
     """Eligible ok session bests for one exact exercise in the date range."""
     return _observations(
@@ -157,6 +168,9 @@ def observations(
         quality=strength_observations.QUALITY_OK,
         session_type=session_type,
         include_deloads=include_deloads,
+        frame=frame,
+        session_ids=session_ids,
+        excluded=excluded,
     )
 
 

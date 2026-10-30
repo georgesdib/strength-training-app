@@ -16,9 +16,16 @@ import numpy as np
 import pandas as pd
 
 from strength_coach.domain.e1rm import E1RM_METHOD_VERSION
-from strength_coach.features import calibration_observations, monitoring, strength_trend
+from strength_coach.features import (
+    calibration_observations,
+    derived,
+    exposure,
+    monitoring,
+    strength_trend,
+)
 from strength_coach.features import session_feedback as feedback_feature
 from strength_coach.store import queries
+from strength_coach.utils import exercises as exercise_taxonomy
 
 ANALYSIS_VERSION = "monitoring-analysis-v1"
 SEED = 0
@@ -72,14 +79,46 @@ def build_analysis(
 ) -> dict[str, Any]:
     sessions = queries.sessions(conn, end=as_of)
     sets = queries.clean_sets(conn, end=as_of)
-    exercises = sorted({str(value) for value in sets["exercise_id"]}) if not sets.empty else []
+    exercise_session_counts = (
+        sets.groupby("exercise_id")["session_id"].nunique()
+        if not sets.empty else pd.Series(dtype="int64")
+    )
+    # An association needs at least two observed sessions; skipping impossible cases avoids
+    # rescanning every accessory and does not change any calculable association.
+    taxonomy_entities = exercise_taxonomy.taxonomy().entities
+    exercises = sorted(
+        str(value) for value in exercise_session_counts[
+            exercise_session_counts >= 2
+        ].index
+        if derived.e1rm_applicable(dict(taxonomy_entities.get(str(value), {})))
+    )
     dose_rows: list[dict[str, Any]] = []
     feedback_count = 0
+    exposure_config = exposure.ExposureConfig.load()
+    empty_sets = sets.iloc[0:0]
+    sets_by_session = (
+        {str(key): group for key, group in sets.groupby("session_id", sort=False)}
+        if not sets.empty else {}
+    )
+    sets_by_exercise = (
+        {str(key): group for key, group in sets.groupby("exercise_id", sort=False)}
+        if not sets.empty else {}
+    )
+    allowed_sessions = strength_trend._session_ids(
+        conn, "1900-01-01", as_of, None, True
+    )
+    excluded_sets = strength_trend._excluded_sets(conn)
+    feedback_by_session = {
+        str(session["session_id"]): feedback_feature.merged(
+            conn, str(session["session_id"])
+        )
+        for _, session in sessions.iterrows()
+    }
     for _, session in sessions.iterrows():
         session_id = str(session["session_id"])
-        group = sets[sets["session_id"].astype(str).eq(session_id)] if not sets.empty else sets
+        group = sets_by_session.get(session_id, empty_sets)
         work = group[group["is_working_set"].fillna(False).astype(bool)] if not group.empty else group
-        feedback = feedback_feature.merged(conn, session_id)
+        feedback = feedback_by_session.get(session_id)
         if feedback:
             feedback_count += 1
         load = monitoring.session_load(feedback) if feedback else monitoring.Unavailable("no feedback")
@@ -89,7 +128,7 @@ def build_analysis(
             "date": str(session["occurred_on"])[:10],
             "session_type": str(session.get("session_type") or ""),
             "working_sets": int(len(work)),
-            "hard_sets": monitoring.hard_sets(work),
+            "hard_sets": monitoring.hard_sets(work, exposure_config),
             "tonnage_kg": None if tonnage is None else round(tonnage, 1),
             "tonnage_status": tonnage_status,
             "session_load_au": None if isinstance(load, monitoring.Unavailable) else round(float(load), 1),
@@ -97,7 +136,12 @@ def build_analysis(
 
     associations: list[dict[str, Any]] = []
     for exercise_id in exercises:
-        observations = strength_trend.observations(conn, exercise_id, "1900-01-01", as_of)
+        observations = strength_trend.observations(
+            conn, exercise_id, "1900-01-01", as_of,
+            frame=sets_by_exercise.get(exercise_id, empty_sets),
+            session_ids=allowed_sessions,
+            excluded=excluded_sets,
+        )
         if len(observations) < 2:
             continue
         dates = [item.date for item in observations]
@@ -106,10 +150,13 @@ def build_analysis(
         for index, observation in enumerate(observations[:-1]):
             next_observation = observations[index + 1]
             session_id = observation.session_id
-            group = sets[sets["session_id"].astype(str).eq(session_id)]
+            group = sets_by_session.get(str(session_id), empty_sets)
             work = group[group["is_working_set"].fillna(False).astype(bool)] if not group.empty else group
-            hard_pairs.append((float(monitoring.hard_sets(work)), next_observation.estimate.kg))
-            feedback = feedback_feature.merged(conn, session_id)
+            hard_pairs.append((
+                float(monitoring.hard_sets(work, exposure_config)),
+                next_observation.estimate.kg,
+            ))
+            feedback = feedback_by_session.get(str(session_id))
             load = monitoring.session_load(feedback) if feedback else monitoring.Unavailable("no feedback")
             if not isinstance(load, monitoring.Unavailable):
                 load_pairs.append((float(load), next_observation.estimate.kg))
