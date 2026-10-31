@@ -2051,3 +2051,41 @@ def test_relationship_crud_api_enforces_revision_and_reset(server, tmp_path, mon
     )
     assert all(item["id"] != added["id"] for item in removed_local["relationships"])
     assert all(item["id"] != added["id"] for item in removed_local["hidden"])
+
+
+def test_step5_report_window_endpoints(server):
+    calibration = json.loads(get(
+        server, "/api/e1rm/calibration?window_days=30"
+    )[1])
+    assert calibration["window_days"] == 30
+    assert calibration["preview"] is True
+    assert calibration["active_window_days"] == 84
+    assert "calibration" in calibration and "active_calibration" in calibration
+
+    coverage = json.loads(get(
+        server, "/api/e1rm/tests-needed?window_days=30"
+    )[1])
+    assert coverage["window_days"] == 30
+    assert coverage["preview"] is True
+    assert isinstance(coverage["tests_needed"], list)
+
+    for path in (
+        "/api/e1rm/calibration?window_days=3",
+        "/api/e1rm/tests-needed?window_days=400",
+    ):
+        try:
+            get(server, path)
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 400
+        else:
+            raise AssertionError(path + " should be rejected")
+
+    history = json.loads(get(server, "/api/symptoms/history?limit=10")[1])
+    assert history["limit"] == 10
+    assert history["shown"] <= 10
+    assert history["total"] >= history["shown"]
+    all_history = json.loads(get(server, "/api/symptoms/history?limit=10&all=1")[1])
+    assert all_history["entries"] == history["entries"] or history["has_more"]
+
+    cadence = json.loads(get(server, "/api/test-cadence")[1])
+    assert "due" in cadence and "next_due" in cadence

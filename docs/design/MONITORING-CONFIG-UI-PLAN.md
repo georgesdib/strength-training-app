@@ -1,6 +1,6 @@
 # Monitoring configuration and report-control UI plan
 
-**Status:** Steps 1–4 implemented and reviewed, including the Step 4 corrective hardening: every relationship write requires a matching revision, reset is only offered for canonical pairs with local overrides, and 409 conflicts provide a reload-and-retry path without automatic replay. Steps 5–6 remain pending.
+**Status:** Steps 1–5 implemented and reviewed. Step 4 includes revision hardening and one-click conflict recovery; Step 5 adds the LIM-27 point 3 report/window controls, calibration/coverage previews, top-10 symptom history with Show all, and test-cadence status. Step 6 remains pending.
 
 **Scope:** read-only parameter inventory visible on the home LAN; loopback-only writes; relative-strength pair CRUD; LIM-27 point 3 report/window controls.
 

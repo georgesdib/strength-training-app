@@ -84,6 +84,7 @@ from strength_coach.features import reviews as reviews_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import strength_trend as strength_trend_feature
+from strength_coach.features import test_cadence as test_cadence_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import (
     build_prescription,
@@ -899,8 +900,41 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/validation":
                 query = parse_qs(urlparse(self.path).query)
                 max_dates = int(query.get("max_dates", ["12"])[0])
+                if not 1 <= max_dates <= 100:
+                    raise ValueError("max_dates must be between 1 and 100")
                 self._json(200, self._with_conn(
                     lambda c: {"text": retrospective_validation.report(c, max_dates=max_dates)}
+                ))
+            elif path == "/api/e1rm/calibration":
+                query = parse_qs(urlparse(self.path).query)
+                window = int(query.get("window_days", ["84"])[0])
+                if not 7 <= window <= 365:
+                    raise ValueError("window_days must be between 7 and 365")
+                self._json(200, self._with_conn(
+                    lambda c: self._e1rm_calibration_response(c, window)
+                ))
+            elif path == "/api/e1rm/tests-needed":
+                query = parse_qs(urlparse(self.path).query)
+                window = int(query.get("window_days", ["84"])[0])
+                if not 7 <= window <= 365:
+                    raise ValueError("window_days must be between 7 and 365")
+                self._json(200, self._with_conn(
+                    lambda c: self._e1rm_tests_needed_response(c, window)
+                ))
+            elif path == "/api/symptoms/history":
+                query = parse_qs(urlparse(self.path).query)
+                limit = int(query.get("limit", ["10"])[0])
+                all_rows = query.get("all", ["0"])[0] in {"1", "true", "yes"}
+                if limit < 1:
+                    raise ValueError("limit must be positive")
+                self._json(200, self._with_conn(
+                    lambda c: self._symptom_history(c, limit=limit, all_rows=all_rows)
+                ))
+            elif path == "/api/test-cadence":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [datetime.date.today().isoformat()])[0]
+                self._json(200, self._with_conn(
+                    lambda c: test_cadence_feature.status(c, day)
                 ))
             elif path == "/api/reviews":
                 query = parse_qs(urlparse(self.path).query)
@@ -1753,6 +1787,41 @@ class Handler(BaseHTTPRequestHandler):
                 "limitation": "equipment changes are not stored and cannot be detected",
             },
             "summary": strength_trend_feature.summarize(points),
+        }
+
+    def _e1rm_calibration_response(self, conn, window_days: int) -> dict:
+        preview = e1rm_calibration_feature.build(conn, window_days=window_days)
+        active = e1rm_calibration_feature.build(conn)
+        return {
+            "window_days": window_days,
+            "preview": True,
+            "active_window_days": e1rm_calibration_feature.DEFAULT_WINDOW_DAYS,
+            "active_calibration": e1rm_calibration_feature.as_dict(active),
+            "calibration": e1rm_calibration_feature.as_dict(preview),
+            "note": "Preview only; the active calibration factor is unchanged.",
+        }
+
+    def _e1rm_tests_needed_response(self, conn, window_days: int) -> dict:
+        report = e1rm_calibration_feature.build(conn, window_days=window_days)
+        return {
+            "window_days": window_days,
+            "preview": True,
+            "tests_needed": e1rm_calibration_feature.coverage_as_dict(
+                e1rm_calibration_feature.coverage(conn, report=report)
+            ),
+            "note": "Coverage preview only; no test threshold or calibration changed.",
+        }
+
+    def _symptom_history(self, conn, *, limit: int, all_rows: bool) -> dict:
+        entries = queries.symptom_entries(conn)
+        ordered = list(reversed(entries))
+        shown = ordered if all_rows else ordered[:limit]
+        return {
+            "entries": shown,
+            "total": len(ordered),
+            "shown": len(shown),
+            "has_more": len(shown) < len(ordered),
+            "limit": limit,
         }
 
     def _performance_dose(self, conn, query: dict) -> dict:

@@ -77,8 +77,8 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
   as configurable landmarks, the spinal cap as ordinal, and deload/minimum-session evidence
   limits. A `recent stress` column, a `readiness` column, the **strength fatigue diagnostic**
   panel (predictive form rejected; per-lift + overall state is descriptive context with 95% intervals,
-  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only), the **per-rep velocity** panel (descriptive loss and associations; n ≥ 10 for correlations), the **continuity calibration** panel (per-band returns/fixed/applied and the
-  `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings with A/B/C
+  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only; week/date controls), the **per-rep velocity** panel (descriptive loss and associations; n ≥ 10 for correlations), the **continuity calibration** panel (per-band returns/fixed/applied and the
+  `allow_relax_fixed` setting, with an as-of date), the **strength fatigue diagnostic** date control and the **retrospective validation** maximum-dates control, and the **exercise selection** panel (preview rankings with A/B/C
   comparison classes and a display-only own-history e1RM ratio; optional LLM chooser). Under
   the rankings it shows the **fatigue-informed suggestion** (Part C): at most one accessory
   variant, only when the exposure signal is high and the candidate is rated strictly lower on
@@ -125,7 +125,9 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
   strength tests, block start and symptoms; shows the current tables, injury signal and the
   **e1RM calibration** report (current formula e1RM and last set for every lift, plus
   measured tests vs formula; a bounded correction is applied only when the confidence interval
-  excludes 1.0).
+  excludes 1.0). Read-only preview controls change the calibration/coverage window without
+  changing active calibration, the raw symptom history shows the latest 10 with Show all, and
+  the strength-test cadence block reports last/next/due state.
 - **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
   same-category substitute rises; a review question, never an action.
 - **Settings** — appearance (System / Light / Dark), optional LLM configuration (enable/disable, model, endpoint, write-only key,

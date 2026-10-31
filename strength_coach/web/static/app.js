@@ -44,7 +44,11 @@ function setView(name, options = {}) {
   }
   if (name === "docs") loadDocs(options.doc, options.anchor);
   if (name === "logs") loadLogs();
-  if (name === "state") loadState();
+  if (name === "state") {
+    loadState();
+    loadSymptomHistory(false);
+    loadTestCadence();
+  }
   if (name === "settings") loadSettings();
   if (name === "history") loadHistory();
   if (name === "outcomes") loadOutcomes();
@@ -737,6 +741,19 @@ $("#prescribe-date").addEventListener("change", () => {
   loadDropWindow();
   loadVolumeBudget();
 });
+const volumeDate = $("#volume-date");
+const continuityDate = $("#continuity-date");
+const fatigueDate = $("#fatigue-date");
+if (volumeDate && !volumeDate.value) volumeDate.value = $("#prescribe-date").value;
+if (continuityDate && !continuityDate.value) continuityDate.value = $("#prescribe-date").value;
+if (fatigueDate && !fatigueDate.value) fatigueDate.value = $("#prescribe-date").value;
+if (volumeDate) volumeDate.addEventListener("change", loadVolume);
+if ($("#volume-weeks")) $("#volume-weeks").addEventListener("change", loadVolume);
+if ($("#volume-run")) $("#volume-run").addEventListener("click", loadVolume);
+if (continuityDate) continuityDate.addEventListener("change", loadContinuity);
+if ($("#fatigue-run")) $("#fatigue-run").addEventListener("click", loadFatigue);
+if ($("#state-e1rm-calibration-run")) $("#state-e1rm-calibration-run").addEventListener("click", function () { loadE1rmPreview("calibration"); });
+if ($("#state-e1rm-coverage-run")) $("#state-e1rm-coverage-run").addEventListener("click", function () { loadE1rmPreview("coverage"); });
 
 /* The server owns the competition-window rule. Ask it whether the confirmation applies, rather
    than duplicating the date arithmetic in the browser; hide the control when it is inert and
@@ -1264,7 +1281,11 @@ $("#selection-run").addEventListener("click", loadSelection);
 $("#validation-run").addEventListener("click", async () => {
   $("#validation-result").innerHTML = "<p class='empty'>Running walk-forward check…</p>";
   try {
-    const data = await api("/api/validation?max_dates=12");
+    const maxDates = Number($("#validation-max-dates").value || 12);
+    if (!Number.isInteger(maxDates) || maxDates < 1 || maxDates > 100) {
+      throw new Error("Maximum dates must be an integer from 1 to 100.");
+    }
+    const data = await api("/api/validation?max_dates=" + encodeURIComponent(maxDates));
     $("#validation-result").innerHTML = `<pre>${esc(data.text)}</pre>`;
   } catch (error) {
     $("#validation-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
@@ -1273,8 +1294,9 @@ $("#validation-run").addEventListener("click", async () => {
 
 /* --- strength fatigue model ---------------------------------------------- */
 async function loadFatigue() {
+  const date = $("#fatigue-date").value || $("#prescribe-date").value;
   try {
-    const data = await api("/api/fatigue");
+    const data = await api("/api/fatigue" + (date ? "?date=" + encodeURIComponent(date) : ""));
     const unit = (m) => m.unit === "ratio" ? "x" : " kg";
     const rows = (data.models || []).map((m) => {
       const u = unit(m);
@@ -1717,6 +1739,96 @@ async function loadExposureStatus() {
       ${esc(data.reason)}${data.next_maximal_on ? " · next maximal " + esc(data.next_maximal_on) : ""}</p>${rows}`;
   } catch (error) {
     $("#exposure-status").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+function renderE1rmPreview(data, kind) {
+  const box = $("#state-e1rm-preview");
+  if (!box) return;
+  if (kind === "coverage") {
+    const rows = (data.tests_needed || []).map(function (row) {
+      return "<tr><td>" + esc(row.display) + "</td><td>" + row.counted + " / " +
+        row.min_tests + "</td><td>" + row.needed + "</td><td>" + esc(row.status) +
+        "</td><td>" + esc(row.next_action) + "</td></tr>";
+    }).join("");
+    box.innerHTML = "<p class='muted'>Coverage preview window " + data.window_days +
+      " days. Active coverage remains at its current defaults.</p>" +
+      (rows ? "<div class='table-scroll'><table><thead><tr><th>Lift</th><th>tests</th><th>need</th><th>status</th><th>next</th></tr></thead><tbody>" +
+        rows + "</tbody></table></div>" : "<p class='empty'>No lifts to report.</p>") +
+      "<p class='muted'>" + esc(data.note || "") + "</p>";
+    return;
+  }
+  const rows = (data.calibration || []).map(function (row) {
+    const ci = row.ci_low == null ? "—" : row.ci_low + "–" + row.ci_high;
+    return "<tr><td>" + esc(row.exercise_id) + "</td><td>" + row.n + "</td><td>" +
+      (row.median_ratio == null ? "—" : row.median_ratio) + "</td><td>" + ci +
+      "</td><td>" + row.correction_factor + "</td><td>" +
+      esc(row.correction_reason || row.status || "") + "</td></tr>";
+  }).join("");
+  box.innerHTML = "<p class='muted'>Calibration preview window " + data.window_days +
+    " days; active window " + data.active_window_days +
+    ". Preview only — active calibration unchanged.</p>" +
+    (rows ? "<div class='table-scroll'><table><thead><tr><th>Lift</th><th>tests</th><th>median ratio</th><th>95% CI</th><th>factor</th><th>reason</th></tr></thead><tbody>" +
+      rows + "</tbody></table></div>" : "<p class='empty'>No measured tests in this window.</p>") +
+    "<p class='muted'>" + esc(data.note || "") + "</p>";
+}
+
+async function loadE1rmPreview(kind) {
+  const input = $("#state-e1rm-" + kind + "-window");
+  const windowDays = Number(input.value || 84);
+  if (!Number.isInteger(windowDays) || windowDays < 7 || windowDays > 365) {
+    $("#state-e1rm-preview").innerHTML = "<p class='warnbox'>Window must be an integer from 7 to 365.</p>";
+    return;
+  }
+  try {
+    const endpoint = kind === "coverage" ? "tests-needed" : "calibration";
+    const data = await api("/api/e1rm/" + endpoint + "?window_days=" + encodeURIComponent(windowDays));
+    renderE1rmPreview(data, kind);
+  } catch (error) {
+    $("#state-e1rm-preview").innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
+  }
+}
+
+async function loadSymptomHistory(allRows) {
+  const box = $("#state-symptom-history");
+  if (!box) return;
+  box.innerHTML = "<p class='empty'>Loading symptom history…</p>";
+  try {
+    const data = await api("/api/symptoms/history?limit=10" + (allRows ? "&all=1" : ""));
+    const rows = (data.entries || []).map(function (row) {
+      return "<tr><td>" + esc(row.logged_on) + "</td><td>" + esc(row.region) +
+        "</td><td>" + row.level + "</td><td>" +
+        (row.settled_within_48h == null ? "unknown" : (row.settled_within_48h ? "yes" : "no")) +
+        "</td><td>" + esc(row.note || "") + "</td></tr>";
+    }).join("");
+    box.innerHTML = "<p class='muted'>Showing " + data.shown + " of " + data.total +
+      " entries, newest first.</p>" +
+      (rows ? "<div class='table-scroll'><table><thead><tr><th>Date</th><th>Region</th><th>Level</th><th>Settled 48h</th><th>Note</th></tr></thead><tbody>" +
+        rows + "</tbody></table></div>" : "<p class='empty'>No symptom entries recorded.</p>");
+    if (data.has_more && !allRows) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ghost";
+      button.textContent = "Show all " + data.total + " entries";
+      button.addEventListener("click", function () { loadSymptomHistory(true); });
+      box.appendChild(button);
+    }
+  } catch (error) {
+    box.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
+  }
+}
+
+async function loadTestCadence() {
+  const box = $("#state-test-cadence");
+  if (!box) return;
+  try {
+    const data = await api("/api/test-cadence");
+    box.innerHTML = "<p><strong>" + (data.enabled === false ? "disabled" : (data.due ? "due" : "not due")) +
+      "</strong> · last test " + esc(data.last_test || "none") + " · next " +
+      esc(data.next_scheme || "—") + " by " + esc(data.next_due || "—") + ".</p>" +
+      "<p class='muted'>" + esc(data.reason || "") + ". Read-only; no test or prescription is created.</p>";
+  } catch (error) {
+    box.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
   }
 }
 
@@ -2237,10 +2349,16 @@ async function loadExercises() {
 
 /* --- weekly volume ledger ------------------------------------------------ */
 async function loadVolume() {
-  const date = $("#prescribe-date").value;
+  const dateInput = $("#volume-date");
+  const date = dateInput.value || $("#prescribe-date").value;
   if (!date) { $("#volume-ledger").innerHTML = "<p class='empty'>Choose a date.</p>"; return; }
+  const weeks = Number($("#volume-weeks").value || 4);
+  if (!Number.isInteger(weeks) || weeks < 1 || weeks > 52) {
+    $("#volume-ledger").innerHTML = "<p class='warnbox'>Weeks must be an integer from 1 to 52.</p>";
+    return;
+  }
   try {
-    const data = await api(`/api/volume?date=${encodeURIComponent(date)}&weeks=4`);
+    const data = await api("/api/volume?date=" + encodeURIComponent(date) + "&weeks=" + weeks);
     if (!data.patterns.length) {
       $("#volume-ledger").innerHTML = "<p class='empty'>No working sets in the window.</p>";
       return;
@@ -2456,7 +2574,7 @@ $("#regime-run").addEventListener("click", loadRegime);
 
 /* --- continuity calibration --------------------------------------------- */
 async function loadContinuity() {
-  const date = $("#prescribe-date").value;
+  const date = $("#continuity-date").value || $("#prescribe-date").value;
   if (!date) { $("#continuity-model").innerHTML = "<p class='empty'>Choose a date.</p>"; return; }
   try {
     const data = await api(`/api/continuity?date=${encodeURIComponent(date)}`);

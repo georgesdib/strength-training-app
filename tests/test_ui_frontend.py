@@ -508,6 +508,28 @@ if (html.indexOf("0 kg (observed_zero)") < 0) throw new Error("genuine zero lost
     subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
 
 
+def test_step5_report_controls_are_wired() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    for marker in (
+        'id="state-e1rm-calibration-window"',
+        'id="state-e1rm-coverage-window"',
+        'id="volume-weeks"',
+        'id="volume-date"',
+        'id="continuity-date"',
+        'id="fatigue-date"',
+        'id="validation-max-dates"',
+        'id="state-symptom-history"',
+        'id="state-test-cadence"',
+    ):
+        assert marker in page
+    assert "/api/e1rm/" in source
+    assert 'coverage" ? "tests-needed" : "calibration"' in source
+    assert "/api/symptoms/history" in source
+    assert "/api/test-cadence" in source
+    assert "Show all " in source
+
+
 def test_relationship_crud_ui_is_wired() -> None:
     source = (STATIC / "performance.js").read_text(encoding="utf-8")
     assert "/api/performance/relationships" in source
