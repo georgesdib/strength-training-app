@@ -152,15 +152,23 @@ def _backup_overlay(target: Path) -> Path | None:
     backup_dir = _backup_dir(target)
     backup_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-    backup = backup_dir / (
-        f"{CONFIG_BACKUP_PREFIX}-{stamp}-{os.getpid()}-{uuid.uuid4().hex[:8]}.yaml"
-    )
-    try:
-        with backup.open("xb") as handle:
-            handle.write(previous)
-    except Exception:
-        backup.unlink(missing_ok=True)
-        raise
+    for _attempt in range(5):
+        backup = backup_dir / (
+            f"{CONFIG_BACKUP_PREFIX}-{stamp}-{os.getpid()}-{uuid.uuid4().hex[:8]}.yaml"
+        )
+        try:
+            handle = backup.open("xb")
+        except FileExistsError:
+            continue
+        try:
+            with handle:
+                handle.write(previous)
+        except Exception:
+            backup.unlink(missing_ok=True)
+            raise
+        break
+    else:
+        raise OSError("could not create a unique relationship backup filename")
     backups = sorted(backup_dir.glob(f"{CONFIG_BACKUP_PREFIX}-*.yaml"))
     for old in backups[:-CONFIG_BACKUP_KEEP]:
         old.unlink()

@@ -143,15 +143,27 @@ async function addRelationship(event) {
   }
 }
 
-async function reloadRelationshipConfig(stableId) {
+var relationshipReloadInFlight = {};
+
+async function reloadRelationshipConfig(stableId, button) {
+  if (relationshipReloadInFlight[stableId]) return false;
+  relationshipReloadInFlight[stableId] = true;
   var feedback = document.getElementById(stableId);
-  if (!feedback) return false;
-  var button = document.getElementById("relationship-reload-" + stableId);
-  if (button) {
-    button.disabled = true;
-    button.textContent = "Reloading…";
+  if (!feedback) {
+    delete relationshipReloadInFlight[stableId];
+    return false;
   }
-  var success = await loadRelationshipConfig(true);
+  var control = button || document.getElementById("relationship-reload-" + stableId);
+  if (control) {
+    control.disabled = true;
+    control.textContent = "Reloading…";
+  }
+  var success = false;
+  try {
+    success = await loadRelationshipConfig(true);
+  } finally {
+    delete relationshipReloadInFlight[stableId];
+  }
   var current = document.getElementById(stableId);
   if (!current) return success;
   if (success) {
@@ -162,7 +174,7 @@ async function reloadRelationshipConfig(stableId) {
     "<button type='button' class='ghost' id='relationship-reload-" + stableId + "-retry'>Reload configuration</button>";
   var retry = document.getElementById("relationship-reload-" + stableId + "-retry");
   if (retry) retry.addEventListener("click", function () {
-    reloadRelationshipConfig(stableId);
+    reloadRelationshipConfig(stableId, retry);
   });
   return false;
 }
@@ -178,7 +190,7 @@ function showRelationshipConflict(targetId) {
   var button = document.getElementById("relationship-reload-" + stableId);
   if (!button) return;
   button.addEventListener("click", function () {
-    reloadRelationshipConfig(stableId);
+    reloadRelationshipConfig(stableId, button);
   });
 }
 

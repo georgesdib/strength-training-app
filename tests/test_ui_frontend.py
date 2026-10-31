@@ -528,7 +528,7 @@ def test_relationship_conflict_reload_is_explicit_and_contextual() -> None:
         import pytest
         pytest.skip("node is not installed")
     source = (STATIC / "performance.js").read_text(encoding="utf-8")
-    start = source.index("async function reloadRelationshipConfig(stableId) {")
+    start = source.index("async function reloadRelationshipConfig(stableId, button) {")
     end = source.index("var RELATIONSHIP_TYPE_OPTIONS", start)
     function_source = source[start:end]
     script = r"""
@@ -551,6 +551,7 @@ global.document = {
   }
 };
 global.esc = value => String(value);
+var relationshipReloadInFlight = {};
 let success = false;
 let reloads = 0;
 global.loadRelationshipConfig = async function (force) {
@@ -565,6 +566,9 @@ eval(FUNC);
   if (reloads !== 0) throw new Error("conflict auto-retried");
   const first = buttons["relationship-reload-performance-relationship-feedback"];
   first.click();
+  if (!first.disabled || first.textContent !== "Reloading…") {
+    throw new Error("reload control did not enter loading state");
+  }
   await Promise.resolve();
   if (reloads !== 1) throw new Error("reload was not attempted");
   if (!feedback.innerHTML.includes("could not be retrieved")) throw new Error("failed reload looked successful");
@@ -573,8 +577,12 @@ eval(FUNC);
   if (!retry) throw new Error("retry action missing after failed reload");
   success = true;
   retry.click();
+  if (!retry.disabled || retry.textContent !== "Reloading…") {
+    throw new Error("retry control did not enter loading state");
+  }
+  retry.click();
   await Promise.resolve();
-  if (reloads !== 2) throw new Error("retry did not invoke exactly one additional reload");
+  if (reloads !== 2) throw new Error("concurrent retry invoked an extra reload");
   if (feedback.textContent !== "Configuration reloaded. Review the pairs and retry.") {
     throw new Error("successful retry did not report success");
   }
