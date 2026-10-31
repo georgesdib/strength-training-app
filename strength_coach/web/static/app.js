@@ -2067,7 +2067,7 @@ function renderStateForms(data) {
         <label>Severity<select data-constraint="severity">${choiceOptions(opts.severities, "monitor")}</select></label>
         <label>Since<input data-constraint="since" type="month"></label>
         <label>Settled on<input data-constraint="settled_on" type="month"></label>
-        <label class="grow">Evidence<input data-constraint="evidence"></label>
+        <label class="grow">Evidence <span class="muted">(optional source/context)</span><input data-constraint="evidence" placeholder="e.g. diagnosis, clinician note, imaging"></label>
         <details class="advanced choice-details">
           <summary>Forbidden patterns</summary>
           ${choiceChecklist("forbidden_patterns", opts.patterns || [])}

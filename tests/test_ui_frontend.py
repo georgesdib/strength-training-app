@@ -207,6 +207,8 @@ def test_constrained_controls_are_not_free_text() -> None:
     assert 'choiceChecklist("forbidden_exercises"' in app
     assert 'data-constraint="kind"' in app
     assert 'data-constraint="region"' in app
+    assert "optional source/context" in app
+    assert 'data-constraint="evidence"' in app
 
 
 def test_dead_controls_have_regression_guards() -> None:
