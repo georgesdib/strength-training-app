@@ -24,7 +24,7 @@ many weeks of individual data are needed before showing a time constant. No impl
 
 ## Q22. Should selection target weakness or injury?
 
-**Deferred 2026-10-20; earliest review after v1.1 (~April 2027).** No positive
+**Deferred 2026-10-20; earliest review after v1.2 (~April 2027).** No positive
 weakness/injury targeting. Injury remains a constraint/ceiling/penalty; it must never boost a
 candidate. A relative-weakness display, if added, is display-only. Revisit only with 12
 sessions per target lift over 12 weeks, a pre-registered weakness definition, a retrospective
