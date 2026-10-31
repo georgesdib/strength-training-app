@@ -20,7 +20,7 @@ A0–F are implemented, including the canonical methodology/privacy docs. The fu
 | outcome storage | compute on demand; no snapshot table in v1 |
 | session target | **80 minutes default; athlete may raise or lower it** |
 | minimum effective session | user-selected; offered when readiness is poor; never automatic |
-| public-doc privacy | generalise current docs and move details to `private/`; do not rewrite Git history |
+| public-doc privacy | generalise current docs and move details to `private/` |
 | readiness weights | unchanged; no automatic tuning |
 | cardio | capture and context only; no prescription or fatigue model |
 
@@ -526,7 +526,7 @@ No migration for outcome v1 unless A0 is not approved.
 | minimum mode double-reduces | one modifier, explicit precedence, total cap |
 | minimum mode removes essential work | preserve primary pattern/essential; validators |
 | readiness feedback becomes tuning | report only; no writes to weights |
-| docs conflict/privacy | docs cleanup before new reports; no Git history rewrite |
+| docs conflict/privacy | docs cleanup before new reports |
 
 ---
 
