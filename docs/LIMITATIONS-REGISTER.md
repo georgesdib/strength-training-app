@@ -1,6 +1,6 @@
 # LIMITATIONS REGISTER
 
-**Status:** living register, updated 2026-10-29. It is the only public place accepted
+**Status:** living register, updated 2026-10-30. It is the only public place accepted
 limitations are listed; the roadmap keeps no second table. Private historical-data limitations
 are kept in the git-ignored private record only.
 **Purpose:** keep every known limitation from the audits in one place so later work can revisit
@@ -17,7 +17,7 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-05 | There is no stored planned-session calendar; attendance is target-based | open | W7 / DEC-W7-01 | a persisted plan is introduced |
 | LIM-06 | Injury-free weeks are only reported when every week has symptom coverage | closed 2026-10-27 | W7 | closed: a symptom log is now a persistent state until another log changes it; weeks before the first log remain unknown. Test in `tests/test_progress.py` |
 | LIM-07 | `SESSION_DURATION` remains unmeasurable for imported sessions | mitigated | W0-C2, W11/B7 | imported timestamps become available |
-| LIM-08 | Session duration outside live workouts is an estimate, not measured | open | W0-C4, W1 | measured duration is available |
+| LIM-08 | Session duration outside live workouts is an estimate, not measured | accepted (design choice) | W0-C4, W1 | intentional: imported sessions have no measured duration; revisit only if measured duration becomes a product requirement |
 | LIM-09 | UI prescription preview and committed workout artifact are different states | documented | W0-C5, UI-CLI-PARITY | never; it is intentional |
 | LIM-10 | Imported logs lack reliable timestamps and include late/backfilled rows; this is accepted as a fact of life for the historical export | accepted (fact of life) | W0-C7 | no action; new live sessions carry measured timestamps |
 | LIM-11 | Minimum-session deep-tier main floor of 2 is a heuristic, not trial evidence | open | W0-C8, DEC-MIN-01 | evidence for a different minimum dose |
