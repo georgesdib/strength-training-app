@@ -1919,6 +1919,8 @@ async function loadState() {
         ${suitability ? `<table><thead><tr><th>Exercise</th><th>can-do</th><th>will-do</th><th>feels bad</th></tr></thead><tbody>${suitability}</tbody></table>` : "<p class='empty'>none recorded</p>"}</div>
       <div class="panel state-wide"><div class="panel-head"><h2>e1RM calibration</h2>
         <span class="muted">measured vs formula; report only</span></div>
+        <details class="calibration-details">
+          <summary>Show calibration details</summary>
         ${calibrationRows ? `<div class="table-scroll"><table class="e1rm-table"><thead><tr><th>Lift</th><th>formula (raw → effective)</th>
           <th>override (raw → effective)</th><th>used</th><th>last set</th><th>tests</th>
           <th>median ratio</th><th>95% CI</th></tr></thead>
@@ -1926,7 +1928,8 @@ async function loadState() {
           <p class="muted">A bounded correction is applied only when the 95% CI excludes 1.0;
           measured tests still override the formula. Formula-only rows show the current
           estimate and last set. e1RM is an estimate, not a measured maximum.</p>`
-          : "<p class='empty'>no measured tests with a prior estimate yet.</p>"}</div>
+          : "<p class='empty'>no measured tests with a prior estimate yet.</p>"}
+        </details></div>
       <div class="panel state-wide"><div class="panel-head"><h2>Injury signal</h2></div>
         <p>${esc(data.injury_signal?.summary || "")}</p>
         ${injuryRows}
