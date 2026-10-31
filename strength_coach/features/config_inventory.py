@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +56,7 @@ def _parameter(
     configured: bool = True,
     editable: bool = False,
     editability: str = "read_only",
+    source_kind: str = "canonical_config",
     reason: str = "",
     doc: str = "docs/MONITORING-ANALYSIS.md",
 ) -> dict[str, Any]:
@@ -64,6 +66,7 @@ def _parameter(
         "value": value,
         "unit": unit,
         "source": source,
+        "source_kind": source_kind,
         "configured": configured,
         "editable": editable,
         "editability": editability,
@@ -78,27 +81,20 @@ def _load(path: Path) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
-def _revised_files() -> list[Path]:
-    names = [
-        "monitoring.v1.yaml",
-        "exposure.v1.yaml",
-        "e1rm-calibration.v1.yaml",
-        "strength-relationships.v1.yaml",
-        "thresholds.v1.yaml",
-        "volume.v1.yaml",
-        "readiness.v1.yaml",
-    ]
-    files = [paths.config_dir(name) for name in names]
-    files.extend(paths.config_dir(name.replace(".v1.yaml", ".local.yaml")) for name in names)
-    return [path for path in files if path.is_file()]
+def revision(groups: list[dict[str, Any]]) -> str:
+    """Hash the complete effective inventory deterministically.
+
+    The hash covers effective values and provenance, including Python defaults and fixed code
+    constants, not just the YAML files that happen to exist.
+    """
+    payload = json.dumps(groups, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def revision() -> str:
-    digest = hashlib.sha256()
-    for path in _revised_files():
-        digest.update(_relative(path).encode("utf-8"))
-        digest.update(path.read_bytes())
-    return digest.hexdigest()
+def _relationship_provenance(item, local_ids: set[str]) -> tuple[str, str]:
+    if item.id in local_ids:
+        return "local override: config/strength-relationships.local.yaml", "local_override"
+    return "canonical config: config/strength-relationships.v1.yaml", "canonical_config"
 
 
 def _monitoring_group() -> dict[str, Any]:
@@ -107,9 +103,14 @@ def _monitoring_group() -> dict[str, Any]:
     rows = []
 
     def add(key, label, value, dotted, unit=None, edit="phase5a_locked"):
-        raw_value, configured = _mapping(raw, dotted)
+        _, configured = _mapping(raw, dotted)
+        source, source_kind = (
+            (_relative(paths.config_dir("monitoring.v1.yaml")), "canonical_config")
+            if configured else
+            ("python-default: strength_coach/features/monitoring.py", "python_default")
+        )
         rows.append(_parameter(
-            key, label, value, source=_relative(paths.config_dir("monitoring.v1.yaml")),
+            key, label, value, source=source, source_kind=source_kind,
             unit=unit, configured=configured, editable=False, editability=edit,
             reason="Monitoring definition; frozen during Phase 5A.",
         ))
@@ -142,8 +143,13 @@ def _exposure_group() -> dict[str, Any]:
 
     def add(key, label, value, dotted, unit=None):
         _, configured = _mapping(raw, dotted)
+        source, source_kind = (
+            (_relative(paths.exposure_yaml()), "canonical_config")
+            if configured else
+            ("python-default: strength_coach/features/exposure.py", "python_default")
+        )
         rows.append(_parameter(
-            key, label, value, source=_relative(paths.exposure_yaml()), unit=unit,
+            key, label, value, source=source, source_kind=source_kind, unit=unit,
             configured=configured, editability="phase5a_locked",
             reason="Exposure definition; frozen during Phase 5A.",
         ))
@@ -173,9 +179,14 @@ def _calibration_group() -> dict[str, Any]:
 
     def add(key, label, value, dotted, unit=None, editability="read_only"):
         _, configured = _mapping(raw, dotted) if dotted else (True, True)
+        if dotted and configured:
+            source, source_kind = _relative(path), "canonical_config"
+        elif dotted:
+            source, source_kind = "python-default: strength_coach/features/e1rm_calibration.py", "python_default"
+        else:
+            source, source_kind = "code: strength_coach/features/e1rm_calibration.py", "fixed_code"
         rows.append(_parameter(
-            key, label, value,
-            source=_relative(path) if dotted else "code: strength_coach/features/e1rm_calibration.py",
+            key, label, value, source=source, source_kind=source_kind,
             unit=unit, configured=configured, editability=editability,
             reason="Calibration algorithm input; changing it requires a separate decision.",
             doc="docs/FATIGUE-FITNESS.md",
@@ -194,13 +205,21 @@ def _calibration_group() -> dict[str, Any]:
 
 def _relationship_group() -> dict[str, Any]:
     relationships = relative_strength.load_relationships()
+    local = _load(paths.config_dir("strength-relationships.local.yaml"))
+    local_ids = {
+        str(entry.get("id"))
+        for entry in (local.get("relationships") or [])
+        if isinstance(entry, dict) and entry.get("id")
+    }
     rows = [_parameter(
         "relationships.count", "Configured relationship count", len(relationships),
-        source="config/strength-relationships.v1.yaml", unit="pairs", editability="read_only",
+        source="canonical config: config/strength-relationships.v1.yaml", unit="pairs",
+        editability="read_only", source_kind="canonical_config",
         reason="Pair CRUD is planned separately; this inventory is read-only.",
         doc="docs/MONITORING-ANALYSIS.md",
     )]
     for item in relationships:
+        source, source_kind = _relationship_provenance(item, local_ids)
         for field, label, unit in [
             ("max_gap_days", "maximum gap", "days"),
             ("max_age_days", "maximum age", "days"),
@@ -210,7 +229,8 @@ def _relationship_group() -> dict[str, Any]:
                 f"relationships.{item.id}.{field}",
                 f"{item.label}: {label}",
                 getattr(item, field),
-                source="config/strength-relationships.v1.yaml",
+                source=source,
+                source_kind=source_kind,
                 unit=unit,
                 editability="read_only",
                 reason="Pair configuration; CRUD is a separate workstream.",
@@ -226,8 +246,13 @@ def _readiness_group() -> dict[str, Any]:
 
     def add(key, label, value, dotted, unit=None):
         _, configured = _mapping(raw, dotted)
+        source, source_kind = (
+            (_relative(path), "canonical_config")
+            if configured else
+            ("python-default: strength_coach/features/readiness.py", "python_default")
+        )
         rows.append(_parameter(
-            key, label, value, source=_relative(path), unit=unit,
+            key, label, value, source=source, source_kind=source_kind, unit=unit,
             configured=configured, editability="read_only",
             reason="Readiness policy is not editable from the monitoring inventory.",
             doc="docs/READINESS.md",
@@ -254,8 +279,13 @@ def _prescription_group() -> dict[str, Any]:
     def add(path_key, key, label, default, unit=None, source=threshold_path):
         raw = thresholds if source == threshold_path else volume
         value, configured = _mapping(raw, path_key, default)
+        source_label, source_kind = (
+            (_relative(source), "canonical_config")
+            if configured else
+            ("python-default: strength_coach/prescribe/config.py", "python_default")
+        )
         rows.append(_parameter(
-            key, label, value, source=_relative(source), unit=unit,
+            key, label, value, source=source_label, source_kind=source_kind, unit=unit,
             configured=configured, editability="read_only",
             reason="Prescription/volume policy; editing is not part of this workstream.",
             doc="docs/WEB-UI.md",
@@ -285,41 +315,49 @@ def _analysis_group() -> dict[str, Any]:
         "key": "analysis",
         "label": "Analysis constants",
         "parameters": [
-            _parameter("analysis.version", "Monitoring analysis version", monitoring_analysis.ANALYSIS_VERSION, source=module, editability="fixed", reason="Code constant.", doc="docs/MONITORING-ANALYSIS.md"),
-            _parameter("analysis.seed", "Monitoring analysis seed", monitoring_analysis.SEED, source=module, editability="fixed", reason="Reproducibility constant.", doc="docs/MONITORING-ANALYSIS.md"),
-            _parameter("analysis.correlation_min_pairs", "Minimum pairs for a correlation", monitoring_analysis.MIN_CORRELATION_PAIRS, source=module, unit="pairs", editability="fixed", reason="Insufficient-data rule; not a user setting.", doc="docs/MONITORING-ANALYSIS.md"),
+            _parameter("analysis.version", "Monitoring analysis version", monitoring_analysis.ANALYSIS_VERSION, source=module, source_kind="fixed_code", editability="fixed", reason="Code constant.", doc="docs/MONITORING-ANALYSIS.md"),
+            _parameter("analysis.seed", "Monitoring analysis seed", monitoring_analysis.SEED, source=module, source_kind="fixed_code", editability="fixed", reason="Reproducibility constant.", doc="docs/MONITORING-ANALYSIS.md"),
+            _parameter("analysis.correlation_min_pairs", "Minimum pairs for a correlation", monitoring_analysis.MIN_CORRELATION_PAIRS, source=module, source_kind="fixed_code", unit="pairs", editability="fixed", reason="Insufficient-data rule; not a user setting.", doc="docs/MONITORING-ANALYSIS.md"),
         ],
     }
 
 
 def build_inventory(today: str | None = None) -> dict[str, Any]:
     on_date = today or datetime.date.today().isoformat()
-    reviewing = on_date <= PHASE_5A_REVIEW
-    phase_note = (
-        "Phase 5A is active; monitoring and exposure values are locked."
-        if reviewing else
-        "Phase 5A review is due; monitoring values remain read-only until the outcome is recorded."
-    )
+    if on_date < PHASE_5A_START:
+        period = "before"
+        phase_note = "Phase 5A has not started; monitoring and exposure values are locked."
+    elif on_date <= PHASE_5A_REVIEW:
+        period = "active"
+        phase_note = "Phase 5A is active; monitoring and exposure values are locked."
+    else:
+        period = "post_review"
+        phase_note = (
+            "Phase 5A review date has passed; monitoring values remain locked until the "
+            "review outcome is recorded."
+        )
+    groups = [
+        _monitoring_group(),
+        _exposure_group(),
+        _calibration_group(),
+        _relationship_group(),
+        _readiness_group(),
+        _prescription_group(),
+        _analysis_group(),
+    ]
     return {
         "application_version": __version__,
-        "revision": revision(),
+        "revision": revision(groups),
         "read_only": True,
         "phase": {
             "name": "Phase 5A",
+            "period": period,
             "start": PHASE_5A_START,
             "review_due": PHASE_5A_REVIEW,
             "locked": True,
             "note": phase_note,
         },
-        "groups": [
-            _monitoring_group(),
-            _exposure_group(),
-            _calibration_group(),
-            _relationship_group(),
-            _readiness_group(),
-            _prescription_group(),
-            _analysis_group(),
-        ],
+        "groups": groups,
         "notes": [
             "Visible on the home network; this inventory is read-only.",
             "Writes, when added, remain loopback-only through the existing mutation guard.",

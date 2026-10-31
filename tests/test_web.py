@@ -1913,6 +1913,7 @@ def test_monitoring_config_inventory_is_read_only_and_path_safe(server):
     payload = json.loads(get(server, "/api/settings/monitoring")[1])
     assert payload["read_only"] is True
     assert payload["phase"]["locked"] is True
+    assert payload["phase"]["period"] == "active"
     assert payload["phase"]["review_due"] == "2027-01-22"
     assert payload["groups"]
     groups = {group["key"]: group for group in payload["groups"]}
@@ -1920,3 +1921,11 @@ def test_monitoring_config_inventory_is_read_only_and_path_safe(server):
     assert all(row["editable"] is False for group in payload["groups"] for row in group["parameters"])
     assert "/home/" not in json.dumps(payload)
     assert "data/coach.db" not in json.dumps(payload)
+
+
+def test_monitoring_config_inventory_has_no_write_route(server):
+    before = json.loads(get(server, "/api/settings/monitoring")[1])
+    status, _ = post_status(server, "/api/settings/monitoring", {})
+    after = json.loads(get(server, "/api/settings/monitoring")[1])
+    assert status == 404
+    assert before["revision"] == after["revision"]

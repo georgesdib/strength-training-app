@@ -149,7 +149,7 @@ also disables while saving and reports the number of marks written.
 | `GET /api/performance/dose?from=&to=&group_by=session` | descriptive session dose |
 | `GET /api/performance/ratios?relationship_id=&from=&to=` | configured ratio current value and paired history |
 | `GET /api/monitoring-analysis?as_of=` | read-only dose, lagged associations, coverage and calibration transparency; no path disclosure |
-| `GET /api/settings/monitoring` | read-only monitoring/config inventory, source labels, Phase 5A lock and revision hash; no paths or athlete data |
+| `GET /api/settings/monitoring` | read-only monitoring/config inventory, canonical/local/default/code provenance, Phase 5A period and lock, complete effective-inventory revision; no paths or athlete data |
 | `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
 | `POST /api/prescribe` | `{date, session_type?, apply_selection?, selection_confirmed?, selection_llm?, minimum_session?, target_minutes?, minimum_include_main?, allow_unknown_readiness?}` -> prescription; `session_type=auto` uses the rolling rule; unknown readiness requires the explicit flag |
 | `POST /api/workout/start` | `{date, plan, readiness, readiness_ack?, note?}` -> live workout; a score-ready assessment or explicit acknowledgement is required; partial readiness stays partial |
