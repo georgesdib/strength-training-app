@@ -33,8 +33,15 @@ HTTP server does not invoke the CLI.
 ## Configuring relative-strength pairs
 
 The Performance view lists only explicitly configured pairs; it is not an exhaustive lift
-catalogue. The UI can append a pair to `config/strength-relationships.v1.yaml` only after
-server-side validation against the taxonomy and the complete existing config.
+catalogue. User changes are written to the git-ignored
+`config/strength-relationships.local.yaml` overlay; the canonical YAML remains reviewed and
+unchanged. The loader merges local additions, full-object edits and tombstones over the
+canonical pairs.
+
+The backend supports add, edit, delete and reset with full server-side validation against the
+taxonomy and merged configuration. The current Performance form uses the add path; the
+edit/delete/reset UI remains Step 4. Every write is atomic and revision-checked; the add form
+keeps its legacy optional-revision behaviour until Step 4 sends the revision explicitly.
 
 A pair is accepted only when:
 
@@ -48,8 +55,9 @@ A pair is accepted only when:
 - `min_observations` is at least 2;
 - descriptive-only notes are present.
 
-The config write is atomic. Adding a pair does not change eligibility rules, calibration,
-prescriptions or any ratio calculation; it only makes another descriptive pair visible.
+The config write is atomic. Adding or editing a pair does not change eligibility rules,
+calibration, prescriptions or any ratio calculation; it only makes another descriptive pair
+visible. Deleting a pair writes a local tombstone when the source is canonical.
 
 ## Interpretation
 

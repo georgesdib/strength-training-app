@@ -6,6 +6,7 @@ target, a weakness diagnosis, a population norm, or a confidence interval.
 
 from __future__ import annotations
 
+import hashlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,23 +66,152 @@ class Ratio:
         }
 
 
-def load_relationships(path: str | Path | None = None) -> list[Relationship]:
-    source = Path(path or paths.config_dir("strength-relationships.v1.yaml"))
-    raw = yaml.safe_load(source.read_text(encoding="utf-8")) if source.is_file() else {}
-    out = []
-    for entry in (raw or {}).get("relationships") or []:
-        out.append(Relationship(
-            id=str(entry["id"]),
-            label=str(entry["label"]),
-            numerator=str(entry["numerator"]),
-            denominator=str(entry["denominator"]),
-            relationship_type=str(entry["relationship_type"]),
-            max_gap_days=int(entry["max_gap_days"]),
-            max_age_days=int(entry["max_age_days"]),
-            min_observations=int(entry["min_observations"]),
-            notes=str(entry["notes"]),
+LOCAL_RELATIONSHIPS_NAME = "strength-relationships.local.yaml"
+
+
+def _relationship_from_entry(entry: dict) -> Relationship:
+    return Relationship(
+        id=str(entry["id"]),
+        label=str(entry["label"]),
+        numerator=str(entry["numerator"]),
+        denominator=str(entry["denominator"]),
+        relationship_type=str(entry["relationship_type"]),
+        max_gap_days=int(entry["max_gap_days"]),
+        max_age_days=int(entry["max_age_days"]),
+        min_observations=int(entry["min_observations"]),
+        notes=str(entry["notes"]),
+    )
+
+
+def _relationship_dict(relationship: Relationship) -> dict[str, Any]:
+    return {
+        "id": relationship.id,
+        "label": relationship.label,
+        "numerator": relationship.numerator,
+        "denominator": relationship.denominator,
+        "relationship_type": relationship.relationship_type,
+        "max_gap_days": relationship.max_gap_days,
+        "max_age_days": relationship.max_age_days,
+        "min_observations": relationship.min_observations,
+        "notes": relationship.notes,
+    }
+
+
+def _canonical_path(path: str | Path | None = None) -> Path:
+    return Path(path or paths.config_dir("strength-relationships.v1.yaml"))
+
+
+def _local_path(path: str | Path | None = None) -> Path:
+    return _canonical_path(path).with_name(LOCAL_RELATIONSHIPS_NAME)
+
+
+def _load_yaml(path: Path) -> dict:
+    if not path.is_file():
+        return {}
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"{path.name} must contain a mapping")
+    return raw
+
+
+def _load_overlay(path: str | Path | None = None) -> dict[str, Any]:
+    raw = _load_yaml(_local_path(path))
+    relationships = []
+    seen = set()
+    for entry in raw.get("relationships") or []:
+        relationship = _relationship_from_entry(entry)
+        if relationship.id in seen:
+            raise ValueError(f"duplicate local relationship id: {relationship.id}")
+        seen.add(relationship.id)
+        relationships.append(relationship)
+    deleted = [str(item) for item in (raw.get("deleted") or [])]
+    return {
+        "schema_version": str(raw.get("schema_version", "1.0.0")),
+        "relationships": relationships,
+        "deleted": deleted,
+    }
+
+
+def _write_overlay(
+    overlay: dict[str, Any], path: str | Path | None = None,
+) -> None:
+    target = _local_path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": "1.0.0",
+        "relationships": [_relationship_dict(item) for item in overlay["relationships"]],
+        "deleted": sorted(set(overlay["deleted"])),
+    }
+    text = yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
+    tmp = target.with_name(target.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, target)
+
+
+def load_relationships_with_sources(
+    path: str | Path | None = None,
+) -> list[tuple[Relationship, str, str]]:
+    canonical_path = _canonical_path(path)
+    canonical = [
+        _relationship_from_entry(entry)
+        for entry in (_load_yaml(canonical_path).get("relationships") or [])
+    ]
+    overlay = _load_overlay(path)
+    local_by_id = {item.id: item for item in overlay["relationships"]}
+    deleted = set(overlay["deleted"])
+    canonical_ids = {item.id for item in canonical}
+    out: list[tuple[Relationship, str, str]] = []
+    for item in canonical:
+        if item.id in deleted:
+            continue
+        if item.id in local_by_id:
+            out.append((
+                local_by_id[item.id],
+                "local override: config/strength-relationships.local.yaml",
+                "local_override",
+            ))
+        else:
+            out.append((
+                item,
+                "canonical config: config/strength-relationships.v1.yaml",
+                "canonical_config",
+            ))
+    for item in overlay["relationships"]:
+        if item.id in canonical_ids or item.id in deleted:
+            continue
+        out.append((
+            item,
+            "local override: config/strength-relationships.local.yaml",
+            "local_override",
         ))
     return out
+
+
+def load_relationships(path: str | Path | None = None) -> list[Relationship]:
+    return [item for item, _source, _kind in load_relationships_with_sources(path)]
+
+
+def relationship_config_source(path: str | Path | None = None) -> tuple[str, str]:
+    overlay = _load_overlay(path)
+    if overlay["relationships"] or overlay["deleted"]:
+        return (
+            "merged config: config/strength-relationships.v1.yaml + "
+            "config/strength-relationships.local.yaml",
+            "local_override",
+        )
+    return (
+        "canonical config: config/strength-relationships.v1.yaml",
+        "canonical_config",
+    )
+
+
+def relationship_config_revision(path: str | Path | None = None) -> str:
+    digest = hashlib.sha256()
+    for candidate in (_canonical_path(path), _local_path(path)):
+        if candidate.is_file():
+            digest.update(candidate.name.encode("utf-8"))
+            digest.update(candidate.read_bytes())
+    return digest.hexdigest()
 
 
 def validate_relationships(taxonomy: Any, relationships: list[Relationship]) -> list[str]:
@@ -274,40 +404,74 @@ def relationship_types() -> tuple[str, ...]:
     return RELATIONSHIP_TYPES_ORDER
 
 
-def append_relationship(relationship: Relationship, path: str | Path | None = None) -> list[Relationship]:
-    """Validate and append one explicit descriptive pair to the config.
-
-    The file is rewritten atomically. Validation runs against the taxonomy and the complete
-    existing config, so a UI add cannot create an unknown, duplicate, non-e1RM or malformed
-    relationship.
-    """
+def _validate_merged(relationships: list[Relationship]) -> None:
     from strength_coach.utils import exercises
 
-    existing = load_relationships(path)
-    issues = validate_relationships(exercises.taxonomy(), [*existing, relationship])
+    issues = validate_relationships(exercises.taxonomy(), relationships)
     if issues:
         raise ValueError("; ".join(issues))
-    source = Path(path or paths.config_dir("strength-relationships.v1.yaml"))
-    payload = yaml.safe_dump(
-        [{
-            "id": relationship.id,
-            "label": relationship.label,
-            "numerator": relationship.numerator,
-            "denominator": relationship.denominator,
-            "relationship_type": relationship.relationship_type,
-            "max_gap_days": relationship.max_gap_days,
-            "max_age_days": relationship.max_age_days,
-            "min_observations": relationship.min_observations,
-            "notes": relationship.notes,
-        }],
-        sort_keys=False,
-        allow_unicode=True,
-    )
-    block = "\n".join("  " + line for line in payload.rstrip().splitlines()) + "\n"
-    text = source.read_text(encoding="utf-8")
-    if not text.endswith("\n"):
-        text += "\n"
-    tmp = source.with_name(source.name + ".tmp")
-    tmp.write_text(text + block, encoding="utf-8")
-    os.replace(tmp, source)
+
+
+def append_relationship(relationship: Relationship, path: str | Path | None = None) -> list[Relationship]:
+    """Append a validated relationship to the local overlay, never canonical YAML."""
+    current = load_relationships(path)
+    _validate_merged([*current, relationship])
+    overlay = _load_overlay(path)
+    overlay["relationships"].append(relationship)
+    overlay["deleted"] = [item for item in overlay["deleted"] if item != relationship.id]
+    _write_overlay(overlay, path)
+    return load_relationships(path)
+
+
+def update_relationship(relationship: Relationship, path: str | Path | None = None) -> list[Relationship]:
+    """Replace a relationship in the local overlay; membership is immutable."""
+    current = load_relationships(path)
+    existing = next((item for item in current if item.id == relationship.id), None)
+    if existing is None:
+        raise ValueError(f"unknown relationship: {relationship.id}")
+    if (existing.numerator, existing.denominator) != (
+        relationship.numerator, relationship.denominator
+    ):
+        raise ValueError("relationship membership cannot be changed; delete and add a new pair")
+    updated = [relationship if item.id == relationship.id else item for item in current]
+    _validate_merged(updated)
+    overlay = _load_overlay(path)
+    overlay["relationships"] = [
+        item for item in overlay["relationships"] if item.id != relationship.id
+    ]
+    overlay["relationships"].append(relationship)
+    overlay["deleted"] = [item for item in overlay["deleted"] if item != relationship.id]
+    _write_overlay(overlay, path)
+    return load_relationships(path)
+
+
+def delete_relationship(relationship_id: str, path: str | Path | None = None) -> list[Relationship]:
+    current = load_relationships(path)
+    if not any(item.id == relationship_id for item in current):
+        raise ValueError(f"unknown relationship: {relationship_id}")
+    canonical_ids = {
+        entry.id for entry in (
+            _relationship_from_entry(item)
+            for item in (_load_yaml(_canonical_path(path)).get("relationships") or [])
+        )
+    }
+    overlay = _load_overlay(path)
+    overlay["relationships"] = [
+        item for item in overlay["relationships"] if item.id != relationship_id
+    ]
+    if relationship_id in canonical_ids:
+        overlay["deleted"] = sorted(set([*overlay["deleted"], relationship_id]))
+    else:
+        overlay["deleted"] = [item for item in overlay["deleted"] if item != relationship_id]
+    _write_overlay(overlay, path)
+    return load_relationships(path)
+
+
+def reset_relationship(relationship_id: str, path: str | Path | None = None) -> list[Relationship]:
+    overlay = _load_overlay(path)
+    overlay["relationships"] = [
+        item for item in overlay["relationships"] if item.id != relationship_id
+    ]
+    overlay["deleted"] = [item for item in overlay["deleted"] if item != relationship_id]
+    _write_overlay(overlay, path)
     return load_relationships(path)

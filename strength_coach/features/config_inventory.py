@@ -95,10 +95,6 @@ def revision(groups: list[dict[str, Any]]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _relationship_source() -> tuple[str, str]:
-    return "canonical config: config/strength-relationships.v1.yaml", "canonical_config"
-
-
 def _monitoring_group() -> dict[str, Any]:
     cfg = monitoring.MonitoringConfig.load()
     raw = _load(paths.config_dir("monitoring.v1.yaml"))
@@ -343,22 +339,22 @@ def _calibration_group() -> dict[str, Any]:
 
 
 def _relationship_group() -> dict[str, Any]:
-    relationships = relative_strength.load_relationships()
-    source, source_kind = _relationship_source()
+    records = relative_strength.load_relationships_with_sources()
+    source, source_kind = relative_strength.relationship_config_source()
     rows = [
         _parameter(
             "relationships.count",
             "Configured relationship count",
-            len(relationships),
+            len(records),
             source=source,
             unit="pairs",
             editability="read_only",
             source_kind=source_kind,
-            reason="Pair CRUD is planned separately; this inventory is read-only.",
+            reason="Pair CRUD is separate from this read-only inventory.",
             doc="docs/MONITORING-ANALYSIS.md",
         )
     ]
-    for item in relationships:
+    for item, item_source, item_kind in records:
         for field, label, unit in [
             ("max_gap_days", "maximum gap", "days"),
             ("max_age_days", "maximum age", "days"),
@@ -369,11 +365,11 @@ def _relationship_group() -> dict[str, Any]:
                     f"relationships.{item.id}.{field}",
                     f"{item.label}: {label}",
                     getattr(item, field),
-                    source=source,
-                    source_kind=source_kind,
+                    source=item_source,
+                    source_kind=item_kind,
                     unit=unit,
                     editability="read_only",
-                    reason="Pair configuration; CRUD is a separate workstream.",
+                    reason="Pair configuration is managed outside this inventory.",
                     doc="docs/MONITORING-ANALYSIS.md",
                 )
             )

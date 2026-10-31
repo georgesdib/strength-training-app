@@ -156,3 +156,64 @@ def test_append_relationship_rejects_non_e1rm_exercise(tmp_path):
     )
     with pytest.raises(ValueError, match="does not support an e1RM"):
         relative_strength.append_relationship(relationship, path=target)
+
+
+def test_relationship_overlay_edit_add_delete_reset(tmp_path):
+    source = relative_strength.paths.config_dir("strength-relationships.v1.yaml")
+    target = tmp_path / "strength-relationships.v1.yaml"
+    shutil.copyfile(source, target)
+    canonical_before = target.read_bytes()
+    original = relative_strength.load_relationships(target)
+    first, second = original[0], original[1]
+    revision = relative_strength.relationship_config_revision(target)
+
+    added = relative_strength.Relationship(
+        id="front_squat_to_bench_press",
+        label="Front squat / bench press",
+        numerator="front_squat",
+        denominator="bench_press",
+        relationship_type="variant_to_main",
+        max_gap_days=10,
+        max_age_days=30,
+        min_observations=2,
+        notes="Local addition.",
+    )
+    relative_strength.append_relationship(added, path=target)
+    updated = relative_strength.Relationship(
+        **{**first.__dict__, "label": "Edited front squat ratio", "max_gap_days": 9}
+    )
+    relative_strength.update_relationship(updated, path=target)
+    relative_strength.delete_relationship(second.id, path=target)
+
+    effective = {
+        item.id: (item, kind)
+        for item, _source, kind in relative_strength.load_relationships_with_sources(target)
+    }
+    assert target.read_bytes() == canonical_before
+    assert effective[first.id][0].label == "Edited front squat ratio"
+    assert effective[first.id][0].max_gap_days == 9
+    assert effective[first.id][1] == "local_override"
+    assert second.id not in effective
+    assert added.id in effective
+    assert effective[added.id][1] == "local_override"
+    assert relative_strength.relationship_config_revision(target) != revision
+
+    relative_strength.reset_relationship(first.id, path=target)
+    relative_strength.reset_relationship(second.id, path=target)
+    relative_strength.reset_relationship(added.id, path=target)
+    restored = {item.id: item for item in relative_strength.load_relationships(target)}
+    assert restored[first.id].label == first.label
+    assert second.id in restored
+    assert added.id not in restored
+
+
+def test_relationship_update_rejects_membership_change(tmp_path):
+    source = relative_strength.paths.config_dir("strength-relationships.v1.yaml")
+    target = tmp_path / "strength-relationships.v1.yaml"
+    shutil.copyfile(source, target)
+    original = relative_strength.load_relationships(target)[0]
+    changed = relative_strength.Relationship(
+        **{**original.__dict__, "numerator": "bench_press_narrow"}
+    )
+    with pytest.raises(ValueError, match="membership cannot be changed"):
+        relative_strength.update_relationship(changed, path=target)

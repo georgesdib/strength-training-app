@@ -780,6 +780,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._performance_ratios_cached(query))
             elif path == "/api/performance/relationship-options":
                 self._json(200, self._relationship_options())
+            elif path == "/api/performance/relationships":
+                self._json(200, self._relationship_list())
             elif path == "/api/monitoring-analysis":
                 query = parse_qs(urlparse(self.path).query)
                 as_of = query.get("as_of", [datetime.date.today().isoformat()])[0]
@@ -1069,6 +1071,12 @@ class Handler(BaseHTTPRequestHandler):
                 )))
             elif path == "/api/performance/relationships":
                 self._json(200, self._add_relationship(body))
+            elif path.startswith("/api/performance/relationships/"):
+                parts = path.strip("/").split("/")
+                if len(parts) != 5:
+                    raise ValueError("unknown relationship action")
+                relationship_id, action = parts[3], parts[4]
+                self._json(200, self._relationship_action(relationship_id, action, body))
             elif path == "/api/reviews":
                 self._json(200, self._with_conn(lambda c: self._save_review_task(c, body)))
             elif path == "/api/readiness/feedback":
@@ -1793,7 +1801,9 @@ class Handler(BaseHTTPRequestHandler):
             ],
         }
 
-    def _add_relationship(self, body: dict) -> dict:
+    def _relationship_from_body(
+        self, body: dict, relationship_id: str | None = None,
+    ) -> relative_strength_feature.Relationship:
         numerator = str(body.get("numerator") or "").strip()
         denominator = str(body.get("denominator") or "").strip()
         entities = exercises.taxonomy().entities
@@ -1813,8 +1823,8 @@ class Handler(BaseHTTPRequestHandler):
         notes = str(body.get("notes") or "").strip() or (
             "Descriptive relative performance only; not a weakness diagnosis."
         )
-        relationship = relative_strength_feature.Relationship(
-            id=f"{numerator}_to_{denominator}",
+        return relative_strength_feature.Relationship(
+            id=relationship_id or f"{numerator}_to_{denominator}",
             label=label,
             numerator=numerator,
             denominator=denominator,
@@ -1824,22 +1834,61 @@ class Handler(BaseHTTPRequestHandler):
             min_observations=min_observations,
             notes=notes,
         )
-        relationships = relative_strength_feature.append_relationship(relationship)
-        _READ_CACHE.clear()
+
+    @staticmethod
+    def _check_relationship_revision(body: dict, *, required: bool) -> None:
+        supplied = str(body.get("revision") or "").strip()
+        if required and not supplied:
+            raise ValueError("revision is required; reload the pair list and retry")
+        if supplied and supplied != relative_strength_feature.relationship_config_revision():
+            raise RequestError(409, "relationship configuration changed; reload and retry")
+
+    @staticmethod
+    def _relationship_payload(
+        relationships: list[relative_strength_feature.Relationship],
+    ) -> dict:
         return {
             "ok": True,
+            "revision": relative_strength_feature.relationship_config_revision(),
             "relationships": [
                 {
-                    "id": item.id, "label": item.label,
-                    "numerator": item.numerator, "denominator": item.denominator,
+                    "id": item.id,
+                    "label": item.label,
+                    "numerator": item.numerator,
+                    "denominator": item.denominator,
                     "relationship_type": item.relationship_type,
                     "max_gap_days": item.max_gap_days,
                     "max_age_days": item.max_age_days,
                     "min_observations": item.min_observations,
+                    "notes": item.notes,
                 }
                 for item in relationships
             ],
         }
+
+    def _relationship_list(self) -> dict:
+        return self._relationship_payload(relative_strength_feature.load_relationships())
+
+    def _add_relationship(self, body: dict) -> dict:
+        self._check_relationship_revision(body, required=False)
+        relationship = self._relationship_from_body(body)
+        relationships = relative_strength_feature.append_relationship(relationship)
+        _READ_CACHE.clear()
+        return self._relationship_payload(relationships)
+
+    def _relationship_action(self, relationship_id: str, action: str, body: dict) -> dict:
+        self._check_relationship_revision(body, required=True)
+        if action == "update":
+            relationship = self._relationship_from_body(body, relationship_id)
+            relationships = relative_strength_feature.update_relationship(relationship)
+        elif action == "delete":
+            relationships = relative_strength_feature.delete_relationship(relationship_id)
+        elif action == "reset":
+            relationships = relative_strength_feature.reset_relationship(relationship_id)
+        else:
+            raise ValueError("unknown relationship action")
+        _READ_CACHE.clear()
+        return self._relationship_payload(relationships)
 
     def _performance_ratios(self, conn, query: dict) -> dict:
         to_date = query.get("to", [datetime.date.today().isoformat()])[0]

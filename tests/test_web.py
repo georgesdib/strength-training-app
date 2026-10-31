@@ -1929,3 +1929,89 @@ def test_monitoring_config_inventory_has_no_write_route(server):
     after = json.loads(get(server, "/api/settings/monitoring")[1])
     assert status == 404
     assert before["revision"] == after["revision"]
+
+
+def test_relationship_crud_api_enforces_revision_and_reset(server, tmp_path, monkeypatch):
+    import shutil
+
+    from strength_coach.web import server as web_server
+
+    shutil.copyfile(
+        web_server.relative_strength_feature.paths.config_dir(
+            "strength-relationships.v1.yaml"
+        ),
+        tmp_path / "strength-relationships.v1.yaml",
+    )
+    monkeypatch.setattr(
+        web_server.relative_strength_feature.paths,
+        "config_dir",
+        lambda name: tmp_path / name,
+    )
+
+    listed = json.loads(get(server, "/api/performance/relationships")[1])
+    revision = listed["revision"]
+    assert listed["relationships"]
+
+    added_payload = post(server, "/api/performance/relationships", {
+        "numerator": "front_squat",
+        "denominator": "bench_press",
+        "relationship_type": "variant_to_main",
+        "max_gap_days": 14,
+        "max_age_days": 42,
+        "min_observations": 2,
+    })
+    assert added_payload["ok"] is True
+    added = next(
+        item for item in added_payload["relationships"]
+        if item["id"] == "front_squat_to_bench_press"
+    )
+    current = added_payload["revision"]
+    assert current != revision
+
+    first = listed["relationships"][0]
+    update_body = {
+        "numerator": first["numerator"],
+        "denominator": first["denominator"],
+        "relationship_type": first["relationship_type"],
+        "max_gap_days": 9,
+        "max_age_days": 42,
+        "min_observations": 2,
+        "label": "Edited via API",
+        "notes": "API test",
+    }
+    status, _ = post_status(
+        server, f"/api/performance/relationships/{first['id']}/update", update_body
+    )
+    assert status == 400
+    updated = post(
+        server,
+        f"/api/performance/relationships/{first['id']}/update",
+        {**update_body, "revision": current},
+    )
+    edited = next(item for item in updated["relationships"] if item["id"] == first["id"])
+    assert edited["label"] == "Edited via API"
+    current = updated["revision"]
+
+    status, _ = post_status(
+        server,
+        f"/api/performance/relationships/{first['id']}/delete",
+        {"revision": revision},
+    )
+    assert status == 409
+    deleted = post(
+        server,
+        f"/api/performance/relationships/{first['id']}/delete",
+        {"revision": current},
+    )
+    assert all(item["id"] != first["id"] for item in deleted["relationships"])
+    current = deleted["revision"]
+
+    reset = post(
+        server,
+        f"/api/performance/relationships/{first['id']}/reset",
+        {"revision": current},
+    )
+    restored = next(item for item in reset["relationships"] if item["id"] == first["id"])
+    assert restored["label"] == first["label"]
+    assert (tmp_path / "strength-relationships.local.yaml").is_file()
+    assert added["id"] == "front_squat_to_bench_press"

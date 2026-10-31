@@ -1,6 +1,6 @@
 # Monitoring configuration and report-control UI plan
 
-**Status:** Steps 1–2 implemented and reviewed. Step 1 provides the complete effective-inventory backend; Step 2 adds the collapsed read-only Settings inventory with search and group filters. Relationship provenance remains canonical until Step 3 implements the effective local overlay; no local-override attribution is claimed before then. Steps 3–6 remain pending; no other code is authorised by this document.
+**Status:** Steps 1–3 implemented and reviewed. Step 1 provides the complete effective-inventory backend; Step 2 adds the collapsed read-only Settings inventory; Step 3 adds the effective relationship local overlay, provenance, revision checks and CRUD API. Edit/delete/reset UI remains Step 4. Steps 4–6 remain pending; no other code is authorised by this document.
 
 **Scope:** read-only parameter inventory visible on the home LAN; loopback-only writes; relative-strength pair CRUD; LIM-27 point 3 report/window controls.
 

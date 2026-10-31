@@ -49,7 +49,7 @@ def test_python_fallback_is_not_labelled_as_yaml(monkeypatch):
     assert not row["source"].endswith(".yaml")
 
 
-def test_local_relationship_overlay_is_not_claimed_without_effective_loader(tmp_path, monkeypatch):
+def test_local_relationship_overlay_is_effective_and_provenanced(tmp_path, monkeypatch):
     canonical = tmp_path / "strength-relationships.v1.yaml"
     shutil.copyfile(
         relative_strength.paths.config_dir("strength-relationships.v1.yaml"),
@@ -72,9 +72,9 @@ def test_local_relationship_overlay_is_not_claimed_without_effective_loader(tmp_
     monkeypatch.setattr(relative_strength.paths, "config_dir", lambda name: tmp_path / name)
     group = config_inventory._relationship_group()
     rows = {row["key"]: row for row in group["parameters"]}
-    assert rows[f"relationships.{first.id}.max_gap_days"]["value"] == first.max_gap_days
-    assert rows[f"relationships.{first.id}.max_gap_days"]["source_kind"] == "canonical_config"
-    assert all(row["source_kind"] == "canonical_config" for row in group["parameters"])
+    assert rows[f"relationships.{first.id}.max_gap_days"]["value"] == 99
+    assert rows[f"relationships.{first.id}.max_gap_days"]["source_kind"] == "local_override"
+    assert rows["relationships.count"]["source_kind"] == "local_override"
 
 
 def test_prescription_defaults_match_thresholds_loader(tmp_path, monkeypatch):
