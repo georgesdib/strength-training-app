@@ -420,3 +420,6 @@ body.menu-open { overflow: hidden; }
 .monitoring-table { min-width: 640px; }
 .monitoring-table td { vertical-align: top; }
 .monitoring-table code { overflow-wrap: anywhere; }
+.monitoring-reason { margin-top: 6px; }
+.monitoring-reason summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+.monitoring-reason p { margin: 4px 0 0; max-width: 52ch; }

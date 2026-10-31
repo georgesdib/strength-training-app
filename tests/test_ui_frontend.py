@@ -506,3 +506,83 @@ if (html.indexOf("0 kg (observed_zero)") < 0) throw new Error("genuine zero lost
 """
     script = script.replace("SOURCE", json.dumps(source))
     subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+
+def test_monitoring_inventory_reason_disclosures_and_empty_state() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    core = (STATIC / "core.js").read_text(encoding="utf-8")
+    start = app.index("const MONITORING_SOURCE_LABELS")
+    end = app.index("async function loadSettings()", start)
+    chunk = app[start:end]
+    esc_match = re.search(r"function esc\(value\) \{[\s\S]*?\n\}", core)
+    assert esc_match, "esc() not found"
+
+    script = r"""
+const elements = {
+  "settings-monitoring-groups": {innerHTML: ""},
+  "settings-monitoring-group": {value: "", innerHTML: "", dataset: {}, addEventListener() {}},
+  "settings-monitoring-summary": {textContent: ""},
+  "settings-monitoring-meta": {textContent: "", title: ""},
+  "settings-monitoring-phase": {textContent: ""},
+  "settings-monitoring-search": {value: "", dataset: {}, addEventListener() {}},
+  "settings-monitoring-empty": {hidden: true}
+};
+global.$ = function (id) { return elements[id.slice(1)]; };
+function sectionsFrom(html) {
+  const sections = [];
+  const sectionRe = /<section class='monitoring-group' data-group='([^']*)'>([\s\S]*?)<\/section>/g;
+  let section;
+  while ((section = sectionRe.exec(html))) {
+    const rows = [];
+    const rowRe = /<tr class='monitoring-row' data-group='([^']*)' data-search='([^']*)'/g;
+    let row;
+    while ((row = rowRe.exec(section[2]))) {
+      rows.push({dataset: {group: row[1], search: row[2]}, hidden: false});
+    }
+    sections.push({hidden: false, querySelectorAll() { return rows; }});
+  }
+  return sections;
+}
+global.document = {
+  querySelectorAll() { return sectionsFrom(elements["settings-monitoring-groups"].innerHTML); }
+};
+eval(ESC);
+eval(CHUNK);
+renderMonitoringInventory({
+  application_version: "1.1.0b1",
+  revision: "abcdef123456",
+  phase: {note: "Phase 5A is active; monitoring and exposure values are locked.", review_due: "2027-01-22"},
+  groups: [{key: "monitoring", label: "Monitoring", parameters: [
+    {key: "monitoring.a", label: "A", value: 2, unit: "kg",
+     source: "config/monitoring.v1.yaml", source_kind: "canonical_config",
+     configured: true, editability: "phase5a_locked",
+     reason: "<b>why</b> & <script>alert(1)</script>",
+     doc: "docs/MONITORING-ANALYSIS.md"},
+    {key: "monitoring.b", label: "B", value: 3, unit: "kg",
+     source: "config/monitoring.v1.yaml", source_kind: "canonical_config",
+     configured: true, editability: "phase5a_locked", reason: "",
+     doc: "docs/MONITORING-ANALYSIS.md"}
+  ]}]
+});
+const html = elements["settings-monitoring-groups"].innerHTML;
+if (!html.includes("<summary>Why this setting?</summary>")) throw new Error("missing reason summary");
+if (html.includes("<script>alert(1)</script>")) throw new Error("reason not escaped");
+if (!html.includes("&lt;script&gt;alert(1)&lt;/script&gt;")) throw new Error("escaped reason missing");
+if (elements["settings-monitoring-empty"].hidden !== true) throw new Error("empty state should be hidden with results");
+elements["settings-monitoring-search"].value = "no-such-parameter";
+applyMonitoringFilter();
+if (elements["settings-monitoring-empty"].hidden !== false) throw new Error("empty state missing for no matches");
+elements["settings-monitoring-search"].value = "";
+elements["settings-monitoring-group"].value = "no-such-group";
+applyMonitoringFilter();
+if (elements["settings-monitoring-empty"].hidden !== false) throw new Error("group filter empty state missing");
+elements["settings-monitoring-group"].value = "";
+applyMonitoringFilter();
+if (elements["settings-monitoring-empty"].hidden !== true) throw new Error("empty state should hide when results return");
+"""
+    script = script.replace("ESC", json.dumps(esc_match.group(0))).replace("CHUNK", json.dumps(chunk))
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)

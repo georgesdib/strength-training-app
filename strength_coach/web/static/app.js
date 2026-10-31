@@ -3586,16 +3586,21 @@ function renderMonitoringInventory(data) {
     const rows = (group.parameters || []).map(function (row) {
       const search = [
         group.label, group.key, row.key, row.label, row.value, row.unit,
-        row.source, row.source_kind, row.editability,
+        row.source, row.source_kind, row.editability, row.reason,
       ].join(" ").toLowerCase();
       const editLabel = MONITORING_EDIT_LABELS[row.editability] || row.editability;
       const sourceLabel = MONITORING_SOURCE_LABELS[row.source_kind] || row.source_kind;
       const defaultBadge = row.source_kind === "python_default"
         ? " <span class='badge warn'>default</span>" : "";
+      const reason = row.reason
+        ? "<details class='monitoring-reason'><summary>Why this setting?</summary><p>" +
+          esc(row.reason) + "</p></details>"
+        : "";
       return "<tr class='monitoring-row' data-group='" + esc(group.key) +
         "' data-search='" + esc(search) + "'><td><strong>" + esc(row.label) +
         "</strong><div class='monitoring-key'>" + esc(row.key) +
-        "</div><span class='badge'>" + esc(editLabel) + "</span></td><td class='monitoring-value'>" +
+        "</div><span class='badge'>" + esc(editLabel) + "</span>" + reason +
+        "</td><td class='monitoring-value'>" +
         monitoringValue(row) + defaultBadge + "</td><td><code>" + esc(row.source) +
         "</code><div><span class='badge'>" + esc(sourceLabel) + "</span></div></td></tr>";
     }).join("");
@@ -3622,6 +3627,7 @@ function renderMonitoringInventory(data) {
 function applyMonitoringFilter() {
   const query = ($("#settings-monitoring-search").value || "").trim().toLowerCase();
   const group = $("#settings-monitoring-group").value || "";
+  let totalVisible = 0;
   document.querySelectorAll(".monitoring-group").forEach(function (section) {
     let visible = 0;
     section.querySelectorAll(".monitoring-row").forEach(function (row) {
@@ -3631,7 +3637,10 @@ function applyMonitoringFilter() {
       if (show) visible += 1;
     });
     section.hidden = visible === 0;
+    totalVisible += visible;
   });
+  const empty = $("#settings-monitoring-empty");
+  if (empty) empty.hidden = totalVisible > 0;
 }
 
 async function loadSettings() {
