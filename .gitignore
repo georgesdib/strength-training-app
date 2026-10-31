@@ -26,6 +26,7 @@ data/*.log
 config/llm.local.toml
 config/volume.local.yaml
 config/exercises/demands.local.yaml
+config/strength-relationships.local.yaml
 .env
 
 # ---------------------------------------------------------------------------
