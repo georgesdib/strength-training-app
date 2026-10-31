@@ -72,6 +72,11 @@ meaningless and must not be summed.
 | duration_basis | TEXT | `measured` \| `unavailable` |
 | flags | TEXT | `POSSIBLE_DOUBLE_SESSION`, `NO_MAIN_LIFT`, … |
 
+A `session` row is a **fragment**, not necessarily the whole training day. The approved but not yet
+implemented training-day model (`DEC-SESSION-03`, [`TRAINING-DAY-MODEL.md`](TRAINING-DAY-MODEL.md))
+allows multiple manual fragments on one `occurred_on` date and groups them virtually by date.
+Until implemented, attendance counts rows and one session per date remains the working assumption.
+
 ## 3b. `high_intensity_exposure` — near-max work outside volume
 
 | column | notes |
