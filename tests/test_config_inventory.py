@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import shutil
 
+import yaml
+
 from strength_coach.features import config_inventory, monitoring_analysis, relative_strength
 
 
@@ -17,7 +19,8 @@ def test_revision_is_deterministic_and_covers_code_defaults(monkeypatch):
     assert changed["revision"] != first["revision"]
     analysis = {
         row["key"]: row
-        for group in changed["groups"] if group["key"] == "analysis"
+        for group in changed["groups"]
+        if group["key"] == "analysis"
         for row in group["parameters"]
     }
     assert analysis["analysis.correlation_min_pairs"]["value"] == 4
@@ -35,7 +38,8 @@ def test_python_fallback_is_not_labelled_as_yaml(monkeypatch):
     payload = config_inventory.build_inventory(today="2026-10-30")
     monitoring = {
         row["key"]: row
-        for group in payload["groups"] if group["key"] == "monitoring"
+        for group in payload["groups"]
+        if group["key"] == "monitoring"
         for row in group["parameters"]
     }
     row = monitoring["monitoring.recent_reference.observations"]
@@ -65,16 +69,12 @@ def test_local_relationship_overlay_is_not_claimed_without_effective_loader(tmp_
         "    notes: local test\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr(
-        relative_strength.paths, "config_dir", lambda name: tmp_path / name
-    )
+    monkeypatch.setattr(relative_strength.paths, "config_dir", lambda name: tmp_path / name)
     group = config_inventory._relationship_group()
     rows = {row["key"]: row for row in group["parameters"]}
     assert rows[f"relationships.{first.id}.max_gap_days"]["value"] == first.max_gap_days
     assert rows[f"relationships.{first.id}.max_gap_days"]["source_kind"] == "canonical_config"
-    assert all(
-        row["source_kind"] == "canonical_config" for row in group["parameters"]
-    )
+    assert all(row["source_kind"] == "canonical_config" for row in group["parameters"])
 
 
 def test_prescription_defaults_match_thresholds_loader(tmp_path, monkeypatch):
@@ -87,7 +87,8 @@ def test_prescription_defaults_match_thresholds_loader(tmp_path, monkeypatch):
     payload = config_inventory.build_inventory(today="2026-10-30")
     rows = {
         row["key"]: row
-        for group in payload["groups"] if group["key"] == "prescription"
+        for group in payload["groups"]
+        if group["key"] == "prescription"
         for row in group["parameters"]
     }
     assert rows["prescription.load.increment_kg"]["value"] == expected.increment_kg == 2.5
@@ -107,7 +108,8 @@ def test_readiness_defaults_match_loader(tmp_path, monkeypatch):
     payload = config_inventory.build_inventory(today="2026-10-30")
     rows = {
         row["key"]: row
-        for group in payload["groups"] if group["key"] == "readiness"
+        for group in payload["groups"]
+        if group["key"] == "readiness"
         for row in group["parameters"]
     }
     assert rows["readiness.merge.strategy"]["value"] == expected.merge_strategy
@@ -140,8 +142,13 @@ def test_inventory_groups_values_and_phase_lock():
     assert payload["phase"]["period"] == "active"
     assert payload["phase"]["review_due"] == "2027-01-22"
     assert set(groups) == {
-        "monitoring", "exposure", "calibration", "relationships",
-        "readiness", "prescription", "analysis",
+        "monitoring",
+        "exposure",
+        "calibration",
+        "relationships",
+        "readiness",
+        "prescription",
+        "analysis",
     }
 
     monitoring = {row["key"]: row for row in groups["monitoring"]["parameters"]}
@@ -155,15 +162,26 @@ def test_inventory_groups_values_and_phase_lock():
     calibration = {row["key"]: row for row in groups["calibration"]["parameters"]}
     assert calibration["calibration.min_tests"]["value"] == 3
     assert calibration["e1rm.method_version"]["editability"] == "fixed"
+    assert calibration["e1rm.method_version"]["configured"] is False
 
     relationships = {row["key"]: row for row in groups["relationships"]["parameters"]}
     count = relationships["relationships.count"]["value"]
     assert count >= 2
-    assert len([key for key in relationships if key.startswith("relationships.") and key.endswith(".max_gap_days")]) == count
+    assert (
+        len(
+            [
+                key
+                for key in relationships
+                if key.startswith("relationships.") and key.endswith(".max_gap_days")
+            ]
+        )
+        == count
+    )
 
     analysis = {row["key"]: row for row in groups["analysis"]["parameters"]}
     assert analysis["analysis.correlation_min_pairs"]["value"] == 3
     assert analysis["analysis.version"]["editability"] == "fixed"
+    assert analysis["analysis.version"]["configured"] is False
 
 
 def test_inventory_has_no_absolute_paths_or_athlete_data():
@@ -183,3 +201,167 @@ def test_after_review_date_inventory_remains_locked():
     assert payload["phase"]["locked"] is True
     assert payload["phase"]["period"] == "post_review"
     assert "review date has passed" in payload["phase"]["note"]
+
+
+def _budget_rows(tmp_path, monkeypatch, mutate=None, local=None):
+    source = config_inventory.paths.config_dir("volume.v1.yaml")
+    shutil.copyfile(config_inventory.paths.thresholds_yaml(), tmp_path / "thresholds.v1.yaml")
+    data = yaml.safe_load(source.read_text(encoding="utf-8"))
+    if mutate is not None:
+        mutate(data)
+    (tmp_path / "volume.v1.yaml").write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    if local is not None:
+        (tmp_path / "volume.local.yaml").write_text(yaml.safe_dump(local, sort_keys=False), encoding="utf-8")
+    monkeypatch.setattr(
+        config_inventory.paths,
+        "config_dir",
+        lambda *parts: tmp_path.joinpath(*parts),
+    )
+    group = config_inventory._prescription_group()
+    return {row["key"]: row for row in group["parameters"]}
+
+
+def _assert_budget(row, value, source, kind, configured):
+    assert row["value"] == value
+    assert row["source"] == source
+    assert row["source_kind"] == kind
+    assert row["configured"] is configured
+
+
+def test_budget_total_derived_from_canonical_targets(tmp_path, monkeypatch):
+    def mutate(data):
+        del data["budget"]["weekly_total"]
+
+    rows = _budget_rows(tmp_path, monkeypatch, mutate)
+    _assert_budget(
+        rows["volume.budget.weekly_total"],
+        63.0,
+        "config/volume.v1.yaml",
+        "canonical_config",
+        True,
+    )
+
+
+def test_budget_total_derived_from_merged_local_targets(tmp_path, monkeypatch):
+    def mutate(data):
+        del data["budget"]["weekly_total"]
+
+    rows = _budget_rows(
+        tmp_path,
+        monkeypatch,
+        mutate,
+        local={"budget": {"weekly_target": {"squat": 11}}},
+    )
+    _assert_budget(
+        rows["volume.budget.weekly_total"],
+        64.0,
+        "merged config: config/volume.v1.yaml + config/volume.local.yaml",
+        "local_override",
+        True,
+    )
+
+
+def test_explicit_local_budget_total_takes_precedence(tmp_path, monkeypatch):
+    rows = _budget_rows(
+        tmp_path,
+        monkeypatch,
+        local={"budget": {"weekly_total": 63}},
+    )
+    _assert_budget(
+        rows["volume.budget.weekly_total"],
+        63.0,
+        "local override: config/volume.local.yaml",
+        "local_override",
+        True,
+    )
+
+
+def test_explicit_canonical_total_keeps_provenance_with_local_targets(tmp_path, monkeypatch):
+    rows = _budget_rows(
+        tmp_path,
+        monkeypatch,
+        local={"budget": {"weekly_target": {"squat": 11, "horizontal_push": 11}}},
+    )
+    _assert_budget(
+        rows["volume.budget.weekly_total"],
+        63.0,
+        "config/volume.v1.yaml",
+        "canonical_config",
+        True,
+    )
+
+
+def test_effective_total_derived_from_canonical_effective_targets(tmp_path, monkeypatch):
+    def mutate(data):
+        del data["budget"]["weekly_total_effective"]
+
+    rows = _budget_rows(tmp_path, monkeypatch, mutate)
+    _assert_budget(
+        rows["volume.budget.weekly_total_effective"],
+        74.25,
+        "config/volume.v1.yaml",
+        "canonical_config",
+        True,
+    )
+
+
+def test_effective_total_derived_from_merged_effective_targets(tmp_path, monkeypatch):
+    def mutate(data):
+        del data["budget"]["weekly_total_effective"]
+
+    rows = _budget_rows(
+        tmp_path,
+        monkeypatch,
+        mutate,
+        local={"budget": {"weekly_target_effective": {"squat": 11}}},
+    )
+    _assert_budget(
+        rows["volume.budget.weekly_total_effective"],
+        75.25,
+        "merged config: config/volume.v1.yaml + config/volume.local.yaml",
+        "local_override",
+        True,
+    )
+
+
+def test_effective_total_falls_back_to_merged_weekly_targets(tmp_path, monkeypatch):
+    def mutate(data):
+        del data["budget"]["weekly_target_effective"]
+        del data["budget"]["weekly_total_effective"]
+        del data["budget"]["weekly_total"]
+
+    rows = _budget_rows(
+        tmp_path,
+        monkeypatch,
+        mutate,
+        local={"budget": {"weekly_target": {"squat": 11}}},
+    )
+    _assert_budget(
+        rows["volume.budget.weekly_total_effective"],
+        64.0,
+        "merged config: config/volume.v1.yaml + config/volume.local.yaml",
+        "local_override",
+        True,
+    )
+
+
+def test_budget_totals_use_python_defaults_when_targets_absent(tmp_path, monkeypatch):
+    rows = _budget_rows(
+        tmp_path,
+        monkeypatch,
+        mutate=lambda data: data.update({"budget": {}}),
+    )
+    _assert_budget(
+        rows["volume.budget.weekly_total"],
+        63.0,
+        "python-default: strength_coach/prescribe/volume_budget.py",
+        "python_default",
+        False,
+    )
+    _assert_budget(
+        rows["volume.budget.weekly_total_effective"],
+        63.0,
+        "python-default: strength_coach/prescribe/volume_budget.py",
+        "python_default",
+        False,
+    )
