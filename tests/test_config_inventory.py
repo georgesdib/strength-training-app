@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from strength_coach.features import config_inventory, monitoring_analysis
+import shutil
+
+from strength_coach.features import config_inventory, monitoring_analysis, relative_strength
 
 
 def test_revision_is_deterministic_and_covers_code_defaults(monkeypatch):
@@ -43,15 +45,75 @@ def test_python_fallback_is_not_labelled_as_yaml(monkeypatch):
     assert not row["source"].endswith(".yaml")
 
 
-def test_relationship_provenance_marks_local_override():
-    class Item:
-        id = "pair"
+def test_local_relationship_overlay_is_not_claimed_without_effective_loader(tmp_path, monkeypatch):
+    canonical = tmp_path / "strength-relationships.v1.yaml"
+    shutil.copyfile(
+        relative_strength.paths.config_dir("strength-relationships.v1.yaml"),
+        canonical,
+    )
+    first = relative_strength.load_relationships(canonical)[0]
+    (tmp_path / "strength-relationships.local.yaml").write_text(
+        "relationships:\n"
+        f"  - id: {first.id}\n"
+        "    label: Local label\n"
+        f"    numerator: {first.numerator}\n"
+        f"    denominator: {first.denominator}\n"
+        "    relationship_type: variant_to_main\n"
+        "    max_gap_days: 99\n"
+        "    max_age_days: 99\n"
+        "    min_observations: 2\n"
+        "    notes: local test\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        relative_strength.paths, "config_dir", lambda name: tmp_path / name
+    )
+    group = config_inventory._relationship_group()
+    rows = {row["key"]: row for row in group["parameters"]}
+    assert rows[f"relationships.{first.id}.max_gap_days"]["value"] == first.max_gap_days
+    assert rows[f"relationships.{first.id}.max_gap_days"]["source_kind"] == "canonical_config"
+    assert all(
+        row["source_kind"] == "canonical_config" for row in group["parameters"]
+    )
 
-    source, kind = config_inventory._relationship_provenance(Item(), {"pair"})
-    assert kind == "local_override"
-    assert "local" in source
-    source, kind = config_inventory._relationship_provenance(Item(), set())
-    assert kind == "canonical_config"
+
+def test_prescription_defaults_match_thresholds_loader(tmp_path, monkeypatch):
+    from strength_coach.prescribe.config import Thresholds
+
+    path = tmp_path / "thresholds.yaml"
+    path.write_text("load: {}\n", encoding="utf-8")
+    monkeypatch.setattr(config_inventory.paths, "thresholds_yaml", lambda: path)
+    expected = Thresholds.load()
+    payload = config_inventory.build_inventory(today="2026-10-30")
+    rows = {
+        row["key"]: row
+        for group in payload["groups"] if group["key"] == "prescription"
+        for row in group["parameters"]
+    }
+    assert rows["prescription.load.increment_kg"]["value"] == expected.increment_kg == 2.5
+    assert rows["prescription.load.e1rm_source"]["value"] == expected.e1rm_source == "best_usable"
+    for key in ("prescription.load.increment_kg", "prescription.load.e1rm_source"):
+        assert rows[key]["configured"] is False
+        assert rows[key]["source_kind"] == "python_default"
+
+
+def test_readiness_defaults_match_loader(tmp_path, monkeypatch):
+    from strength_coach.features.readiness import ReadinessConfig
+
+    path = tmp_path / "readiness.yaml"
+    path.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(config_inventory.paths, "readiness_yaml", lambda: path)
+    expected = ReadinessConfig.load()
+    payload = config_inventory.build_inventory(today="2026-10-30")
+    rows = {
+        row["key"]: row
+        for group in payload["groups"] if group["key"] == "readiness"
+        for row in group["parameters"]
+    }
+    assert rows["readiness.merge.strategy"]["value"] == expected.merge_strategy
+    assert rows["readiness.score.baseline_days"]["value"] == expected.baseline_days
+    assert rows["readiness.score.baseline_days"]["configured"] is False
+    assert rows["readiness.score.baseline_days"]["source_kind"] == "python_default"
 
 
 def test_phase_boundaries_distinguish_before_active_and_post_review():

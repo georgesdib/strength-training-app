@@ -21,8 +21,12 @@ from strength_coach.features import (
     exposure,
     monitoring,
     monitoring_analysis,
+    readiness,
     relative_strength,
+    volume,
 )
+from strength_coach.prescribe.config import Thresholds
+from strength_coach.prescribe.volume_budget import BudgetConfig
 from strength_coach.utils import paths
 
 PHASE_5A_START = "2026-10-30"
@@ -91,9 +95,7 @@ def revision(groups: list[dict[str, Any]]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _relationship_provenance(item, local_ids: set[str]) -> tuple[str, str]:
-    if item.id in local_ids:
-        return "local override: config/strength-relationships.local.yaml", "local_override"
+def _relationship_source() -> tuple[str, str]:
     return "canonical config: config/strength-relationships.v1.yaml", "canonical_config"
 
 
@@ -205,21 +207,15 @@ def _calibration_group() -> dict[str, Any]:
 
 def _relationship_group() -> dict[str, Any]:
     relationships = relative_strength.load_relationships()
-    local = _load(paths.config_dir("strength-relationships.local.yaml"))
-    local_ids = {
-        str(entry.get("id"))
-        for entry in (local.get("relationships") or [])
-        if isinstance(entry, dict) and entry.get("id")
-    }
+    source, source_kind = _relationship_source()
     rows = [_parameter(
         "relationships.count", "Configured relationship count", len(relationships),
-        source="canonical config: config/strength-relationships.v1.yaml", unit="pairs",
-        editability="read_only", source_kind="canonical_config",
+        source=source, unit="pairs", editability="read_only",
+        source_kind=source_kind,
         reason="Pair CRUD is planned separately; this inventory is read-only.",
         doc="docs/MONITORING-ANALYSIS.md",
     )]
     for item in relationships:
-        source, source_kind = _relationship_provenance(item, local_ids)
         for field, label, unit in [
             ("max_gap_days", "maximum gap", "days"),
             ("max_age_days", "maximum age", "days"),
@@ -240,7 +236,8 @@ def _relationship_group() -> dict[str, Any]:
 
 
 def _readiness_group() -> dict[str, Any]:
-    path = paths.config_dir("readiness.v1.yaml")
+    cfg = readiness.ReadinessConfig.load()
+    path = paths.readiness_yaml()
     raw = _load(path)
     rows = []
 
@@ -258,32 +255,46 @@ def _readiness_group() -> dict[str, Any]:
             doc="docs/READINESS.md",
         ))
 
-    add("readiness.merge.strategy", "Readiness merge strategy", _mapping(raw, "merge.strategy", "most_complete")[0], "merge.strategy")
-    add("readiness.merge.tie_break", "Readiness tie-break", _mapping(raw, "merge.tie_break", "latest")[0], "merge.tie_break")
-    add("readiness.modifier.at_or_below", "Readiness modifier threshold", _mapping(raw, "modifier.at_or_below", 2)[0], "modifier.at_or_below", "score")
-    add("readiness.set_reduction.enabled", "Readiness set reduction", _mapping(raw, "set_reduction.enabled", True)[0], "set_reduction.enabled")
-    add("readiness.set_reduction.score_below", "Readiness set-reduction threshold", _mapping(raw, "set_reduction.score_below", 0.5)[0], "set_reduction.score_below", "score")
-    add("readiness.set_reduction.sets", "Readiness set-reduction sets", _mapping(raw, "set_reduction.sets", 1)[0], "set_reduction.sets", "sets")
-    add("readiness.score.baseline_days", "Readiness baseline window", _mapping(raw, "score.baseline_days", 28)[0], "score.baseline_days", "days")
-    add("readiness.score.baseline_min_readings", "Readiness baseline minimum readings", _mapping(raw, "score.baseline_min_readings", 7)[0], "score.baseline_min_readings", "readings")
+    add("readiness.merge.strategy", "Readiness merge strategy", cfg.merge_strategy, "merge.strategy")
+    add("readiness.merge.tie_break", "Readiness tie-break", cfg.tie_break, "merge.tie_break")
+    add("readiness.modifier.at_or_below", "Readiness modifier threshold", cfg.at_or_below, "modifier.at_or_below", "score")
+    add("readiness.set_reduction.enabled", "Readiness set reduction", cfg.set_reduction_enabled, "set_reduction.enabled")
+    add("readiness.set_reduction.score_below", "Readiness set-reduction threshold", cfg.set_reduction_score_below, "set_reduction.score_below", "score")
+    add("readiness.set_reduction.sets", "Readiness set-reduction sets", cfg.set_reduction_sets, "set_reduction.sets", "sets")
+    add("readiness.score.baseline_days", "Readiness baseline window", cfg.baseline_days, "score.baseline_days", "days")
+    add("readiness.score.baseline_min_readings", "Readiness baseline minimum readings", cfg.baseline_min_readings, "score.baseline_min_readings", "readings")
     return {"key": "readiness", "label": "Readiness parameters", "parameters": rows}
 
 
 def _prescription_group() -> dict[str, Any]:
-    threshold_path = paths.config_dir("thresholds.v1.yaml")
+    threshold_path = paths.thresholds_yaml()
     volume_path = paths.config_dir("volume.v1.yaml")
-    thresholds = _load(threshold_path)
-    volume = _load(volume_path)
+    thresholds = Thresholds.load()
+    volume_cfg = volume.VolumeConfig.load()
+    budget = BudgetConfig.load()
+    thresholds_raw = _load(threshold_path)
+    volume_raw = _load(volume_path)
+    volume_local = _load(paths.config_dir("volume.local.yaml"))
     rows = []
 
-    def add(path_key, key, label, default, unit=None, source=threshold_path):
-        raw = thresholds if source == threshold_path else volume
-        value, configured = _mapping(raw, path_key, default)
-        source_label, source_kind = (
-            (_relative(source), "canonical_config")
-            if configured else
-            ("python-default: strength_coach/prescribe/config.py", "python_default")
+    def add(
+        key, label, value, dotted, unit=None, *, source, raw,
+        default_source="python-default: strength_coach/prescribe/config.py",
+        local_raw=None,
+    ):
+        _, configured = _mapping(raw, dotted)
+        local_configured = bool(
+            local_raw is not None and _mapping(local_raw, dotted)[1]
         )
+        if local_configured:
+            configured = True
+            source_label, source_kind = (
+                "local override: config/volume.local.yaml", "local_override",
+            )
+        elif configured:
+            source_label, source_kind = _relative(source), "canonical_config"
+        else:
+            source_label, source_kind = default_source, "python_default"
         rows.append(_parameter(
             key, label, value, source=source_label, source_kind=source_kind, unit=unit,
             configured=configured, editability="read_only",
@@ -291,21 +302,21 @@ def _prescription_group() -> dict[str, Any]:
             doc="docs/WEB-UI.md",
         ))
 
-    add("load.increment_kg", "prescription.load.increment_kg", "Load increment", 0.5, "kg")
-    add("load.rounding", "prescription.load.rounding", "Load rounding", "down")
-    add("load.e1rm_window_days", "prescription.load.e1rm_window_days", "e1RM load window", 84, "days")
-    add("load.e1rm_source", "prescription.load.e1rm_source", "e1RM load source", "median")
-    add("load.e1rm_robust_window_days", "prescription.load.e1rm_robust_window_days", "Robust e1RM window", 28, "days")
-    add("prescription.session_time_cap_s", "prescription.session_time_cap_s", "Session-time target", 4800, "seconds")
-    add("testing.min_interval_days", "prescription.testing.min_interval_days", "Minimum test interval", 28, "days")
-    add("testing.max_single_min_interval_days", "prescription.testing.max_single_min_interval_days", "Maximum-single interval", 56, "days")
-    add("window_weeks", "volume.window_weeks", "Volume window", 4, "weeks", volume_path)
-    add("ledger.coverage", "volume.ledger.coverage", "Volume ledger coverage", "unknown", None, volume_path)
-    add("ledger.set_accounting", "volume.ledger.set_accounting", "Volume set accounting", "hard", None, volume_path)
-    add("apply_mrv_cap", "volume.apply_mrv_cap", "Apply MRV cap", True, None, volume_path)
-    add("under_mev.enabled", "volume.under_mev.enabled", "Under-MEV top-up", True, None, volume_path)
-    add("budget.weekly_total", "volume.budget.weekly_total", "Weekly volume target", 63, "sets", volume_path)
-    add("budget.weekly_total_effective", "volume.budget.weekly_total_effective", "Effective weekly target", 74.25, "sets", volume_path)
+    add("prescription.load.increment_kg", "Load increment", thresholds.increment_kg, "load.increment_kg", "kg", source=threshold_path, raw=thresholds_raw)
+    add("prescription.load.rounding", "Load rounding", thresholds.rounding, "load.rounding", None, source=threshold_path, raw=thresholds_raw)
+    add("prescription.load.e1rm_window_days", "e1RM load window", thresholds.e1rm_window_days, "load.e1rm_window_days", "days", source=threshold_path, raw=thresholds_raw)
+    add("prescription.load.e1rm_source", "e1RM load source", thresholds.e1rm_source, "load.e1rm_source", None, source=threshold_path, raw=thresholds_raw)
+    add("prescription.load.e1rm_robust_window_days", "Robust e1RM window", thresholds.e1rm_robust_window_days, "load.e1rm_robust_window_days", "days", source=threshold_path, raw=thresholds_raw)
+    add("prescription.session_time_cap_s", "Session-time target", thresholds.session_time_cap_s, "prescription.session_time_cap_s", "seconds", source=threshold_path, raw=thresholds_raw)
+    add("prescription.testing.min_interval_days", "Minimum test interval", thresholds.test_min_interval_days, "testing.min_interval_days", "days", source=threshold_path, raw=thresholds_raw)
+    add("prescription.testing.max_single_min_interval_days", "Maximum-single interval", thresholds.test_max_single_min_interval_days, "testing.max_single_min_interval_days", "days", source=threshold_path, raw=thresholds_raw)
+    add("volume.window_weeks", "Volume window", volume_cfg.window_weeks, "window_weeks", "weeks", source=volume_path, raw=volume_raw, default_source="python-default: strength_coach/features/volume.py")
+    add("volume.ledger.coverage", "Volume ledger coverage", volume_cfg.ledger_coverage, "ledger.coverage", None, source=volume_path, raw=volume_raw, default_source="python-default: strength_coach/features/volume.py")
+    add("volume.ledger.set_accounting", "Volume set accounting", volume_cfg.set_accounting, "ledger.set_accounting", None, source=volume_path, raw=volume_raw, default_source="python-default: strength_coach/features/volume.py")
+    add("volume.apply_mrv_cap", "Apply MRV cap", volume_cfg.apply_mrv_cap, "apply_mrv_cap", None, source=volume_path, raw=volume_raw, default_source="python-default: strength_coach/features/volume.py")
+    add("volume.under_mev.enabled", "Under-MEV top-up", volume_cfg.under_mev_enabled, "under_mev.enabled", None, source=volume_path, raw=volume_raw, default_source="python-default: strength_coach/features/volume.py")
+    add("volume.budget.weekly_total", "Weekly volume target", budget.weekly_total if budget.weekly_total is not None else budget.total_target(), "budget.weekly_total", "sets", source=volume_path, raw=volume_raw, default_source="python-default: strength_coach/prescribe/volume_budget.py", local_raw=volume_local)
+    add("volume.budget.weekly_total_effective", "Effective weekly target", budget.weekly_total_effective if budget.weekly_total_effective is not None else budget.total_for("effective"), "budget.weekly_total_effective", "sets", source=volume_path, raw=volume_raw, default_source="python-default: strength_coach/prescribe/volume_budget.py", local_raw=volume_local)
     return {"key": "prescription", "label": "Prescription and volume", "parameters": rows}
 
 
