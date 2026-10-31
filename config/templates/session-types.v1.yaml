@@ -13,7 +13,7 @@ session_types:
     label: "Squat emphasis"
     primary_exercise: ssb_squat
     prescription:
-      time_cap_s: 4800
+      time_cap_s: 5400
       slots:
         - id: power
           exercise: box_jump
@@ -84,8 +84,18 @@ session_types:
     label: "Hinge emphasis"
     primary_exercise: trap_bar_deadlift
     prescription:
-      time_cap_s: 4800
+      time_cap_s: 5400
       slots:
+        - id: power
+          exercise: broad_jump
+          sets: 3
+          reps: {low: 3, high: 5}
+          rest_s: 120
+          essential: false
+          power: true
+          # DEC-POWER-04: horizontal complement to the squat day's box jump. No load, no RIR.
+          quality_stop: "Maximal intent; full recovery; stop when distance or landing quality drops"
+          load_source: bodyweight
         - id: hinge_main
           exercise: trap_bar_deadlift
           sets: 5
@@ -142,8 +152,18 @@ session_types:
     label: "Bench + squat support"
     primary_exercise: bench_press
     prescription:
-      time_cap_s: 4800
+      time_cap_s: 5400
       slots:
+        - id: power
+          exercise: medicine_ball_chest_pass
+          sets: 3
+          reps: {low: 3, high: 5}
+          rest_s: 120
+          essential: false
+          power: true
+          # DEC-POWER-05: upper-body power before the bench; implement-only, no load or RIR.
+          quality_stop: "Maximal intent; full recovery; stop when pass speed or quality drops"
+          load_source: bodyweight
         - id: bench_main
           exercise: bench_press
           sets: 4
@@ -193,8 +213,18 @@ session_types:
     label: "Bench + hinge support"
     primary_exercise: bench_press
     prescription:
-      time_cap_s: 4800
+      time_cap_s: 5400
       slots:
+        - id: power
+          exercise: medicine_ball_chest_pass
+          sets: 3
+          reps: {low: 3, high: 5}
+          rest_s: 120
+          essential: false
+          power: true
+          # DEC-POWER-05: upper-body power before the bench; implement-only, no load or RIR.
+          quality_stop: "Maximal intent; full recovery; stop when pass speed or quality drops"
+          load_source: bodyweight
         - id: bench_main
           exercise: bench_press
           sets: 4

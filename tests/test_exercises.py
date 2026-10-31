@@ -132,6 +132,12 @@ def test_jump_squat_is_power_not_squat(taxonomy):
     assert taxonomy.resolve("Jump Squats").pattern == "power_jump"
 
 
+def test_medicine_ball_chest_pass_is_canonical_power(taxonomy):
+    resolved = taxonomy.resolve("Medicine Ball Chest Pass")
+    assert resolved.id == "medicine_ball_chest_pass"
+    assert resolved.pattern == "power_throw"
+
+
 def test_flat_bench_situps_are_core_not_bench(taxonomy):
     assert taxonomy.resolve("Flat-bench Sit-ups").pattern == "core"
 

@@ -69,7 +69,7 @@ def test_run_persists_a_critique_and_a_prescription(database, capsys):
     assert after["critique"] - before["critique"] == 1
     assert after["rubric_score"] - before["rubric_score"] == 9
     assert after["prescription"] - before["prescription"] == 1
-    assert after["prescription_item"] - before["prescription_item"] == 6  # + knee flexion
+    assert after["prescription_item"] - before["prescription_item"] == 7  # + knee flexion + broad jump
     assert after["run"] - before["run"] == 1
     assert after["run_event"] - before["run_event"] == 1
     run = db.Store(database)

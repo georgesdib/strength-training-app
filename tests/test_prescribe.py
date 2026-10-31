@@ -110,12 +110,12 @@ def test_day_b_template_has_no_erector_work():
     exercises = [e for slot in template.slots for e in slot.exercises]
     assert "back_extension" not in exercises          # PRG-SCHED-001
     assert set(exercises) == {
-        "trap_bar_deadlift", "bench_press_narrow", "bench_press_pause",
+        "broad_jump", "trap_bar_deadlift", "bench_press_narrow", "bench_press_pause",
         "split_squat", "pull_up", "lat_pulldown", "dumbbell_row",
         "lying_leg_curls", "nordic_curl",
     }
     assert template.rep_ranges()["split_squat"] == (8, 10)
-    assert template.time_cap_s == 4800
+    assert template.time_cap_s == 5400
 
 
 def test_template_without_prescription_block_is_rejected(tmp_path):
@@ -153,12 +153,17 @@ def test_engine_builds_an_executable_prescription():
         prescription = build_prescription(store.connection, for_date="2024-01-08")
 
     assert prescription.executable, prescription.issues
-    assert [item.exercise_id for item in prescription.items][0] == "trap_bar_deadlift"
+    assert [item.exercise_id for item in prescription.items][0] == "broad_jump"
     assert all(item.load_kg is not None for item in prescription.items)
     for item in prescription.items:
         assert loads.is_multiple_of(item.load_kg, 0.5)
-        assert item.rir_target == 2
-        assert item.rationale_refs
+        if item.effort_model == "quality":
+            assert item.rir_target is None
+            assert item.quality_stop
+            assert item.rationale_refs == ()
+        else:
+            assert item.rir_target == 2
+            assert item.rationale_refs
 
 
 def test_cli_prescription_header_shows_the_estimated_time(capsys):
@@ -684,7 +689,7 @@ def test_profile_session_minutes_sets_the_planned_target_without_cutting_sets():
         )
     assert lowered.time_cap_s == 45 * 60
     assert lowered.notes["session_time"]["planned_minutes"] == 45
-    assert lowered.notes["session_time"]["default_minutes"] == 80
+    assert lowered.notes["session_time"]["default_minutes"] == 90
     assert "hard_ceiling_minutes" not in lowered.notes["session_time"]
     assert any("session time" in warning for warning in lowered.warnings)
 

@@ -360,6 +360,30 @@ entities:
     time_based: false
     e1rm_applicable: false
 
+  broad_jump:
+    display: "Broad Jump"
+    # DEC-POWER-04: horizontal power complement to the box jump. Same quality-limited model,
+    # no external load, no e1RM and no double progression.
+    log_names: ["Broad Jump", "Broad Jumps", "Standing Broad Jump", "Standing Long Jump"]
+    pattern: power_jump
+    bodyweight_type: true
+    rep_semantics: reps
+    loadable: false
+    time_based: false
+    e1rm_applicable: false
+
+  medicine_ball_chest_pass:
+    display: "Medicine-Ball Chest Pass"
+    # DEC-POWER-05: implement-only upper-body power. Bodyweight_type is deliberate so the
+    # engine records 0 kg rather than inventing a medicine-ball load; quality is the progression.
+    log_names: ["Medicine Ball Chest Pass", "Med Ball Chest Pass", "Medicine-Ball Chest Pass"]
+    pattern: power_throw
+    bodyweight_type: true
+    rep_semantics: reps
+    loadable: false
+    time_based: false
+    e1rm_applicable: false
+
   plank:
     display: "Plank"
     log_names: ["Regular Plank", "Chinese Plank", "Side Plank", "Front Plank"]
@@ -2021,6 +2045,10 @@ classification_patterns:
     synthetic: {pattern: hip_extension, loadable: true, time_based: false}
   - pattern: '(?i)box jump'
     canonical: box_jump
+  - pattern: '(?i)broad jump|standing long jump'
+    canonical: broad_jump
+  - pattern: '(?i)medicine[- ]?ball.*(chest pass|throw)|med[- ]?ball.*(chest pass|throw)'
+    canonical: medicine_ball_chest_pass
   - pattern: '(?i)jump'
     # Must precede "squat": Jump Squats are power work, not a squat stimulus.
     synthetic: {pattern: power_jump, loadable: true, time_based: false}

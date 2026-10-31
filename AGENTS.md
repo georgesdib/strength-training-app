@@ -277,6 +277,8 @@ never read `data/raw`.
 | `docs/SPINAL-LOAD-EVIDENCE.md` | focused review of load-weighting; keep ordinal, no load/RIR weighting |
 | `config/spinal-heavy-exposure.v1.yaml` | heavy-set advisory threshold/window; display only |
 | `docs/TRAINING-DYNAMICS.md` | evidence on 1RM testing, rep ranges and DUP; proposal, not decision |
+| `docs/JUMP-VARIANTS.md` | jump-training evidence and implementation: box jump on squat, broad jump on hinge, quality limits and alternatives |
+| `docs/THROW-VARIANTS.md` | upper-body throw evidence and implementation: medicine-ball chest pass on both bench days, implement-only quality limits |
 | `docs/WORKOUT-TYPE-READINESS-EVIDENCE.md` | evidence/decision: readiness and injury adjust load/sets, not the planned rep scheme |
 | `docs/HIGH-INTENSITY-EXPOSURE-PLAN.md` | detailed proposal: tests/max attempts/competition exposures, guard windows, evidence and phased evaluation |
 | `docs/ENGINE-AUDIT-PLAN.md` | closed W0–W12 audit plan; outcome in `AUDIT-CLOSEOUT.md` |

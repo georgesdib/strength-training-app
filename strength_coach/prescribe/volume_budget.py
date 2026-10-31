@@ -41,7 +41,7 @@ MANAGED_KEYS = (
 DEFAULT_TARGET = {
     "squat": 10.0, "hinge": 6.5, "hinge_unilateral": 0.0, "knee_flexion": 6.0,
     "horizontal_push": 12.0, "horizontal_pull": 9.0, "vertical_push": 3.0,
-    "vertical_pull": 4.5, "core": 6.0, "erector_extension": 3.0, "power_jump": 3.0,
+    "vertical_pull": 4.5, "core": 6.0, "erector_extension": 3.0, "power_jump": 9.0,
 }
 DEFAULT_CAPS = {
     "squat": 8, "hinge": 6, "hinge_unilateral": 5, "knee_flexion": 4,
@@ -157,7 +157,7 @@ class BudgetConfig:
     session_cap_pattern: Mapping[str, int] = field(default_factory=lambda: dict(DEFAULT_CAPS))
     tolerance: float = 0.10
     warmup_estimate_minutes: float = 5.0
-    session_time_cap_minutes: float = 80.0
+    session_time_cap_minutes: float = 90.0
     source_path: Path = Path()
 
     def total_target(self) -> float:
@@ -406,7 +406,7 @@ class BudgetConfig:
         if not 0.0 <= tolerance <= 1.0:
             raise ValueError("volume budget tolerance must be between 0 and 1")
         warmup = float(body.get("warmup_estimate_minutes", 5.0))
-        time_cap = float(body.get("session_time_cap_minutes", 80.0))
+        time_cap = float(body.get("session_time_cap_minutes", 90.0))
         if warmup < 0 or time_cap <= 0:
             raise ValueError("volume budget time settings must be positive")
         return cls(

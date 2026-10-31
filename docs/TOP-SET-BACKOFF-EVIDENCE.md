@@ -126,7 +126,7 @@ plausible; superiority is not established.
 
 Time-efficient training reviews support prioritising multi-joint exercises and sufficient
 weekly volume; advanced techniques can reduce session time while maintaining volume. The
-current session already has an 80-minute cap and a minimum-session option. A top set/back-off
+current session already has a 90-minute target and a minimum-session option. A top set/back-off
 could save time on some days, but that is a scheduling benefit, not evidence of better
 adaptation.
 

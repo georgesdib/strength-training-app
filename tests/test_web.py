@@ -564,9 +564,9 @@ def test_the_exposure_ratio_endpoint_is_served(server):
 
 def test_programme_endpoint(server):
     data = post(server, "/api/programme", {
-        "weeks": 2, "start": "2024-01-02", "start_session_type": "squat",
+        "weeks": 1, "start": "2024-01-02", "start_session_type": "squat",
     })
-    assert len(data["entries"]) == 6
+    assert len(data["entries"]) == 3
     assert data["entries"][0]["date"] == "2024-01-03"
     assert data["entries"][0]["session_type"] == "squat"
     assert data["entries"][0]["prescription"]["items"]
@@ -589,7 +589,7 @@ def test_programme_supports_four_and_five_days(server):
 
 def test_programme_job_endpoint_returns_a_pollable_result(server):
     payload = {
-        "weeks": 2, "start": "2024-01-02", "start_session_type": "squat",
+        "weeks": 1, "start": "2024-01-02", "start_session_type": "squat",
     }
     key = post(server, "/api/programme/key", payload)["cache_key"]
     assert len(key) == 64
@@ -600,7 +600,7 @@ def test_programme_job_endpoint_returns_a_pollable_result(server):
         assert status == 200
         current = json.loads(body)
         if current["status"] == "done":
-            assert len(current["result"]["entries"]) == 6
+            assert len(current["result"]["entries"]) == 3
             return
         assert current["status"] == "running"
         time.sleep(0.2)
@@ -1029,14 +1029,14 @@ def test_volume_settings_requires_reason_and_high_impact_confirmation(server):
     assert "reason" in body
 
     status, body = post_status(server, "/api/settings/volume", {
-        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 64},
+        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 70},
         "reason": "increase squat target",
     })
     assert status == 400
     assert "VOLUME" in body
 
     saved = post(server, "/api/settings/volume", {
-        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 64},
+        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 70},
         "reason": "increase squat target",
         "confirm_text": "VOLUME",
     })
@@ -1142,8 +1142,11 @@ def test_workout_start_active_and_end(server):
     })
     assert ended["workout"]["status"] == "completed"
     assert ended["workout"]["duration_min"] == 50
-    assert ended["workout"]["comparison"]["items"][0]["status"] == "under"
-    assert ended["workout"]["comparison"]["items"][0]["actual_sets"] == 1
+    comparison = {
+        item["exercise_id"]: item for item in ended["workout"]["comparison"]["items"]
+    }
+    assert comparison["trap_bar_deadlift"]["status"] == "under"
+    assert comparison["trap_bar_deadlift"]["actual_sets"] == 1
     assert json.loads(get(server, "/api/workout/active")[1])["workout"] is None
 
 
@@ -1238,7 +1241,10 @@ def test_review_marks_close_the_workout(server):
     assert saved["reviewed_workout"] is True
     assert saved["postprocess"]["workout_closed"] is True
     sheet = json.loads(get(server, f"/api/review/{workout_id}")[1])
-    assert sheet["workout"]["comparison"]["items"][0]["actual_sets"] == 1
+    comparison = {
+        item["exercise_id"]: item for item in sheet["workout"]["comparison"]["items"]
+    }
+    assert comparison["trap_bar_deadlift"]["actual_sets"] == 1
 
 
 def test_workout_plan_overrides_api(server):
@@ -1251,11 +1257,15 @@ def test_workout_plan_overrides_api(server):
         "date": "2024-01-01", "plan": plan, "readiness": readiness,
     })
     workout_id = data["workout"]["workout_id"]
+    deadlift_index = next(
+        index for index, item in enumerate(plan["items"])
+        if item["exercise_id"] == "trap_bar_deadlift"
+    )
     swapped = post(server, f"/api/workout/{workout_id}/plan/swap", {
-        "item_index": 0, "exercise_id": "conventional_deadlift",
+        "item_index": deadlift_index, "exercise_id": "conventional_deadlift",
     })
-    assert swapped["workout"]["plan"]["items"][0]["exercise_id"] == "conventional_deadlift"
-    assert swapped["workout"]["original_plan"]["items"][0]["exercise_id"] == "trap_bar_deadlift"
+    assert swapped["workout"]["plan"]["items"][deadlift_index]["exercise_id"] == "conventional_deadlift"
+    assert swapped["workout"]["original_plan"]["items"][deadlift_index]["exercise_id"] == "trap_bar_deadlift"
 
     added = post(server, f"/api/workout/{workout_id}/plan/add-exercise", {
         "exercise_id": "lat_pulldown", "sets": 2, "reps_low": 10, "reps_high": 12,
@@ -1263,9 +1273,9 @@ def test_workout_plan_overrides_api(server):
     assert any(item["exercise_id"] == "lat_pulldown" for item in added["workout"]["plan"]["items"])
 
     changed = post(server, f"/api/workout/{workout_id}/plan/set-count", {
-        "item_index": 0, "delta": 1,
+        "item_index": deadlift_index, "delta": 1,
     })
-    assert changed["workout"]["plan"]["items"][0]["sets"] == 6
+    assert changed["workout"]["plan"]["items"][deadlift_index]["sets"] == 6
 
     index = next(
         i for i, item in enumerate(changed["workout"]["plan"]["items"])

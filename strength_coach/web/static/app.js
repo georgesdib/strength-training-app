@@ -3348,7 +3348,7 @@ function renderVolumeSettings(data) {
         <label><input type="checkbox" data-volume-budget="top_up_enabled" ${budget.top_up_enabled ? "checked" : ""}> Top up below target</label>
         ${budgetField("set_seconds", "Seconds per set", "1", "1")}
         ${budgetField("warmup_estimate_minutes", "Warm-up allowance min", "1", "0")}
-        ${budgetField("session_time_cap_minutes", "Session time cap min", "1", "1")}
+        <span class="muted">Session target comes from the Athlete profile (fallback 90 min); this panel does not set a competing value.</span>
       </div>
       <details class="advanced"><summary>Per-pattern session caps</summary>
         <div class="table-scroll"><table><thead><tr><th>movement group</th><th>cap</th></tr></thead>

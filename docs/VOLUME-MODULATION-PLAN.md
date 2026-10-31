@@ -371,7 +371,7 @@ hidden allocation threshold):
 | `top_up_max_sets_per_item` | 8 | per-item top-up ceiling |
 | `set_seconds` | 30 | execution seconds per set in the time estimate |
 | `warmup_estimate_minutes` | 5 | planning warm-up allowance |
-| `session_time_cap_minutes` | 80 | fallback budget time cap when the profile has no session target |
+| `session_time_cap_minutes` | 90 | fallback budget time cap when the profile has no session target |
 
 The profile adds only `volume_budget_enabled` (authoritative on/off),
 `main_lift_policy` (`preserve`/`reduce`/`drop`), and `max_session_minutes`, which sets

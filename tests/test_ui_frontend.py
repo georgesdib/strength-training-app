@@ -546,6 +546,8 @@ def test_step5_report_controls_are_wired() -> None:
     assert "state-test-record" in source
     assert "Show calibration details" in source
     assert "calibration-details" in source
+    assert "Session time cap min" not in source
+    assert "Session target comes from the Athlete profile" in source
 
 
 def test_relationship_crud_ui_is_wired() -> None:

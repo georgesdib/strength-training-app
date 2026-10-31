@@ -106,7 +106,7 @@ def _parse_session_template(session_type: str, source_name: str, digest: str,
         session_type=session_type,
         label=str(types[session_type].get("label", session_type)),
         slots=slots,
-        time_cap_s=int(block.get("time_cap_s", 4800)),
+        time_cap_s=int(block.get("time_cap_s", 5400)),
         schema_version=schema_version,
         primary_exercise=(
             str(types[session_type].get("primary_exercise"))

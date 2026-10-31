@@ -84,7 +84,7 @@ pipeline as the CLI/web paths.
 Classification: resolved as an explicit metadata/planned-cap rule.
 
 `athlete_profile.max_session_minutes` now sets the planned session target (default from
-`config/thresholds.v1.yaml`, currently 80 minutes) and adds a `notes.session_time` estimate
+`config/thresholds.v1.yaml`, currently 90 minutes) and adds a `notes.session_time` estimate
 plus a warning when the estimate exceeds it. The athlete may raise or lower the target; there is
 no hard ceiling. It does **not** silently cut sets or load; the optional minimum session remains
 the explicit reduction.

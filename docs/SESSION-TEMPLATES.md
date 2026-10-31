@@ -30,7 +30,7 @@ session_types:
 squat:
   label: "Squat emphasis"
   prescription:
-    time_cap_s: 4800
+    time_cap_s: 5400
     slots:
       - id: main_squat
         exercise: ssb_squat

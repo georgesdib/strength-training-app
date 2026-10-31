@@ -40,7 +40,8 @@ def test_deload_uses_one_load_factor_not_a_product():
     low_load = next(i.load_kg for i in without.items if i.exercise_id == "trap_bar_deadlift")
     deloaded = next(i.load_kg for i in with_deload.items if i.exercise_id == "trap_bar_deadlift")
     assert deloaded == low_load
-    assert with_deload.items[0].rir_target <= 4
+    deadlift = next(i for i in with_deload.items if i.exercise_id == "trap_bar_deadlift")
+    assert deadlift.rir_target <= 4
 
 
 def test_deload_rir_cap_keeps_primary_compounds_in_window():

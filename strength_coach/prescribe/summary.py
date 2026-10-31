@@ -43,7 +43,7 @@ LIFT_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("split squat", ("split_squat",)),
     ("knee-flexion hamstrings", ("lying_leg_curls", "nordic_curl")),
     ("core", ("ab_wheel", "hanging_leg_raise")),
-    ("power", ("box_jump",)),
+    ("power", ("box_jump", "broad_jump", "medicine_ball_chest_pass")),
 )
 
 class SummaryError(ValueError):

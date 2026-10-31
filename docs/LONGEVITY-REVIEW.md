@@ -31,7 +31,7 @@ what has landed.
 
 Two conclusions follow immediately:
 
-1. **The programme's lifting dose is not the problem.** Three sessions at the 80-minute planned
+1. **The programme's lifting dose is not the problem.** Three sessions at the 90-minute planned
    ceiling is far above the 30-60 min/week associated with the mortality benefit. The J-shape means
    adding lifting volume for longevity is not supported; the existing volume is for strength
    and is reasonable for that.
@@ -105,8 +105,8 @@ plausible but not established. It is cheap, low-fatigue, and does not replace st
 
 **Why it needed a taxonomy entity:** a synthetic `pattern:power_jump` cannot be prescribed
 safely because synthetic ids carry no taxonomy entity, so the engine cannot tell it is
-bodyweight. `box_jump` is now a real entity; it is the only canonicalised jump, while other
-jump variants stay synthetic.
+bodyweight. `box_jump` and `broad_jump` are now real entities; other jump variants stay
+synthetic.
 
 ### 3.3 Pulling — balance the pressing (applied)
 

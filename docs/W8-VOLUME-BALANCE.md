@@ -3,6 +3,10 @@
 **Status:** audit complete 2026-10-23. No template or set change.
 **Later amendment:** `DEC-SPINE-05` (2026-10-25) raised the cap to 6 and changed the
 bench+hinge support to sumo; the 3/3 figures below are the audited state at that time.
+**Later amendment 2026-10-31:** `DEC-POWER-04` adds a 3-set broad jump to the hinge session,
+keeping the box jump on squat; `DEC-POWER-05` adds a 3-set medicine-ball chest pass to both
+bench days. Current power work is 9 sets/week and the generated programme total is 69; the
+table below remains the audited 2026-10-23 state.
 **Scope:** weekly hard-set balance across the four session types, within the spinal cap and
 80-minute planned session limit.
 

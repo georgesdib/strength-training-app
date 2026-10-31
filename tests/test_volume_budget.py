@@ -59,9 +59,10 @@ def test_weekly_target_matches_the_six_session_template_sum():
     assert {key: totals[key] / 2 for key in totals} == pytest.approx(
         dict(config.weekly_target)
     )
-    # 63 = 57 + 6 knee-flexion sets (DEC-KNEEFLEX-01). The template sum and the explicit
-    # total must move together, which is what this test protects.
-    assert config.total_target() == 63
+    # 69 = 57 + 6 knee-flexion sets + 3 broad-jump sets + 3 throw sets
+    # (DEC-KNEEFLEX-01, DEC-POWER-04/05). The template sum and the explicit total
+    # must move together.
+    assert config.total_target() == 69
 
 
 def test_weekly_total_is_explicit_and_must_match_the_category_sum(tmp_path):
@@ -69,21 +70,19 @@ def test_weekly_total_is_explicit_and_must_match_the_category_sum(tmp_path):
     text = source.read_text(encoding="utf-8")
     mismatch = tmp_path / "mismatch.yaml"
     mismatch.write_text(
-        text.replace("  weekly_total: 63", "  weekly_total: 66"), encoding="utf-8"
+        text.replace("  weekly_total: 69", "  weekly_total: 66"), encoding="utf-8"
     )
     with pytest.raises(ValueError, match="weekly_total"):
         volume_budget.BudgetConfig.load(mismatch)
     consistent = tmp_path / "consistent.yaml"
     consistent.write_text(
-        text.replace("  weekly_total: 63", "  weekly_total: 66").replace(
-            "    squat: 10", "    squat: 13"
-        ).replace(
-            "  weekly_total_effective: 74.25", "  weekly_total_effective: 77.25"
+        text.replace("  weekly_total: 69", "  weekly_total: 72").replace(
+            "  weekly_target:\n    squat: 10", "  weekly_target:\n    squat: 13"
         ),
         encoding="utf-8",
     )
     config = volume_budget.BudgetConfig.load(consistent)
-    assert config.total_target() == 66
+    assert config.total_target() == 72
     assert config.weekly_target["squat"] == 13
 
 
@@ -119,7 +118,7 @@ def test_all_budget_parameters_are_config_backed(tmp_path):
         .replace("    squat: 8", "    squat: 7")
         .replace("  tolerance: 0.10", "  tolerance: 0.20")
         .replace("  warmup_estimate_minutes: 5", "  warmup_estimate_minutes: 4")
-        .replace("  session_time_cap_minutes: 80", "  session_time_cap_minutes: 70")
+        .replace("  session_time_cap_minutes: 90", "  session_time_cap_minutes: 70")
     )
     path = tmp_path / "all.yaml"
     path.write_text(changed, encoding="utf-8")
@@ -208,7 +207,7 @@ def test_feasibility_flags_a_frequency_below_the_minimum():
     assert reachable["min_sessions"] == 3
     assert reachable["reachable"] is True
     assert unreachable["reachable"] is False
-    assert unreachable["unreachable_sets"] == 33.0
+    assert unreachable["unreachable_sets"] == 39.0
 
 
 def _rows():
@@ -314,7 +313,7 @@ def test_per_pattern_status_catches_a_group_deficit_the_total_hides():
     projected.update({
         "squat": 10, "hinge": 4, "horizontal_push": 13, "horizontal_pull": 9,
         "vertical_push": 3, "vertical_pull": 4.5, "core": 6,
-        "erector_extension": 3, "power_jump": 3,
+        "erector_extension": 3, "power_jump": 9,
     })
     diag = volume_budget.per_pattern_status(
         targets=config.weekly_target,
@@ -675,7 +674,8 @@ def test_compensation_applies_the_selected_slot_with_a_real_load():
     ]
     store = store_with(rows)
     try:
-        _profile(store.connection, enabled=True, policy="preserve", sessions=1)
+        _profile(store.connection, enabled=True, policy="preserve", sessions=1,
+                 max_minutes=60)
         prescription = build_prescription(
             store.connection, for_date="2026-10-29", session_type="hinge",
         )
@@ -703,7 +703,8 @@ def test_compensation_refuses_without_an_executable_load():
     ]
     store = store_with(rows)
     try:
-        _profile(store.connection, enabled=True, policy="preserve", sessions=1)
+        _profile(store.connection, enabled=True, policy="preserve", sessions=1,
+                 max_minutes=60)
         prescription = build_prescription(
             store.connection, for_date="2026-10-29", session_type="hinge",
         )
@@ -728,7 +729,8 @@ def test_compensation_falls_back_to_a_recorded_e1rm():
             store.connection, exercise_id="dumbbell_bench_press", e1rm_kg=30.0,
             effective_from="2026-10-26", reason="test compensation",
         )
-        _profile(store.connection, enabled=True, policy="preserve", sessions=1)
+        _profile(store.connection, enabled=True, policy="preserve", sessions=1,
+                 max_minutes=60)
         prescription = build_prescription(
             store.connection, for_date="2026-10-29", session_type="hinge",
         )
@@ -758,7 +760,7 @@ def test_drop_uses_a_technique_session_at_the_high_band():
     rows = [
         {"Date": "2026-10-26", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
          "RIR": "2", "Reps_Done": "5"}
-        for _ in range(63)
+        for _ in range(76)
     ]
     store = store_with(rows)
     try:
@@ -793,9 +795,12 @@ def test_drop_builds_a_volume_fill_session():
         store.close()
     assert prescription.session_type == "volume_fill_hinge"
     assert not any(item.exercise_id == "split_squat" for item in prescription.items)
-    assert any(
-        item.exercise_id == "dumbbell_bench_press" for item in prescription.items
-    )
+    filled = {
+        slot["exercise_id"]
+        for slot in prescription.notes["drop"]["filled_slots"]
+    }
+    assert filled
+    assert filled <= {item.exercise_id for item in prescription.items}
     assert prescription.notes["drop"]["original_session_type"] == "hinge"
     assert any("MOD-VOL-005" in warning for warning in prescription.warnings)
 
