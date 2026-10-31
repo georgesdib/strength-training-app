@@ -365,3 +365,52 @@ def test_budget_totals_use_python_defaults_when_targets_absent(tmp_path, monkeyp
         "python_default",
         False,
     )
+
+
+def test_local_null_suppresses_canonical_weekly_total(tmp_path, monkeypatch):
+    rows = _budget_rows(
+        tmp_path,
+        monkeypatch,
+        local={"budget": {"weekly_total": None}},
+    )
+    _assert_budget(
+        rows["volume.budget.weekly_total"],
+        63.0,
+        "config/volume.v1.yaml",
+        "canonical_config",
+        True,
+    )
+
+
+def test_local_null_suppresses_canonical_effective_total(tmp_path, monkeypatch):
+    rows = _budget_rows(
+        tmp_path,
+        monkeypatch,
+        local={"budget": {"weekly_total_effective": None}},
+    )
+    _assert_budget(
+        rows["volume.budget.weekly_total_effective"],
+        74.25,
+        "config/volume.v1.yaml",
+        "canonical_config",
+        True,
+    )
+
+
+def test_local_null_effective_total_falls_back_to_weekly_targets(tmp_path, monkeypatch):
+    def mutate(data):
+        del data["budget"]["weekly_target_effective"]
+
+    rows = _budget_rows(
+        tmp_path,
+        monkeypatch,
+        mutate,
+        local={"budget": {"weekly_total_effective": None}},
+    )
+    _assert_budget(
+        rows["volume.budget.weekly_total_effective"],
+        63.0,
+        "config/volume.v1.yaml",
+        "canonical_config",
+        True,
+    )

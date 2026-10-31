@@ -495,10 +495,16 @@ def _budget_total_provenance(
     map_key: str,
     fallback_map: str | None = None,
 ) -> tuple[str, str, bool]:
-    if _explicit_value(local, explicit):
-        return "local override: config/volume.local.yaml", "local_override", True
-    if _explicit_value(canonical, explicit):
-        return VOLUME_CANONICAL, "canonical_config", True
+    local_value, local_present = _mapping(local, explicit)
+    if local_present:
+        if local_value is not None:
+            return "local override: config/volume.local.yaml", "local_override", True
+        # An explicit local null suppresses the canonical total in the merged loader input.
+        # The effective total is therefore derived from the target map below.
+    else:
+        canonical_value, canonical_present = _mapping(canonical, explicit)
+        if canonical_present and canonical_value is not None:
+            return VOLUME_CANONICAL, "canonical_config", True
     source, kind, configured = _budget_map_provenance(canonical, local, map_key)
     if configured:
         return source, kind, True
