@@ -29,6 +29,7 @@ from strength_coach.utils import exercises as exercise_taxonomy
 
 ANALYSIS_VERSION = "monitoring-analysis-v1"
 SEED = 0
+MIN_CORRELATION_PAIRS = 3
 
 
 def database_path(conn: sqlite3.Connection) -> Path | None:
@@ -50,7 +51,7 @@ def fingerprint_connection(conn: sqlite3.Connection) -> str | None:
 
 
 def _corr(pairs: list[tuple[float, float]]) -> dict[str, Any]:
-    if len(pairs) < 3:
+    if len(pairs) < MIN_CORRELATION_PAIRS:
         return {"n": len(pairs), "r": None, "status": "insufficient"}
     x, y = zip(*pairs, strict=True)
     if np.std(x) == 0 or np.std(y) == 0:

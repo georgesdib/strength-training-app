@@ -44,7 +44,11 @@ function setView(name, options = {}) {
   }
   if (name === "docs") loadDocs(options.doc, options.anchor);
   if (name === "logs") loadLogs();
-  if (name === "state") loadState();
+  if (name === "state") {
+    loadState();
+    loadSymptomHistory(false);
+    loadTestCadence();
+  }
   if (name === "settings") loadSettings();
   if (name === "history") loadHistory();
   if (name === "outcomes") loadOutcomes();
@@ -737,6 +741,19 @@ $("#prescribe-date").addEventListener("change", () => {
   loadDropWindow();
   loadVolumeBudget();
 });
+const volumeDate = $("#volume-date");
+const continuityDate = $("#continuity-date");
+const fatigueDate = $("#fatigue-date");
+if (volumeDate && !volumeDate.value) volumeDate.value = $("#prescribe-date").value;
+if (continuityDate && !continuityDate.value) continuityDate.value = $("#prescribe-date").value;
+if (fatigueDate && !fatigueDate.value) fatigueDate.value = $("#prescribe-date").value;
+if (volumeDate) volumeDate.addEventListener("change", loadVolume);
+if ($("#volume-weeks")) $("#volume-weeks").addEventListener("change", loadVolume);
+if ($("#volume-run")) $("#volume-run").addEventListener("click", loadVolume);
+if (continuityDate) continuityDate.addEventListener("change", loadContinuity);
+if ($("#fatigue-run")) $("#fatigue-run").addEventListener("click", loadFatigue);
+if ($("#state-e1rm-calibration-run")) $("#state-e1rm-calibration-run").addEventListener("click", function () { loadE1rmPreview("calibration"); });
+if ($("#state-e1rm-coverage-run")) $("#state-e1rm-coverage-run").addEventListener("click", function () { loadE1rmPreview("coverage"); });
 
 /* The server owns the competition-window rule. Ask it whether the confirmation applies, rather
    than duplicating the date arithmetic in the browser; hide the control when it is inert and
@@ -1264,7 +1281,11 @@ $("#selection-run").addEventListener("click", loadSelection);
 $("#validation-run").addEventListener("click", async () => {
   $("#validation-result").innerHTML = "<p class='empty'>Running walk-forward check…</p>";
   try {
-    const data = await api("/api/validation?max_dates=12");
+    const maxDates = Number($("#validation-max-dates").value || 12);
+    if (!Number.isInteger(maxDates) || maxDates < 1 || maxDates > 100) {
+      throw new Error("Maximum dates must be an integer from 1 to 100.");
+    }
+    const data = await api("/api/validation?max_dates=" + encodeURIComponent(maxDates));
     $("#validation-result").innerHTML = `<pre>${esc(data.text)}</pre>`;
   } catch (error) {
     $("#validation-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
@@ -1273,8 +1294,9 @@ $("#validation-run").addEventListener("click", async () => {
 
 /* --- strength fatigue model ---------------------------------------------- */
 async function loadFatigue() {
+  const date = $("#fatigue-date").value || $("#prescribe-date").value;
   try {
-    const data = await api("/api/fatigue");
+    const data = await api("/api/fatigue" + (date ? "?date=" + encodeURIComponent(date) : ""));
     const unit = (m) => m.unit === "ratio" ? "x" : " kg";
     const rows = (data.models || []).map((m) => {
       const u = unit(m);
@@ -1717,6 +1739,118 @@ async function loadExposureStatus() {
       ${esc(data.reason)}${data.next_maximal_on ? " · next maximal " + esc(data.next_maximal_on) : ""}</p>${rows}`;
   } catch (error) {
     $("#exposure-status").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+function renderE1rmPreview(data, kind) {
+  const box = $("#state-e1rm-preview");
+  if (!box) return;
+  if (kind === "coverage") {
+    const rows = (data.tests_needed || []).map(function (row) {
+      return "<tr><td>" + esc(row.display) + "</td><td>" + row.counted + " / " +
+        row.min_tests + "</td><td>" + row.needed + "</td><td>" + esc(row.status) +
+        "</td><td>" + esc(row.next_action) + "</td></tr>";
+    }).join("");
+    box.innerHTML = "<p class='muted'>Coverage preview window " + data.window_days +
+      " days. Active coverage remains at its current defaults.</p>" +
+      (rows ? "<div class='table-scroll'><table><thead><tr><th>Lift</th><th>tests</th><th>need</th><th>status</th><th>next</th></tr></thead><tbody>" +
+        rows + "</tbody></table></div>" : "<p class='empty'>No lifts to report.</p>") +
+      "<p class='muted'>" + esc(data.note || "") + "</p>";
+    return;
+  }
+  const rows = (data.calibration || []).map(function (row) {
+    const ci = row.ci_low == null ? "—" : row.ci_low + "–" + row.ci_high;
+    return "<tr><td>" + esc(row.exercise_id) + "</td><td>" + row.n + "</td><td>" +
+      (row.median_ratio == null ? "—" : row.median_ratio) + "</td><td>" + ci +
+      "</td><td>" + row.correction_factor + "</td><td>" +
+      esc(row.correction_reason || row.status || "") + "</td></tr>";
+  }).join("");
+  box.innerHTML = "<p class='muted'>Calibration preview window " + data.window_days +
+    " days; active window " + data.active_window_days +
+    ". Preview only — active calibration unchanged.</p>" +
+    (rows ? "<div class='table-scroll'><table><thead><tr><th>Lift</th><th>tests</th><th>median ratio</th><th>95% CI</th><th>factor</th><th>reason</th></tr></thead><tbody>" +
+      rows + "</tbody></table></div>" : "<p class='empty'>No measured tests in this window.</p>") +
+    "<p class='muted'>" + esc(data.note || "") + "</p>";
+}
+
+async function loadE1rmPreview(kind) {
+  const input = $("#state-e1rm-" + kind + "-window");
+  const windowDays = Number(input.value || 84);
+  if (!Number.isInteger(windowDays) || windowDays < 7 || windowDays > 365) {
+    $("#state-e1rm-preview").innerHTML = "<p class='warnbox'>Window must be an integer from 7 to 365.</p>";
+    return;
+  }
+  try {
+    const endpoint = kind === "coverage" ? "tests-needed" : "calibration";
+    const data = await api("/api/e1rm/" + endpoint + "?window_days=" + encodeURIComponent(windowDays));
+    renderE1rmPreview(data, kind);
+  } catch (error) {
+    $("#state-e1rm-preview").innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
+  }
+}
+
+async function loadSymptomHistory(allRows) {
+  const box = $("#state-symptom-history");
+  if (!box) return;
+  box.innerHTML = "<p class='empty'>Loading symptom history…</p>";
+  try {
+    const data = await api("/api/symptoms/history?limit=10" + (allRows ? "&all=1" : ""));
+    const rows = (data.entries || []).map(function (row) {
+      return "<tr><td>" + esc(row.logged_on) + "</td><td>" + esc(row.region) +
+        "</td><td>" + row.level + "</td><td>" +
+        (row.settled_within_48h == null ? "unknown" : (row.settled_within_48h ? "yes" : "no")) +
+        "</td><td>" + esc(row.note || "") + "</td></tr>";
+    }).join("");
+    box.innerHTML = "<p class='muted'>Showing " + data.shown + " of " + data.total +
+      " entries, newest first.</p>" +
+      (rows ? "<div class='table-scroll'><table><thead><tr><th>Date</th><th>Region</th><th>Level</th><th>Settled 48h</th><th>Note</th></tr></thead><tbody>" +
+        rows + "</tbody></table></div>" : "<p class='empty'>No symptom entries recorded.</p>");
+    if (data.has_more && !allRows) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ghost";
+      button.textContent = "Show all " + data.total + " entries";
+      button.addEventListener("click", function () { loadSymptomHistory(true); });
+      box.appendChild(button);
+    }
+  } catch (error) {
+    box.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
+  }
+}
+
+async function loadTestCadence() {
+  const box = $("#state-test-cadence");
+  if (!box) return;
+  try {
+    const data = await api("/api/test-cadence");
+    const coverage = data.coverage || {};
+    const coverageLabel = coverage.status || "unavailable";
+    box.innerHTML = "<p><strong>Cadence: " + (data.enabled === false ? "disabled" : (data.due ? "due" : "not due")) +
+      "</strong> · last test " + esc(data.last_test || "none") + " · next " +
+      esc(data.next_scheme || "—") + " by " + esc(data.next_due || "—") + ".</p>" +
+      "<p><strong>Measured-test coverage: " + esc(coverageLabel) +
+      "</strong> · " + esc(String(coverage.current ?? "—")) + " of " +
+      esc(String(coverage.main_lifts ?? "—")) + " main lifts meet the gate (" +
+      esc(String(coverage.window_days ?? "—")) + "-day window).</p>" +
+      "<p class='muted'>" + esc(coverage.reason || "coverage status unavailable") +
+      "</p><p class='muted'>" + esc(data.reason || "") +
+      ". Read-only; no test or prescription is created.</p>" +
+      "<button type='button' class='primary' id='state-test-record'>Record a strength test</button>";
+    const record = document.getElementById("state-test-record");
+    if (record) record.addEventListener("click", function () {
+      const form = document.getElementById("test-form");
+      if (!form) {
+        box.innerHTML += "<p class='warnbox'>The test form is still loading; try again.</p>";
+        return;
+      }
+      form.scrollIntoView({behavior: "smooth", block: "center"});
+      form.classList.add("attention");
+      const kg = form.querySelector("[data-test='kg']");
+      if (kg) kg.focus();
+      setTimeout(function () { form.classList.remove("attention"); }, 1800);
+    });
+  } catch (error) {
+    box.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
   }
 }
 
@@ -2237,10 +2371,16 @@ async function loadExercises() {
 
 /* --- weekly volume ledger ------------------------------------------------ */
 async function loadVolume() {
-  const date = $("#prescribe-date").value;
+  const dateInput = $("#volume-date");
+  const date = dateInput.value || $("#prescribe-date").value;
   if (!date) { $("#volume-ledger").innerHTML = "<p class='empty'>Choose a date.</p>"; return; }
+  const weeks = Number($("#volume-weeks").value || 4);
+  if (!Number.isInteger(weeks) || weeks < 1 || weeks > 52) {
+    $("#volume-ledger").innerHTML = "<p class='warnbox'>Weeks must be an integer from 1 to 52.</p>";
+    return;
+  }
   try {
-    const data = await api(`/api/volume?date=${encodeURIComponent(date)}&weeks=4`);
+    const data = await api("/api/volume?date=" + encodeURIComponent(date) + "&weeks=" + weeks);
     if (!data.patterns.length) {
       $("#volume-ledger").innerHTML = "<p class='empty'>No working sets in the window.</p>";
       return;
@@ -2456,7 +2596,7 @@ $("#regime-run").addEventListener("click", loadRegime);
 
 /* --- continuity calibration --------------------------------------------- */
 async function loadContinuity() {
-  const date = $("#prescribe-date").value;
+  const date = $("#continuity-date").value || $("#prescribe-date").value;
   if (!date) { $("#continuity-model").innerHTML = "<p class='empty'>Choose a date.</p>"; return; }
   try {
     const data = await api(`/api/continuity?date=${encodeURIComponent(date)}`);
@@ -3531,6 +3671,118 @@ async function saveProfileDraft() {
   }
 }
 
+const MONITORING_SOURCE_LABELS = {
+  canonical_config: "Canonical config",
+  local_override: "Local override",
+  python_default: "Python default",
+  fixed_code: "Fixed code",
+};
+
+const MONITORING_EDIT_LABELS = {
+  phase5a_locked: "Phase 5A locked",
+  read_only: "Read-only",
+  fixed: "Fixed",
+  editable: "Editable",
+};
+
+function monitoringValue(row) {
+  if (row.value === null || row.value === undefined) return "Not configured";
+  let text;
+  if (typeof row.value === "boolean") text = row.value ? "On" : "Off";
+  else text = String(row.value);
+  if (row.unit) text += " " + row.unit;
+  return esc(text);
+}
+
+function renderMonitoringInventory(data) {
+  const groupsBox = $("#settings-monitoring-groups");
+  if (!groupsBox) return;
+  const groups = data.groups || [];
+  const select = $("#settings-monitoring-group");
+  const previous = select ? select.value : "";
+  if (select) {
+    select.innerHTML = "<option value=''>All groups</option>" + groups.map(function (group) {
+      return "<option value='" + esc(group.key) + "'>" + esc(group.label) + "</option>";
+    }).join("");
+    select.value = previous;
+  }
+  const total = groups.reduce(function (sum, group) {
+    return sum + (group.parameters || []).length;
+  }, 0);
+  const summary = $("#settings-monitoring-summary");
+  if (summary) summary.textContent = "Show inventory (" + total + " parameters)";
+  const meta = $("#settings-monitoring-meta");
+  if (meta) {
+    meta.textContent = "v" + (data.application_version || "—") + " · " +
+      String(data.revision || "").slice(0, 12);
+    meta.title = data.revision || "";
+  }
+  const phase = $("#settings-monitoring-phase");
+  if (phase && data.phase) {
+    phase.textContent = data.phase.note + " Review due " + data.phase.review_due + ".";
+  }
+  groupsBox.innerHTML = groups.map(function (group) {
+    const firstDoc = (group.parameters || []).find(function (row) { return row.doc; });
+    const rows = (group.parameters || []).map(function (row) {
+      const search = [
+        group.label, group.key, row.key, row.label, row.value, row.unit,
+        row.source, row.source_kind, row.editability, row.reason,
+      ].join(" ").toLowerCase();
+      const editLabel = MONITORING_EDIT_LABELS[row.editability] || row.editability;
+      const sourceLabel = MONITORING_SOURCE_LABELS[row.source_kind] || row.source_kind;
+      const defaultBadge = row.source_kind === "python_default"
+        ? " <span class='badge warn'>default</span>" : "";
+      const reason = row.reason
+        ? "<details class='monitoring-reason'><summary>Why this setting?</summary><p>" +
+          esc(row.reason) + "</p></details>"
+        : "";
+      return "<tr class='monitoring-row' data-group='" + esc(group.key) +
+        "' data-search='" + esc(search) + "'><td><strong>" + esc(row.label) +
+        "</strong><div class='monitoring-key'>" + esc(row.key) +
+        "</div><span class='badge'>" + esc(editLabel) + "</span>" + reason +
+        "</td><td class='monitoring-value'>" +
+        monitoringValue(row) + defaultBadge + "</td><td><code>" + esc(row.source) +
+        "</code><div><span class='badge'>" + esc(sourceLabel) + "</span></div></td></tr>";
+    }).join("");
+    return "<section class='monitoring-group' data-group='" + esc(group.key) + "'>" +
+      "<h3>" + esc(group.label) + "</h3>" +
+      (firstDoc ? "<p class='section-help'><a class='doc-link' href='#docs?doc=" +
+        encodeURIComponent(firstDoc.doc) + "'>Reference</a></p>" : "") +
+      "<div class='table-scroll'><table class='monitoring-table'><thead><tr>" +
+      "<th>Parameter</th><th>Effective value</th><th>Source</th></tr></thead><tbody>" +
+      rows + "</tbody></table></div></section>";
+  }).join("");
+  applyMonitoringFilter();
+  const search = $("#settings-monitoring-search");
+  if (search && !search.dataset.wired) {
+    search.dataset.wired = "1";
+    search.addEventListener("input", applyMonitoringFilter);
+  }
+  if (select && !select.dataset.wired) {
+    select.dataset.wired = "1";
+    select.addEventListener("change", applyMonitoringFilter);
+  }
+}
+
+function applyMonitoringFilter() {
+  const query = ($("#settings-monitoring-search").value || "").trim().toLowerCase();
+  const group = $("#settings-monitoring-group").value || "";
+  let totalVisible = 0;
+  document.querySelectorAll(".monitoring-group").forEach(function (section) {
+    let visible = 0;
+    section.querySelectorAll(".monitoring-row").forEach(function (row) {
+      const show = (!group || row.dataset.group === group) &&
+        (!query || (row.dataset.search || "").includes(query));
+      row.hidden = !show;
+      if (show) visible += 1;
+    });
+    section.hidden = visible === 0;
+    totalVisible += visible;
+  });
+  const empty = $("#settings-monitoring-empty");
+  if (empty) empty.hidden = totalVisible > 0;
+}
+
 async function loadSettings() {
   let data;
   try {
@@ -3553,6 +3805,13 @@ async function loadSettings() {
     renderVolumeSettings(await api("/api/settings/volume"));
   } catch (error) {
     $("#settings-volume-msg").textContent = "Volume settings failed: " + error.message;
+  }
+  try {
+    renderMonitoringInventory(await api("/api/settings/monitoring"));
+  } catch (error) {
+    $("#settings-monitoring-meta").textContent = "error";
+    $("#settings-monitoring-groups").innerHTML =
+      "<p class='warnbox'>Monitoring inventory failed: " + esc(error.message) + "</p>";
   }
   try {
     const modalityData = await api("/api/modalities");

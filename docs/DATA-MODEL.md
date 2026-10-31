@@ -344,7 +344,7 @@ a behaviour the system did not have (`DEC-STATE-02`).
 | column | notes |
 |---|---|
 | profile_id PK | |
-| effective_from / effective_to | state changes; old prescriptions must still explain themselves |
+| effective_from | state changes; a new row amends the previous state and old prescriptions must still explain themselves. The row's end is the next row's `effective_from`, so no `effective_to` is stored |
 | competition_date | nullable |
 | sessions_per_week_target | the *intended* frequency used by attendance/outcomes and the volume-budget projection; it does not schedule the programme |
 | max_session_minutes | planned session-time target; may be raised or lowered by the athlete |

@@ -13,6 +13,8 @@ def test_cadence_is_due_without_a_test_and_alternates_schemes():
         first = test_cadence.status(conn, "2024-01-01")
         assert first["due"] is True
         assert first["next_scheme"] == "3RM"
+        assert first["coverage"]["status"] == "unavailable"
+        assert first["coverage"]["reason"]
 
         repositories.append_e1rm_override(
             conn, exercise_id="ssb_squat", e1rm_kg=100.0,
@@ -24,5 +26,7 @@ def test_cadence_is_due_without_a_test_and_alternates_schemes():
         store.close()
     assert not_due["due"] is False
     assert not_due["next_scheme"] == "5RM"
+    assert not_due["coverage"]["status"] == "insufficient"
+    assert "measured-test gate" in not_due["coverage"]["reason"]
     assert due["due"] is True
     assert due["next_due"] == "2024-03-11"

@@ -3,6 +3,7 @@
 var performanceExercisesLoaded = false;
 var monitoringAnalysisData = null;
 var performanceRelationshipOptions = null;
+var performanceRelationshipConfig = null;
 var performanceDoseShowAll = false;
 var monitoringAnalysisShowAll = false;
 var monitoringAnalysisShowAllDose = false;
@@ -112,6 +113,10 @@ function fillRelationshipOptions(options) {
 async function addRelationship(event) {
   event.preventDefault();
   var status = document.getElementById("relationship-add-status");
+  if (!performanceRelationshipConfig || !performanceRelationshipConfig.revision) {
+    if (status) status.textContent = "Relationship configuration is still loading; wait for the revision before adding.";
+    return;
+  }
   var body = {
     numerator: document.getElementById("relationship-numerator").value,
     denominator: document.getElementById("relationship-denominator").value,
@@ -119,17 +124,255 @@ async function addRelationship(event) {
     max_gap_days: Number(document.getElementById("relationship-gap").value),
     max_age_days: Number(document.getElementById("relationship-age").value),
     min_observations: Number(document.getElementById("relationship-min").value),
+    revision: performanceRelationshipConfig.revision,
   };
   if (status) status.textContent = "Saving…";
   try {
     await api("/api/performance/relationships", {
       method: "POST", body: JSON.stringify(body),
     });
-    performanceRelationshipOptions = null;
+    performanceRelationshipConfig = null;
     if (status) status.textContent = "Pair added.";
     await loadPerformanceData();
   } catch (error) {
-    if (status) status.textContent = error.message;
+    if (error.status === 409) {
+      showRelationshipConflict("relationship-add-status");
+    } else if (status) {
+      status.textContent = error.message;
+    }
+  }
+}
+
+var relationshipReloadInFlight = {};
+
+async function reloadRelationshipConfig(stableId, button) {
+  if (relationshipReloadInFlight[stableId]) return false;
+  relationshipReloadInFlight[stableId] = true;
+  var feedback = document.getElementById(stableId);
+  if (!feedback) {
+    delete relationshipReloadInFlight[stableId];
+    return false;
+  }
+  var control = button || document.getElementById("relationship-reload-" + stableId);
+  if (control) {
+    control.disabled = true;
+    control.textContent = "Reloading…";
+  }
+  var success = false;
+  try {
+    success = await loadRelationshipConfig(true);
+  } finally {
+    delete relationshipReloadInFlight[stableId];
+  }
+  var current = document.getElementById(stableId);
+  if (!current) return success;
+  if (success) {
+    current.textContent = "Configuration reloaded. Review the pairs and retry.";
+    return true;
+  }
+  current.innerHTML = "<span class='warnbox'>The latest relationship configuration could not be retrieved. Retry the reload.</span> " +
+    "<button type='button' class='ghost' id='relationship-reload-" + stableId + "-retry'>Reload configuration</button>";
+  var retry = document.getElementById("relationship-reload-" + stableId + "-retry");
+  if (retry) retry.addEventListener("click", function () {
+    reloadRelationshipConfig(stableId, retry);
+  });
+  return false;
+}
+
+function showRelationshipConflict(targetId) {
+  var stableId = targetId === "relationship-add-status"
+    ? "relationship-add-status"
+    : "performance-relationship-feedback";
+  var target = document.getElementById(stableId);
+  if (!target) return;
+  target.innerHTML = "<span class='warnbox'>Configuration changed elsewhere. Reload the latest pairs, review the changes, then retry.</span> " +
+    "<button type='button' class='ghost' id='relationship-reload-" + stableId + "'>Reload configuration</button>";
+  var button = document.getElementById("relationship-reload-" + stableId);
+  if (!button) return;
+  button.addEventListener("click", function () {
+    reloadRelationshipConfig(stableId, button);
+  });
+}
+
+var RELATIONSHIP_TYPE_OPTIONS = [
+  "variant_to_main", "accessory_to_main", "equipment_variant", "range_variant",
+];
+
+function relationshipSourceBadge(item) {
+  var label = item.source_kind === "local_override" ? "Local override" : "Canonical";
+  return "<span class='badge'>" + esc(label) + "</span>";
+}
+
+function relationshipEditForm(item) {
+  var options = RELATIONSHIP_TYPE_OPTIONS.map(function (kind) {
+    var selected = kind === item.relationship_type ? " selected" : "";
+    return "<option value='" + esc(kind) + "'" + selected + ">" + esc(kind) + "</option>";
+  }).join("");
+  return "<form id='relationship-edit-form' class='relationship-edit-form'>" +
+    "<label>Label<input id='relationship-edit-label' value='" + esc(item.label) + "'></label>" +
+    "<label>Type<select id='relationship-edit-type'>" + options + "</select></label>" +
+    "<div class='form-row'>" +
+    "<label>Gap days<input type='number' id='relationship-edit-gap' min='1' value='" + item.max_gap_days + "'></label>" +
+    "<label>Max age<input type='number' id='relationship-edit-age' min='1' value='" + item.max_age_days + "'></label>" +
+    "<label>Min obs<input type='number' id='relationship-edit-min' min='2' value='" + item.min_observations + "'></label>" +
+    "</div>" +
+    "<label>Notes<input id='relationship-edit-notes' value='" + esc(item.notes) + "'></label>" +
+    "<div class='form-row'><button type='submit' class='primary'>Save pair</button>" +
+    "<button type='button' class='ghost' id='relationship-edit-cancel'>Cancel</button>" +
+    "<span class='muted' id='relationship-edit-status'></span></div></form>";
+}
+
+function openRelationshipEdit(item) {
+  var host = document.getElementById("performance-relationship-edit");
+  if (!host) return;
+  host.innerHTML = relationshipEditForm(item);
+  var form = document.getElementById("relationship-edit-form");
+  var cancel = document.getElementById("relationship-edit-cancel");
+  if (cancel) cancel.addEventListener("click", function () {
+    if (performanceRelationshipConfig) renderRelationshipManagement();
+  });
+  if (form) form.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    var status = document.getElementById("relationship-edit-status");
+    if (status) status.textContent = "Saving…";
+    try {
+      await api("/api/performance/relationships/" + encodeURIComponent(item.id) + "/update", {
+        method: "POST",
+        body: JSON.stringify({
+          numerator: item.numerator,
+          denominator: item.denominator,
+          label: document.getElementById("relationship-edit-label").value,
+          relationship_type: document.getElementById("relationship-edit-type").value,
+          max_gap_days: Number(document.getElementById("relationship-edit-gap").value),
+          max_age_days: Number(document.getElementById("relationship-edit-age").value),
+          min_observations: Number(document.getElementById("relationship-edit-min").value),
+          notes: document.getElementById("relationship-edit-notes").value,
+          revision: performanceRelationshipConfig.revision,
+        }),
+      });
+      performanceRelationshipConfig = null;
+      await loadPerformanceData();
+    } catch (error) {
+      if (error.status === 409) {
+        showRelationshipConflict("performance-relationship-feedback");
+      } else if (status) {
+        status.textContent = error.message;
+      }
+    }
+  });
+}
+
+async function relationshipAction(item, action, button) {
+  if (action === "delete" && button.dataset.confirm !== "1") {
+    button.dataset.confirm = "1";
+    button.textContent = "Confirm delete";
+    return;
+  }
+  var endpointAction = action === "restore" ? "reset" : action;
+  try {
+    var payload = await api(
+      "/api/performance/relationships/" + encodeURIComponent(item.id) + "/" + endpointAction,
+      {
+        method: "POST",
+        body: JSON.stringify({ revision: performanceRelationshipConfig.revision }),
+      },
+    );
+    performanceRelationshipConfig = payload;
+    await loadPerformanceData();
+  } catch (error) {
+    if (error.status === 409) {
+      showRelationshipConflict("performance-relationship-feedback");
+    } else {
+      var status = document.getElementById("performance-relationship-status");
+      if (status) status.textContent = error.message;
+    }
+  }
+}
+
+function renderRelationshipManagement() {
+  var host = document.getElementById("performance-relationship-management");
+  if (!host) return;
+  var config = performanceRelationshipConfig;
+  if (!config) return;
+  var items = config.relationships || [];
+  var hidden = config.hidden || [];
+  var rows = items.map(function (item) {
+    var actions = "<button type='button' class='ghost' data-relationship-action='edit' data-relationship-id='" +
+      esc(item.id) + "'>Edit</button>";
+    if (item.origin === "canonical" && item.source_kind === "local_override") {
+      actions += "<button type='button' class='ghost' data-relationship-action='reset' data-relationship-id='" +
+        esc(item.id) + "'>Reset</button>";
+    }
+    actions += "<button type='button' class='ghost' data-relationship-action='delete' data-relationship-id='" +
+      esc(item.id) + "'>Delete</button>";
+    return "<div class='relationship-admin-row'><div><strong>" + esc(item.label) +
+      "</strong><div class='monitoring-key'>" + esc(item.id) + "</div>" +
+      relationshipSourceBadge(item) + "</div><div class='relationship-actions'>" +
+      actions + "</div></div>";
+  }).join("");
+  var hiddenHtml = hidden.length
+    ? "<details><summary>Locally hidden pairs (" + hidden.length + ")</summary>" +
+      hidden.map(function (item) {
+        return "<div class='relationship-admin-row'><div><strong>" + esc(item.label) +
+          "</strong><div class='monitoring-key'>" + esc(item.id) + "</div></div>" +
+          "<div class='relationship-actions'><button type='button' class='ghost' " +
+          "data-relationship-action='restore' data-relationship-id='" + esc(item.id) +
+          "'>Restore</button></div></div>";
+      }).join("") + "</details>"
+    : "";
+  host.innerHTML = "<h3>Manage configured pairs</h3>" +
+    "<p class='muted'>Changes are local overrides; the reviewed canonical YAML is never edited. Revision " +
+    esc(String(config.revision || "").slice(0, 12)) + ".</p>" +
+    "<div id='performance-relationship-list'>" + (rows || "<p class='empty'>No configured pairs.</p>") + "</div>" +
+    "<div id='performance-relationship-edit'></div>" + hiddenHtml +
+    "<p class='muted' id='performance-relationship-status'></p>";
+  host.querySelectorAll("[data-relationship-action]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var id = button.dataset.relationshipId;
+      var item = items.find(function (value) { return value.id === id; }) ||
+        hidden.find(function (value) { return value.id === id; });
+      if (!item) return;
+      if (button.dataset.relationshipAction === "edit") {
+        openRelationshipEdit(item);
+      } else {
+        relationshipAction(item, button.dataset.relationshipAction, button);
+      }
+    });
+  });
+}
+
+async function loadRelationshipConfig(force) {
+  var host = document.getElementById("performance-relationship-management");
+  if (!host) return false;
+  if (!force && performanceRelationshipConfig) {
+    renderRelationshipManagement();
+    var cachedAddButton = document.getElementById("relationship-add-submit");
+    if (cachedAddButton) {
+      cachedAddButton.disabled = false;
+      cachedAddButton.title = "";
+    }
+    return true;
+  }
+  if (force) performanceRelationshipConfig = null;
+  host.innerHTML = "<p class='empty'>Loading pair configuration…</p>";
+  try {
+    performanceRelationshipConfig = await api("/api/performance/relationships");
+    renderRelationshipManagement();
+    var addButton = document.getElementById("relationship-add-submit");
+    if (addButton) {
+      addButton.disabled = false;
+      addButton.title = "";
+    }
+    return true;
+  } catch (error) {
+    performanceRelationshipConfig = null;
+    host.innerHTML = "<p class='warnbox'>Pair configuration failed: " + esc(error.message) + "</p>";
+    var disabledAdd = document.getElementById("relationship-add-submit");
+    if (disabledAdd) {
+      disabledAdd.disabled = true;
+      disabledAdd.title = "Relationship configuration and revision must load first.";
+    }
+    return false;
   }
 }
 
@@ -169,13 +412,15 @@ function renderPerformanceRatios(data) {
     "<label>Gap days<input type='number' id='relationship-gap' value='14' min='1'></label>" +
     "<label>Max age<input type='number' id='relationship-age' value='42' min='1'></label>" +
     "<label>Min obs<input type='number' id='relationship-min' value='2' min='2'></label>" +
-    "<button type='submit' class='primary'>Add pair</button></form>" +
+    "<button type='submit' class='primary' id='relationship-add-submit' disabled>Add pair</button></form>" +
     "<p id='relationship-add-status' class='muted'></p>" +
     "<p class='muted'>Only pairs that meet the configured criteria can be added: distinct known exercises that support an e1RM, a unique pair, positive gap, age at least the gap, at least two observations, and descriptive-only notes.</p>" +
     "</details>" +
     (rows.length ? "<div class='table-scroll'><table><thead><tr><th>Pair</th><th>Ratio</th><th>Numerator date</th><th>Denominator date</th><th>Gap days</th><th>Recent obs (num/den)</th><th>Status</th><th>Reason</th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" : "<p class='empty'>No configured relationships.</p>") +
     "<p class='muted'>Only the explicitly configured pairs are shown; this is not an exhaustive lift catalogue. Descriptive ratio of two raw estimates; no target, diagnosis or confidence claim.</p>" +
-    "<p class='section-help'><a class='doc-link' href='#docs?doc=docs/MONITORING-ANALYSIS.md&anchor=configuring-relative-strength-pairs'>Pair criteria and documentation</a></p></div>";
+    "<p class='section-help'><a class='doc-link' href='#docs?doc=docs/MONITORING-ANALYSIS.md&anchor=configuring-relative-strength-pairs'>Pair criteria and documentation</a></p>" +
+    "<div id='performance-relationship-management'><p class='empty'>Loading pair configuration…</p></div>" +
+    "<p class='muted' id='performance-relationship-feedback'></p></div>";
   var nextFilter = document.getElementById("performance-ratio-filter");
   if (nextFilter && !nextFilter.dataset.wired) {
     nextFilter.dataset.wired = "1";
@@ -192,6 +437,7 @@ function renderPerformanceRatios(data) {
       if (status) status.textContent = error.message;
     });
   }
+  loadRelationshipConfig(false);
 }
 
 async function loadPerformanceData() {

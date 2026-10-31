@@ -1,5 +1,46 @@
 # Changelog
 
+## [1.1.0-beta.2] — 2026-10-31
+
+Monitoring configuration, relationship CRUD and report-control hardening beta.
+
+### Added
+
+- Read-only **Monitoring & reports** inventory in Settings, with canonical/python-default/
+  fixed-code/local-override provenance, a deterministic effective-inventory revision and the
+  locked Phase 5A periods.
+- Relationship management UI and API over a git-ignored local overlay: source badges, add,
+  full-object edit, delete/tombstone, reset and hidden-pair restore. Canonical YAML is unchanged.
+- Timestamped exact-byte backups under data/config-backups before every local-overlay write,
+  with 20-backup retention and abort-on-backup-failure semantics.
+- LIM-27 point 3 report controls: calibration/coverage window previews, volume weeks/date,
+  continuity/fatigue as-of dates and retrospective-validation maximum dates.
+- Raw symptom history: latest 10 with Show all; strength-test cadence with separate
+  measured-test coverage and a link to the existing test-recording form.
+
+### Changed
+
+- Relationship writes require the current revision; stale writes return 409. The UI offers a
+  one-click reload-and-retry path without automatically replaying the failed mutation.
+- Volume weeks are server-validated to 1–52 and validation maximum dates to 1–100; invalid
+  values are rejected rather than clamped.
+- The selected coverage window is passed through to coverage notes and counts; active
+  calibration remains unchanged by preview requests.
+
+### Notes
+
+- This remains a **beta** release. Phase 5A prospective validation is active through
+  **2027-01-22**; no Phase 5A outcome is claimed.
+- No monitoring, calibration, prescription, ratio or model behaviour is newly editable.
+
+## [Unreleased]
+
+### Changed
+
+- Removed the unused `athlete_profile.effective_to` column (migration 0046). Profile versions
+  are append-only and the current row is the latest by `effective_from`; the end date was never
+  written or read, and a new row already amends the previous state (`DEC-STATE-03`).
+
 ## [1.1.0-beta.1] — 2026-10-30
 
 Monitoring and longitudinal-performance beta.

@@ -21,7 +21,7 @@ LLM call fails entirely.
 
 ## Status
 
-**v1.1 beta is released; v1.2 is planned.** The full slice runs:
+**v1.1 beta.2 is released; v1.2 is planned.** The full slice runs:
 import → readiness → prescribe a day → critique the last session → review it → calibrate. Days
 are prescribable through rolling session types (squat, hinge, bench+squat, bench+hinge); athlete
 state, constraints, suitability, e1RM overrides, symptoms and the exercise catalogue are editable

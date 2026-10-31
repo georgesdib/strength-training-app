@@ -38,10 +38,43 @@ class CadenceConfig:
         )
 
 
+def _measured_coverage(conn, on_date: str) -> dict:
+    from strength_coach.features import e1rm_calibration
+
+    rows = e1rm_calibration.coverage(conn, as_of=on_date)
+    main = [row for row in rows if row.is_main_lift]
+    met = sum(1 for row in main if row.counted >= row.min_tests)
+    total = len(main)
+    if total == 0:
+        status = "unavailable"
+        reason = "no main-lift coverage rows are available"
+    elif met == total:
+        status = "current"
+        reason = f"all {total} main lifts meet the measured-test gate"
+    elif any(row.counted or row.recorded for row in main):
+        status = "insufficient"
+        reason = f"{met} of {total} main lifts meet the measured-test gate"
+    else:
+        status = "unavailable"
+        reason = "no measured tests or formula observations are available"
+    return {
+        "status": status,
+        "reason": reason,
+        "window_days": e1rm_calibration.DEFAULT_WINDOW_DAYS,
+        "main_lifts": total,
+        "current": met,
+        "min_tests": (main[0].min_tests if main else e1rm_calibration.E1RMCalibrationConfig.load().min_tests),
+    }
+
+
 def status(conn, on_date: str, *, config: CadenceConfig | None = None) -> dict:
     cfg = config or CadenceConfig.load()
+    covered = _measured_coverage(conn, on_date)
     if not cfg.enabled:
-        return {"enabled": False, "due": False, "reason": "cadence disabled"}
+        return {
+            "enabled": False, "due": False, "reason": "cadence disabled",
+            "coverage": covered,
+        }
     dates = sorted({
         str(row["effective_from"])
         for row in queries.e1rm_overrides(conn)
@@ -51,7 +84,7 @@ def status(conn, on_date: str, *, config: CadenceConfig | None = None) -> dict:
         return {
             "enabled": True, "due": True, "last_test": None,
             "next_due": on_date, "next_scheme": cfg.schemes[0],
-            "reason": "no measured test recorded",
+            "reason": "no measured test recorded", "coverage": covered,
         }
     last = dates[-1]
     from datetime import date, timedelta
@@ -65,4 +98,5 @@ def status(conn, on_date: str, *, config: CadenceConfig | None = None) -> dict:
         "next_due": due.isoformat(),
         "next_scheme": scheme,
         "reason": f"last measured test {last}; every {cfg.every_weeks} weeks",
+        "coverage": covered,
     }

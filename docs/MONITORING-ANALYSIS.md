@@ -9,6 +9,9 @@ factor, volume target, or recommendation.
 - **Performance -> Monitoring analysis** in the web UI: explicit Run analysis, optional
   as-of date, dose chart, two lagged scatter charts, supporting tables and calibration
   transparency.
+- **Settings -> Monitoring & reports**: a collapsed, read-only inventory of effective
+  monitoring, calibration, prescription and volume parameters, with search, group filters and
+  canonical/local/default/code provenance.
 - The standalone CLI is tools/monitoring_analysis.py.
 - GET /api/monitoring-analysis?as_of=YYYY-MM-DD.
 
@@ -30,8 +33,29 @@ HTTP server does not invoke the CLI.
 ## Configuring relative-strength pairs
 
 The Performance view lists only explicitly configured pairs; it is not an exhaustive lift
-catalogue. The UI can append a pair to `config/strength-relationships.v1.yaml` only after
-server-side validation against the taxonomy and the complete existing config.
+catalogue. User changes are written to the git-ignored
+`config/strength-relationships.local.yaml` overlay; the canonical YAML remains reviewed and
+unchanged. The loader merges local additions, full-object edits and tombstones over the
+canonical pairs.
+
+The Performance panel supports add, edit, delete and reset with full server-side validation
+against the taxonomy and merged configuration. Edits replace the full local object; membership
+is immutable. Every write is atomic and requires the current configuration revision. Reset is
+shown only for a canonical pair with a local override; a locally added pair is deleted instead.
+Locally hidden canonical pairs can be restored from the panel.
+
+A stale revision returns 409. The UI explains that the configuration changed elsewhere,
+offers a Reload configuration action and never automatically replays the failed write; the
+user reviews the refreshed revision and retries explicitly. If the reload itself fails, the UI
+shows that the latest configuration could not be retrieved, clears the stale in-memory
+configuration, disables additions and keeps a one-click retry action. Additions are disabled
+until the relationship configuration and its revision load successfully.
+
+Every successful write to an existing local overlay first creates an exact-byte backup under
+`data/config-backups/`. Backup filenames are timestamped and collision-safe; the 20 most recent
+backups are retained. If the backup cannot be created, the write is aborted and the previous
+overlay is left unchanged. The canonical relationship YAML is never backed up or modified by
+this path.
 
 A pair is accepted only when:
 
@@ -45,8 +69,9 @@ A pair is accepted only when:
 - `min_observations` is at least 2;
 - descriptive-only notes are present.
 
-The config write is atomic. Adding a pair does not change eligibility rules, calibration,
-prescriptions or any ratio calculation; it only makes another descriptive pair visible.
+The config write is atomic. Adding or editing a pair does not change eligibility rules,
+calibration, prescriptions or any ratio calculation; it only makes another descriptive pair
+visible. Deleting a pair writes a local tombstone when the source is canonical.
 
 ## Interpretation
 

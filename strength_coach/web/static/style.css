@@ -82,6 +82,7 @@ tr:last-child td { border-bottom: 0; }
 .list { margin: 0; padding-left: 18px; }
 .list li { margin: 5px 0; }
 .warnbox { border-left: 3px solid var(--accent-2); background: var(--warn-bg); padding: 10px 13px; border-radius: 0 10px 10px 0; margin: 10px 0; }
+.attention { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
 pre { background: var(--code-bg); padding: 13px; border-radius: 10px; overflow: auto; font-size: 12.5px; }
 .grid-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 8px 0; }
 .advanced { margin: 10px 0; }
@@ -409,3 +410,26 @@ body.menu-open { overflow: hidden; }
 .performance-chart { display: block; width: 100%; height: auto; min-height: 140px; overflow: visible; }
 .performance-chart polyline { stroke: var(--ink); }
 .performance-chart circle { fill: var(--accent); }
+
+/* Settings monitoring inventory: grouped read-only reference tables. */
+#settings-monitoring-disclosure > summary { cursor: pointer; font-weight: 600; margin: 8px 0; }
+.monitoring-group + .monitoring-group { margin-top: 22px; }
+.monitoring-group h3 { margin-bottom: 4px; }
+.monitoring-key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.monitoring-value { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.monitoring-table { min-width: 640px; }
+.monitoring-table td { vertical-align: top; }
+.monitoring-table code { overflow-wrap: anywhere; }
+.monitoring-reason { margin-top: 6px; }
+.monitoring-reason summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+.monitoring-reason p { margin: 4px 0 0; max-width: 52ch; }
+.relationship-admin-row { display: flex; justify-content: space-between; align-items: start;
+  gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.relationship-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: end; }
+.relationship-edit-form { display: grid; gap: 8px; margin-top: 10px; padding: 10px;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--input-bg); }
+@media (max-width: 640px) {
+  .relationship-admin-row { flex-direction: column; }
+  .relationship-actions { justify-content: start; }
+}

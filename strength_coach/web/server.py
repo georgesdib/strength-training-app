@@ -50,6 +50,7 @@ from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, 
 from strength_coach.features import breaks as breaks_feature
 from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import (
+    config_inventory,
     continuity_calibration,
     heavy_spinal,
     injury_signal,
@@ -83,6 +84,7 @@ from strength_coach.features import reviews as reviews_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import strength_trend as strength_trend_feature
+from strength_coach.features import test_cadence as test_cadence_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import (
     build_prescription,
@@ -714,6 +716,8 @@ class Handler(BaseHTTPRequestHandler):
                                  mimetypes.guess_type(path)[0] or "application/octet-stream")
             elif path == "/api/settings":
                 self._json(200, self._with_conn(lambda c: self._settings(c)))
+            elif path == "/api/settings/monitoring":
+                self._json(200, config_inventory.build_inventory())
             elif path == "/api/settings/drop/window":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0] or datetime.date.today().isoformat()
@@ -777,6 +781,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._performance_ratios_cached(query))
             elif path == "/api/performance/relationship-options":
                 self._json(200, self._relationship_options())
+            elif path == "/api/performance/relationships":
+                self._json(200, self._relationship_list())
             elif path == "/api/monitoring-analysis":
                 query = parse_qs(urlparse(self.path).query)
                 as_of = query.get("as_of", [datetime.date.today().isoformat()])[0]
@@ -834,9 +840,14 @@ class Handler(BaseHTTPRequestHandler):
                     lambda c: self._continuity(c, day)
                 ))
             elif path == "/api/volume":
-                query = parse_qs(urlparse(self.path).query)
+                query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
                 day = query.get("date", [None])[0]
-                weeks = int(query.get("weeks", ["4"])[0])
+                raw_weeks = query.get("weeks", ["4"])[0]
+                if not raw_weeks.isdigit():
+                    raise ValueError("weeks must be an integer from 1 to 52")
+                weeks = int(raw_weeks)
+                if not 1 <= weeks <= 52:
+                    raise ValueError("weeks must be an integer from 1 to 52")
                 self._json(200, self._with_conn(
                     lambda c: self._volume(c, day, weeks)
                 ))
@@ -894,8 +905,41 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/validation":
                 query = parse_qs(urlparse(self.path).query)
                 max_dates = int(query.get("max_dates", ["12"])[0])
+                if not 1 <= max_dates <= 100:
+                    raise ValueError("max_dates must be between 1 and 100")
                 self._json(200, self._with_conn(
                     lambda c: {"text": retrospective_validation.report(c, max_dates=max_dates)}
+                ))
+            elif path == "/api/e1rm/calibration":
+                query = parse_qs(urlparse(self.path).query)
+                window = int(query.get("window_days", ["84"])[0])
+                if not 7 <= window <= 365:
+                    raise ValueError("window_days must be between 7 and 365")
+                self._json(200, self._with_conn(
+                    lambda c: self._e1rm_calibration_response(c, window)
+                ))
+            elif path == "/api/e1rm/tests-needed":
+                query = parse_qs(urlparse(self.path).query)
+                window = int(query.get("window_days", ["84"])[0])
+                if not 7 <= window <= 365:
+                    raise ValueError("window_days must be between 7 and 365")
+                self._json(200, self._with_conn(
+                    lambda c: self._e1rm_tests_needed_response(c, window)
+                ))
+            elif path == "/api/symptoms/history":
+                query = parse_qs(urlparse(self.path).query)
+                limit = int(query.get("limit", ["10"])[0])
+                all_rows = query.get("all", ["0"])[0] in {"1", "true", "yes"}
+                if limit < 1:
+                    raise ValueError("limit must be positive")
+                self._json(200, self._with_conn(
+                    lambda c: self._symptom_history(c, limit=limit, all_rows=all_rows)
+                ))
+            elif path == "/api/test-cadence":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [datetime.date.today().isoformat()])[0]
+                self._json(200, self._with_conn(
+                    lambda c: test_cadence_feature.status(c, day)
                 ))
             elif path == "/api/reviews":
                 query = parse_qs(urlparse(self.path).query)
@@ -1066,6 +1110,12 @@ class Handler(BaseHTTPRequestHandler):
                 )))
             elif path == "/api/performance/relationships":
                 self._json(200, self._add_relationship(body))
+            elif path.startswith("/api/performance/relationships/"):
+                parts = path.strip("/").split("/")
+                if len(parts) != 5:
+                    raise ValueError("unknown relationship action")
+                relationship_id, action = parts[3], parts[4]
+                self._json(200, self._relationship_action(relationship_id, action, body))
             elif path == "/api/reviews":
                 self._json(200, self._with_conn(lambda c: self._save_review_task(c, body)))
             elif path == "/api/readiness/feedback":
@@ -1744,6 +1794,43 @@ class Handler(BaseHTTPRequestHandler):
             "summary": strength_trend_feature.summarize(points),
         }
 
+    def _e1rm_calibration_response(self, conn, window_days: int) -> dict:
+        preview = e1rm_calibration_feature.build(conn, window_days=window_days)
+        active = e1rm_calibration_feature.build(conn)
+        return {
+            "window_days": window_days,
+            "preview": True,
+            "active_window_days": e1rm_calibration_feature.DEFAULT_WINDOW_DAYS,
+            "active_calibration": e1rm_calibration_feature.as_dict(active),
+            "calibration": e1rm_calibration_feature.as_dict(preview),
+            "note": "Preview only; the active calibration factor is unchanged.",
+        }
+
+    def _e1rm_tests_needed_response(self, conn, window_days: int) -> dict:
+        report = e1rm_calibration_feature.build(conn, window_days=window_days)
+        return {
+            "window_days": window_days,
+            "preview": True,
+            "tests_needed": e1rm_calibration_feature.coverage_as_dict(
+                e1rm_calibration_feature.coverage(
+                    conn, report=report, window_days=window_days
+                )
+            ),
+            "note": "Coverage preview only; no test threshold or calibration changed.",
+        }
+
+    def _symptom_history(self, conn, *, limit: int, all_rows: bool) -> dict:
+        entries = queries.symptom_entries(conn)
+        ordered = list(reversed(entries))
+        shown = ordered if all_rows else ordered[:limit]
+        return {
+            "entries": shown,
+            "total": len(ordered),
+            "shown": len(shown),
+            "has_more": len(shown) < len(ordered),
+            "limit": limit,
+        }
+
     def _performance_dose(self, conn, query: dict) -> dict:
         to_date = query.get("to", [datetime.date.today().isoformat()])[0]
         from_date = query.get("from", [to_date])[0]
@@ -1790,7 +1877,9 @@ class Handler(BaseHTTPRequestHandler):
             ],
         }
 
-    def _add_relationship(self, body: dict) -> dict:
+    def _relationship_from_body(
+        self, body: dict, relationship_id: str | None = None,
+    ) -> relative_strength_feature.Relationship:
         numerator = str(body.get("numerator") or "").strip()
         denominator = str(body.get("denominator") or "").strip()
         entities = exercises.taxonomy().entities
@@ -1810,8 +1899,8 @@ class Handler(BaseHTTPRequestHandler):
         notes = str(body.get("notes") or "").strip() or (
             "Descriptive relative performance only; not a weakness diagnosis."
         )
-        relationship = relative_strength_feature.Relationship(
-            id=f"{numerator}_to_{denominator}",
+        return relative_strength_feature.Relationship(
+            id=relationship_id or f"{numerator}_to_{denominator}",
             label=label,
             numerator=numerator,
             denominator=denominator,
@@ -1821,22 +1910,76 @@ class Handler(BaseHTTPRequestHandler):
             min_observations=min_observations,
             notes=notes,
         )
-        relationships = relative_strength_feature.append_relationship(relationship)
-        _READ_CACHE.clear()
+
+    @staticmethod
+    def _check_relationship_revision(body: dict, *, required: bool) -> None:
+        supplied = str(body.get("revision") or "").strip()
+        if required and not supplied:
+            raise ValueError("revision is required; reload the pair list and retry")
+        if supplied and supplied != relative_strength_feature.relationship_config_revision():
+            raise RequestError(409, "relationship configuration changed; reload and retry")
+
+    @staticmethod
+    def _relationship_payload(
+        relationships: list[relative_strength_feature.Relationship],
+    ) -> dict:
+        records = relative_strength_feature.load_relationships_with_sources()
+        canonical_ids = relative_strength_feature.canonical_relationship_ids()
+        sources = {
+            item.id: {"source": source, "source_kind": kind}
+            for item, source, kind in records
+        }
+        hidden = relative_strength_feature.hidden_relationships()
         return {
             "ok": True,
+            "revision": relative_strength_feature.relationship_config_revision(),
             "relationships": [
                 {
-                    "id": item.id, "label": item.label,
-                    "numerator": item.numerator, "denominator": item.denominator,
+                    "id": item.id,
+                    "label": item.label,
+                    "numerator": item.numerator,
+                    "denominator": item.denominator,
                     "relationship_type": item.relationship_type,
                     "max_gap_days": item.max_gap_days,
                     "max_age_days": item.max_age_days,
                     "min_observations": item.min_observations,
+                    "notes": item.notes,
+                    "source": sources.get(item.id, {}).get("source", "canonical config"),
+                    "source_kind": sources.get(item.id, {}).get("source_kind", "canonical_config"),
+                    "origin": "canonical" if item.id in canonical_ids else "local",
                 }
                 for item in relationships
             ],
+            "hidden": [
+                {"id": item.id, "label": item.label, "origin": "canonical",
+                 "source": "locally hidden canonical pair", "source_kind": "local_override"}
+                for item in hidden
+            ],
         }
+
+    def _relationship_list(self) -> dict:
+        return self._relationship_payload(relative_strength_feature.load_relationships())
+
+    def _add_relationship(self, body: dict) -> dict:
+        self._check_relationship_revision(body, required=True)
+        relationship = self._relationship_from_body(body)
+        relationships = relative_strength_feature.append_relationship(relationship)
+        _READ_CACHE.clear()
+        return self._relationship_payload(relationships)
+
+    def _relationship_action(self, relationship_id: str, action: str, body: dict) -> dict:
+        self._check_relationship_revision(body, required=True)
+        if action == "update":
+            relationship = self._relationship_from_body(body, relationship_id)
+            relationships = relative_strength_feature.update_relationship(relationship)
+        elif action == "delete":
+            relationships = relative_strength_feature.delete_relationship(relationship_id)
+        elif action == "reset":
+            relationships = relative_strength_feature.reset_relationship(relationship_id)
+        else:
+            raise ValueError("unknown relationship action")
+        _READ_CACHE.clear()
+        return self._relationship_payload(relationships)
 
     def _performance_ratios(self, conn, query: dict) -> dict:
         to_date = query.get("to", [datetime.date.today().isoformat()])[0]

@@ -1896,6 +1896,7 @@ def test_relationship_options_and_validated_add(server, monkeypatch):
         "append_relationship",
         lambda relationship: captured.append(relationship) or [relationship],
     )
+    revision = json.loads(get(server, "/api/performance/relationships")[1])["revision"]
     payload = post(server, "/api/performance/relationships", {
         "numerator": "front_squat",
         "denominator": "bench_press",
@@ -1903,7 +1904,242 @@ def test_relationship_options_and_validated_add(server, monkeypatch):
         "max_gap_days": 14,
         "max_age_days": 42,
         "min_observations": 2,
+        "revision": revision,
     })
     assert payload["ok"] is True
     assert captured[0].numerator == "front_squat"
     assert captured[0].denominator == "bench_press"
+
+
+def test_monitoring_config_inventory_is_read_only_and_path_safe(server):
+    payload = json.loads(get(server, "/api/settings/monitoring")[1])
+    assert payload["read_only"] is True
+    assert payload["phase"]["locked"] is True
+    assert payload["phase"]["period"] == "active"
+    assert payload["phase"]["review_due"] == "2027-01-22"
+    assert payload["groups"]
+    groups = {group["key"]: group for group in payload["groups"]}
+    assert "monitoring" in groups and "relationships" in groups
+    assert all(row["editable"] is False for group in payload["groups"] for row in group["parameters"])
+    assert "/home/" not in json.dumps(payload)
+    assert "data/coach.db" not in json.dumps(payload)
+
+
+def test_monitoring_config_inventory_has_no_write_route(server):
+    before = json.loads(get(server, "/api/settings/monitoring")[1])
+    status, _ = post_status(server, "/api/settings/monitoring", {})
+    after = json.loads(get(server, "/api/settings/monitoring")[1])
+    assert status == 404
+    assert before["revision"] == after["revision"]
+
+
+def test_relationship_crud_api_enforces_revision_and_reset(server, tmp_path, monkeypatch):
+    import shutil
+
+    from strength_coach.web import server as web_server
+
+    shutil.copyfile(
+        web_server.relative_strength_feature.paths.config_dir(
+            "strength-relationships.v1.yaml"
+        ),
+        tmp_path / "strength-relationships.v1.yaml",
+    )
+    monkeypatch.setattr(
+        web_server.relative_strength_feature.paths,
+        "config_dir",
+        lambda *parts: tmp_path.joinpath(*parts),
+    )
+    monkeypatch.setattr(
+        web_server.relative_strength_feature.paths,
+        "data_dir",
+        lambda *parts: tmp_path.joinpath("data", *parts),
+    )
+
+    listed = json.loads(get(server, "/api/performance/relationships")[1])
+    revision = listed["revision"]
+    assert listed["relationships"]
+    assert listed["relationships"][0]["origin"] == "canonical"
+    canonical_before = (tmp_path / "strength-relationships.v1.yaml").read_bytes()
+
+    addition = {
+        "numerator": "front_squat",
+        "denominator": "bench_press",
+        "relationship_type": "variant_to_main",
+        "max_gap_days": 14,
+        "max_age_days": 42,
+        "min_observations": 2,
+    }
+    status, _ = post_status(server, "/api/performance/relationships", addition)
+    assert status == 400
+    status, _ = post_status(
+        server, "/api/performance/relationships",
+        {**addition, "revision": "stale-revision"},
+    )
+    assert status == 409
+    assert not (tmp_path / "strength-relationships.local.yaml").exists()
+    assert (tmp_path / "strength-relationships.v1.yaml").read_bytes() == canonical_before
+
+    added_payload = post(server, "/api/performance/relationships", {
+        **addition, "revision": revision,
+    })
+    assert added_payload["ok"] is True
+    added = next(
+        item for item in added_payload["relationships"]
+        if item["id"] == "front_squat_to_bench_press"
+    )
+    current = added_payload["revision"]
+    assert current != revision
+    assert added["origin"] == "local"
+
+    first = listed["relationships"][0]
+    update_body = {
+        "numerator": first["numerator"],
+        "denominator": first["denominator"],
+        "relationship_type": first["relationship_type"],
+        "max_gap_days": 9,
+        "max_age_days": 42,
+        "min_observations": 2,
+        "label": "Edited via API",
+        "notes": "API test",
+    }
+    status, _ = post_status(
+        server, f"/api/performance/relationships/{first['id']}/update", update_body
+    )
+    assert status == 400
+    updated = post(
+        server,
+        f"/api/performance/relationships/{first['id']}/update",
+        {**update_body, "revision": current},
+    )
+    edited = next(item for item in updated["relationships"] if item["id"] == first["id"])
+    assert edited["label"] == "Edited via API"
+    assert edited["origin"] == "canonical"
+    current = updated["revision"]
+
+    status, _ = post_status(
+        server,
+        f"/api/performance/relationships/{first['id']}/delete",
+        {"revision": revision},
+    )
+    assert status == 409
+    deleted = post(
+        server,
+        f"/api/performance/relationships/{first['id']}/delete",
+        {"revision": current},
+    )
+    assert all(item["id"] != first["id"] for item in deleted["relationships"])
+    assert any(item["id"] == first["id"] for item in deleted["hidden"])
+    assert any(item["id"] == first["id"] and item["origin"] == "canonical"
+               for item in deleted["hidden"])
+    current = deleted["revision"]
+
+    reset = post(
+        server,
+        f"/api/performance/relationships/{first['id']}/reset",
+        {"revision": current},
+    )
+    restored = next(item for item in reset["relationships"] if item["id"] == first["id"])
+    assert restored["label"] == first["label"]
+    assert all(item["id"] != first["id"] for item in reset["hidden"])
+    assert (tmp_path / "strength-relationships.local.yaml").is_file()
+    assert added["id"] == "front_squat_to_bench_press"
+
+    removed_local = post(
+        server,
+        f"/api/performance/relationships/{added['id']}/delete",
+        {"revision": reset["revision"]},
+    )
+    assert all(item["id"] != added["id"] for item in removed_local["relationships"])
+    assert all(item["id"] != added["id"] for item in removed_local["hidden"])
+
+
+def test_step5_report_window_endpoints(server):
+    calibration = json.loads(get(
+        server, "/api/e1rm/calibration?window_days=30"
+    )[1])
+    assert calibration["window_days"] == 30
+    assert calibration["preview"] is True
+    assert calibration["active_window_days"] == 84
+    assert "calibration" in calibration and "active_calibration" in calibration
+
+    coverage = json.loads(get(
+        server, "/api/e1rm/tests-needed?window_days=30"
+    )[1])
+    assert coverage["window_days"] == 30
+    assert coverage["preview"] is True
+    assert isinstance(coverage["tests_needed"], list)
+
+    for path in (
+        "/api/e1rm/calibration?window_days=3",
+        "/api/e1rm/tests-needed?window_days=400",
+    ):
+        try:
+            get(server, path)
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 400
+        else:
+            raise AssertionError(path + " should be rejected")
+
+    cadence = json.loads(get(server, "/api/test-cadence")[1])
+    assert "due" in cadence and "next_due" in cadence
+
+
+def test_e1rm_coverage_preview_propagates_window(monkeypatch):
+    captured = {}
+
+    def fake_build(conn, *, window_days):
+        captured["build"] = window_days
+        return []
+
+    def fake_coverage(conn, *, report, window_days):
+        captured["coverage"] = window_days
+        return []
+
+    monkeypatch.setattr(web_server.e1rm_calibration_feature, "build", fake_build)
+    monkeypatch.setattr(web_server.e1rm_calibration_feature, "coverage", fake_coverage)
+    monkeypatch.setattr(
+        web_server.e1rm_calibration_feature, "coverage_as_dict",
+        lambda rows: [{"note": "window " + str(captured["coverage"]) + " days"}],
+    )
+    result = web_server.Handler._e1rm_tests_needed_response(None, object(), 30)
+    assert captured == {"build": 30, "coverage": 30}
+    assert "30 days" in result["tests_needed"][0]["note"]
+
+
+def test_volume_week_bounds_are_enforced(server):
+    for weeks in ("1", "52"):
+        status, body = get(server, "/api/volume?weeks=" + weeks)
+        assert status == 200, body
+    for weeks in ("0", "53", "-1", "4.5", "abc", ""):
+        try:
+            get(server, "/api/volume?weeks=" + weeks)
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 400, weeks
+        else:
+            raise AssertionError("weeks=" + weeks + " should be rejected")
+
+
+def test_symptom_history_limit_order_and_all(server):
+    empty = json.loads(get(server, "/api/symptoms/history?limit=5")[1])
+    assert empty == {
+        "entries": [], "total": 0, "shown": 0, "has_more": False, "limit": 5,
+    }
+    days = [f"2025-01-{day:02d}" for day in range(1, 13)]
+    for index, day in enumerate(days, start=1):
+        post(server, "/api/state/symptom", {
+            "date": day, "region": "low_back", "level": index % 4,
+            "settled": index % 2 == 0, "note": "entry " + str(index),
+        })
+    limited = json.loads(get(server, "/api/symptoms/history?limit=5")[1])
+    assert limited["total"] == 12
+    assert limited["shown"] == 5
+    assert limited["has_more"] is True
+    assert [row["logged_on"] for row in limited["entries"]] == list(reversed(days))[:5]
+    assert [row["note"] for row in limited["entries"]] == [
+        "entry 12", "entry 11", "entry 10", "entry 9", "entry 8",
+    ]
+    all_history = json.loads(get(server, "/api/symptoms/history?limit=5&all=1")[1])
+    assert all_history["total"] == 12
+    assert all_history["shown"] == 12
+    assert all_history["has_more"] is False
+    assert [row["logged_on"] for row in all_history["entries"]] == list(reversed(days))

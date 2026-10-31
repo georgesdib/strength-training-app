@@ -271,6 +271,7 @@
           factor only when it has enough returns and a tight bootstrap interval; otherwise the
           fixed −5%/−10% rule remains. This is not the e1RM age decay.</p>
         <div class="form-row">
+          <label>As of <input type="date" id="continuity-date"></label>
           <label><input type="checkbox" id="continuity-relax"> allow calibrated bands to relax the fixed reduction</label>
           <button class="ghost" id="continuity-save" type="button">Save setting</button>
           <span class="muted" id="continuity-msg"></span>
@@ -281,8 +282,13 @@
         <div class="panel-head"><h2>Weekly volume</h2>
           <span class="muted">advisory hard-set ledger</span></div>
         <p class="section-help"><span>Advisory hard-set ledger against MEV/MAV/MRV; no automatic volume change.</span> <a class="doc-link" href="#docs?doc=docs/VOLUME-MANAGEMENT.md">Volume management</a></p>
-        <p class="muted">Working sets per movement pattern over the last four weeks, compared with
+        <p class="muted">Working sets per movement pattern over the selected window, compared with
           broad config targets. It reports drift; it does not change the prescription.</p>
+        <div class="form-row">
+          <label>Weeks <input type="number" id="volume-weeks" min="1" max="52" value="4"></label>
+          <label>As of <input type="date" id="volume-date"></label>
+          <button class="ghost" type="button" id="volume-run">Update report</button>
+        </div>
         <div id="volume-ledger"></div>
       </div>
       <div class="panel">
@@ -340,6 +346,10 @@
         <p class="muted">Per-lift fitness/fatigue state from e1RM observations, with approximate
           95% intervals. It refuses sparse or ill-conditioned fits. Nothing here changes the
           prescription.</p>
+        <div class="form-row">
+          <label>As of <input type="date" id="fatigue-date"></label>
+          <button class="ghost" type="button" id="fatigue-run">Update diagnostic</button>
+        </div>
         <div id="fatigue-model"></div>
       </div>
       <div class="panel">
@@ -366,7 +376,10 @@
         <p class="muted">Replays past cutoffs using only earlier data. It checks continuity and the
           fatigue diagnostic against simple baselines; the predictive fatigue model was rejected.
           Volume is descriptive only and selection has no counterfactual. Not prospective validation.</p>
-        <button class="ghost" id="validation-run">Run retrospective check</button>
+        <div class="form-row">
+          <label>Maximum dates <input type="number" id="validation-max-dates" min="1" max="100" value="12"></label>
+          <button class="ghost" id="validation-run">Run retrospective check</button>
+        </div>
         <div id="validation-result"></div>
       </div>
     </section>
@@ -922,6 +935,30 @@
         <div id="state-result" class="state-grid" role="status" aria-live="polite"></div>
         <div id="state-forms" class="state-grid" style="margin-top:16px"></div>
       </div>
+      <div class="panel state-wide" id="state-report-windows">
+        <div class="panel-head"><h2>Report window previews</h2>
+          <span class="muted">read-only; active calibration unchanged</span></div>
+        <p class="section-help">Preview the e1RM calibration and test-coverage windows without changing the active calibration. <a class="doc-link" href="#docs?doc=ROADMAP.md">Roadmap</a></p>
+        <div class="form-row">
+          <label>Calibration window <input type="number" id="state-e1rm-calibration-window" min="7" max="365" value="84"></label>
+          <button type="button" class="ghost" id="state-e1rm-calibration-run">Preview calibration</button>
+          <label>Coverage window <input type="number" id="state-e1rm-coverage-window" min="7" max="365" value="84"></label>
+          <button type="button" class="ghost" id="state-e1rm-coverage-run">Preview coverage</button>
+        </div>
+        <div id="state-e1rm-preview"></div>
+      </div>
+      <div class="panel state-wide" id="state-symptom-panel">
+        <div class="panel-head"><h2>Raw symptom history</h2>
+          <span class="muted">read-only; latest 10</span></div>
+        <p class="section-help">Raw symptom entries are evidence, not a diagnosis. <a class="doc-link" href="#docs?doc=docs/SYMPTOM-LOGGING.md">Symptom logging</a></p>
+        <div id="state-symptom-history"><p class="empty">Loading…</p></div>
+      </div>
+      <div class="panel state-wide" id="state-test-cadence-panel">
+        <div class="panel-head"><h2>Strength-test cadence</h2>
+          <span class="muted">read-only</span></div>
+        <p class="section-help">Cadence is a reminder; measured-test coverage uses the e1RM gate. <a class="doc-link" href="#docs?doc=docs/TRAINING-DYNAMICS.md">Training dynamics</a></p>
+        <div id="state-test-cadence"><p class="empty">Loading…</p></div>
+      </div>
     </section>
 
     <section id="view-settings" class="view">
@@ -1007,6 +1044,24 @@
           </div>
           <p class="muted">A reason is always required. Changing weekly targets, session caps, the MRV cap or landmarks also requires typing <code>VOLUME</code>. The server validates the whole object before writing and never edits an old profile version.</p>
         </form>
+      </div>
+
+      <div class="panel" id="settings-monitoring-panel">
+        <div class="panel-head"><h2>Monitoring &amp; reports</h2>
+          <span class="badge" id="settings-monitoring-meta">loading…</span></div>
+        <p class="section-help"><span>Read-only inventory of effective monitoring, calibration, prescription and volume parameters. Visible on the home network; no values are editable here.</span> <a class="doc-link" href="#docs?doc=docs/MONITORING-ANALYSIS.md">Configuration reference</a></p>
+        <details id="settings-monitoring-disclosure">
+          <summary id="settings-monitoring-summary">Show inventory</summary>
+          <p class="muted" id="settings-monitoring-phase"></p>
+          <div class="form-row">
+            <label class="grow">Search <input id="settings-monitoring-search" placeholder="parameter, value or source"></label>
+            <label>Group
+              <select id="settings-monitoring-group"><option value="">All groups</option></select>
+            </label>
+          </div>
+          <div id="settings-monitoring-groups"><p class="empty">Loading inventory…</p></div>
+          <p class="empty" id="settings-monitoring-empty" hidden>No matching parameters.</p>
+        </details>
       </div>
 
       <div class="panel">

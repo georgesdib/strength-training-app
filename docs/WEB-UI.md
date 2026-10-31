@@ -53,7 +53,7 @@ links for every view. Run `python tools/check_ui_docs.py` to validate the contra
 The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the backdrop or Escape closes it. The main content stays full width.
 
 - **Outcomes** — read-only 4/8/12-week strength review, attendance, volume and **Prospective check**; no prescription effect.
-- **Performance** — raw e1RM session bests, rolling median, series breaks, separate degraded observations, descriptive dose and explicitly configured relative-strength ratios; filters apply server-side. A read-only **[Monitoring analysis](MONITORING-ANALYSIS.md)** section runs on demand and reports dose, lagged associations, coverage and calibration transparency. No targets, diagnosis, decay or calibration change; equipment changes cannot be detected because equipment is not stored.
+- **Performance** — raw e1RM session bests, rolling median, series breaks, separate degraded observations, descriptive dose and explicitly configured relative-strength ratios with source-aware add/edit/delete/reset management; filters apply server-side. A read-only **[Monitoring analysis](MONITORING-ANALYSIS.md)** section runs on demand and reports dose, lagged associations, coverage and calibration transparency. No targets, diagnosis, decay or calibration change; equipment changes cannot be detected because equipment is not stored.
 - **Longevity** — consolidated cardio, measurement, readiness and symptom context with deterministic **Going well / Needs attention** labels; no targets beyond the WHO cardio reference and no prescription effect.
 - **Today** — goal, block week, readiness, injury signal, unreviewed count, **rubric calibration** (high-confidence sessions, agreement, per-item marks/comparable counts, gaps), recent sessions, and a **Descriptive progress** panel (sRPE coverage, attendance, family exposures, performance ratio, weekly volume status, latest back symptom; monitoring only). The **periodic reviews** list is fed by `config/reviews.v1.yaml` and includes the 8-week **Fatigue-signal review** (rate missing demand dimensions, read the exposure ratio, open the shadow review, record a decision); acknowledging a review writes an append-only human record and changes no threshold or flag.
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
@@ -77,8 +77,8 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
   as configurable landmarks, the spinal cap as ordinal, and deload/minimum-session evidence
   limits. A `recent stress` column, a `readiness` column, the **strength fatigue diagnostic**
   panel (predictive form rejected; per-lift + overall state is descriptive context with 95% intervals,
-  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only), the **per-rep velocity** panel (descriptive loss and associations; n ≥ 10 for correlations), the **continuity calibration** panel (per-band returns/fixed/applied and the
-  `allow_relax_fixed` setting) and the **exercise selection** panel (preview rankings with A/B/C
+  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only; week/date controls), the **per-rep velocity** panel (descriptive loss and associations; n ≥ 10 for correlations), the **continuity calibration** panel (per-band returns/fixed/applied and the
+  `allow_relax_fixed` setting, with an as-of date), the **strength fatigue diagnostic** date control and the **retrospective validation** maximum-dates control (integer 1–100, default 12, server-validated; invalid values are rejected rather than clamped), and the **exercise selection** panel (preview rankings with A/B/C
   comparison classes and a display-only own-history e1RM ratio; optional LLM chooser). Under
   the rankings it shows the **fatigue-informed suggestion** (Part C): at most one accessory
   variant, only when the exposure signal is high and the candidate is rated strictly lower on
@@ -125,11 +125,17 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
   strength tests, block start and symptoms; shows the current tables, injury signal and the
   **e1RM calibration** report (current formula e1RM and last set for every lift, plus
   measured tests vs formula; a bounded correction is applied only when the confidence interval
-  excludes 1.0).
+  excludes 1.0). Read-only preview controls change the calibration/coverage window without
+  changing active calibration, the raw symptom history shows the latest 10 with Show all, and
+  the strength-test cadence block reports last/next/due state. Cadence and measured-test
+  coverage are shown separately; coverage reuses the e1RM coverage gate (current, insufficient
+  or unavailable) with an explanatory reason. **Record a strength test** scrolls to and focuses
+  the existing dynamically rendered `#test-form`; it does not create a second form or submission
+  path.
 - **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
   same-category substitute rises; a review question, never an action.
 - **Settings** — appearance (System / Light / Dark), optional LLM configuration (enable/disable, model, endpoint, write-only key,
-  temperature/tokens/timeout), browser-only Prescribe defaults, and read-only app/database paths.
+  temperature/tokens/timeout), browser-only Prescribe defaults, a collapsed read-only **Monitoring & reports** inventory with search/group filters, and read-only app/database paths.
   The key is masked and lives in git-ignored `config/llm.local.toml`.
 - **Docs** — local Markdown rendered without external assets.
 
@@ -148,7 +154,11 @@ also disables while saving and reports the number of marks written.
 | `GET /api/performance/e1rm?exercise_id=&from=&to=` | raw e1RM observations, rolling median, breaks and descriptive summary |
 | `GET /api/performance/dose?from=&to=&group_by=session` | descriptive session dose |
 | `GET /api/performance/ratios?relationship_id=&from=&to=` | configured ratio current value and paired history |
+| `GET /api/performance/relationships` | merged relationship configuration, source provenance and revision |
+| `POST /api/performance/relationships` | add a validated local relationship; requires the current revision |
+| `POST /api/performance/relationships/{id}/update\|delete\|reset` | edit, hide or reset a local relationship override; requires the current revision; stale revisions return 409 |
 | `GET /api/monitoring-analysis?as_of=` | read-only dose, lagged associations, coverage and calibration transparency; no path disclosure |
+| `GET /api/settings/monitoring` | read-only monitoring/config inventory, canonical/local/default/code provenance, Phase 5A period and lock, complete effective-inventory revision; no paths or athlete data |
 | `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
 | `POST /api/prescribe` | `{date, session_type?, apply_selection?, selection_confirmed?, selection_llm?, minimum_session?, target_minutes?, minimum_include_main?, allow_unknown_readiness?}` -> prescription; `session_type=auto` uses the rolling rule; unknown readiness requires the explicit flag |
 | `POST /api/workout/start` | `{date, plan, readiness, readiness_ack?, note?}` -> live workout; a score-ready assessment or explicit acknowledgement is required; partial readiness stays partial |
