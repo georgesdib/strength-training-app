@@ -840,9 +840,14 @@ class Handler(BaseHTTPRequestHandler):
                     lambda c: self._continuity(c, day)
                 ))
             elif path == "/api/volume":
-                query = parse_qs(urlparse(self.path).query)
+                query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
                 day = query.get("date", [None])[0]
-                weeks = int(query.get("weeks", ["4"])[0])
+                raw_weeks = query.get("weeks", ["4"])[0]
+                if not raw_weeks.isdigit():
+                    raise ValueError("weeks must be an integer from 1 to 52")
+                weeks = int(raw_weeks)
+                if not 1 <= weeks <= 52:
+                    raise ValueError("weeks must be an integer from 1 to 52")
                 self._json(200, self._with_conn(
                     lambda c: self._volume(c, day, weeks)
                 ))
@@ -1807,7 +1812,9 @@ class Handler(BaseHTTPRequestHandler):
             "window_days": window_days,
             "preview": True,
             "tests_needed": e1rm_calibration_feature.coverage_as_dict(
-                e1rm_calibration_feature.coverage(conn, report=report)
+                e1rm_calibration_feature.coverage(
+                    conn, report=report, window_days=window_days
+                )
             ),
             "note": "Coverage preview only; no test threshold or calibration changed.",
         }

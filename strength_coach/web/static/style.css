@@ -82,6 +82,7 @@ tr:last-child td { border-bottom: 0; }
 .list { margin: 0; padding-left: 18px; }
 .list li { margin: 5px 0; }
 .warnbox { border-left: 3px solid var(--accent-2); background: var(--warn-bg); padding: 10px 13px; border-radius: 0 10px 10px 0; margin: 10px 0; }
+.attention { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
 pre { background: var(--code-bg); padding: 13px; border-radius: 10px; overflow: auto; font-size: 12.5px; }
 .grid-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 8px 0; }
 .advanced { margin: 10px 0; }

@@ -528,6 +528,9 @@ def test_step5_report_controls_are_wired() -> None:
     assert "/api/symptoms/history" in source
     assert "/api/test-cadence" in source
     assert "Show all " in source
+    assert "Measured-test coverage:" in source
+    assert "Record a strength test" in source
+    assert "state-test-record" in source
 
 
 def test_relationship_crud_ui_is_wired() -> None:

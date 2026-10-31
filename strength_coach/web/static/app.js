@@ -1823,10 +1823,32 @@ async function loadTestCadence() {
   if (!box) return;
   try {
     const data = await api("/api/test-cadence");
-    box.innerHTML = "<p><strong>" + (data.enabled === false ? "disabled" : (data.due ? "due" : "not due")) +
+    const coverage = data.coverage || {};
+    const coverageLabel = coverage.status || "unavailable";
+    box.innerHTML = "<p><strong>Cadence: " + (data.enabled === false ? "disabled" : (data.due ? "due" : "not due")) +
       "</strong> · last test " + esc(data.last_test || "none") + " · next " +
       esc(data.next_scheme || "—") + " by " + esc(data.next_due || "—") + ".</p>" +
-      "<p class='muted'>" + esc(data.reason || "") + ". Read-only; no test or prescription is created.</p>";
+      "<p><strong>Measured-test coverage: " + esc(coverageLabel) +
+      "</strong> · " + esc(String(coverage.current ?? "—")) + " of " +
+      esc(String(coverage.main_lifts ?? "—")) + " main lifts meet the gate (" +
+      esc(String(coverage.window_days ?? "—")) + "-day window).</p>" +
+      "<p class='muted'>" + esc(coverage.reason || "coverage status unavailable") +
+      "</p><p class='muted'>" + esc(data.reason || "") +
+      ". Read-only; no test or prescription is created.</p>" +
+      "<button type='button' class='primary' id='state-test-record'>Record a strength test</button>";
+    const record = document.getElementById("state-test-record");
+    if (record) record.addEventListener("click", function () {
+      const form = document.getElementById("test-form");
+      if (!form) {
+        box.innerHTML += "<p class='warnbox'>The test form is still loading; try again.</p>";
+        return;
+      }
+      form.scrollIntoView({behavior: "smooth", block: "center"});
+      form.classList.add("attention");
+      const kg = form.querySelector("[data-test='kg']");
+      if (kg) kg.focus();
+      setTimeout(function () { form.classList.remove("attention"); }, 1800);
+    });
   } catch (error) {
     box.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
   }

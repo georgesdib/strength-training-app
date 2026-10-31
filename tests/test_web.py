@@ -2080,12 +2080,66 @@ def test_step5_report_window_endpoints(server):
         else:
             raise AssertionError(path + " should be rejected")
 
-    history = json.loads(get(server, "/api/symptoms/history?limit=10")[1])
-    assert history["limit"] == 10
-    assert history["shown"] <= 10
-    assert history["total"] >= history["shown"]
-    all_history = json.loads(get(server, "/api/symptoms/history?limit=10&all=1")[1])
-    assert all_history["entries"] == history["entries"] or history["has_more"]
-
     cadence = json.loads(get(server, "/api/test-cadence")[1])
     assert "due" in cadence and "next_due" in cadence
+
+
+def test_e1rm_coverage_preview_propagates_window(monkeypatch):
+    captured = {}
+
+    def fake_build(conn, *, window_days):
+        captured["build"] = window_days
+        return []
+
+    def fake_coverage(conn, *, report, window_days):
+        captured["coverage"] = window_days
+        return []
+
+    monkeypatch.setattr(web_server.e1rm_calibration_feature, "build", fake_build)
+    monkeypatch.setattr(web_server.e1rm_calibration_feature, "coverage", fake_coverage)
+    monkeypatch.setattr(
+        web_server.e1rm_calibration_feature, "coverage_as_dict",
+        lambda rows: [{"note": "window " + str(captured["coverage"]) + " days"}],
+    )
+    result = web_server.Handler._e1rm_tests_needed_response(None, object(), 30)
+    assert captured == {"build": 30, "coverage": 30}
+    assert "30 days" in result["tests_needed"][0]["note"]
+
+
+def test_volume_week_bounds_are_enforced(server):
+    for weeks in ("1", "52"):
+        status, body = get(server, "/api/volume?weeks=" + weeks)
+        assert status == 200, body
+    for weeks in ("0", "53", "-1", "4.5", "abc", ""):
+        try:
+            get(server, "/api/volume?weeks=" + weeks)
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 400, weeks
+        else:
+            raise AssertionError("weeks=" + weeks + " should be rejected")
+
+
+def test_symptom_history_limit_order_and_all(server):
+    empty = json.loads(get(server, "/api/symptoms/history?limit=5")[1])
+    assert empty == {
+        "entries": [], "total": 0, "shown": 0, "has_more": False, "limit": 5,
+    }
+    days = [f"2025-01-{day:02d}" for day in range(1, 13)]
+    for index, day in enumerate(days, start=1):
+        post(server, "/api/state/symptom", {
+            "date": day, "region": "low_back", "level": index % 4,
+            "settled": index % 2 == 0, "note": "entry " + str(index),
+        })
+    limited = json.loads(get(server, "/api/symptoms/history?limit=5")[1])
+    assert limited["total"] == 12
+    assert limited["shown"] == 5
+    assert limited["has_more"] is True
+    assert [row["logged_on"] for row in limited["entries"]] == list(reversed(days))[:5]
+    assert [row["note"] for row in limited["entries"]] == [
+        "entry 12", "entry 11", "entry 10", "entry 9", "entry 8",
+    ]
+    all_history = json.loads(get(server, "/api/symptoms/history?limit=5&all=1")[1])
+    assert all_history["total"] == 12
+    assert all_history["shown"] == 12
+    assert all_history["has_more"] is False
+    assert [row["logged_on"] for row in all_history["entries"]] == list(reversed(days))

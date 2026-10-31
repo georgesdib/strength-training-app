@@ -78,7 +78,7 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
   limits. A `recent stress` column, a `readiness` column, the **strength fatigue diagnostic**
   panel (predictive form rejected; per-lift + overall state is descriptive context with 95% intervals,
   R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only; week/date controls), the **per-rep velocity** panel (descriptive loss and associations; n ≥ 10 for correlations), the **continuity calibration** panel (per-band returns/fixed/applied and the
-  `allow_relax_fixed` setting, with an as-of date), the **strength fatigue diagnostic** date control and the **retrospective validation** maximum-dates control, and the **exercise selection** panel (preview rankings with A/B/C
+  `allow_relax_fixed` setting, with an as-of date), the **strength fatigue diagnostic** date control and the **retrospective validation** maximum-dates control (integer 1–100, default 12, server-validated; invalid values are rejected rather than clamped), and the **exercise selection** panel (preview rankings with A/B/C
   comparison classes and a display-only own-history e1RM ratio; optional LLM chooser). Under
   the rankings it shows the **fatigue-informed suggestion** (Part C): at most one accessory
   variant, only when the exposure signal is high and the candidate is rated strictly lower on
@@ -127,7 +127,11 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
   measured tests vs formula; a bounded correction is applied only when the confidence interval
   excludes 1.0). Read-only preview controls change the calibration/coverage window without
   changing active calibration, the raw symptom history shows the latest 10 with Show all, and
-  the strength-test cadence block reports last/next/due state.
+  the strength-test cadence block reports last/next/due state. Cadence and measured-test
+  coverage are shown separately; coverage reuses the e1RM coverage gate (current, insufficient
+  or unavailable) with an explanatory reason. **Record a strength test** scrolls to and focuses
+  the existing dynamically rendered `#test-form`; it does not create a second form or submission
+  path.
 - **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
   same-category substitute rises; a review question, never an action.
 - **Settings** — appearance (System / Light / Dark), optional LLM configuration (enable/disable, model, endpoint, write-only key,

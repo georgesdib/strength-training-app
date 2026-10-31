@@ -938,7 +938,7 @@
       <div class="panel state-wide" id="state-report-windows">
         <div class="panel-head"><h2>Report window previews</h2>
           <span class="muted">read-only; active calibration unchanged</span></div>
-        <p class="section-help">Preview the e1RM calibration and test-coverage windows without changing the active calibration.</p>
+        <p class="section-help">Preview the e1RM calibration and test-coverage windows without changing the active calibration. <a class="doc-link" href="#docs?doc=ROADMAP.md">Roadmap</a></p>
         <div class="form-row">
           <label>Calibration window <input type="number" id="state-e1rm-calibration-window" min="7" max="365" value="84"></label>
           <button type="button" class="ghost" id="state-e1rm-calibration-run">Preview calibration</button>
@@ -950,11 +950,13 @@
       <div class="panel state-wide" id="state-symptom-panel">
         <div class="panel-head"><h2>Raw symptom history</h2>
           <span class="muted">read-only; latest 10</span></div>
+        <p class="section-help">Raw symptom entries are evidence, not a diagnosis. <a class="doc-link" href="#docs?doc=docs/SYMPTOM-LOGGING.md">Symptom logging</a></p>
         <div id="state-symptom-history"><p class="empty">Loading…</p></div>
       </div>
       <div class="panel state-wide" id="state-test-cadence-panel">
         <div class="panel-head"><h2>Strength-test cadence</h2>
           <span class="muted">read-only</span></div>
+        <p class="section-help">Cadence is a reminder; measured-test coverage uses the e1RM gate. <a class="doc-link" href="#docs?doc=docs/TRAINING-DYNAMICS.md">Training dynamics</a></p>
         <div id="state-test-cadence"><p class="empty">Loading…</p></div>
       </div>
     </section>

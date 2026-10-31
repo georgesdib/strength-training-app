@@ -1,6 +1,6 @@
 # Monitoring configuration and report-control UI plan
 
-**Status:** Steps 1–5 implemented and reviewed. Step 4 includes revision hardening and one-click conflict recovery; Step 5 adds the LIM-27 point 3 report/window controls, calibration/coverage previews, top-10 symptom history with Show all, and test-cadence status. Step 6 remains pending.
+**Status:** Steps 1–5 implemented and reviewed. Step 4 includes revision hardening and one-click conflict recovery; Step 5 adds the LIM-27 point 3 report/window controls, calibration/coverage previews, top-10 symptom history with Show all, and test-cadence status with separate measured-test coverage and a Record-test link. Step 5 corrective hardening also validates volume weeks (1–52) and validation maximum dates (1–100) server-side and passes the selected coverage window through. Step 6 remains pending.
 
 **Scope:** read-only parameter inventory visible on the home LAN; loopback-only writes; relative-strength pair CRUD; LIM-27 point 3 report/window controls.
 
