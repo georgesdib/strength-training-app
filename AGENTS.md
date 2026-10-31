@@ -13,8 +13,9 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**v1.1 beta is released; v1.2 is planned.** v1.0 packaged the workable app and guided Workflow
-UI for user testing. v1.1 beta adds the Performance and monitoring-analysis surfaces. v1.2 is
+**v1.1 beta.2 is released; v1.2 is planned.** v1.0 packaged the workable app and guided Workflow
+UI for user testing. v1.1 beta adds the Performance, monitoring-analysis, configuration and
+report-control surfaces. v1.2 is
 planned to drop the beta label; cardio depth and comparable calibration data remain (see
 ROADMAP §4.13a/§4.14).
 

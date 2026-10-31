@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-10-30 · **v1.1 beta released; v1.2 planned** · version `1.1.0b1`
+Last updated: 2026-10-31 · **v1.1 beta.2 released; v1.2 planned** · version `1.1.0b2`
 
 
 ---
@@ -49,7 +49,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v0.3 | Strength/data depth | **done** | manual logging via live workout mode (§4.2/§4.21, closed), import adapters closed (§4.3), learned readiness weights evaluated and closed (§4.9), LLM proposal view closed as CLI-only (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed), read-only 4/8/12-week outcomes review, longevity context, prescription-modifier provenance and quick readiness presets/context and readiness feedback, UI prescription persistence (A0/A/B/C/E), minimum effective sessions (D) the methodology/privacy docs (F), W1/W7 attendance metrics and the session-time cap |
 | v0.4 | Audit, documentation and form closeout | **done 2026-10-25** | form assessment/prospective follow-up, fatigue diagnostic closure, UI documentation P0–P4, parent-ratio evidence review, weakness test plan, calibration milestone (§4.22) |
 | v1.0 beta | Workable app + guided Workflow UI | **released 2026-10-27** | full strength loop, guided readiness → preview → workout → post-workout, effective volume accounting, template editor, schedule fallback/rebalance; user testing in progress |
-| v1.1 beta | Performance + monitoring analysis | **released 2026-10-30** | raw e1RM Performance view, rolling median, breaks, degraded observations, dose, configured relative-strength ratios, read-only monitoring analysis, calibration transparency; Phase 5A review follow-up |
+| v1.1 beta | Performance + monitoring analysis | **released 2026-10-31 (b2); b1 2026-10-30** | raw e1RM Performance view, rolling median, breaks, degraded observations, dose, configured relative-strength ratios, read-only monitoring analysis, calibration transparency; Phase 5A review follow-up |
 | v1.2 | Beta removal + cardio + calibration depth | **planned; plan at §4.13a** | drop the beta label after user testing; pending: cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
 | — | 2026-10-26 pass | **done 2026-10-26** | declared breaks — append-only range, `break` CLI, Athlete panel, freeze in the trained-week cycle (`DEC-CONTINUITY-04`, `LIM-50`); P1 measured-test coverage view (`e1rm tests-needed` + Athlete table); symptom settling made fail-safe — a level-1 reading without a recorded 48 h settlement is a flare (`DEC-SYMPTOM-04`, Q25 closed) and `docs/SYMPTOM-LOGGING.md` documents the episode workflow; minimum-session target shown against the measured clock (`DEC-MIN-02`, `LIM-47` mitigated); gaps table folded into `docs/LIMITATIONS-REGISTER.md` |
@@ -76,7 +76,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v0.3 | everything strength/data-depth that is not cardio: manual logging, adapters closed, LLM proposal view CLI-only, continuity calibration, exercise selection, strength fitness-fatigue model | **done** |
 | v0.4 | audit/documentation/form closeout: form assessment, fatigue diagnostic, UI docs P0–P4, ratio review, weakness plan, calibration milestone | **done 2026-10-25** |
 | v1.0 beta | workable app, guided Workflow UI and the current strength/volume feature set | **released 2026-10-27; beta** |
-| v1.1 beta | monitoring and Performance surfaces | **released 2026-10-30; beta** |
+| v1.1 beta | monitoring and Performance surfaces | **released 2026-10-31 (b2); beta** |
 | v1.2 | beta removal plus cardio depth and comparable calibration data | **planned; see §4.13a** |
 | — | post-workout form assessment | **done 2026-10-25** |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional (§4.24)** |
