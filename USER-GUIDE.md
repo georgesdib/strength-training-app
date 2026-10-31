@@ -140,7 +140,7 @@ The programme rolls through these types; the Programme page is a forecast, not a
 
 ### During training — live workout
 
-Start the workout from the Workflow page and record completed work in the live workout interface. Use the prescribed rep range and effort target as guidance, while applying normal judgement and stopping if the session becomes unsafe or symptoms materially worsen.
+Start the workout from the Workflow page and record completed work in the live workout interface. Use the prescribed rep range and effort target as guidance, while applying normal judgement and stopping if the session becomes unsafe or symptoms materially worsen. Each planned exercise has a **History** toggle showing the last five completed sessions for that lift (with **Show more**); it is read-only and does not include the set you are currently logging.
 
 Power work is quality-limited: stop when movement quality or output declines rather than chasing fatigue. A prescribed RIR target is an estimate of repetitions in reserve, not a requirement to grind through a bad rep.
 

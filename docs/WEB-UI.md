@@ -96,6 +96,12 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 - **Workflow → Workout** — start from the preview with a score-ready assessment or an explicit unknown/partial acknowledgement (device fields optional), log sets manually, remove a set, end with measured/manual duration and sRPE or mark sRPE not recorded, or abandon. A prescription snapshot is frozen at start. During the workout the plan is editable: adjust planned sets, swap/add/remove exercises; swap opens one searchable exercise dialog, each add/swap is an append-only event and the original prescription stays frozen. On completion the workout materialises, the end screen shows actual vs modified plan, actual vs original prescription, the deterministic rubric, and a descriptive Phase 2 summary. **Review workout** opens the rubric sheet; saving marks runs calibration and closes the workout. In-workout CSV import is available by paste or file with columns `Exercise,Set,RPE,Value,Weight,Reps`; preview first, then apply. A recognised exercise absent from the prescription is added to the workout plan; an unrecognised exercise is shown as unknown and blocks apply. The file has no date, so backfill is not supported. Each planned lift has an optional **Form** 1–5 rating, editable later in History. An optional second per-rep CSV (`Exercise Name,Set Number,Metric Name,Rep Number,Velocity`) can be added in the same panel; it joins by exercise + set, never creates a set, and is shown descriptively after the workout. The ended screen also offers an optional **e1RM**
   record: a measured test from a set (kg x reps, which registers a high-intensity exposure and
   rejects a 1RM until the interval allows it) or a direct override. Both append; nothing is edited.
+- **Workout → per-exercise history** — every planned lift has a **History** toggle. It lazily shows
+  the last five completed sessions (newest first) with set number, load × reps and RIR, and a
+  **Show more** control for the next five. It includes declared history equivalents (currently
+  back extension/hyperextension), excludes warm-ups, voided sessions and superseded sets, respects
+  the workout date, and is read-only; current workout sets are not part of it and corrections stay
+  in History. The *Plan and plan edits* section is open by default so the toggle is visible.
 - **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
   date and first session type (`auto` or a specific type).
   every session is rebuilt on the day and nothing is persisted.
@@ -174,6 +180,7 @@ also disables while saving and reports the number of marks written.
 | `POST /api/workout/<id>/import` | `{text, rep_text?, apply}` -> parse/preview/apply workout CSV; optional per-rep table; no date column |
 | `POST /api/workout/<id>/import/undo` | undo the latest import batch, including rep detail |
 | `GET /api/history?limit=&offset=&start=&end=` | paginated session history |
+| `GET /api/exercise-history?exercise_id=&limit=&offset=&on_or_before=` | read-only completed-session history for one exercise, grouped by session; limit counts sessions and defaults to 5 |
 | `GET /api/history/<id>` | current session sets and feedback |
 | `POST /api/history/<id>/edit` | append-only correction of sets and session metadata |
 | `POST /api/history/<id>/vbt` | set/rep VBT overrides (also accepted inside `/edit`) |

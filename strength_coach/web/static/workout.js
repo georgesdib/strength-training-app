@@ -12,6 +12,8 @@ const WORKOUT_LABELS = {
 let workoutTimer = null;
 let activeWorkoutId = null;
 let workoutSetBusy = false;
+const WORKOUT_HISTORY_LIMIT = 5;
+let workoutHistoryState = {};
 
 function workoutField(key, required) {
   var label = '<label>' + esc(WORKOUT_LABELS[key] || key);
@@ -399,6 +401,7 @@ function renderWorkout(w) {
   (w.forms || []).forEach(function (form) { formById[form.exercise_id] = form; });
   var rows = items.map(function (item, index) {
     var form = formById[item.exercise_id];
+    var history = workoutHistoryFor(item.exercise_id);
     var formOptions = ['<option value="">—</option>'];
     for (var rating = 1; rating <= 5; rating += 1) {
       formOptions.push('<option value="' + rating + '"' +
@@ -409,12 +412,17 @@ function renderWorkout(w) {
       : (item.rir_target == null ? "no RIR target" : "RIR " + item.rir_target);
     return '<article class="workout-plan-card">' +
       '<div class="workout-plan-card-head"><strong>' + esc(workoutExerciseLabel(item.exercise_id)) + '</strong>' +
-      '<span class="badge">' + item.sets + ' sets</span></div>' +
+      '<span class="workout-plan-card-tools"><span class="badge">' + item.sets + ' sets</span>' +
+      '<button class="ghost workout-history-toggle" type="button" data-history-toggle data-history-exercise="' +
+      esc(item.exercise_id) + '" aria-expanded="' + (history.open ? "true" : "false") +
+      '" aria-controls="workout-history-' + index + '">' +
+      (history.open ? "Hide history" : "History") + '</button></span></div>' +
       '<p class="workout-plan-prescription">' + item.reps_low + "–" + item.reps_high +
       ' reps · ' + (item.load_kg == null ? "load unknown" : fmt(item.load_kg) + " kg") +
       ' · ' + esc(effort) + '</p>' +
       (item.substitution_for ? '<p class="muted">swapped from ' + esc(item.substitution_for) + '</p>' : "") +
       (item.added_during_workout ? '<p class="muted">added during workout</p>' : "") +
+      workoutHistoryPanel(item.exercise_id, index, history) +
       '<div class="workout-plan-actions">' +
       '<div class="set-stepper" role="group" aria-label="Planned sets for ' + esc(item.exercise_id) + '">' +
       '<button class="ghost" type="button" data-plan-set="-1" data-index="' + index +
@@ -542,6 +550,147 @@ function renderWorkout(w) {
   var measured = Math.max(1, Math.round((w.elapsed_seconds || 0) / 60));
   $("#workout-end-duration").placeholder = "measured ~" + measured + " min";
   startWorkoutTimer(w.started_at, w.elapsed_seconds);
+}
+
+function workoutHistoryFor(exerciseId) {
+  var key = String(exerciseId);
+  if (!workoutHistoryState[key]) {
+    workoutHistoryState[key] = {
+      open: false,
+      loaded: false,
+      loading: false,
+      error: "",
+      sessions: [],
+      total: 0,
+      hasMore: false,
+      included: []
+    };
+  }
+  return workoutHistoryState[key];
+}
+
+function workoutHistoryLoadLabel(set) {
+  var load = set.load_kg == null
+    ? "—"
+    : (Number(set.load_kg) === 0 && set.load_basis !== "external"
+      ? "BW" : fmt(set.load_kg) + " kg");
+  var reps = set.reps == null
+    ? "—"
+    : set.reps + (set.reps_unit === "seconds" ? " sec" : "");
+  return load + " × " + reps;
+}
+
+function workoutHistorySessionHtml(session) {
+  var rows = (session.sets || []).map(function (set) {
+    return "<tr><td>" + esc(set.set_index) + "</td><td>" +
+      esc(workoutHistoryLoadLabel(set)) + "</td><td>" +
+      (set.rir == null ? "—" : "RIR " + esc(set.rir)) + "</td></tr>";
+  }).join("");
+  return '<div class="workout-history-session"><div class="workout-history-date">' +
+    "<strong>" + esc(session.occurred_on) + "</strong> " +
+    '<span class="muted">' + esc(session.session_type || "") + "</span></div>" +
+    '<table class="workout-history-table"><thead><tr><th>Set</th>' +
+    "<th>Load × reps</th><th>RIR</th></tr></thead><tbody>" + rows +
+    "</tbody></table></div>";
+}
+
+function workoutHistoryPanel(exerciseId, index, state) {
+  if (!state.open) return "";
+  var body;
+  if (state.error) {
+    body = '<p class="warnbox">' + esc(state.error) + "</p>";
+  } else if (state.loading && !state.sessions.length) {
+    body = "<p class='muted'>Loading history…</p>";
+  } else if (!state.sessions.length) {
+    body = "<p class='empty'>No completed history for this exercise.</p>";
+  } else {
+    body = state.sessions.map(workoutHistorySessionHtml).join("");
+    if (state.hasMore || state.loading) {
+      body += '<button class="ghost workout-history-more" type="button" data-history-more ' +
+        'data-history-exercise="' + esc(exerciseId) + '"' +
+        (state.loading ? " disabled" : "") + ">" +
+        (state.loading ? "Loading…" : "Show more") + "</button>";
+    }
+  }
+  var included = "";
+  if (state.loaded) {
+    var extras = (state.included || []).filter(function (row) {
+      return String(row.id) !== String(exerciseId);
+    });
+    if (extras.length) {
+      included = '<p class="muted">Includes ' + extras.map(function (row) {
+        return esc(row.display || row.id);
+      }).join(", ") + " history.</p>";
+    }
+  }
+  return '<div class="workout-history" id="workout-history-' + index +
+    '" data-history-panel data-history-exercise="' + esc(exerciseId) + '">' +
+    included + body + "</div>";
+}
+
+function renderWorkoutHistory(exerciseId) {
+  var id = String(exerciseId);
+  var state = workoutHistoryFor(id);
+  document.querySelectorAll("[data-history-toggle]").forEach(function (button) {
+    if (String(button.dataset.historyExercise) !== id) return;
+    button.textContent = state.open ? "Hide history" : "History";
+    button.setAttribute("aria-expanded", state.open ? "true" : "false");
+  });
+  document.querySelectorAll("[data-history-panel]").forEach(function (panel) {
+    if (String(panel.dataset.historyExercise) !== id) return;
+    if (!state.open) {
+      panel.remove();
+      return;
+    }
+    var index = panel.id.replace("workout-history-", "");
+    panel.outerHTML = workoutHistoryPanel(id, index, state);
+  });
+}
+
+function loadWorkoutHistory(exerciseId, append) {
+  var id = String(exerciseId);
+  var state = workoutHistoryFor(id);
+  if (state.loading) return;
+  state.loading = true;
+  state.error = "";
+  renderWorkoutHistory(id);
+  var offset = append ? state.sessions.length : 0;
+  var date = window.__workoutData && window.__workoutData.for_date;
+  var query = "?exercise_id=" + encodeURIComponent(id) +
+    "&limit=" + WORKOUT_HISTORY_LIMIT + "&offset=" + offset +
+    (date ? "&on_or_before=" + encodeURIComponent(date) : "");
+  api("/api/exercise-history" + query).then(function (data) {
+    var next = data.sessions || [];
+    state.sessions = append ? state.sessions.concat(next) : next;
+    state.total = Number(data.total) || 0;
+    state.hasMore = Boolean(data.has_more);
+    state.included = data.included_exercises || [];
+    state.loaded = true;
+    state.loading = false;
+    renderWorkoutHistory(id);
+  }).catch(function (error) {
+    state.loading = false;
+    state.error = error.message;
+    renderWorkoutHistory(id);
+  });
+}
+
+function handleWorkoutHistoryClick(event) {
+  var toggle = event.target.closest("[data-history-toggle]");
+  if (toggle) {
+    var id = toggle.dataset.historyExercise;
+    var state = workoutHistoryFor(id);
+    state.open = !state.open;
+    renderWorkoutHistory(id);
+    if (state.open && !state.loaded) loadWorkoutHistory(id, false);
+    return;
+  }
+  var more = event.target.closest("[data-history-more]");
+  if (more) {
+    var moreId = more.dataset.historyExercise;
+    var moreState = workoutHistoryFor(moreId);
+    if (!moreState.loading) loadWorkoutHistory(moreId, true);
+  }
 }
 
 function renderWorkoutEnded(w) {
@@ -875,6 +1024,8 @@ document.addEventListener("DOMContentLoaded", function () {
   if (notRecorded) notRecorded.addEventListener("change", function () {
     document.getElementById("workout-end-srpe").disabled = notRecorded.checked;
   });
+  var plan = document.getElementById("workout-plan");
+  if (plan) plan.addEventListener("click", handleWorkoutHistoryClick);
   loadWorkoutExercises();
   loadActiveWorkout();
 });

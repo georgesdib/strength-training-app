@@ -45,6 +45,17 @@ def test_every_referenced_script_exists() -> None:
         assert src.startswith("/static/"), src
         assert (STATIC / src.removeprefix("/static/")).is_file(), src
 
+def test_workout_exercise_history_is_wired() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    source = (STATIC / "workout.js").read_text(encoding="utf-8")
+    assert 'id="workout-plan-details" open' in page
+    assert "data-history-toggle" in source
+    assert "data-history-more" in source
+    assert "/api/exercise-history" in source
+    assert "WORKOUT_HISTORY_LIMIT = 5" in source
+    assert "Show more" in source
+
+
 def test_summary_script_and_panel_are_wired() -> None:
     page = INDEX.read_text(encoding="utf-8")
     assert 'id="workout-ended-summary"' in page

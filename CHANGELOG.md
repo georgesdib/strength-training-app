@@ -35,6 +35,13 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ## [Unreleased]
 
+### Added
+
+- Active-workout **per-exercise History** toggle: the last five completed sessions with
+  **Show more**, set number, load × reps and RIR. Working sets only, declared history
+  equivalents included, current-workout sets excluded and read-only. The plan section is open
+  by default so the toggle is visible; `GET /api/exercise-history` serves it.
+
 ### Changed
 
 - Removed the unused `athlete_profile.effective_to` column (migration 0046). Profile versions

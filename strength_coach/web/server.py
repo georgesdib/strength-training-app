@@ -66,6 +66,7 @@ from strength_coach.features import deload as deload_feature
 from strength_coach.features import demands as demands_feature
 from strength_coach.features import derived as derived_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import exercise_history as exercise_history_feature
 from strength_coach.features import exposure as exposure_ratio_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import form_assessment as form_assessment_feature
@@ -805,6 +806,20 @@ class Handler(BaseHTTPRequestHandler):
                 session_id = path.rsplit("/", 1)[-1]
                 self._json(200, self._with_conn(
                     lambda c: history.detail(c, session_id)
+                ))
+            elif path == "/api/exercise-history":
+                query = parse_qs(urlparse(self.path).query)
+                exercise_id = query.get("exercise_id", [""])[0]
+                if not exercise_id:
+                    raise ValueError("exercise_id is required")
+                self._json(200, self._with_conn(
+                    lambda c: exercise_history_feature.history(
+                        c,
+                        exercise_id,
+                        limit=int(query.get("limit", ["5"])[0]),
+                        offset=int(query.get("offset", ["0"])[0]),
+                        on_or_before=query.get("on_or_before", [None])[0],
+                    )
                 ))
             elif path == "/api/calibrate":
                 self._json(200, self._with_conn(self._calibrate))

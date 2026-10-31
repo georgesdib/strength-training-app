@@ -318,6 +318,16 @@ body.menu-open { overflow: hidden; }
 .plan-options summary { cursor: pointer; color: var(--accent); }
 .plan-options select { min-width: 0; width: 100%; }
 .workout-plan-card .plan-options { border-top: 1px solid var(--line); padding-top: 8px; }
+.workout-plan-card-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.workout-history { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
+.workout-history-session { margin-top: 8px; }
+.workout-history-session:first-of-type { margin-top: 0; }
+.workout-history-date { margin-bottom: 4px; font-size: 13px; }
+.workout-history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.workout-history-table th, .workout-history-table td { text-align: left;
+  padding: 3px 8px 3px 0; vertical-align: top; }
+.workout-history-table th { color: var(--muted); font-weight: 600; }
+.workout-history-more { margin-top: 8px; }
 
 /* Theme-aware dialogs, mobile target sizes and safe areas. */
 .app-dialog { width: 94%; max-width: 720px; max-height: calc(100vh - 24px); overflow: auto;

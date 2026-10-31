@@ -90,6 +90,7 @@ These are known and intentional or still open.
 - Outcomes page (strength + longevity + data coverage).
 - Readiness feedback panel.
 - Quick readiness presets/context UI.
+- Active-workout per-exercise history (read-only; no CLI command).
 
 These are UI surfaces over core functions; they do not violate parity.
 
