@@ -508,6 +508,18 @@ if (html.indexOf("0 kg (observed_zero)") < 0) throw new Error("genuine zero lost
     subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
 
 
+def test_relationship_crud_ui_is_wired() -> None:
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    assert "/api/performance/relationships" in source
+    assert "/update" in source
+    assert "endpointAction" in source
+    assert "data-relationship-action='delete'" in source
+    assert "data-relationship-action='reset'" in source
+    assert "Locally hidden pairs" in source
+    assert "Confirm delete" in source
+    assert "performanceRelationshipConfig.revision" in source
+
+
 def test_monitoring_inventory_reason_disclosures_and_empty_state() -> None:
     node = shutil.which("node")
     if node is None:

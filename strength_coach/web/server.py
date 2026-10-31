@@ -1847,6 +1847,12 @@ class Handler(BaseHTTPRequestHandler):
     def _relationship_payload(
         relationships: list[relative_strength_feature.Relationship],
     ) -> dict:
+        records = relative_strength_feature.load_relationships_with_sources()
+        sources = {
+            item.id: {"source": source, "source_kind": kind}
+            for item, source, kind in records
+        }
+        hidden = relative_strength_feature.hidden_relationships()
         return {
             "ok": True,
             "revision": relative_strength_feature.relationship_config_revision(),
@@ -1861,8 +1867,15 @@ class Handler(BaseHTTPRequestHandler):
                     "max_age_days": item.max_age_days,
                     "min_observations": item.min_observations,
                     "notes": item.notes,
+                    "source": sources.get(item.id, {}).get("source", "canonical config"),
+                    "source_kind": sources.get(item.id, {}).get("source_kind", "canonical_config"),
                 }
                 for item in relationships
+            ],
+            "hidden": [
+                {"id": item.id, "label": item.label,
+                 "source": "locally hidden canonical pair", "source_kind": "local_override"}
+                for item in hidden
             ],
         }
 

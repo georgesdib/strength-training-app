@@ -423,3 +423,12 @@ body.menu-open { overflow: hidden; }
 .monitoring-reason { margin-top: 6px; }
 .monitoring-reason summary { cursor: pointer; font-size: 12px; color: var(--muted); }
 .monitoring-reason p { margin: 4px 0 0; max-width: 52ch; }
+.relationship-admin-row { display: flex; justify-content: space-between; align-items: start;
+  gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.relationship-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: end; }
+.relationship-edit-form { display: grid; gap: 8px; margin-top: 10px; padding: 10px;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--input-bg); }
+@media (max-width: 640px) {
+  .relationship-admin-row { flex-direction: column; }
+  .relationship-actions { justify-content: start; }
+}

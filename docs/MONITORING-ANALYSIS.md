@@ -38,10 +38,10 @@ catalogue. User changes are written to the git-ignored
 unchanged. The loader merges local additions, full-object edits and tombstones over the
 canonical pairs.
 
-The backend supports add, edit, delete and reset with full server-side validation against the
-taxonomy and merged configuration. The current Performance form uses the add path; the
-edit/delete/reset UI remains Step 4. Every write is atomic and revision-checked; the add form
-keeps its legacy optional-revision behaviour until Step 4 sends the revision explicitly.
+The Performance panel supports add, edit, delete and reset with full server-side validation
+against the taxonomy and merged configuration. Edits replace the full local object; membership
+is immutable. Every write is atomic and revision-checked, and locally hidden canonical pairs
+can be restored from the panel.
 
 A pair is accepted only when:
 

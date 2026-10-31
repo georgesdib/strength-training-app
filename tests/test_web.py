@@ -2004,6 +2004,7 @@ def test_relationship_crud_api_enforces_revision_and_reset(server, tmp_path, mon
         {"revision": current},
     )
     assert all(item["id"] != first["id"] for item in deleted["relationships"])
+    assert any(item["id"] == first["id"] for item in deleted["hidden"])
     current = deleted["revision"]
 
     reset = post(
@@ -2013,5 +2014,6 @@ def test_relationship_crud_api_enforces_revision_and_reset(server, tmp_path, mon
     )
     restored = next(item for item in reset["relationships"] if item["id"] == first["id"])
     assert restored["label"] == first["label"]
+    assert all(item["id"] != first["id"] for item in reset["hidden"])
     assert (tmp_path / "strength-relationships.local.yaml").is_file()
     assert added["id"] == "front_squat_to_bench_press"
