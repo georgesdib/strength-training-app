@@ -50,6 +50,7 @@ from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, 
 from strength_coach.features import breaks as breaks_feature
 from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import (
+    config_inventory,
     continuity_calibration,
     heavy_spinal,
     injury_signal,
@@ -714,6 +715,8 @@ class Handler(BaseHTTPRequestHandler):
                                  mimetypes.guess_type(path)[0] or "application/octet-stream")
             elif path == "/api/settings":
                 self._json(200, self._with_conn(lambda c: self._settings(c)))
+            elif path == "/api/settings/monitoring":
+                self._json(200, config_inventory.build_inventory())
             elif path == "/api/settings/drop/window":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0] or datetime.date.today().isoformat()

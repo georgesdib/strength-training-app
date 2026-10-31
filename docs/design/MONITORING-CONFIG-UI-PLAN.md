@@ -1,6 +1,6 @@
 # Monitoring configuration and report-control UI plan
 
-**Status:** approved for implementation planning; no code changes authorised by this document.
+**Status:** Step 1 (read-only inventory backend) implemented. Steps 2–6 remain pending; no other code is authorised by this document.
 
 **Scope:** read-only parameter inventory visible on the home LAN; loopback-only writes; relative-strength pair CRUD; LIM-27 point 3 report/window controls.
 

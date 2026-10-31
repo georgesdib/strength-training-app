@@ -1907,3 +1907,16 @@ def test_relationship_options_and_validated_add(server, monkeypatch):
     assert payload["ok"] is True
     assert captured[0].numerator == "front_squat"
     assert captured[0].denominator == "bench_press"
+
+
+def test_monitoring_config_inventory_is_read_only_and_path_safe(server):
+    payload = json.loads(get(server, "/api/settings/monitoring")[1])
+    assert payload["read_only"] is True
+    assert payload["phase"]["locked"] is True
+    assert payload["phase"]["review_due"] == "2027-01-22"
+    assert payload["groups"]
+    groups = {group["key"]: group for group in payload["groups"]}
+    assert "monitoring" in groups and "relationships" in groups
+    assert all(row["editable"] is False for group in payload["groups"] for row in group["parameters"])
+    assert "/home/" not in json.dumps(payload)
+    assert "data/coach.db" not in json.dumps(payload)
