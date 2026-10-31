@@ -1,6 +1,6 @@
 # LIMITATIONS REGISTER
 
-**Status:** living register, updated 2026-10-30. It is the only public place accepted
+**Status:** living register, updated 2026-10-31. It is the only public place accepted
 limitations are listed; the roadmap keeps no second table. Private historical-data limitations
 are kept in the git-ignored private record only.
 **Purpose:** keep every known limitation from the audits in one place so later work can revisit
@@ -37,7 +37,7 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-44 | The weekly spinal cap now counts the low-bar competition squat at cost 1, but the taxonomy still has no bar-position field; high-bar and SSB are excluded by exercise identity, not by a measured bar position | closed | DEC-SPINE-05 / Q24 | reopened only if a general bar-position model replaces the explicit classification |
 | LIM-43 | The e1RM plausibility advisory is display-only and generation-time only (warnings are not persisted with a stored prescription), needs at least 3 recent working sets to speak, cannot see the last-working-load fallback (which has no e1RM at all), and cannot detect a systematic level bias in the whole e1RM distribution — that is `MOD-E1RM-001`'s job and needs measured tests | open | DEC-E1RM-PLAUS-01 | a level-bias estimate from repeated measured tests |
 | LIM-26 | Single-athlete observational data cannot support causal claims | open | W4/W5, METHODOLOGY | prospective design |
-| LIM-27 | The UI still lacks first-class surfaces for `review --pending`, bulk state YAML and some report date controls (e1RM window, volume weeks, test-coverage window); LLM proposals are intentionally CLI-only. The Programme job/result cache is UI-transport only: the CLI rebuilds the forecast directly and does not expose a cached-forecast command | open | UI-CLI-PARITY, WEB-UI, Programme job/cache | parity work for the remaining items; keep the Programme cache transport-only or promote it to a core feature with CLI access |
+| LIM-27 | The UI still lacks first-class surfaces for `review --pending` and bulk state YAML; LLM proposals are intentionally CLI-only. The Programme job/result cache is UI-transport only: the CLI rebuilds the forecast directly and does not expose a cached-forecast command. The earlier report-control gaps (e1RM/coverage windows, volume weeks, continuity/fatigue/validation dates and symptom-history controls) were closed by Step 5 in v1.1.0b2 | open | UI-CLI-PARITY, WEB-UI, Programme job/cache, MONITORING-CONFIG-UI-PLAN | parity work for the remaining items; keep the Programme cache transport-only or promote it to a core feature with CLI access |
 | LIM-28 | The engine does not enforce measured session duration; it only warns against the planned cap | accepted (design decision) | W1, DEC-W1-01 | intentional; the cap remains advisory |
 | LIM-29 | Forecast deload is now build-time, but a forecast is still not a persisted plan | documented | W1 | a persisted plan is introduced |
 | LIM-30 | W3 interaction fixes are regression-tested for the audited cases, not every imaginable combination | open | W3 | a broader property matrix is run |
