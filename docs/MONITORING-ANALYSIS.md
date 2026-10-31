@@ -48,8 +48,14 @@ A stale revision returns 409. The UI explains that the configuration changed els
 offers a Reload configuration action and never automatically replays the failed write; the
 user reviews the refreshed revision and retries explicitly. If the reload itself fails, the UI
 shows that the latest configuration could not be retrieved, clears the stale in-memory
-configuration, disables additions and keeps a retry action. Additions are disabled until the
-relationship configuration and its revision load successfully.
+configuration, disables additions and keeps a one-click retry action. Additions are disabled
+until the relationship configuration and its revision load successfully.
+
+Every successful write to an existing local overlay first creates an exact-byte backup under
+`data/config-backups/`. Backup filenames are timestamped and collision-safe; the 20 most recent
+backups are retained. If the backup cannot be created, the write is aborted and the previous
+overlay is left unchanged. The canonical relationship YAML is never backed up or modified by
+this path.
 
 A pair is accepted only when:
 

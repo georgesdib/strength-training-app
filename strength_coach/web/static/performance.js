@@ -143,6 +143,30 @@ async function addRelationship(event) {
   }
 }
 
+async function reloadRelationshipConfig(stableId) {
+  var feedback = document.getElementById(stableId);
+  if (!feedback) return false;
+  var button = document.getElementById("relationship-reload-" + stableId);
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Reloading…";
+  }
+  var success = await loadRelationshipConfig(true);
+  var current = document.getElementById(stableId);
+  if (!current) return success;
+  if (success) {
+    current.textContent = "Configuration reloaded. Review the pairs and retry.";
+    return true;
+  }
+  current.innerHTML = "<span class='warnbox'>The latest relationship configuration could not be retrieved. Retry the reload.</span> " +
+    "<button type='button' class='ghost' id='relationship-reload-" + stableId + "-retry'>Reload configuration</button>";
+  var retry = document.getElementById("relationship-reload-" + stableId + "-retry");
+  if (retry) retry.addEventListener("click", function () {
+    reloadRelationshipConfig(stableId);
+  });
+  return false;
+}
+
 function showRelationshipConflict(targetId) {
   var stableId = targetId === "relationship-add-status"
     ? "relationship-add-status"
@@ -153,20 +177,8 @@ function showRelationshipConflict(targetId) {
     "<button type='button' class='ghost' id='relationship-reload-" + stableId + "'>Reload configuration</button>";
   var button = document.getElementById("relationship-reload-" + stableId);
   if (!button) return;
-  button.addEventListener("click", async function () {
-    button.disabled = true;
-    button.textContent = "Reloading…";
-    var success = await loadRelationshipConfig(true);
-    var feedback = document.getElementById(stableId);
-    if (!feedback) return;
-    if (success) {
-      feedback.textContent = "Configuration reloaded. Review the pairs and retry.";
-    } else {
-      feedback.innerHTML = "<span class='warnbox'>The latest relationship configuration could not be retrieved. Retry the reload.</span> " +
-        "<button type='button' class='ghost' id='relationship-reload-" + stableId + "-retry'>Reload configuration</button>";
-      var retry = document.getElementById("relationship-reload-" + stableId + "-retry");
-      if (retry) retry.addEventListener("click", function () { showRelationshipConflict(stableId); });
-    }
+  button.addEventListener("click", function () {
+    reloadRelationshipConfig(stableId);
   });
 }
 

@@ -528,7 +528,7 @@ def test_relationship_conflict_reload_is_explicit_and_contextual() -> None:
         import pytest
         pytest.skip("node is not installed")
     source = (STATIC / "performance.js").read_text(encoding="utf-8")
-    start = source.index("function showRelationshipConflict(targetId) {")
+    start = source.index("async function reloadRelationshipConfig(stableId) {")
     end = source.index("var RELATIONSHIP_TYPE_OPTIONS", start)
     function_source = source[start:end]
     script = r"""
@@ -571,13 +571,12 @@ eval(FUNC);
   if (feedback.innerHTML.includes("Configuration reloaded")) throw new Error("false success message");
   const retry = buttons["relationship-reload-performance-relationship-feedback-retry"];
   if (!retry) throw new Error("retry action missing after failed reload");
-  retry.click();
   success = true;
-  const second = buttons["relationship-reload-performance-relationship-feedback"];
-  second.click();
+  retry.click();
   await Promise.resolve();
+  if (reloads !== 2) throw new Error("retry did not invoke exactly one additional reload");
   if (feedback.textContent !== "Configuration reloaded. Review the pairs and retry.") {
-    throw new Error("successful reload did not report success");
+    throw new Error("successful retry did not report success");
   }
   showRelationshipConflict("relationship-add-status");
   if (!elements["relationship-add-status"].innerHTML.includes("Configuration changed elsewhere")) {

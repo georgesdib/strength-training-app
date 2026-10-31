@@ -6,8 +6,10 @@ target, a weakness diagnosis, a population norm, or a confidence interval.
 
 from __future__ import annotations
 
+import datetime
 import hashlib
 import os
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -132,6 +134,39 @@ def _load_overlay(path: str | Path | None = None) -> dict[str, Any]:
     }
 
 
+CONFIG_BACKUP_KEEP = 20
+CONFIG_BACKUP_PREFIX = "strength-relationships"
+
+
+def _backup_dir(target: Path) -> Path:
+    config_root = paths.config_dir()
+    if target.parent == config_root:
+        return paths.data_dir("config-backups")
+    return target.parent / "config-backups"
+
+
+def _backup_overlay(target: Path) -> Path | None:
+    if not target.is_file():
+        return None
+    previous = target.read_bytes()
+    backup_dir = _backup_dir(target)
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    backup = backup_dir / (
+        f"{CONFIG_BACKUP_PREFIX}-{stamp}-{os.getpid()}-{uuid.uuid4().hex[:8]}.yaml"
+    )
+    try:
+        with backup.open("xb") as handle:
+            handle.write(previous)
+    except Exception:
+        backup.unlink(missing_ok=True)
+        raise
+    backups = sorted(backup_dir.glob(f"{CONFIG_BACKUP_PREFIX}-*.yaml"))
+    for old in backups[:-CONFIG_BACKUP_KEEP]:
+        old.unlink()
+    return backup
+
+
 def _write_overlay(
     overlay: dict[str, Any], path: str | Path | None = None,
 ) -> None:
@@ -143,9 +178,14 @@ def _write_overlay(
         "deleted": sorted(set(overlay["deleted"])),
     }
     text = yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
+    _backup_overlay(target)
     tmp = target.with_name(target.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    os.replace(tmp, target)
+    try:
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, target)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def load_relationships_with_sources(

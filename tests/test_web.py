@@ -1947,7 +1947,12 @@ def test_relationship_crud_api_enforces_revision_and_reset(server, tmp_path, mon
     monkeypatch.setattr(
         web_server.relative_strength_feature.paths,
         "config_dir",
-        lambda name: tmp_path / name,
+        lambda *parts: tmp_path.joinpath(*parts),
+    )
+    monkeypatch.setattr(
+        web_server.relative_strength_feature.paths,
+        "data_dir",
+        lambda *parts: tmp_path.joinpath("data", *parts),
     )
 
     listed = json.loads(get(server, "/api/performance/relationships")[1])
