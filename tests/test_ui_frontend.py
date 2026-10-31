@@ -522,49 +522,119 @@ def test_relationship_crud_ui_is_wired() -> None:
     assert "Reload configuration" in source
 
 
-def test_relationship_conflict_reload_does_not_retry_automatically() -> None:
+def test_relationship_conflict_reload_is_explicit_and_contextual() -> None:
     node = shutil.which("node")
     if node is None:
         import pytest
         pytest.skip("node is not installed")
     source = (STATIC / "performance.js").read_text(encoding="utf-8")
-    match = re.search(r"function showRelationshipConflict\(targetId\) \{[\s\S]*?\n\}", source)
-    assert match, "showRelationshipConflict() not found"
+    start = source.index("function showRelationshipConflict(targetId) {")
+    end = source.index("var RELATIONSHIP_TYPE_OPTIONS", start)
+    function_source = source[start:end]
     script = r"""
-const target = {innerHTML: ""};
-const status = {textContent: ""};
-let click = null;
-const button = {
-  disabled: false,
-  textContent: "Reload configuration",
-  addEventListener(name, fn) { if (name === "click") click = fn; }
+const elements = {
+  "performance-relationship-feedback": {innerHTML: "", textContent: ""},
+  "relationship-add-status": {innerHTML: "", textContent: ""},
 };
+const buttons = {};
 global.document = {
   getElementById(id) {
-    if (id === "target") return target;
-    if (id === "relationship-add-status") return status;
-    if (id.startsWith("relationship-reload-")) return button;
+    if (elements[id]) return elements[id];
+    if (id.startsWith("relationship-reload-")) {
+      if (!buttons[id]) {
+        buttons[id] = {disabled: false, textContent: "", click: null,
+          addEventListener(name, fn) { if (name === "click") this.click = fn; }};
+      }
+      return buttons[id];
+    }
     return null;
   }
 };
+global.esc = value => String(value);
+let success = false;
 let reloads = 0;
 global.loadRelationshipConfig = async function (force) {
   if (force) reloads += 1;
+  return success;
 };
 eval(FUNC);
-showRelationshipConflict("target");
-if (!target.innerHTML.includes("Configuration changed elsewhere")) throw new Error("missing conflict message");
-if (!target.innerHTML.includes("Reload configuration")) throw new Error("missing reload action");
-if (reloads !== 0) throw new Error("conflict auto-retried");
-click();
-setTimeout(function () {
-  if (reloads !== 1) throw new Error("reload action did not reload");
-}, 0);
+(async () => {
+  showRelationshipConflict("performance-relationship-feedback");
+  const feedback = elements["performance-relationship-feedback"];
+  if (!feedback.innerHTML.includes("Configuration changed elsewhere")) throw new Error("missing conflict message");
+  if (reloads !== 0) throw new Error("conflict auto-retried");
+  const first = buttons["relationship-reload-performance-relationship-feedback"];
+  first.click();
+  await Promise.resolve();
+  if (reloads !== 1) throw new Error("reload was not attempted");
+  if (!feedback.innerHTML.includes("could not be retrieved")) throw new Error("failed reload looked successful");
+  if (feedback.innerHTML.includes("Configuration reloaded")) throw new Error("false success message");
+  const retry = buttons["relationship-reload-performance-relationship-feedback-retry"];
+  if (!retry) throw new Error("retry action missing after failed reload");
+  retry.click();
+  success = true;
+  const second = buttons["relationship-reload-performance-relationship-feedback"];
+  second.click();
+  await Promise.resolve();
+  if (feedback.textContent !== "Configuration reloaded. Review the pairs and retry.") {
+    throw new Error("successful reload did not report success");
+  }
+  showRelationshipConflict("relationship-add-status");
+  if (!elements["relationship-add-status"].innerHTML.includes("Configuration changed elsewhere")) {
+    throw new Error("add conflict used the wrong context");
+  }
+  if (!feedback.textContent.includes("Configuration reloaded")) {
+    throw new Error("add conflict overwrote unrelated feedback");
+  }
+})().catch(error => { throw error; });
 """
-    script = script.replace("FUNC", json.dumps(match.group(0)))
+    script = script.replace("FUNC", json.dumps(function_source))
     subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
 
 
+def test_relationship_config_reload_returns_failure_and_clears_stale() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    start = source.index("async function loadRelationshipConfig(force) {")
+    end = source.index("function renderPerformanceRatios(data) {", start)
+    function_source = source[start:end]
+    script = r"""
+const host = {innerHTML: ""};
+const add = {disabled: true, title: ""};
+global.document = {getElementById(id) {
+  if (id === "performance-relationship-management") return host;
+  if (id === "relationship-add-submit") return add;
+  return null;
+}};
+global.esc = value => String(value);
+global.renderRelationshipManagement = () => {};
+var performanceRelationshipConfig = {revision: "old"};
+let fail = false;
+global.api = async function () {
+  if (fail) throw new Error("network unavailable");
+  return {revision: "new", relationships: [], hidden: []};
+};
+eval(FUNC);
+(async () => {
+  const ok = await loadRelationshipConfig(true);
+  if (!ok) throw new Error("successful reload returned failure");
+  if (!performanceRelationshipConfig || performanceRelationshipConfig.revision !== "new") {
+    throw new Error("successful reload did not update configuration");
+  }
+  if (add.disabled) throw new Error("add remained disabled after successful reload");
+  fail = true;
+  const failed = await loadRelationshipConfig(true);
+  if (failed) throw new Error("failed reload returned success");
+  if (performanceRelationshipConfig !== null) throw new Error("stale configuration was retained");
+  if (!add.disabled) throw new Error("add was not disabled after failed reload");
+  if (!host.innerHTML.includes("Pair configuration failed")) throw new Error("reload error not displayed");
+})().catch(error => { throw error; });
+"""
+    script = script.replace("FUNC", json.dumps(function_source))
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
 def test_monitoring_inventory_reason_disclosures_and_empty_state() -> None:
     node = shutil.which("node")
     if node is None:

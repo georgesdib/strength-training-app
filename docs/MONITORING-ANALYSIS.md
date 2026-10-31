@@ -46,7 +46,9 @@ Locally hidden canonical pairs can be restored from the panel.
 
 A stale revision returns 409. The UI explains that the configuration changed elsewhere,
 offers a Reload configuration action and never automatically replays the failed write; the
-user reviews the refreshed revision and retries explicitly. Additions are disabled until the
+user reviews the refreshed revision and retries explicitly. If the reload itself fails, the UI
+shows that the latest configuration could not be retrieved, clears the stale in-memory
+configuration, disables additions and keeps a retry action. Additions are disabled until the
 relationship configuration and its revision load successfully.
 
 A pair is accepted only when:

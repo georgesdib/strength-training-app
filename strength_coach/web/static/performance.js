@@ -144,18 +144,29 @@ async function addRelationship(event) {
 }
 
 function showRelationshipConflict(targetId) {
-  var target = document.getElementById(targetId);
+  var stableId = targetId === "relationship-add-status"
+    ? "relationship-add-status"
+    : "performance-relationship-feedback";
+  var target = document.getElementById(stableId);
   if (!target) return;
   target.innerHTML = "<span class='warnbox'>Configuration changed elsewhere. Reload the latest pairs, review the changes, then retry.</span> " +
-    "<button type='button' class='ghost' id='relationship-reload-" + targetId + "'>Reload configuration</button>";
-  var button = document.getElementById("relationship-reload-" + targetId);
+    "<button type='button' class='ghost' id='relationship-reload-" + stableId + "'>Reload configuration</button>";
+  var button = document.getElementById("relationship-reload-" + stableId);
   if (!button) return;
   button.addEventListener("click", async function () {
     button.disabled = true;
     button.textContent = "Reloading…";
-    await loadRelationshipConfig(true);
-    var status = document.getElementById("relationship-add-status");
-    if (status) status.textContent = "Configuration reloaded. Review the pairs and retry.";
+    var success = await loadRelationshipConfig(true);
+    var feedback = document.getElementById(stableId);
+    if (!feedback) return;
+    if (success) {
+      feedback.textContent = "Configuration reloaded. Review the pairs and retry.";
+    } else {
+      feedback.innerHTML = "<span class='warnbox'>The latest relationship configuration could not be retrieved. Retry the reload.</span> " +
+        "<button type='button' class='ghost' id='relationship-reload-" + stableId + "-retry'>Reload configuration</button>";
+      var retry = document.getElementById("relationship-reload-" + stableId + "-retry");
+      if (retry) retry.addEventListener("click", function () { showRelationshipConflict(stableId); });
+    }
   });
 }
 
@@ -219,7 +230,7 @@ function openRelationshipEdit(item) {
       await loadPerformanceData();
     } catch (error) {
       if (error.status === 409) {
-        showRelationshipConflict("relationship-edit-status");
+        showRelationshipConflict("performance-relationship-feedback");
       } else if (status) {
         status.textContent = error.message;
       }
@@ -246,7 +257,7 @@ async function relationshipAction(item, action, button) {
     await loadPerformanceData();
   } catch (error) {
     if (error.status === 409) {
-      showRelationshipConflict("performance-relationship-status");
+      showRelationshipConflict("performance-relationship-feedback");
     } else {
       var status = document.getElementById("performance-relationship-status");
       if (status) status.textContent = error.message;
@@ -308,7 +319,7 @@ function renderRelationshipManagement() {
 
 async function loadRelationshipConfig(force) {
   var host = document.getElementById("performance-relationship-management");
-  if (!host) return;
+  if (!host) return false;
   if (!force && performanceRelationshipConfig) {
     renderRelationshipManagement();
     var cachedAddButton = document.getElementById("relationship-add-submit");
@@ -316,8 +327,9 @@ async function loadRelationshipConfig(force) {
       cachedAddButton.disabled = false;
       cachedAddButton.title = "";
     }
-    return;
+    return true;
   }
+  if (force) performanceRelationshipConfig = null;
   host.innerHTML = "<p class='empty'>Loading pair configuration…</p>";
   try {
     performanceRelationshipConfig = await api("/api/performance/relationships");
@@ -327,13 +339,16 @@ async function loadRelationshipConfig(force) {
       addButton.disabled = false;
       addButton.title = "";
     }
+    return true;
   } catch (error) {
+    performanceRelationshipConfig = null;
     host.innerHTML = "<p class='warnbox'>Pair configuration failed: " + esc(error.message) + "</p>";
-    var addButton = document.getElementById("relationship-add-submit");
-    if (addButton) {
-      addButton.disabled = true;
-      addButton.title = "Relationship configuration and revision must load first.";
+    var disabledAdd = document.getElementById("relationship-add-submit");
+    if (disabledAdd) {
+      disabledAdd.disabled = true;
+      disabledAdd.title = "Relationship configuration and revision must load first.";
     }
+    return false;
   }
 }
 
@@ -380,7 +395,8 @@ function renderPerformanceRatios(data) {
     (rows.length ? "<div class='table-scroll'><table><thead><tr><th>Pair</th><th>Ratio</th><th>Numerator date</th><th>Denominator date</th><th>Gap days</th><th>Recent obs (num/den)</th><th>Status</th><th>Reason</th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" : "<p class='empty'>No configured relationships.</p>") +
     "<p class='muted'>Only the explicitly configured pairs are shown; this is not an exhaustive lift catalogue. Descriptive ratio of two raw estimates; no target, diagnosis or confidence claim.</p>" +
     "<p class='section-help'><a class='doc-link' href='#docs?doc=docs/MONITORING-ANALYSIS.md&anchor=configuring-relative-strength-pairs'>Pair criteria and documentation</a></p>" +
-    "<div id='performance-relationship-management'><p class='empty'>Loading pair configuration…</p></div></div>";
+    "<div id='performance-relationship-management'><p class='empty'>Loading pair configuration…</p></div>" +
+    "<p class='muted' id='performance-relationship-feedback'></p></div>";
   var nextFilter = document.getElementById("performance-ratio-filter");
   if (nextFilter && !nextFilter.dataset.wired) {
     nextFilter.dataset.wired = "1";
