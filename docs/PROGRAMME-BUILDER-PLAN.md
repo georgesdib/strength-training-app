@@ -1,17 +1,15 @@
-# Deterministic Template Generator — implementation plan
+# Dynamic Template Resolver — implementation plan
 
 **Status:** planning only. No code, schema, configuration, API, CLI, UI or test change is part
 of this document.
 
-**Scope:** replace the fixed, manually maintained session templates with a deterministic
-generator that produces a complete set of four valid `SessionTemplate` instances. The generator
-does **not** replace the rolling scheduler, prescription engine, volume engine, workout
-execution or history.
+**Scope:** make the four canonical session templates **dynamic at prescription time** while
+keeping the existing scheduler, prescription engine, volume engine and workout system. A fixed
+four-template YAML version remains the structural blueprint and the fallback.
 
-This document replaces the earlier “parallel Programme Builder” plan. That plan introduced a
-separate programme/block/session lifecycle and was too large. The current direction is smaller:
-generate templates once, review them, activate a version, and keep using the existing training
-system.
+This document replaces the earlier “parallel Programme Builder” and one-off template-generator
+plans. The stable artifact is the template **blueprint/policy**, not a permanently fixed
+exercise list.
 
 **Related:** [METHODOLOGY.md](METHODOLOGY.md), [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md),
 [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md),
@@ -21,408 +19,340 @@ system.
 
 ## 1. Executive summary
 
-1. The app keeps one training system: the rolling four-session-type scheduler and
-   `build_prescription`.
-2. The only new capability is a **template generator**: it produces a complete set of four
-   `SessionTemplate` objects using the existing schema, exercise taxonomy, constraints,
-   suitability, volume landmarks and prescription rules.
-3. A generated set is stored as an immutable **template version**. The active version is a
-   single pointer. The shipped YAML template file remains the default fallback.
-4. Generation is explicit and one-off. There is no automatic regeneration, no programme
-   lifecycle and no programme-level progression engine.
-5. Existing runtime behaviour continues to adapt every prescription: readiness, e1RM, RIR,
-   double progression, deload, volume budget, spinal cap and validation.
-6. Power is a required part of the generated configuration, using the existing `Slot.power`
-   and `quality_stop` mechanism.
-7. No new athlete inputs are added for the MVP. The generator uses existing frequency, duration,
-   constraints, suitability, history and taxonomy. Objectives, equipment, experience and
-   muscle-group priorities are deliberately out of scope.
-8. The work is delivered on a `feature/template-generator` branch and merged back at phase
-   gates, never as one long-lived divergence.
+1. The four canonical identities stay: `squat`, `hinge`, `bench_squat`, `bench_hinge`.
+2. The fixed four-template YAML becomes a **blueprint and fallback**:
+   - slot roles and order;
+   - power placement and quality stop;
+   - essential slots;
+   - base sets/reps/RIR/rest;
+   - exercise defaults and allowed categories.
+3. At each prescription preview, a deterministic resolver fills the blueprint slots for that
+   session using the athlete's current constraints, suitability, history, pattern coverage and
+   volume state.
+4. The resolved `SessionTemplate` is passed to the existing `build_prescription`; readiness,
+   e1RM, RIR, undulation, volume budget, deload, spinal limits and validation still run there.
+5. The resolved template and the blueprint/policy versions are frozen with the prescription.
+6. There is no separate programme scheduler, prescription engine, volume engine, programme
+   lifecycle or pathway selector.
+7. Power is a hard structural constant; weak-point targeting is a later feature. The resolver
+   uses movement-pattern coverage and under-MEV patterns now.
+8. Generation is deterministic. No LLM, no randomness.
 
 ---
 
 ## 2. Verified current architecture
 
-These are facts about the current `development` branch.
-
 | Component | Current behaviour | Consequence |
 |---|---|---|
-| Template schema | `prescribe/templates.py` defines `Slot` and `SessionTemplate`; `validate_text` requires exactly the four canonical types, at least one essential slot, valid load sources, and power slots with a quality stop and no RIR. | Generated templates can reuse the schema and most validation. The generator must emit exactly four valid types. |
-| Template loading | `SessionTemplate.load(session_type)` reads `config/templates/session-types.v1.yaml`. | A generated set needs a resolver separate from the shipped file; otherwise every caller would read the default. |
-| Prescription | `build_prescription(..., template=...)` accepts an optional template. The normal CLI/web path does not pass one; only `features/programme.py` does. | Injection exists but is not wired. This is the main integration point. |
-| Scheduler | `schedule.next_session_type` loads a template to read `primary_exercise` and choose among the four types. | It must read the active template set, not the shipped file. No new scheduler is needed. |
-| Volume | `volume_budget.template_rows`, `plan_drop`, `report`, `apply` and related functions load templates by `session_type`. | They need the active template set or an explicit template argument. Do not create a second volume engine. |
-| Selection | `selection.py`, `fatigue_selection.py` and `demand_scope.py` load templates by type. | They need the active set when choosing exercises for a generated template. |
-| Critique | `critique/facts.py` loads the template by `session_type` at critique time for rep ranges. | A template change can alter an old session's critique. New prescriptions need a template-version link and critique must use that snapshot. |
-| History | Prescriptions and workouts are append-only; prescription items already store the actual prescribed work. | Add a nullable template-version link; never rewrite old rows. |
-| UI | The forecast lives on the Programme page. The YAML template editor lives on Exercises and writes the single shipped file with backups. | Programme becomes template management; forecast becomes its own view; the YAML editor moves under Programme and edits versions. |
+| Templates | `SessionTemplate`/`Slot`; `validate_text` requires exactly the four types, essential slots, valid load sources and power slots with quality stop/no RIR. | The fixed YAML is a valid blueprint and fallback; the resolver must emit the same shape. |
+| Loading | `SessionTemplate.load(session_type)` reads the shipped YAML. | Dynamic resolution needs an explicit resolver; do not put active database reads inside the global loader. |
+| Prescription | `build_prescription(..., template=...)` accepts an optional template. Only the forecast passes one today. | This is the insertion point. The resolver produces the template passed here. |
+| Scheduler | `schedule.next_session_type` loads templates to read `primary_exercise`. | It uses the fixed blueprint/fallback; dynamic exercise choice must keep the session's primary pattern valid. |
+| Volume | `volume_budget` loads templates by `session_type` in template rows, drop and apply paths. | It must consume the resolved template, not reload the shipped file. No second volume engine. |
+| Selection | `selection.py`, `fatigue_selection.py`, `demand_scope.py` load templates. | They must use the resolved/blueprint template for the session. |
+| Critique | `critique/facts.py` loads the template by `session_type` for rep ranges. | It must use the frozen resolved template or linked version, not the current active policy. |
+| History | Prescriptions, items, workouts and sessions are append-only. | Add provenance columns; no rewrite or backfill. |
+| UI | Forecast is on Programme; the YAML editor is on Exercises and writes the single file. | Programme becomes template/policy management; Forecast becomes its own view; the YAML editor moves under Programme and writes versions, not the shipped file. |
 
 ---
 
 ## 3. Architecture
 
-### 3.1 One execution path
+### 3.1 Resolution path
 
 ```text
-                 shipped default YAML
-                         |
-generator -> template version (YAML snapshot) -> active template set
-                         |
-athlete readiness -> rolling scheduler -> SessionTemplate -> build_prescription
-                                                               |
-                                                        workout / history
+fixed four-template YAML version  (blueprint + fallback)
+resolver policy version           (categories, pools, coverage, volume rules)
+                    |
+athlete readiness -> scheduler -> session type
+                    |
+             deterministic resolver
+                    |
+          resolved SessionTemplate
+                    |
+          build_prescription (unchanged)
+                    |
+       prescription + frozen resolved template
+                    |
+              workout / history
 ```
 
-The scheduler still chooses `squat`, `hinge`, `bench_squat` or `bench_hinge`. The
-prescription engine still computes loads, RIR, readiness, volume, spinal limits and validation.
-The only difference is where the four `SessionTemplate` instances come from.
+When no resolver policy is active, or dynamic mode is explicitly off, the fixed templates are
+used exactly as today.
 
-### 3.2 TemplateSet and TemplateVersion
+### 3.2 Stable versus dynamic
 
-- `TemplateVersion`: immutable snapshot of one complete four-template YAML document.
-- `TemplateSet`: resolved mapping `session_type -> SessionTemplate` for one version, plus the
-  version id and content hash.
-- `active version`: the version currently used for future prescriptions. Null/default is the
-  shipped fallback.
+**Stable in the blueprint**
 
-The resolver is explicit:
+- Four session identities and their slot roles/order.
+- Power slot placement and quality stop.
+- Essential slots and main/secondary structure.
+- Base sets, reps, RIR, rest and load source.
+- Time cap and session-duration assumptions.
+- The fixed YAML fallback.
 
-- future-session callers load the active version;
-- historical readers use the version linked to the prescription;
-- tests can pass a synthetic TemplateSet without touching the database or file system.
+**Dynamic per session**
 
-Do **not** make `SessionTemplate.load()` silently read the active database version. That would
-make historical critique and tests depend on mutable state.
+- Which exercise fills each slot, from its category/pool.
+- Which accessory variants fill the accessory slots.
+- Which patterns are covered when the athlete's constraints/suitability narrow the options.
+- The resolved template's exercise list, frozen for that prescription.
+
+**Not decided by the resolver**
+
+- kg loads.
+- RIR readiness adjustment.
+- Set reduction/top-up from readiness or volume budget.
+- Deload application.
+- Spinal-cap trimming.
+- Warm-up generation.
+
+Sets/reps/RIR start from the blueprint and vary only through the existing runtime rules. The
+resolver does not create a second set/rep/RIR policy.
 
 ### 3.3 What is reused, extended and new
 
 **Reused unchanged**
 
 - `Slot`, `SessionTemplate`, `validate_text`, four canonical identities.
-- Rolling scheduler logic.
-- `build_prescription` load, RIR, readiness, e1RM, continuity, deload, spinal, volume and
-  validation logic.
-- Exercise taxonomy, suitability, constraints and selection comparability rules.
-- Workout execution, prescription persistence, history and append-only rules.
-- Existing config landmarks and modifiers.
+- Rolling scheduler.
+- `build_prescription` readiness/e1RM/RIR/volume/deload/spinal/validation.
+- Exercise taxonomy, suitability, constraints and selection comparability.
+- Workout execution, history and append-only persistence.
+- Forecast logic.
 
-**Extended with small, explicit changes**
+**Extended**
 
-- `build_prescription` accepts a `TemplateSet`/resolved template for the future path while
-  keeping its current signature compatible.
-- `schedule`, `volume_budget`, selection and critique accept the resolved template/version
-  instead of loading the shipped file.
-- `prescription` gets a nullable `template_version_id`.
-- The template API/UI can write versioned database rows instead of only the shipped YAML file.
+- `build_prescription` accepts the resolved template (already supports `template`; caller wiring
+  is the change).
+- Scheduler, volume budget, selection and critique accept the resolved/blueprint template or a
+  frozen snapshot.
+- Prescription gains provenance for the fixed template version, resolver policy version and
+  resolved template snapshot.
 
 **New**
 
-- A deterministic generator module and a generator configuration spec.
-- Template version/state persistence and repositories.
-- Generator-specific validation (weekly volume, power placement, duration, overlap).
-- Programme-page version management UI and a separate Forecast view.
-- Tests for all of the above.
+- Deterministic resolver module.
+- Resolver policy config/version.
+- Fixed template version/state persistence.
+- Resolver-specific validation (pattern coverage, volume, duration, power, suitability).
+- Programme-page template/policy management and per-session preview.
+- Tests.
 
 **Not new**
 
-- No second scheduler.
-- No second prescription engine.
-- No second volume-management engine.
-- No programme/block/session lifecycle or event sourcing.
+- No second scheduler, prescription engine, volume engine or programme lifecycle.
 - No automatic regeneration.
 - No LLM generation.
 - No cardio programming.
+- No equipment/experience/objective model.
 
-### 3.4 Dependency map for template resolution
+### 3.4 Template resolution call sites
 
-Every current `SessionTemplate.load` call site must be classified:
-
-| call site | future session | historical/read-only | required change |
-|---|---|---|---|
-| `prescribe/engine.py` | yes | no | use passed TemplateSet, default fallback |
-| `prescribe/schedule.py` | yes | no | use active TemplateSet |
-| `prescribe/volume_budget.py` | yes | no | accept template/template set in template rows, drop, report, apply |
-| `prescribe/selection.py` | yes | no | use active template for the requested session |
-| `prescribe/fatigue_selection.py` | yes | no | same |
-| `prescribe/demand_scope.py` | both | yes | use explicit template/version |
-| `critique/facts.py` | no | yes | use the prescription's template version snapshot |
-| `features/programme.py` | forecast | no | use active TemplateSet |
-| `prescribe/summary.py` | docs/summary | no | render from active/selected version |
-| `agents/proposal.py` | future | no | defer; use active TemplateSet when LLM work resumes |
-
-This map is the core of the implementation. Missing one call site would silently mix the default
-file with a generated set.
+| call site | path | change |
+|---|---|---|
+| `prescribe/engine.py` | future | use the resolved template passed by the caller |
+| `prescribe/schedule.py` | future | read `primary_exercise` from blueprint/fallback |
+| `prescribe/volume_budget.py` | future | accept resolved template; stop reloading by type |
+| `prescribe/selection.py` | future | resolve candidates within the resolved template slots |
+| `prescribe/fatigue_selection.py` | future | same |
+| `prescribe/demand_scope.py` | read-only | use explicit template/version |
+| `critique/facts.py` | historical | use frozen resolved template or linked version |
+| `features/programme.py` | forecast | use active blueprint/resolver path or fixed fallback |
+| `prescribe/summary.py` | docs | render from selected version |
+| `agents/proposal.py` | future | defer; use active path when LLM work resumes |
 
 ---
 
-## 4. Inputs and scope
+## 4. Resolver inputs and policy
 
-### 4.1 Existing inputs only
+### 4.1 Existing athlete inputs only
 
-No new athlete-state fields are added. The generator uses:
+- `sessions_per_week_target`;
+- `max_session_minutes`;
+- `athlete_constraint`;
+- `exercise_suitability`;
+- recent training history, e1RM and pattern exposure;
+- taxonomy patterns, primary muscles, loadability and power classification;
+- existing volume landmarks/targets and time estimates.
 
-- `sessions_per_week_target` for intended frequency;
-- `max_session_minutes` for session duration;
-- `athlete_constraint` for hard exclusions and injury constraints;
-- `exercise_suitability` for can-do/will-do/feels-bad;
-- stored training history and e1RM for availability and load history;
-- the exercise taxonomy for patterns, muscles, loadability and power classification;
-- the existing volume landmarks/targets and session-time estimates.
+No new objective, equipment, experience or muscle-priority state is added.
 
-### 4.2 Deliberately excluded
+### 4.2 Resolver policy
 
-- **Objectives and priorities:** no stored primary/secondary goal; MVP is a fixed
-  strength-with-power configuration.
-- **Equipment availability:** not stored in athlete state and not a taxonomy property. The
-  generator cannot filter by equipment and must say so.
-- **Training experience:** not stored. It does not change volume or load in the MVP.
-- **Muscle-group priorities:** volume remains movement-pattern based; priorities are not a new
-  input.
-- **Exercise preferences:** existing suitability and constraints are the only preference
-  mechanism; there is no new preference list.
-- **Cardio:** outside the app's prescription scope.
-- **LLM:** deferred.
+The policy is a versioned configuration document (`config/template-resolver.v1.yaml` in a later
+step) that defines:
 
-This is a deliberate reduction from the earlier brief. The generator is athlete-specific through
-constraints, suitability, history, frequency and duration, not through a general objective
-model.
+- per session type: the fixed slot roles/order inherited from the blueprint;
+- exercise categories/pools per slot;
+- allowed variants and substitution rules;
+- coverage rules: required patterns, under-MEV patterns, redundancy avoidance;
+- accessory allocation limits;
+- power slot requirements;
+- duration limits;
+- deterministic tie-break order.
 
-### 4.3 Generator configuration (new config, later)
+The policy contains no athlete data.
 
-A new `config/template-generator.v1.yaml` would define the generation rules, not athlete data:
+### 4.3 Fixed YAML fallback
 
-- per session type: required slot roles and allowed patterns;
-- exercise pools per slot, with canonical ids or pattern selectors;
-- strength/power/accessory slot priorities;
-- sets, rep ranges, RIR ranges, rest and essential flags;
-- power placement and dose rules;
-- volume allocation weights within the existing pattern landmarks;
-- duration assumptions and maximum slot counts;
-- generation/spec version.
+The fixed four-template YAML remains the structural blueprint and fallback. It is versioned and
+activatable. When dynamic resolution is off or no policy is active, it runs exactly as today.
 
-The generator must be driven by this config plus existing state. No hard-coded exercise lists in
-Python.
+The YAML editor under Programme edits the fixed template version. Saving creates a new immutable
+version; activation remains explicit. The structured slot editor edits the same fixed version
+content.
 
 ---
 
-## 5. Generator design
+## 5. Resolver algorithm
 
-### 5.1 Output contract
+### 5.1 Session flow
 
-The generator emits exactly four complete templates:
+1. The scheduler selects one of the four session types.
+2. Load the active fixed blueprint/fallback for that type.
+3. Load the active resolver policy, if dynamic mode is enabled.
+4. For each blueprint slot, resolve the exercise from its category/pool:
+   - remove hard-constraint and suitability vetoes;
+   - remove exercises already used in this session where duplicate/overlap is not allowed;
+   - prefer exercises that cover required/under-represented patterns;
+   - use deterministic policy order and canonical id for ties;
+   - apply the existing selection/comparability rules for variant slots.
+5. Build a complete `SessionTemplate` with the same slot fields as the blueprint.
+6. Validate the resolved template and the whole session.
+7. Pass it to `build_prescription` with the normal fingerprint/rollback history.
+8. Freeze the resolved template and the active versions with the prescription.
 
-- `squat`
-- `hinge`
-- `bench_squat`
-- `bench_hinge`
+If any required slot cannot be resolved, the preview fails with a field-level error. Fallback to
+the fixed template occurs only when dynamic mode is off or no policy is active.
 
-Each template:
+### 5.2 Main and secondary lifts
 
-- has a non-empty ordered slot list;
-- has at least one essential slot;
-- has a `primary_exercise` that the scheduler can use for availability;
-- conforms to the current template schema and `validate_text`;
-- is a valid `SessionTemplate` instance consumable by `build_prescription`.
+- The session type defines the primary pattern category.
+- The main lift must be chosen from that category and must preserve a valid
+  `primary_exercise` for the scheduler.
+- The secondary lift comes from the configured support category for that session.
+- If no valid main/secondary lift exists, the session is unavailable; do not silently substitute
+  a different session type.
 
-The generator never emits a partial set. If any template is invalid, generation fails and
-returns field-level validation errors.
+### 5.3 Accessories and coverage
 
-### 5.2 Slot model
+Accessories are chosen to fill the remaining blueprint slots from their configured categories,
+with this order of preference:
 
-Reuse the existing `Slot` fields:
+1. exercise is suitable and not contraindicated;
+2. it covers a required pattern not already covered in the session;
+3. it covers a pattern below its configured MEV/recent target, when the policy says so;
+4. it avoids duplicating an already-trained pattern or muscle emphasis;
+5. configured priority order and canonical id.
 
-- `exercise` or `exercise_variants`;
-- `sets`, `reps`, `rir`, `rest_s`, `essential`, `load_source`;
-- `power` and `quality_stop`;
-- existing flare fields where a generated slot needs them.
+“Weak-point targeting” is not implemented. The app has no validated weakness metric; automatic
+weakness/injury-targeted selection remains a later gated feature. The resolver may call this
+**coverage-based accessory selection**, not weakness correction.
 
-No new slot type is needed for the MVP. Top set/back-off, clusters and other advanced set
-structures remain out of scope because the schema and validator cannot represent them.
+Muscle-group balance uses the taxonomy's primary muscles as a diversity heuristic. Volume
+minima/maxima remain movement-pattern based; there is no per-muscle volume ledger.
 
-### 5.3 Power pillar
+### 5.4 Power
 
-Power is required, not optional. Use the existing quality-limited model:
+Power is a hard structural constant:
 
-- power slots are first in the session, before strength work;
-- 2–3 sets of 3–5 reps, full recovery (around 120 s);
-- maximal intent and a quality stop, never an RIR target;
+- one slot on the squat blueprint and one on the hinge blueprint;
+- first in the session, before strength work;
+- 2–3 sets of 3–5 reps, full recovery (about 120 s);
+- maximal intent and a quality stop, no RIR;
 - no load progression and no double progression;
-- no Olympic lifts; use taxonomy power exercises such as `box_jump`, `depth_jumps` or
-  `jump_squats`;
-- power pattern sets stay outside the MEV/MAV/MRV ledger, as today.
+- no Olympic lifts;
+- power pattern sets stay outside MEV/MAV/MRV.
 
-Default placement: the squat and hinge templates each carry one power slot. The bench
-templates do not carry power in the MVP because the taxonomy has no validated upper-body power
-pool and equipment is not modelled. Placement target: two quality exposures per rolling week
-when the frequency allows. At one or two sessions per week, the generator gives the available
-session a power exposure and records a warning that twice-weekly power is not feasible; it does
-not add sessions. The plan should not claim power is equivalent to strength for strength
-outcomes; the evidence supports a modest functional benefit.
+If frequency is one or two sessions per week, the resolver gives the available session a power
+slot and records a warning that twice-weekly exposure is not feasible; it never adds sessions.
+Bench templates have no power slot in the MVP because the taxonomy has no validated upper-body
+power pool and equipment is not modelled.
 
-### 5.4 Strength and accessory allocation
+### 5.5 Volume and duration
 
-The generator uses the existing movement-pattern vocabulary and volume landmarks:
-
-1. Fix the four template roles.
-2. Assign required strength slots per role (main lift, supporting compound, accessories).
-3. Allocate weekly sets per pattern within the configured MEV/MAV/MRV guardrails.
-4. Use existing session-time estimates to keep each template within
-   `max_session_minutes`.
-5. Prefer compound slots before isolation; the configured slot roles express the balance.
-6. Avoid duplicate exercises in one template and excessive overlap across templates unless the
-   existing programme deliberately repeats a main lift for frequency.
-
-The generator must not create a second volume ledger. It can call the existing
-`pattern_key`, `pattern_sets`, `template_rows`-style projection and landmark config to check
-its output. Runtime volume budget behavior remains unchanged.
-
-### 5.5 Exercise selection
-
-For each slot:
-
-1. Resolve the configured exercise pool/pattern.
-2. Remove exercises vetoed by hard constraints, suitability, or missing history where a load
-   source requires history.
-3. Apply deterministic ordering: configured priority, then canonical id.
-4. Use the existing selection/comparability rules where a slot allows variants.
-5. If no candidate is valid, fail generation with the slot and reason.
-
-No free-text exercise names. No equipment filtering in the MVP.
+- The resolver chooses exercises, not a new weekly volume target.
+- Weekly pattern volume is checked against the existing configurable landmarks.
+- The existing volume budget remains the runtime authority for trims/top-ups.
+- The existing session-time estimate checks that the resolved template fits
+  `max_session_minutes`.
+- If the blueprint + policy cannot fit, the preview fails or warns according to the validator;
+  it never silently exceeds the limit.
 
 ### 5.6 Determinism
 
-Same inputs + config + generator version + history snapshot = same four-template YAML.
+Same blueprint version + policy version + athlete state/history snapshot + config + date +
+session type = same resolved template.
 
-- No randomness; no wall-clock-dependent choices.
+- No randomness; stable ordering.
 - No LLM.
-- Stable ordering for exercise pools and tie-breaks.
-- Store an input hash and generator/config version with the generated version.
-- Loads are not generated: the generator writes rep/RIR/load-source intent; the runtime engine
-  computes kg from current e1RM and readiness.
-
-### 5.7 Validation
-
-Generation must pass:
-
-**Structural**
-- `templates.validate_text` and `SessionTemplate` parsing;
-- exactly four identities; no extra/missing types;
-- at least one essential slot per session;
-- valid slot ids, sets, reps, RIR, rest and load source;
-- power slots have `quality_stop` and no RIR;
-- no unknown or excluded exercise ids.
-
-**Programme-level**
-- each template has a valid primary exercise;
-- required patterns/roles are present;
-- weekly pattern volume is inside configured landmarks;
-- session duration estimate fits the athlete target;
-- power dose/placement is valid for the available frequency;
-- no contradictory essential/accessory or duplicate-slot structure;
-- no exercise that fails suitability/constraints.
-
-**Pipeline compatibility**
-- each generated template can be loaded as a `SessionTemplate`;
-- a dry-run `build_prescription` for each template succeeds or returns only expected
-  warnings, not structural errors;
-- the scheduler can read `primary_exercise` for all four.
-
-**Historical**
-- activation does not change any existing prescription/workout/session row;
-- new prescriptions link to the active version;
-- old prescriptions keep their existing version link/null.
+- Store an input hash, policy version, template version and resolved template snapshot.
+- kg is not resolved here; the runtime engine computes it from current e1RM/readiness.
 
 ---
 
-## 6. Generation versus runtime
+## 6. Resolution versus runtime
 
-The boundary must be explicit:
-
-| Concern | Generator | Runtime system |
+| Concern | Resolver | Existing runtime |
 |---|---|---|
-| Four session identities | chooses structure | unchanged |
-| Exercise/slot selection | yes, from configured pools | selection may substitute only within template/variant rules |
-| Sets/reps/RIR ranges | yes, as template intent | readiness, deload and modifiers may adjust |
-| Power placement | yes | quality-stop enforcement and warnings |
-| Weekly volume allocation | yes, as a target check | volume budget/MRV cap remains authoritative |
-| kg loads | no | e1RM solver/load history |
-| Readiness, continuity, deload | no | existing engine |
-| Workout execution | no | existing workout system |
-| History | no writes | append-only |
-
-A generated template is **not** a prescription. It is the active session recipe that the existing
-engine turns into a prescription.
+| Session type | no (scheduler) | scheduler |
+| Exercise choice | yes | variant selection only within resolved template |
+| Sets/reps/RIR target | blueprint | readiness, undulation, volume, deload |
+| kg load | no | e1RM solver/load history |
+| Power placement | blueprint/policy | quality-stop enforcement |
+| Weekly volume | coverage check | volume budget/MRV cap |
+| Duration | fit check | estimate and warnings |
+| History | no writes | append-only prescription/workout |
 
 ---
 
-## 7. Persistence, versioning and activation
+## 7. Persistence and provenance
 
-### 7.1 Minimum tables
+### 7.1 Minimum tables/columns
 
-| table | purpose |
+| object | purpose |
 |---|---|
-| `template_version` | immutable full YAML snapshot: `version_id`, `source` (`default`/`generated`), `body_yaml`, `schema_version`, `generator_version`, `config_hash`, `input_hash`, `parent_version_id`, `created_at`, `label` |
-| `template_state` | singleton current pointer: `active_version_id`, `updated_at`, optional note |
+| `template_version` | immutable fixed four-template YAML version: id, source, body, schema/config hashes, parent, created_at |
+| `resolver_policy_version` | immutable resolver policy version: id, body, schema version, created_at, parent |
+| `template_state` | singleton: `active_template_version_id`, `active_policy_version_id` (nullable), `dynamic_enabled`, `updated_at` |
+| `prescription.template_version_id` | fixed blueprint/fallback version used |
+| `prescription.resolver_policy_version_id` | policy used, nullable for fixed path |
+| `prescription.resolved_template_json` | exact resolved template; null for fixed path |
 
-And one nullable column:
+No programme/block/session lifecycle tables. No event sourcing.
 
-- `prescription.template_version_id` — the version that produced the prescription. Existing rows
-  remain null; no backfill.
+### 7.2 Default and activation
 
-This is the smallest model that supports review, activation, rollback, previous versions and
-historical provenance without a programme/block lifecycle. No event-sourcing table is needed.
+- Seed a default fixed template version from the shipped YAML.
+- If `active_policy_version_id` is null or `dynamic_enabled = 0`, the fixed templates run as
+  today.
+- Activating a policy enables dynamic resolution only when the flag is on.
+- Generating/resolving never changes the active versions.
+- Rollback activates a previous version or disables dynamic mode.
+- A new candidate policy never affects the current session until activated.
 
-### 7.2 Default fallback
+### 7.3 Editors
 
-- The shipped `config/templates/session-types.v1.yaml` remains the canonical default source.
-- On first use, the app seeds a `template_version` row with `source='default'` from that file.
-- Revert to defaults sets `template_state.active_version_id` to the seeded default version.
-- A release that changes the shipped YAML creates a new default version; the previous default
-  version remains for rollback and history.
+The YAML editor moves under Programme and edits the fixed template version.
 
-### 7.3 Review and activation
+Option B:
 
-- Generation creates a **candidate** version (not active).
-- Review shows all four templates, validation warnings and a diff against the active version.
-- Activation updates only `template_state.active_version_id`, transactionally.
-- The active version remains unchanged while a new candidate is generated or edited.
-- Rollback activates a previous version; it does not delete anything.
-- Historical prescriptions are unaffected by activation changes.
-
-### 7.4 YAML editor and structured editor
-
-The YAML editor moves under **Programme → Templates**.
-
-Option B applies:
-
-- the editor loads the selected/active version's YAML;
-- saving creates a **new immutable version** (candidate);
+- saving creates a new immutable template version (candidate);
 - the active version does not change until explicit activation;
-- the structured slot editor edits the same version content and uses the same save-as-new-version
-  path;
-- neither editor mutates an active version in place.
+- the structured slot editor edits the same fixed version content and uses the same save path;
+- the resolver policy has its own YAML/structured editing surface later; it is versioned the same
+  way.
 
-The shipped default YAML file is not edited from the UI. It remains the fallback seed; a generated
-or edited version is a database version.
+No editor mutates an active version in place.
 
-### 7.5 Historical association
+### 7.4 Historical integrity
 
-- New prescriptions store `template_version_id`.
-- Existing prescriptions keep null; they remain readable from their stored items.
-- Critique for a new session uses the linked template version's rep ranges.
-- Critique for an old session with no link continues as today; do not invent a historical template
-  version or retroactively relabel old critiques.
-- `build_facts` should accept an explicit template snapshot; the current global loader remains
-  only as a fallback for unlinked legacy sessions.
-
-### 7.6 Migration
-
-- Additive migration: new tables and one nullable column.
-- No backfill of old prescriptions.
-- Seed the default version on startup/migration if the table is empty.
-- Feature-flag generation off until the generator and UI are complete.
-- No destructive migration; rollback is disabling the feature, not dropping tables.
+- New prescriptions store the fixed version, policy version and resolved template.
+- Old prescriptions keep nulls; their stored items remain readable.
+- Critique for new sessions uses the frozen resolved template's rep ranges.
+- Critique for old unlinked sessions continues on the current fallback; do not invent history.
+- Switching policy/version never rewrites old prescriptions or workouts.
 
 ---
 
@@ -430,327 +360,256 @@ or edited version is a database version.
 
 ### 8.1 Navigation
 
-- **Programme** becomes template management.
-- The current forecast moves to a separate **Forecast** view/tab.
-- There is no separate “programme pathway” selector. The active template set is simply what the
-  existing training system uses.
+- **Programme** becomes template and resolver-policy management.
+- The existing forecast moves to a separate **Forecast** view/tab.
+- No separate pathway selector.
 
 ### 8.2 Programme view
 
-Sections:
+- Active fixed template version and active resolver policy.
+- Dynamic mode on/off.
+- Fixed template versions: review, YAML editor, structured slot editor, activate, revert.
+- Resolver policy versions: review, edit, activate, revert.
+- Per-session preview: choose the next session type (or let the scheduler choose), see the
+  resolved exercises/slots, warnings and the fixed fallback comparison.
+- No fixed generated exercise list is stored as the active configuration.
 
-1. **Active templates** — active version, source, created date, validation status.
-2. **Generate** — explicit action using existing state; no auto-regeneration.
-3. **Review** — four template cards/table, slot details, power placement, volume summary,
-   duration estimate, warnings and diff against active.
-4. **Versions** — generated/default versions, activate, rollback, archive/visibility.
-5. **YAML editor** — active/selected version; saving creates a candidate.
-6. **Structured slot editor** — swap exercise, sets, reps, RIR, rest, essential, power fields;
-   saving creates a candidate.
+### 8.3 Workflow
 
-The YAML editor and structured editor must not create two different validation paths. Both call
-the same template parser/validator and persist through the same version repository.
+The existing preview becomes the per-session review:
 
-### 8.3 Forecast view
+1. readiness;
+2. scheduler/session type;
+3. resolver builds the resolved template;
+4. prescription preview shows resolved exercises and normal warnings;
+5. start workout freezes the resolved template and prescription.
 
-The current Programme forecast form/result moves unchanged to **Forecast**. It continues to use
-the active template set for its projection. No new programme scheduling.
+If the preview is rebuilt after a readiness change, the resolver rebuilds. The started workout
+keeps the frozen snapshot.
 
 ### 8.4 API (proposed)
 
 - `GET /api/template-versions`
-- `GET /api/template-versions/{id}`
-- `POST /api/template-versions/generate`
 - `POST /api/template-versions` (YAML save)
 - `POST /api/template-versions/{id}/activate`
-- `POST /api/template-versions/{id}/revert`
-- `GET /api/template-versions/diff?from=&to=`
-- Existing `/api/templates` can be repurposed or kept as the raw YAML surface.
+- `GET /api/resolver-policies`
+- `POST /api/resolver-policies` (policy save)
+- `POST /api/resolver-policies/{id}/activate`
+- `POST /api/template-resolve` (preview for a date/session type)
+- `GET /api/template-state`
+- Existing `/api/programme` remains the forecast.
 
 ### 8.5 CLI
 
-The generator is UI-first for the MVP. A read-only CLI status/show can follow in a later step.
-Do not rename the existing `programme` command; it remains the forecast. Document the temporary
-parity gap in [UI-CLI-PARITY.md](UI-CLI-PARITY.md).
+UI-first for MVP; read-only status/show later. Document the temporary gap in
+[UI-CLI-PARITY.md](UI-CLI-PARITY.md). Do not rename the existing `programme` command.
 
 ### 8.6 Mobile
 
-- Programme view: one section per screen/step, not a wide table.
-- Review: collapsible template cards; show warnings first; slot details on demand.
-- Editors: grouped fields, sticky save, explicit “save as new version” wording.
-- Activation: confirm the version and effective date; no hidden switch.
+One section per step; resolved session cards with expandable slot details; warnings first;
+explicit activation; sticky save. No wide table.
 
 ---
 
-## 9. Testing strategy
+## 9. Validation and testing
 
-### 9.1 Test layers
+### 9.1 Resolver validation
+
+- Fixed blueprint parses through `validate_text`.
+- Resolved template has all required slots and at least one essential slot.
+- Main/secondary lifts match the session pattern category.
+- Exercise ids exist, are suitable and not vetoed.
+- No duplicate/overlapping slot content beyond policy allowances.
+- Power slot is first, no RIR, has quality stop.
+- Weekly pattern volume is inside configured landmarks.
+- Duration estimate fits the target.
+- No unresolved slot; fail with a field-level error.
+- Resolved template is consumable by `build_prescription`.
+
+### 9.2 Test layers
 
 | layer | coverage |
 |---|---|
-| unit | version repository, default seed, TemplateSet resolution, generator ordering, power placement, volume check, duration check |
-| integration | generated four templates -> `validate_text` -> `SessionTemplate` -> `build_prescription`; scheduler reads primary exercise; volume budget consumes generated templates |
-| regression | existing template outputs, golden prescriptions, forecast, rules, workout/history unchanged |
-| historical | switching active version does not change old prescriptions/sessions; critique uses linked version |
-| migration | old DB upgrades; default version seeded; no existing rows changed |
-| UI/API | generate/review/activate/revert/YAML save; candidate not active until activation; validation errors shown |
-| determinism | same input/config/history snapshot produces the same structural YAML |
+| unit | category selection, deterministic ordering, coverage preference, power, volume check, duration check, failure cases |
+| integration | resolver -> `SessionTemplate` -> `build_prescription` -> scheduler/volume/selection |
+| regression | existing templates, golden prescriptions, forecast, rules, workout/history unchanged |
+| historical | prescription links and resolved snapshot; activation/rollback does not change old rows |
+| migration | additive tables/columns; default version seed; no backfill |
+| UI/API | preview, activation, YAML save candidate, policy activation, fallback |
+| determinism | same inputs produce same resolved template |
 
-### 9.2 Existing invariants that must remain
+### 9.3 Existing invariants
 
-- Four canonical session identities and their order.
-- Rolling scheduler behavior with default templates.
-- `build_prescription` output for existing templates.
-- Readiness, RIR, e1RM, volume, spinal and deload semantics.
-- Append-only prescriptions/workouts/history.
-- Existing forecast `/api/programme`.
-- Existing template YAML schema.
-
-### 9.3 Test cases that must exist
-
-1. Generate four templates; each passes `validate_text` and `SessionTemplate` parse.
-2. Generated set is deterministic across two runs with same inputs.
-3. Generated set fails cleanly for impossible constraints (no valid main lift, no power
-   candidate, duration impossible).
-4. Power slot is first, has no RIR and has a quality stop; zero power slots fails validation.
-5. Weekly pattern volume is inside configured landmarks; an over-MRV candidate is rejected or
-   trimmed only by existing config rules, not a second engine.
-6. Generated templates produce a valid prescription through the existing engine.
-7. Scheduler sees the generated `primary_exercise` and available session types.
-8. `volume_budget` uses the generated template, not the shipped default.
-9. Activating a new version leaves old prescriptions and history unchanged.
-10. Critique for a new prescription reads its linked template version.
-11. YAML save creates a candidate and does not activate it.
-12. Revert to default works and is explicit.
-13. Existing template/golden/forecast tests are unchanged.
+- Four canonical identities and default scheduler behavior.
+- `build_prescription` output for fixed templates.
+- Readiness/RIR/e1RM/volume/spinal/deload semantics.
+- Append-only history.
+- Forecast `/api/programme`.
+- Template schema.
 
 ---
 
 ## 10. Implementation steps
 
-Work happens on `feature/template-generator` off `development`. Each step is a merge gate, not
-a calendar date.
+Work on `feature/template-resolver` off `development`; merge at gates.
 
 ### Step 0 — Branch, contracts and decision records
 
-**Objective:** lock the smaller architecture before code.
+**Objective:** lock the dynamic-resolver model, blueprint/policy/fallback semantics and
+provenance.
 
-**Scope:** replace the old plan; record the template-generator decision, versioning/activation
-rules, YAML-editor semantics, power dose and the explicit no-new-inputs limitation.
+**Scope:** documentation and decisions only. Confirm:
+- fixed YAML = blueprint + fallback;
+- resolver changes exercises, not sets/reps/RIR rules;
+- failure is a preview error, fallback only when dynamic off;
+- fixed template and resolver policy are separately versioned and activated.
 
-**Changes:** documentation only.
+**Tests:** docs consistency.
 
-**Tests:** docs consistency; no runtime tests.
+**Acceptance:** no code starts before approval.
 
-**Acceptance:** plan approved; no code starts before approval.
+**Merge gate:** documentation can merge to development first.
 
-**Merge gate:** documentation can merge to `development` first (this plan is the design record).
+### Step 1 — Fixed template versions and resolver policy persistence
 
-### Step 1 — Data and domain foundation
-
-**Objective:** persist template versions and resolve a default version without changing existing
+**Objective:** store fixed template versions, policy versions and active state without changing
 behaviour.
 
-**Scope:** `template_version`, `template_state`, default seed, template-version repository,
-nullable `prescription.template_version_id`, feature flag.
+**Scope:** `template_version`, `resolver_policy_version`, `template_state`; seed default fixed
+version; add nullable prescription provenance columns; feature flag.
 
-**Architecture:** new template-version domain module; no generator yet; no UI.
+**Data:** additive migration; no backfill; default seed.
 
-**Data:** additive migration; seed default from shipped YAML; no backfill.
+**UI/API/CLI:** none visible.
 
-**API/UI/CLI:** none visible.
+**Tests:** migration, seed, repositories, activation/rollback, old DB upgrade, old prescriptions
+unchanged.
 
-**Tests:** migration, seed, repository, rollback pointer, old DB upgrade, no existing row changes.
+**Acceptance:** app behaves exactly as today; fixed fallback resolves from seeded version.
 
-**Acceptance:** app behaves exactly as today with the flag off; default version resolves to the
-shipped YAML; old prescriptions remain null and readable.
+**Merge gate:** merge behind disabled flag after full regression.
 
-**Merge gate:** merge behind a disabled feature flag after full regression suite.
+### Step 2 — Deterministic resolver core
 
-### Step 2 — Active TemplateSet plumbing
+**Objective:** build a valid resolved `SessionTemplate` for a session type from blueprint +
+policy + current state.
 
-**Objective:** make future-session code read the active template set while historical/default
-paths remain stable.
+**Scope:** categories/pools, suitability/constraints, coverage preference, power, volume/duration
+checks, deterministic ordering, failure cases.
 
-**Scope:** `TemplateSet` resolver; thread active set through `build_prescription`, scheduler,
-volume budget, selection, fatigue selection, demand scope and forecast. Add explicit template
-snapshot support to critique.
+**Data:** no new tables.
 
-**Architecture:** do not put active-DB reads inside `SessionTemplate.load()`. Pass explicit
-context. Keep default fallback for omitted arguments.
+**UI/API/CLI:** internal resolve function/API; no visual change.
 
-**Data:** no new schema beyond Step 1.
+**Tests:** all §9.1 cases; synthetic fixed templates/policies; determinism; impossible cases.
 
-**API/UI/CLI:** no visible change yet.
+**Acceptance:** resolver returns valid templates and clear errors; not wired into the main path
+yet.
 
-**Tests:** default-path regression; generated-set injection tests with synthetic templates;
-critique link test; scheduler/volume/selection parity.
+**Merge gate:** merge behind flag after resolver unit/integration tests.
 
-**Acceptance:** with no active generated version, every existing test and output is unchanged.
-With a synthetic active set, all future-session components use it and no default file leaks in.
+### Step 3 — Pipeline integration and provenance
 
-**Merge gate:** merge after full suite and a default-path golden check.
+**Objective:** use the resolved template in the real prescription path and freeze provenance.
 
-**Risk:** this is the highest-risk step. A missed `SessionTemplate.load` silently mixes
-defaults and generated templates.
+**Scope:** wire CLI/web/forecast; extend volume/selection/scheduler/critique to accept the
+resolved/blueprint template; store version ids and resolved template on prescriptions.
 
-### Step 3 — Deterministic generator core
+**Architecture:** explicit template passing; no global active read inside
+`SessionTemplate.load`.
 
-**Objective:** generate a complete, valid four-template set from existing state and the generator
-spec.
+**Tests:** full pipeline; default fallback; volume/selection parity; history/critique; scheduler.
 
-**Scope:** generator config, exercise pools, pattern/slot allocation, power placement, volume
-check, duration check, four-template validation, deterministic ordering, generation metadata.
+**Acceptance:** with dynamic off, outputs unchanged; with dynamic on, prescriptions use resolved
+templates; historical rows unchanged.
 
-**Architecture:** pure generator module; calls existing validator and (dry-run)
-`build_prescription`; no runtime scheduler/volume changes.
+**Merge gate:** merge after default-path golden regression and resolver integration.
 
-**Data:** candidate `template_version` rows; no activation yet.
+**Risk:** highest-risk step; missed template load site is a silent mix.
 
-**API/UI/CLI:** internal generation API/service; no activation UI.
+### Step 4 — Programme UI, editors and preview
 
-**Tests:** all §9.3 cases 1–6, 10; impossible inputs; determinism; power; volume; duration.
+**Objective:** make fixed versions, policies and per-session resolution usable.
 
-**Acceptance:** a generated set can be reviewed as data and consumed by the existing engine; it
-cannot be activated yet.
+**Scope:** Programme view; fixed version list; YAML/structured editors; policy list/editor;
+dynamic toggle; per-session preview; activate/revert; Forecast separate view.
 
-**Merge gate:** merge behind the flag after generation tests and default-path regression.
+**Tests:** API/UI; save-as-candidate; activation; preview; failure UX; mobile; docs links.
 
-### Step 4 — Programme UI, editors and activation
+**Acceptance:** user can inspect/edit fixed fallback, activate a policy, preview a resolved
+session, start it, and still use the fixed path.
 
-**Objective:** make versions usable.
+**Merge gate:** merge after UI/API and fallback tests.
 
-**Scope:** Programme view tabs/sections; active version; generation/review; version list;
-activate/revert; YAML editor under Programme; structured slot editor; Forecast separate view.
+### Step 5 — Historical hardening
 
-**Architecture:** one persistence/validation path for both editors; candidate not active until
-explicit activation.
+**Objective:** guarantee old sessions and critiques remain stable.
 
-**Data:** no new tables; use Step 1.
+**Scope:** freeze resolved template with prescription; critique uses it; legacy null path
+documented; no backfill.
 
-**API/UI/CLI:** proposed endpoints; UI mobile checklist; read-only CLI status/show optional.
+**Tests:** old/new prescriptions; policy switch; fallback; critique rep ranges.
 
-**Tests:** §9.3 cases 7–13; API 400/409; YAML save candidate; activation; rollback; mobile
-contract; docs links.
+**Acceptance:** historical rows untouched; new sessions explain themselves from their snapshot.
 
-**Acceptance:** athlete can generate, review, edit, activate, revert and still use the existing
-Forecast. No separate programme pathway selector.
-
-**Merge gate:** merge after UI/API, default fallback and historical tests pass.
-
-### Step 5 — Historical provenance and critique hardening
-
-**Objective:** ensure template changes do not rewrite or reinterpret history.
-
-**Scope:** set `prescription.template_version_id` on new prescriptions; critique uses linked
-version; legacy null path documented; no backfill.
-
-**Architecture:** explicit snapshot, no global active read in critique.
-
-**Data:** nullable column already added in Step 1; no new table.
-
-**Tests:** old vs new prescription/critique; activation/rollback; switch default/generated.
-
-**Acceptance:** old sessions remain interpretable; new sessions cite the exact version.
-
-**Merge gate:** merge after historical-integrity tests.
+**Merge gate:** merge after historical tests.
 
 ### Step 6 — Hardening and rollout
 
-**Objective:** finish the feature without changing the fallback.
+**Objective:** finish without changing the default.
 
-**Scope:** power/volume edge cases, duration warnings, error UX, docs, feature flag default off,
-manual verification, performance check on the real database.
+**Scope:** power/volume edge cases, duration warnings, performance, docs, feature flag default
+off, real-DB copy migration, smoke test.
 
-**Architecture:** no new abstractions.
+**Tests:** full suite, golden resolver fixtures, migration copy, UI smoke.
 
-**Data:** none.
+**Acceptance:** dynamic resolver works end-to-end; fixed fallback works; feature can be disabled
+without data loss.
 
-**Tests:** full suite, generator golden, migration on a copy of the real DB, UI smoke test.
-
-**Acceptance:** generated templates work end-to-end; default templates still work; no regression;
-feature can be disabled without data loss.
-
-**Merge gate:** final merge to `development` after review; no direct release from the feature
-branch.
+**Merge gate:** final merge to development after review; no release from feature branch.
 
 ---
 
-## 11. Branch and delivery strategy
+## 11. Branch strategy
 
-- Cut `feature/template-generator` from `development`.
-- Keep commits small and phase-aligned.
-- Rebase/merge `development` into the feature branch regularly; do not let it drift.
-- Merge back at gates:
-  1. Step 1 behind a disabled flag (foundation only).
-  2. Step 2 after default-path regression (still no user-visible generator).
-  3. Step 3 behind the flag (generator, no activation).
-  4. Step 4 when UI/activation is usable.
-  5. Step 5 after historical tests.
-  6. Step 6 after full acceptance.
-- Never release/tag from the feature branch. Releases remain from `main`.
-- If a phase needs to be abandoned, the additive schema and disabled flag keep the default
-  pathway working.
+- Cut `feature/template-resolver` from `development`.
+- Rebase/merge development regularly.
+- Merge at the gates above, not as one large drop.
+- Never release/tag from the feature branch.
+- Additive schema and disabled flag preserve the fallback during rollout.
 
 ---
 
-## 12. Risks and conflicts
+## 12. Risks and open items
 
-1. **Template resolution leakage.** Any missed `SessionTemplate.load` call site mixes defaults
-   and generated sets. Step 2 must be exhaustive and tested.
-2. **Volume budget signatures.** Several functions reload templates by session type. Extending
-   them risks changing default behavior; regression tests are mandatory.
-3. **Historical critique drift.** The current critique reads the active template by session type.
-   New prescriptions need a version link; legacy rows must not be retroactively relabeled.
-4. **Generator scope.** Without objectives/equipment/experience, the generator is a constrained
-   strength/power template builder, not a general optimiser. UI copy must not overclaim.
-5. **Power evidence.** Power is a required quality exposure, not a proven equal pillar for
-   strength. The plan uses a modest two-exposure target and preserves quality-stop semantics.
-6. **Volume duplication.** The generator must check against the existing landmarks, not create a
-   second allocation engine. If it cannot reuse the ledger, stop and redesign.
-7. **YAML editor bypass.** Option B must save a candidate, never mutate active. If the editor can
-   activate directly, the approval boundary is lost.
-8. **Default seed drift.** A release changing the shipped YAML needs a new default version, not a
-   silent overwrite of the active generated version.
-9. **Frequency edge cases.** Two power exposures per week are impossible at one or two sessions;
-   the generator must warn, not add sessions.
-10. **Migration safety.** Additive only; seed default version; no backfill; feature flag off.
+1. **Resolver leakage:** missing a template load site mixes fixed and dynamic paths. Step 3 must
+   be exhaustive.
+2. **Sets/reps/RIR boundary:** the resolver must not become a second periodisation engine. It
+   chooses exercises; runtime rules vary sets/reps/RIR.
+3. **Weak points:** not implemented. Coverage/under-MEV selection only.
+4. **Volume:** no per-muscle ledger; movement patterns only. Resolver checks existing landmarks.
+5. **Power at low frequency:** warning, not extra sessions.
+6. **Historical critique:** frozen resolved template is mandatory for new sessions.
+7. **YAML/version semantics:** save-as-candidate only; activation explicit.
+8. **Fallback ambiguity:** fixed fallback only when dynamic off/unavailable; unresolved slot is
+   an error.
+9. **Policy editing complexity:** policy YAML/structured editor may be large; keep MVP review and
+   activation minimal if needed.
+10. **No new inputs:** the resolver cannot optimise equipment/experience/objectives; state the
+    limitation.
 
----
+## 13. Resolved decisions
 
-## 13. Resolved design decisions
+- Dynamic per-session exercise resolution; fixed YAML is blueprint and fallback.
+- Resolver changes exercise selection; sets/reps/RIR remain blueprint + existing runtime rules.
+- Fixed template version and resolver policy version are separately versioned/activated.
+- Resolved template is frozen with the prescription.
+- Power is hard-coded structurally.
+- Coverage-based accessories now; weakness targeting later.
+- Movement-pattern volume only.
+- No second scheduler/engine/volume/lifecycle/LLM.
 
-- Replace the old Programme Builder plan with this template-generator plan.
-- Four canonical session types; no new identities.
-- Explicit `TemplateSet` resolver; do not make `SessionTemplate.load` read active state.
-- DB-backed immutable template versions plus a current active pointer.
-- Nullable `prescription.template_version_id`.
-- Generated sets are candidates until explicit activation.
-- YAML editor moves under Programme; saving creates a new candidate version; structured slot
-  editor shares the same save path.
-- Forecast becomes a separate view; Programme becomes template management.
-- Power: required, quality-limited, first in session, two exposures/week where frequency allows.
-- No new athlete inputs; no equipment/experience/objective model in the MVP.
-- No new scheduler, prescription engine, volume engine, programme lifecycle or LLM.
-
-## 14. Open design decisions for Step 0
-
-These do not block the plan but must be settled before Step 3:
-
-1. **Generator spec shape:** per-slot fixed ids vs pattern selectors vs mixed. Recommended:
-   pattern/role selectors with a canonical fallback, so the generator can adapt to suitability
-   without hard-coding exercises.
-2. **Default-version seeding:** seed on first startup vs a migration-time insert. Recommended:
-   first startup after migration, because the YAML file is the source and the migration should
-   not read runtime config.
-3. **Power at low frequency:** one exposure with a warning at 1–2 sessions/week vs a hard
-   refusal. Recommended: generate with one exposure and an explicit warning; do not add sessions.
-4. **Legacy critique:** leave unlinked sessions on the current default loader vs attempt a
-   historical default snapshot. Recommended: leave them, and document the limitation.
-
----
-
-## 15. Related
+## 14. Related
 
 - **Methodology:** [METHODOLOGY.md](METHODOLOGY.md)
 - **Templates:** [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md)

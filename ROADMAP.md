@@ -51,7 +51,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.0 beta | Workable app + guided Workflow UI | **released 2026-10-27** | full strength loop, guided readiness → preview → workout → post-workout, effective volume accounting, template editor, schedule fallback/rebalance; user testing in progress |
 | v1.1 beta | Performance + monitoring analysis | **released 2026-10-31 (b2); b1 2026-10-30** | raw e1RM Performance view, rolling median, breaks, degraded observations, dose, configured relative-strength ratios, read-only monitoring analysis, calibration transparency; Phase 5A review follow-up |
 | v1.2 | Beta removal + cardio + calibration depth | **planned; plan at §4.13a** | drop the beta label after user testing; pending: cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
-| future | Deterministic template generator | **planned after v1.2; before LLM Iteration 1** | detailed plan at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md); generated four-template versions using the existing scheduler/prescription/volume/history, no separate programme pathway, no implementation in this pass |
+| future | Deterministic dynamic template resolver | **planned after v1.2; before LLM Iteration 1** | detailed plan at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md); fixed four-template blueprint/fallback with per-session exercise resolution using the existing scheduler/prescription/volume/history, no separate programme pathway, no implementation in this pass |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
 | — | 2026-10-26 pass | **done 2026-10-26** | declared breaks — append-only range, `break` CLI, Athlete panel, freeze in the trained-week cycle (`DEC-CONTINUITY-04`, `LIM-50`); P1 measured-test coverage view (`e1rm tests-needed` + Athlete table); symptom settling made fail-safe — a level-1 reading without a recorded 48 h settlement is a flare (`DEC-SYMPTOM-04`, Q25 closed) and `docs/SYMPTOM-LOGGING.md` documents the episode workflow; minimum-session target shown against the measured clock (`DEC-MIN-02`, `LIM-47` mitigated); gaps table folded into `docs/LIMITATIONS-REGISTER.md` |
 | — | 2026-10-28 fatigue signals Phase 0 | **done 2026-10-28** | five decisions (`DEC-EXPOSURE-02`, `DEC-DEMAND-01`, `DEC-RESIDUAL-01`, `DEC-SELECT-12`, `DEC-SHADOW-01`), five assumptions, `LIM-56`, ACWR doc drift corrected; `docs/FATIGUE-SIGNALS.md` maps Parts A–D onto the real engine stages and `docs/EXERCISE-DEMANDS.md` defines the companion catalogue. No code, no behaviour change |
@@ -1391,31 +1391,32 @@ changes require explicit approval.
 benefit and no regression. No phase claims that prose quality or acceptance rate proves better
 coaching.
 
-### 4.25 Deterministic template generator  (planned; not implemented)
+### 4.25 Deterministic dynamic template resolver  (planned; not implemented)
 
 **Status:** planned, no dates, no code or schema in this pass. Detailed architecture,
 dependency map, versioning, validation, phased plan and open decisions:
 [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md).
 
-The existing training system stays the execution path. The generator produces a complete set of
-four valid `SessionTemplate` instances (`squat`, `hinge`, `bench_squat`, `bench_hinge`) from
-existing athlete state, constraints, suitability, history and a generator spec. Generated
-templates are reviewed, saved as immutable versions and explicitly activated; the shipped YAML
-templates remain the fallback. There is no second scheduler, prescription engine, volume engine,
+The existing training system stays the execution path. The fixed four-template YAML becomes a
+blueprint and fallback; a deterministic resolver fills its slots for each prescription from
+existing athlete state, constraints, suitability, history, pattern coverage and a versioned
+resolver policy. The resolved `SessionTemplate` is passed to the existing
+`build_prescription`; readiness, e1RM, RIR, volume, deload, spinal limits and validation remain
+runtime responsibilities. There is no second scheduler, prescription engine, volume engine,
 programme/block lifecycle or pathway selector. The existing forecast moves to its own view.
 
-Generation is one-off, not automatic. Runtime readiness, e1RM, RIR, double progression, deload,
-volume budget, spinal cap, warm-ups and validation continue to shape every prescription.
-Power is a required quality-limited slot using the existing `power`/`quality_stop` fields.
-No new athlete inputs are added: objectives, equipment, experience, muscle-group priorities and
-cardio are out of scope.
+Resolution is per session and deterministic. Sets/reps/RIR still come from the blueprint and the
+existing runtime rules; the resolver chooses exercises. Power is a hard structural constant on
+the squat and hinge blueprints. Accessories use movement-pattern coverage (weak-point targeting
+is a later gated feature). No new athlete inputs are added: objectives, equipment, experience,
+muscle-group priorities and cardio are out of scope.
 
-Major steps: (0) contracts; (1) template-version tables and provenance; (2) active TemplateSet
-plumbing through the existing engine/scheduler/volume/selection/critique; (3) deterministic
-generator and validation; (4) Programme UI, YAML/structured editors and activation;
-(5) historical critique/link hardening; (6) rollout. Work happens on
-`feature/template-generator` with phase merges. LLM assistance remains deferred to §4.24 until
-the deterministic generator is accepted.
+Major steps: (0) contracts; (1) fixed-template and resolver-policy versions plus provenance;
+(2) deterministic resolver core; (3) pipeline integration through engine/scheduler/volume/
+selection/critique; (4) Programme UI, YAML/structured editors and per-session preview;
+(5) historical snapshot/critique hardening; (6) rollout. Work happens on
+`feature/template-resolver` with phase merges. LLM assistance remains deferred to §4.24 until
+the deterministic resolver is accepted.
 
 Dependency: v1.2 first. The existing template pathway, its golden prescriptions and its
 `/api/programme` forecast must remain unchanged.

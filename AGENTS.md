@@ -263,7 +263,7 @@ never read `data/raw`.
 | `docs/REVERSE-HYPER-BELT-SQUAT-EVIDENCE.md` | reverse hyperextension and belt squat evidence; optional accessories, no programme change |
 | `docs/WEAKNESS-TARGETING-PLAN.md` | gated weakness metric, retrospective screen and N-of-1 test plan |
 | `docs/LLM-INTEGRATION-PLAN.md` | future LLM analyst/explainer/constrained-proposer architecture: Iteration 1 (practical capabilities, selector retirement), conditional Iteration 2 (retrieval/RAG/advanced orchestration), shared context/evidence contracts, approval, privacy and evaluation gates; plan only |
-| `docs/PROGRAMME-BUILDER-PLAN.md` | deterministic template generator: generated four-template versions, active-set activation, reuse of the existing scheduler/prescription/volume/history, phased plan and decisions; plan only |
+| `docs/PROGRAMME-BUILDER-PLAN.md` | deterministic dynamic template resolver: fixed four-template blueprint/fallback, per-session exercise resolution, versioned policy and provenance, reuse of the existing scheduler/prescription/volume/history, phased plan; plan only |
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/MONITORING-ANALYSIS.md` | read-only exploratory monitoring analysis: dose, lagged associations, calibration transparency, API/UI/CLI, non-causal limits and privacy |
 | `docs/WORKOUT-GENERATION.md` | Plain-English explanation of the deterministic prescription pipeline, inputs, modifiers, validation and limitations |
