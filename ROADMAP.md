@@ -51,6 +51,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.0 beta | Workable app + guided Workflow UI | **released 2026-10-27** | full strength loop, guided readiness → preview → workout → post-workout, effective volume accounting, template editor, schedule fallback/rebalance; user testing in progress |
 | v1.1 beta | Performance + monitoring analysis | **released 2026-10-31 (b2); b1 2026-10-30** | raw e1RM Performance view, rolling median, breaks, degraded observations, dose, configured relative-strength ratios, read-only monitoring analysis, calibration transparency; Phase 5A review follow-up |
 | v1.2 | Beta removal + cardio + calibration depth | **planned; plan at §4.13a** | drop the beta label after user testing; pending: cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
+| future | Programme Builder — parallel programming pathway | **planned after v1.2; before LLM Iteration 1** | detailed plan at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md); open-ended deterministic strength programme, separate from templates, no implementation in this pass |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
 | — | 2026-10-26 pass | **done 2026-10-26** | declared breaks — append-only range, `break` CLI, Athlete panel, freeze in the trained-week cycle (`DEC-CONTINUITY-04`, `LIM-50`); P1 measured-test coverage view (`e1rm tests-needed` + Athlete table); symptom settling made fail-safe — a level-1 reading without a recorded 48 h settlement is a flare (`DEC-SYMPTOM-04`, Q25 closed) and `docs/SYMPTOM-LOGGING.md` documents the episode workflow; minimum-session target shown against the measured clock (`DEC-MIN-02`, `LIM-47` mitigated); gaps table folded into `docs/LIMITATIONS-REGISTER.md` |
 | — | 2026-10-28 fatigue signals Phase 0 | **done 2026-10-28** | five decisions (`DEC-EXPOSURE-02`, `DEC-DEMAND-01`, `DEC-RESIDUAL-01`, `DEC-SELECT-12`, `DEC-SHADOW-01`), five assumptions, `LIM-56`, ACWR doc drift corrected; `docs/FATIGUE-SIGNALS.md` maps Parts A–D onto the real engine stages and `docs/EXERCISE-DEMANDS.md` defines the companion catalogue. No code, no behaviour change |
@@ -1389,6 +1390,33 @@ changes require explicit approval.
 **Exit gates:** Iteration 1 as above; Iteration 2 phase 6 owner disposition; phase 7 measured
 benefit and no regression. No phase claims that prose quality or acceptance rate proves better
 coaching.
+
+### 4.25 Programme Builder — parallel pathway  (planned; not implemented)
+
+**Status:** planned, no dates, no code or schema in this pass. Detailed architecture, data model,
+validation, testing and phased plan: [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md).
+
+The existing session-template pathway stays the default and is not redesigned. A second pathway
+lets the athlete define a strength programme, generate it deterministically, review and approve
+it, and receive future sessions from it. Programme sessions may be arbitrary within the new
+plan's validated rules; the existing prescription engine still computes loads, RIR, readiness,
+volume and safety limits. The two pathways share execution and history, not scheduling.
+
+The programme is open-ended: one approved definition, rolling generated cycles (default four
+weeks), and automatic continuation only inside the approved envelope. Routine blocks continue
+without re-approval; material changes, manual edits or validator warnings require approval.
+Active versions are immutable and historical prescriptions/workouts are never rewritten.
+
+Major phases: (0) decisions and contracts; (1) tables/versioning foundations; (2) deterministic
+generation MVP; (3) review/approval/activation UI; (4) Workflow prescription and workout
+integration; (5) progression/volume refinement; (6) monitoring/adaptation. LLM assistance is
+**not** part of this workstream and remains deferred to §4.24 after the deterministic builder is
+accepted. MVP is strength-first; powerlifting and longevity follow later. The MVP adds no new
+athlete-state fields and reuses existing profile, constraints, suitability, frequency, duration,
+history and e1RM. Cardio remains outside the app's prescription scope.
+
+Dependency: v1.2 first. The existing template pathway, its golden prescriptions and its
+`/api/programme` forecast must remain unchanged.
 
 ## 5. Known gaps and risks
 
