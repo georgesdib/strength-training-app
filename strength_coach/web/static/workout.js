@@ -377,6 +377,8 @@ function saveWorkoutSetEdit() {
 }
 
 function renderWorkout(w) {
+  // A new workout must not inherit the previous workout's loaded/open history panels.
+  if (activeWorkoutId !== w.workout_id) workoutHistoryState = {};
   activeWorkoutId = w.workout_id;
   window.__workoutData = w;
   $("#workout-empty").hidden = true;
