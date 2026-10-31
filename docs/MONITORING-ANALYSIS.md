@@ -40,8 +40,14 @@ canonical pairs.
 
 The Performance panel supports add, edit, delete and reset with full server-side validation
 against the taxonomy and merged configuration. Edits replace the full local object; membership
-is immutable. Every write is atomic and revision-checked, and locally hidden canonical pairs
-can be restored from the panel.
+is immutable. Every write is atomic and requires the current configuration revision. Reset is
+shown only for a canonical pair with a local override; a locally added pair is deleted instead.
+Locally hidden canonical pairs can be restored from the panel.
+
+A stale revision returns 409. The UI explains that the configuration changed elsewhere,
+offers a Reload configuration action and never automatically replays the failed write; the
+user reviews the refreshed revision and retries explicitly. Additions are disabled until the
+relationship configuration and its revision load successfully.
 
 A pair is accepted only when:
 

@@ -1896,6 +1896,7 @@ def test_relationship_options_and_validated_add(server, monkeypatch):
         "append_relationship",
         lambda relationship: captured.append(relationship) or [relationship],
     )
+    revision = json.loads(get(server, "/api/performance/relationships")[1])["revision"]
     payload = post(server, "/api/performance/relationships", {
         "numerator": "front_squat",
         "denominator": "bench_press",
@@ -1903,6 +1904,7 @@ def test_relationship_options_and_validated_add(server, monkeypatch):
         "max_gap_days": 14,
         "max_age_days": 42,
         "min_observations": 2,
+        "revision": revision,
     })
     assert payload["ok"] is True
     assert captured[0].numerator == "front_squat"
@@ -1951,14 +1953,29 @@ def test_relationship_crud_api_enforces_revision_and_reset(server, tmp_path, mon
     listed = json.loads(get(server, "/api/performance/relationships")[1])
     revision = listed["revision"]
     assert listed["relationships"]
+    assert listed["relationships"][0]["origin"] == "canonical"
+    canonical_before = (tmp_path / "strength-relationships.v1.yaml").read_bytes()
 
-    added_payload = post(server, "/api/performance/relationships", {
+    addition = {
         "numerator": "front_squat",
         "denominator": "bench_press",
         "relationship_type": "variant_to_main",
         "max_gap_days": 14,
         "max_age_days": 42,
         "min_observations": 2,
+    }
+    status, _ = post_status(server, "/api/performance/relationships", addition)
+    assert status == 400
+    status, _ = post_status(
+        server, "/api/performance/relationships",
+        {**addition, "revision": "stale-revision"},
+    )
+    assert status == 409
+    assert not (tmp_path / "strength-relationships.local.yaml").exists()
+    assert (tmp_path / "strength-relationships.v1.yaml").read_bytes() == canonical_before
+
+    added_payload = post(server, "/api/performance/relationships", {
+        **addition, "revision": revision,
     })
     assert added_payload["ok"] is True
     added = next(
@@ -1967,6 +1984,7 @@ def test_relationship_crud_api_enforces_revision_and_reset(server, tmp_path, mon
     )
     current = added_payload["revision"]
     assert current != revision
+    assert added["origin"] == "local"
 
     first = listed["relationships"][0]
     update_body = {
@@ -1990,6 +2008,7 @@ def test_relationship_crud_api_enforces_revision_and_reset(server, tmp_path, mon
     )
     edited = next(item for item in updated["relationships"] if item["id"] == first["id"])
     assert edited["label"] == "Edited via API"
+    assert edited["origin"] == "canonical"
     current = updated["revision"]
 
     status, _ = post_status(
@@ -2005,6 +2024,8 @@ def test_relationship_crud_api_enforces_revision_and_reset(server, tmp_path, mon
     )
     assert all(item["id"] != first["id"] for item in deleted["relationships"])
     assert any(item["id"] == first["id"] for item in deleted["hidden"])
+    assert any(item["id"] == first["id"] and item["origin"] == "canonical"
+               for item in deleted["hidden"])
     current = deleted["revision"]
 
     reset = post(
@@ -2017,3 +2038,11 @@ def test_relationship_crud_api_enforces_revision_and_reset(server, tmp_path, mon
     assert all(item["id"] != first["id"] for item in reset["hidden"])
     assert (tmp_path / "strength-relationships.local.yaml").is_file()
     assert added["id"] == "front_squat_to_bench_press"
+
+    removed_local = post(
+        server,
+        f"/api/performance/relationships/{added['id']}/delete",
+        {"revision": reset["revision"]},
+    )
+    assert all(item["id"] != added["id"] for item in removed_local["relationships"])
+    assert all(item["id"] != added["id"] for item in removed_local["hidden"])

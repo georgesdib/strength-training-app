@@ -1848,6 +1848,7 @@ class Handler(BaseHTTPRequestHandler):
         relationships: list[relative_strength_feature.Relationship],
     ) -> dict:
         records = relative_strength_feature.load_relationships_with_sources()
+        canonical_ids = relative_strength_feature.canonical_relationship_ids()
         sources = {
             item.id: {"source": source, "source_kind": kind}
             for item, source, kind in records
@@ -1869,11 +1870,12 @@ class Handler(BaseHTTPRequestHandler):
                     "notes": item.notes,
                     "source": sources.get(item.id, {}).get("source", "canonical config"),
                     "source_kind": sources.get(item.id, {}).get("source_kind", "canonical_config"),
+                    "origin": "canonical" if item.id in canonical_ids else "local",
                 }
                 for item in relationships
             ],
             "hidden": [
-                {"id": item.id, "label": item.label,
+                {"id": item.id, "label": item.label, "origin": "canonical",
                  "source": "locally hidden canonical pair", "source_kind": "local_override"}
                 for item in hidden
             ],
@@ -1883,7 +1885,7 @@ class Handler(BaseHTTPRequestHandler):
         return self._relationship_payload(relative_strength_feature.load_relationships())
 
     def _add_relationship(self, body: dict) -> dict:
-        self._check_relationship_revision(body, required=False)
+        self._check_relationship_revision(body, required=True)
         relationship = self._relationship_from_body(body)
         relationships = relative_strength_feature.append_relationship(relationship)
         _READ_CACHE.clear()

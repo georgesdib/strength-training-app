@@ -191,6 +191,13 @@ def load_relationships(path: str | Path | None = None) -> list[Relationship]:
     return [item for item, _source, _kind in load_relationships_with_sources(path)]
 
 
+def canonical_relationship_ids(path: str | Path | None = None) -> set[str]:
+    return {
+        _relationship_from_entry(entry).id
+        for entry in (_load_yaml(_canonical_path(path)).get("relationships") or [])
+    }
+
+
 def hidden_relationships(path: str | Path | None = None) -> list[Relationship]:
     overlay = _load_overlay(path)
     deleted = set(overlay["deleted"])

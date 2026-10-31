@@ -517,7 +517,52 @@ def test_relationship_crud_ui_is_wired() -> None:
     assert "data-relationship-action='reset'" in source
     assert "Locally hidden pairs" in source
     assert "Confirm delete" in source
-    assert "performanceRelationshipConfig.revision" in source
+    assert "id='relationship-add-submit' disabled" in source
+    assert 'item.origin === "canonical"' in source
+    assert "Reload configuration" in source
+
+
+def test_relationship_conflict_reload_does_not_retry_automatically() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    match = re.search(r"function showRelationshipConflict\(targetId\) \{[\s\S]*?\n\}", source)
+    assert match, "showRelationshipConflict() not found"
+    script = r"""
+const target = {innerHTML: ""};
+const status = {textContent: ""};
+let click = null;
+const button = {
+  disabled: false,
+  textContent: "Reload configuration",
+  addEventListener(name, fn) { if (name === "click") click = fn; }
+};
+global.document = {
+  getElementById(id) {
+    if (id === "target") return target;
+    if (id === "relationship-add-status") return status;
+    if (id.startsWith("relationship-reload-")) return button;
+    return null;
+  }
+};
+let reloads = 0;
+global.loadRelationshipConfig = async function (force) {
+  if (force) reloads += 1;
+};
+eval(FUNC);
+showRelationshipConflict("target");
+if (!target.innerHTML.includes("Configuration changed elsewhere")) throw new Error("missing conflict message");
+if (!target.innerHTML.includes("Reload configuration")) throw new Error("missing reload action");
+if (reloads !== 0) throw new Error("conflict auto-retried");
+click();
+setTimeout(function () {
+  if (reloads !== 1) throw new Error("reload action did not reload");
+}, 0);
+"""
+    script = script.replace("FUNC", json.dumps(match.group(0)))
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
 
 
 def test_monitoring_inventory_reason_disclosures_and_empty_state() -> None:

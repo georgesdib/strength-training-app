@@ -91,6 +91,7 @@ async function api(path, options = {}) {
   try { data = text ? JSON.parse(text) : {}; } catch { data = { error: text }; }
   if (!response.ok) {
     const error = new Error(data.error || response.statusText);
+    error.status = response.status;
     error.fields = data.fields || {};
     throw error;
   }

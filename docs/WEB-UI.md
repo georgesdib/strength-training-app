@@ -149,8 +149,8 @@ also disables while saving and reports the number of marks written.
 | `GET /api/performance/dose?from=&to=&group_by=session` | descriptive session dose |
 | `GET /api/performance/ratios?relationship_id=&from=&to=` | configured ratio current value and paired history |
 | `GET /api/performance/relationships` | merged relationship configuration, source provenance and revision |
-| `POST /api/performance/relationships` | add a validated local relationship |
-| `POST /api/performance/relationships/{id}/update\|delete\|reset` | edit, hide or reset a local relationship override; requires the current revision |
+| `POST /api/performance/relationships` | add a validated local relationship; requires the current revision |
+| `POST /api/performance/relationships/{id}/update\|delete\|reset` | edit, hide or reset a local relationship override; requires the current revision; stale revisions return 409 |
 | `GET /api/monitoring-analysis?as_of=` | read-only dose, lagged associations, coverage and calibration transparency; no path disclosure |
 | `GET /api/settings/monitoring` | read-only monitoring/config inventory, canonical/local/default/code provenance, Phase 5A period and lock, complete effective-inventory revision; no paths or athlete data |
 | `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |

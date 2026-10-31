@@ -1,6 +1,6 @@
 # Monitoring configuration and report-control UI plan
 
-**Status:** Steps 1–4 implemented and reviewed. Step 1 provides the complete effective-inventory backend; Step 2 adds the collapsed read-only Settings inventory; Step 3 adds the effective relationship local overlay, provenance, revision checks and CRUD API; Step 4 adds source-aware add/edit/delete/reset UI with hidden-pair restore. Steps 5–6 remain pending.
+**Status:** Steps 1–4 implemented and reviewed, including the Step 4 corrective hardening: every relationship write requires a matching revision, reset is only offered for canonical pairs with local overrides, and 409 conflicts provide a reload-and-retry path without automatic replay. Steps 5–6 remain pending.
 
 **Scope:** read-only parameter inventory visible on the home LAN; loopback-only writes; relative-strength pair CRUD; LIM-27 point 3 report/window controls.
 
