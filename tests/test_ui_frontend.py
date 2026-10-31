@@ -99,6 +99,19 @@ def test_performance_full_list_and_pair_editor_are_exposed() -> None:
     assert "/api/performance/relationships" in source
 
 
+def test_monitoring_inventory_settings_panel_is_read_only() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert 'id="settings-monitoring-panel"' in page
+    assert 'id="settings-monitoring-search"' in page
+    assert 'id="settings-monitoring-group"' in page
+    assert "/api/settings/monitoring" in source
+    assert "Phase 5A locked" in source
+    assert "Python default" in source
+    assert "Canonical config" in source
+    assert "Local override" in source
+
+
 def test_script_load_order() -> None:
     page = INDEX.read_text(encoding="utf-8")
     order = [src.removeprefix("/static/")

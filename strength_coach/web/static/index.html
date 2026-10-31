@@ -1009,6 +1009,23 @@
         </form>
       </div>
 
+      <div class="panel" id="settings-monitoring-panel">
+        <div class="panel-head"><h2>Monitoring &amp; reports</h2>
+          <span class="badge" id="settings-monitoring-meta">loading…</span></div>
+        <p class="section-help"><span>Read-only inventory of effective monitoring, calibration, prescription and volume parameters. Visible on the home network; no values are editable here.</span> <a class="doc-link" href="#docs?doc=docs/MONITORING-ANALYSIS.md">Configuration reference</a></p>
+        <details id="settings-monitoring-disclosure">
+          <summary id="settings-monitoring-summary">Show inventory</summary>
+          <p class="muted" id="settings-monitoring-phase"></p>
+          <div class="form-row">
+            <label class="grow">Search <input id="settings-monitoring-search" placeholder="parameter, value or source"></label>
+            <label>Group
+              <select id="settings-monitoring-group"><option value="">All groups</option></select>
+            </label>
+          </div>
+          <div id="settings-monitoring-groups"><p class="empty">Loading inventory…</p></div>
+        </details>
+      </div>
+
       <div class="panel">
         <div class="panel-head"><h2>Modules</h2><span class="muted">metadata over existing flags</span></div>
         <p class="section-help"><span>Classes, dependencies and factor references; toggles delegate to the existing setting. Hard-safety entries are read-only; guarded changes need confirmation and a reason; selection is per session.</span> <a class="doc-link" href="#docs?doc=docs/VOLUME-MODULATION-PLAN.md&amp;anchor=9-ui-cli-api">Modality controls</a></p>

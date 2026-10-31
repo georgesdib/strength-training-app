@@ -9,6 +9,9 @@ factor, volume target, or recommendation.
 - **Performance -> Monitoring analysis** in the web UI: explicit Run analysis, optional
   as-of date, dose chart, two lagged scatter charts, supporting tables and calibration
   transparency.
+- **Settings -> Monitoring & reports**: a collapsed, read-only inventory of effective
+  monitoring, calibration, prescription and volume parameters, with search, group filters and
+  canonical/local/default/code provenance.
 - The standalone CLI is tools/monitoring_analysis.py.
 - GET /api/monitoring-analysis?as_of=YYYY-MM-DD.
 

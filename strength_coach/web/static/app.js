@@ -3531,6 +3531,109 @@ async function saveProfileDraft() {
   }
 }
 
+const MONITORING_SOURCE_LABELS = {
+  canonical_config: "Canonical config",
+  local_override: "Local override",
+  python_default: "Python default",
+  fixed_code: "Fixed code",
+};
+
+const MONITORING_EDIT_LABELS = {
+  phase5a_locked: "Phase 5A locked",
+  read_only: "Read-only",
+  fixed: "Fixed",
+  editable: "Editable",
+};
+
+function monitoringValue(row) {
+  if (row.value === null || row.value === undefined) return "Not configured";
+  let text;
+  if (typeof row.value === "boolean") text = row.value ? "On" : "Off";
+  else text = String(row.value);
+  if (row.unit) text += " " + row.unit;
+  return esc(text);
+}
+
+function renderMonitoringInventory(data) {
+  const groupsBox = $("#settings-monitoring-groups");
+  if (!groupsBox) return;
+  const groups = data.groups || [];
+  const select = $("#settings-monitoring-group");
+  const previous = select ? select.value : "";
+  if (select) {
+    select.innerHTML = "<option value=''>All groups</option>" + groups.map(function (group) {
+      return "<option value='" + esc(group.key) + "'>" + esc(group.label) + "</option>";
+    }).join("");
+    select.value = previous;
+  }
+  const total = groups.reduce(function (sum, group) {
+    return sum + (group.parameters || []).length;
+  }, 0);
+  const summary = $("#settings-monitoring-summary");
+  if (summary) summary.textContent = "Show inventory (" + total + " parameters)";
+  const meta = $("#settings-monitoring-meta");
+  if (meta) {
+    meta.textContent = "v" + (data.application_version || "—") + " · " +
+      String(data.revision || "").slice(0, 12);
+    meta.title = data.revision || "";
+  }
+  const phase = $("#settings-monitoring-phase");
+  if (phase && data.phase) {
+    phase.textContent = data.phase.note + " Review due " + data.phase.review_due + ".";
+  }
+  groupsBox.innerHTML = groups.map(function (group) {
+    const firstDoc = (group.parameters || []).find(function (row) { return row.doc; });
+    const rows = (group.parameters || []).map(function (row) {
+      const search = [
+        group.label, group.key, row.key, row.label, row.value, row.unit,
+        row.source, row.source_kind, row.editability,
+      ].join(" ").toLowerCase();
+      const editLabel = MONITORING_EDIT_LABELS[row.editability] || row.editability;
+      const sourceLabel = MONITORING_SOURCE_LABELS[row.source_kind] || row.source_kind;
+      const defaultBadge = row.source_kind === "python_default"
+        ? " <span class='badge warn'>default</span>" : "";
+      return "<tr class='monitoring-row' data-group='" + esc(group.key) +
+        "' data-search='" + esc(search) + "'><td><strong>" + esc(row.label) +
+        "</strong><div class='monitoring-key'>" + esc(row.key) +
+        "</div><span class='badge'>" + esc(editLabel) + "</span></td><td class='monitoring-value'>" +
+        monitoringValue(row) + defaultBadge + "</td><td><code>" + esc(row.source) +
+        "</code><div><span class='badge'>" + esc(sourceLabel) + "</span></div></td></tr>";
+    }).join("");
+    return "<section class='monitoring-group' data-group='" + esc(group.key) + "'>" +
+      "<h3>" + esc(group.label) + "</h3>" +
+      (firstDoc ? "<p class='section-help'><a class='doc-link' href='#docs?doc=" +
+        encodeURIComponent(firstDoc.doc) + "'>Reference</a></p>" : "") +
+      "<div class='table-scroll'><table class='monitoring-table'><thead><tr>" +
+      "<th>Parameter</th><th>Effective value</th><th>Source</th></tr></thead><tbody>" +
+      rows + "</tbody></table></div></section>";
+  }).join("");
+  applyMonitoringFilter();
+  const search = $("#settings-monitoring-search");
+  if (search && !search.dataset.wired) {
+    search.dataset.wired = "1";
+    search.addEventListener("input", applyMonitoringFilter);
+  }
+  if (select && !select.dataset.wired) {
+    select.dataset.wired = "1";
+    select.addEventListener("change", applyMonitoringFilter);
+  }
+}
+
+function applyMonitoringFilter() {
+  const query = ($("#settings-monitoring-search").value || "").trim().toLowerCase();
+  const group = $("#settings-monitoring-group").value || "";
+  document.querySelectorAll(".monitoring-group").forEach(function (section) {
+    let visible = 0;
+    section.querySelectorAll(".monitoring-row").forEach(function (row) {
+      const show = (!group || row.dataset.group === group) &&
+        (!query || (row.dataset.search || "").includes(query));
+      row.hidden = !show;
+      if (show) visible += 1;
+    });
+    section.hidden = visible === 0;
+  });
+}
+
 async function loadSettings() {
   let data;
   try {
@@ -3553,6 +3656,13 @@ async function loadSettings() {
     renderVolumeSettings(await api("/api/settings/volume"));
   } catch (error) {
     $("#settings-volume-msg").textContent = "Volume settings failed: " + error.message;
+  }
+  try {
+    renderMonitoringInventory(await api("/api/settings/monitoring"));
+  } catch (error) {
+    $("#settings-monitoring-meta").textContent = "error";
+    $("#settings-monitoring-groups").innerHTML =
+      "<p class='warnbox'>Monitoring inventory failed: " + esc(error.message) + "</p>";
   }
   try {
     const modalityData = await api("/api/modalities");

@@ -129,7 +129,7 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 - **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
   same-category substitute rises; a review question, never an action.
 - **Settings** — appearance (System / Light / Dark), optional LLM configuration (enable/disable, model, endpoint, write-only key,
-  temperature/tokens/timeout), browser-only Prescribe defaults, and read-only app/database paths.
+  temperature/tokens/timeout), browser-only Prescribe defaults, a collapsed read-only **Monitoring & reports** inventory with search/group filters, and read-only app/database paths.
   The key is masked and lives in git-ignored `config/llm.local.toml`.
 - **Docs** — local Markdown rendered without external assets.
 

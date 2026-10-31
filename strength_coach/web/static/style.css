@@ -409,3 +409,14 @@ body.menu-open { overflow: hidden; }
 .performance-chart { display: block; width: 100%; height: auto; min-height: 140px; overflow: visible; }
 .performance-chart polyline { stroke: var(--ink); }
 .performance-chart circle { fill: var(--accent); }
+
+/* Settings monitoring inventory: grouped read-only reference tables. */
+#settings-monitoring-disclosure > summary { cursor: pointer; font-weight: 600; margin: 8px 0; }
+.monitoring-group + .monitoring-group { margin-top: 22px; }
+.monitoring-group h3 { margin-bottom: 4px; }
+.monitoring-key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.monitoring-value { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.monitoring-table { min-width: 640px; }
+.monitoring-table td { vertical-align: top; }
+.monitoring-table code { overflow-wrap: anywhere; }
