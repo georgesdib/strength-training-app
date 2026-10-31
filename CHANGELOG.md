@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Removed the unused `athlete_profile.effective_to` column (migration 0046). Profile versions
+  are append-only and the current row is the latest by `effective_from`; the end date was never
+  written or read, and a new row already amends the previous state (`DEC-STATE-03`).
+
 ## [1.1.0-beta.1] — 2026-10-30
 
 Monitoring and longitudinal-performance beta.
