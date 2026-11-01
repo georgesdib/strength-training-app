@@ -21,13 +21,18 @@ Install the same pinned dependencies CI uses:
 Run the mandatory public checks:
 
     .venv/bin/ruff check .
-    .venv/bin/pytest -m "not integration"
+    .venv/bin/pytest
 
-The public suite includes unit and golden tests. Integration tests are marked
-pytest.mark.integration and are not committed because they read the private data/raw export;
-run them locally on the owner's checkout with:
+The default suite includes unit and golden tests. Two optional layers are excluded by default:
+integration tests (`pytest.mark.integration`) that read the private `data/raw` export and
+non-obvious regression tests (`pytest.mark.regression`) that preserve bugs already caught. Run
+them on request, or on the owner's checkout before a release:
 
-    .venv/bin/pytest -m integration
+    .venv/bin/pytest -m "integration or regression"
+    .venv/bin/pytest -m integration      # private data only
+    .venv/bin/pytest -m regression       # bug-history invariants only
+
+The release workflow runs both optional layers before publishing.
 
 No static type checker is configured in this repository; do not invent a mypy/pyright result.
 There is no separate formatter or frontend build command.
@@ -39,7 +44,8 @@ There is no separate formatter or frontend build command.
 1. installs requirements.lock and the project without resolving different versions;
 2. runs pip check;
 3. runs Ruff;
-4. runs the public unit/golden suite on Python 3.11 and 3.12;
+4. runs the default unit/golden suite on Python 3.11 and 3.12 (optional integration and
+   regression layers excluded);
 5. builds a source archive and wheel from the checked-out commit;
 6. extracts the source archive and runs tools/smoke_release.py against a disposable database.
 
@@ -65,9 +71,10 @@ fails if the tag and project version disagree.
        git tag v1.0.0b1
        git push origin v1.0.0b1
 
-6. .github/workflows/release.yml re-runs the CI workflow against the tagged commit, verifies
-   that the tag matches pyproject.toml, builds the source archive and wheel from that tag,
-   runs the smoke test, writes SHA256SUMS and only then publishes the GitHub Release.
+6. .github/workflows/release.yml re-runs the CI workflow against the tagged commit, runs the
+   optional integration/regression layer, verifies that the tag matches pyproject.toml, builds
+   the source archive and wheel from that tag, runs the smoke test, writes SHA256SUMS and only
+   then publishes the GitHub Release.
 
 Tags containing a, b or rc are published as GitHub prereleases and are not marked latest.
 A stable tag such as v1.0.0 is published normally. The release job refuses to replace an

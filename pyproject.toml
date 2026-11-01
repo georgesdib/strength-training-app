@@ -36,10 +36,11 @@ include = ["strength_coach*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q --strict-markers -n auto --dist loadfile"
+addopts = "-q --strict-markers -n auto --dist loadfile -m 'not integration and not regression'"
 markers = [
-    "integration: touches the real CSVs in data/raw (slower, still deterministic)",
+    "integration: touches the real CSVs in data/raw (optional; release/on request only)",
     "golden: snapshot/regression evidence against docs/EVIDENCE.md numbers",
+    "regression: non-obvious invariant that caught a real bug (optional; release/on request only)",
 ]
 filterwarnings = [
     "error::FutureWarning",

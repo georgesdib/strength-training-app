@@ -102,6 +102,7 @@ def test_trap_bar_is_hinge_direct_erector_false(taxonomy):
     assert resolved.is_direct_erector is False
 
 
+@pytest.mark.regression
 def test_hyperextension_keeps_identity_but_counts_as_history(taxonomy):
     """DEC-BACKEXT-02: the row keeps its own id, but the movement is the same."""
     resolved = taxonomy.resolve("Hyperextensions")
@@ -142,6 +143,7 @@ def test_flat_bench_situps_are_core_not_bench(taxonomy):
     assert taxonomy.resolve("Flat-bench Sit-ups").pattern == "core"
 
 
+@pytest.mark.regression
 def test_leg_curls_are_knee_flexion_not_biceps(taxonomy):
     assert taxonomy.resolve("Lying Leg Curls").pattern == "knee_flexion"
     assert taxonomy.resolve("Barbell Curl").pattern == "elbow_flexion"

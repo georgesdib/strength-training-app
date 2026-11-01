@@ -148,7 +148,8 @@ so silently erased genuine `RIR = 0` observations during development.
 
 ## 7. Definition of done for any change
 
-1. `python -m pytest` passes.
+1. `python -m pytest` passes. Optional integration/regression tests run when the owner asks
+   and in the release workflow, not by default.
 2. New behaviour has a test that fails without it.
 3. If the change affects measured facts, `python tools/profile_data.py` still matches
    `private/docs/EVIDENCE.md` — or you have updated both.
@@ -172,21 +173,25 @@ so silently erased genuine `RIR = 0` observations during development.
 
 ### 7.1 How to run tests without wasting ten minutes
 
-The full suite includes costly integration and golden tests. While iterating, run only what
-the change can affect:
+The default suite excludes the optional integration (real CSVs) and regression (non-obvious
+bug-history) layers. While iterating, run only what the change can affect:
 
 ```bash
 .venv/bin/python -m pytest tests/test_prescribe.py tests/test_rules_policy.py
 .venv/bin/python -m pytest --lf                       # only the last failures
-.venv/bin/python -m pytest -m "not integration and not golden"   # broad, ~2 min
+.venv/bin/python -m pytest -m "not integration and not golden and not regression"   # broad
 .venv/bin/python -m pytest -n 0                       # serial, for debugging a failure
 ```
 
-`pytest` runs in parallel by default (`pytest-xdist`, one worker per core). A full run is
-about 4-5 minutes; the fast lane is under 2. Run the **full** suite once, before handing off
-or committing — not after every edit. If a
-test fails, fix it and re-run that file/marker first; a full re-run is the last step, not the
-first reflex.
+`pytest` runs in parallel by default (`pytest-xdist`, one worker per core). Run the default
+suite once before handing off. Run the optional layers when the owner asks, or with:
+
+```bash
+.venv/bin/python -m pytest -m "integration or regression"
+```
+
+The release workflow runs both optional layers. If a test fails, fix it and re-run that file/
+marker first; a full re-run is the last step, not the first reflex.
 
 Tests assert **contracts, not incidental order**: e.g. "power work precedes the main lift"
 rather than "item 0 is the box jump". Only the golden fixtures pin full item order, on

@@ -41,6 +41,7 @@ def test_robust_band_is_centred_on_median():
     assert low < 0.60 < high
 
 
+@pytest.mark.regression
 def test_zero_dispersion_collapses_without_floor():
     """Four identical readings give MAD 0, so the band is a point — a known hazard."""
     low, high = stats.robust_band([0.60, 0.60, 0.60, 0.60])

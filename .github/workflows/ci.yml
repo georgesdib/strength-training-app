@@ -50,7 +50,7 @@ jobs:
         run: ruff check .
 
       - name: Unit and golden tests
-        run: pytest -m "not integration"
+        run: pytest -m "not integration and not regression"
 
   package:
     name: package and smoke

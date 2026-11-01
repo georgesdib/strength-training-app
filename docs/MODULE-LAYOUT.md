@@ -135,7 +135,9 @@ progression and spinal functions.** They cannot disagree about what the rule say
 
 Tests that read `data/raw` are git-ignored (`tests/*_integration.py`): they assert counts and
 values derived from the real export, so committing them would leak personal data. They run
-locally when the export is present; the public suite is synthetic-only.
+locally when the export is present; the public suite is synthetic-only. The default suite
+excludes both `integration` and the non-obvious `regression` layer; run them on request or in
+the release workflow with `pytest -m "integration or regression"`.
 
 Five layers, cheapest first.
 
@@ -158,11 +160,14 @@ Five layers, cheapest first.
 
 ### Non-obvious tests that already exist because they caught real bugs
 
+These are marked `regression` and excluded from the default suite; run them on request or in
+the release workflow.
+
 - `test_rir_zero_is_preserved` — reusing the *date* null tokens for numerics silently
   erased genuine `RIR = 0` observations.
 - `test_leg_curls_are_knee_flexion_not_biceps` — regex ordering sent `Lying Leg Curls` to the biceps family.
-- `test_historical_hyperextension_keeps_identity_but_counts_as_history` — pins
-  DEC-BACKEXT-02: the entity id is preserved, but its rows count as back-extension history.
+- `test_hyperextension_keeps_identity_but_counts_as_history` — pins DEC-BACKEXT-02: the entity
+  id is preserved, but its rows count as back-extension history.
 - `test_zero_dispersion_collapses_without_floor` — documents the MAD-collapse hazard that
   the VBT module must guard against.
 

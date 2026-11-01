@@ -70,9 +70,11 @@ python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 source .venv/bin/activate           # so `strength-coach` is on PATH
 
-.venv/bin/python -m pytest -m "not integration and not golden"   # fast iteration (~2 min)
+.venv/bin/python -m pytest -m "not integration and not golden and not regression"   # fast iteration (~2 min)
 .venv/bin/python -m pytest tests/test_prescribe.py --lf             # targeted / last failed
-.venv/bin/python -m pytest            # full, parallel, ~4-5 min; -n 0 to debug serially
+.venv/bin/python -m pytest            # public suite, parallel; optional tests excluded
+.venv/bin/python -m pytest -m ""      # everything, including integration/regression; -n 0 to debug serially
+.venv/bin/python -m pytest -m "integration or regression"   # optional suite on request
 .venv/bin/python tools/profile_data.py    # profile your own export
 .venv/bin/python tools/baseline.py        # strength baseline, latest date in the log
 .venv/bin/python tools/llm_check.py       # show the LLM configuration (see below)
