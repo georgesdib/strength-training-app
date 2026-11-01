@@ -773,19 +773,22 @@ cards, searchable pickers, touch/dialog/safe-area rules and the accessibility/fi
 The owner completed the native-iPhone pass and the full automated suite is green; the audit is
 closed.
 
-**Deferred UI follow-ups (not scheduled).** The plan's O1–O10 are kept here so they are not
-lost; details and evidence live in the plan's §14:
+**Deferred UI follow-ups (recorded 2026-11-01; not scheduled).** The plan's O1–O10 are
+recorded here as a roadmap table so they are not lost. Details and evidence live in the
+plan's §14; every item is a deferred improvement with a trigger, not an open audit finding.
 
-- **O1 — Settings extraction** after Exercises.
-- **O2 — view registry** for `setView`; once at least two features have moved.
-- **O3 — migrate `history.js`/`workout.js` to core**; once a third feature needs the helpers.
-- **O4 — streaming/multipart imports** if 40 MiB parse memory becomes a problem.
-- **O5 — read timeouts** for slow bodies (slowloris); local-only, lower priority.
-- **O6 — HTTP/1.1 and keep-alive**; only with close/drain handling and tests.
-- **O7 — limit tuning** (64 vs 96 MiB) after a rejected legitimate import.
-- **O8 — 411/413 error copy**; friendly UI text.
-- **O9 — markdown scheme allowlist**; block `javascript:` targets.
-- **O10 — browser coverage** for import preview/apply and more failure paths.
+| ID | follow-up | trigger | status |
+|---|---|---|---|
+| **O1** | Settings extraction after Exercises | Exercises extraction is complete | deferred |
+| **O2** | View registry for `setView` | At least two features have moved | deferred |
+| **O3** | Migrate `history.js`/`workout.js` helpers to core | A third feature needs the same helpers | deferred |
+| **O4** | Streaming/multipart imports | 40 MiB parse memory becomes a real problem | deferred |
+| **O5** | Read timeouts for slow request bodies | Slow-body handling is prioritized; local-only | deferred |
+| **O6** | HTTP/1.1 and keep-alive | Close/drain handling and tests exist | deferred |
+| **O7** | Limit tuning, 64 vs 96 MiB | A legitimate import is rejected | deferred |
+| **O8** | Friendly 411/413 error copy | The current request-error copy is surfaced to users | deferred |
+| **O9** | Markdown scheme allowlist | Untrusted docs/links are allowed; block `javascript:` targets | deferred |
+| **O10** | Expanded browser coverage | Import preview/apply and failure paths are browser-tested | deferred |
 
 ### 4.12 Continuity calibration from real returns  (v0.3, implemented; calibrated factor rejected)
 
