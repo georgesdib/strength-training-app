@@ -1,6 +1,6 @@
 # W3 modifier interaction matrix — 2026-10-31
 
-**Status:** analysis run; no modifier behaviour was changed. **LIM-30 remains open.**
+**Status:** corrected 768-case run complete; no modifier behaviour changed. **LIM-30 remains open.**
 
 ## Method
 
@@ -14,67 +14,55 @@ Synthetic fixtures, all four session types, every combination of:
 - minimum session: off / 30 minutes
 - technique throttle: off / on
 
-Total cases: **768**; built: **768**; build errors: **0**; raw invariant flags: **732**.
+Total cases: **768**; built: **768**; build errors: **0**; invariant flags: **384**.
 
-The run used four parallel session-type shards. The harness is tools/modifier_matrix.py; raw
-results are in W3-INTERACTION-MATRIX-2026-10-31.json.
+The run used four parallel session-type shards. Harness: tools/modifier_matrix.py. Raw results:
+W3-INTERACTION-MATRIX-2026-10-31.json.
 
-## Invariants checked
+## Corrections applied before this run
 
-- executable and non-empty;
-- no duplicate items;
-- sets >= 1;
-- load present;
-- non-power RIR 1-4;
-- power RIR null and quality stop present;
-- automatic load factor >= 0.80;
-- reduction-only modifiers do not add items;
-- readiness/deload/flare/minimum/throttle do not increase sets or load;
-- readiness/deload/flare/minimum/throttle do not lower a non-power RIR target.
+- Added main-lift history for every session type, so stale-e1RM cases are executable.
+- Restricted RIR 1-4 checking to primary compounds, matching PRG-RIR-001.
+- Recorded the owner's decision that **0.5 kg** is rounding tolerance, not a policy violation.
+- Kept larger load increases as failures.
 
-## Raw flags and preliminary triage
+## Results
 
-| Category | Count | Preliminary classification |
+| Category | Count | Classification |
 |---|---:|---|
-| not_executable | 480 | Fixture limitation: stale-e1RM cases have no usable recent e1RM and no working-load fallback |
-| flare_increased_load | 96 | Needs investigation; sampled squat cases differ by 0.5 kg |
-| rir_window | 84 | Harness invariant too broad: accessory RIR reaches 5; PRG-RIR-001 applies to primary compounds |
-| added_item | 72 | Unresolved harness/cache issue; manual reproduction of the box-jump pair did not reproduce it |
+| `added_item` | 192 | Unresolved harness/comparison issue; all flags are box_jump in minimum-session pairs |
+| `flare_increased_load` | 192 | **Real-looking defect**: low-readiness back flare raises main-lift loads by about 2 kg, above the 0.5 kg rounding tolerance |
 
-### not_executable
+The earlier `not_executable` (480) and `rir_window` (84) flags are gone after the fixture and
+scope corrections.
 
-The stale-e1RM scenario deliberately removes recent main-lift e1RM. Without a recent estimate
-and without a working-load fallback, the engine correctly marks the session non-executable. This
-is not a modifier interaction; the fixture needs a valid fallback before those 480 cases can
-test composition.
+## Flare defect detail
 
-### flare_increased_load
+A stale-e1RM, low-readiness squat case gives:
 
-Adding a low-back flare raised SSB squat load from **123.5 kg to 124.0 kg** in sampled
-readiness-low cases, with the same 0.85 readiness factor and the same RIR 4. That direction is
-not intended for a reduction-only modifier. It may be a rounding interaction or a real
-back-flare load path; it needs a focused reproduction before classification.
+- no flare: SSB **120.5 kg**, RIR 4, factor 0.85
+- flare: SSB **124.0 kg**, RIR 4, factor 0.85
 
-### rir_window
+A fresh-e1RM low-readiness case gives the earlier 123.5 → 124.0 kg change. The low-readiness
+flare path can therefore solve a load at a harder RIR before readiness raises the shown RIR,
+leaving the final load too high. This is not covered by the 0.5 kg rounding decision.
 
-The flagged items are accessories such as back extension, lying leg curls and ab wheel after
-deload, at RIR 5. The RIR window rule applies to primary compounds. The matrix check should use
-the rule's actual scope, not every non-power item.
+## Added-item issue
 
-### added_item
+All 192 flags are box_jump in minimum-session comparisons. Manual reproduction still shows
+box_jump in the base case, so the comparison/cache path is not trusted. This must be resolved
+before the matrix can be used as a LIM-30 closure gate.
 
-The flags all concern box_jump in minimum-session cases. Manual reproduction showed the base
-case already contains box_jump, so the report's missing-base comparison is not yet trusted. This
-needs a fresh-store reproduction and cache audit.
+## Next decision
 
-## Next pass
+The 0.5 kg policy covers small rounding changes, but the corrected matrix found ~2 kg
+increases. Those are above the agreed tolerance. The flare path needs either:
 
-1. Replace the stale-e1RM fixture with a valid fallback so all 768 cases are executable.
-2. Restrict the RIR check to items citing PRG-RIR-001 or otherwise in the primary-compound scope.
-3. Reproduce the added_item pair with fresh stores and no cache reuse.
-4. Reproduce the 0.5 kg flare load difference with a focused script.
-5. Re-run the 768-case matrix and classify the remaining flags as defect, accepted policy, or
-   invalid invariant.
+1. a product fix so a reduction-only flare cannot increase load; or
+2. an explicit wider acceptance decision.
+
+**Recommendation:** fix the flare path and add a focused regression test, then resolve the
+added-item harness issue and rerun.
 
 ## Boundary
 
