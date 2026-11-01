@@ -1,8 +1,8 @@
 # Dynamic Template Resolver — implementation plan
 
-**Status:** planning only. **Step 0 owner decisions were confirmed on 2026-11-01; no code,
-schema, configuration, API, CLI, UI or test change has started.** No code is part of this
-document.
+**Status:** **Step 0 complete and Step 1 complete 2026-11-01. Step 2 (generator core) is not
+started.** Step 1 added the policy file, settings keys and provenance storage only; no
+generator, no prescription change and the resolver flag remains off.
 
 **Scope:** make the four canonical session templates a **deterministic session generator** at
 generation time while keeping the existing scheduler, prescription engine, volume engine and
@@ -259,21 +259,24 @@ may not invent a value for a missing input.
 
 ### 4.2 Resolver policy
 
-The policy is a versioned configuration file (config/template-resolver.v1.yaml) that defines:
+The policy is a versioned **structural** configuration file
+(config/template-resolver.v1.yaml) that defines:
 
-- per session type: the fixed slot roles/order inherited from the blueprint;
-- exercise categories/pools per slot and the allowed/required patterns;
-- eligibility and unrated-exercise confirmation rules;
-- coverage rules: required patterns, under-MEV/over-MRV targets, redundancy avoidance;
-- accessory allocation limits and pattern-flexibility boundaries;
-- power slot requirements;
-- Exercise Rotation defaults, dwell and per-class overrides;
-- readiness/fatigue/spinal/injury/preference weights or modes and deterministic tie-break order;
-- top-set/back-off mode, eligible lift class, back-off percentage, DUP/competition RIR mapping,
-  taper and fallback rules;
-- duration limits and forecast mode (blueprint, option c).
+- per session type: required movement patterns inherited from the blueprint;
+- the candidate catalogue reference (config/variants.v1.yaml), with optional per-session/slot
+  pools that must not duplicate the catalogue;
+- allowed patterns per slot and pattern-flexibility boundaries;
+- redundancy limits by pattern and primary muscle;
+- top-set eligible main lifts and explicit exceptions;
+- schema version and digest.
 
-The policy contains no athlete data. It is tracked in git, validated on save, and identified by
+Scalar tunables live in the settings profile (append-only, effective-dated): enable, Exercise
+Rotation and dwell, eligibility/confirmation, coverage priority, readiness/fatigue/spinal/
+injury/preference weights, tie-break, top-set mode/back-off percentage/RIR mapping, competition
+window and taper, and forecast mode. Keeping the structural policy and the scalar tunables
+separate avoids two competing sources for the same value.
+
+The policy contains no athlete data. It is tracked in git, validated on load, and identified by
 its digest; there is no database template-version table in the MVP.
 
 ### 4.3 Fixed YAML fallback and source of truth
@@ -602,6 +605,10 @@ High-level controls use the existing settings-profile form (append-only, effecti
 reason, guarded confirmation). Structural policy uses the advanced validated YAML editor.
 No volume targets are duplicated here; link to Settings -> Volume.
 
+**Step 1 note:** the scalar keys are already registered, so the generic Settings profile shows a
+**Resolver** group. The dedicated Settings -> Resolver panel, preview and policy editor are
+Step 5; Step 1 does not wire the values into any prescription.
+
 **Resolver settings inventory**
 
 Scalar keys (settings registry / settings profile):
@@ -771,26 +778,43 @@ owner approval; do not silently move the gate.
 
 **Merge gate:** documentation can merge to development first.
 
-### Step 1 — Settings, policy file and provenance
+### Step 1 — Settings, policy file and provenance  (complete 2026-11-01)
+
+**Status:** complete. Storage and validation only; the resolver flag is off and no generator or
+prescription path consumes the new values.
 
 **Objective:** store the resolver flag, policy file and prescription provenance without changing
 behaviour.
 
-**Scope:** settings-profile keys for the scalar resolver config; config/template-resolver.v1.yaml
-with schema/validation; blueprint/policy digests and generated-session snapshot on the
-prescription/run; no database template-version table.
+**Delivered:**
 
-**Data:** additive provenance columns/table; no template seed; no backfill.
+- config/template-resolver.v1.yaml: structural policy for the candidate catalogue reference,
+  required/allowed patterns, optional slot pools, redundancy and top-set eligible lifts;
+- strength_coach/prescribe/resolver_policy.py: strict loader/validator with schema version,
+  unknown-key rejection, taxonomy/blueprint checks and a SHA-256 digest;
+- 32 scalar resolver keys in settings_registry/settings_profile; the existing generic Settings
+  profile now shows a Resolver group, while the dedicated panel remains Step 5;
+- migration 0048 adds nullable template_digest, policy_digest, input_hash and
+  generated_session_json to prescription; append_prescription accepts them and preserves null
+  for the fixed path;
+- SessionTemplate.digest exposes the shipped blueprint SHA-256 for provenance;
+- no database template-version or template-state table;
+- DEC-RESOLVER-07 records the Step 1 implementation boundary.
 
-**UI/API/CLI:** Settings -> Resolver is not visible yet; internal loader/validator only.
+**Data:** additive nullable provenance columns; no seed, no backfill.
 
-**Tests:** policy validation; settings-profile save/append; digest stability; old DB upgrade; old
-prescriptions unchanged; flag off means byte-identical fixed output.
+**UI/API/CLI:** the generic Settings-profile group and the existing /api/settings/profile
+payload gain the Resolver keys; there is no generator preview, no new endpoint and no new CLI
+command. The dedicated Settings -> Resolver panel is Step 5.
 
-**Acceptance:** app behaves exactly as today with the flag off; a policy file can be loaded,
-validated and hashed.
+**Tests:** tests/test_resolver_policy.py, tests/test_resolver_settings.py and
+tests/test_resolver_provenance.py cover validation, digest stability, profile save/guarded
+values, the snapshot, nullable provenance and the blueprint digest.
 
-**Merge gate:** merge behind the disabled flag after full regression.
+**Acceptance:** the app behaves exactly as today with the flag off; a policy file loads,
+validates and hashes; fixed-path prescriptions leave the provenance columns null.
+
+**Merge gate:** merged to the feature branch behind the disabled flag; Step 2 not started.
 
 ### Step 2 — Generator core
 
@@ -943,7 +967,7 @@ generator and top set work end-to-end; the feature can be disabled without data 
 
 ## 13. Confirmed decisions
 
-Recorded as `DEC-RESOLVER-01`–`06` in [DECISIONS.md](DECISIONS.md).
+Recorded as `DEC-RESOLVER-01`–`07` in [DECISIONS.md](DECISIONS.md).
 
 - Session generator per session; no block-level exercise pin; generated session frozen at workout
   start.

@@ -70,6 +70,7 @@ strength_coach/
     engine.py                        [x] build + validate an executable session
     fallback.py                      [x] deterministic fallback, load scaling
     constraints.py                   [x] stored constraints veto, suitability warns
+    resolver_policy.py               [x] Step 1 structural resolver policy loader/validator
     templates.py engine.py fallback.py
   critique/                          [x] deterministic rubric
     facts.py                         [x] one session -> immutable, citable facts

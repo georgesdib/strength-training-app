@@ -74,6 +74,10 @@ def store_plan(conn, plan: Mapping[str, Any], *, approved_by: str = "determinist
         calibration_ids=tuple(plan.get("calibration_ids") or ()),
         approved_by=approved_by,
         items=_rows(plan),
+        template_digest=plan.get("template_digest"),
+        policy_digest=plan.get("policy_digest"),
+        input_hash=plan.get("input_hash"),
+        generated_session=plan.get("generated_session"),
     )
     volume_budget.record_exemptions(
         conn, prescription_id=prescription_id,

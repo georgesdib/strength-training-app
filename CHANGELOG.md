@@ -37,6 +37,12 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 1 storage**: structural policy skeleton
+  (`config/template-resolver.v1.yaml`), strict loader/validator with digest
+  (`prescribe/resolver_policy.py`), 32 profile-backed resolver scalar keys, migration `0048`
+  nullable prescription provenance (`template_digest`, `policy_digest`, `input_hash`,
+  `generated_session_json`) and `SessionTemplate.digest`. This is storage and validation only;
+  the resolver flag is off, no generator is wired and Step 2 is not started.
 - Active-workout **per-exercise History** toggle: the last five completed sessions with
   **Show more**, set number, load × reps and RIR. Working sets only, declared history
   equivalents included, current-workout sets excluded and read-only. The plan section is open

@@ -52,7 +52,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.1 beta | Performance + monitoring analysis | **released 2026-10-31 (b2); b1 2026-10-30** | raw e1RM Performance view, rolling median, breaks, degraded observations, dose, configured relative-strength ratios, read-only monitoring analysis, calibration transparency; Phase 5A review follow-up |
 | v1.2 | Beta removal + cardio + calibration depth | **planned; plan at §4.13a** | drop the beta label after user testing; pending: cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
-| future | Deterministic dynamic template resolver | **Step 0 complete 2026-11-01; implementation not started; planned after v1.2 unless the owner starts earlier** | plan and confirmed decisions at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`06`); deterministic session generator with no block pin, joint exercise/volume evaluation, optional top set/back-off and Settings → Resolver; no code in this pass |
+| future | Deterministic dynamic template resolver | **Step 0 and Step 1 complete 2026-11-01; Step 2 not started; planned after v1.2 unless the owner starts earlier** | plan and confirmed decisions at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`07`); Step 1 delivered `config/template-resolver.v1.yaml`, the strict policy loader, 32 profile-backed resolver settings and migration `0048` provenance; the generator is not wired and the flag is off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
@@ -1418,13 +1418,14 @@ changes require explicit approval.
 benefit and no regression. No phase claims that prose quality or acceptance rate proves better
 coaching.
 
-### 4.25 Deterministic dynamic template resolver  (planned; Step 0 complete 2026-11-01)
+### 4.25 Deterministic dynamic template resolver  (planned; Step 0 and Step 1 complete 2026-11-01)
 
-**Status:** Step 0 (contracts and decision records) complete 2026-11-01. No code, schema,
-configuration, API or UI change has started. Implementation begins at Step 1 (settings, policy
-file and provenance), which is not started. The current record is
+**Status:** Step 0 (contracts and decision records) and Step 1 (settings, policy file and
+provenance) are complete 2026-11-01. Step 1 is storage and validation only: the resolver flag
+is off and no generator or prescription path consumes the new values. **Step 2 (generator core)
+is not started.** The current record is
 [docs/PROGRAMME-BUILDER-PLAN.md](docs/PROGRAMME-BUILDER-PLAN.md) and
-[docs/DECISIONS.md](docs/DECISIONS.md) (DEC-RESOLVER-01 to DEC-RESOLVER-06).
+[docs/DECISIONS.md](docs/DECISIONS.md) (DEC-RESOLVER-01 to DEC-RESOLVER-07).
 
 The four canonical session identities stay and the shipped four-template YAML remains the
 blueprint and fallback. A deterministic **session generator** resolves every slot at generation
@@ -1449,10 +1450,11 @@ the shipped YAML remains the blueprint, the policy is a versioned file, and no d
 template-version table is added. The forecast shows the blueprint/expected pattern (option c).
 
 Major steps: (0) contracts and decisions, complete 2026-11-01; (1) settings, policy and
-provenance; (2) generator core; (3) top set/back-off structure; (4) joint evaluator and pipeline
-integration; (5) Settings -> Resolver and generation preview; (6) historical hardening, rollout
-and documentation. Work happens on the feature/template-resolver branch with phase merges. LLM
-assistance remains deferred to §4.24 until the deterministic resolver is accepted.
+provenance, complete 2026-11-01; (2) generator core, not started; (3) top set/back-off structure;
+(4) joint evaluator and pipeline integration; (5) Settings -> Resolver and generation preview;
+(6) historical hardening, rollout and documentation. Work happens on the feature/template-resolver
+branch with phase merges. LLM assistance remains deferred to §4.24 until the deterministic
+resolver is accepted.
 
 Dependency: v1.2 first unless the owner explicitly starts earlier. With the resolver flag off,
 the existing template pathway, golden prescriptions and /api/programme forecast must remain

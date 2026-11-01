@@ -54,6 +54,30 @@ def test_store_plan_writes_prescription_and_provenance():
         store.close()
 
 
+def test_store_plan_keeps_resolver_provenance():
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        plan = {
+            **PLAN,
+            "template_digest": "blueprint-digest",
+            "policy_digest": "policy-digest",
+            "input_hash": "input-digest",
+            "generated_session": {"session_type": "squat", "slots": ["squat_main"]},
+        }
+        persistence.store_plan(conn, plan)
+        row = conn.execute(
+            "SELECT template_digest, policy_digest, input_hash, generated_session_json "
+            "FROM prescription"
+        ).fetchone()
+        assert row["template_digest"] == "blueprint-digest"
+        assert row["policy_digest"] == "policy-digest"
+        assert row["input_hash"] == "input-digest"
+        assert "squat_main" in row["generated_session_json"]
+    finally:
+        store.close()
+
+
 def test_rollback_leaves_no_artifact():
     store = db.Store(":memory:")
     try:

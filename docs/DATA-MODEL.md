@@ -279,6 +279,10 @@ document version.
 | rule_document_version | |
 | calibration_ids | JSON |
 | approved_by | `deterministic` \| `llm+policy` |
+| template_digest | nullable SHA-256 of the blueprint file used (migration 0048) |
+| policy_digest | nullable SHA-256 of the resolver policy file; null on the fixed path |
+| input_hash | nullable canonical resolver input hash; null on the fixed path |
+| generated_session_json | nullable generated exercise/slot/top-set snapshot; null on the fixed path |
 
 | item column | notes |
 |---|---|
