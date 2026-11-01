@@ -172,7 +172,6 @@ def _check_duplicate_keys(
         active.remove(marker)
 
 
-
 def _parse(body: str, source_path: Path, digest: str) -> ResolverPolicy:
     raw = _load_yaml(body, source_path.name)
     if not isinstance(raw, Mapping):
