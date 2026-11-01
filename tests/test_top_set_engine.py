@@ -6,7 +6,7 @@ from contextlib import contextmanager
 
 from conftest import make_readiness, make_training
 
-from strength_coach.prescribe import build_prescription
+from strength_coach.prescribe import build_prescription, loads
 from strength_coach.store import db, importer, repositories
 
 ROWS = [
@@ -91,6 +91,30 @@ def test_competition_taper_removes_the_top_set() -> None:
         )
     assert prescription.notes["top_set"]["applied"] is False
     assert "taper" in prescription.notes["top_set"]["reason"]
+
+
+def test_warmup_uses_the_final_throttled_top_set_load() -> None:
+    with store_with() as store:
+        baseline = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="squat",
+            top_set_requested=True,
+        )
+        throttled = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="squat",
+            top_set_requested=True, technique_throttle=True,
+        )
+    base_main = _item(baseline, "ssb_squat")
+    throttle_main = _item(throttled, "ssb_squat")
+    expected_top = loads.round_down(
+        base_main.set_groups[0].load_kg * 0.90,
+        throttle_main.rounding_increment_kg,
+    )
+    assert throttle_main.set_groups[0].load_kg == expected_top
+    assert throttle_main.warmup
+    assert throttle_main.warmup[0].load_kg < throttle_main.set_groups[0].load_kg
+    assert throttle_main.warmup[0].load_kg == loads.round_down(
+        expected_top * 0.50, throttle_main.rounding_increment_kg
+    )
 
 
 def test_hinge_maximal_is_allowed_and_warned() -> None:

@@ -965,8 +965,10 @@ mapping, independently of exercise generation.
   transparent non-application reason;
 - engine integration after readiness/continuity and before the volume budget; the top set is
   protected when later modifiers reduce sets, back-offs are resized first, and warm-up loads
-  derive from the top-set load; deload skips the structure; readiness/back-flare RIR changes are
-  applied once through the item's final RIR;
+  derive from the final top-set load after technique throttle and other load modifiers; deload
+  skips the structure; readiness/back-flare RIR changes are applied once through the item's final
+  RIR; the parent item's load/RIR summary follows the back-off group, and technique throttle
+  scales/updates every group and then re-syncs that summary;
 - hinge maximal: `config/templates/schemes.v1.yaml` now allows the prescribed hinge main lifts
   (trap bar, sumo, conventional) on `maximal`, emits a warning, and still excludes RDL, good
   morning, rack pull and Jefferson curl;
@@ -986,7 +988,8 @@ the durable Settings -> Resolver panel remains Step 5.
 **Tests:** `tests/test_top_set.py`, `tests/test_top_set_engine.py`,
 `tests/test_top_set_storage.py`, plus updated undulation/golden/web/workout tests cover total
 sets, 85%, RIR mapping and fallback, peak/taper/deload, hinge maximal and the warning, top-set
-protection, warm-up derivation, API payload, role logging and persistence.
+protection, warm-up derivation after technique throttle, technique-throttle group scaling/RIR,
+API payload, role logging and persistence.
 
 **Acceptance:** a session can carry a valid top-set structure with a transparent reason; omitting
 the opt-in leaves the fixed straight-set programme unchanged; the hinge maximal change is visible
