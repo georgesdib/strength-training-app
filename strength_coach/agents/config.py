@@ -202,8 +202,7 @@ def save_settings(settings: LLMSettings, path: str | Path | None = None) -> Path
         lines.append(f"model = {json.dumps(str(settings.model))}")
     if settings.base_url is not None:
         lines.append(f"base_url = {json.dumps(str(settings.base_url))}")
-    if settings.api_key:
-        lines.append(f"api_key = {json.dumps(str(settings.api_key))}")
+    # Do not persist API keys to disk in clear text.
     lines.extend([
         f"temperature = {float(settings.temperature)}",
         f"max_tokens = {int(settings.max_tokens)}",
