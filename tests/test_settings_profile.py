@@ -50,6 +50,118 @@ def test_profile_budget_override_reaches_budget_config():
     assert settings["budget"]["tolerance"] == 0.15
 
 
+def test_retired_profile_keys_are_ignored_and_history_is_not_rewritten() -> None:
+    store = _store()
+    try:
+        conn = store.connection
+        repositories.append_settings_profile(
+            conn,
+            effective_from="2026-10-26",
+            overrides={
+                "undulation.cycle_weeks": 3,
+                "resolver.weights.rotation": 0.1,
+                "resolver.weights.preference": 0.2,
+            },
+        )
+        latest = settings_profile.latest(conn, "2026-10-26")
+        state = settings_profile.state(conn, "2026-10-26")
+        history = settings_profile.history(conn)
+        raw = conn.execute(
+            "SELECT overrides_json FROM settings_profile ORDER BY profile_id"
+        ).fetchone()["overrides_json"]
+        raw_keys = set(json.loads(raw))
+    finally:
+        store.close()
+    assert latest["overrides"] == {"undulation.cycle_weeks": 3}
+    assert state["overrides"] == {"undulation.cycle_weeks": 3}
+    assert state["resolved"]["undulation.cycle_weeks"] == 3
+    assert "resolver.weights.rotation" not in state["resolved"]
+    assert history[0]["overrides"] == {"undulation.cycle_weeks": 3}
+    assert raw_keys == {
+        "undulation.cycle_weeks",
+        "resolver.weights.rotation",
+        "resolver.weights.preference",
+    }
+
+
+def test_retired_only_profile_still_resolves() -> None:
+    store = _store()
+    try:
+        conn = store.connection
+        repositories.append_settings_profile(
+            conn,
+            effective_from="2026-10-26",
+            overrides={
+                "resolver.weights.rotation": 0.1,
+                "resolver.weights.preference": 0.2,
+            },
+        )
+        state = settings_profile.state(conn, "2026-10-26")
+    finally:
+        store.close()
+    assert state["overrides"] == {}
+    assert state["resolved"]["undulation.cycle_weeks"] == 4
+
+
+def test_unrelated_save_cleans_inherited_retired_keys() -> None:
+    store = _store()
+    try:
+        conn = store.connection
+        repositories.append_settings_profile(
+            conn,
+            effective_from="2026-10-26",
+            overrides={
+                "undulation.cycle_weeks": 3,
+                "resolver.weights.rotation": 0.1,
+            },
+        )
+        settings_profile.save(
+            conn,
+            set_values={"e1rm.window_days": 56},
+            effective_from="2026-10-27",
+        )
+        latest = settings_profile.latest(conn, "2026-10-27")
+        rows = conn.execute(
+            "SELECT overrides_json FROM settings_profile ORDER BY profile_id"
+        ).fetchall()
+        first = json.loads(rows[0]["overrides_json"])
+        second = json.loads(rows[1]["overrides_json"])
+    finally:
+        store.close()
+    assert latest["overrides"] == {
+        "undulation.cycle_weeks": 3,
+        "e1rm.window_days": 56,
+    }
+    assert "resolver.weights.rotation" in first
+    assert "resolver.weights.rotation" not in second
+
+
+def test_explicit_retired_key_write_is_rejected_without_append() -> None:
+    store = _store()
+    try:
+        conn = store.connection
+        before = len(settings_profile.history(conn))
+        with pytest.raises(ValueError, match="retired"):
+            settings_profile.save(
+                conn,
+                set_values={"resolver.weights.rotation": 0.1},
+                effective_from="2026-10-26",
+            )
+        with pytest.raises(ValueError, match="retired"):
+            settings_profile.save(
+                conn,
+                set_values={
+                    "undulation.cycle_weeks": 3,
+                    "resolver.weights.preference": 0.2,
+                },
+                effective_from="2026-10-26",
+            )
+        after = len(settings_profile.history(conn))
+    finally:
+        store.close()
+    assert before == after
+
+
 def test_profile_rejects_guarded_and_unknown_keys():
     store = _store()
     try:

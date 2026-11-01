@@ -37,6 +37,11 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **historical settings profiles**: loading an append-only
+  profile tolerates the retired `resolver.weights.rotation` and `resolver.weights.preference`
+  keys and resolves the rest normally without rewriting history; saving an unrelated setting
+  strips inherited retired keys, while an explicit new write is rejected. The keys remain absent
+  from the registry, defaults, snapshot and UI.
 - Deterministic template resolver **Step 2 final audit**: retired the redundant rotation and
   preference score weights (rotation remains the deterministic dwell rule; preference was
   constant for automatic candidates); whole-session provisional spinal scoring now includes

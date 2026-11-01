@@ -373,6 +373,12 @@ Profile precedence is profile > config > registry default. Guarded-safety keys a
 until the step-5 confirmation flow. The snapshot freezes what a prescription actually used;
 existing prescriptions without a row are not rewritten.
 
+Historical profiles may contain the retired resolver weights
+`resolver.weights.rotation` and `resolver.weights.preference`. Reading ignores exactly those
+keys and leaves the historical row untouched; saving an unrelated setting strips inherited
+retired keys before appending the new complete map. They are not active registry keys, defaults,
+snapshot values or UI controls, and an explicit new write of either key is rejected.
+
 ### 11.2 `athlete_constraint` — injuries, contraindications, mobility limits
 
 Stored as `athlete_constraint`: `constraint` is a reserved SQL keyword (`DEC-STATE-01`).

@@ -279,6 +279,14 @@ injury weights, tie-break, top-set mode/back-off percentage/RIR mapping, competi
 window and taper, and forecast mode. Keeping the structural policy and the scalar tunables
 separate avoids two competing sources for the same value.
 
+Retired resolver keys: `resolver.weights.rotation` and `resolver.weights.preference` are not
+active settings and are absent from the registry, defaults, snapshot and UI. A historical
+append-only profile may still contain either key; loading ignores exactly those two keys and
+resolves every other setting normally, without rewriting the historical row. Saving an
+unrelated setting strips inherited retired keys before appending the new profile. Supplying
+either key explicitly in a new save is rejected as a settings validation error and appends
+nothing; other unknown keys keep their existing rejection.
+
 The policy contains no athlete data. It is tracked in git, validated on load, and identified by
 its digest; there is no database template-version table in the MVP.
 
@@ -1068,7 +1076,7 @@ generator and top set work end-to-end; the feature can be disabled without data 
 
 ## 13. Confirmed decisions
 
-Recorded as `DEC-RESOLVER-01`–`10` in [DECISIONS.md](DECISIONS.md).
+Recorded as `DEC-RESOLVER-01`–`11` in [DECISIONS.md](DECISIONS.md).
 
 - Session generator per session; no block-level exercise pin; generated session frozen at workout
   start.
