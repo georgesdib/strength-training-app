@@ -114,8 +114,8 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 - [x] P2: every nested `h3` and the exercise-details dialog has the pattern, with verified anchors.
 - [x] P3: every UI-linked doc has a Related block.
 - [x] P4: `tools/check_ui_docs.py` and `tests/test_ui_docs.py` enforce the contract,
-  including docs links generated inside any client script (`core.js`, `app.js`,
-  `exercises.js`, `history.js`, `workout.js`).
+  including docs links generated inside any client script (`core.js`, `settings.js`, `app.js`,
+  `exercises.js`, `history.js`, `workout.js`, `summary.js`, `performance.js`).
 
 ## Related
 

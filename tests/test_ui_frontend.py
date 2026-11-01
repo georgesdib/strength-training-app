@@ -118,7 +118,7 @@ def test_performance_full_list_and_pair_editor_are_exposed() -> None:
 
 def test_monitoring_inventory_settings_panel_is_read_only() -> None:
     page = INDEX.read_text(encoding="utf-8")
-    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    source = (STATIC / "settings.js").read_text(encoding="utf-8")
     assert 'id="settings-monitoring-panel"' in page
     assert 'id="settings-monitoring-search"' in page
     assert 'id="settings-monitoring-group"' in page
@@ -129,14 +129,21 @@ def test_monitoring_inventory_settings_panel_is_read_only() -> None:
     assert "Local override" in source
 
 
+def test_view_loaders_are_registered() -> None:
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert "const VIEW_LOADERS" in source
+    assert "const loader = VIEW_LOADERS[name]" in source
+    assert "if (name ===" not in source
+
+
 def test_script_load_order() -> None:
     page = INDEX.read_text(encoding="utf-8")
     order = [src.removeprefix("/static/")
              for src in re.findall(r'<script src="([^"]+)"', page)]
+    assert order.index("core.js") == 0
+    assert order.index("settings.js") < order.index("app.js")
     assert order.index("app.js") < order.index("history.js")
     assert order.index("app.js") < order.index("workout.js")
-    if "core.js" in order:
-        assert order.index("core.js") == 0
 
 
 def test_scripts_parse() -> None:
@@ -402,35 +409,40 @@ def test_remaining_ui_controls_are_present() -> None:
 
 def test_remaining_forms_use_field_errors() -> None:
     app = (STATIC / "app.js").read_text(encoding="utf-8")
+    settings = (STATIC / "settings.js").read_text(encoding="utf-8")
     core = (STATIC / "core.js").read_text(encoding="utf-8")
     assert "applyFieldErrors" in core
     assert "applyFieldErrors(error, $(" in app
+    assert "applyFieldErrors(error, $(" in settings
     for marker in (
         '[data-symptom="region"]', '[data-block="date"]', '[data-break="starts_on"]',
-        '#cardio-modality', '#measure-metric', '#settings-volume-fields',
-        '#settings-volume-reason', '#settings-volume-confirm',
-        '#settings-llm-model', '#settings-profile-guard',
+        '#cardio-modality', '#measure-metric',
     ):
         assert marker in app, marker
+    for marker in (
+        '#settings-volume-fields', '#settings-volume-reason', '#settings-volume-confirm',
+        '#settings-llm-model', '#settings-profile-guard',
+    ):
+        assert marker in settings, marker
 
 
 def test_volume_panel_is_consolidated_and_linked_to_its_guide() -> None:
     page = INDEX.read_text(encoding="utf-8")
-    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    settings = (STATIC / "settings.js").read_text(encoding="utf-8")
 
     assert 'id="settings-volume-form"' in page
     assert 'href="#docs?doc=docs/VOLUME-BUDGET.md"' in page
     assert 'id="settings-drop-form"' not in page
     assert 'id="profile-volume' not in page
-    assert 'setting.group === "Volume"' in app
-    assert "renderVolumeSettings" in app
-    assert "/api/settings/volume" in app
-    assert "budgetValue(key)" in app
-    assert "settings-volume-cap-sum" in app
+    assert 'setting.group === "Volume"' in settings
+    assert "renderVolumeSettings" in settings
+    assert "/api/settings/volume" in settings
+    assert "budgetValue(key)" in settings
+    assert "settings-volume-cap-sum" in settings
 
     node = shutil.which("node")
     if node:
-        match = re.search(r"function volumeNestedValue\([^)]*\) \{[\s\S]*?\n\}", app)
+        match = re.search(r"function volumeNestedValue\([^)]*\) \{[\s\S]*?\n\}", settings)
         assert match, "volumeNestedValue() not found"
         script = (
             f"eval({json.dumps(match.group(0))});"
@@ -590,6 +602,7 @@ if (html.indexOf("0 kg (observed_zero)") < 0) throw new Error("genuine zero lost
 def test_step5_report_controls_are_wired() -> None:
     page = INDEX.read_text(encoding="utf-8")
     source = (STATIC / "app.js").read_text(encoding="utf-8")
+    settings = (STATIC / "settings.js").read_text(encoding="utf-8")
     for marker in (
         'id="state-e1rm-calibration-window"',
         'id="state-e1rm-coverage-window"',
@@ -612,8 +625,8 @@ def test_step5_report_controls_are_wired() -> None:
     assert "state-test-record" in source
     assert "Show calibration details" in source
     assert "calibration-details" in source
-    assert "Session time cap min" not in source
-    assert "Session target comes from the Athlete profile" in source
+    assert "Session time cap min" not in settings
+    assert "Session target comes from the Athlete profile" in settings
 
 
 def test_relationship_crud_ui_is_wired() -> None:
@@ -755,7 +768,7 @@ def test_monitoring_inventory_reason_disclosures_and_empty_state() -> None:
     if node is None:
         import pytest
         pytest.skip("node is not installed")
-    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    app = (STATIC / "settings.js").read_text(encoding="utf-8")
     core = (STATIC / "core.js").read_text(encoding="utf-8")
     start = app.index("const MONITORING_SOURCE_LABELS")
     end = app.index("async function loadSettings()", start)

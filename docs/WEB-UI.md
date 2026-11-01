@@ -303,14 +303,17 @@ What remains:
 No build step and no bundler. The scripts load in this order:
 
 1. `core.js` — API requests, HTML escaping, formatting, notices and local dates.
-2. `app.js` — navigation, routing, boot and the shared views.
-3. `exercises.js` — exercise catalogue, editor and e1RM override.
-4. `history.js` — history list, session details, corrections and VBT backfill.
-5. `workout.js` — live workout start, sets, end and post-workout screens.
+2. `settings.js` — Settings panels: LLM, profile, volume, modalities and monitoring.
+3. `app.js` — navigation, routing, boot and the shared views.
+4. `exercises.js` — exercise catalogue, editor and e1RM override.
+5. `history.js` — history list, session details, corrections and VBT backfill.
+6. `workout.js` — live workout start, sets, end and post-workout screens.
+7. `summary.js` — descriptive workout summary.
+8. `performance.js` — performance and relationship panels.
 
-Feature modules use the core helpers and expose the functions `app.js` calls from
-`setView`. Boot is deferred to `DOMContentLoaded` so every module is loaded before a deep
-link can call its loader.
+Feature modules use the core helpers. `app.js` dispatches view loaders through `VIEW_LOADERS`
+rather than an if-chain. Boot is deferred to `DOMContentLoaded` so every module is loaded
+before a deep link can call its loader.
 
 ## Design
 
