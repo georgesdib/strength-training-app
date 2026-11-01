@@ -105,9 +105,11 @@ The generated mapping is kept for audit at [`config/variants.mapping.yaml`](../c
 A pre-migration database backup was made at `data/coach.db.pre-variant-20261020` (git-ignored).
 
 [`config/variants.v1.yaml`](../config/variants.v1.yaml) lists the squat/bench/pull variants as
-selection candidates. The template still decides the default prescription; ticking **Apply
-selection** in Prescribe (or `run --apply-selection`) applies at most one substitution per slot
-and re-solves the load from the selected lift (`MOD-SELECT-001`).
+selection candidates. Its top-level keys are the four session types — `squat`, `hinge`,
+`bench_squat`, `bench_hinge`; the older `A`/`B`/`C` keys were removed on 2026-11-01. The
+template still decides the default prescription; ticking **Apply selection** in Prescribe (or
+`run --apply-selection`) applies at most one substitution per slot and re-solves the load from
+the selected lift (`MOD-SELECT-001`).
 
 ## 4a. Ratios are not weakness
 

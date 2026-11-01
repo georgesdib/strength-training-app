@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import yaml
 from conftest import make_readiness, make_training
 
 from strength_coach.prescribe import selection
 from strength_coach.rules import RuleContext
 from strength_coach.store import db, importer, repositories
+from strength_coach.utils import paths
 
 
 def store_with(rows=None):
@@ -83,12 +85,19 @@ def test_an_llm_choice_must_come_from_the_candidate_list():
     assert slot.source == "python"
 
 
-def test_day_a_has_catalogue_variants_even_though_the_template_has_one_exercise():
+def test_squat_has_catalogue_variants_even_though_the_template_has_one_exercise():
     with store_with() as store:
         context = RuleContext.from_store(store.connection, end="2024-01-15")
         rows = selection.select(store.connection, context, "2024-01-15", "squat")
     squat = next(row for row in rows if row.slot_id == "squat_main")
     assert {"ssb_squat", "competition_squat"} <= {c.exercise_id for c in squat.candidates}
+
+
+def test_variants_catalogue_uses_session_type_keys():
+    raw = yaml.safe_load(paths.config_dir("variants.v1.yaml").read_text(encoding="utf-8"))
+    assert set(raw.get("slots") or {}) == {
+        "squat", "hinge", "bench_squat", "bench_hinge",
+    }
 
 def test_comparability_classes_and_default_filtering():
     cfg = selection.ComparisonConfig.load()
