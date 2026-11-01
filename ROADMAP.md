@@ -664,6 +664,22 @@ with athlete > config > code precedence. The effective source is shown in the sc
 `readiness shadow` compares the rolling-median baseline with a log-linear trend projection.
 It reports the normalised difference; it never changes a score or load.
 
+#### 4.9.6 Per-lift readiness validation — open, unscheduled
+
+The per-lift score is implemented and downward-only (`DEC-LIFT-READY-01`): global base plus the
+previous session's e1RM trend, mean RIR and VBT, with weights 0.20/0.15/0.15 (`ASSUMPTION-25`).
+It is not a validated instrument: it is retrospective, RIR is imprecise, VBT is sparse and
+load-dependent, there is no lift-specific pre-session soreness/pain input, and no prospective
+test shows that lowering a lift's load on this score improves outcomes. It can only lower a
+load and never replaces the global readiness score; see [`docs/LIFT-READINESS.md`](docs/LIFT-READINESS.md)
+§5 and `LIM-62`.
+
+**Follow-up, when prioritized:** add a lift-specific pre-session 1–5 soreness/readiness rating,
+define a standardised velocity check at a fixed load, collect measured e1RM tests for a better
+trend, then test prospectively whether a low per-lift score predicts a missed rep or a worse
+session. Do not change the load policy from this score until that validation exists. Not
+scheduled; it is not part of v1.2.
+
 #### 4.9.3 Learned weights — closed
 
 The constrained comparison (current equal weights, sleep-heavy, HRV-low) found no improvement
