@@ -90,20 +90,29 @@ It is **not** enough to:
   that does not override the evidence-based `VBT_UNRELIABLE` exclusion; a family is necessary,
   not sufficient, for a target.
 
-## 5. Upgrade path (placeholder)
+## 5. What is already available, and what remains
 
-To move from "mean-velocity target" to real velocity-based autoregulation, the input needs:
+Already available and usable now:
 
-- per-rep velocity samples, or the first/last rep velocity of each set, so **velocity loss**
-  can be computed and a set stopped at 20-25%; optional per-rep CSV detail now exists, but it
-  is descriptive and not wired to a stop rule;
+- optional per-rep CSV capture in Workout mode;
+- per-set first/last/mean/min/max and within-set loss on the end screen;
+- a descriptive cross-session report with `insufficient`, `no variance` and missing-data states;
+- append-only `clean_rep` storage and import undo.
+
+The immediate action is **data collection**, not a code upgrade: supply the per-rep CSV for
+sessions and reopen **Progress → Per-rep velocity** until the report has at least 10 paired
+observations. Until then, the honest result is `insufficient`.
+
+Still missing for live velocity-based autoregulation:
+
+- a live/streamed feed and a validated set-termination rule;
 - a **progressive loading test** per lift to fit an individual load-velocity line and a minimal
   velocity threshold;
 - device and setup metadata (belt, machine, sensor position) so curves are comparable;
 - a calibration method version bump, with the old targets kept as superseded rows.
 
-None of that is faked now. The calibration parameters already live in one dataclass
-(`CalibrationParams`) and the method has a version string, so the upgrade is additive.
+None of that is faked now. Optional per-rep data is descriptive and does not enter the set-mean
+calibration, targets or prescription.
 
 ---
 
