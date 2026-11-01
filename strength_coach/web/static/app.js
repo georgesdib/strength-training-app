@@ -1900,10 +1900,10 @@ async function loadState() {
       <td>${rating.will_do ? "yes" : "no"}</td><td>${rating.feels_bad ? "yes" : "no"}</td></tr>`).join("");
     const regions = Object.values(data.injury_signal?.regions || {});
     const injuryRows = regions.length ? `<div class="table-scroll"><table class="injury-table"><thead><tr><th>Region</th><th>Status</th>
-      <th>Tolerated</th><th>Window</th></tr></thead><tbody>` + regions.map((r) => `
+      <th>No flare recorded</th><th>Window</th></tr></thead><tbody>` + regions.map((r) => `
       <tr><td><strong>${esc(r.label)}</strong><div class="muted">${esc(r.summary)}</div></td>
       <td>${esc(r.status)}</td><td>${r.tolerated_sessions}/${r.required_tolerated_sessions}
-      <div class="muted">of ${r.loaded_sessions} loaded (${r.unverified_sessions} unverified)</div></td>
+      <div class="muted">of ${r.loaded_sessions} loaded · ${r.flared_sessions} flared · ${r.symptomatic_load_sessions} symptomatic load · ${r.unverified_sessions} unverified</div></td>
       <td>${r.window_days} d</td></tr>`).join("") + "</tbody></table></div>"
       : "<p class='empty'>no regions configured</p>";
     const calibration = data.e1rm_calibration || [];

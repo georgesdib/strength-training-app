@@ -7,7 +7,7 @@ where the model is coarse on purpose.
 
 It replaces the single back-progression summary described in the earlier version of
 [CONTINUITY.md](CONTINUITY.md) §2. Decisions: `DEC-INJURY-01`, `DEC-INJURY-02`,
-`DEC-INJURY-03`, `DEC-SYMPTOM-03`. Config: [`config/injuries.v1.yaml`](../config/injuries.v1.yaml).
+`DEC-INJURY-03`, `DEC-INJURY-05`, `DEC-SYMPTOM-03`. Config: [`config/injuries.v1.yaml`](../config/injuries.v1.yaml).
 Code: [`strength_coach/features/injury_signal.py`](../strength_coach/features/injury_signal.py).
 
 > **This is not medical clearance.** A symptom-free streak is weak positive evidence. The
@@ -56,32 +56,45 @@ sets, makes a session count. This stops a single unloaded set from being evidenc
 still says nothing about whether the loading was *tolerated*.
 
 **(c) Loading followed by evidence of no flare counts.** This is the definition used. A
-loaded session is **tolerated** only when:
+loaded date is classified as **no flare recorded** only when:
 
 1. the session loaded the region at or above the minimum dose, and
-2. a symptom reading for that region exists in the **7 days after** the session, and
-3. **no reading in that window is a flare**.
+2. at least one qualifying symptom reading for that region exists in the **7 days after**
+   the session, or a same-day `post_session` reading exists, and
+3. **no reading in that follow-up set is a flare**.
 
-A session with no follow-up reading is **unverified**. It is counted and displayed, but it
-never satisfies the review requirement. Missing input is `unknown`, not `pass`
+A loaded date with no qualifying follow-up is **unverified**. It is counted and displayed,
+but it never satisfies the review requirement. Missing input is `unknown`, not `pass`
 (AGENTS.md invariant 12) — the same rule that makes an empty symptom log `unknown` rather
 than "no flare".
 
-Two consequences are deliberate:
+A loaded date is classified in this order:
 
-- **A pre-session log on the next training day is enough.** It is the natural logging
-  cadence, and it reflects the state after the previous session. The window is 7 days so a
-  normal week of training self-verifies.
-- **A flare in the window disqualifies the session even if a later reading is clean.** A
+| state | meaning |
+|---|---|
+| `flared` | a follow-up reading is a flare; tolerance is denied |
+| `symptomatic_load` | no follow-up flare, but a same-day `pre_session` reading is a flare: the region was loaded while already symptomatic |
+| `tolerated` | at least one qualifying follow-up and none is a flare; display it as **no flare recorded in the follow-up window** |
+| `unverified` | no qualifying follow-up |
+
+`loaded = tolerated + flared + symptomatic_load + unverified`. The display wording no longer
+claims that a session was "verified tolerated"; the stored API keys keep their historical
+names for compatibility.
+
+Four rules are deliberate:
+
+- **Latest row wins inside the signal.** For each `(region, logged_on, timing)`, only the
+  greatest `log_id` participates. A correction therefore replaces a superseded flare or clean
+  row for the signal; the raw history still shows every row.
+- **A pre-session log on the next training day is enough.** It is the natural logging cadence,
+  and it reflects the state after the previous session. The window is 7 days so a normal week
+  of training self-verifies.
+- **A same-day `post_session` reading counts; a same-day `pre_session` reading does not.** The
+  former follows the load; the latter precedes it. A same-day `pre_session` flare marks the
+  load `symptomatic_load` instead of silently passing.
+- **A flare in the follow-up set disqualifies the date even if a later reading is clean.** A
   flare that appears the next day is evidence the load was too much; waiting it out does not
-  make the session tolerated.
-
-> **Planned revision (2026-11-01, not implemented).** The definition above stays, but its
-> evaluation is being corrected: superseded symptom rows will stop counting, a same-day
-> pre-session flare will mark the session as loaded while symptomatic, a same-day
-> post-session reading will count as follow-up, and flared/symptomatic-load sessions will be
-> reported separately. The next-day pre-session rule and the 7-day window are unchanged. See
-> [`INJURY-ATTRIBUTION-PLAN.md`](INJURY-ATTRIBUTION-PLAN.md).
+  make the date tolerated.
 
 ### What this definition cannot tell you
 
@@ -218,10 +231,13 @@ diagnosis-specific one.
 | `insufficient` | the last reading is older than 14 days; a stale reading cannot speak for today |
 | `active` | the latest reading is a flare (level ≥ 2, or level 1 that did not settle in 48 h — an unrecorded settlement counts as not settled) |
 | `monitoring` | readings exist, no active flare, and the review bar is not met |
-| `review` | streak ≥ window **and** tolerated sessions ≥ requirement, with no active flare |
+| `review` | streak ≥ window **and** loaded dates with no flare recorded ≥ requirement, with no active flare |
 
 `review` produces a recommendation to consider re-rating the lifts that load the region. It
-does not change any rating. A flaring region adds an advisory warning to a prescription that
+does not change any rating. The 2026-11-01 verification correction can move a historical
+status in either direction: removing a superseded flare can add credit, while a same-day
+pre-session flare removes it. That is a correction to how the agreed rule is evaluated, not a
+new threshold. A flaring region adds an advisory warning to a prescription that
 loads it; the low back is excluded from that warning because `MOD-BACK-001` already reports it
 and a duplicate would bury the modifier.
 

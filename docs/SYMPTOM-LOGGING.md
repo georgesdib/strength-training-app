@@ -92,10 +92,16 @@ Worked example:
   so silence is not "no flare" — it is `unknown`.
 - A reading older than `max_entry_age_days` (14, `config/injuries.v1.yaml`) makes the injury
   signal `insufficient` rather than healthy.
-- A loaded session counts as **tolerated** only when a reading within the next
-  `verify_within_days` (7) shows no flare. Unlogged stays `unverified`, never tolerated.
-- Rest alone earns no credit: the streak only counts once loaded sessions are verified
-  (`DEC-BACKSIGNAL-01`).
+- A loaded date counts as **no flare recorded** only when a qualifying reading exists
+  within the next `verify_within_days` (7), or a same-day `post_session` reading exists, and
+  none is a flare. Unlogged stays `unverified`.
+- A same-day `pre_session` reading is not follow-up; if it is a flare, the load is
+  `symptomatic_load`. A follow-up flare is `flared`. The four states partition loaded dates.
+- For each `(region, date, timing)`, only the latest row participates in the signal. An
+  append-only correction therefore supersedes an earlier row for the signal, while the raw
+  history keeps both.
+- Rest alone earns no credit: the streak only counts once loaded sessions have a qualifying
+  no-flare follow-up (`DEC-BACKSIGNAL-01`).
 
 ## 5. What not to do
 
