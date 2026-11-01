@@ -348,6 +348,7 @@ def test_rep_ranges_are_pooled_across_every_day():
     assert {"back_extension", "split_squat", "ab_wheel", "hanging_leg_raise"} <= set(ranges)
 
 
+@pytest.mark.slow
 def test_double_progression_is_assessable_on_every_day():
     rows = BASE_HISTORY + [
         {"Date": "2024-01-01", "Exercise": "Back Extension", "Weight_Used": "10",

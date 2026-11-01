@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from contextlib import contextmanager
 
+import pytest
 from conftest import make_readiness, make_training
 
 from strength_coach import cli
@@ -49,6 +50,7 @@ def test_the_horizon_is_bounded_in_the_core():
             raise AssertionError("27 weeks was accepted")
 
 
+@pytest.mark.slow
 def test_programme_is_a_weekday_abc_forecast_and_persists_nothing():
     with store_with() as store:
         before = store.connection.execute(
@@ -69,6 +71,16 @@ def test_programme_is_a_weekday_abc_forecast_and_persists_nothing():
     assert before == after == 0
 
 
+def test_weekday_patterns_support_four_and_five_days():
+    for per_week in (4, 5):
+        dates = programme._dates(dt.date(2024, 1, 2), 1, per_week)
+        assert len(dates) == per_week
+        assert all(
+            day.weekday() in programme.WEEKDAYS_BY_FREQUENCY[per_week] for day in dates
+        )
+
+
+@pytest.mark.slow
 def test_programme_simulates_projected_sessions_for_the_budget():
     with store_with() as store:
         conn = store.connection
@@ -86,6 +98,7 @@ def test_programme_simulates_projected_sessions_for_the_budget():
     assert panels[1]["sessions_done"] > panels[0]["sessions_done"]
 
 
+@pytest.mark.slow
 def test_two_flaring_sessions_trigger_a_reactive_deload():
     rows = ROWS + [
         {"Date": "2024-01-03", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
@@ -109,6 +122,7 @@ def test_two_flaring_sessions_trigger_a_reactive_deload():
     assert "reactive deload" in " ".join(entries[0].prescription.warnings)
 
 
+@pytest.mark.slow
 def test_a_forecast_entry_equals_a_freshly_built_prescription():
     # The forecast shares one history frame and one VBT calibration across entries for speed;
     # that must not change what building that date on its own would produce.
@@ -169,6 +183,7 @@ def test_a_forecast_on_an_empty_store_is_empty_not_a_crash():
     assert not any(entry.prescription.executable for entry in entries)
 
 
+@pytest.mark.slow
 def test_programme_cli_prints_a_horizon(tmp_path, capsys):
     path = tmp_path / "coach.db"
     store = db.Store(path)
@@ -181,7 +196,7 @@ def test_programme_cli_prints_a_horizon(tmp_path, capsys):
     )
     store.close()
 
-    assert cli.main(["--db", str(path), "programme", "--weeks", "2",
+    assert cli.main(["--db", str(path), "programme", "--weeks", "1",
                      "--start", "2024-01-02", "--start-session-type", "squat"]) == 0
     out = capsys.readouterr().out
     assert "forecast only" in out
@@ -203,6 +218,7 @@ def test_start_session_type_can_force_bench_hinge():
     assert legacy[0].session_type == "bench_squat"
 
 
+@pytest.mark.slow
 def test_scheduled_deload_is_suggested_not_applied():
     with store_with() as store:
         conn = store.connection

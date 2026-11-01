@@ -562,6 +562,7 @@ def test_the_exposure_ratio_endpoint_is_served(server):
     assert data["flags"]["effort_max_rir"] == 4
 
 
+@pytest.mark.slow
 def test_programme_endpoint(server):
     data = post(server, "/api/programme", {
         "weeks": 1, "start": "2024-01-02", "start_session_type": "squat",
@@ -574,7 +575,14 @@ def test_programme_endpoint(server):
 
 
 
-def test_programme_supports_four_and_five_days(server):
+def test_programme_supports_four_and_five_days(server, monkeypatch):
+    # This route contract only needs the request/response shape; the weekday schedule is
+    # covered cheaply in test_programme.py. Building nine prescriptions here was over-testing.
+    def fake_payload(conn, body):
+        count = int(body["sessions_per_week"])
+        return {"entries": [{"date": "2024-01-02", "session_type": "squat"}] * count}
+
+    monkeypatch.setattr(web_server, "programme_payload", fake_payload)
     four = post(server, "/api/programme", {
         "weeks": 1, "start": "2024-01-02", "sessions_per_week": 4,
         "start_session_type": "squat",
@@ -587,6 +595,7 @@ def test_programme_supports_four_and_five_days(server):
     assert len(five["entries"]) == 5
 
 
+@pytest.mark.slow
 def test_programme_job_endpoint_returns_a_pollable_result(server):
     payload = {
         "weeks": 1, "start": "2024-01-02", "start_session_type": "squat",
@@ -607,6 +616,7 @@ def test_programme_job_endpoint_returns_a_pollable_result(server):
     raise AssertionError("programme job did not finish")
 
 
+@pytest.mark.slow
 def test_programme_endpoint_accepts_selection_flags(server):
     data = post(server, "/api/programme", {
         "weeks": 1, "start": "2024-01-02", "start_session_type": "squat",
@@ -910,6 +920,7 @@ def test_exercise_post_rejects_an_invalid_id_without_writing(server):
     assert status == 400
 
 
+@pytest.mark.slow
 def test_prescribe_can_apply_selection(server):
     unconfirmed = post(server, "/api/prescribe", {
         "date": "2024-01-15", "session_type": "squat", "apply_selection": True,
@@ -972,6 +983,7 @@ def test_volume_budget_endpoint_is_read_only(server):
     assert data["note"].startswith("Read-only")
 
 
+@pytest.mark.slow
 def test_modalities_endpoint_lists_and_sets(server):
     status, body = get(server, "/api/modalities")
     assert status == 200

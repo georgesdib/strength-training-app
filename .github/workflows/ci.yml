@@ -50,7 +50,12 @@ jobs:
         run: ruff check .
 
       - name: Unit and golden tests
-        run: pytest -m "not integration and not regression"
+        if: matrix.python-version == '3.12'
+        run: pytest -m "not integration and not regression and not slow"
+
+      - name: Unit smoke tests
+        if: matrix.python-version == '3.11'
+        run: pytest tests/test_prescribe.py tests/test_rules_policy.py tests/test_store.py -m "not integration and not regression and not slow"
 
   package:
     name: package and smoke

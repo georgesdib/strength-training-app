@@ -39,6 +39,7 @@ def _prescription(conn, for_date: str = TODAY) -> str:
     return "p1"
 
 
+@pytest.mark.slow
 def test_weekly_target_matches_the_six_session_template_sum():
     store = db.Store(":memory:")
     try:

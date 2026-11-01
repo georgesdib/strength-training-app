@@ -18,7 +18,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   optional-tests:
-    name: Optional integration and regression tests
+    name: Optional integration, regression and slow tests
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -42,7 +42,7 @@ jobs:
         run: python -m pip install --no-deps -e .
 
       - name: Run optional tests
-        run: pytest -m "integration or regression"
+        run: pytest -m "integration or regression or slow" --dist loadfile
 
   publish:
     name: Publish GitHub Release

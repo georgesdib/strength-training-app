@@ -136,8 +136,9 @@ progression and spinal functions.** They cannot disagree about what the rule say
 Tests that read `data/raw` are git-ignored (`tests/*_integration.py`): they assert counts and
 values derived from the real export, so committing them would leak personal data. They run
 locally when the export is present; the public suite is synthetic-only. The default suite
-excludes both `integration` and the non-obvious `regression` layer; run them on request or in
-the release workflow with `pytest -m "integration or regression"`.
+excludes `integration`, the non-obvious `regression` layer and the expensive `slow` layer; run
+them on request or in the release workflow with
+`pytest -m "integration or regression or slow"`.
 
 Five layers, cheapest first.
 

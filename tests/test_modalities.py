@@ -7,6 +7,8 @@ import pytest
 from strength_coach import cli, modalities
 from strength_coach.store import db, repositories
 
+pytestmark = pytest.mark.slow
+
 
 def test_modalities_have_classes_and_delegate_to_existing_flags():
     store = db.Store(":memory:")

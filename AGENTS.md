@@ -173,13 +173,14 @@ so silently erased genuine `RIR = 0` observations during development.
 
 ### 7.1 How to run tests without wasting ten minutes
 
-The default suite excludes the optional integration (real CSVs) and regression (non-obvious
-bug-history) layers. While iterating, run only what the change can affect:
+The default suite excludes the optional integration (real CSVs), regression (non-obvious
+bug-history) and slow (expensive forecast/web) layers. While iterating, run only what the
+change can affect:
 
 ```bash
 .venv/bin/python -m pytest tests/test_prescribe.py tests/test_rules_policy.py
 .venv/bin/python -m pytest --lf                       # only the last failures
-.venv/bin/python -m pytest -m "not integration and not golden and not regression"   # broad
+.venv/bin/python -m pytest -m "not integration and not golden and not regression and not slow"
 .venv/bin/python -m pytest -n 0                       # serial, for debugging a failure
 ```
 
@@ -187,10 +188,10 @@ bug-history) layers. While iterating, run only what the change can affect:
 suite once before handing off. Run the optional layers when the owner asks, or with:
 
 ```bash
-.venv/bin/python -m pytest -m "integration or regression"
+.venv/bin/python -m pytest -m "integration or regression or slow" --dist loadfile
 ```
 
-The release workflow runs both optional layers. If a test fails, fix it and re-run that file/
+The release workflow runs all optional layers. If a test fails, fix it and re-run that file/
 marker first; a full re-run is the last step, not the first reflex.
 
 Tests assert **contracts, not incidental order**: e.g. "power work precedes the main lift"
@@ -245,6 +246,7 @@ never read `data/raw`.
 | `docs/READINESS-WEIGHT-EVIDENCE.md` | readiness-weight evidence and held-out comparison; learned weights closed |
 | `docs/CONTINUITY.md` | gap detection and re-entry rules; the injury signal is separate |
 | `docs/INJURY-SIGNAL.md` | per-region injury signals, what "tolerated" loading means, injury-to-exercise links |
+| `docs/INJURY-ATTRIBUTION-PLAN.md` | planned session/lift symptom attribution (onset, confidence) and injury-signal verification hygiene; plan only, not implemented |
 | `docs/SYMPTOM-LOGGING.md` | the 0-3 reading: what counts as a flare, and what to log when a symptom settles |
 | `docs/AUDIT-FOLLOW-UP-PLAN.md` | implemented audit follow-up: back-flare scope, quality-limited power, programme-document drift, same-date accounting and the audit gate |
 | `docs/AUDIT-FOLLOW-UP-REPORT.md` | closed audit follow-up report: five fixes verified, all residuals closed, accepted coverage limitations and no follow-up actions |
