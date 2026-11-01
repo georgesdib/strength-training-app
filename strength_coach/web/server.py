@@ -712,8 +712,14 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/":
                 self._serve_file(STATIC / "index.html", "text/html; charset=utf-8")
             elif path.startswith("/static/"):
-                self._serve_file(STATIC / Path(path).name,
-                                 mimetypes.guess_type(path)[0] or "application/octet-stream")
+                static_path = self._resolve_static_path(path)
+                if static_path is None:
+                    self._error(404, "not found")
+                else:
+                    self._serve_file(
+                        static_path,
+                        mimetypes.guess_type(path)[0] or "application/octet-stream",
+                    )
             elif path == "/api/settings":
                 self._json(200, self._with_conn(lambda c: self._settings(c)))
             elif path == "/api/settings/monitoring":
@@ -1294,6 +1300,19 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             LOGGER.exception("unhandled POST %s", self.path)
             self._error(500, "internal server error")
+
+    def _resolve_static_path(self, request_path: str) -> Path | None:
+        if not request_path.startswith("/static/"):
+            return None
+        name = Path(request_path).name
+        if name in {"", ".", ".."}:
+            return None
+        candidate = (STATIC / name).resolve()
+        try:
+            candidate.relative_to(STATIC.resolve())
+        except ValueError:
+            return None
+        return candidate
 
     def _serve_file(self, path: Path, content_type: str) -> None:
         if not path.is_file():
