@@ -10,6 +10,7 @@ import yaml
 from strength_coach.prescribe.resolver_policy import (
     ResolverPolicy,
     ResolverPolicyError,
+    _validate_candidate_catalogue,
     validate_text,
 )
 from strength_coach.utils import paths
@@ -38,6 +39,7 @@ def test_default_policy_loads_and_hashes() -> None:
     assert policy.slot_pools == {}
     assert policy.redundancy.max_per_pattern == 2
     assert "ssb_squat" in policy.top_set.eligible_lifts
+    assert "conventional_deadlift" not in policy.top_set.eligible_lifts
 
 
 def test_digest_changes_with_content() -> None:
@@ -50,6 +52,27 @@ def test_validate_text_uses_the_same_parser() -> None:
     policy = validate_text(_base_text())
     assert policy.required_patterns["squat"]
     assert len(policy.digest) == 64
+
+
+def test_duplicate_yaml_key_is_rejected_at_top_level() -> None:
+    with pytest.raises(ResolverPolicyError, match="duplicate key 'redundancy'"):
+        ResolverPolicy.from_text(
+            _base_text() + "\nredundancy:\n  max_per_pattern: 3\n"
+        )
+
+
+def test_duplicate_yaml_key_is_rejected_nested() -> None:
+    body = _base_text().replace(
+        "  max_per_pattern: 2\n  max_per_primary_muscle: 2",
+        "  max_per_pattern: 2\n  max_per_pattern: 3\n  max_per_primary_muscle: 2",
+    )
+    with pytest.raises(ResolverPolicyError, match="duplicate key 'redundancy.max_per_pattern'"):
+        ResolverPolicy.from_text(body)
+
+
+def test_malformed_yaml_has_a_useful_error() -> None:
+    with pytest.raises(ResolverPolicyError, match="invalid YAML"):
+        ResolverPolicy.from_text("schema_version: [unclosed")
 
 
 def test_unsupported_schema_is_rejected() -> None:
@@ -98,6 +121,28 @@ def test_allowed_patterns_and_slot_pools_accept_valid_values() -> None:
     assert policy.slot_pools["squat"]["squat_main"] == ("ssb_squat", "competition_squat")
 
 
+def test_slot_pool_candidate_must_match_the_slot_pattern() -> None:
+    raw = yaml.safe_load(_base_text())
+    raw["slot_pools"] = {"squat": {"squat_main": ["bench_press"]}}
+    with pytest.raises(ResolverPolicyError, match="permitted"):
+        ResolverPolicy.from_text(yaml.safe_dump(raw, sort_keys=False))
+
+
+def test_explicit_allowed_patterns_permit_flexibility() -> None:
+    raw = yaml.safe_load(_base_text())
+    raw["allowed_patterns"] = {"squat_main": ["squat", "horizontal_push"]}
+    raw["slot_pools"] = {"squat": {"squat_main": ["bench_press"]}}
+    policy = ResolverPolicy.from_text(yaml.safe_dump(raw, sort_keys=False))
+    assert policy.slot_pools["squat"]["squat_main"] == ("bench_press",)
+
+
+def test_slot_pool_must_not_be_empty() -> None:
+    raw = yaml.safe_load(_base_text())
+    raw["slot_pools"] = {"squat": {"squat_main": []}}
+    with pytest.raises(ResolverPolicyError, match="must not be empty"):
+        ResolverPolicy.from_text(yaml.safe_dump(raw, sort_keys=False))
+
+
 def test_slot_pools_validate_session_slot_and_exercise() -> None:
     raw = yaml.safe_load(_base_text())
     raw["slot_pools"] = {"squat": {"not_a_slot": ["ssb_squat"]}}
@@ -114,6 +159,79 @@ def test_top_set_eligible_lifts_must_exist() -> None:
     raw["top_set"]["eligible_lifts"].append("not_an_exercise")
     with pytest.raises(ResolverPolicyError, match="unknown exercise"):
         ResolverPolicy.from_text(yaml.safe_dump(raw, sort_keys=False))
+
+
+def test_top_set_eligible_lifts_must_be_main_lifts() -> None:
+    raw = yaml.safe_load(_base_text())
+    raw["top_set"]["eligible_lifts"].append("conventional_deadlift")
+    with pytest.raises(ResolverPolicyError, match="not a main lift"):
+        ResolverPolicy.from_text(yaml.safe_dump(raw, sort_keys=False))
+
+
+def test_candidate_catalogue_must_have_the_expected_structure(tmp_path) -> None:
+    path = tmp_path / "catalogue.yaml"
+    path.write_text("slots: []\n", encoding="utf-8")
+    with pytest.raises(ResolverPolicyError, match="slots"):
+        _validate_candidate_catalogue(path, "test")
+
+
+def test_candidate_catalogue_rejects_unknown_exercises(tmp_path) -> None:
+    path = tmp_path / "catalogue.yaml"
+    path.write_text(
+        "slots:\n"
+        "  squat: {squat_main: [not_an_exercise]}\n"
+        "  hinge: {}\n"
+        "  bench_squat: {}\n"
+        "  bench_hinge: {}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ResolverPolicyError, match="unknown exercise"):
+        _validate_candidate_catalogue(path, "test")
+
+
+def test_candidate_catalogue_candidate_must_match_the_slot_pattern(tmp_path) -> None:
+    path = tmp_path / "catalogue.yaml"
+    path.write_text(
+        "slots:\n"
+        "  squat: {squat_main: [bench_press]}\n"
+        "  hinge: {}\n"
+        "  bench_squat: {}\n"
+        "  bench_hinge: {}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ResolverPolicyError, match="permitted"):
+        _validate_candidate_catalogue(path, "test")
+
+
+def test_candidate_catalogue_explicit_flexibility_allows_a_pattern(tmp_path) -> None:
+    path = tmp_path / "catalogue.yaml"
+    path.write_text(
+        "slots:\n"
+        "  squat: {squat_main: [bench_press]}\n"
+        "  hinge: {}\n"
+        "  bench_squat: {}\n"
+        "  bench_hinge: {}\n",
+        encoding="utf-8",
+    )
+    _validate_candidate_catalogue(
+        path, "test", {"squat_main": ("squat", "horizontal_push")}
+    )
+
+
+def test_candidate_catalogue_rejects_duplicate_keys(tmp_path) -> None:
+    path = tmp_path / "catalogue.yaml"
+    path.write_text(
+        "slots:\n"
+        "  squat:\n"
+        "    squat_main: [ssb_squat]\n"
+        "    squat_main: [competition_squat]\n"
+        "  hinge: {}\n"
+        "  bench_squat: {}\n"
+        "  bench_hinge: {}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ResolverPolicyError, match="duplicate key"):
+        _validate_candidate_catalogue(path, "test")
 
 
 def test_candidate_path_must_stay_inside_the_repository() -> None:

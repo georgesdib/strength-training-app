@@ -18,6 +18,7 @@ from types import MappingProxyType
 from typing import Any
 
 import yaml
+from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 
 from strength_coach.prescribe import templates
 from strength_coach.utils import exercises, paths
@@ -85,8 +86,45 @@ def validate_text(body: str) -> ResolverPolicy:
     return _parse(body, Path("<edited>"), digest)
 
 
+def _load_yaml(body: str, where: str) -> Any:
+    """Parse YAML with duplicate-key detection at every nesting level.
+
+    PyYAML silently keeps the last duplicate mapping key. A policy file where a second
+    max_per_pattern overrides the first would be accepted as if nothing were wrong, so walk
+    the composed node tree before loading and reject any repeated key with its path.
+    """
+    try:
+        node = yaml.compose(body, Loader=yaml.SafeLoader)
+        if node is not None:
+            _check_duplicate_keys(node, where, "")
+        return yaml.safe_load(body) or {}
+    except ResolverPolicyError:
+        raise
+    except yaml.YAMLError as exc:
+        raise ResolverPolicyError(f"{where}: invalid YAML: {exc}") from exc
+
+
+def _check_duplicate_keys(node: Node, where: str, path: str) -> None:
+    if isinstance(node, MappingNode):
+        seen: set[str] = set()
+        for key_node, value_node in node.value:
+            if not isinstance(key_node, ScalarNode):
+                raise ResolverPolicyError(
+                    f"{where}: mapping keys must be scalars at {path or '<root>'}"
+                )
+            key = str(key_node.value)
+            child = f"{path}.{key}" if path else key
+            if key in seen:
+                raise ResolverPolicyError(f"{where}: duplicate key {child!r}")
+            seen.add(key)
+            _check_duplicate_keys(value_node, where, child)
+    elif isinstance(node, SequenceNode):
+        for index, child_node in enumerate(node.value):
+            _check_duplicate_keys(child_node, where, f"{path}[{index}]")
+
+
 def _parse(body: str, source_path: Path, digest: str) -> ResolverPolicy:
-    raw = yaml.safe_load(body) or {}
+    raw = _load_yaml(body, source_path.name)
     if not isinstance(raw, Mapping):
         raise ResolverPolicyError(f"{source_path.name}: top level must be a mapping")
     _unknown_keys(
@@ -110,10 +148,12 @@ def _parse(body: str, source_path: Path, digest: str) -> ResolverPolicy:
             f"supported: {SUPPORTED_SCHEMA_VERSIONS}"
         )
 
-    candidate = _candidate_catalogue(raw.get("candidate_catalogue"), source_path.name)
     required = _required_patterns(raw.get("required_patterns"), source_path.name)
     allowed = _allowed_patterns(raw.get("allowed_patterns"), source_path.name)
-    pools = _slot_pools(raw.get("slot_pools"), source_path.name)
+    candidate = _candidate_catalogue(
+        raw.get("candidate_catalogue"), source_path.name, allowed
+    )
+    pools = _slot_pools(raw.get("slot_pools"), source_path.name, allowed)
     redundancy = _redundancy(raw.get("redundancy"), source_path.name)
     top_set = _top_set(raw.get("top_set"), source_path.name)
 
@@ -132,7 +172,9 @@ def _parse(body: str, source_path: Path, digest: str) -> ResolverPolicy:
     )
 
 
-def _candidate_catalogue(value: Any, where: str) -> CandidateCatalogue:
+def _candidate_catalogue(
+    value: Any, where: str, allowed: Mapping[str, tuple[str, ...]]
+) -> CandidateCatalogue:
     body = _mapping(value, f"{where}: candidate_catalogue")
     _unknown_keys(body, {"mode", "path"}, f"{where}: candidate_catalogue")
     mode = str(body.get("mode", "reference"))
@@ -141,11 +183,12 @@ def _candidate_catalogue(value: Any, where: str) -> CandidateCatalogue:
             f"{where}: candidate_catalogue.mode must be one of {CANDIDATE_MODES}"
         )
     path_text = _non_empty_str(body.get("path"), f"{where}: candidate_catalogue.path")
-    _check_catalogue_path(path_text, where)
+    resolved = _check_catalogue_path(path_text, where)
+    _validate_candidate_catalogue(resolved, where, allowed)
     return CandidateCatalogue(mode=mode, path=path_text)
 
 
-def _check_catalogue_path(path_text: str, where: str) -> None:
+def _check_catalogue_path(path_text: str, where: str) -> Path:
     relative = Path(path_text)
     if relative.is_absolute() or ".." in relative.parts:
         raise ResolverPolicyError(
@@ -161,6 +204,72 @@ def _check_catalogue_path(path_text: str, where: str) -> None:
         raise ResolverPolicyError(
             f"{where}: candidate_catalogue.path does not exist: {path_text}"
         )
+    return resolved
+
+
+def _validate_candidate_catalogue(
+    source: Path,
+    where: str,
+    allowed: Mapping[str, tuple[str, ...]] | None = None,
+) -> None:
+    """Validate the referenced catalogue without copying its exercise definitions.
+
+    The catalogue is the existing per-session/slot candidate source. The resolver references
+    it; it must not maintain a second list. Structural validation rejects a file that is not a
+    slot catalogue, uses an unknown session or slot, names an exercise the taxonomy does not
+    know, or offers a candidate whose pattern is not permitted for that slot. An explicit
+    allowed_patterns entry is the configured flexibility; otherwise the blueprint's default
+    patterns (including exercise_variants) apply.
+    """
+    body = source.read_text(encoding="utf-8")
+    label = f"{where}: candidate catalogue {source.name}"
+    raw = _load_yaml(body, label)
+    if not isinstance(raw, Mapping):
+        raise ResolverPolicyError(f"{label}: top level must be a mapping")
+    _unknown_keys(raw, {"slots"}, label)
+    slots = _mapping(raw.get("slots"), f"{label}: slots")
+    if set(slots) != set(SESSION_TYPES):
+        raise ResolverPolicyError(
+            f"{label}: slots must define exactly {SESSION_TYPES}; got {sorted(slots)}"
+        )
+    known_slots = _slot_ids()
+    slots_by_session = _slots_by_session()
+    templates_by_session = {
+        session: templates.SessionTemplate.load(session) for session in SESSION_TYPES
+    }
+    entities = exercises.taxonomy().entities
+    explicit_allowed = allowed or {}
+    for session_type, slot_map in slots.items():
+        session = str(session_type)
+        slot_body = _mapping(slot_map, f"{label}: slots.{session}")
+        for slot_id, raw_ids in slot_body.items():
+            slot = str(slot_id)
+            if slot not in known_slots:
+                raise ResolverPolicyError(
+                    f"{label}: slots.{session} has unknown slot {slot!r}"
+                )
+            candidate_ids = _exercise_list(
+                raw_ids, f"{label}: slots.{session}.{slot}", entities
+            )
+            if not candidate_ids:
+                raise ResolverPolicyError(
+                    f"{label}: slots.{session}.{slot} must not be empty"
+                )
+            # The catalogue carries extra slots that are not part of every blueprint
+            # (for example an accessory pull-up entry under squat). Validate patterns only
+            # where the slot is actually selectable; the extra entries stay harmless.
+            if slot in slots_by_session[session]:
+                permitted = _permitted_patterns(
+                    session, slot, explicit_allowed, templates_by_session, entities
+                )
+                for exercise_id in candidate_ids:
+                    pattern = entities[exercise_id].get("pattern")
+                    if not pattern or str(pattern) not in permitted:
+                        raise ResolverPolicyError(
+                            f"{label}: slots.{session}.{slot} candidate "
+                            f"{exercise_id!r} has pattern {pattern!r}; permitted "
+                            f"{sorted(permitted)}"
+                        )
 
 
 def _required_patterns(value: Any, where: str) -> dict[str, tuple[str, ...]]:
@@ -197,10 +306,15 @@ def _allowed_patterns(value: Any, where: str) -> dict[str, tuple[str, ...]]:
 
 
 def _slot_pools(
-    value: Any, where: str
+    value: Any,
+    where: str,
+    allowed: Mapping[str, tuple[str, ...]],
 ) -> dict[str, dict[str, tuple[str, ...]]]:
     body = _mapping(value, f"{where}: slot_pools")
     slots_by_session = _slots_by_session()
+    templates_by_session = {
+        session: templates.SessionTemplate.load(session) for session in SESSION_TYPES
+    }
     entities = exercises.taxonomy().entities
     out: dict[str, dict[str, tuple[str, ...]]] = {}
     for session_type, raw_slots in body.items():
@@ -217,10 +331,55 @@ def _slot_pools(
                 raise ResolverPolicyError(
                     f"{where}: slot_pools.{session} has unknown slot {slot!r}"
                 )
-            out[session][slot] = _exercise_list(
+            candidates = _exercise_list(
                 raw_ids, f"{where}: slot_pools.{session}.{slot}", entities
             )
+            if not candidates:
+                raise ResolverPolicyError(
+                    f"{where}: slot_pools.{session}.{slot} must not be empty"
+                )
+            permitted = _permitted_patterns(
+                session, slot, allowed, templates_by_session, entities
+            )
+            for exercise_id in candidates:
+                pattern = entities[exercise_id].get("pattern")
+                if not pattern or str(pattern) not in permitted:
+                    raise ResolverPolicyError(
+                        f"{where}: slot_pools.{session}.{slot} candidate "
+                        f"{exercise_id!r} has pattern {pattern!r}; permitted "
+                        f"{sorted(permitted)}"
+                    )
+            out[session][slot] = candidates
     return out
+
+
+def _permitted_patterns(
+    session: str,
+    slot_id: str,
+    allowed: Mapping[str, tuple[str, ...]],
+    templates_by_session: Mapping[str, templates.SessionTemplate],
+    entities: Mapping[str, Any],
+) -> set[str]:
+    """Patterns a slot may use for a candidate pool.
+
+    An explicit allowed_patterns entry is the configured flexibility. Otherwise the slot keeps
+    the patterns of its blueprint defaults, including every exercise_variants entry.
+    """
+    if slot_id in allowed:
+        return set(allowed[slot_id])
+    for slot in templates_by_session[session].slots:
+        if slot.id != slot_id:
+            continue
+        patterns = {
+            str(entities[exercise].get("pattern"))
+            for exercise in slot.exercises
+            if entities.get(exercise, {}).get("pattern")
+        }
+        if patterns:
+            return patterns
+    raise ResolverPolicyError(
+        f"slot_pools.{session}.{slot_id}: no blueprint patterns are available"
+    )
 
 
 def _redundancy(value: Any, where: str) -> RedundancyPolicy:
@@ -243,7 +402,7 @@ def _top_set(value: Any, where: str) -> TopSetPolicy:
     body = _mapping(value, f"{where}: top_set")
     _unknown_keys(body, {"eligible_lifts", "exceptions"}, f"{where}: top_set")
     entities = exercises.taxonomy().entities
-    eligible = _exercise_list(
+    eligible = _main_lift_list(
         body.get("eligible_lifts", ()), f"{where}: top_set.eligible_lifts", entities
     )
     exceptions_body = _mapping(body.get("exceptions", {}), f"{where}: top_set.exceptions")
@@ -297,6 +456,20 @@ def _exercise_list(
             raise ResolverPolicyError(f"{where}: duplicate exercise {exercise_id!r}")
         out.append(exercise_id)
     return tuple(out)
+
+
+def _main_lift_list(
+    value: Any, where: str, entities: Mapping[str, Any]
+) -> tuple[str, ...]:
+    out = _exercise_list(value, where, entities)
+    for exercise_id in out:
+        entity = entities[exercise_id]
+        if not (entity.get("main_lift") or entity.get("primary_compound")):
+            raise ResolverPolicyError(
+                f"{where}: {exercise_id!r} is not a main lift "
+                "(main_lift or primary_compound)"
+            )
+    return out
 
 
 def _known_patterns() -> set[str]:

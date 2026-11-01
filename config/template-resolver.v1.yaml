@@ -77,7 +77,8 @@ top_set:
     - high_bar_squat
     - trap_bar_deadlift
     - sumo_deadlift
-    - conventional_deadlift
+    # conventional_deadlift is intentionally absent: the taxonomy does not mark it
+    # main_lift or primary_compound, so it is not a valid top-set main lift yet.
     - bench_press
     - bench_press_narrow
     - bench_press_pause

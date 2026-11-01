@@ -52,7 +52,7 @@ pinning, a two-stage volume pass, or a hinge top-set RIR cap.
   No top set on a deload week; no top set inside the configured taper (recommended default
   7 days) before competition.
 - **Hinge is allowed on a maximal week.** Remove the hinge exclusion from the DUP maximal
-  scheme for the prescribed hinge main lifts (trap bar, sumo, conventional deadlift) and remove
+  scheme for the prescribed hinge lifts (trap bar, sumo and conventional deadlift) and remove
   the separate top-set RIR-2 cap for hinge. This is a programme change with a spinal/fatigue
   cost and needs its own decision, golden updates and a warning. Keep the accessory/risk hinge
   exclusions (good morning, rack pull, Jefferson curl) unless separately approved.
@@ -419,7 +419,9 @@ Exercise Rotation is a deterministic dwell rule, not a random score weight.
 ### 5.8 Top set / back-off (optional main-lift structure)
 
 The generator can offer a top set + back-off structure for the session's primary main lift. It is
-a set-configuration feature, not a second periodisation engine.
+a set-configuration feature, not a second periodisation engine. Eligibility is validated against
+the taxonomy's main-lift markers (`main_lift` or `primary_compound`); `conventional_deadlift` is
+not in the list because the taxonomy does not classify it as a main lift today.
 
 **Structure**
 
@@ -448,8 +450,8 @@ Use the DUP main scheme actually applied to the item:
 
 **Hinge on a maximal week**
 
-Hinge is allowed on a maximal week. Remove the maximal exclusion for the prescribed hinge main
-lifts (trap bar, sumo, conventional deadlift) and remove the separate top-set RIR-2 cap for
+Hinge is allowed on a maximal week. Remove the maximal exclusion for the prescribed hinge
+exercises (trap bar, sumo and conventional deadlift) and remove the separate top-set RIR-2 cap for
 hinge. Keep the accessory/risk hinge exclusions (good morning, rack pull, Jefferson curl) unless
 separately approved. This is a programme change with a spinal/fatigue cost: record it as a
 decision, update goldens and show a warning. The ordinal spinal cap is load-blind, so a maximal
@@ -791,7 +793,8 @@ behaviour.
 - config/template-resolver.v1.yaml: structural policy for the candidate catalogue reference,
   required/allowed patterns, optional slot pools, redundancy and top-set eligible lifts;
 - strength_coach/prescribe/resolver_policy.py: strict loader/validator with schema version,
-  unknown-key rejection, taxonomy/blueprint checks and a SHA-256 digest;
+  duplicate-key rejection at every YAML level, unknown-key rejection, candidate-catalogue
+  structure, slot-pool movement-pattern and top-set main-lift checks, and a SHA-256 digest;
 - 32 scalar resolver keys in settings_registry/settings_profile; the existing generic Settings
   profile now shows a Resolver group, while the dedicated panel remains Step 5;
 - migration 0048 adds nullable template_digest, policy_digest, input_hash and
@@ -799,7 +802,7 @@ behaviour.
   for the fixed path;
 - SessionTemplate.digest exposes the shipped blueprint SHA-256 for provenance;
 - no database template-version or template-state table;
-- DEC-RESOLVER-07 records the Step 1 implementation boundary.
+- DEC-RESOLVER-07/08 record the Step 1 implementation boundary and the top-set eligibility correction.
 
 **Data:** additive nullable provenance columns; no seed, no backfill.
 
@@ -808,8 +811,9 @@ payload gain the Resolver keys; there is no generator preview, no new endpoint a
 command. The dedicated Settings -> Resolver panel is Step 5.
 
 **Tests:** tests/test_resolver_policy.py, tests/test_resolver_settings.py and
-tests/test_resolver_provenance.py cover validation, digest stability, profile save/guarded
-values, the snapshot, nullable provenance and the blueprint digest.
+tests/test_resolver_provenance.py cover strict YAML, catalogue structure, slot-pool patterns,
+main-lift eligibility, digest stability, profile save/guarded values, the snapshot, nullable
+provenance and the blueprint digest.
 
 **Acceptance:** the app behaves exactly as today with the flag off; a policy file loads,
 validates and hashes; fixed-path prescriptions leave the provenance columns null.
@@ -967,7 +971,7 @@ generator and top set work end-to-end; the feature can be disabled without data 
 
 ## 13. Confirmed decisions
 
-Recorded as `DEC-RESOLVER-01`–`07` in [DECISIONS.md](DECISIONS.md).
+Recorded as `DEC-RESOLVER-01`–`08` in [DECISIONS.md](DECISIONS.md).
 
 - Session generator per session; no block-level exercise pin; generated session frozen at workout
   start.

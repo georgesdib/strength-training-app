@@ -15,6 +15,7 @@ def test_resolver_defaults_are_registered_and_neutral() -> None:
     assert snapshot.get("resolver.enabled") is False
     assert snapshot.get("resolver.rotation.main") == 0.2
     assert snapshot.get("resolver.rotation.accessory") == 0.5
+    assert snapshot.get("resolver.eligibility.auto_requires_can_do") is True
     assert snapshot.get("resolver.top_set.mode") == "ask"
     assert snapshot.get("resolver.top_set.fallback_above_rir") == 2
     assert snapshot.get("resolver.competition.peak_weeks") == 4

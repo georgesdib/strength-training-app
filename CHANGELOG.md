@@ -50,6 +50,11 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Changed
 
+- Resolver Step 1 review corrections: the canonical eligibility key is
+  `resolver.eligibility.auto_requires_can_do`; the structural policy loader rejects duplicate
+  YAML keys at every level, validates the referenced candidate catalogue and slot-pool movement
+  patterns, and requires every top-set eligible lift to be a taxonomy main lift. Resolver scalar
+  source metadata now names the effective-dated settings profile rather than the structural YAML.
 - Removed the unused `athlete_profile.effective_to` column (migration 0046). Profile versions
   are append-only and the current row is the latest by `effective_from`; the end date was never
   written or read, and a new row already amends the previous state (`DEC-STATE-03`).
