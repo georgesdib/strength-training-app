@@ -266,10 +266,12 @@ def build_prescription(
 
     flare_note: dict[str, list[str]] = {}
     if context.symptom_flare is True:
-        # The effort hold was applied at build time; this pass applies the erector dose
-        # ceiling after readiness, so a readiness set cut is not undone (DEC-SPINE-07).
+        # Effort hold runs after readiness; the erector dose ceiling follows it. Keeping the
+        # hold out of build_item stops a low-readiness case from solving load at a harder RIR
+        # and then displaying a higher RIR (DEC-BACK-03).
+        items, flare_hold = _apply_back_flare_effort(tuple(items), context, thresholds)
         items, flare_dose = _apply_back_flare_dose(tuple(items), context, thresholds)
-        held = [item.exercise_id for item in items if item.flare == "hold"]
+        held = list(flare_hold)
         reviewed = [item.exercise_id for item in items if item.flare == "reviewed"]
         parts = []
         if held:
@@ -1484,6 +1486,50 @@ def _apply_undulation(
     return tuple(out), (f"DUP week {cycle_week}: {detail}",), dict(plan)
 
 
+def _apply_back_flare_effort(
+    items: tuple[PrescriptionItem, ...],
+    context: RuleContext,
+    thresholds: config_mod.Thresholds,
+) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...]]:
+    """Apply the back-flare main-lift effort hold after readiness.
+
+    The hold changes the displayed RIR, so the load must be solved at the final RIR. Applying
+    it inside build_item made a low-readiness item solve at RIR 3 and then display RIR 4,
+    which left the load slightly high (DEC-BACK-03). A final RIR already at the hold level is
+    reviewed unchanged rather than re-solved.
+    """
+    out: list[PrescriptionItem] = []
+    changed: list[str] = []
+    target_rir = int(thresholds.back_flare_main_rir)
+    for item in items:
+        if item.flare != "hold" or item.effort_model == "quality" or item.rir_target is None:
+            out.append(item)
+            continue
+        target = max(int(item.rir_target), target_rir)
+        if target == item.rir_target:
+            out.append(replace(item, flare="reviewed"))
+            continue
+        new_load = item.load_kg
+        if (new_load is not None and new_load > 0
+                and item.load_basis != "bodyweight_total"):
+            base_e1rm = e1rm_mod.epley_rir_adjusted(
+                float(new_load), int(item.reps_low), int(item.rir_target)
+            )
+            new_load = loads.solve_load(
+                base_e1rm, int(item.reps_low), target, item.rounding_increment_kg
+            )
+        refs = item.rationale_refs
+        if "MOD-BACK-001" not in refs:
+            refs += ("MOD-BACK-001",)
+        if context.symptom_on and f"symptom:{context.symptom_on}" not in refs:
+            refs += (f"symptom:{context.symptom_on}",)
+        changed.append(item.exercise_id)
+        out.append(replace(
+            item, rir_target=target, load_kg=new_load, rationale_refs=refs,
+        ))
+    return tuple(out), tuple(changed)
+
+
 def _apply_back_flare_dose(
     items: tuple[PrescriptionItem, ...],
     context: RuleContext,
@@ -1700,11 +1746,9 @@ def build_item(
         str(slot.quality_stop or QUALITY_STOP_DEFAULT) if power_exercise else None
     )
     flare = _resolve_flare_policy(slot, props, power_exercise, context)
+    # Back-flare effort is applied after readiness so its RIR bump cannot make the
+    # pre-readiness load basis harder than the shown final set (DEC-BACK-03).
     effective_rir = None if power_exercise else slot.rir_low
-    if flare == "hold":
-        effective_rir = max(int(slot.rir_low), int(thresholds.back_flare_main_rir))
-        if effective_rir == slot.rir_low and slot.flare != "hold_effort":
-            flare = "reviewed"
     load: float | None
     refs: tuple[str, ...] = ()
     unknown_reason: str | None = None
