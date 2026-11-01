@@ -367,24 +367,6 @@ def build_prescription(
     )
     warnings.extend(spine_warnings)
 
-    # Deload runs before the minimum session and before final validation. Its load factor is
-    # compared with the cumulative readiness/continuity factor, never multiplied on top.
-    deload_note = None
-    if deload_decision is not None:
-        primary = {
-            item.exercise_id for item in items
-            if context.entity(item.exercise_id).get("primary_compound", False)
-        }
-        items, deload_warning, deload_note, deload_level = deload_mod.apply_items(
-            tuple(items), deload_decision, config=resolved.deload,
-            prior_load_factors=load_factors,
-            primary_compounds=primary,
-        )
-        if deload_warning:
-            warnings.append(deload_warning)
-        if deload_note is not None:
-            fallback_level = deload_level
-
     # MOD-TECH-001 is a user request, so it runs after the automatic modifiers and compares
     # with their cumulative load factor instead of multiplying on top. It must precede the
     # ramp attach, which derives warm-up loads from the final top-set load.
@@ -475,6 +457,25 @@ def build_prescription(
             minimum_note = {
                 key: value for key, value in result.items() if key != "items"
             }
+
+    # Deload runs after the minimum-session trim and before final validation. A planned
+    # reduction must not restore work the minimum session removed (DEC-W3-02). Its load
+    # factor is compared with the cumulative readiness/continuity factor, never multiplied.
+    deload_note = None
+    if deload_decision is not None:
+        primary = {
+            item.exercise_id for item in items
+            if context.entity(item.exercise_id).get("primary_compound", False)
+        }
+        items, deload_warning, deload_note, deload_level = deload_mod.apply_items(
+            tuple(items), deload_decision, config=resolved.deload,
+            prior_load_factors=load_factors,
+            primary_compounds=primary,
+        )
+        if deload_warning:
+            warnings.append(deload_warning)
+        if deload_note is not None:
+            fallback_level = deload_level
 
     load_stack = _load_stack(items)
     if load_stack:

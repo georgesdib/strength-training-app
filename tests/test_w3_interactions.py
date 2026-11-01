@@ -71,16 +71,24 @@ def test_deload_does_not_undo_mrv_cap():
     assert pull.sets == 1
 
 
-def test_minimum_note_is_after_deload_not_before_it():
+def test_minimum_note_precedes_deload_and_deload_does_not_add_work():
     with store_with(BASE_HISTORY) as store:
-        prescription = build_prescription(
+        plain = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="hinge",
+            minimum_session=True, minimum_target_minutes=30,
+        )
+        deloaded = build_prescription(
             store.connection, for_date="2024-01-15", session_type="hinge",
             minimum_session=True, minimum_target_minutes=30,
             deload_decision=DECISION,
         )
-    note = prescription.notes["minimum_session"]
-    assert note["after_minutes"] == estimate_minutes(prescription.items)
-    assert "MOD-DELOAD-001" in " ".join(prescription.warnings)
+    note = deloaded.notes["minimum_session"]
+    # The note records the minimum-session result before deload, so a planned reduction can
+    # only make the final estimate smaller, never restore a trimmed item.
+    assert note["after_minutes"] >= estimate_minutes(deloaded.items)
+    assert estimate_minutes(deloaded.items) <= estimate_minutes(plain.items)
+    assert {i.exercise_id for i in deloaded.items} <= {i.exercise_id for i in plain.items}
+    assert "MOD-DELOAD-001" in " ".join(deloaded.warnings)
 
 
 STALE_ROWS = [

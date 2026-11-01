@@ -3,7 +3,7 @@
     "cases": 768,
     "built": 768,
     "errors": 0,
-    "violations": 192,
+    "violations": 32,
     "factors": {
       "readiness": [
         "normal",
@@ -57,1492 +57,164 @@
   "errors": [],
   "violations": [
     {
-      "case": "squat/r=normal/g=7/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
+      "case": "squat/r=low/g=7/d=fresh/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "bench_press:73.0->75.5"
     },
     {
-      "case": "squat/r=normal/g=7/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=7/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=7/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=7/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=7/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=7/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=7/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=28/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=28/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=28/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=28/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=28/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=28/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=28/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=28/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=56/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=56/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=56/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=56/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=56/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=56/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=56/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=normal/g=56/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=7/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=7/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=7/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
+      "case": "squat/r=low/g=7/d=fresh/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "ssb_squat:121.0->123.5"
     },
     {
       "case": "squat/r=low/g=7/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
+      "kind": "readiness_increased_load",
+      "detail": "ssb_squat:121.0->123.5"
     },
     {
-      "case": "squat/r=low/g=7/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
+      "case": "squat/r=low/g=7/d=fresh/deload=1/flare=1/min=1/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "bench_press:73.0->75.5"
     },
     {
-      "case": "squat/r=low/g=7/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
+      "case": "squat/r=low/g=7/d=stale/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "bench_press:70.5->72.0"
     },
     {
-      "case": "squat/r=low/g=7/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
+      "case": "squat/r=low/g=7/d=stale/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "ssb_squat:117.0->120.5"
     },
     {
       "case": "squat/r=low/g=7/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
+      "kind": "readiness_increased_load",
+      "detail": "ssb_squat:117.0->120.5"
     },
     {
-      "case": "squat/r=low/g=28/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
+      "case": "squat/r=low/g=7/d=stale/deload=1/flare=1/min=1/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "bench_press:70.5->72.0"
     },
     {
-      "case": "squat/r=low/g=28/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
+      "case": "hinge/r=low/g=7/d=fresh/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "bench_press_narrow:70.5->72.0"
     },
     {
-      "case": "squat/r=low/g=28/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=28/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=28/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=28/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=28/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=28/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=56/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=56/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=56/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=56/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=56/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=56/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=56/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "squat/r=low/g=56/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "box_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=7/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=7/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=7/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=7/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=7/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=7/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=7/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=7/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=28/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=28/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=28/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=28/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=28/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=28/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=28/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=28/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=56/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=56/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=56/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=56/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=56/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=56/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=56/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=normal/g=56/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=7/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=7/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=7/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
+      "case": "hinge/r=low/g=7/d=fresh/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "trap_bar_deadlift:127.0->130.5"
     },
     {
       "case": "hinge/r=low/g=7/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
+      "kind": "readiness_increased_load",
+      "detail": "bench_press_narrow:70.5->72.0"
     },
     {
-      "case": "hinge/r=low/g=7/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
+      "case": "hinge/r=low/g=7/d=fresh/deload=1/flare=1/min=1/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "trap_bar_deadlift:127.0->130.5"
     },
     {
-      "case": "hinge/r=low/g=7/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
+      "case": "hinge/r=low/g=7/d=stale/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "bench_press_narrow:70.5->72.0"
     },
     {
-      "case": "hinge/r=low/g=7/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
+      "case": "hinge/r=low/g=7/d=stale/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "trap_bar_deadlift:117.0->120.5"
     },
     {
       "case": "hinge/r=low/g=7/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
+      "kind": "readiness_increased_load",
+      "detail": "bench_press_narrow:70.5->72.0"
     },
     {
-      "case": "hinge/r=low/g=28/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
+      "case": "hinge/r=low/g=7/d=stale/deload=1/flare=1/min=1/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "trap_bar_deadlift:117.0->120.5"
     },
     {
-      "case": "hinge/r=low/g=28/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
+      "case": "bench_squat/r=low/g=7/d=fresh/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "bench_press:73.0->75.5"
     },
     {
-      "case": "hinge/r=low/g=28/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=28/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=28/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=28/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=28/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=28/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=56/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=56/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=56/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=56/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=56/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=56/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=56/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "hinge/r=low/g=56/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "broad_jump"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=7/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=7/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=7/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=7/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=7/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=7/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=7/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=7/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=28/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=28/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=28/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=28/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=28/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=28/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=28/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=28/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=56/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=56/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=56/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=56/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=56/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=56/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=56/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=normal/g=56/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=7/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=7/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=7/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
+      "case": "bench_squat/r=low/g=7/d=fresh/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "competition_squat:127.0->130.5"
     },
     {
       "case": "bench_squat/r=low/g=7/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
+      "kind": "readiness_increased_load",
+      "detail": "bench_press:73.0->75.5"
     },
     {
-      "case": "bench_squat/r=low/g=7/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
+      "case": "bench_squat/r=low/g=7/d=fresh/deload=1/flare=1/min=1/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "competition_squat:127.0->130.5"
     },
     {
-      "case": "bench_squat/r=low/g=7/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
+      "case": "bench_squat/r=low/g=7/d=stale/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "bench_press:70.5->72.0"
     },
     {
-      "case": "bench_squat/r=low/g=7/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
+      "case": "bench_squat/r=low/g=7/d=stale/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "competition_squat:117.0->120.5"
     },
     {
       "case": "bench_squat/r=low/g=7/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
+      "kind": "readiness_increased_load",
+      "detail": "bench_press:70.5->72.0"
     },
     {
-      "case": "bench_squat/r=low/g=28/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
+      "case": "bench_squat/r=low/g=7/d=stale/deload=1/flare=1/min=1/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "competition_squat:117.0->120.5"
     },
     {
-      "case": "bench_squat/r=low/g=28/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
+      "case": "bench_hinge/r=low/g=7/d=fresh/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "sumo_deadlift:134.0->137.0"
     },
     {
-      "case": "bench_squat/r=low/g=28/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=28/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=28/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=28/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=28/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=28/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=56/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=56/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=56/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=56/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=56/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=56/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=56/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_squat/r=low/g=56/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "medicine_ball_chest_pass"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=7/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=7/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=7/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=7/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=7/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=7/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=7/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=7/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=28/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=28/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=28/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=28/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=28/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=28/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=28/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=28/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=56/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=56/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=56/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=56/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=56/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=56/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=56/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=normal/g=56/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=7/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=7/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=7/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
+      "case": "bench_hinge/r=low/g=7/d=fresh/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "bench_press:73.0->75.5"
     },
     {
       "case": "bench_hinge/r=low/g=7/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
+      "kind": "readiness_increased_load",
+      "detail": "sumo_deadlift:134.0->137.0"
     },
     {
-      "case": "bench_hinge/r=low/g=7/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
+      "case": "bench_hinge/r=low/g=7/d=fresh/deload=1/flare=1/min=1/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "bench_press:73.0->75.5"
     },
     {
-      "case": "bench_hinge/r=low/g=7/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
+      "case": "bench_hinge/r=low/g=7/d=stale/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "sumo_deadlift:141.5->144.5"
     },
     {
-      "case": "bench_hinge/r=low/g=7/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
+      "case": "bench_hinge/r=low/g=7/d=stale/deload=1/flare=1/min=0/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "bench_press:70.5->72.0"
     },
     {
       "case": "bench_hinge/r=low/g=7/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
+      "kind": "readiness_increased_load",
+      "detail": "sumo_deadlift:141.5->144.5"
     },
     {
-      "case": "bench_hinge/r=low/g=28/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=28/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=28/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=28/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=28/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=28/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=28/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=28/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=56/d=fresh/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=56/d=fresh/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=56/d=fresh/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=56/d=fresh/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=56/d=stale/deload=1/flare=0/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=56/d=stale/deload=1/flare=0/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=56/d=stale/deload=1/flare=1/min=1/tech=0",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
-    },
-    {
-      "case": "bench_hinge/r=low/g=56/d=stale/deload=1/flare=1/min=1/tech=1",
-      "kind": "added_item",
-      "detail": [
-        "dumbbell_row",
-        "overhead_press_seated",
-        "pull_up"
-      ]
+      "case": "bench_hinge/r=low/g=7/d=stale/deload=1/flare=1/min=1/tech=1",
+      "kind": "readiness_increased_load",
+      "detail": "bench_press:70.5->72.0"
     }
   ]
 }

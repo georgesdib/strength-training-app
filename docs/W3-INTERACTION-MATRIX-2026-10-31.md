@@ -1,56 +1,50 @@
 # W3 modifier interaction matrix — 2026-10-31
 
-**Status:** corrected 768-case run complete; flare defect fixed; **LIM-30 remains open.**
+**Status:** final corrected run; flare and box_jump composition fixed; **LIM-30 remains open.**
 
-## Method
+## Results
 
-Synthetic fixtures, all four session types, every combination of:
+- 768 cases built
+- 0 build errors
+- **32 invariant flags**
+- All remaining flags are **readiness_increased_load**
 
-- readiness: normal / low
-- continuity gap: 7 / 28 / 56 days
-- e1RM source: fresh / stale
-- deload: off / scheduled
-- back flare: none / level 2
-- minimum session: off / 30 minutes
-- technique throttle: off / on
+## Fixes completed
 
-Total cases: **768**; built: **768**; build errors: **0**; invariant flags: **192**.
-
-Harness: tools/modifier_matrix.py. Raw results: W3-INTERACTION-MATRIX-2026-10-31.json.
-
-## Corrections and fix applied
-
-- Added main-lift history for every session type, so stale-e1RM cases are executable.
-- Restricted RIR 1-4 checking to primary compounds, matching PRG-RIR-001.
-- Recorded the owner's decision that 0.5 kg is rounding tolerance.
-- Fixed DEC-BACK-03: back-flare effort now applies after readiness, so the load is solved for
-  the RIR that is actually shown. A focused regression test covers low readiness.
-- The 192 flare load increases are gone after the fix.
+- **DEC-BACK-03:** back-flare effort now runs after readiness; low-readiness flare loads no
+  longer increase.
+- **DEC-W3-02:** the minimum-session trim now runs before deload. A deload can no longer
+  retain box_jump that the same minimum session without deload removed.
+- Fixture corrections: every session type has a valid stale-e1RM fallback; RIR checks are
+  scoped to primary compounds; 0.5 kg is the approved rounding tolerance.
 
 ## Remaining finding
 
-All 192 remaining flags are **added_item: box_jump** in minimum-session comparisons.
+The remaining 32 flags occur only when **low readiness + deload + technique throttle + flare**
+coincide. Example:
 
-This is not a harness artifact. The engine runs deload before the minimum session. A deload
-reduces the estimated session time, so the minimum-session trim can retain box_jump that the
-no-deload minimum session removed. Relative to no-deload-plus-minimum, that is an added item.
+- normal readiness, deload + flare + technique: SSB **121.0 kg**, factor 0.81
+- low readiness, same modifiers: SSB **123.5 kg**, factor 0.85
 
-Whether this is acceptable is now a policy question:
+Readiness alone should never make the load higher than normal. The cause is ordering: the
+technique throttle sees low readiness's 0.85 factor as "already reduced" and does not apply,
+while the normal case receives technique (0.90) and deload (0.90) as a lower combined factor.
+This is a genuine composition interaction, not a fixture issue.
 
-1. keep the current order and accept that a deload can preserve a power item the minimum
-   session would otherwise trim; or
-2. make the minimum-session result monotonic so a deload can never retain more work than the
-   same minimum session without deload.
+## Decision needed
 
-Current recommendation: option 2 if the W3 no-add invariant is intended to apply across the
-whole modifier stack; option 1 if deload is allowed to change the minimum-session time budget.
+1. **Fix the inversion — recommended.** Make the combined reduction monotonic across
+   readiness, deload and technique; low readiness must never end above normal readiness.
+2. **Accept it as an explicit policy exception** and document that technique throttle does not
+   stack onto an already-reduced readiness item.
+
+Current recommendation: option 1. No further product change was made in this run.
 
 ## Regression coverage
 
 - tests/test_back_flare_interactions.py::test_low_readiness_flare_never_increases_main_load
-- Existing W3/deload/minimum tests still pass.
+- tests/test_w3_interactions.py::test_minimum_note_precedes_deload_and_deload_does_not_add_work
 
 ## Boundary
 
-This is an invariant audit, not a claim that every combination is desirable training. LIM-30
-remains open pending the box_jump policy decision.
+LIM-30 remains open pending the readiness/deload/technique ordering decision.
