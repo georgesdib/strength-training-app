@@ -94,6 +94,13 @@ def test_cleaning_resolves_the_same_name_by_row_date():
     assert ids == ["sumo_deadlift", "trap_bar_deadlift"]
 
 
+def test_loaded_hinge_and_unilateral_lifts_have_their_own_vbt_family(taxonomy):
+    # These are not pooled with a deadlift or bilateral squat: their load-velocity curves differ.
+    assert taxonomy.resolve("Good Morning").vbt_family == "good_morning"
+    assert taxonomy.resolve("Rack Pull").vbt_family == "rack_pull"
+    assert taxonomy.resolve("Split Squat").vbt_family == "split_squat"
+
+
 def test_trap_bar_is_hinge_direct_erector_false(taxonomy):
     """Hinge loading is indirect erector work: it never satisfies the direct dose."""
     resolved = taxonomy.resolve("Trap Bar Deadlift")

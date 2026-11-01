@@ -257,6 +257,9 @@ entities:
     log_names: ["Good Morning (seated)", "Good Morning (standing)", "Good Morning (from blocks)"]
     pattern: hinge
     e1rm_applicable: false         # technique/erector lift, never taken near a true max
+    # Its own VBT family: the long lever and seated/standing variants do not share a
+    # load-velocity curve with a deadlift or a squat variant. Own family avoids pooling.
+    vbt_family: good_morning
     high_fatigue_spinal: true
     spinal_cost: 3        # long lever arm = high lumbar moment
     substitutable_for_back_extension: false
@@ -270,6 +273,8 @@ entities:
     log_names: ["Rack Pull"]
     pattern: hinge
     e1rm_applicable: false         # pulled from pins: short ROM inflates any extrapolation
+    # Own VBT family: partial ROM changes the load-velocity curve; never pool with a full pull.
+    vbt_family: rack_pull
     high_fatigue_spinal: true
     spinal_cost: 3        # supramaximal loads are the point of the movement
     substitutable_for_back_extension: false
@@ -424,6 +429,8 @@ entities:
     pattern: squat_unilateral
     primary_compound: true
     primary_muscles: [quadriceps, glutes]
+    # Own VBT family: unilateral loading and a different velocity profile; do not pool with squat.
+    vbt_family: split_squat
     loadable: true
     time_based: false
 
