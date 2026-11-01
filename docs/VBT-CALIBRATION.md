@@ -19,7 +19,7 @@ reported per lift, so a target with `n = 4` is visibly weak rather than silently
 | 3 | `1 ≤ reps ≤ 8` | velocity is rep-count dependent; long sets are not VBT sets |
 | 4 | `load_basis ≠ unknown` | DQ-BW-01 could not classify the load |
 | 5 | not quarantined, no `REPS_TYPO` flag | corrupt rows cannot set a target |
-| 6 | `exercise.vbt_family` not null | non-VBT movements (back extension, planks) are excluded structurally |
+| 6 | `exercise.vbt_family` not null | non-VBT movements (e.g. back extension, planks, jumps, carries and bodyweight work) are excluded structurally. A family is necessary but not sufficient: the trap bar has a family yet is withheld by the evidence-based `VBT_UNRELIABLE` rule |
 | 7 | `load ≥ 0.60 × e1RM` | a 40%-e1RM warm-up has no informative velocity target; configurable |
 | 8 | velocity within `median ± 4·MAD` of its (lift, rep) group | single-session device glitches; iterative, max 2 passes |
 

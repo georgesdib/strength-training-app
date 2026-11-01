@@ -59,17 +59,22 @@ doi:10.1139/apnm-2024-0136).
 
 ## 3. What our data can support today
 
-The export gives **one mean velocity per set**, plus load, reps, RIR and date. That is enough to:
+The standard export gives **one mean velocity per set**, plus load, reps, RIR and date. That is
+enough to:
 
 - estimate a per-lift, per-rep-count median velocity inside an RIR band;
 - attach a target to a prescription where at least 12 clean sets across 3 sessions exist
   (or a family pool of 24, and only for genuine variants such as bench grips or squat types —
-  named hinges are never pooled with each other);
+  named hinges, good mornings, rack pulls and split squats are never pooled with each other);
 - withhold a target where the evidence says velocity is not trustworthy (hex bar).
+
+An optional device CSV can add **per-rep detail**, but it stays descriptive. It does not enter
+the set-mean calibration, targets or prescription.
 
 It is **not** enough to:
 
-- compute within-set velocity loss (needs per-rep samples or start/end velocities);
+- compute within-set velocity loss from the standard export (that needs per-rep samples or
+  start/end velocities); per-rep detail, when supplied, allows only a descriptive report;
 - build an individual load-velocity profile (needs a progressive loading test);
 - estimate a minimal velocity threshold at 1RM (needs near-maximal sets);
 - control for belt, device or technique changes.
@@ -81,14 +86,17 @@ It is **not** enough to:
 - The target is a **median with a robust band**, and the basis records scope and sample size.
 - A session already modified by a safety rule does not get a velocity target: the load it was
   calibrated against no longer holds.
-- Hex-bar targets are withheld regardless of sample size.
+- Hex-bar targets are withheld regardless of sample size. The trap bar has its own family, but
+  that does not override the evidence-based `VBT_UNRELIABLE` exclusion; a family is necessary,
+  not sufficient, for a target.
 
 ## 5. Upgrade path (placeholder)
 
 To move from "mean-velocity target" to real velocity-based autoregulation, the input needs:
 
 - per-rep velocity samples, or the first/last rep velocity of each set, so **velocity loss**
-  can be computed and a set stopped at 20-25%;
+  can be computed and a set stopped at 20-25%; optional per-rep CSV detail now exists, but it
+  is descriptive and not wired to a stop rule;
 - a **progressive loading test** per lift to fit an individual load-velocity line and a minimal
   velocity threshold;
 - device and setup metadata (belt, machine, sensor position) so curves are comparable;
