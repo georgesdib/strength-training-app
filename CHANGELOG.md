@@ -37,6 +37,12 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 4B bounded beam**: `prescribe/beam.py` keeps the
+  best partial assignments by deterministic candidate order and runs the real read-only evaluator
+  only on the final beam. Defaults are width 4, six candidates per slot and 16 full evaluations,
+  with no wall-clock cutoff; empty pools and budget caps use a deterministic fallback. The
+  generator/pipeline wiring, scheduler/volume/selection/critique integration, persistence and
+  forecast work are not started.
 - Deterministic template resolver **Step 4A read-only evaluator**: `prescribe/evaluator.py`
   evaluates one complete slot assignment through the existing prescription pipeline once, with
   deterministic post-budget components (executability, issues, unknown loads, volume error,
