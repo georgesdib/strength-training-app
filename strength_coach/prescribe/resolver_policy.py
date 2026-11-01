@@ -11,6 +11,7 @@ Step 2. No athlete data belongs in this file.
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -106,6 +107,26 @@ def load_candidate_catalogue(
             for slot_id, raw_ids in slot_body.items()
         })
     return MappingProxyType(out)
+
+
+def candidate_catalogue_digest(
+    catalogue: Mapping[str, Mapping[str, tuple[str, ...]]],
+) -> str:
+    """Deterministic digest of the validated catalogue content.
+
+    Sessions, slots and candidate order are semantically relevant: order is the blueprint
+    tie-break, not incidental. The canonical JSON form therefore keeps the order but sorts the
+    mapping keys.
+    """
+    payload = {
+        str(session): {
+            str(slot): [str(exercise_id) for exercise_id in ids]
+            for slot, ids in sorted(slots.items())
+        }
+        for session, slots in sorted(catalogue.items())
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def validate_text(body: str) -> ResolverPolicy:

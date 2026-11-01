@@ -32,10 +32,12 @@ pinning, a two-stage volume pass, or a hinge top-set RIR cap.
   required pattern or volume objective cannot be met; 1 changes every session; intermediate
   values use a deterministic dwell (dwell = 1 + round((1 - rotation) * (D - 1)), default
   D = 8). Recommended defaults: 0.2 main/secondary, 0.5 accessories.
-- **Eligibility.** Auto-select only with explicit can_do = 1; will_do = 0 or feels_bad = 1 is
-  suggestion-only. Unrated exercises may be suggested but require the user to fill can_do,
-  will_do and feels_bad before they can be applied. If no eligible candidate exists, keep the
-  blueprint default and prompt for a rating.
+- **Eligibility.** With require_can_do on (the shipped default), auto-select only with explicit
+  can_do = 1; will_do = 0 or feels_bad = 1 is suggestion-only. Unrated exercises are
+  suggestion-only under unrated_mode = confirm and hidden under exclude. A default or fallback
+  never bypasses this. If no automatically eligible candidate exists, generation is a field-level
+  error that names the slot and the available suggestions; it does not silently keep the
+  blueprint default.
 - **Joint optimisation.** The resolver is a bilevel search: the outer loop chooses exercises;
   the inner evaluator runs the existing readiness set cuts, deload, spinal trim, volume budget,
   time estimate and validation in read-only mode; the score is the post-budget outcome. The
@@ -746,8 +748,9 @@ starts in this step.
   pattern-flexible;
 - Exercise Rotation 0-1 as a deterministic dwell rule; defaults 0.2 main/secondary, 0.5
   accessories, D=8;
-- eligibility: explicit can_do=1; unrated suggestion/confirmation; will_do/feels_bad
-  suggestion-only;
+- eligibility: explicit can_do=1 when require_can_do is on; when it is off unrated candidates
+  are admissible; while it is on, unrated_mode selects confirm (suggestion) or exclude (hidden);
+  will_do/feels_bad suggestion-only; no default/fallback bypass;
 - joint bilevel optimisation: readiness/deload/spinal/volume inside the evaluator; final build
   once; no second volume engine;
 - top set/back-off: opt-in main-lift structure, preserve total sets, 85% configurable, top set
@@ -826,36 +829,80 @@ validates and hashes; fixed-path prescriptions leave the provenance columns null
 
 ### Step 2 — Generator core  (complete 2026-11-01)
 
-**Status:** complete. Internal generator only; no prescription wiring, persistence, UI or top
-set.
+**Status:** complete and remediated 2026-11-01. Internal generator only; no prescription wiring,
+persistence, UI or top set.
 
 **Objective:** produce a valid generated SessionTemplate from blueprint + policy + state.
 
 **Delivered:**
 
-- strength_coach/prescribe/generator.py: deterministic candidate pools, eligibility and
-  unrated fallback, rotation dwell, main/secondary pattern families, pattern-flexible accessory
-  slots, required-pattern repair, redundancy and provisional coverage scoring, injury exclusion
-  and the existing weekly spinal-cap check;
+- strength_coach/prescribe/generator.py: deterministic candidate pools, shared eligibility,
+  rotation dwell, main/secondary pattern families, pattern-flexible accessory slots,
+  required-pattern repair, redundancy and provisional coverage scoring, injury exclusion and the
+  existing weekly spinal-cap check;
 - strength_coach/prescribe/resolver_settings.py: reads the Step 1 scalar settings from the
-  effective-dated profile;
-- config/template-resolver.v1.yaml: the accepted accessory pattern-flexibility mapping
-  and the explicit hinge main pool (trap bar and sumo);
-- generated session output records the chosen exercise, pattern, score, reasons, alternatives
-  and pending ratings for every slot; the generated template has concrete exercises and the
-  chosen main lift as primary_exercise;
-- available_session_types() is a pure pool-aware availability helper; schedule.next_session_type
+  effective-dated profile, including require_can_do, unrated_mode and rotation_default;
+- config/template-resolver.v1.yaml: the accepted accessory pattern-flexibility mapping,
+  the explicit hinge main pool (trap bar and sumo), and the hinge main pool comment;
+- generated session output records the chosen exercise, pattern, score, reasons, alternatives,
+  pending ratings, suggestion-only candidates, the policy digest and the catalogue digest; the
+  generated template has concrete exercises and the chosen main lift as primary_exercise;
+- available_session_types() checks the power/main/secondary structural slots, required patterns,
+  hard constraints and concrete or pattern-level injury exclusions; schedule.next_session_type
   is unchanged;
 - no top set, joint volume-budget evaluator, persistence, API, CLI or UI; no prescription path
   consumes the generator, and resolver.enabled remains off.
+
+**Remediation semantics (2026-11-01):**
+
+- **Hard exclusions.** A candidate is excluded when a constraint vetoes it, when its concrete id
+  is in an active injury region, or when its taxonomy pattern matches an active
+  pattern:<family> injury identifier. The same helper is used by generation, repair, power-slot
+  safety and availability.
+- **Fixed power slots.** The configured power exercise is never substituted or omitted. If it is
+  vetoed, injured, not permitted, can_do=0, or merely suggestion-only, generation fails with a
+  field-level error naming the power slot and the reason.
+- **Eligibility.** With require_can_do=true, automatic selection requires an explicit can_do=1.
+  Unrated candidates are suggestion-only under unrated_mode=confirm and hidden under exclude; a
+  default or fallback never bypasses this. With require_can_do=false, unrated candidates are
+  admissibly automatic (unrated_mode is the requirement-on policy). will_do=0 and feels_bad=1 are
+  never automatic; the Step 1 flags decide whether they remain suggestion-only or are hidden.
+- **Rotation default.** rotation_default is the fallback for secondary and unclassified slots;
+  the shipped default is 0.2 so main/secondary rotation matches the confirmed 0.2 default.
+- **Required-pattern repair.** Automatic candidates are filtered by the missing pattern first;
+  only then is the blueprint fallback considered. A fallback must pass the same hard, injury and
+  can_do rules; a suggestion-only fallback is not selected. This avoids failing because an
+  unrelated automatic candidate exists.
+- **Availability.** A session is available only when power, main and secondary slots each have a
+  hard-eligible candidate and every required pattern can be covered by at least one hard-eligible
+  candidate. Soft preference, confirmation and scoring are not part of availability.
+- **Spinal scoring.** The provisional candidate cost is the difference produced by the
+  authoritative spinal rule with the candidate added, using configured overrides, set-count
+  factors and the same neutral intensity assumption as final validation. Final validation remains
+  authoritative.
+- **History.** Completed workouts and prescriptions are merged by date, with the workout taking
+  precedence on a date that has both. The most recent row that actually contains a slot drives
+  rotation; newer rows missing that slot do not erase an older choice.
+- **Rotation warning.** At rotation 1, if the only eligible candidate is the current exercise,
+  it is retained and a warning states that no eligible alternative existed.
+- **Provenance.** GeneratedSession exposes policy_digest and catalogue_digest. The catalogue
+  digest is SHA-256 over the canonical validated catalogue content (session, slot and candidate
+  order), independent of file timestamps.
+- **Deferred.** The configurable injury weight is implemented only for low-back
+  review/monitoring risk, because the readiness ceiling already owns the other regions and
+  DEC-INJURY-04 deliberately excludes the low back there. Broader candidate-specific injury
+  scoring and the joint post-budget evaluator remain Step 4/deferred; they are not simulated.
 
 **Data:** no new tables.
 
 **UI/API/CLI:** no visual change; internal function and tests only.
 
-**Tests:** tests/test_generator.py covers default generation, eligibility, unrated fallback,
-rotation 0/1, pattern-flexible core selection, required patterns and pool-aware availability;
-tests/test_resolver_policy.py covers the pattern-flexibility policy.
+**Tests:** tests/test_generator.py covers generated defaults after explicit ratings, eligibility,
+require_can_do, unrated confirm/exclude, will_do/feels_bad suggestions, pattern-level injury
+exclusion, power-slot safety, rotation 0/1 and its no-alternative warning, history merge and
+last-slot lookup, required-pattern fallback repair, main/secondary availability, the rotation
+default and catalogue digest; tests/test_resolver_policy.py covers the pattern-flexibility
+policy.
 
 **Acceptance:** generator returns valid generated templates and field-level errors; not wired
 into the main path; the fixed-template prescription path is unchanged.
@@ -994,7 +1041,7 @@ generator and top set work end-to-end; the feature can be disabled without data 
 
 ## 13. Confirmed decisions
 
-Recorded as `DEC-RESOLVER-01`–`08` in [DECISIONS.md](DECISIONS.md).
+Recorded as `DEC-RESOLVER-01`–`09` in [DECISIONS.md](DECISIONS.md).
 
 - Session generator per session; no block-level exercise pin; generated session frozen at workout
   start.
@@ -1003,8 +1050,9 @@ Recorded as `DEC-RESOLVER-01`–`08` in [DECISIONS.md](DECISIONS.md).
   are pattern-flexible.
 - Exercise Rotation 0-1 is a deterministic dwell; 0 never voluntarily rotates, 1 changes every
   session; defaults 0.2 main/secondary, 0.5 accessories, D=8.
-- Eligibility: explicit can_do=1 auto; unrated suggestion/confirmation; will_do/feels_bad
-  suggestion-only.
+- Eligibility: explicit can_do=1 auto when require_can_do is on; when it is off unrated
+  candidates are admissible. While it is on, unrated_mode selects confirm (suggestion) or exclude
+  (hidden). will_do/feels_bad are suggestion-only; no default/fallback bypass.
 - Joint bilevel optimisation: readiness/deload/spinal/volume inside the evaluator; final build
   once; back-off sets trimmable; top set protected.
 - Top set/back-off: opt-in main-lift structure, one top set, preserve total sets, 85%

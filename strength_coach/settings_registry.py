@@ -306,7 +306,7 @@ def _definitions() -> tuple[SettingDefinition, ...]:
         _d("resolver.enabled", "Resolver", "Dynamic session generation", "bool", False,
            "settings profile (registry defaults)", "prescription_policy",
            "Enable the deterministic generator; off keeps the fixed templates."),
-        _d("resolver.rotation.default", "Resolver", "Rotation (other slots)", "float", 0.5,
+        _d("resolver.rotation.default", "Resolver", "Rotation (secondary/unclassified slots)", "float", 0.2,
            "settings profile (registry defaults)", "prescription_policy",
            "0 keeps the slot; 1 changes every session; intermediate values use a dwell.",
            minimum=0.0, maximum=1.0),

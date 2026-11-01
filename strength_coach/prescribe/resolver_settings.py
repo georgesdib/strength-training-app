@@ -61,8 +61,13 @@ class ResolverSettings:
             tie_break=str(values["resolver.tie_break"]),
         )
 
-    def rotation_for(self, *, essential: bool) -> float:
-        return self.rotation_main if essential else self.rotation_accessory
+    def rotation_for(self, *, role: str) -> float:
+        """Rotation for a slot role; the default is the secondary/unclassified fallback."""
+        if role == "main":
+            return self.rotation_main
+        if role == "accessory":
+            return self.rotation_accessory
+        return self.rotation_default
 
     def rotation_dwell(self, rotation: float) -> int | None:
         """Sessions before a voluntary change. None means never (rotation 0)."""

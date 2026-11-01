@@ -37,6 +37,13 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 2 remediation**: shared hard eligibility for concrete
+  and `pattern:<family>` injury links; safety-checked fixed power slots that fail rather than
+  substitute; effective `require_can_do`, `unrated_mode` and `rotation_default`; suggestion-only
+  versus automatic selection; required-pattern fallback repair; power/main/secondary availability;
+  authoritative provisional spinal-cost deltas; merged workout/prescription history; rotation-1
+  no-alternative warning; and separate policy/catalogue digests. No top set, joint evaluator,
+  persistence, UI or prescription wiring; the flag remains off.
 - Deterministic template resolver **Step 2 generator core**: internal `prescribe/generator.py`
   selects exercises for the four session types from blueprint, policy, settings, history and
   athlete state; `resolver_settings.py` reads the Step 1 scalar settings; the accepted accessory

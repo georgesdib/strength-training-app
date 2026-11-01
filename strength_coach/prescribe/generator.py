@@ -13,7 +13,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -68,8 +68,10 @@ class GeneratedSession:
     template: templates.SessionTemplate
     slots: tuple[GeneratedSlot, ...]
     pending_ratings: tuple[str, ...]
+    suggestions: tuple[str, ...]
     warnings: tuple[str, ...]
     policy_digest: str
+    catalogue_digest: str
 
     @property
     def exercise_ids(self) -> tuple[str, ...]:
@@ -126,6 +128,7 @@ def generate(
         )
     template = templates.SessionTemplate.load(session_type)
     catalogue = resolver_policy.load_candidate_catalogue(policy)
+    catalogue_digest = resolver_policy.candidate_catalogue_digest(catalogue)
     taxonomy = exercises.taxonomy().entities
     accounting = context.prior_to(for_date)
     assessment = readiness_score.compute(conn, for_date)
@@ -159,6 +162,7 @@ def generate(
     selected: dict[str, str] = {}
     choices: dict[str, _SlotChoice] = {}
     warnings: list[str] = []
+    suggestions: list[str] = []
 
     for index, slot in enumerate(template.slots):
         role = _slot_role(slot, main_slot)
@@ -166,40 +170,33 @@ def generate(
         permitted = _permitted_patterns(slot, role, policy, main_slot, taxonomy)
         default_id = _default_id(slot)
         last_id, sessions_since_change = _last_choice(history, index)
-        rotation = settings.rotation_for(essential=slot.essential)
+        rotation = settings.rotation_for(role=role)
         dwell = settings.rotation_dwell(rotation)
 
-        auto: list[str] = []
-        for exercise_id in pool:
-            if not _pattern_allowed(exercise_id, permitted, taxonomy):
-                continue
-            if exercise_id in vetoed or exercise_id in active_linked:
-                continue
-            rating = suitability.get(exercise_id)
-            if rating is None:
-                continue
-            if not rating["can_do"]:
-                continue
-            if settings.will_do_blocks and not rating["will_do"]:
-                continue
-            if settings.feels_bad_blocks and rating["feels_bad"]:
-                continue
-            auto.append(exercise_id)
-
-        default_allowed = (
-            default_id is not None
-            and default_id not in vetoed
-            and default_id not in active_linked
-            and _pattern_allowed(default_id, permitted, taxonomy)
+        auto, slot_suggestions = _classify_candidates(
+            pool, permitted, vetoed, active_linked, suitability, settings, taxonomy
         )
+        for candidate in slot_suggestions:
+            if candidate not in suggestions:
+                suggestions.append(candidate)
         if default_id is None:
             raise GenerationError(
                 f"{session_type}/{slot.id}: no blueprint default exercise",
                 session_type=session_type,
                 slot_id=slot.id,
             )
+        default_state = _candidate_class(
+            default_id, permitted, vetoed, active_linked, suitability, settings, taxonomy
+        )
 
         if slot.power:
+            if default_state != AUTO:
+                raise GenerationError(
+                    f"{session_type}/{slot.id}: fixed power exercise {default_id!r} "
+                    f"is {_state_reason(default_state)}",
+                    session_type=session_type,
+                    slot_id=slot.id,
+                )
             chosen = default_id
             reasons = ("fixed power slot",)
             score = 1.0
@@ -213,7 +210,7 @@ def generate(
             )
             scored = _score(
                 conn, chosen, slot, selected, template, accounting, assessment, injury,
-                stress, stress_config, suitability, settings, volume_config, policy, taxonomy,
+                stress, stress_config, suitability, settings, volume_config, policy, rule, taxonomy,
                 current_spinal, spinal_cap, last_id, week_start, week_end,
             )
             score = scored.score
@@ -222,27 +219,29 @@ def generate(
             must_rotate = _must_rotate(rotation, dwell, sessions_since_change)
             candidates = [c for c in auto if not (must_rotate and c == last_id)]
             if not candidates:
+                if must_rotate and last_id is not None:
+                    warnings.append(
+                        f"{slot.id}: rotation 1 could not change exercise; "
+                        f"no eligible alternative to {last_id}"
+                    )
                 candidates = list(auto)
             ranked = _rank(
                 conn, candidates, slot, selected, template, accounting, assessment,
                 injury, stress, stress_config, suitability, settings, volume_config, policy,
-                taxonomy,
-                current_spinal, spinal_cap, last_id, week_start, week_end,
+                rule, taxonomy, current_spinal, spinal_cap, last_id, week_start, week_end,
             )
             chosen = ranked[0].exercise_id
             score = ranked[0].score
             reasons = ranked[0].reasons
-        elif default_allowed:
-            chosen = default_id
-            reasons = ("no auto-eligible candidate; kept blueprint default",)
-            score = 0.0
-            warnings.append(
-                f"{slot.id}: no auto-eligible candidate; kept blueprint default {default_id}"
-            )
         else:
+            hint = (
+                f"; suggestions require confirmation: {sorted(slot_suggestions)}"
+                if slot_suggestions
+                else ""
+            )
             raise GenerationError(
-                f"{session_type}/{slot.id}: no eligible candidate "
-                f"(default {default_id!r} is vetoed or not permitted)",
+                f"{session_type}/{slot.id}: no automatically eligible candidate"
+                f" (default {default_id!r} is {_state_reason(default_state)}){hint}",
                 session_type=session_type,
                 slot_id=slot.id,
             )
@@ -254,17 +253,19 @@ def generate(
             reasons=reasons,
             alternatives=_alternatives(
                 conn, auto, slot, selected, template, accounting, assessment, injury, stress,
-                stress_config, suitability, settings, volume_config, policy, taxonomy, current_spinal,
+                stress_config, suitability, settings, volume_config, policy, rule, taxonomy, current_spinal,
                 spinal_cap, last_id, chosen, week_start, week_end,
             ),
-            pending_rating=suitability.get(chosen) is None,
+            pending_rating=(
+                suitability.get(chosen) is None and settings.unrated_mode != "exclude"
+            ),
         )
 
     selected, choices, repair_warnings = _repair_required(
         template, main_slot, pools, selected, choices, policy, suitability, vetoed,
         active_linked, taxonomy, settings, conn, accounting, assessment, injury, stress,
-        stress_config, volume_config, current_spinal, spinal_cap, session_type, week_start,
-        week_end,
+        stress_config, volume_config, rule, current_spinal, spinal_cap, session_type,
+        week_start, week_end,
     )
     warnings.extend(repair_warnings)
     _validate_spinal(
@@ -302,8 +303,10 @@ def generate(
         template=generated_template,
         slots=generated_slots,
         pending_ratings=pending_unique,
+        suggestions=tuple(suggestions),
         warnings=tuple(warnings),
         policy_digest=policy.digest,
+        catalogue_digest=catalogue_digest,
     )
 
 
@@ -313,34 +316,63 @@ def available_session_types(
     *,
     policy: resolver_policy.ResolverPolicy | None = None,
 ) -> dict[str, bool]:
-    """Pool-aware availability for the four identities. Read-only."""
+    """Pool-aware availability for the four identities. Read-only.
+
+    A session is available only when every structural slot (power, main and secondary) can be
+    populated by a hard-eligible candidate and every required pattern can still be covered.
+    Soft preferences, unrated confirmation and scoring are intentionally not part of this check.
+    """
     policy = policy or resolver_policy.ResolverPolicy.load()
     catalogue = resolver_policy.load_candidate_catalogue(policy)
     taxonomy = exercises.taxonomy().entities
+    suitability = queries.exercise_suitability(conn)
     injury = injury_signal.compute(conn, for_date)
-    active_linked = {
-        exercise_id
+    active_injury = {
+        term
         for region in injury.regions
         if region.status == injury_signal.STATUS_ACTIVE
-        for exercise_id in region.linked_exercises
+        for term in region.linked_exercises
     }
     out: dict[str, bool] = {}
     for session_type in templates.SESSION_TYPES:
         template = templates.SessionTemplate.load(session_type)
         main_slot = _main_slot(template, taxonomy)
         if main_slot is None:
-            out[session_type] = True
+            out[session_type] = False
             continue
-        candidates = _candidate_ids(session_type, main_slot, policy, catalogue)
-        permitted = _permitted_patterns(main_slot, "main", policy, main_slot, taxonomy)
-        report = constraints_mod.evaluate(conn, list(candidates))
+        pools = {
+            slot.id: _candidate_ids(session_type, slot, policy, catalogue)
+            for slot in template.slots
+        }
+        all_candidates = sorted({item for ids in pools.values() for item in ids})
+        report = constraints_mod.evaluate(conn, all_candidates)
         vetoed = {exercise_id for exercise_id, _reason in report.vetoes}
-        out[session_type] = any(
-            exercise_id not in vetoed
-            and exercise_id not in active_linked
-            and _pattern_allowed(exercise_id, permitted, taxonomy)
-            for exercise_id in candidates
-        )
+        possible_patterns: set[str] = set()
+        available = True
+        for slot in template.slots:
+            role = _slot_role(slot, main_slot)
+            permitted = _permitted_patterns(slot, role, policy, main_slot, taxonomy)
+            eligible = [
+                exercise_id
+                for exercise_id in pools[slot.id]
+                if _structurally_eligible(
+                    exercise_id, permitted, vetoed, active_injury, suitability, taxonomy
+                )
+            ]
+            if role in {"power", "main", "secondary"} and not eligible:
+                available = False
+                break
+            for exercise_id in eligible:
+                key = _pattern_key(exercise_id, taxonomy)
+                if key is not None:
+                    possible_patterns.add(key)
+        if available:
+            required = {
+                volume.volume_target_key(pattern)
+                for pattern in policy.required_patterns[session_type]
+            }
+            available = required <= possible_patterns
+        out[session_type] = available
     return out
 
 
@@ -446,12 +478,34 @@ def _week_bounds(on_date: str) -> tuple[str, str]:
     return start.isoformat(), end.isoformat()
 
 
-def _choice_history(conn, session_type: str, before_date: str) -> list[dict[int, str]]:
-    """Recent session choices, newest first.
+def _plan_mapping(plan_json: str) -> dict[int, str]:
+    try:
+        plan = json.loads(plan_json)
+    except (TypeError, ValueError):
+        return {}
+    items = plan.get("items") if isinstance(plan, Mapping) else None
+    if not isinstance(items, list):
+        return {}
+    mapping: dict[int, str] = {}
+    for index, item in enumerate(items):
+        if not isinstance(item, Mapping) or not item.get("exercise_id"):
+            continue
+        try:
+            order = int(item.get("order_index", index))
+        except (TypeError, ValueError):
+            order = index
+        mapping[order] = str(item["exercise_id"])
+    return mapping
 
-    Completed workouts are the performed record; prescriptions are the fallback for dates
-    without a workout. A missing slot in a session is skipped rather than guessed.
+
+def _choice_history(conn, session_type: str, before_date: str) -> list[dict[int, str]]:
+    """Recent session choices, newest first, merged by date.
+
+    A completed workout is the performed record for its date. A prescription supplies the
+    fallback only when no completed workout exists for that same date, so a plan and its
+    performed session are never counted twice.
     """
+    by_date: dict[str, dict[int, str]] = {}
     rows = conn.execute(
         """
         SELECT for_date, plan_json FROM workout_session
@@ -461,28 +515,11 @@ def _choice_history(conn, session_type: str, before_date: str) -> list[dict[int,
         """,
         (session_type, before_date),
     ).fetchall()
-    out: list[dict[int, str]] = []
     for row in rows:
-        try:
-            plan = json.loads(row["plan_json"])
-        except (TypeError, ValueError):
-            continue
-        items = plan.get("items") if isinstance(plan, Mapping) else None
-        if not isinstance(items, list):
-            continue
-        mapping: dict[int, str] = {}
-        for index, item in enumerate(items):
-            if not isinstance(item, Mapping) or not item.get("exercise_id"):
-                continue
-            try:
-                order = int(item.get("order_index", index))
-            except (TypeError, ValueError):
-                order = index
-            mapping[order] = str(item["exercise_id"])
-        if mapping:
-            out.append(mapping)
-    if out:
-        return out
+        mapping = _plan_mapping(row["plan_json"])
+        date = str(row["for_date"])
+        if mapping and date not in by_date:
+            by_date[date] = mapping
 
     rows = conn.execute(
         """
@@ -495,35 +532,173 @@ def _choice_history(conn, session_type: str, before_date: str) -> list[dict[int,
         """,
         (session_type, before_date),
     ).fetchall()
-    grouped: dict[str, dict[int, str]] = {}
-    order: list[str] = []
+    grouped: dict[str, tuple[str, dict[int, str]]] = {}
     for row in rows:
         prescription = str(row["prescription_id"])
+        date = str(row["for_date"])
         if prescription not in grouped:
-            grouped[prescription] = {}
-            order.append(prescription)
-        grouped[prescription][int(row["order_index"])] = str(row["exercise_id"])
-    return [grouped[key] for key in order]
+            grouped[prescription] = (date, {})
+        grouped[prescription][1][int(row["order_index"])] = str(row["exercise_id"])
+    prescription_by_date: dict[str, dict[int, str]] = {}
+    for date, mapping in grouped.values():
+        if mapping and date not in prescription_by_date:
+            prescription_by_date[date] = mapping
+    for date, mapping in prescription_by_date.items():
+        by_date.setdefault(date, mapping)
+    return [by_date[date] for date in sorted(by_date, reverse=True)]
 
 
 def _last_choice(history: Sequence[Mapping[int, str]], index: int) -> tuple[str | None, int]:
-    if not history:
-        return None, 0
-    last = history[0].get(index)
-    if last is None:
-        return None, 0
-    count = 0
-    for entry in history:
-        if entry.get(index) != last:
-            break
-        count += 1
-    return last, count
+    """Most recent row containing the slot; newer rows missing that slot are skipped."""
+    for start, entry in enumerate(history):
+        last = entry.get(index)
+        if last is None:
+            continue
+        count = 0
+        for later in history[start:]:
+            value = later.get(index)
+            if value is None:
+                continue
+            if value != last:
+                break
+            count += 1
+        return last, count
+    return None, 0
 
 
 def _must_rotate(rotation: float, dwell: int | None, sessions_since_change: int) -> bool:
     if rotation <= 0.0 or dwell is None:
         return False
     return sessions_since_change >= dwell
+
+AUTO = "auto"
+SUGGESTION = "suggestion"
+EXCLUDED = "excluded"
+
+
+def _injury_matches(
+    exercise_id: str,
+    terms: Iterable[str],
+    taxonomy: Mapping[str, Mapping[str, Any]],
+) -> bool:
+    """Match a concrete exercise id or a pattern:<family> injury identifier."""
+    if exercise_id in terms:
+        return True
+    pattern = _pattern(exercise_id, taxonomy)
+    return bool(pattern and f"pattern:{pattern}" in terms)
+
+
+def _injury_excludes(
+    exercise_id: str,
+    active_terms: Iterable[str],
+    taxonomy: Mapping[str, Mapping[str, Any]],
+) -> bool:
+    return _injury_matches(exercise_id, active_terms, taxonomy)
+
+
+def _injury_component(
+    injury,
+    exercise_id: str,
+    taxonomy: Mapping[str, Mapping[str, Any]],
+) -> float:
+    """Candidate-specific injury score without double-counting readiness.
+
+    The readiness ceiling already covers every region except the low back, which DEC-INJURY-04
+    deliberately leaves to the back-flare rules. The resolver weight is therefore a low-back
+    review/monitoring signal only; active low-back links are hard exclusions, not scores.
+    """
+    region = injury.region("low_back") if injury is not None else None
+    if region is None or region.status not in (
+        injury_signal.STATUS_REVIEW,
+        injury_signal.STATUS_MONITORING,
+    ):
+        return 1.0
+    if not _injury_matches(exercise_id, region.linked_exercises, taxonomy):
+        return 1.0
+    return 0.65 if region.status == injury_signal.STATUS_REVIEW else 0.85
+
+
+def _state_reason(state: str) -> str:
+    if state == EXCLUDED:
+        return "hard-excluded, vetoed, injured or not permitted"
+    if state == SUGGESTION:
+        return "suggestion-only (unrated/needs confirmation or preference block)"
+    return "automatically eligible"
+
+
+def _candidate_class(
+    exercise_id: str,
+    permitted: set[str],
+    vetoed: set[str],
+    active_injury: set[str],
+    suitability: Mapping[str, Mapping[str, Any]],
+    settings: ResolverSettings,
+    taxonomy: Mapping[str, Mapping[str, Any]],
+) -> str:
+    """Classify a candidate as automatic, suggestion-only or excluded.
+
+    Hard constraints and active injury links always exclude. Unrated behaviour is controlled
+    by require_can_do and unrated_mode. will_do=0 and feels_bad=1 are never automatic; the
+    corresponding Step 1 flags decide whether they remain suggestion-only or are hidden.
+    """
+    if not _pattern_allowed(exercise_id, permitted, taxonomy):
+        return EXCLUDED
+    if exercise_id in vetoed or _injury_excludes(exercise_id, active_injury, taxonomy):
+        return EXCLUDED
+    rating = suitability.get(exercise_id)
+    if rating is None:
+        # unrated_mode is the policy for the requirement-on case; when can_do is not
+        # required the candidate is admissible automatically.
+        if settings.require_can_do:
+            return SUGGESTION if settings.unrated_mode == "confirm" else EXCLUDED
+        return AUTO
+    if not rating["can_do"]:
+        return EXCLUDED
+    if not rating["will_do"]:
+        return SUGGESTION if settings.will_do_blocks else EXCLUDED
+    if rating["feels_bad"]:
+        return SUGGESTION if settings.feels_bad_blocks else EXCLUDED
+    return AUTO
+
+
+def _classify_candidates(
+    pool: Sequence[str],
+    permitted: set[str],
+    vetoed: set[str],
+    active_injury: set[str],
+    suitability: Mapping[str, Mapping[str, Any]],
+    settings: ResolverSettings,
+    taxonomy: Mapping[str, Mapping[str, Any]],
+) -> tuple[list[str], list[str]]:
+    auto: list[str] = []
+    suggestions: list[str] = []
+    for exercise_id in pool:
+        state = _candidate_class(
+            exercise_id, permitted, vetoed, active_injury, suitability, settings, taxonomy
+        )
+        if state == AUTO:
+            auto.append(exercise_id)
+        elif state == SUGGESTION:
+            suggestions.append(exercise_id)
+    return auto, suggestions
+
+
+def _structurally_eligible(
+    exercise_id: str,
+    permitted: set[str],
+    vetoed: set[str],
+    active_injury: set[str],
+    suitability: Mapping[str, Mapping[str, Any]],
+    taxonomy: Mapping[str, Mapping[str, Any]],
+) -> bool:
+    """Hard availability check; ratings that merely need confirmation do not block."""
+    if not _pattern_allowed(exercise_id, permitted, taxonomy):
+        return False
+    if exercise_id in vetoed or _injury_excludes(exercise_id, active_injury, taxonomy):
+        return False
+    rating = suitability.get(exercise_id)
+    return not (rating is not None and not rating["can_do"])
+
 
 def _clamp(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
@@ -578,25 +753,32 @@ def _preference_component(
     return 1.0
 
 
-def _candidate_spinal(
-    exercise_id: str, taxonomy: Mapping[str, Mapping[str, Any]]
-) -> float:
-    entity = taxonomy.get(exercise_id, {})
-    if not entity.get("high_fatigue_spinal", False):
-        return 0.0
-    return float(entity.get("spinal_cost") or 0.0)
-
-
-def _spinal_component(
-    current_cost: float,
+def _provisional_spinal_delta(
+    rule,
+    accounting: RuleContext,
+    week_start: str,
     exercise_id: str,
-    taxonomy: Mapping[str, Mapping[str, Any]],
-    cap: float,
+    sets: int,
+    current_cost: float,
 ) -> float:
+    """Delta from the authoritative spinal rule, not a second cost model.
+
+    The final validation is authoritative. This provisional delta uses the same configured
+    overrides, set-count factors and (absent a planned intensity in Step 2) the same neutral
+    intensity assumption as the final check, so scoring cannot prefer a systematically
+    understated candidate.
+    """
+    if rule is None:
+        return 0.0
+    extra = [(f"generator:{exercise_id}", exercise_id, week_start, sets, None)]
+    proposed = _weekly_spinal_cost(rule, accounting, week_start, extra)
+    return max(0.0, proposed - current_cost)
+
+
+def _spinal_component(total_cost: float, cap: float) -> float:
     if cap <= 0:
         return 1.0
-    total = current_cost + _candidate_spinal(exercise_id, taxonomy)
-    return _clamp(1.0 - total / cap)
+    return _clamp(1.0 - total_cost / cap)
 
 
 def _assignment_pattern_sets(
@@ -717,6 +899,7 @@ def _score(
     settings: ResolverSettings,
     volume_config: Any,
     policy: resolver_policy.ResolverPolicy,
+    rule,
     taxonomy: Mapping[str, Mapping[str, Any]],
     current_spinal: float,
     spinal_cap: float,
@@ -727,7 +910,10 @@ def _score(
     entity = taxonomy.get(exercise_id, {})
     readiness = _readiness_component(assessment, conn, exercise_id, entity, injury)
     stress_value = _stress_component(exercise_id, stress, stress_config)
-    spinal = _spinal_component(current_spinal, exercise_id, taxonomy, spinal_cap)
+    candidate_spinal = _provisional_spinal_delta(
+        rule, accounting, week_start, exercise_id, int(slot.sets), current_spinal
+    )
+    spinal = _spinal_component(current_spinal + candidate_spinal, spinal_cap)
     preference = _preference_component(exercise_id, suitability)
     partial = dict(selected)
     partial[slot.id] = exercise_id
@@ -742,7 +928,7 @@ def _score(
             ("readiness", readiness),
             ("fatigue", stress_value),
             ("spinal", spinal),
-            ("injury", 1.0),
+            ("injury", _injury_component(injury, exercise_id, taxonomy)),
             ("rotation", rotation),
             ("preference", preference),
         )
@@ -795,6 +981,7 @@ def _rank(
     settings: ResolverSettings,
     volume_config: Any,
     policy: resolver_policy.ResolverPolicy,
+    rule,
     taxonomy: Mapping[str, Mapping[str, Any]],
     current_spinal: float,
     spinal_cap: float,
@@ -805,7 +992,7 @@ def _rank(
     scored = [
         _score(
             conn, exercise_id, slot, selected, template, accounting, assessment, injury,
-            stress, stress_config, suitability, settings, volume_config, policy, taxonomy,
+            stress, stress_config, suitability, settings, volume_config, policy, rule, taxonomy,
             current_spinal, spinal_cap, last_id, week_start, week_end,
         )
         for exercise_id in candidates
@@ -829,6 +1016,7 @@ def _alternatives(
     settings: ResolverSettings,
     volume_config: Any,
     policy: resolver_policy.ResolverPolicy,
+    rule,
     taxonomy: Mapping[str, Mapping[str, Any]],
     current_spinal: float,
     spinal_cap: float,
@@ -841,40 +1029,10 @@ def _alternatives(
         return ()
     ranked = _rank(
         conn, candidates, slot, selected, template, accounting, assessment, injury,
-        stress, stress_config, suitability, settings, volume_config, policy, taxonomy,
+        stress, stress_config, suitability, settings, volume_config, policy, rule, taxonomy,
         current_spinal, spinal_cap, last_id, week_start, week_end,
     )
     return tuple(item.exercise_id for item in ranked if item.exercise_id != chosen)[:5]
-
-
-def _auto_candidates(
-    pool: Sequence[str],
-    permitted: set[str],
-    vetoed: set[str],
-    active_linked: set[str],
-    suitability: Mapping[str, Mapping[str, Any]],
-    settings: ResolverSettings,
-    taxonomy: Mapping[str, Mapping[str, Any]],
-) -> tuple[list[str], list[str]]:
-    auto: list[str] = []
-    unrated: list[str] = []
-    for exercise_id in pool:
-        if not _pattern_allowed(exercise_id, permitted, taxonomy):
-            continue
-        if exercise_id in vetoed or exercise_id in active_linked:
-            continue
-        rating = suitability.get(exercise_id)
-        if rating is None:
-            unrated.append(exercise_id)
-            continue
-        if not rating["can_do"]:
-            continue
-        if settings.will_do_blocks and not rating["will_do"]:
-            continue
-        if settings.feels_bad_blocks and rating["feels_bad"]:
-            continue
-        auto.append(exercise_id)
-    return auto, unrated
 
 
 def _repair_required(
@@ -896,6 +1054,7 @@ def _repair_required(
     stress: Mapping[str, recent_stress.StressEntry],
     stress_config: recent_stress.StressConfig,
     volume_config: Any,
+    rule,
     current_spinal: float,
     spinal_cap: float,
     session_type: str,
@@ -919,31 +1078,35 @@ def _repair_required(
             permitted = _permitted_patterns(
                 slot, "accessory", policy, main_slot, taxonomy
             )
-            auto, _unrated = _auto_candidates(
+            auto, _slot_suggestions = _classify_candidates(
                 pools[slot.id], permitted, vetoed, active_linked, suitability, settings,
                 taxonomy,
             )
-            default_id = _default_id(slot)
-            fallback = (
-                [default_id]
-                if default_id is not None
-                and default_id not in vetoed
-                and default_id not in active_linked
-                and _pattern_allowed(default_id, permitted, taxonomy)
-                else []
-            )
             candidates = [
                 exercise_id
-                for exercise_id in (auto or fallback)
+                for exercise_id in auto
                 if _pattern_key(exercise_id, taxonomy) in missing
             ]
+            if not candidates:
+                default_id = _default_id(slot)
+                if (
+                    default_id is not None
+                    and default_id in pools[slot.id]
+                    and _candidate_class(
+                        default_id, permitted, vetoed, active_linked, suitability, settings,
+                        taxonomy,
+                    )
+                    == AUTO
+                    and _pattern_key(default_id, taxonomy) in missing
+                ):
+                    candidates = [default_id]
             if not candidates:
                 continue
             partial = dict(selected)
             partial.pop(slot.id, None)
             ranked = _rank(
                 conn, candidates, slot, partial, template, accounting, assessment, injury,
-                stress, stress_config, suitability, settings, volume_config, policy,
+                stress, stress_config, suitability, settings, volume_config, policy, rule,
                 taxonomy, current_spinal, spinal_cap, None, week_start, week_end,
             )
             chosen = ranked[0]
@@ -955,8 +1118,8 @@ def _repair_required(
                 alternatives=_alternatives(
                     conn, candidates, slot, partial, template, accounting, assessment,
                     injury, stress, stress_config, suitability, settings, volume_config,
-                    policy, taxonomy, current_spinal, spinal_cap, None, chosen.exercise_id,
-                    week_start, week_end,
+                    policy, rule, taxonomy, current_spinal, spinal_cap, None,
+                    chosen.exercise_id, week_start, week_end,
                 ),
                 pending_rating=suitability.get(chosen.exercise_id) is None,
             )
@@ -981,11 +1144,16 @@ def _spinal_rule():
     return document.rule("PRG-SPINE-001")
 
 
-def _weekly_spinal_cost(rule, accounting: RuleContext, week_start: str) -> float:
+def _weekly_spinal_cost(
+    rule,
+    accounting: RuleContext,
+    week_start: str,
+    extra: Sequence[tuple] = (),
+) -> float:
     if rule is None:
         return 0.0
-    costs = rules_registry.weekly_spinal_costs(rule, accounting)
-    return float(costs.get(week_start, {}).get("cost", 0.0))
+    costs = rules_registry.weekly_spinal_costs(rule, accounting, extra)
+    return float(costs.get(rules_registry.iso_week(week_start), {}).get("cost", 0.0))
 
 
 def _spinal_cap(context: RuleContext, rule) -> float:
@@ -1010,7 +1178,7 @@ def _validate_spinal(
         for slot in template.slots
         if slot.id in selected
     ]
-    week = _week_bounds(for_date)[0]
+    week = rules_registry.iso_week(for_date)
     costs = rules_registry.weekly_spinal_costs(rule, accounting, extras)
     total = float(costs.get(week, {}).get("cost", 0.0))
     if total > cap + 1e-9:
