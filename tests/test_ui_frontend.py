@@ -276,6 +276,66 @@ def test_mobile_cards_replace_core_tables_on_narrow_screens() -> None:
     assert "font-size: 16px" in css
 
 
+def test_exercise_catalogue_columns_fill_the_table_width() -> None:
+    css = (STATIC / "style.css").read_text(encoding="utf-8")
+    widths = {}
+    for column in range(1, 8):
+        match = re.search(
+            rf"\.exercise-table th:nth-child\({column}\), "
+            rf"\.exercise-table td:nth-child\({column}\) \{{ width: (\d+)%; \}}",
+            css,
+        )
+        assert match, f"exercise catalogue column {column} has no desktop width"
+        widths[column] = int(match.group(1))
+    # Seven fixed columns must add up to the table width. The actions column lost its width
+    # when Demands was inserted before it in the markup, so the buttons stacked into a
+    # zero-width column and every row grew three or four lines tall on desktop.
+    assert sum(widths.values()) == 100
+
+
+def test_fatigue_diagnostic_reveals_ten_rows_at_a_time() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    page_size = re.search(r"const FATIGUE_PAGE_SIZE = \d+;", source)
+    assert page_size, "FATIGUE_PAGE_SIZE not found in the client bundle"
+    pieces = []
+    # const does not leak out of eval, so the page size is injected directly and only the
+    # functions are evaluated (they close over the script-scope binding).
+    for pattern in (
+        r"function fatigueRowHtml\(m\) \{[\s\S]*?\n\}",
+        r"function fatigueTableHtml\(models, shown\) \{[\s\S]*?\n\}",
+    ):
+        match = re.search(pattern, source)
+        assert match, f"{pattern} not found in the client bundle"
+        pieces.append(match.group(0))
+    models = [
+        {"exercise_id": f"lift_{index}", "family": "squat", "n_observations": 12,
+         "span_days": 90, "r2": 0.4, "backtest_mae": 3, "backtest_naive_mae": 4,
+         "fitness_kg": 100, "fatigue_kg": -2, "state_kg": 98, "state_ci": [95, 101],
+         "latest_e1rm": 99, "status": "ok", "unit": "kg"}
+        for index in range(23)
+    ]
+    script = (
+        "global.esc = function (value) { return String(value == null ? '' : value); };"
+        + page_size.group(0)
+        + "".join(f"eval({json.dumps(piece)});" for piece in pieces)
+        + f"const models = {json.dumps(models)};"
+        + "const first = fatigueTableHtml(models, FATIGUE_PAGE_SIZE);"
+        + "const all = fatigueTableHtml(models, 100);"
+        + "if ((first.match(/<tr>/g) || []).length !== 11)"
+        + " throw new Error('expected ten lift rows plus the header');"
+        + "if (first.indexOf('Showing 10 of 23 lifts') < 0) throw new Error('count missing');"
+        + "if (first.indexOf('Show 10 more') < 0) throw new Error('show more missing');"
+        + "if ((all.match(/<tr>/g) || []).length !== 24) throw new Error('all rows missing');"
+        + "if (all.indexOf('Show 10 more') >= 0) throw new Error('button should disappear');"
+        + "if (all.indexOf('Showing all 23 lifts') < 0) throw new Error('all count missing');"
+    )
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+
 def test_accessibility_and_navigation_guards() -> None:
     page = INDEX.read_text(encoding="utf-8")
     app = (STATIC / "app.js").read_text(encoding="utf-8")

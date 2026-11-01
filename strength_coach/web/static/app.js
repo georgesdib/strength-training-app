@@ -1293,31 +1293,60 @@ $("#validation-run").addEventListener("click", async () => {
 });
 
 /* --- strength fatigue model ---------------------------------------------- */
+const FATIGUE_PAGE_SIZE = 10;
+let fatigueModels = [];
+let fatigueShown = FATIGUE_PAGE_SIZE;
+
+function fatigueRowHtml(m) {
+  const unit = m.unit === "ratio" ? "x" : " kg";
+  const ci = m.state_ci && m.state_ci[0] != null
+    ? ` [${m.state_ci[0]}, ${m.state_ci[1]}]` : "";
+  const state = m.state_kg == null ? "—" : `${m.state_kg}${unit}${ci}`;
+  return `<tr><td><strong>${esc(m.exercise_id)}</strong><div class="muted">${esc(m.family || "")}</div></td>
+    <td>${m.n_observations} / ${m.span_days} d</td>
+    <td>${m.r2 == null ? "—" : m.r2}</td>
+    <td>${m.backtest_mae == null ? "—" : m.backtest_mae + " / " + m.backtest_naive_mae}</td>
+    <td>${m.fitness_kg == null ? "—" : m.fitness_kg + unit}</td>
+    <td>${m.fatigue_kg == null ? "—" : m.fatigue_kg + unit}</td>
+    <td>${state}</td>
+    <td>${m.latest_e1rm == null ? "—" : m.latest_e1rm + " kg"}</td>
+    <td>${esc(m.status)}</td></tr>`;
+}
+
+function fatigueTableHtml(models, shown) {
+  if (!models.length) return "<p class='empty'>No e1RM observations for the model yet.</p>";
+  const visible = models.slice(0, shown);
+  const rows = visible.map(fatigueRowHtml).join("");
+  const remaining = models.length - visible.length;
+  // The log can carry ~100 lift models; reveal ten at a time so this panel stays short.
+  const footer = remaining > 0
+    ? `<p class="fatigue-more muted">Showing ${visible.length} of ${models.length} lifts.
+        <button class="ghost" type="button" id="fatigue-more">Show ${
+          Math.min(FATIGUE_PAGE_SIZE, remaining)} more</button></p>`
+    : `<p class="fatigue-more muted">Showing all ${models.length} lifts.</p>`;
+  return `<table><thead><tr><th>Lift</th><th>obs / span</th><th>R²</th><th>backtest MAE / naive</th><th>fitness</th>
+    <th>fatigue</th><th>state [95% CI]</th><th>latest e1RM</th><th>status</th></tr></thead>
+    <tbody>${rows}</tbody></table>${footer}`;
+}
+
+function drawFatigue() {
+  $("#fatigue-model").innerHTML = fatigueTableHtml(fatigueModels, fatigueShown);
+  const more = $("#fatigue-more");
+  if (more) {
+    more.addEventListener("click", () => {
+      fatigueShown += FATIGUE_PAGE_SIZE;
+      drawFatigue();
+    });
+  }
+}
+
 async function loadFatigue() {
   const date = $("#fatigue-date").value || $("#prescribe-date").value;
   try {
     const data = await api("/api/fatigue" + (date ? "?date=" + encodeURIComponent(date) : ""));
-    const unit = (m) => m.unit === "ratio" ? "x" : " kg";
-    const rows = (data.models || []).map((m) => {
-      const u = unit(m);
-      const ci = m.state_ci && m.state_ci[0] != null
-        ? ` [${m.state_ci[0]}, ${m.state_ci[1]}]` : "";
-      const state = m.state_kg == null ? "—" : `${m.state_kg}${u}${ci}`;
-      return `<tr><td><strong>${esc(m.exercise_id)}</strong><div class="muted">${esc(m.family || "")}</div></td>
-      <td>${m.n_observations} / ${m.span_days} d</td>
-      <td>${m.r2 == null ? "—" : m.r2}</td>
-      <td>${m.backtest_mae == null ? "—" : m.backtest_mae + " / " + m.backtest_naive_mae}</td>
-      <td>${m.fitness_kg == null ? "—" : m.fitness_kg + u}</td>
-      <td>${m.fatigue_kg == null ? "—" : m.fatigue_kg + u}</td>
-      <td>${state}</td>
-      <td>${m.latest_e1rm == null ? "—" : m.latest_e1rm + " kg"}</td>
-      <td>${esc(m.status)}</td></tr>`;
-    }).join("");
-    $("#fatigue-model").innerHTML = rows
-      ? `<table><thead><tr><th>Lift</th><th>obs / span</th><th>R²</th><th>backtest MAE / naive</th><th>fitness</th>
-          <th>fatigue</th><th>state [95% CI]</th><th>latest e1RM</th><th>status</th></tr></thead>
-          <tbody>${rows}</tbody></table>`
-      : "<p class='empty'>No e1RM observations for the model yet.</p>";
+    fatigueModels = data.models || [];
+    fatigueShown = FATIGUE_PAGE_SIZE;
+    drawFatigue();
   } catch (error) {
     $("#fatigue-model").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
