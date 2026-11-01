@@ -779,8 +779,8 @@ plan's §14; every item is a deferred improvement with a trigger, not an open au
 
 | ID | follow-up | trigger | status |
 |---|---|---|---|
-| **O1** | Settings extraction after Exercises | Exercises extraction is complete; Settings remains in `app.js` | **ready** |
-| **O2** | View registry for `setView` | At least two features have moved | deferred |
+| **O1** | Settings extraction after Exercises | Exercises extraction is complete; Settings remains in `app.js` | **done 2026-11-01** |
+| **O2** | View registry for `setView` | At least two features have moved | **done 2026-11-01** |
 | **O3** | Migrate `history.js`/`workout.js` helpers to core | A third feature needs the same helpers | deferred |
 | **O4** | Streaming/multipart imports | 40 MiB parse memory becomes a real problem | deferred |
 | **O5** | Read timeouts for slow request bodies | Slow-body handling is prioritized; local-only | deferred |
@@ -788,9 +788,10 @@ plan's §14; every item is a deferred improvement with a trigger, not an open au
 | **O7** | Limit tuning, 64 vs 96 MiB | A legitimate import is rejected | deferred |
 | **O9** | Markdown scheme allowlist | Untrusted docs/links are allowed; block `javascript:` targets | deferred |
 
-**O8 was implemented 2026-11-01:** 411/413 responses now have plain next-action browser copy.
-**O10 was removed by the owner on 2026-11-01**; browser coverage remains an accepted coverage
-limitation, not a planned follow-up.
+**O1 and O2 were implemented 2026-11-01:** Settings is in `settings.js` and `setView` uses a
+view-loader registry. **O8 was implemented 2026-11-01:** 411/413 responses now have plain
+next-action browser copy. **O10 was removed by the owner on 2026-11-01**; browser coverage
+remains an accepted coverage limitation, not a planned follow-up.
 
 ### 4.12 Continuity calibration from real returns  (v0.3, implemented; calibrated factor rejected)
 

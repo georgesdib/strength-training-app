@@ -66,7 +66,10 @@ def get(base: str, path: str) -> tuple[int, str]:
 
 def client_js(base: str) -> str:
     """The whole client bundle, so a feature move does not break a string contract."""
-    names = ("core.js", "app.js", "exercises.js", "history.js", "workout.js", "summary.js", "performance.js")
+    names = (
+        "core.js", "settings.js", "app.js", "exercises.js", "history.js", "workout.js",
+        "summary.js", "performance.js",
+    )
     parts = []
     for name in names:
         status, body = get(base, "/static/" + name)
