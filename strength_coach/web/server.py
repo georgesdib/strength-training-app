@@ -1296,10 +1296,17 @@ class Handler(BaseHTTPRequestHandler):
             self._error(500, "internal server error")
 
     def _serve_file(self, path: Path, content_type: str) -> None:
-        if not path.is_file():
+        static_root = STATIC.resolve()
+        requested = path.resolve()
+        try:
+            requested.relative_to(static_root)
+        except ValueError:
             self._error(404, "not found")
             return
-        self._send(200, path.read_bytes(), content_type)
+        if not requested.is_file():
+            self._error(404, "not found")
+            return
+        self._send(200, requested.read_bytes(), content_type)
 
     def _settings(self, conn=None) -> dict:
         drop = volume_settings.load_drop()
