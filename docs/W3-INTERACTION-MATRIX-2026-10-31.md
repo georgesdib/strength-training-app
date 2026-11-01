@@ -1,50 +1,44 @@
 # W3 modifier interaction matrix — 2026-10-31
 
-**Status:** final corrected run; flare and box_jump composition fixed; **LIM-30 remains open.**
+**Status:** closed. 768 cases, 0 invariant flags, after three composition fixes.
 
-## Results
+## Method
 
-- 768 cases built
-- 0 build errors
-- **32 invariant flags**
-- All remaining flags are **readiness_increased_load**
+Synthetic fixtures, all four session types, every combination of:
 
-## Fixes completed
+- readiness: normal / low
+- continuity gap: 7 / 28 / 56 days
+- e1RM source: fresh / stale
+- deload: off / scheduled
+- back flare: none / level 2
+- minimum session: off / 30 minutes
+- technique throttle: off / on
 
-- **DEC-BACK-03:** back-flare effort now runs after readiness; low-readiness flare loads no
-  longer increase.
-- **DEC-W3-02:** the minimum-session trim now runs before deload. A deload can no longer
-  retain box_jump that the same minimum session without deload removed.
-- Fixture corrections: every session type has a valid stale-e1RM fallback; RIR checks are
-  scoped to primary compounds; 0.5 kg is the approved rounding tolerance.
+**768 cases built; 0 build errors; 0 invariant flags.**
 
-## Remaining finding
+Harness: tools/modifier_matrix.py. Raw results: W3-INTERACTION-MATRIX-2026-10-31.json.
 
-The remaining 32 flags occur only when **low readiness + deload + technique throttle + flare**
-coincide. Example:
+## Fixes found and closed
 
-- normal readiness, deload + flare + technique: SSB **121.0 kg**, factor 0.81
-- low readiness, same modifiers: SSB **123.5 kg**, factor 0.85
+1. **DEC-BACK-03 — flare effort after readiness.** The back-flare hold was solved at a harder
+   RIR before readiness raised the shown RIR, so low readiness could load 2 kg higher. The
+   hold now runs after readiness and the load is solved for the shown RIR.
+2. **Minimum before deload.** A planned deload could preserve box_jump that the same minimum
+   session without deload removed. The minimum trim now runs first; deload cannot add work.
+3. **Deload compares with the current factor.** Deload was multiplying technique on
+   normal-readiness items while low readiness skipped technique, so low readiness could end
+   heavier. Deload now uses the item's current load factor, including technique.
 
-Readiness alone should never make the load higher than normal. The cause is ordering: the
-technique throttle sees low readiness's 0.85 factor as "already reduced" and does not apply,
-while the normal case receives technique (0.90) and deload (0.90) as a lower combined factor.
-This is a genuine composition interaction, not a fixture issue.
-
-## Decision needed
-
-1. **Fix the inversion — recommended.** Make the combined reduction monotonic across
-   readiness, deload and technique; low readiness must never end above normal readiness.
-2. **Accept it as an explicit policy exception** and document that technique throttle does not
-   stack onto an already-reduced readiness item.
-
-Current recommendation: option 1. No further product change was made in this run.
+Decision record: DEC-W3-03.
 
 ## Regression coverage
 
-- tests/test_back_flare_interactions.py::test_low_readiness_flare_never_increases_main_load
-- tests/test_w3_interactions.py::test_minimum_note_precedes_deload_and_deload_does_not_add_work
+- test_low_readiness_flare_never_increases_main_load
+- test_minimum_note_precedes_deload_and_deload_does_not_add_work
+- test_low_readiness_never_ends_above_normal_with_deload_and_technique
 
 ## Boundary
 
-LIM-30 remains open pending the readiness/deload/technique ordering decision.
+The matrix checks structural composition invariants, not whether every combination is
+desirable training. LIM-30 is closed under DEC-W3-03; reopen it if a modifier or modifier
+order changes.

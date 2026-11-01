@@ -71,6 +71,24 @@ def test_deload_does_not_undo_mrv_cap():
     assert pull.sets == 1
 
 
+def test_low_readiness_never_ends_above_normal_with_deload_and_technique():
+    with store_with(BASE_HISTORY) as store:
+        normal = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="hinge",
+            technique_throttle=True, deload_decision=DECISION,
+        )
+    with store_with(BASE_HISTORY, readiness_rows=LOW_READINESS) as store:
+        low = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="hinge",
+            technique_throttle=True, deload_decision=DECISION,
+        )
+    normal_load = next(i.load_kg for i in normal.items if i.exercise_id == "trap_bar_deadlift")
+    low_load = next(i.load_kg for i in low.items if i.exercise_id == "trap_bar_deadlift")
+    # Technique and deload compare with the current factor, so they cannot make the low-
+    # readiness case heavier than normal through a skipped technique factor.
+    assert low_load <= normal_load
+
+
 def test_minimum_note_precedes_deload_and_deload_does_not_add_work():
     with store_with(BASE_HISTORY) as store:
         plain = build_prescription(

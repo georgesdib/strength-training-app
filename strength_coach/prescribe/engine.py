@@ -469,7 +469,12 @@ def build_prescription(
         }
         items, deload_warning, deload_note, deload_level = deload_mod.apply_items(
             tuple(items), deload_decision, config=resolved.deload,
-            prior_load_factors=load_factors,
+            # Use the item's current factor, including technique throttle. Passing only the
+            # readiness/continuity map made normal readiness multiply technique x deload
+            # while low readiness skipped technique, so a harder day could end up lighter.
+            prior_load_factors={
+                item.exercise_id: item.load_factor for item in items
+            },
             primary_compounds=primary,
         )
         if deload_warning:

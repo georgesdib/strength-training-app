@@ -46,9 +46,10 @@ def apply_items(
 ) -> tuple[tuple[PrescriptionItem, ...], str | None, dict | None, str]:
     """Reduce one deload week without ever adding work.
 
-    `prior_load_factors` is the cumulative factor already applied by readiness and continuity.
-    The deload uses the more restrictive single factor: if readiness is already stricter than
-    the deload multiplier, the deload does not cut load again.
+    `prior_load_factors` is the cumulative factor already applied by earlier modifiers,
+    including readiness, continuity and the technique throttle. The deload uses the more
+    restrictive single factor: if an earlier modifier is already stricter than the deload
+    multiplier, the deload does not cut load again.
     """
     if decision is None:
         return tuple(items), None, None, "full"
