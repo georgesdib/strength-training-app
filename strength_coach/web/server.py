@@ -102,7 +102,14 @@ from strength_coach.prescribe import summary as programme_summary
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.rules import RuleContext
-from strength_coach.store import db, exercise_admin, importer, queries, repositories
+from strength_coach.store import (
+    db,
+    exercise_admin,
+    importer,
+    queries,
+    repositories,
+    symptom_attribution,
+)
 from strength_coach.utils import exercises, io_utils, paths
 from strength_coach.utils import readiness as readiness_utils
 from strength_coach.web import markdown, validation
@@ -949,6 +956,17 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("window_days must be between 7 and 365")
                 self._json(200, self._with_conn(
                     lambda c: self._e1rm_tests_needed_response(c, window)
+                ))
+            elif path == "/api/symptoms/attribution-options":
+                query = parse_qs(urlparse(self.path).query)
+                onset = query.get("onset", [None])[0]
+                if not onset:
+                    raise ValueError("onset is required")
+                timing = query.get("timing", ["pre_session"])[0]
+                self._json(200, self._with_conn(
+                    lambda c: {"sessions": symptom_attribution.candidates(
+                        c, onset_on=onset, timing=timing
+                    )}
                 ))
             elif path == "/api/symptoms/history":
                 query = parse_qs(urlparse(self.path).query)
@@ -2607,11 +2625,15 @@ class Handler(BaseHTTPRequestHandler):
                     data[key] = []
             constraints.append(data)
         profile = dict(queries.athlete_profile(conn) or {}) or None
+        symptoms = queries.symptom_entries(conn)
         return {
             "profile": profile,
             "constraints": constraints,
             "suitability": queries.exercise_suitability(conn),
-            "symptoms": queries.symptom_entries(conn)[-10:],
+            "symptoms": symptoms[-10:],
+            "attributed_symptoms": [
+                row for row in symptoms if row.get("attributed_session_id")
+            ],
             "e1rm_overrides": queries.e1rm_overrides(conn),
             "declared_breaks": breaks_feature.as_dict(breaks_feature.all_breaks(conn)),
             "e1rm_calibration": e1rm_calibration_feature.as_dict(calibration),
@@ -2970,15 +2992,35 @@ class Handler(BaseHTTPRequestHandler):
             datetime.date.fromisoformat(day)
         except ValueError as exc:
             raise FieldError("date must be YYYY-MM-DD", {"date": "must be YYYY-MM-DD"}) from exc
-        repositories.append_symptom(
-            conn,
-            logged_on=day,
-            timing="pre_session",
-            region=region,
-            level=level,
-            settled_within_48h=_settled(body.get("settled")),
-            note=body.get("note") or None,
-        )
+        timing = str(body.get("timing") or "pre_session")
+        if timing not in symptom_attribution.TIMINGS:
+            raise FieldError("invalid symptom timing", {"timing": "invalid timing"})
+        try:
+            repositories.append_symptom(
+                conn,
+                logged_on=day,
+                timing=timing,
+                region=region,
+                level=level,
+                settled_within_48h=_settled(body.get("settled")),
+                note=body.get("note") or None,
+                attributed_session_id=(
+                    body.get("attributed_session_id") or body.get("session")
+                ),
+                attributed_exercise_id=(
+                    body.get("attributed_exercise_id") or body.get("exercise")
+                ),
+                onset_on=(
+                    body.get("onset_on") or body.get("onset")
+                    or body.get("attribution_onset")
+                    or body.get("attribution_date")
+                ),
+                attribution_confidence=(
+                    body.get("attribution_confidence") or body.get("confidence")
+                ),
+            )
+        except symptom_attribution.AttributionError as exc:
+            raise FieldError(str(exc), {exc.field: str(exc)}) from exc
         return self._state(conn)
 
     def _save_test(self, conn, body: dict) -> dict:

@@ -394,6 +394,9 @@ body.menu-open { overflow: hidden; }
 .history-fragment { border-top: 1px solid var(--line); padding: 8px 0; }
 .history-fragment:first-child { border-top: 0; }
 .history-fragment-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.attribution-fields { grid-column: 1 / -1; border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+.attribution-fields legend { padding: 0 4px; font-weight: 600; }
+.attribution-fields p { margin: 4px 0 8px; }
 
 [aria-invalid="true"] { border-color: var(--bad); outline: 2px solid var(--bad-bg); }
 

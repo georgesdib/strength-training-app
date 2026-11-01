@@ -123,6 +123,31 @@ def test_cli_logs_and_shows(tmp_path, capsys):
     assert "2024-01-25" in out
 
 
+def test_cli_logs_and_shows_attribution(tmp_path, capsys):
+    path = tmp_path / "coach.db"
+    training = make_training(SESSION_ROWS)
+    readiness = make_readiness([{}])
+    store = db.Store(path)
+    try:
+        importer.import_export(
+            store.connection, training, readiness,
+            training_sha256=importer.sha256_frame(training),
+            readiness_sha256=importer.sha256_frame(readiness),
+        )
+    finally:
+        store.close()
+    assert cli.main([
+        "--db", str(path), "symptom", "--date", "2024-01-25", "--timing", "post_session",
+        "--level", "0", "--session", "2024-01-25", "--exercise", "back_extension",
+        "--onset", "2024-01-25", "--confidence", "likely",
+    ]) == 0
+    out = capsys.readouterr().out
+    assert "attributed to session 2024-01-25" in out
+    assert cli.main(["--db", str(path), "symptom", "--show"]) == 0
+    out = capsys.readouterr().out
+    assert "suspected back_extension" in out
+
+
 def test_cli_points_at_the_settling_workflow(tmp_path, capsys):
     # The question "what do I log when it settles" is asked at the moment of logging, so the
     # answer belongs in this output rather than only in a document.

@@ -16,6 +16,11 @@
 
 schema_version: "1.0.0"
 
+# Capture convenience, not a clinical threshold: a symptom can be attributed to a completed
+# session up to this many days before its onset. Attribution is optional and never read by the
+# injury signal or a prescription (DEC-INJURY-06).
+attribution_lookback_days: 7
+
 # Defaults for every region. A region may override any of them inline, using the same key
 # names; only overrides that differ from the default need to be written.
 defaults:

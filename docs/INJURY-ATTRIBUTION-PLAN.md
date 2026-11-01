@@ -1,10 +1,10 @@
 # INJURY ATTRIBUTION AND VERIFICATION PLAN
 
-**Status:** approved plan, 2026-11-01. **Phase 1 implemented 2026-11-01.** Phase 1
-(verification hygiene) is live; Phase 2 (attribution) is not implemented and has no date. No
-schema changed in Phase 1. Current verification behaviour is documented in
-[`INJURY-SIGNAL.md`](INJURY-SIGNAL.md) and [`SYMPTOM-LOGGING.md`](SYMPTOM-LOGGING.md); the
-attribution sections below remain the plan.
+**Status:** approved plan, 2026-11-01. **Phase 1 and Phase 2 implemented 2026-11-01.**
+Phase 1 corrected verification without a schema change. Phase 2 adds migration `0047` and the
+optional, display-only attribution fields. Phase 3 (research) remains unscheduled. Current
+behaviour is documented in [`INJURY-SIGNAL.md`](INJURY-SIGNAL.md) and
+[`SYMPTOM-LOGGING.md`](SYMPTOM-LOGGING.md).
 
 This plan covers two related but separable changes:
 
@@ -174,10 +174,9 @@ Display rules:
 - if the lift is not in the region's configured links, show a muted "not in configured links"
   without blocking the entry.
 
-## 7. Planned schema (migration 0047)
+## 7. Schema (migration 0047, implemented)
 
-Phase 2 only. Migration numbering follows the current head (0046); the exact number is fixed
-when the migration is written.
+Migration numbering followed the previous head (0046); `0047` is the applied migration.
 
 | column | type | notes |
 |---|---|---|
@@ -236,7 +235,7 @@ Nothing in this plan authorises a model, a score, a selection change or a load c
 |---|---|---|
 | 0 — plan (done 2026-11-01) | this document; roadmap and doc pointers | docs consistency passes; no code, schema or behaviour change |
 | 1 — verification hygiene | **implemented 2026-11-01**: dedupe, same-day rules, response states, counts, wording | the tests in §12 pass; the existing next-day test is unchanged; status changes are listed in the change note; no schema change |
-| 2 — attribution | migration, validator, CLI/API/web, display, history/session/region views | validation matrix passes; CLI/UI parity; attribution changes no signal status or prescription; docs updated |
+| 2 — attribution | **implemented 2026-11-01**: migration, validator, CLI/API/web, display, history/session/region views | validation matrix passes; CLI/UI parity; attribution changes no signal status or prescription; docs updated |
 | 3 — research (unscheduled) | exercise-level descriptive analysis | separate decision and pre-registration; not part of this plan |
 
 Phase 1 and Phase 2 are independent. Phase 1 can ship without attribution; Phase 2 can ship

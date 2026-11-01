@@ -57,8 +57,10 @@ async function loadHistory() {
       var sources = day.sources || [];
       var dateWarning = sources.indexOf("import") >= 0 && sources.indexOf("workout") >= 0
         ? '<span class="badge warn">date already recorded</span>' : "";
+      var attributed = day.attributed_symptom_count
+        ? '<span class="badge warn">attributed symptoms</span>' : "";
       var state = (day.marks ? '<span class="badge">' + day.marks + "</span>" : '<span class="badge warn">none</span>') +
-        " " + edited + " " + review + " " + dateWarning;
+        " " + edited + " " + review + " " + dateWarning + " " + attributed;
       var fragmentList = (day.fragments || []).map(historyFragmentLine).join("");
       rows.push("<tr><td>" + esc(day.occurred_on) + "</td><td>" + esc(day.session_type) +
         "</td><td>" + day.fragment_count + "</td><td>" + day.working_set_count + "/" + day.set_count +
@@ -434,12 +436,26 @@ function openHistoryDetails(sessionId) {
       return "<tr><td>" + esc(item.exercise_id) + "</td><td>" + item.rating +
         "</td><td>" + esc(item.note || "") + "</td></tr>";
     }).join("");
+    var attributed = (data.attributed_symptoms || []).map(function (item) {
+      return "<tr><td>" + esc(item.logged_on) + "</td><td>" + esc(item.region) +
+        "</td><td>" + item.level + "</td><td>" +
+        esc(item.attributed_exercise_id || "session only") + "</td><td>" +
+        esc(item.attribution_confidence) + "</td><td>" +
+        esc(item.onset_on) + "</td><td>" + esc(item.note || "") + "</td></tr>";
+    }).join("");
+    var attributionBlock = attributed
+      ? "<h3>Athlete-attributed symptoms</h3><p class='muted'>Suspected link recorded by the athlete; it does not change the signal or prescription.</p>" +
+        "<table><thead><tr><th>Logged</th><th>Region</th><th>Level</th><th>Lift</th>" +
+        "<th>Confidence</th><th>Onset</th><th>Note</th></tr></thead><tbody>" +
+        attributed + "</tbody></table>"
+      : "";
     document.getElementById("history-details").innerHTML =
       "<dl class='history-facts'>" + facts + "</dl>" +
       (feedback.note ? "<p class='muted'>Note: " + esc(feedback.note) + "</p>" : "") +
       (forms ? "<h3>Form ratings</h3><table><thead><tr><th>Exercise</th><th>Rating (1–5)</th>" +
         "<th>Note</th></tr></thead><tbody>" + forms + "</tbody></table>" +
         "<p class='muted'>Optional self-assessment; rubric input only, never a load or set.</p>" : "") +
+      attributionBlock +
       "<h3>Exercises and sets</h3>" +
       (blocks || "<p class='muted'>No sets.</p>");
     panel.scrollIntoView({ behavior: "smooth", block: "start" });

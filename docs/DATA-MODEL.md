@@ -464,6 +464,10 @@ auditable even after the override is replaced.
 | level | 0–3 agreed scale (see INFO-REQUESTS §6) |
 | settled_within_48h | nullable boolean |
 | note | |
+| attributed_session_id | nullable; one completed `session` row; validated in code, not a foreign key |
+| attributed_exercise_id | nullable; at most one lift actually performed in that session |
+| onset_on | nullable; required when attributed, `<= logged_on` |
+| attribution_confidence | nullable; `possible` \| `likely` \| `strong` |
 
 v0.1 recorded **one pre-session number for the whole back** (`DEC-SYMPTOM-01`). Since
 2026-10-19 the same 0-3 scale is recorded **per region** (`DEC-SYMPTOM-03`): `low_back`,
@@ -475,13 +479,13 @@ correction is an insert. A reading is a **flare** at level >= 2, or at level 1 t
 settle within 48 hours (`DEC-SYMPTOM-02`); a level-1 reading with no recorded settlement
 counts as not settled (`DEC-SYMPTOM-04`). No reading is `unknown`, never "no flare".
 
-**Planned (not in the schema yet).** A planned migration (0047 in the current numbering) will
-add nullable attribution columns to this table: `attributed_session_id` (a completed
-session), `attributed_exercise_id` (at most one lift performed in that session), `onset_on`
-and `attribution_confidence` (`possible`/`likely`/`strong`). Cross-field rules are
-enforced by the shared validator; historical rows stay `NULL` and are never rewritten. See
-[`INJURY-ATTRIBUTION-PLAN.md`](INJURY-ATTRIBUTION-PLAN.md). No column exists until that
-migration lands.
+Migration 0047 adds the four nullable attribution columns. They are optional and display-only:
+the shared validator enforces the cross-field rules (a session implies onset and confidence;
+the lift must have been performed in that session; the session is within the 7-day
+`attribution_lookback_days`; a `pre_session` reading cannot point at a session on its onset
+date). Historical rows stay `NULL` and are never rewritten. Attribution never feeds the
+injury signal, suitability, selection, load or any prescription. See
+[`INJURY-ATTRIBUTION-PLAN.md`](INJURY-ATTRIBUTION-PLAN.md).
 
 The per-region signal built from this table is documented in
 [`INJURY-SIGNAL.md`](INJURY-SIGNAL.md); how to log an episode, and what to record when it

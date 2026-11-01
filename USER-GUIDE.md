@@ -200,7 +200,7 @@ The volume ledger compares recent working sets with configurable pattern-level M
 
 ### Injury signal and constraints
 
-The symptom/injury signal summarises recorded symptoms and loading history. It is not a diagnosis and does not certify recovery. A `review` status does not automatically make an exercise suitable or remove a constraint. Missing symptom data means unknown, not symptom-free.
+The symptom/injury signal summarises recorded symptoms and loading history. It is not a diagnosis and does not certify recovery. A `review` status does not automatically make an exercise suitable or remove a constraint. Missing symptom data means unknown, not symptom-free. A symptom may optionally be attributed to one completed session (and at most one lift performed there) with an onset date and an ordinal confidence; this is the athlete's suspicion, shown for review only, and never changes the signal, suitability, selection or prescription.
 
 ### LLM explanations
 
