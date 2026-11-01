@@ -1162,6 +1162,49 @@ def test_workout_start_active_and_end(server):
     assert json.loads(get(server, "/api/workout/active")[1])["workout"] is None
 
 
+def test_second_fragment_reuses_day_plan_and_readiness(server):
+    plan = post(server, "/api/prescribe", {"date": "2024-01-02", "session_type": "hinge"})
+    readiness = {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+    first = post(server, "/api/workout/start", {
+        "date": "2024-01-02", "plan": plan, "readiness": readiness,
+    })["workout"]
+    post(server, f"/api/workout/{first['workout_id']}/end", {
+        "session_rpe": 7, "duration_min": 30,
+    })
+    second = post(server, "/api/workout/start", {
+        "date": "2024-01-02",
+        "plan": first["original_plan"],
+        "readiness": first["readiness"],
+        "reuse_readiness": True,
+        "prescription_id": first["prescription_id"],
+    })["workout"]
+    assert second["prescription_id"] == first["prescription_id"]
+    assert second["readiness"] == first["readiness"]
+    assert second["status"] == "in_progress"
+
+
+def test_imported_and_live_fragment_share_a_training_day(server):
+    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
+    readiness = {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": plan, "readiness": readiness,
+    })["workout"]
+    post(server, f"/api/workout/{started['workout_id']}/end", {
+        "session_rpe": 7, "duration_min": 30,
+    })
+    data = json.loads(get(server, "/api/history/days?limit=5")[1])
+    day = next(row for row in data["days"] if row["occurred_on"] == "2024-01-01")
+    assert day["fragment_count"] >= 2
+    assert day["active_fragment_count"] >= 2
+    assert sum(1 for item in day["fragments"] if item.get("workout_id")) >= 1
+
+
 def test_manual_workout_sets_require_reps_and_bound_rir(server):
     plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
     readiness = {
@@ -1188,6 +1231,18 @@ def test_manual_workout_sets_require_reps_and_bound_rir(server):
         "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
     })
     assert len(added["workout"]["sets"]) == 1
+
+
+def test_history_days_endpoint_groups_fragments(server):
+    status, body = get(server, "/api/history/days?limit=10")
+    assert status == 200
+    data = json.loads(body)
+    assert data["total"] == 1
+    day = data["days"][0]
+    assert day["occurred_on"] == "2024-01-01"
+    assert day["fragment_count"] == 1
+    assert day["fragments"][0]["session_id"] == "2024-01-01"
+    assert day["session_type"]
 
 
 def test_history_correction_bounds_reps_and_rir(server):

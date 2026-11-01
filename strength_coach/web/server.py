@@ -802,6 +802,15 @@ class Handler(BaseHTTPRequestHandler):
                     start=query.get("start", [None])[0],
                     end=query.get("end", [None])[0],
                 )))
+            elif path == "/api/history/days":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(lambda c: history.list_training_days(
+                    c,
+                    limit=int(query.get("limit", ["50"])[0]),
+                    offset=int(query.get("offset", ["0"])[0]),
+                    start=query.get("start", [None])[0],
+                    end=query.get("end", [None])[0],
+                )))
             elif path.startswith("/api/history/"):
                 session_id = path.rsplit("/", 1)[-1]
                 self._json(200, self._with_conn(
@@ -2060,23 +2069,39 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(readiness, dict):
             raise ValueError("readiness must be an object")
         acknowledge = _truth(body.get("readiness_ack"))
+        reuse_readiness = _truth(body.get("reuse_readiness"))
         # Validate ranges first, then persist what was actually supplied so the score reflects
         # this form rather than only yesterday’s stored row. Missing fields stay missing.
         clean = workout.validate_readiness(readiness, allow_partial=True)
-        readiness_feature.record_manual(
-            conn, for_date, clean, note=body.get("readiness_note") or None
-        )
-        assessment = readiness_score.compute(conn, for_date)
-        if assessment.status != "ready" and not acknowledge:
-            raise ValueError(
-                "readiness score unavailable; acknowledge starting without a score"
+        if reuse_readiness:
+            # A second fragment on the same training day reuses the day's readiness instead of
+            # prompting again. The client sends the first fragment's validated snapshot.
+            allow_partial = True
+        else:
+            readiness_feature.record_manual(
+                conn, for_date, clean, note=body.get("readiness_note") or None
             )
-        allow_partial = acknowledge or assessment.status == "ready"
+            assessment = readiness_score.compute(conn, for_date)
+            if assessment.status != "ready" and not acknowledge:
+                raise ValueError(
+                    "readiness score unavailable; acknowledge starting without a score"
+                )
+            allow_partial = acknowledge or assessment.status == "ready"
         # Persist the committed plan and start the workout in one transaction. A failed start
         # (including an already-active workout) leaves no orphan prescription.
         conn.execute("BEGIN IMMEDIATE")
         try:
-            prescription_id = prescription_persistence.store_plan(conn, plan)
+            supplied_prescription = body.get("prescription_id")
+            if supplied_prescription:
+                exists = conn.execute(
+                    "SELECT 1 FROM prescription WHERE prescription_id = ?",
+                    (str(supplied_prescription),),
+                ).fetchone()
+                if exists is None:
+                    raise ValueError("prescription_id does not exist")
+                prescription_id = str(supplied_prescription)
+            else:
+                prescription_id = prescription_persistence.store_plan(conn, plan)
             result = workout.start(
                 conn,
                 for_date=for_date,

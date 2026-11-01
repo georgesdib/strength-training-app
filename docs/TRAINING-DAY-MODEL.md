@@ -1,16 +1,18 @@
 # Training day and session fragments
 
-**Status:** approved specification, 2026-10-31. **Not implemented.** Planned as a separate phase after v1.2.
+**Status:** implemented 2026-11-01 (backend, API and UI). No schema migration.
 
 ## 1. Problem
 
-The current model assumes one session per calendar date, but the storage layer does not enforce it:
+The previous model assumed one session per calendar date, although the storage layer never
+enforced it:
 
 - imported sessions are grouped by date because the export has no timestamps;
 - the session table has no unique constraint on `occurred_on`;
 - a second live workout can be started after the first is completed;
-- `queries.sessions()` is documented as one row per date but does not group;
-- `completed_sessions()` counts session rows, so two same-date rows count as two attendance sessions.
+- `queries.sessions()` was documented as one row per date but returned every fragment;
+- `completed_sessions()` counted session rows, so two same-date rows counted as two attendance
+  sessions.
 
 This specification replaces that assumption with an explicit **training day plus fragments** model.
 
@@ -124,8 +126,10 @@ If `occurred_on` is corrected later, the fragment moves to the corresponding tra
 - Rebuilding a plan on a day with fragments remains a single revision.
 - Tests cover same-date fragments, imported-plus-manual dates, different fragment types, duplicate e1RM, readiness reuse and attendance.
 
-## 15. Related
+## Related
+
+**Decisions:** [DECISIONS.md](DECISIONS.md) — `DEC-SESSION-02`, `DEC-SESSION-03`, `DEC-VOLUME-30`, `DEC-VOLUME-31`.
+**Open questions:** none; the model is implemented without a schema change.
+**Roadmap:** [ROADMAP.md](../ROADMAP.md) §4.27.
 
 - [DATA-MODEL.md](DATA-MODEL.md)
-- [DECISIONS.md](DECISIONS.md) — `DEC-SESSION-02`, `DEC-SESSION-03`, `DEC-VOLUME-30`, `DEC-VOLUME-31`
-- [ROADMAP.md](../ROADMAP.md)
