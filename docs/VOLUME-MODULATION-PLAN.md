@@ -307,7 +307,7 @@ Evidence limits:
 
 Phasing: per-group diagnostics (step 1, done) → within-template per-group triggers (step 2) →
 compensation preview (step 9a) → opt-in compensation application (9b) → volume-first drop
-(9c, decision + simulation).
+(9c, implemented 2026-10-27).
 
 ### 4.3 Frequency above three sessions
 
@@ -332,7 +332,7 @@ the budget, MRV/spinal caps and time estimate still apply.
 
 ### 4.4 What steps 2 and 2b actually do (implemented)
 
-This is the current, implemented behaviour; it is the reference for the reduce/drop work.
+This is the current, implemented behaviour; it is the reference for the reduce/drop behaviour.
 
 **Activation and precedence**
 - `athlete_profile.volume_budget_enabled` is authoritative and defaults to off (0). If no
@@ -340,7 +340,7 @@ This is the current, implemented behaviour; it is the reference for the reduce/d
   `MOD-VOL-003` only runs when the budget is enabled.
 - `athlete_profile.main_lift_policy` defaults to `preserve`. With the budget off the policy is
   ignored. With it on, `preserve` leaves main lifts alone, `reduce` trims a filled group's main
-  lift to the floor, and `drop` removes it and relabels the session (9c).
+  lift to the floor, and `drop` removes it and relabels the session (9c, implemented).
 
 **Targets and inputs**
 - `budget.weekly_total` is explicit and must equal the sum of `budget.weekly_target`; config
@@ -418,10 +418,12 @@ IDs and the safety-reference set.
 - The current build skips top-up for a group with a safety ref. Removed items are not recorded:
   the budget only tops up items that are present, so it cannot resurrect one.
 
-**Not implemented**
-- `drop` (step 9c); cross-group compensation and the compensation slot pool; a separate top-up
-  switch (top-up is part of step 2, disabled in `reduce`); a four-day programme forecast (manual
-  single-session only); settings UI for the targets (the config file is the source).
+**No remaining drop work**
+- The earlier draft listed `drop` (9c), cross-group compensation and the slot pool, a four-day
+  forecast and target settings as not implemented. They are now implemented: 9a/9b on
+  2026-10-26, 9c on 2026-10-27, and the forecast/settings surfaces with the closed plan.
+- A separate top-up switch remains a non-goal: top-up is part of step 2 and is disabled in
+  `reduce`.
 
 ### 4.5 Cross-group compensation — 9a preview and 9b application
 
@@ -471,10 +473,11 @@ and names the missing history.
 
 `MOD-VOL-004` is declared in constitution **1.17.0**. When the slot has no load, the athlete
 is asked for an e1RM rather than silently refused (`DEC-VOLUME-15`). Step 9c (`drop`) is
-separate: its two-branch design is agreed in §4.6, but it is not implemented and `MOD-VOL-004`
-does not remove a main lift.
+separate and implemented as of 2026-10-27: its two-branch design is in §4.6, `MOD-VOL-005`
+covers it, and `MOD-VOL-004` remains the 9b slot application. `MOD-VOL-004` does not remove a
+main lift.
 
-### 4.6 9c drop — design and 9c-1 engine
+### 4.6 9c drop — implemented design and 9c-1 engine
 
 The drop decision is made at the start of a session, from the remaining week, not from one slot.
 
@@ -527,11 +530,11 @@ The drop decision is made at the start of a session, from the remaining week, no
   `volume_fill_<original>` is a synthetic template with the filled group removed and multi-slot
   fills into the high band. `MOD-VOL-005` is in constitution 1.18.0.
 - `volume_fill_<original>` maps back to its original family for the rolling schedule.
-- 9c-2 adds the first-class label/API fields, Prescribe/Workout/History/Programme labels,
+- 9c-2 added the first-class label/API fields, Prescribe/Workout/History/Programme labels,
   start/end of an empty technique attendance session (no rubric), derived-review handling,
   forecast entries using the actual derived type, and migration 0038 removing the fixed
   session-type CHECK.
-- 9c-3 adds the Settings **Drop / volume fill** panel and `GET/POST /api/settings/drop`, backed
+- 9c-3 added the Settings **Drop / volume fill** panel and `GET/POST /api/settings/drop`, backed
   by the git-ignored `config/volume.local.yaml` overlay. It exposes the drop switch, 0–28 day
   competition window, max slots per group, technique minutes, tolerance (with the computed high
   band read-only) and the full per-group candidate pool as editable JSON, validated server-side.
@@ -888,7 +891,8 @@ profile is `effective`; rollback is one profile change.
   executable. Constitution 1.17.0.
 - 9c **engine implemented 2026-10-26 (9c-1)**: high band → technique; below → multi-slot
   `volume_fill_<original>` with the filled group removed; `MOD-VOL-005`/constitution 1.18.0;
-  schedule maps the derived type. UI/confirmation/labels/forecast are 9c-2/3.
+  schedule maps the derived type. UI/confirmation/labels/forecast were implemented 2026-10-27
+  (9c-2/3).
 - `reduce` is step 2b, not here; step 9 only handles cross-group compensation and `drop`.
 
 ## 11. Tests (for the implementation phase)
@@ -927,9 +931,9 @@ profile is `effective`; rollback is one profile change.
 | 13 | Strength-preserving default | main lifts stay at template sets even when the group quota is full; `main_lift_policy` is an append-only `athlete_profile` field (`preserve` default, `reduce`/`drop` opt-in); compensation is accessory-only under `preserve`; "no squats" is `drop` |
 | 14 | Compensation parameters | one optional non-essential compensation slot per session type; candidates `dumbbell_bench_press` (push) and `rdl` (hinge), executable load only; weights squat↔hinge 0.7, squat↔bench 0.2, hinge↔bench 0.2, push↔pull 0.3, floor 0.1; all sets count; main lifts stay in `preserve`; main-lift top-up opt-in; `MOD-VOL-004` for slot replacement |
 | 15 | Frequency above three | the budget supports 4/5 by spreading the same 63-set target (57 when this was decided), or an explicit higher target; the programme forecast now supports 1–5 (4 = Mon/Wed/Fri/Sun, 5 = Mon/Tue/Thu/Fri/Sun). The extra full-body sessions add real volume and remain bounded by the budget, MRV/spinal caps and time |
-| 16 | Reduce/drop timing | `reduce` is **step 2b, implemented 2026-10-26**: it trims a filled group's main lift to the configured floor, keeps the session type, and disables top-up; `drop` remains **step 9c**, after the 9a compensation slot pool, because it removes and relabels a main lift; both are opt-in via `main_lift_policy` |
+| 16 | Reduce/drop timing | `reduce` is **step 2b, implemented 2026-10-26**: it trims a filled group's main lift to the configured floor, keeps the session type, and disables top-up; `drop` is **step 9c, implemented 2026-10-27**, after the 9a compensation slot pool, because it removes and relabels a main lift; both are opt-in via `main_lift_policy` |
 | 17 | All parameters config-backed | total/per-group targets, daily/session total and per-group caps, tolerance/band minimum, trim/top-up switches, accessory floor and per-item top-up ceiling, set seconds/warm-up/time cap, and the reduce floor all live in `config/volume.v1.yaml`; the profile adds on/off, policy and a session target that may raise or lower the budget fallback (`DEC-VOLUME-12`, `DEC-W1-02`) |
-| 18 | 9a/9b compensation | 9a preview: slot pool, similarity weights and `compensation` report. 9b application: with `apply: true` and the budget on, one non-essential slot is added with a real load (`MOD-VOL-004`, constitution 1.17.0); no history refuses. 9c is `drop` |
+| 18 | 9a/9b compensation | 9a preview: slot pool, similarity weights and `compensation` report. 9b application: with `apply: true` and the budget on, one non-essential slot is added with a real load (`MOD-VOL-004`, constitution 1.17.0); no history refuses. 9c is `drop`, implemented 2026-10-27 |
 | 19 | 9b application | one slot added through `build_item`; executable load required; refusal is a warning, not a guessed load; `MOD-VOL-004`; all later caps still run (`DEC-VOLUME-14`) |
 | 20 | Missing compensation load | retry with the e1RM basis, then ask the athlete for an e1RM (UI prompt/CLI) and rebuild; refuse only if still unusable (`DEC-VOLUME-15`) |
 | 21 | 9c drop design | two branches: total at/above the high band → technique-focused session; below the high band with a filled group → first-class multi-slot `volume_fill` filling into the high band. `volume_fill`/`technique` count as sessions with distinct exposure semantics; original type/reason recorded; no silent relabel. Automatic after `main_lift_policy: drop` opt-in; confirm 7 days before competition (config); `MOD-VOL-005`; 9c-1 engine, 9c-2 identity/UX and 9c-3 confirmation/settings implemented 2026-10-27 (`DEC-VOLUME-16/17/18/19/20`) |
