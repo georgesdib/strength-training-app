@@ -541,9 +541,10 @@ def completed_sets(
 
 
 def completed_sessions(conn, *, on_date: str) -> int:
+    """Completed training days in the week, not session fragments."""
     start, _ = week_bounds(on_date)
     frame = queries.sessions(conn, start=start, end=str(on_date))
-    return 0 if frame.empty else int(len(frame))
+    return 0 if frame.empty else int(frame["occurred_on"].nunique())
 
 
 def exemptions(conn, *, on_date: str) -> dict[str, int]:

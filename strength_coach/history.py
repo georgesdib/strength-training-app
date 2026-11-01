@@ -17,6 +17,7 @@ from strength_coach import __version__
 from strength_coach.critique import score_session
 from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.domain import load as load_mod
+from strength_coach.features import training_day
 from strength_coach.store import db, queries, repositories
 from strength_coach.utils import exercises
 
@@ -79,6 +80,47 @@ def list_sessions(conn, *, limit: int = 50, offset: int = 0,
              "flags": json.loads(row["flags"] or "[]")}
             for row in rows
         ],
+    }
+
+
+def list_training_days(conn, *, limit: int = 50, offset: int = 0,
+                       start: str | None = None, end: str | None = None) -> dict:
+    """Grouped training days, newest first; fragments stay individually addressable."""
+    days = list(reversed(training_day.group(
+        conn, start=start, end=end, include_voided=True
+    )))
+    total = len(days)
+    page = days[int(offset):int(offset) + int(limit)]
+    session_ids = [
+        str(fragment["session_id"])
+        for day in page for fragment in day["fragments"]
+    ]
+    marks: dict[str, int] = {}
+    if session_ids:
+        placeholders = ",".join("?" for _ in session_ids)
+        rows = conn.execute(
+            f"SELECT session_id, COUNT(*) AS n FROM rubric_mark "
+            f"WHERE session_id IN ({placeholders}) GROUP BY session_id",
+            session_ids,
+        ).fetchall()
+        marks = {str(row["session_id"]): int(row["n"]) for row in rows}
+    out: list[dict[str, Any]] = []
+    for day in page:
+        fragments = []
+        for fragment in day["fragments"]:
+            item = dict(fragment)
+            item["main_lifts"] = json.loads(item.get("main_lifts") or "[]")
+            item["flags"] = json.loads(item.get("flags") or "[]")
+            item["marks"] = marks.get(str(item["session_id"]), 0)
+            fragments.append(item)
+        day = {**day, "fragments": fragments}
+        day["marks"] = sum(int(fragment["marks"]) for fragment in fragments)
+        out.append(day)
+    return {
+        "total": total,
+        "limit": int(limit),
+        "offset": int(offset),
+        "days": out,
     }
 
 

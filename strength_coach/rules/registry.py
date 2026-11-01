@@ -291,22 +291,31 @@ def direct_erector_scheduling(
     forbidden_patterns = {
         str(p) for p in (params.get("forbid_same_session_as_patterns") or ("hinge",))
     }
-    day_of: dict[str, str] = {}
+    date_by_session = {
+        str(row.session_id): str(row.occurred_on)[:10]
+        for row in context.sessions.itertuples(index=False)
+    } if not context.sessions.empty else {}
+    types_by_date: dict[str, set[str]] = {}
     if not context.sessions.empty:
-        day_of = {
-            str(row.session_id): str(row.session_type)
-            for row in context.sessions.itertuples(index=False)
-        }
+        for row in context.sessions.itertuples(index=False):
+            types_by_date.setdefault(str(row.occurred_on)[:10], set()).add(
+                str(row.session_type)
+            )
+    day_type = {
+        day: next(iter(types)) if len(types) == 1 else "mixed"
+        for day, types in types_by_date.items()
+    }
 
     evidence: list[Evidence] = []
     with_erector = 0
-    # Grouping thousands of rows by session in pandas was the single slowest predicate in a
+    # Grouping thousands of rows by day in pandas was the single slowest predicate in a
     # forecast. Sessions and exercise ids do not change between forecast entries, so build
-    # the (session -> exercises) map once per call from distinct pairs instead.
+    # the (day -> exercises) map once per call from distinct pairs instead.
     pairs = sets[["session_id", "exercise_id"]].drop_duplicates()
-    by_session: dict[str, list[str]] = {}
+    by_day: dict[str, list[str]] = {}
     for session_id, exercise_id in pairs.itertuples(index=False):
-        by_session.setdefault(str(session_id), []).append(str(exercise_id))
+        day = date_by_session.get(str(session_id), str(session_id))
+        by_day.setdefault(day, []).append(str(exercise_id))
     entity = context.entity
     erector_ids = {
         eid for eid in sets["exercise_id"].astype(str).unique()
@@ -316,30 +325,31 @@ def direct_erector_scheduling(
         eid for eid in sets["exercise_id"].astype(str).unique()
         if entity(eid).get("pattern") in forbidden_patterns
     }
-    for session_id in sorted(by_session):
-        ids = by_session[session_id]
+    for day in sorted(by_day):
+        ids = by_day[day]
         erector = [i for i in ids if i in erector_ids]
         if not erector:
             continue
         with_erector += 1
         hinged = [i for i in ids if i in hinge_ids]
-        day = day_of.get(session_id, "unknown")
+        display = day_type.get(day, "unknown")
+        ref = f"day:{day}"
         if hinged:
             evidence.append(
                 Evidence(
-                    ref=f"session:{session_id}",
+                    ref=ref,
                     detail=(
                         f"direct erector work ({', '.join(erector)}) stacked with a hinge "
                         f"({', '.join(hinged)})"
                     ),
                 )
             )
-        elif day not in allowed_types and day != "unknown":
+        elif display not in allowed_types and display != "unknown":
             evidence.append(
                 Evidence(
-                    ref=f"session:{session_id}",
+                    ref=ref,
                     detail=(
-                        f"direct erector work ({', '.join(erector)}) on {day}, "
+                        f"direct erector work ({', '.join(erector)}) on {display}, "
                         f"allowed {sorted(allowed_types)}"
                     ),
                 )
@@ -387,10 +397,15 @@ def erector_dose_ramp(
 
     sessions = context.sessions
     required = int(params.get("stability_sessions_required", 2))
-    if len(sessions) < required:
+    session_days = (
+        int(sessions["occurred_on"].nunique())
+        if not sessions.empty and "occurred_on" in sessions
+        else len(sessions)
+    )
+    if session_days < required:
         return _unknown(
             ["session.sets"],
-            f"need {required} consecutive sessions to judge stability, have {len(sessions)}",
+            f"need {required} consecutive sessions to judge stability, have {session_days}",
         )
 
     erector = context.sets[
@@ -402,7 +417,7 @@ def erector_dose_ramp(
         return _unknown(["session.sets"], "no direct erector history to ramp from")
 
     recent = (
-        erector.sort_values("date").groupby("session_id")["reps"].sum().tail(required)
+        erector.sort_values("date").groupby("date")["reps"].sum().tail(required)
     )
     stability_ok = len(recent) >= required and (recent.max() - recent.min()) <= 1
     details = {

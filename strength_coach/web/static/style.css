@@ -390,6 +390,10 @@ body.menu-open { overflow: hidden; }
 .history-card p { margin: 4px 0; }
 .card-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .card-actions button { min-height: 44px; }
+.history-day-fragments td { background: var(--paper); padding: 8px 12px; white-space: normal; }
+.history-fragment { border-top: 1px solid var(--line); padding: 8px 0; }
+.history-fragment:first-child { border-top: 0; }
+.history-fragment-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 
 [aria-invalid="true"] { border-color: var(--bad); outline: 2px solid var(--bad-bg); }
 

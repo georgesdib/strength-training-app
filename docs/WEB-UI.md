@@ -92,10 +92,12 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
   prescription is unchanged. The **Retrospective validation** panel runs the walk-forward check. A scheduled deload is shown as a suggestion with an **Apply deload** button; it is not applied until confirmed. Reactive deloads are automatic. Applied deloads cite `MOD-DELOAD-001`. Main lifts show their warm-up ramp; the strength-test cadence is shown in the notes. The volume ledger now applies `MOD-VOL-002` (one accessory set after three weeks below MEV).
 - **Outcomes → Form trend** — current vs previous equal window, latest rating, change and
   session counts; descriptive only.
-- **History** — paginated list of every completed/imported session, date filters, session detail and append-only correction. Edits rebuild totals/critique and mark the session re-review; date/type are fixed. The edit sheet also carries optional per-lift **Form** 1–5 ratings. Review shows the current rating beside up to five prior ratings for the same lift.
+- **History** — paginated list of training days, each expandable into its session fragments, with date filters, fragment detail and append-only correction. Attendance and day totals count each local date once; fragments keep their own ids, sets and edits. Edits rebuild totals/critique and mark the fragment re-review; date/type are fixed. The edit sheet also carries optional per-lift **Form** 1–5 ratings. Review shows the current rating beside up to five prior ratings for the same lift.
 - **Workflow → Workout** — start from the preview with a score-ready assessment or an explicit unknown/partial acknowledgement (device fields optional), log sets manually, remove a set, end with measured/manual duration and sRPE or mark sRPE not recorded, or abandon. A prescription snapshot is frozen at start. During the workout the plan is editable: adjust planned sets, swap/add/remove exercises; swap opens one searchable exercise dialog, each add/swap is an append-only event and the original prescription stays frozen. On completion the workout materialises, the end screen shows actual vs modified plan, actual vs original prescription, the deterministic rubric, and a descriptive Phase 2 summary. **Review workout** opens the rubric sheet; saving marks runs calibration and closes the workout. In-workout CSV import is available by paste or file with columns `Exercise,Set,RPE,Value,Weight,Reps`; preview first, then apply. A recognised exercise absent from the prescription is added to the workout plan; an unrecognised exercise is shown as unknown and blocks apply. The file has no date, so backfill is not supported. Each planned lift has an optional **Form** 1–5 rating, editable later in History. An optional second per-rep CSV (`Exercise Name,Set Number,Metric Name,Rep Number,Velocity`) can be added in the same panel; it joins by exercise + set, never creates a set, and is shown descriptively after the workout. The ended screen also offers an optional **e1RM**
   record: a measured test from a set (kg x reps, which registers a high-intensity exposure and
   rejects a 1RM until the interval allows it) or a direct override. Both append; nothing is edited.
+  **Start another session today** creates a second fragment on the same date, linked to the same
+  day plan and the first fragment's readiness snapshot; it does not create a second plan.
 - **Workout → per-exercise history** — every planned lift has a **History** toggle. It lazily shows
   the last five completed sessions (newest first) with set number, load × reps and RIR, and a
   **Show more** control for the next five. It includes declared history equivalents (currently
@@ -179,7 +181,8 @@ also disables while saving and reports the number of marks written.
 | `POST /api/workout/<id>/update-set` | `{set_id, load_kg, reps, rir, velocity}` -> append correction event |
 | `POST /api/workout/<id>/import` | `{text, rep_text?, apply}` -> parse/preview/apply workout CSV; optional per-rep table; no date column |
 | `POST /api/workout/<id>/import/undo` | undo the latest import batch, including rep detail |
-| `GET /api/history?limit=&offset=&start=&end=` | paginated session history |
+| `GET /api/history?limit=&offset=&start=&end=` | paginated session-fragment history |
+| `GET /api/history/days?limit=&offset=&start=&end=` | paginated training days with their fragments |
 | `GET /api/exercise-history?exercise_id=&limit=&offset=&on_or_before=` | read-only completed-session history for one exercise, grouped by session; limit counts sessions and defaults to 5 |
 | `GET /api/history/<id>` | current session sets and feedback |
 | `POST /api/history/<id>/edit` | append-only correction of sets and session metadata |

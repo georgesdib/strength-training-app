@@ -799,9 +799,31 @@ function renderWorkoutEnded(w) {
     postBlock +
     '<div class="form-row" style="margin-top:1rem">' +
     '<button class="primary" type="button" id="workout-review">Review workout</button>' +
+    '<button class="ghost" type="button" id="workout-start-another">Start another session today</button>' +
     '<span class="muted">The deterministic rubric was saved at End workout.</span></div>';
   var review = document.getElementById("workout-review");
   if (review) review.addEventListener("click", function () { openReview(w.workout_id); });
+  var another = document.getElementById("workout-start-another");
+  if (another) another.addEventListener("click", function () {
+    another.disabled = true;
+    // A second fragment reuses the day plan and the first fragment's readiness snapshot.
+    var body = {
+      date: w.for_date,
+      plan: w.original_plan || w.plan,
+      readiness: w.readiness,
+      reuse_readiness: true
+    };
+    if (w.prescription_id) body.prescription_id = w.prescription_id;
+    api("/api/workout/start", { method: "POST", body: JSON.stringify(body) })
+      .then(function (data) {
+        notify("Another session started today.");
+        renderWorkout(data.workout);
+      })
+      .catch(function (error) {
+        another.disabled = false;
+        notify(error.message);
+      });
+  });
   if (typeof loadWorkoutSummary === "function") loadWorkoutSummary(w.workout_id);
   var postTest = document.getElementById("post-test-form");
   if (postTest) postTest.addEventListener("submit", function (event) {

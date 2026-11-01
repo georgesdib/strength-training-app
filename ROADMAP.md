@@ -51,7 +51,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.0 beta | Workable app + guided Workflow UI | **released 2026-10-27** | full strength loop, guided readiness → preview → workout → post-workout, effective volume accounting, template editor, schedule fallback/rebalance; user testing in progress |
 | v1.1 beta | Performance + monitoring analysis | **released 2026-10-31 (b2); b1 2026-10-30** | raw e1RM Performance view, rolling median, breaks, degraded observations, dose, configured relative-strength ratios, read-only monitoring analysis, calibration transparency; Phase 5A review follow-up |
 | v1.2 | Beta removal + cardio + calibration depth | **planned; plan at §4.13a** | drop the beta label after user testing; pending: cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
-| future | Training-day session fragments | **specified 2026-10-31; implementation after v1.2** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration in the initial version; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
+| — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | future | Deterministic dynamic template resolver | **planned after v1.2; before LLM Iteration 1** | detailed plan at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md); fixed four-template blueprint/fallback with per-session exercise resolution using the existing scheduler/prescription/volume/history, no separate programme pathway, no implementation in this pass |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
 | future | Symptom attribution and injury-signal verification | **planned 2026-11-01; not implemented** | Phase 1 signal hygiene (latest-wins, same-day semantics, `flared`/`symptomatic_load` counts, wording) and Phase 2 optional session + performed-lift attribution (onset, confidence); no schema or behaviour change in this pass; plan at [`docs/INJURY-ATTRIBUTION-PLAN.md`](docs/INJURY-ATTRIBUTION-PLAN.md) |
@@ -82,7 +82,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.0 beta | workable app, guided Workflow UI and the current strength/volume feature set | **released 2026-10-27; beta** |
 | v1.1 beta | monitoring and Performance surfaces | **released 2026-10-31 (b2); beta** |
 | v1.2 | beta removal plus cardio depth and comparable calibration data | **planned; see §4.13a** |
-| future | training-day session fragments | specified 2026-10-31; implementation after v1.2 |
+| — | training-day session fragments | **done 2026-11-01** (see §4.27) |
 | — | post-workout form assessment | **done 2026-10-25** |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional (§4.24)** |
 
@@ -1463,6 +1463,17 @@ verification, no multiple lifts, no backfill.
 
 The phases are independent and start only when the owner picks them up. This section is the
 agreed plan, not a claim that any part exists.
+
+### 4.27 Training-day session fragments  (done 2026-11-01)
+
+**Status:** implemented. One local training day may hold multiple existing `session` rows;
+they are grouped by `occurred_on` and never merged. Attendance, the weekly budget and the
+rolling schedule count training days. Volume, spinal cost and MRV still count every working
+set from every fragment once. e1RM produces one best eligible observation per exercise and
+day. The second fragment reuses the day plan and the first fragment's readiness snapshot.
+History shows one expandable training-day row; the fragment API, edit, void, review and detail
+surfaces remain. No schema migration. The specification and acceptance criteria live in
+[`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md).
 
 ## 5. Known gaps and risks
 

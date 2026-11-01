@@ -191,6 +191,14 @@ def resolve_reference(context: RuleContext, ref: str) -> bool:
         if context.session_ids:
             return value in context.session_ids
         return value in set(context.sets["session_id"].astype(str))
+    if kind == "day":
+        if not context.sessions.empty:
+            return value in {
+                str(day)[:10] for day in context.sessions["occurred_on"].dropna()
+            }
+        if context.sets.empty:
+            return False
+        return value in {str(day)[:10] for day in context.sets["date"].dropna()}
     if kind == "symptom":
         return context.symptom_on is not None and context.symptom_on == value
     if kind == "week":

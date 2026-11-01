@@ -10,6 +10,7 @@ import datetime as dt
 import statistics
 from collections import Counter
 
+from strength_coach.features import training_day
 from strength_coach.store import queries
 
 FAMILIES = ("squat", "hinge", "bench")
@@ -26,27 +27,26 @@ def _family(session_type: str) -> str | None:
 
 def summary(conn, *, start: dt.date, end: dt.date, weeks: int,
             target_per_week: int | None = None) -> dict:
-    sessions = queries.sessions(conn, start=start.isoformat(), end=end.isoformat())
-    completed = int(len(sessions))
+    days = training_day.group(
+        conn, start=start.isoformat(), end=end.isoformat(), with_exercises=False
+    )
+    completed = len(days)
     if target_per_week is None:
         profile = queries.athlete_profile(conn) or {}
         target_per_week = profile.get("sessions_per_week_target")
     target = int(target_per_week) * weeks if target_per_week is not None else None
-    types = Counter(str(value) for value in sessions["session_type"]) if not sessions.empty else Counter()
-    families = Counter(
-        _family(str(value)) for value in sessions["session_type"]
-    ) if not sessions.empty else Counter()
+    types = Counter(str(day["session_type"]) for day in days)
+    families = Counter(_family(str(day["session_type"])) for day in days)
     families.pop(None, None)
 
     duration_rows = []
     measured_rows = []
-    if not sessions.empty and "duration_basis" in sessions:
-        for row in sessions.itertuples(index=False):
-            if getattr(row, "duration_min", None) is None:
-                continue
-            duration_rows.append(float(row.duration_min))
-            if getattr(row, "duration_basis", None) == "measured":
-                measured_rows.append(float(row.duration_min))
+    for day in days:
+        if day.get("duration_min") is None:
+            continue
+        duration_rows.append(float(day["duration_min"]))
+        if day.get("duration_basis") == "measured":
+            measured_rows.append(float(day["duration_min"]))
 
     symptoms = queries.symptom_entries(conn, since=start.isoformat())
     symptoms = [row for row in symptoms if str(row["logged_on"]) <= end.isoformat()]

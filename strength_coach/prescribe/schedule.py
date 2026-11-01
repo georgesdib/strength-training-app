@@ -13,8 +13,8 @@ from __future__ import annotations
 
 from collections import Counter
 
+from strength_coach.features import training_day
 from strength_coach.prescribe import session_identity
-from strength_coach.store import queries
 
 SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
 TARGETS = ("squat", "hinge", "bench")
@@ -92,9 +92,12 @@ def _choose_family(recent: list[str], targets: dict[str, int]) -> str:
 
 
 def next_session_type(conn, before: str, *, prior_types=()) -> str:
-    """Choose the next type from recent sessions plus any forecast choices."""
-    sessions = queries.sessions(conn, end=before)
-    recent = [] if sessions.empty else [str(v) for v in sessions.tail(WINDOW)["session_type"]]
+    """Choose the next type from recent training days plus any forecast choices."""
+    days = training_day.group(conn, end=before, with_exercises=False)
+    recent = [
+        str(day["planned_type"]) for day in days
+        if day.get("planned_type") and day.get("planned_type") != "mixed"
+    ][-WINDOW:]
     recent.extend(str(item) for item in prior_types)
 
     availability = _availability(conn)

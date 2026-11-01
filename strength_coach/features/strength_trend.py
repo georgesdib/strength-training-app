@@ -146,8 +146,17 @@ def _observations(
             load_basis=load_basis or None,
             raw_exercise=raw_exercise or None,
         ))
-    out.sort(key=lambda item: (item.date, item.session_id))
-    return out
+    # One point per training day: choose the best eligible fragment, never average them.
+    by_day: dict[str, RawObservation] = {}
+    for observation in out:
+        current = by_day.get(observation.date)
+        if current is None or (
+            observation.estimate.kg, observation.estimate.set_id or -1
+        ) > (
+            current.estimate.kg, current.estimate.set_id or -1
+        ):
+            by_day[observation.date] = observation
+    return sorted(by_day.values(), key=lambda item: (item.date, item.session_id))
 
 
 def observations(
