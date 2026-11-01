@@ -84,29 +84,14 @@ class ResolverPolicy:
 def load_candidate_catalogue(
     policy: ResolverPolicy,
 ) -> Mapping[str, Mapping[str, tuple[str, ...]]]:
-    """Load the referenced catalogue as an immutable session/slot -> candidate ids map.
+    """Load and validate the referenced catalogue from one file snapshot.
 
-    The catalogue is deliberately not copied into the policy. Validation is repeated here so
-    a file changed after the policy digest was computed cannot be consumed without the same
-    structural and pattern checks.
+    The parse, structural checks, pattern checks and returned mapping all come from the same
+    string. A concurrent file edit cannot make the generator consume content that was not
+    validated, and the digest is computed from the same immutable mapping.
     """
     source = paths.repo_root() / policy.candidate_catalogue.path
-    _validate_candidate_catalogue(source, "candidate catalogue", policy.allowed_patterns)
-    label = f"candidate catalogue {source.name}"
-    raw = _load_yaml(_read_text(source, label), label)
-    slots = _mapping(raw.get("slots"), f"{label}: slots")
-    entities = exercises.taxonomy().entities
-    out: dict[str, Mapping[str, tuple[str, ...]]] = {}
-    for session_type, slot_map in slots.items():
-        session = str(session_type)
-        slot_body = _mapping(slot_map, f"{label}: slots.{session}")
-        out[session] = MappingProxyType({
-            str(slot_id): _exercise_list(
-                raw_ids, f"{label}: slots.{session}.{slot_id}", entities
-            )
-            for slot_id, raw_ids in slot_body.items()
-        })
-    return MappingProxyType(out)
+    return _parse_candidate_catalogue(source, "candidate catalogue", policy.allowed_patterns)
 
 
 def candidate_catalogue_digest(
@@ -301,19 +286,15 @@ def _check_catalogue_path(path_text: str, where: str) -> Path:
     return resolved
 
 
-def _validate_candidate_catalogue(
+def _parse_candidate_catalogue(
     source: Path,
     where: str,
     allowed: Mapping[str, tuple[str, ...]] | None = None,
-) -> None:
-    """Validate the referenced catalogue without copying its exercise definitions.
+) -> Mapping[str, Mapping[str, tuple[str, ...]]]:
+    """Read, validate and build the catalogue from one immutable text snapshot.
 
-    The catalogue is the existing per-session/slot candidate source. The resolver references
-    it; it must not maintain a second list. Structural validation rejects a file that is not a
-    slot catalogue, uses an unknown session or slot, names an exercise the taxonomy does not
-    know, or offers a candidate whose pattern is not permitted for that slot. An explicit
-    allowed_patterns entry is the configured flexibility; otherwise the blueprint's default
-    patterns (including exercise_variants) apply.
+    Validation and construction share the parsed mapping, so a concurrent file edit cannot
+    make the generator consume content that was not checked.
     """
     label = f"{where}: candidate catalogue {source.name}"
     body = _read_text(source, label)
@@ -333,9 +314,11 @@ def _validate_candidate_catalogue(
     }
     entities = exercises.taxonomy().entities
     explicit_allowed = allowed or {}
+    out: dict[str, Mapping[str, tuple[str, ...]]] = {}
     for session_type, slot_map in slots.items():
         session = str(session_type)
         slot_body = _mapping(slot_map, f"{label}: slots.{session}")
+        mutable: dict[str, tuple[str, ...]] = {}
         for slot_id, raw_ids in slot_body.items():
             slot = str(slot_id)
             if slot not in known_slots:
@@ -364,6 +347,19 @@ def _validate_candidate_catalogue(
                             f"{exercise_id!r} has pattern {pattern!r}; permitted "
                             f"{sorted(permitted)}"
                         )
+            mutable[slot] = candidate_ids
+        out[session] = MappingProxyType(mutable)
+    return MappingProxyType(out)
+
+
+def _validate_candidate_catalogue(
+    source: Path,
+    where: str,
+    allowed: Mapping[str, tuple[str, ...]] | None = None,
+) -> None:
+    """Compatibility wrapper: validate only, discarding the parsed catalogue."""
+    _parse_candidate_catalogue(source, where, allowed)
+
 
 
 def _required_patterns(value: Any, where: str) -> dict[str, tuple[str, ...]]:

@@ -25,10 +25,10 @@ def test_resolver_defaults_are_registered_and_neutral() -> None:
         snapshot.get("resolver.weights.fatigue"),
         snapshot.get("resolver.weights.spinal"),
         snapshot.get("resolver.weights.injury"),
-        snapshot.get("resolver.weights.rotation"),
-        snapshot.get("resolver.weights.preference"),
     ]
-    assert abs(sum(weights) - 1.0) < 1e-9
+    assert abs(sum(weights) - 0.70) < 1e-9
+    assert "resolver.weights.rotation" not in snapshot.values
+    assert "resolver.weights.preference" not in snapshot.values
 
 
 def test_resolver_settings_are_profile_backed() -> None:

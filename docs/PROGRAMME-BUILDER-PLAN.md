@@ -275,7 +275,7 @@ The policy is a versioned **structural** configuration file
 
 Scalar tunables live in the settings profile (append-only, effective-dated): enable, Exercise
 Rotation and dwell, eligibility/confirmation, coverage priority, readiness/fatigue/spinal/
-injury/preference weights, tie-break, top-set mode/back-off percentage/RIR mapping, competition
+injury weights, tie-break, top-set mode/back-off percentage/RIR mapping, competition
 window and taper, and forecast mode. Keeping the structural policy and the scalar tunables
 separate avoids two competing sources for the same value.
 
@@ -626,7 +626,9 @@ Scalar keys (settings registry / settings profile):
 - resolver.coverage.priority, resolver.coverage.under_target_weight,
   resolver.coverage.over_target_weight
 - resolver.weights.readiness, resolver.weights.fatigue, resolver.weights.spinal,
-  resolver.weights.injury, resolver.weights.rotation, resolver.weights.preference
+  resolver.weights.injury
+  (the rotation and preference weights were retired in the Step 2 final remediation because
+  the dwell mechanism and binary suitability made them constant across automatic candidates)
 - resolver.tie_break
 - resolver.top_set.mode, resolver.top_set.eligible, resolver.top_set.backoff_percent,
   resolver.top_set.preserve_total_sets, resolver.top_set.protect_top_set,
@@ -801,8 +803,10 @@ behaviour.
   keys; ordinary anchors/shared aliases allowed; candidate-catalogue structure, slot-pool
   movement-pattern and top-set main-lift checks; file-read errors normalised with the underlying
   cause preserved; SHA-256 digest;
-- 32 scalar resolver keys in settings_registry/settings_profile; the existing generic Settings
-  profile now shows a Resolver group, while the dedicated panel remains Step 5;
+- 30 scalar resolver keys in settings_registry/settings_profile after the Step 2 final
+  remediation retired the redundant rotation and preference weights (Step 1 originally
+  registered 32; DEC-RESOLVER-10); the existing generic Settings profile now shows a Resolver
+  group, while the dedicated panel remains Step 5;
 - migration 0048 adds nullable template_digest, policy_digest, input_hash and
   generated_session_json to prescription; append_prescription accepts them and preserves null
   for the fixed path;
@@ -867,8 +871,11 @@ persistence, UI or top set.
   default or fallback never bypasses this. With require_can_do=false, unrated candidates are
   admissibly automatic (unrated_mode is the requirement-on policy). will_do=0 and feels_bad=1 are
   never automatic; the Step 1 flags decide whether they remain suggestion-only or are hidden.
-- **Rotation default.** rotation_default is the fallback for secondary and unclassified slots;
-  the shipped default is 0.2 so main/secondary rotation matches the confirmed 0.2 default.
+- **Rotation default and scoring.** Rotation is the deterministic dwell rule, not a ranking
+  weight. rotation_default is the fallback for secondary and unclassified slots; the shipped
+  default is 0.2 so main/secondary rotation matches the confirmed 0.2 default. The redundant
+  resolver.weights.rotation setting was retired (DEC-RESOLVER-10) because every ranked candidate
+  had the same rotation value.
 - **Required-pattern repair.** Automatic candidates are filtered by the missing pattern first;
   only then is the blueprint fallback considered. A fallback must pass the same hard, injury and
   can_do rules; a suggestion-only fallback is not selected. This avoids failing because an
@@ -877,17 +884,35 @@ persistence, UI or top set.
   hard-eligible candidate and every required pattern can be covered by at least one hard-eligible
   candidate. Soft preference, confirmation and scoring are not part of availability.
 - **Spinal scoring.** The provisional candidate cost is the difference produced by the
-  authoritative spinal rule with the candidate added, using configured overrides, set-count
-  factors and the same neutral intensity assumption as final validation. Final validation remains
-  authoritative.
+  authoritative spinal rule for the whole proposed session: existing weekly exposures, every
+  already-selected slot, the candidate slot and the blueprint default for not-yet-selected
+  slots. It uses configured overrides, excluded patterns, set-count factors and the same neutral
+  intensity assumption as final validation. Duplicate exercise ids are aggregated into one
+  exposure with their total sets, so a later slot cannot overwrite an earlier one. Final
+  validation remains authoritative and applies the same aggregation.
 - **History.** Completed workouts and prescriptions are merged by date, with the workout taking
-  precedence on a date that has both. The most recent row that actually contains a slot drives
-  rotation; newer rows missing that slot do not erase an older choice.
-- **Rotation warning.** At rotation 1, if the only eligible candidate is the current exercise,
-  it is retained and a warning states that no eligible alternative existed.
-- **Provenance.** GeneratedSession exposes policy_digest and catalogue_digest. The catalogue
-  digest is SHA-256 over the canonical validated catalogue content (session, slot and candidate
-  order), independent of file timestamps.
+  precedence on a date that has both. A completed date blocks prescription fallback even when
+  its plan mapping is empty, malformed or unusable; absence of exercise information is preserved.
+  Multiple prescriptions on one date use the deterministic created-at/id order. The most recent
+  row that actually contains a slot drives rotation; newer rows missing that slot do not erase an
+  older choice.
+- **Rotation warning.** When a rotation change is due and the only eligible candidate is the
+  current exercise, it is retained and a warning names the configured rotation and states that
+  no eligible alternative existed. This wording is not specific to rotation 1.
+- **Pending ratings and transparency.** One shared helper decides pending_rating for normal
+  selection and required-pattern repair, and pending_ratings is derived from the final slots.
+  A dwell-retained choice keeps its dwell explanation and appends the score reasons. Reasons show
+  only components actually used by the weighted score, including the injury value and its
+  normalized weight.
+- **Provenance.** GeneratedSession exposes policy_digest and catalogue_digest. Catalogue load,
+  validation, immutable mapping construction and digest use one file snapshot, so a concurrent
+  edit cannot be consumed without validation; the digest is SHA-256 over the canonical validated
+  content (session, slot and candidate order), independent of file timestamps.
+- **Retired preference weight.** The binary suitability fields made preference constant across
+  the normal automatic pool, so resolver.weights.preference was retired rather than inventing
+  graded values (DEC-RESOLVER-10). The remaining four weights are normalized over their own
+  total. will_do=0, feels_bad=1 and can_do=0 remain hard/suggestion-only rules, never score
+  loopholes.
 - **Deferred.** The configurable injury weight is implemented only for low-back
   review/monitoring risk, because the readiness ceiling already owns the other regions and
   DEC-INJURY-04 deliberately excludes the low back there. Broader candidate-specific injury
@@ -899,10 +924,12 @@ persistence, UI or top set.
 
 **Tests:** tests/test_generator.py covers generated defaults after explicit ratings, eligibility,
 require_can_do, unrated confirm/exclude, will_do/feels_bad suggestions, pattern-level injury
-exclusion, power-slot safety, rotation 0/1 and its no-alternative warning, history merge and
-last-slot lookup, required-pattern fallback repair, main/secondary availability, the rotation
-default and catalogue digest; tests/test_resolver_policy.py covers the pattern-flexibility
-policy.
+exclusion, power-slot safety, rotation 0/1 and its no-alternative warning, whole-session spinal
+scoring, duplicate exposure aggregation, completed-workout precedence including empty/malformed
+mappings, deterministic prescription order, pending-rating consistency, dwell/injury reasons,
+required-pattern fallback repair, main/secondary availability, the rotation default and
+catalogue digest. tests/test_resolver_policy.py covers the pattern-flexibility policy and the
+single-snapshot catalogue read.
 
 **Acceptance:** generator returns valid generated templates and field-level errors; not wired
 into the main path; the fixed-template prescription path is unchanged.
@@ -1041,7 +1068,7 @@ generator and top set work end-to-end; the feature can be disabled without data 
 
 ## 13. Confirmed decisions
 
-Recorded as `DEC-RESOLVER-01`–`09` in [DECISIONS.md](DECISIONS.md).
+Recorded as `DEC-RESOLVER-01`–`10` in [DECISIONS.md](DECISIONS.md).
 
 - Session generator per session; no block-level exercise pin; generated session frozen at workout
   start.

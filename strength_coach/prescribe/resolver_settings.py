@@ -42,7 +42,7 @@ class ResolverSettings:
     def from_values(cls, values: Mapping[str, object]) -> ResolverSettings:
         weights = {
             key: float(values[f"resolver.weights.{key}"])
-            for key in ("readiness", "fatigue", "spinal", "injury", "rotation", "preference")
+            for key in ("readiness", "fatigue", "spinal", "injury")
         }
         return cls(
             enabled=bool(values["resolver.enabled"]),

@@ -37,6 +37,15 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 2 final audit**: retired the redundant rotation and
+  preference score weights (rotation remains the deterministic dwell rule; preference was
+  constant for automatic candidates); whole-session provisional spinal scoring now includes
+  earlier selections and aggregates duplicate exercise sets before authoritative validation;
+  completed-workout dates block same-date prescription fallback even when their mapping is
+  empty/malformed; catalogue load/validate/build/digest use one file snapshot; pending-rating
+  metadata uses one helper; dwell reasons and injury contributions are preserved; and the
+  rotation warning no longer claims rotation 1 for intermediate dwell. No top set, joint
+  evaluator, persistence, UI or prescription wiring; the flag remains off.
 - Deterministic template resolver **Step 2 remediation**: shared hard eligibility for concrete
   and `pattern:<family>` injury links; safety-checked fixed power slots that fail rather than
   substitute; effective `require_can_do`, `unrated_mode` and `rotation_default`; suggestion-only

@@ -13,6 +13,7 @@ from strength_coach.prescribe.resolver_policy import (
     ResolverPolicyError,
     _load_yaml,
     _validate_candidate_catalogue,
+    load_candidate_catalogue,
     validate_text,
 )
 from strength_coach.utils import paths
@@ -325,6 +326,23 @@ def test_candidate_catalogue_invalid_utf8_is_a_configuration_error(tmp_path) -> 
     with pytest.raises(ResolverPolicyError, match="cannot read") as info:
         _validate_candidate_catalogue(path, "test")
     assert isinstance(info.value.__cause__, UnicodeDecodeError)
+
+
+def test_candidate_catalogue_is_read_once(monkeypatch) -> None:
+    policy = ResolverPolicy.load()
+    target = paths.repo_root() / policy.candidate_catalogue.path
+    calls: list[Path] = []
+    original = Path.read_text
+
+    def counting_read(self, *args, **kwargs):
+        if self == target:
+            calls.append(self)
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", counting_read)
+    catalogue = load_candidate_catalogue(policy)
+    assert len(calls) == 1
+    assert catalogue["squat"]["squat_main"]
 
 
 def test_redundancy_must_be_positive() -> None:

@@ -204,25 +204,24 @@ def generate(
             rotation, dwell, sessions_since_change
         ):
             chosen = last_id
-            reasons = (
-                f"kept last choice {last_id}",
-                f"rotation {rotation:.2f}",
-            )
             scored = _score(
                 conn, chosen, slot, selected, template, accounting, assessment, injury,
-                stress, stress_config, suitability, settings, volume_config, policy, rule, taxonomy,
-                current_spinal, spinal_cap, last_id, week_start, week_end,
+                stress, stress_config, suitability, settings, volume_config, policy, rule,
+                taxonomy, current_spinal, spinal_cap, last_id, week_start, week_end,
             )
             score = scored.score
-            reasons = scored.reasons
+            reasons = (
+                f"kept last choice {last_id} because the dwell period has not elapsed",
+                f"rotation {rotation:.2f}",
+            ) + scored.reasons
         elif auto:
             must_rotate = _must_rotate(rotation, dwell, sessions_since_change)
             candidates = [c for c in auto if not (must_rotate and c == last_id)]
             if not candidates:
                 if must_rotate and last_id is not None:
                     warnings.append(
-                        f"{slot.id}: rotation 1 could not change exercise; "
-                        f"no eligible alternative to {last_id}"
+                        f"{slot.id}: rotation change was due (rotation {rotation:.2f}) "
+                        f"but no eligible alternative to {last_id} existed; kept it"
                     )
                 candidates = list(auto)
             ranked = _rank(
@@ -256,9 +255,7 @@ def generate(
                 stress_config, suitability, settings, volume_config, policy, rule, taxonomy, current_spinal,
                 spinal_cap, last_id, chosen, week_start, week_end,
             ),
-            pending_rating=(
-                suitability.get(chosen) is None and settings.unrated_mode != "exclude"
-            ),
+            pending_rating=_pending_rating(chosen, suitability, settings),
         )
 
     selected, choices, repair_warnings = _repair_required(
@@ -506,6 +503,7 @@ def _choice_history(conn, session_type: str, before_date: str) -> list[dict[int,
     performed session are never counted twice.
     """
     by_date: dict[str, dict[int, str]] = {}
+    completed_dates: set[str] = set()
     rows = conn.execute(
         """
         SELECT for_date, plan_json FROM workout_session
@@ -518,6 +516,7 @@ def _choice_history(conn, session_type: str, before_date: str) -> list[dict[int,
     for row in rows:
         mapping = _plan_mapping(row["plan_json"])
         date = str(row["for_date"])
+        completed_dates.add(date)
         if mapping and date not in by_date:
             by_date[date] = mapping
 
@@ -527,7 +526,8 @@ def _choice_history(conn, session_type: str, before_date: str) -> list[dict[int,
           FROM prescription p
           JOIN prescription_item pi ON pi.prescription_id = p.prescription_id
          WHERE p.session_type = ? AND p.for_date < ?
-         ORDER BY p.for_date DESC, p.created_at DESC, pi.order_index ASC
+         ORDER BY p.for_date DESC, p.created_at DESC, p.prescription_id DESC,
+                  pi.order_index ASC
          LIMIT 520
         """,
         (session_type, before_date),
@@ -544,7 +544,8 @@ def _choice_history(conn, session_type: str, before_date: str) -> list[dict[int,
         if mapping and date not in prescription_by_date:
             prescription_by_date[date] = mapping
     for date, mapping in prescription_by_date.items():
-        by_date.setdefault(date, mapping)
+        if date not in completed_dates:
+            by_date[date] = mapping
     return [by_date[date] for date in sorted(by_date, reverse=True)]
 
 
@@ -616,6 +617,15 @@ def _injury_component(
     if not _injury_matches(exercise_id, region.linked_exercises, taxonomy):
         return 1.0
     return 0.65 if region.status == injury_signal.STATUS_REVIEW else 0.85
+
+
+def _pending_rating(
+    exercise_id: str,
+    suitability: Mapping[str, Mapping[str, Any]],
+    settings: ResolverSettings,
+) -> bool:
+    """The one rule for a selected-but-unconfirmed exercise."""
+    return suitability.get(exercise_id) is None and settings.unrated_mode != "exclude"
 
 
 def _state_reason(state: str) -> str:
@@ -739,40 +749,56 @@ def _stress_component(
     return _clamp(1.0 - entry.decayed_sets / max(config.high_decayed_sets, 1.0))
 
 
-def _preference_component(
-    exercise_id: str,
-    suitability: Mapping[str, Mapping[str, Any]],
-) -> float:
-    rating = suitability.get(exercise_id)
-    if rating is None:
-        return 0.5
-    if not rating["will_do"]:
-        return 0.0
-    if rating["feels_bad"]:
-        return 0.25
-    return 1.0
+def _session_spinal_extra(
+    template: templates.SessionTemplate,
+    selected: Mapping[str, str],
+    slot: templates.Slot,
+    candidate: str,
+    week_start: str,
+) -> list[tuple[str, str, str, int, None]]:
+    """One aggregated extra row per exercise for the proposed generated session.
+
+    spinal_exposures() keys by (session_id, exercise_id). Sending one row per slot would let a
+    duplicate exercise overwrite an earlier slot instead of contributing its sets. Aggregate the
+    whole proposed session by exercise id before calling the authoritative rule.
+    """
+    assignment = dict(selected)
+    assignment[slot.id] = candidate
+    sets_by_exercise: Counter[str] = Counter()
+    for current in template.slots:
+        exercise_id = assignment.get(current.id) or _default_id(current)
+        if exercise_id is not None:
+            sets_by_exercise[exercise_id] += int(current.sets)
+    session_id = f"generator:{week_start}"
+    return [
+        (session_id, exercise_id, week_start, sets, None)
+        for exercise_id, sets in sets_by_exercise.items()
+    ]
 
 
 def _provisional_spinal_delta(
     rule,
     accounting: RuleContext,
     week_start: str,
-    exercise_id: str,
-    sets: int,
+    template: templates.SessionTemplate,
+    selected: Mapping[str, str],
+    slot: templates.Slot,
+    candidate: str,
     current_cost: float,
 ) -> float:
-    """Delta from the authoritative spinal rule, not a second cost model.
+    """Projected whole-session delta from the authoritative spinal rule.
 
-    The final validation is authoritative. This provisional delta uses the same configured
-    overrides, set-count factors and (absent a planned intensity in Step 2) the same neutral
-    intensity assumption as the final check, so scoring cannot prefer a systematically
-    understated candidate.
+    The proposal includes completed weekly exposures (through accounting), every already
+    selected slot, the candidate slot, and the blueprint default for slots not yet selected.
+    This keeps candidate comparisons on the same whole-session state while final validation
+    remains authoritative.
     """
     if rule is None:
         return 0.0
-    extra = [(f"generator:{exercise_id}", exercise_id, week_start, sets, None)]
+    extra = _session_spinal_extra(template, selected, slot, candidate, week_start)
     proposed = _weekly_spinal_cost(rule, accounting, week_start, extra)
     return max(0.0, proposed - current_cost)
+
 
 
 def _spinal_component(total_cost: float, cap: float) -> float:
@@ -911,36 +937,37 @@ def _score(
     readiness = _readiness_component(assessment, conn, exercise_id, entity, injury)
     stress_value = _stress_component(exercise_id, stress, stress_config)
     candidate_spinal = _provisional_spinal_delta(
-        rule, accounting, week_start, exercise_id, int(slot.sets), current_spinal
+        rule, accounting, week_start, template, selected, slot, exercise_id, current_spinal
     )
     spinal = _spinal_component(current_spinal + candidate_spinal, spinal_cap)
-    preference = _preference_component(exercise_id, suitability)
+    injury_value = _injury_component(injury, exercise_id, taxonomy)
     partial = dict(selected)
     partial[slot.id] = exercise_id
     assigned = _assignment_pattern_sets(template, partial, taxonomy)
     completed = _completed_pattern_sets(accounting, week_start, week_end, taxonomy)
     coverage = _coverage_component(completed, assigned, volume_config, settings)
     redundancy = _redundancy_penalty(template, selected, slot, exercise_id, policy, taxonomy)
-    rotation = 1.0 if last_id and exercise_id != last_id else 0.5
-    weighted = sum(
-        float(settings.weights.get(key, 0.0)) * value
-        for key, value in (
-            ("readiness", readiness),
-            ("fatigue", stress_value),
-            ("spinal", spinal),
-            ("injury", _injury_component(injury, exercise_id, taxonomy)),
-            ("rotation", rotation),
-            ("preference", preference),
-        )
+    components = (
+        ("readiness", readiness),
+        ("fatigue", stress_value),
+        ("spinal", spinal),
+        ("injury", injury_value),
+    )
+    weights = {key: float(settings.weights.get(key, 0.0)) for key, _value in components}
+    total_weight = sum(weights.values())
+    weighted = (
+        sum(weights[key] * value for key, value in components) / total_weight
+        if total_weight > 0
+        else 0.0
     )
     factor = COVERAGE_FACTORS.get(settings.coverage_priority, 0.15)
     score = _clamp(weighted + factor * (coverage - 0.5) - redundancy)
-    reasons = (
-        f"readiness {readiness:.2f}",
-        f"stress {stress_value:.2f}",
-        f"spinal {spinal:.2f}",
+    reasons = tuple(
+        f"{key} {value:.2f} (weight {weights[key] / total_weight:.2f})"
+        for key, value in components
+        if total_weight > 0 and weights[key] > 0
+    ) + (
         f"coverage {coverage:.2f}",
-        f"preference {preference:.2f}",
         f"redundancy penalty {redundancy:.2f}",
     )
     return _Candidate(
@@ -1121,7 +1148,9 @@ def _repair_required(
                     policy, rule, taxonomy, current_spinal, spinal_cap, None,
                     chosen.exercise_id, week_start, week_end,
                 ),
-                pending_rating=suitability.get(chosen.exercise_id) is None,
+                pending_rating=_pending_rating(
+                    chosen.exercise_id, suitability, settings
+                ),
             )
             warnings.append(
                 f"{slot.id}: required-pattern repair selected {chosen.exercise_id}"
@@ -1173,10 +1202,13 @@ def _validate_spinal(
 ) -> None:
     if rule is None:
         return
+    sets_by_exercise: Counter[str] = Counter()
+    for slot in template.slots:
+        if slot.id in selected:
+            sets_by_exercise[selected[slot.id]] += int(slot.sets)
     extras = [
-        (f"generator:{for_date}", selected[slot.id], for_date, slot.sets, None)
-        for slot in template.slots
-        if slot.id in selected
+        (f"generator:{for_date}", exercise_id, for_date, sets, None)
+        for exercise_id, sets in sets_by_exercise.items()
     ]
     week = rules_registry.iso_week(for_date)
     costs = rules_registry.weekly_spinal_costs(rule, accounting, extras)

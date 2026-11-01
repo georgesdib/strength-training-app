@@ -79,6 +79,32 @@ def _history(
     )
 
 
+def _raw_workout(
+    conn,
+    session_type: str,
+    plan_json: str,
+    *,
+    for_date: str,
+    suffix: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO workout_session
+            (workout_id, for_date, session_type, status, plan_json, readiness_json,
+             started_at, ended_at)
+        VALUES (?, ?, ?, 'completed', ?, '{}', ?, ?)
+        """,
+        (
+            f"w-{suffix}",
+            for_date,
+            session_type,
+            plan_json,
+            f"{for_date}T10:00:00Z",
+            f"{for_date}T11:00:00Z",
+        ),
+    )
+
+
 def _prescription(
     conn,
     prescription_id: str,
@@ -251,11 +277,14 @@ def test_rotation_zero_keeps_the_last_choice_and_one_rotates() -> None:
         )
         assert kept.template.primary_exercise == "ssb_squat"
         assert rotated.template.primary_exercise == "competition_squat"
+        kept_main = next(slot for slot in kept.slots if slot.slot_id == "squat_main")
+        assert "dwell" in kept_main.reasons[0]
+        assert any("injury" in reason for reason in kept_main.reasons)
     finally:
         store.close()
 
 
-def test_rotation_one_warns_when_no_alternative_exists() -> None:
+def test_rotation_warning_reports_the_configured_value() -> None:
     store = db.Store(":memory:")
     try:
         _rate_defaults(store.connection, "squat")
@@ -265,10 +294,19 @@ def test_rotation_one_warns_when_no_alternative_exists() -> None:
             store.connection,
             for_date="2026-11-01",
             session_type="squat",
-            settings=_settings(**{"resolver.rotation.main": 1.0}),
+            settings=_settings(
+                **{
+                    "resolver.rotation.main": 0.5,
+                    "resolver.rotation.max_dwell": 1,
+                }
+            ),
         )
         assert session.template.primary_exercise == "ssb_squat"
-        assert any("could not change exercise" in warning for warning in session.warnings)
+        warning = next(
+            item for item in session.warnings if "no eligible alternative" in item
+        )
+        assert "rotation 0.50" in warning
+        assert "rotation 1" not in warning
     finally:
         store.close()
 
@@ -388,6 +426,26 @@ def test_unrated_exclude_hides_candidates() -> None:
         store.close()
 
 
+def test_pending_rating_rule_is_consistent_when_unrated_is_allowed() -> None:
+    store = db.Store(":memory:")
+    try:
+        session = generator.generate(
+            store.connection,
+            for_date="2026-11-01",
+            session_type="squat",
+            settings=_settings(
+                **{
+                    "resolver.eligibility.auto_requires_can_do": False,
+                    "resolver.eligibility.unrated_mode": "exclude",
+                }
+            ),
+        )
+        assert session.pending_ratings == ()
+        assert all(not slot.pending_rating for slot in session.slots)
+    finally:
+        store.close()
+
+
 def test_availability_checks_main_and_secondary() -> None:
     store = db.Store(":memory:")
     try:
@@ -434,6 +492,87 @@ def test_history_merges_workout_and_prescription_by_date() -> None:
         assert generator._last_choice(history, 1) == ("ssb_squat", 1)
         assert generator._last_choice([{0: "x"}, {1: "y"}], 1) == ("y", 1)
         assert generator._last_choice([{0: "x"}], 1) == (None, 0)
+    finally:
+        store.close()
+
+
+def test_completed_workout_with_empty_mapping_blocks_prescription() -> None:
+    store = db.Store(":memory:")
+    try:
+        _raw_workout(
+            store.connection,
+            "squat",
+            '{"items": []}',
+            for_date="2026-10-30",
+            suffix="empty",
+        )
+        _prescription(
+            store.connection,
+            "p-empty",
+            "front_squat",
+            for_date="2026-10-30",
+        )
+        assert generator._choice_history(
+            store.connection, "squat", "2026-11-01"
+        ) == []
+    finally:
+        store.close()
+
+
+def test_completed_workout_with_malformed_mapping_blocks_prescription() -> None:
+    store = db.Store(":memory:")
+    try:
+        _raw_workout(
+            store.connection,
+            "squat",
+            "not-json",
+            for_date="2026-10-30",
+            suffix="malformed",
+        )
+        _prescription(
+            store.connection,
+            "p-malformed",
+            "front_squat",
+            for_date="2026-10-30",
+        )
+        assert generator._choice_history(
+            store.connection, "squat", "2026-11-01"
+        ) == []
+    finally:
+        store.close()
+
+
+def test_prescription_is_used_only_without_a_completed_workout() -> None:
+    store = db.Store(":memory:")
+    try:
+        _prescription(
+            store.connection,
+            "p-used",
+            "front_squat",
+            for_date="2026-10-29",
+        )
+        history = generator._choice_history(
+            store.connection, "squat", "2026-11-01"
+        )
+        assert history[0][1] == "front_squat"
+    finally:
+        store.close()
+
+
+def test_multiple_prescriptions_on_one_date_are_deterministic() -> None:
+    store = db.Store(":memory:")
+    try:
+        _prescription(
+            store.connection, "p-a", "front_squat", for_date="2026-10-29"
+        )
+        _prescription(
+            store.connection, "p-b", "competition_squat", for_date="2026-10-29"
+        )
+        history = generator._choice_history(
+            store.connection, "squat", "2026-11-01"
+        )
+        assert history[0][1] == "competition_squat"
+        assert all(entry.get(1) != "front_squat" for entry in history)
     finally:
         store.close()
 
@@ -507,14 +646,85 @@ def test_provisional_spinal_cost_respects_the_authoritative_override() -> None:
         entities=entities,
         spinal_costs={"competition_squat": 9.0},
     )
+    template = templates.SessionTemplate.load("squat")
+    main = next(slot for slot in template.slots if slot.id == "squat_main")
     low_delta = generator._provisional_spinal_delta(
-        rule, low, "2026-10-26", "competition_squat", 5, 0.0
+        rule, low, "2026-10-26", template, {}, main, "competition_squat", 0.0
     )
     high_delta = generator._provisional_spinal_delta(
-        rule, high, "2026-10-26", "competition_squat", 5, 0.0
+        rule, high, "2026-10-26", template, {}, main, "competition_squat", 0.0
     )
     assert low_delta > 0
     assert high_delta > low_delta
+
+
+def test_provisional_spinal_cost_includes_earlier_selections() -> None:
+    rule = loader.load_document().rule("PRG-SPINE-001")
+    entities = exercises.taxonomy().entities
+    context = RuleContext(
+        sets=pd.DataFrame(),
+        sessions=pd.DataFrame(),
+        entities=entities,
+        spinal_costs={"competition_squat": 9.0},
+    )
+    template = templates.SessionTemplate.load("squat")
+    erector = next(slot for slot in template.slots if slot.id == "erector")
+    without = generator._provisional_spinal_delta(
+        rule, context, "2026-10-26", template, {}, erector, "back_extension", 0.0
+    )
+    with_earlier = generator._provisional_spinal_delta(
+        rule,
+        context,
+        "2026-10-26",
+        template,
+        {"squat_main": "competition_squat"},
+        erector,
+        "back_extension",
+        0.0,
+    )
+    assert with_earlier > without
+
+
+def test_final_spinal_validation_aggregates_duplicate_exercise_sets() -> None:
+    rule = loader.load_document().rule("PRG-SPINE-001")
+    entities = exercises.taxonomy().entities
+    context = RuleContext(
+        sets=pd.DataFrame(),
+        sessions=pd.DataFrame(),
+        entities=entities,
+        spinal_costs={"back_extension": 2.0},
+    )
+    template = templates.SessionTemplate.load("squat")
+    one = {"erector": "back_extension"}
+    two = {"erector": "back_extension", "core_anti_extension": "back_extension"}
+    erector = next(slot for slot in template.slots if slot.id == "erector")
+    core = next(slot for slot in template.slots if slot.id == "core_anti_extension")
+    one_extra = generator._session_spinal_extra(
+        template, one, erector, "back_extension", "2026-10-26"
+    )
+    two_extra = generator._session_spinal_extra(
+        template, two, erector, "back_extension", "2026-10-26"
+    )
+    one_back = [row for row in one_extra if row[1] == "back_extension"]
+    two_back = [row for row in two_extra if row[1] == "back_extension"]
+    assert len(one_back) == 1
+    assert len(two_back) == 1
+    assert two_back[0][3] > one_back[0][3]
+    final_one = [("generator", "back_extension", "2026-10-26", erector.sets, None)]
+    final_two = [
+        ("generator", "back_extension", "2026-10-26", erector.sets + core.sets, None)
+    ]
+    one_cost = generator._weekly_spinal_cost(rule, context, "2026-10-26", final_one)
+    two_cost = generator._weekly_spinal_cost(rule, context, "2026-10-26", final_two)
+    assert two_cost > one_cost
+    cap = (one_cost + two_cost) / 2
+    generator._validate_spinal(
+        rule, context, template, one, "2026-10-26", cap, "squat"
+    )
+    with pytest.raises(generator.GenerationError, match="exceeds cap"):
+        generator._validate_spinal(
+            rule, context, template, two, "2026-10-26", cap, "squat"
+        )
 
 
 def test_registry_rotation_default_is_used_for_secondary() -> None:
