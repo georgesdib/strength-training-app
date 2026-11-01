@@ -450,6 +450,13 @@
           <label id="prescribe-selection-confirm-wrap" hidden><input type="checkbox" id="prescribe-selection-confirm"> Confirm near-comparable (B)</label>
           <label id="prescribe-selection-llm-wrap" hidden><input type="checkbox" id="prescribe-selection-llm"> Use LLM</label>
           <p class="muted" id="prescribe-apply-selection-note"><strong>Apply selection:</strong> reruns the per-slot ranking and substitutes only <strong>class A</strong> candidates automatically; <strong>class B</strong> requires <em>Confirm near-comparable</em>; <strong>class C</strong> is never applied. Each applied slot cites <code>MOD-SELECT-001</code> and its load is re-solved from that lift's own history. It does not change the session type, and nothing is persisted until <strong>Start workout</strong>.</p>
+          <label>Top set
+            <select id="prescribe-top-set">
+              <option value="">Ask (show the offer, no structure yet)</option>
+              <option value="on">Add top set / back-off</option>
+              <option value="off">Straight sets</option>
+            </select>
+          </label>
           <label><input type="checkbox" id="prescribe-minimum"> Minimum session</label>
           <span id="prescribe-minimum-options" hidden>
             <label>Target
@@ -527,6 +534,13 @@
             <label>Load kg <input type="number" inputmode="decimal" step="0.5" id="workout-set-load" placeholder="added load"></label>
             <label>Reps / sec <input type="number" inputmode="numeric" step="1" min="0" id="workout-set-reps" required aria-describedby="workout-set-msg"></label>
             <label>RIR <input type="number" inputmode="numeric" step="1" min="0" max="6" id="workout-set-rir"></label>
+            <label>Set role
+              <select id="workout-set-role">
+                <option value="">Ordinary</option>
+                <option value="top_set">Top set</option>
+                <option value="back_off">Back-off</option>
+              </select>
+            </label>
             <label>Velocity m/s <input type="number" inputmode="decimal" step="0.01" id="workout-set-velocity" placeholder="optional"></label>
             <button class="primary" type="submit">Add set</button>
           </form>
@@ -544,6 +558,13 @@
             <label>Load kg <input id="workout-edit-load" type="number" step="0.5" inputmode="decimal"></label>
             <label>Reps <input id="workout-edit-reps" type="number" step="1" min="0" inputmode="numeric"></label>
             <label>RIR <input id="workout-edit-rir" type="number" step="1" min="0" max="6" inputmode="numeric"></label>
+            <label>Set role
+              <select id="workout-edit-role">
+                <option value="">Ordinary</option>
+                <option value="top_set">Top set</option>
+                <option value="back_off">Back-off</option>
+              </select>
+            </label>
             <label>Velocity m/s <input id="workout-edit-velocity" type="number" step="0.01" inputmode="decimal"></label>
             <button class="primary" type="button" id="workout-set-edit-save">Save set</button>
           </div>

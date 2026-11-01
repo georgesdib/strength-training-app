@@ -66,7 +66,7 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 | Prospective check | W5 programme-level summary, not a model forecast | [W5-PROSPECTIVE-EVALUATION.md](W5-PROSPECTIVE-EVALUATION.md) |
 | Form trend | Descriptive form observations; no prescription change | [FORM-PROSPECTIVE.md](FORM-PROSPECTIVE.md) |
 | Readiness feedback | Association between readiness reductions and next session; no tuning | [READINESS.md](READINESS.md) |
-| Prescribe form | Deterministic four-session-type prescription; hard constraints, fallback and plain-English generation flow | [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md), [METHODOLOGY.md](METHODOLOGY.md) |
+| Prescribe form | Deterministic four-session-type prescription; hard constraints, fallback, top-set/back-off ask and plain-English generation flow | [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md), [METHODOLOGY.md](METHODOLOGY.md) |
 | Continuity calibration | Gap/continuity evidence and fixed fallback | [CONTINUITY.md](CONTINUITY.md) |
 | Weekly volume | MEV/MAV/MRV ledger and MRV cap | [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md) |
 | Exposure ratio | Rolling 7/28-day hard-set ratio, coverage, abstention and per-group signals; no prescription effect | [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md) |
@@ -76,7 +76,7 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 | Strength fatigue diagnostic | Rejected predictor; descriptive state only; first ten lifts with Show more | [FATIGUE-FITNESS.md](FATIGUE-FITNESS.md) |
 | Exercise selection | Ranked suggestions; explicit apply; no model/LLM computation | [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md) |
 | Retrospective validation | Walk-forward check against simple baselines | [RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md) |
-| Workout | Start, log, edit, end a live workout and link it to a plan | [USER-GUIDE.md](../USER-GUIDE.md) |
+| Workout | Start, log, edit, end a live workout and link it to a plan; top-set/back-off roles are shown and logged | [USER-GUIDE.md](../USER-GUIDE.md), [DATA-MODEL.md](DATA-MODEL.md) |
 | Per-exercise history | Read-only last five completed sessions with Show more; working sets, declared equivalents, no current-workout sets | [WEB-UI.md](WEB-UI.md) |
 | Device data / per-rep velocity | Optional VBT import and descriptive analysis | [REP-VELOCITY.md](REP-VELOCITY.md) |
 | Programme forecast | Read-only projected sessions; rebuilt on the day | [TRAINING-DYNAMICS.md](TRAINING-DYNAMICS.md) |

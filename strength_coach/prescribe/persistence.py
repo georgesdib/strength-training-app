@@ -43,6 +43,7 @@ def _rows(plan: Mapping[str, Any]) -> list[dict]:
             "rationale_refs": list(item.get("refs") or ()),
             "substitution_for": item.get("substitution_for"),
             "warmup": list(item.get("warmup") or ()),
+            "set_groups": list(item.get("set_groups") or ()),
         })
     return rows
 

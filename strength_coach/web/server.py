@@ -233,6 +233,18 @@ def _item_dict(item) -> dict:
             {"percent": w.percent, "reps": w.reps, "load_kg": w.load_kg}
             for w in item.warmup
         ],
+        "set_groups": [
+            {
+                "role": group.role,
+                "sets": group.sets,
+                "load_kg": group.load_kg,
+                "reps_low": group.reps_low,
+                "reps_high": group.reps_high,
+                "rir_target": group.rir_target,
+                "percent_of_top": group.percent_of_top,
+            }
+            for group in item.set_groups
+        ],
     }
 
 
@@ -2204,6 +2216,7 @@ class Handler(BaseHTTPRequestHandler):
                 velocity=velocity,
                 source=source,
                 set_index=_integer(body.get("set_index")),
+                set_role=body.get("set_role") or None,
             )
         elif action == "update-set":
             reps, rir, load, velocity = _manual_set_values(body)
@@ -2213,6 +2226,7 @@ class Handler(BaseHTTPRequestHandler):
                 reps=reps,
                 rir=rir,
                 velocity=velocity,
+                set_role=body.get("set_role") or None,
             )
         elif action == "remove-set":
             result = workout.remove_set(conn, workout_id, _integer(body.get("set_id")))
@@ -2296,6 +2310,10 @@ class Handler(BaseHTTPRequestHandler):
             technique_patterns = None
         target = body.get("target_minutes")
         target_minutes = int(target) if target not in (None, "") else None
+        top_set_raw = body.get("top_set")
+        top_set_requested = (
+            None if top_set_raw in (None, "") else _truth(top_set_raw)
+        )
         # Resolve deload before building: it must run before minimum session and final
         # validation, not after validation.
         resolved = settings_profile.feature_settings(conn, for_date)
@@ -2325,6 +2343,7 @@ class Handler(BaseHTTPRequestHandler):
             technique_throttle=technique_throttle,
             technique_throttle_pattern=technique_patterns,
             drop_confirmed=_truth(body.get("drop_confirmed")),
+            top_set_requested=top_set_requested,
         )
         if scheduled_suggestion is not None:
             prescription = deload_mod.suggest(prescription, scheduled_suggestion)

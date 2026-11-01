@@ -299,6 +299,7 @@ document version.
 | rationale_refs | JSON list of rule IDs + data-point ids |
 | e1rm_source_sets | nullable; usable sets behind a formula e1RM (NULL for overrides/fallbacks) |
 | substitution_for | nullable |
+| set_groups_json | ordered top_set/back_off groups; empty for straight sets (migration 0049) |
 
 ### 8.4 `workout_form_rating` / `session_form_rating`
 
@@ -551,7 +552,9 @@ until completion.
 | critique_id | deterministic rubric persisted at End workout |
 | reviewed_at | set when human review marks are saved |
 
-`workout_set` is append-only. A removed set is an event, not a DELETE:
+`workout_set` is append-only. A removed set is an event, not a DELETE. Migration `0049` also
+adds `clean_set.set_role`, copied on materialisation; it is nullable so imported and historical
+straight sets need no backfill.
 
 | column | notes |
 |---|---|
@@ -561,6 +564,7 @@ until completion.
 | load_kg / reps / rir / velocity | actual values |
 | source | `manual` \| `import` \| `device` |
 | prescription_item_index | index into the frozen plan, when matched |
+| set_role | nullable `top_set` / `back_off`; ordinary and historical sets stay null (migration 0049) |
 
 `workout_event` records `start`, `add_set`, `update_set`, `remove_set`, `restore_set`, `end`,
 `abandon`, `reviewed`, `import_applied` and `import_undone` with an optional `target_set_id`;

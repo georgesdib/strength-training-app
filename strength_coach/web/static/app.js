@@ -888,8 +888,10 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
   const selectionLlm = applySelection && $("#prescribe-selection-llm").checked;
   const selectionConfirmed = applySelection && $("#prescribe-selection-confirm").checked;
   const scoreReady = window.__workflowReadinessData?.score?.status === "ready";
+  const topSetValue = $("#prescribe-top-set").value;
   lastPrescribePayload = {
     date, session_type: sessionType,
+    top_set: topSetValue === "on" ? true : topSetValue === "off" ? false : null,
     apply_selection: applySelection, selection_llm: selectionLlm,
     selection_confirmed: selectionConfirmed,
     minimum_session: $("#prescribe-minimum").checked,
@@ -972,6 +974,15 @@ function volumePanelHtml(panel, label = "Weekly volume") {
     "</div>";
 }
 
+function setGroupsHtml(item) {
+  if (!item.set_groups || !item.set_groups.length) return "";
+  return '<div class="muted">' + item.set_groups.map((group) =>
+    esc(group.role.replace(/_/g, " ")) + ": " + group.sets + " × " +
+    group.reps_low + "–" + group.reps_high + " @ " + fmt(group.load_kg) + " kg" +
+    (group.rir_target == null ? "" : " · RIR " + group.rir_target)
+  ).join(" · ") + "</div>";
+}
+
 function renderPrescription(p) {
   window.__lastPrescription = p;
   const sessionTime = p.notes?.session_time || {};
@@ -994,7 +1005,8 @@ function renderPrescription(p) {
     return `<tr>
     <td><strong>${esc(item.exercise_id)}</strong>${item.essential ? ' <span class="badge">essential</span>' : ""}
       ${item.unknown_load_reason ? '<div class="muted">' + esc(item.unknown_load_reason) + "</div>" : ""}
-      ${item.warmup && item.warmup.length ? '<div class="muted">warm-up: ' + item.warmup.map((w) => `${Math.round(w.percent * 100)}% × ${w.reps} @ ${fmt(w.load_kg)} kg`).join(" · ") + "</div>" : ""}</td>
+      ${item.warmup && item.warmup.length ? '<div class="muted">warm-up: ' + item.warmup.map((w) => `${Math.round(w.percent * 100)}% × ${w.reps} @ ${fmt(w.load_kg)} kg`).join(" · ") + "</div>" : ""}
+      ${setGroupsHtml(item)}</td>
     <td>${item.sets}</td><td>${item.reps_low}–${item.reps_high}</td>
     <td>${fmt(item.load_kg)}</td><td>${item.effort_model === "quality"
       ? `quality stop<div class="muted">${esc(item.quality_stop || "")}</div>`
@@ -1039,6 +1051,12 @@ function renderPrescription(p) {
   const cadenceBox = cadence?.enabled ? `<p class="muted">Strength test:
     <strong>${esc(cadence.due ? "due" : "not due")}</strong>
     — ${esc(cadence.next_scheme)} by ${esc(cadence.next_due)}. ${esc(cadence.reason)}</p>` : "";
+  const topSet = p.notes?.top_set;
+  const topSetBox = topSet && topSet.status !== "not_applied" || topSet?.applied
+    ? `<p class="muted"><strong>Top set:</strong> ${esc(topSet.reason)}</p>`
+    : topSet?.status === "not_applied" && topSet.reason?.includes("awaiting confirmation")
+      ? `<p class="muted"><strong>Top set offered:</strong> choose Add top set / back-off and rebuild to apply it.</p>`
+      : "";
   const deload = p.notes?.deload;
   const deloadBox = deload ? `<p class="warnbox"><strong>Deload (${esc(deload.trigger)})</strong>
     — ${esc(deload.reason)}. Sets -${deload.set_reduction}, load
@@ -1075,6 +1093,7 @@ function renderPrescription(p) {
       ${lr ? `<p class="muted">readiness: ${esc(lr.status)} · ${lr.score}</p>` : ""}
       ${item.unknown_load_reason ? `<p class="muted">${esc(item.unknown_load_reason)}</p>` : ""}
       ${item.warmup && item.warmup.length ? `<p class="muted">warm-up: ${item.warmup.map((w) => `${Math.round(w.percent * 100)}% × ${w.reps} @ ${fmt(w.load_kg)} kg`).join(" · ")}</p>` : ""}
+      ${setGroupsHtml(item)}
       <p class="muted">${esc(item.refs.slice(-2).join(", "))}</p>
     </article>`;
   }).join("");
@@ -1087,7 +1106,7 @@ function renderPrescription(p) {
   $("#prescribe-result").innerHTML = `<div class="panel">
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_label || sessionLabel(p.session_type || "unknown"))}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
-    ${timeLine}${volumeBox}${compBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
+    ${timeLine}${volumeBox}${compBox}${topSetBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <div class="table-scroll desktop-table"><table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>e1RM n</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table></div>
     <div class="mobile-cards prescription-cards">${cards}</div>

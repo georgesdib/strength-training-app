@@ -1,22 +1,21 @@
 # Rep schemes. The prescription picks one per exercise; Python solves the load for it.
 #
 # The lowest scheme exists because strength is load-specific: 1-3 reps at a controlled RIR is a
-# legitimate maximal-strength exposure in trained lifters. It is deliberately NOT available on
-# the hinge lifts: a near-maximal trap-bar pull is the highest spinal-risk exposure in this
-# programme, and the athlete has a back history (docs/TRAINING-DYNAMICS.md).
+# legitimate maximal-strength exposure in trained lifters. DEC-RESOLVER-04 explicitly allows the
+# prescribed hinge main lifts on this scheme; the accessory/risk hinges remain excluded below.
+# The engine warns on every maximal hinge because the ordinal spinal cap is load-blind.
 schema_version: "1.0.0"
 
-# The hinge exclusions below are a policy default, not a hard-coded fact. When true, the
-# maximal scheme may be used on the excluded hinge lifts; the default keeps the back-history
-# protection. Profile-backed; exposed in Settings later.
-maximal_hinge_allowed: false
+# The exclusion list below still protects the accessory/risk hinges. This flag disables the
+# maximal exclusion for the prescribed hinge main lifts only; it is profile-backed.
+maximal_hinge_allowed: true
 
 schemes:
   maximal:
     label: "maximal strength (1-3 reps)"
     reps: [1, 3]
-    # Only lifts with safeties, and never the hinges. Sumo is explicit here as well as a
-    # hinge: once it is essential, the DUP week-3 scheme must still fall back to strength.
+    # Only lifts with safeties. The three prescribed hinge main lifts are allowed by the
+    # override above; accessory/risk hinges remain excluded.
     exclude: [trap_bar_deadlift, sumo_deadlift, rdl, good_morning, rack_pull,
               conventional_deadlift, jefferson_curl]
 

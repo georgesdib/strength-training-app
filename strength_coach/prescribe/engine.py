@@ -39,11 +39,12 @@ from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.prescribe import deload as deload_mod
-from strength_coach.prescribe import loads, templates, warmup
+from strength_coach.prescribe import loads, resolver_policy, resolver_settings, templates, warmup
 from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import technique_throttle as technique_throttle_mod
+from strength_coach.prescribe import top_set as top_set_mod
 from strength_coach.prescribe import undulation as undulation_mod
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
@@ -79,6 +80,7 @@ def build_prescription(
     technique_throttle_pattern: str | Collection[str] | None = None,
     deload_decision: Any | None = None,
     drop_confirmed: bool = False,
+    top_set_requested: bool | None = None,
     projected_items: tuple[Mapping[str, Any], ...] = (),
     projected_sessions: int = 0,
 ) -> Prescription:
@@ -89,6 +91,7 @@ def build_prescription(
     calibration do not change with the forecast date, so recomputing them per entry is waste.
     """
     resolved = settings_profile.feature_settings(conn, for_date)
+    resolver_cfg = resolver_settings.ResolverSettings.load(conn, for_date)
     document = document or load_document()
     thresholds = thresholds or resolved.thresholds
     budget_config = volume_budget_mod.BudgetConfig.load(conn=conn, on_date=for_date)
@@ -226,6 +229,31 @@ def build_prescription(
         )
         warnings.extend(dup_warnings)
 
+    base_primary_rir = next(
+        (
+            int(item.rir_target)
+            for item in items
+            if item.exercise_id == template.primary_exercise and item.rir_target is not None
+        ),
+        None,
+    )
+    primary_scheme: str | None = None
+    if dup_plan:
+        primary_scheme = str(dup_plan.get("main") or "") or None
+        if primary_scheme is not None:
+            schemes = schemes_mod.Schemes.load()
+            primary_item = next(
+                (item for item in items if item.exercise_id == template.primary_exercise),
+                None,
+            )
+            if primary_item is not None and not schemes.applicable(
+                primary_scheme,
+                exercise_id=primary_item.exercise_id,
+                essential=primary_item.essential,
+                maximal_hinge_allowed=resolved.maximal_hinge_allowed,
+            ):
+                primary_scheme = "strength"
+
     fallback_level = "full"
     # Injury status is needed for the readiness ceiling, so compute it before applying the
     # readiness factor. It is also used later for advisory warnings.
@@ -310,6 +338,68 @@ def build_prescription(
     warnings.extend(gap_warnings)
     items, stack_warnings = _cap_automatic_load_stack(tuple(items))
     warnings.extend(stack_warnings)
+
+    top_set_note = None
+    primary_item = next(
+        (item for item in items if item.exercise_id == template.primary_exercise), None
+    )
+    if primary_item is not None:
+        final_primary_rir = primary_item.rir_target
+        rir_bump = 0
+        if (
+            base_primary_rir is not None
+            and final_primary_rir is not None
+            and int(final_primary_rir) > int(base_primary_rir)
+        ):
+            rir_bump = int(final_primary_rir) - int(base_primary_rir)
+        profile = queries.athlete_profile(conn) or {}
+        # The resolver policy is only needed when the structure is actually requested or
+        # pre-selected. Ask/off keeps the fixed path independent of resolver configuration and
+        # avoids loading a policy during synthetic-template engine tests.
+        if resolver_cfg.top_set_mode == "off":
+            top_set_note = {
+                "status": "not_applied",
+                "reason": "top set mode is off",
+                "applied": False,
+            }
+        elif top_set_requested is None and resolver_cfg.top_set_mode == "ask":
+            top_set_note = {
+                "status": "not_applied",
+                "reason": "top set offered; awaiting confirmation",
+                "applied": False,
+            }
+        else:
+            policy_data = resolver_policy.ResolverPolicy.load()
+            top_plan = top_set_mod.plan_top_set(
+                primary_item,
+                settings=resolver_cfg,
+                eligible_lifts=policy_data.top_set.eligible_lifts,
+                primary_exercise=template.primary_exercise,
+                scheme=primary_scheme,
+                competition_date=profile.get("competition_date"),
+                for_date=for_date,
+                deload=deload_decision is not None,
+                requested=top_set_requested,
+                rir_bump=rir_bump,
+            )
+            top_set_note = {
+                "status": top_plan.status,
+                "reason": top_plan.reason,
+                "applied": top_plan.applied,
+                "top_set_rir": top_plan.top_set_rir,
+                "top_set_load_kg": top_plan.top_set_load,
+                "backoff_load_kg": top_plan.backoff_load,
+            }
+            if top_plan.applied:
+                replaced = top_set_mod.apply_plan(primary_item, top_plan)
+                items = [
+                    replaced if item.order_index == replaced.order_index else item
+                    for item in items
+                ]
+                warnings.append(f"top set: {top_plan.reason}")
+            elif top_set_requested is True:
+                warnings.append(f"top set not applied: {top_plan.reason}")
+
 
     # The volume budget is off by default and enabled only in the athlete profile. It moves
     # non-essential sets; a safety cut is skipped, not re-added (MOD-VOL-003). In drop mode the
@@ -482,6 +572,10 @@ def build_prescription(
         if deload_note is not None:
             fallback_level = deload_level
 
+    items, top_resize_warnings = _resize_top_set_groups(
+        tuple(items), protect=resolver_cfg.top_set_protect_top_set
+    )
+    warnings.extend(top_resize_warnings)
     load_stack = _load_stack(items)
     if load_stack:
         worst = load_stack[0]
@@ -622,6 +716,7 @@ def build_prescription(
             "drop": drop_plan.get("note") if drop_applied else None,
             "drop_confirmed": bool(drop_confirmed),
             "minimum_session": minimum_note,
+            "top_set": top_set_note,
             "technique_throttle": technique_note,
             "load_stack": load_stack,
         "session_time": session_time,
@@ -747,6 +842,54 @@ def _apply_under_mev(
     return tuple(out), (warning,), {
         "applied": True, "changes": changed, "exercise_ids": changed_ids,
     }
+
+
+def _resize_top_set_groups(
+    items: tuple[PrescriptionItem, ...], *, protect: bool = True
+) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...]]:
+    """Keep top-set/back-off roles consistent after later set modifiers.
+
+    The top set is protected: volume, minimum-session and safety set cuts reduce the back-off
+    group first. If only one set remains, the top set is retained alone rather than silently
+    turning the structure into a straight set.
+    """
+    out: list[PrescriptionItem] = []
+    warnings: list[str] = []
+    for item in items:
+        groups = item.set_groups
+        top = next((group for group in groups if group.role == top_set_mod.TOP_SET), None)
+        if top is None:
+            out.append(item)
+            continue
+        if item.sets < 2:
+            if not protect:
+                # The setting explicitly allows a later trim to remove the protected top
+                # set; keep the exercise as a straight set rather than a stale role.
+                out.append(replace(item, set_groups=()))
+                continue
+            if item.load_kg != top.load_kg or item.rir_target != top.rir_target:
+                warnings.append(
+                    f"top set for {item.exercise_id}: only one set remains; kept the top set"
+                )
+            out.append(replace(
+                item, sets=1, set_groups=(top,), load_kg=top.load_kg,
+                rir_target=top.rir_target,
+            ))
+            continue
+        backoff = next(
+            (group for group in groups if group.role == top_set_mod.BACK_OFF), None
+        )
+        if backoff is None:
+            out.append(item)
+            continue
+        if backoff.sets != item.sets - 1:
+            out.append(replace(
+                item,
+                set_groups=(top, replace(backoff, sets=item.sets - 1)),
+            ))
+            continue
+        out.append(item)
+    return tuple(out), tuple(warnings)
 
 
 def _apply_volume_cap(
@@ -1447,6 +1590,7 @@ def _apply_undulation(
         exercise for slot in template.slots if slot.power for exercise in slot.exercises
     }
     out: list[PrescriptionItem] = []
+    hinge_warnings: list[str] = []
     for item in items:
         if item.exercise_id in power_ids:
             out.append(item)
@@ -1462,6 +1606,16 @@ def _apply_undulation(
         ):
             name = "strength" if item.essential else "accessory"
         scheme = schemes.get(name)
+        pattern = context.entity(item.exercise_id).get("pattern")
+        if (
+            name == "maximal"
+            and item.essential
+            and str(pattern) == "hinge"
+        ):
+            hinge_warnings.append(
+                f"DEC-RESOLVER-04: maximal hinge allowed for {item.exercise_id}; "
+                "the ordinal spinal cap is load-blind, so treat the exposure with care"
+            )
         if (item.reps_low, item.reps_high) == (scheme.reps_low, scheme.reps_high):
             out.append(item)
             continue
@@ -1489,7 +1643,7 @@ def _apply_undulation(
         out.append(rebuilt)
 
     detail = ", ".join(f"{layer} {name}" for layer, name in plan.items())
-    return tuple(out), (f"DUP week {cycle_week}: {detail}",), dict(plan)
+    return tuple(out), (*hinge_warnings, f"DUP week {cycle_week}: {detail}"), dict(plan)
 
 
 def _apply_back_flare_effort(

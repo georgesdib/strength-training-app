@@ -923,8 +923,9 @@ def append_prescription(
                 prescription_id, order_index, exercise_id, sets, reps_low, reps_high,
                 load_kg, load_basis, rounding_increment, rir_target, effort_model,
                 quality_stop, velocity_target, vbt_basis, e1rm_source_sets, rest_s,
-                time_cap_s, essential, rationale_refs, substitution_for, warmup_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                time_cap_s, essential, rationale_refs, substitution_for, warmup_json,
+                set_groups_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 prescription_id,
@@ -948,6 +949,7 @@ def append_prescription(
                 _json(list(item.get("rationale_refs") or [])),
                 item.get("substitution_for"),
                 _json(list(item.get("warmup") or [])),
+                _json(list(item.get("set_groups") or [])),
             ),
         )
     return prescription_id

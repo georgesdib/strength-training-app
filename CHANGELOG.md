@@ -37,6 +37,14 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 3 top set/back-off**: the optional main-lift
+  top-set structure, preserved total sets, configurable 85% back-offs, DUP/competition RIR
+  mapping, taper/deload/fallback rules, top-set protection, top-set-derived warm-ups, the
+  opt-in Prescribe ask, role-aware workout logging and clean-set provenance. Migration `0049`
+  is additive and straight-set/historical rows remain unchanged. Hinge maximal is now allowed
+  for the prescribed hinge main lifts with a warning; accessory/risk hinges remain excluded.
+  No joint evaluator, production prescription wiring or Settings -> Resolver panel; the flag
+  remains off.
 - Deterministic template resolver **historical settings profiles**: loading an append-only
   profile tolerates the retired `resolver.weights.rotation` and `resolver.weights.preference`
   keys and resolves the rest normally without rewriting history; saving an unrelated setting

@@ -20,6 +20,24 @@ class WarmupSet:
 
 
 @dataclass(frozen=True)
+class SetGroup:
+    """One planned set group inside an item.
+
+    Straight sets use an empty tuple on the item. A top-set structure carries one top_set
+    group and one back_off group, so persistence and workout logging never split the exercise
+    into duplicate item rows.
+    """
+
+    role: str
+    sets: int
+    load_kg: float | None
+    reps_low: int
+    reps_high: int
+    rir_target: int | None
+    percent_of_top: float | None = None
+
+
+@dataclass(frozen=True)
 class PrescriptionItem:
     order_index: int
     exercise_id: str
@@ -61,6 +79,8 @@ class PrescriptionItem:
     quality_stop: str | None = None
     # Main-lift ramp sets; empty for accessories and unknown loads.
     warmup: tuple[WarmupSet, ...] = ()
+    # Optional top-set/back-off structure. Empty means straight sets.
+    set_groups: tuple[SetGroup, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -113,6 +133,24 @@ class Prescription:
                     {"percent": w.percent, "reps": w.reps, "load_kg": w.load_kg}
                     for w in item.warmup
                 ],
+                **(
+                    {
+                        "set_groups": [
+                            {
+                                "role": group.role,
+                                "sets": group.sets,
+                                "load_kg": group.load_kg,
+                                "reps_low": group.reps_low,
+                                "reps_high": group.reps_high,
+                                "rir_target": group.rir_target,
+                                "percent_of_top": group.percent_of_top,
+                            }
+                            for group in item.set_groups
+                        ]
+                    }
+                    if item.set_groups
+                    else {}
+                ),
             }
             for item in self.items
         ]

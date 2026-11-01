@@ -344,6 +344,7 @@ function editWorkoutSet(setId) {
   $("#workout-edit-load").value = set.load_kg == null ? "" : set.load_kg;
   $("#workout-edit-reps").value = set.reps == null ? "" : set.reps;
   $("#workout-edit-rir").value = set.rir == null ? "" : set.rir;
+  $("#workout-edit-role").value = set.set_role || "";
   $("#workout-edit-velocity").value = set.velocity == null ? "" : set.velocity;
   $("#workout-set-edit").hidden = false;
   $("#workout-set-edit-msg").textContent = set.exercise_id + " · set " + set.set_index;
@@ -359,6 +360,7 @@ function saveWorkoutSetEdit() {
       load_kg: numericOrNull("#workout-edit-load"),
       reps: numericOrNull("#workout-edit-reps"),
       rir: numericOrNull("#workout-edit-rir"),
+      set_role: $("#workout-edit-role").value || null,
       velocity: numericOrNull("#workout-edit-velocity")
     })
   }).then(function (data) {
@@ -525,7 +527,8 @@ function renderWorkout(w) {
   var setRows = (w.sets || []).map(function (set) {
     return '<article class="workout-set-card"><div class="workout-set-card-head">' +
       '<strong>' + esc(workoutExerciseLabel(set.exercise_id)) + '</strong><span class="badge">Set ' +
-      set.set_index + '</span></div><p class="workout-set-values">' +
+      set.set_index + (set.set_role ? ' · ' + esc(set.set_role.replace(/_/g, ' ')) : '') +
+      '</span></div><p class="workout-set-values">' +
       (set.load_kg == null ? "load —" : fmt(set.load_kg) + " kg") + " · " +
       (set.reps == null ? "reps —" : set.reps + " reps") + " · RIR " +
       (set.rir == null ? "—" : set.rir) +
@@ -943,6 +946,7 @@ function submitWorkoutSet(event) {
     load_kg: numericOrNull("#workout-set-load"),
     reps: numericOrNull("#workout-set-reps"),
     rir: numericOrNull("#workout-set-rir"),
+    set_role: $("#workout-set-role").value || null,
     velocity: numericOrNull("#workout-set-velocity"),
     set_index: nextWorkoutSetNumber(exerciseId)
   };

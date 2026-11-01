@@ -30,6 +30,18 @@ class ResolverSettings:
     over_target_weight: float
     weights: Mapping[str, float]
     tie_break: str
+    top_set_mode: str
+    top_set_eligible: str
+    top_set_backoff_percent: float
+    top_set_preserve_total_sets: bool
+    top_set_protect_top_set: bool
+    top_set_fallback_above_rir: int
+    top_set_rir_maximal: int
+    top_set_rir_strength: int
+    top_set_rir_off: int
+    competition_override_enabled: bool
+    competition_peak_weeks: int
+    competition_taper_days: int
 
     @classmethod
     def load(cls, conn, on_date: str) -> ResolverSettings:
@@ -59,6 +71,20 @@ class ResolverSettings:
             over_target_weight=float(values["resolver.coverage.over_target_weight"]),
             weights=MappingProxyType(weights),
             tie_break=str(values["resolver.tie_break"]),
+            top_set_mode=str(values["resolver.top_set.mode"]),
+            top_set_eligible=str(values["resolver.top_set.eligible"]),
+            top_set_backoff_percent=float(values["resolver.top_set.backoff_percent"]),
+            top_set_preserve_total_sets=bool(
+                values["resolver.top_set.preserve_total_sets"]
+            ),
+            top_set_protect_top_set=bool(values["resolver.top_set.protect_top_set"]),
+            top_set_fallback_above_rir=int(values["resolver.top_set.fallback_above_rir"]),
+            top_set_rir_maximal=int(values["resolver.top_set.rir_by_main_scheme.maximal"]),
+            top_set_rir_strength=int(values["resolver.top_set.rir_by_main_scheme.strength"]),
+            top_set_rir_off=int(values["resolver.top_set.rir_by_main_scheme.off"]),
+            competition_override_enabled=bool(values["resolver.competition.override_enabled"]),
+            competition_peak_weeks=int(values["resolver.competition.peak_weeks"]),
+            competition_taper_days=int(values["resolver.competition.taper_days"]),
         )
 
     def rotation_for(self, *, role: str) -> float:

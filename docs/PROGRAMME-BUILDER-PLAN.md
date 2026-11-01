@@ -1,9 +1,9 @@
 # Dynamic Template Resolver — implementation plan
 
-**Status:** **Steps 0, 1 and 2 are complete 2026-11-01. Step 3 (top set/back-off) is not
-started.** Step 2 added the deterministic generator core only; it is not wired into any
-prescription path, the top set and joint evaluator are absent, and the resolver flag remains
-off.
+**Status:** **Steps 0, 1, 2 and 3 are complete 2026-11-01. Step 4 (joint evaluator and
+pipeline integration) is not started.** The generator is internal and still not wired into the
+production prescription path; the top-set structure is opt-in and the joint evaluator is absent.
+The hinge maximal-week change is implemented. The resolver flag remains off.
 
 **Scope:** make the four canonical session templates a **deterministic session generator** at
 generation time while keeping the existing scheduler, prescription engine, volume engine and
@@ -437,7 +437,8 @@ not in the list because the taxonomy does not classify it as a main lift today.
 **Structure**
 
 - one top set plus back-off sets, preserving the blueprint's total working sets;
-- top set at the blueprint's rep range and the resolved top-set RIR;
+- top set at the item's final applied rep range (the blueprint range when DUP is off) and the
+  resolved top-set RIR;
 - back-off sets at 85% of the top-set load (configurable) with the normal RIR window;
 - no AMRAP, no failure set and no RIR 0;
 - warm-up derives from the top-set load; the top set counts as a working set and one spinal
@@ -944,28 +945,54 @@ into the main path; the fixed-template prescription path is unchanged.
 
 **Merge gate:** merged to the feature branch after generator unit tests; Step 3 not started.
 
-### Step 3 — Top set / back-off structure
+### Step 3 — Top set / back-off structure  (complete 2026-11-01)
+
+**Status:** complete. The structure is opt-in; the default mode is `ask`. The fixed straight-set
+path is unchanged unless the caller explicitly requests a top set. The hinge maximal-week change
+in `DEC-RESOLVER-04` is a programme change and applies to the fixed and generated paths.
 
 **Objective:** implement the optional main-lift set structure and its DUP/competition RIR
 mapping, independently of exercise generation.
 
-**Scope:** set-group model on Slot/PrescriptionItem; load solver relative to the top-set load;
-DUP main scheme mapping; competition peak/taper; hinge maximal decision; warm-up, volume, spinal,
-deload and readiness interaction; top-set role in critique and e1RM; UI display.
+**Delivered:**
 
-**Data:** item/set-group persistence; migration additive; no backfill.
+- `SetGroup` on `PrescriptionItem`; additive migration `0049_top_set.sql` adds
+  `prescription_item.set_groups_json`, `workout_set.set_role` and `clean_set.set_role`;
+  straight-set rows keep an empty group list and no backfill is needed;
+- `prescribe/top_set.py`: one top set plus back-offs, preserved total sets, 85% configurable
+  back-off load, top-set RIR from the applied DUP scheme (maximal 1, strength/off 2),
+  competition peak override to 1, taper/deload removal, RIR 0 clamp/fallback above 2, and a
+  transparent non-application reason;
+- engine integration after readiness/continuity and before the volume budget; the top set is
+  protected when later modifiers reduce sets, back-offs are resized first, and warm-up loads
+  derive from the top-set load; deload skips the structure; readiness/back-flare RIR changes are
+  applied once through the item's final RIR;
+- hinge maximal: `config/templates/schemes.v1.yaml` now allows the prescribed hinge main lifts
+  (trap bar, sumo, conventional) on `maximal`, emits a warning, and still excludes RDL, good
+  morning, rack pull and Jefferson curl;
+- API/preview: `/api/prescribe` accepts an explicit `top_set` choice; the Prescribe form has
+  Ask / Add / Straight sets; set groups and the top-set note are rendered;
+- workout: set roles are shown, logged, corrected and persisted; completed workouts copy the
+  role to `clean_set`; ordinary/historical sets remain null/straight;
+- set roles are copied to `clean_set`; critique grades a top set against its own documented
+  1-2 RIR role rather than the normal 2-3 window, and e1RM uses the logged RIR of every working
+  set. No second pipeline or volume/deload engine was introduced.
 
-**UI/API/CLI:** preview and workout show top/back-off sets; no automatic top set.
+**Data:** additive columns only; no backfill.
 
-**Tests:** preserve total sets; 85% configurable; RIR 0 impossible; DUP maximal/strength; hinge
-maximal; competition peak/taper; deload; readiness >2 fallback; volume trim removes back-offs
-first; critique/volume/e1RM; golden updates.
+**UI/API/CLI:** preview and workout expose top/back-off roles. The ask choice is session-scoped;
+the durable Settings -> Resolver panel remains Step 5.
 
-**Acceptance:** a generated session can include a valid top-set structure with a transparent
-reason; default ask leaves the fixed programme unchanged.
+**Tests:** `tests/test_top_set.py`, `tests/test_top_set_engine.py`,
+`tests/test_top_set_storage.py`, plus updated undulation/golden/web/workout tests cover total
+sets, 85%, RIR mapping and fallback, peak/taper/deload, hinge maximal and the warning, top-set
+protection, warm-up derivation, API payload, role logging and persistence.
 
-**Merge gate:** merge after the top-set decision and golden updates; keep the feature off by
-default.
+**Acceptance:** a session can carry a valid top-set structure with a transparent reason; omitting
+the opt-in leaves the fixed straight-set programme unchanged; the hinge maximal change is visible
+and warned.
+
+**Merge gate:** merged to the feature branch with deliberation golden updates; Step 4 not started.
 
 ### Step 4 — Joint evaluator and pipeline integration
 

@@ -99,6 +99,7 @@ def test_the_page_and_overview_are_served(server):
     assert "Apply selection:" in page
     assert "class A" in page and "class B" in page and "class C" in page
     assert "prescribe-minimum-options" in page
+    assert 'id="prescribe-top-set"' in page
     assert "Only used when minimum session is ticked" in page
     assert "A/B/C remains" not in page
     assert "Language model" in page
@@ -947,6 +948,15 @@ def test_continuity_calibration_endpoint(server):
     assert data["on_date"] == "2024-01-15"
     assert "bands" in data["calibration"]
     assert isinstance(data["allow_relax_fixed"], bool)
+
+
+def test_prescribe_can_add_the_opt_in_top_set(server):
+    data = post(server, "/api/prescribe", {
+        "date": "2024-01-08", "session_type": "squat", "top_set": True,
+    })
+    item = next(row for row in data["items"] if row["exercise_id"] == "ssb_squat")
+    assert [group["role"] for group in item["set_groups"]] == ["top_set", "back_off"]
+    assert data["notes"]["top_set"]["applied"] is True
 
 
 def test_prescribe_accepts_a_session_type(server):
