@@ -120,21 +120,37 @@ A level-1 reading with `settled` left at `unknown` counts as **not settled**, so
 `unknown` rather than "no flare": a safety gate must not pass by silence. One conservative
 session is the cost, and the remedy is one word — record `--settled yes` when it has settled.
 
-## 7. Planned: session and lift attribution (not implemented)
+## 7. Optional session and lift attribution
 
-A plan (2026-11-01) would let a reading optionally name one completed session, at most one
-lift performed in that session, a required onset date and a required confidence label
-(`possible`/`likely`/`strong`). It would be display and review only: no effect on the
-flare rule, the injury signal, suitability, selection or load, and not a predictor input. The
-plan also corrects how the injury signal dedupes rows and handles same-day readings. Nothing
-here is implemented yet; the current behaviour above is unchanged. See
-[`INJURY-ATTRIBUTION-PLAN.md`](INJURY-ATTRIBUTION-PLAN.md).
+A reading may optionally name one completed session, at most one lift actually performed in
+that session, a required onset date and a required confidence label
+(`possible`/`likely`/`strong`). It is display and review only: no effect on the flare rule, the
+injury signal, suitability, selection or load, and not a predictor input.
+
+How to record it:
+
+1. set the reading date and timing;
+2. set **onset** first; the session picker then offers completed sessions within the
+   configured lookback (7 days) — strictly before onset for `pre_session`, on or before onset
+   for `post_session`/`next_morning`;
+3. choose a session, then optionally one lift performed in it;
+4. choose confidence. A session requires onset and confidence; a lift is optional, so
+   “session only” is valid.
+
+A correction appends a new symptom row with the same region, date and timing; the latest row
+wins for display. Historical rows without attribution stay `NULL`, which means **not
+recorded**, never “no trigger”. If no session fits, leave attribution empty and put the
+context in the note. The session picker does not infer causation; the label is
+**athlete-attributed / suspected**.
+
+See [`INJURY-ATTRIBUTION-PLAN.md`](INJURY-ATTRIBUTION-PLAN.md) and `DEC-INJURY-06`.
 
 ## Related
 
 - **Decisions:** [DECISIONS.md](DECISIONS.md) — `DEC-SYMPTOM-01` (one number, now per region),
   `DEC-SYMPTOM-02` (the flare definition), `DEC-SYMPTOM-03` (regions stay separate),
-  `DEC-SYMPTOM-04` (an unrecorded settlement is not a settlement).
+  `DEC-SYMPTOM-04` (an unrecorded settlement is not a settlement), `DEC-INJURY-05`
+  (verification correction), `DEC-INJURY-06` (optional attribution).
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — Q25, closed by `DEC-SYMPTOM-04`.
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md) §3.3 (symptom input) and §4.7 (injury signal).
 - Schema and consumers: [DATA-MODEL.md](DATA-MODEL.md) §11.5, [INJURY-SIGNAL.md](INJURY-SIGNAL.md).

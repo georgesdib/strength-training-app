@@ -18,7 +18,7 @@ from strength_coach.critique import score_session
 from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.domain import load as load_mod
 from strength_coach.features import training_day
-from strength_coach.store import db, queries, repositories
+from strength_coach.store import db, queries, repositories, symptom_attribution
 from strength_coach.utils import exercises
 
 LOGGER = logging.getLogger(__name__)
@@ -104,6 +104,7 @@ def list_training_days(conn, *, limit: int = 50, offset: int = 0,
             session_ids,
         ).fetchall()
         marks = {str(row["session_id"]): int(row["n"]) for row in rows}
+    attribution_counts = symptom_attribution.counts_for_sessions(conn, session_ids)
     out: list[dict[str, Any]] = []
     for day in page:
         fragments = []
@@ -112,9 +113,15 @@ def list_training_days(conn, *, limit: int = 50, offset: int = 0,
             item["main_lifts"] = json.loads(item.get("main_lifts") or "[]")
             item["flags"] = json.loads(item.get("flags") or "[]")
             item["marks"] = marks.get(str(item["session_id"]), 0)
+            item["attributed_symptom_count"] = attribution_counts.get(
+                str(item["session_id"]), 0
+            )
             fragments.append(item)
         day = {**day, "fragments": fragments}
         day["marks"] = sum(int(fragment["marks"]) for fragment in fragments)
+        day["attributed_symptom_count"] = sum(
+            int(fragment["attributed_symptom_count"]) for fragment in fragments
+        )
         out.append(day)
     return {
         "total": total,
@@ -174,6 +181,9 @@ def detail(conn, session_id: str) -> dict:
     )
     data["feedback"] = queries.session_feedback(conn, session_id)
     data["forms"] = _current_forms(conn, session_id)
+    data["attributed_symptoms"] = symptom_attribution.events_for_session(
+        conn, session_id
+    )
     # A workout's free-text note is provenance ("backfilled from the 9 October session CSV");
     # show it beside the record it explains rather than leaving it in the workout row.
     data["workout_note"] = None

@@ -130,8 +130,10 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 - **Athlete** — append-only editing of profile (including the **Exposure trim** switch, off by
   default; `DEC-EXPOSURE-02`; a profile edit that does not mention it preserves its value),
   constraints, suitability, e1RM overrides,
-  strength tests, block start and symptoms; shows the current tables, injury signal and the
-  **e1RM calibration** report (current formula e1RM and last set for every lift, plus
+  strength tests, block start and symptoms; the symptom form supports an optional
+  athlete-attributed session, performed lift, onset and confidence, with a session picker
+  limited by the configured lookback. It shows the current tables, injury signal, a separate
+  athlete-attributed symptoms block and the **e1RM calibration** report (current formula e1RM and last set for every lift, plus
   measured tests vs formula; a bounded correction is applied only when the confidence interval
   excludes 1.0). Read-only preview controls change the calibration/coverage window without
   changing active calibration, the raw symptom history shows the latest 10 with Show all, and
@@ -198,7 +200,8 @@ also disables while saving and reports the number of marks written.
 | `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |
 | `GET /api/readiness/calibrate` | calibration report text (no auto-apply) |
 | `GET /api/logs?limit=N` | recent in-memory application/HTTP log records (max 500; cleared on restart) |
-| `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, injury signal |
+| `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, attributed symptoms, injury signal |
+| `GET /api/symptoms/attribution-options?onset=&timing=` | completed sessions and performed lifts available for an attributed symptom |
 | `GET /api/exercises` | canonical exercise catalogue for the pickers |
 | `POST /api/programme/key` | request body -> `{cache_key}` covering version, request, resolved profile, database revision and relevant config hashes |
 | `POST /api/programme/jobs` | starts a background build; returns `202` with `job_id` and status |
@@ -245,7 +248,7 @@ also disables while saving and reports the number of marks written.
 | `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml`; unknown new patterns/muscles are rejected, legacy values are preserved |
 | `GET /api/measurements` | metric catalogue, per-metric summary and recent entries |
 | `POST /api/measurements` | `{metric, value, date, method, note}` -> summary |
-| `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy`; goals, constraint kinds/regions, forbidden patterns/exercises and exercise ids are validated against the canonical vocabulary |
+| `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy`; goals, constraint kinds/regions, forbidden patterns/exercises and exercise ids are validated against the canonical vocabulary; `symptom` accepts optional `timing`, `attributed_session_id`, `attributed_exercise_id`, `onset_on` and `attribution_confidence`, plus the short aliases the UI uses |
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |
 

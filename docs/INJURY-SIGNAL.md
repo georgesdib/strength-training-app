@@ -7,7 +7,7 @@ where the model is coarse on purpose.
 
 It replaces the single back-progression summary described in the earlier version of
 [CONTINUITY.md](CONTINUITY.md) §2. Decisions: `DEC-INJURY-01`, `DEC-INJURY-02`,
-`DEC-INJURY-03`, `DEC-INJURY-05`, `DEC-SYMPTOM-03`. Config: [`config/injuries.v1.yaml`](../config/injuries.v1.yaml).
+`DEC-INJURY-03`, `DEC-INJURY-05`, `DEC-INJURY-06`, `DEC-SYMPTOM-03`. Config: [`config/injuries.v1.yaml`](../config/injuries.v1.yaml).
 Code: [`strength_coach/features/injury_signal.py`](../strength_coach/features/injury_signal.py).
 
 > **This is not medical clearance.** A symptom-free streak is weak positive evidence. The
@@ -221,6 +221,13 @@ and meniscal symptoms are different tissues with different aggravating movements
 records one "knee" region. The signal is therefore a general knee-load history, not a
 diagnosis-specific one.
 
+### 4.4 Athlete-attributed symptoms are separate
+
+A symptom may optionally carry an athlete-attributed session and lift (`DEC-INJURY-06`). The
+region panel shows these in a separate **athlete-attributed symptoms** block. They are not
+merged into `linked_exercises`, and the signal's status, counts and recommendation never read
+them. The label is a suspicion, not a cause.
+
 ---
 
 ## 5. Statuses
@@ -252,6 +259,9 @@ and a duplicate would bury the modifier.
    [SYMPTOM-LOGGING.md](SYMPTOM-LOGGING.md).
 3. If the region needs a movement the taxonomy cannot express, add the property to the
    taxonomy (and document it in [DATA-MODEL.md](DATA-MODEL.md)), not a special case in code.
+
+`attribution_lookback_days` is a top-level capture window for optional symptom attribution;
+it applies to every region and is not a recovery threshold.
 
 An unknown `--region` is rejected with the list of configured regions: a typo must not create
 a silent region that never loads.

@@ -2217,6 +2217,41 @@ def test_volume_week_bounds_are_enforced(server):
             raise AssertionError("weeks=" + weeks + " should be rejected")
 
 
+def test_symptom_attribution_round_trips_and_exposes_options(server):
+    state = post(server, "/api/state/symptom", {
+        "date": "2024-01-01", "timing": "post_session", "region": "low_back",
+        "level": 0, "settled": "yes", "session": "2024-01-01",
+        "onset": "2024-01-01", "confidence": "likely",
+    })
+    entry = state["symptoms"][-1]
+    assert entry["attributed_session_id"] == "2024-01-01"
+    assert entry["attribution_confidence"] == "likely"
+
+    history = json.loads(get(server, "/api/symptoms/history?limit=10")[1])
+    assert history["entries"][0]["attributed_session_id"] == "2024-01-01"
+    assert history["entries"][0]["attributed_session_on"] == "2024-01-01"
+
+    detail = json.loads(get(server, "/api/history/2024-01-01")[1])
+    assert detail["attributed_symptoms"][0]["attribution_confidence"] == "likely"
+
+    days = json.loads(get(server, "/api/history/days?limit=10")[1])
+    day = next(row for row in days["days"] if row["occurred_on"] == "2024-01-01")
+    assert day["attributed_symptom_count"] == 1
+
+    options = json.loads(get(
+        server, "/api/symptoms/attribution-options?onset=2024-01-02&timing=pre_session"
+    )[1])
+    assert options["sessions"][0]["session_id"] == "2024-01-01"
+
+    code, body = post_status(server, "/api/state/symptom", {
+        "date": "2024-01-01", "timing": "post_session", "region": "low_back",
+        "level": 0, "session": "2024-01-01", "onset": "2024-01-01",
+        "confidence": "certain",
+    })
+    assert code == 400
+    assert "attribution_confidence" in json.loads(body).get("fields", {})
+
+
 def test_symptom_history_limit_order_and_all(server):
     empty = json.loads(get(server, "/api/symptoms/history?limit=5")[1])
     assert empty == {

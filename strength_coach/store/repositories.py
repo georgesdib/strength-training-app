@@ -28,6 +28,7 @@ from typing import Any
 import pandas as pd
 
 from strength_coach.ingest.sessions import Session
+from strength_coach.store import symptom_attribution
 from strength_coach.utils import numeric
 from strength_coach.utils import readiness as readiness_utils
 
@@ -831,11 +832,27 @@ def append_symptom(
     level: int,
     settled_within_48h: bool | None = None,
     note: str | None = None,
+    attributed_session_id: str | None = None,
+    attributed_exercise_id: str | None = None,
+    onset_on: str | None = None,
+    attribution_confidence: str | None = None,
 ) -> None:
+    attribution = symptom_attribution.validate(
+        conn,
+        logged_on=logged_on,
+        timing=timing,
+        attributed_session_id=attributed_session_id,
+        attributed_exercise_id=attributed_exercise_id,
+        onset_on=onset_on,
+        attribution_confidence=attribution_confidence,
+    ) or {}
     conn.execute(
         """
-        INSERT INTO symptom_log (logged_on, timing, region, level, settled_within_48h, note)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO symptom_log
+            (logged_on, timing, region, level, settled_within_48h, note,
+             attributed_session_id, attributed_exercise_id, onset_on,
+             attribution_confidence)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             logged_on,
@@ -844,6 +861,10 @@ def append_symptom(
             int(level),
             None if settled_within_48h is None else (1 if settled_within_48h else 0),
             note,
+            attribution.get("attributed_session_id"),
+            attribution.get("attributed_exercise_id"),
+            attribution.get("onset_on"),
+            attribution.get("attribution_confidence"),
         ),
     )
 

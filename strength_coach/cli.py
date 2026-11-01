@@ -86,7 +86,14 @@ from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import shadow as shadow_feature
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.rules import RuleContext, evaluate, load_document
-from strength_coach.store import db, exercise_admin, importer, queries, repositories
+from strength_coach.store import (
+    db,
+    exercise_admin,
+    importer,
+    queries,
+    repositories,
+    symptom_attribution,
+)
 from strength_coach.trace import RunTrace
 from strength_coach.utils import io_utils, paths
 from strength_coach.utils import readiness as readiness_utils
@@ -265,6 +272,16 @@ def main(argv: list[str] | None = None) -> int:
                          help="settled within 48 hours? yes clears a level-1 reading; "
                               "no and unknown both count as not settled")
     symptom.add_argument("--note", default=None)
+    symptom.add_argument("--timing", choices=symptom_attribution.TIMINGS,
+                         default="pre_session", help="reading timing (default: pre_session)")
+    symptom.add_argument("--session", default=None,
+                         help="optional completed session id this symptom is attributed to")
+    symptom.add_argument("--exercise", default=None,
+                         help="optional lift performed in that session")
+    symptom.add_argument("--onset", default=None,
+                         help="onset date for an attributed symptom (YYYY-MM-DD)")
+    symptom.add_argument("--confidence", choices=symptom_attribution.CONFIDENCES, default=None,
+                         help="attribution confidence: possible, likely or strong")
     symptom.add_argument("--show", action="store_true", help="list recent entries")
 
     exercise = sub.add_parser("exercise", help="list or edit the exercise catalogue")
@@ -1472,16 +1489,27 @@ def _cmd_symptom(args) -> int:
 
         on_date = args.date or datetime.date.today().isoformat()
         settled = {"yes": True, "no": False, "unknown": None}.get(args.settled)
-        repositories.append_symptom(
-            conn,
-            logged_on=on_date,
-            timing="pre_session",
-            region=region,
-            level=args.level,
-            settled_within_48h=settled,
-            note=args.note,
-        )
-        print(f"logged {region} symptom {args.level}/3 on {on_date} (pre-session)")
+        try:
+            repositories.append_symptom(
+                conn,
+                logged_on=on_date,
+                timing=args.timing,
+                region=region,
+                level=args.level,
+                settled_within_48h=settled,
+                note=args.note,
+                attributed_session_id=args.session,
+                attributed_exercise_id=args.exercise,
+                onset_on=args.onset,
+                attribution_confidence=args.confidence,
+            )
+        except symptom_attribution.AttributionError as exc:
+            print(f"{exc.field}: {exc}")
+            return 2
+        print(f"logged {region} symptom {args.level}/3 on {on_date} ({args.timing})")
+        if args.session:
+            print(f"attributed to session {args.session} · onset {args.onset} · "
+                  f"confidence {args.confidence}")
         if args.level >= 2:
             if region == "low_back":
                 print("that is a flare: MOD-BACK-001 will apply to the next prescription")
@@ -1508,14 +1536,24 @@ def _print_symptoms(conn, *, region: str | None = None) -> None:
         where = f" for {region}" if region else ""
         print(f"no symptom entries logged{where}; injury signals stay unknown until one exists")
         return
-    print(f"{'date':<12}{'region':<12}{'timing':<14}{'level':>6}  {'settled<48h':<11} note")
+    print(f"{'date':<12}{'region':<12}{'timing':<14}{'level':>6}  "
+          f"{'settled<48h':<11} attribution / note")
     for row in entries[-20:]:
         settled = "-" if row["settled_within_48h"] is None else (
             "yes" if row["settled_within_48h"] else "no"
         )
+        attribution = ""
+        if row.get("attributed_session_id"):
+            lift = row.get("attributed_exercise_id") or "session only"
+            attribution = (
+                f"suspected {lift} · {row.get('attribution_confidence')} · "
+                f"session {row.get('attributed_session_on') or row.get('attributed_session_id')} "
+                f"· onset {row.get('onset_on')}"
+            )
         print(f"{row['logged_on']:<12}{row['region']:<12}{row['timing']:<14}"
-              f"{row['level']:>6}  "
-              f"{settled:<8} {row['note'] or ''}")
+              f"{row['level']:>6}  {settled:<8} "
+              f"{attribution + (' · ' if attribution and row['note'] else '')}"
+              f"{row['note'] or ''}")
 
 
 def _cmd_cardio(args) -> int:

@@ -59,6 +59,11 @@ function setView(name, options = {}) {
   }
 }
 
+window.openSymptomForSession = function (sessionId, date) {
+  window.__pendingSymptomAttribution = { sessionId: sessionId, date: date };
+  setView("state");
+};
+
 document.querySelectorAll("#nav button").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.view));
 });
@@ -1825,14 +1830,20 @@ async function loadSymptomHistory(allRows) {
   try {
     const data = await api("/api/symptoms/history?limit=10" + (allRows ? "&all=1" : ""));
     const rows = (data.entries || []).map(function (row) {
+      const attribution = row.attributed_session_id
+        ? "suspected " + esc(row.attributed_exercise_id || "session only") + " · " +
+          esc(row.attribution_confidence) + " · session " +
+          esc(row.attributed_session_on || row.attributed_session_id) + " · onset " +
+          esc(row.onset_on)
+        : "";
       return "<tr><td>" + esc(row.logged_on) + "</td><td>" + esc(row.region) +
         "</td><td>" + row.level + "</td><td>" +
         (row.settled_within_48h == null ? "unknown" : (row.settled_within_48h ? "yes" : "no")) +
-        "</td><td>" + esc(row.note || "") + "</td></tr>";
+        "</td><td>" + attribution + "</td><td>" + esc(row.note || "") + "</td></tr>";
     }).join("");
     box.innerHTML = "<p class='muted'>Showing " + data.shown + " of " + data.total +
       " entries, newest first.</p>" +
-      (rows ? "<div class='table-scroll'><table><thead><tr><th>Date</th><th>Region</th><th>Level</th><th>Settled 48h</th><th>Note</th></tr></thead><tbody>" +
+      (rows ? "<div class='table-scroll'><table><thead><tr><th>Date</th><th>Region</th><th>Level</th><th>Settled 48h</th><th>Attribution</th><th>Note</th></tr></thead><tbody>" +
         rows + "</tbody></table></div>" : "<p class='empty'>No symptom entries recorded.</p>");
     if (data.has_more && !allRows) {
       const button = document.createElement("button");
@@ -1906,6 +1917,16 @@ async function loadState() {
       <div class="muted">of ${r.loaded_sessions} loaded · ${r.flared_sessions} flared · ${r.symptomatic_load_sessions} symptomatic load · ${r.unverified_sessions} unverified</div></td>
       <td>${r.window_days} d</td></tr>`).join("") + "</tbody></table></div>"
       : "<p class='empty'>no regions configured</p>";
+    const attributed = data.attributed_symptoms || [];
+    const attributionBlock = attributed.length
+      ? "<h3>Athlete-attributed symptoms</h3><p class='muted'>Suspected link recorded by the athlete; the signal and prescription do not read it.</p>" +
+        "<div class='table-scroll'><table><thead><tr><th>Logged</th><th>Region</th><th>Lift</th><th>Confidence</th><th>Session</th></tr></thead><tbody>" +
+        attributed.map((row) => "<tr><td>" + esc(row.logged_on) + "</td><td>" + esc(row.region) +
+          "</td><td>" + esc(row.attributed_exercise_id || "session only") + "</td><td>" +
+          esc(row.attribution_confidence) + "</td><td>" +
+          esc(row.attributed_session_on || row.attributed_session_id) + "</td></tr>").join("") +
+        "</tbody></table></div>"
+      : "";
     const calibration = data.e1rm_calibration || [];
     const e1rmPair = (raw, eff) => raw == null ? "—" :
       (eff == null ? raw + " kg" : `${raw} → ${eff} kg`);
@@ -1962,6 +1983,7 @@ async function loadState() {
       <div class="panel state-wide"><div class="panel-head"><h2>Injury signal</h2></div>
         <p>${esc(data.injury_signal?.summary || "")}</p>
         ${injuryRows}
+        ${attributionBlock}
         <p class="muted">${esc(data.injury_signal?.disclaimer || "")}</p></div>`;
   } catch (error) {
     $("#state-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
@@ -2176,10 +2198,27 @@ function renderStateForms(data) {
       <p class="section-help"><span>One pre-session 0-3 reading per region. The latest reading drives the back rules; the whole history drives the injury signal. “Settled within 48 hours” clears a level-1 reading only when recorded as yes — unknown counts as not settled. When it settles, log a new level-0 reading.</span> <a class="doc-link" href="#docs?doc=docs/SYMPTOM-LOGGING.md">Symptom logging</a></p>
       <form id="symptom-form" class="grid-fields">
         <label>Date<input data-symptom="date" type="date"></label>
+        <label>Timing<select data-symptom="timing">
+          <option value="pre_session">pre-session</option>
+          <option value="post_session">post-session</option>
+          <option value="next_morning">next morning</option>
+        </select></label>
         <label>Region<select data-symptom="region">${regionOptions}</select></label>
         <label>Level<select data-symptom="level"><option>0</option><option>1</option><option>2</option><option>3</option></select></label>
         <label>Settled within 48 hours<select data-symptom="settled"><option value="unknown">unknown (not settled)</option><option value="yes">yes</option><option value="no">no</option></select></label>
         <label class="grow">Note<input data-symptom="note"></label>
+        <fieldset class="attribution-fields"><legend>Attribution (optional)</legend>
+          <p class="muted">A suspected completed session and lift. Onset is required; confidence is a word, not a probability. This never changes the injury signal or a prescription.</p>
+          <label>Onset<input data-symptom="attribution_date" type="date"></label>
+          <label>Confidence<select data-symptom="confidence">
+            <option value="">not attributed</option>
+            <option value="possible">possible</option>
+            <option value="likely">likely</option>
+            <option value="strong">strong</option>
+          </select></label>
+          <label>Session<select data-symptom="session"><option value="">none</option></select></label>
+          <label>Lift<select data-symptom="exercise"><option value="">session only</option></select></label>
+        </fieldset>
         <button class="primary" type="submit">Append symptom</button>
       </form>
     </div>
@@ -2301,6 +2340,57 @@ function renderStateForms(data) {
       });
     }
   });
+  const symptomForm = $("#symptom-form");
+  if (symptomForm) {
+    const onsetInput = symptomForm.querySelector('[data-symptom="attribution_date"]');
+    const timingInput = symptomForm.querySelector('[data-symptom="timing"]');
+    const sessionInput = symptomForm.querySelector('[data-symptom="session"]');
+    const liftInput = symptomForm.querySelector('[data-symptom="exercise"]');
+    let attributionSessions = [];
+    const fillLifts = () => {
+      const selected = attributionSessions.find((row) => row.session_id === sessionInput.value);
+      liftInput.innerHTML = '<option value="">session only</option>' +
+        ((selected && selected.lifts) || []).map((item) =>
+          '<option value="' + esc(item.exercise_id) + '">' + esc(item.label) +
+          (item.known ? "" : " (removed)") + "</option>").join("");
+    };
+    const loadAttributionOptions = async () => {
+      sessionInput.innerHTML = '<option value="">none</option>';
+      liftInput.innerHTML = '<option value="">session only</option>';
+      attributionSessions = [];
+      if (!onsetInput.value) return;
+      try {
+        const params = new URLSearchParams({
+          onset: onsetInput.value, timing: timingInput.value
+        });
+        const data = await api("/api/symptoms/attribution-options?" + params.toString());
+        attributionSessions = data.sessions || [];
+        sessionInput.innerHTML = '<option value="">none</option>' +
+          attributionSessions.map((row) => '<option value="' + esc(row.session_id) + '">' +
+            esc(row.occurred_on) + " · " + esc(row.session_type) + " · " +
+            esc(row.source || "session") + "</option>").join("");
+        fillLifts();
+      } catch (error) {
+        sessionInput.innerHTML = '<option value="">unavailable</option>';
+      }
+    };
+    onsetInput.addEventListener("change", loadAttributionOptions);
+    timingInput.addEventListener("change", loadAttributionOptions);
+    sessionInput.addEventListener("change", fillLifts);
+    const pending = window.__pendingSymptomAttribution;
+    if (pending) {
+      onsetInput.value = pending.date || "";
+      timingInput.value = "post_session";
+      window.__pendingSymptomAttribution = null;
+    }
+    loadAttributionOptions().then(() => {
+      if (pending && pending.sessionId) {
+        sessionInput.value = pending.sessionId;
+        fillLifts();
+        if (pending.exerciseId) liftInput.value = pending.exerciseId;
+      }
+    });
+  }
   $("#symptom-form").addEventListener("submit", (event) => {
     event.preventDefault();
     save("/api/state/symptom", collect("symptom"), "#state-result", "Symptom appended.", {
@@ -2308,6 +2398,11 @@ function renderStateForms(data) {
       region: '[data-symptom="region"]',
       level: '[data-symptom="level"]',
       settled: '[data-symptom="settled"]',
+      timing: '[data-symptom="timing"]',
+      onset_on: '[data-symptom="attribution_date"]',
+      attributed_session_id: '[data-symptom="session"]',
+      attributed_exercise_id: '[data-symptom="exercise"]',
+      attribution_confidence: '[data-symptom="confidence"]',
     });
   });
   $("#block-form").addEventListener("submit", (event) => {
