@@ -1,15 +1,76 @@
 # Dynamic Template Resolver — implementation plan
 
-**Status:** planning only. No code, schema, configuration, API, CLI, UI or test change is part
-of this document.
+**Status:** planning only. **Step 0 owner decisions were confirmed on 2026-11-01; no code,
+schema, configuration, API, CLI, UI or test change has started.** No code is part of this
+document.
 
-**Scope:** make the four canonical session templates **dynamic at prescription time** while
-keeping the existing scheduler, prescription engine, volume engine and workout system. A fixed
-four-template YAML version remains the structural blueprint and the fallback.
+**Scope:** make the four canonical session templates a **deterministic session generator** at
+generation time while keeping the existing scheduler, prescription engine, volume engine and
+workout system. The fixed four-template YAML remains the structural blueprint and the fallback.
+The generator selects exercises every session; it does not pin a block-level exercise list.
 
 This document replaces the earlier “parallel Programme Builder” and one-off template-generator
-plans. The stable artifact is the template **blueprint/policy**, not a permanently fixed
-exercise list.
+plans. The stable artifacts are the template **blueprint** and the versioned **resolver policy**,
+not a permanently fixed exercise list.
+
+### 1A. Confirmed design (2026-11-01)
+
+These decisions supersede any older wording in this document that still describes block-level
+pinning, a two-stage volume pass, or a hinge top-set RIR cap.
+
+- **Session generator, no block pin.** Every generation resolves the exercise for every slot.
+  A generated session is frozen when the workout starts; a later generation can differ. There
+  is no multi-session exercise pin.
+- **Session identity stays.** The scheduler still chooses squat, hinge, bench_squat or
+  bench_hinge. The main lift rotates only within that pattern family; the secondary/support
+  lift rotates within its support pattern; accessories are pattern-flexible.
+- **Reusable signals.** Exercise choice uses readiness (per-lift and global), recent
+  stress/fatigue, spinal load, injury signal, suitability, movement-pattern coverage, history
+  and rotation. Missing readiness is neutral, not "low". No LLM and no randomness.
+- **Exercise Rotation 0-1.** 0 keeps the slot's last exercise unless a hard constraint,
+  required pattern or volume objective cannot be met; 1 changes every session; intermediate
+  values use a deterministic dwell (dwell = 1 + round((1 - rotation) * (D - 1)), default
+  D = 8). Recommended defaults: 0.2 main/secondary, 0.5 accessories.
+- **Eligibility.** Auto-select only with explicit can_do = 1; will_do = 0 or feels_bad = 1 is
+  suggestion-only. Unrated exercises may be suggested but require the user to fill can_do,
+  will_do and feels_bad before they can be applied. If no eligible candidate exists, keep the
+  blueprint default and prompt for a rating.
+- **Joint optimisation.** The resolver is a bilevel search: the outer loop chooses exercises;
+  the inner evaluator runs the existing readiness set cuts, deload, spinal trim, volume budget,
+  time estimate and validation in read-only mode; the score is the post-budget outcome. The
+  final build runs the same pipeline once. The volume budget is not applied twice and is not
+  reimplemented.
+- **Top set / back-off is an opt-in main-lift structure.** One top set plus back-off sets,
+  preserving the blueprint's total working sets; back-off load 85% of the top-set load
+  (configurable); top set protected from volume trim, back-off sets trimmable; first-class
+  set-group model; no AMRAP and no RIR 0. Default mode is ask (visible in generation, not
+  applied unless chosen).
+- **Top-set RIR source.** Use the DUP main scheme actually applied to the item:
+  maximal -> RIR 1, strength -> RIR 2; DUP off/no anchor -> RIR 2. A competition-date
+  override sets the base to RIR 1 inside the configured peak window (default 4 weeks). Then
+  apply readiness/deload **once**; if the resolved RIR would exceed 2, use straight sets.
+  No top set on a deload week; no top set inside the configured taper (recommended default
+  7 days) before competition.
+- **Hinge is allowed on a maximal week.** Remove the hinge exclusion from the DUP maximal
+  scheme for the prescribed hinge main lifts (trap bar, sumo, conventional deadlift) and remove
+  the separate top-set RIR-2 cap for hinge. This is a programme change with a spinal/fatigue
+  cost and needs its own decision, golden updates and a warning. Keep the accessory/risk hinge
+  exclusions (good morning, rack pull, Jefferson curl) unless separately approved.
+- **Settings -> Resolver.** All resolver configuration lives under a Settings section named
+  **Resolver**: enable, rotation, eligibility, coverage, readiness/fatigue/spinal/injury
+  weights or modes, top-set mode/defaults, DUP/competition mapping, pools/required patterns,
+  preview/regenerate, policy digest and validation. High-level controls in the normal UI with
+  an advanced validated YAML policy editor; scalar keys use the append-only settings profile.
+- **Blueprint source of truth.** The shipped config/templates/session-types.v1.yaml remains
+  the blueprint; config/template-resolver.v1.yaml is the policy file; a settings-profile flag
+  enables dynamic generation. No database template versions in the MVP. Prescriptions store
+  blueprint/policy digests, the input hash, the generated-session snapshot and the top-set
+  structure.
+- **Forecast.** Use option (c): the forecast shows the blueprint/expected pattern and volume,
+  labelled "exercises generated at session start"; the actual session is generated when the
+  workout starts. It never claims a future exercise list it cannot know.
+- **Historical integrity.** The generated session is frozen at workout start; old prescriptions
+  keep their stored items and null snapshots; no backfill and no rewrite.
 
 **Related:** [METHODOLOGY.md](METHODOLOGY.md), [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md),
 [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md),
@@ -19,24 +80,30 @@ exercise list.
 
 ## 1. Executive summary
 
-1. The four canonical identities stay: `squat`, `hinge`, `bench_squat`, `bench_hinge`.
+1. The four canonical identities stay: squat, hinge, bench_squat, bench_hinge.
 2. The fixed four-template YAML becomes a **blueprint and fallback**:
    - slot roles and order;
    - power placement and quality stop;
    - essential slots;
    - base sets/reps/RIR/rest;
    - exercise defaults and allowed categories.
-3. At each prescription preview, a deterministic resolver fills the blueprint slots for that
-   session using the athlete's current constraints, suitability, history, pattern coverage and
-   volume state.
-4. The resolved `SessionTemplate` is passed to the existing `build_prescription`; readiness,
-   e1RM, RIR, undulation, volume budget, deload, spinal limits and validation still run there.
-5. The resolved template and the blueprint/policy versions are frozen with the prescription.
-6. There is no separate programme scheduler, prescription engine, volume engine, programme
-   lifecycle or pathway selector.
-7. Power is a hard structural constant; weak-point targeting is a later feature. The resolver
-   uses movement-pattern coverage and under-MEV patterns now.
-8. Generation is deterministic. No LLM, no randomness.
+3. Every generation runs a deterministic resolver over the blueprint slots using the athlete's
+   constraints, suitability, readiness, fatigue, spinal load, injury signal, history, pattern
+   coverage, volume state and rotation. There is no block-level exercise pin.
+4. The generated SessionTemplate is passed to the existing build_prescription. Readiness, e1RM,
+   RIR, DUP, volume budget, deload, spinal limits and validation still run there.
+5. The resolver is a **joint bilevel search**: candidate exercises are scored after the existing
+   readiness/deload/spinal/volume pipeline in read-only mode; the final build runs that pipeline
+   once. The volume budget is not reimplemented.
+6. The generated session, blueprint/policy digests, input hash and top-set structure are frozen
+   when the workout starts. There is no separate programme scheduler, prescription engine,
+   volume engine, programme lifecycle or pathway selector.
+7. Power is a hard structural constant; top set/back-off is an optional main-lift structure.
+   Weak-point targeting remains a later feature. Coverage is movement-pattern based.
+8. Generation is deterministic. No LLM and no randomness; Exercise Rotation controls how often
+   the choice changes, not whether it is deterministic.
+9. All resolver configuration is exposed under **Settings -> Resolver**; the shipped template
+   YAML remains the blueprint, with a separate versioned resolver policy file.
 
 ---
 
@@ -51,8 +118,8 @@ exercise list.
 | Volume | `volume_budget` loads templates by `session_type` in template rows, drop and apply paths. | It must consume the resolved template, not reload the shipped file. No second volume engine. |
 | Selection | `selection.py`, `fatigue_selection.py`, `demand_scope.py` load templates. | They must use the resolved/blueprint template for the session. |
 | Critique | `critique/facts.py` loads the template by `session_type` for rep ranges. | It must use the frozen resolved template or linked version, not the current active policy. |
-| History | Prescriptions, items, workouts and sessions are append-only. | Add provenance columns; no rewrite or backfill. |
-| UI | Forecast is on Programme; the YAML editor is on Exercises and writes the single file. | Programme becomes template/policy management; Forecast becomes its own view; the YAML editor moves under Programme and writes versions, not the shipped file. |
+| History | Prescriptions, items, workouts and sessions are append-only. | Add generated-session/policy digests and top-set structure to provenance; no rewrite or backfill. |
+| UI | Forecast is on Programme; the YAML editor is on Exercises and writes the single file. | Add a Settings -> Resolver section and a generation preview; keep the template editor on Exercises; the forecast shows the blueprint/expected pattern (option c). |
 
 ---
 
@@ -61,24 +128,26 @@ exercise list.
 ### 3.1 Resolution path
 
 ```text
-fixed four-template YAML version  (blueprint + fallback)
-resolver policy version           (categories, pools, coverage, volume rules)
+fixed four-template YAML  (blueprint + fallback)
+resolver policy file     (pools, patterns, weights, rotation, top set)
                     |
-athlete readiness -> scheduler -> session type
+athlete state (readiness, fatigue, spinal, injury, suitability, history, DUP, competition)
                     |
-             deterministic resolver
+scheduler -> session type -> deterministic session generator
                     |
-          resolved SessionTemplate
+        joint evaluator: readiness + deload + spinal + volume budget (read-only)
                     |
-          build_prescription (unchanged)
+          generated SessionTemplate (exercises + top-set structure)
                     |
-       prescription + frozen resolved template
+          build_prescription (same pipeline, once)
                     |
-              workout / history
+     generated session + digests + top-set structure (frozen at workout start)
+                    |
+               workout / history
 ```
 
-When no resolver policy is active, or dynamic mode is explicitly off, the fixed templates are
-used exactly as today.
+When the Settings -> Resolver flag is off, the fixed templates are used exactly as today. A
+generated session is frozen when the workout starts; it is not a block-level exercise pin.
 
 ### 3.2 Stable versus dynamic
 
@@ -94,114 +163,128 @@ used exactly as today.
 **Dynamic per session**
 
 - Which exercise fills each slot, from its category/pool.
-- Which accessory variants fill the accessory slots.
-- Which patterns are covered when the athlete's constraints/suitability narrow the options.
-- The resolved template's exercise list, frozen for that prescription.
+- Which patterns the accessory slots cover (pattern-flexible).
+- The optional top-set/back-off structure.
+- The generated session's exercise list, frozen at workout start, not for a block.
 
-**Not decided by the resolver**
+**Not decided by the generator**
 
-- kg loads.
-- RIR readiness adjustment.
-- Set reduction/top-up from readiness or volume budget.
-- Deload application.
-- Spinal-cap trimming.
+- kg loads: the engine solves them from e1RM/history.
+- The exact final set counts after readiness/deload/volume: the joint evaluator scores them,
+  but the existing pipeline remains the authority.
 - Warm-up generation.
 
-Sets/reps/RIR start from the blueprint and vary only through the existing runtime rules. The
-resolver does not create a second set/rep/RIR policy.
+Sets/reps/RIR start from the blueprint and DUP; the permitted variations are the optional
+top-set structure and the joint volume allocation. The generator does not create a second
+periodisation or volume engine.
 
 ### 3.3 What is reused, extended and new
 
 **Reused unchanged**
 
-- `Slot`, `SessionTemplate`, `validate_text`, four canonical identities.
+- Slot, SessionTemplate, validate_text, four canonical identities.
 - Rolling scheduler.
-- `build_prescription` readiness/e1RM/RIR/volume/deload/spinal/validation.
+- build_prescription readiness/e1RM/RIR/volume/deload/spinal/validation.
 - Exercise taxonomy, suitability, constraints and selection comparability.
 - Workout execution, history and append-only persistence.
-- Forecast logic.
+- Forecast logic (blueprint mode, option c).
 
 **Extended**
 
-- `build_prescription` accepts the resolved template (already supports `template`; caller wiring
-  is the change).
-- Scheduler, volume budget, selection and critique accept the resolved/blueprint template or a
+- build_prescription accepts the generated template and the top-set structure (already supports
+  template; caller wiring is the change).
+- Scheduler, volume budget, selection and critique accept the generated/blueprint template or a
   frozen snapshot.
-- Prescription gains provenance for the fixed template version, resolver policy version and
-  resolved template snapshot.
+- A read-only evaluator exposes the existing pipeline for candidate scoring.
+- Prescription gains blueprint/policy digests, input hash, generated-session snapshot and
+  top-set structure.
 
 **New**
 
-- Deterministic resolver module.
-- Resolver policy config/version.
-- Fixed template version/state persistence.
-- Resolver-specific validation (pattern coverage, volume, duration, power, suitability).
-- Programme-page template/policy management and per-session preview.
+- Deterministic session generator (exercise choice, rotation, eligibility, top-set RIR).
+- Resolver policy file and Settings -> Resolver section.
+- Joint evaluator for post-budget scoring.
+- Top-set/back-off set-group model and load solver support.
+- Generator-specific validation (pattern coverage, volume, duration, power, suitability,
+  top-set rules).
+- Generation preview and per-session regenerate.
 - Tests.
 
 **Not new**
 
 - No second scheduler, prescription engine, volume engine or programme lifecycle.
-- No automatic regeneration.
 - No LLM generation.
 - No cardio programming.
-- No equipment/experience/objective model.
+- No equipment/experience/objective model beyond the existing suitability state.
+- No block-level exercise pin.
 
 ### 3.4 Template resolution call sites
 
 | call site | path | change |
 |---|---|---|
 | `prescribe/engine.py` | future | use the resolved template passed by the caller |
-| `prescribe/schedule.py` | future | read `primary_exercise` from blueprint/fallback |
-| `prescribe/volume_budget.py` | future | accept resolved template; stop reloading by type |
+| `prescribe/schedule.py` | future | read `primary_exercise` from blueprint/fallback; availability must not depend on a fixed primary when the main pool can substitute (see §12.11) |
+| `prescribe/volume_budget.py` | future | accept resolved/effective template rows; stop reloading by type in `template_rows`, `plan_drop`, `report` and `record_exemptions` |
+| `prescribe/templates.py` | global read | `all_rep_ranges()` pools rep ranges across all four shipped templates; its scope under dynamic resolution must be stated (blueprint ranges or resolved ranges, not an implicit current-file read) |
+| `rules/context.py` | future | the `RuleContext` rep-range map passed by `engine.py` is built from `all_rep_ranges()`; decide its dynamic-mode source (`PRG-DP-001`) |
 | `prescribe/selection.py` | future | resolve candidates within the resolved template slots |
 | `prescribe/fatigue_selection.py` | future | same |
 | `prescribe/demand_scope.py` | read-only | use explicit template/version |
-| `critique/facts.py` | historical | use frozen resolved template or linked version |
-| `features/programme.py` | forecast | use active blueprint/resolver path or fixed fallback |
+| `critique/facts.py` | historical | use frozen resolved template or linked version; it currently receives only `session_type` and must resolve the linked prescription/snapshot |
+| `features/programme.py` | forecast | use active blueprint/resolver path or fixed fallback; define how future dates resolve against projected rows |
 | `prescribe/summary.py` | docs | render from selected version |
-| `agents/proposal.py` | future | defer; use active path when LLM work resumes |
+| `agents/proposal.py` | current live path | it loads the template by `session_type`; under dynamic mode it must use the active resolved template or proposals must be unavailable until the LLM work resumes |
+| `tools/workout_generation_example.py` | dev tool | low priority; it reads the shipped YAML directly |
 
 ---
 
 ## 4. Resolver inputs and policy
 
-### 4.1 Existing athlete inputs only
+### 4.1 Existing athlete inputs
 
-- `sessions_per_week_target`;
-- `max_session_minutes`;
-- `athlete_constraint`;
-- `exercise_suitability`;
+- sessions_per_week_target;
+- max_session_minutes;
+- athlete_constraint and exercise_suitability (can_do, will_do, feels_bad);
+- readiness (per-lift and global) and the existing missing-readiness rules;
+- recent stress/fatigue, spinal load/cap and injury signal;
 - recent training history, e1RM and pattern exposure;
 - taxonomy patterns, primary muscles, loadability and power classification;
-- existing volume landmarks/targets and time estimates.
+- existing volume landmarks/targets and time estimates;
+- DUP week/scheme and competition_date;
+- resolver settings (rotation, top-set mode, coverage priority and weights).
 
-No new objective, equipment, experience or muscle-priority state is added.
+No new objective, equipment, experience or muscle-priority state is added. Missing readiness is
+neutral; unrated suitability is not auto-selectable. The generator may use stored state only; it
+may not invent a value for a missing input.
 
 ### 4.2 Resolver policy
 
-The policy is a versioned configuration document (`config/template-resolver.v1.yaml` in a later
-step) that defines:
+The policy is a versioned configuration file (config/template-resolver.v1.yaml) that defines:
 
 - per session type: the fixed slot roles/order inherited from the blueprint;
-- exercise categories/pools per slot;
-- allowed variants and substitution rules;
-- coverage rules: required patterns, under-MEV patterns, redundancy avoidance;
-- accessory allocation limits;
+- exercise categories/pools per slot and the allowed/required patterns;
+- eligibility and unrated-exercise confirmation rules;
+- coverage rules: required patterns, under-MEV/over-MRV targets, redundancy avoidance;
+- accessory allocation limits and pattern-flexibility boundaries;
 - power slot requirements;
-- duration limits;
-- deterministic tie-break order.
+- Exercise Rotation defaults, dwell and per-class overrides;
+- readiness/fatigue/spinal/injury/preference weights or modes and deterministic tie-break order;
+- top-set/back-off mode, eligible lift class, back-off percentage, DUP/competition RIR mapping,
+  taper and fallback rules;
+- duration limits and forecast mode (blueprint, option c).
 
-The policy contains no athlete data.
+The policy contains no athlete data. It is tracked in git, validated on save, and identified by
+its digest; there is no database template-version table in the MVP.
 
-### 4.3 Fixed YAML fallback
+### 4.3 Fixed YAML fallback and source of truth
 
-The fixed four-template YAML remains the structural blueprint and fallback. It is versioned and
-activatable. When dynamic resolution is off or no policy is active, it runs exactly as today.
+The fixed four-template YAML remains the structural blueprint and fallback. When the
+Settings -> Resolver flag is off, it runs exactly as today.
 
-The YAML editor under Programme edits the fixed template version. Saving creates a new immutable
-version; activation remains explicit. The structured slot editor edits the same fixed version
-content.
+The YAML editor stays on Exercises and writes the shipped file with the existing backups. The
+Settings -> Resolver section edits the policy file, not the blueprint. No database
+template-version or template-state table is added; git and the backup directory are the
+blueprint history, and the policy file is versioned the same way.
 
 ---
 
@@ -210,149 +293,283 @@ content.
 ### 5.1 Session flow
 
 1. The scheduler selects one of the four session types.
-2. Load the active fixed blueprint/fallback for that type.
-3. Load the active resolver policy, if dynamic mode is enabled.
-4. For each blueprint slot, resolve the exercise from its category/pool:
-   - remove hard-constraint and suitability vetoes;
-   - remove exercises already used in this session where duplicate/overlap is not allowed;
-   - prefer exercises that cover required/under-represented patterns;
-   - use deterministic policy order and canonical id for ties;
-   - apply the existing selection/comparability rules for variant slots.
-5. Build a complete `SessionTemplate` with the same slot fields as the blueprint.
-6. Validate the resolved template and the whole session.
-7. Pass it to `build_prescription` with the normal fingerprint/rollback history.
-8. Freeze the resolved template and the active versions with the prescription.
+2. Load the fixed blueprint for that type.
+3. Load the resolver policy if dynamic generation is enabled.
+4. Read the athlete state: readiness, recent stress, spinal load, injury signal, suitability,
+   history, DUP week/scheme and competition date.
+5. Build the candidate set per slot, applying hard constraints, eligibility and pattern rules.
+6. Run the joint evaluator for candidate assignments: readiness set cuts, deload, spinal trim,
+   volume budget, time estimate and validation, in read-only mode. Score the post-budget
+   outcome.
+7. Choose the best proposal with a fixed deterministic order and tie-break.
+8. Build the generated SessionTemplate with the chosen exercises and top-set structure.
+9. Validate the generated template and the whole session.
+10. Pass it to build_prescription; the same pipeline runs once.
+11. Freeze the generated session, policy/blueprint digests, input hash and top-set structure
+    when the workout starts. A later generation can differ; there is no block pin.
 
-If any required slot cannot be resolved, the preview fails with a field-level error. Fallback to
-the fixed template occurs only when dynamic mode is off or no policy is active.
+If a required slot cannot be resolved, generation fails with a field-level error and the UI/CLI
+offers an explicit "disable dynamic generation" action. Fallback to the fixed template occurs
+only when the flag is off. There is no silent fallback.
 
 ### 5.2 Main and secondary lifts
 
-- The session type defines the primary pattern category.
-- The main lift must be chosen from that category and must preserve a valid
-  `primary_exercise` for the scheduler.
-- The secondary lift comes from the configured support category for that session.
+- The session type defines the primary pattern family: squat, hinge, bench_squat or bench_hinge.
+- The main lift rotates only within that family (for example SSB, competition, front or high-bar
+  squat on a squat session). It never changes the session identity.
+- The secondary/support lift rotates within its support pattern (bench support stays a
+  horizontal push; squat support stays a squat; hinge support stays a hinge).
 - If no valid main/secondary lift exists, the session is unavailable; do not silently substitute
   a different session type.
+- The scheduler's availability check must be pool-aware and must not veto a session because one
+  fixed default is contraindicated when another valid candidate exists.
+- The generated template sets primary_exercise to the chosen main lift, so the engine's
+  constraint handling and the scheduler identity stay correct.
 
-### 5.3 Accessories and coverage
+### 5.3 Accessories, patterns and coverage
 
-Accessories are chosen to fill the remaining blueprint slots from their configured categories,
-with this order of preference:
+Accessory slots are pattern-flexible within the policy. The policy must define:
 
-1. exercise is suitable and not contraindicated;
-2. it covers a required pattern not already covered in the session;
-3. it covers a pattern below its configured MEV/recent target, when the policy says so;
-4. it avoids duplicating an already-trained pattern or muscle emphasis;
-5. configured priority order and canonical id.
+- required patterns per session (for example at least one horizontal pull, one vertical pull or
+  press, one knee-flexion pattern; erector work only where the blueprint allows it);
+- allowed patterns per slot and the main/secondary boundary;
+- redundancy limits by pattern and primary muscle;
+- candidate pools, including the existing variants catalogue and taxonomy.
 
-“Weak-point targeting” is not implemented. The app has no validated weakness metric; automatic
-weakness/injury-targeted selection remains a later gated feature. The resolver may call this
-**coverage-based accessory selection**, not weakness correction.
+Given a candidate assignment, the evaluator computes the projected end-of-week pattern totals
+including the current session and the planned remaining sessions. The score rewards reducing the
+largest under-target gap without creating an over-target or MRV breach. "Projected" means the
+post-budget outcome, not the raw blueprint sets.
 
-Muscle-group balance uses the taxonomy's primary muscles as a diversity heuristic. Volume
-minima/maxima remain movement-pattern based; there is no per-muscle volume ledger.
+Weak-point targeting is not implemented. The app has no validated weakness metric; automatic
+weakness/injury-targeted selection remains a later gated feature. This is movement-pattern
+coverage, not weakness correction. Muscle-group balance uses the taxonomy's primary muscles as a
+diversity heuristic; volume minima/maxima remain movement-pattern based.
 
 ### 5.4 Power
 
 Power is a hard structural constant:
 
-- one slot on the squat blueprint and one on the hinge blueprint;
+- **all four blueprints already carry one power slot**: `box_jump` on squat, `broad_jump` on
+  hinge, and `medicine_ball_chest_pass` on both bench sessions (`DEC-POWER-01/02/04/05`);
 - first in the session, before strength work;
-- 2–3 sets of 3–5 reps, full recovery (about 120 s);
+- 3 sets of 3–5 reps (the blueprint controls the dose), full recovery (about 120 s);
 - maximal intent and a quality stop, no RIR;
 - no load progression and no double progression;
 - no Olympic lifts;
-- power pattern sets stay outside MEV/MAV/MRV.
+- power pattern sets stay outside MEV/MAV/MRV; `power_throw` shares the fixed `power_jump`
+  volume bucket.
 
-If frequency is one or two sessions per week, the resolver gives the available session a power
-slot and records a warning that twice-weekly exposure is not feasible; it never adds sessions.
-Bench templates have no power slot in the MVP because the taxonomy has no validated upper-body
-power pool and equipment is not modelled.
+The resolver treats the power slot as fixed: it does not choose a different power exercise, add
+a second power slot, or remove it. The taxonomy already carries `power_jump` and `power_throw`
+patterns; no separate upper-body power pool is needed. If frequency is one or two sessions per
+week, the available session keeps its own power slot and the resolver records a warning that
+twice-weekly power exposure is not feasible; it never adds sessions.
 
-### 5.5 Volume and duration
+### 5.5 Volume, duration and joint optimisation
 
-- The resolver chooses exercises, not a new weekly volume target.
-- Weekly pattern volume is checked against the existing configurable landmarks.
-- The existing volume budget remains the runtime authority for trims/top-ups.
-- The existing session-time estimate checks that the resolved template fits
-  `max_session_minutes`.
-- If the blueprint + policy cannot fit, the preview fails or warns according to the validator;
-  it never silently exceeds the limit.
+The generator and the volume budget are one joint decision, not two independent passes:
+
+- candidate exercise assignments are scored by the **post-budget** week projection;
+- the evaluator runs the existing readiness set cuts, deload, spinal trim, volume budget,
+  time estimate and validation in read-only mode;
+- the winning proposal is built once by the same pipeline; the budget is not applied twice and
+  is not reimplemented;
+- the existing volume budget remains the only volume engine and the runtime authority;
+- top-set time and spinal cost are part of the evaluation; back-off sets are trimmable, the top
+  set is protected.
+
+Weekly pattern volume is checked against the existing configurable landmarks. The existing
+session-time estimate checks that the generated session fits max_session_minutes. If it cannot
+fit, generation fails or warns according to the validator; it never silently exceeds the limit.
 
 ### 5.6 Determinism
 
-Same blueprint version + policy version + athlete state/history snapshot + config + date +
-session type = same resolved template.
+Same blueprint digest + policy digest + athlete state/history snapshot + config + date + session
+type + rotation state = same generated session.
 
-- No randomness; stable ordering.
+- No randomness; stable candidate order and deterministic tie-break.
 - No LLM.
-- Store an input hash, policy version, template version and resolved template snapshot.
+- Store the input hash, blueprint/policy digests, generated-session snapshot and top-set
+  structure.
+- A new date or a materially changed readiness/history state may produce a different session by
+  design; that is not a violation of determinism.
 - kg is not resolved here; the runtime engine computes it from current e1RM/readiness.
+- The generated session is frozen at workout start; no mid-session change.
+
+### 5.7 Exercise Rotation
+
+Exercise Rotation is a deterministic dwell rule, not a random score weight.
+
+- rotation 0: keep the slot's last exercise unless a hard constraint, required pattern or volume
+  objective cannot be met.
+- rotation 1: choose a different eligible exercise every session; if no alternative exists, keep
+  the only eligible one and warn.
+- 0 < rotation < 1: dwell = 1 + round((1 - rotation) * (D - 1)), with D a configured maximum
+  dwell (default 8 sessions). Rotate when the slot has gone that many sessions without a change.
+- Recommended defaults: 0.2 main/secondary, 0.5 accessories; the setting can be global with
+  per-class overrides.
+- Constraints, injury, required patterns and coverage may force a change before the dwell; pure
+  variety does not.
+- Tie-break inside a rotation: least recently used, then canonical id.
+
+### 5.8 Top set / back-off (optional main-lift structure)
+
+The generator can offer a top set + back-off structure for the session's primary main lift. It is
+a set-configuration feature, not a second periodisation engine.
+
+**Structure**
+
+- one top set plus back-off sets, preserving the blueprint's total working sets;
+- top set at the blueprint's rep range and the resolved top-set RIR;
+- back-off sets at 85% of the top-set load (configurable) with the normal RIR window;
+- no AMRAP, no failure set and no RIR 0;
+- warm-up derives from the top-set load; the top set counts as a working set and one spinal
+  exposure;
+- top set protected from volume trim; back-off sets are trimmed first; deload reduces back-off
+  sets and may reduce the top-set load; no top set on a deload week;
+- first-class set-group model on the item, not two same-exercise item rows.
+
+**Top-set RIR**
+
+Use the DUP main scheme actually applied to the item:
+
+- maximal -> 1;
+- strength -> 2;
+- DUP off/no anchor -> 2;
+- competition override: inside the configured peak window (default 4 weeks) the base is 1,
+  even on a strength week;
+- then apply readiness/deload once; if the resolved RIR would exceed 2, use straight sets;
+- no top set inside the configured taper (recommended 7 days) before competition;
+- never RIR 0; clamp the resolved value to 1 as the lowest.
+
+**Hinge on a maximal week**
+
+Hinge is allowed on a maximal week. Remove the maximal exclusion for the prescribed hinge main
+lifts (trap bar, sumo, conventional deadlift) and remove the separate top-set RIR-2 cap for
+hinge. Keep the accessory/risk hinge exclusions (good morning, rack pull, Jefferson curl) unless
+separately approved. This is a programme change with a spinal/fatigue cost: record it as a
+decision, update goldens and show a warning. The ordinal spinal cap is load-blind, so a maximal
+hinge exposure is not fully represented by the cap.
+
+**Ordering**
+
+1. build the base item and set structure;
+2. apply the DUP scheme (reps/load; preserve the structure);
+3. resolve the top-set RIR from the applied scheme and competition override;
+4. apply readiness/deload once;
+5. fall back to straight sets if the resolved RIR is above 2;
+6. run the volume budget (trim back-offs first).
+
+**Evidence**
+
+The top-set/back-off evidence review recommends no default programme change. The generator
+option is therefore opt-in; the default mode is ask (visible in generation, not applied), and
+it is recorded as a decision/assumption with a warning. It is not automatically selected from
+readiness.
+
+### 5.9 Joint evaluator
+
+The evaluator is the existing pipeline in read-only mode, not a copy:
+
+1. outer loop: candidate assignments per slot (greedy or bounded beam; deterministic order);
+2. inner evaluator: readiness set cuts, deload, spinal trim, volume budget, time estimate and
+   validation;
+3. score: projected pattern-band distance, required-pattern coverage, readiness/fatigue fit,
+   spinal cost, injury penalty, rotation, preference and time;
+4. choose the best complete proposal; build it once; freeze it at workout start.
+
+Performance is bounded by fixed candidate limits and a deterministic beam width (recommended
+3-5), not by a wall-clock cut-off. A cheap prefilter selects candidates for full evaluation. If
+the exact evaluator is too slow, extract a lightweight projection that calls the same budget
+functions; do not write a second volume engine.
 
 ---
 
 ## 6. Resolution versus runtime
 
-| Concern | Resolver | Existing runtime |
+| Concern | Generator | Existing runtime |
 |---|---|---|
 | Session type | no (scheduler) | scheduler |
-| Exercise choice | yes | variant selection only within resolved template |
-| Sets/reps/RIR target | blueprint | readiness, undulation, volume, deload |
+| Exercise choice | yes (rotation, readiness, fatigue, spinal, injury, coverage) | no second selection |
+| Top-set structure | yes (optional, main lift) | set-group load solver and logging |
+| Sets/reps/RIR target | blueprint + DUP + top-set RIR base | readiness, deload, volume, DUP application |
 | kg load | no | e1RM solver/load history |
 | Power placement | blueprint/policy | quality-stop enforcement |
-| Weekly volume | coverage check | volume budget/MRV cap |
+| Weekly volume | joint post-budget score | volume budget/MRV cap (only engine) |
 | Duration | fit check | estimate and warnings |
-| History | no writes | append-only prescription/workout |
+| History | no writes | append-only prescription/workout; generated session frozen at start |
 
 ---
 
 ## 7. Persistence and provenance
 
-### 7.1 Minimum tables/columns
+### 7.1 Provenance
+
+No template_version, resolver_policy_version or template_state tables are added in the MVP. The
+blueprint is the shipped YAML; the policy is a tracked file; the dynamic flag is a settings
+profile value.
+
+Minimum provenance:
 
 | object | purpose |
 |---|---|
-| `template_version` | immutable fixed four-template YAML version: id, source, body, schema/config hashes, parent, created_at |
-| `resolver_policy_version` | immutable resolver policy version: id, body, schema version, created_at, parent |
-| `template_state` | singleton: `active_template_version_id`, `active_policy_version_id` (nullable), `dynamic_enabled`, `updated_at` |
-| `prescription.template_version_id` | fixed blueprint/fallback version used |
-| `prescription.resolver_policy_version_id` | policy used, nullable for fixed path |
-| `prescription.resolved_template_json` | exact resolved template; null for fixed path |
+| prescription.template_digest | SHA-256 of the blueprint file used |
+| prescription.policy_digest | SHA-256 of the resolver policy file used; null on the fixed path |
+| prescription.input_hash | canonical hash of the state/config inputs used for generation |
+| prescription.generated_session_json | generated exercise list, slot patterns and top-set structure; null on the fixed path |
+| settings_profile resolver flag | dynamic generation on/off, effective-dated |
 
-No programme/block/session lifecycle tables. No event sourcing.
+Reuse the existing run/prescription provenance path and settings-profile snapshot. Do not add a
+third overlapping provenance surface without a stated reason. The canonical input hash must be
+defined (tables/rows, date, history window, blueprint/policy digests, config digests, rotation
+state) and stored, not recomputed from the current database.
 
-### 7.2 Default and activation
+### 7.2 Default, policy save and rollback
 
-- Seed a default fixed template version from the shipped YAML.
-- If `active_policy_version_id` is null or `dynamic_enabled = 0`, the fixed templates run as
-  today.
-- Activating a policy enables dynamic resolution only when the flag is on.
-- Generating/resolving never changes the active versions.
-- Rollback activates a previous version or disables dynamic mode.
-- A new candidate policy never affects the current session until activated.
+- If the settings-profile resolver flag is off, the fixed templates run exactly as today.
+- Turning the flag on uses the current policy file; there is no database seed or active-version
+  record.
+- Policy save takes effect for the next generation, with a diff and backup. A generation or a
+  workout start never changes the policy.
+- Rollback is flipping the flag off, restoring the policy file from backup, or checking out the
+  previous git revision.
+- A policy edit cannot change a generated session that is already in progress.
 
-### 7.3 Editors
+### 7.3 Editors and source of truth
 
-The YAML editor moves under Programme and edits the fixed template version.
-
-Option B:
-
-- saving creates a new immutable template version (candidate);
-- the active version does not change until explicit activation;
-- the structured slot editor edits the same fixed version content and uses the same save path;
-- the resolver policy has its own YAML/structured editing surface later; it is versioned the same
-  way.
-
-No editor mutates an active version in place.
+- The template YAML editor stays on Exercises and edits the shipped blueprint file with the
+  existing backups.
+- Settings -> Resolver owns the policy editor: structured controls for common values plus an
+  advanced validated YAML view. Saving writes the policy file with a backup and digest.
+- The advanced policy editor must validate the whole document before writing; a rejected save
+  leaves the current file untouched.
+- No editor mutates an active database version in place, because there is no database version.
 
 ### 7.4 Historical integrity
 
-- New prescriptions store the fixed version, policy version and resolved template.
+- New prescriptions store blueprint/policy digests, input hash, generated-session snapshot and
+  top-set structure.
 - Old prescriptions keep nulls; their stored items remain readable.
-- Critique for new sessions uses the frozen resolved template's rep ranges.
+- Critique for new sessions uses the frozen generated session's rep ranges and top-set roles.
 - Critique for old unlinked sessions continues on the current fallback; do not invent history.
-- Switching policy/version never rewrites old prescriptions or workouts.
+- Switching the resolver flag or policy never rewrites old prescriptions or workouts.
+
+### 7.5 What "frozen" means
+
+The generated_session_json is the **effective** session used to build the prescription, after
+readiness set cuts, deload, spinal trim and the volume budget. It includes the final exercise
+list, slot patterns and top-set structure. It is not the raw pre-runtime proposal.
+
+- The prescription items remain the final truth for what was prescribed.
+- The snapshot exists so critique, volume_budget.record_exemptions and historical display can
+  recover slot rep ranges, base sets and top/back-off roles without reading the current policy.
+- The live workout copies the plan JSON, so it must copy the generated-session identity and
+  top-set structure with it; it must never re-read the active policy.
+- A generated session is frozen when the workout starts; a later generation is a new session,
+  not a rewrite.
+
+Do not rewrite old prescriptions. Null means "not recorded", not "use current".
 
 ---
 
@@ -360,44 +577,89 @@ No editor mutates an active version in place.
 
 ### 8.1 Navigation
 
-- **Programme** becomes template and resolver-policy management.
-- The existing forecast moves to a separate **Forecast** view/tab.
-- No separate pathway selector.
+- **Settings -> Resolver** is the configuration home for dynamic generation and all policy
+  values.
+- The template YAML editor stays on **Exercises**.
+- The existing forecast stays on **Programme** and shows the blueprint/expected pattern (option
+  c); it does not claim a future exercise list.
+- No separate pathway selector, no template-version management page.
 
-### 8.2 Programme view
+### 8.2 Settings -> Resolver
 
-- Active fixed template version and active resolver policy.
-- Dynamic mode on/off.
-- Fixed template versions: review, YAML editor, structured slot editor, activate, revert.
-- Resolver policy versions: review, edit, activate, revert.
-- Per-session preview: choose the next session type (or let the scheduler choose), see the
-  resolved exercises/slots, warnings and the fixed fallback comparison.
-- No fixed generated exercise list is stored as the active configuration.
+The section contains, in order:
 
-### 8.3 Workflow
+1. **Generation:** enable, Exercise Rotation, dwell, eligibility, coverage priority,
+   readiness/fatigue/spinal/injury weights or modes, tie-break.
+2. **Top set / back-off:** mode (off / ask / on), eligible main lift, back-off percentage,
+   DUP/competition RIR mapping, peak window, taper, fallback-to-straight rule.
+3. **Pools and patterns:** required patterns per session, allowed patterns per slot, candidate
+   pools, redundancy limits, structural policy.
+4. **Preview:** "Preview next session" and "Regenerate"; shows choices, reasons, alternatives,
+   top-set structure and warnings.
+5. **Policy:** validation, digest, diff, save/backup; advanced YAML view.
 
-The existing preview becomes the per-session review:
+High-level controls use the existing settings-profile form (append-only, effective date,
+reason, guarded confirmation). Structural policy uses the advanced validated YAML editor.
+No volume targets are duplicated here; link to Settings -> Volume.
 
-1. readiness;
+**Resolver settings inventory**
+
+Scalar keys (settings registry / settings profile):
+
+- resolver.enabled
+- resolver.rotation.default, resolver.rotation.main, resolver.rotation.accessory,
+  resolver.rotation.max_dwell
+- resolver.eligibility.auto_requires_can_do, resolver.eligibility.unrated_mode,
+  resolver.eligibility.will_do_blocks, resolver.eligibility.feels_bad_blocks
+- resolver.coverage.priority, resolver.coverage.under_target_weight,
+  resolver.coverage.over_target_weight
+- resolver.weights.readiness, resolver.weights.fatigue, resolver.weights.spinal,
+  resolver.weights.injury, resolver.weights.rotation, resolver.weights.preference
+- resolver.tie_break
+- resolver.top_set.mode, resolver.top_set.eligible, resolver.top_set.backoff_percent,
+  resolver.top_set.preserve_total_sets, resolver.top_set.protect_top_set,
+  resolver.top_set.fallback_above_rir
+- resolver.top_set.rir_by_main_scheme.maximal, resolver.top_set.rir_by_main_scheme.strength,
+  resolver.top_set.rir_by_main_scheme.off
+- resolver.competition.peak_weeks, resolver.competition.taper_days,
+  resolver.competition.override_enabled
+- resolver.forecast.mode = blueprint
+
+Structural policy (config/template-resolver.v1.yaml, advanced editor):
+
+- required patterns per session;
+- allowed patterns per slot and the main/secondary boundary;
+- candidate pools and redundancy limits;
+- per-class rotation overrides and tie-break detail;
+- top-set eligible lifts and any lift-specific exceptions;
+- policy schema version and digest.
+
+Guarded keys (confirmation and reason required): top-set load/RIR, competition override,
+spinal/injury weights, and any setting that can increase a near-maximal exposure. The hinge
+maximal change lives in the DUP schemes config, not in the resolver panel; the panel links to it
+and shows the warning.
+
+### 8.3 Generation workflow
+
+1. readiness and state;
 2. scheduler/session type;
-3. resolver builds the resolved template;
-4. prescription preview shows resolved exercises and normal warnings;
-5. start workout freezes the resolved template and prescription.
+3. generator chooses exercises and optional top set;
+4. preview shows the generated session, top-set structure, warnings and alternatives;
+5. start workout freezes the generated session; a later generation is a new session.
 
-If the preview is rebuilt after a readiness change, the resolver rebuilds. The started workout
-keeps the frozen snapshot.
+If readiness or settings change before start, offer "Regenerate" and show a diff. The started
+workout never changes.
 
 ### 8.4 API (proposed)
 
-- `GET /api/template-versions`
-- `POST /api/template-versions` (YAML save)
-- `POST /api/template-versions/{id}/activate`
-- `GET /api/resolver-policies`
-- `POST /api/resolver-policies` (policy save)
-- `POST /api/resolver-policies/{id}/activate`
-- `POST /api/template-resolve` (preview for a date/session type)
-- `GET /api/template-state`
-- Existing `/api/programme` remains the forecast.
+- GET /api/settings/resolver
+- POST /api/settings/resolver (scalar settings save; settings-profile semantics)
+- GET /api/settings/resolver/policy
+- POST /api/settings/resolver/policy (validated YAML save with backup/digest)
+- POST /api/resolver/preview (date/session type; returns proposal, reasons, top-set structure,
+  projected week, warnings)
+- POST /api/resolver/generate (freeze the proposal as the prescription when starting)
+- Existing /api/programme remains the blueprint forecast (option c).
 
 ### 8.5 CLI
 
@@ -406,8 +668,8 @@ UI-first for MVP; read-only status/show later. Document the temporary gap in
 
 ### 8.6 Mobile
 
-One section per step; resolved session cards with expandable slot details; warnings first;
-explicit activation; sticky save. No wide table.
+One section per step; generated session cards with expandable slot details; warnings first;
+explicit save/regenerate; sticky save. No wide table.
 
 ---
 
@@ -415,37 +677,44 @@ explicit activation; sticky save. No wide table.
 
 ### 9.1 Resolver validation
 
-- Fixed blueprint parses through `validate_text`.
-- Resolved template has all required slots and at least one essential slot.
-- Main/secondary lifts match the session pattern category.
-- Exercise ids exist, are suitable and not vetoed.
+- Fixed blueprint parses through validate_text.
+- Generated session has all required slots, at least one essential slot and valid patterns.
+- Main/secondary lifts match the session pattern family.
+- Exercise ids exist, are eligible (explicit can_do or confirmed rating) and not vetoed.
 - No duplicate/overlapping slot content beyond policy allowances.
 - Power slot is first, no RIR, has quality stop.
-- Weekly pattern volume is inside configured landmarks.
-- Duration estimate fits the target.
+- Top-set structure is valid: one top set, preserved total sets, back-off percentage, no AMRAP,
+  RIR not 0, top-set RIR mapping and fallback-to-straight rule.
+- Hinge maximal-week decision is reflected in the scheme and tests; a warning is emitted.
+- Competition override is inside the configured window; deload/taper and readiness rules win.
+- Weekly pattern volume, spinal cap, MRV and session time are inside configured limits after the
+  joint evaluator.
 - No unresolved slot; fail with a field-level error.
-- Resolved template is consumable by `build_prescription`.
+- The generated session is consumable by build_prescription; the preview and final build agree.
+- Settings values validate; the policy file rejects unknown keys and invalid combinations.
 
 ### 9.2 Test layers
 
 | layer | coverage |
 |---|---|
-| unit | category selection, deterministic ordering, coverage preference, power, volume check, duration check, failure cases |
-| integration | resolver -> `SessionTemplate` -> `build_prescription` -> scheduler/volume/selection |
-| regression | existing templates, golden prescriptions, forecast, rules, workout/history unchanged |
-| historical | prescription links and resolved snapshot; activation/rollback does not change old rows |
-| migration | additive tables/columns; default version seed; no backfill |
-| UI/API | preview, activation, YAML save candidate, policy activation, fallback |
-| determinism | same inputs produce same resolved template |
+| unit | rotation endpoints/dwell; eligibility and unrated confirmation; coverage scoring; pattern flexibility; top-set RIR mapping; competition override; hinge maximal; power; failure cases; scheduler availability |
+| integration | generator -> SessionTemplate/top-set -> build_prescription -> scheduler/volume/selection; joint evaluator and final build agree; plan_drop/report/record_exemptions use the generated session; proposal path uses the same policy or is disabled |
+| regression | fixed path unchanged when the flag is off; golden prescriptions; forecast; rules; workout/history; PRG-DP-001; hinge maximal golden update |
+| historical | generated-session snapshot and top-set structure; frozen at start; policy/digest changes do not rewrite old rows |
+| migration | additive provenance columns/table; no template-version seed; no backfill |
+| UI/API | Settings -> Resolver save/validation; preview/regenerate; top-set toggle; rating/confirmation; option-c forecast |
+| determinism | same inputs and rotation state produce the same generated session; no random order; bounded beam |
+| safety | top set never RIR 0; no top set on deload/taper; hinge maximal warning; missing readiness neutral; no silent fallback |
 
 ### 9.3 Existing invariants
 
 - Four canonical identities and default scheduler behavior.
-- `build_prescription` output for fixed templates.
+- build_prescription output for fixed templates when the resolver flag is off.
 - Readiness/RIR/e1RM/volume/spinal/deload semantics.
-- Append-only history.
-- Forecast `/api/programme`.
-- Template schema.
+- Append-only history; generated session frozen at start.
+- Forecast /api/programme option (c): blueprint/expected pattern, no future exercise claim.
+- Template schema; top set is opt-in and defaults to ask.
+- No top set at RIR 0; hinge maximal is an explicit approved change.
 
 ---
 
@@ -453,120 +722,166 @@ explicit activation; sticky save. No wide table.
 
 Work on `feature/template-resolver` off `development`; merge at gates.
 
-### Step 0 — Branch, contracts and decision records
+### Step 0 — Contracts and decision records
 
-**Objective:** lock the dynamic-resolver model, blueprint/policy/fallback semantics and
-provenance.
+**Status:** confirmed 2026-11-01. Documentation and decisions only; no code starts here.
 
-**Scope:** documentation and decisions only. Confirm:
-- fixed YAML = blueprint + fallback;
-- resolver changes exercises, not sets/reps/RIR rules;
-- failure is a preview error, fallback only when dynamic off;
-- fixed template and resolver policy are separately versioned and activated.
+**Confirmed decisions to record:**
+
+- fixed YAML = blueprint + fallback; the shipped file is the source of truth;
+- session generator per session, no block-level exercise pin; generated session frozen at
+  workout start;
+- main lift within its pattern family; secondary within its support pattern; accessories
+  pattern-flexible;
+- Exercise Rotation 0-1 as a deterministic dwell rule; defaults 0.2 main/secondary, 0.5
+  accessories, D=8;
+- eligibility: explicit can_do=1; unrated suggestion/confirmation; will_do/feels_bad
+  suggestion-only;
+- joint bilevel optimisation: readiness/deload/spinal/volume inside the evaluator; final build
+  once; no second volume engine;
+- top set/back-off: opt-in main-lift structure, preserve total sets, 85% configurable, top set
+  protected, back-offs trimmable, set-group model;
+- top-set RIR: DUP maximal=1, strength=2, DUP off=2; competition peak override=1; readiness/
+  deload once; >2 means straight sets; no top set on deload or taper;
+- hinge is allowed on a maximal week: remove the maximal exclusion for the prescribed hinge main
+  lifts and the separate top-set RIR cap; keep the accessory/risk exclusions;
+- competition-date override: peak window default 4 weeks, taper default 7 days;
+- Settings -> Resolver owns all configuration; high-level UI plus advanced YAML; scalar keys in
+  the settings profile;
+- forecast option (c): blueprint/expected pattern, generated at start;
+- failure is a hard field-level error with an explicit disable action; no silent fallback.
+
+**Change control:** a change from fixed to dynamic session composition, and the hinge maximal
+change, are methodology/programme changes. At implementation, bump docs/METHODOLOGY.md §9 and
+update the detailed docs per its §8 change-control table. The hinge maximal change needs its own
+decision and golden updates.
+
+**Sequencing:** ROADMAP.md currently places this work after v1.2. Starting earlier needs explicit
+owner approval; do not silently move the gate.
 
 **Tests:** docs consistency.
 
-**Acceptance:** no code starts before approval.
+**Acceptance:** decisions recorded; no code starts before approval.
 
 **Merge gate:** documentation can merge to development first.
 
-### Step 1 — Fixed template versions and resolver policy persistence
+### Step 1 — Settings, policy file and provenance
 
-**Objective:** store fixed template versions, policy versions and active state without changing
+**Objective:** store the resolver flag, policy file and prescription provenance without changing
 behaviour.
 
-**Scope:** `template_version`, `resolver_policy_version`, `template_state`; seed default fixed
-version; add nullable prescription provenance columns; feature flag.
+**Scope:** settings-profile keys for the scalar resolver config; config/template-resolver.v1.yaml
+with schema/validation; blueprint/policy digests and generated-session snapshot on the
+prescription/run; no database template-version table.
 
-**Data:** additive migration; no backfill; default seed.
+**Data:** additive provenance columns/table; no template seed; no backfill.
 
-**UI/API/CLI:** none visible.
+**UI/API/CLI:** Settings -> Resolver is not visible yet; internal loader/validator only.
 
-**Tests:** migration, seed, repositories, activation/rollback, old DB upgrade, old prescriptions
-unchanged.
+**Tests:** policy validation; settings-profile save/append; digest stability; old DB upgrade; old
+prescriptions unchanged; flag off means byte-identical fixed output.
 
-**Acceptance:** app behaves exactly as today; fixed fallback resolves from seeded version.
+**Acceptance:** app behaves exactly as today with the flag off; a policy file can be loaded,
+validated and hashed.
 
-**Merge gate:** merge behind disabled flag after full regression.
+**Merge gate:** merge behind the disabled flag after full regression.
 
-### Step 2 — Deterministic resolver core
+### Step 2 — Generator core
 
-**Objective:** build a valid resolved `SessionTemplate` for a session type from blueprint +
-policy + current state.
+**Objective:** produce a valid generated SessionTemplate from blueprint + policy + state.
 
-**Scope:** categories/pools, suitability/constraints, coverage preference, power, volume/duration
-checks, deterministic ordering, failure cases.
+**Scope:** eligibility and unrated confirmation; rotation dwell; pattern-flexible accessory
+pools; main/secondary pattern family; required patterns and redundancy; deterministic ordering;
+failure cases. No top-set structure and no joint evaluator yet.
 
 **Data:** no new tables.
 
-**UI/API/CLI:** internal resolve function/API; no visual change.
+**UI/API/CLI:** internal generate function; no visual change.
 
-**Tests:** all §9.1 cases; synthetic fixed templates/policies; determinism; impossible cases.
+**Tests:** rotation 0/1/intermediate; eligibility; pattern flexibility; determinism; impossible
+cases; scheduler pool-aware availability; all_rep_ranges/PRG-DP-001 scope.
 
-**Acceptance:** resolver returns valid templates and clear errors; not wired into the main path
-yet.
+**Acceptance:** generator returns valid templates and clear errors; not wired into the main path.
 
-**Merge gate:** merge behind flag after resolver unit/integration tests.
+**Merge gate:** merge behind flag after generator unit/integration tests.
 
-### Step 3 — Pipeline integration and provenance
+### Step 3 — Top set / back-off structure
 
-**Objective:** use the resolved template in the real prescription path and freeze provenance.
+**Objective:** implement the optional main-lift set structure and its DUP/competition RIR
+mapping, independently of exercise generation.
 
-**Scope:** wire CLI/web/forecast; extend volume/selection/scheduler/critique to accept the
-resolved/blueprint template; store version ids and resolved template on prescriptions.
+**Scope:** set-group model on Slot/PrescriptionItem; load solver relative to the top-set load;
+DUP main scheme mapping; competition peak/taper; hinge maximal decision; warm-up, volume, spinal,
+deload and readiness interaction; top-set role in critique and e1RM; UI display.
 
-**Architecture:** explicit template passing; no global active read inside
-`SessionTemplate.load`.
+**Data:** item/set-group persistence; migration additive; no backfill.
 
-**Tests:** full pipeline; default fallback; volume/selection parity; history/critique; scheduler.
+**UI/API/CLI:** preview and workout show top/back-off sets; no automatic top set.
 
-**Acceptance:** with dynamic off, outputs unchanged; with dynamic on, prescriptions use resolved
-templates; historical rows unchanged.
+**Tests:** preserve total sets; 85% configurable; RIR 0 impossible; DUP maximal/strength; hinge
+maximal; competition peak/taper; deload; readiness >2 fallback; volume trim removes back-offs
+first; critique/volume/e1RM; golden updates.
 
-**Merge gate:** merge after default-path golden regression and resolver integration.
+**Acceptance:** a generated session can include a valid top-set structure with a transparent
+reason; default ask leaves the fixed programme unchanged.
 
-**Risk:** highest-risk step; missed template load site is a silent mix.
+**Merge gate:** merge after the top-set decision and golden updates; keep the feature off by
+default.
 
-### Step 4 — Programme UI, editors and preview
+### Step 4 — Joint evaluator and pipeline integration
 
-**Objective:** make fixed versions, policies and per-session resolution usable.
+**Objective:** score candidate assignments by the post-budget outcome and wire the generator into
+the real prescription path.
 
-**Scope:** Programme view; fixed version list; YAML/structured editors; policy list/editor;
-dynamic toggle; per-session preview; activate/revert; Forecast separate view.
+**Scope:** read-only evaluator around readiness/deload/spinal/volume/time/validation; bounded
+beam search; extend volume/selection/scheduler/critique to accept the generated session; store
+digests, input hash and generated-session snapshot; forecast option (c).
 
-**Tests:** API/UI; save-as-candidate; activation; preview; failure UX; mobile; docs links.
+**Architecture:** explicit passing; no global active read inside SessionTemplate.load; preview
+and final build use the same pipeline once.
 
-**Acceptance:** user can inspect/edit fixed fallback, activate a policy, preview a resolved
-session, start it, and still use the fixed path.
+**Tests:** evaluator/final build parity; no double budget; full pipeline; flag-off golden
+regression; scheduler availability; PRG-DP-001; historical/critique; forecast option (c).
 
-**Merge gate:** merge after UI/API and fallback tests.
+**Acceptance:** with the flag off, byte-identical fixed output; with it on, the generated session
+uses the chosen exercises and top-set structure; old rows unchanged.
 
-### Step 5 — Historical hardening
+**Merge gate:** merge after default-path golden regression and joint integration tests.
 
-**Objective:** guarantee old sessions and critiques remain stable.
+**Risk:** highest-risk step; a missed template load site or a double budget pass is a silent mix.
 
-**Scope:** freeze resolved template with prescription; critique uses it; legacy null path
-documented; no backfill.
+### Step 5 — Settings -> Resolver and generation preview
 
-**Tests:** old/new prescriptions; policy switch; fallback; critique rep ranges.
+**Objective:** make every resolver configuration editable and the generated session reviewable.
 
-**Acceptance:** historical rows untouched; new sessions explain themselves from their snapshot.
+**Scope:** Settings -> Resolver panel; scalar settings profile; advanced validated policy YAML
+with backup/digest; generation preview with choices, reasons, alternatives, top-set structure,
+projected week and warnings; regenerate/diff; rating/confirmation flow; mobile layout; docs links.
 
-**Merge gate:** merge after historical tests.
+**Tests:** API/UI save/validation; policy diff/backup; preview; top-set toggle; regenerate;
+failure UX; mobile; no volume-target duplication.
 
-### Step 6 — Hardening and rollout
+**Acceptance:** the user can configure the generator, preview a session, choose top set/back-off,
+rate an unrated suggestion, regenerate before start, and start the frozen session.
 
-**Objective:** finish without changing the default.
+**Merge gate:** merge after UI/API and policy-validation tests.
 
-**Scope:** power/volume edge cases, duration warnings, performance, docs, feature flag default
-off, real-DB copy migration, smoke test.
+### Step 6 — Historical hardening, rollout and documentation
 
-**Tests:** full suite, golden resolver fixtures, migration copy, UI smoke.
+**Objective:** guarantee old sessions remain stable and finish without changing the default.
 
-**Acceptance:** dynamic resolver works end-to-end; fixed fallback works; feature can be disabled
-without data loss.
+**Scope:** generated-session snapshot and top-set roles used by critique/exemptions; legacy null
+path; forecast option (c); policy/flag rollback; power/volume duration edge cases; performance;
+docs (METHODOLOGY version, DECISIONS, ROADMAP, USER-GUIDE, UI-MAP, UI-CLI-PARITY); real-DB copy
+smoke test; default flag off.
 
-**Merge gate:** final merge to development after review; no release from feature branch.
+**Tests:** old/new prescriptions; policy/flag switch; critique rep ranges and top-set roles;
+forecast; full suite; golden fixtures; migration/provenance copy; UI smoke.
+
+**Acceptance:** old rows untouched; new sessions explain themselves from their snapshot; the
+generator and top set work end-to-end; the feature can be disabled without data loss.
+
+**Merge gate:** final merge to development after review; no release from the feature branch.
 
 ---
 
@@ -580,34 +895,72 @@ without data loss.
 
 ---
 
-## 12. Risks and open items
+## 12. Confirmed risks and mitigations
 
-1. **Resolver leakage:** missing a template load site mixes fixed and dynamic paths. Step 3 must
-   be exhaustive.
-2. **Sets/reps/RIR boundary:** the resolver must not become a second periodisation engine. It
-   chooses exercises; runtime rules vary sets/reps/RIR.
-3. **Weak points:** not implemented. Coverage/under-MEV selection only.
-4. **Volume:** no per-muscle ledger; movement patterns only. Resolver checks existing landmarks.
-5. **Power at low frequency:** warning, not extra sessions.
-6. **Historical critique:** frozen resolved template is mandatory for new sessions.
-7. **YAML/version semantics:** save-as-candidate only; activation explicit.
-8. **Fallback ambiguity:** fixed fallback only when dynamic off/unavailable; unresolved slot is
-   an error.
-9. **Policy editing complexity:** policy YAML/structured editor may be large; keep MVP review and
-   activation minimal if needed.
-10. **No new inputs:** the resolver cannot optimise equipment/experience/objectives; state the
-    limitation.
+1. **Resolver leakage and double budget:** a missed load site, or an evaluator that applies the
+   budget and then the final build applies it again, silently changes the session. Step 4 must be
+   exhaustive and test evaluator/final parity.
+2. **Top-set evidence:** the review recommends no default programme change. Top set is opt-in;
+   the default mode is ask, recorded as a decision/assumption with a warning.
+3. **Hinge maximal-week change:** removing the hinge exclusion changes the existing DUP, not just
+   the generator. It is a high spinal/fatigue exposure and the ordinal cap is load-blind. Needs
+   its own decision, golden updates and a user-visible warning.
+4. **Competition override:** a near-competition RIR-1 top set on a hinge is high risk. Peak window
+   and taper are configurable; deload/readiness/taper must win.
+5. **Joint evaluator performance:** exact full-pipeline evaluation per candidate may be slow. Use
+   a cheap prefilter and a bounded deterministic beam; no wall-clock cut-off that breaks
+   determinism.
+6. **Rotation fragmentation:** high rotation can fragment per-lift e1RM/double progression.
+   Defaults are low for main lifts; the preview shows the choice and alternatives. This is
+   accepted by the owner, not a bug.
+7. **Eligibility/equipment:** unrated exercises are not auto-selectable; will_do/feels_bad are
+   suggestion-only; no equipment model.
+8. **Scheduler availability:** must be pool-aware; otherwise a valid session is hidden.
+9. **all_rep_ranges / PRG-DP-001:** dynamic exercises outside the four-file pool make the rule
+   unassessable unless its scope is defined.
+10. **Other load sites:** volume_budget.plan_drop/report/record_exemptions reload by type;
+    agents/proposal.py is live; critique receives only session_type. All must use the generated
+    session or be explicitly disabled.
+11. **Forecast mismatch:** option (c) is honest but will not match the eventual exercise list; do
+    not present it as generated.
+12. **Top-set roles in critique/e1RM:** a top set at RIR 1 must be graded against its own role, not
+    the RIR 2-3 accessory target.
+13. **Settings scope:** expose high-level controls plus advanced validated YAML; guard top-set
+    load/RIR and spinal/injury weights.
+14. **Main-lift boundary:** same pattern family only; cross-pattern would invalidate session
+    identity and scheduler.
+15. **No silent fallback:** an unresolved slot is a hard field-level error with an explicit
+    disable action.
+16. **Methodology change:** fixed -> dynamic and hinge maximal need METHODOLOGY/DECISIONS updates
+    and golden fixtures.
+17. **No second engine:** the generator must not become a second periodisation/volume engine.
 
-## 13. Resolved decisions
+## 13. Confirmed decisions
 
-- Dynamic per-session exercise resolution; fixed YAML is blueprint and fallback.
-- Resolver changes exercise selection; sets/reps/RIR remain blueprint + existing runtime rules.
-- Fixed template version and resolver policy version are separately versioned/activated.
-- Resolved template is frozen with the prescription.
-- Power is hard-coded structurally.
-- Coverage-based accessories now; weakness targeting later.
-- Movement-pattern volume only.
-- No second scheduler/engine/volume/lifecycle/LLM.
+Recorded as `DEC-RESOLVER-01`–`06` in [DECISIONS.md](DECISIONS.md).
+
+- Session generator per session; no block-level exercise pin; generated session frozen at workout
+  start.
+- Fixed YAML is the blueprint and fallback; the shipped file is the source of truth.
+- Main lift rotates within its pattern family; secondary within its support pattern; accessories
+  are pattern-flexible.
+- Exercise Rotation 0-1 is a deterministic dwell; 0 never voluntarily rotates, 1 changes every
+  session; defaults 0.2 main/secondary, 0.5 accessories, D=8.
+- Eligibility: explicit can_do=1 auto; unrated suggestion/confirmation; will_do/feels_bad
+  suggestion-only.
+- Joint bilevel optimisation: readiness/deload/spinal/volume inside the evaluator; final build
+  once; back-off sets trimmable; top set protected.
+- Top set/back-off: opt-in main-lift structure, one top set, preserve total sets, 85%
+  configurable, set-group model, no AMRAP, no RIR 0.
+- Top-set RIR: DUP maximal=1, strength=2, DUP off=2; competition peak override=1; readiness/
+  deload once; >2 means straight sets; no top set on deload or taper.
+- Hinge is allowed on a maximal week; remove the maximal exclusion for the prescribed hinge main
+  lifts and the separate top-set RIR cap; keep accessory/risk exclusions.
+- Competition override: peak window default 4 weeks; taper default 7 days.
+- Settings -> Resolver owns all configuration; high-level UI plus advanced validated YAML; scalar
+  keys in the settings profile.
+- Forecast option (c): blueprint/expected pattern, generated at start.
+- No second scheduler, prescription engine, volume engine, lifecycle or LLM.
 
 ## 14. Related
 
