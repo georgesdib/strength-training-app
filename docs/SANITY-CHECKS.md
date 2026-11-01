@@ -200,7 +200,7 @@ without conditioning on provenance penalises the athlete for following the presc
 
 - **ASSUMPTION-50** — the knee-flexion landmarks (MEV 3 / MAV 4–8 / MRV 10), the 6-set weekly target, the 4-set session cap and the 63-set weekly total are coaching estimates chosen to fit the two-exposure template, not measurements; MEV 3 is a maintenance floor, not a validated minimum (`docs/VOLUME-MODULATION-PLAN.md` §13, `DEC-KNEEFLEX-01`).
 
-- **ASSUMPTION-38** — a session is one calendar date. Unverifiable without timestamps.
+- **ASSUMPTION-38** — historically a session was assumed to be one calendar date; unverifiable without timestamps. Superseded 2026-11-01 by the training-day model (`DEC-SESSION-03`): same-date fragments are grouped, while the plan remains one per day.
 
 ## E. What these checks deliberately did not do
 

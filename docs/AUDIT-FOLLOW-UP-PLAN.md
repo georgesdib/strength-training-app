@@ -637,7 +637,7 @@ uses the prior view.
 | `strength_coach/prescribe/volume_budget.py` | `report` revision mode; `apply` uses the same completed map; tests. |
 | `tests/test_same_date_accounting.py` | new file, see D.5. |
 | `docs/DECISIONS.md` | `DEC-VOLUME-30` is recorded; do not edit old rows. |
-| `docs/LIMITATIONS-REGISTER.md` | no new row needed: `ASSUMPTION-38` covers one session per date, and two-a-days are out of scope. |
+| `docs/LIMITATIONS-REGISTER.md` | no new row needed: at the time, `ASSUMPTION-38` covered one session per date. Superseded 2026-11-01 by the training-day model; same-date fragments are now grouped (`DEC-SESSION-03`). |
 | `CHANGELOG.md`, `ROADMAP.md` | entry and status row. |
 
 ## D.5 Tests

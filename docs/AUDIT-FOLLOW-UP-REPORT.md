@@ -152,8 +152,9 @@ depend on the machine-local calendar.
   deliberate (`DEC-READINESS-18`).
 - **Old prescriptions** keep their recorded RIR, including historical box-jump rows; this is
   append-only behaviour, not a migration defect.
-- **Two-a-days** on one date are treated as that date's work (`ASSUMPTION-38`); a genuine second
-  session would be undercounted by the revision view.
+- **Two-a-days** on one date were treated as that date's work (`ASSUMPTION-38`); a genuine
+  second session would have been undercounted by the revision view. Superseded 2026-11-01 by
+  the training-day model (`DEC-SESSION-03`), which groups same-date fragments.
 - **No browser/lint gate** means UI and style regressions rely on tests and manual checks. This
   is accepted as a coverage limitation; no browser or concurrency follow-up test is planned.
 
