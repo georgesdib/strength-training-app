@@ -1016,6 +1016,23 @@ regression; scheduler availability; PRG-DP-001; historical/critique; forecast op
 **Acceptance:** with the flag off, byte-identical fixed output; with it on, the generated session
 uses the chosen exercises and top-set structure; old rows unchanged.
 
+**Implementation decisions confirmed 2026-11-01 (not yet implemented):**
+
+- resolver.enabled is the only switch; flag-off output remains byte-identical to the fixed path;
+- a flag-on eligibility failure is a field-level error with an explicit disable action, never a
+  silent fixed-template fallback;
+- the generator owns the initial exercise choice; existing selection/LLM proposal paths do not
+  override it during generation;
+- Step 4 is backend/pipeline only. The Resolver settings panel and generation preview remain
+  Step 5;
+- the joint evaluator is a deterministic bounded beam with a fixed internal width (start small,
+  tune from measurement), a deterministic per-slot prefilter, an operation-count budget and a
+  deterministic greedy/default completion fallback. No wall-clock cutoff and no database writes
+  during evaluation; the final build runs once;
+- the top-set structure is carried only when the caller explicitly requests it; automated and
+  forecast generation remain straight-set unless asked; the durable ask/on/off UI is Step 5;
+- scheduler availability becomes pool-aware when the flag is on.
+
 **Merge gate:** merge after default-path golden regression and joint integration tests.
 
 **Risk:** highest-risk step; a missed template load site or a double budget pass is a silent mix.
