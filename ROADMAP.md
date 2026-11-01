@@ -773,22 +773,24 @@ cards, searchable pickers, touch/dialog/safe-area rules and the accessibility/fi
 The owner completed the native-iPhone pass and the full automated suite is green; the audit is
 closed.
 
-**Deferred UI follow-ups (recorded 2026-11-01; not scheduled).** The plan's O1–O10 are
-recorded here as a roadmap table so they are not lost. Details and evidence live in the
+**Deferred UI follow-ups (recorded 2026-11-01; not scheduled).** The plan's remaining items
+are recorded here as a roadmap table so they are not lost. Details and evidence live in the
 plan's §14; every item is a deferred improvement with a trigger, not an open audit finding.
 
 | ID | follow-up | trigger | status |
 |---|---|---|---|
-| **O1** | Settings extraction after Exercises | Exercises extraction is complete | deferred |
+| **O1** | Settings extraction after Exercises | Exercises extraction is complete; Settings remains in `app.js` | **ready** |
 | **O2** | View registry for `setView` | At least two features have moved | deferred |
 | **O3** | Migrate `history.js`/`workout.js` helpers to core | A third feature needs the same helpers | deferred |
 | **O4** | Streaming/multipart imports | 40 MiB parse memory becomes a real problem | deferred |
 | **O5** | Read timeouts for slow request bodies | Slow-body handling is prioritized; local-only | deferred |
 | **O6** | HTTP/1.1 and keep-alive | Close/drain handling and tests exist | deferred |
 | **O7** | Limit tuning, 64 vs 96 MiB | A legitimate import is rejected | deferred |
-| **O8** | Friendly 411/413 error copy | The current request-error copy is surfaced to users | deferred |
 | **O9** | Markdown scheme allowlist | Untrusted docs/links are allowed; block `javascript:` targets | deferred |
-| **O10** | Expanded browser coverage | Import preview/apply and failure paths are browser-tested | deferred |
+
+**O8 was implemented 2026-11-01:** 411/413 responses now have plain next-action browser copy.
+**O10 was removed by the owner on 2026-11-01**; browser coverage remains an accepted coverage
+limitation, not a planned follow-up.
 
 ### 4.12 Continuity calibration from real returns  (v0.3, implemented; calibrated factor rejected)
 

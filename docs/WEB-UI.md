@@ -274,7 +274,8 @@ What remains:
   decoded UTF-8 text (`MAX_IMPORT_FILE_BYTES`).
 - Oversized bodies return **413** before `rfile.read`; a missing length returns **411**;
   invalid, negative or duplicate lengths and chunked transfer return **400**. The connection is
-  closed on every framing rejection.
+  closed on every framing rejection. The browser maps 411/413 to plain next-action copy:
+  “reload and try again” and “split or compress the file and try again.”
 - The handler is HTTP/1.0 today. If it ever becomes HTTP/1.1, a rejected body must still be
   closed or drained.
 - The import is JSON text, not multipart; the per-file check stays in the import handler.

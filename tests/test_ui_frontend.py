@@ -37,6 +37,12 @@ def test_no_inline_event_handlers() -> None:
     assert offenders == []
 
 
+def test_transport_errors_have_actionable_copy() -> None:
+    core = (STATIC / "core.js").read_text(encoding="utf-8")
+    assert "411:" in core and "missing its size" in core
+    assert "413:" in core and "too large to import" in core
+
+
 def test_every_referenced_script_exists() -> None:
     page = INDEX.read_text(encoding="utf-8")
     srcs = re.findall(r'<script src="([^"]+)"', page)
