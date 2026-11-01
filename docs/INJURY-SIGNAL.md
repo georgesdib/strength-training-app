@@ -72,7 +72,7 @@ A loaded date is classified in this order:
 
 | state | meaning |
 |---|---|
-| `flared` | a follow-up reading is a flare; tolerance is denied |
+| `flared` | a same-day `post_session` follow-up is a flare; tolerance is denied |
 | `symptomatic_load` | no follow-up flare, but a same-day `pre_session` reading is a flare: the region was loaded while already symptomatic |
 | `tolerated` | at least one qualifying follow-up and none is a flare; display it as **no flare recorded in the follow-up window** |
 | `unverified` | no qualifying follow-up |
@@ -80,6 +80,12 @@ A loaded date is classified in this order:
 `loaded = tolerated + flared + symptomatic_load + unverified`. The display wording no longer
 claims that a session was "verified tolerated"; the stored API keys keep their historical
 names for compatibility.
+
+A flare on a later date starts a new streak, so the earlier loaded date is outside the
+current recovery window and is not counted as a separate `flared` exposure. The flare remains
+visible in the history and resets the count; `flared` here is the same-day post-session case.
+This is a consequence of counting only the current streak, not a claim that the earlier load
+was harmless.
 
 Four rules are deliberate:
 

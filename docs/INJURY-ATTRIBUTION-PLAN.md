@@ -112,14 +112,17 @@ Deterministic, date-granular. No timestamp is introduced.
 3. `flares` are the deduped rows where `flare_from(level, settled_within_48h)` is true.
    `prior_flares = max(0, len(flares) - 1)`, unchanged. The streak starts at the last flare
    or the first entry, unchanged.
-4. Loaded dates are computed exactly as today: `clean_set` working sets after the streak
-   start and up to `on_date`, weights and `min_session_load` unchanged.
+4. Loaded dates are computed from `clean_set` working sets from the streak start date
+   through `on_date` (the start date is included so a same-day pre-session flare is visible),
+   with the weights and `min_session_load` unchanged.
 5. For each loaded date `D`, build follow-ups:
    - every deduped row with `D < logged_on <= D + verify_within_days` (any timing), plus
    - a `post_session` row dated `D` itself.
    A `pre_session` or `next_morning` row dated `D` is not follow-up.
 6. Classify the exposure, in this priority order:
-   1. **`flared`** — any follow-up is a flare (the existing disqualifier).
+   1. **`flared`** — a same-day `post_session` follow-up is a flare. A flare on a later
+      date starts a new streak; that earlier loaded date is outside the current window and
+      is not counted as a separate `flared` exposure.
    2. **`symptomatic_load`** — no follow-up flare, but the same-day `pre_session` row on
       `D` is a flare. The exposure counts; tolerance does not.
    3. **`tolerated`** — at least one follow-up, and none is a flare.
