@@ -54,8 +54,11 @@ async function loadHistory() {
         ? '<span class="badge warn">edited</span>' : "";
       var review = (day.fragments || []).some(function (f) { return f.needs_review; })
         ? '<span class="badge bad">re-review</span>' : "";
+      var sources = day.sources || [];
+      var dateWarning = sources.indexOf("import") >= 0 && sources.indexOf("workout") >= 0
+        ? '<span class="badge warn">date already recorded</span>' : "";
       var state = (day.marks ? '<span class="badge">' + day.marks + "</span>" : '<span class="badge warn">none</span>') +
-        " " + edited + " " + review;
+        " " + edited + " " + review + " " + dateWarning;
       var fragmentList = (day.fragments || []).map(historyFragmentLine).join("");
       rows.push("<tr><td>" + esc(day.occurred_on) + "</td><td>" + esc(day.session_type) +
         "</td><td>" + day.fragment_count + "</td><td>" + day.working_set_count + "/" + day.set_count +

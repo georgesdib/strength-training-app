@@ -1203,6 +1203,7 @@ def test_imported_and_live_fragment_share_a_training_day(server):
     assert day["fragment_count"] >= 2
     assert day["active_fragment_count"] >= 2
     assert sum(1 for item in day["fragments"] if item.get("workout_id")) >= 1
+    assert set(day["sources"]) >= {"import", "workout"}
 
 
 def test_manual_workout_sets_require_reps_and_bound_rir(server):
