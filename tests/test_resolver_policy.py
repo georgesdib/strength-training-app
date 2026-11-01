@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 
 import pytest
 import yaml
@@ -10,6 +11,7 @@ import yaml
 from strength_coach.prescribe.resolver_policy import (
     ResolverPolicy,
     ResolverPolicyError,
+    _load_yaml,
     _validate_candidate_catalogue,
     validate_text,
 )
@@ -73,6 +75,43 @@ def test_duplicate_yaml_key_is_rejected_nested() -> None:
 def test_malformed_yaml_has_a_useful_error() -> None:
     with pytest.raises(ResolverPolicyError, match="invalid YAML"):
         ResolverPolicy.from_text("schema_version: [unclosed")
+
+
+def test_yaml_merge_keys_are_rejected() -> None:
+    with pytest.raises(ResolverPolicyError, match="merge key"):
+        _load_yaml("a: {<<: {b: 1}}", "test")
+
+
+def test_yaml_merge_keys_are_rejected_in_candidate_catalogue(tmp_path) -> None:
+    path = tmp_path / "catalogue.yaml"
+    path.write_text("<<: {slots: {}}\n", encoding="utf-8")
+    with pytest.raises(ResolverPolicyError, match="merge key"):
+        _validate_candidate_catalogue(path, "test")
+
+
+def test_shared_yaml_aliases_are_allowed() -> None:
+    raw = _load_yaml("a: &a [1]\nb: *a\n", "test")
+    assert raw["a"] == [1]
+    assert raw["b"] == [1]
+
+
+def test_recursive_mapping_alias_is_rejected() -> None:
+    with pytest.raises(ResolverPolicyError, match="recursive YAML alias"):
+        _load_yaml("a: &a {b: *a}", "test")
+
+
+def test_recursive_sequence_alias_is_rejected() -> None:
+    with pytest.raises(ResolverPolicyError, match="recursive YAML alias"):
+        _load_yaml("a: &a [*a]", "test")
+
+
+def test_non_string_mapping_keys_are_rejected() -> None:
+    with pytest.raises(ResolverPolicyError, match="must be a string"):
+        _load_yaml("1: one", "test")
+    with pytest.raises(ResolverPolicyError, match="must be a string"):
+        _load_yaml("true: yes", "test")
+    with pytest.raises(ResolverPolicyError, match="scalar string"):
+        _load_yaml("[a]: one", "test")
 
 
 def test_unsupported_schema_is_rejected() -> None:
@@ -242,10 +281,43 @@ def test_candidate_path_must_stay_inside_the_repository() -> None:
 
 
 def test_candidate_path_must_exist() -> None:
-    with pytest.raises(ResolverPolicyError, match="does not exist"):
+    with pytest.raises(ResolverPolicyError, match="cannot read") as info:
         ResolverPolicy.from_text(
             _body(candidate_catalogue={"mode": "reference", "path": "config/missing.yaml"})
         )
+    assert isinstance(info.value.__cause__, FileNotFoundError)
+
+
+def test_policy_load_missing_file_is_a_configuration_error(tmp_path) -> None:
+    with pytest.raises(ResolverPolicyError, match="cannot read") as info:
+        ResolverPolicy.load(tmp_path / "missing.yaml")
+    assert isinstance(info.value.__cause__, FileNotFoundError)
+
+
+def test_policy_load_invalid_utf8_is_a_configuration_error(tmp_path) -> None:
+    path = tmp_path / "policy.yaml"
+    path.write_bytes(b"\xff")
+    with pytest.raises(ResolverPolicyError, match="cannot read") as info:
+        ResolverPolicy.load(path)
+    assert isinstance(info.value.__cause__, UnicodeDecodeError)
+
+
+def test_policy_load_permission_error_is_a_configuration_error(tmp_path, monkeypatch) -> None:
+    def denied(self, *args, **kwargs):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(Path, "read_text", denied)
+    with pytest.raises(ResolverPolicyError, match="cannot read") as info:
+        ResolverPolicy.load(tmp_path / "policy.yaml")
+    assert isinstance(info.value.__cause__, PermissionError)
+
+
+def test_candidate_catalogue_invalid_utf8_is_a_configuration_error(tmp_path) -> None:
+    path = tmp_path / "catalogue.yaml"
+    path.write_bytes(b"\xff")
+    with pytest.raises(ResolverPolicyError, match="cannot read") as info:
+        _validate_candidate_catalogue(path, "test")
+    assert isinstance(info.value.__cause__, UnicodeDecodeError)
 
 
 def test_redundancy_must_be_positive() -> None:

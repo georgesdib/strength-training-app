@@ -69,7 +69,7 @@ class ResolverPolicy:
     @classmethod
     def load(cls, path: str | Path | None = None) -> ResolverPolicy:
         source = Path(path or paths.template_resolver_yaml())
-        body = source.read_text(encoding="utf-8")
+        body = _read_text(source, "resolver policy")
         return cls.from_text(body, source_path=source)
 
     @classmethod
@@ -86,12 +86,25 @@ def validate_text(body: str) -> ResolverPolicy:
     return _parse(body, Path("<edited>"), digest)
 
 
+def _read_text(path: Path, where: str) -> str:
+    """Read a UTF-8 YAML file and normalise every read failure.
+
+    The caller needs a configuration error, not a raw FileNotFoundError or UnicodeDecodeError,
+    but the original exception stays attached as the cause so the CLI/UI can still show why.
+    """
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ResolverPolicyError(f"{where}: cannot read {path}: {exc}") from exc
+
+
 def _load_yaml(body: str, where: str) -> Any:
-    """Parse YAML with duplicate-key detection at every nesting level.
+    """Parse YAML with strict key rules and duplicate-key detection.
 
     PyYAML silently keeps the last duplicate mapping key. A policy file where a second
     max_per_pattern overrides the first would be accepted as if nothing were wrong, so walk
-    the composed node tree before loading and reject any repeated key with its path.
+    the composed node tree before loading. The walk also rejects merge keys, non-string
+    mapping keys and recursive aliases, while allowing ordinary anchors and shared aliases.
     """
     try:
         node = yaml.compose(body, Loader=yaml.SafeLoader)
@@ -104,23 +117,60 @@ def _load_yaml(body: str, where: str) -> Any:
         raise ResolverPolicyError(f"{where}: invalid YAML: {exc}") from exc
 
 
-def _check_duplicate_keys(node: Node, where: str, path: str) -> None:
-    if isinstance(node, MappingNode):
-        seen: set[str] = set()
-        for key_node, value_node in node.value:
-            if not isinstance(key_node, ScalarNode):
-                raise ResolverPolicyError(
-                    f"{where}: mapping keys must be scalars at {path or '<root>'}"
-                )
-            key = str(key_node.value)
-            child = f"{path}.{key}" if path else key
-            if key in seen:
-                raise ResolverPolicyError(f"{where}: duplicate key {child!r}")
-            seen.add(key)
-            _check_duplicate_keys(value_node, where, child)
-    elif isinstance(node, SequenceNode):
-        for index, child_node in enumerate(node.value):
-            _check_duplicate_keys(child_node, where, f"{path}[{index}]")
+def _check_duplicate_keys(
+    node: Node,
+    where: str,
+    path: str,
+    active: set[int] | None = None,
+) -> None:
+    """Validate mapping keys and reject recursive aliases.
+
+    The active set contains only the nodes on the current recursion path. A shared alias used
+    in two sibling positions is therefore validated in both contexts; a node that reaches
+    itself is rejected instead of recursing forever.
+    """
+    if not isinstance(node, (MappingNode, SequenceNode)):
+        return
+    if active is None:
+        active = set()
+    marker = id(node)
+    if marker in active:
+        raise ResolverPolicyError(
+            f"{where}: recursive YAML alias at {path or '<root>'}"
+        )
+    active.add(marker)
+    try:
+        if isinstance(node, MappingNode):
+            seen: set[str] = set()
+            for key_node, value_node in node.value:
+                if key_node.value == "<<":
+                    child = f"{path}.<<" if path else "<<"
+                    raise ResolverPolicyError(
+                        f"{where}: YAML merge key '<<' is not allowed at {child}"
+                    )
+                if not isinstance(key_node, ScalarNode):
+                    raise ResolverPolicyError(
+                        f"{where}: mapping key at {path or '<root>'} "
+                        "must be a scalar string"
+                    )
+                if key_node.tag != "tag:yaml.org,2002:str":
+                    raise ResolverPolicyError(
+                        f"{where}: mapping key {key_node.value!r} at "
+                        f"{path or '<root>'} must be a string "
+                        f"(got {key_node.tag})"
+                    )
+                key = str(key_node.value)
+                child = f"{path}.{key}" if path else key
+                if key in seen:
+                    raise ResolverPolicyError(f"{where}: duplicate key {child!r}")
+                seen.add(key)
+                _check_duplicate_keys(value_node, where, child, active)
+        else:
+            for index, child_node in enumerate(node.value):
+                _check_duplicate_keys(child_node, where, f"{path}[{index}]", active)
+    finally:
+        active.remove(marker)
+
 
 
 def _parse(body: str, source_path: Path, digest: str) -> ResolverPolicy:
@@ -200,10 +250,6 @@ def _check_catalogue_path(path_text: str, where: str) -> Path:
         raise ResolverPolicyError(
             f"{where}: candidate_catalogue.path resolves outside the repository"
         )
-    if not resolved.is_file():
-        raise ResolverPolicyError(
-            f"{where}: candidate_catalogue.path does not exist: {path_text}"
-        )
     return resolved
 
 
@@ -221,8 +267,8 @@ def _validate_candidate_catalogue(
     allowed_patterns entry is the configured flexibility; otherwise the blueprint's default
     patterns (including exercise_variants) apply.
     """
-    body = source.read_text(encoding="utf-8")
     label = f"{where}: candidate catalogue {source.name}"
+    body = _read_text(source, label)
     raw = _load_yaml(body, label)
     if not isinstance(raw, Mapping):
         raise ResolverPolicyError(f"{label}: top level must be a mapping")

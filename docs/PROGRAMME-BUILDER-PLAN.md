@@ -792,9 +792,11 @@ behaviour.
 
 - config/template-resolver.v1.yaml: structural policy for the candidate catalogue reference,
   required/allowed patterns, optional slot pools, redundancy and top-set eligible lifts;
-- strength_coach/prescribe/resolver_policy.py: strict loader/validator with schema version,
-  duplicate-key rejection at every YAML level, unknown-key rejection, candidate-catalogue
-  structure, slot-pool movement-pattern and top-set main-lift checks, and a SHA-256 digest;
+- strength_coach/prescribe/resolver_policy.py: strict loader/validator with schema version;
+  duplicate-key, YAML merge-key and recursive-alias rejection at every level; string-only mapping
+  keys; ordinary anchors/shared aliases allowed; candidate-catalogue structure, slot-pool
+  movement-pattern and top-set main-lift checks; file-read errors normalised with the underlying
+  cause preserved; SHA-256 digest;
 - 32 scalar resolver keys in settings_registry/settings_profile; the existing generic Settings
   profile now shows a Resolver group, while the dedicated panel remains Step 5;
 - migration 0048 adds nullable template_digest, policy_digest, input_hash and
@@ -811,9 +813,10 @@ payload gain the Resolver keys; there is no generator preview, no new endpoint a
 command. The dedicated Settings -> Resolver panel is Step 5.
 
 **Tests:** tests/test_resolver_policy.py, tests/test_resolver_settings.py and
-tests/test_resolver_provenance.py cover strict YAML, catalogue structure, slot-pool patterns,
-main-lift eligibility, digest stability, profile save/guarded values, the snapshot, nullable
-provenance and the blueprint digest.
+tests/test_resolver_provenance.py cover duplicate/merge/recursive YAML keys, anchor sharing,
+string-key enforcement, catalogue structure, slot-pool patterns, main-lift eligibility, file-read
+errors, digest stability, profile save/guarded values, the snapshot, nullable provenance and the
+blueprint digest.
 
 **Acceptance:** the app behaves exactly as today with the flag off; a policy file loads,
 validates and hashes; fixed-path prescriptions leave the provenance columns null.
