@@ -779,8 +779,8 @@ plan's §14; every item is a deferred improvement with a trigger, not an open au
 
 | ID | follow-up | trigger | status |
 |---|---|---|---|
-| **O1** | Settings extraction after Exercises | Exercises extraction is complete; Settings remains in `app.js` | **done 2026-11-01** |
-| **O2** | View registry for `setView` | At least two features have moved | **done 2026-11-01** |
+| **O1** | Settings extraction after Exercises | Exercises extraction complete; Settings moved to `settings.js` | **done 2026-11-01** |
+| **O2** | View registry for `setView` | Two features moved (Exercises, Settings) | **done 2026-11-01** |
 | **O3** | Migrate `history.js`/`workout.js` helpers to core | A third feature needs the same helpers | deferred |
 | **O4** | Streaming/multipart imports | 40 MiB parse memory becomes a real problem | deferred |
 | **O5** | Read timeouts for slow request bodies | Slow-body handling is prioritized; local-only | deferred |
