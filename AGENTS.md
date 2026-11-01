@@ -293,6 +293,7 @@ never read `data/raw`.
 | `docs/W1-W7-ATTENDANCE.md` | W1 schedule audit and W7 attendance metrics; forecast-deload path and session cap implemented |
 | `docs/W0-EXECUTION-MAP.md` | W0 execution map, modifier ownership/order, input risks, test coverage and candidate findings |
 | `docs/W3-MODIFIER-MATRIX.md` | W3 audit: six confirmed deload/order/floor/RIR defects, fixed and tested |
+| `docs/W3-INTERACTION-MATRIX-2026-10-31.md` | 768-case modifier interaction matrix: method, raw flags, preliminary triage and next pass; LIM-30 remains open |
 | `docs/MINIMUM-SESSION.md` | `MOD-MIN-001` user-selected volume-only fallback: targets, floors, precedence, refusal and provenance |
 | `docs/IMPLEMENTATION-PLAN-2026-10.md` | approved direction and phased implementation plan; A0–F implemented |
 | `docs/TEST-FATIGUE-PLAN.md` | superseded narrow test-fatigue proposal; points to the broader plan |
