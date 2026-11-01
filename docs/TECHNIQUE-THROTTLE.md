@@ -64,18 +64,24 @@ The RIR floor is a floor, not a target: an item already prescribed at RIR 4 stay
 ## 4. Ordering and precedence
 
 ```text
-1. readiness, continuity, volume/MRV and spinal modifiers
-2. top-set/back-off structure
-3. technique throttle (updates parent and structured groups)
-4. warm-up attachment from the final top-set load
-5. minimum-session trim, deload and final validation
+1. base item and DUP scheme
+2. readiness, back-flare effort and continuity load modifiers
+3. top-set/back-off structure
+4. volume budget, compensation, under-MEV, exposure and MRV/spinal trims
+5. technique throttle (updates parent and structured groups)
+6. warm-up attachment from the final top-set load
+7. constraints, minimum-session trim and deload
+8. top-set set-count reconciliation and final validation
 ```
 
-The throttle **compares** with the cumulative load factor the automatic modifiers already
+The top-set structure is therefore applied before the volume budget and the later safety trims;
+those trims can change the item's set count while the throttle runs after them. The technique
+throttle **compares** with the cumulative load factor the earlier load modifiers already
 applied; it never multiplies on top. An item already at 0.85 stays at 0.85, and only the RIR
 floor can still apply. This is the same rule the deload uses, and it keeps the documented
-20% readiness+continuity cap meaningful (`DEC-W3-02`). It runs before the ramp is attached
-because warm-up loads are derived from the final top-set load.
+20% readiness+continuity cap meaningful (`DEC-W3-02`). The throttle runs before the ramp is
+attached, so warm-up loads are derived from the final top-set load after the throttle.
+Minimum-session trim and deload run after the ramp; a deload week does not create a top set.
 
 For an item with structured top-set/back-off groups, the throttle scales each group's own
 load and applies the RIR floor/cap to each group's target. It does not copy the parent summary

@@ -965,10 +965,11 @@ mapping, independently of exercise generation.
   transparent non-application reason;
 - engine integration after readiness/continuity and before the volume budget; the top set is
   protected when later modifiers reduce sets, back-offs are resized first, and warm-up loads
-  derive from the final top-set load after technique throttle and other load modifiers; deload
-  skips the structure; readiness/back-flare RIR changes are applied once through the item's final
-  RIR; the parent item's load/RIR summary follows the back-off group, and technique throttle
-  scales/updates every group and then re-syncs that summary;
+  derive from the final top-set load after the technique throttle; minimum-session trim and
+  deload run later, and a deload week skips the structure; readiness/back-flare RIR changes are
+  applied once through the item's final RIR; the parent item's load/RIR summary follows the
+  back-off group, and technique throttle scales/updates every group and then re-syncs that
+  summary;
 - hinge maximal: `config/templates/schemes.v1.yaml` now allows the prescribed hinge main lifts
   (trap bar, sumo, conventional) on `maximal`, emits a warning, and still excludes RDL, good
   morning, rack pull and Jefferson curl;
