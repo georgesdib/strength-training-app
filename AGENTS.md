@@ -246,7 +246,7 @@ never read `data/raw`.
 | `docs/READINESS-WEIGHT-EVIDENCE.md` | readiness-weight evidence and held-out comparison; learned weights closed |
 | `docs/CONTINUITY.md` | gap detection and re-entry rules; the injury signal is separate |
 | `docs/INJURY-SIGNAL.md` | per-region injury signals, what "tolerated" loading means, injury-to-exercise links |
-| `docs/INJURY-ATTRIBUTION-PLAN.md` | planned session/lift symptom attribution (onset, confidence) and injury-signal verification hygiene; plan only, not implemented |
+| `docs/INJURY-ATTRIBUTION-PLAN.md` | injury-signal verification hygiene (Phase 1 implemented) and planned session/lift symptom attribution (Phase 2; plan only) |
 | `docs/SYMPTOM-LOGGING.md` | the 0-3 reading: what counts as a flare, and what to log when a symptom settles |
 | `docs/AUDIT-FOLLOW-UP-PLAN.md` | implemented audit follow-up: back-flare scope, quality-limited power, programme-document drift, same-date accounting and the audit gate |
 | `docs/AUDIT-FOLLOW-UP-REPORT.md` | closed audit follow-up report: five fixes verified, all residuals closed, accepted coverage limitations and no follow-up actions |

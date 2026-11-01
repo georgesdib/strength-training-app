@@ -115,6 +115,72 @@ def test_review_needs_loaded_sessions_verified_after_the_load():
     assert region.recommendation is not None
 
 
+def test_a_superseded_flare_does_not_disqualify_a_session():
+    with store_with() as store:
+        conn = store.connection
+        log(conn, "2024-01-02", 0)
+        log(conn, "2024-01-16", 2)
+        log(conn, "2024-01-16", 0)  # correction; latest row wins inside the signal
+        signal = injury_signal.compute(conn, "2024-03-01", config=CONFIG)
+
+    region = signal.region("low_back")
+    assert region.last_flare_on is None
+    assert region.flared_sessions == 0
+
+
+def test_a_superseded_clean_row_no_longer_verifies_a_session():
+    with store_with() as store:
+        conn = store.connection
+        log(conn, "2024-01-02", 0)
+        log(conn, "2024-01-08", 0, timing="post_session")
+        log(conn, "2024-01-08", 2, timing="post_session")
+        signal = injury_signal.compute(conn, "2024-01-10", config=CONFIG)
+
+    region = signal.region("low_back")
+    assert region.tolerated_sessions == 0
+    assert region.flared_sessions == 1
+
+
+def test_a_same_day_post_session_clean_reading_verifies_the_load():
+    with store_with() as store:
+        conn = store.connection
+        log(conn, "2024-01-02", 0)
+        log(conn, "2024-01-08", 0, timing="post_session")
+        signal = injury_signal.compute(conn, "2024-01-10", config=CONFIG)
+
+    region = signal.region("low_back")
+    assert region.loaded_sessions == 1
+    assert region.tolerated_sessions == 1
+    assert region.flared_sessions == 0
+
+
+def test_a_same_day_post_session_flare_is_flared_not_tolerated():
+    with store_with() as store:
+        conn = store.connection
+        log(conn, "2024-01-02", 0)
+        log(conn, "2024-01-08", 2, timing="post_session")
+        signal = injury_signal.compute(conn, "2024-01-10", config=CONFIG)
+
+    region = signal.region("low_back")
+    assert region.loaded_sessions == 1
+    assert region.tolerated_sessions == 0
+    assert region.flared_sessions == 1
+
+
+def test_a_same_day_pre_session_flare_is_symptomatic_load():
+    with store_with() as store:
+        conn = store.connection
+        log(conn, "2024-01-02", 0)
+        log(conn, "2024-01-08", 2)
+        signal = injury_signal.compute(conn, "2024-01-10", config=CONFIG)
+
+    region = signal.region("low_back")
+    assert region.loaded_sessions == 1
+    assert region.tolerated_sessions == 0
+    assert region.symptomatic_load_sessions == 1
+    assert region.flared_sessions == 0
+
+
 def test_a_loaded_session_with_no_following_reading_is_not_tolerated():
     # This is the difference between "I trained a lot" and "the loading was tolerated".
     with store_with() as store:
@@ -128,6 +194,25 @@ def test_a_loaded_session_with_no_following_reading_is_not_tolerated():
     assert region.loaded_sessions == 4
     assert region.tolerated_sessions == 0
     assert region.unverified_sessions == 4
+
+
+def test_the_response_states_partition_loaded_dates():
+    with store_with() as store:
+        conn = store.connection
+        log(conn, "2024-01-02", 0)
+        log(conn, "2024-01-08", 0, timing="post_session")
+        log(conn, "2024-01-15", 0, timing="post_session")
+        signal = injury_signal.compute(conn, "2024-02-01", config=CONFIG)
+
+    region = signal.region("low_back")
+    assert region.loaded_sessions == 4
+    assert (
+        region.tolerated_sessions + region.flared_sessions
+        + region.symptomatic_load_sessions + region.unverified_sessions
+        == region.loaded_sessions
+    )
+    assert region.tolerated_sessions == 2
+    assert region.unverified_sessions == 2
 
 
 def test_a_flare_resets_the_loaded_session_evidence():

@@ -2606,10 +2606,12 @@ def _print_state(conn) -> None:
         print(f"    status          {region.status}")
         print(f"    summary         {region.summary}")
         print(f"    window          {region.window_days} days, "
-              f"{region.required_tolerated_sessions} tolerated sessions required")
-        print(f"    tolerated       {region.tolerated_sessions} of "
-              f"{region.loaded_sessions} loaded sessions "
-              f"({region.unverified_sessions} unverified)")
+              f"{region.required_tolerated_sessions} no-flare follow-ups required")
+        print(f"    no flare        {region.tolerated_sessions} of "
+              f"{region.loaded_sessions} loaded sessions")
+        print(f"    other states    {region.flared_sessions} flared, "
+              f"{region.symptomatic_load_sessions} symptomatic load, "
+              f"{region.unverified_sessions} unverified")
         if region.recommendation:
             print(f"    recommendation  {region.recommendation}")
         if region.linked_exercises:

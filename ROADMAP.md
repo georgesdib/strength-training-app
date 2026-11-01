@@ -54,7 +54,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | future | Deterministic dynamic template resolver | **planned after v1.2; before LLM Iteration 1** | detailed plan at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md); fixed four-template blueprint/fallback with per-session exercise resolution using the existing scheduler/prescription/volume/history, no separate programme pathway, no implementation in this pass |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
-| future | Symptom attribution and injury-signal verification | **planned 2026-11-01; not implemented** | Phase 1 signal hygiene (latest-wins, same-day semantics, `flared`/`symptomatic_load` counts, wording) and Phase 2 optional session + performed-lift attribution (onset, confidence); no schema or behaviour change in this pass; plan at [`docs/INJURY-ATTRIBUTION-PLAN.md`](docs/INJURY-ATTRIBUTION-PLAN.md) |
+| future | Symptom attribution and injury-signal verification | **Phase 1 done 2026-11-01; Phase 2 planned** | Phase 1 signal hygiene is live (latest-wins, same-day semantics, `flared`/`symptomatic_load` counts, wording); Phase 2 optional session + performed-lift attribution (onset, confidence) remains plan-only; plan at [`docs/INJURY-ATTRIBUTION-PLAN.md`](docs/INJURY-ATTRIBUTION-PLAN.md) |
 | — | 2026-10-26 pass | **done 2026-10-26** | declared breaks — append-only range, `break` CLI, Athlete panel, freeze in the trained-week cycle (`DEC-CONTINUITY-04`, `LIM-50`); P1 measured-test coverage view (`e1rm tests-needed` + Athlete table); symptom settling made fail-safe — a level-1 reading without a recorded 48 h settlement is a flare (`DEC-SYMPTOM-04`, Q25 closed) and `docs/SYMPTOM-LOGGING.md` documents the episode workflow; minimum-session target shown against the measured clock (`DEC-MIN-02`, `LIM-47` mitigated); gaps table folded into `docs/LIMITATIONS-REGISTER.md` |
 | — | 2026-10-28 fatigue signals Phase 0 | **done 2026-10-28** | five decisions (`DEC-EXPOSURE-02`, `DEC-DEMAND-01`, `DEC-RESIDUAL-01`, `DEC-SELECT-12`, `DEC-SHADOW-01`), five assumptions, `LIM-56`, ACWR doc drift corrected; `docs/FATIGUE-SIGNALS.md` maps Parts A–D onto the real engine stages and `docs/EXERCISE-DEMANDS.md` defines the companion catalogue. No code, no behaviour change |
 | — | 2026-10-28 audit fixes | **done 2026-10-28** | independent beta audit: continuity calibration **accepted** and the decision rewritten (`DEC-CONTINUITY-06`); injury ceiling applied independently of readiness, low back excluded (`DEC-INJURY-04`); readiness set cut takes precedence over the under-MEV top-up (`DEC-VOLUME-33`); browser mutations require loopback Host + same Origin + JSON content type and the CLI refuses non-loopback `--host` (`DEC-WEB-01`); Terminal removed (`DEC-WEB-02`); rubric calibration filtered to the current version (`DEC-EVAL-06`); programme horizon 1–26 weeks and one job per database (`DEC-PROGRAMME-09`) |
@@ -1441,18 +1441,17 @@ the deterministic resolver is accepted.
 Dependency: v1.2 first. The existing template pathway, its golden prescriptions and its
 `/api/programme` forecast must remain unchanged.
 
-### 4.26 Symptom attribution and injury-signal verification  (planned; not implemented)
+### 4.26 Symptom attribution and injury-signal verification  (Phase 1 done; Phase 2 planned)
 
-**Status:** planned 2026-11-01. No dates, no code, no schema and no behaviour change in this
-pass. Detailed design, audit and acceptance criteria:
-[`docs/INJURY-ATTRIBUTION-PLAN.md`](docs/INJURY-ATTRIBUTION-PLAN.md).
+**Status:** Phase 1 implemented 2026-11-01; Phase 2 not implemented. Detailed design, audit
+and acceptance criteria: [`docs/INJURY-ATTRIBUTION-PLAN.md`](docs/INJURY-ATTRIBUTION-PLAN.md).
 
-**Phase 1 — verification hygiene.** Corrects how the existing rule is evaluated without
-changing the rule itself: symptom rows are deduped to the latest per `(logged_on, timing)`;
-a same-day `pre_session` flare marks the session `symptomatic_load` and denies tolerance;
-a same-day `post_session` reading counts as follow-up; and `flared`/`symptomatic_load`
-are counted separately from `unverified`. The next-day pre-session rule, the 7-day window
-and the review gate are unchanged (`ASSUMPTION-09` remains).
+**Phase 1 — verification hygiene (done 2026-11-01).** Corrects how the existing rule is
+evaluated without changing the rule itself: symptom rows are deduped to the latest per
+`(logged_on, timing)`; a same-day `pre_session` flare marks the session `symptomatic_load`
+and denies tolerance; a same-day `post_session` reading counts as follow-up; and
+`flared`/`symptomatic_load` are counted separately from `unverified`. The next-day pre-session
+rule, the 7-day window and the review gate are unchanged (`ASSUMPTION-09` remains).
 
 **Phase 2 — optional attribution.** A symptom reading may point at one completed session, at
 most one lift performed in that session, a required onset date and a required confidence
@@ -1461,8 +1460,8 @@ suitability, constraints, selection, load, the signal's status or its recommenda
 is not a predictor input. No free-standing exercise field, no timestamps, no per-session
 verification, no multiple lifts, no backfill.
 
-The phases are independent and start only when the owner picks them up. This section is the
-agreed plan, not a claim that any part exists.
+The phases are independent. Phase 1 is implemented; Phase 2 starts only when the owner picks
+it up.
 
 ### 4.27 Training-day session fragments  (done 2026-11-01)
 
