@@ -1,10 +1,10 @@
 # INJURY ATTRIBUTION AND VERIFICATION PLAN
 
-**Status:** approved plan, 2026-11-01. **Phase 1 and Phase 2 implemented 2026-11-01.**
-Phase 1 corrected verification without a schema change. Phase 2 adds migration `0047` and the
-optional, display-only attribution fields. Phase 3 (research) remains unscheduled. Current
-behaviour is documented in [`INJURY-SIGNAL.md`](INJURY-SIGNAL.md) and
-[`SYMPTOM-LOGGING.md`](SYMPTOM-LOGGING.md).
+**Status:** approved plan, 2026-11-01. **Phases 1–2 closed 2026-11-01.** Phase 1 corrected
+verification without a schema change. Phase 2 adds migration `0047` and the optional,
+display-only attribution fields. Phase 3 was split into a separate roadmap phase,
+[`ROADMAP.md`](../ROADMAP.md) §4.28, and is unscheduled research. Current behaviour is
+documented in [`INJURY-SIGNAL.md`](INJURY-SIGNAL.md) and [`SYMPTOM-LOGGING.md`](SYMPTOM-LOGGING.md).
 
 This plan covers two related but separable changes:
 
@@ -239,7 +239,7 @@ Nothing in this plan authorises a model, a score, a selection change or a load c
 | 0 — plan (done 2026-11-01) | this document; roadmap and doc pointers | docs consistency passes; no code, schema or behaviour change |
 | 1 — verification hygiene | **implemented 2026-11-01**: dedupe, same-day rules, response states, counts, wording | the tests in §12 pass; the existing next-day test is unchanged; status changes are listed in the change note; no schema change |
 | 2 — attribution | **implemented 2026-11-01**: migration, validator, CLI/API/web, display, history/session/region views | validation matrix passes; CLI/UI parity; attribution changes no signal status or prescription; docs updated |
-| 3 — research (unscheduled) | exercise-level descriptive analysis | separate decision and pre-registration; not part of this plan |
+| 3 — research (unscheduled; separate roadmap §4.28) | exercise-level descriptive analysis | separate decision and pre-registration; not part of the closed Phase 1–2 plan |
 
 Phase 1 and Phase 2 are independent. Phase 1 can ship without attribution; Phase 2 can ship
 without changing verification.
@@ -322,4 +322,4 @@ Attribution:
 - [`DATA-MODEL.md`](DATA-MODEL.md) §11.5 — `symptom_log`.
 - [`DECISIONS.md`](DECISIONS.md) — `DEC-BACKSIGNAL-01`, `DEC-INJURY-01`,
   `DEC-INJURY-02`, `DEC-INJURY-03`, `DEC-SYMPTOM-01`–`DEC-SYMPTOM-04`.
-- [`../ROADMAP.md`](../ROADMAP.md) §4.26 — status.
+- [`../ROADMAP.md`](../ROADMAP.md) §4.26 — closed Phases 1–2; §4.28 — separate Phase 3 research.

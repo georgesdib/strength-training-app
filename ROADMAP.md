@@ -54,7 +54,8 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | future | Deterministic dynamic template resolver | **planned after v1.2; before LLM Iteration 1** | detailed plan at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md); fixed four-template blueprint/fallback with per-session exercise resolution using the existing scheduler/prescription/volume/history, no separate programme pathway, no implementation in this pass |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
-| future | Symptom attribution and injury-signal verification | **Phase 1–2 done 2026-11-01; Phase 3 unscheduled** | Phase 1 signal hygiene is live (latest-wins, same-day semantics, `flared`/`symptomatic_load` counts, wording); Phase 2 adds optional session + performed-lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 (exercise-level research) remains unscheduled; plan at [`docs/INJURY-ATTRIBUTION-PLAN.md`](docs/INJURY-ATTRIBUTION-PLAN.md) |
+| — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
+| future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
 | — | 2026-10-26 pass | **done 2026-10-26** | declared breaks — append-only range, `break` CLI, Athlete panel, freeze in the trained-week cycle (`DEC-CONTINUITY-04`, `LIM-50`); P1 measured-test coverage view (`e1rm tests-needed` + Athlete table); symptom settling made fail-safe — a level-1 reading without a recorded 48 h settlement is a flare (`DEC-SYMPTOM-04`, Q25 closed) and `docs/SYMPTOM-LOGGING.md` documents the episode workflow; minimum-session target shown against the measured clock (`DEC-MIN-02`, `LIM-47` mitigated); gaps table folded into `docs/LIMITATIONS-REGISTER.md` |
 | — | 2026-10-28 fatigue signals Phase 0 | **done 2026-10-28** | five decisions (`DEC-EXPOSURE-02`, `DEC-DEMAND-01`, `DEC-RESIDUAL-01`, `DEC-SELECT-12`, `DEC-SHADOW-01`), five assumptions, `LIM-56`, ACWR doc drift corrected; `docs/FATIGUE-SIGNALS.md` maps Parts A–D onto the real engine stages and `docs/EXERCISE-DEMANDS.md` defines the companion catalogue. No code, no behaviour change |
 | — | 2026-10-28 audit fixes | **done 2026-10-28** | independent beta audit: continuity calibration **accepted** and the decision rewritten (`DEC-CONTINUITY-06`); injury ceiling applied independently of readiness, low back excluded (`DEC-INJURY-04`); readiness set cut takes precedence over the under-MEV top-up (`DEC-VOLUME-33`); browser mutations require loopback Host + same Origin + JSON content type and the CLI refuses non-loopback `--host` (`DEC-WEB-01`); Terminal removed (`DEC-WEB-02`); rubric calibration filtered to the current version (`DEC-EVAL-06`); programme horizon 1–26 weeks and one job per database (`DEC-PROGRAMME-09`) |
@@ -1441,10 +1442,10 @@ the deterministic resolver is accepted.
 Dependency: v1.2 first. The existing template pathway, its golden prescriptions and its
 `/api/programme` forecast must remain unchanged.
 
-### 4.26 Symptom attribution and injury-signal verification  (Phase 1–2 done; Phase 3 unscheduled)
+### 4.26 Symptom attribution and injury-signal verification  (closed 2026-11-01)
 
-**Status:** Phase 1 and Phase 2 implemented 2026-11-01; Phase 3 is unscheduled research.
-Detailed design, audit and acceptance criteria:
+**Status:** Phase 1 and Phase 2 implemented and closed 2026-11-01. Phase 3 was split into
+§4.28. Detailed design, audit and acceptance criteria:
 [`docs/INJURY-ATTRIBUTION-PLAN.md`](docs/INJURY-ATTRIBUTION-PLAN.md).
 
 **Phase 1 — verification hygiene (done 2026-11-01).** Corrects how the existing rule is
@@ -1462,7 +1463,7 @@ recommendation, and it is not a predictor input. No free-standing exercise field
 timestamps, no per-session verification, no multiple lifts, no backfill. Migration `0047` adds
 the nullable columns.
 
-Phase 3 (exercise-level research) remains a separate, unscheduled question.
+Phase 3 is no longer part of this plan; it is the separate §4.28 research phase.
 
 ### 4.27 Training-day session fragments  (done 2026-11-01)
 
@@ -1474,6 +1475,33 @@ day. The second fragment reuses the day plan and the first fragment's readiness 
 History shows one expandable training-day row; the fragment API, edit, void, review and detail
 surfaces remain. No schema migration. The specification and acceptance criteria live in
 [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md).
+
+### 4.28 Exercise-level symptom research (Phase 3)  (planned; unscheduled)
+
+**Status:** planned research, not approved for implementation and not scheduled. No code,
+schema, model or behaviour change exists in this phase. Today follow-up:
+`injury_attribution_phase3`.
+
+**Question.** Does a particular exercise show a different rate of later regional symptoms
+than comparable sessions without it, after plausible confounders? This is a descriptive
+association question, not a causal or diagnostic one.
+
+**Data.** Mechanical exposure from `clean_set` working sets through the region links in
+`config/injuries.v1.yaml`; the existing 0–3 regional symptom readings and follow-up window;
+and the training-day/fragment grouping. Athlete attribution is **not** the label source; at
+most it is a separate interpretability label.
+
+**Method.** Pre-register the question, outcome window, confounders, missingness rules and
+analysis before looking at results. Report exposure and symptom counts, missingness,
+uncertainty and sparse-data states. The result stays descriptive.
+
+**Out of scope.** No predictor, risk score, diagnosis, suitability rating, constraint,
+selection, load or prescription change. No new symptom scale. No automatic adoption; any
+later use needs a separate decision and validation.
+
+**Prerequisites.** Enough prospective symptom and exposure data, a written pre-registration
+and a separate owner decision to start. Phase 3 is independent of the closed Phase 1–2 plan
+and is not a reason to reopen it.
 
 ## 5. Known gaps and risks
 

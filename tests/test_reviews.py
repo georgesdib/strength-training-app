@@ -8,6 +8,20 @@ from strength_coach.features import reviews
 from strength_coach.store import db, repositories
 
 
+def test_phase3_research_is_a_visible_planned_follow_up():
+    store = db.Store(":memory:")
+    try:
+        tasks = reviews.status(store.connection, "2024-01-01")["tasks"]
+        task = next(t for t in tasks if t["key"] == "injury_attribution_phase3")
+        assert task["status"] == "planned"
+        assert task["kind"] == "roadmap"
+        assert task["periodic"] is False
+        assert "Phase 3" in task["label"]
+        assert any("pre-register" in step.lower() for step in task["steps"])
+    finally:
+        store.close()
+
+
 def test_readiness_review_is_due_then_completed_and_snoozed():
     store = db.Store(":memory:")
     try:

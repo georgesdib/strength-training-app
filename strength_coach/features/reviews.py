@@ -89,6 +89,8 @@ def _task(conn, key: str, on_date: str, config: dict) -> ReviewTask:
         return _back_task(conn, on_date, cfg)
     if key == "phase5a_review":
         return _phase5a_task(conn, on_date, cfg)
+    if key == "injury_attribution_phase3":
+        return _phase3_task(cfg)
     raise ValueError(f"unknown review task {key!r}")
 
 
@@ -130,6 +132,22 @@ def _periodic_task(
         tuple(cfg.get("dont") or ()), str(cfg.get("doc", "")), True,
         {"last_completed": completed, "interval_weeks": cfg.get("interval_weeks", 12),
          "sessions_since": sessions_since},
+    )
+
+
+def _phase3_task(cfg: dict) -> ReviewTask:
+    """Visible, unscheduled Phase 3 follow-up; it never becomes due automatically."""
+    return ReviewTask(
+        "injury_attribution_phase3",
+        str(cfg.get("label", "Phase 3 — Exercise-level symptom research")),
+        "roadmap",
+        str(cfg.get("status", "planned")),
+        None,
+        str(cfg.get("summary", "Unscheduled research follow-up; Phase 1–2 are closed.")),
+        str(cfg.get("why", "")),
+        tuple(cfg.get("steps") or ()),
+        tuple(cfg.get("dont") or ()),
+        str(cfg.get("doc", "")),
     )
 
 
@@ -311,7 +329,7 @@ def status(conn, on_date: str) -> dict:
     for key in (
         "readiness_thresholds", "exercise_substitution", "fatigue_signals",
         "rubric_labels", "strength_test", "srpe_coverage", "readiness_baseline",
-        "back_pattern", "phase5a_review",
+        "back_pattern", "phase5a_review", "injury_attribution_phase3",
     ):
         tasks.append(_task(conn, key, on_date, config).as_dict())
     profile = queries.athlete_profile(conn) or {}

@@ -375,7 +375,7 @@ async function loadReviews() {
   try {
     const data = await api("/api/reviews");
     const tasks = data.tasks || [];
-    const actionable = tasks.filter((t) => ["due", "attention", "insufficient", "snoozed"].includes(t.status));
+    const actionable = tasks.filter((t) => ["due", "attention", "insufficient", "snoozed", "planned"].includes(t.status));
     if (!actionable.length) {
       $("#reviews").innerHTML = "<p class='muted'>No reviews due.</p>";
       return;
@@ -413,7 +413,9 @@ async function loadReviews() {
         ${dont ? `<p class="muted"><strong>Do not:</strong></p><ul class="list">${dont}</ul>` : ""}
         <p class="muted">${doc}</p>${actions}</div>`;
     }).join("");
-    $("#reviews").innerHTML = `<p class="muted">${data.due_count} item(s) need attention.</p>${cards}`;
+    const planned = tasks.filter((t) => t.status === "planned").length;
+    $("#reviews").innerHTML = `<p class="muted">${data.due_count} item(s) need attention.` +
+      (planned ? ` ${planned} planned follow-up(s).` : "") + `</p>${cards}`;
   } catch (error) {
     $("#reviews").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
