@@ -37,6 +37,12 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 4A read-only evaluator**: `prescribe/evaluator.py`
+  evaluates one complete slot assignment through the existing prescription pipeline once, with
+  deterministic post-budget components (executability, issues, unknown loads, volume error,
+  spinal cap, time overrun, warnings) and no store writes. The bounded beam, generator/pipeline
+  wiring, scheduler/volume/selection/critique integration, persistence and forecast work are not
+  started.
 - Deterministic template resolver **Step 3 top set/back-off**: the optional main-lift
   top-set structure, preserved total sets, configurable 85% back-offs, DUP/competition RIR
   mapping, taper/deload/fallback rules, top-set protection, top-set-derived warm-ups, the

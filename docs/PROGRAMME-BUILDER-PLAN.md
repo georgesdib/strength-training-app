@@ -1,9 +1,9 @@
 # Dynamic Template Resolver — implementation plan
 
-**Status:** **Steps 0, 1, 2 and 3 are complete 2026-11-01. Step 4 (joint evaluator and
-pipeline integration) is not started.** The generator is internal and still not wired into the
-production prescription path; the top-set structure is opt-in and the joint evaluator is absent.
-The hinge maximal-week change is implemented. The resolver flag remains off.
+**Status:** **Steps 0–3 are complete 2026-11-01. Step 4A (read-only assignment evaluator) is
+complete; the bounded beam and pipeline wiring are not started. Step 5 is not started.** The
+generator is internal and still not wired into the production prescription path; the top-set
+structure is opt-in. The hinge maximal-week change is implemented. The resolver flag remains off.
 
 **Scope:** make the four canonical session templates a **deterministic session generator** at
 generation time while keeping the existing scheduler, prescription engine, volume engine and
@@ -998,7 +998,13 @@ and warned.
 
 **Merge gate:** merged to the feature branch with deliberation golden updates; Step 4 not started.
 
-### Step 4 — Joint evaluator and pipeline integration
+### Step 4 — Joint evaluator and pipeline integration  (4A complete 2026-11-01)
+
+**Chunk status:** 4A is implemented: `prescribe/evaluator.py` evaluates one complete slot
+assignment through the existing prescription pipeline read-only, with deterministic components
+and no writes; `tests/test_evaluator.py` covers parity, no-write and worse-invalid assignment
+behaviour. The bounded beam, generator/pipeline wiring, scheduler/volume/selection/critique
+integration, persistence/forecast work and Step 5 UI are **not** started.
 
 **Objective:** score candidate assignments by the post-budget outcome and wire the generator into
 the real prescription path.
