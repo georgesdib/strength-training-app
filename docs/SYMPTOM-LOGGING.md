@@ -114,6 +114,16 @@ A level-1 reading with `settled` left at `unknown` counts as **not settled**, so
 `unknown` rather than "no flare": a safety gate must not pass by silence. One conservative
 session is the cost, and the remedy is one word — record `--settled yes` when it has settled.
 
+## 7. Planned: session and lift attribution (not implemented)
+
+A plan (2026-11-01) would let a reading optionally name one completed session, at most one
+lift performed in that session, a required onset date and a required confidence label
+(`possible`/`likely`/`strong`). It would be display and review only: no effect on the
+flare rule, the injury signal, suitability, selection or load, and not a predictor input. The
+plan also corrects how the injury signal dedupes rows and handles same-day readings. Nothing
+here is implemented yet; the current behaviour above is unchanged. See
+[`INJURY-ATTRIBUTION-PLAN.md`](INJURY-ATTRIBUTION-PLAN.md).
+
 ## Related
 
 - **Decisions:** [DECISIONS.md](DECISIONS.md) — `DEC-SYMPTOM-01` (one number, now per region),

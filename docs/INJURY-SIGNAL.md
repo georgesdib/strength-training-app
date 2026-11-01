@@ -76,6 +76,13 @@ Two consequences are deliberate:
   flare that appears the next day is evidence the load was too much; waiting it out does not
   make the session tolerated.
 
+> **Planned revision (2026-11-01, not implemented).** The definition above stays, but its
+> evaluation is being corrected: superseded symptom rows will stop counting, a same-day
+> pre-session flare will mark the session as loaded while symptomatic, a same-day
+> post-session reading will count as follow-up, and flared/symptomatic-load sessions will be
+> reported separately. The next-day pre-session rule and the 7-day window are unchanged. See
+> [`INJURY-ATTRIBUTION-PLAN.md`](INJURY-ATTRIBUTION-PLAN.md).
+
 ### What this definition cannot tell you
 
 - **It is not adaptation.** Symptoms can stay quiet while tissue adapts, and can flare while

@@ -474,6 +474,14 @@ correction is an insert. A reading is a **flare** at level >= 2, or at level 1 t
 settle within 48 hours (`DEC-SYMPTOM-02`); a level-1 reading with no recorded settlement
 counts as not settled (`DEC-SYMPTOM-04`). No reading is `unknown`, never "no flare".
 
+**Planned (not in the schema yet).** A planned migration (0047 in the current numbering) will
+add nullable attribution columns to this table: `attributed_session_id` (a completed
+session), `attributed_exercise_id` (at most one lift performed in that session), `onset_on`
+and `attribution_confidence` (`possible`/`likely`/`strong`). Cross-field rules are
+enforced by the shared validator; historical rows stay `NULL` and are never rewritten. See
+[`INJURY-ATTRIBUTION-PLAN.md`](INJURY-ATTRIBUTION-PLAN.md). No column exists until that
+migration lands.
+
 The per-region signal built from this table is documented in
 [`INJURY-SIGNAL.md`](INJURY-SIGNAL.md); how to log an episode, and what to record when it
 settles, is in [`SYMPTOM-LOGGING.md`](SYMPTOM-LOGGING.md). Which exercises load a region is
