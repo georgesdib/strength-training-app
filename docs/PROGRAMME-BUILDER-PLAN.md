@@ -724,7 +724,8 @@ Work on `feature/template-resolver` off `development`; merge at gates.
 
 ### Step 0 — Contracts and decision records
 
-**Status:** confirmed 2026-11-01. Documentation and decisions only; no code starts here.
+**Status:** confirmed and complete 2026-11-01. Documentation and decisions only; no code
+starts in this step.
 
 **Confirmed decisions to record:**
 
@@ -750,6 +751,11 @@ Work on `feature/template-resolver` off `development`; merge at gates.
   the settings profile;
 - forecast option (c): blueprint/expected pattern, generated at start;
 - failure is a hard field-level error with an explicit disable action; no silent fallback.
+
+**Completion (2026-11-01):** plan confirmed; DEC-RESOLVER-01 to DEC-RESOLVER-06 recorded;
+feature/template-resolver created; docs consistency green; no code, schema, config or API
+change. The methodology version bump and hinge golden updates happen at implementation, not in
+Step 0.
 
 **Change control:** a change from fixed to dynamic session composition, and the hinge maximal
 change, are methodology/programme changes. At implementation, bump docs/METHODOLOGY.md §9 and

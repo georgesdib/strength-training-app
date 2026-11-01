@@ -52,7 +52,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.1 beta | Performance + monitoring analysis | **released 2026-10-31 (b2); b1 2026-10-30** | raw e1RM Performance view, rolling median, breaks, degraded observations, dose, configured relative-strength ratios, read-only monitoring analysis, calibration transparency; Phase 5A review follow-up |
 | v1.2 | Beta removal + cardio + calibration depth | **planned; plan at §4.13a** | drop the beta label after user testing; pending: cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
-| future | Deterministic dynamic template resolver | **planned after v1.2; before LLM Iteration 1** | detailed plan at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md); fixed four-template blueprint/fallback with per-session exercise resolution using the existing scheduler/prescription/volume/history, no separate programme pathway, no implementation in this pass |
+| future | Deterministic dynamic template resolver | **Step 0 complete 2026-11-01; implementation not started; planned after v1.2 unless the owner starts earlier** | plan and confirmed decisions at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`06`); deterministic session generator with no block pin, joint exercise/volume evaluation, optional top set/back-off and Settings → Resolver; no code in this pass |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
@@ -1418,35 +1418,45 @@ changes require explicit approval.
 benefit and no regression. No phase claims that prose quality or acceptance rate proves better
 coaching.
 
-### 4.25 Deterministic dynamic template resolver  (planned; not implemented)
+### 4.25 Deterministic dynamic template resolver  (planned; Step 0 complete 2026-11-01)
 
-**Status:** planned, no dates, no code or schema in this pass. Detailed architecture,
-dependency map, versioning, validation, phased plan and open decisions:
-[`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md).
+**Status:** Step 0 (contracts and decision records) complete 2026-11-01. No code, schema,
+configuration, API or UI change has started. Implementation begins at Step 1 (settings, policy
+file and provenance), which is not started. The current record is
+[docs/PROGRAMME-BUILDER-PLAN.md](docs/PROGRAMME-BUILDER-PLAN.md) and
+[docs/DECISIONS.md](docs/DECISIONS.md) (DEC-RESOLVER-01 to DEC-RESOLVER-06).
 
-The existing training system stays the execution path. The fixed four-template YAML becomes a
-blueprint and fallback; a deterministic resolver fills its slots for each prescription from
-existing athlete state, constraints, suitability, history, pattern coverage and a versioned
-resolver policy. The resolved `SessionTemplate` is passed to the existing
-`build_prescription`; readiness, e1RM, RIR, volume, deload, spinal limits and validation remain
-runtime responsibilities. There is no second scheduler, prescription engine, volume engine,
-programme/block lifecycle or pathway selector. The existing forecast moves to its own view.
+The four canonical session identities stay and the shipped four-template YAML remains the
+blueprint and fallback. A deterministic **session generator** resolves every slot at generation
+time from existing athlete state, constraints, suitability, readiness, fatigue, spinal load,
+injury signal, history, pattern coverage and a versioned resolver policy. There is no block-level
+exercise pin; the generated session is frozen when the workout starts.
 
-Resolution is per session and deterministic. Sets/reps/RIR still come from the blueprint and the
-existing runtime rules; the resolver chooses exercises. Power is a hard structural constant on
-the squat and hinge blueprints. Accessories use movement-pattern coverage (weak-point targeting
-is a later gated feature). No new athlete inputs are added: objectives, equipment, experience,
-muscle-group priorities and cardio are out of scope.
+The main lift rotates only within its session pattern family, the secondary within its support
+pattern, and accessories are pattern-flexible. Exercise Rotation is a deterministic 0-1 dwell
+rule. Eligibility requires explicit can_do; unrated exercises are suggestion/confirmation only.
+The generator uses a joint bilevel evaluator: candidate exercises are scored by the existing
+readiness/deload/spinal/volume pipeline in read-only mode, and the final build applies that
+pipeline once. There is no second scheduler, prescription engine, volume engine, programme/block
+lifecycle or pathway selector.
 
-Major steps: (0) contracts; (1) fixed-template and resolver-policy versions plus provenance;
-(2) deterministic resolver core; (3) pipeline integration through engine/scheduler/volume/
-selection/critique; (4) Programme UI, YAML/structured editors and per-session preview;
-(5) historical snapshot/critique hardening; (6) rollout. Work happens on
-`feature/template-resolver` with phase merges. LLM assistance remains deferred to §4.24 until
-the deterministic resolver is accepted.
+Top set/back-off is an optional main-lift structure, default ask, with DUP/competition RIR
+mapping, preserved total sets and a first-class set-group model. Hinge is allowed on a maximal
+week for the prescribed hinge main lifts; the existing accessory/risk exclusions remain. A
+competition-date override sets RIR 1 in the peak window and removes the top set in the taper;
+an empty date means no override. All resolver configuration lives under Settings -> Resolver;
+the shipped YAML remains the blueprint, the policy is a versioned file, and no database
+template-version table is added. The forecast shows the blueprint/expected pattern (option c).
 
-Dependency: v1.2 first. The existing template pathway, its golden prescriptions and its
-`/api/programme` forecast must remain unchanged.
+Major steps: (0) contracts and decisions, complete 2026-11-01; (1) settings, policy and
+provenance; (2) generator core; (3) top set/back-off structure; (4) joint evaluator and pipeline
+integration; (5) Settings -> Resolver and generation preview; (6) historical hardening, rollout
+and documentation. Work happens on the feature/template-resolver branch with phase merges. LLM
+assistance remains deferred to §4.24 until the deterministic resolver is accepted.
+
+Dependency: v1.2 first unless the owner explicitly starts earlier. With the resolver flag off,
+the existing template pathway, golden prescriptions and /api/programme forecast must remain
+unchanged.
 
 ### 4.26 Symptom attribution and injury-signal verification  (closed 2026-11-01)
 
