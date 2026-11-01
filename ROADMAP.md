@@ -52,7 +52,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.1 beta | Performance + monitoring analysis | **released 2026-10-31 (b2); b1 2026-10-30** | raw e1RM Performance view, rolling median, breaks, degraded observations, dose, configured relative-strength ratios, read-only monitoring analysis, calibration transparency; Phase 5A review follow-up |
 | v1.2 | Beta removal + cardio + calibration depth | **planned; plan at §4.13a** | drop the beta label after user testing; pending: cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
-| future | Deterministic dynamic template resolver | **Step 0 and Step 1 complete 2026-11-01; Step 2 not started; planned after v1.2 unless the owner starts earlier** | plan and confirmed decisions at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`08`); Step 1 delivered `config/template-resolver.v1.yaml`, the strict policy loader, 32 profile-backed resolver settings and migration `0048` provenance; the generator is not wired and the flag is off |
+| future | Deterministic dynamic template resolver | **Steps 0–2 complete 2026-11-01; Step 3 not started; planned after v1.2 unless the owner starts earlier** | plan and confirmed decisions at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`08`); Step 1 delivered policy/settings/provenance; Step 2 delivered the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); no top set, joint evaluator, persistence, UI or prescription wiring, and the flag is off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
@@ -1418,12 +1418,12 @@ changes require explicit approval.
 benefit and no regression. No phase claims that prose quality or acceptance rate proves better
 coaching.
 
-### 4.25 Deterministic dynamic template resolver  (planned; Step 0 and Step 1 complete 2026-11-01)
+### 4.25 Deterministic dynamic template resolver  (planned; Steps 0–2 complete 2026-11-01)
 
-**Status:** Step 0 (contracts and decision records) and Step 1 (settings, policy file and
-provenance) are complete 2026-11-01. Step 1 is storage and validation only: the resolver flag
-is off and no generator or prescription path consumes the new values. **Step 2 (generator core)
-is not started.** The current record is
+**Status:** Steps 0 (contracts), 1 (settings/policy/provenance) and 2 (generator core) are
+complete 2026-11-01. Step 2 is internal only: the generator is not wired into any prescription
+path, the top set and joint evaluator are absent, the resolver flag is off and the fixed-template
+path is unchanged. **Step 3 (top set/back-off) is not started.** The current record is
 [docs/PROGRAMME-BUILDER-PLAN.md](docs/PROGRAMME-BUILDER-PLAN.md) and
 [docs/DECISIONS.md](docs/DECISIONS.md) (DEC-RESOLVER-01 to DEC-RESOLVER-08).
 
@@ -1436,10 +1436,9 @@ exercise pin; the generated session is frozen when the workout starts.
 The main lift rotates only within its session pattern family, the secondary within its support
 pattern, and accessories are pattern-flexible. Exercise Rotation is a deterministic 0-1 dwell
 rule. Eligibility requires explicit can_do; unrated exercises are suggestion/confirmation only.
-The generator uses a joint bilevel evaluator: candidate exercises are scored by the existing
-readiness/deload/spinal/volume pipeline in read-only mode, and the final build applies that
-pipeline once. There is no second scheduler, prescription engine, volume engine, programme/block
-lifecycle or pathway selector.
+Step 2 scores with a provisional coverage model plus the existing readiness, fatigue, injury and
+spinal signals; Step 4 replaces that with the joint post-budget evaluator. There is no second
+scheduler, prescription engine, volume engine, programme/block lifecycle or pathway selector.
 
 Top set/back-off is an optional main-lift structure, default ask, with DUP/competition RIR
 mapping, preserved total sets and a first-class set-group model. Hinge is allowed on a maximal
@@ -1450,11 +1449,11 @@ the shipped YAML remains the blueprint, the policy is a versioned file, and no d
 template-version table is added. The forecast shows the blueprint/expected pattern (option c).
 
 Major steps: (0) contracts and decisions, complete 2026-11-01; (1) settings, policy and
-provenance, complete 2026-11-01; (2) generator core, not started; (3) top set/back-off structure;
-(4) joint evaluator and pipeline integration; (5) Settings -> Resolver and generation preview;
-(6) historical hardening, rollout and documentation. Work happens on the feature/template-resolver
-branch with phase merges. LLM assistance remains deferred to §4.24 until the deterministic
-resolver is accepted.
+provenance, complete 2026-11-01; (2) generator core, complete 2026-11-01; (3) top set/back-off,
+not started; (4) joint evaluator and pipeline integration; (5) Settings -> Resolver and generation
+preview; (6) historical hardening, rollout and documentation. Work happens on the
+feature/template-resolver branch with phase merges. LLM assistance remains deferred to §4.24
+until the deterministic resolver is accepted.
 
 Dependency: v1.2 first unless the owner explicitly starts earlier. With the resolver flag off,
 the existing template pathway, golden prescriptions and /api/programme forecast must remain

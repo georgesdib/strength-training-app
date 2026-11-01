@@ -37,8 +37,15 @@ def test_default_policy_loads_and_hashes() -> None:
     assert policy.candidate_catalogue.mode == "reference"
     assert policy.candidate_catalogue.path == "config/variants.v1.yaml"
     assert set(policy.required_patterns) == {"squat", "hinge", "bench_squat", "bench_hinge"}
-    assert policy.allowed_patterns == {}
-    assert policy.slot_pools == {}
+    assert policy.allowed_patterns["accessory_row"] == (
+        "horizontal_pull", "vertical_pull", "rear_delt_pull"
+    )
+    assert policy.allowed_patterns["core_anti_extension"] == (
+        "core_anti_extension", "core_stability"
+    )
+    assert policy.slot_pools["hinge"]["hinge_main"] == (
+        "trap_bar_deadlift", "sumo_deadlift"
+    )
     assert policy.redundancy.max_per_pattern == 2
     assert "ssb_squat" in policy.top_set.eligible_lifts
     assert "conventional_deadlift" not in policy.top_set.eligible_lifts

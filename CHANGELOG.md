@@ -37,6 +37,13 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 2 generator core**: internal `prescribe/generator.py`
+  selects exercises for the four session types from blueprint, policy, settings, history and
+  athlete state; `resolver_settings.py` reads the Step 1 scalar settings; the accepted accessory
+  pattern-flexibility mapping is in `config/template-resolver.v1.yaml`. It implements rotation,
+  eligibility, unrated fallback, required-pattern repair, injury exclusion, provisional coverage
+  and the weekly spinal check, plus a pool-aware availability helper. It is not wired into any
+  prescription path; the top set and joint evaluator are absent, and the resolver flag is off.
 - Deterministic template resolver **Step 1 storage**: structural policy skeleton
   (`config/template-resolver.v1.yaml`), strict loader/validator with digest
   (`prescribe/resolver_policy.py`), 32 profile-backed resolver scalar keys, migration `0048`

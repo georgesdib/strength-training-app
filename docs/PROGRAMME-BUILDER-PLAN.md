@@ -1,8 +1,9 @@
 # Dynamic Template Resolver — implementation plan
 
-**Status:** **Step 0 complete and Step 1 complete 2026-11-01. Step 2 (generator core) is not
-started.** Step 1 added the policy file, settings keys and provenance storage only; no
-generator, no prescription change and the resolver flag remains off.
+**Status:** **Steps 0, 1 and 2 are complete 2026-11-01. Step 3 (top set/back-off) is not
+started.** Step 2 added the deterministic generator core only; it is not wired into any
+prescription path, the top set and joint evaluator are absent, and the resolver flag remains
+off.
 
 **Scope:** make the four canonical session templates a **deterministic session generator** at
 generation time while keeping the existing scheduler, prescription engine, volume engine and
@@ -823,24 +824,43 @@ validates and hashes; fixed-path prescriptions leave the provenance columns null
 
 **Merge gate:** merged to the feature branch behind the disabled flag; Step 2 not started.
 
-### Step 2 — Generator core
+### Step 2 — Generator core  (complete 2026-11-01)
+
+**Status:** complete. Internal generator only; no prescription wiring, persistence, UI or top
+set.
 
 **Objective:** produce a valid generated SessionTemplate from blueprint + policy + state.
 
-**Scope:** eligibility and unrated confirmation; rotation dwell; pattern-flexible accessory
-pools; main/secondary pattern family; required patterns and redundancy; deterministic ordering;
-failure cases. No top-set structure and no joint evaluator yet.
+**Delivered:**
+
+- strength_coach/prescribe/generator.py: deterministic candidate pools, eligibility and
+  unrated fallback, rotation dwell, main/secondary pattern families, pattern-flexible accessory
+  slots, required-pattern repair, redundancy and provisional coverage scoring, injury exclusion
+  and the existing weekly spinal-cap check;
+- strength_coach/prescribe/resolver_settings.py: reads the Step 1 scalar settings from the
+  effective-dated profile;
+- config/template-resolver.v1.yaml: the accepted accessory pattern-flexibility mapping
+  and the explicit hinge main pool (trap bar and sumo);
+- generated session output records the chosen exercise, pattern, score, reasons, alternatives
+  and pending ratings for every slot; the generated template has concrete exercises and the
+  chosen main lift as primary_exercise;
+- available_session_types() is a pure pool-aware availability helper; schedule.next_session_type
+  is unchanged;
+- no top set, joint volume-budget evaluator, persistence, API, CLI or UI; no prescription path
+  consumes the generator, and resolver.enabled remains off.
 
 **Data:** no new tables.
 
-**UI/API/CLI:** internal generate function; no visual change.
+**UI/API/CLI:** no visual change; internal function and tests only.
 
-**Tests:** rotation 0/1/intermediate; eligibility; pattern flexibility; determinism; impossible
-cases; scheduler pool-aware availability; all_rep_ranges/PRG-DP-001 scope.
+**Tests:** tests/test_generator.py covers default generation, eligibility, unrated fallback,
+rotation 0/1, pattern-flexible core selection, required patterns and pool-aware availability;
+tests/test_resolver_policy.py covers the pattern-flexibility policy.
 
-**Acceptance:** generator returns valid templates and clear errors; not wired into the main path.
+**Acceptance:** generator returns valid generated templates and field-level errors; not wired
+into the main path; the fixed-template prescription path is unchanged.
 
-**Merge gate:** merge behind flag after generator unit/integration tests.
+**Merge gate:** merged to the feature branch after generator unit tests; Step 3 not started.
 
 ### Step 3 — Top set / back-off structure
 

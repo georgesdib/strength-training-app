@@ -80,6 +80,34 @@ class ResolverPolicy:
         return _parse(body, Path(source_path), digest)
 
 
+def load_candidate_catalogue(
+    policy: ResolverPolicy,
+) -> Mapping[str, Mapping[str, tuple[str, ...]]]:
+    """Load the referenced catalogue as an immutable session/slot -> candidate ids map.
+
+    The catalogue is deliberately not copied into the policy. Validation is repeated here so
+    a file changed after the policy digest was computed cannot be consumed without the same
+    structural and pattern checks.
+    """
+    source = paths.repo_root() / policy.candidate_catalogue.path
+    _validate_candidate_catalogue(source, "candidate catalogue", policy.allowed_patterns)
+    label = f"candidate catalogue {source.name}"
+    raw = _load_yaml(_read_text(source, label), label)
+    slots = _mapping(raw.get("slots"), f"{label}: slots")
+    entities = exercises.taxonomy().entities
+    out: dict[str, Mapping[str, tuple[str, ...]]] = {}
+    for session_type, slot_map in slots.items():
+        session = str(session_type)
+        slot_body = _mapping(slot_map, f"{label}: slots.{session}")
+        out[session] = MappingProxyType({
+            str(slot_id): _exercise_list(
+                raw_ids, f"{label}: slots.{session}.{slot_id}", entities
+            )
+            for slot_id, raw_ids in slot_body.items()
+        })
+    return MappingProxyType(out)
+
+
 def validate_text(body: str) -> ResolverPolicy:
     """Parse an edited document without requiring it to exist on disk."""
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()

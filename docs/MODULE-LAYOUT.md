@@ -71,6 +71,8 @@ strength_coach/
     fallback.py                      [x] deterministic fallback, load scaling
     constraints.py                   [x] stored constraints veto, suitability warns
     resolver_policy.py               [x] Step 1 structural resolver policy loader/validator
+    resolver_settings.py             [x] Step 1 scalar resolver settings
+    generator.py                     [x] Step 2 deterministic generator core
     templates.py engine.py fallback.py
   critique/                          [x] deterministic rubric
     facts.py                         [x] one session -> immutable, citable facts
