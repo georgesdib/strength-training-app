@@ -114,7 +114,10 @@ def test_enabled_resolver_makes_scheduler_availability_pool_aware():
     try:
         settings_profile.save(
             store.connection,
-            set_values={"resolver.enabled": True},
+            set_values={
+                "resolver.enabled": True,
+                "resolver.eligibility.auto_requires_can_do": False,
+            },
             effective_from="2024-01-01",
         )
         repositories.append_athlete_constraint(

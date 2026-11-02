@@ -1,6 +1,7 @@
 # Dynamic Template Resolver — implementation plan
 
-**Status:** **Steps 0–3 and Step 4A–4C are complete 2026-11-01. Step 5 is not started.** The
+**Status:** **Steps 0–3 and Step 4A–4C are complete 2026-11-01; Step 4C remediation is
+complete 2026-11-02. Step 5 is not started.** The
 generator is internal and still not wired into the production prescription path; the top-set
 structure is opt-in. The hinge maximal-week change is implemented. The resolver flag remains off.
 
@@ -997,7 +998,7 @@ and warned.
 
 **Merge gate:** merged to the feature branch with deliberation golden updates; Step 4 began after this gate.
 
-### Step 4 — Joint evaluator and pipeline integration  (4A–4C complete 2026-11-01)
+### Step 4 — Joint evaluator and pipeline integration  (4A–4C complete; 4C remediation 2026-11-02)
 
 **Chunk status:** 4A and 4B are implemented. 4A adds `prescribe/evaluator.py`, which evaluates
 one complete slot assignment through the existing prescription pipeline read-only, with
@@ -1027,9 +1028,23 @@ forecast remain out of scope.
 the winning feasible assignment is the final prescription (built once), and resolver provenance
 is attached to the notes. Selection-related inputs are rejected. A volume-drop/template
 replacement or constraint omission makes the assignment infeasible rather than silently changing
-it. Scheduler availability is pool-aware when enabled. CLI and the workout-start/API persistence
+it. Explicit `use_resolver=True` requires an enabled resolver and rejects a supplied template;
+`None` follows the stored flag and `False` stays fixed. Scheduler availability is pool-aware when
+enabled and uses the same automatic-candidate classification and slot-aware required-pattern
+matching as the resolver pools. Resolver failures expose a stable dispatch/pool/search/evaluation/
+integrity stage with the original cause. CLI and the workout-start/API persistence
 path write the template/policy/catalogue/input digests and generated-session snapshot. Forecast
 remains on the fixed option (c) path until Step 6; the Step 5 panel/preview is not started.
+
+The persisted resolver record is an **audit snapshot**, not an exact replay log. The
+`prescription-input-v2` fingerprint covers the session date/type, assignment and its order,
+template/policy/catalogue digests, the supplied evaluation inputs, resolved feature settings,
+resolver settings and candidate pools, using deterministic canonicalisation. Its guarantee is
+auditability of the recorded resolver inputs and change detection; it does not include every
+database row, so exact reconstruction still requires the snapshot plus the referenced state.
+Candidate-pool order is catalogue plus deterministic rotation preference; Step 2's independent
+candidate score is intentionally not re-applied because the joint evaluator decides assignment
+quality.
 
 **Evaluation semantics:** `AssignmentEvaluation.feasible` is hard-only: the prescription is
 executable, has no validation/constraint issues, stays inside the spinal cap, preserves the
@@ -1050,8 +1065,9 @@ and final build use the same pipeline once.
 
 **Tests:** evaluator/final build parity; exact assignment coverage and eligible-pool validation;
 empty-pool field failure; beam determinism/limits/infeasible diagnostic; no writes; no double
-budget; full pipeline; flag-off golden regression; resolver dispatch/provenance; selection-override
-rejection; pool-aware scheduler availability; PRG-DP-001; historical/critique; forecast option (c).
+budget; full pipeline; flag-off serialization/volume-drop regression; resolver dispatch/provenance;
+selection-override rejection; automatic-candidate/slot-aware scheduler availability; structured
+failure stages; fingerprint canonicalisation; PRG-DP-001; historical/critique; forecast option (c).
 
 **Acceptance:** with the flag off, byte-identical fixed output; with it on, the generated session
 uses the chosen exercises and top-set structure; old rows unchanged.

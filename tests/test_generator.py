@@ -447,8 +447,15 @@ def test_pending_rating_rule_is_consistent_when_unrated_is_allowed() -> None:
 
 
 def test_availability_checks_main_and_secondary() -> None:
+    from strength_coach import settings_profile
+
     store = db.Store(":memory:")
     try:
+        settings_profile.save(
+            store.connection,
+            set_values={"resolver.eligibility.auto_requires_can_do": False},
+            effective_from="2026-10-01",
+        )
         repositories.append_athlete_constraint(
             store.connection,
             kind="injury",
@@ -745,6 +752,218 @@ def test_candidate_pools_returns_eligible_ordered_slots() -> None:
     assert pools.policy_digest
     assert pools.catalogue_digest
     assert pools.main_slot is not None
+
+
+def _auto_store():
+    from strength_coach import settings_profile
+
+    store = db.Store(":memory:")
+    settings_profile.save(
+        store.connection,
+        set_values={"resolver.eligibility.auto_requires_can_do": False},
+        effective_from="2026-10-01",
+    )
+    return store
+
+
+def _main_pool(conn):
+    settings = _settings(
+        **{"resolver.eligibility.auto_requires_can_do": False}
+    )
+    pools = generator.candidate_pools(
+        conn, for_date="2026-11-01", session_type="squat", settings=settings
+    )
+    return pools, list(pools.pools["squat_main"])
+
+
+def test_all_suggestion_only_main_candidates_make_squat_unavailable() -> None:
+    store = _auto_store()
+    try:
+        _pools, main_ids = _main_pool(store.connection)
+        for exercise_id in main_ids:
+            _rate(store.connection, exercise_id, will_do=False)
+        with pytest.raises(generator.GenerationError):
+            generator.candidate_pools(
+                store.connection,
+                for_date="2026-11-01",
+                session_type="squat",
+                settings=_settings(
+                    **{"resolver.eligibility.auto_requires_can_do": False}
+                ),
+            )
+        assert generator.available_session_types(
+            store.connection, "2026-11-01"
+        )["squat"] is False
+    finally:
+        store.close()
+
+
+def test_feels_bad_candidates_are_suggestion_only() -> None:
+    store = _auto_store()
+    try:
+        _pools, main_ids = _main_pool(store.connection)
+        for exercise_id in main_ids:
+            _rate(store.connection, exercise_id, feels_bad=True)
+        with pytest.raises(generator.GenerationError):
+            generator.candidate_pools(
+                store.connection,
+                for_date="2026-11-01",
+                session_type="squat",
+                settings=_settings(
+                    **{"resolver.eligibility.auto_requires_can_do": False}
+                ),
+            )
+        assert generator.available_session_types(
+            store.connection, "2026-11-01"
+        )["squat"] is False
+    finally:
+        store.close()
+
+
+def test_hard_constraint_makes_candidate_pools_and_scheduler_agree() -> None:
+    store = _auto_store()
+    try:
+        repositories.append_athlete_constraint(
+            store.connection,
+            kind="injury",
+            region="knee",
+            severity="hard_exclude",
+            forbidden_patterns=("squat",),
+        )
+        with pytest.raises(generator.GenerationError):
+            generator.candidate_pools(
+                store.connection,
+                for_date="2026-11-01",
+                session_type="squat",
+                settings=_settings(
+                    **{"resolver.eligibility.auto_requires_can_do": False}
+                ),
+            )
+        assert generator.available_session_types(
+            store.connection, "2026-11-01"
+        )["squat"] is False
+    finally:
+        store.close()
+
+
+def test_active_injury_excludes_only_the_linked_pattern() -> None:
+    taxonomy = exercises.taxonomy().entities
+    auto, suggestions = generator._classify_candidates(
+        ["ssb_squat", "bench_press"],
+        {"squat", "horizontal_push"},
+        set(),
+        {"pattern:squat"},
+        {},
+        _settings(**{"resolver.eligibility.auto_requires_can_do": False}),
+        taxonomy,
+    )
+    assert "ssb_squat" not in auto
+    assert "bench_press" in auto
+    assert suggestions == []
+
+
+def test_valid_auto_candidate_survives_alongside_suggestions() -> None:
+    store = _auto_store()
+    try:
+        _pools, main_ids = _main_pool(store.connection)
+        _rate(store.connection, main_ids[0], will_do=True)
+        for exercise_id in main_ids[1:]:
+            _rate(store.connection, exercise_id, will_do=False)
+        pools = generator.candidate_pools(
+            store.connection,
+            for_date="2026-11-01",
+            session_type="squat",
+            settings=_settings(
+                **{"resolver.eligibility.auto_requires_can_do": False}
+            ),
+        )
+        assert pools.pools["squat_main"] == (main_ids[0],)
+        assert generator.available_session_types(
+            store.connection, "2026-11-01"
+        )["squat"] is True
+    finally:
+        store.close()
+
+
+def test_required_patterns_must_fit_distinct_slots() -> None:
+    assert generator._patterns_assignable(
+        ("squat", "horizontal_pull"),
+        {"main": {"squat"}, "row": {"horizontal_pull"}},
+    )
+    assert not generator._patterns_assignable(
+        ("squat", "horizontal_pull"),
+        {"main": {"squat"}, "row": {"squat"}},
+    )
+    assert not generator._patterns_assignable(
+        ("squat",),
+        {"main": {"horizontal_pull"}, "row": {"horizontal_pull"}},
+    )
+    # The union contains every required pattern, but no distinct-slot assignment exists.
+    assert not generator._patterns_assignable(
+        ("x", "y", "z"),
+        {"a": {"x", "y"}, "b": {"x", "z"}},
+    )
+
+
+def test_scheduler_required_patterns_use_slot_matching() -> None:
+    from dataclasses import replace
+    from types import MappingProxyType
+
+    store = _auto_store()
+    try:
+        policy = resolver_policy.ResolverPolicy.load()
+        required = dict(policy.required_patterns)
+        required["squat"] = (*required["squat"], "impossible_pattern")
+        bad_policy = replace(policy, required_patterns=MappingProxyType(required))
+        assert generator.available_session_types(
+            store.connection, "2026-11-01", policy=bad_policy
+        )["squat"] is False
+        with pytest.raises(generator.GenerationError):
+            generator.candidate_pools(
+                store.connection,
+                for_date="2026-11-01",
+                session_type="squat",
+                policy=bad_policy,
+                settings=_settings(
+                    **{"resolver.eligibility.auto_requires_can_do": False}
+                ),
+            )
+    finally:
+        store.close()
+
+
+def test_candidate_pools_are_deterministic_and_rotation_ordered(monkeypatch) -> None:
+    store = _auto_store()
+    try:
+        settings = _settings(
+            **{"resolver.eligibility.auto_requires_can_do": False}
+        )
+        first = generator.candidate_pools(
+            store.connection, for_date="2026-11-01", session_type="squat",
+            settings=settings,
+        )
+        second = generator.candidate_pools(
+            store.connection, for_date="2026-11-01", session_type="squat",
+            settings=settings,
+        )
+        assert first.pools == second.pools
+        main_index = next(
+            index for index, slot in enumerate(first.template.slots)
+            if slot.id == "squat_main"
+        )
+        retained = first.pools["squat_main"][0]
+        monkeypatch.setattr(
+            generator,
+            "_last_choice",
+            lambda history, index: (retained, 99) if index == main_index else (None, 0),
+        )
+        rotated = generator.candidate_pools(
+            store.connection, for_date="2026-11-01", session_type="squat",
+            settings=settings,
+        )
+        assert rotated.pools["squat_main"][-1] == retained
+    finally:
+        store.close()
 
 
 def test_registry_rotation_default_is_used_for_secondary() -> None:

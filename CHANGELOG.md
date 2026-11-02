@@ -37,6 +37,12 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 4C remediation**: explicit `use_resolver=True` now
+  fails when the resolver is disabled or a template is supplied; scheduler availability uses the
+  same automatic-candidate classification and slot-aware required-pattern matching as candidate
+  pools; the persisted resolver fingerprint is a documented canonical `prescription-input-v2`
+  audit hash; resolver failures carry a stable stage/cause/beam diagnostic; and public flag-off
+  serialization is covered against the fixed path.
 - Deterministic template resolver **Step 4C pipeline wiring**: `prescribe/resolver.py` runs
   candidate pools, the bounded beam and the read-only evaluator when `resolver.enabled` is on;
   `build_prescription()` dispatches to it and returns the winning feasible prescription built

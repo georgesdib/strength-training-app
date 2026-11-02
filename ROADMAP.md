@@ -1423,7 +1423,9 @@ coaching.
 **Status:** Steps 0 (contracts), 1 (settings/policy/provenance), 2 (generator core), 3 (top
 set/back-off) and 4A–4C (evaluator, beam and pipeline wiring) are complete 2026-11-01. The
 flag-on path now dispatches through candidate pools, the bounded beam and the read-only evaluator;
-scheduler availability is pool-aware and generated-session provenance is persisted. Forecast
+explicit resolver mode cannot silently fall back, scheduler availability uses the same automatic
+candidate/slot matching as the pools, the persisted input fingerprint is canonical and staged
+failures are diagnostic, and generated-session provenance is persisted. Forecast
 remains fixed option (c) until Step 6, Step 5 is not started, the resolver flag remains off by
 default and the flag-off fixed-template path is unchanged. The generator core was remediated on
 2026-11-01 for the review's shared eligibility, power-slot safety, settings, repair, availability,

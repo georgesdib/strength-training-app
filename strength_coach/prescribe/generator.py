@@ -334,6 +334,10 @@ def candidate_pools(
     generate() are returned. The pool order is the generator's preference: the last choice is
     first while its dwell is active, otherwise it is placed last when rotation is due. There is
     no blueprint fallback for a slot with no eligible candidate.
+
+    Step 2's independent _score/_rank ordering is intentionally not applied here. Step 4's joint
+    evaluator is authoritative for assignment quality; candidate order only supplies deterministic
+    beam rank cost/tie-breaking. No Step 2 objective is double-counted.
     """
     if session_type not in templates.SESSION_TYPES:
         raise GenerationError(
@@ -378,20 +382,19 @@ def candidate_pools(
         ).vetoes
     }
 
+    available, reason, auto_by_slot = _structure_check(
+        template, policy, main_slot, raw_pools, vetoed, active_linked,
+        suitability, settings, taxonomy,
+    )
+    if not available:
+        raise GenerationError(
+            f"{session_type}: {reason}", session_type=session_type
+        )
+
     ordered: dict[str, tuple[str, ...]] = {}
     for index, slot in enumerate(template.slots):
+        auto = list(auto_by_slot[slot.id])
         role = _slot_role(slot, main_slot)
-        permitted = _permitted_patterns(slot, role, policy, main_slot, taxonomy)
-        auto, _suggestions = _classify_candidates(
-            raw_pools[slot.id], permitted, vetoed, active_linked, suitability, settings,
-            taxonomy,
-        )
-        if not auto:
-            raise GenerationError(
-                f"{session_type}/{slot.id}: no automatically eligible candidate",
-                session_type=session_type,
-                slot_id=slot.id,
-            )
         last_id, sessions_since_change = _last_choice(history, index)
         rotation = settings.rotation_for(role=role)
         must_rotate = _must_rotate(
@@ -411,6 +414,82 @@ def candidate_pools(
     )
 
 
+def _required_pattern_keys(
+    policy: resolver_policy.ResolverPolicy, session_type: str
+) -> tuple[str, ...]:
+    return tuple(
+        volume.volume_target_key(pattern)
+        for pattern in policy.required_patterns[session_type]
+    )
+
+
+def _patterns_assignable(
+    required: Sequence[str], patterns_by_slot: Mapping[str, set[str]]
+) -> bool:
+    """Small deterministic bipartite match: each required pattern needs a distinct slot."""
+    matching: dict[str, str] = {}
+
+    def assign(key: str, seen: set[str]) -> bool:
+        for slot_id in sorted(patterns_by_slot):
+            if slot_id in seen or key not in patterns_by_slot[slot_id]:
+                continue
+            seen.add(slot_id)
+            if slot_id not in matching or assign(matching[slot_id], seen):
+                matching[slot_id] = key
+                return True
+        return False
+
+    return all(assign(key, set()) for key in required)
+
+
+def _structure_check(
+    template: templates.SessionTemplate,
+    policy: resolver_policy.ResolverPolicy,
+    main_slot: templates.Slot | None,
+    pools: Mapping[str, Sequence[str]],
+    vetoed: set[str],
+    active_injury: set[str],
+    suitability: Mapping[str, Mapping[str, Any]],
+    settings: ResolverSettings,
+    taxonomy: Mapping[str, Mapping[str, Any]],
+) -> tuple[bool, str, dict[str, list[str]]]:
+    """One authoritative automatic-candidate and slot-pattern feasibility check."""
+    auto_by_slot: dict[str, list[str]] = {}
+    for slot in template.slots:
+        role = _slot_role(slot, main_slot)
+        permitted = _permitted_patterns(slot, role, policy, main_slot, taxonomy)
+        auto, _suggestions = _classify_candidates(
+            pools[slot.id], permitted, vetoed, active_injury, suitability, settings,
+            taxonomy,
+        )
+        if not auto:
+            return False, f"slot {slot.id!r}: no automatically eligible candidate", {}
+        auto_by_slot[slot.id] = auto
+
+    patterns_by_slot = {
+        slot_id: {
+            key
+            for exercise_id in auto
+            if (key := _pattern_key(exercise_id, taxonomy)) is not None
+        }
+        for slot_id, auto in auto_by_slot.items()
+    }
+    required = _required_pattern_keys(policy, template.session_type)
+    if not _patterns_assignable(required, patterns_by_slot):
+        missing = [
+            key
+            for key in required
+            if not any(key in patterns for patterns in patterns_by_slot.values())
+        ]
+        detail = f" (missing pattern {missing[0]!r})" if missing else ""
+        return (
+            False,
+            f"required patterns cannot be assigned to distinct slots{detail}",
+            {},
+        )
+    return True, "", auto_by_slot
+
+
 def available_session_types(
     conn,
     for_date: str,
@@ -419,15 +498,26 @@ def available_session_types(
 ) -> dict[str, bool]:
     """Pool-aware availability for the four identities. Read-only.
 
-    A session is available only when every structural slot (power, main and secondary) can be
-    populated by a hard-eligible candidate and every required pattern can still be covered.
-    Soft preferences, unrated confirmation and scoring are intentionally not part of this check.
+    A session is available only when every slot has an automatically eligible candidate and the
+    required patterns can be assigned to distinct permitted slots. Suggestions, unrated
+    confirmation and scoring are intentionally not part of this check.
     """
     policy = policy or resolver_policy.ResolverPolicy.load()
     catalogue = resolver_policy.load_candidate_catalogue(policy)
     taxonomy = exercises.taxonomy().entities
+    settings = ResolverSettings.load(conn, for_date)
+    runtime = settings_profile.feature_settings(conn, for_date)
+    context = RuleContext.from_store(
+        conn,
+        end=for_date,
+        rep_ranges=templates.all_rep_ranges(),
+        spinal_cap=runtime.spinal_cap,
+        spinal_costs=runtime.spinal_costs,
+    )
     suitability = queries.exercise_suitability(conn)
-    injury = injury_signal.compute(conn, for_date)
+    injury = injury_signal.compute(
+        conn, for_date, ramp_week=context.block_week_index
+    )
     active_injury = {
         term
         for region in injury.regions
@@ -448,31 +538,10 @@ def available_session_types(
         all_candidates = sorted({item for ids in pools.values() for item in ids})
         report = constraints_mod.evaluate(conn, all_candidates)
         vetoed = {exercise_id for exercise_id, _reason in report.vetoes}
-        possible_patterns: set[str] = set()
-        available = True
-        for slot in template.slots:
-            role = _slot_role(slot, main_slot)
-            permitted = _permitted_patterns(slot, role, policy, main_slot, taxonomy)
-            eligible = [
-                exercise_id
-                for exercise_id in pools[slot.id]
-                if _structurally_eligible(
-                    exercise_id, permitted, vetoed, active_injury, suitability, taxonomy
-                )
-            ]
-            if role in {"power", "main", "secondary"} and not eligible:
-                available = False
-                break
-            for exercise_id in eligible:
-                key = _pattern_key(exercise_id, taxonomy)
-                if key is not None:
-                    possible_patterns.add(key)
-        if available:
-            required = {
-                volume.volume_target_key(pattern)
-                for pattern in policy.required_patterns[session_type]
-            }
-            available = required <= possible_patterns
+        available, _reason, _auto = _structure_check(
+            template, policy, main_slot, pools, vetoed, active_injury,
+            suitability, settings, taxonomy,
+        )
         out[session_type] = available
     return out
 
@@ -795,23 +864,6 @@ def _classify_candidates(
         elif state == SUGGESTION:
             suggestions.append(exercise_id)
     return auto, suggestions
-
-
-def _structurally_eligible(
-    exercise_id: str,
-    permitted: set[str],
-    vetoed: set[str],
-    active_injury: set[str],
-    suitability: Mapping[str, Mapping[str, Any]],
-    taxonomy: Mapping[str, Mapping[str, Any]],
-) -> bool:
-    """Hard availability check; ratings that merely need confirmation do not block."""
-    if not _pattern_allowed(exercise_id, permitted, taxonomy):
-        return False
-    if exercise_id in vetoed or _injury_excludes(exercise_id, active_injury, taxonomy):
-        return False
-    rating = suitability.get(exercise_id)
-    return not (rating is not None and not rating["can_do"])
 
 
 def _clamp(value: float) -> float:

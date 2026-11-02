@@ -93,41 +93,65 @@ def build_prescription(
     `use_resolver=None` follows the stored flag, `False` forces the fixed template path (used by
     the evaluator and forecast) and `True` requires the resolver.
     """
-    if use_resolver is True and template is not None:
-        raise ValueError("resolver build cannot accept an explicit template")
-    if use_resolver is None or use_resolver is True:
-        enabled = resolver_settings.ResolverSettings.load(conn, for_date).enabled
-        if enabled and template is None:
-            from strength_coach.prescribe import resolver
-            from strength_coach.prescribe.evaluator import EvaluationInputs
+    resolver_enabled = False
+    if use_resolver is not False:
+        resolver_enabled = resolver_settings.ResolverSettings.load(conn, for_date).enabled
+        if use_resolver is True:
+            if not resolver_enabled:
+                from strength_coach.prescribe.resolver import ResolverBuildError
 
-            options = EvaluationInputs(
-                document=document,
-                thresholds=thresholds,
-                undulation=undulation,
-                history=history,
-                vbt=vbt,
-                readiness_config=readiness_config,
-                apply_selection=apply_selection,
-                selection_chooser=selection_chooser,
-                selection_confirmed=selection_confirmed,
-                minimum_session=minimum_session,
-                minimum_target_minutes=minimum_target_minutes,
-                minimum_include_main=minimum_include_main,
-                technique_throttle=technique_throttle,
-                technique_throttle_pattern=technique_throttle_pattern,
-                deload_decision=deload_decision,
-                drop_confirmed=drop_confirmed,
-                top_set_requested=top_set_requested,
-                projected_items=projected_items,
-                projected_sessions=projected_sessions,
+                raise ResolverBuildError(
+                    "dispatch",
+                    "resolver mode was explicitly requested but resolver.enabled is false; "
+                    "enable Settings -> Resolver or pass use_resolver=False",
+                )
+            if template is not None:
+                from strength_coach.prescribe.resolver import ResolverBuildError
+
+                raise ResolverBuildError(
+                    "dispatch",
+                    "resolver mode cannot accept an explicit template; omit template or "
+                    "pass use_resolver=False",
+                )
+        elif resolver_enabled and template is not None:
+            from strength_coach.prescribe.resolver import ResolverBuildError
+
+            raise ResolverBuildError(
+                "dispatch",
+                "resolver.enabled is on but an explicit template was supplied; pass "
+                "use_resolver=False for the fixed-template path",
             )
-            return resolver.build_resolved(
-                conn,
-                for_date=for_date,
-                session_type=session_type,
-                inputs=options,
-            ).prescription
+    if resolver_enabled:
+        from strength_coach.prescribe import resolver
+        from strength_coach.prescribe.evaluator import EvaluationInputs
+
+        options = EvaluationInputs(
+            document=document,
+            thresholds=thresholds,
+            undulation=undulation,
+            history=history,
+            vbt=vbt,
+            readiness_config=readiness_config,
+            apply_selection=apply_selection,
+            selection_chooser=selection_chooser,
+            selection_confirmed=selection_confirmed,
+            minimum_session=minimum_session,
+            minimum_target_minutes=minimum_target_minutes,
+            minimum_include_main=minimum_include_main,
+            technique_throttle=technique_throttle,
+            technique_throttle_pattern=technique_throttle_pattern,
+            deload_decision=deload_decision,
+            drop_confirmed=drop_confirmed,
+            top_set_requested=top_set_requested,
+            projected_items=projected_items,
+            projected_sessions=projected_sessions,
+        )
+        return resolver.build_resolved(
+            conn,
+            for_date=for_date,
+            session_type=session_type,
+            inputs=options,
+        ).prescription
 
     resolved = settings_profile.feature_settings(conn, for_date)
     resolver_cfg = resolver_settings.ResolverSettings.load(conn, for_date)
