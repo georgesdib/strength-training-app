@@ -149,6 +149,51 @@ def _parity(
     return evaluated, direct
 
 
+def _default_assignment(base):
+    return {slot.id: slot.exercises[0] for slot in base.slots}
+
+
+def test_required_patterns_are_checked_on_the_complete_assignment() -> None:
+    from strength_coach.prescribe import generator, resolver_policy
+    from strength_coach.utils import exercises
+
+    base = templates.SessionTemplate.load("squat")
+    policy = resolver_policy.ResolverPolicy.load()
+    taxonomy = exercises.taxonomy().entities
+    assignment = _default_assignment(base)
+    assert not generator.required_pattern_violations(
+        base, assignment, policy, taxonomy
+    )
+
+    violating = None
+    for slot in base.slots:
+        for candidate in ("box_jump", "bench_press", "back_extension", "dumbbell_row"):
+            if candidate in slot.exercises:
+                continue
+            changed = {**assignment, slot.id: candidate}
+            if generator.required_pattern_violations(base, changed, policy, taxonomy):
+                violating = changed
+                break
+        if violating is not None:
+            break
+    assert violating is not None
+    assert generator.required_pattern_violations(base, violating, policy, taxonomy)
+
+    with store() as instance:
+        result = evaluator.evaluate_assignment(
+            instance.connection,
+            for_date="2024-01-15",
+            base_template=base,
+            assignment=violating,
+            candidate_pools={
+                slot_id: [exercise_id] for slot_id, exercise_id in violating.items()
+            },
+        )
+    assert result.structural_violations
+    assert result.feasible is False
+    assert "required" in (result.infeasibility_reason or "")
+
+
 def test_evaluation_matches_the_fixed_build_for_the_same_assignment() -> None:
     with store() as instance:
         base = templates.SessionTemplate.load("squat")

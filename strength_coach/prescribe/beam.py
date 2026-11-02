@@ -230,6 +230,9 @@ def search(
             f"; {final_assignments_pruned} final assignment(s) removed by "
             f"evaluation budget {cfg.max_full_evaluations}"
         )
+    structural_reasons = getattr(diagnostic, "structural_violations", ())
+    if best is None and structural_reasons:
+        reason += "; structural: " + "; ".join(structural_reasons)
 
     return BeamResult(
         best=best,

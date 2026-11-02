@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import replace
+from types import MappingProxyType, SimpleNamespace
 
 import pytest
 from conftest import make_readiness, make_training
@@ -13,6 +14,7 @@ from strength_coach.prescribe import (
     build_prescription,
     generator,
     resolver,
+    resolver_policy,
     templates,
 )
 from strength_coach.prescribe import (
@@ -85,7 +87,24 @@ def _pools(session_type: str = "squat"):
     )
 
 
+def _without_required_patterns(monkeypatch):
+    policy = resolver_policy.ResolverPolicy.load()
+    empty = replace(
+        policy,
+        required_patterns=MappingProxyType(
+            {session: () for session in templates.SESSION_TYPES}
+        ),
+    )
+    monkeypatch.setattr(
+        resolver_policy.ResolverPolicy,
+        "load",
+        classmethod(lambda cls, path=None: empty),
+    )
+    return empty
+
+
 def test_enabled_resolver_dispatches_and_attaches_provenance(monkeypatch) -> None:
+    _without_required_patterns(monkeypatch)
     with store() as instance:
         settings_profile.save(
             instance.connection,
@@ -296,6 +315,65 @@ def test_actual_volume_drop_is_not_a_successful_assignment(monkeypatch) -> None:
     assert caught.value.beam_result.diagnostic.session_replaced is True
 
 
+def test_final_structural_integrity_is_rechecked(monkeypatch) -> None:
+    with store() as instance:
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": True},
+            effective_from="2024-01-01",
+        )
+        monkeypatch.setattr(
+            resolver.generator, "candidate_pools", lambda *args, **kwargs: _pools()
+        )
+        invalid = SimpleNamespace(
+            assignment=(("power", "box_jump"), ("squat_main", "ssb_squat")),
+            assignment_preserved=True,
+            session_replaced=False,
+        )
+        monkeypatch.setattr(
+            resolver.beam_mod,
+            "search",
+            lambda *args, **kwargs: SimpleNamespace(best=invalid, reason="fake"),
+        )
+        with pytest.raises(resolver.ResolverBuildError) as caught:
+            build_prescription(
+                instance.connection,
+                for_date="2024-01-15",
+                session_type="squat",
+                use_resolver=True,
+            )
+    assert caught.value.stage == "final_integrity"
+    assert "required patterns" in str(caught.value)
+
+
+def test_evaluation_exception_has_the_evaluation_stage(monkeypatch) -> None:
+    _without_required_patterns(monkeypatch)
+    with store() as instance:
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": True},
+            effective_from="2024-01-01",
+        )
+        monkeypatch.setattr(
+            resolver.generator, "candidate_pools", lambda *args, **kwargs: _pools()
+        )
+        monkeypatch.setattr(
+            resolver,
+            "evaluate_assignment",
+            lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("eval boom")),
+        )
+        with pytest.raises(resolver.ResolverBuildError) as caught:
+            build_prescription(
+                instance.connection,
+                for_date="2024-01-15",
+                session_type="squat",
+                use_resolver=True,
+            )
+    assert caught.value.stage == "prescription_evaluation"
+    assert type(caught.value.cause).__name__ == "RuntimeError"
+    assert "eval boom" in str(caught.value)
+
+
 def test_flag_off_volume_drop_serialization_is_identical() -> None:
     with store() as instance:
         repositories.append_athlete_profile(
@@ -357,6 +435,9 @@ def test_prescription_fingerprint_canonical_and_material() -> None:
         {"resolved": {"b": 2, "a": 1, "nested": {"y": 2, "x": 3}}},
         {"resolver_settings": {"rotation": 0.3, "enabled": True}},
         {"candidate_pools": {"squat_main": ("ssb_squat", "competition_squat")}},
+        {"beam_config": resolver.beam_mod.BeamConfig(width=5)},
+        {"beam_config": resolver.beam_mod.BeamConfig(max_candidates_per_slot=7)},
+        {"beam_config": resolver.beam_mod.BeamConfig(max_full_evaluations=3)},
     )
     for change in variants:
         altered = {**{
@@ -386,6 +467,24 @@ def test_prescription_fingerprint_canonical_and_material() -> None:
             resolver_settings={},
             candidate_pools={},
         )
+
+
+def test_fingerprint_nonfinite_and_dataframe_schema_are_distinct() -> None:
+    import pandas as pd
+
+    assert resolver._canonical(float("nan")) != resolver._canonical("__nan__")
+    assert resolver._canonical(float("inf")) != resolver._canonical("__inf__")
+    assert resolver._canonical(float("-inf")) != resolver._canonical("__-inf__")
+    assert resolver._canonical(-0.0) != resolver._canonical(0.0)
+    assert resolver._canonical(-0.0) != resolver._canonical("__-0.0")
+
+    int64 = pd.DataFrame({"value": [1, 2]}, dtype="int64")
+    nullable = pd.DataFrame({"value": [1, 2]}, dtype="Int64")
+    category = pd.DataFrame({"value": pd.Categorical(["a", "b"])})
+    assert resolver._canonical(int64) != resolver._canonical(nullable)
+    assert resolver._canonical(category) != resolver._canonical(
+        pd.DataFrame({"value": ["a", "b"]})
+    )
 
 
 def test_resolver_failure_has_a_structured_stage(monkeypatch) -> None:

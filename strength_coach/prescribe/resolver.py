@@ -19,10 +19,35 @@ from pathlib import PurePath
 
 from strength_coach import settings_profile
 from strength_coach.prescribe import beam as beam_mod
-from strength_coach.prescribe import generator
-from strength_coach.prescribe.evaluator import EvaluationInputs
+from strength_coach.prescribe import generator, resolver_policy
+from strength_coach.prescribe.evaluator import EvaluationInputs, evaluate_assignment
 from strength_coach.prescribe.models import Prescription
 from strength_coach.prescribe.resolver_settings import ResolverSettings
+from strength_coach.utils import exercises
+
+
+class _PrescriptionEvaluationError(Exception):
+    def __init__(self, cause: Exception) -> None:
+        self.cause = cause
+        super().__init__(str(cause))
+
+
+def _stage_evaluator(
+    conn, *, for_date, base_template, assignment, candidate_pools, inputs=None, **kwargs
+):
+    try:
+        return evaluate_assignment(
+            conn,
+            for_date=for_date,
+            base_template=base_template,
+            assignment=assignment,
+            candidate_pools=candidate_pools,
+            inputs=inputs,
+            **kwargs,
+        )
+    except Exception as exc:
+        raise _PrescriptionEvaluationError(exc) from exc
+
 
 RESOLVER_STAGES = (
     "dispatch",
@@ -81,6 +106,19 @@ class ResolvedPrescription:
     generated_session: dict
 
 
+def _dtype_info(dtype) -> dict:
+    info = {
+        "type": f"{type(dtype).__module__}.{type(dtype).__qualname__}",
+        "str": str(dtype),
+    }
+    if hasattr(dtype, "categories"):
+        info["categories"] = _canonical(
+            list(dtype.categories), path="dtype.categories"
+        )
+        info["ordered"] = bool(getattr(dtype, "ordered", False))
+    return info
+
+
 def _canonical(value, *, path: str = "input"):
     """Deterministically canonicalise supported build inputs.
 
@@ -91,10 +129,19 @@ def _canonical(value, *, path: str = "input"):
         return value
     if isinstance(value, float):
         if math.isnan(value):
-            return "__nan__"
+            return {"__type__": "float", "value": "nan"}
         if math.isinf(value):
-            return "__inf__" if value > 0 else "__-inf__"
-        return 0.0 if value == 0 else value
+            return {
+                "__type__": "float",
+                "value": "inf" if value > 0 else "-inf",
+            }
+        if value == 0:
+            return (
+                {"__type__": "float", "value": "-0.0"}
+                if math.copysign(1.0, value) < 0
+                else 0.0
+            )
+        return value
     if isinstance(value, Decimal):
         return {"__type__": "decimal", "value": str(value)}
     if isinstance(value, PurePath):
@@ -123,12 +170,34 @@ def _canonical(value, *, path: str = "input"):
         items.sort(key=lambda item: json.dumps(item, sort_keys=True))
         return {"__type__": "set", "items": items}
     module = type(value).__module__
+    if module.startswith("pandas") and type(value).__name__ in {"NAType", "NaTType"}:
+        return {"__type__": "pandas_missing", "name": type(value).__name__}
     if module.startswith("pandas") and type(value).__name__ == "DataFrame":
         return {
             "__type__": "dataframe",
-            "columns": _canonical(list(value.columns), path=f"{path}.columns"),
-            "index": _canonical(list(value.index), path=f"{path}.index"),
+            "columns": [
+                {
+                    "name": _canonical(column, path=f"{path}.columns[{index}]"),
+                    "dtype": _dtype_info(value.columns.dtype),
+                }
+                for index, column in enumerate(value.columns)
+            ],
+            "column_names": _canonical(
+                list(value.columns.names), path=f"{path}.column_names"
+            ),
+            "index": {
+                "type": f"{type(value.index).__module__}.{type(value.index).__qualname__}",
+                "dtype": _dtype_info(value.index.dtype),
+                "names": _canonical(list(value.index.names), path=f"{path}.index.names"),
+                "values": _canonical(
+                    list(value.index), path=f"{path}.index.values"
+                ),
+            },
+            "dtypes": [
+                _dtype_info(dtype) for dtype in value.dtypes
+            ],
             "data": _canonical(value.to_numpy().tolist(), path=f"{path}.data"),
+            "attrs": _canonical(value.attrs, path=f"{path}.attrs"),
         }
     if is_dataclass(value) and not isinstance(value, type):
         return {
@@ -157,6 +226,7 @@ def prescription_input_fingerprint(
     resolved,
     resolver_settings: ResolverSettings,
     candidate_pools,
+    beam_config: beam_mod.BeamConfig | None = None,
 ) -> str:
     """Fingerprint the material build/evaluation inputs and candidate pools.
 
@@ -165,7 +235,7 @@ def prescription_input_fingerprint(
     settings are included; unordered mappings are sorted canonically.
     """
     payload = {
-        "fingerprint_version": "prescription-input-v2",
+        "fingerprint_version": "prescription-input-v3",
         "for_date": for_date,
         "session_type": session_type,
         "assignment": assignment,
@@ -176,6 +246,9 @@ def prescription_input_fingerprint(
         "resolved_settings": _canonical(resolved, path="resolved_settings"),
         "resolver_settings": _canonical(resolver_settings, path="resolver_settings"),
         "candidate_pools": _canonical(candidate_pools, path="candidate_pools"),
+        "beam_config": _canonical(
+            beam_config or beam_mod.BeamConfig(), path="beam_config"
+        ),
     }
     body = json.dumps(
         _canonical(payload, path="fingerprint"),
@@ -198,6 +271,8 @@ def build_resolved(
 ) -> ResolvedPrescription:
     """Run the generator/beam/evaluator path and return the already-built final prescription."""
     settings = settings or ResolverSettings.load(conn, for_date)
+    effective_beam_config = beam_config or beam_mod.BeamConfig()
+    policy = policy or resolver_policy.ResolverPolicy.load()
     if not settings.enabled:
         raise ResolverBuildError(
             "dispatch", "resolver is disabled; enable it or use the fixed path",
@@ -229,9 +304,17 @@ def build_resolved(
             for_date=for_date,
             base_template=pools.template,
             candidates=pools.pools,
-            config=beam_config,
+            config=effective_beam_config,
             inputs=inputs,
+            evaluator=_stage_evaluator,
         )
+    except _PrescriptionEvaluationError as exc:
+        raise ResolverBuildError(
+            "prescription_evaluation",
+            f"prescription evaluation failed: {exc.cause}",
+            cause=exc.cause,
+            details={"for_date": for_date, "session_type": session_type},
+        ) from exc
     except Exception as exc:
         raise ResolverBuildError(
             "assignment_search", f"assignment search failed: {exc}", cause=exc,
@@ -245,6 +328,18 @@ def build_resolved(
             details={"pools": [len(v) for v in pools.pools.values()]},
         )
     best = result.best
+    structural = generator.required_pattern_violations(
+        pools.template,
+        dict(best.assignment),
+        policy,
+        exercises.taxonomy().entities,
+    )
+    if structural:
+        raise ResolverBuildError(
+            "final_integrity",
+            "resolver assignment violates required patterns: " + "; ".join(structural),
+            beam_result=result,
+        )
     if not best.assignment_preserved or best.session_replaced:
         raise ResolverBuildError(
             "final_integrity",
@@ -273,6 +368,7 @@ def build_resolved(
             resolved=resolved_settings,
             resolver_settings=settings,
             candidate_pools=pools.pools,
+            beam_config=effective_beam_config,
         )
     except Exception as exc:
         raise ResolverBuildError(
@@ -283,24 +379,38 @@ def build_resolved(
         "for_date": for_date,
         "session_type": session_type,
         "assignment": dict(best.assignment),
+        "assignment_order": [list(pair) for pair in best.assignment],
         "template_digest": pools.template.digest,
         "policy_digest": pools.policy_digest,
         "catalogue_digest": pools.catalogue_digest,
         "input_hash": input_hash,
-        "fingerprint_version": "prescription-input-v2",
-        "fingerprint_scope": "material build/evaluation inputs and candidate pools",
+        "fingerprint_version": "prescription-input-v3",
+        "fingerprint_scope": "material build/evaluation inputs, candidate pools and beam config",
+        "beam_config": {
+            "width": effective_beam_config.width,
+            "max_candidates_per_slot": effective_beam_config.max_candidates_per_slot,
+            "max_full_evaluations": effective_beam_config.max_full_evaluations,
+        },
+        "candidate_pools": {slot: list(pool) for slot, pool in pools.pools.items()},
         "beam": result.as_dict(),
         "evaluator": best.as_dict(),
         "top_set": best.prescription.notes.get("top_set"),
     }
     metadata = {
         "assignment": dict(best.assignment),
+        "assignment_order": [list(pair) for pair in best.assignment],
         "template_digest": pools.template.digest,
         "policy_digest": pools.policy_digest,
         "catalogue_digest": pools.catalogue_digest,
         "input_hash": input_hash,
-        "fingerprint_version": "prescription-input-v2",
-        "fingerprint_scope": "material build/evaluation inputs and candidate pools",
+        "fingerprint_version": "prescription-input-v3",
+        "fingerprint_scope": "material build/evaluation inputs, candidate pools and beam config",
+        "beam_config": {
+            "width": effective_beam_config.width,
+            "max_candidates_per_slot": effective_beam_config.max_candidates_per_slot,
+            "max_full_evaluations": effective_beam_config.max_full_evaluations,
+        },
+        "candidate_pools": {slot: list(pool) for slot, pool in pools.pools.items()},
         "beam": result.as_dict(),
         "evaluator": best.as_dict(),
         "top_set": best.prescription.notes.get("top_set"),

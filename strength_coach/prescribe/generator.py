@@ -490,6 +490,41 @@ def _structure_check(
     return True, "", auto_by_slot
 
 
+def required_pattern_violations(
+    template: templates.SessionTemplate,
+    assignment: Mapping[str, str],
+    policy: resolver_policy.ResolverPolicy,
+    taxonomy: Mapping[str, Mapping[str, Any]],
+) -> tuple[str, ...]:
+    """Return structural violations for one complete assignment.
+
+    This applies the same distinct-slot matching rule used by candidate-pool feasibility, but to
+    the actual selected exercises rather than the theoretical pools.
+    """
+    required = _required_pattern_keys(policy, template.session_type)
+    patterns_by_slot = {
+        slot.id: {
+            key
+            for exercise_id in (assignment.get(slot.id),)
+            if exercise_id is not None
+            if (key := _pattern_key(exercise_id, taxonomy)) is not None
+        }
+        for slot in template.slots
+    }
+    if _patterns_assignable(required, patterns_by_slot):
+        return ()
+    missing = [
+        key
+        for key in required
+        if not any(key in patterns for patterns in patterns_by_slot.values())
+    ]
+    if missing:
+        return (
+            "missing required pattern(s): " + ", ".join(sorted(set(missing))),
+        )
+    return ("required patterns cannot be assigned to distinct slots",)
+
+
 def available_session_types(
     conn,
     for_date: str,

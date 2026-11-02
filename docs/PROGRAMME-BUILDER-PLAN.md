@@ -860,9 +860,9 @@ persistence, UI or top set.
 - generated session output records the chosen exercise, pattern, score, reasons, alternatives,
   pending ratings, suggestion-only candidates, the policy digest and the catalogue digest; the
   generated template has concrete exercises and the chosen main lift as primary_exercise;
-- available_session_types() checks the power/main/secondary structural slots, required patterns,
-  hard constraints and concrete or pattern-level injury exclusions; schedule.next_session_type
-  is unchanged;
+- available_session_types() checks every slot's automatic candidate pool, slot-aware required
+  patterns, hard constraints and concrete or pattern-level injury exclusions;
+  schedule.next_session_type is unchanged;
 - no top set, joint volume-budget evaluator, persistence, API, CLI or UI; no prescription path
   consumes the generator, and resolver.enabled remains off.
 
@@ -1037,9 +1037,10 @@ path write the template/policy/catalogue/input digests and generated-session sna
 remains on the fixed option (c) path until Step 6; the Step 5 panel/preview is not started.
 
 The persisted resolver record is an **audit snapshot**, not an exact replay log. The
-`prescription-input-v2` fingerprint covers the session date/type, assignment and its order,
+`prescription-input-v3` fingerprint covers the session date/type, assignment and its order,
 template/policy/catalogue digests, the supplied evaluation inputs, resolved feature settings,
-resolver settings and candidate pools, using deterministic canonicalisation. Its guarantee is
+resolver settings, candidate pools and effective beam configuration, using deterministic
+canonicalisation. Its guarantee is
 auditability of the recorded resolver inputs and change detection; it does not include every
 database row, so exact reconstruction still requires the snapshot plus the referenced state.
 Candidate-pool order is catalogue plus deterministic rotation preference; Step 2's independent
@@ -1048,8 +1049,9 @@ quality.
 
 **Evaluation semantics:** `AssignmentEvaluation.feasible` is hard-only: the prescription is
 executable, has no validation/constraint issues, stays inside the spinal cap, preserves the
-assigned exercise list and was not replaced by a drop/template. Time overruns, volume-target
-error and warnings remain soft score objectives. The penalty weights are heuristic ordering
+assigned exercise list, satisfies the policy's required patterns with distinct-slot matching,
+and was not replaced by a drop/template. Time overruns, volume-target error and warnings remain
+soft score objectives. The penalty weights are heuristic ordering
 weights, not calibrated utility; every score contribution emits a diagnostic reason, while
 spinal headroom is diagnostic-only.
 
@@ -1066,8 +1068,10 @@ and final build use the same pipeline once.
 **Tests:** evaluator/final build parity; exact assignment coverage and eligible-pool validation;
 empty-pool field failure; beam determinism/limits/infeasible diagnostic; no writes; no double
 budget; full pipeline; flag-off serialization/volume-drop regression; resolver dispatch/provenance;
-selection-override rejection; automatic-candidate/slot-aware scheduler availability; structured
-failure stages; fingerprint canonicalisation; PRG-DP-001; historical/critique; forecast option (c).
+selection-override rejection; required-pattern enforcement on final assignments; automatic-candidate/
+slot-aware scheduler availability; structured failure stages; fingerprint canonicalisation,
+non-finite/DataFrame schema handling and beam-config coverage; PRG-DP-001; historical/critique;
+forecast option (c).
 
 **Acceptance:** with the flag off, byte-identical fixed output; with it on, the generated session
 uses the chosen exercises and top-set structure; old rows unchanged.

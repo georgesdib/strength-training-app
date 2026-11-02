@@ -27,6 +27,7 @@ TIME_OVER_PENALTY = 1.0
 VOLUME_ERROR_WEIGHT = 2.0
 WARNING_PENALTY = 0.05
 SESSION_REPLACED_PENALTY = 5.0
+STRUCTURAL_PENALTY = 10.0
 
 
 @dataclass(frozen=True)
@@ -134,10 +135,12 @@ class AssignmentEvaluation:
     assignment_preserved: bool = True
     session_replaced: bool = False
     replacement_reason: str | None = None
+    structural_violations: tuple[str, ...] = ()
 
     @property
     def feasible(self) -> bool:
-        """Hard feasibility only: executable, no issues, spinal cap, exact assignment.
+        """Hard feasibility only: executable, no issues, spinal cap, exact assignment and
+        distinct-slot required-pattern coverage.
 
         Time overruns, volume-target error and warnings are soft objectives, not feasibility.
         """
@@ -147,6 +150,7 @@ class AssignmentEvaluation:
             and not self.components.spinal_over_cap
             and self.assignment_preserved
             and not self.session_replaced
+            and not self.structural_violations
         )
 
     @property
@@ -155,6 +159,8 @@ class AssignmentEvaluation:
             return self.replacement_reason or "session/template was replaced"
         if not self.assignment_preserved:
             return "prescription exercises differ from the assignment"
+        if self.structural_violations:
+            return self.structural_violations[0]
         if not self.components.executable:
             return "prescription is not executable"
         if self.components.issues:
@@ -180,6 +186,7 @@ class AssignmentEvaluation:
             "assignment_preserved": self.assignment_preserved,
             "session_replaced": self.session_replaced,
             "replacement_reason": self.replacement_reason,
+            "structural_violations": list(self.structural_violations),
             "warnings": list(self.prescription.warnings),
         }
 
@@ -373,6 +380,15 @@ def evaluate_assignment(
     build_inputs = inputs or EvaluationInputs()
     build_inputs.validate_for_resolver()
     template = assignment_template(base_template, assignment, candidate_pools)
+    from strength_coach.prescribe import generator, resolver_policy
+    from strength_coach.utils import exercises
+
+    structural_violations = generator.required_pattern_violations(
+        template,
+        dict(validated),
+        resolver_policy.ResolverPolicy.load(),
+        exercises.taxonomy().entities,
+    )
     prescription = build_prescription(
         conn,
         for_date=for_date,
@@ -402,6 +418,9 @@ def evaluate_assignment(
         )
         score += SESSION_REPLACED_PENALTY
         reasons += ("assignment exercises were not preserved",)
+    if structural_violations:
+        score += STRUCTURAL_PENALTY
+        reasons += structural_violations
     return AssignmentEvaluation(
         assignment=validated,
         score=round(score, 6),
@@ -411,4 +430,5 @@ def evaluate_assignment(
         assignment_preserved=assignment_preserved,
         session_replaced=session_replaced,
         replacement_reason=replacement_reason,
+        structural_violations=structural_violations,
     )
