@@ -37,18 +37,22 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
-- Deterministic template resolver **Step 4B bounded beam**: `prescribe/beam.py` keeps the
-  best partial assignments by deterministic candidate order and runs the real read-only evaluator
-  only on the final beam. Defaults are width 4, six candidates per slot and 16 full evaluations,
-  with no wall-clock cutoff; empty pools and budget caps use a deterministic fallback. The
+- Deterministic template resolver **Step 4B bounded beam**: `prescribe/beam.py` keeps partial
+  assignments by deterministic candidate-rank order and runs the real read-only evaluator only on
+  the final beam. Defaults are width 4, six candidates per slot and four full evaluations, so the
+  default evaluation budget is reachable; no wall-clock cutoff or randomisation. Missing or empty
+  eligible pools are field-level failures (no blueprint fallback). `best` is a feasible result
+  only; `diagnostic` preserves the best scored result when none is feasible. The
   generator/pipeline wiring, scheduler/volume/selection/critique integration, persistence and
   forecast work are not started.
 - Deterministic template resolver **Step 4A read-only evaluator**: `prescribe/evaluator.py`
-  evaluates one complete slot assignment through the existing prescription pipeline once, with
-  deterministic post-budget components (executability, issues, unknown loads, volume error,
-  spinal cap, time overrun, warnings) and no store writes. The bounded beam, generator/pipeline
-  wiring, scheduler/volume/selection/critique integration, persistence and forecast work are not
-  started.
+  requires exactly one eligible exercise for every slot, validates it against the slot's explicit
+  candidate pool, never substitutes blueprint defaults, and evaluates through the existing
+  prescription pipeline once with deterministic post-budget components (executability, issues,
+  unknown loads, volume error, spinal cap, time overrun, warnings) and no store writes.
+  `EvaluationInputs` is the shared input contract for evaluator/final-build parity. The bounded
+  beam, generator/pipeline wiring, scheduler/volume/selection/critique integration, persistence
+  and forecast work are not started.
 - Deterministic template resolver **Step 3 top set/back-off**: the optional main-lift
   top-set structure, preserved total sets, configurable 85% back-offs, DUP/competition RIR
   mapping, taper/deload/fallback rules, top-set protection, top-set-derived warm-ups, the

@@ -1,8 +1,12 @@
 """Deterministic bounded beam over complete exercise assignments.
 
 Step 4B is the search layer only. Candidate pools are supplied by the caller (later, the
-generator); this module keeps the best partial assignments by a cheap deterministic order cost,
+generator); this module keeps partial assignments by a cheap deterministic candidate-rank order,
 then runs the real read-only evaluator only on the final beam. The final build remains Step 4C.
+
+This is not a globally optimal search and does not score partial prescriptions. Its partial
+pruning is candidate rank order; only the final complete assignments receive the real pipeline
+score.
 """
 
 from __future__ import annotations
@@ -13,12 +17,25 @@ from typing import Any
 
 from strength_coach.prescribe.evaluator import (
     AssignmentEvaluation,
+    EvaluationInputs,
     evaluate_assignment,
 )
 
 DEFAULT_BEAM_WIDTH = 4
 DEFAULT_CANDIDATE_CAP = 6
-DEFAULT_FULL_EVALUATION_BUDGET = 16
+DEFAULT_FULL_EVALUATION_BUDGET = DEFAULT_BEAM_WIDTH
+
+
+class BeamError(ValueError):
+    """The beam cannot form a complete assignment from the supplied pools."""
+
+
+class BeamEligibilityError(BeamError):
+    """A field-level pool failure; no blueprint fallback is allowed."""
+
+    def __init__(self, slot_id: str, message: str) -> None:
+        self.slot_id = slot_id
+        super().__init__(f"{slot_id}: {message}")
 
 
 @dataclass(frozen=True)
@@ -38,11 +55,19 @@ class BeamConfig:
 
 @dataclass(frozen=True)
 class BeamResult:
+    """Search outcome.
+
+    best is None when no evaluated assignment is feasible; diagnostic then preserves the best
+    scored result for the caller, but it is never a successful generated session.
+    """
+
     best: AssignmentEvaluation | None
+    diagnostic: AssignmentEvaluation | None
     evaluated: tuple[AssignmentEvaluation, ...]
     pruned: int
     truncated: bool
-    fallback_assignment: tuple[tuple[str, str], ...]
+    candidate_cap_applied: bool
+    evaluation_budget_applied: bool
     reason: str
 
 
@@ -58,31 +83,21 @@ def _slot_candidates(
     cap: int,
 ) -> tuple[tuple[str, ...], bool]:
     raw = candidates.get(slot.id)
-    if raw is None or not raw:
-        default = slot.exercises[0] if slot.exercises else None
-        return ((default,) if default is not None else ()), True
-    ordered: list[str] = []
+    if raw is None or isinstance(raw, str) or not raw:
+        raise BeamEligibilityError(slot.id, "eligible candidate pool is missing or empty")
+    unique: list[str] = []
     seen: set[str] = set()
     for exercise_id in raw:
         value = str(exercise_id)
+        if not value.strip():
+            raise BeamEligibilityError(slot.id, "candidate contains an empty exercise id")
         if value in seen:
             continue
         seen.add(value)
-        ordered.append(value)
-        if len(ordered) >= cap:
-            break
-    return tuple(ordered), len(raw) > len(ordered)
-
-
-def _default_assignment(base_template, candidates: Mapping[str, Sequence[str]]) -> tuple[tuple[str, str], ...]:
-    out: list[tuple[str, str]] = []
-    for slot in base_template.slots:
-        raw = candidates.get(slot.id) or ()
-        exercise = str(raw[0]) if raw else (slot.exercises[0] if slot.exercises else None)
-        if exercise is None:
-            raise ValueError(f"slot {slot.id!r} has no candidate or blueprint exercise")
-        out.append((slot.id, exercise))
-    return tuple(out)
+        unique.append(value)
+    if not unique:
+        raise BeamEligibilityError(slot.id, "eligible candidate pool is empty")
+    return tuple(unique[:cap]), len(unique) > cap
 
 
 def search(
@@ -92,7 +107,7 @@ def search(
     base_template,
     candidates: Mapping[str, Sequence[str]],
     config: BeamConfig | None = None,
-    top_set_requested: bool | None = None,
+    inputs: EvaluationInputs | None = None,
     evaluator: Callable[..., AssignmentEvaluation] = evaluate_assignment,
     evaluator_kwargs: Mapping[str, Any] | None = None,
 ) -> BeamResult:
@@ -101,25 +116,25 @@ def search(
     The cheap partial order is the sum of each candidate's position in its supplied slot pool.
     Callers must therefore pass candidates in their preferred deterministic order. The full
     evaluator sees only complete assignments and makes the final choice by post-pipeline score.
-    No wall-clock or random element is used.
+    No wall-clock, random element, or blueprint fallback is used.
     """
     cfg = config or BeamConfig()
     working = evaluator_kwargs or {}
     known = {slot.id for slot in base_template.slots}
+    if not known:
+        raise BeamError("template has no slots")
     unknown = set(candidates) - known
     if unknown:
         raise ValueError(f"unknown slot(s) in candidates: {sorted(unknown)}")
 
     beam: list[_Partial] = [_Partial((), 0)]
-    fallback_used = False
     pruned = 0
+    candidate_cap_applied = False
     for slot in base_template.slots:
-        slot_candidates, truncated_slot = _slot_candidates(
+        slot_candidates, capped = _slot_candidates(
             slot, candidates, cfg.max_candidates_per_slot
         )
-        if not slot_candidates:
-            raise ValueError(f"slot {slot.id!r} has no candidate")
-        fallback_used = fallback_used or truncated_slot
+        candidate_cap_applied = candidate_cap_applied or capped
         expanded: list[_Partial] = []
         for partial in beam:
             for rank, exercise_id in enumerate(slot_candidates):
@@ -133,30 +148,8 @@ def search(
         pruned += max(0, len(expanded) - cfg.width)
         beam = expanded[: cfg.width]
 
-    if not beam:
-        # This is only reachable if the template has no slots; complete deterministically.
-        assignment = _default_assignment(base_template, candidates)
-        evaluation = evaluator(
-            conn,
-            for_date=for_date,
-            base_template=base_template,
-            assignment=dict(assignment),
-            top_set_requested=top_set_requested,
-            **working,
-        )
-        return BeamResult(
-            best=evaluation,
-            evaluated=(evaluation,),
-            pruned=pruned,
-            truncated=False,
-            fallback_assignment=assignment,
-            reason="empty template: evaluated the deterministic default",
-        )
-
-    final = beam
-    truncated = len(final) > cfg.max_full_evaluations
-    if truncated:
-        final = final[: cfg.max_full_evaluations]
+    evaluation_budget_applied = len(beam) > cfg.max_full_evaluations
+    final = beam[: cfg.max_full_evaluations]
     evaluated: list[AssignmentEvaluation] = []
     for partial in final:
         evaluated.append(
@@ -165,33 +158,43 @@ def search(
                 for_date=for_date,
                 base_template=base_template,
                 assignment=dict(partial.assignment),
-                top_set_requested=top_set_requested,
+                candidate_pools=candidates,
+                inputs=inputs,
                 **working,
             )
         )
-    best = min(
-        evaluated,
-        key=lambda result: (
-            0 if result.feasible else 1,
-            result.score,
-            result.assignment,
-        ),
+
+    if not evaluated:
+        raise BeamError("beam produced no complete assignment to evaluate")
+
+    feasible = [result for result in evaluated if result.feasible]
+    best = (
+        min(feasible, key=lambda result: (result.score, result.assignment))
+        if feasible
+        else None
     )
-    reason = (
-        f"evaluated {len(evaluated)} of {len(final)} final beam assignment(s)"
-        if not truncated
-        else f"full-evaluation budget capped at {cfg.max_full_evaluations}"
-    )
-    if fallback_used:
-        reason += "; candidate pool or cap used a deterministic fallback"
+    diagnostic = min(evaluated, key=lambda result: (result.score, result.assignment))
+    truncated = candidate_cap_applied or evaluation_budget_applied
+
+    if best is None:
+        reason = (
+            f"no feasible assignment among {len(evaluated)} evaluated; "
+            f"best diagnostic score {diagnostic.score:.4f}"
+        )
+    else:
+        reason = f"selected a feasible assignment from {len(evaluated)} evaluated"
+    if candidate_cap_applied:
+        reason += "; candidate pools were deterministically capped"
+    if evaluation_budget_applied:
+        reason += f"; full-evaluation budget capped at {cfg.max_full_evaluations}"
+
     return BeamResult(
         best=best,
+        diagnostic=diagnostic,
         evaluated=tuple(evaluated),
         pruned=pruned,
         truncated=truncated,
-        fallback_assignment=(
-            tuple(best.assignment) if best is not None
-            else _default_assignment(base_template, candidates)
-        ),
+        candidate_cap_applied=candidate_cap_applied,
+        evaluation_budget_applied=evaluation_budget_applied,
         reason=reason,
     )

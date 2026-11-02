@@ -1002,12 +1002,20 @@ and warned.
 
 **Chunk status:** 4A and 4B are implemented. 4A adds `prescribe/evaluator.py`, which evaluates
 one complete slot assignment through the existing prescription pipeline read-only, with
-deterministic components and no writes. 4B adds `prescribe/beam.py`, a deterministic bounded
-beam that prunes partial assignments by candidate order and runs the real evaluator only on the
-final beam (width 4, six candidates per slot, 16 full evaluations; no wall-clock cutoff).
-`tests/test_evaluator.py` covers parity/no-write; `tests/test_beam.py` covers determinism, budget,
-fallback and real-evaluator use. Generator/pipeline wiring, scheduler/volume/selection/critique
-integration, persistence/forecast work and Step 5 UI are **not** started.
+deterministic components and no writes. The evaluator requires exactly one non-empty exercise
+for every slot, validates it against that slot's explicit eligible candidate pool, and never
+substitutes a blueprint default. `EvaluationInputs` is the shared immutable build-input
+contract for evaluator/final-build parity.
+
+4B adds `prescribe/beam.py`, a deterministic bounded beam that prunes partial assignments by
+candidate rank order and runs the real evaluator only on the final beam. Defaults are width 4,
+six candidates per slot and four full evaluations (the default budget is reachable, not 16).
+Missing or empty candidate pools are field-level failures; no blueprint fallback is allowed.
+`best` contains only a feasible assignment, and `diagnostic` preserves the best scored result
+when none is feasible. `tests/test_evaluator.py` covers validation/parity/no-write;
+`tests/test_beam.py` covers determinism, limits, empty-pool failure, infeasible results and
+real-evaluator use. Generator/pipeline wiring, scheduler/volume/selection/critique integration,
+persistence/forecast work and Step 5 UI are **not** started.
 
 **Objective:** score candidate assignments by the post-budget outcome and wire the generator into
 the real prescription path.
@@ -1019,8 +1027,10 @@ digests, input hash and generated-session snapshot; forecast option (c).
 **Architecture:** explicit passing; no global active read inside SessionTemplate.load; preview
 and final build use the same pipeline once.
 
-**Tests:** evaluator/final build parity; no double budget; full pipeline; flag-off golden
-regression; scheduler availability; PRG-DP-001; historical/critique; forecast option (c).
+**Tests:** evaluator/final build parity; exact assignment coverage and eligible-pool validation;
+empty-pool field failure; beam determinism/limits/infeasible diagnostic; no writes; no double
+budget; full pipeline; flag-off golden regression; scheduler availability; PRG-DP-001;
+historical/critique; forecast option (c).
 
 **Acceptance:** with the flag off, byte-identical fixed output; with it on, the generated session
 uses the chosen exercises and top-set structure; old rows unchanged.
@@ -1035,9 +1045,9 @@ uses the chosen exercises and top-set structure; old rows unchanged.
 - Step 4 is backend/pipeline only. The Resolver settings panel and generation preview remain
   Step 5;
 - the joint evaluator is a deterministic bounded beam with a fixed internal width (start small,
-  tune from measurement), a deterministic per-slot prefilter, an operation-count budget and a
-  deterministic greedy/default completion fallback. No wall-clock cutoff and no database writes
-  during evaluation; the final build runs once;
+  tune from measurement), a deterministic per-slot prefilter and an operation-count budget. No
+  wall-clock cutoff and no database writes during evaluation; the final build runs once. Empty
+  or missing eligible pools are field-level failures, never a blueprint completion fallback;
 - the top-set structure is carried only when the caller explicitly requests it; automated and
   forecast generation remain straight-set unless asked; the durable ask/on/off UI is Step 5;
 - scheduler availability becomes pool-aware when the flag is on.

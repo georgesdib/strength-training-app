@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from types import SimpleNamespace
 
+import pytest
 from conftest import make_readiness, make_training
 
 from strength_coach.prescribe import beam, templates
@@ -36,15 +37,15 @@ def store():
         instance.close()
 
 
-def defaults(template):
+def pools(template):
     return {slot.id: [slot.exercises[0]] for slot in template.slots}
 
 
 def test_beam_is_deterministic_and_never_exceeds_the_evaluation_budget() -> None:
     base = templates.SessionTemplate.load("squat")
-    pools = defaults(base)
-    pools["squat_main"] = ["ssb_squat", "competition_squat"]
-    pools["bench_support"] = ["bench_press", "incline_press"]
+    pool_map = pools(base)
+    pool_map["squat_main"] = ["ssb_squat", "competition_squat"]
+    pool_map["bench_support"] = ["bench_press", "incline_press"]
     calls: list[dict[str, str]] = []
 
     def fake(conn, *, assignment, **kwargs):
@@ -60,29 +61,50 @@ def test_beam_is_deterministic_and_never_exceeds_the_evaluation_budget() -> None
     config = beam.BeamConfig(width=4, max_full_evaluations=2)
     first = beam.search(
         None, for_date="2024-01-15", base_template=base,
-        candidates=pools, config=config, evaluator=fake,
+        candidates=pool_map, config=config, evaluator=fake,
     )
     first_calls = list(calls)
     calls.clear()
     second = beam.search(
         None, for_date="2024-01-15", base_template=base,
-        candidates=pools, config=config, evaluator=fake,
+        candidates=pool_map, config=config, evaluator=fake,
     )
     assert first.truncated is True
+    assert first.evaluation_budget_applied is True
     assert len(first.evaluated) <= 2
-    assert first.best.score == 0.0
+    assert first.best is not None and first.best.score == 0.0
     assert first_calls == calls
     assert first.best.assignment == second.best.assignment
 
 
-def test_beam_falls_back_to_the_blueprint_default_for_an_empty_pool() -> None:
+def test_empty_candidate_pool_is_a_field_level_failure() -> None:
     base = templates.SessionTemplate.load("squat")
-    pools = defaults(base)
-    pools["squat_main"] = []
-    seen: list[dict[str, str]] = []
+    pool_map = pools(base)
+    pool_map["squat_main"] = []
+    with pytest.raises(beam.BeamEligibilityError, match="squat_main"):
+        beam.search(
+            None, for_date="2024-01-15", base_template=base,
+            candidates=pool_map,
+        )
+
+
+def test_missing_candidate_pool_is_a_field_level_failure() -> None:
+    base = templates.SessionTemplate.load("squat")
+    pool_map = pools(base)
+    pool_map.pop("squat_main")
+    with pytest.raises(beam.BeamEligibilityError, match="squat_main"):
+        beam.search(
+            None, for_date="2024-01-15", base_template=base,
+            candidates=pool_map,
+        )
+
+
+def test_candidate_cap_is_reported_and_does_not_fall_back_to_blueprint() -> None:
+    base = templates.SessionTemplate.load("squat")
+    pool_map = pools(base)
+    pool_map["squat_main"] = ["ssb_squat", "competition_squat"]
 
     def fake(conn, *, assignment, **kwargs):
-        seen.append(dict(assignment))
         return SimpleNamespace(
             assignment=tuple(assignment.items()),
             score=0.0,
@@ -92,13 +114,32 @@ def test_beam_falls_back_to_the_blueprint_default_for_an_empty_pool() -> None:
 
     result = beam.search(
         None, for_date="2024-01-15", base_template=base,
-        candidates=pools, evaluator=fake,
+        candidates=pool_map, config=beam.BeamConfig(max_candidates_per_slot=1),
+        evaluator=fake,
     )
-    assert result.best.assignment == tuple(
-        (slot.id, slot.exercises[0]) for slot in base.slots
+    assert result.candidate_cap_applied is True
+    assert result.truncated is True
+    assert dict(result.best.assignment)["squat_main"] == "ssb_squat"
+
+
+def test_no_feasible_result_is_reported_separately_from_a_diagnostic() -> None:
+    base = templates.SessionTemplate.load("squat")
+
+    def fake(conn, *, assignment, **kwargs):
+        return SimpleNamespace(
+            assignment=tuple(assignment.items()),
+            score=1.0,
+            feasible=False,
+            prescription=None,
+        )
+
+    result = beam.search(
+        None, for_date="2024-01-15", base_template=base,
+        candidates=pools(base), evaluator=fake,
     )
-    assert "fallback" in result.reason
-    assert seen
+    assert result.best is None
+    assert result.diagnostic is not None
+    assert "no feasible" in result.reason
 
 
 def test_beam_uses_the_real_evaluator_and_does_not_write() -> None:
@@ -110,11 +151,11 @@ def test_beam_uses_the_real_evaluator_and_does_not_write() -> None:
             for table in ("prescription", "workout_session", "settings_profile")
         }
         base = templates.SessionTemplate.load("squat")
-        pools = defaults(base)
-        pools["squat_main"] = ["ssb_squat", "competition_squat"]
+        pool_map = pools(base)
+        pool_map["squat_main"] = ["ssb_squat", "competition_squat"]
         result = beam.search(
             instance.connection, for_date="2024-01-15",
-            base_template=base, candidates=pools,
+            base_template=base, candidates=pool_map,
         )
         after = {
             table: instance.connection.execute(
@@ -122,14 +163,23 @@ def test_beam_uses_the_real_evaluator_and_does_not_write() -> None:
             ).fetchone()["n"]
             for table in before
         }
-    assert result.best is not None
-    assert result.best.prescription is not None
-    assert result.best.assignment[1] == ("squat_main", "ssb_squat")
+    assert result.best is None
+    assert result.diagnostic is not None
+    assert result.diagnostic.prescription is not None
+    assert dict(result.diagnostic.assignment)["squat_main"] == "ssb_squat"
     assert before == after
 
 
+def test_beam_default_budget_is_reachable() -> None:
+    assert beam.DEFAULT_FULL_EVALUATION_BUDGET == beam.DEFAULT_BEAM_WIDTH
+
+
 def test_beam_config_rejects_impossible_limits() -> None:
-    for kwargs in ({"width": 0}, {"max_candidates_per_slot": 0}, {"max_full_evaluations": 0}):
+    for kwargs in (
+        {"width": 0},
+        {"max_candidates_per_slot": 0},
+        {"max_full_evaluations": 0},
+    ):
         try:
             beam.BeamConfig(**kwargs)
         except ValueError:
