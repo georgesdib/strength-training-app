@@ -41,6 +41,21 @@ def pools(template):
     return {slot.id: [slot.exercises[0]] for slot in template.slots}
 
 
+def snapshot(conn):
+    tables = [
+        str(row["name"])
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        )
+    ]
+    counts = {
+        table: int(conn.execute(f"SELECT COUNT(*) AS n FROM {table}").fetchone()["n"])
+        for table in tables
+    }
+    return int(conn.total_changes), counts
+
+
 def test_beam_is_deterministic_and_never_exceeds_the_evaluation_budget() -> None:
     base = templates.SessionTemplate.load("squat")
     pool_map = pools(base)
@@ -71,6 +86,7 @@ def test_beam_is_deterministic_and_never_exceeds_the_evaluation_budget() -> None
     )
     assert first.truncated is True
     assert first.evaluation_budget_applied is True
+    assert first.final_assignments_pruned >= 1
     assert len(first.evaluated) <= 2
     assert first.best is not None and first.best.score == 0.0
     assert first_calls == calls
@@ -139,17 +155,13 @@ def test_no_feasible_result_is_reported_separately_from_a_diagnostic() -> None:
     )
     assert result.best is None
     assert result.diagnostic is not None
-    assert "no feasible" in result.reason
+    assert result.exhaustive is True
+    assert "exhaustive" in result.reason
 
 
 def test_beam_uses_the_real_evaluator_and_does_not_write() -> None:
     with store() as instance:
-        before = {
-            table: instance.connection.execute(
-                f"SELECT COUNT(*) AS n FROM {table}"
-            ).fetchone()["n"]
-            for table in ("prescription", "workout_session", "settings_profile")
-        }
+        before = snapshot(instance.connection)
         base = templates.SessionTemplate.load("squat")
         pool_map = pools(base)
         pool_map["squat_main"] = ["ssb_squat", "competition_squat"]
@@ -157,17 +169,90 @@ def test_beam_uses_the_real_evaluator_and_does_not_write() -> None:
             instance.connection, for_date="2024-01-15",
             base_template=base, candidates=pool_map,
         )
-        after = {
-            table: instance.connection.execute(
-                f"SELECT COUNT(*) AS n FROM {table}"
-            ).fetchone()["n"]
-            for table in before
-        }
+        after = snapshot(instance.connection)
     assert result.best is None
     assert result.diagnostic is not None
     assert result.diagnostic.prescription is not None
     assert dict(result.diagnostic.assignment)["squat_main"] == "ssb_squat"
+    assert result.as_dict()["diagnostic"]["assignment"]["squat_main"] == "ssb_squat"
     assert before == after
+
+
+def test_beam_finds_a_feasible_lower_ranked_alternative() -> None:
+    base = templates.SessionTemplate.load("squat")
+    pool_map = pools(base)
+    pool_map["squat_main"] = ["ssb_squat", "competition_squat"]
+
+    def fake(conn, *, assignment, **kwargs):
+        feasible = assignment.get("squat_main") == "competition_squat"
+        return SimpleNamespace(
+            assignment=tuple(assignment.items()),
+            score=0.0,
+            feasible=feasible,
+            prescription=None,
+        )
+
+    result = beam.search(
+        None, for_date="2024-01-15", base_template=base,
+        candidates=pool_map, evaluator=fake,
+    )
+    assert result.best is not None
+    assert dict(result.best.assignment)["squat_main"] == "competition_squat"
+    assert result.diagnostic is not None
+
+
+def test_beam_does_not_claim_exhaustion_when_it_pruned_alternatives() -> None:
+    base = templates.SessionTemplate.load("squat")
+    pool_map = pools(base)
+    pool_map["squat_main"] = ["ssb_squat", "competition_squat"]
+
+    def fake(conn, *, assignment, **kwargs):
+        return SimpleNamespace(
+            assignment=tuple(assignment.items()), score=1.0,
+            feasible=False, prescription=None,
+        )
+
+    result = beam.search(
+        None, for_date="2024-01-15", base_template=base,
+        candidates=pool_map, config=beam.BeamConfig(width=1), evaluator=fake,
+    )
+    assert result.best is None
+    assert result.exhaustive is False
+    assert result.pruned > 0
+    assert "not exhaustive" in result.reason
+
+
+def test_beam_tie_break_prefers_candidate_rank_not_lexical_id() -> None:
+    base = templates.SessionTemplate.load("squat")
+    pool_map = pools(base)
+    pool_map["squat_main"] = ["zzz_rank_first", "aaa_rank_second"]
+
+    def fake(conn, *, assignment, **kwargs):
+        return SimpleNamespace(
+            assignment=tuple(assignment.items()), score=0.0,
+            feasible=True, prescription=None,
+        )
+
+    result = beam.search(
+        None, for_date="2024-01-15", base_template=base,
+        candidates=pool_map, evaluator=fake,
+    )
+    assert dict(result.best.assignment)["squat_main"] == "zzz_rank_first"
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [None, "ssb_squat", [1], [None], [""], ["  "], ["ssb_squat", "ssb_squat"]],
+)
+def test_beam_rejects_malformed_candidate_ids(bad) -> None:
+    base = templates.SessionTemplate.load("squat")
+    pool_map = pools(base)
+    pool_map["squat_main"] = bad
+    with pytest.raises(beam.BeamEligibilityError, match="squat_main"):
+        beam.search(
+            None, for_date="2024-01-15", base_template=base,
+            candidates=pool_map,
+        )
 
 
 def test_beam_default_budget_is_reachable() -> None:

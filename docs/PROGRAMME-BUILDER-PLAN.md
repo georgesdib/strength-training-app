@@ -1002,20 +1002,33 @@ and warned.
 
 **Chunk status:** 4A and 4B are implemented. 4A adds `prescribe/evaluator.py`, which evaluates
 one complete slot assignment through the existing prescription pipeline read-only, with
-deterministic components and no writes. The evaluator requires exactly one non-empty exercise
-for every slot, validates it against that slot's explicit eligible candidate pool, and never
-substitutes a blueprint default. `EvaluationInputs` is the shared immutable build-input
-contract for evaluator/final-build parity.
+deterministic components and no writes. The evaluator requires exactly one non-empty string
+exercise for every slot, validates it against that slot's explicit eligible candidate pool, and
+never substitutes a blueprint default. Selection-related inputs are rejected, and a
+volume-drop/template replacement or constraint omission is reported as
+`session_replaced`/`assignment_preserved=False` rather than a successful assignment.
+`EvaluationInputs` is the shared immutable build-input contract for evaluator/final-build
+parity, checked against the actual `build_prescription` signature.
 
 4B adds `prescribe/beam.py`, a deterministic bounded beam that prunes partial assignments by
 candidate rank order and runs the real evaluator only on the final beam. Defaults are width 4,
 six candidates per slot and four full evaluations (the default budget is reachable, not 16).
-Missing or empty candidate pools are field-level failures; no blueprint fallback is allowed.
+Missing or empty candidate pools are field-level failures; malformed or duplicate ids are
+rejected through the evaluator's shared pool validator; no blueprint fallback is allowed.
 `best` contains only a feasible assignment, and `diagnostic` preserves the best scored result
-when none is feasible. `tests/test_evaluator.py` covers validation/parity/no-write;
-`tests/test_beam.py` covers determinism, limits, empty-pool failure, infeasible results and
+when none is feasible. Search diagnostics distinguish partial pruning, candidate caps and final
+evaluation-budget pruning; `exhaustive` is true only when none of those removed options.
+`tests/test_evaluator.py` covers validation/parity/no-write; `tests/test_beam.py` covers
+determinism, limits, empty-pool failure, feasible alternatives, infeasible results and
 real-evaluator use. Generator/pipeline wiring, scheduler/volume/selection/critique integration,
 persistence/forecast work and Step 5 UI are **not** started.
+
+**Evaluation semantics:** `AssignmentEvaluation.feasible` is hard-only: the prescription is
+executable, has no validation/constraint issues, stays inside the spinal cap, preserves the
+assigned exercise list and was not replaced by a drop/template. Time overruns, volume-target
+error and warnings remain soft score objectives. The penalty weights are heuristic ordering
+weights, not calibrated utility; every score contribution emits a diagnostic reason, while
+spinal headroom is diagnostic-only.
 
 **Objective:** score candidate assignments by the post-budget outcome and wire the generator into
 the real prescription path.

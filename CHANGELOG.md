@@ -41,18 +41,21 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
   assignments by deterministic candidate-rank order and runs the real read-only evaluator only on
   the final beam. Defaults are width 4, six candidates per slot and four full evaluations, so the
   default evaluation budget is reachable; no wall-clock cutoff or randomisation. Missing or empty
-  eligible pools are field-level failures (no blueprint fallback). `best` is a feasible result
-  only; `diagnostic` preserves the best scored result when none is feasible. The
-  generator/pipeline wiring, scheduler/volume/selection/critique integration, persistence and
-  forecast work are not started.
+  eligible pools are field-level failures; malformed or duplicate candidate ids are rejected
+  through the evaluator's shared validator; no blueprint fallback. `best` is a feasible result
+  only; `diagnostic` preserves the best scored result when none is feasible. Diagnostics count
+  partial pruning, candidate-cap removal and final-budget removal, and `exhaustive` is true only
+  when none of those limited the search. The generator/pipeline wiring,
+  scheduler/volume/selection/critique integration, persistence and forecast work are not started.
 - Deterministic template resolver **Step 4A read-only evaluator**: `prescribe/evaluator.py`
-  requires exactly one eligible exercise for every slot, validates it against the slot's explicit
-  candidate pool, never substitutes blueprint defaults, and evaluates through the existing
-  prescription pipeline once with deterministic post-budget components (executability, issues,
-  unknown loads, volume error, spinal cap, time overrun, warnings) and no store writes.
-  `EvaluationInputs` is the shared input contract for evaluator/final-build parity. The bounded
-  beam, generator/pipeline wiring, scheduler/volume/selection/critique integration, persistence
-  and forecast work are not started.
+  requires exactly one eligible string exercise for every slot, validates it against the slot's
+  explicit candidate pool, never substitutes blueprint defaults, and evaluates through the
+  existing prescription pipeline once with deterministic post-budget components and no store
+  writes. Selection inputs are rejected; drop/template replacement or an omitted exercise is
+  reported separately and cannot be a feasible assignment. `EvaluationInputs` is checked against
+  the actual build signature, and tests compare the full prescription output across parity cases.
+  The bounded beam, generator/pipeline wiring, scheduler/volume/selection/critique integration,
+  persistence and forecast work are not started.
 - Deterministic template resolver **Step 3 top set/back-off**: the optional main-lift
   top-set structure, preserved total sets, configurable 85% back-offs, DUP/competition RIR
   mapping, taper/deload/fallback rules, top-set protection, top-set-derived warm-ups, the

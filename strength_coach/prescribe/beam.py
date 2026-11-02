@@ -18,6 +18,7 @@ from typing import Any
 from strength_coach.prescribe.evaluator import (
     AssignmentEvaluation,
     EvaluationInputs,
+    candidate_ids,
     evaluate_assignment,
 )
 
@@ -58,7 +59,9 @@ class BeamResult:
     """Search outcome.
 
     best is None when no evaluated assignment is feasible; diagnostic then preserves the best
-    scored result for the caller, but it is never a successful generated session.
+    scored result for the caller, but it is never a successful generated session. truncated
+    means a candidate cap or the full-evaluation budget removed options; partial beam pruning is
+    counted separately by pruned.
     """
 
     best: AssignmentEvaluation | None
@@ -68,36 +71,49 @@ class BeamResult:
     truncated: bool
     candidate_cap_applied: bool
     evaluation_budget_applied: bool
+    candidate_ids_removed: int
+    final_assignments_pruned: int
+    exhaustive: bool
     reason: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "best": self.best.as_dict() if self.best is not None else None,
+            "diagnostic": (
+                self.diagnostic.as_dict() if self.diagnostic is not None else None
+            ),
+            "evaluated": len(self.evaluated),
+            "pruned": self.pruned,
+            "candidate_ids_removed": self.candidate_ids_removed,
+            "final_assignments_pruned": self.final_assignments_pruned,
+            "candidate_cap_applied": self.candidate_cap_applied,
+            "evaluation_budget_applied": self.evaluation_budget_applied,
+            "truncated": self.truncated,
+            "exhaustive": self.exhaustive,
+            "reason": self.reason,
+        }
 
 
 @dataclass(frozen=True)
 class _Partial:
     assignment: tuple[tuple[str, str], ...]
     order_cost: int
+    ranks: tuple[int, ...]
 
 
 def _slot_candidates(
     slot,
     candidates: Mapping[str, Sequence[str]],
     cap: int,
-) -> tuple[tuple[str, ...], bool]:
+) -> tuple[tuple[str, ...], int]:
     raw = candidates.get(slot.id)
-    if raw is None or isinstance(raw, str) or not raw:
-        raise BeamEligibilityError(slot.id, "eligible candidate pool is missing or empty")
-    unique: list[str] = []
-    seen: set[str] = set()
-    for exercise_id in raw:
-        value = str(exercise_id)
-        if not value.strip():
-            raise BeamEligibilityError(slot.id, "candidate contains an empty exercise id")
-        if value in seen:
-            continue
-        seen.add(value)
-        unique.append(value)
-    if not unique:
-        raise BeamEligibilityError(slot.id, "eligible candidate pool is empty")
-    return tuple(unique[:cap]), len(unique) > cap
+    if raw is None:
+        raise BeamEligibilityError(slot.id, "eligible candidate pool is missing")
+    try:
+        unique = candidate_ids(raw, where=f"slot {slot.id!r}")
+    except ValueError as exc:
+        raise BeamEligibilityError(slot.id, str(exc)) from exc
+    return tuple(unique[:cap]), max(0, len(unique) - cap)
 
 
 def search(
@@ -127,14 +143,14 @@ def search(
     if unknown:
         raise ValueError(f"unknown slot(s) in candidates: {sorted(unknown)}")
 
-    beam: list[_Partial] = [_Partial((), 0)]
+    beam: list[_Partial] = [_Partial((), 0, ())]
     pruned = 0
-    candidate_cap_applied = False
+    candidate_ids_removed = 0
     for slot in base_template.slots:
-        slot_candidates, capped = _slot_candidates(
+        slot_candidates, removed = _slot_candidates(
             slot, candidates, cfg.max_candidates_per_slot
         )
-        candidate_cap_applied = candidate_cap_applied or capped
+        candidate_ids_removed += removed
         expanded: list[_Partial] = []
         for partial in beam:
             for rank, exercise_id in enumerate(slot_candidates):
@@ -142,14 +158,21 @@ def search(
                     _Partial(
                         partial.assignment + ((slot.id, exercise_id),),
                         partial.order_cost + rank,
+                        partial.ranks + (rank,),
                     )
                 )
-        expanded.sort(key=lambda item: (item.order_cost, item.assignment))
+        expanded.sort(
+            key=lambda item: (item.order_cost, item.ranks, item.assignment)
+        )
         pruned += max(0, len(expanded) - cfg.width)
         beam = expanded[: cfg.width]
 
-    evaluation_budget_applied = len(beam) > cfg.max_full_evaluations
+    final_assignments_pruned = max(0, len(beam) - cfg.max_full_evaluations)
+    evaluation_budget_applied = final_assignments_pruned > 0
     final = beam[: cfg.max_full_evaluations]
+    ranks_by_assignment = {
+        partial.assignment: partial.ranks for partial in final
+    }
     evaluated: list[AssignmentEvaluation] = []
     for partial in final:
         evaluated.append(
@@ -167,26 +190,46 @@ def search(
     if not evaluated:
         raise BeamError("beam produced no complete assignment to evaluate")
 
+    def result_key(result: AssignmentEvaluation) -> tuple:
+        return (
+            result.score,
+            ranks_by_assignment.get(tuple(result.assignment), (99,)),
+            result.assignment,
+        )
+
     feasible = [result for result in evaluated if result.feasible]
-    best = (
-        min(feasible, key=lambda result: (result.score, result.assignment))
-        if feasible
-        else None
+    best = min(feasible, key=result_key) if feasible else None
+    diagnostic = min(evaluated, key=result_key)
+    exhaustive = (
+        pruned == 0
+        and candidate_ids_removed == 0
+        and final_assignments_pruned == 0
     )
-    diagnostic = min(evaluated, key=lambda result: (result.score, result.assignment))
-    truncated = candidate_cap_applied or evaluation_budget_applied
+    truncated = candidate_ids_removed > 0 or final_assignments_pruned > 0
 
     if best is None:
-        reason = (
-            f"no feasible assignment among {len(evaluated)} evaluated; "
-            f"best diagnostic score {diagnostic.score:.4f}"
-        )
+        if exhaustive:
+            reason = (
+                f"exhaustive search found no feasible assignment among "
+                f"{len(evaluated)} evaluated"
+            )
+        else:
+            reason = (
+                f"no feasible assignment found among {len(evaluated)} evaluated; "
+                f"search was not exhaustive (best diagnostic score "
+                f"{diagnostic.score:.4f})"
+            )
     else:
         reason = f"selected a feasible assignment from {len(evaluated)} evaluated"
-    if candidate_cap_applied:
-        reason += "; candidate pools were deterministically capped"
-    if evaluation_budget_applied:
-        reason += f"; full-evaluation budget capped at {cfg.max_full_evaluations}"
+    if pruned:
+        reason += f"; {pruned} partial assignment(s) pruned by beam width"
+    if candidate_ids_removed:
+        reason += f"; {candidate_ids_removed} candidate(s) removed by slot cap"
+    if final_assignments_pruned:
+        reason += (
+            f"; {final_assignments_pruned} final assignment(s) removed by "
+            f"evaluation budget {cfg.max_full_evaluations}"
+        )
 
     return BeamResult(
         best=best,
@@ -194,7 +237,10 @@ def search(
         evaluated=tuple(evaluated),
         pruned=pruned,
         truncated=truncated,
-        candidate_cap_applied=candidate_cap_applied,
+        candidate_cap_applied=candidate_ids_removed > 0,
         evaluation_budget_applied=evaluation_budget_applied,
+        candidate_ids_removed=candidate_ids_removed,
+        final_assignments_pruned=final_assignments_pruned,
+        exhaustive=exhaustive,
         reason=reason,
     )

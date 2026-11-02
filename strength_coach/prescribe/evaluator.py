@@ -16,13 +16,17 @@ from typing import Any
 from strength_coach.prescribe import build_prescription, templates
 from strength_coach.prescribe.models import Prescription
 
-# Feasibility failures dominate; warnings are context, not hard failures.
+# Heuristic ordering weights, not calibrated utility. Hard feasibility is separate in
+# AssignmentEvaluation.feasible; these terms only rank otherwise valid candidates.
+# Unknown loads intentionally also incur the non-executable penalty because an unknown load is
+# a cause of non-executability; the two reasons are kept visible in the diagnostic list.
 ISSUE_PENALTY = 10.0
 NON_EXECUTABLE_PENALTY = 2.0
 SPINAL_OVER_PENALTY = 3.0
 TIME_OVER_PENALTY = 1.0
 VOLUME_ERROR_WEIGHT = 2.0
 WARNING_PENALTY = 0.05
+SESSION_REPLACED_PENALTY = 5.0
 
 
 @dataclass(frozen=True)
@@ -31,7 +35,9 @@ class EvaluationInputs:
 
     The caller supplies conn, for_date, session_type and template; they are deliberately not
     part of this immutable contract. Keeping one object for the remaining arguments prevents
-    the evaluator and production build from drifting apart.
+    the evaluator and production build from drifting apart. Selection fields exist only for
+    signature parity; validate_for_resolver rejects them because resolver evaluation must not
+    replace the assigned exercises.
     """
 
     document: Any = None
@@ -53,6 +59,14 @@ class EvaluationInputs:
     top_set_requested: bool | None = None
     projected_items: tuple[Mapping[str, Any], ...] = ()
     projected_sessions: int = 0
+
+    def validate_for_resolver(self) -> None:
+        """Reject inputs that could replace the assigned exercise selection."""
+        if self.apply_selection or self.selection_chooser is not None or self.selection_confirmed:
+            raise ValueError(
+                "resolver evaluation cannot apply selection; "
+                "apply_selection/selection_chooser/selection_confirmed must be off"
+            )
 
     def as_build_kwargs(self) -> dict[str, Any]:
         """Arguments accepted by build_prescription, excluding conn/date/type/template."""
@@ -88,6 +102,7 @@ class EvaluationComponents:
     unknown_loads: int
     volume_error: float
     spinal_over_cap: bool
+    # Diagnostic only; headroom does not contribute to score or feasibility.
     spinal_headroom: float
     time_over_planned: bool
     time_over_minutes: float
@@ -116,29 +131,79 @@ class AssignmentEvaluation:
     components: EvaluationComponents
     prescription: Prescription
     reasons: tuple[str, ...]
+    assignment_preserved: bool = True
+    session_replaced: bool = False
+    replacement_reason: str | None = None
 
     @property
     def feasible(self) -> bool:
+        """Hard feasibility only: executable, no issues, spinal cap, exact assignment.
+
+        Time overruns, volume-target error and warnings are soft objectives, not feasibility.
+        """
         return (
             self.components.executable
             and self.components.issues == 0
             and not self.components.spinal_over_cap
+            and self.assignment_preserved
+            and not self.session_replaced
         )
+
+    @property
+    def infeasibility_reason(self) -> str | None:
+        if self.session_replaced:
+            return self.replacement_reason or "session/template was replaced"
+        if not self.assignment_preserved:
+            return "prescription exercises differ from the assignment"
+        if not self.components.executable:
+            return "prescription is not executable"
+        if self.components.issues:
+            return f"{self.components.issues} validation/constraint issue(s)"
+        if self.components.spinal_over_cap:
+            return "weekly spinal cap exceeded"
+        return None
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "assignment": dict(self.assignment),
             "score": round(self.score, 4),
             "feasible": self.feasible,
+            "infeasibility_reason": self.infeasibility_reason,
+            "reasons": list(self.reasons),
             "components": self.components.as_dict(),
+            "issues": list(self.prescription.issues),
+            "unknown_loads": [
+                item.exercise_id
+                for item in self.prescription.items
+                if item.unknown_load_reason is not None
+            ],
+            "assignment_preserved": self.assignment_preserved,
+            "session_replaced": self.session_replaced,
+            "replacement_reason": self.replacement_reason,
             "warnings": list(self.prescription.warnings),
         }
 
 
-def _pool_ids(pool: Sequence[str] | None) -> tuple[str, ...]:
-    if pool is None or isinstance(pool, str) or not pool:
-        return ()
-    return tuple(str(value) for value in pool if str(value).strip())
+def candidate_ids(pool: Sequence[str] | None, *, where: str) -> tuple[str, ...]:
+    """Strictly validate a candidate pool; never coerce or hide malformed ids."""
+    if pool is None or isinstance(pool, str) or not isinstance(pool, Sequence):
+        raise ValueError(f"{where}: candidate pool must be a sequence of exercise ids")
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for value in pool:
+        if not isinstance(value, str):
+            raise ValueError(
+                f"{where}: candidate id must be a string, got {type(value).__name__}"
+            )
+        if not value.strip():
+            raise ValueError(f"{where}: candidate id must be a non-empty string")
+        if value in seen:
+            raise ValueError(f"{where}: duplicate candidate id {value!r}")
+        seen.add(value)
+        ordered.append(value)
+    if not ordered:
+        raise ValueError(f"{where}: candidate pool is empty")
+    return tuple(ordered)
 
 
 def validate_assignment(
@@ -177,9 +242,9 @@ def validate_assignment(
         exercise_id = assignment[slot.id]
         if not isinstance(exercise_id, str) or not exercise_id.strip():
             raise ValueError(f"slot {slot.id!r}: exercise id must be a non-empty string")
-        pool = _pool_ids(candidate_pools[slot.id])
-        if not pool:
-            raise ValueError(f"slot {slot.id!r}: eligible candidate pool is empty")
+        pool = candidate_ids(
+            candidate_pools[slot.id], where=f"slot {slot.id!r}"
+        )
         if exercise_id not in pool:
             raise ValueError(
                 f"slot {slot.id!r}: {exercise_id!r} is not in the eligible candidate pool"
@@ -255,7 +320,12 @@ def _components(prescription: Prescription) -> EvaluationComponents:
 
 
 def score_components(components: EvaluationComponents) -> tuple[float, tuple[str, ...]]:
-    """Lower is better; return score and transparent reason strings."""
+    """Lower is better; return heuristic score and transparent reason strings.
+
+    An unknown load is also non-executable, so it intentionally receives both the generic
+    executable penalty and the unknown-load penalty. These weights order candidates; they are not
+    calibrated utilities, and soft terms do not change AssignmentEvaluation.feasible.
+    """
     score = 0.0
     reasons: list[str] = []
     if components.issues:
@@ -278,7 +348,9 @@ def score_components(components: EvaluationComponents) -> tuple[float, tuple[str
     score += VOLUME_ERROR_WEIGHT * components.volume_error
     if components.volume_error:
         reasons.append(f"volume target error {components.volume_error:.2f}")
-    score += WARNING_PENALTY * components.warnings
+    if components.warnings:
+        score += WARNING_PENALTY * components.warnings
+        reasons.append(f"{components.warnings} warning(s)")
     return round(score, 6), tuple(reasons)
 
 
@@ -298,8 +370,9 @@ def evaluate_assignment(
     prescription for preview/selection but must not persist it from the evaluator.
     """
     validated = validate_assignment(base_template, assignment, candidate_pools)
-    template = assignment_template(base_template, assignment, candidate_pools)
     build_inputs = inputs or EvaluationInputs()
+    build_inputs.validate_for_resolver()
+    template = assignment_template(base_template, assignment, candidate_pools)
     prescription = build_prescription(
         conn,
         for_date=for_date,
@@ -309,10 +382,32 @@ def evaluate_assignment(
     )
     components = _components(prescription)
     score, reasons = score_components(components)
+    actual = tuple(item.exercise_id for item in prescription.items)
+    expected = tuple(exercise_id for _slot_id, exercise_id in validated)
+    assignment_preserved = actual == expected
+    session_replaced = prescription.session_type != base_template.session_type
+    replacement_reason = None
+    if session_replaced:
+        replacement_reason = (
+            f"prescription session type {prescription.session_type!r} replaced "
+            f"template {base_template.session_type!r}"
+        )
+        score += SESSION_REPLACED_PENALTY
+        reasons += ("session/template was replaced",)
+    elif not assignment_preserved:
+        replacement_reason = (
+            "prescription exercise list differs from the validated assignment "
+            "(constraint omission or template substitution)"
+        )
+        score += SESSION_REPLACED_PENALTY
+        reasons += ("assignment exercises were not preserved",)
     return AssignmentEvaluation(
         assignment=validated,
-        score=score,
+        score=round(score, 6),
         components=components,
         prescription=prescription,
         reasons=reasons,
+        assignment_preserved=assignment_preserved,
+        session_replaced=session_replaced,
+        replacement_reason=replacement_reason,
     )
