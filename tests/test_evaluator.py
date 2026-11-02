@@ -415,7 +415,7 @@ def test_shared_input_contract_matches_build_signature() -> None:
     optional = {
         name
         for name, parameter in signature.parameters.items()
-        if name not in {"conn", "for_date", "session_type", "template"}
+        if name not in {"conn", "for_date", "session_type", "template", "use_resolver"}
     }
     assert set(evaluator.EvaluationInputs().as_build_kwargs()) == optional
 

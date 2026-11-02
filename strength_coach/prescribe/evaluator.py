@@ -378,6 +378,7 @@ def evaluate_assignment(
         for_date=for_date,
         session_type=base_template.session_type,
         template=template,
+        use_resolver=False,
         **build_inputs.as_build_kwargs(),
     )
     components = _components(prescription)

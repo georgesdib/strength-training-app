@@ -727,5 +727,25 @@ def test_final_spinal_validation_aggregates_duplicate_exercise_sets() -> None:
         )
 
 
+def test_candidate_pools_returns_eligible_ordered_slots() -> None:
+    store = db.Store(":memory:")
+    try:
+        pools = generator.candidate_pools(
+            store.connection,
+            for_date="2026-11-01",
+            session_type="squat",
+            settings=_settings(
+                **{"resolver.eligibility.auto_requires_can_do": False}
+            ),
+        )
+    finally:
+        store.close()
+    assert set(pools.pools) == {slot.id for slot in pools.template.slots}
+    assert all(pools.pools[slot.id] for slot in pools.template.slots)
+    assert pools.policy_digest
+    assert pools.catalogue_digest
+    assert pools.main_slot is not None
+
+
 def test_registry_rotation_default_is_used_for_secondary() -> None:
     assert settings_registry.snapshot().get("resolver.rotation.default") == 0.2

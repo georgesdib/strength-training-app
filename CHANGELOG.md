@@ -37,6 +37,13 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 4C pipeline wiring**: `prescribe/resolver.py` runs
+  candidate pools, the bounded beam and the read-only evaluator when `resolver.enabled` is on;
+  `build_prescription()` dispatches to it and returns the winning feasible prescription built
+  once. Selection overrides are rejected, template/drop replacement is treated as infeasible,
+  scheduler availability is pool-aware, and generated-session/template/policy/catalogue/input
+  provenance is stored through the CLI and workout-start API. Forecast remains fixed option (c)
+  until Step 6; Step 5 UI is not started.
 - Deterministic template resolver **Step 4B bounded beam**: `prescribe/beam.py` keeps partial
   assignments by deterministic candidate-rank order and runs the real read-only evaluator only on
   the final beam. Defaults are width 4, six candidates per slot and four full evaluations, so the

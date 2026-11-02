@@ -52,7 +52,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.1 beta | Performance + monitoring analysis | **released 2026-10-31 (b2); b1 2026-10-30** | raw e1RM Performance view, rolling median, breaks, degraded observations, dose, configured relative-strength ratios, read-only monitoring analysis, calibration transparency; Phase 5A review follow-up |
 | v1.2 | Beta removal + cardio + calibration depth | **planned; plan at §4.13a** | drop the beta label after user testing; pending: cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
-| future | Deterministic dynamic template resolver | **Steps 0–3 complete; Step 4A read-only evaluator and 4B bounded beam complete 2026-11-01; pipeline wiring not started; planned after v1.2 unless the owner starts earlier** | plan and confirmed decisions at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`11`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; no joint evaluator or production prescription wiring, and the flag is off |
+| future | Deterministic dynamic template resolver | **Steps 0–3 and Step 4A–4C complete 2026-11-01; Step 5 not started; planned after v1.2 unless the owner starts earlier** | plan and confirmed decisions at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`11`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; forecast remains fixed option (c) until Step 6; the flag remains off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
@@ -1418,15 +1418,16 @@ changes require explicit approval.
 benefit and no regression. No phase claims that prose quality or acceptance rate proves better
 coaching.
 
-### 4.25 Deterministic dynamic template resolver  (planned; Steps 0–3 complete, Step 4A–4B complete 2026-11-01)
+### 4.25 Deterministic dynamic template resolver  (planned; Steps 0–3 and 4A–4C complete 2026-11-01)
 
-**Status:** Steps 0 (contracts), 1 (settings/policy/provenance), 2 (generator core) and 3
-(top set/back-off) are complete 2026-11-01. Step 4A adds the read-only assignment evaluator and
-4B adds the deterministic bounded beam; pipeline wiring is not started. The generator is still internal: it is not
-wired into the production prescription path, the resolver flag is off and the fixed-template path
-is unchanged. The generator core was remediated on 2026-11-01 for the review's shared eligibility,
-power-slot safety, settings, repair, availability, spinal, history, warning and provenance
-defects. The current record is
+**Status:** Steps 0 (contracts), 1 (settings/policy/provenance), 2 (generator core), 3 (top
+set/back-off) and 4A–4C (evaluator, beam and pipeline wiring) are complete 2026-11-01. The
+flag-on path now dispatches through candidate pools, the bounded beam and the read-only evaluator;
+scheduler availability is pool-aware and generated-session provenance is persisted. Forecast
+remains fixed option (c) until Step 6, Step 5 is not started, the resolver flag remains off by
+default and the flag-off fixed-template path is unchanged. The generator core was remediated on
+2026-11-01 for the review's shared eligibility, power-slot safety, settings, repair, availability,
+spinal, history, warning and provenance defects. The current record is
 [docs/PROGRAMME-BUILDER-PLAN.md](docs/PROGRAMME-BUILDER-PLAN.md) and
 [docs/DECISIONS.md](docs/DECISIONS.md) (DEC-RESOLVER-01 to DEC-RESOLVER-11).
 
@@ -1440,8 +1441,9 @@ The main lift rotates only within its session pattern family, the secondary with
 pattern, and accessories are pattern-flexible. Exercise Rotation is a deterministic 0-1 dwell
 rule. Eligibility requires explicit can_do; unrated exercises are suggestion/confirmation only.
 Step 2 scores with a provisional coverage model plus the existing readiness, fatigue, injury and
-spinal signals; Step 4 replaces that with the joint post-budget evaluator. There is no second
-scheduler, prescription engine, volume engine, programme/block lifecycle or pathway selector.
+spinal signals; Step 4C runs the selected complete assignment through the existing pipeline once
+and records the post-budget evaluator result. There is no second scheduler, prescription engine,
+volume engine, programme/block lifecycle or pathway selector.
 
 Top set/back-off is an optional main-lift structure, default ask, with DUP/competition RIR
 mapping, preserved total sets and a first-class set-group model. Hinge is allowed on a maximal
@@ -1453,7 +1455,7 @@ template-version table is added. The forecast shows the blueprint/expected patte
 
 Major steps: (0) contracts and decisions, complete 2026-11-01; (1) settings, policy and
 provenance, complete 2026-11-01; (2) generator core, complete 2026-11-01; (3) top set/back-off,
-complete 2026-11-01; (4) joint evaluator and pipeline integration, 4A evaluator and 4B beam complete,
+complete 2026-11-01; (4) joint evaluator and pipeline integration, 4A–4C complete 2026-11-01;
 wiring not started; (5) Settings -> Resolver and generation
 preview; (6) historical hardening, rollout and documentation. Work happens on the
 feature/template-resolver branch with phase merges. LLM assistance remains deferred to §4.24

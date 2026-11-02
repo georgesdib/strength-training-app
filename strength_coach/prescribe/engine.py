@@ -81,6 +81,7 @@ def build_prescription(
     deload_decision: Any | None = None,
     drop_confirmed: bool = False,
     top_set_requested: bool | None = None,
+    use_resolver: bool | None = None,
     projected_items: tuple[Mapping[str, Any], ...] = (),
     projected_sessions: int = 0,
 ) -> Prescription:
@@ -89,7 +90,45 @@ def build_prescription(
     `history` and `vbt` are optional precomputed inputs for callers that build more than one
     prescription from the same past (the programme forecast): the enriched frame and the VBT
     calibration do not change with the forecast date, so recomputing them per entry is waste.
+    `use_resolver=None` follows the stored flag, `False` forces the fixed template path (used by
+    the evaluator and forecast) and `True` requires the resolver.
     """
+    if use_resolver is True and template is not None:
+        raise ValueError("resolver build cannot accept an explicit template")
+    if use_resolver is None or use_resolver is True:
+        enabled = resolver_settings.ResolverSettings.load(conn, for_date).enabled
+        if enabled and template is None:
+            from strength_coach.prescribe import resolver
+            from strength_coach.prescribe.evaluator import EvaluationInputs
+
+            options = EvaluationInputs(
+                document=document,
+                thresholds=thresholds,
+                undulation=undulation,
+                history=history,
+                vbt=vbt,
+                readiness_config=readiness_config,
+                apply_selection=apply_selection,
+                selection_chooser=selection_chooser,
+                selection_confirmed=selection_confirmed,
+                minimum_session=minimum_session,
+                minimum_target_minutes=minimum_target_minutes,
+                minimum_include_main=minimum_include_main,
+                technique_throttle=technique_throttle,
+                technique_throttle_pattern=technique_throttle_pattern,
+                deload_decision=deload_decision,
+                drop_confirmed=drop_confirmed,
+                top_set_requested=top_set_requested,
+                projected_items=projected_items,
+                projected_sessions=projected_sessions,
+            )
+            return resolver.build_resolved(
+                conn,
+                for_date=for_date,
+                session_type=session_type,
+                inputs=options,
+            ).prescription
+
     resolved = settings_profile.feature_settings(conn, for_date)
     resolver_cfg = resolver_settings.ResolverSettings.load(conn, for_date)
     document = document or load_document()

@@ -1,7 +1,6 @@
 # Dynamic Template Resolver — implementation plan
 
-**Status:** **Steps 0–3 are complete 2026-11-01. Step 4A (read-only assignment evaluator) and
-4B (bounded beam) are complete; pipeline wiring is not started. Step 5 is not started.** The
+**Status:** **Steps 0–3 and Step 4A–4C are complete 2026-11-01. Step 5 is not started.** The
 generator is internal and still not wired into the production prescription path; the top-set
 structure is opt-in. The hinge maximal-week change is implemented. The resolver flag remains off.
 
@@ -996,9 +995,9 @@ API payload, role logging and persistence.
 the opt-in leaves the fixed straight-set programme unchanged; the hinge maximal change is visible
 and warned.
 
-**Merge gate:** merged to the feature branch with deliberation golden updates; Step 4 not started.
+**Merge gate:** merged to the feature branch with deliberation golden updates; Step 4 began after this gate.
 
-### Step 4 — Joint evaluator and pipeline integration  (4A–4B complete 2026-11-01)
+### Step 4 — Joint evaluator and pipeline integration  (4A–4C complete 2026-11-01)
 
 **Chunk status:** 4A and 4B are implemented. 4A adds `prescribe/evaluator.py`, which evaluates
 one complete slot assignment through the existing prescription pipeline read-only, with
@@ -1020,8 +1019,17 @@ when none is feasible. Search diagnostics distinguish partial pruning, candidate
 evaluation-budget pruning; `exhaustive` is true only when none of those removed options.
 `tests/test_evaluator.py` covers validation/parity/no-write; `tests/test_beam.py` covers
 determinism, limits, empty-pool failure, feasible alternatives, infeasible results and
-real-evaluator use. Generator/pipeline wiring, scheduler/volume/selection/critique integration,
-persistence/forecast work and Step 5 UI are **not** started.
+real-evaluator use. 4C below wires the generator into the production path; Step 5 UI and generated
+forecast remain out of scope.
+
+4C adds `prescribe/resolver.py` and dispatch in `build_prescription()`: when
+`resolver.enabled` is on, eligible candidate pools from the generator are searched by the beam,
+the winning feasible assignment is the final prescription (built once), and resolver provenance
+is attached to the notes. Selection-related inputs are rejected. A volume-drop/template
+replacement or constraint omission makes the assignment infeasible rather than silently changing
+it. Scheduler availability is pool-aware when enabled. CLI and the workout-start/API persistence
+path write the template/policy/catalogue/input digests and generated-session snapshot. Forecast
+remains on the fixed option (c) path until Step 6; the Step 5 panel/preview is not started.
 
 **Evaluation semantics:** `AssignmentEvaluation.feasible` is hard-only: the prescription is
 executable, has no validation/constraint issues, stays inside the spinal cap, preserves the
@@ -1042,8 +1050,8 @@ and final build use the same pipeline once.
 
 **Tests:** evaluator/final build parity; exact assignment coverage and eligible-pool validation;
 empty-pool field failure; beam determinism/limits/infeasible diagnostic; no writes; no double
-budget; full pipeline; flag-off golden regression; scheduler availability; PRG-DP-001;
-historical/critique; forecast option (c).
+budget; full pipeline; flag-off golden regression; resolver dispatch/provenance; selection-override
+rejection; pool-aware scheduler availability; PRG-DP-001; historical/critique; forecast option (c).
 
 **Acceptance:** with the flag off, byte-identical fixed output; with it on, the generated session
 uses the chosen exercises and top-set structure; old rows unchanged.

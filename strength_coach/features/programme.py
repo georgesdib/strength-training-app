@@ -130,6 +130,7 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
             selection_chooser=selection_chooser,
             selection_confirmed=selection_confirmed,
             deload_decision=reactive,
+            use_resolver=False,
             projected_items=tuple(prior_items),
             projected_sessions=prior_sessions,
         )

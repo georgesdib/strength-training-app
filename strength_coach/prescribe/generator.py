@@ -79,6 +79,18 @@ class GeneratedSession:
 
 
 @dataclass(frozen=True)
+class CandidatePools:
+    """Eligible, ordered candidate pools for the joint evaluator."""
+
+    template: templates.SessionTemplate
+    pools: Mapping[str, tuple[str, ...]]
+    main_slot: templates.Slot | None
+    policy_digest: str
+    catalogue_digest: str
+    warnings: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class _Candidate:
     exercise_id: str
     pattern: str
@@ -302,6 +314,98 @@ def generate(
         pending_ratings=pending_unique,
         suggestions=tuple(suggestions),
         warnings=tuple(warnings),
+        policy_digest=policy.digest,
+        catalogue_digest=catalogue_digest,
+    )
+
+
+def candidate_pools(
+    conn,
+    *,
+    for_date: str,
+    session_type: str,
+    policy: resolver_policy.ResolverPolicy | None = None,
+    settings: ResolverSettings | None = None,
+    context: RuleContext | None = None,
+) -> CandidatePools:
+    """Return eligible candidate pools for the joint beam.
+
+    Only candidates that pass the same hard eligibility, injury, suitability and can_do rules as
+    generate() are returned. The pool order is the generator's preference: the last choice is
+    first while its dwell is active, otherwise it is placed last when rotation is due. There is
+    no blueprint fallback for a slot with no eligible candidate.
+    """
+    if session_type not in templates.SESSION_TYPES:
+        raise GenerationError(
+            f"unknown session type {session_type!r}", session_type=str(session_type)
+        )
+    policy = policy or resolver_policy.ResolverPolicy.load()
+    settings = settings or ResolverSettings.load(conn, for_date)
+    if context is None:
+        runtime = settings_profile.feature_settings(conn, for_date)
+        context = RuleContext.from_store(
+            conn,
+            end=for_date,
+            rep_ranges=templates.all_rep_ranges(),
+            spinal_cap=runtime.spinal_cap,
+            spinal_costs=runtime.spinal_costs,
+        )
+    template = templates.SessionTemplate.load(session_type)
+    catalogue = resolver_policy.load_candidate_catalogue(policy)
+    catalogue_digest = resolver_policy.candidate_catalogue_digest(catalogue)
+    taxonomy = exercises.taxonomy().entities
+    injury = injury_signal.compute(conn, for_date, ramp_week=context.block_week_index)
+    suitability = queries.exercise_suitability(conn)
+    active_linked = {
+        term
+        for region in injury.regions
+        if region.status == injury_signal.STATUS_ACTIVE
+        for term in region.linked_exercises
+    }
+    main_slot = _main_slot(template, taxonomy)
+    history = _choice_history(conn, session_type, for_date)
+
+    raw_pools: dict[str, tuple[str, ...]] = {}
+    all_candidates: set[str] = set()
+    for slot in template.slots:
+        candidates = _candidate_ids(session_type, slot, policy, catalogue)
+        raw_pools[slot.id] = candidates
+        all_candidates.update(candidates)
+    vetoed = {
+        exercise_id
+        for exercise_id, _reason in constraints_mod.evaluate(
+            conn, sorted(all_candidates)
+        ).vetoes
+    }
+
+    ordered: dict[str, tuple[str, ...]] = {}
+    for index, slot in enumerate(template.slots):
+        role = _slot_role(slot, main_slot)
+        permitted = _permitted_patterns(slot, role, policy, main_slot, taxonomy)
+        auto, _suggestions = _classify_candidates(
+            raw_pools[slot.id], permitted, vetoed, active_linked, suitability, settings,
+            taxonomy,
+        )
+        if not auto:
+            raise GenerationError(
+                f"{session_type}/{slot.id}: no automatically eligible candidate",
+                session_type=session_type,
+                slot_id=slot.id,
+            )
+        last_id, sessions_since_change = _last_choice(history, index)
+        rotation = settings.rotation_for(role=role)
+        must_rotate = _must_rotate(
+            rotation, settings.rotation_dwell(rotation), sessions_since_change
+        )
+        if last_id in auto:
+            rest = [candidate for candidate in auto if candidate != last_id]
+            auto = rest + [last_id] if must_rotate else [last_id] + rest
+        ordered[slot.id] = tuple(auto)
+
+    return CandidatePools(
+        template=template,
+        pools=ordered,
+        main_slot=main_slot,
         policy_digest=policy.digest,
         catalogue_digest=catalogue_digest,
     )

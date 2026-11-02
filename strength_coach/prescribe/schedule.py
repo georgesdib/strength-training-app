@@ -22,10 +22,13 @@ TARGET_COUNTS = {"squat": 2, "hinge": 2, "bench": 2}
 WINDOW = 6
 
 
-def _availability(conn) -> dict[str, bool]:
-    """Session-type availability from the primary lift's stored constraints/suitability."""
+def _availability(conn, before: str | None = None) -> dict[str, bool]:
+    """Session-type availability, from the resolver when enabled."""
     from strength_coach.prescribe import constraints as constraints_mod
-    from strength_coach.prescribe import templates
+    from strength_coach.prescribe import generator, resolver_settings, templates
+
+    if before is not None and resolver_settings.ResolverSettings.load(conn, before).enabled:
+        return generator.available_session_types(conn, before)
 
     out: dict[str, bool] = {}
     for session_type in SESSION_TYPES:
@@ -100,7 +103,7 @@ def next_session_type(conn, before: str, *, prior_types=()) -> str:
     ][-WINDOW:]
     recent.extend(str(item) for item in prior_types)
 
-    availability = _availability(conn)
+    availability = _availability(conn, before)
     available_families = {
         family for family in TARGETS
         if any(availability.get(session_type) for session_type in SESSION_TYPES

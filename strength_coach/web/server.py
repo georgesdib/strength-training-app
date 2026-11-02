@@ -268,6 +268,12 @@ def prescription_dict(prescription) -> dict:
         "warnings": list(prescription.warnings),
         "issues": list(prescription.issues),
         "notes": prescription.notes,
+        "template_digest": (prescription.notes.get("resolver") or {}).get("template_digest"),
+        "policy_digest": (prescription.notes.get("resolver") or {}).get("policy_digest"),
+        "input_hash": (prescription.notes.get("resolver") or {}).get("input_hash"),
+        "generated_session": (prescription.notes.get("resolver") or {}).get(
+            "generated_session"
+        ),
     }
 
 

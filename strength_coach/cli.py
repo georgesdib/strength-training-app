@@ -695,6 +695,16 @@ def _cmd_run(args) -> int:
                 calibration_ids=list(prescription.calibration_ids),
                 approved_by=approved_by,
                 items=prescription.as_rows(),
+                template_digest=(prescription.notes.get("resolver") or {}).get(
+                    "template_digest"
+                ),
+                policy_digest=(prescription.notes.get("resolver") or {}).get(
+                    "policy_digest"
+                ),
+                input_hash=(prescription.notes.get("resolver") or {}).get("input_hash"),
+                generated_session=(prescription.notes.get("resolver") or {}).get(
+                    "generated_session"
+                ),
             )
             volume_budget_mod.record_exemptions(
                 conn, prescription_id=prescription_id,
