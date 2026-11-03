@@ -863,6 +863,7 @@ async function openResolverPreviewStart() {
     "session_time", "policy_digest", "catalogue_digest", "template_digest",
     "input_hash", "scheduled_suggestion"].forEach((key) => { delete plan[key]; });
   window.__lastPrescription = plan;
+  if (typeof cachePrescription === "function") cachePrescription(plan);
   if (typeof openWorkoutStart === "function") openWorkoutStart();
   else notify("Open Workflow to start this preview.", "error");
 }

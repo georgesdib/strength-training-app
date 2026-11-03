@@ -106,6 +106,10 @@ function submitWorkoutStart(event) {
     })
   }).then(function (data) {
     $("#workout-start-panel").hidden = true;
+    // The server now owns the frozen plan; a second Start must not reuse the browser cache.
+    if (typeof clearCachedPrescription === "function") clearCachedPrescription();
+    window.__lastPrescription = null;
+    $("#prescribe-result").innerHTML = "";
     notify("Workout started.");
     renderWorkout(data.workout);
   }).catch(function (error) {

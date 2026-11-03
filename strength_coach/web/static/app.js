@@ -13,6 +13,11 @@ document.addEventListener("click", (event) => {
   else if (action === "open-workout-start") openWorkoutStart();
   else if (action === "readiness-preset") applyReadinessPreset(element.dataset.preset);
   else if (action === "edit-readiness-presets") openReadinessPresetEditor();
+  else if (action === "discard-cached-prescription") {
+    clearCachedPrescription();
+    window.__lastPrescription = null;
+    $("#prescribe-result").innerHTML = "";
+  }
 });
 
 
@@ -25,6 +30,7 @@ const VIEW_LOADERS = {
   prescribe: () => {
     loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget(); loadExposure();
     loadResidual(); loadShadowReview(); restoreProgramme(); syncPrescribeTopSet();
+    restoreCachedPrescription();
   },
   workout: () => {
     loadReadiness($("#readiness-date").value);
@@ -1010,8 +1016,70 @@ function setGroupsHtml(item) {
   ).join(" · ") + "</div>";
 }
 
-function renderPrescription(p) {
+const PRESCRIPTION_CACHE_KEY = "strength-coach.prescription.v1";
+const PRESCRIPTION_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function cachePrescription(plan) {
+  if (!plan || !plan.for_date || !Array.isArray(plan.items)) return;
+  try {
+    localStorage.setItem(PRESCRIPTION_CACHE_KEY, JSON.stringify({
+      version: 1,
+      saved_at: new Date().toISOString(),
+      for_date: plan.for_date,
+      session_type: plan.session_type || "",
+      plan: plan,
+    }));
+  } catch (error) {
+    // Quota or private-mode denial must not break prescription rendering or Start.
+  }
+}
+
+function clearCachedPrescription() {
+  try { localStorage.removeItem(PRESCRIPTION_CACHE_KEY); } catch (error) { /* ignore */ }
+}
+
+function readCachedPrescription() {
+  try {
+    var raw = localStorage.getItem(PRESCRIPTION_CACHE_KEY);
+    if (!raw) return null;
+    var data = JSON.parse(raw);
+    if (data.version !== 1 || !data.plan || !Array.isArray(data.plan.items)
+        || !data.plan.for_date) {
+      clearCachedPrescription();
+      return null;
+    }
+    var savedAt = Date.parse(data.saved_at);
+    // Keep the plan across navigation/reloads, but do not offer a stale plan indefinitely.
+    if (!Number.isFinite(savedAt) || Date.now() - savedAt > PRESCRIPTION_CACHE_MAX_AGE_MS) {
+      clearCachedPrescription();
+      return null;
+    }
+    return data;
+  } catch (error) {
+    clearCachedPrescription();
+    return null;
+  }
+}
+
+function restoreCachedPrescription() {
+  if (window.__lastPrescription) return true;
+  var cached = readCachedPrescription();
+  if (!cached) return false;
+  renderPrescription(cached.plan, { fromCache: true, savedAt: cached.saved_at });
+  return true;
+}
+
+function cachedPrescriptionNotice(savedAt) {
+  var when = savedAt ? new Date(savedAt).toLocaleString() : "recently";
+  return '<div class="warnbox"><strong>Cached prescription restored.</strong> Saved ' +
+    esc(when) + '. This plan is held in this browser until you discard it or start the workout. ' +
+    '<button class="ghost" type="button" data-action="discard-cached-prescription">Discard</button></div>';
+}
+
+function renderPrescription(p, options = {}) {
   window.__lastPrescription = p;
+  if (!options.fromCache) cachePrescription(p);
+  const cachedBox = options.fromCache ? cachedPrescriptionNotice(options.savedAt) : "";
   const sessionTime = p.notes?.session_time || {};
   const timeLine = sessionTime.estimated_minutes == null ? "" :
     `<p class="muted"><strong>Estimated session time:</strong> ~${fmt(sessionTime.estimated_minutes)} min
@@ -1131,6 +1199,7 @@ function renderPrescription(p) {
       <span class="muted">${p.executable ? "Freezes this plan and opens the start form." : "Fix the warnings above before starting."}</span>
     </div>`;
   $("#prescribe-result").innerHTML = `<div class="panel">
+    ${cachedBox}
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_label || sessionLabel(p.session_type || "unknown"))}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
     ${timeLine}${volumeBox}${compBox}${topSetBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}

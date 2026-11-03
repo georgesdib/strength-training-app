@@ -1623,6 +1623,19 @@ def test_history_endpoint_lists_and_edits_a_session(server):
     assert result["session"]["edited_at"]
     assert result["session"]["forms"][0]["rating"] == 4
 
+    status, body = get(server, f"/api/history/{session_id}")
+    current = json.loads(body)
+    overridden = post(server, f"/api/history/{session_id}/edit", {
+        "sets": current["sets"],
+        "forms": [{"exercise_id": first["exercise_id"], "rating": 2,
+                   "note": "coach override"}],
+        "reason": "form override",
+    })
+    form = next(row for row in overridden["session"]["forms"]
+                if row["exercise_id"] == first["exercise_id"])
+    assert form["rating"] == 2
+    assert form["note"] == "coach override"
+
 
 def test_history_edit_rejects_an_unknown_exercise(server):
     _, body = get(server, "/api/history?limit=1")
@@ -1745,6 +1758,34 @@ def test_a_declared_break_can_be_recorded_and_cancelled(server):
     cancelled = post(server, "/api/state/break/cancel", {"break_id": break_id})
     assert next(row for row in cancelled["breaks"]
                 if row["break_id"] == break_id)["cancelled"] is True
+
+
+def test_the_history_edit_sheet_can_override_form_ratings(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert 'id="history-edit-forms"' in page
+    status, js = get(server, "/static/history.js")
+    assert status == 200
+    assert "historyFormRows" in js
+    assert "collectHistoryForms" in js
+    assert "data-h-form-rating" in js
+    assert "data-h-form-note" in js
+
+
+def test_a_prescribed_plan_is_cached_across_reloads(server):
+    status, js = get(server, "/static/app.js")
+    assert status == 200
+    assert "PRESCRIPTION_CACHE_KEY" in js
+    assert "localStorage.setItem(PRESCRIPTION_CACHE_KEY" in js
+    assert "restoreCachedPrescription" in js
+    assert "Cached prescription restored" in js
+    assert "discard-cached-prescription" in js
+    status, workout = get(server, "/static/workout.js")
+    assert status == 200
+    assert "clearCachedPrescription" in workout
+    status, settings = get(server, "/static/settings.js")
+    assert status == 200
+    assert "cachePrescription(plan)" in settings
 
 
 def test_the_history_edit_sheet_can_backfill_per_rep_velocity(server):
