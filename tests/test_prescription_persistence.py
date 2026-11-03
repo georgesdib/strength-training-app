@@ -63,7 +63,16 @@ def test_store_plan_keeps_resolver_provenance():
             "template_digest": "blueprint-digest",
             "policy_digest": "policy-digest",
             "input_hash": "input-digest",
-            "generated_session": {"session_type": "squat", "slots": ["squat_main"]},
+            "generated_session": {
+                "session_type": "squat",
+                "assignment": {"squat_main": "ssb_squat"},
+                "slots": [{
+                    "id": "squat_main", "exercise_id": "ssb_squat", "sets": 4,
+                    "reps_low": 5, "reps_high": 5, "rir_low": 2, "rir_high": 3,
+                    "rest_s": 180, "essential": True, "load_source": "e1rm",
+                    "power": False, "quality_stop": None,
+                }],
+            },
         }
         persistence.store_plan(conn, plan)
         row = conn.execute(

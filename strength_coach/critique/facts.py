@@ -75,6 +75,10 @@ class CritiqueFacts:
                 str(exercise): [low, high]
                 for exercise, (low, high) in sorted(self.rep_ranges.items())
             },
+            "accessory_ranges": {
+                str(exercise): [low, high]
+                for exercise, (low, high) in sorted(self.accessory_ranges.items())
+            },
             "duration_min": self.duration_min,
             "duration_basis": self.duration_basis,
             "form_ratings": dict(sorted(self.form_ratings.items())),

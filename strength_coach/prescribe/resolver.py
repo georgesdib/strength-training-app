@@ -19,6 +19,7 @@ from pathlib import PurePath
 
 from strength_coach import settings_profile
 from strength_coach.prescribe import beam as beam_mod
+from strength_coach.prescribe import generated as generated_snapshot
 from strength_coach.prescribe import generator, resolver_policy
 from strength_coach.prescribe.evaluator import EvaluationInputs, evaluate_assignment
 from strength_coach.prescribe.models import Prescription
@@ -423,6 +424,14 @@ def build_resolved(
         "evaluator": best.as_dict(),
         "top_set": best.prescription.notes.get("top_set"),
     }
+    try:
+        generated_snapshot.validate_snapshot(generated_session)
+    except generated_snapshot.SnapshotError as exc:
+        raise ResolverBuildError(
+            "final_integrity",
+            f"generated-session snapshot is invalid: {exc}",
+            beam_result=result,
+        ) from exc
     metadata = {
         "assignment": dict(best.assignment),
         "assignment_order": [list(pair) for pair in best.assignment],

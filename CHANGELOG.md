@@ -37,6 +37,12 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 6 audit remediation**: generated slot snapshots are
+  strictly validated (required fields/types/ranges, unique slot ids and exercise assignments,
+  assignment completeness); malformed payloads raise instead of silently using the blueprint,
+  while NULL/pre-Step-6 payloads without slots remain supported. Duplicate exercise assignments
+  are rejected at generation and read boundaries. The critique facts hash now includes accessory
+  ranges.
 - Deterministic template resolver **Step 6 hardening**: generated prescriptions now persist
   immutable slot specifications alongside the assignment; critique and volume safety exemptions
   read that snapshot, while older or fixed-template rows keep the blueprint fallback. Top-set

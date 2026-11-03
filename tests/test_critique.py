@@ -249,6 +249,16 @@ def test_facts_hash_is_stable_and_changes_with_content():
     assert changed != first
 
 
+def test_facts_hash_changes_with_accessory_ranges():
+    with store_with(session_rows("2024-01-01")) as store:
+        facts = build_facts(store.connection, "2024-01-01")
+    changed = replace(
+        facts,
+        accessory_ranges={**facts.accessory_ranges, "dumbbell_row": (6, 10)},
+    )
+    assert facts.facts_hash() != changed.facts_hash()
+
+
 def test_persist_writes_the_critique_and_its_scores():
     rows = session_rows("2024-01-01")
     with store_with(rows) as store:
@@ -387,11 +397,13 @@ def test_generated_snapshot_drives_critique_essential_slots_and_rep_ranges():
             {
                 "id": "squat_main", "exercise_id": "front_squat", "sets": 4,
                 "reps_low": 3, "reps_high": 5, "essential": True,
+                "rir_low": 2, "rir_high": 3, "rest_s": 180,
                 "load_source": "e1rm", "power": False, "quality_stop": None,
             },
             {
                 "id": "accessory_row", "exercise_id": "dumbbell_row", "sets": 3,
                 "reps_low": 8, "reps_high": 12, "essential": False,
+                "rir_low": 2, "rir_high": 3, "rest_s": 90,
                 "load_source": "double_progression", "power": False,
                 "quality_stop": None,
             },
@@ -413,6 +425,7 @@ def test_generated_snapshot_drives_volume_exemptions_for_non_blueprint_exercise(
             {
                 "id": "squat_main", "exercise_id": "front_squat", "sets": 4,
                 "reps_low": 3, "reps_high": 5, "essential": True,
+                "rir_low": 2, "rir_high": 3, "rest_s": 180,
                 "load_source": "e1rm", "power": False, "quality_stop": None,
             },
         ])
@@ -433,6 +446,23 @@ def test_generated_snapshot_drives_volume_exemptions_for_non_blueprint_exercise(
     assert [(row["pattern"], row["sets"], row["source"]) for row in rows] == [
         ("squat", 2, "MOD-SPINE-001")
     ]
+
+
+def test_malformed_snapshot_fails_instead_of_silently_using_the_blueprint():
+    from strength_coach.prescribe import generated
+
+    with store_with(session_rows("2024-01-01")) as store:
+        _attach_snapshot(store, slots=[
+            {
+                "id": "squat_main", "exercise_id": "front_squat",
+                # sets is deliberately missing.
+                "reps_low": 3, "reps_high": 5, "essential": True,
+                "rir_low": 2, "rir_high": 3, "rest_s": 180,
+                "load_source": "e1rm", "power": False, "quality_stop": None,
+            },
+        ])
+        with pytest.raises(generated.SnapshotError, match="sets"):
+            build_facts(store.connection, "2024-01-01")
 
 
 def test_legacy_null_snapshot_still_uses_blueprint_critique():

@@ -1158,9 +1158,11 @@ generator and top set work end-to-end; the feature can be disabled without data 
 
 **Implementation note (2026-11-03):** resolver-generated prescriptions now persist a `slots`
 array alongside the assignment: slot id, chosen exercise, original sets/reps/RIR/rest, essential
-and power flags, load source and quality stop. Critique essential-work/rep-range reads and volume
-safety exemptions consume that immutable snapshot; prescriptions with NULL or pre-Step-6
-snapshots keep the blueprint-template path. Top-set sets are already graded against their 1-2 RIR
+and power flags, load source and quality stop. Snapshot slots are strictly validated for field
+types/ranges, unique slot ids and exercise assignments, and exact assignment completeness; a
+malformed payload raises instead of silently falling back, while NULL/pre-Step-6 payloads with no
+`slots` key stay on the blueprint path. Critique essential-work/rep-range reads and volume
+safety exemptions consume that immutable snapshot. Top-set sets are already graded against their 1-2 RIR
 role in the critique and their role is preserved in workout logging. The forecast continues to
 use `use_resolver=False` (option c), disabling the flag restores the fixed path without changing
 stored prescriptions, policy restore remains deterministic, and a temporary copy of the real
