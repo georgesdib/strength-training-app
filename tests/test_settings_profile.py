@@ -61,6 +61,7 @@ def test_retired_profile_keys_are_ignored_and_history_is_not_rewritten() -> None
                 "undulation.cycle_weeks": 3,
                 "resolver.weights.rotation": 0.1,
                 "resolver.weights.preference": 0.2,
+                "resolver.top_set.preserve_total_sets": False,
             },
         )
         latest = settings_profile.latest(conn, "2026-10-26")
@@ -76,11 +77,13 @@ def test_retired_profile_keys_are_ignored_and_history_is_not_rewritten() -> None
     assert state["overrides"] == {"undulation.cycle_weeks": 3}
     assert state["resolved"]["undulation.cycle_weeks"] == 3
     assert "resolver.weights.rotation" not in state["resolved"]
+    assert "resolver.top_set.preserve_total_sets" not in state["resolved"]
     assert history[0]["overrides"] == {"undulation.cycle_weeks": 3}
     assert raw_keys == {
         "undulation.cycle_weeks",
         "resolver.weights.rotation",
         "resolver.weights.preference",
+        "resolver.top_set.preserve_total_sets",
     }
 
 
@@ -154,6 +157,12 @@ def test_explicit_retired_key_write_is_rejected_without_append() -> None:
                     "undulation.cycle_weeks": 3,
                     "resolver.weights.preference": 0.2,
                 },
+                effective_from="2026-10-26",
+            )
+        with pytest.raises(ValueError, match="retired"):
+            settings_profile.save(
+                conn,
+                set_values={"resolver.top_set.preserve_total_sets": False},
                 effective_from="2026-10-26",
             )
         after = len(settings_profile.history(conn))

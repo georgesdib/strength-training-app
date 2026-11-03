@@ -642,8 +642,7 @@ Scalar keys (settings registry / settings profile):
   the dwell mechanism and binary suitability made them constant across automatic candidates)
 - resolver.tie_break
 - resolver.top_set.mode, resolver.top_set.eligible, resolver.top_set.backoff_percent,
-  resolver.top_set.preserve_total_sets, resolver.top_set.protect_top_set,
-  resolver.top_set.fallback_above_rir
+  resolver.top_set.protect_top_set, resolver.top_set.fallback_above_rir
 - resolver.top_set.rir_by_main_scheme.maximal, resolver.top_set.rir_by_main_scheme.strength,
   resolver.top_set.rir_by_main_scheme.off
 - resolver.competition.peak_weeks, resolver.competition.taper_days,
@@ -814,10 +813,10 @@ behaviour.
   keys; ordinary anchors/shared aliases allowed; candidate-catalogue structure, slot-pool
   movement-pattern and top-set main-lift checks; file-read errors normalised with the underlying
   cause preserved; SHA-256 digest;
-- 30 scalar resolver keys in settings_registry/settings_profile after the Step 2 final
-  remediation retired the redundant rotation and preference weights (Step 1 originally
-  registered 32 at Step 1, then 30 after DEC-RESOLVER-10 retired two); the existing generic Settings profile now shows a Resolver
-  group, while the dedicated panel remains Step 5;
+- 29 scalar resolver keys in settings_registry/settings_profile: Step 1 originally registered
+  32; DEC-RESOLVER-10 retired the redundant rotation and preference weights; Step 6 retired the
+  unsupported non-preserving top-set option. The existing generic Settings profile now shows a
+  Resolver group, while the dedicated panel remains Step 5;
 - migration 0048 adds nullable template_digest, policy_digest, input_hash and
   generated_session_json to prescription; append_prescription accepts them and preserves null
   for the fixed path;
@@ -1170,7 +1169,10 @@ types/ranges, unique slot ids and exercise assignments, and exact assignment com
 malformed payload raises instead of silently falling back, while NULL/pre-Step-6 payloads with no
 `slots` key stay on the blueprint path. Critique essential-work/rep-range reads and volume
 safety exemptions consume that immutable snapshot. Top-set sets are already graded against their 1-2 RIR
-role in the critique and their role is preserved in workout logging. The forecast continues to
+role in the critique and their role is preserved in workout logging. Top-set preservation is an
+invariant: one top set plus back-offs always equals the item's working-set total; the former
+`resolver.top_set.preserve_total_sets` option was retired because its false branch was silently
+normalised away by the final resize. The forecast continues to
 use `use_resolver=False` (option c), disabling the flag restores the fixed path without changing
 stored prescriptions, policy restore remains deterministic, and a temporary copy of the real
 database was read-smoked for the legacy NULL path. The default remains off.

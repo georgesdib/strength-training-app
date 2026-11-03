@@ -33,7 +33,6 @@ class ResolverSettings:
     top_set_mode: str
     top_set_eligible: str
     top_set_backoff_percent: float
-    top_set_preserve_total_sets: bool
     top_set_protect_top_set: bool
     top_set_fallback_above_rir: int
     top_set_rir_maximal: int
@@ -74,9 +73,6 @@ class ResolverSettings:
             top_set_mode=str(values["resolver.top_set.mode"]),
             top_set_eligible=str(values["resolver.top_set.eligible"]),
             top_set_backoff_percent=float(values["resolver.top_set.backoff_percent"]),
-            top_set_preserve_total_sets=bool(
-                values["resolver.top_set.preserve_total_sets"]
-            ),
             top_set_protect_top_set=bool(values["resolver.top_set.protect_top_set"]),
             top_set_fallback_above_rir=int(values["resolver.top_set.fallback_above_rir"]),
             top_set_rir_maximal=int(values["resolver.top_set.rir_by_main_scheme.maximal"]),

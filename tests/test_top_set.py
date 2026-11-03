@@ -54,6 +54,9 @@ def test_top_set_plan_preserves_total_sets_and_backoff_fraction() -> None:
     assert plan.groups[0].sets == 1
     assert plan.groups[1].sets == 3
     assert plan.groups[0].sets + plan.groups[1].sets == item.sets
+    applied = top_set.apply_plan(item, plan)
+    assert applied.sets == item.sets
+    assert sum(group.sets for group in applied.set_groups) == applied.sets
     assert plan.groups[0].load_kg > plan.groups[1].load_kg
     assert plan.groups[1].percent_of_top == pytest.approx(0.85)
 

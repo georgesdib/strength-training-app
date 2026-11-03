@@ -24,12 +24,15 @@ from strength_coach.prescribe import warmup as warmup_feature
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.store import repositories
 
-# Narrow historical-profile compatibility. These keys were retired in the Step 2 final audit;
+# Narrow historical-profile compatibility. These keys were retired after the resolver audit;
 # old append-only profiles may still contain them. They are ignored on load and stripped from
 # inherited overrides on save, but an explicit new write is rejected like any invalid key.
 RETIRED_OVERRIDE_KEYS = frozenset({
     "resolver.weights.rotation",
     "resolver.weights.preference",
+    # Top-set preservation is now an invariant, not a setting. Historical false values are
+    # intentionally ignored rather than left as a hidden way to change set arithmetic.
+    "resolver.top_set.preserve_total_sets",
 })
 
 

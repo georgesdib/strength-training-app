@@ -1087,8 +1087,12 @@ def test_resolver_panel_uses_every_registry_setting(server):
     assert status == 200
     registry = json.loads(body)["registry"]
     resolver = [setting for setting in registry if setting["group"] == "Resolver"]
-    assert len(resolver) == 30
+    assert len(resolver) == 29
     assert all(setting["key"].startswith("resolver.") for setting in resolver)
+    assert all(
+        setting["key"] != "resolver.top_set.preserve_total_sets"
+        for setting in resolver
+    )
     _status, js = get(server, "/static/settings.js")
     assert 'setting.group === "Resolver"' in js
     assert 'data-resolver-key' in js

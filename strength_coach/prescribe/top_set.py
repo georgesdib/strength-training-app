@@ -158,7 +158,9 @@ def plan_top_set(
     top_load = loads.solve_load(
         float(e1rm_kg), int(item.reps_low), rir, item.rounding_increment_kg
     )
-    backoff_sets = item.sets - 1 if settings.top_set_preserve_total_sets else item.sets
+    # The top-set structure is a set-configuration choice, not extra volume: one top set
+    # plus back-offs must equal the blueprint's total working sets (DEC-RESOLVER-03).
+    backoff_sets = item.sets - 1
     if backoff_sets < 1:
         return TopSetPlan(False, "not_applied", "no set left for back-off work")
     backoff_load = loads.round_down(

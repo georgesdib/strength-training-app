@@ -37,12 +37,17 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **top-set invariant fix**: retired the unsupported
+  `resolver.top_set.preserve_total_sets=false` option and made one top set plus back-offs
+  always equal the item's working-set total. Historical profile rows with the retired key are
+  ignored on load and rejected on explicit write. This removes the silent no-op caused by the
+  final top-set resize.
 - Deterministic template resolver **Step 6 closure**: final documentation corrected the
-  DEC-RESOLVER-01–12 references, 30-key registry/UI count, current implementation status,
+  DEC-RESOLVER-01–12 references, 29-key registry/UI count, current implementation status,
   methodology version and forecast/default wording. Acceptance covered the default suite,
   prescription goldens, flag-off equivalence, snapshot validation/legacy fallback,
   critique/top-set/volume exemptions, settings registry/API/UI and preview-to-frozen-workout
-  start. Owner review/merge and a manual browser smoke remain the only open acceptance items.
+  start. The branch is merged; a manual browser smoke remains the only open acceptance item.
 - Deterministic template resolver **Step 6 audit remediation**: generated slot snapshots are
   strictly validated (required fields/types/ranges, unique slot ids and exercise assignments,
   assignment completeness); malformed payloads raise instead of silently using the blueprint,
