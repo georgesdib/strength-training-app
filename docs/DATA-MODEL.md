@@ -282,7 +282,7 @@ document version.
 | template_digest | nullable SHA-256 of the blueprint file used (migration 0048) |
 | policy_digest | nullable SHA-256 of the resolver policy file; null on the fixed path |
 | input_hash | nullable canonical resolver input hash; null on the fixed path |
-| generated_session_json | nullable generated exercise/slot/top-set snapshot; null on the fixed path |
+| generated_session_json | nullable generated exercise/slot/top-set snapshot; Step 6 adds validated `slots` (chosen exercise, original sets/reps/RIR/rest, essential/power flags, load source, quality stop) for critique/exemption reads; null on the fixed path and pre-Step-6 snapshots remain readable |
 
 | item column | notes |
 |---|---|

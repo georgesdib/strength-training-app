@@ -1,9 +1,11 @@
 # Dynamic Template Resolver — implementation plan
 
-**Status:** **Steps 0–5 are complete 2026-11-01/02; Step 4C audit remediation is complete
-2026-11-02 and Step 5 remediation is complete 2026-11-03. Step 6 is not started.** The resolver is wired into the opt-in production path, the
-Settings -> Resolver panel and read-only preview are implemented, and the top-set structure is
-opt-in. The hinge maximal-week change is implemented. The resolver flag remains off by default.
+**Status:** **Steps 0–6 are complete 2026-11-01/03; Step 4C audit remediation is complete
+2026-11-02 and Step 5 remediation is complete 2026-11-03.** The resolver is wired into the
+opt-in production path, the Settings -> Resolver panel and read-only preview are implemented,
+and the top-set structure is opt-in. The hinge maximal-week change is implemented. Step 6 adds
+historical snapshot hardening and rollout documentation. The resolver flag remains off by
+default.
 
 **Scope:** make the four canonical session templates a **deterministic session generator** at
 generation time while keeping the existing scheduler, prescription engine, volume engine and
@@ -1153,6 +1155,16 @@ forecast; full suite; golden fixtures; migration/provenance copy; UI smoke.
 generator and top set work end-to-end; the feature can be disabled without data loss.
 
 **Merge gate:** final merge to development after review; no release from the feature branch.
+
+**Implementation note (2026-11-03):** resolver-generated prescriptions now persist a `slots`
+array alongside the assignment: slot id, chosen exercise, original sets/reps/RIR/rest, essential
+and power flags, load source and quality stop. Critique essential-work/rep-range reads and volume
+safety exemptions consume that immutable snapshot; prescriptions with NULL or pre-Step-6
+snapshots keep the blueprint-template path. Top-set sets are already graded against their 1-2 RIR
+role in the critique and their role is preserved in workout logging. The forecast continues to
+use `use_resolver=False` (option c), disabling the flag restores the fixed path without changing
+stored prescriptions, policy restore remains deterministic, and a temporary copy of the real
+database was read-smoked for the legacy NULL path. The default remains off.
 
 ---
 

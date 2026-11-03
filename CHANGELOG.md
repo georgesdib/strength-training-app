@@ -37,6 +37,11 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 6 hardening**: generated prescriptions now persist
+  immutable slot specifications alongside the assignment; critique and volume safety exemptions
+  read that snapshot, while older or fixed-template rows keep the blueprint fallback. Top-set
+  critique roles, fixed forecast option (c), flag-off rollback, policy restore, and a temporary
+  real-database copy smoke test are covered. The resolver remains off by default.
 - Deterministic template resolver **Step 5 remediation**: shared readiness/date enforcement now
   covers CLI and web resolver previews with explicit `--allow-unknown-readiness`; policy backups
   are written via fsynced temporary files and atomic rename, with active-policy replacement only

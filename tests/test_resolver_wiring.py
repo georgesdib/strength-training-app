@@ -10,6 +10,7 @@ import pytest
 from conftest import make_readiness, make_training
 
 from strength_coach import settings_profile
+from strength_coach.features import programme
 from strength_coach.prescribe import (
     build_prescription,
     generator,
@@ -128,6 +129,10 @@ def test_enabled_resolver_dispatches_and_attaches_provenance(monkeypatch) -> Non
     assert metadata["catalogue_digest"] == "c" * 64
     assert metadata["input_hash"]
     assert metadata["generated_session"]["assignment"]["squat_main"] == "ssb_squat"
+    snapshot_slots = metadata["generated_session"]["slots"]
+    squat_slot = next(slot for slot in snapshot_slots if slot["id"] == "squat_main")
+    assert squat_slot["exercise_id"] == "ssb_squat"
+    assert squat_slot["sets"] >= 1
     assert metadata["beam"]["best"]["feasible"] is True
     payload = server.prescription_dict(prescription)
     assert payload["generated_session"] == metadata["generated_session"]
@@ -221,6 +226,52 @@ def test_false_mode_stays_on_fixed_path_even_when_enabled() -> None:
             use_resolver=False,
         )
     assert "resolver" not in prescription.notes
+
+
+def test_disabling_resolver_restores_fixed_path_without_data_loss() -> None:
+    with store() as instance:
+        baseline = build_prescription(
+            instance.connection, for_date="2024-01-15", session_type="squat"
+        )
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
+            effective_from="2024-01-01",
+        )
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": False},
+            effective_from="2024-01-02",
+        )
+        restored = build_prescription(
+            instance.connection, for_date="2024-01-15", session_type="squat"
+        )
+    assert "resolver" not in restored.notes
+    assert server.prescription_dict(restored) == server.prescription_dict(baseline)
+
+
+def test_forecast_remains_fixed_option_c_while_resolver_is_enabled(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "strength_coach.features.programme.schedule.next_session_type",
+        lambda *args, **kwargs: "squat",
+    )
+    with store() as instance:
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
+            effective_from="2024-01-01",
+        )
+        entries = programme.build_programme(
+            instance.connection,
+            start="2024-01-15",
+            weeks=1,
+            per_week=1,
+            start_session_type="squat",
+        )
+    assert entries
+    assert all("resolver" not in entry.prescription.notes for entry in entries)
 
 
 def test_flag_off_public_serialization_is_identical() -> None:

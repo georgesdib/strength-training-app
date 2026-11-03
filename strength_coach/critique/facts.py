@@ -19,6 +19,7 @@ from typing import Any
 import pandas as pd
 
 from strength_coach.prescribe import SessionTemplate, TemplateError
+from strength_coach.prescribe import generated as generated_snapshot
 from strength_coach.prescribe.templates import SESSION_TYPES
 from strength_coach.rules import RuleContext, load_document, registry
 from strength_coach.store import queries
@@ -67,6 +68,13 @@ class CritiqueFacts:
             "sets": int(len(self.sets)),
             "working_sets": int(self.sets["is_working_set"].sum()),
             "exercises": sorted({str(e) for e in self.sets["exercise_id"].unique()}),
+            "essential_slots": [
+                [slot_id, list(exercises)] for slot_id, exercises in self.essential_slots
+            ],
+            "rep_ranges": {
+                str(exercise): [low, high]
+                for exercise, (low, high) in sorted(self.rep_ranges.items())
+            },
             "duration_min": self.duration_min,
             "duration_basis": self.duration_basis,
             "form_ratings": dict(sorted(self.form_ratings.items())),
@@ -105,7 +113,19 @@ def build_facts(
 
     session_type = str(row["session_type"])
     template = _template_for(session_type, template_loader)
-    rep_ranges = template.rep_ranges() if template is not None else {}
+    snapshot = generated_snapshot.snapshot_for_session(conn, str(session_id))
+    snapshot_slots = generated_snapshot.slot_specs(snapshot)
+    snapshot_assignment = generated_snapshot.assignment(snapshot)
+    if snapshot_slots:
+        rep_ranges = {
+            str(item["exercise_id"]): (
+                int(item.get("reps_low") or 0), int(item.get("reps_high") or 0)
+            )
+            for item in snapshot_slots
+            if item.get("exercise_id")
+        }
+    else:
+        rep_ranges = template.rep_ranges() if template is not None else {}
 
     # History is cut at the session date: a critique that could see the future would grade
     # the athlete against information they did not have.
@@ -129,9 +149,26 @@ def build_facts(
 
     essential: list[tuple[str, tuple[str, ...]]] = []
     accessories: dict[str, tuple[int, int]] = {}
-    if template is not None:
+    if snapshot_slots:
         essential = [
-            (slot.id, slot.exercises) for slot in template.slots if slot.essential
+            (str(item["id"]), (str(item["exercise_id"]),))
+            for item in snapshot_slots if item.get("essential")
+        ]
+        accessories = {
+            str(item["exercise_id"]): (
+                int(item.get("reps_low") or 0), int(item.get("reps_high") or 0)
+            )
+            for item in snapshot_slots
+            if item.get("load_source") == "double_progression"
+        }
+    elif template is not None:
+        essential = [
+            (
+                slot.id,
+                (snapshot_assignment.get(slot.id),)
+                if snapshot_assignment.get(slot.id) else slot.exercises,
+            )
+            for slot in template.slots if slot.essential
         ]
         accessories = {
             exercise_id: (slot.reps_low, slot.reps_high)

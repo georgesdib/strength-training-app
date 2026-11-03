@@ -126,6 +126,7 @@ deeper tier reduces main-lift sets to a floor of two. See
 | version | date | change |
 |---|---|---|
 | 1.0.0 | 2026-10-23 | First canonical summary after outcomes, readiness, feedback, minimum session and parity work |
+| 1.1.0 | 2026-11-03 | Deterministic optional resolver: generated-session snapshot provenance, top-set role handling, fixed forecast boundary and default-off rollout controls |
 
 ## Related
 

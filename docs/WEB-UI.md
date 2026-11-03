@@ -231,7 +231,7 @@ also disables while saving and reports the number of marks written.
 | `GET /api/resolver/policy` | raw resolver policy YAML, path, digest, schema and newest backup metadata |
 | `POST /api/resolver/policy` | validate the complete YAML, back up the current file, atomically replace it and prune to the newest 20 backups |
 | `POST /api/resolver/policy/restore` | restore the newest normal validated policy backup; the current policy is snapshotted as `template-resolver-prerestore-*` and reported, and pre-restore snapshots are not later restore candidates |
-| `POST /api/resolver/preview` | read-only candidate/beam/evaluator preview; returns choices, alternatives, suggestions, top set, projected week and structured failure stages |
+| `POST /api/resolver/preview` | read-only candidate/beam/evaluator preview; returns the prescription directly (not nested), plus choices, alternatives, suggestions, top set, projected week and structured failure stages; the UI compares the full displayed prescription |
 | `GET /api/modalities` | module list with class, enabled source, dependencies, citations and factors |
 | `GET/POST /api/modalities/<id>` | module state or enabled/factor update; guarded modules need guard_confirmed and reason |
 | `POST /api/settings/llm/test` | call the configured model with a tiny connectivity prompt |

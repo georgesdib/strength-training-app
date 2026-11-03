@@ -21,6 +21,7 @@ from typing import Any
 import yaml
 
 from strength_coach.features import volume as volume_feature
+from strength_coach.prescribe import generated as generated_snapshot
 from strength_coach.prescribe import schedule, templates
 from strength_coach.store import queries, repositories
 from strength_coach.utils import exercises, paths
@@ -1762,20 +1763,28 @@ def record_exemptions(
     Called after the prescription is stored. Items removed entirely are not recorded: the
     budget only tops up items that are present, so it cannot resurrect them.
     """
-    try:
-        template = templates.SessionTemplate.load(session_type)
-    except (ValueError, KeyError):
-        return
-    slots: dict[str, Any] = {}
-    for slot in template.slots:
-        exercises = ([slot.exercise] if slot.exercise else []) + list(slot.variants)
-        for exercise in exercises:
-            slots[str(exercise)] = slot
+    snapshot = generated_snapshot.snapshot_for_prescription(conn, prescription_id)
+    snapshot_slots = generated_snapshot.slots_by_exercise(snapshot)
+    original_sets: dict[str, int] = {}
+    if snapshot_slots:
+        original_sets = {
+            exercise: int(spec.get("sets") or 0)
+            for exercise, spec in snapshot_slots.items()
+        }
+    else:
+        try:
+            template = templates.SessionTemplate.load(session_type)
+        except (ValueError, KeyError):
+            return
+        for slot in template.slots:
+            exercises = ([slot.exercise] if slot.exercise else []) + list(slot.variants)
+            for exercise in exercises:
+                original_sets[str(exercise)] = int(slot.sets)
     for item in items:
         is_mapping = isinstance(item, Mapping)
         exercise = str(item["exercise_id"] if is_mapping else item.exercise_id)
-        slot = slots.get(exercise)
-        if slot is None:
+        original = original_sets.get(exercise)
+        if original is None:
             continue
         refs = (
             item.get("rationale_refs") or item.get("refs") or ()
@@ -1783,7 +1792,7 @@ def record_exemptions(
         )
         sets = int(item["sets"] if is_mapping else item.sets)
         safety = SAFETY_REFS & set(refs)
-        if not safety or sets >= int(slot.sets):
+        if not safety or sets >= original:
             continue
         key = pattern_key(exercise)
         if key is None:
@@ -1793,6 +1802,6 @@ def record_exemptions(
             prescription_id=prescription_id,
             effective_on=effective_on,
             pattern=key,
-            sets=int(slot.sets) - sets,
+            sets=original - sets,
             source=sorted(safety)[0],
         )

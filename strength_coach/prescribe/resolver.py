@@ -215,6 +215,27 @@ def _canonical(value, *, path: str = "input"):
     raise TypeError(f"{path}: unsupported fingerprint input {type(value).__name__}")
 
 
+def _snapshot_slots(pools, assignment: tuple[tuple[str, str], ...]) -> list[dict]:
+    selected = dict(assignment)
+    return [
+        {
+            "id": slot.id,
+            "exercise_id": selected.get(slot.id),
+            "sets": slot.sets,
+            "reps_low": slot.reps_low,
+            "reps_high": slot.reps_high,
+            "rir_low": slot.rir_low,
+            "rir_high": slot.rir_high,
+            "rest_s": slot.rest_s,
+            "essential": slot.essential,
+            "load_source": slot.load_source,
+            "power": slot.power,
+            "quality_stop": slot.quality_stop,
+        }
+        for slot in pools.template.slots
+    ]
+
+
 def prescription_input_fingerprint(
     *,
     for_date: str,
@@ -385,6 +406,7 @@ def build_resolved(
         "session_type": session_type,
         "assignment": dict(best.assignment),
         "assignment_order": [list(pair) for pair in best.assignment],
+        "slots": _snapshot_slots(pools, best.assignment),
         "template_digest": pools.template.digest,
         "policy_digest": pools.policy_digest,
         "catalogue_digest": pools.catalogue_digest,
@@ -404,6 +426,7 @@ def build_resolved(
     metadata = {
         "assignment": dict(best.assignment),
         "assignment_order": [list(pair) for pair in best.assignment],
+        "slots": _snapshot_slots(pools, best.assignment),
         "template_digest": pools.template.digest,
         "policy_digest": pools.policy_digest,
         "catalogue_digest": pools.catalogue_digest,
