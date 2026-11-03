@@ -728,12 +728,10 @@ function renderResolverPreviewDiff(previous, current) {
     box.textContent = "";
     return;
   }
-  const before = previous.prescription;
-  const after = current.prescription;
-  if (!before || !after) {
-    box.textContent = "Prescription diff unavailable for this preview.";
-    return;
-  }
+  // The toolbar response is the prescription payload itself; it is not nested under a
+  // `prescription` key.
+  const before = previous;
+  const after = current;
   const changes = [];
   const oldItems = {};
   (before.items || []).forEach((item, index) => {
@@ -751,7 +749,10 @@ function renderResolverPreviewDiff(previous, current) {
     }
     const fieldLabels = [
       ["sets", "sets"], ["reps_low", "reps low"], ["reps_high", "reps high"],
-      ["load_kg", "load"], ["rir_target", "RIR"], ["rest_s", "rest"],
+      ["load_kg", "load"], ["load_basis", "load basis"],
+      ["rir_target", "RIR"], ["rest_s", "rest"],
+      ["effort_model", "effort model"], ["quality_stop", "quality stop"],
+      ["time_cap_s", "time cap"], ["essential", "essential"],
     ];
     fieldLabels.forEach(([field, label]) => {
       const left = prior[field];
@@ -787,8 +788,22 @@ function renderResolverPreviewDiff(previous, current) {
       JSON.stringify(current.projected_week ?? null)) {
     changes.push("<div><strong>Projected volume/week</strong> changed</div>");
   }
+  ["session_type", "fallback_level", "rule_document_version", "time_cap_s",
+    "executable"].forEach((field) => {
+    if (JSON.stringify(before[field] ?? null) !== JSON.stringify(after[field] ?? null)) {
+      changes.push("<div><strong>Session " + esc(field.replaceAll("_", " ")) +
+        "</strong>: " + esc(resolverDiffValue(field, before[field])) + " → " +
+        esc(resolverDiffValue(field, after[field])) + "</div>");
+    }
+  });
+  if (JSON.stringify(before.issues || []) !== JSON.stringify(after.issues || [])) {
+    changes.push("<div><strong>Validation/constraint issues</strong> changed</div>");
+  }
   if (JSON.stringify(before.warnings || []) !== JSON.stringify(after.warnings || [])) {
     changes.push("<div><strong>Warnings</strong> changed</div>");
+  }
+  if (JSON.stringify(before.notes ?? null) !== JSON.stringify(after.notes ?? null)) {
+    changes.push("<div><strong>Session notes/volume context</strong> changed</div>");
   }
   if (JSON.stringify(previous.top_set ?? null) !== JSON.stringify(current.top_set ?? null)) {
     changes.push("<div><strong>Top set</strong> changed</div>");
@@ -840,8 +855,14 @@ async function rateResolverSuggestion(button) {
 
 async function openResolverPreviewStart() {
   const data = window.__resolverPreview;
-  if (!data || !data.ok || !data.prescription) return;
-  window.__lastPrescription = data.prescription;
+  if (!data || !data.ok) return;
+  // The response is the exact prescription payload. Remove preview-only metadata so the
+  // frozen plan contains the displayed prescription, not UI/diff controls.
+  const plan = { ...data };
+  ["ok", "stage", "message", "choices", "beam", "top_set", "projected_week",
+    "session_time", "policy_digest", "catalogue_digest", "template_digest",
+    "input_hash", "scheduled_suggestion"].forEach((key) => { delete plan[key]; });
+  window.__lastPrescription = plan;
   if (typeof openWorkoutStart === "function") openWorkoutStart();
   else notify("Open Workflow to start this preview.", "error");
 }

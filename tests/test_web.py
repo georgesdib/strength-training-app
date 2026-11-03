@@ -1618,6 +1618,16 @@ def test_the_exercise_tab_offers_an_e1rm_override(server):
     assert "/api/state/e1rm" in js
 
 
+def test_resolver_preview_uses_the_direct_prescription_response(server):
+    _status, js = get(server, "/static/settings.js")
+    assert "previous.prescription" not in js
+    assert "current.prescription" not in js
+    assert "data.prescription" not in js
+    assert "const before = previous;" in js
+    assert "const after = current;" in js
+    assert "window.__lastPrescription = plan;" in js
+
+
 def test_the_athlete_page_shows_the_tests_needed_table(server):
     # The table is rendered from the same /api/state payload the CLI builds; the browser
     # adds no gate logic of its own.
