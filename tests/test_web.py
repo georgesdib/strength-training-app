@@ -1821,6 +1821,8 @@ def test_a_prescribed_plan_is_cached_across_reloads(server):
     assert "Cached plan:" in js and "Current form:" in js
     assert "Start cached plan" in js
     assert "discard-cached-prescription" in js
+    assert "updateWorkflowStep();\n    restoreCachedPrescription();" in js
+    assert "const show = allowed || cached;" in js
     status, workout = get(server, "/static/workout.js")
     assert status == 200
     assert "clearCachedPrescription" in workout

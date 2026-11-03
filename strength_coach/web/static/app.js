@@ -18,6 +18,7 @@ document.addEventListener("click", (event) => {
     window.__lastPrescription = null;
     window.__prescriptionFromCache = false;
     $("#prescribe-result").innerHTML = "";
+    setWorkflowReadiness(window.__workflowReadinessData);
   }
 });
 
@@ -38,6 +39,7 @@ const VIEW_LOADERS = {
     loadDropWindow();
     loadThrottlePatterns();
     updateWorkflowStep();
+    restoreCachedPrescription();
   },
   docs: (options) => loadDocs(options.doc, options.anchor),
   logs: () => loadLogs(),
@@ -1037,6 +1039,17 @@ function restoreCachedPrescription() {
   var cached = readCachedPrescription();
   if (!cached) return false;
   renderPrescription(cached.plan, { fromCache: true, savedAt: cached.saved_at });
+  // A restored plan is a preview, not a new build: show it even before today's readiness
+  // is entered. The start form still enforces readiness and its acknowledgement.
+  var preview = $("#workflow-preview");
+  var lock = $("#workflow-lock");
+  var content = $("#workflow-preview-content");
+  if (preview && lock && content) {
+    preview.classList.remove("locked");
+    lock.hidden = true;
+    content.hidden = false;
+    updateWorkflowStep();
+  }
   return true;
 }
 
@@ -1524,14 +1537,16 @@ function updateWorkflowStep() {
 function setWorkflowReadiness(data) {
   window.__workflowReadinessData = data || null;
   const scored = Boolean(data?.score?.status === "ready");
+  const cached = Boolean(window.__prescriptionFromCache && window.__lastPrescription);
   const allowed = scored || Boolean(window.__workflowAllowUnknown);
+  const show = allowed || cached;
   const preview = $("#workflow-preview");
   const lock = $("#workflow-lock");
   const content = $("#workflow-preview-content");
   if (!preview || !lock || !content) return;
-  preview.classList.toggle("locked", !allowed);
-  lock.hidden = allowed;
-  content.hidden = !allowed;
+  preview.classList.toggle("locked", !show);
+  lock.hidden = show;
+  content.hidden = !show;
   const ack = $("#workflow-ack");
   if (ack) ack.hidden = scored;
   const unknown = $("#workflow-unknown-note");
@@ -1541,7 +1556,7 @@ function setWorkflowReadiness(data) {
     const active = $("#workout-active-panel");
     const start = $("#workout-start-panel");
     if (!(active && !active.hidden) && !(start && !start.hidden)) {
-      empty.hidden = allowed;
+      empty.hidden = show;
     }
   }
   updateWorkflowStep();
