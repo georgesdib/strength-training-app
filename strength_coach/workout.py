@@ -33,6 +33,11 @@ from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import session_identity
+from strength_coach.prescribe.models import (
+    SET_GROUP_ROLES,
+    resize_plan_item_set_groups,
+    validate_plan_items,
+)
 from strength_coach.rules import RuleContext, load_document, registry
 from strength_coach.store import db, queries, repositories
 from strength_coach.utils import exercises
@@ -90,6 +95,7 @@ def _plan(value: Any, *, allow_empty: bool = False) -> dict:
         raise ValueError("plan.items must be a list")
     if not items and not allow_empty:
         raise ValueError("plan.items must be a non-empty list")
+    validate_plan_items(items, where="plan")
     return value
 
 
@@ -784,9 +790,6 @@ def _event(conn, workout_id: str, event_type: str, payload: dict,
     )
 
 
-SET_GROUP_ROLES = ("top_set", "back_off")
-
-
 def add_set(
     conn,
     workout_id: str,
@@ -957,6 +960,7 @@ def _validate_exercise(exercise_id: str) -> str:
 
 def _write_plan(conn, workout_id: str, plan: dict, event_type: str,
                 payload: dict) -> dict:
+    validate_plan_items(plan.get("items") or (), where="plan")
     conn.execute(
         "UPDATE workout_session SET plan_modified_json = ? WHERE workout_id = ?",
         (json.dumps(plan, separators=(",", ":")), workout_id),
@@ -987,6 +991,9 @@ def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> d
         # The old load belongs to the old lift; do not silently carry it across.
         "load_kg": None,
         "unknown_load_reason": "swapped during workout; load not re-solved",
+        # The old top-set/back-off structure belongs to the old lift; discard it rather
+        # than carry a stale load or role onto the replacement.
+        "set_groups": [],
     }
     plan = {**(workout.get("plan") or {}), "items": items}
     return _write_plan(conn, workout_id, plan, "swap_exercise",
@@ -1055,6 +1062,8 @@ def change_sets(conn, workout_id: str, item_index: int, delta: int) -> dict:
     if after == before:
         return workout
     items[index]["sets"] = after
+    if items[index].get("set_groups"):
+        items[index] = resize_plan_item_set_groups(items[index])
     plan = {**(workout.get("plan") or {}), "items": items}
     return _write_plan(conn, workout_id, plan, "change_sets",
                        {"item_index": index, "before": before, "after": after})

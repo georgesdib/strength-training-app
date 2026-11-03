@@ -14,8 +14,10 @@ from typing import Any
 
 from strength_coach import __version__, settings_profile
 from strength_coach.features import prescription_provenance
+from strength_coach.prescribe import generated as generated_snapshot
 from strength_coach.prescribe import shadow as shadow_mod
 from strength_coach.prescribe import volume_budget
+from strength_coach.prescribe.models import validate_plan_items
 from strength_coach.store import repositories
 
 
@@ -56,6 +58,11 @@ def store_plan(conn, plan: Mapping[str, Any], *, approved_by: str = "determinist
     """
     if not isinstance(plan, Mapping) or not plan.get("items"):
         raise ValueError("plan.items must be a non-empty list")
+    validate_plan_items(plan.get("items") or (), where="plan")
+    # Validate the optional resolver snapshot before starting the append sequence. The web
+    # caller also owns a transaction, but store_plan must never create a partial artifact
+    # merely because a later reader rejects the snapshot.
+    generated_snapshot.validate_snapshot(plan.get("generated_session"))
     payload = json.dumps(plan, sort_keys=True, default=str)
     run = repositories.start_run(
         conn,

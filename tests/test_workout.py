@@ -73,6 +73,87 @@ def test_a_plan_without_a_minimum_session_has_no_summary(conn):
     assert started["minimum_session"] is None
 
 
+def test_start_rejects_inconsistent_set_groups_without_a_workout(conn):
+    bad = {
+        **PLAN,
+        "items": [{
+            **PLAN["items"][0],
+            "sets": 5,
+            "set_groups": [
+                {"role": "top_set", "sets": 1, "load_kg": 110, "reps_low": 3,
+                 "reps_high": 5, "rir_target": 1, "percent_of_top": None},
+                {"role": "back_off", "sets": 1, "load_kg": 90, "reps_low": 3,
+                 "reps_high": 5, "rir_target": 2, "percent_of_top": 0.85},
+            ],
+        }],
+    }
+    with pytest.raises(ValueError, match="must equal item.sets"):
+        workout.start(conn, for_date="2024-01-01", plan=bad, readiness=READINESS)
+    assert conn.execute("SELECT COUNT(*) FROM workout_session").fetchone()[0] == 0
+
+
+def test_planned_group_edits_keep_the_set_total_and_roles(conn):
+    plan = {
+        **PLAN,
+        "items": [{
+            **PLAN["items"][0],
+            "sets": 5,
+            "set_groups": [
+                {"role": "top_set", "sets": 1, "load_kg": 110, "reps_low": 3,
+                 "reps_high": 5, "rir_target": 1, "percent_of_top": None},
+                {"role": "back_off", "sets": 4, "load_kg": 90, "reps_low": 3,
+                 "reps_high": 5, "rir_target": 2, "percent_of_top": 0.85},
+            ],
+        }],
+    }
+    started = workout.start(conn, for_date="2024-01-01", plan=plan, readiness=READINESS)
+    reduced = workout.change_sets(conn, started["workout_id"], 0, -2)
+    item = reduced["plan"]["items"][0]
+    assert item["sets"] == 3
+    assert sum(group["sets"] for group in item["set_groups"]) == 3
+    one = workout.change_sets(conn, started["workout_id"], 0, -2)
+    item = one["plan"]["items"][0]
+    assert item["sets"] == 1
+    assert [group["role"] for group in item["set_groups"]] == ["top_set"]
+    swapped = workout.swap_exercise(
+        conn, started["workout_id"], 0, "ssb_squat"
+    )
+    item = swapped["plan"]["items"][0]
+    assert item["set_groups"] == []
+
+
+def test_completed_top_set_and_backoff_roles_survive_materialisation(conn):
+    plan = {
+        **PLAN,
+        "items": [{
+            **PLAN["items"][0],
+            "sets": 2,
+            "set_groups": [
+                {"role": "top_set", "sets": 1, "load_kg": 110, "reps_low": 3,
+                 "reps_high": 5, "rir_target": 1, "percent_of_top": None},
+                {"role": "back_off", "sets": 1, "load_kg": 90, "reps_low": 3,
+                 "reps_high": 5, "rir_target": 2, "percent_of_top": 0.85},
+            ],
+        }],
+    }
+    started = workout.start(conn, for_date="2024-01-01", plan=plan, readiness=READINESS)
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=110, reps=3, rir=1, set_role="top_set",
+    )
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=90, reps=5, rir=2, set_role="back_off",
+    )
+    workout.end(conn, started["workout_id"], session_rpe=7, duration_min=30)
+    roles = [
+        row["set_role"] for row in conn.execute(
+            "SELECT set_role FROM clean_set ORDER BY set_id"
+        )
+    ]
+    assert roles == ["top_set", "back_off"]
+
+
 def test_start_requires_all_seven_readiness_fields(conn):
     with pytest.raises(ValueError, match="readiness.energy"):
         workout.start(conn, for_date="2024-01-01", plan=PLAN,

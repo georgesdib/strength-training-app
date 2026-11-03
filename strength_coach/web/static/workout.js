@@ -199,9 +199,65 @@ function updateWorkoutSetTarget() {
     nextWorkoutSetNumber(exerciseId) + "</strong>.";
 }
 
+function workoutSetGroupsHtml(item) {
+  return typeof setGroupsHtml === "function" ? setGroupsHtml(item) : "";
+}
+
+function workoutLoggedRoleCount(exerciseId, role) {
+  var sets = (window.__workoutData && window.__workoutData.sets) || [];
+  return sets.filter(function (set) {
+    return String(set.exercise_id) === String(exerciseId) &&
+      String(set.set_role || "") === String(role || "");
+  }).length;
+}
+
+function workoutNextGroup(item) {
+  var groups = (item && item.set_groups) || [];
+  for (var index = 0; index < groups.length; index += 1) {
+    var group = groups[index];
+    if (workoutLoggedRoleCount(item.exercise_id, group.role) < Number(group.sets || 0)) {
+      return group;
+    }
+  }
+  return null;
+}
+
+function workoutGroupForRole(item, role) {
+  return ((item && item.set_groups) || []).find(function (group) {
+    return String(group.role) === String(role || "");
+  }) || null;
+}
+
+function applyWorkoutGroup(item, group) {
+  if (group) {
+    $("#workout-set-role").value = group.role;
+    $("#workout-set-load").value = group.load_kg == null ? "" : group.load_kg;
+    $("#workout-set-rir").value = group.rir_target == null ? "" : group.rir_target;
+    return;
+  }
+  $("#workout-set-role").value = "";
+  $("#workout-set-load").value = item.load_kg == null ? "" : item.load_kg;
+  $("#workout-set-rir").value = item.effort_model === "quality" || item.rir_target == null
+    ? "" : item.rir_target;
+}
+
 function prefillWorkoutSetFields(force) {
   var item = workoutPlanItem($("#workout-set-exercise").value);
   if (!item) return;
+  var groups = item.set_groups || [];
+  var pending = groups.length ? workoutNextGroup(item) : null;
+  if (groups.length) {
+    // The planned structure is the execution instruction: prefill the next unfilled
+    // top-set/back-off group, then reset to ordinary once all groups are logged.
+    if (force || pending) {
+      applyWorkoutGroup(item, pending);
+      if (force || $("#workout-set-reps").value === "") {
+        $("#workout-set-reps").value = item.reps_low == null ? "" : item.reps_low;
+      }
+      if (force) $("#workout-set-velocity").value = "";
+    }
+    return;
+  }
   if (force || $("#workout-set-load").value === "") {
     $("#workout-set-load").value = item.load_kg == null ? "" : item.load_kg;
   }
@@ -424,6 +480,7 @@ function renderWorkout(w) {
       '<p class="workout-plan-prescription">' + item.reps_low + "–" + item.reps_high +
       ' reps · ' + (item.load_kg == null ? "load unknown" : fmt(item.load_kg) + " kg") +
       ' · ' + esc(effort) + '</p>' +
+      workoutSetGroupsHtml(item) +
       (item.substitution_for ? '<p class="muted">swapped from ' + esc(item.substitution_for) + '</p>' : "") +
       (item.added_during_workout ? '<p class="muted">added during workout</p>' : "") +
       workoutHistoryPanel(item.exercise_id, index, history) +
@@ -545,7 +602,8 @@ function renderWorkout(w) {
     ? '<div class="workout-set-list">' + setRows + '</div>'
     : "<p class='empty'>No sets logged yet.</p>";
   updateWorkoutSetTarget();
-  prefillWorkoutSetFields(!keptSelection);
+  var selectedPlanItem = workoutPlanItem($("#workout-set-exercise").value);
+  prefillWorkoutSetFields(!keptSelection || Boolean(selectedPlanItem && selectedPlanItem.set_groups && selectedPlanItem.set_groups.length));
   document.querySelectorAll("[data-remove-set]").forEach(function (button) {
     button.addEventListener("click", function () { removeWorkoutSet(button.dataset.removeSet); });
   });
@@ -1025,6 +1083,12 @@ document.addEventListener("DOMContentLoaded", function () {
     ["input", "change"].forEach(function (eventName) {
       input.addEventListener(eventName, function () { input.removeAttribute("aria-invalid"); });
     });
+  });
+  var setRole = document.getElementById("workout-set-role");
+  if (setRole) setRole.addEventListener("change", function () {
+    var item = workoutPlanItem($("#workout-set-exercise").value);
+    if (!item) return;
+    applyWorkoutGroup(item, workoutGroupForRole(item, setRole.value));
   });
   var endForm = document.getElementById("workout-end-form");
   if (endForm) endForm.addEventListener("submit", submitWorkoutEnd);

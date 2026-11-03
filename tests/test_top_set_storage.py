@@ -94,8 +94,10 @@ def test_workout_role_is_logged_and_survives_an_ordinary_update() -> None:
                     "reps_high": 5,
                     "load_kg": 100.0,
                     "set_groups": [
-                        {"role": "top_set", "sets": 1, "load_kg": 120.0},
-                        {"role": "back_off", "sets": 1, "load_kg": 100.0},
+                        {"role": "top_set", "sets": 1, "load_kg": 120.0,
+                         "reps_low": 5, "reps_high": 5, "rir_target": 1},
+                        {"role": "back_off", "sets": 1, "load_kg": 100.0,
+                         "reps_low": 5, "reps_high": 5, "rir_target": 2},
                     ],
                 }
             ],

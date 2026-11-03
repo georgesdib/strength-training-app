@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
+
 from strength_coach import workout
-from strength_coach.prescribe import persistence
+from strength_coach.prescribe import generated, persistence
 from strength_coach.store import db
 
 PLAN = {
@@ -83,6 +85,45 @@ def test_store_plan_keeps_resolver_provenance():
         assert row["policy_digest"] == "policy-digest"
         assert row["input_hash"] == "input-digest"
         assert "squat_main" in row["generated_session_json"]
+    finally:
+        store.close()
+
+
+def test_invalid_set_groups_are_rejected_before_any_append():
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        plan = {
+            **PLAN,
+            "items": [{
+                **PLAN["items"][0],
+                "set_groups": [
+                    {"role": "top_set", "sets": 1, "load_kg": 110,
+                     "reps_low": 5, "reps_high": 5, "rir_target": 1},
+                    {"role": "back_off", "sets": 1, "load_kg": 90,
+                     "reps_low": 5, "reps_high": 5, "rir_target": 2},
+                ],
+            }],
+        }
+        with pytest.raises(ValueError, match="must equal item.sets"):
+            persistence.store_plan(conn, plan)
+        assert conn.execute("SELECT COUNT(*) FROM prescription").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM workout_session").fetchone()[0] == 0
+    finally:
+        store.close()
+
+
+def test_invalid_resolver_snapshot_is_rejected_before_any_append():
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        plan = {
+            **PLAN,
+            "generated_session": {"slots": [{"id": "squat_main"}]},
+        }
+        with pytest.raises(generated.SnapshotError, match="exercise_id"):
+            persistence.store_plan(conn, plan)
+        assert conn.execute("SELECT COUNT(*) FROM prescription").fetchone()[0] == 0
     finally:
         store.close()
 

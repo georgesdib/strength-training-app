@@ -1659,6 +1659,15 @@ def test_resolver_preview_uses_the_direct_prescription_response(server):
     assert "window.__lastPrescription = plan;" in js
 
 
+def test_workout_ui_renders_and_prefills_planned_set_groups(server):
+    _status, js = get(server, "/static/workout.js")
+    assert "workoutSetGroupsHtml(item)" in js
+    assert "workoutNextGroup" in js
+    assert "workoutGroupForRole" in js
+    assert "applyWorkoutGroup" in js
+    assert "set_role: $("#workout-set-role").value || null" in js
+
+
 def test_the_athlete_page_shows_the_tests_needed_table(server):
     # The table is rendered from the same /api/state payload the CLI builds; the browser
     # adds no gate logic of its own.

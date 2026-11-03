@@ -140,7 +140,11 @@ def slot_specs(snapshot: Mapping[str, Any] | None) -> tuple[Mapping[str, Any], .
     empty tuple. A snapshot that carries slots must be complete, unique and consistent with
     its assignment; anything else raises SnapshotError rather than falling back.
     """
-    if not snapshot or "slots" not in snapshot:
+    if snapshot is None:
+        return ()
+    if not isinstance(snapshot, Mapping):
+        raise SnapshotError("generated-session snapshot must be an object")
+    if "slots" not in snapshot:
         return ()
     raw = snapshot.get("slots")
     if not isinstance(raw, list) or not raw:

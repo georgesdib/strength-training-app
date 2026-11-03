@@ -47,6 +47,8 @@ def test_pre_step6_snapshot_without_slots_remains_legacy():
 def test_malformed_json_is_not_silently_treated_as_legacy():
     with pytest.raises(generated.SnapshotError, match="not valid JSON"):
         generated.load_snapshot("{not-json")
+    with pytest.raises(generated.SnapshotError, match="must be an object"):
+        generated.validate_snapshot("not-a-snapshot")
 
 
 @pytest.mark.parametrize(

@@ -37,6 +37,11 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **top-set execution integrity**: the Workflow plan now
+  renders top-set/back-off groups, prefills the next group's load/RIR/role, keeps plan group
+  edits consistent with item sets, clears stale groups on exercise swaps, and validates
+  set-group totals/roles before starting or persisting a workout. Resolver snapshots are
+  validated before any prescription append.
 - Deterministic template resolver **top-set invariant fix**: retired the unsupported
   `resolver.top_set.preserve_total_sets=false` option and made one top set plus back-offs
   always equal the item's working-set total. Historical profile rows with the retired key are
