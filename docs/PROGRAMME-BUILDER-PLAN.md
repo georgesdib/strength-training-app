@@ -1,7 +1,7 @@
 # Dynamic Template Resolver — implementation plan
 
 **Status:** **Steps 0–5 are complete 2026-11-01/02; Step 4C audit remediation is complete
-2026-11-02. Step 6 is not started.** The resolver is wired into the opt-in production path, the
+2026-11-02 and Step 5 remediation is complete 2026-11-03. Step 6 is not started.** The resolver is wired into the opt-in production path, the
 Settings -> Resolver panel and read-only preview are implemented, and the top-set structure is
 opt-in. The hinge maximal-week change is implemented. The resolver flag remains off by default.
 
@@ -1120,8 +1120,19 @@ the generic profile list. Scalar changes use the append-only settings profile; e
 resolver requires an explicit confirmation tick. The structural policy remains
 `config/template-resolver.v1.yaml`; saves validate the complete YAML, write atomically, create a
 timestamped backup and keep the newest 20 under the git-ignored `data/resolver-policy-backups/`.
+CLI and web previews use the same readiness gate; a current/future date requires a formed score
+unless the caller explicitly acknowledges an unknown/partial score. CLI policy/preview commands
+therefore expose `--allow-unknown-readiness`, and a false->true `resolver.enabled` transition
+requires `--resolver-enable-confirm` (or the equivalent profile/API field) at every interface.
+Restore selects the newest normal backup deterministically, creates a separate
+`template-resolver-prerestore-*` snapshot of the current policy first, and reports both names;
+pre-restore snapshots are not selectable by a later restore, so a restore cannot ping-pong onto
+the policy it just replaced. Backups are written to a temporary file in the backup directory,
+flushed/fsynced and atomically renamed; the active policy is replaced only after that succeeds.
 Preview is read-only and returns chosen candidates, alternatives, suggestion-only candidates,
-beam diagnostics, top-set structure and projected-week context; inline suitability ratings append
+beam diagnostics, top-set structure and projected-week context; the preview diff compares the
+full displayed prescription (assignment, sets, reps, load, RIR, rest, warm-ups, set groups,
+estimated time, volume/week context, warnings and top set), while inline suitability ratings append
 to `exercise_suitability` and rebuild the preview. Start hands the exact preview to the existing
 frozen-workflow start path. Minimal `resolver validate`, `resolver policy` and `resolver preview`
 CLI commands share the same core. No volume targets are duplicated in this panel.

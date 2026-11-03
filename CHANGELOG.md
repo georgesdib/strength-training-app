@@ -37,6 +37,13 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 5 remediation**: shared readiness/date enforcement now
+  covers CLI and web resolver previews with explicit `--allow-unknown-readiness`; policy backups
+  are written via fsynced temporary files and atomic rename, with active-policy replacement only
+  after a successful backup; `resolver.enabled` requires a shared false->true confirmation across
+  profile API, CLI and UI; restore uses a deterministic newest-normal-backup selection and a
+  non-selectable pre-restore snapshot; and the preview diff covers the full displayed prescription
+  rather than assignment/top-set only.
 - Deterministic template resolver **Step 5 Settings -> Resolver**: dedicated Settings panel for
   append-only resolver scalars with explicit enable confirmation and guarded-change handling;
   validated structural policy YAML editor with atomic writes, timestamped backups, digest display

@@ -1117,11 +1117,19 @@ def test_resolver_policy_and_preview_endpoints(server):
     assert data["ok"] is False
     assert data["stage"] == "dispatch"
 
+    status, body = post_status(server, "/api/settings/profile", {
+        "set": {"resolver.enabled": True},
+        "effective_from": "2024-01-01",
+    })
+    assert status == 400
+    assert "resolver.enabled" in body
+
     post(server, "/api/settings/profile", {
         "set": {
             "resolver.enabled": True,
             "resolver.eligibility.auto_requires_can_do": False,
         },
+        "resolver_enable_confirmed": True,
         "effective_from": "2024-01-01",
     })
     data = post(server, "/api/resolver/preview", {

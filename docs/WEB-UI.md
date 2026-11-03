@@ -227,10 +227,10 @@ also disables while saving and reports the number of marks written.
 | `GET /api/settings/drop/window?date=N` | whether per-session drop confirmation applies on that date; the Prescribe checkbox is hidden when false |
 | `POST /api/settings/llm` | save local LLM settings; blank key keeps the stored key |
 | `POST /api/settings/drop` | legacy drop-only save path; the consolidated volume panel uses `/api/settings/volume` |
-| `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset, effective_from, guard_confirmed and reason |
+| `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset, effective_from, guard_confirmed, reason and resolver_enable_confirmed (required for a false->true resolver.enabled transition) |
 | `GET /api/resolver/policy` | raw resolver policy YAML, path, digest, schema and newest backup metadata |
 | `POST /api/resolver/policy` | validate the complete YAML, back up the current file, atomically replace it and prune to the newest 20 backups |
-| `POST /api/resolver/policy/restore` | restore the latest validated policy backup, backing up the current file first |
+| `POST /api/resolver/policy/restore` | restore the newest normal validated policy backup; the current policy is snapshotted as `template-resolver-prerestore-*` and reported, and pre-restore snapshots are not later restore candidates |
 | `POST /api/resolver/preview` | read-only candidate/beam/evaluator preview; returns choices, alternatives, suggestions, top set, projected week and structured failure stages |
 | `GET /api/modalities` | module list with class, enabled source, dependencies, citations and factors |
 | `GET/POST /api/modalities/<id>` | module state or enabled/factor update; guarded modules need guard_confirmed and reason |

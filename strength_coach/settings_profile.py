@@ -154,6 +154,7 @@ def save(
     effective_from: str | None = None,
     guard_confirmed: bool = False,
     reason: str | None = None,
+    resolver_enable_confirmed: bool = False,
 ) -> dict[str, Any]:
     day = str(effective_from or dt.date.today().isoformat())
     requested = {str(key): value for key, value in (set_values or {}).items()}
@@ -167,6 +168,17 @@ def save(
         merged.pop(str(key), None)
     for key, value in requested.items():
         merged[key] = value
+    before = resolved_registry(_without_retired(inherited))
+    after = resolved_registry(merged)
+    if (
+        not bool(before.get("resolver.enabled"))
+        and bool(after.get("resolver.enabled"))
+        and not resolver_enable_confirmed
+    ):
+        raise ValueError(
+            "resolver.enabled requires explicit confirmation; pass "
+            "resolver_enable_confirmed / --resolver-enable-confirm"
+        )
     guarded = [
         key for key in merged
         if key == "spinal.override"

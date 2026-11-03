@@ -199,6 +199,10 @@ def main(argv: list[str] | None = None) -> int:
     profile.add_argument("--date", default=None, help="effective date (default today)")
     profile.add_argument("--guard-confirm", action="store_true",
                          help="confirm a guarded setting change")
+    profile.add_argument(
+        "--resolver-enable-confirm", action="store_true",
+        help="explicitly confirm a false->true resolver.enabled transition",
+    )
     profile.add_argument("--reason", default=None, help="required reason for guarded settings")
     resolver_cmd = sub.add_parser("resolver", help="validate policy and preview generated sessions")
     resolver_sub = resolver_cmd.add_subparsers(dest="resolver_action", required=True)
@@ -224,6 +228,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     resolver_preview.add_argument(
         "--top-set", choices=("ask", "on", "off"), default="ask",
+    )
+    resolver_preview.add_argument(
+        "--allow-unknown-readiness", action="store_true",
+        help="acknowledge an unknown/partial readiness score for a current/future date",
     )
     resolver_preview.add_argument("--json", action="store_true")
     resolver_validate = resolver_sub.add_parser(
@@ -626,13 +634,17 @@ def _cmd_run(args) -> int:
 
         # Readiness is required for a current/future workout: the score is part of the
         # prescription, not an optional afterthought. Historical dates stay reproducible.
-        if args.date >= datetime.date.today().isoformat():
-            assessment = readiness_score.compute(conn, args.date)
-            if assessment.status != "ready":
-                print(f"readiness required for {args.date}: {assessment.status} — "
-                      f"{assessment.basis}")
-                print("record it with 'strength-coach readiness set ...' (or the web form)")
-                return 2
+        try:
+            args.date = readiness_score.parse_date(args.date)
+        except ValueError as exc:
+            print(str(exc))
+            return 2
+        try:
+            readiness_score.require_ready(conn, args.date)
+        except readiness_score.ReadinessRequired as exc:
+            print(str(exc))
+            print("record it with 'strength-coach readiness set ...' (or the web form)")
+            return 2
 
         # V0-SCOPE §4.6: re-running the same run must append no duplicate artifacts.
         existing = conn.execute(
@@ -959,7 +971,10 @@ def _cmd_resolver(args) -> int:
             except ValueError as exc:
                 print(f"resolver policy restore failed: {exc}")
                 return 2
-            print(f"restored resolver policy · digest {state['digest']}")
+            source = state.get("restored_from") or {}
+            print(f"restored resolver policy from {source.get('name', 'backup')} · digest {state['digest']}")
+            if state.get("pre_restore_backup"):
+                print(f"previous policy saved as {state['pre_restore_backup']['name']}")
             return 0
         try:
             body = (
@@ -976,20 +991,44 @@ def _cmd_resolver(args) -> int:
         store = db.Store(args.db)
         try:
             conn = store.connection
+            try:
+                for_date = readiness_score.parse_date(args.date)
+            except ValueError as exc:
+                if args.json:
+                    print(json.dumps({"ok": False, "stage": "date", "message": str(exc)}))
+                else:
+                    print(f"resolver preview failed [date]: {exc}")
+                return 2
+            try:
+                readiness_score.require_ready(
+                    conn, for_date, allow_unknown=args.allow_unknown_readiness
+                )
+            except readiness_score.ReadinessRequired as exc:
+                if args.json:
+                    print(json.dumps({"ok": False, "stage": "readiness", "message": str(exc)}))
+                else:
+                    print(f"resolver preview failed [readiness]: {exc}")
+                return 2
             session_type = (
-                schedule_mod.next_session_type(conn, args.date)
+                schedule_mod.next_session_type(conn, for_date)
                 if args.session_type == "auto" else args.session_type
             )
             top_set = None if args.top_set == "ask" else args.top_set == "on"
             try:
                 resolved = resolver.build_resolved(
                     conn,
-                    for_date=args.date,
+                    for_date=for_date,
                     session_type=session_type,
                     inputs=EvaluationInputs(top_set_requested=top_set),
                 )
             except resolver.ResolverBuildError as exc:
-                print(f"resolver preview failed [{exc.stage}]: {exc}")
+                if args.json:
+                    print(json.dumps({
+                        "ok": False, "stage": exc.stage, "message": str(exc),
+                        "beam": exc.beam_result.as_dict() if exc.beam_result else None,
+                    }))
+                else:
+                    print(f"resolver preview failed [{exc.stage}]: {exc}")
                 return 2
             prescription = resolved.prescription
             if args.json:
@@ -1019,7 +1058,7 @@ def _cmd_resolver(args) -> int:
                 }
                 print(json.dumps(payload, indent=2, default=str))
                 return 0
-            print(f"resolver preview {args.date} ({prescription.session_type})")
+            print(f"resolver preview {for_date} ({prescription.session_type})")
             for slot in resolved.pools.template.slots:
                 chosen = dict(resolved.assignment).get(slot.id)
                 alternatives = [
@@ -1108,6 +1147,7 @@ def _cmd_settings(args) -> int:
             effective_from=date,
             guard_confirmed=args.guard_confirm,
             reason=args.reason,
+            resolver_enable_confirmed=args.resolver_enable_confirm,
         )
         print(f"settings profile {data['profile_id']} effective {data['effective_from']}; "
               f"{len(data['overrides'])} override(s)")

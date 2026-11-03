@@ -87,6 +87,7 @@ from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import test_cadence as test_cadence_feature
 from strength_coach.features import volume as volume_feature
+from strength_coach.features.readiness_score import ReadinessRequired
 from strength_coach.prescribe import (
     build_prescription,
     fatigue_selection,
@@ -614,10 +615,6 @@ def programme_job(job_id: str) -> dict:
         if job is None:
             raise KeyError("programme job not found")
         return dict(job)
-
-
-class ReadinessRequired(Exception):
-    """The date needs a usable readiness score before a workout is generated."""
 
 
 def analysis_readonly_connection(db_path: str | Path) -> sqlite3.Connection:
@@ -1619,10 +1616,15 @@ class Handler(BaseHTTPRequestHandler):
                 effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
                 guard_confirmed=_truth(body.get("guard_confirmed")),
                 reason=(str(body.get("reason")) if body.get("reason") else None),
+                resolver_enable_confirmed=_truth(
+                    body.get("resolver_enable_confirmed")
+                ),
             )
         except ValueError as exc:
             text = str(exc)
-            if "guarded settings require confirmation" in text:
+            if "resolver.enabled requires explicit confirmation" in text:
+                field = "resolver_enable_confirmed"
+            elif "guarded settings require confirmation" in text:
                 field = "guard_confirmed"
             elif "guarded settings require a reason" in text:
                 field = "reason"
@@ -2297,20 +2299,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def _resolver_preview(self, conn, body: dict) -> dict:
         """Build a read-only resolver preview with choices and structured failures."""
-        for_date = str(body.get("date") or datetime.date.today().isoformat())
+        for_date = readiness_score.parse_date(
+            str(body.get("date") or datetime.date.today().isoformat())
+        )
         requested_type = body.get("session_type")
         session_type = (
             schedule_mod.next_session_type(conn, for_date)
             if requested_type in (None, "", "auto") else str(requested_type)
         )
         allow_unknown = _truth(body.get("allow_unknown_readiness"))
-        if for_date >= datetime.date.today().isoformat():
-            assessment = readiness_score.compute(conn, for_date)
-            if assessment.status != "ready" and not allow_unknown:
-                raise ReadinessRequired(
-                    f"readiness required for {for_date}: {assessment.status} — "
-                    f"{assessment.basis}; acknowledge an unknown/partial score to proceed"
-                )
+        readiness_score.require_ready(
+            conn, for_date, allow_unknown=allow_unknown
+        )
         if _truth(body.get("apply_selection")) or _truth(body.get("selection_llm")) or (
             _truth(body.get("selection_confirmed"))
         ):
@@ -2417,20 +2417,18 @@ class Handler(BaseHTTPRequestHandler):
         return payload
 
     def _prescribe(self, conn, body: dict) -> dict:
-        for_date = str(body.get("date") or datetime.date.today().isoformat())
+        for_date = readiness_score.parse_date(
+            str(body.get("date") or datetime.date.today().isoformat())
+        )
         requested_type = body.get("session_type")
         session_type = (
             schedule_mod.next_session_type(conn, for_date)
             if requested_type in (None, "", "auto") else str(requested_type)
         )
         allow_unknown = _truth(body.get("allow_unknown_readiness"))
-        if for_date >= datetime.date.today().isoformat():
-            assessment = readiness_score.compute(conn, for_date)
-            if assessment.status != "ready" and not allow_unknown:
-                raise ReadinessRequired(
-                    f"readiness required for {for_date}: {assessment.status} — "
-                    f"{assessment.basis}; acknowledge an unknown/partial score to proceed"
-                )
+        readiness_score.require_ready(
+            conn, for_date, allow_unknown=allow_unknown
+        )
         apply_selection = _truth(body.get("apply_selection"))
         selection_confirmed = _truth(body.get("selection_confirmed")) and apply_selection
         selection_llm = _truth(body.get("selection_llm")) and apply_selection

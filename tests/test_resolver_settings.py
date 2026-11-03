@@ -31,6 +31,32 @@ def test_resolver_defaults_are_registered_and_neutral() -> None:
     assert "resolver.weights.preference" not in snapshot.values
 
 
+def test_resolver_enable_requires_shared_confirmation() -> None:
+    store = db.Store(path=":memory:")
+    try:
+        with pytest.raises(ValueError, match="resolver.enabled requires explicit confirmation"):
+            settings_profile.save(
+                store.connection,
+                set_values={"resolver.enabled": True},
+                effective_from="2024-01-01",
+            )
+        state = settings_profile.save(
+            store.connection,
+            set_values={"resolver.enabled": True},
+            effective_from="2024-01-01",
+            resolver_enable_confirmed=True,
+        )
+        assert state["resolved"]["resolver.enabled"] is True
+        state = settings_profile.save(
+            store.connection,
+            set_values={"resolver.rotation.main": 0.3},
+            effective_from="2024-01-02",
+        )
+        assert state["resolved"]["resolver.enabled"] is True
+    finally:
+        store.close()
+
+
 def test_resolver_settings_are_profile_backed() -> None:
     store = db.Store(path=":memory:")
     try:

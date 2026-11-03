@@ -558,6 +558,7 @@ async function saveResolverDraft() {
         set,
         reason: reason || null,
         guard_confirmed: $("#settings-resolver-guard").checked,
+        resolver_enable_confirmed: $("#settings-resolver-enable-confirm").checked,
       }),
     });
     msg.textContent = "Saved a new profile version.";
@@ -628,7 +629,10 @@ async function restoreResolverPolicy() {
   try {
     const data = await api("/api/resolver/policy/restore", { method: "POST", body: "{}" });
     renderResolverPolicy(data);
-    msg.textContent = "Restored the latest backup.";
+    const source = data.restored_from?.name || "the latest backup";
+    const previous = data.pre_restore_backup?.name;
+    msg.textContent = "Restored " + source +
+      (previous ? "; previous policy saved as " + previous + "." : ".");
     notify("Resolver policy restored.");
   } catch (error) {
     msg.textContent = error.message;
@@ -705,6 +709,18 @@ function renderResolverPreview(data) {
     "</pre></details></div>";
 }
 
+function resolverDiffValue(key, value) {
+  if (value === null || value === undefined) return "—";
+  if (key === "load_kg") return fmt(value);
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function resolverItemKey(item, index) {
+  return item.order_index != null ? "order:" + item.order_index :
+    item.exercise_id ? "exercise:" + item.exercise_id : "index:" + index;
+}
+
 function renderResolverPreviewDiff(previous, current) {
   const box = $("#settings-resolver-preview-diff");
   if (!box) return;
@@ -712,20 +728,76 @@ function renderResolverPreviewDiff(previous, current) {
     box.textContent = "";
     return;
   }
-  const before = {};
-  (previous.choices || []).forEach((choice) => { before[choice.slot_id] = choice.chosen; });
-  const changes = (current.choices || []).filter(
-    (choice) => before[choice.slot_id] !== choice.chosen
-  ).map((choice) => "<div><code>" + esc(choice.slot_id) + "</code>: " +
-    esc(before[choice.slot_id] || "—") + " → " + esc(choice.chosen) + "</div>");
-  const topBefore = JSON.stringify(previous.top_set || null);
-  const topAfter = JSON.stringify(current.top_set || null);
-  if (topBefore !== topAfter) {
-    changes.push("<div><strong>Top set changed</strong></div>");
+  const before = previous.prescription;
+  const after = current.prescription;
+  if (!before || !after) {
+    box.textContent = "Prescription diff unavailable for this preview.";
+    return;
   }
-  box.innerHTML = changes.length ? "<strong>Changes since previous preview</strong>" +
-    changes.join("") : "No assignment or top-set changes since the previous preview.";
+  const changes = [];
+  const oldItems = {};
+  (before.items || []).forEach((item, index) => {
+    oldItems[resolverItemKey(item, index)] = item;
+  });
+  const currentKeys = new Set();
+  (after.items || []).forEach((item, index) => {
+    const key = resolverItemKey(item, index);
+    currentKeys.add(key);
+    const prior = oldItems[key];
+    const name = item.exercise_id || key;
+    if (!prior) {
+      changes.push("<div><strong>" + esc(name) + "</strong>: added to the prescription</div>");
+      return;
+    }
+    const fieldLabels = [
+      ["sets", "sets"], ["reps_low", "reps low"], ["reps_high", "reps high"],
+      ["load_kg", "load"], ["rir_target", "RIR"], ["rest_s", "rest"],
+    ];
+    fieldLabels.forEach(([field, label]) => {
+      const left = prior[field];
+      const right = item[field];
+      if (JSON.stringify(left ?? null) !== JSON.stringify(right ?? null)) {
+        changes.push("<div><code>" + esc(name) + "</code> " + label + ": " +
+          esc(resolverDiffValue(field, left)) + " → " +
+          esc(resolverDiffValue(field, right)) + "</div>");
+      }
+    });
+    if (JSON.stringify(prior.warmup || []) !== JSON.stringify(item.warmup || [])) {
+      changes.push("<div><code>" + esc(name) + "</code>: warm-ups changed</div>");
+    }
+    if (JSON.stringify(prior.set_groups || []) !== JSON.stringify(item.set_groups || [])) {
+      changes.push("<div><code>" + esc(name) + "</code>: set groups changed</div>");
+    }
+  });
+  (before.items || []).forEach((item, index) => {
+    const key = resolverItemKey(item, index);
+    if (!currentKeys.has(key)) {
+      changes.push("<div><strong>" + esc(item.exercise_id || key) +
+        "</strong>: removed from the prescription</div>");
+    }
+  });
+  const timeBefore = before.notes?.session_time?.estimated_minutes;
+  const timeAfter = after.notes?.session_time?.estimated_minutes;
+  if (JSON.stringify(timeBefore ?? null) !== JSON.stringify(timeAfter ?? null)) {
+    changes.push("<div><strong>Estimated session time</strong>: " +
+      esc(resolverDiffValue("estimated_minutes", timeBefore)) + " → " +
+      esc(resolverDiffValue("estimated_minutes", timeAfter)) + "</div>");
+  }
+  if (JSON.stringify(previous.projected_week ?? null) !==
+      JSON.stringify(current.projected_week ?? null)) {
+    changes.push("<div><strong>Projected volume/week</strong> changed</div>");
+  }
+  if (JSON.stringify(before.warnings || []) !== JSON.stringify(after.warnings || [])) {
+    changes.push("<div><strong>Warnings</strong> changed</div>");
+  }
+  if (JSON.stringify(previous.top_set ?? null) !== JSON.stringify(current.top_set ?? null)) {
+    changes.push("<div><strong>Top set</strong> changed</div>");
+  }
+  box.innerHTML = changes.length
+    ? "<strong>Prescription changes since previous preview</strong>" + changes.join("")
+    : "No prescription changes since the previous preview.";
 }
+
 
 async function runResolverPreview() {
   const box = $("#settings-resolver-preview");

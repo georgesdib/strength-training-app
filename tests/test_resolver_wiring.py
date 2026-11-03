@@ -109,6 +109,7 @@ def test_enabled_resolver_dispatches_and_attaches_provenance(monkeypatch) -> Non
         settings_profile.save(
             instance.connection,
             set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
             effective_from="2024-01-01",
         )
         monkeypatch.setattr(
@@ -150,6 +151,7 @@ def test_enabled_resolver_rejects_selection_override(monkeypatch) -> None:
         settings_profile.save(
             instance.connection,
             set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
             effective_from="2024-01-01",
         )
         monkeypatch.setattr(
@@ -183,6 +185,7 @@ def test_explicit_resolver_mode_rejects_a_template() -> None:
         settings_profile.save(
             instance.connection,
             set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
             effective_from="2024-01-01",
         )
         base = templates.SessionTemplate.load("squat")
@@ -208,6 +211,7 @@ def test_false_mode_stays_on_fixed_path_even_when_enabled() -> None:
         settings_profile.save(
             instance.connection,
             set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
             effective_from="2024-01-01",
         )
         prescription = build_prescription(
@@ -250,6 +254,7 @@ def test_assignment_search_failure_has_a_stage(monkeypatch) -> None:
         settings_profile.save(
             instance.connection,
             set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
             effective_from="2024-01-01",
         )
         monkeypatch.setattr(
@@ -285,6 +290,7 @@ def test_actual_volume_drop_is_not_a_successful_assignment(monkeypatch) -> None:
                 "resolver.enabled": True,
                 "resolver.eligibility.auto_requires_can_do": False,
             },
+            resolver_enable_confirmed=True,
             effective_from="2026-10-01",
         )
         repositories.append_athlete_profile(
@@ -320,6 +326,7 @@ def test_final_structural_integrity_is_rechecked(monkeypatch) -> None:
         settings_profile.save(
             instance.connection,
             set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
             effective_from="2024-01-01",
         )
         monkeypatch.setattr(
@@ -352,6 +359,7 @@ def test_evaluation_exception_has_the_evaluation_stage(monkeypatch) -> None:
         settings_profile.save(
             instance.connection,
             set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
             effective_from="2024-01-01",
         )
         monkeypatch.setattr(
@@ -492,6 +500,7 @@ def test_resolver_failure_has_a_structured_stage(monkeypatch) -> None:
         settings_profile.save(
             instance.connection,
             set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
             effective_from="2024-01-01",
         )
         monkeypatch.setattr(

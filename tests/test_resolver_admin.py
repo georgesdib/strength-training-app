@@ -24,6 +24,7 @@ def test_policy_save_creates_backups_and_prunes_to_twenty(tmp_path) -> None:
     state = resolver_admin.policy_state(source, backups)
     assert len(state["backups"]) == 20
     assert len(list(backups.glob("template-resolver-*.yaml"))) == 20
+    assert not list(backups.glob(".*.tmp"))
 
 
 def test_invalid_policy_is_not_written_or_backed_up(tmp_path) -> None:
@@ -51,6 +52,48 @@ def test_restore_latest_policy_backup(tmp_path) -> None:
     restored = resolver_admin.restore_latest(path=source, backups=backups)
     assert "# first" in restored["yaml"]
     assert "# second" not in restored["yaml"]
+    assert restored["restored_from"]["name"]
+    assert restored["pre_restore_backup"]["name"].startswith(
+        "template-resolver-prerestore-"
+    )
+    pre = tmp_path / "backups" / restored["pre_restore_backup"]["name"]
+    assert "# second" in pre.read_text(encoding="utf-8")
+    assert all(
+        row["name"] != restored["pre_restore_backup"]["name"]
+        for row in restored["backups"]
+    )
+
+
+def test_backup_failure_does_not_replace_the_active_policy(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "policy.yaml"
+    backups = tmp_path / "backups"
+    original = _body()
+    source.write_text(original, encoding="utf-8")
+
+    def fail(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(resolver_admin, "_backup", fail)
+    with pytest.raises(OSError, match="disk full"):
+        resolver_admin.save_policy(
+            original + "\n# changed\n", path=source, backups=backups
+        )
+    assert source.read_text(encoding="utf-8") == original
+    assert not list(backups.glob("template-resolver-*.yaml"))
+
+
+def test_invalid_restore_backup_does_not_touch_active_policy(tmp_path) -> None:
+    source = tmp_path / "policy.yaml"
+    backups = tmp_path / "backups"
+    original = _body()
+    source.write_text(original, encoding="utf-8")
+    backups.mkdir()
+    (backups / "template-resolver-99999999-000000-000000.yaml").write_text(
+        "schema_version: '9.9.9'\n", encoding="utf-8"
+    )
+    with pytest.raises(resolver_policy.ResolverPolicyError):
+        resolver_admin.restore_latest(path=source, backups=backups)
+    assert source.read_text(encoding="utf-8") == original
 
 
 def test_policy_state_includes_digest_and_backup_metadata(tmp_path) -> None:
