@@ -116,6 +116,25 @@ fatigue_signals:
   - Do not treat the ratio as an injury-risk rule (LIM-56).
   - Do not edit the reviewed demand file; the local overlay is for your own ratings.
 
+injury_attribution_phase3:
+  label: Phase 3 — Exercise-level symptom research
+  status: planned
+  doc: docs/INJURY-ATTRIBUTION-PLAN.md
+  summary: Unscheduled research follow-up; Phase 1–2 are closed.
+  why: >
+    A descriptive exercise-level symptom analysis is a separate research question, not
+    unfinished attribution work. It must not become a predictor, a suitability rule or a
+    prescription change without a pre-registered screen and a separate decision.
+  steps:
+  - Wait for enough prospective symptom and exposure data to make a descriptive screen meaningful.
+  - Pre-register the question, outcome window, confounders and analysis before looking at results.
+  - Report exposure and symptom counts with missingness and uncertainty; classify the result as descriptive only.
+  - Record a separate decision before any product behaviour is considered.
+  dont:
+  - Do not use athlete attribution as the label source; it is a suspicion, not a cause.
+  - Do not create a risk score, predictor or automatic selection/load change.
+  - Do not start this analysis as a reason to reopen Phase 1 or Phase 2.
+
 phase5a_review:
   label: Phase 5A — Prospective validation review
   start_date: "2026-10-30"

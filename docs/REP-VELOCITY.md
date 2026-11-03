@@ -101,7 +101,23 @@ workout, it is descriptive.
 - End screen: per-set first/last/loss table.
 - Evidence: [REP-VELOCITY-EVIDENCE.md](REP-VELOCITY-EVIDENCE.md).
 
-## 7. Tests
+## 7. How to use it
+
+1. Record the workout with the required set-level CSV/mean. The per-rep table is optional and
+   does not replace it.
+2. Export the per-rep CSV from the device.
+3. In Workout mode, paste/choose the main CSV and the per-rep CSV in the same import panel;
+   preview before applying.
+4. The preview shows the optional per-rep rows; matching is by canonical exercise + set number.
+   An unmatched set, unsupported metric, duplicate rep or value above `Reps` must be fixed
+   before apply.
+5. After apply, use the end-screen **Per-rep velocity** table and **Progress → Per-rep
+   velocity**. The cross-session report shows correlations only at `n >= 10` paired
+   observations; `insufficient` means collect more sessions, not that a feature is missing.
+6. Treat every output as descriptive. The set-level mean remains the VBT calibration input;
+   per-rep data does not set a velocity target, RIR or load.
+
+## 8. Tests
 
 - no per-rep table → current import unchanged;
 - blank mean only;

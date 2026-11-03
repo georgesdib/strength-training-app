@@ -18,6 +18,7 @@ The load factor is deliberately small and explicit. Nothing here writes a prescr
 
 from __future__ import annotations
 
+import datetime as dt
 import statistics
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
@@ -235,6 +236,42 @@ def _override_categories(
         scores[category] = value
         factors[category] = factor_for(value)
     return scores, factors
+
+
+class ReadinessRequired(ValueError):
+    """A current/future prescription date lacks a usable readiness score."""
+
+
+def parse_date(value: str, *, field: str = "date") -> str:
+    """Validate and normalise one ISO date at the shared CLI/web boundary."""
+    try:
+        return dt.date.fromisoformat(str(value)).isoformat()
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} must be an ISO date (YYYY-MM-DD)") from exc
+
+
+def require_ready(
+    conn,
+    on_date: str,
+    *,
+    allow_unknown: bool = False,
+    current_only: bool = True,
+) -> ReadinessAssessment:
+    """Apply the canonical readiness gate without inventing a second interpretation.
+
+    Historical dates remain reproducible. A current/future date needs a formed score unless the
+    caller explicitly acknowledges an unknown/partial score.
+    """
+    day = parse_date(on_date)
+    if current_only and day < dt.date.today().isoformat():
+        return compute(conn, day)
+    assessment = compute(conn, day)
+    if assessment.status != "ready" and not allow_unknown:
+        raise ReadinessRequired(
+            f"readiness required for {day}: {assessment.status} — "
+            f"{assessment.basis}; acknowledge an unknown/partial score to proceed"
+        )
+    return assessment
 
 
 def compute(conn, on_date: str, config: readiness_config.ReadinessConfig | None = None) -> ReadinessAssessment:

@@ -1,7 +1,8 @@
 # W3 — MODIFIER INTERACTION MATRIX
 
-**Status:** audit completed and all six confirmed defects fixed 2026-10-23. Regression tests
-in `tests/test_w3_interactions.py`.
+**Status:** audit completed and all six confirmed defects fixed 2026-10-23. A broader
+768-case matrix ran on 2026-10-31 and now has zero flags after three composition fixes; results
+are in [`W3-INTERACTION-MATRIX-2026-10-31.md`](W3-INTERACTION-MATRIX-2026-10-31.md). LIM-30 is closed.
 **Scope:** readiness, continuity, deload, MRV/volume, constraints, back flare, selection and
 minimum session.
 **Method:** synthetic fixtures; no personal training data.

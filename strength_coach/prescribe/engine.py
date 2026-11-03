@@ -39,11 +39,12 @@ from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import config as config_mod
 from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.prescribe import deload as deload_mod
-from strength_coach.prescribe import loads, templates, warmup
+from strength_coach.prescribe import loads, resolver_policy, resolver_settings, templates, warmup
 from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import technique_throttle as technique_throttle_mod
+from strength_coach.prescribe import top_set as top_set_mod
 from strength_coach.prescribe import undulation as undulation_mod
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
@@ -79,6 +80,8 @@ def build_prescription(
     technique_throttle_pattern: str | Collection[str] | None = None,
     deload_decision: Any | None = None,
     drop_confirmed: bool = False,
+    top_set_requested: bool | None = None,
+    use_resolver: bool | None = None,
     projected_items: tuple[Mapping[str, Any], ...] = (),
     projected_sessions: int = 0,
 ) -> Prescription:
@@ -87,8 +90,71 @@ def build_prescription(
     `history` and `vbt` are optional precomputed inputs for callers that build more than one
     prescription from the same past (the programme forecast): the enriched frame and the VBT
     calibration do not change with the forecast date, so recomputing them per entry is waste.
+    `use_resolver=None` follows the stored flag, `False` forces the fixed template path (used by
+    the evaluator and forecast) and `True` requires the resolver.
     """
+    resolver_enabled = False
+    if use_resolver is not False:
+        resolver_enabled = resolver_settings.ResolverSettings.load(conn, for_date).enabled
+        if use_resolver is True:
+            if not resolver_enabled:
+                from strength_coach.prescribe.resolver import ResolverBuildError
+
+                raise ResolverBuildError(
+                    "dispatch",
+                    "resolver mode was explicitly requested but resolver.enabled is false; "
+                    "enable Settings -> Resolver or pass use_resolver=False",
+                )
+            if template is not None:
+                from strength_coach.prescribe.resolver import ResolverBuildError
+
+                raise ResolverBuildError(
+                    "dispatch",
+                    "resolver mode cannot accept an explicit template; omit template or "
+                    "pass use_resolver=False",
+                )
+        elif resolver_enabled and template is not None:
+            from strength_coach.prescribe.resolver import ResolverBuildError
+
+            raise ResolverBuildError(
+                "dispatch",
+                "resolver.enabled is on but an explicit template was supplied; pass "
+                "use_resolver=False for the fixed-template path",
+            )
+    if resolver_enabled:
+        from strength_coach.prescribe import resolver
+        from strength_coach.prescribe.evaluator import EvaluationInputs
+
+        options = EvaluationInputs(
+            document=document,
+            thresholds=thresholds,
+            undulation=undulation,
+            history=history,
+            vbt=vbt,
+            readiness_config=readiness_config,
+            apply_selection=apply_selection,
+            selection_chooser=selection_chooser,
+            selection_confirmed=selection_confirmed,
+            minimum_session=minimum_session,
+            minimum_target_minutes=minimum_target_minutes,
+            minimum_include_main=minimum_include_main,
+            technique_throttle=technique_throttle,
+            technique_throttle_pattern=technique_throttle_pattern,
+            deload_decision=deload_decision,
+            drop_confirmed=drop_confirmed,
+            top_set_requested=top_set_requested,
+            projected_items=projected_items,
+            projected_sessions=projected_sessions,
+        )
+        return resolver.build_resolved(
+            conn,
+            for_date=for_date,
+            session_type=session_type,
+            inputs=options,
+        ).prescription
+
     resolved = settings_profile.feature_settings(conn, for_date)
+    resolver_cfg = resolver_settings.ResolverSettings.load(conn, for_date)
     document = document or load_document()
     thresholds = thresholds or resolved.thresholds
     budget_config = volume_budget_mod.BudgetConfig.load(conn=conn, on_date=for_date)
@@ -226,6 +292,31 @@ def build_prescription(
         )
         warnings.extend(dup_warnings)
 
+    base_primary_rir = next(
+        (
+            int(item.rir_target)
+            for item in items
+            if item.exercise_id == template.primary_exercise and item.rir_target is not None
+        ),
+        None,
+    )
+    primary_scheme: str | None = None
+    if dup_plan:
+        primary_scheme = str(dup_plan.get("main") or "") or None
+        if primary_scheme is not None:
+            schemes = schemes_mod.Schemes.load()
+            primary_item = next(
+                (item for item in items if item.exercise_id == template.primary_exercise),
+                None,
+            )
+            if primary_item is not None and not schemes.applicable(
+                primary_scheme,
+                exercise_id=primary_item.exercise_id,
+                essential=primary_item.essential,
+                maximal_hinge_allowed=resolved.maximal_hinge_allowed,
+            ):
+                primary_scheme = "strength"
+
     fallback_level = "full"
     # Injury status is needed for the readiness ceiling, so compute it before applying the
     # readiness factor. It is also used later for advisory warnings.
@@ -266,10 +357,12 @@ def build_prescription(
 
     flare_note: dict[str, list[str]] = {}
     if context.symptom_flare is True:
-        # The effort hold was applied at build time; this pass applies the erector dose
-        # ceiling after readiness, so a readiness set cut is not undone (DEC-SPINE-07).
+        # Effort hold runs after readiness; the erector dose ceiling follows it. Keeping the
+        # hold out of build_item stops a low-readiness case from solving load at a harder RIR
+        # and then displaying a higher RIR (DEC-BACK-03).
+        items, flare_hold = _apply_back_flare_effort(tuple(items), context, thresholds)
         items, flare_dose = _apply_back_flare_dose(tuple(items), context, thresholds)
-        held = [item.exercise_id for item in items if item.flare == "hold"]
+        held = list(flare_hold)
         reviewed = [item.exercise_id for item in items if item.flare == "reviewed"]
         parts = []
         if held:
@@ -308,6 +401,68 @@ def build_prescription(
     warnings.extend(gap_warnings)
     items, stack_warnings = _cap_automatic_load_stack(tuple(items))
     warnings.extend(stack_warnings)
+
+    top_set_note = None
+    primary_item = next(
+        (item for item in items if item.exercise_id == template.primary_exercise), None
+    )
+    if primary_item is not None:
+        final_primary_rir = primary_item.rir_target
+        rir_bump = 0
+        if (
+            base_primary_rir is not None
+            and final_primary_rir is not None
+            and int(final_primary_rir) > int(base_primary_rir)
+        ):
+            rir_bump = int(final_primary_rir) - int(base_primary_rir)
+        profile = queries.athlete_profile(conn) or {}
+        # The resolver policy is only needed when the structure is actually requested or
+        # pre-selected. Ask/off keeps the fixed path independent of resolver configuration and
+        # avoids loading a policy during synthetic-template engine tests.
+        if resolver_cfg.top_set_mode == "off":
+            top_set_note = {
+                "status": "not_applied",
+                "reason": "top set mode is off",
+                "applied": False,
+            }
+        elif top_set_requested is None and resolver_cfg.top_set_mode == "ask":
+            top_set_note = {
+                "status": "not_applied",
+                "reason": "top set offered; awaiting confirmation",
+                "applied": False,
+            }
+        else:
+            policy_data = resolver_policy.ResolverPolicy.load()
+            top_plan = top_set_mod.plan_top_set(
+                primary_item,
+                settings=resolver_cfg,
+                eligible_lifts=policy_data.top_set.eligible_lifts,
+                primary_exercise=template.primary_exercise,
+                scheme=primary_scheme,
+                competition_date=profile.get("competition_date"),
+                for_date=for_date,
+                deload=deload_decision is not None,
+                requested=top_set_requested,
+                rir_bump=rir_bump,
+            )
+            top_set_note = {
+                "status": top_plan.status,
+                "reason": top_plan.reason,
+                "applied": top_plan.applied,
+                "top_set_rir": top_plan.top_set_rir,
+                "top_set_load_kg": top_plan.top_set_load,
+                "backoff_load_kg": top_plan.backoff_load,
+            }
+            if top_plan.applied:
+                replaced = top_set_mod.apply_plan(primary_item, top_plan)
+                items = [
+                    replaced if item.order_index == replaced.order_index else item
+                    for item in items
+                ]
+                warnings.append(f"top set: {top_plan.reason}")
+            elif top_set_requested is True:
+                warnings.append(f"top set not applied: {top_plan.reason}")
+
 
     # The volume budget is off by default and enabled only in the athlete profile. It moves
     # non-essential sets; a safety cut is skipped, not re-added (MOD-VOL-003). In drop mode the
@@ -364,24 +519,6 @@ def build_prescription(
         context, tuple(items), for_date, document
     )
     warnings.extend(spine_warnings)
-
-    # Deload runs before the minimum session and before final validation. Its load factor is
-    # compared with the cumulative readiness/continuity factor, never multiplied on top.
-    deload_note = None
-    if deload_decision is not None:
-        primary = {
-            item.exercise_id for item in items
-            if context.entity(item.exercise_id).get("primary_compound", False)
-        }
-        items, deload_warning, deload_note, deload_level = deload_mod.apply_items(
-            tuple(items), deload_decision, config=resolved.deload,
-            prior_load_factors=load_factors,
-            primary_compounds=primary,
-        )
-        if deload_warning:
-            warnings.append(deload_warning)
-        if deload_note is not None:
-            fallback_level = deload_level
 
     # MOD-TECH-001 is a user request, so it runs after the automatic modifiers and compares
     # with their cumulative load factor instead of multiplying on top. It must precede the
@@ -474,6 +611,34 @@ def build_prescription(
                 key: value for key, value in result.items() if key != "items"
             }
 
+    # Deload runs after the minimum-session trim and before final validation. A planned
+    # reduction must not restore work the minimum session removed (DEC-W3-02). Its load
+    # factor is compared with the cumulative readiness/continuity factor, never multiplied.
+    deload_note = None
+    if deload_decision is not None:
+        primary = {
+            item.exercise_id for item in items
+            if context.entity(item.exercise_id).get("primary_compound", False)
+        }
+        items, deload_warning, deload_note, deload_level = deload_mod.apply_items(
+            tuple(items), deload_decision, config=resolved.deload,
+            # Use the item's current factor, including technique throttle. Passing only the
+            # readiness/continuity map made normal readiness multiply technique x deload
+            # while low readiness skipped technique, so a harder day could end up lighter.
+            prior_load_factors={
+                item.exercise_id: item.load_factor for item in items
+            },
+            primary_compounds=primary,
+        )
+        if deload_warning:
+            warnings.append(deload_warning)
+        if deload_note is not None:
+            fallback_level = deload_level
+
+    items, top_resize_warnings = _resize_top_set_groups(
+        tuple(items), protect=resolver_cfg.top_set_protect_top_set
+    )
+    warnings.extend(top_resize_warnings)
     load_stack = _load_stack(items)
     if load_stack:
         worst = load_stack[0]
@@ -614,6 +779,7 @@ def build_prescription(
             "drop": drop_plan.get("note") if drop_applied else None,
             "drop_confirmed": bool(drop_confirmed),
             "minimum_session": minimum_note,
+            "top_set": top_set_note,
             "technique_throttle": technique_note,
             "load_stack": load_stack,
         "session_time": session_time,
@@ -739,6 +905,54 @@ def _apply_under_mev(
     return tuple(out), (warning,), {
         "applied": True, "changes": changed, "exercise_ids": changed_ids,
     }
+
+
+def _resize_top_set_groups(
+    items: tuple[PrescriptionItem, ...], *, protect: bool = True
+) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...]]:
+    """Keep top-set/back-off roles consistent after later set modifiers.
+
+    The top set is protected: volume, minimum-session and safety set cuts reduce the back-off
+    group first. If only one set remains, the top set is retained alone rather than silently
+    turning the structure into a straight set.
+    """
+    out: list[PrescriptionItem] = []
+    warnings: list[str] = []
+    for item in items:
+        groups = item.set_groups
+        top = next((group for group in groups if group.role == top_set_mod.TOP_SET), None)
+        if top is None:
+            out.append(item)
+            continue
+        if item.sets < 2:
+            if not protect:
+                # The setting explicitly allows a later trim to remove the protected top
+                # set; keep the exercise as a straight set rather than a stale role.
+                out.append(replace(item, set_groups=()))
+                continue
+            if item.load_kg != top.load_kg or item.rir_target != top.rir_target:
+                warnings.append(
+                    f"top set for {item.exercise_id}: only one set remains; kept the top set"
+                )
+            out.append(replace(
+                item, sets=1, set_groups=(top,), load_kg=top.load_kg,
+                rir_target=top.rir_target,
+            ))
+            continue
+        backoff = next(
+            (group for group in groups if group.role == top_set_mod.BACK_OFF), None
+        )
+        if backoff is None:
+            out.append(item)
+            continue
+        if backoff.sets != item.sets - 1:
+            out.append(replace(
+                item,
+                set_groups=(top, replace(backoff, sets=item.sets - 1)),
+            ))
+            continue
+        out.append(item)
+    return tuple(out), tuple(warnings)
 
 
 def _apply_volume_cap(
@@ -1439,6 +1653,7 @@ def _apply_undulation(
         exercise for slot in template.slots if slot.power for exercise in slot.exercises
     }
     out: list[PrescriptionItem] = []
+    hinge_warnings: list[str] = []
     for item in items:
         if item.exercise_id in power_ids:
             out.append(item)
@@ -1454,6 +1669,16 @@ def _apply_undulation(
         ):
             name = "strength" if item.essential else "accessory"
         scheme = schemes.get(name)
+        pattern = context.entity(item.exercise_id).get("pattern")
+        if (
+            name == "maximal"
+            and item.essential
+            and str(pattern) == "hinge"
+        ):
+            hinge_warnings.append(
+                f"DEC-RESOLVER-04: maximal hinge allowed for {item.exercise_id}; "
+                "the ordinal spinal cap is load-blind, so treat the exposure with care"
+            )
         if (item.reps_low, item.reps_high) == (scheme.reps_low, scheme.reps_high):
             out.append(item)
             continue
@@ -1481,7 +1706,51 @@ def _apply_undulation(
         out.append(rebuilt)
 
     detail = ", ".join(f"{layer} {name}" for layer, name in plan.items())
-    return tuple(out), (f"DUP week {cycle_week}: {detail}",), dict(plan)
+    return tuple(out), (*hinge_warnings, f"DUP week {cycle_week}: {detail}"), dict(plan)
+
+
+def _apply_back_flare_effort(
+    items: tuple[PrescriptionItem, ...],
+    context: RuleContext,
+    thresholds: config_mod.Thresholds,
+) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...]]:
+    """Apply the back-flare main-lift effort hold after readiness.
+
+    The hold changes the displayed RIR, so the load must be solved at the final RIR. Applying
+    it inside build_item made a low-readiness item solve at RIR 3 and then display RIR 4,
+    which left the load slightly high (DEC-BACK-03). A final RIR already at the hold level is
+    reviewed unchanged rather than re-solved.
+    """
+    out: list[PrescriptionItem] = []
+    changed: list[str] = []
+    target_rir = int(thresholds.back_flare_main_rir)
+    for item in items:
+        if item.flare != "hold" or item.effort_model == "quality" or item.rir_target is None:
+            out.append(item)
+            continue
+        target = max(int(item.rir_target), target_rir)
+        if target == item.rir_target:
+            out.append(replace(item, flare="reviewed"))
+            continue
+        new_load = item.load_kg
+        if (new_load is not None and new_load > 0
+                and item.load_basis != "bodyweight_total"):
+            base_e1rm = e1rm_mod.epley_rir_adjusted(
+                float(new_load), int(item.reps_low), int(item.rir_target)
+            )
+            new_load = loads.solve_load(
+                base_e1rm, int(item.reps_low), target, item.rounding_increment_kg
+            )
+        refs = item.rationale_refs
+        if "MOD-BACK-001" not in refs:
+            refs += ("MOD-BACK-001",)
+        if context.symptom_on and f"symptom:{context.symptom_on}" not in refs:
+            refs += (f"symptom:{context.symptom_on}",)
+        changed.append(item.exercise_id)
+        out.append(replace(
+            item, rir_target=target, load_kg=new_load, rationale_refs=refs,
+        ))
+    return tuple(out), tuple(changed)
 
 
 def _apply_back_flare_dose(
@@ -1700,11 +1969,9 @@ def build_item(
         str(slot.quality_stop or QUALITY_STOP_DEFAULT) if power_exercise else None
     )
     flare = _resolve_flare_policy(slot, props, power_exercise, context)
+    # Back-flare effort is applied after readiness so its RIR bump cannot make the
+    # pre-readiness load basis harder than the shown final set (DEC-BACK-03).
     effective_rir = None if power_exercise else slot.rir_low
-    if flare == "hold":
-        effective_rir = max(int(slot.rir_low), int(thresholds.back_flare_main_rir))
-        if effective_rir == slot.rir_low and slot.flare != "hold_effort":
-            flare = "reviewed"
     load: float | None
     refs: tuple[str, ...] = ()
     unknown_reason: str | None = None

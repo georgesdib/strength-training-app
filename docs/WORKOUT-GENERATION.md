@@ -142,7 +142,7 @@ This example is generated from a deterministic synthetic fixture, [`tests/fixtur
 The block below is rendered from the actual `build_prescription` output by [`tools/workout_generation_example.py`](../tools/workout_generation_example.py). Do not edit it by hand: after a template, threshold or engine change run `python tools/workout_generation_example.py --write`. [`tests/test_workout_generation_doc.py`](../tests/test_workout_generation_doc.py) fails when the committed block is stale.
 
 <!-- BEGIN GENERATED WORKOUT EXAMPLE -->
-<!-- source:sha256:e4cd31c1995d361e -->
+<!-- source:sha256:c9b2be5c3d413f5e -->
 
 ### 12.1 Inputs
 
@@ -173,20 +173,22 @@ The Lateral Raise row is part of the shared fixture but has no slot in the `hing
 
 | Order | Exercise selected | Sets | Reps | Target effort | Load | Load basis | Rest | Warm-up | Provenance |
 |---:|---|---:|---:|---|---:|---|---:|---|---|
-| 1 | Trap-Bar Deadlift | 5 | 3–5 | RIR 2 | 158.5 kg | e1RM | 180 s | 79 kg × 5; 110.5 kg × 3; 134.5 kg × 2 | PRG-RIR-001, set:2024-01-01/1 |
-| 2 | Bench Press (narrow grip) | 4 | 3–5 | RIR 2 | 95 kg | e1RM | 180 s | 47.5 kg × 5; 66.5 kg × 3; 80.5 kg × 2 | PRG-RIR-001, set:2024-01-01/2 |
-| 3 | Pull-up | 4 | 6–10 | RIR 2 | bodyweight (0 kg external) | Bodyweight | 90 s | — | PRG-DP-001, set:2024-01-01/5, MOD-VOL-002 |
-| 4 | Dumbbell Row | 4 | 8–12 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/6, MOD-VOL-002 |
-| 5 | Split Squat | 4 | 8–10 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/4, MOD-VOL-002 |
-| 6 | Lying Leg Curls | 4 | 8–12 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/7, MOD-VOL-002 |
+| 1 | Broad Jump | 3 | 3–5 | quality stop | bodyweight (0 kg external) | Bodyweight | 120 s | — | — |
+| 2 | Trap-Bar Deadlift | 5 | 3–5 | RIR 2 | 158.5 kg | e1RM | 180 s | 79 kg × 5; 110.5 kg × 3; 134.5 kg × 2 | PRG-RIR-001, set:2024-01-01/1 |
+| 3 | Bench Press (narrow grip) | 4 | 3–5 | RIR 2 | 95 kg | e1RM | 180 s | 47.5 kg × 5; 66.5 kg × 3; 80.5 kg × 2 | PRG-RIR-001, set:2024-01-01/2 |
+| 4 | Pull-up | 4 | 6–10 | RIR 2 | bodyweight (0 kg external) | Bodyweight | 90 s | — | PRG-DP-001, set:2024-01-01/5, MOD-VOL-002 |
+| 5 | Dumbbell Row | 4 | 8–12 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/6, MOD-VOL-002 |
+| 6 | Split Squat | 4 | 8–10 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/4, MOD-VOL-002 |
+| 7 | Lying Leg Curls | 4 | 8–12 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/7, MOD-VOL-002 |
 
-Time cap: **4,800 s** (80 min). Engine estimate: **66.5 min**. The cap is a planning ceiling, not a measured duration.
+Time cap: **5,400 s** (90 min). Engine estimate: **74.0 min**. The cap is a planning ceiling, not a measured duration.
 Spinal cost: **2.3** against a cap of **6.0** (week 2024-W02).
 
 Executable: **True**. Issues: none.
 
 Engine warnings:
 
+- broad_jump: power work — Maximal intent; full recovery; stop when distance or landing quality drops
 - trap_bar_deadlift: e1RM source has one eligible set; confidence limited
 - bench_main: chose bench_press_narrow from ['bench_press_narrow', 'bench_press_pause']
 - bench_press_narrow: e1RM source has one eligible set; confidence limited
@@ -204,6 +206,7 @@ The same fixture with a readiness row for `2024-01-08` and `Sleep = 2` produces 
 
 | Exercise | Sets | Reps | Load | Target effort | Provenance |
 |---|---:|---:|---:|---|---|
+| Broad Jump | 2 | 3–5 | bodyweight (0 kg external) | quality stop | MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
 | Trap-Bar Deadlift | 5 | 3–5 | 146 kg | RIR 3 | PRG-RIR-001, set:2024-01-01/1, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
 | Bench Press (narrow grip) | 4 | 3–5 | 87.5 kg | RIR 3 | PRG-RIR-001, set:2024-01-01/2, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
 | Pull-up | 2 | 6–10 | bodyweight (0 kg external) | RIR 3 | PRG-DP-001, set:2024-01-01/5, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
@@ -213,7 +216,7 @@ The same fixture with a readiness row for `2024-01-08` and `Sleep = 2` produces 
 
 Readiness warnings:
 
-- MOD-FAT-001: readiness score 0.72; floor sleep=2; sets reduced: pull_up, dumbbell_row, split_squat, lying_leg_curls; session reduced
+- MOD-FAT-001: readiness score 0.72; floor sleep=2; sets reduced: broad_jump, pull_up, dumbbell_row, split_squat, lying_leg_curls; session reduced
 <!-- END GENERATED WORKOUT EXAMPLE -->
 
 ### 12.5 What the example demonstrates—and what it does not

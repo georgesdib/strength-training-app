@@ -10,6 +10,7 @@ Tests fall into two groups:
 
 from __future__ import annotations
 
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -18,6 +19,45 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def fast_test_migrations():
+    """Apply the migrated schema from a snapshot instead of replaying 46 migrations.
+
+    Every test worker pays the full migration cost once; each test database then loads the
+    serialized snapshot. Tests that pass an explicit migrations directory still run the real
+    migrator, so migration-order/checksum coverage is preserved.
+    """
+    from strength_coach.store import db
+
+    original = db.migrate
+    template = sqlite3.connect(":memory:")
+    template.row_factory = sqlite3.Row
+    original(template)
+    snapshot = template.serialize()
+    versions = [migration.version for migration in db.discover_migrations()]
+    template.close()
+    # A fresh in-memory source per backup target. `deserialize` on a file connection only
+    # fills that connection's page cache, so `backup` is what actually writes the file.
+    source = sqlite3.connect(":memory:")
+    source.row_factory = sqlite3.Row
+    source.deserialize(snapshot)
+
+    def migrate(conn, migrations_dir=None):
+        if migrations_dir is None and not db.applied_migrations(conn):
+            source.backup(conn)
+            conn.execute("PRAGMA foreign_keys = ON")
+            conn.execute("PRAGMA busy_timeout = 5000")
+            return versions
+        return original(conn, migrations_dir)
+
+    db.migrate = migrate
+    try:
+        yield
+    finally:
+        db.migrate = original
+        source.close()
 
 
 @pytest.fixture(scope="session")

@@ -47,9 +47,14 @@ class WarmupConfig:
 def for_item(
     item: PrescriptionItem, config: WarmupConfig | None = None,
 ) -> tuple[WarmupSet, ...]:
-    """Build ramp sets for a main lift from its final working load."""
+    """Build ramp sets from the heaviest planned set."""
     cfg = config or WarmupConfig.load()
-    if not cfg.enabled or item.load_kg is None or item.load_kg <= 0:
+    reference_load = item.load_kg
+    if item.set_groups:
+        top = next((group for group in item.set_groups if group.role == "top_set"), None)
+        if top is not None:
+            reference_load = top.load_kg
+    if not cfg.enabled or reference_load is None or reference_load <= 0:
         return ()
     if cfg.apply_to_essential and not item.essential:
         return ()
@@ -59,7 +64,7 @@ def for_item(
             percent=percent,
             reps=reps,
             load_kg=loads.round_down(
-                item.load_kg * percent, item.rounding_increment_kg
+                reference_load * percent, item.rounding_increment_kg
             ),
         ))
     return tuple(out)

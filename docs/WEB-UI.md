@@ -92,10 +92,18 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
   prescription is unchanged. The **Retrospective validation** panel runs the walk-forward check. A scheduled deload is shown as a suggestion with an **Apply deload** button; it is not applied until confirmed. Reactive deloads are automatic. Applied deloads cite `MOD-DELOAD-001`. Main lifts show their warm-up ramp; the strength-test cadence is shown in the notes. The volume ledger now applies `MOD-VOL-002` (one accessory set after three weeks below MEV).
 - **Outcomes → Form trend** — current vs previous equal window, latest rating, change and
   session counts; descriptive only.
-- **History** — paginated list of every completed/imported session, date filters, session detail and append-only correction. Edits rebuild totals/critique and mark the session re-review; date/type are fixed. The edit sheet also carries optional per-lift **Form** 1–5 ratings. Review shows the current rating beside up to five prior ratings for the same lift.
+- **History** — paginated list of training days, each expandable into its session fragments, with date filters, fragment detail and append-only correction. Attendance and day totals count each local date once; fragments keep their own ids, sets and edits. Edits rebuild totals/critique and mark the fragment re-review; date/type are fixed. The edit sheet also carries optional per-lift **Form** 1–5 ratings. Review shows the current rating beside up to five prior ratings for the same lift.
 - **Workflow → Workout** — start from the preview with a score-ready assessment or an explicit unknown/partial acknowledgement (device fields optional), log sets manually, remove a set, end with measured/manual duration and sRPE or mark sRPE not recorded, or abandon. A prescription snapshot is frozen at start. During the workout the plan is editable: adjust planned sets, swap/add/remove exercises; swap opens one searchable exercise dialog, each add/swap is an append-only event and the original prescription stays frozen. On completion the workout materialises, the end screen shows actual vs modified plan, actual vs original prescription, the deterministic rubric, and a descriptive Phase 2 summary. **Review workout** opens the rubric sheet; saving marks runs calibration and closes the workout. In-workout CSV import is available by paste or file with columns `Exercise,Set,RPE,Value,Weight,Reps`; preview first, then apply. A recognised exercise absent from the prescription is added to the workout plan; an unrecognised exercise is shown as unknown and blocks apply. The file has no date, so backfill is not supported. Each planned lift has an optional **Form** 1–5 rating, editable later in History. An optional second per-rep CSV (`Exercise Name,Set Number,Metric Name,Rep Number,Velocity`) can be added in the same panel; it joins by exercise + set, never creates a set, and is shown descriptively after the workout. The ended screen also offers an optional **e1RM**
   record: a measured test from a set (kg x reps, which registers a high-intensity exposure and
   rejects a 1RM until the interval allows it) or a direct override. Both append; nothing is edited.
+  **Start another session today** creates a second fragment on the same date, linked to the same
+  day plan and the first fragment's readiness snapshot; it does not create a second plan.
+- **Workout → per-exercise history** — every planned lift has a **History** toggle. It lazily shows
+  the last five completed sessions (newest first) with set number, load × reps and RIR, and a
+  **Show more** control for the next five. It includes declared history equivalents (currently
+  back extension/hyperextension), excludes warm-ups, voided sessions and superseded sets, respects
+  the workout date, and is read-only; current workout sets are not part of it and corrections stay
+  in History. The *Plan and plan edits* section is open by default so the toggle is visible.
 - **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
   date and first session type (`auto` or a specific type).
   every session is rebuilt on the day and nothing is persisted.
@@ -122,8 +130,10 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 - **Athlete** — append-only editing of profile (including the **Exposure trim** switch, off by
   default; `DEC-EXPOSURE-02`; a profile edit that does not mention it preserves its value),
   constraints, suitability, e1RM overrides,
-  strength tests, block start and symptoms; shows the current tables, injury signal and the
-  **e1RM calibration** report (current formula e1RM and last set for every lift, plus
+  strength tests, block start and symptoms; the symptom form supports an optional
+  athlete-attributed session, performed lift, onset and confidence, with a session picker
+  limited by the configured lookback. It shows the current tables, injury signal, a separate
+  athlete-attributed symptoms block and the **e1RM calibration** report (current formula e1RM and last set for every lift, plus
   measured tests vs formula; a bounded correction is applied only when the confidence interval
   excludes 1.0). Read-only preview controls change the calibration/coverage window without
   changing active calibration, the raw symptom history shows the latest 10 with Show all, and
@@ -135,7 +145,7 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 - **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
   same-category substitute rises; a review question, never an action.
 - **Settings** — appearance (System / Light / Dark), optional LLM configuration (enable/disable, model, endpoint, write-only key,
-  temperature/tokens/timeout), browser-only Prescribe defaults, a collapsed read-only **Monitoring & reports** inventory with search/group filters, and read-only app/database paths.
+  temperature/tokens/timeout), browser-only Prescribe defaults, a collapsed read-only **Monitoring & reports** inventory with search/group filters, a dedicated **Resolver** panel (append-only scalar settings with explicit enable confirmation, validated structural YAML with backups/digest, read-only preview with alternatives/suggestions, inline suitability rating and Start handoff), and read-only app/database paths.
   The key is masked and lives in git-ignored `config/llm.local.toml`.
 - **Docs** — local Markdown rendered without external assets.
 
@@ -173,7 +183,9 @@ also disables while saving and reports the number of marks written.
 | `POST /api/workout/<id>/update-set` | `{set_id, load_kg, reps, rir, velocity}` -> append correction event |
 | `POST /api/workout/<id>/import` | `{text, rep_text?, apply}` -> parse/preview/apply workout CSV; optional per-rep table; no date column |
 | `POST /api/workout/<id>/import/undo` | undo the latest import batch, including rep detail |
-| `GET /api/history?limit=&offset=&start=&end=` | paginated session history |
+| `GET /api/history?limit=&offset=&start=&end=` | paginated session-fragment history |
+| `GET /api/history/days?limit=&offset=&start=&end=` | paginated training days with their fragments |
+| `GET /api/exercise-history?exercise_id=&limit=&offset=&on_or_before=` | read-only completed-session history for one exercise, grouped by session; limit counts sessions and defaults to 5 |
 | `GET /api/history/<id>` | current session sets and feedback |
 | `POST /api/history/<id>/edit` | append-only correction of sets and session metadata |
 | `POST /api/history/<id>/vbt` | set/rep VBT overrides (also accepted inside `/edit`) |
@@ -188,7 +200,8 @@ also disables while saving and reports the number of marks written.
 | `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |
 | `GET /api/readiness/calibrate` | calibration report text (no auto-apply) |
 | `GET /api/logs?limit=N` | recent in-memory application/HTTP log records (max 500; cleared on restart) |
-| `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, injury signal |
+| `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, attributed symptoms, injury signal |
+| `GET /api/symptoms/attribution-options?onset=&timing=` | completed sessions and performed lifts available for an attributed symptom |
 | `GET /api/exercises` | canonical exercise catalogue for the pickers |
 | `POST /api/programme/key` | request body -> `{cache_key}` covering version, request, resolved profile, database revision and relevant config hashes |
 | `POST /api/programme/jobs` | starts a background build; returns `202` with `job_id` and status |
@@ -214,7 +227,11 @@ also disables while saving and reports the number of marks written.
 | `GET /api/settings/drop/window?date=N` | whether per-session drop confirmation applies on that date; the Prescribe checkbox is hidden when false |
 | `POST /api/settings/llm` | save local LLM settings; blank key keeps the stored key |
 | `POST /api/settings/drop` | legacy drop-only save path; the consolidated volume panel uses `/api/settings/volume` |
-| `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset, effective_from, guard_confirmed and reason |
+| `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset, effective_from, guard_confirmed, reason and resolver_enable_confirmed (required for a false->true resolver.enabled transition) |
+| `GET /api/resolver/policy` | raw resolver policy YAML, path, digest, schema and newest backup metadata |
+| `POST /api/resolver/policy` | validate the complete YAML, back up the current file, atomically replace it and prune to the newest 20 backups |
+| `POST /api/resolver/policy/restore` | restore the newest normal validated policy backup; the current policy is snapshotted as `template-resolver-prerestore-*` and reported, and pre-restore snapshots are not later restore candidates |
+| `POST /api/resolver/preview` | read-only candidate/beam/evaluator preview; returns the prescription directly (not nested), plus choices, alternatives, suggestions, top set, projected week and structured failure stages; the UI compares the full displayed prescription |
 | `GET /api/modalities` | module list with class, enabled source, dependencies, citations and factors |
 | `GET/POST /api/modalities/<id>` | module state or enabled/factor update; guarded modules need guard_confirmed and reason |
 | `POST /api/settings/llm/test` | call the configured model with a tiny connectivity prompt |
@@ -235,7 +252,7 @@ also disables while saving and reports the number of marks written.
 | `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml`; unknown new patterns/muscles are rejected, legacy values are preserved |
 | `GET /api/measurements` | metric catalogue, per-metric summary and recent entries |
 | `POST /api/measurements` | `{metric, value, date, method, note}` -> summary |
-| `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy`; goals, constraint kinds/regions, forbidden patterns/exercises and exercise ids are validated against the canonical vocabulary |
+| `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy`; goals, constraint kinds/regions, forbidden patterns/exercises and exercise ids are validated against the canonical vocabulary; `symptom` accepts optional `timing`, `attributed_session_id`, `attributed_exercise_id`, `onset_on` and `attribution_confidence`, plus the short aliases the UI uses |
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |
 
@@ -261,7 +278,8 @@ What remains:
   decoded UTF-8 text (`MAX_IMPORT_FILE_BYTES`).
 - Oversized bodies return **413** before `rfile.read`; a missing length returns **411**;
   invalid, negative or duplicate lengths and chunked transfer return **400**. The connection is
-  closed on every framing rejection.
+  closed on every framing rejection. The browser maps 411/413 to plain next-action copy:
+  “reload and try again” and “split or compress the file and try again.”
 - The handler is HTTP/1.0 today. If it ever becomes HTTP/1.1, a rejected body must still be
   closed or drained.
 - The import is JSON text, not multipart; the per-file check stays in the import handler.
@@ -289,14 +307,17 @@ What remains:
 No build step and no bundler. The scripts load in this order:
 
 1. `core.js` — API requests, HTML escaping, formatting, notices and local dates.
-2. `app.js` — navigation, routing, boot and the shared views.
-3. `exercises.js` — exercise catalogue, editor and e1RM override.
-4. `history.js` — history list, session details, corrections and VBT backfill.
-5. `workout.js` — live workout start, sets, end and post-workout screens.
+2. `settings.js` — Settings panels: LLM, profile, volume, modalities and monitoring.
+3. `app.js` — navigation, routing, boot and the shared views.
+4. `exercises.js` — exercise catalogue, editor and e1RM override.
+5. `history.js` — history list, session details, corrections and VBT backfill.
+6. `workout.js` — live workout start, sets, end and post-workout screens.
+7. `summary.js` — descriptive workout summary.
+8. `performance.js` — performance and relationship panels.
 
-Feature modules use the core helpers and expose the functions `app.js` calls from
-`setView`. Boot is deferred to `DOMContentLoaded` so every module is loaded before a deep
-link can call its loader.
+Feature modules use the core helpers. `app.js` dispatches view loaders through `VIEW_LOADERS`
+rather than an if-chain. Boot is deferred to `DOMContentLoaded` so every module is loaded
+before a deep link can call its loader.
 
 ## Design
 

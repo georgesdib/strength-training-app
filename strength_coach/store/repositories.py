@@ -28,6 +28,7 @@ from typing import Any
 import pandas as pd
 
 from strength_coach.ingest.sessions import Session
+from strength_coach.store import symptom_attribution
 from strength_coach.utils import numeric
 from strength_coach.utils import readiness as readiness_utils
 
@@ -831,11 +832,27 @@ def append_symptom(
     level: int,
     settled_within_48h: bool | None = None,
     note: str | None = None,
+    attributed_session_id: str | None = None,
+    attributed_exercise_id: str | None = None,
+    onset_on: str | None = None,
+    attribution_confidence: str | None = None,
 ) -> None:
+    attribution = symptom_attribution.validate(
+        conn,
+        logged_on=logged_on,
+        timing=timing,
+        attributed_session_id=attributed_session_id,
+        attributed_exercise_id=attributed_exercise_id,
+        onset_on=onset_on,
+        attribution_confidence=attribution_confidence,
+    ) or {}
     conn.execute(
         """
-        INSERT INTO symptom_log (logged_on, timing, region, level, settled_within_48h, note)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO symptom_log
+            (logged_on, timing, region, level, settled_within_48h, note,
+             attributed_session_id, attributed_exercise_id, onset_on,
+             attribution_confidence)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             logged_on,
@@ -844,6 +861,10 @@ def append_symptom(
             int(level),
             None if settled_within_48h is None else (1 if settled_within_48h else 0),
             note,
+            attribution.get("attributed_session_id"),
+            attribution.get("attributed_exercise_id"),
+            attribution.get("onset_on"),
+            attribution.get("attribution_confidence"),
         ),
     )
 
@@ -861,14 +882,23 @@ def append_prescription(
     approved_by: str,
     items: Sequence[Mapping[str, Any]],
     supersedes_id: str | None = None,
+    template_digest: str | None = None,
+    policy_digest: str | None = None,
+    input_hash: str | None = None,
+    generated_session: Mapping[str, Any] | None = None,
 ) -> str:
-    """Store a prescription and its items in one transaction-like sequence."""
+    """Store a prescription and its items in one transaction-like sequence.
+
+    The resolver fields are nullable on purpose: fixed-template and historical prescriptions
+    have no generated session to record, and a null means "not recorded", not "use current".
+    """
     conn.execute(
         """
         INSERT INTO prescription (prescription_id, run_id, for_date, session_type,
                                   fallback_level, rule_document_version, calibration_ids,
-                                  approved_by, supersedes_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                  approved_by, supersedes_id, template_digest, policy_digest,
+                                  input_hash, generated_session_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             prescription_id,
@@ -880,6 +910,10 @@ def append_prescription(
             _json(list(calibration_ids)),
             approved_by,
             supersedes_id,
+            template_digest,
+            policy_digest,
+            input_hash,
+            _json(dict(generated_session)) if generated_session is not None else None,
         ),
     )
     for item in items:
@@ -889,8 +923,9 @@ def append_prescription(
                 prescription_id, order_index, exercise_id, sets, reps_low, reps_high,
                 load_kg, load_basis, rounding_increment, rir_target, effort_model,
                 quality_stop, velocity_target, vbt_basis, e1rm_source_sets, rest_s,
-                time_cap_s, essential, rationale_refs, substitution_for, warmup_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                time_cap_s, essential, rationale_refs, substitution_for, warmup_json,
+                set_groups_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 prescription_id,
@@ -914,6 +949,7 @@ def append_prescription(
                 _json(list(item.get("rationale_refs") or [])),
                 item.get("substitution_for"),
                 _json(list(item.get("warmup") or [])),
+                _json(list(item.get("set_groups") or [])),
             ),
         )
     return prescription_id

@@ -90,7 +90,15 @@ async function api(path, options = {}) {
   let data;
   try { data = text ? JSON.parse(text) : {}; } catch { data = { error: text }; }
   if (!response.ok) {
-    const error = new Error(data.error || response.statusText);
+    // 411/413 are transport failures with technical server wording; give the browser a
+    // next action instead of making the user interpret HTTP framing.
+    const transportCopy = {
+      411: "The request was missing its size. Reload the page and try again.",
+      413: "That file is too large to import. Split or compress it and try again.",
+    };
+    const error = new Error(
+      transportCopy[response.status] || data.error || response.statusText
+    );
     error.status = response.status;
     error.fields = data.fields || {};
     throw error;

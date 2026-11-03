@@ -27,7 +27,7 @@ closed; remaining limitations are tracked in
 | W9 spinal cap | complete; explicit costs and at-cap display; cap remains 3 |
 | W10 age | complete; optional `birth_year` proposed for wording/priority only; no age rule |
 | W11 documentation | complete; one cap/count source, duration rubric 1.1.0, architecture contract |
-| W12 public data | complete; exact sample counts generalised; Git history accepted, not rewritten |
+| W12 public data | complete; exact sample counts generalised in the current documentation |
 
 ## 2. Implemented during the audit
 
@@ -52,7 +52,6 @@ Only fixes with separate approval were applied:
 - main-lift readiness set reduction default (still opt-in);
 - age-based load rules (none);
 - stored planned calendar;
-- Git history (no rewrite);
 - cardio prescription (v1.1).
 
 ## 4. Remaining limitations
@@ -68,7 +67,6 @@ closeout was written on 2026-10-24); it is a living list, and the current rows a
 - spinal cap is ordinal and load-blind, with no headroom;
 - the volume split is a bench-heavy strength-priority choice;
 - age is not recorded;
-- public Git history still contains earlier personal details;
 - the prospective protocol has not yet been run for a full new block.
 
 These are limitation records, not incomplete audit workstreams.

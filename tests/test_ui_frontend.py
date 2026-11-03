@@ -37,6 +37,12 @@ def test_no_inline_event_handlers() -> None:
     assert offenders == []
 
 
+def test_transport_errors_have_actionable_copy() -> None:
+    core = (STATIC / "core.js").read_text(encoding="utf-8")
+    assert "411:" in core and "missing its size" in core
+    assert "413:" in core and "too large to import" in core
+
+
 def test_every_referenced_script_exists() -> None:
     page = INDEX.read_text(encoding="utf-8")
     srcs = re.findall(r'<script src="([^"]+)"', page)
@@ -44,6 +50,17 @@ def test_every_referenced_script_exists() -> None:
     for src in srcs:
         assert src.startswith("/static/"), src
         assert (STATIC / src.removeprefix("/static/")).is_file(), src
+
+def test_workout_exercise_history_is_wired() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    source = (STATIC / "workout.js").read_text(encoding="utf-8")
+    assert 'id="workout-plan-details" open' in page
+    assert "data-history-toggle" in source
+    assert "data-history-more" in source
+    assert "/api/exercise-history" in source
+    assert "WORKOUT_HISTORY_LIMIT = 5" in source
+    assert "Show more" in source
+
 
 def test_summary_script_and_panel_are_wired() -> None:
     page = INDEX.read_text(encoding="utf-8")
@@ -101,7 +118,7 @@ def test_performance_full_list_and_pair_editor_are_exposed() -> None:
 
 def test_monitoring_inventory_settings_panel_is_read_only() -> None:
     page = INDEX.read_text(encoding="utf-8")
-    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    source = (STATIC / "settings.js").read_text(encoding="utf-8")
     assert 'id="settings-monitoring-panel"' in page
     assert 'id="settings-monitoring-search"' in page
     assert 'id="settings-monitoring-group"' in page
@@ -112,14 +129,21 @@ def test_monitoring_inventory_settings_panel_is_read_only() -> None:
     assert "Local override" in source
 
 
+def test_view_loaders_are_registered() -> None:
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert "const VIEW_LOADERS" in source
+    assert "const loader = VIEW_LOADERS[name]" in source
+    assert "if (name ===" not in source
+
+
 def test_script_load_order() -> None:
     page = INDEX.read_text(encoding="utf-8")
     order = [src.removeprefix("/static/")
              for src in re.findall(r'<script src="([^"]+)"', page)]
+    assert order.index("core.js") == 0
+    assert order.index("settings.js") < order.index("app.js")
     assert order.index("app.js") < order.index("history.js")
     assert order.index("app.js") < order.index("workout.js")
-    if "core.js" in order:
-        assert order.index("core.js") == 0
 
 
 def test_scripts_parse() -> None:
@@ -207,6 +231,8 @@ def test_constrained_controls_are_not_free_text() -> None:
     assert 'choiceChecklist("forbidden_exercises"' in app
     assert 'data-constraint="kind"' in app
     assert 'data-constraint="region"' in app
+    assert "optional source/context" in app
+    assert 'data-constraint="evidence"' in app
 
 
 def test_dead_controls_have_regression_guards() -> None:
@@ -261,6 +287,66 @@ def test_mobile_cards_replace_core_tables_on_narrow_screens() -> None:
     assert "desktop-table" in css
     assert ".app-dialog" in css
     assert "font-size: 16px" in css
+
+
+def test_exercise_catalogue_columns_fill_the_table_width() -> None:
+    css = (STATIC / "style.css").read_text(encoding="utf-8")
+    widths = {}
+    for column in range(1, 8):
+        match = re.search(
+            rf"\.exercise-table th:nth-child\({column}\), "
+            rf"\.exercise-table td:nth-child\({column}\) \{{ width: (\d+)%; \}}",
+            css,
+        )
+        assert match, f"exercise catalogue column {column} has no desktop width"
+        widths[column] = int(match.group(1))
+    # Seven fixed columns must add up to the table width. The actions column lost its width
+    # when Demands was inserted before it in the markup, so the buttons stacked into a
+    # zero-width column and every row grew three or four lines tall on desktop.
+    assert sum(widths.values()) == 100
+
+
+def test_fatigue_diagnostic_reveals_ten_rows_at_a_time() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    page_size = re.search(r"const FATIGUE_PAGE_SIZE = \d+;", source)
+    assert page_size, "FATIGUE_PAGE_SIZE not found in the client bundle"
+    pieces = []
+    # const does not leak out of eval, so the page size is injected directly and only the
+    # functions are evaluated (they close over the script-scope binding).
+    for pattern in (
+        r"function fatigueRowHtml\(m\) \{[\s\S]*?\n\}",
+        r"function fatigueTableHtml\(models, shown\) \{[\s\S]*?\n\}",
+    ):
+        match = re.search(pattern, source)
+        assert match, f"{pattern} not found in the client bundle"
+        pieces.append(match.group(0))
+    models = [
+        {"exercise_id": f"lift_{index}", "family": "squat", "n_observations": 12,
+         "span_days": 90, "r2": 0.4, "backtest_mae": 3, "backtest_naive_mae": 4,
+         "fitness_kg": 100, "fatigue_kg": -2, "state_kg": 98, "state_ci": [95, 101],
+         "latest_e1rm": 99, "status": "ok", "unit": "kg"}
+        for index in range(23)
+    ]
+    script = (
+        "global.esc = function (value) { return String(value == null ? '' : value); };"
+        + page_size.group(0)
+        + "".join(f"eval({json.dumps(piece)});" for piece in pieces)
+        + f"const models = {json.dumps(models)};"
+        + "const first = fatigueTableHtml(models, FATIGUE_PAGE_SIZE);"
+        + "const all = fatigueTableHtml(models, 100);"
+        + "if ((first.match(/<tr>/g) || []).length !== 11)"
+        + " throw new Error('expected ten lift rows plus the header');"
+        + "if (first.indexOf('Showing 10 of 23 lifts') < 0) throw new Error('count missing');"
+        + "if (first.indexOf('Show 10 more') < 0) throw new Error('show more missing');"
+        + "if ((all.match(/<tr>/g) || []).length !== 24) throw new Error('all rows missing');"
+        + "if (all.indexOf('Show 10 more') >= 0) throw new Error('button should disappear');"
+        + "if (all.indexOf('Showing all 23 lifts') < 0) throw new Error('all count missing');"
+    )
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
 
 
 def test_accessibility_and_navigation_guards() -> None:
@@ -323,35 +409,40 @@ def test_remaining_ui_controls_are_present() -> None:
 
 def test_remaining_forms_use_field_errors() -> None:
     app = (STATIC / "app.js").read_text(encoding="utf-8")
+    settings = (STATIC / "settings.js").read_text(encoding="utf-8")
     core = (STATIC / "core.js").read_text(encoding="utf-8")
     assert "applyFieldErrors" in core
     assert "applyFieldErrors(error, $(" in app
+    assert "applyFieldErrors(error, $(" in settings
     for marker in (
         '[data-symptom="region"]', '[data-block="date"]', '[data-break="starts_on"]',
-        '#cardio-modality', '#measure-metric', '#settings-volume-fields',
-        '#settings-volume-reason', '#settings-volume-confirm',
-        '#settings-llm-model', '#settings-profile-guard',
+        '#cardio-modality', '#measure-metric',
     ):
         assert marker in app, marker
+    for marker in (
+        '#settings-volume-fields', '#settings-volume-reason', '#settings-volume-confirm',
+        '#settings-llm-model', '#settings-profile-guard',
+    ):
+        assert marker in settings, marker
 
 
 def test_volume_panel_is_consolidated_and_linked_to_its_guide() -> None:
     page = INDEX.read_text(encoding="utf-8")
-    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    settings = (STATIC / "settings.js").read_text(encoding="utf-8")
 
     assert 'id="settings-volume-form"' in page
     assert 'href="#docs?doc=docs/VOLUME-BUDGET.md"' in page
     assert 'id="settings-drop-form"' not in page
     assert 'id="profile-volume' not in page
-    assert 'setting.group === "Volume"' in app
-    assert "renderVolumeSettings" in app
-    assert "/api/settings/volume" in app
-    assert "budgetValue(key)" in app
-    assert "settings-volume-cap-sum" in app
+    assert 'setting.group === "Volume"' in settings
+    assert "renderVolumeSettings" in settings
+    assert "/api/settings/volume" in settings
+    assert "budgetValue(key)" in settings
+    assert "settings-volume-cap-sum" in settings
 
     node = shutil.which("node")
     if node:
-        match = re.search(r"function volumeNestedValue\([^)]*\) \{[\s\S]*?\n\}", app)
+        match = re.search(r"function volumeNestedValue\([^)]*\) \{[\s\S]*?\n\}", settings)
         assert match, "volumeNestedValue() not found"
         script = (
             f"eval({json.dumps(match.group(0))});"
@@ -511,6 +602,7 @@ if (html.indexOf("0 kg (observed_zero)") < 0) throw new Error("genuine zero lost
 def test_step5_report_controls_are_wired() -> None:
     page = INDEX.read_text(encoding="utf-8")
     source = (STATIC / "app.js").read_text(encoding="utf-8")
+    settings = (STATIC / "settings.js").read_text(encoding="utf-8")
     for marker in (
         'id="state-e1rm-calibration-window"',
         'id="state-e1rm-coverage-window"',
@@ -531,6 +623,10 @@ def test_step5_report_controls_are_wired() -> None:
     assert "Measured-test coverage:" in source
     assert "Record a strength test" in source
     assert "state-test-record" in source
+    assert "Show calibration details" in source
+    assert "calibration-details" in source
+    assert "Session time cap min" not in settings
+    assert "Session target comes from the Athlete profile" in settings
 
 
 def test_relationship_crud_ui_is_wired() -> None:
@@ -672,7 +768,7 @@ def test_monitoring_inventory_reason_disclosures_and_empty_state() -> None:
     if node is None:
         import pytest
         pytest.skip("node is not installed")
-    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    app = (STATIC / "settings.js").read_text(encoding="utf-8")
     core = (STATIC / "core.js").read_text(encoding="utf-8")
     start = app.index("const MONITORING_SOURCE_LABELS")
     end = app.index("async function loadSettings()", start)

@@ -66,6 +66,7 @@ from strength_coach.features import deload as deload_feature
 from strength_coach.features import demands as demands_feature
 from strength_coach.features import derived as derived_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import exercise_history as exercise_history_feature
 from strength_coach.features import exposure as exposure_ratio_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import form_assessment as form_assessment_feature
@@ -86,9 +87,13 @@ from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import test_cadence as test_cadence_feature
 from strength_coach.features import volume as volume_feature
+from strength_coach.features.readiness_score import ReadinessRequired
 from strength_coach.prescribe import (
     build_prescription,
     fatigue_selection,
+    resolver,
+    resolver_admin,
+    resolver_policy,
     session_identity,
     templates,
     volume_settings,
@@ -100,8 +105,16 @@ from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import summary as programme_summary
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.prescribe.config import Thresholds
+from strength_coach.prescribe.evaluator import EvaluationInputs
 from strength_coach.rules import RuleContext
-from strength_coach.store import db, exercise_admin, importer, queries, repositories
+from strength_coach.store import (
+    db,
+    exercise_admin,
+    importer,
+    queries,
+    repositories,
+    symptom_attribution,
+)
 from strength_coach.utils import exercises, io_utils, paths
 from strength_coach.utils import readiness as readiness_utils
 from strength_coach.web import markdown, validation
@@ -225,6 +238,18 @@ def _item_dict(item) -> dict:
             {"percent": w.percent, "reps": w.reps, "load_kg": w.load_kg}
             for w in item.warmup
         ],
+        "set_groups": [
+            {
+                "role": group.role,
+                "sets": group.sets,
+                "load_kg": group.load_kg,
+                "reps_low": group.reps_low,
+                "reps_high": group.reps_high,
+                "rir_target": group.rir_target,
+                "percent_of_top": group.percent_of_top,
+            }
+            for group in item.set_groups
+        ],
     }
 
 
@@ -248,6 +273,12 @@ def prescription_dict(prescription) -> dict:
         "warnings": list(prescription.warnings),
         "issues": list(prescription.issues),
         "notes": prescription.notes,
+        "template_digest": (prescription.notes.get("resolver") or {}).get("template_digest"),
+        "policy_digest": (prescription.notes.get("resolver") or {}).get("policy_digest"),
+        "input_hash": (prescription.notes.get("resolver") or {}).get("input_hash"),
+        "generated_session": (prescription.notes.get("resolver") or {}).get(
+            "generated_session"
+        ),
     }
 
 
@@ -586,10 +617,6 @@ def programme_job(job_id: str) -> dict:
         return dict(job)
 
 
-class ReadinessRequired(Exception):
-    """The date needs a usable readiness score before a workout is generated."""
-
-
 def analysis_readonly_connection(db_path: str | Path) -> sqlite3.Connection:
     """Dedicated read-only connection for the monitoring-analysis endpoint."""
     path = Path(db_path)
@@ -743,6 +770,11 @@ class Handler(BaseHTTPRequestHandler):
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0] or datetime.date.today().isoformat()
                 self._json(200, self._with_conn(lambda c: settings_profile.state(c, day)))
+            elif path == "/api/resolver/policy":
+                try:
+                    self._json(200, resolver_admin.policy_state())
+                except resolver_policy.ResolverPolicyError as exc:
+                    raise FieldError(str(exc), {"policy": str(exc)}) from exc
             elif path == "/api/regime":
                 query = parse_qs(urlparse(self.path).query)
                 self._json(200, self._with_conn(lambda c: regime_feature.detect(
@@ -801,10 +833,33 @@ class Handler(BaseHTTPRequestHandler):
                     start=query.get("start", [None])[0],
                     end=query.get("end", [None])[0],
                 )))
+            elif path == "/api/history/days":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(lambda c: history.list_training_days(
+                    c,
+                    limit=int(query.get("limit", ["50"])[0]),
+                    offset=int(query.get("offset", ["0"])[0]),
+                    start=query.get("start", [None])[0],
+                    end=query.get("end", [None])[0],
+                )))
             elif path.startswith("/api/history/"):
                 session_id = path.rsplit("/", 1)[-1]
                 self._json(200, self._with_conn(
                     lambda c: history.detail(c, session_id)
+                ))
+            elif path == "/api/exercise-history":
+                query = parse_qs(urlparse(self.path).query)
+                exercise_id = query.get("exercise_id", [""])[0]
+                if not exercise_id:
+                    raise ValueError("exercise_id is required")
+                self._json(200, self._with_conn(
+                    lambda c: exercise_history_feature.history(
+                        c,
+                        exercise_id,
+                        limit=int(query.get("limit", ["5"])[0]),
+                        offset=int(query.get("offset", ["0"])[0]),
+                        on_or_before=query.get("on_or_before", [None])[0],
+                    )
                 ))
             elif path == "/api/calibrate":
                 self._json(200, self._with_conn(self._calibrate))
@@ -925,6 +980,17 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("window_days must be between 7 and 365")
                 self._json(200, self._with_conn(
                     lambda c: self._e1rm_tests_needed_response(c, window)
+                ))
+            elif path == "/api/symptoms/attribution-options":
+                query = parse_qs(urlparse(self.path).query)
+                onset = query.get("onset", [None])[0]
+                if not onset:
+                    raise ValueError("onset is required")
+                timing = query.get("timing", ["pre_session"])[0]
+                self._json(200, self._with_conn(
+                    lambda c: {"sessions": symptom_attribution.candidates(
+                        c, onset_on=onset, timing=timing
+                    )}
                 ))
             elif path == "/api/symptoms/history":
                 query = parse_qs(urlparse(self.path).query)
@@ -1156,6 +1222,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._save_volume_settings(c, body)))
             elif path == "/api/settings/profile":
                 self._json(200, self._with_conn(lambda c: self._save_settings_profile(c, body)))
+            elif path == "/api/resolver/policy":
+                try:
+                    self._json(200, resolver_admin.save_policy(str(body.get("yaml") or "")))
+                except resolver_policy.ResolverPolicyError as exc:
+                    raise FieldError(str(exc), {"policy": str(exc)}) from exc
+            elif path == "/api/resolver/policy/restore":
+                try:
+                    self._json(200, resolver_admin.restore_latest())
+                except resolver_policy.ResolverPolicyError as exc:
+                    raise FieldError(str(exc), {"policy": str(exc)}) from exc
+            elif path == "/api/resolver/preview":
+                self._json(200, self._with_conn(lambda c: self._resolver_preview(c, body)))
             elif path.startswith("/api/modalities/"):
                 module_id = path.rsplit("/", 1)[-1]
                 self._json(200, self._with_conn(
@@ -1538,10 +1616,15 @@ class Handler(BaseHTTPRequestHandler):
                 effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
                 guard_confirmed=_truth(body.get("guard_confirmed")),
                 reason=(str(body.get("reason")) if body.get("reason") else None),
+                resolver_enable_confirmed=_truth(
+                    body.get("resolver_enable_confirmed")
+                ),
             )
         except ValueError as exc:
             text = str(exc)
-            if "guarded settings require confirmation" in text:
+            if "resolver.enabled requires explicit confirmation" in text:
+                field = "resolver_enable_confirmed"
+            elif "guarded settings require confirmation" in text:
                 field = "guard_confirmed"
             elif "guarded settings require a reason" in text:
                 field = "reason"
@@ -2045,23 +2128,39 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(readiness, dict):
             raise ValueError("readiness must be an object")
         acknowledge = _truth(body.get("readiness_ack"))
+        reuse_readiness = _truth(body.get("reuse_readiness"))
         # Validate ranges first, then persist what was actually supplied so the score reflects
         # this form rather than only yesterday’s stored row. Missing fields stay missing.
         clean = workout.validate_readiness(readiness, allow_partial=True)
-        readiness_feature.record_manual(
-            conn, for_date, clean, note=body.get("readiness_note") or None
-        )
-        assessment = readiness_score.compute(conn, for_date)
-        if assessment.status != "ready" and not acknowledge:
-            raise ValueError(
-                "readiness score unavailable; acknowledge starting without a score"
+        if reuse_readiness:
+            # A second fragment on the same training day reuses the day's readiness instead of
+            # prompting again. The client sends the first fragment's validated snapshot.
+            allow_partial = True
+        else:
+            readiness_feature.record_manual(
+                conn, for_date, clean, note=body.get("readiness_note") or None
             )
-        allow_partial = acknowledge or assessment.status == "ready"
+            assessment = readiness_score.compute(conn, for_date)
+            if assessment.status != "ready" and not acknowledge:
+                raise ValueError(
+                    "readiness score unavailable; acknowledge starting without a score"
+                )
+            allow_partial = acknowledge or assessment.status == "ready"
         # Persist the committed plan and start the workout in one transaction. A failed start
         # (including an already-active workout) leaves no orphan prescription.
         conn.execute("BEGIN IMMEDIATE")
         try:
-            prescription_id = prescription_persistence.store_plan(conn, plan)
+            supplied_prescription = body.get("prescription_id")
+            if supplied_prescription:
+                exists = conn.execute(
+                    "SELECT 1 FROM prescription WHERE prescription_id = ?",
+                    (str(supplied_prescription),),
+                ).fetchone()
+                if exists is None:
+                    raise ValueError("prescription_id does not exist")
+                prescription_id = str(supplied_prescription)
+            else:
+                prescription_id = prescription_persistence.store_plan(conn, plan)
             result = workout.start(
                 conn,
                 for_date=for_date,
@@ -2146,6 +2245,7 @@ class Handler(BaseHTTPRequestHandler):
                 velocity=velocity,
                 source=source,
                 set_index=_integer(body.get("set_index")),
+                set_role=body.get("set_role") or None,
             )
         elif action == "update-set":
             reps, rir, load, velocity = _manual_set_values(body)
@@ -2155,6 +2255,7 @@ class Handler(BaseHTTPRequestHandler):
                 reps=reps,
                 rir=rir,
                 velocity=velocity,
+                set_role=body.get("set_role") or None,
             )
         elif action == "remove-set":
             result = workout.remove_set(conn, workout_id, _integer(body.get("set_id")))
@@ -2196,21 +2297,138 @@ class Handler(BaseHTTPRequestHandler):
         )
         return reviews_feature.status(conn, on_date)
 
-    def _prescribe(self, conn, body: dict) -> dict:
-        for_date = str(body.get("date") or datetime.date.today().isoformat())
+    def _resolver_preview(self, conn, body: dict) -> dict:
+        """Build a read-only resolver preview with choices and structured failures."""
+        for_date = readiness_score.parse_date(
+            str(body.get("date") or datetime.date.today().isoformat())
+        )
         requested_type = body.get("session_type")
         session_type = (
             schedule_mod.next_session_type(conn, for_date)
             if requested_type in (None, "", "auto") else str(requested_type)
         )
         allow_unknown = _truth(body.get("allow_unknown_readiness"))
-        if for_date >= datetime.date.today().isoformat():
-            assessment = readiness_score.compute(conn, for_date)
-            if assessment.status != "ready" and not allow_unknown:
-                raise ReadinessRequired(
-                    f"readiness required for {for_date}: {assessment.status} — "
-                    f"{assessment.basis}; acknowledge an unknown/partial score to proceed"
-                )
+        readiness_score.require_ready(
+            conn, for_date, allow_unknown=allow_unknown
+        )
+        if _truth(body.get("apply_selection")) or _truth(body.get("selection_llm")) or (
+            _truth(body.get("selection_confirmed"))
+        ):
+            raise FieldError(
+                "resolver preview does not accept selection overrides",
+                {"apply_selection": "resolver owns exercise selection"},
+            )
+        minimum_session = _truth(body.get("minimum_session"))
+        minimum_include_main = _truth(body.get("minimum_include_main")) and minimum_session
+        technique_throttle = _truth(body.get("technique_throttle"))
+        raw_patterns = body.get("technique_throttle_pattern")
+        if isinstance(raw_patterns, list):
+            patterns = list(dict.fromkeys(str(value).strip() for value in raw_patterns))
+            technique_patterns = None if patterns in ([], [""]) else patterns
+        elif isinstance(raw_patterns, str):
+            technique_patterns = raw_patterns.strip() or None
+        else:
+            technique_patterns = None
+        target = body.get("target_minutes")
+        target_minutes = int(target) if target not in (None, "") else None
+        top_set_raw = body.get("top_set")
+        top_set_requested = None if top_set_raw in (None, "") else _truth(top_set_raw)
+        resolved_settings = settings_profile.feature_settings(conn, for_date)
+        reactive = deload_feature.reactive_decision(
+            conn, for_date, config=resolved_settings.deload
+        )
+        scheduled = deload_feature.scheduled_decision(
+            conn, for_date, config=resolved_settings.deload
+        )
+        deload_decision = reactive
+        scheduled_suggestion = None
+        if reactive is None and scheduled is not None:
+            if _truth(body.get("deload_confirmed")):
+                deload_decision = scheduled
+            else:
+                scheduled_suggestion = scheduled
+        options = EvaluationInputs(
+            minimum_session=minimum_session,
+            minimum_target_minutes=target_minutes,
+            minimum_include_main=minimum_include_main,
+            technique_throttle=technique_throttle,
+            technique_throttle_pattern=technique_patterns,
+            deload_decision=deload_decision,
+            drop_confirmed=_truth(body.get("drop_confirmed")),
+            top_set_requested=top_set_requested,
+        )
+        try:
+            resolved = resolver.build_resolved(
+                conn,
+                for_date=for_date,
+                session_type=session_type,
+                inputs=options,
+            )
+        except resolver.ResolverBuildError as exc:
+            return {
+                "ok": False,
+                "stage": exc.stage,
+                "message": str(exc),
+                "beam": (
+                    exc.beam_result.as_dict()
+                    if exc.beam_result is not None else None
+                ),
+                "details": exc.details,
+            }
+        prescription = resolved.prescription
+        if scheduled_suggestion is not None:
+            prescription = deload_mod.suggest(prescription, scheduled_suggestion)
+        assignment = dict(resolved.assignment)
+        choices = []
+        for slot in resolved.pools.template.slots:
+            selected = assignment.get(slot.id)
+            if selected is None:
+                continue
+            ranked = list(resolved.pools.pools.get(slot.id, ()))
+            suggestions = list(resolved.pools.suggestions.get(slot.id, ()))
+            choices.append({
+                "slot_id": slot.id,
+                "chosen": selected,
+                "pattern": (
+                    resolved.pools.candidate_patterns.get(slot.id, {}).get(selected)
+                ),
+                "rank": ranked.index(selected) + 1 if selected in ranked else None,
+                "pool_size": len(ranked),
+                "alternatives": [item for item in ranked if item != selected],
+                "suggestions": suggestions,
+                "reasons": [
+                    "selected by the joint evaluator from the eligible candidate pool"
+                ],
+            })
+        payload = prescription_dict(prescription)
+        payload["ok"] = True
+        payload["choices"] = choices
+        payload["beam"] = resolved.beam.as_dict()
+        payload["top_set"] = prescription.notes.get("top_set")
+        payload["projected_week"] = prescription.notes.get("volume_budget")
+        payload["session_time"] = prescription.notes.get("session_time")
+        payload["policy_digest"] = resolved.policy_digest
+        payload["catalogue_digest"] = resolved.catalogue_digest
+        payload["template_digest"] = resolved.template_digest
+        payload["input_hash"] = resolved.input_hash
+        payload["scheduled_suggestion"] = (
+            scheduled_suggestion.reason if scheduled_suggestion is not None else None
+        )
+        return payload
+
+    def _prescribe(self, conn, body: dict) -> dict:
+        for_date = readiness_score.parse_date(
+            str(body.get("date") or datetime.date.today().isoformat())
+        )
+        requested_type = body.get("session_type")
+        session_type = (
+            schedule_mod.next_session_type(conn, for_date)
+            if requested_type in (None, "", "auto") else str(requested_type)
+        )
+        allow_unknown = _truth(body.get("allow_unknown_readiness"))
+        readiness_score.require_ready(
+            conn, for_date, allow_unknown=allow_unknown
+        )
         apply_selection = _truth(body.get("apply_selection"))
         selection_confirmed = _truth(body.get("selection_confirmed")) and apply_selection
         selection_llm = _truth(body.get("selection_llm")) and apply_selection
@@ -2238,6 +2456,10 @@ class Handler(BaseHTTPRequestHandler):
             technique_patterns = None
         target = body.get("target_minutes")
         target_minutes = int(target) if target not in (None, "") else None
+        top_set_raw = body.get("top_set")
+        top_set_requested = (
+            None if top_set_raw in (None, "") else _truth(top_set_raw)
+        )
         # Resolve deload before building: it must run before minimum session and final
         # validation, not after validation.
         resolved = settings_profile.feature_settings(conn, for_date)
@@ -2267,6 +2489,7 @@ class Handler(BaseHTTPRequestHandler):
             technique_throttle=technique_throttle,
             technique_throttle_pattern=technique_patterns,
             drop_confirmed=_truth(body.get("drop_confirmed")),
+            top_set_requested=top_set_requested,
         )
         if scheduled_suggestion is not None:
             prescription = deload_mod.suggest(prescription, scheduled_suggestion)
@@ -2567,11 +2790,15 @@ class Handler(BaseHTTPRequestHandler):
                     data[key] = []
             constraints.append(data)
         profile = dict(queries.athlete_profile(conn) or {}) or None
+        symptoms = queries.symptom_entries(conn)
         return {
             "profile": profile,
             "constraints": constraints,
             "suitability": queries.exercise_suitability(conn),
-            "symptoms": queries.symptom_entries(conn)[-10:],
+            "symptoms": symptoms[-10:],
+            "attributed_symptoms": [
+                row for row in symptoms if row.get("attributed_session_id")
+            ],
             "e1rm_overrides": queries.e1rm_overrides(conn),
             "declared_breaks": breaks_feature.as_dict(breaks_feature.all_breaks(conn)),
             "e1rm_calibration": e1rm_calibration_feature.as_dict(calibration),
@@ -2930,15 +3157,35 @@ class Handler(BaseHTTPRequestHandler):
             datetime.date.fromisoformat(day)
         except ValueError as exc:
             raise FieldError("date must be YYYY-MM-DD", {"date": "must be YYYY-MM-DD"}) from exc
-        repositories.append_symptom(
-            conn,
-            logged_on=day,
-            timing="pre_session",
-            region=region,
-            level=level,
-            settled_within_48h=_settled(body.get("settled")),
-            note=body.get("note") or None,
-        )
+        timing = str(body.get("timing") or "pre_session")
+        if timing not in symptom_attribution.TIMINGS:
+            raise FieldError("invalid symptom timing", {"timing": "invalid timing"})
+        try:
+            repositories.append_symptom(
+                conn,
+                logged_on=day,
+                timing=timing,
+                region=region,
+                level=level,
+                settled_within_48h=_settled(body.get("settled")),
+                note=body.get("note") or None,
+                attributed_session_id=(
+                    body.get("attributed_session_id") or body.get("session")
+                ),
+                attributed_exercise_id=(
+                    body.get("attributed_exercise_id") or body.get("exercise")
+                ),
+                onset_on=(
+                    body.get("onset_on") or body.get("onset")
+                    or body.get("attribution_onset")
+                    or body.get("attribution_date")
+                ),
+                attribution_confidence=(
+                    body.get("attribution_confidence") or body.get("confidence")
+                ),
+            )
+        except symptom_attribution.AttributionError as exc:
+            raise FieldError(str(exc), {exc.field: str(exc)}) from exc
         return self._state(conn)
 
     def _save_test(self, conn, body: dict) -> dict:

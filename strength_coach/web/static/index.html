@@ -105,8 +105,8 @@
 
     <section id="view-history" class="view">
       <div class="panel">
-        <div class="panel-head"><h2>History</h2><span class="muted">all completed and imported sessions</span></div>
-        <p class="section-help"><span>Filterable append-only session history; no values are deleted, and a correction is a new row.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=3-session-reconstructed">Session model</a></p>
+        <div class="panel-head"><h2>History</h2><span class="muted">training days and their session fragments</span></div>
+        <p class="section-help"><span>One expandable row per training day. Fragments keep their own session id; no values are deleted, and a correction is a new row.</span> <a class="doc-link" href="#docs?doc=docs/TRAINING-DAY-MODEL.md">Training-day model</a></p>
         <div class="form-row">
           <label>From <input type="date" id="history-start"></label>
           <label>To <input type="date" id="history-end"></label>
@@ -450,6 +450,14 @@
           <label id="prescribe-selection-confirm-wrap" hidden><input type="checkbox" id="prescribe-selection-confirm"> Confirm near-comparable (B)</label>
           <label id="prescribe-selection-llm-wrap" hidden><input type="checkbox" id="prescribe-selection-llm"> Use LLM</label>
           <p class="muted" id="prescribe-apply-selection-note"><strong>Apply selection:</strong> reruns the per-slot ranking and substitutes only <strong>class A</strong> candidates automatically; <strong>class B</strong> requires <em>Confirm near-comparable</em>; <strong>class C</strong> is never applied. Each applied slot cites <code>MOD-SELECT-001</code> and its load is re-solved from that lift's own history. It does not change the session type, and nothing is persisted until <strong>Start workout</strong>.</p>
+          <label>Top set
+            <select id="prescribe-top-set">
+              <option value="">Ask (show the offer, no structure yet)</option>
+              <option value="on">Add top set / back-off</option>
+              <option value="off">Straight sets</option>
+            </select>
+            <span class="muted" id="prescribe-top-set-note">Optional set structure; independent of dynamic exercise selection.</span>
+          </label>
           <label><input type="checkbox" id="prescribe-minimum"> Minimum session</label>
           <span id="prescribe-minimum-options" hidden>
             <label>Target
@@ -527,6 +535,13 @@
             <label>Load kg <input type="number" inputmode="decimal" step="0.5" id="workout-set-load" placeholder="added load"></label>
             <label>Reps / sec <input type="number" inputmode="numeric" step="1" min="0" id="workout-set-reps" required aria-describedby="workout-set-msg"></label>
             <label>RIR <input type="number" inputmode="numeric" step="1" min="0" max="6" id="workout-set-rir"></label>
+            <label>Set role
+              <select id="workout-set-role">
+                <option value="">Ordinary</option>
+                <option value="top_set">Top set</option>
+                <option value="back_off">Back-off</option>
+              </select>
+            </label>
             <label>Velocity m/s <input type="number" inputmode="decimal" step="0.01" id="workout-set-velocity" placeholder="optional"></label>
             <button class="primary" type="submit">Add set</button>
           </form>
@@ -544,13 +559,20 @@
             <label>Load kg <input id="workout-edit-load" type="number" step="0.5" inputmode="decimal"></label>
             <label>Reps <input id="workout-edit-reps" type="number" step="1" min="0" inputmode="numeric"></label>
             <label>RIR <input id="workout-edit-rir" type="number" step="1" min="0" max="6" inputmode="numeric"></label>
+            <label>Set role
+              <select id="workout-edit-role">
+                <option value="">Ordinary</option>
+                <option value="top_set">Top set</option>
+                <option value="back_off">Back-off</option>
+              </select>
+            </label>
             <label>Velocity m/s <input id="workout-edit-velocity" type="number" step="0.01" inputmode="decimal"></label>
             <button class="primary" type="button" id="workout-set-edit-save">Save set</button>
           </div>
           <div id="workout-set-edit-msg" role="status" aria-live="polite"></div>
         </div>
 
-        <details class="advanced" id="workout-plan-details">
+        <details class="advanced" id="workout-plan-details" open>
           <summary>Plan and plan edits</summary>
           <p class="section-help"><span>The editable workout plan; the original prescription is kept separately.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
           <div id="workout-plan"></div>
@@ -1070,6 +1092,72 @@
         <div id="settings-modalities"></div>
       </div>
 
+      <div class="panel" id="settings-resolver-panel">
+        <div class="panel-head"><h2>Resolver</h2>
+          <span class="badge" id="resolver-status">loading…</span></div>
+        <p class="section-help"><span>Opt-in deterministic exercise generation. Settings are append-only profile versions; structural policy is a versioned local YAML file with validated backups.</span>
+          <a class="doc-link" href="#docs?doc=docs/PROGRAMME-BUILDER-PLAN.md">Resolver plan</a></p>
+        <div id="settings-resolver-warning" class="warnbox" hidden>
+          Resolver mode is enabled. Preview and start paths use generated exercise pools; the fixed-template path remains available when it is disabled.
+        </div>
+        <div id="settings-resolver-fields"><p class="empty">Loading resolver settings…</p></div>
+        <div class="form-row">
+          <label class="grow">Reason <input id="settings-resolver-reason" placeholder="required for guarded settings"></label>
+          <label><input type="checkbox" id="settings-resolver-enable-confirm"> Confirm resolver enable</label>
+          <label><input type="checkbox" id="settings-resolver-guard"> Confirm guarded change</label>
+          <label>Type SPINAL <input id="settings-resolver-guard-text" placeholder="SPINAL" autocomplete="off"></label>
+          <button class="primary" type="button" id="settings-resolver-save">Save resolver settings</button>
+          <button class="ghost" type="button" id="settings-resolver-reset">Reset draft</button>
+        </div>
+        <div id="settings-resolver-diff" class="muted">No changes.</div>
+        <p class="muted" id="settings-resolver-msg" role="status" aria-live="polite"></p>
+        <p class="muted">Enable is off by default. Enabling requires the explicit confirmation above; guarded weights and top-set safety values also need the tick, the typed word and a reason.</p>
+
+        <details class="advanced" id="settings-resolver-policy-disclosure">
+          <summary>Advanced structural policy YAML</summary>
+          <p class="section-help"><span>Validated against the taxonomy and blueprint. Saving creates a timestamped local backup and keeps the newest 20.</span>
+            <a class="doc-link" href="#docs?doc=docs/PROGRAMME-BUILDER-PLAN.md">Policy reference</a></p>
+          <p class="muted" id="settings-resolver-policy-meta">Loading policy…</p>
+          <textarea id="settings-resolver-policy-yaml" rows="20" spellcheck="false" aria-label="Resolver policy YAML"></textarea>
+          <div class="form-row">
+            <button class="primary" type="button" id="settings-resolver-policy-save">Validate and save policy</button>
+            <button class="ghost" type="button" id="settings-resolver-policy-restore">Restore latest backup</button>
+            <span class="muted" id="settings-resolver-policy-msg" role="status" aria-live="polite"></span>
+          </div>
+          <div id="settings-resolver-backups" class="muted"></div>
+        </details>
+
+        <div class="panel" style="margin:12px 0 0">
+          <div class="panel-head"><h3>Generation preview</h3><span class="muted">read-only · nothing is persisted</span></div>
+          <p class="section-help"><span>Preview is read-only; rating a suggestion updates suitability, and Start opens the frozen workflow.</span>
+            <a class="doc-link" href="#docs?doc=docs/PROGRAMME-BUILDER-PLAN.md">Resolver methodology</a></p>
+          <form id="settings-resolver-preview-form" class="form-row">
+            <label>Date <input type="date" id="settings-resolver-preview-date" required></label>
+            <label>Session
+              <select id="settings-resolver-preview-session">
+                <option value="auto">Auto (rolling)</option>
+                <option value="squat">Squat emphasis</option>
+                <option value="hinge">Hinge emphasis</option>
+                <option value="bench_squat">Bench + squat support</option>
+                <option value="bench_hinge">Bench + hinge support</option>
+              </select>
+            </label>
+            <label>Top set
+              <select id="settings-resolver-preview-top-set">
+                <option value="">Ask (offer, no structure yet)</option>
+                <option value="on">Add top set / back-off</option>
+                <option value="off">Straight sets</option>
+              </select>
+            </label>
+            <label><input type="checkbox" id="settings-resolver-preview-allow-unknown"> Allow unknown readiness</label>
+            <button class="primary" type="submit">Build preview</button>
+          </form>
+          <p class="muted">Preview uses the same engine as Start. Rating a suggestion below appends a suitability record; it never changes the preview silently.</p>
+          <div id="settings-resolver-preview"><p class="empty">No preview built.</p></div>
+          <div id="settings-resolver-preview-diff" class="muted"></div>
+        </div>
+      </div>
+
       <div class="panel">
         <div class="panel-head"><h2>Settings profile</h2>
           <span class="badge" id="settings-profile-meta">loading…</span></div>
@@ -1262,6 +1350,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <footer class="foot">Same core as <code>strength-coach</code>. The CLI remains the automation interface.</footer>
   <script src="/static/core.js"></script>
+  <script src="/static/settings.js"></script>
   <script src="/static/app.js"></script>
   <script src="/static/exercises.js"></script>
   <script src="/static/history.js"></script>

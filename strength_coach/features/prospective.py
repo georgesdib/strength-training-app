@@ -15,7 +15,7 @@ import pandas as pd
 from strength_coach import workout
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import attendance as attendance_feature
-from strength_coach.features import readiness_score
+from strength_coach.features import readiness_score, training_day
 from strength_coach.store import queries
 from strength_coach.utils import exercises
 
@@ -146,12 +146,11 @@ def _rir(current_sets) -> dict:
 
 
 def _duration(conn, start: dt.date, end: dt.date) -> dict:
-    sessions = queries.sessions(conn, start=start.isoformat(), end=end.isoformat())
-    measured = []
-    if not sessions.empty and "duration_basis" in sessions:
-        for row in sessions.itertuples():
-            if getattr(row, "duration_basis", None) == "measured" and pd.notna(getattr(row, "duration_min", None)):
-                measured.append(float(row.duration_min))
+    days = training_day.group(conn, start=start.isoformat(), end=end.isoformat())
+    measured = [
+        float(day["duration_min"]) for day in days
+        if day.get("duration_basis") == "measured" and day.get("duration_min") is not None
+    ]
     return {
         "measured_n": len(measured),
         "median_min": round(statistics.median(measured), 1) if measured else None,

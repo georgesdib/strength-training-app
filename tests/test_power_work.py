@@ -110,6 +110,26 @@ def test_the_template_rejects_a_power_rir_or_a_missing_stop_rule():
         )
 
 
+def test_power_and_top_set_working_sets_are_counted_once_in_time_estimate():
+    from types import SimpleNamespace
+
+    from strength_coach.prescribe import minimum_session
+
+    cfg = minimum_session.MinimumSessionConfig.load()
+    item = SimpleNamespace(
+        sets=3,
+        rest_s=120,
+        warmup=(),
+        set_groups=(
+            {"role": "top_set", "sets": 1},
+            {"role": "back_off", "sets": 2},
+        ),
+    )
+    assert minimum_session.estimate_minutes([item], cfg) == (
+        3 * (cfg.set_seconds + 120) / 60.0
+    )
+
+
 def test_the_power_rir_is_excluded_from_the_effort_window():
     frame = pd.DataFrame([
         {"exercise_id": "box_jump", "rir": 4},

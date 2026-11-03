@@ -20,6 +20,112 @@ class WarmupSet:
 
 
 @dataclass(frozen=True)
+class SetGroup:
+    """One planned set group inside an item.
+
+    Straight sets use an empty tuple on the item. A top-set structure carries one top_set
+    group and one back_off group, so persistence and workout logging never split the exercise
+    into duplicate item rows.
+    """
+
+    role: str
+    sets: int
+    load_kg: float | None
+    reps_low: int
+    reps_high: int
+    rir_target: int | None
+    percent_of_top: float | None = None
+
+
+SET_GROUP_ROLES = ("top_set", "back_off")
+
+
+def _plan_int(value: Any, field: str, *, where: str, low: int, high: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
+        raise ValueError(f"{where}: {field} must be an integer from {low} to {high}")
+    return value
+
+
+def validate_plan_set_groups(item: Mapping[str, Any], *, where: str = "plan item") -> None:
+    """Validate a persisted/started plan item's optional set groups.
+
+    The plan is the execution contract: group totals must equal item.sets, roles must be
+    unique and known, and every group must carry a usable load. This prevents the
+    preview/workout boundary from accepting a structure the engine would never emit.
+    """
+    groups = item.get("set_groups") or ()
+    if not groups:
+        return
+    if not isinstance(groups, (list, tuple)):
+        raise ValueError(f"{where}: set_groups must be a list")
+    total = 0
+    roles: set[str] = set()
+    for index, group in enumerate(groups):
+        group_where = f"{where}.set_groups[{index}]"
+        if not isinstance(group, Mapping):
+            raise ValueError(f"{group_where} must be an object")
+        role = group.get("role")
+        if role not in SET_GROUP_ROLES:
+            raise ValueError(f"{group_where}: role must be top_set or back_off")
+        if role in roles:
+            raise ValueError(f"{group_where}: duplicate set-group role {role!r}")
+        roles.add(role)
+        sets = _plan_int(group.get("sets"), "sets", where=group_where, low=1, high=50)
+        total += sets
+        _plan_int(group.get("reps_low"), "reps_low", where=group_where, low=1, high=100)
+        _plan_int(group.get("reps_high"), "reps_high", where=group_where, low=1, high=100)
+        if int(group["reps_low"]) > int(group["reps_high"]):
+            raise ValueError(f"{group_where}: reps_low must not exceed reps_high")
+        load = group.get("load_kg")
+        if isinstance(load, bool) or not isinstance(load, (int, float)):
+            raise ValueError(f"{group_where}: load_kg must be a number")
+        rir = group.get("rir_target")
+        if rir is not None:
+            _plan_int(rir, "rir_target", where=group_where, low=0, high=10)
+    expected = _plan_int(item.get("sets"), "sets", where=where, low=0, high=50)
+    if total != expected:
+        raise ValueError(
+            f"{where}: set_groups total {total} must equal item.sets {expected}"
+        )
+
+
+def validate_plan_items(items: Any, *, where: str = "plan") -> None:
+    if not isinstance(items, (list, tuple)):
+        raise ValueError(f"{where}.items must be a list")
+    for index, item in enumerate(items):
+        if not isinstance(item, Mapping):
+            raise ValueError(f"{where}.items[{index}] must be an object")
+        validate_plan_set_groups(item, where=f"{where}.items[{index}]")
+
+
+def resize_plan_item_set_groups(item: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep plan groups consistent after a planned-set edit.
+
+    Mirrors the engine resize: one set keeps the protected top set; two or more sets keep
+    one top set and put the remainder in back-off. A plan without groups is unchanged.
+    """
+    groups = list(item.get("set_groups") or ())
+    if not groups:
+        return dict(item)
+    top = next((group for group in groups if group.get("role") == "top_set"), None)
+    backoff = next((group for group in groups if group.get("role") == "back_off"), None)
+    if top is None or backoff is None:
+        return dict(item)
+    sets = int(item.get("sets") or 0)
+    if sets < 2:
+        return {
+            **dict(item),
+            "set_groups": [top],
+            "load_kg": top.get("load_kg"),
+            "rir_target": top.get("rir_target"),
+        }
+    return {
+        **dict(item),
+        "set_groups": [top, {**backoff, "sets": sets - 1}],
+    }
+
+
+@dataclass(frozen=True)
 class PrescriptionItem:
     order_index: int
     exercise_id: str
@@ -61,6 +167,8 @@ class PrescriptionItem:
     quality_stop: str | None = None
     # Main-lift ramp sets; empty for accessories and unknown loads.
     warmup: tuple[WarmupSet, ...] = ()
+    # Optional top-set/back-off structure. Empty means straight sets.
+    set_groups: tuple[SetGroup, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -113,6 +221,24 @@ class Prescription:
                     {"percent": w.percent, "reps": w.reps, "load_kg": w.load_kg}
                     for w in item.warmup
                 ],
+                **(
+                    {
+                        "set_groups": [
+                            {
+                                "role": group.role,
+                                "sets": group.sets,
+                                "load_kg": group.load_kg,
+                                "reps_low": group.reps_low,
+                                "reps_high": group.reps_high,
+                                "rir_target": group.rir_target,
+                                "percent_of_top": group.percent_of_top,
+                            }
+                            for group in item.set_groups
+                        ]
+                    }
+                    if item.set_groups
+                    else {}
+                ),
             }
             for item in self.items
         ]

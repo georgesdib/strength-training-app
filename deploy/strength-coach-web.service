@@ -7,10 +7,14 @@ Wants=network-online.target
 Type=simple
 User=dsh
 Group=dsh
-WorkingDirectory=/home/dsh/projects/strength-training-app
-ExecStart=/home/dsh/projects/strength-training-app/tools/start_web.sh
+WorkingDirectory=/home/dsh/strength-training-app
+Environment=HOME=/home/dsh
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/dsh/strength-training-app/tools/start_web.sh
 Restart=on-failure
 RestartSec=5
+TimeoutStopSec=20
 
 [Install]
 WantedBy=multi-user.target

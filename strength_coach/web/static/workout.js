@@ -12,6 +12,8 @@ const WORKOUT_LABELS = {
 let workoutTimer = null;
 let activeWorkoutId = null;
 let workoutSetBusy = false;
+const WORKOUT_HISTORY_LIMIT = 5;
+let workoutHistoryState = {};
 
 function workoutField(key, required) {
   var label = '<label>' + esc(WORKOUT_LABELS[key] || key);
@@ -197,9 +199,65 @@ function updateWorkoutSetTarget() {
     nextWorkoutSetNumber(exerciseId) + "</strong>.";
 }
 
+function workoutSetGroupsHtml(item) {
+  return typeof setGroupsHtml === "function" ? setGroupsHtml(item) : "";
+}
+
+function workoutLoggedRoleCount(exerciseId, role) {
+  var sets = (window.__workoutData && window.__workoutData.sets) || [];
+  return sets.filter(function (set) {
+    return String(set.exercise_id) === String(exerciseId) &&
+      String(set.set_role || "") === String(role || "");
+  }).length;
+}
+
+function workoutNextGroup(item) {
+  var groups = (item && item.set_groups) || [];
+  for (var index = 0; index < groups.length; index += 1) {
+    var group = groups[index];
+    if (workoutLoggedRoleCount(item.exercise_id, group.role) < Number(group.sets || 0)) {
+      return group;
+    }
+  }
+  return null;
+}
+
+function workoutGroupForRole(item, role) {
+  return ((item && item.set_groups) || []).find(function (group) {
+    return String(group.role) === String(role || "");
+  }) || null;
+}
+
+function applyWorkoutGroup(item, group) {
+  if (group) {
+    $("#workout-set-role").value = group.role;
+    $("#workout-set-load").value = group.load_kg == null ? "" : group.load_kg;
+    $("#workout-set-rir").value = group.rir_target == null ? "" : group.rir_target;
+    return;
+  }
+  $("#workout-set-role").value = "";
+  $("#workout-set-load").value = item.load_kg == null ? "" : item.load_kg;
+  $("#workout-set-rir").value = item.effort_model === "quality" || item.rir_target == null
+    ? "" : item.rir_target;
+}
+
 function prefillWorkoutSetFields(force) {
   var item = workoutPlanItem($("#workout-set-exercise").value);
   if (!item) return;
+  var groups = item.set_groups || [];
+  var pending = groups.length ? workoutNextGroup(item) : null;
+  if (groups.length) {
+    // The planned structure is the execution instruction: prefill the next unfilled
+    // top-set/back-off group, then reset to ordinary once all groups are logged.
+    if (force || pending) {
+      applyWorkoutGroup(item, pending);
+      if (force || $("#workout-set-reps").value === "") {
+        $("#workout-set-reps").value = item.reps_low == null ? "" : item.reps_low;
+      }
+      if (force) $("#workout-set-velocity").value = "";
+    }
+    return;
+  }
   if (force || $("#workout-set-load").value === "") {
     $("#workout-set-load").value = item.load_kg == null ? "" : item.load_kg;
   }
@@ -342,6 +400,7 @@ function editWorkoutSet(setId) {
   $("#workout-edit-load").value = set.load_kg == null ? "" : set.load_kg;
   $("#workout-edit-reps").value = set.reps == null ? "" : set.reps;
   $("#workout-edit-rir").value = set.rir == null ? "" : set.rir;
+  $("#workout-edit-role").value = set.set_role || "";
   $("#workout-edit-velocity").value = set.velocity == null ? "" : set.velocity;
   $("#workout-set-edit").hidden = false;
   $("#workout-set-edit-msg").textContent = set.exercise_id + " · set " + set.set_index;
@@ -357,6 +416,7 @@ function saveWorkoutSetEdit() {
       load_kg: numericOrNull("#workout-edit-load"),
       reps: numericOrNull("#workout-edit-reps"),
       rir: numericOrNull("#workout-edit-rir"),
+      set_role: $("#workout-edit-role").value || null,
       velocity: numericOrNull("#workout-edit-velocity")
     })
   }).then(function (data) {
@@ -375,6 +435,8 @@ function saveWorkoutSetEdit() {
 }
 
 function renderWorkout(w) {
+  // A new workout must not inherit the previous workout's loaded/open history panels.
+  if (activeWorkoutId !== w.workout_id) workoutHistoryState = {};
   activeWorkoutId = w.workout_id;
   window.__workoutData = w;
   $("#workout-empty").hidden = true;
@@ -399,6 +461,7 @@ function renderWorkout(w) {
   (w.forms || []).forEach(function (form) { formById[form.exercise_id] = form; });
   var rows = items.map(function (item, index) {
     var form = formById[item.exercise_id];
+    var history = workoutHistoryFor(item.exercise_id);
     var formOptions = ['<option value="">—</option>'];
     for (var rating = 1; rating <= 5; rating += 1) {
       formOptions.push('<option value="' + rating + '"' +
@@ -409,12 +472,18 @@ function renderWorkout(w) {
       : (item.rir_target == null ? "no RIR target" : "RIR " + item.rir_target);
     return '<article class="workout-plan-card">' +
       '<div class="workout-plan-card-head"><strong>' + esc(workoutExerciseLabel(item.exercise_id)) + '</strong>' +
-      '<span class="badge">' + item.sets + ' sets</span></div>' +
+      '<span class="workout-plan-card-tools"><span class="badge">' + item.sets + ' sets</span>' +
+      '<button class="ghost workout-history-toggle" type="button" data-history-toggle data-history-exercise="' +
+      esc(item.exercise_id) + '" aria-expanded="' + (history.open ? "true" : "false") +
+      '" aria-controls="workout-history-' + index + '">' +
+      (history.open ? "Hide history" : "History") + '</button></span></div>' +
       '<p class="workout-plan-prescription">' + item.reps_low + "–" + item.reps_high +
       ' reps · ' + (item.load_kg == null ? "load unknown" : fmt(item.load_kg) + " kg") +
       ' · ' + esc(effort) + '</p>' +
+      workoutSetGroupsHtml(item) +
       (item.substitution_for ? '<p class="muted">swapped from ' + esc(item.substitution_for) + '</p>' : "") +
       (item.added_during_workout ? '<p class="muted">added during workout</p>' : "") +
+      workoutHistoryPanel(item.exercise_id, index, history) +
       '<div class="workout-plan-actions">' +
       '<div class="set-stepper" role="group" aria-label="Planned sets for ' + esc(item.exercise_id) + '">' +
       '<button class="ghost" type="button" data-plan-set="-1" data-index="' + index +
@@ -515,7 +584,8 @@ function renderWorkout(w) {
   var setRows = (w.sets || []).map(function (set) {
     return '<article class="workout-set-card"><div class="workout-set-card-head">' +
       '<strong>' + esc(workoutExerciseLabel(set.exercise_id)) + '</strong><span class="badge">Set ' +
-      set.set_index + '</span></div><p class="workout-set-values">' +
+      set.set_index + (set.set_role ? ' · ' + esc(set.set_role.replace(/_/g, ' ')) : '') +
+      '</span></div><p class="workout-set-values">' +
       (set.load_kg == null ? "load —" : fmt(set.load_kg) + " kg") + " · " +
       (set.reps == null ? "reps —" : set.reps + " reps") + " · RIR " +
       (set.rir == null ? "—" : set.rir) +
@@ -532,7 +602,8 @@ function renderWorkout(w) {
     ? '<div class="workout-set-list">' + setRows + '</div>'
     : "<p class='empty'>No sets logged yet.</p>";
   updateWorkoutSetTarget();
-  prefillWorkoutSetFields(!keptSelection);
+  var selectedPlanItem = workoutPlanItem($("#workout-set-exercise").value);
+  prefillWorkoutSetFields(!keptSelection || Boolean(selectedPlanItem && selectedPlanItem.set_groups && selectedPlanItem.set_groups.length));
   document.querySelectorAll("[data-remove-set]").forEach(function (button) {
     button.addEventListener("click", function () { removeWorkoutSet(button.dataset.removeSet); });
   });
@@ -542,6 +613,147 @@ function renderWorkout(w) {
   var measured = Math.max(1, Math.round((w.elapsed_seconds || 0) / 60));
   $("#workout-end-duration").placeholder = "measured ~" + measured + " min";
   startWorkoutTimer(w.started_at, w.elapsed_seconds);
+}
+
+function workoutHistoryFor(exerciseId) {
+  var key = String(exerciseId);
+  if (!workoutHistoryState[key]) {
+    workoutHistoryState[key] = {
+      open: false,
+      loaded: false,
+      loading: false,
+      error: "",
+      sessions: [],
+      total: 0,
+      hasMore: false,
+      included: []
+    };
+  }
+  return workoutHistoryState[key];
+}
+
+function workoutHistoryLoadLabel(set) {
+  var load = set.load_kg == null
+    ? "—"
+    : (Number(set.load_kg) === 0 && set.load_basis !== "external"
+      ? "BW" : fmt(set.load_kg) + " kg");
+  var reps = set.reps == null
+    ? "—"
+    : set.reps + (set.reps_unit === "seconds" ? " sec" : "");
+  return load + " × " + reps;
+}
+
+function workoutHistorySessionHtml(session) {
+  var rows = (session.sets || []).map(function (set) {
+    return "<tr><td>" + esc(set.set_index) + "</td><td>" +
+      esc(workoutHistoryLoadLabel(set)) + "</td><td>" +
+      (set.rir == null ? "—" : "RIR " + esc(set.rir)) + "</td></tr>";
+  }).join("");
+  return '<div class="workout-history-session"><div class="workout-history-date">' +
+    "<strong>" + esc(session.occurred_on) + "</strong> " +
+    '<span class="muted">' + esc(session.session_type || "") + "</span></div>" +
+    '<table class="workout-history-table"><thead><tr><th>Set</th>' +
+    "<th>Load × reps</th><th>RIR</th></tr></thead><tbody>" + rows +
+    "</tbody></table></div>";
+}
+
+function workoutHistoryPanel(exerciseId, index, state) {
+  if (!state.open) return "";
+  var body;
+  if (state.error) {
+    body = '<p class="warnbox">' + esc(state.error) + "</p>";
+  } else if (state.loading && !state.sessions.length) {
+    body = "<p class='muted'>Loading history…</p>";
+  } else if (!state.sessions.length) {
+    body = "<p class='empty'>No completed history for this exercise.</p>";
+  } else {
+    body = state.sessions.map(workoutHistorySessionHtml).join("");
+    if (state.hasMore || state.loading) {
+      body += '<button class="ghost workout-history-more" type="button" data-history-more ' +
+        'data-history-exercise="' + esc(exerciseId) + '"' +
+        (state.loading ? " disabled" : "") + ">" +
+        (state.loading ? "Loading…" : "Show more") + "</button>";
+    }
+  }
+  var included = "";
+  if (state.loaded) {
+    var extras = (state.included || []).filter(function (row) {
+      return String(row.id) !== String(exerciseId);
+    });
+    if (extras.length) {
+      included = '<p class="muted">Includes ' + extras.map(function (row) {
+        return esc(row.display || row.id);
+      }).join(", ") + " history.</p>";
+    }
+  }
+  return '<div class="workout-history" id="workout-history-' + index +
+    '" data-history-panel data-history-exercise="' + esc(exerciseId) + '">' +
+    included + body + "</div>";
+}
+
+function renderWorkoutHistory(exerciseId) {
+  var id = String(exerciseId);
+  var state = workoutHistoryFor(id);
+  document.querySelectorAll("[data-history-toggle]").forEach(function (button) {
+    if (String(button.dataset.historyExercise) !== id) return;
+    button.textContent = state.open ? "Hide history" : "History";
+    button.setAttribute("aria-expanded", state.open ? "true" : "false");
+  });
+  document.querySelectorAll("[data-history-panel]").forEach(function (panel) {
+    if (String(panel.dataset.historyExercise) !== id) return;
+    if (!state.open) {
+      panel.remove();
+      return;
+    }
+    var index = panel.id.replace("workout-history-", "");
+    panel.outerHTML = workoutHistoryPanel(id, index, state);
+  });
+}
+
+function loadWorkoutHistory(exerciseId, append) {
+  var id = String(exerciseId);
+  var state = workoutHistoryFor(id);
+  if (state.loading) return;
+  state.loading = true;
+  state.error = "";
+  renderWorkoutHistory(id);
+  var offset = append ? state.sessions.length : 0;
+  var date = window.__workoutData && window.__workoutData.for_date;
+  var query = "?exercise_id=" + encodeURIComponent(id) +
+    "&limit=" + WORKOUT_HISTORY_LIMIT + "&offset=" + offset +
+    (date ? "&on_or_before=" + encodeURIComponent(date) : "");
+  api("/api/exercise-history" + query).then(function (data) {
+    var next = data.sessions || [];
+    state.sessions = append ? state.sessions.concat(next) : next;
+    state.total = Number(data.total) || 0;
+    state.hasMore = Boolean(data.has_more);
+    state.included = data.included_exercises || [];
+    state.loaded = true;
+    state.loading = false;
+    renderWorkoutHistory(id);
+  }).catch(function (error) {
+    state.loading = false;
+    state.error = error.message;
+    renderWorkoutHistory(id);
+  });
+}
+
+function handleWorkoutHistoryClick(event) {
+  var toggle = event.target.closest("[data-history-toggle]");
+  if (toggle) {
+    var id = toggle.dataset.historyExercise;
+    var state = workoutHistoryFor(id);
+    state.open = !state.open;
+    renderWorkoutHistory(id);
+    if (state.open && !state.loaded) loadWorkoutHistory(id, false);
+    return;
+  }
+  var more = event.target.closest("[data-history-more]");
+  if (more) {
+    var moreId = more.dataset.historyExercise;
+    var moreState = workoutHistoryFor(moreId);
+    if (!moreState.loading) loadWorkoutHistory(moreId, true);
+  }
 }
 
 function renderWorkoutEnded(w) {
@@ -648,9 +860,40 @@ function renderWorkoutEnded(w) {
     postBlock +
     '<div class="form-row" style="margin-top:1rem">' +
     '<button class="primary" type="button" id="workout-review">Review workout</button>' +
+    '<button class="ghost" type="button" id="workout-start-another">Start another session today</button>' +
+    '<button class="ghost" type="button" id="workout-log-symptom">Log a symptom for this session</button>' +
     '<span class="muted">The deterministic rubric was saved at End workout.</span></div>';
   var review = document.getElementById("workout-review");
   if (review) review.addEventListener("click", function () { openReview(w.workout_id); });
+  var symptomLink = document.getElementById("workout-log-symptom");
+  if (symptomLink) symptomLink.addEventListener("click", function () {
+    if (typeof window.openSymptomForSession === "function") {
+      window.openSymptomForSession(w.workout_id, w.for_date);
+    } else {
+      notify("Open Athlete → Symptom to log this reading.");
+    }
+  });
+  var another = document.getElementById("workout-start-another");
+  if (another) another.addEventListener("click", function () {
+    another.disabled = true;
+    // A second fragment reuses the day plan and the first fragment's readiness snapshot.
+    var body = {
+      date: w.for_date,
+      plan: w.original_plan || w.plan,
+      readiness: w.readiness,
+      reuse_readiness: true
+    };
+    if (w.prescription_id) body.prescription_id = w.prescription_id;
+    api("/api/workout/start", { method: "POST", body: JSON.stringify(body) })
+      .then(function (data) {
+        notify("Another session started today.");
+        renderWorkout(data.workout);
+      })
+      .catch(function (error) {
+        another.disabled = false;
+        notify(error.message);
+      });
+  });
   if (typeof loadWorkoutSummary === "function") loadWorkoutSummary(w.workout_id);
   var postTest = document.getElementById("post-test-form");
   if (postTest) postTest.addEventListener("submit", function (event) {
@@ -761,6 +1004,7 @@ function submitWorkoutSet(event) {
     load_kg: numericOrNull("#workout-set-load"),
     reps: numericOrNull("#workout-set-reps"),
     rir: numericOrNull("#workout-set-rir"),
+    set_role: $("#workout-set-role").value || null,
     velocity: numericOrNull("#workout-set-velocity"),
     set_index: nextWorkoutSetNumber(exerciseId)
   };
@@ -840,6 +1084,12 @@ document.addEventListener("DOMContentLoaded", function () {
       input.addEventListener(eventName, function () { input.removeAttribute("aria-invalid"); });
     });
   });
+  var setRole = document.getElementById("workout-set-role");
+  if (setRole) setRole.addEventListener("change", function () {
+    var item = workoutPlanItem($("#workout-set-exercise").value);
+    if (!item) return;
+    applyWorkoutGroup(item, workoutGroupForRole(item, setRole.value));
+  });
   var endForm = document.getElementById("workout-end-form");
   if (endForm) endForm.addEventListener("submit", submitWorkoutEnd);
   var abandon = document.getElementById("workout-abandon");
@@ -875,6 +1125,8 @@ document.addEventListener("DOMContentLoaded", function () {
   if (notRecorded) notRecorded.addEventListener("change", function () {
     document.getElementById("workout-end-srpe").disabled = notRecorded.checked;
   });
+  var plan = document.getElementById("workout-plan");
+  if (plan) plan.addEventListener("click", handleWorkoutHistoryClick);
   loadWorkoutExercises();
   loadActiveWorkout();
 });

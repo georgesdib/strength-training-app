@@ -92,10 +92,16 @@ Worked example:
   so silence is not "no flare" — it is `unknown`.
 - A reading older than `max_entry_age_days` (14, `config/injuries.v1.yaml`) makes the injury
   signal `insufficient` rather than healthy.
-- A loaded session counts as **tolerated** only when a reading within the next
-  `verify_within_days` (7) shows no flare. Unlogged stays `unverified`, never tolerated.
-- Rest alone earns no credit: the streak only counts once loaded sessions are verified
-  (`DEC-BACKSIGNAL-01`).
+- A loaded date counts as **no flare recorded** only when a qualifying reading exists
+  within the next `verify_within_days` (7), or a same-day `post_session` reading exists, and
+  none is a flare. Unlogged stays `unverified`.
+- A same-day `pre_session` reading is not follow-up; if it is a flare, the load is
+  `symptomatic_load`. A follow-up flare is `flared`. The four states partition loaded dates.
+- For each `(region, date, timing)`, only the latest row participates in the signal. An
+  append-only correction therefore supersedes an earlier row for the signal, while the raw
+  history keeps both.
+- Rest alone earns no credit: the streak only counts once loaded sessions have a qualifying
+  no-flare follow-up (`DEC-BACKSIGNAL-01`).
 
 ## 5. What not to do
 
@@ -114,11 +120,37 @@ A level-1 reading with `settled` left at `unknown` counts as **not settled**, so
 `unknown` rather than "no flare": a safety gate must not pass by silence. One conservative
 session is the cost, and the remedy is one word — record `--settled yes` when it has settled.
 
+## 7. Optional session and lift attribution
+
+A reading may optionally name one completed session, at most one lift actually performed in
+that session, a required onset date and a required confidence label
+(`possible`/`likely`/`strong`). It is display and review only: no effect on the flare rule, the
+injury signal, suitability, selection or load, and not a predictor input.
+
+How to record it:
+
+1. set the reading date and timing;
+2. set **onset** first; the session picker then offers completed sessions within the
+   configured lookback (7 days) — strictly before onset for `pre_session`, on or before onset
+   for `post_session`/`next_morning`;
+3. choose a session, then optionally one lift performed in it;
+4. choose confidence. A session requires onset and confidence; a lift is optional, so
+   “session only” is valid.
+
+A correction appends a new symptom row with the same region, date and timing; the latest row
+wins for display. Historical rows without attribution stay `NULL`, which means **not
+recorded**, never “no trigger”. If no session fits, leave attribution empty and put the
+context in the note. The session picker does not infer causation; the label is
+**athlete-attributed / suspected**.
+
+See [`INJURY-ATTRIBUTION-PLAN.md`](INJURY-ATTRIBUTION-PLAN.md) and `DEC-INJURY-06`.
+
 ## Related
 
 - **Decisions:** [DECISIONS.md](DECISIONS.md) — `DEC-SYMPTOM-01` (one number, now per region),
   `DEC-SYMPTOM-02` (the flare definition), `DEC-SYMPTOM-03` (regions stay separate),
-  `DEC-SYMPTOM-04` (an unrecorded settlement is not a settlement).
+  `DEC-SYMPTOM-04` (an unrecorded settlement is not a settlement), `DEC-INJURY-05`
+  (verification correction), `DEC-INJURY-06` (optional attribution).
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — Q25, closed by `DEC-SYMPTOM-04`.
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md) §3.3 (symptom input) and §4.7 (injury signal).
 - Schema and consumers: [DATA-MODEL.md](DATA-MODEL.md) §11.5, [INJURY-SIGNAL.md](INJURY-SIGNAL.md).

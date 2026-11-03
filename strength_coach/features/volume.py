@@ -159,6 +159,9 @@ def volume_target_key(pattern: str) -> str:
         return "squat"
     if raw == "hamstring_eccentric":
         return "knee_flexion"
+    if raw == "power_throw":
+        # One fixed power bucket, regardless of jump versus throw (DEC-POWER-05).
+        return "power_jump"
     return raw
 
 

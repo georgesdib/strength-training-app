@@ -64,6 +64,7 @@ SELECTION_YAML = "selection.v1.yaml"
 SCHEMES_YAML = "schemes.v1.yaml"
 UNDULATION_YAML = "undulation.v1.yaml"
 SESSION_TYPES_YAML = "session-types.v1.yaml"
+TEMPLATE_RESOLVER_YAML = "template-resolver.v1.yaml"
 
 
 def training_log_csv() -> Path:
@@ -156,3 +157,7 @@ def undulation_yaml() -> Path:
 
 def session_types_yaml() -> Path:
     return config_dir("templates", SESSION_TYPES_YAML)
+
+
+def template_resolver_yaml() -> Path:
+    return config_dir(TEMPLATE_RESOLVER_YAML)

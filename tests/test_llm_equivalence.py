@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from conftest import make_readiness, make_training
 
 from strength_coach import cli
@@ -83,6 +84,7 @@ def artifacts(path) -> dict:
         store.close()
 
 
+@pytest.mark.slow
 def test_model_absence_changes_nothing_but_the_narrative(tmp_path, monkeypatch):
     off_path = tmp_path / "off.db"
     on_path = tmp_path / "on.db"

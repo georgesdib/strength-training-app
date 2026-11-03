@@ -14,8 +14,10 @@ from typing import Any
 
 from strength_coach import __version__, settings_profile
 from strength_coach.features import prescription_provenance
+from strength_coach.prescribe import generated as generated_snapshot
 from strength_coach.prescribe import shadow as shadow_mod
 from strength_coach.prescribe import volume_budget
+from strength_coach.prescribe.models import validate_plan_items
 from strength_coach.store import repositories
 
 
@@ -43,6 +45,7 @@ def _rows(plan: Mapping[str, Any]) -> list[dict]:
             "rationale_refs": list(item.get("refs") or ()),
             "substitution_for": item.get("substitution_for"),
             "warmup": list(item.get("warmup") or ()),
+            "set_groups": list(item.get("set_groups") or ()),
         })
     return rows
 
@@ -55,6 +58,11 @@ def store_plan(conn, plan: Mapping[str, Any], *, approved_by: str = "determinist
     """
     if not isinstance(plan, Mapping) or not plan.get("items"):
         raise ValueError("plan.items must be a non-empty list")
+    validate_plan_items(plan.get("items") or (), where="plan")
+    # Validate the optional resolver snapshot before starting the append sequence. The web
+    # caller also owns a transaction, but store_plan must never create a partial artifact
+    # merely because a later reader rejects the snapshot.
+    generated_snapshot.validate_snapshot(plan.get("generated_session"))
     payload = json.dumps(plan, sort_keys=True, default=str)
     run = repositories.start_run(
         conn,
@@ -74,6 +82,10 @@ def store_plan(conn, plan: Mapping[str, Any], *, approved_by: str = "determinist
         calibration_ids=tuple(plan.get("calibration_ids") or ()),
         approved_by=approved_by,
         items=_rows(plan),
+        template_digest=plan.get("template_digest"),
+        policy_digest=plan.get("policy_digest"),
+        input_hash=plan.get("input_hash"),
+        generated_session=plan.get("generated_session"),
     )
     volume_budget.record_exemptions(
         conn, prescription_id=prescription_id,

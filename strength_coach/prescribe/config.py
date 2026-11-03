@@ -112,7 +112,7 @@ class Thresholds:
             back_flare_erector_sets=int(modifiers.get("back_flare_erector_sets", 3)),
             back_flare_erector_added_kg=float(modifiers.get("back_flare_erector_added_kg", 0)),
             back_flare_main_rir=int(modifiers.get("back_flare_main_rir", 3)),
-            session_time_cap_s=int(prescription.get("session_time_cap_s", 4800)),
+            session_time_cap_s=int(prescription.get("session_time_cap_s", 5400)),
             proposal_max_set_change=int(prescription.get("proposal_max_set_change", 2)),
             proposal_max_sets=int(prescription.get("proposal_max_sets", 8)),
             proposal_main_substitution_min_interval_days=int(

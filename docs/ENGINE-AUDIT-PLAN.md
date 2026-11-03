@@ -585,7 +585,7 @@ Recommended wording for the box jump:
 | B7 | Duration marked unmeasurable | **Resolved for live workouts; imported sessions remain unmeasurable.** Rubric 1.1.0 scores measured duration against 80/90 and stores imported duration as `measurable=0`. | Rubric version 1.1.0 |
 | B8 | Test counts conflict | **Resolved.** `ROADMAP.md` is the current source; older counts are labelled historical. | Documentation maintenance |
 | B9 | Architecture says no UI / no LLM numbers | **Resolved.** `ARCHITECTURE.md` describes the local web UI and bounded structural proposals; Python still computes all numbers. | Documentation contract fixed |
-| B10 | Public docs contained athlete-specific data | **Closed by W12.** Current public docs use illustrative examples and qualitative sample descriptions; exact counts/dates remain in the private record. Earlier Git history remains public by explicit decision; no rewrite. | Privacy issue; accepted history; no rewrite |
+| B10 | Public docs contained athlete-specific data | **Closed by W12.** Current public docs use illustrative examples and qualitative sample descriptions; exact counts/dates remain in the private record. | Privacy issue; current-tree cleanup complete |
 
 #### B6 detail — cap resolved
 
@@ -622,7 +622,7 @@ Reconcile to the actual contract:
 - the LLM may choose precomputed menu options and propose structural set-count changes
   within the bounds enforced by Python.
 
-#### B10 detail — public data and Git history
+#### B10 detail — public data
 
 Move or generalise:
 
@@ -631,10 +631,6 @@ Move or generalise:
 - the date-scoped trap-bar switch if it identifies the athlete;
 - single-athlete sample sizes and exact dates;
 - personal dates, competition dates and unique history details.
-
-Important: deleting text from current docs does **not** remove it from Git history. A public
-repository requires an explicit decision about history rewriting, or accepting that the
-history remains public. Do not rewrite history without separate approval.
 
 ### 11.3 New workstreams
 
@@ -646,7 +642,7 @@ history remains public. Do not rewrite history without separate approval.
 | W9 | Spinal cap headroom | W1/W3 | audit complete; explicit high-fatigue costs, at-cap display, cap unchanged |
 | W10 | Age in athlete state | W0 | audit complete; optional `birth_year` proposal, no automatic age rule |
 | W11 | Documentation consistency | W0 | complete; cap/count/architecture consistent; duration rubric 1.1.0 scores live measured duration |
-| W12 | Public-data audit | none | complete; exact counts generalised; Git history accepted, not rewritten |
+| W12 | Public-data audit | none | complete; exact counts generalised |
 
 ### 11.4 Revised priority order
 
@@ -690,7 +686,6 @@ For A3/A4/A5:
 - No change to session templates or volume split.
 - No new age-based load rule.
 - No new fatigue model.
-- No Git-history rewrite.
 - No cardio expansion.
 
 W11/W12 documentation closes the audit plan. No code or training policy changed. The final

@@ -69,6 +69,15 @@ hinge:
   executable: true
   fallback_level: full
   items:
+  - exercise_id: broad_jump
+    sets: 3
+    reps_low: 3
+    reps_high: 5
+    load_kg: 0.0
+    load_basis: bodyweight_total
+    rir_target: null
+    rest_s: 120
+    essential: false
   - exercise_id: trap_bar_deadlift
     sets: 5
     reps_low: 3
@@ -127,6 +136,15 @@ bench_squat:
   executable: true
   fallback_level: full
   items:
+  - exercise_id: medicine_ball_chest_pass
+    sets: 3
+    reps_low: 3
+    reps_high: 5
+    load_kg: 0.0
+    load_basis: bodyweight_total
+    rir_target: null
+    rest_s: 120
+    essential: false
   - exercise_id: bench_press
     sets: 4
     reps_low: 3
@@ -176,6 +194,15 @@ bench_hinge:
   executable: true
   fallback_level: full
   items:
+  - exercise_id: medicine_ball_chest_pass
+    sets: 3
+    reps_low: 3
+    reps_high: 5
+    load_kg: 0.0
+    load_basis: bodyweight_total
+    rir_target: null
+    rest_s: 120
+    essential: false
   - exercise_id: bench_press
     sets: 4
     reps_low: 3

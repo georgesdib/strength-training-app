@@ -94,6 +94,13 @@ def test_cleaning_resolves_the_same_name_by_row_date():
     assert ids == ["sumo_deadlift", "trap_bar_deadlift"]
 
 
+def test_loaded_hinge_and_unilateral_lifts_have_their_own_vbt_family(taxonomy):
+    # These are not pooled with a deadlift or bilateral squat: their load-velocity curves differ.
+    assert taxonomy.resolve("Good Morning").vbt_family == "good_morning"
+    assert taxonomy.resolve("Rack Pull").vbt_family == "rack_pull"
+    assert taxonomy.resolve("Split Squat").vbt_family == "split_squat"
+
+
 def test_trap_bar_is_hinge_direct_erector_false(taxonomy):
     """Hinge loading is indirect erector work: it never satisfies the direct dose."""
     resolved = taxonomy.resolve("Trap Bar Deadlift")
@@ -102,6 +109,7 @@ def test_trap_bar_is_hinge_direct_erector_false(taxonomy):
     assert resolved.is_direct_erector is False
 
 
+@pytest.mark.regression
 def test_hyperextension_keeps_identity_but_counts_as_history(taxonomy):
     """DEC-BACKEXT-02: the row keeps its own id, but the movement is the same."""
     resolved = taxonomy.resolve("Hyperextensions")
@@ -132,10 +140,17 @@ def test_jump_squat_is_power_not_squat(taxonomy):
     assert taxonomy.resolve("Jump Squats").pattern == "power_jump"
 
 
+def test_medicine_ball_chest_pass_is_canonical_power(taxonomy):
+    resolved = taxonomy.resolve("Medicine Ball Chest Pass")
+    assert resolved.id == "medicine_ball_chest_pass"
+    assert resolved.pattern == "power_throw"
+
+
 def test_flat_bench_situps_are_core_not_bench(taxonomy):
     assert taxonomy.resolve("Flat-bench Sit-ups").pattern == "core"
 
 
+@pytest.mark.regression
 def test_leg_curls_are_knee_flexion_not_biceps(taxonomy):
     assert taxonomy.resolve("Lying Leg Curls").pattern == "knee_flexion"
     assert taxonomy.resolve("Barbell Curl").pattern == "elbow_flexion"

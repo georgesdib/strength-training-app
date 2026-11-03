@@ -2,9 +2,9 @@
 
 **Status:** closed 2026-10-27. Implemented and merged into `main` (merge `db1cc8f`; lint cleanup
 `49a49cd`). Phase 0 (the documentation audit and this plan) is committed. Workstreams A1–F are
-implemented; the O1–O10 items in §14 remain optional deferred follow-ups, not open audit
-findings. Browser verification uses the manual checklist in `WEB-UI.md` because no browser
-automation is installed.
+implemented; the remaining O3–O9 items in §14 are optional deferred follow-ups, not open audit
+findings. O1, O2 and O8 are implemented; O10 was removed by the owner. Browser verification
+still uses the manual checklist in `WEB-UI.md` because no browser automation is installed.
 **Scope:** the local web UI, the HTTP request boundary, date handling, backend error responses,
 data integrity, browser verification and frontend modularisation. No training calculations,
 prescription rules, readiness interpretation, database schema or historical data changes
@@ -28,7 +28,7 @@ integrity third, browser evidence fourth, modularisation last.** Modularisation 
 workstream that is purely structural; it must not hide or complicate the correctness fixes.
 
 Every final-audit finding is assigned to Workstreams A–F or explicitly marked no-change in the
-findings ledger. The O1–O10 items in §14 are deferred improvements, not omitted: they stay in
+findings ledger. The remaining O3–O9 items in §14 are deferred improvements, not omitted: they stay in
 this plan with a trigger, but they are not part of commits 0–8.
 
 ---
@@ -304,7 +304,8 @@ listeners to `exercises.js`. Keep `loadExercises()` (the picker) in `app.js` unl
 is clearly cheaper. The module uses core helpers and exposes `loadExerciseCatalog`,
 `openExerciseEditor`, `openExerciseDetails`, `saveExerciseDetails` and `openExerciseE1rm`.
 
-Settings is the next candidate, not part of this pass.
+Settings was extracted to `settings.js` in the O1 follow-up (2026-11-01); the view registry
+(O2) followed.
 
 ### E3. Test coupling
 
@@ -488,24 +489,31 @@ improvements rather than confirmed defects, depend on an earlier workstream, or 
 or evidence. Each has a trigger; promote it to a numbered commit when the trigger is met. They
 are not part of commits 0–8.
 
-- **O1 — Settings extraction** after Exercises.
-- **O2 — view registry** for `setView`; defer until at least two features have moved.
+- **O1 — Settings extraction** after Exercises. **Done 2026-11-01:** Settings is in
+  `settings.js`; Exercises remains in `exercises.js`.
+- **O2 — view registry** for `setView`. **Done 2026-11-01:** `VIEW_LOADERS` maps each view to
+  its loader.
 - **O3 — migrate `history.js`/`workout.js` to core**; leave stable until a third feature
   needs the same helpers.
 - **O4 — streaming/multipart imports** if 40 MiB parse memory becomes a problem.
 - **O5 — read timeouts** for slow bodies (slowloris); local-only, lower priority.
 - **O6 — HTTP/1.1 and keep-alive**; only with close/drain and tests.
 - **O7 — limit tuning** (64 vs 96 MiB) based on a rejected legitimate import.
-- **O8 — error copy** mapping 411/413 to friendly UI text.
 - **O9 — markdown scheme allowlist** for `javascript:` targets.
-- **O10 — expand browser coverage** to import preview/apply and more failure paths.
+
+**Implemented:** O8 — 411/413 responses now map to plain next-action browser copy
+(2026-11-01).
+
+**Removed:** O10 — expanded browser coverage, removed by the owner on 2026-11-01. Browser
+coverage remains the accepted manual-checklist limitation; it is not a planned follow-up.
 
 ---
 
 ## Audit closure
 
 Closed 2026-10-27. No finding in the ledger remains open; workstreams A1–F are implemented and
-merged. The O1–O10 items are optional follow-ups with triggers, not open findings.
+merged. The remaining O3–O9 items are optional follow-ups with triggers, not open findings;
+O1, O2 and O8 are done and O10 was removed.
 
 Verification at closure: the full suite passed with 951 tests collected, exit code 0, including
 the 15 private integration tests; `ruff check .` is clean; `tools/check_ui_docs.py` reports OK.

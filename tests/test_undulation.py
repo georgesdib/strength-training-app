@@ -8,6 +8,7 @@ from types import MappingProxyType
 from conftest import make_readiness, make_training
 
 from strength_coach.prescribe import build_prescription
+from strength_coach.prescribe.schemes import Schemes
 from strength_coach.prescribe.undulation import Undulation
 from strength_coach.store import db, importer, repositories
 
@@ -68,13 +69,26 @@ def test_week_three_puts_main_lifts_on_maximal():
     assert any("DUP week 3" in warning for warning in prescription.warnings)
 
 
-def test_the_hinge_keeps_the_strength_scheme():
+def test_the_hinge_allows_the_maximal_scheme_with_a_warning():
     with store_with("2024-01-01") as store:
         prescription = build_prescription(store.connection, for_date="2024-01-15",
                                           session_type="hinge")
 
     trap_bar = item(prescription, "trap_bar_deadlift")
-    assert (trap_bar.reps_low, trap_bar.reps_high) == (3, 5)
+    assert (trap_bar.reps_low, trap_bar.reps_high) == (1, 3)
+    assert any("maximal hinge allowed" in warning for warning in prescription.warnings)
+
+
+def test_maximal_hinge_override_does_not_include_risk_accessories():
+    schemes = Schemes.load()
+    assert schemes.applicable(
+        "maximal", exercise_id="trap_bar_deadlift", essential=True,
+        maximal_hinge_allowed=True,
+    )
+    assert not schemes.applicable(
+        "maximal", exercise_id="rdl", essential=True,
+        maximal_hinge_allowed=True,
+    )
 
 
 def test_week_two_puts_accessories_on_volume():

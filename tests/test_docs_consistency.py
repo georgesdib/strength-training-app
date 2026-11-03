@@ -11,10 +11,10 @@ audit, so a recurrence fails the fast lane instead of waiting for the next manua
 
 from __future__ import annotations
 
+import io
 import os
 import re
-import subprocess
-import sys
+from contextlib import redirect_stdout
 from pathlib import Path
 
 import yaml
@@ -219,14 +219,17 @@ CLI_EXAMPLE_RE = re.compile(r"(?:^|\s)(?:\.venv/bin/)?strength-coach ([a-z][a-z-
 
 
 def _cli_help(*args: str) -> str:
-    result = subprocess.run(
-        [sys.executable, "-m", "strength_coach.cli", *args, "--help"],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout
+    # In-process help avoids six interpreter/pandas startups; test_run_web still checks the
+    # installed entry point separately.
+    from strength_coach import cli
+
+    buffer = io.StringIO()
+    try:
+        with redirect_stdout(buffer):
+            cli.main([*args, "--help"])
+    except SystemExit as exc:
+        assert exc.code == 0
+    return buffer.getvalue()
 
 
 def _help_commands(text: str) -> set[str]:

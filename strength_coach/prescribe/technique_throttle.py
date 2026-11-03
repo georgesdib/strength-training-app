@@ -88,7 +88,46 @@ def _note_pattern(
     return (["", *sorted(scope)] if include_main else sorted(scope))
 
 
+def _throttle_groups(
+    item: PrescriptionItem,
+    *,
+    applied: float,
+    cfg: TechniqueThrottleConfig,
+) -> tuple[tuple, bool, bool]:
+    """Apply the same load factor and RIR floor/cap to structured groups.
+
+    Scaling each group's own load preserves the top/back-off distinction; copying the parent
+    summary load would collapse it. Returns (groups, load_changed, rir_changed).
+    """
+    groups = []
+    load_changed = False
+    rir_changed = False
+    for group in item.set_groups:
+        new_load = group.load_kg
+        if (
+            new_load is not None
+            and new_load > 0
+            and item.load_basis != "bodyweight_total"
+            and applied < 1.0 - 1e-9
+        ):
+            candidate = loads.round_down(
+                new_load * applied, item.rounding_increment_kg
+            )
+            if abs(candidate - new_load) > 1e-9:
+                new_load = candidate
+                load_changed = True
+        new_rir = group.rir_target
+        if new_rir is not None:
+            candidate_rir = min(cfg.rir_cap, max(int(new_rir), cfg.rir_floor))
+            if candidate_rir != new_rir:
+                new_rir = candidate_rir
+                rir_changed = True
+        groups.append(replace(group, load_kg=new_load, rir_target=new_rir))
+    return tuple(groups), load_changed, rir_changed
+
+
 def apply(items: Iterable[PrescriptionItem], patterns: Mapping[str, str], *,
+
           pattern: str | Iterable[str] | None = None,
           config: TechniqueThrottleConfig | None = None) -> dict[str, Any]:
     """Return items with the throttle applied, plus a provenance note.
@@ -133,6 +172,7 @@ def apply(items: Iterable[PrescriptionItem], patterns: Mapping[str, str], *,
         rir = min(cfg.rir_cap, max(int(item.rir_target), cfg.rir_floor))
         new_load = item.load_kg
         new_factor = item.load_factor
+        applied = 1.0
         if item.load_kg is None or item.load_kg <= 0:
             not_reducible.append(item.exercise_id)
         elif item.load_basis == "bodyweight_total":
@@ -147,12 +187,34 @@ def apply(items: Iterable[PrescriptionItem], patterns: Mapping[str, str], *,
                     item.load_kg * applied, item.rounding_increment_kg
                 )
                 new_factor = target
-        if (new_load is not None and item.load_kg is not None
-                and abs(new_load - item.load_kg) > 1e-9):
+
+        groups, group_load_changed, group_rir_changed = _throttle_groups(
+            item, applied=applied, cfg=cfg
+        )
+        if groups:
+            # The parent summary represents the back-off group; keep it equal to the
+            # structured work rather than a stale pre-throttle load.
+            summary = next(
+                (group for group in groups if group.role == "back_off"),
+                groups[0],
+            )
+            new_load = summary.load_kg
+            if summary.rir_target is not None:
+                rir = summary.rir_target
+
+        if group_load_changed or (
+            new_load is not None and item.load_kg is not None
+            and abs(new_load - item.load_kg) > 1e-9
+        ):
             capped.append(item.exercise_id)
-        if rir != item.rir_target:
+        if group_rir_changed or rir != item.rir_target:
             floored.append(item.exercise_id)
-        if new_load == item.load_kg and rir == item.rir_target:
+        if (
+            new_load == item.load_kg
+            and rir == item.rir_target
+            and not group_load_changed
+            and not group_rir_changed
+        ):
             out.append(item)
             continue
         changed.append(item.exercise_id)
@@ -161,9 +223,9 @@ def apply(items: Iterable[PrescriptionItem], patterns: Mapping[str, str], *,
             load_kg=new_load,
             rir_target=rir,
             load_factor=new_factor,
+            set_groups=groups,
             rationale_refs=tuple(item.rationale_refs) + (MODIFIER,),
         ))
-
     if changed:
         pieces = []
         if capped:

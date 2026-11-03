@@ -13,11 +13,11 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**v1.1 beta.2 is released; v1.2 is planned.** v1.0 packaged the workable app and guided Workflow
-UI for user testing. v1.1 beta adds the Performance, monitoring-analysis, configuration and
-report-control surfaces. v1.2 is
-planned to drop the beta label; cardio depth and comparable calibration data remain (see
-ROADMAP §4.13a/§4.14).
+**v1.2.0 is released; v1.3 is planned.** The beta label is removed. v1.0 beta packaged the
+workable app and v1.1 beta added the monitoring/Performance surfaces. The deterministic template
+resolver is available as an opt-in feature (`resolver.enabled=false` by default) with its
+acceptance audit closed. Cardio depth, a reproducible cardio impulse/shadow load and comparable
+calibration data are deferred to v1.3 (see ROADMAP §4.13a/§4.14).
 
 **Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
@@ -41,7 +41,7 @@ What exists today is:
 - `tools/baseline.py` — regenerates the numbers in `private/docs/BASELINE.md`.
 - `strength_coach/domain/` — e1RM, load arithmetic, RIR classes (tested).
 - `strength_coach/ingest/` — cleaning, flags, quarantine, session reconstruction.
-- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, per-region injury signal, cardio capture summary, periodic measurement log, optional session RPE/length, e1RM calibration/decay, per-lift readiness, high-intensity exposure guard, strength fitness-fatigue shadow model, scheduled/reactive deload policy, standardised warm-up ramps, 3RM/5RM cadence, under-MEV accessory progression, optional main-lift readiness set reduction, a user-selected volume-only minimum session, a descriptive progress dashboard, a read-only outcomes review, prescription-modifier provenance, quick readiness presets, context flags, a read-only readiness feedback report, a shared attendance summary and an optional per-rep velocity report and a stratified, descriptive velocity-loss analysis.
+- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, per-region injury signal, cardio capture summary, periodic measurement log, optional session RPE/length, e1RM calibration/decay, per-lift readiness, high-intensity exposure guard, strength fitness-fatigue shadow model, scheduled/reactive deload policy, standardised warm-up ramps, 3RM/5RM cadence, under-MEV accessory progression, optional main-lift readiness set reduction, a user-selected volume-only minimum session, a descriptive progress dashboard, a read-only outcomes review, prescription-modifier provenance, quick readiness presets, context flags, a read-only readiness feedback report, a shared attendance summary, virtual training-day grouping for session fragments and an optional per-rep velocity report and a stratified, descriptive velocity-loss analysis.
 - `strength_coach/store/` — SQLite migrations, append-only repositories, import orchestration.
 - `strength_coach/workout.py` — live workout session, linked prescription snapshot, manual/imported sets, plan overrides, timed/manual end and rubric link. `strength_coach/history.py` — paginated history and append-only corrections for completed/imported sessions.
 - `data/coach.db` is created on demand and is git-ignored.
@@ -148,7 +148,8 @@ so silently erased genuine `RIR = 0` observations during development.
 
 ## 7. Definition of done for any change
 
-1. `python -m pytest` passes.
+1. `python -m pytest` passes. Optional integration/regression tests run when the owner asks
+   and in the release workflow, not by default.
 2. New behaviour has a test that fails without it.
 3. If the change affects measured facts, `python tools/profile_data.py` still matches
    `private/docs/EVIDENCE.md` — or you have updated both.
@@ -172,21 +173,26 @@ so silently erased genuine `RIR = 0` observations during development.
 
 ### 7.1 How to run tests without wasting ten minutes
 
-The full suite includes costly integration and golden tests. While iterating, run only what
-the change can affect:
+The default suite excludes the optional integration (real CSVs), regression (non-obvious
+bug-history) and slow (expensive forecast/web) layers. While iterating, run only what the
+change can affect:
 
 ```bash
 .venv/bin/python -m pytest tests/test_prescribe.py tests/test_rules_policy.py
 .venv/bin/python -m pytest --lf                       # only the last failures
-.venv/bin/python -m pytest -m "not integration and not golden"   # broad, ~2 min
+.venv/bin/python -m pytest -m "not integration and not golden and not regression and not slow"
 .venv/bin/python -m pytest -n 0                       # serial, for debugging a failure
 ```
 
-`pytest` runs in parallel by default (`pytest-xdist`, one worker per core). A full run is
-about 4-5 minutes; the fast lane is under 2. Run the **full** suite once, before handing off
-or committing — not after every edit. If a
-test fails, fix it and re-run that file/marker first; a full re-run is the last step, not the
-first reflex.
+`pytest` runs in parallel by default (`pytest-xdist`, one worker per core). Run the default
+suite once before handing off. Run the optional layers when the owner asks, or with:
+
+```bash
+.venv/bin/python -m pytest -m "integration or regression or slow" --dist loadfile
+```
+
+The release workflow runs all optional layers. If a test fails, fix it and re-run that file/
+marker first; a full re-run is the last step, not the first reflex.
 
 Tests assert **contracts, not incidental order**: e.g. "power work precedes the main lift"
 rather than "item 0 is the box jump". Only the golden fixtures pin full item order, on
@@ -197,6 +203,17 @@ test is too literal.
 A test that imports the real export is `integration`-marked and must not run in the default
 fast lane. If a public test needs data, synthesise it with `make_training`/`make_readiness` —
 never read `data/raw`.
+
+### 7.2 Waiting for long test runs
+
+Do not poll a running suite in short increments. Estimate the duration from the collected test
+count and recent runs, start it as a managed background job, then wait once for approximately
+that duration plus a buffer. For this repository, the default full suite is normally **8–10
+minutes**; the golden layer is normally **under one minute**, and focused files are usually
+seconds. A reasonable default is `job_output(wait=True)` with a 9–10 minute timeout for the full
+suite, or one sleep near the estimate. If it is still running after that single wait, extend once
+and inspect; do not emit repeated near-identical status checks. Report the final summary when the
+job completes.
 
 ## 8. Style
 
@@ -240,6 +257,7 @@ never read `data/raw`.
 | `docs/READINESS-WEIGHT-EVIDENCE.md` | readiness-weight evidence and held-out comparison; learned weights closed |
 | `docs/CONTINUITY.md` | gap detection and re-entry rules; the injury signal is separate |
 | `docs/INJURY-SIGNAL.md` | per-region injury signals, what "tolerated" loading means, injury-to-exercise links |
+| `docs/INJURY-ATTRIBUTION-PLAN.md` | injury-signal verification hygiene and optional session/lift symptom attribution (Phases 1–2 closed; Phase 3 is separate roadmap §4.28) |
 | `docs/SYMPTOM-LOGGING.md` | the 0-3 reading: what counts as a flare, and what to log when a symptom settles |
 | `docs/AUDIT-FOLLOW-UP-PLAN.md` | implemented audit follow-up: back-flare scope, quality-limited power, programme-document drift, same-date accounting and the audit gate |
 | `docs/AUDIT-FOLLOW-UP-REPORT.md` | closed audit follow-up report: five fixes verified, all residuals closed, accepted coverage limitations and no follow-up actions |
@@ -263,6 +281,9 @@ never read `data/raw`.
 | `docs/REVERSE-HYPER-BELT-SQUAT-EVIDENCE.md` | reverse hyperextension and belt squat evidence; optional accessories, no programme change |
 | `docs/WEAKNESS-TARGETING-PLAN.md` | gated weakness metric, retrospective screen and N-of-1 test plan |
 | `docs/LLM-INTEGRATION-PLAN.md` | future LLM analyst/explainer/constrained-proposer architecture: Iteration 1 (practical capabilities, selector retirement), conditional Iteration 2 (retrieval/RAG/advanced orchestration), shared context/evidence contracts, approval, privacy and evaluation gates; plan only |
+| `docs/PROGRAMME-BUILDER-PLAN.md` | deterministic dynamic template resolver: fixed four-template blueprint/fallback, per-session exercise resolution, versioned policy and provenance, reuse of the existing scheduler/prescription/volume/history; Steps 0–6 implemented and closed |
+| `docs/RESOLVER-ACCEPTANCE-AUDIT.md` | closed end-to-end production acceptance audit: P0/P1/P2 findings, fixes, acceptance matrix and residual release gates |
+| `docs/TRAINING-DAY-MODEL.md` | implemented training-day/session-fragment model: one local date may hold multiple fragments, day-level attendance/e1RM, combined volume/spinal, shared readiness, no schema migration |
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/MONITORING-ANALYSIS.md` | read-only exploratory monitoring analysis: dose, lagged associations, calibration transparency, API/UI/CLI, non-causal limits and privacy |
 | `docs/WORKOUT-GENERATION.md` | Plain-English explanation of the deterministic prescription pipeline, inputs, modifiers, validation and limitations |
@@ -275,6 +296,8 @@ never read `data/raw`.
 | `docs/SPINAL-LOAD-EVIDENCE.md` | focused review of load-weighting; keep ordinal, no load/RIR weighting |
 | `config/spinal-heavy-exposure.v1.yaml` | heavy-set advisory threshold/window; display only |
 | `docs/TRAINING-DYNAMICS.md` | evidence on 1RM testing, rep ranges and DUP; proposal, not decision |
+| `docs/JUMP-VARIANTS.md` | jump-training evidence and implementation: box jump on squat, broad jump on hinge, quality limits and alternatives |
+| `docs/THROW-VARIANTS.md` | upper-body throw evidence and implementation: medicine-ball chest pass on both bench days, implement-only quality limits |
 | `docs/WORKOUT-TYPE-READINESS-EVIDENCE.md` | evidence/decision: readiness and injury adjust load/sets, not the planned rep scheme |
 | `docs/HIGH-INTENSITY-EXPOSURE-PLAN.md` | detailed proposal: tests/max attempts/competition exposures, guard windows, evidence and phased evaluation |
 | `docs/ENGINE-AUDIT-PLAN.md` | closed W0–W12 audit plan; outcome in `AUDIT-CLOSEOUT.md` |
@@ -284,6 +307,7 @@ never read `data/raw`.
 | `docs/W1-W7-ATTENDANCE.md` | W1 schedule audit and W7 attendance metrics; forecast-deload path and session cap implemented |
 | `docs/W0-EXECUTION-MAP.md` | W0 execution map, modifier ownership/order, input risks, test coverage and candidate findings |
 | `docs/W3-MODIFIER-MATRIX.md` | W3 audit: six confirmed deload/order/floor/RIR defects, fixed and tested |
+| `docs/W3-INTERACTION-MATRIX-2026-10-31.md` | 768-case modifier interaction matrix: method, raw flags, preliminary triage and next pass; LIM-30 remains open |
 | `docs/MINIMUM-SESSION.md` | `MOD-MIN-001` user-selected volume-only fallback: targets, floors, precedence, refusal and provenance |
 | `docs/IMPLEMENTATION-PLAN-2026-10.md` | approved direction and phased implementation plan; A0–F implemented |
 | `docs/TEST-FATIGUE-PLAN.md` | superseded narrow test-fatigue proposal; points to the broader plan |

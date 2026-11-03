@@ -83,6 +83,10 @@ tr:last-child td { border-bottom: 0; }
 .list li { margin: 5px 0; }
 .warnbox { border-left: 3px solid var(--accent-2); background: var(--warn-bg); padding: 10px 13px; border-radius: 0 10px 10px 0; margin: 10px 0; }
 .attention { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
+#constraint-form label.grow { grid-column: 1 / -1; min-width: 0; }
+#constraint-form label.grow input { width: 100%; min-width: 0; }
+.calibration-details { margin-top: 8px; }
+.calibration-details summary { cursor: pointer; color: var(--accent); }
 pre { background: var(--code-bg); padding: 13px; border-radius: 10px; overflow: auto; font-size: 12.5px; }
 .grid-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 8px 0; }
 .advanced { margin: 10px 0; }
@@ -103,6 +107,8 @@ pre { background: var(--code-bg); padding: 13px; border-radius: 10px; overflow: 
 .doc table { margin: 10px 0; } .doc blockquote { border-left: 3px solid var(--line); margin: 10px 0; padding-left: 12px; color: var(--muted); }
 .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 0 20px 30px; }
 .empty { color: var(--muted); padding: 12px 0; }
+.fatigue-more { margin: 8px 0 0; }
+.fatigue-more button { margin-left: 8px; }
 @media (max-width: 760px) {
   .topbar { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
   .local { width: 100%; margin-left: 0; }
@@ -139,18 +145,23 @@ details summary { cursor: pointer; color: var(--muted); }
 /* exercise catalogue */
 #exercise-catalog { min-width: 0; }
 #exercise-catalog .table-scroll { overflow-x: auto; }
-#exercise-catalog td { vertical-align: top; overflow-wrap: anywhere; }
+#exercise-catalog td { vertical-align: top; overflow-wrap: anywhere; padding: 6px 8px; }
 .exercise-table { table-layout: fixed; width: 100%; }
-.exercise-table th:nth-child(1), .exercise-table td:nth-child(1) { width: 19%; }
-.exercise-table th:nth-child(2), .exercise-table td:nth-child(2) { width: 12%; }
-.exercise-table th:nth-child(3), .exercise-table td:nth-child(3) { width: 17%; }
-.exercise-table th:nth-child(4), .exercise-table td:nth-child(4) { width: 17%; }
-.exercise-table th:nth-child(5), .exercise-table td:nth-child(5) { width: 22%; }
-.exercise-table th:nth-child(6), .exercise-table td:nth-child(6) { width: 13%; }
+/* Seven fixed columns must add up to the table width. When Demands was inserted before the
+   actions column, the seventh width went missing: the buttons collapsed into a zero-width
+   stack and every catalogue row grew three or four lines tall on desktop. */
+.exercise-table th:nth-child(1), .exercise-table td:nth-child(1) { width: 20%; }
+.exercise-table th:nth-child(2), .exercise-table td:nth-child(2) { width: 10%; }
+.exercise-table th:nth-child(3), .exercise-table td:nth-child(3) { width: 15%; }
+.exercise-table th:nth-child(4), .exercise-table td:nth-child(4) { width: 13%; }
+.exercise-table th:nth-child(5), .exercise-table td:nth-child(5) { width: 16%; }
+.exercise-table th:nth-child(6), .exercise-table td:nth-child(6) { width: 8%; }
+.exercise-table th:nth-child(7), .exercise-table td:nth-child(7) { width: 18%; }
 .exercise-table .props { white-space: pre-wrap; overflow-wrap: anywhere; }
 #exercise-catalog .props { margin: 4px 0 0; font-size: 12px; max-height: 220px; overflow: auto; }
 .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .row-actions details { flex-basis: 100%; }
+.row-actions button { padding: 4px 9px; font-size: 12px; }
 @media (max-width: 760px), (orientation: landscape) and (max-height: 500px) {
   .row-actions button { padding: 4px 8px; font-size: 11px; }
   .row-actions details { display: none; }
@@ -314,6 +325,16 @@ body.menu-open { overflow: hidden; }
 .plan-options summary { cursor: pointer; color: var(--accent); }
 .plan-options select { min-width: 0; width: 100%; }
 .workout-plan-card .plan-options { border-top: 1px solid var(--line); padding-top: 8px; }
+.workout-plan-card-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.workout-history { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
+.workout-history-session { margin-top: 8px; }
+.workout-history-session:first-of-type { margin-top: 0; }
+.workout-history-date { margin-bottom: 4px; font-size: 13px; }
+.workout-history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.workout-history-table th, .workout-history-table td { text-align: left;
+  padding: 3px 8px 3px 0; vertical-align: top; }
+.workout-history-table th { color: var(--muted); font-weight: 600; }
+.workout-history-more { margin-top: 8px; }
 
 /* Theme-aware dialogs, mobile target sizes and safe areas. */
 .app-dialog { width: 94%; max-width: 720px; max-height: calc(100vh - 24px); overflow: auto;
@@ -369,6 +390,13 @@ body.menu-open { overflow: hidden; }
 .history-card p { margin: 4px 0; }
 .card-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .card-actions button { min-height: 44px; }
+.history-day-fragments td { background: var(--paper); padding: 8px 12px; white-space: normal; }
+.history-fragment { border-top: 1px solid var(--line); padding: 8px 0; }
+.history-fragment:first-child { border-top: 0; }
+.history-fragment-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.attribution-fields { grid-column: 1 / -1; border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+.attribution-fields legend { padding: 0 4px; font-weight: 600; }
+.attribution-fields p { margin: 4px 0 8px; }
 
 [aria-invalid="true"] { border-color: var(--bad); outline: 2px solid var(--bad-bg); }
 

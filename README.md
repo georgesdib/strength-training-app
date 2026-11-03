@@ -21,7 +21,7 @@ LLM call fails entirely.
 
 ## Status
 
-**v1.1 beta.2 is released; v1.2 is planned.** The full slice runs:
+**v1.2.0 is released; v1.3 is planned.** The full slice runs:
 import → readiness → prescribe a day → critique the last session → review it → calibrate. Days
 are prescribable through rolling session types (squat, hinge, bench+squat, bench+hinge); athlete
 state, constraints, suitability, e1RM overrides, symptoms and the exercise catalogue are editable
@@ -36,9 +36,10 @@ with import, state, Programme, Exercises and calibration reports (the Terminal p
 complete. v0.4 packaged the audit, documentation and form closeout. **v1.0 beta** packaged the
 workable app and guided Workflow UI for user testing. **v1.1 beta** adds the raw Performance
 view, configured relative-strength ratios, read-only monitoring analysis and the Phase 5A
-review follow-up. v1.2 is planned to drop the beta label; the cardio capture audit, a
-reproducible cardio impulse/shadow load and comparable calibration depth remain
-(ROADMAP §4.13a/§4.14). Prospective validation
+review follow-up. **v1.2.0 is stable:** the beta label is removed and the deterministic
+template resolver ships as an opt-in feature behind `resolver.enabled` (default false). The
+cardio capture audit, a reproducible cardio impulse/shadow load and comparable calibration
+depth are deferred to v1.3 (ROADMAP §4.13a/§4.14). Prospective validation
 remains a future gate, not an active candidate; review follow-ups are in ROADMAP §4.20.
 See [ROADMAP.md](ROADMAP.md).
 
@@ -70,9 +71,11 @@ python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 source .venv/bin/activate           # so `strength-coach` is on PATH
 
-.venv/bin/python -m pytest -m "not integration and not golden"   # fast iteration (~2 min)
+.venv/bin/python -m pytest -m "not integration and not golden and not regression and not slow"   # fast iteration
 .venv/bin/python -m pytest tests/test_prescribe.py --lf             # targeted / last failed
-.venv/bin/python -m pytest            # full, parallel, ~4-5 min; -n 0 to debug serially
+.venv/bin/python -m pytest            # public suite; optional layers excluded
+.venv/bin/python -m pytest -m ""      # everything; -n 0 to debug serially
+.venv/bin/python -m pytest -m "integration or regression or slow" --dist loadfile   # optional layers on request
 .venv/bin/python tools/profile_data.py    # profile your own export
 .venv/bin/python tools/baseline.py        # strength baseline, latest date in the log
 .venv/bin/python tools/llm_check.py       # show the LLM configuration (see below)

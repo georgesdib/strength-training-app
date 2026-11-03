@@ -77,7 +77,7 @@ prescription:
   # Default session-time target. The athlete profile may raise or lower it; this is a planning
   # target, not a hard ceiling. Recorded because the prescription row stores a time target even
   # when it cannot be measured (no timestamps in the export).
-  session_time_cap_s: 4800
+  session_time_cap_s: 5400
   # A proposal may change set counts but never loads, RIR or the exercise taxonomy. These bounds
   # are the whole of its licence: anything outside them is rejected, not clamped.
   proposal_max_set_change: 2

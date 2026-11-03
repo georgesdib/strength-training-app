@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from test_prescribe import BASE_HISTORY
 
 from tools import workout_generation_example as example
@@ -23,9 +24,14 @@ def test_the_fixture_is_the_prescribe_base_history():
     assert example.load_fixture()["history"] == BASE_HISTORY
 
 
-def test_the_documented_block_is_generated_from_the_engine():
+@pytest.fixture(scope="module")
+def rendered_block() -> str:
+    return example.render()
+
+
+def test_the_documented_block_is_generated_from_the_engine(rendered_block):
     text = DOC.read_text(encoding="utf-8")
-    assert example.extract(text) == example.render()
+    assert example.extract(text) == rendered_block
     assert "<!-- END GENERATED WORKOUT EXAMPLE -->" in text
 
 
@@ -35,11 +41,12 @@ def test_the_example_pins_the_current_hinge_result():
     assert normal.session_type == "hinge"
     assert normal.fallback_level == "full"
     assert normal.executable
-    assert normal.time_cap_s == 4800
+    assert normal.time_cap_s == 5400
     assert [
         (item.exercise_id, item.sets, item.load_kg, item.rir_target)
         for item in normal.items
     ] == [
+        ("broad_jump", 3, 0.0, None),
         ("trap_bar_deadlift", 5, 158.5, 2),
         ("bench_press_narrow", 4, 95.0, 2),
         ("pull_up", 4, 0.0, 2),
@@ -55,18 +62,20 @@ def test_the_example_pins_the_current_hinge_result():
     assert any("one eligible set" in warning for warning in normal.warnings)
 
     assert poor.fallback_level == "fatigue_reduced"
-    assert [item.sets for item in poor.items] == [5, 4, 2, 2, 2, 2]
-    assert [item.load_kg for item in poor.items] == [146.0, 87.5, 0.0, 27.5, 27.5, 27.5]
-    assert all(item.rir_target == 3 for item in poor.items)
+    assert [item.sets for item in poor.items] == [2, 5, 4, 2, 2, 2, 2]
+    assert [item.load_kg for item in poor.items] == [0.0, 146.0, 87.5, 0.0, 27.5, 27.5, 27.5]
+    assert all(
+        item.rir_target is None if item.effort_model == "quality" else item.rir_target == 3
+        for item in poor.items
+    )
     assert poor.notes["under_mev"]["applied"] is False
 
 
-def test_the_example_block_round_trips():
+def test_the_example_block_round_trips(rendered_block):
     text = DOC.read_text(encoding="utf-8")
-    block = example.render()
-    assert example.replace(text, block) == text
+    assert example.replace(text, rendered_block) == text
 
 
-def test_the_example_source_digest_is_stable():
+def test_the_example_source_digest_is_stable(rendered_block):
     assert example.source_digest() == example.source_digest()
-    assert example.render() == example.render()
+    assert rendered_block

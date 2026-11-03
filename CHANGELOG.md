@@ -1,5 +1,161 @@
 # Changelog
 
+## [Unreleased]
+
+_No unreleased changes._
+
+## [1.2.0] — 2026-11-03
+
+Stable release: beta label removed. The deterministic template resolver ships as an
+**opt-in** feature with `resolver.enabled=false` by default. Cardio depth, a reproducible
+cardio impulse/shadow load and comparable calibration depth are deferred to v1.3.
+
+### Added
+
+- Deterministic template resolver **acceptance audit closed**: the Workflow top-set control
+  now follows `resolver.top_set.mode` instead of the resolver flag, and a read-only lifecycle
+  audit closure with completed automated release gates is recorded in
+  [`docs/RESOLVER-ACCEPTANCE-AUDIT.md`](docs/RESOLVER-ACCEPTANCE-AUDIT.md); only the manual
+  browser Workflow smoke remains.
+- Deterministic template resolver **top-set execution integrity**: the Workflow plan now
+  renders top-set/back-off groups, prefills the next group's load/RIR/role, keeps plan group
+  edits consistent with item sets, clears stale groups on exercise swaps, and validates
+  set-group totals/roles before starting or persisting a workout. Resolver snapshots are
+  validated before any prescription append.
+- Deterministic template resolver **top-set invariant fix**: retired the unsupported
+  `resolver.top_set.preserve_total_sets=false` option and made one top set plus back-offs
+  always equal the item's working-set total. Historical profile rows with the retired key are
+  ignored on load and rejected on explicit write. This removes the silent no-op caused by the
+  final top-set resize.
+- Deterministic template resolver **Step 6 closure**: final documentation corrected the
+  DEC-RESOLVER-01–12 references, 29-key registry/UI count, current implementation status,
+  methodology version and forecast/default wording. Acceptance covered the default suite,
+  prescription goldens, flag-off equivalence, snapshot validation/legacy fallback,
+  critique/top-set/volume exemptions, settings registry/API/UI and preview-to-frozen-workout
+  start. The branch is merged; a manual browser smoke remains the only open acceptance item.
+- Deterministic template resolver **Step 6 audit remediation**: generated slot snapshots are
+  strictly validated (required fields/types/ranges, unique slot ids and exercise assignments,
+  assignment completeness); malformed payloads raise instead of silently using the blueprint,
+  while NULL/pre-Step-6 payloads without slots remain supported. Duplicate exercise assignments
+  are rejected at generation and read boundaries. The critique facts hash now includes accessory
+  ranges.
+- Deterministic template resolver **Step 6 hardening**: generated prescriptions now persist
+  immutable slot specifications alongside the assignment; critique and volume safety exemptions
+  read that snapshot, while older or fixed-template rows keep the blueprint fallback. Top-set
+  critique roles, fixed forecast option (c), flag-off rollback, policy restore, and a temporary
+  real-database copy smoke test are covered. The resolver remains off by default.
+- Deterministic template resolver **Step 5 remediation**: shared readiness/date enforcement now
+  covers CLI and web resolver previews with explicit `--allow-unknown-readiness`; policy backups
+  are written via fsynced temporary files and atomic rename, with active-policy replacement only
+  after a successful backup; `resolver.enabled` requires a shared false->true confirmation across
+  profile API, CLI and UI; restore uses a deterministic newest-normal-backup selection and a
+  non-selectable pre-restore snapshot; and the preview diff covers the full displayed prescription
+  rather than assignment/top-set only.
+- Deterministic template resolver **Step 5 Settings -> Resolver**: dedicated Settings panel for
+  append-only resolver scalars with explicit enable confirmation and guarded-change handling;
+  validated structural policy YAML editor with atomic writes, timestamped backups, digest display
+  and newest-20 retention; read-only generation preview with chosen/alternative/suggestion-only
+  candidates, top-set and projected-week diagnostics, inline suitability rating, regenerate/diff
+  and a Start handoff into the existing frozen-workflow path; minimal `resolver validate`, policy
+  and preview CLI commands. No volume-target duplication, no automatic fallback and no Step 6 work.
+- Deterministic template resolver **Step 4C remediation**: explicit `use_resolver=True` now
+  fails when the resolver is disabled or a template is supplied; scheduler availability uses the
+  same automatic-candidate classification and slot-aware required-pattern matching as candidate
+  pools; the bounded beam tracks required-pattern coverage while expanding partials and retains
+  structurally necessary candidates before applying the slot cap; the persisted resolver
+  fingerprint is a documented canonical `prescription-input-v3`
+  audit hash including effective beam configuration; resolver failures carry a stable
+  stage/cause/beam diagnostic, evaluator exceptions are classified separately, required
+  patterns are enforced on complete assignments and at final integrity, and public flag-off
+  serialization is covered against the fixed path. Fingerprint canonicalisation now distinguishes
+  non-finite floats/negative zero and includes DataFrame dtype/index schema.
+- Deterministic template resolver **Step 4C pipeline wiring**: `prescribe/resolver.py` runs
+  candidate pools, the bounded beam and the read-only evaluator when `resolver.enabled` is on;
+  `build_prescription()` dispatches to it and returns the winning feasible prescription built
+  once. Selection overrides are rejected, template/drop replacement is treated as infeasible,
+  scheduler availability is pool-aware, and generated-session/template/policy/catalogue/input
+  provenance is stored through the CLI and workout-start API. Forecast remains fixed option (c)
+  until Step 6; Step 5 UI is not started.
+- Deterministic template resolver **Step 4B bounded beam**: `prescribe/beam.py` keeps partial
+  assignments by deterministic candidate-rank order and runs the real read-only evaluator only on
+  the final beam. Defaults are width 4, six candidates per slot and four full evaluations, so the
+  default evaluation budget is reachable; no wall-clock cutoff or randomisation. Missing or empty
+  eligible pools are field-level failures; malformed or duplicate candidate ids are rejected
+  through the evaluator's shared validator; no blueprint fallback. `best` is a feasible result
+  only; `diagnostic` preserves the best scored result when none is feasible. Diagnostics count
+  partial pruning, candidate-cap removal and final-budget removal, and `exhaustive` is true only
+  when none of those limited the search. The generator/pipeline wiring,
+  scheduler/volume/selection/critique integration, persistence and forecast work are not started.
+- Deterministic template resolver **Step 4A read-only evaluator**: `prescribe/evaluator.py`
+  requires exactly one eligible string exercise for every slot, validates it against the slot's
+  explicit candidate pool, never substitutes blueprint defaults, and evaluates through the
+  existing prescription pipeline once with deterministic post-budget components and no store
+  writes. Selection inputs are rejected; drop/template replacement or an omitted exercise is
+  reported separately and cannot be a feasible assignment. `EvaluationInputs` is checked against
+  the actual build signature, and tests compare the full prescription output across parity cases.
+  The bounded beam, generator/pipeline wiring, scheduler/volume/selection/critique integration,
+  persistence and forecast work are not started.
+- Deterministic template resolver **Step 3 top set/back-off**: the optional main-lift
+  top-set structure, preserved total sets, configurable 85% back-offs, DUP/competition RIR
+  mapping, taper/deload/fallback rules, top-set protection, top-set-derived warm-ups, the
+  opt-in Prescribe ask, role-aware workout logging and clean-set provenance. Migration `0049`
+  is additive and straight-set/historical rows remain unchanged. Hinge maximal is now allowed
+  for the prescribed hinge main lifts with a warning; accessory/risk hinges remain excluded.
+  No joint evaluator, production prescription wiring or Settings -> Resolver panel; the flag
+  remains off.
+- Deterministic template resolver **historical settings profiles**: loading an append-only
+  profile tolerates the retired `resolver.weights.rotation` and `resolver.weights.preference`
+  keys and resolves the rest normally without rewriting history; saving an unrelated setting
+  strips inherited retired keys, while an explicit new write is rejected. The keys remain absent
+  from the registry, defaults, snapshot and UI.
+- Deterministic template resolver **Step 2 final audit**: retired the redundant rotation and
+  preference score weights (rotation remains the deterministic dwell rule; preference was
+  constant for automatic candidates); whole-session provisional spinal scoring now includes
+  earlier selections and aggregates duplicate exercise sets before authoritative validation;
+  completed-workout dates block same-date prescription fallback even when their mapping is
+  empty/malformed; catalogue load/validate/build/digest use one file snapshot; pending-rating
+  metadata uses one helper; dwell reasons and injury contributions are preserved; and the
+  rotation warning no longer claims rotation 1 for intermediate dwell. No top set, joint
+  evaluator, persistence, UI or prescription wiring; the flag remains off.
+- Deterministic template resolver **Step 2 remediation**: shared hard eligibility for concrete
+  and `pattern:<family>` injury links; safety-checked fixed power slots that fail rather than
+  substitute; effective `require_can_do`, `unrated_mode` and `rotation_default`; suggestion-only
+  versus automatic selection; required-pattern fallback repair; power/main/secondary availability;
+  authoritative provisional spinal-cost deltas; merged workout/prescription history; rotation-1
+  no-alternative warning; and separate policy/catalogue digests. No top set, joint evaluator,
+  persistence, UI or prescription wiring; the flag remains off.
+- Deterministic template resolver **Step 2 generator core**: internal `prescribe/generator.py`
+  selects exercises for the four session types from blueprint, policy, settings, history and
+  athlete state; `resolver_settings.py` reads the Step 1 scalar settings; the accepted accessory
+  pattern-flexibility mapping is in `config/template-resolver.v1.yaml`. It implements rotation,
+  eligibility, unrated fallback, required-pattern repair, injury exclusion, provisional coverage
+  and the weekly spinal check, plus a pool-aware availability helper. It is not wired into any
+  prescription path; the top set and joint evaluator are absent, and the resolver flag is off.
+- Deterministic template resolver **Step 1 storage**: structural policy skeleton
+  (`config/template-resolver.v1.yaml`), strict loader/validator with digest
+  (`prescribe/resolver_policy.py`), 32 profile-backed resolver scalar keys, migration `0048`
+  nullable prescription provenance (`template_digest`, `policy_digest`, `input_hash`,
+  `generated_session_json`) and `SessionTemplate.digest`. This is storage and validation only;
+  the resolver flag is off, no generator is wired and Step 2 is not started.
+- Active-workout **per-exercise History** toggle: the last five completed sessions with
+  **Show more**, set number, load × reps and RIR. Working sets only, declared history
+  equivalents included, current-workout sets excluded and read-only. The plan section is open
+  by default so the toggle is visible; `GET /api/exercise-history` serves it.
+
+### Changed
+
+- Resolver Step 1 review corrections: the canonical eligibility key is
+  `resolver.eligibility.auto_requires_can_do`; the structural policy loader rejects duplicate
+  YAML keys, merge keys and recursive aliases at every level, requires string mapping keys, and
+  keeps ordinary anchors/shared aliases valid. It validates the referenced candidate catalogue
+  and slot-pool movement patterns, requires every top-set eligible lift to be a taxonomy main
+  lift, and normalises missing/permission/invalid-UTF-8 reads with the cause preserved. Resolver
+  scalar source metadata now names the effective-dated settings profile rather than the
+  structural YAML.
+- Removed the unused `athlete_profile.effective_to` column (migration 0046). Profile versions
+  are append-only and the current row is the latest by `effective_from`; the end date was never
+  written or read, and a new row already amends the previous state (`DEC-STATE-03`).
+
 ## [1.1.0-beta.2] — 2026-10-31
 
 Monitoring configuration, relationship CRUD and report-control hardening beta.
@@ -32,14 +188,6 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 - This remains a **beta** release. Phase 5A prospective validation is active through
   **2027-01-22**; no Phase 5A outcome is claimed.
 - No monitoring, calibration, prescription, ratio or model behaviour is newly editable.
-
-## [Unreleased]
-
-### Changed
-
-- Removed the unused `athlete_profile.effective_to` column (migration 0046). Profile versions
-  are append-only and the current row is the latest by `effective_from`; the end date was never
-  written or read, and a new row already amends the previous state (`DEC-STATE-03`).
 
 ## [1.1.0-beta.1] — 2026-10-30
 
@@ -410,8 +558,8 @@ documentation contract, form assessment and calibration milestone. Cardio depth 
   readiness composite; dynamic readiness metrics still need code/config work.
 - Engine audit W0–W12 closed; implemented fixes, deferred policy choices and 36 open
   limitations consolidated.
-- W11/W12 closeout: one test-count source, duration wording, public-data inventory,
-  exact sample counts generalised and Git-history decision recorded.
+- W11/W12 closeout: one test-count source, duration wording, public-data inventory and
+  exact sample counts generalised.
 - W10 age-in-state audit: optional `birth_year` proposal, age-conditional wording and no
   age-based load rule.
 - W8 volume-balance audit: current 57-set split, spinal/time accounting and four

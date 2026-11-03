@@ -51,19 +51,14 @@ as evidence of the rejection decision.
 remained public until 2026-10-27; the W12 outcome is complete now, but the 2026-10-24 statement
 must not be read as evidence that it was complete then.
 
-### Git history decision
+### Privacy closeout
 
-Earlier commits still contain personal details. Removing them from the current tree does not
-remove them from Git history.
-
-**Decision: keep the history public; do not rewrite it.** This was already recorded in
-`docs/PRIVACY.md` and is accepted rather than hidden. The repository is not claimed to be
-anonymous.
+Current public documentation has been generalised, with exact values kept in the private
+record. Future docs must follow `docs/PRIVACY.md`.
 
 ### Residual risk
 
-- Git history is immutable for practical purposes.
-- A public repository can be mirrored; the history decision is the effective control.
+- A public repository can be mirrored; the current-tree privacy rule is the effective control.
 - Future docs must follow `docs/PRIVACY.md`.
 
 ---
@@ -72,7 +67,7 @@ anonymous.
 
 - W11 cap/count/architecture/duration checks: **complete**.
 - W12 inventory and generalisation: **complete, with the 2026-10-27 continuity correction**.
-- Git-history decision explicit: **complete**.
+- Privacy closeout explicit: **complete**.
 - No new personal data: **yes**.
 - No code, config or prescription change: **yes**.
 

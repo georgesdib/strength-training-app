@@ -76,7 +76,11 @@ from strength_coach.prescribe import (
     build_prescription,
     demand_scope,
     fatigue_selection,
+    resolver,
+    resolver_admin,
+    resolver_policy,
     session_identity,
+    templates,
 )
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import deload as deload_mod
@@ -85,8 +89,16 @@ from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import shadow as shadow_feature
 from strength_coach.prescribe import volume_budget as volume_budget_mod
+from strength_coach.prescribe.evaluator import EvaluationInputs
 from strength_coach.rules import RuleContext, evaluate, load_document
-from strength_coach.store import db, exercise_admin, importer, queries, repositories
+from strength_coach.store import (
+    db,
+    exercise_admin,
+    importer,
+    queries,
+    repositories,
+    symptom_attribution,
+)
 from strength_coach.trace import RunTrace
 from strength_coach.utils import io_utils, paths
 from strength_coach.utils import readiness as readiness_utils
@@ -187,7 +199,46 @@ def main(argv: list[str] | None = None) -> int:
     profile.add_argument("--date", default=None, help="effective date (default today)")
     profile.add_argument("--guard-confirm", action="store_true",
                          help="confirm a guarded setting change")
+    profile.add_argument(
+        "--resolver-enable-confirm", action="store_true",
+        help="explicitly confirm a false->true resolver.enabled transition",
+    )
     profile.add_argument("--reason", default=None, help="required reason for guarded settings")
+    resolver_cmd = sub.add_parser("resolver", help="validate policy and preview generated sessions")
+    resolver_sub = resolver_cmd.add_subparsers(dest="resolver_action", required=True)
+    resolver_policy_cmd = resolver_sub.add_parser(
+        "policy", help="show, validate/save or restore the structural policy"
+    )
+    resolver_policy_cmd.add_argument(
+        "policy_action", choices=("show", "save", "restore"),
+    )
+    resolver_policy_cmd.add_argument(
+        "--file", default=None, help="source YAML for 'save'; defaults to stdin"
+    )
+    resolver_policy_cmd.add_argument(
+        "--yaml", action="store_true", help="print the full YAML for 'show'"
+    )
+    resolver_preview = resolver_sub.add_parser(
+        "preview", help="build a read-only generated-session preview"
+    )
+    resolver_preview.add_argument("--date", required=True, help="YYYY-MM-DD")
+    resolver_preview.add_argument(
+        "--session-type", choices=("auto",) + templates.SESSION_TYPES,
+        default="auto",
+    )
+    resolver_preview.add_argument(
+        "--top-set", choices=("ask", "on", "off"), default="ask",
+    )
+    resolver_preview.add_argument(
+        "--allow-unknown-readiness", action="store_true",
+        help="acknowledge an unknown/partial readiness score for a current/future date",
+    )
+    resolver_preview.add_argument("--json", action="store_true")
+    resolver_validate = resolver_sub.add_parser(
+        "validate", help="validate a policy YAML without writing it"
+    )
+    resolver_validate.add_argument("--file", default=None, help="source YAML; defaults to stdin")
+
     modalities_parser = settings_sub.add_parser("modalities", help="list or update modality toggles")
     modalities_parser.add_argument("action", choices=("list", "show", "set"))
     modalities_parser.add_argument("module", nargs="?", default=None)
@@ -265,6 +316,16 @@ def main(argv: list[str] | None = None) -> int:
                          help="settled within 48 hours? yes clears a level-1 reading; "
                               "no and unknown both count as not settled")
     symptom.add_argument("--note", default=None)
+    symptom.add_argument("--timing", choices=symptom_attribution.TIMINGS,
+                         default="pre_session", help="reading timing (default: pre_session)")
+    symptom.add_argument("--session", default=None,
+                         help="optional completed session id this symptom is attributed to")
+    symptom.add_argument("--exercise", default=None,
+                         help="optional lift performed in that session")
+    symptom.add_argument("--onset", default=None,
+                         help="onset date for an attributed symptom (YYYY-MM-DD)")
+    symptom.add_argument("--confidence", choices=symptom_attribution.CONFIDENCES, default=None,
+                         help="attribution confidence: possible, likely or strong")
     symptom.add_argument("--show", action="store_true", help="list recent entries")
 
     exercise = sub.add_parser("exercise", help="list or edit the exercise catalogue")
@@ -519,6 +580,7 @@ def main(argv: list[str] | None = None) -> int:
         "calibrate": _cmd_calibrate,
         "state": _cmd_state,
         "settings": _cmd_settings,
+        "resolver": _cmd_resolver,
         "e1rm": _cmd_e1rm,
         "test": _cmd_test,
         "symptom": _cmd_symptom,
@@ -572,13 +634,17 @@ def _cmd_run(args) -> int:
 
         # Readiness is required for a current/future workout: the score is part of the
         # prescription, not an optional afterthought. Historical dates stay reproducible.
-        if args.date >= datetime.date.today().isoformat():
-            assessment = readiness_score.compute(conn, args.date)
-            if assessment.status != "ready":
-                print(f"readiness required for {args.date}: {assessment.status} — "
-                      f"{assessment.basis}")
-                print("record it with 'strength-coach readiness set ...' (or the web form)")
-                return 2
+        try:
+            args.date = readiness_score.parse_date(args.date)
+        except ValueError as exc:
+            print(str(exc))
+            return 2
+        try:
+            readiness_score.require_ready(conn, args.date)
+        except readiness_score.ReadinessRequired as exc:
+            print(str(exc))
+            print("record it with 'strength-coach readiness set ...' (or the web form)")
+            return 2
 
         # V0-SCOPE §4.6: re-running the same run must append no duplicate artifacts.
         existing = conn.execute(
@@ -678,6 +744,16 @@ def _cmd_run(args) -> int:
                 calibration_ids=list(prescription.calibration_ids),
                 approved_by=approved_by,
                 items=prescription.as_rows(),
+                template_digest=(prescription.notes.get("resolver") or {}).get(
+                    "template_digest"
+                ),
+                policy_digest=(prescription.notes.get("resolver") or {}).get(
+                    "policy_digest"
+                ),
+                input_hash=(prescription.notes.get("resolver") or {}).get("input_hash"),
+                generated_session=(prescription.notes.get("resolver") or {}).get(
+                    "generated_session"
+                ),
             )
             volume_budget_mod.record_exemptions(
                 conn, prescription_id=prescription_id,
@@ -864,6 +940,140 @@ def _cmd_calibrate(args) -> int:
         store.close()
 
 
+def _cmd_resolver(args) -> int:
+    if args.resolver_action == "validate":
+        path = Path(args.file) if args.file else None
+        try:
+            body = path.read_text(encoding="utf-8") if path else sys.stdin.read()
+            policy = resolver_policy.validate_text(body)
+        except (OSError, ValueError) as exc:
+            print(f"resolver policy invalid: {exc}")
+            return 2
+        print(f"resolver policy valid · digest {policy.digest}")
+        return 0
+    if args.resolver_action == "policy":
+        if args.policy_action == "show":
+            try:
+                state = resolver_admin.policy_state()
+            except ValueError as exc:
+                print(f"resolver policy unavailable: {exc}")
+                return 2
+            if args.yaml:
+                print(state["yaml"], end="")
+            else:
+                print(f"path {state['path']}")
+                print(f"digest {state['digest']}")
+                print(f"backups {len(state['backups'])}/{state['backup_keep']}")
+            return 0
+        if args.policy_action == "restore":
+            try:
+                state = resolver_admin.restore_latest()
+            except ValueError as exc:
+                print(f"resolver policy restore failed: {exc}")
+                return 2
+            source = state.get("restored_from") or {}
+            print(f"restored resolver policy from {source.get('name', 'backup')} · digest {state['digest']}")
+            if state.get("pre_restore_backup"):
+                print(f"previous policy saved as {state['pre_restore_backup']['name']}")
+            return 0
+        try:
+            body = (
+                Path(args.file).read_text(encoding="utf-8")
+                if args.file else sys.stdin.read()
+            )
+            state = resolver_admin.save_policy(body)
+        except (OSError, ValueError) as exc:
+            print(f"resolver policy save failed: {exc}")
+            return 2
+        print(f"saved resolver policy · digest {state['digest']}")
+        return 0
+    if args.resolver_action == "preview":
+        store = db.Store(args.db)
+        try:
+            conn = store.connection
+            try:
+                for_date = readiness_score.parse_date(args.date)
+            except ValueError as exc:
+                if args.json:
+                    print(json.dumps({"ok": False, "stage": "date", "message": str(exc)}))
+                else:
+                    print(f"resolver preview failed [date]: {exc}")
+                return 2
+            try:
+                readiness_score.require_ready(
+                    conn, for_date, allow_unknown=args.allow_unknown_readiness
+                )
+            except readiness_score.ReadinessRequired as exc:
+                if args.json:
+                    print(json.dumps({"ok": False, "stage": "readiness", "message": str(exc)}))
+                else:
+                    print(f"resolver preview failed [readiness]: {exc}")
+                return 2
+            session_type = (
+                schedule_mod.next_session_type(conn, for_date)
+                if args.session_type == "auto" else args.session_type
+            )
+            top_set = None if args.top_set == "ask" else args.top_set == "on"
+            try:
+                resolved = resolver.build_resolved(
+                    conn,
+                    for_date=for_date,
+                    session_type=session_type,
+                    inputs=EvaluationInputs(top_set_requested=top_set),
+                )
+            except resolver.ResolverBuildError as exc:
+                if args.json:
+                    print(json.dumps({
+                        "ok": False, "stage": exc.stage, "message": str(exc),
+                        "beam": exc.beam_result.as_dict() if exc.beam_result else None,
+                    }))
+                else:
+                    print(f"resolver preview failed [{exc.stage}]: {exc}")
+                return 2
+            prescription = resolved.prescription
+            if args.json:
+                payload = {
+                    "assignment": dict(resolved.assignment),
+                    "choices": [
+                        {
+                            "slot_id": slot.id,
+                            "chosen": dict(resolved.assignment).get(slot.id),
+                            "alternatives": [
+                                item for item in resolved.pools.pools.get(slot.id, ())
+                                if item != dict(resolved.assignment).get(slot.id)
+                            ],
+                            "suggestions": list(
+                                resolved.pools.suggestions.get(slot.id, ())
+                            ),
+                        }
+                        for slot in resolved.pools.template.slots
+                    ],
+                    "beam": resolved.beam.as_dict(),
+                    "policy_digest": resolved.policy_digest,
+                    "catalogue_digest": resolved.catalogue_digest,
+                    "input_hash": resolved.input_hash,
+                    "for_date": prescription.for_date,
+                    "session_type": prescription.session_type,
+                    "top_set": prescription.notes.get("top_set"),
+                }
+                print(json.dumps(payload, indent=2, default=str))
+                return 0
+            print(f"resolver preview {for_date} ({prescription.session_type})")
+            for slot in resolved.pools.template.slots:
+                chosen = dict(resolved.assignment).get(slot.id)
+                alternatives = [
+                    item for item in resolved.pools.pools.get(slot.id, ())
+                    if item != chosen
+                ]
+                print(f"  {slot.id:<22} {chosen:<28} alternatives={alternatives}")
+            print(f"policy {resolved.policy_digest[:12]} · input {resolved.input_hash[:12]}")
+            return 0
+        finally:
+            store.close()
+    print("unknown resolver action")
+    return 2
+
+
 def _cmd_settings(args) -> int:
     store = db.Store(args.db)
     try:
@@ -937,6 +1147,7 @@ def _cmd_settings(args) -> int:
             effective_from=date,
             guard_confirmed=args.guard_confirm,
             reason=args.reason,
+            resolver_enable_confirmed=args.resolver_enable_confirm,
         )
         print(f"settings profile {data['profile_id']} effective {data['effective_from']}; "
               f"{len(data['overrides'])} override(s)")
@@ -1472,16 +1683,27 @@ def _cmd_symptom(args) -> int:
 
         on_date = args.date or datetime.date.today().isoformat()
         settled = {"yes": True, "no": False, "unknown": None}.get(args.settled)
-        repositories.append_symptom(
-            conn,
-            logged_on=on_date,
-            timing="pre_session",
-            region=region,
-            level=args.level,
-            settled_within_48h=settled,
-            note=args.note,
-        )
-        print(f"logged {region} symptom {args.level}/3 on {on_date} (pre-session)")
+        try:
+            repositories.append_symptom(
+                conn,
+                logged_on=on_date,
+                timing=args.timing,
+                region=region,
+                level=args.level,
+                settled_within_48h=settled,
+                note=args.note,
+                attributed_session_id=args.session,
+                attributed_exercise_id=args.exercise,
+                onset_on=args.onset,
+                attribution_confidence=args.confidence,
+            )
+        except symptom_attribution.AttributionError as exc:
+            print(f"{exc.field}: {exc}")
+            return 2
+        print(f"logged {region} symptom {args.level}/3 on {on_date} ({args.timing})")
+        if args.session:
+            print(f"attributed to session {args.session} · onset {args.onset} · "
+                  f"confidence {args.confidence}")
         if args.level >= 2:
             if region == "low_back":
                 print("that is a flare: MOD-BACK-001 will apply to the next prescription")
@@ -1508,14 +1730,24 @@ def _print_symptoms(conn, *, region: str | None = None) -> None:
         where = f" for {region}" if region else ""
         print(f"no symptom entries logged{where}; injury signals stay unknown until one exists")
         return
-    print(f"{'date':<12}{'region':<12}{'timing':<14}{'level':>6}  {'settled<48h':<11} note")
+    print(f"{'date':<12}{'region':<12}{'timing':<14}{'level':>6}  "
+          f"{'settled<48h':<11} attribution / note")
     for row in entries[-20:]:
         settled = "-" if row["settled_within_48h"] is None else (
             "yes" if row["settled_within_48h"] else "no"
         )
+        attribution = ""
+        if row.get("attributed_session_id"):
+            lift = row.get("attributed_exercise_id") or "session only"
+            attribution = (
+                f"suspected {lift} · {row.get('attribution_confidence')} · "
+                f"session {row.get('attributed_session_on') or row.get('attributed_session_id')} "
+                f"· onset {row.get('onset_on')}"
+            )
         print(f"{row['logged_on']:<12}{row['region']:<12}{row['timing']:<14}"
-              f"{row['level']:>6}  "
-              f"{settled:<8} {row['note'] or ''}")
+              f"{row['level']:>6}  {settled:<8} "
+              f"{attribution + (' · ' if attribution and row['note'] else '')}"
+              f"{row['note'] or ''}")
 
 
 def _cmd_cardio(args) -> int:
@@ -2606,10 +2838,12 @@ def _print_state(conn) -> None:
         print(f"    status          {region.status}")
         print(f"    summary         {region.summary}")
         print(f"    window          {region.window_days} days, "
-              f"{region.required_tolerated_sessions} tolerated sessions required")
-        print(f"    tolerated       {region.tolerated_sessions} of "
-              f"{region.loaded_sessions} loaded sessions "
-              f"({region.unverified_sessions} unverified)")
+              f"{region.required_tolerated_sessions} no-flare follow-ups required")
+        print(f"    no flare        {region.tolerated_sessions} of "
+              f"{region.loaded_sessions} loaded sessions")
+        print(f"    other states    {region.flared_sessions} flared, "
+              f"{region.symptomatic_load_sessions} symptomatic load, "
+              f"{region.unverified_sessions} unverified")
         if region.recommendation:
             print(f"    recommendation  {region.recommendation}")
         if region.linked_exercises:

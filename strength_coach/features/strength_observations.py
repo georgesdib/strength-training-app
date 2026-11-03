@@ -376,6 +376,24 @@ def session_best(
     return Unavailable("no eligible estimate", STATUS_UNAVAILABLE)
 
 
+def collapse_days(observations: Sequence[SessionObservation]) -> list[SessionObservation]:
+    """One observation per training day, keeping the best eligible fragment.
+
+    Fragments are never averaged: a day-level e1RM is the existing session-best rule applied
+    across the day's fragments, with the source fragment retained for provenance.
+    """
+    by_day: dict[str, SessionObservation] = {}
+    for observation in observations:
+        current = by_day.get(observation.occurred_on)
+        if current is None or (
+            observation.estimate.kg, observation.estimate.set_id or -1
+        ) > (
+            current.estimate.kg, current.estimate.set_id or -1
+        ):
+            by_day[observation.occurred_on] = observation
+    return sorted(by_day.values(), key=lambda item: (item.occurred_on, item.session_id))
+
+
 def session_observations(
     frame: pd.DataFrame,
     exercise_id: str,
@@ -428,8 +446,7 @@ def session_observations(
                 estimate=best,
             )
         )
-    observations.sort(key=lambda item: (item.occurred_on, item.session_id))
-    return observations
+    return collapse_days(observations)
 
 
 def recent_reference(

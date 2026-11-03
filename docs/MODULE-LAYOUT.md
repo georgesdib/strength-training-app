@@ -70,6 +70,9 @@ strength_coach/
     engine.py                        [x] build + validate an executable session
     fallback.py                      [x] deterministic fallback, load scaling
     constraints.py                   [x] stored constraints veto, suitability warns
+    resolver_policy.py               [x] Step 1 structural resolver policy loader/validator
+    resolver_settings.py             [x] Step 1 scalar resolver settings
+    generator.py                     [x] Step 2 deterministic generator core
     templates.py engine.py fallback.py
   critique/                          [x] deterministic rubric
     facts.py                         [x] one session -> immutable, citable facts
@@ -135,7 +138,10 @@ progression and spinal functions.** They cannot disagree about what the rule say
 
 Tests that read `data/raw` are git-ignored (`tests/*_integration.py`): they assert counts and
 values derived from the real export, so committing them would leak personal data. They run
-locally when the export is present; the public suite is synthetic-only.
+locally when the export is present; the public suite is synthetic-only. The default suite
+excludes `integration`, the non-obvious `regression` layer and the expensive `slow` layer; run
+them on request or in the release workflow with
+`pytest -m "integration or regression or slow"`.
 
 Five layers, cheapest first.
 
@@ -158,11 +164,14 @@ Five layers, cheapest first.
 
 ### Non-obvious tests that already exist because they caught real bugs
 
+These are marked `regression` and excluded from the default suite; run them on request or in
+the release workflow.
+
 - `test_rir_zero_is_preserved` — reusing the *date* null tokens for numerics silently
   erased genuine `RIR = 0` observations.
 - `test_leg_curls_are_knee_flexion_not_biceps` — regex ordering sent `Lying Leg Curls` to the biceps family.
-- `test_historical_hyperextension_keeps_identity_but_counts_as_history` — pins
-  DEC-BACKEXT-02: the entity id is preserved, but its rows count as back-extension history.
+- `test_hyperextension_keeps_identity_but_counts_as_history` — pins DEC-BACKEXT-02: the entity
+  id is preserved, but its rows count as back-extension history.
 - `test_zero_dispersion_collapses_without_floor` — documents the MAD-collapse hazard that
   the VBT module must guard against.
 

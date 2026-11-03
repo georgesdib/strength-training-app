@@ -24,10 +24,10 @@ SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
 # json.dumps(p.as_rows(), sort_keys=True, separators=(",", ":")). They are not regenerated
 # from the extracted implementation.
 GOLDEN_ROWS_SHA256 = {
-    "squat": "1d0126791c3140ee1955b7cf35ff7a8317186f0d25c32f9965ee1d4d00659a92",
-    "hinge": "556ca1bfbe806f21706b5110db98c33da1a1a76c8b0ce3b88fc92cf9f74304da",
-    "bench_squat": "8e4b05240a42beb4ffeefe788a66cb15c6921bb907954ac887522247e3222b32",
-    "bench_hinge": "58f42760ecb829fe75bda87a5497ee6f9e17945fb802b8181b02f54196797c25",
+    "squat": "25383ba7654467afb316b7b6fff8cb3d6719f752f5e75581d7237f2fbe65de22",
+    "hinge": "43c547c85ebbd2e9c15044654f9142201dd4710144d8acb94240a34dbe920697",
+    "bench_squat": "892dd89783cf2e5807651d210557ba7941177a2fedfd7c2bdde9c2ca5e19c191",
+    "bench_hinge": "df85e13b772c72cb44d2a1fda5ba08bd3afd8a12e9d902593fda2e58ef1603a5",
 }
 
 

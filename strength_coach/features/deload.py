@@ -16,6 +16,7 @@ import yaml
 
 from strength_coach.domain.symptoms import flare_from
 from strength_coach.features import breaks as breaks_feature
+from strength_coach.features import training_day
 from strength_coach.rules import History, RuleContext, evaluate, load_document
 from strength_coach.store import queries
 from strength_coach.utils import paths
@@ -134,11 +135,11 @@ def reactive_reason(
         # A forecast must not fail because an optional safety input is unavailable.
         pass
 
-    sessions = queries.sessions(conn, end=as_of)
-    if len(sessions) >= cfg.reactive_flares:
+    days = training_day.group(conn, end=as_of, with_exercises=False)
+    if len(days) >= cfg.reactive_flares:
         flares = []
-        for occurred_on in sessions.tail(cfg.reactive_flares)["occurred_on"]:
-            entry = queries.latest_symptom(conn, str(occurred_on))
+        for day in days[-cfg.reactive_flares:]:
+            entry = queries.latest_symptom(conn, str(day["occurred_on"]))
             flares.append(
                 entry is not None
                 and flare_from(int(entry["level"]), entry["settled_within_48h"]) is True

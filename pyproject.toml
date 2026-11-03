@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "strength-coach"
-version = "1.1.0b2"
+version = "1.2.0"
 description = "Evidence-based, rules-driven strength coaching: deterministic Python core with a small, auditable LLM layer"
 requires-python = ">=3.11"
 dependencies = [
@@ -36,10 +36,12 @@ include = ["strength_coach*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q --strict-markers -n auto --dist loadfile"
+addopts = "-q --strict-markers -n auto --dist load -m 'not integration and not regression and not slow'"
 markers = [
-    "integration: touches the real CSVs in data/raw (slower, still deterministic)",
+    "integration: touches the real CSVs in data/raw (optional; release/on request only)",
     "golden: snapshot/regression evidence against docs/EVIDENCE.md numbers",
+    "regression: non-obvious invariant that caught a real bug (optional; release/on request only)",
+    "slow: expensive core forecast/web/portability test (optional; release/on request only)",
 ]
 filterwarnings = [
     "error::FutureWarning",

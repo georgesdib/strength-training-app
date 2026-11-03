@@ -15,6 +15,26 @@ function historyParam(name) {
   return el && el.value ? encodeURIComponent(el.value) : "";
 }
 
+function historyFragmentActions(s) {
+  var when = esc(s.occurred_on);
+  return '<button class="ghost" type="button" aria-label="Details for ' + when + '" data-history-details="' + esc(s.session_id) + '">Details</button> ' +
+    '<button class="ghost" type="button" aria-label="Edit session on ' + when + '" data-history-edit="' + esc(s.session_id) + '">Edit</button> ' +
+    '<button class="ghost" type="button" aria-label="Review session on ' + when + '" data-history-review="' + esc(s.session_id) + '">Review</button> ' +
+    '<button class="ghost" type="button" aria-label="' + (s.voided ? "Unvoid" : "Void") + ' session on ' + when + '" data-history-void="' + esc(s.session_id) + '">' +
+    (s.voided ? "Unvoid" : "Void") + "</button>";
+}
+
+function historyFragmentLine(s) {
+  var edited = s.edited_at ? '<span class="badge warn">edited</span>' : "";
+  var review = s.needs_review ? '<span class="badge bad">re-review</span>' : "";
+  return '<div class="history-fragment"><div class="history-fragment-head"><strong>' +
+    esc(s.session_id) + '</strong> <span class="badge">' + esc(s.session_type) +
+    '</span> <span class="muted">' + s.working_set_count + "/" + s.set_count +
+    " sets" + (s.duration_min == null ? "" : " · " + fmt(s.duration_min) + " min") +
+    '</span> ' + edited + " " + review + '</div><div class="card-actions">' +
+    historyFragmentActions(s) + "</div></div>";
+}
+
 async function loadHistory() {
   var target = document.getElementById("history-list");
   if (!target) return;
@@ -25,41 +45,56 @@ async function loadHistory() {
   if (start) query += "&start=" + start;
   if (end) query += "&end=" + end;
   try {
-    var data = await api("/api/history" + query);
+    var data = await api("/api/history/days" + query);
     historyTotal = data.total;
     var rows = [];
     var cards = [];
-    (data.sessions || []).forEach(function (s) {
-      var edited = s.edited_at ? '<span class="badge warn">edited</span>' : "";
-      var review = s.needs_review ? '<span class="badge bad">re-review</span>' : "";
-      var voided = s.voided ? '<span class="badge bad">voided</span>' : "";
-      var state = (s.marks ? '<span class="badge">' + s.marks + "</span>" : '<span class="badge warn">none</span>') +
-        " " + edited + " " + review + " " + voided;
-      var when = esc(s.occurred_on);
-      var actions =
-        '<button class="ghost" type="button" aria-label="Details for ' + when + '" data-history-details="' + esc(s.session_id) + '">Details</button> ' +
-        '<button class="ghost" type="button" aria-label="Edit session on ' + when + '" data-history-edit="' + esc(s.session_id) + '">Edit</button> ' +
-        '<button class="ghost" type="button" aria-label="Review session on ' + when + '" data-history-review="' + esc(s.session_id) + '">Review</button> ' +
-        '<button class="ghost" type="button" aria-label="' + (s.voided ? "Unvoid" : "Void") + ' session on ' + when + '" data-history-void="' + esc(s.session_id) + '">' +
-        (s.voided ? "Unvoid" : "Void") + "</button>";
-      rows.push("<tr><td>" + esc(s.occurred_on) + "</td><td>" + esc(s.session_id) +
-        "</td><td>" + esc(s.session_type) + "</td><td>" + s.working_set_count + "/" + s.set_count +
-        "</td><td>" + esc((s.main_lifts || []).join(", ")) + "</td><td>" + state +
-        "</td><td>" + actions + "</td></tr>");
+    (data.days || []).forEach(function (day) {
+      var edited = (day.fragments || []).some(function (f) { return f.edited_at; })
+        ? '<span class="badge warn">edited</span>' : "";
+      var review = (day.fragments || []).some(function (f) { return f.needs_review; })
+        ? '<span class="badge bad">re-review</span>' : "";
+      var sources = day.sources || [];
+      var dateWarning = sources.indexOf("import") >= 0 && sources.indexOf("workout") >= 0
+        ? '<span class="badge warn">date already recorded</span>' : "";
+      var attributed = day.attributed_symptom_count
+        ? '<span class="badge warn">attributed symptoms</span>' : "";
+      var state = (day.marks ? '<span class="badge">' + day.marks + "</span>" : '<span class="badge warn">none</span>') +
+        " " + edited + " " + review + " " + dateWarning + " " + attributed;
+      var fragmentList = (day.fragments || []).map(historyFragmentLine).join("");
+      rows.push("<tr><td>" + esc(day.occurred_on) + "</td><td>" + esc(day.session_type) +
+        "</td><td>" + day.fragment_count + "</td><td>" + day.working_set_count + "/" + day.set_count +
+        "</td><td>" + esc((day.main_lifts || []).join(", ")) + "</td><td>" + state +
+        '</td><td><button class="ghost" type="button" data-history-day="' + esc(day.occurred_on) +
+        '">Show</button></td></tr>' +
+        '<tr class="history-day-fragments" data-history-day-row="' + esc(day.occurred_on) +
+        '" hidden><td colspan="7">' + fragmentList + "</td></tr>");
       cards.push('<article class="history-card"><div class="history-card-head">' +
-        '<strong>' + esc(s.occurred_on) + '</strong><span class="badge">' +
-        esc(s.session_type) + '</span></div><p class="muted">' +
-        esc(s.session_id) + ' · sets ' + s.working_set_count + "/" + s.set_count +
-        (s.main_lifts && s.main_lifts.length ? " · " + esc(s.main_lifts.join(", ")) : "") +
-        '</p><p>' + state + '</p><div class="card-actions">' + actions + '</div></article>');
+        '<strong>' + esc(day.occurred_on) + '</strong><span class="badge">' +
+        esc(day.session_type) + '</span></div><p class="muted">' +
+        day.fragment_count + " fragment(s) · sets " + day.working_set_count + "/" + day.set_count +
+        (day.duration_min == null ? "" : " · " + fmt(day.duration_min) + " min") +
+        (day.main_lifts && day.main_lifts.length ? " · " + esc(day.main_lifts.join(", ")) : "") +
+        '</p><p>' + state + '</p><div class="card-actions"><button class="ghost" type="button" data-history-day="' +
+        esc(day.occurred_on) + '">Show fragments</button></div>' +
+        '<div class="history-day-fragments" data-history-day-row="' + esc(day.occurred_on) +
+        '" hidden>' + fragmentList + "</div></article>");
     });
     target.innerHTML = rows.length
-      ? '<div class="desktop-table"><table><thead><tr><th>Date</th><th>Session</th><th>Type</th><th>Sets</th>' +
+      ? '<div class="desktop-table"><table><thead><tr><th>Date</th><th>Type</th><th>Fragments</th><th>Sets</th>' +
         "<th>Main lifts</th><th>Marks</th><th></th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" +
         '<div class="mobile-cards">' + cards.join("") + "</div>"
-      : "<p class='empty'>No sessions in this range.</p>";
+      : "<p class='empty'>No training days in this range.</p>";
     document.getElementById("history-total").textContent =
-      historyTotal + " session(s) · showing " + (data.sessions || []).length;
+      historyTotal + " training day(s) · showing " + (data.days || []).length;
+    document.querySelectorAll("[data-history-day]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var when = button.dataset.historyDay;
+        document.querySelectorAll("[data-history-day-row=\"" + when + "\"]").forEach(function (row) {
+          row.hidden = !row.hidden;
+        });
+      });
+    });
     document.querySelectorAll("[data-history-details]").forEach(function (button) {
       button.addEventListener("click", function () { openHistoryDetails(button.dataset.historyDetails); });
     });
@@ -401,12 +436,26 @@ function openHistoryDetails(sessionId) {
       return "<tr><td>" + esc(item.exercise_id) + "</td><td>" + item.rating +
         "</td><td>" + esc(item.note || "") + "</td></tr>";
     }).join("");
+    var attributed = (data.attributed_symptoms || []).map(function (item) {
+      return "<tr><td>" + esc(item.logged_on) + "</td><td>" + esc(item.region) +
+        "</td><td>" + item.level + "</td><td>" +
+        esc(item.attributed_exercise_id || "session only") + "</td><td>" +
+        esc(item.attribution_confidence) + "</td><td>" +
+        esc(item.onset_on) + "</td><td>" + esc(item.note || "") + "</td></tr>";
+    }).join("");
+    var attributionBlock = attributed
+      ? "<h3>Athlete-attributed symptoms</h3><p class='muted'>Suspected link recorded by the athlete; it does not change the signal or prescription.</p>" +
+        "<table><thead><tr><th>Logged</th><th>Region</th><th>Level</th><th>Lift</th>" +
+        "<th>Confidence</th><th>Onset</th><th>Note</th></tr></thead><tbody>" +
+        attributed + "</tbody></table>"
+      : "";
     document.getElementById("history-details").innerHTML =
       "<dl class='history-facts'>" + facts + "</dl>" +
       (feedback.note ? "<p class='muted'>Note: " + esc(feedback.note) + "</p>" : "") +
       (forms ? "<h3>Form ratings</h3><table><thead><tr><th>Exercise</th><th>Rating (1–5)</th>" +
         "<th>Note</th></tr></thead><tbody>" + forms + "</tbody></table>" +
         "<p class='muted'>Optional self-assessment; rubric input only, never a load or set.</p>" : "") +
+      attributionBlock +
       "<h3>Exercises and sets</h3>" +
       (blocks || "<p class='muted'>No sets.</p>");
     panel.scrollIntoView({ behavior: "smooth", block: "start" });

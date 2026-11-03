@@ -19,7 +19,7 @@ reported per lift, so a target with `n = 4` is visibly weak rather than silently
 | 3 | `1 ≤ reps ≤ 8` | velocity is rep-count dependent; long sets are not VBT sets |
 | 4 | `load_basis ≠ unknown` | DQ-BW-01 could not classify the load |
 | 5 | not quarantined, no `REPS_TYPO` flag | corrupt rows cannot set a target |
-| 6 | `exercise.vbt_family` not null | non-VBT movements (back extension, planks) are excluded structurally |
+| 6 | `exercise.vbt_family` not null | non-VBT movements (e.g. back extension, planks, jumps, carries and bodyweight work) are excluded structurally. A family is necessary but not sufficient: the trap bar has a family yet is withheld by the evidence-based `VBT_UNRELIABLE` rule |
 | 7 | `load ≥ 0.60 × e1RM` | a 40%-e1RM warm-up has no informative velocity target; configurable |
 | 8 | velocity within `median ± 4·MAD` of its (lift, rep) group | single-session device glitches; iterative, max 2 passes |
 
@@ -54,7 +54,7 @@ Never interpolate silently. Resolve in order and record which level was used:
 | level | rule | recorded as |
 |---|---|---|
 | **L0** | lift + rep count directly, if `n ≥ 12` and `≥ 3` distinct sessions | `scope: lift` |
-| **L1** | pool by `vbt_family` at the same rep count, if `n_family ≥ 24`. Only genuine variants pool: bench grips, squat types. Named hinges (trap bar, sumo, RDL, conventional) each have their own family, because their load-velocity curves differ | `scope: family` |
+| **L1** | pool by `vbt_family` at the same rep count, if `n_family ≥ 24`. Only genuine variants pool: bench grips, squat types. Named hinges (trap bar, sumo, RDL, conventional), good mornings, rack pulls and split squats each have their own family, because their load-velocity curves differ | `scope: family` |
 | **L2** | *not implemented.* Pooled rep-count fits were designed but the shipped calibration uses lift and family only, because a pooled line can hide a lift-specific curve | — |
 | **L3** | *not implemented* (same reason) | — |
 | **L4** | no target | `scope: none`, `vbt_status: uncalibrated` |
@@ -148,16 +148,21 @@ only where the ladder produces one:
 The prescription notes say which case applied, and the CLI prints a `vel` column when any item
 has a target. A missing target is visible, not silent.
 
-## 9. Upgrade path (placeholder)
+## 9. What is captured now, and what a live controller would still need
 
-The current input is one mean velocity per set. A real velocity-loss controller needs:
+Set-mean velocity is the calibration input. Optional per-rep detail is already captured in
+`clean_rep` and reported descriptively; it does **not** enter the calibration. Supplying the
+per-rep CSV is an action available today, not a missing upgrade.
 
-- per-rep velocity samples (or first/last rep), for within-set loss and stop rules;
+A real live velocity-loss controller would still need:
+
+- a live/streamed per-rep feed, not an archived file, for within-set stop rules;
 - a progressive loading test per lift, for an individual load-velocity line and a minimal
   velocity threshold;
 - device/belt/setup metadata, so curves are compared like-for-like;
-- a method-version bump, with old calibration rows kept and superseded, never edited.
+- a validated control rule and a method-version bump, with old calibration rows kept and
+  superseded, never edited.
 
-The calibration already carries `METHOD_VERSION` and a typed `CalibrationParams`, so the
-upgrade is additive: a v2 method can be written beside the current one and selected by config.
+The calibration already carries `METHOD_VERSION` and a typed `CalibrationParams`, so a future
+v2 method could be written beside the current one and selected by config.
 Until then, the app uses what the export provides and says when that is not enough.

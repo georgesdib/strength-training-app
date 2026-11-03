@@ -33,6 +33,11 @@ from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import session_identity
+from strength_coach.prescribe.models import (
+    SET_GROUP_ROLES,
+    resize_plan_item_set_groups,
+    validate_plan_items,
+)
 from strength_coach.rules import RuleContext, load_document, registry
 from strength_coach.store import db, queries, repositories
 from strength_coach.utils import exercises
@@ -90,6 +95,7 @@ def _plan(value: Any, *, allow_empty: bool = False) -> dict:
         raise ValueError("plan.items must be a list")
     if not items and not allow_empty:
         raise ValueError("plan.items must be a non-empty list")
+    validate_plan_items(items, where="plan")
     return value
 
 
@@ -703,8 +709,9 @@ def _sets(conn, workout_id: str) -> list[dict]:
         elif event["event_type"] == "update_set":
             payload = json.loads(event["payload_json"] or "{}")
             state[int(target)].update({
-                key: payload.get(key)
-                for key in ("load_kg", "reps", "rir", "velocity", "source")
+                key: payload[key]
+                for key in ("load_kg", "reps", "rir", "velocity", "source", "set_role")
+                if key in payload
             })
     return [row for key, row in sorted(state.items()) if key not in removed]
 
@@ -794,6 +801,7 @@ def add_set(
     velocity: float | None = None,
     source: str = "manual",
     set_index: int | None = None,
+    set_role: str | None = None,
 ) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
@@ -804,6 +812,8 @@ def add_set(
         raise ValueError("exercise_id is required")
     if source not in {"manual", "import", "device"}:
         raise ValueError("source must be manual, import or device")
+    if set_role is not None and set_role not in SET_GROUP_ROLES:
+        raise ValueError("set_role must be top_set, back_off or null")
     if set_index is None:
         row = conn.execute(
             "SELECT COALESCE(MAX(set_index), 0) AS n FROM workout_set WHERE workout_id = ? "
@@ -833,11 +843,11 @@ def add_set(
             """
             INSERT INTO workout_set
                 (workout_id, exercise_id, set_index, load_kg, reps, rir, velocity, source,
-                 prescription_item_index)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 prescription_item_index, set_role)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (workout_id, exercise_id, set_index, load_kg, reps, rir, velocity, source,
-             item_index),
+             item_index, set_role),
         )
         _event(conn, workout_id, "add_set", {"exercise_id": exercise_id,
                                               "set_index": set_index},
@@ -854,6 +864,7 @@ def update_set(
     reps: int | None = None,
     rir: int | None = None,
     velocity: float | None = None,
+    set_role: str | None = None,
 ) -> dict:
     """Append a correction event for an actual set; the base row is never mutated."""
     workout = get(conn, workout_id)
@@ -863,10 +874,15 @@ def update_set(
         raise ValueError("workout is not in progress")
     if not any(int(item["set_id"]) == int(set_id) for item in _sets(conn, workout_id)):
         raise ValueError("set not found")
+    if set_role is not None and set_role not in SET_GROUP_ROLES:
+        raise ValueError("set_role must be top_set, back_off or null")
+    payload = {
+        "load_kg": load_kg, "reps": reps, "rir": rir, "velocity": velocity,
+    }
+    if set_role is not None:
+        payload["set_role"] = set_role
     _event(
-        conn, workout_id, "update_set",
-        {"load_kg": load_kg, "reps": reps, "rir": rir, "velocity": velocity},
-        target_set_id=int(set_id),
+        conn, workout_id, "update_set", payload, target_set_id=int(set_id),
     )
     return get(conn, workout_id)
 
@@ -944,6 +960,7 @@ def _validate_exercise(exercise_id: str) -> str:
 
 def _write_plan(conn, workout_id: str, plan: dict, event_type: str,
                 payload: dict) -> dict:
+    validate_plan_items(plan.get("items") or (), where="plan")
     conn.execute(
         "UPDATE workout_session SET plan_modified_json = ? WHERE workout_id = ?",
         (json.dumps(plan, separators=(",", ":")), workout_id),
@@ -974,6 +991,9 @@ def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> d
         # The old load belongs to the old lift; do not silently carry it across.
         "load_kg": None,
         "unknown_load_reason": "swapped during workout; load not re-solved",
+        # The old top-set/back-off structure belongs to the old lift; discard it rather
+        # than carry a stale load or role onto the replacement.
+        "set_groups": [],
     }
     plan = {**(workout.get("plan") or {}), "items": items}
     return _write_plan(conn, workout_id, plan, "swap_exercise",
@@ -1042,6 +1062,8 @@ def change_sets(conn, workout_id: str, item_index: int, delta: int) -> dict:
     if after == before:
         return workout
     items[index]["sets"] = after
+    if items[index].get("set_groups"):
+        items[index] = resize_plan_item_set_groups(items[index])
     plan = {**(workout.get("plan") or {}), "items": items}
     return _write_plan(conn, workout_id, plan, "change_sets",
                        {"item_index": index, "before": before, "after": after})
@@ -1574,8 +1596,8 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
                 (raw_id, session_id, occurred_on, exercise_id, raw_exercise, load_kg,
                  load_basis, external_load_kg, reps, reps_unit, rir, rir_source,
                  velocity_mps, velocity_present, tonnage_kg, is_working_set, flags,
-                 prescription_item_index)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 prescription_item_index, set_role)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 raw_id, workout_id, workout["for_date"], exercise_id, exercise_id,
@@ -1586,6 +1608,7 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
                 (float(external) * int(row["reps"]))
                 if external is not None and row.get("reps") is not None else None,
                 is_working, json.dumps(row_flags), row.get("prescription_item_index"),
+                row.get("set_role"),
             ),
         )
         detail = rep_state.get(int(row["set_id"]))

@@ -7,6 +7,11 @@ the rest are `provisional` expert classification. The validator, coverage report
 live in `strength_coach/features/demands.py`, `tools/demands_report.py` and
 `tests/test_demands.py`.
 
+**Amendment 2026-10-31:** `broad_jump` and `medicine_ball_chest_pass` were added as canonical
+power exercises. The shipped catalogue is now reachable over 65 ids and still rates 28; the
+coverage figures above are the 2026-10-28 snapshot. Local demand ratings may include both new
+exercises without changing the reviewed file.
+
 **Why a companion file, not new taxonomy fields.** The taxonomy is exercise *identity*
 (patterns, muscles, loadability, history equivalence). Demand profiles are a separate,
 reviewable body of claims with provenance that changes on a different cadence. Keeping them in

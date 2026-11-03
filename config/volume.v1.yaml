@@ -46,11 +46,11 @@ budget:
   enabled: false
   # Explicit total. It must equal the sum of weekly_target below; the check catches editing only
   # one of the two numbers. Change both when changing the weekly dose.
-  weekly_total: 63
+  weekly_total: 69
   # Effective-set target used only when ledger.set_accounting=effective. Direct 1.0,
   # indirect 0.25; this preserves the current direct dose and is NOT applied while accounting
   # remains hard. The total must equal the sum of weekly_target_effective.
-  weekly_total_effective: 74.25
+  weekly_total_effective: 80.25
   weekly_target_effective:
     squat: 10
     hinge: 6.5
@@ -62,7 +62,7 @@ budget:
     vertical_pull: 6.75
     core: 10.125
     erector_extension: 3
-    power_jump: 3
+    power_jump: 9
   # Opt-in reduce mode: keep at least this many sets of a filled group's main lift. A coaching
   # assumption, configurable; preserve never trims a main lift (ASSUMPTION-49).
   main_lift_floor: 3
@@ -82,7 +82,7 @@ budget:
     # Fixed template doses: they count toward the weekly total and the session cap, but the
     # budget never trims or tops them up.
     erector_extension: 3
-    power_jump: 3
+    power_jump: 9
   session_cap:
     # The daily/session total and per-group caps, not a measured maximum (ASSUMPTION-41). The
     # time estimate below remains the practical limit.
@@ -111,7 +111,7 @@ budget:
   warmup_estimate_minutes: 5
   # Fallback budget-planning time cap when the athlete profile has no session target. The
   # profile session target wins and may be higher or lower; this is not the prescription default.
-  session_time_cap_minutes: 80
+  session_time_cap_minutes: 90
   # Step 9a: read-only cross-group compensation simulation. enabled controls the preview;
   # apply is reserved for 9b and must stay false (no prescription change yet).
   # Step 9b: apply the selected slot when the budget is on. The candidate needs an executable

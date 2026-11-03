@@ -49,7 +49,11 @@ Changing weekly targets, session caps, the MRV cap or landmarks also requires ty
 | accessory floor | minimum accessory sets kept when trimming |
 | top-up maximum | maximum sets added to one item |
 | trim above target / top up below target | enable each direction of the budget |
-| seconds per set, warm-up allowance, session time cap | planning-time estimate inputs |
+| seconds per set, warm-up allowance | planning-time estimate inputs |
+
+The **session time target** is not edited in this panel. It comes from the Athlete
+`max_session_minutes`; when unset, the 90-minute fallback applies. The panel shows the effective
+Athlete value rather than exposing a second competing cap.
 
 The weekly and effective totals shown above the table are **derived** from the rows; they are
 not separate editable values. The server rejects a total that no longer equals the sum of its

@@ -100,7 +100,27 @@ This is consistent with:
 
 ---
 
-## 6. What would make it more than descriptive
+## 6. What to do now (actionable)
+
+The per-rep path is **enabled**; this is not waiting for a code upgrade. The action is to
+capture the file and accumulate enough sessions for the descriptive analysis.
+
+1. Record the workout normally; the set-level CSV/mean remains required.
+2. Export the device's per-rep CSV for that workout.
+3. In Workout mode, import the main CSV and the optional per-rep CSV together; preview first.
+4. Resolve any preview error — unmatched set, unknown exercise, unsupported metric, duplicate
+   rep or rep number above the set's `Reps` blocks apply.
+5. After applying, read the end-screen per-set first/last/loss table.
+6. Open **Progress → Per-rep velocity** and check `n`, `insufficient`, `no variance` and
+   missing-data states. The report requires at least **10 paired observations** before it
+   shows a correlation; that is the data threshold, not a missing feature.
+7. Keep collecting per-rep files across sessions if the report is insufficient. Use the report
+   as descriptive context only; do not change a load or stop a set from it.
+
+The remaining requirement is **data**, not another capture feature. A live velocity-loss
+controller still needs a live feed and a validated control rule, which this app does not have.
+
+## 7. What would make it more than descriptive
 
 A future phase could use rep-level VBT for a decision only if:
 

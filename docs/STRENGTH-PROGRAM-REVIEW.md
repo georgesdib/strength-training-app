@@ -6,7 +6,7 @@ of scope. This is the evidence snapshot; implementation status is recorded in th
 **Review status: CLOSED 2026-10-20.** No open programme-design items remain here. Future
 validation, parent-ratio and targeting work is tracked in [ROADMAP.md](../ROADMAP.md) §4.20.
 
-**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload is now implemented as an optional suggestion with automatic reactive triggers; a standardised warm-up, a 3RM/5RM cadence and accessory under-MEV progression are implemented. Individualized MRV is closed as not estimable from the available data; main-lift volume experimentation is deliberately not done. The retrospective walk-forward check is done; continuity and fatigue lost to their baselines, so neither is adopted; prospective validation is a future gate only for a candidate that first beats the retrospective baseline. Weakness/injury targeting is deliberately deferred (`DEC-SELECT-04/05`). There are no open programme-design items left in this review. On 2026-10-28 a knee-flexion accessory (`lying_leg_curls`, 3×8-12) was added to the squat and hinge sessions and `knee_flexion` became a managed ledger key (`DEC-KNEEFLEX-01`, weekly total 57→63); the groups that remain unprescribed are recorded as accepted gaps in `LIM-54`.
+**Implementation note (2026-10-20):** the P0/P1 fixes for power loading, hinge balance, rolling session types, upper-body row/press, readiness set reduction, volume management v1 and **selection comparability** were subsequently implemented; Plan A restored squat volume and raised trap-bar hinge volume while keeping the spinal cap. A scheduled deload is now implemented as an optional suggestion with automatic reactive triggers; a standardised warm-up, a 3RM/5RM cadence and accessory under-MEV progression are implemented. Individualized MRV is closed as not estimable from the available data; main-lift volume experimentation is deliberately not done. The retrospective walk-forward check is done; continuity and fatigue lost to their baselines, so neither is adopted; prospective validation is a future gate only for a candidate that first beats the retrospective baseline. Weakness/injury targeting is deliberately deferred (`DEC-SELECT-04/05`). There are no open programme-design items left in this review. On 2026-10-28 a knee-flexion accessory (`lying_leg_curls`, 3×8-12) was added to the squat and hinge sessions and `knee_flexion` became a managed ledger key (`DEC-KNEEFLEX-01`, weekly total 57→63); on 2026-10-31 a quality-limited broad jump was added to the hinge session while box jump stayed on squat (`DEC-POWER-04`, weekly total 63→66), and a medicine-ball chest pass was added to both bench days (`DEC-POWER-05`, weekly total 66→69). The groups that remain unprescribed are recorded as accepted gaps in `LIM-54`.
 
 **Method:** read the templates, constitution, prescription engine, evidence notes and references;
 generated A/B/C prescriptions from the local database; checked the planned weekly dose and the
@@ -27,17 +27,17 @@ after a template change. A stale block fails `tests/test_programme_summary.py`.
 not the single-leg RDL.
 
 <!-- BEGIN GENERATED PROGRAMME SUMMARY -->
-<!-- source:sha256:72b82400ff7cdfc4 -->
+<!-- source:sha256:8a114c9e00af08e9 -->
 
 | session type | work | sets | spinal cost |
 |---|---|---|---:|
 | **squat** | Box Jump 3×3–5 @ quality stop; SSB Squat 5×3–5 @ RIR 2–3; Bench Press 4×3–5 @ RIR 2–3; Back Extension 3×10–12 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 24 | 1 |
-| **hinge** | Trap-Bar Deadlift 5×3–5 @ RIR 2–3; Bench Press (narrow grip) / Bench Press (pause) 4×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Split Squat 3×8–10 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3 | 21 | 2 |
-| **bench_squat** | Bench Press 4×3–5 @ RIR 2–3; Competition Squat 4×3–5 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 17 | 1 |
-| **bench_hinge** | Bench Press 4×3–5 @ RIR 2–3; Sumo Deadlift 3×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Hanging Leg Raise 3×8–12 @ RIR 2–3 | 19 | 2.5 |
+| **hinge** | Broad Jump 3×3–5 @ quality stop; Trap-Bar Deadlift 5×3–5 @ RIR 2–3; Bench Press (narrow grip) / Bench Press (pause) 4×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Split Squat 3×8–10 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3 | 24 | 2 |
+| **bench_squat** | Medicine-Ball Chest Pass 3×3–5 @ quality stop; Bench Press 4×3–5 @ RIR 2–3; Competition Squat 4×3–5 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 20 | 1 |
+| **bench_hinge** | Medicine-Ball Chest Pass 3×3–5 @ quality stop; Bench Press 4×3–5 @ RIR 2–3; Sumo Deadlift 3×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Hanging Leg Raise 3×8–12 @ RIR 2–3 | 22 | 2.5 |
 
 Over six sessions (two weeks): squat, hinge, bench+squat, squat, hinge, bench+hinge.
-Planned average is **63 working sets/week** across three sessions.
+Planned average is **69 working sets/week** across three sessions.
 
 | lift group | sets/week |
 |---|---:|
@@ -52,8 +52,8 @@ Planned average is **63 working sets/week** across three sessions.
 | split squat | 3 |
 | knee-flexion hamstrings | 6 |
 | core | 6 |
-| power | 3 |
-| **total** | **63** |
+| power | 9 |
+| **total** | **69** |
 
 Counted spinal cost: **4** for the first week (squat, hinge, bench+squat) and **5.5** for the second (squat, hinge, bench+hinge), against a cap of **6**.
 <!-- END GENERATED PROGRAMME SUMMARY -->
@@ -92,7 +92,7 @@ settled by trials.
 | 3 | Main lifts at 3–5 reps | Strong for strength | Heavy, lower-rep training is more specific for 1RM strength when effort is matched. ([Hammert 2026](https://doi.org/10.1007/s40279-025-02370-8)) | Supported |
 | 4 | RIR 2 target, RIR 1–4 allowed, RIR 0 forbidden | Moderate | Strength gains are similar across a wide RIR range; non-failure is at least as good for dynamic strength; hypertrophy improves closer to failure; RIR self-estimation carries meaningful error. ([Robinson 2024](https://doi.org/10.1007/s40279-024-02069-2); [Wu 2026](https://doi.org/10.1186/s13102-026-01861-z); [RIR-EVIDENCE](RIR-EVIDENCE.md)) | Supported and conservative |
 | 5 | Accessories at RIR 2 with double progression | Moderate | The effort is defensible for a back-sensitive athlete, but hypertrophy-oriented accessory work may progress more slowly than a failure-inclusive programme. This is a deliberate trade-off, not an evidence claim that RIR 2 is optimal. | Coherent trade-off |
-| 6 | Power work: box jumps 3×3–5, quality stop | Moderate for function, weak for this exact dose | Power training improves physical function in older adults, with low certainty; the exact 3–5 set prescription is practice, not a validated protocol. ([power meta-analysis](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9096601/)) | Keep, label as practice |
+| 6 | Power work: box jump on squat, broad jump on hinge, medicine-ball throw on both bench days, 3×3–5, quality stop | Moderate for function, weak for this exact dose | Power training improves physical function in older adults, with low certainty; the exact 3–5 set prescription is practice, not a validated protocol. Horizontal plyometric training has a direction-specific advantage without a significant vertical penalty. Throw-specific bench evidence is sparse. ([power meta-analysis](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9096601/); [jump evidence](JUMP-VARIANTS.md); [throw evidence](THROW-VARIANTS.md)) | Kept as practice; broad jump and medicine-ball throw added as complements (`DEC-POWER-04/05`) |
 | 7 | 4-week undulating cycle | Moderate | Linear and undulating periodization produce comparable strength and body-composition outcomes. DUP is variety/fatigue management, not a superiority claim. ([Zhang 2026](https://doi.org/10.3389/fpubh.2026.1707627)) | Supported as structure, not advantage |
 | 8 | Scheduled and reactive deload policy | Weak/Methodology | Practical deload recommendations exist, but the comparative evidence for a fixed deload schedule is thin. The implemented policy is a low-volume week every six weeks plus reactive triggers, explicitly framed as fatigue management rather than a proven strength intervention. ([practical deload review](https://shura.shu.ac.uk/35313/3/Bell-APracticalApproach%28AM%29.pdf)) | Implemented as a policy; evidence remains weak |
 | 9 | Readiness reduces load, not volume | Moderate/Weak | Autoregulated load has not clearly beaten standard percentage prescription; readiness is a fatigue-management tool, not a proven strength optimiser. ([Hickmott 2022](https://doi.org/10.1186/s40798-021-00404-9)) | Reasonable safety choice |

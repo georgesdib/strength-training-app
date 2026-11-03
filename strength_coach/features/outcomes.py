@@ -17,7 +17,7 @@ from strength_coach.domain.symptoms import flare_from
 from strength_coach.features import attendance as attendance_feature
 from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import measurements as measurements_feature
-from strength_coach.features import readiness_score
+from strength_coach.features import readiness_score, training_day
 from strength_coach.rules import RuleContext, evaluate, load_document
 from strength_coach.store import queries
 from strength_coach.utils import exercises
@@ -84,6 +84,7 @@ def _strength(conn, sets: pd.DataFrame, start: dt.date, end: dt.date) -> dict:
         })
 
     sessions = queries.sessions(conn, start=start.isoformat(), end=end.isoformat())
+    days = training_day.group(conn, start=start.isoformat(), end=end.isoformat())
     session_ids = set(sessions["session_id"].astype(str)) if not sessions.empty else set()
     feedback = {}
     for row in queries.session_feedback_all(conn):
@@ -96,18 +97,20 @@ def _strength(conn, sets: pd.DataFrame, start: dt.date, end: dt.date) -> dict:
     patterns = _weekly_pattern_volume(frame, start, end)
     return {
         "main_lifts": lifts,
-        "sessions": int(len(sessions)),
-        "session_type_counts": (
-            sessions["session_type"].value_counts().to_dict() if not sessions.empty else {}
-        ),
+        "sessions": len(days),
+        "session_type_counts": {
+            name: sum(1 for day in days if day["session_type"] == name)
+            for name in sorted({day["session_type"] for day in days})
+        },
         "sRPE": {
             "n": len(srpe), "average": round(statistics.mean(srpe), 2) if srpe else None,
         },
         "duration": {
             "n": len(duration),
             "average_min": round(statistics.mean(duration), 1) if duration else None,
-            "measured_sessions": int((sessions["duration_basis"] == "measured").sum())
-            if not sessions.empty and "duration_basis" in sessions else None,
+            "measured_sessions": sum(
+                1 for day in days if day.get("duration_basis") == "measured"
+            ),
         },
         "volume": patterns,
         "note": "e1RM values are estimates from working sets; change is descriptive.",

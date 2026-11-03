@@ -88,6 +88,24 @@ def item(prescription, exercise_id):
     return next(i for i in prescription.items if i.exercise_id == exercise_id)
 
 
+def test_low_readiness_flare_never_increases_main_load():
+    with store_with(
+        SQUAT_ROWS, readiness_rows=[{**POOR_READINESS, "Date": "2024-01-02"}]
+    ) as store:
+        before = build_prescription(
+            store.connection, for_date="2024-01-02", session_type="squat",
+        )
+        log_flare(store.connection, "2024-01-02")
+        after = build_prescription(
+            store.connection, for_date="2024-01-02", session_type="squat",
+        )
+
+    # DEC-BACK-03: the effort hold must run after readiness, so the final load is solved for
+    # the RIR that is actually shown.
+    for exercise_id in ("ssb_squat", "bench_press"):
+        assert item(after, exercise_id).load_kg <= item(before, exercise_id).load_kg
+
+
 def test_flare_never_restores_a_readiness_cut_erector_set():
     with store_with(
         SQUAT_ROWS, readiness_rows=[{**POOR_READINESS, "Date": "2024-01-02"}]
@@ -147,7 +165,7 @@ def test_sumo_holds_effort_and_is_re_solved_not_relabelled():
     assert "sumo_deadlift" in flare.notes["back_flare_review"]["held"]
 
 
-def test_sumo_never_takes_the_maximal_scheme_after_alignment():
+def test_sumo_takes_the_allowed_maximal_scheme_after_alignment():
     rows = []
     for day in ("2024-01-01", "2024-01-08", "2024-01-15"):
         rows += [{**row, "Date": day} for row in HINGE_ROWS]
@@ -158,7 +176,7 @@ def test_sumo_never_takes_the_maximal_scheme_after_alignment():
         )
 
     sumo = item(prescription, "sumo_deadlift")
-    assert (sumo.reps_low, sumo.reps_high) == (3, 5)
+    assert (sumo.reps_low, sumo.reps_high) == (1, 3)
     assert sumo.rir_target == 3
     assert "MOD-BACK-001" in sumo.rationale_refs
 

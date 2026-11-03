@@ -246,15 +246,19 @@ def symptom_entries(conn, *, since: str | None = None,
     clauses: list[str] = []
     params: list[object] = []
     if since is not None:
-        clauses.append("logged_on >= ?")
+        clauses.append("l.logged_on >= ?")
         params.append(since)
     if region is not None:
-        clauses.append("region = ?")
+        clauses.append("l.region = ?")
         params.append(region)
-    sql = "SELECT * FROM symptom_log"
+    sql = (
+        "SELECT l.*, s.occurred_on AS attributed_session_on "
+        "FROM symptom_log l LEFT JOIN session s "
+        "ON s.session_id = l.attributed_session_id"
+    )
     if clauses:
         sql += " WHERE " + " AND ".join(clauses)
-    sql += " ORDER BY logged_on, log_id"
+    sql += " ORDER BY l.logged_on, l.log_id"
     return [dict(row) for row in conn.execute(sql, params)]
 
 
@@ -439,17 +443,28 @@ def unreviewed_sessions(conn, *, limit: int = 50) -> list[str]:
     return [str(row["session_id"]) for row in rows]
 
 
-def sessions(conn, *, start: str | None = None, end: str | None = None) -> pd.DataFrame:
-    """Reconstructed sessions, one row per date."""
-    sql = "SELECT * FROM session WHERE voided = 0"
+def sessions(conn, *, start: str | None = None, end: str | None = None,
+             include_voided: bool = False) -> pd.DataFrame:
+    """Reconstructed session fragments, ordered by date and creation.
+
+    A training day may hold more than one fragment. Use the training-day helper when a
+    report needs day-level counts. History passes ``include_voided`` so a voided fragment
+    remains visible and can be unvoided.
+    """
+    clauses: list[str] = []
+    if not include_voided:
+        clauses.append("voided = 0")
     params: list[object] = []
     if start is not None:
-        sql += " AND occurred_on >= ?"
+        clauses.append("occurred_on >= ?")
         params.append(start)
     if end is not None:
-        sql += " AND occurred_on <= ?"
+        clauses.append("occurred_on <= ?")
         params.append(end)
-    sql += " ORDER BY occurred_on"
+    sql = "SELECT * FROM session"
+    if clauses:
+        sql += " WHERE " + " AND ".join(clauses)
+    sql += " ORDER BY occurred_on, created_at, session_id"
     rows = [dict(row) for row in conn.execute(sql, params)]
     frame = pd.DataFrame(rows)
     if not frame.empty:

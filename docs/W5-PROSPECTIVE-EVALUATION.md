@@ -86,7 +86,7 @@ compliance.
 
 - measured live-workout duration only;
 - imported/manual duration is labelled `manual` or `unavailable`;
-- compare with the 80-minute planned cap, not a fabricated target.
+- compare with the 90-minute planned target, not a fabricated target.
 
 ### 3.6 Symptoms
 

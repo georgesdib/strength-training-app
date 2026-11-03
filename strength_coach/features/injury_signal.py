@@ -295,8 +295,10 @@ class RegionSignal:
     loaded_sessions: int
     tolerated_sessions: int
     unverified_sessions: int
-    latest_level: int | None
-    linked_exercises: tuple[str, ...]
+    flared_sessions: int = 0
+    symptomatic_load_sessions: int = 0
+    latest_level: int | None = None
+    linked_exercises: tuple[str, ...] = ()
     recommendation: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
@@ -313,6 +315,8 @@ class RegionSignal:
             "loaded_sessions": self.loaded_sessions,
             "tolerated_sessions": self.tolerated_sessions,
             "unverified_sessions": self.unverified_sessions,
+            "flared_sessions": self.flared_sessions,
+            "symptomatic_load_sessions": self.symptomatic_load_sessions,
             "latest_level": self.latest_level,
             "linked_exercises": list(self.linked_exercises),
             "recommendation": self.recommendation,
@@ -427,10 +431,10 @@ def _aggregate_summary(signals: Iterable[RegionSignal]) -> str:
 
 def _region_signal(conn, rule: RegionRule, entries: list[dict], on_date: str,
                    taxonomy: exercises.Taxonomy) -> RegionSignal:
-    region_entries = [
+    region_entries = _dedupe_entries([
         e for e in entries
         if str(e["region"]).lower() == rule.region and str(e["logged_on"]) <= on_date
-    ]
+    ])
     linked = linked_exercises(rule, taxonomy)
     if not region_entries:
         return RegionSignal(
@@ -464,17 +468,19 @@ def _region_signal(conn, rule: RegionRule, entries: list[dict], on_date: str,
 
     start = last_flare or str(region_entries[0]["logged_on"])
     loaded = _loaded_dates(conn, rule, start, on_date, taxonomy)
-    tolerated = sum(
-        1 for day in loaded if _verified_tolerated(rule, region_entries, day)
-    )
-    unverified = len(loaded) - tolerated
+    states = {day: _exposure_state(rule, region_entries, day) for day in loaded}
+    tolerated = sum(1 for state in states.values() if state == "tolerated")
+    flared = sum(1 for state in states.values() if state == "flared")
+    symptomatic = sum(1 for state in states.values() if state == "symptomatic_load")
+    unverified = len(loaded) - tolerated - flared - symptomatic
 
     base = dict(
         region=rule.region, label=rule.label,
         symptom_free_days=streak, last_flare_on=last_flare, prior_flares=prior_flares,
         window_days=window, required_tolerated_sessions=required,
         loaded_sessions=len(loaded), tolerated_sessions=tolerated,
-        unverified_sessions=unverified, latest_level=latest_level,
+        unverified_sessions=unverified, flared_sessions=flared,
+        symptomatic_load_sessions=symptomatic, latest_level=latest_level,
         linked_exercises=linked,
     )
 
@@ -497,7 +503,8 @@ def _region_signal(conn, rule: RegionRule, entries: list[dict], on_date: str,
     if streak >= window and tolerated >= required:
         return RegionSignal(
             status=STATUS_REVIEW,
-            summary=(f"{streak} symptom-free days with {tolerated} tolerated loaded sessions "
+            summary=(f"{streak} symptom-free days with {tolerated} loaded sessions with no "
+                     f"flare recorded in the follow-up window "
                      f"(window {window} days, need {required})"),
             recommendation=(
                 "consider reviewing the suitability of the lifts that load this region; "
@@ -508,8 +515,8 @@ def _region_signal(conn, rule: RegionRule, entries: list[dict], on_date: str,
 
     return RegionSignal(
         status=STATUS_MONITORING,
-        summary=(f"{streak_summary}; {tolerated}/{required} tolerated loaded sessions "
-                 f"(window {window} days)"),
+        summary=(f"{streak_summary}; {tolerated}/{required} loaded sessions with no flare "
+                 f"recorded in the follow-up window (window {window} days)"),
         **base,
     )
 
@@ -519,7 +526,7 @@ def _loaded_dates(conn, rule: RegionRule, start: str, on_date: str,
     """Region load per training date: sum of (working sets x exercise weight)."""
     rows = conn.execute(
         "SELECT occurred_on, exercise_id, COUNT(*) AS n FROM clean_set "
-        "WHERE occurred_on > ? AND occurred_on <= ? AND is_working_set = 1 "
+        "WHERE occurred_on >= ? AND occurred_on <= ? AND is_working_set = 1 "
         "AND voided = 0 AND NOT EXISTS (SELECT 1 FROM session sess WHERE sess.session_id = clean_set.session_id AND sess.voided = 1) AND NOT EXISTS (SELECT 1 FROM clean_set child "
         "WHERE child.supersedes_id = clean_set.set_id) "
         "GROUP BY occurred_on, exercise_id",
@@ -536,15 +543,50 @@ def _loaded_dates(conn, rule: RegionRule, start: str, on_date: str,
     return {day: value for day, value in load.items() if value >= rule.min_session_load}
 
 
-def _verified_tolerated(rule: RegionRule, entries: list[dict], day: str) -> bool:
-    """Whether a loaded session is followed by a reading with no flare in the window.
+def _dedupe_entries(entries: list[dict]) -> list[dict]:
+    """Latest row wins for each (date, timing) inside the signal.
 
-    The session is *not* tolerated if any reading in the window is a flare: a flare that
-    appears the next day is evidence the load was too much. No reading means unverified.
+    The symptom log is append-only, so a correction is a later row. Other consumers keep
+    the full history; the signal must not let a superseded flare or clean row vote.
+    """
+    latest: dict[tuple[str, str], dict] = {}
+    for entry in entries:
+        key = (str(entry["logged_on"])[:10], str(entry["timing"]))
+        current = latest.get(key)
+        if current is None or int(entry["log_id"]) > int(current["log_id"]):
+            latest[key] = entry
+    return sorted(
+        latest.values(),
+        key=lambda item: (str(item["logged_on"])[:10], int(item["log_id"])),
+    )
+
+
+def _exposure_state(rule: RegionRule, entries: list[dict], day: str) -> str:
+    """Classify one loaded date: tolerated, flared, symptomatic load or unverified.
+
+    Follow-up is any later reading through the window, plus a same-day post-session reading.
+    A same-day pre-session reading precedes the load, so it cannot verify it; if it is a
+    flare, the session was loaded while already symptomatic and is not tolerated.
     """
     end = (dt.date.fromisoformat(day[:10])
            + dt.timedelta(days=rule.verify_within_days)).isoformat()
-    window = [e for e in entries if day < str(e["logged_on"]) <= end]
-    if not window:
-        return False
-    return not any(flare_from(int(e["level"]), e["settled_within_48h"]) for e in window)
+    followups = [
+        entry for entry in entries
+        if (day < str(entry["logged_on"])[:10] <= end)
+        or (
+            str(entry["logged_on"])[:10] == day
+            and str(entry["timing"]) == "post_session"
+        )
+    ]
+    if any(flare_from(int(e["level"]), e["settled_within_48h"]) for e in followups):
+        return "flared"
+    same_day_pre = [
+        entry for entry in entries
+        if str(entry["logged_on"])[:10] == day
+        and str(entry["timing"]) == "pre_session"
+    ]
+    if any(flare_from(int(e["level"]), e["settled_within_48h"]) for e in same_day_pre):
+        return "symptomatic_load"
+    if followups:
+        return "tolerated"
+    return "unverified"

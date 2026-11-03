@@ -40,7 +40,8 @@ def test_deload_uses_one_load_factor_not_a_product():
     low_load = next(i.load_kg for i in without.items if i.exercise_id == "trap_bar_deadlift")
     deloaded = next(i.load_kg for i in with_deload.items if i.exercise_id == "trap_bar_deadlift")
     assert deloaded == low_load
-    assert with_deload.items[0].rir_target <= 4
+    deadlift = next(i for i in with_deload.items if i.exercise_id == "trap_bar_deadlift")
+    assert deadlift.rir_target <= 4
 
 
 def test_deload_rir_cap_keeps_primary_compounds_in_window():
@@ -70,16 +71,42 @@ def test_deload_does_not_undo_mrv_cap():
     assert pull.sets == 1
 
 
-def test_minimum_note_is_after_deload_not_before_it():
+def test_low_readiness_never_ends_above_normal_with_deload_and_technique():
     with store_with(BASE_HISTORY) as store:
-        prescription = build_prescription(
+        normal = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="hinge",
+            technique_throttle=True, deload_decision=DECISION,
+        )
+    with store_with(BASE_HISTORY, readiness_rows=LOW_READINESS) as store:
+        low = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="hinge",
+            technique_throttle=True, deload_decision=DECISION,
+        )
+    normal_load = next(i.load_kg for i in normal.items if i.exercise_id == "trap_bar_deadlift")
+    low_load = next(i.load_kg for i in low.items if i.exercise_id == "trap_bar_deadlift")
+    # Technique and deload compare with the current factor, so they cannot make the low-
+    # readiness case heavier than normal through a skipped technique factor.
+    assert low_load <= normal_load
+
+
+def test_minimum_note_precedes_deload_and_deload_does_not_add_work():
+    with store_with(BASE_HISTORY) as store:
+        plain = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="hinge",
+            minimum_session=True, minimum_target_minutes=30,
+        )
+        deloaded = build_prescription(
             store.connection, for_date="2024-01-15", session_type="hinge",
             minimum_session=True, minimum_target_minutes=30,
             deload_decision=DECISION,
         )
-    note = prescription.notes["minimum_session"]
-    assert note["after_minutes"] == estimate_minutes(prescription.items)
-    assert "MOD-DELOAD-001" in " ".join(prescription.warnings)
+    note = deloaded.notes["minimum_session"]
+    # The note records the minimum-session result before deload, so a planned reduction can
+    # only make the final estimate smaller, never restore a trimmed item.
+    assert note["after_minutes"] >= estimate_minutes(deloaded.items)
+    assert estimate_minutes(deloaded.items) <= estimate_minutes(plain.items)
+    assert {i.exercise_id for i in deloaded.items} <= {i.exercise_id for i in plain.items}
+    assert "MOD-DELOAD-001" in " ".join(deloaded.warnings)
 
 
 STALE_ROWS = [

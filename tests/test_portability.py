@@ -16,6 +16,8 @@ from conftest import make_readiness, make_training
 from strength_coach import cli
 from strength_coach.store import db, importer
 
+pytestmark = pytest.mark.slow
+
 ATHLETE_A = [
     {"Date": "2024-01-01", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
      "RIR": "2", "Reps_Done": "5"},

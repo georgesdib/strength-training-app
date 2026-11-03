@@ -1,7 +1,8 @@
 # METHODOLOGY
 
-**Version:** 1.0.0  
-**Status:** current method, 2026-10-23.  
+**Version:** 1.1.0
+
+**Status:** current method, 2026-11-03.
 This is the canonical one-page summary. Detailed schemas, evidence and decisions stay in their
 existing documents; this file does not replace them.
 
@@ -47,6 +48,11 @@ prescription
 
 The order matters. A later convenience cannot silently undo an earlier safety rule. The most
 restrictive applicable rule wins.
+
+An optional deterministic resolver may choose exercises for a slot before the load/RIR/modifier
+steps when `resolver.enabled` is explicitly enabled. It uses the same safety, readiness, volume
+and validation pipeline; the blueprint remains the fallback and the flag remains off by default.
+The forecast is always the blueprint/expected pattern (option c), never a generated future list.
 
 ## 3. Non-negotiables
 
@@ -126,6 +132,7 @@ deeper tier reduces main-lift sets to a floor of two. See
 | version | date | change |
 |---|---|---|
 | 1.0.0 | 2026-10-23 | First canonical summary after outcomes, readiness, feedback, minimum session and parity work |
+| 1.1.0 | 2026-11-03 | Deterministic optional resolver: generated-session snapshot provenance, top-set role handling, fixed forecast boundary and default-off rollout controls |
 
 ## Related
 

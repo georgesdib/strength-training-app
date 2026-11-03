@@ -34,12 +34,12 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 | View | Panels / subsections | Primary documentation | Evidence / decisions / questions / roadmap |
 |---|---|---|---|
 | **Today** | Recent sessions; Descriptive progress; Rubric calibration; Per-rep velocity; Periodic reviews; How this works; summary cards | [WEB-UI.md](WEB-UI.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
-| **History** | History list; Session details; Edit session; editor Session details | [WEB-UI.md](WEB-UI.md), [DATA-MODEL.md](DATA-MODEL.md) | [DATA-QUALITY.md](DATA-QUALITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **History** | Training-day list; expandable session fragments; Session details; Edit session; editor Session details | [WEB-UI.md](WEB-UI.md), [DATA-MODEL.md](DATA-MODEL.md), [TRAINING-DAY-MODEL.md](TRAINING-DAY-MODEL.md) | [DATA-QUALITY.md](DATA-QUALITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Outcomes** | Outcome review; Prospective check; Form trend; Readiness feedback | [OUTCOMES.md](OUTCOMES.md), [W5-PROSPECTIVE-EVALUATION.md](W5-PROSPECTIVE-EVALUATION.md) | [FORM-PROSPECTIVE.md](FORM-PROSPECTIVE.md), [FORM-USE-EVIDENCE.md](FORM-USE-EVIDENCE.md), [READINESS.md](READINESS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Performance** | Raw e1RM observations; rolling median; series breaks; separate degraded observations; functional session-type/deload/quality filters; dose context; configured relative-strength ratios with local-overlay CRUD; read-only monitoring analysis | [WEB-UI.md](WEB-UI.md), [TRAINING-DYNAMICS.md](TRAINING-DYNAMICS.md) | [PARENT-VARIANT-WEAKNESS-EVIDENCE.md](PARENT-VARIANT-WEAKNESS-EVIDENCE.md), [METHODOLOGY.md](METHODOLOGY.md) |
 | **Longevity** | Longevity context; summary cards; cardio, measurements, readiness, symptoms tables | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Prescribe** | Prescribe form; Continuity calibration (as-of date); Weekly volume (weeks/date); Exposure ratio; Performance residual; Shadow review; Regime change; Strength fatigue diagnostic (as-of date); Exercise selection; Fatigue-informed suggestion; Retrospective validation (maximum dates 1–100, default 12) | [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md), [RULES-FORMAT.md](RULES-FORMAT.md), [METHODOLOGY.md](METHODOLOGY.md) | [CONTINUITY.md](CONTINUITY.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md), [REGIME-CHANGE.md](REGIME-CHANGE.md), [FATIGUE-FITNESS.md](FATIGUE-FITNESS.md), [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md), [RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md) |
-| **Workflow** | Readiness; Preview/configure; Start workout; Active workout; Log/edit sets; Optional device data; Import workout CSV; Per-rep velocity; End workout; Post-workout comparison; Descriptive session summary | [USER-GUIDE.md](../USER-GUIDE.md), [WEB-UI.md](WEB-UI.md) | [VBT-CALIBRATION.md](VBT-CALIBRATION.md), [REP-VELOCITY.md](REP-VELOCITY.md), [WORKOUT-TYPE-READINESS-EVIDENCE.md](WORKOUT-TYPE-READINESS-EVIDENCE.md), [DECISIONS.md](DECISIONS.md) |
+| **Workflow** | Readiness; Preview/configure; Start workout; Active workout; Per-exercise history; Log/edit sets; Optional device data; Import workout CSV; Per-rep velocity; End workout; Post-workout comparison; Descriptive session summary | [USER-GUIDE.md](../USER-GUIDE.md), [WEB-UI.md](WEB-UI.md) | [VBT-CALIBRATION.md](VBT-CALIBRATION.md), [REP-VELOCITY.md](REP-VELOCITY.md), [WORKOUT-TYPE-READINESS-EVIDENCE.md](WORKOUT-TYPE-READINESS-EVIDENCE.md), [DECISIONS.md](DECISIONS.md) |
 | **Programme** | Programme forecast | [TRAINING-DYNAMICS.md](TRAINING-DYNAMICS.md), [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md) | [REFERENCES.md](REFERENCES.md), [ROADMAP.md](../ROADMAP.md) |
 | **Review** | Review a session; Rubric agreement | [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md), [RULES-FORMAT.md](RULES-FORMAT.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Readiness** | Log readiness; Quick readiness; Baseline settings; Volume valve; Calibration report; Override the score | [READINESS.md](READINESS.md), [READINESS-SCORE.md](READINESS-SCORE.md) | [LIFT-READINESS.md](LIFT-READINESS.md), [READINESS-WEIGHT-EVIDENCE.md](READINESS-WEIGHT-EVIDENCE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
@@ -47,8 +47,8 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 | **Measures** | Measurements; History | [OUTCOMES.md](OUTCOMES.md), [DATA-MODEL.md](DATA-MODEL.md) | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Import** | Import training/readiness; After the import | [USER-GUIDE.md](../USER-GUIDE.md), [DATA-QUALITY.md](DATA-QUALITY.md) | [PRIVACY.md](PRIVACY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Exercises** | Exercise catalogue; Edit exercise; Exercise details dialog; read-only Demand profile | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md), [DATA-MODEL.md](DATA-MODEL.md) | [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
-| **Athlete** | Profile (incl. exposure trim), constraints, suitability, e1RM, tests, block start, symptoms, calibration/coverage window previews, raw symptom history, test cadence with measured-coverage status and Record-test link | [DATA-MODEL.md](DATA-MODEL.md), [INJURY-SIGNAL.md](INJURY-SIGNAL.md) | [READINESS.md](READINESS.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
-| **Settings** | Appearance; Language model; Prescribe defaults; Volume budget; Monitoring & reports inventory; Modules; Settings profile; App | [WEB-UI.md](WEB-UI.md), [VOLUME-BUDGET.md](VOLUME-BUDGET.md), [MONITORING-ANALYSIS.md](MONITORING-ANALYSIS.md), [ARCHITECTURE.md](ARCHITECTURE.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Athlete** | Profile (incl. exposure trim), constraints, suitability, e1RM, tests, block start, symptoms with optional athlete-attributed session/lift, calibration/coverage window previews, raw symptom history, test cadence with measured-coverage status and Record-test link | [DATA-MODEL.md](DATA-MODEL.md), [INJURY-SIGNAL.md](INJURY-SIGNAL.md), [SYMPTOM-LOGGING.md](SYMPTOM-LOGGING.md) | [READINESS.md](READINESS.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Settings** | Appearance; Language model; Prescribe defaults; Volume budget; Monitoring & reports inventory; Modules; **Resolver** panel (profile scalars, enable confirmation, validated policy YAML with backups, read-only generation preview with full-prescription diff); Settings profile; App | [WEB-UI.md](WEB-UI.md), [VOLUME-BUDGET.md](VOLUME-BUDGET.md), [MONITORING-ANALYSIS.md](MONITORING-ANALYSIS.md), [ARCHITECTURE.md](ARCHITECTURE.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Docs** | Docs list and document viewer | [WEB-UI.md](WEB-UI.md), [METHODOLOGY.md](METHODOLOGY.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
 
 ## Panel-specific notes
@@ -66,17 +66,18 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 | Prospective check | W5 programme-level summary, not a model forecast | [W5-PROSPECTIVE-EVALUATION.md](W5-PROSPECTIVE-EVALUATION.md) |
 | Form trend | Descriptive form observations; no prescription change | [FORM-PROSPECTIVE.md](FORM-PROSPECTIVE.md) |
 | Readiness feedback | Association between readiness reductions and next session; no tuning | [READINESS.md](READINESS.md) |
-| Prescribe form | Deterministic four-session-type prescription; hard constraints, fallback and plain-English generation flow | [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md), [METHODOLOGY.md](METHODOLOGY.md) |
+| Prescribe form | Deterministic four-session-type prescription; hard constraints, fallback, top-set/back-off ask and plain-English generation flow | [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md), [METHODOLOGY.md](METHODOLOGY.md) |
 | Continuity calibration | Gap/continuity evidence and fixed fallback | [CONTINUITY.md](CONTINUITY.md) |
 | Weekly volume | MEV/MAV/MRV ledger and MRV cap | [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md) |
 | Exposure ratio | Rolling 7/28-day hard-set ratio, coverage, abstention and per-group signals; no prescription effect | [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md) |
 | Performance residual | VBT-only execution residual per lift with the signal/evaluation gates; shadow, never a prescription effect | [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md) |
 | Shadow review | Append-only decision counts, abstention reasons and the activation gate; the gate never enables anything | [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md) |
 | Regime change | Read-only main-lift/substitute change check | [REGIME-CHANGE.md](REGIME-CHANGE.md) |
-| Strength fatigue diagnostic | Rejected predictor; descriptive state only | [FATIGUE-FITNESS.md](FATIGUE-FITNESS.md) |
+| Strength fatigue diagnostic | Rejected predictor; descriptive state only; first ten lifts with Show more | [FATIGUE-FITNESS.md](FATIGUE-FITNESS.md) |
 | Exercise selection | Ranked suggestions; explicit apply; no model/LLM computation | [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md) |
 | Retrospective validation | Walk-forward check against simple baselines | [RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md) |
-| Workout | Start, log, edit, end a live workout and link it to a plan | [USER-GUIDE.md](../USER-GUIDE.md) |
+| Workout | Start, log, edit, end a live workout and link it to a plan; top-set/back-off roles are shown and logged | [USER-GUIDE.md](../USER-GUIDE.md), [DATA-MODEL.md](DATA-MODEL.md) |
+| Per-exercise history | Read-only last five completed sessions with Show more; working sets, declared equivalents, no current-workout sets | [WEB-UI.md](WEB-UI.md) |
 | Device data / per-rep velocity | Optional VBT import and descriptive analysis | [REP-VELOCITY.md](REP-VELOCITY.md) |
 | Programme forecast | Read-only projected sessions; rebuilt on the day | [TRAINING-DYNAMICS.md](TRAINING-DYNAMICS.md) |
 | Review a session | Human rubric marks; engine values shown, not copied | [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md) |
@@ -113,8 +114,8 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 - [x] P2: every nested `h3` and the exercise-details dialog has the pattern, with verified anchors.
 - [x] P3: every UI-linked doc has a Related block.
 - [x] P4: `tools/check_ui_docs.py` and `tests/test_ui_docs.py` enforce the contract,
-  including docs links generated inside any client script (`core.js`, `app.js`,
-  `exercises.js`, `history.js`, `workout.js`).
+  including docs links generated inside any client script (`core.js`, `settings.js`, `app.js`,
+  `exercises.js`, `history.js`, `workout.js`, `summary.js`, `performance.js`).
 
 ## Related
 

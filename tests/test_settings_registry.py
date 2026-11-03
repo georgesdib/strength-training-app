@@ -18,6 +18,11 @@ def test_registry_keys_are_unique_and_classified():
 def test_registry_sources_exist():
     base = Path("config")
     for setting in settings_registry.SETTINGS:
+        if setting.key.startswith("resolver."):
+            # Resolver scalars are effective-dated profile values; the structural policy file
+            # is not their storage location. The registry supplies the defaults.
+            assert setting.source == "settings profile (registry defaults)", setting.key
+            continue
         assert (base / setting.source).exists(), setting.key
 
 

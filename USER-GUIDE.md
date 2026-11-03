@@ -140,7 +140,7 @@ The programme rolls through these types; the Programme page is a forecast, not a
 
 ### During training — live workout
 
-Start the workout from the Workflow page and record completed work in the live workout interface. Use the prescribed rep range and effort target as guidance, while applying normal judgement and stopping if the session becomes unsafe or symptoms materially worsen.
+Start the workout from the Workflow page and record completed work in the live workout interface. Use the prescribed rep range and effort target as guidance, while applying normal judgement and stopping if the session becomes unsafe or symptoms materially worsen. Each planned exercise has a **History** toggle showing the last five completed sessions for that lift (with **Show more**); it is read-only and does not include the set you are currently logging.
 
 Power work is quality-limited: stop when movement quality or output declines rather than chasing fatigue. A prescribed RIR target is an estimate of repetitions in reserve, not a requirement to grind through a bad rep.
 
@@ -200,7 +200,11 @@ The volume ledger compares recent working sets with configurable pattern-level M
 
 ### Injury signal and constraints
 
-The symptom/injury signal summarises recorded symptoms and loading history. It is not a diagnosis and does not certify recovery. A `review` status does not automatically make an exercise suitable or remove a constraint. Missing symptom data means unknown, not symptom-free.
+The symptom/injury signal summarises recorded symptoms and loading history. It is not a diagnosis and does not certify recovery. A `review` status does not automatically make an exercise suitable or remove a constraint. Missing symptom data means unknown, not symptom-free. A symptom may optionally be attributed to one completed session (and at most one lift performed there) with an onset date and an ordinal confidence; this is the athlete's suspicion, shown for review only, and never changes the signal, suitability, selection or prescription.
+
+### Dynamic template resolver (optional)
+
+The resolver is **off by default**. When enabled in **Settings → Resolver**, Python chooses exercises for the existing four session identities from the candidate pool and policy. The fixed template remains the blueprint and fallback. Enabling requires an explicit confirmation; disabling it restores the fixed path without changing already stored prescriptions. The generation preview is read-only until **Start** hands the displayed prescription to the workout workflow. A generated prescription stores its assignment, original slot specifications and policy/template digests, so later critique and volume accounting explain the session from that snapshot rather than today's policy. Older prescriptions without a snapshot continue to use the blueprint. Top sets are graded against their own 1–2 RIR role, not the normal working-set window. The programme forecast remains the blueprint/expected pattern (option c); it does not run the generator.
 
 ### LLM explanations
 

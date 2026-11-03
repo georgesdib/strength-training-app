@@ -12,6 +12,7 @@ import pytest
 from strength_coach.utils import numeric
 
 
+@pytest.mark.regression
 def test_rir_zero_is_preserved():
     """RIR 0 is a real observation (true failure), not a sentinel."""
     series = pd.Series(["0", "1", "2", "3"])

@@ -32,11 +32,10 @@ Use a general description, a synthetic example, or move the exact detail to `pri
 - synthetic test fixtures;
 - evidence citations.
 
-## 4. Git history
+## 4. Commits
 
-Earlier commits already contain some personal details. Removing them from the current tree does
-not remove them from Git history. Rewriting history is not part of this project. Do not add new
-personal data to public docs or commits.
+Do not add personal data to public docs or commits. Keep current public documentation free of
+the exact personal details listed above.
 
 ## 5. Adding docs
 

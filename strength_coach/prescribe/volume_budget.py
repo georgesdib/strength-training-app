@@ -21,6 +21,7 @@ from typing import Any
 import yaml
 
 from strength_coach.features import volume as volume_feature
+from strength_coach.prescribe import generated as generated_snapshot
 from strength_coach.prescribe import schedule, templates
 from strength_coach.store import queries, repositories
 from strength_coach.utils import exercises, paths
@@ -41,7 +42,7 @@ MANAGED_KEYS = (
 DEFAULT_TARGET = {
     "squat": 10.0, "hinge": 6.5, "hinge_unilateral": 0.0, "knee_flexion": 6.0,
     "horizontal_push": 12.0, "horizontal_pull": 9.0, "vertical_push": 3.0,
-    "vertical_pull": 4.5, "core": 6.0, "erector_extension": 3.0, "power_jump": 3.0,
+    "vertical_pull": 4.5, "core": 6.0, "erector_extension": 3.0, "power_jump": 9.0,
 }
 DEFAULT_CAPS = {
     "squat": 8, "hinge": 6, "hinge_unilateral": 5, "knee_flexion": 4,
@@ -157,7 +158,7 @@ class BudgetConfig:
     session_cap_pattern: Mapping[str, int] = field(default_factory=lambda: dict(DEFAULT_CAPS))
     tolerance: float = 0.10
     warmup_estimate_minutes: float = 5.0
-    session_time_cap_minutes: float = 80.0
+    session_time_cap_minutes: float = 90.0
     source_path: Path = Path()
 
     def total_target(self) -> float:
@@ -406,7 +407,7 @@ class BudgetConfig:
         if not 0.0 <= tolerance <= 1.0:
             raise ValueError("volume budget tolerance must be between 0 and 1")
         warmup = float(body.get("warmup_estimate_minutes", 5.0))
-        time_cap = float(body.get("session_time_cap_minutes", 80.0))
+        time_cap = float(body.get("session_time_cap_minutes", 90.0))
         if warmup < 0 or time_cap <= 0:
             raise ValueError("volume budget time settings must be positive")
         return cls(
@@ -541,9 +542,10 @@ def completed_sets(
 
 
 def completed_sessions(conn, *, on_date: str) -> int:
+    """Completed training days in the week, not session fragments."""
     start, _ = week_bounds(on_date)
     frame = queries.sessions(conn, start=start, end=str(on_date))
-    return 0 if frame.empty else int(len(frame))
+    return 0 if frame.empty else int(frame["occurred_on"].nunique())
 
 
 def exemptions(conn, *, on_date: str) -> dict[str, int]:
@@ -1761,20 +1763,28 @@ def record_exemptions(
     Called after the prescription is stored. Items removed entirely are not recorded: the
     budget only tops up items that are present, so it cannot resurrect them.
     """
-    try:
-        template = templates.SessionTemplate.load(session_type)
-    except (ValueError, KeyError):
-        return
-    slots: dict[str, Any] = {}
-    for slot in template.slots:
-        exercises = ([slot.exercise] if slot.exercise else []) + list(slot.variants)
-        for exercise in exercises:
-            slots[str(exercise)] = slot
+    snapshot = generated_snapshot.snapshot_for_prescription(conn, prescription_id)
+    snapshot_slots = generated_snapshot.slots_by_exercise(snapshot)
+    original_sets: dict[str, int] = {}
+    if snapshot_slots:
+        original_sets = {
+            exercise: int(spec.get("sets") or 0)
+            for exercise, spec in snapshot_slots.items()
+        }
+    else:
+        try:
+            template = templates.SessionTemplate.load(session_type)
+        except (ValueError, KeyError):
+            return
+        for slot in template.slots:
+            exercises = ([slot.exercise] if slot.exercise else []) + list(slot.variants)
+            for exercise in exercises:
+                original_sets[str(exercise)] = int(slot.sets)
     for item in items:
         is_mapping = isinstance(item, Mapping)
         exercise = str(item["exercise_id"] if is_mapping else item.exercise_id)
-        slot = slots.get(exercise)
-        if slot is None:
+        original = original_sets.get(exercise)
+        if original is None:
             continue
         refs = (
             item.get("rationale_refs") or item.get("refs") or ()
@@ -1782,7 +1792,7 @@ def record_exemptions(
         )
         sets = int(item["sets"] if is_mapping else item.sets)
         safety = SAFETY_REFS & set(refs)
-        if not safety or sets >= int(slot.sets):
+        if not safety or sets >= original:
             continue
         key = pattern_key(exercise)
         if key is None:
@@ -1792,6 +1802,6 @@ def record_exemptions(
             prescription_id=prescription_id,
             effective_on=effective_on,
             pattern=key,
-            sets=int(slot.sets) - sets,
+            sets=original - sets,
             source=sorted(safety)[0],
         )

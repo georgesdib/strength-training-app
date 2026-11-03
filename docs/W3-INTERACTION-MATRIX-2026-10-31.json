@@ -1,0 +1,59 @@
+{
+  "summary": {
+    "cases": 768,
+    "built": 768,
+    "errors": 0,
+    "violations": 0,
+    "factors": {
+      "readiness": [
+        "normal",
+        "low"
+      ],
+      "gap_days": [
+        7,
+        28,
+        56
+      ],
+      "e1rm": [
+        "fresh",
+        "stale"
+      ],
+      "deload": [
+        false,
+        true
+      ],
+      "flare": [
+        false,
+        true
+      ],
+      "minimum_session": [
+        false,
+        true
+      ],
+      "technique_throttle": [
+        false,
+        true
+      ],
+      "session_types": [
+        "squat",
+        "hinge",
+        "bench_squat",
+        "bench_hinge"
+      ]
+    },
+    "invariants": [
+      "executable and non-empty",
+      "no duplicate items",
+      "sets >= 1",
+      "load present",
+      "non-power RIR 1-4",
+      "power RIR null and quality stop present",
+      "automatic load factor >= 0.80",
+      "reduction-only modifiers do not add items",
+      "readiness/deload/flare/minimum/throttle do not increase sets or load",
+      "readiness/deload/flare/minimum/throttle do not lower a non-power RIR target"
+    ]
+  },
+  "errors": [],
+  "violations": []
+}

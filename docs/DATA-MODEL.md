@@ -72,6 +72,12 @@ meaningless and must not be summed.
 | duration_basis | TEXT | `measured` \| `unavailable` |
 | flags | TEXT | `POSSIBLE_DOUBLE_SESSION`, `NO_MAIN_LIFT`, … |
 
+A `session` row is a **fragment**, not necessarily the whole training day. The training-day
+model (`DEC-SESSION-03`, [`TRAINING-DAY-MODEL.md`](TRAINING-DAY-MODEL.md)) allows multiple
+fragments on one `occurred_on` date and groups them virtually by date. Attendance, the weekly
+budget and scheduling count training days; e1RM uses one day-level observation. A day may
+contain more than one fragment, but only one fragment is active at a time.
+
 ## 3b. `high_intensity_exposure` — near-max work outside volume
 
 | column | notes |
@@ -273,6 +279,10 @@ document version.
 | rule_document_version | |
 | calibration_ids | JSON |
 | approved_by | `deterministic` \| `llm+policy` |
+| template_digest | nullable SHA-256 of the blueprint file used (migration 0048) |
+| policy_digest | nullable SHA-256 of the resolver policy file; null on the fixed path |
+| input_hash | nullable canonical resolver input hash; null on the fixed path |
+| generated_session_json | nullable generated exercise/slot/top-set snapshot; Step 6 adds validated `slots` (chosen exercise, original sets/reps/RIR/rest, essential/power flags, load source, quality stop) for critique/exemption reads; null on the fixed path and pre-Step-6 snapshots remain readable |
 
 | item column | notes |
 |---|---|
@@ -289,6 +299,7 @@ document version.
 | rationale_refs | JSON list of rule IDs + data-point ids |
 | e1rm_source_sets | nullable; usable sets behind a formula e1RM (NULL for overrides/fallbacks) |
 | substitution_for | nullable |
+| set_groups_json | ordered top_set/back_off groups; empty for straight sets (migration 0049) |
 
 ### 8.4 `workout_form_rating` / `session_form_rating`
 
@@ -362,6 +373,12 @@ a behaviour the system did not have (`DEC-STATE-02`).
 Profile precedence is profile > config > registry default. Guarded-safety keys are rejected
 until the step-5 confirmation flow. The snapshot freezes what a prescription actually used;
 existing prescriptions without a row are not rewritten.
+
+Historical profiles may contain the retired resolver weights
+`resolver.weights.rotation` and `resolver.weights.preference`. Reading ignores exactly those
+keys and leaves the historical row untouched; saving an unrelated setting strips inherited
+retired keys before appending the new complete map. They are not active registry keys, defaults,
+snapshot values or UI controls, and an explicit new write of either key is rejected.
 
 ### 11.2 `athlete_constraint` — injuries, contraindications, mobility limits
 
@@ -458,6 +475,10 @@ auditable even after the override is replaced.
 | level | 0–3 agreed scale (see INFO-REQUESTS §6) |
 | settled_within_48h | nullable boolean |
 | note | |
+| attributed_session_id | nullable; one completed `session` row; validated in code, not a foreign key |
+| attributed_exercise_id | nullable; at most one lift actually performed in that session |
+| onset_on | nullable; required when attributed, `<= logged_on` |
+| attribution_confidence | nullable; `possible` \| `likely` \| `strong` |
 
 v0.1 recorded **one pre-session number for the whole back** (`DEC-SYMPTOM-01`). Since
 2026-10-19 the same 0-3 scale is recorded **per region** (`DEC-SYMPTOM-03`): `low_back`,
@@ -468,6 +489,14 @@ signal. Multiple entries per day are allowed and the latest wins (migration 0005
 correction is an insert. A reading is a **flare** at level >= 2, or at level 1 that did not
 settle within 48 hours (`DEC-SYMPTOM-02`); a level-1 reading with no recorded settlement
 counts as not settled (`DEC-SYMPTOM-04`). No reading is `unknown`, never "no flare".
+
+Migration 0047 adds the four nullable attribution columns. They are optional and display-only:
+the shared validator enforces the cross-field rules (a session implies onset and confidence;
+the lift must have been performed in that session; the session is within the 7-day
+`attribution_lookback_days`; a `pre_session` reading cannot point at a session on its onset
+date). Historical rows stay `NULL` and are never rewritten. Attribution never feeds the
+injury signal, suitability, selection, load or any prescription. See
+[`INJURY-ATTRIBUTION-PLAN.md`](INJURY-ATTRIBUTION-PLAN.md).
 
 The per-region signal built from this table is documented in
 [`INJURY-SIGNAL.md`](INJURY-SIGNAL.md); how to log an episode, and what to record when it
@@ -523,7 +552,9 @@ until completion.
 | critique_id | deterministic rubric persisted at End workout |
 | reviewed_at | set when human review marks are saved |
 
-`workout_set` is append-only. A removed set is an event, not a DELETE:
+`workout_set` is append-only. A removed set is an event, not a DELETE. Migration `0049` also
+adds `clean_set.set_role`, copied on materialisation; it is nullable so imported and historical
+straight sets need no backfill.
 
 | column | notes |
 |---|---|
@@ -533,6 +564,7 @@ until completion.
 | load_kg / reps / rir / velocity | actual values |
 | source | `manual` \| `import` \| `device` |
 | prescription_item_index | index into the frozen plan, when matched |
+| set_role | nullable `top_set` / `back_off`; ordinary and historical sets stay null (migration 0049) |
 
 `workout_event` records `start`, `add_set`, `update_set`, `remove_set`, `restore_set`, `end`,
 `abandon`, `reviewed`, `import_applied` and `import_undone` with an optional `target_set_id`;
