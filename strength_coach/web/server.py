@@ -87,9 +87,13 @@ from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import test_cadence as test_cadence_feature
 from strength_coach.features import volume as volume_feature
+from strength_coach.features.readiness_score import ReadinessRequired
 from strength_coach.prescribe import (
     build_prescription,
     fatigue_selection,
+    resolver,
+    resolver_admin,
+    resolver_policy,
     session_identity,
     templates,
     volume_settings,
@@ -101,6 +105,7 @@ from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import summary as programme_summary
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.prescribe.config import Thresholds
+from strength_coach.prescribe.evaluator import EvaluationInputs
 from strength_coach.rules import RuleContext
 from strength_coach.store import (
     db,
@@ -233,6 +238,18 @@ def _item_dict(item) -> dict:
             {"percent": w.percent, "reps": w.reps, "load_kg": w.load_kg}
             for w in item.warmup
         ],
+        "set_groups": [
+            {
+                "role": group.role,
+                "sets": group.sets,
+                "load_kg": group.load_kg,
+                "reps_low": group.reps_low,
+                "reps_high": group.reps_high,
+                "rir_target": group.rir_target,
+                "percent_of_top": group.percent_of_top,
+            }
+            for group in item.set_groups
+        ],
     }
 
 
@@ -256,6 +273,12 @@ def prescription_dict(prescription) -> dict:
         "warnings": list(prescription.warnings),
         "issues": list(prescription.issues),
         "notes": prescription.notes,
+        "template_digest": (prescription.notes.get("resolver") or {}).get("template_digest"),
+        "policy_digest": (prescription.notes.get("resolver") or {}).get("policy_digest"),
+        "input_hash": (prescription.notes.get("resolver") or {}).get("input_hash"),
+        "generated_session": (prescription.notes.get("resolver") or {}).get(
+            "generated_session"
+        ),
     }
 
 
@@ -594,10 +617,6 @@ def programme_job(job_id: str) -> dict:
         return dict(job)
 
 
-class ReadinessRequired(Exception):
-    """The date needs a usable readiness score before a workout is generated."""
-
-
 def analysis_readonly_connection(db_path: str | Path) -> sqlite3.Connection:
     """Dedicated read-only connection for the monitoring-analysis endpoint."""
     path = Path(db_path)
@@ -751,6 +770,11 @@ class Handler(BaseHTTPRequestHandler):
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0] or datetime.date.today().isoformat()
                 self._json(200, self._with_conn(lambda c: settings_profile.state(c, day)))
+            elif path == "/api/resolver/policy":
+                try:
+                    self._json(200, resolver_admin.policy_state())
+                except resolver_policy.ResolverPolicyError as exc:
+                    raise FieldError(str(exc), {"policy": str(exc)}) from exc
             elif path == "/api/regime":
                 query = parse_qs(urlparse(self.path).query)
                 self._json(200, self._with_conn(lambda c: regime_feature.detect(
@@ -1198,6 +1222,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._save_volume_settings(c, body)))
             elif path == "/api/settings/profile":
                 self._json(200, self._with_conn(lambda c: self._save_settings_profile(c, body)))
+            elif path == "/api/resolver/policy":
+                try:
+                    self._json(200, resolver_admin.save_policy(str(body.get("yaml") or "")))
+                except resolver_policy.ResolverPolicyError as exc:
+                    raise FieldError(str(exc), {"policy": str(exc)}) from exc
+            elif path == "/api/resolver/policy/restore":
+                try:
+                    self._json(200, resolver_admin.restore_latest())
+                except resolver_policy.ResolverPolicyError as exc:
+                    raise FieldError(str(exc), {"policy": str(exc)}) from exc
+            elif path == "/api/resolver/preview":
+                self._json(200, self._with_conn(lambda c: self._resolver_preview(c, body)))
             elif path.startswith("/api/modalities/"):
                 module_id = path.rsplit("/", 1)[-1]
                 self._json(200, self._with_conn(
@@ -1580,10 +1616,15 @@ class Handler(BaseHTTPRequestHandler):
                 effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
                 guard_confirmed=_truth(body.get("guard_confirmed")),
                 reason=(str(body.get("reason")) if body.get("reason") else None),
+                resolver_enable_confirmed=_truth(
+                    body.get("resolver_enable_confirmed")
+                ),
             )
         except ValueError as exc:
             text = str(exc)
-            if "guarded settings require confirmation" in text:
+            if "resolver.enabled requires explicit confirmation" in text:
+                field = "resolver_enable_confirmed"
+            elif "guarded settings require confirmation" in text:
                 field = "guard_confirmed"
             elif "guarded settings require a reason" in text:
                 field = "reason"
@@ -2204,6 +2245,7 @@ class Handler(BaseHTTPRequestHandler):
                 velocity=velocity,
                 source=source,
                 set_index=_integer(body.get("set_index")),
+                set_role=body.get("set_role") or None,
             )
         elif action == "update-set":
             reps, rir, load, velocity = _manual_set_values(body)
@@ -2213,6 +2255,7 @@ class Handler(BaseHTTPRequestHandler):
                 reps=reps,
                 rir=rir,
                 velocity=velocity,
+                set_role=body.get("set_role") or None,
             )
         elif action == "remove-set":
             result = workout.remove_set(conn, workout_id, _integer(body.get("set_id")))
@@ -2254,21 +2297,138 @@ class Handler(BaseHTTPRequestHandler):
         )
         return reviews_feature.status(conn, on_date)
 
-    def _prescribe(self, conn, body: dict) -> dict:
-        for_date = str(body.get("date") or datetime.date.today().isoformat())
+    def _resolver_preview(self, conn, body: dict) -> dict:
+        """Build a read-only resolver preview with choices and structured failures."""
+        for_date = readiness_score.parse_date(
+            str(body.get("date") or datetime.date.today().isoformat())
+        )
         requested_type = body.get("session_type")
         session_type = (
             schedule_mod.next_session_type(conn, for_date)
             if requested_type in (None, "", "auto") else str(requested_type)
         )
         allow_unknown = _truth(body.get("allow_unknown_readiness"))
-        if for_date >= datetime.date.today().isoformat():
-            assessment = readiness_score.compute(conn, for_date)
-            if assessment.status != "ready" and not allow_unknown:
-                raise ReadinessRequired(
-                    f"readiness required for {for_date}: {assessment.status} — "
-                    f"{assessment.basis}; acknowledge an unknown/partial score to proceed"
-                )
+        readiness_score.require_ready(
+            conn, for_date, allow_unknown=allow_unknown
+        )
+        if _truth(body.get("apply_selection")) or _truth(body.get("selection_llm")) or (
+            _truth(body.get("selection_confirmed"))
+        ):
+            raise FieldError(
+                "resolver preview does not accept selection overrides",
+                {"apply_selection": "resolver owns exercise selection"},
+            )
+        minimum_session = _truth(body.get("minimum_session"))
+        minimum_include_main = _truth(body.get("minimum_include_main")) and minimum_session
+        technique_throttle = _truth(body.get("technique_throttle"))
+        raw_patterns = body.get("technique_throttle_pattern")
+        if isinstance(raw_patterns, list):
+            patterns = list(dict.fromkeys(str(value).strip() for value in raw_patterns))
+            technique_patterns = None if patterns in ([], [""]) else patterns
+        elif isinstance(raw_patterns, str):
+            technique_patterns = raw_patterns.strip() or None
+        else:
+            technique_patterns = None
+        target = body.get("target_minutes")
+        target_minutes = int(target) if target not in (None, "") else None
+        top_set_raw = body.get("top_set")
+        top_set_requested = None if top_set_raw in (None, "") else _truth(top_set_raw)
+        resolved_settings = settings_profile.feature_settings(conn, for_date)
+        reactive = deload_feature.reactive_decision(
+            conn, for_date, config=resolved_settings.deload
+        )
+        scheduled = deload_feature.scheduled_decision(
+            conn, for_date, config=resolved_settings.deload
+        )
+        deload_decision = reactive
+        scheduled_suggestion = None
+        if reactive is None and scheduled is not None:
+            if _truth(body.get("deload_confirmed")):
+                deload_decision = scheduled
+            else:
+                scheduled_suggestion = scheduled
+        options = EvaluationInputs(
+            minimum_session=minimum_session,
+            minimum_target_minutes=target_minutes,
+            minimum_include_main=minimum_include_main,
+            technique_throttle=technique_throttle,
+            technique_throttle_pattern=technique_patterns,
+            deload_decision=deload_decision,
+            drop_confirmed=_truth(body.get("drop_confirmed")),
+            top_set_requested=top_set_requested,
+        )
+        try:
+            resolved = resolver.build_resolved(
+                conn,
+                for_date=for_date,
+                session_type=session_type,
+                inputs=options,
+            )
+        except resolver.ResolverBuildError as exc:
+            return {
+                "ok": False,
+                "stage": exc.stage,
+                "message": str(exc),
+                "beam": (
+                    exc.beam_result.as_dict()
+                    if exc.beam_result is not None else None
+                ),
+                "details": exc.details,
+            }
+        prescription = resolved.prescription
+        if scheduled_suggestion is not None:
+            prescription = deload_mod.suggest(prescription, scheduled_suggestion)
+        assignment = dict(resolved.assignment)
+        choices = []
+        for slot in resolved.pools.template.slots:
+            selected = assignment.get(slot.id)
+            if selected is None:
+                continue
+            ranked = list(resolved.pools.pools.get(slot.id, ()))
+            suggestions = list(resolved.pools.suggestions.get(slot.id, ()))
+            choices.append({
+                "slot_id": slot.id,
+                "chosen": selected,
+                "pattern": (
+                    resolved.pools.candidate_patterns.get(slot.id, {}).get(selected)
+                ),
+                "rank": ranked.index(selected) + 1 if selected in ranked else None,
+                "pool_size": len(ranked),
+                "alternatives": [item for item in ranked if item != selected],
+                "suggestions": suggestions,
+                "reasons": [
+                    "selected by the joint evaluator from the eligible candidate pool"
+                ],
+            })
+        payload = prescription_dict(prescription)
+        payload["ok"] = True
+        payload["choices"] = choices
+        payload["beam"] = resolved.beam.as_dict()
+        payload["top_set"] = prescription.notes.get("top_set")
+        payload["projected_week"] = prescription.notes.get("volume_budget")
+        payload["session_time"] = prescription.notes.get("session_time")
+        payload["policy_digest"] = resolved.policy_digest
+        payload["catalogue_digest"] = resolved.catalogue_digest
+        payload["template_digest"] = resolved.template_digest
+        payload["input_hash"] = resolved.input_hash
+        payload["scheduled_suggestion"] = (
+            scheduled_suggestion.reason if scheduled_suggestion is not None else None
+        )
+        return payload
+
+    def _prescribe(self, conn, body: dict) -> dict:
+        for_date = readiness_score.parse_date(
+            str(body.get("date") or datetime.date.today().isoformat())
+        )
+        requested_type = body.get("session_type")
+        session_type = (
+            schedule_mod.next_session_type(conn, for_date)
+            if requested_type in (None, "", "auto") else str(requested_type)
+        )
+        allow_unknown = _truth(body.get("allow_unknown_readiness"))
+        readiness_score.require_ready(
+            conn, for_date, allow_unknown=allow_unknown
+        )
         apply_selection = _truth(body.get("apply_selection"))
         selection_confirmed = _truth(body.get("selection_confirmed")) and apply_selection
         selection_llm = _truth(body.get("selection_llm")) and apply_selection
@@ -2296,6 +2456,10 @@ class Handler(BaseHTTPRequestHandler):
             technique_patterns = None
         target = body.get("target_minutes")
         target_minutes = int(target) if target not in (None, "") else None
+        top_set_raw = body.get("top_set")
+        top_set_requested = (
+            None if top_set_raw in (None, "") else _truth(top_set_raw)
+        )
         # Resolve deload before building: it must run before minimum session and final
         # validation, not after validation.
         resolved = settings_profile.feature_settings(conn, for_date)
@@ -2325,6 +2489,7 @@ class Handler(BaseHTTPRequestHandler):
             technique_throttle=technique_throttle,
             technique_throttle_pattern=technique_patterns,
             drop_confirmed=_truth(body.get("drop_confirmed")),
+            top_set_requested=top_set_requested,
         )
         if scheduled_suggestion is not None:
             prescription = deload_mod.suggest(prescription, scheduled_suggestion)

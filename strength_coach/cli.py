@@ -76,7 +76,11 @@ from strength_coach.prescribe import (
     build_prescription,
     demand_scope,
     fatigue_selection,
+    resolver,
+    resolver_admin,
+    resolver_policy,
     session_identity,
+    templates,
 )
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import deload as deload_mod
@@ -85,6 +89,7 @@ from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import shadow as shadow_feature
 from strength_coach.prescribe import volume_budget as volume_budget_mod
+from strength_coach.prescribe.evaluator import EvaluationInputs
 from strength_coach.rules import RuleContext, evaluate, load_document
 from strength_coach.store import (
     db,
@@ -194,7 +199,46 @@ def main(argv: list[str] | None = None) -> int:
     profile.add_argument("--date", default=None, help="effective date (default today)")
     profile.add_argument("--guard-confirm", action="store_true",
                          help="confirm a guarded setting change")
+    profile.add_argument(
+        "--resolver-enable-confirm", action="store_true",
+        help="explicitly confirm a false->true resolver.enabled transition",
+    )
     profile.add_argument("--reason", default=None, help="required reason for guarded settings")
+    resolver_cmd = sub.add_parser("resolver", help="validate policy and preview generated sessions")
+    resolver_sub = resolver_cmd.add_subparsers(dest="resolver_action", required=True)
+    resolver_policy_cmd = resolver_sub.add_parser(
+        "policy", help="show, validate/save or restore the structural policy"
+    )
+    resolver_policy_cmd.add_argument(
+        "policy_action", choices=("show", "save", "restore"),
+    )
+    resolver_policy_cmd.add_argument(
+        "--file", default=None, help="source YAML for 'save'; defaults to stdin"
+    )
+    resolver_policy_cmd.add_argument(
+        "--yaml", action="store_true", help="print the full YAML for 'show'"
+    )
+    resolver_preview = resolver_sub.add_parser(
+        "preview", help="build a read-only generated-session preview"
+    )
+    resolver_preview.add_argument("--date", required=True, help="YYYY-MM-DD")
+    resolver_preview.add_argument(
+        "--session-type", choices=("auto",) + templates.SESSION_TYPES,
+        default="auto",
+    )
+    resolver_preview.add_argument(
+        "--top-set", choices=("ask", "on", "off"), default="ask",
+    )
+    resolver_preview.add_argument(
+        "--allow-unknown-readiness", action="store_true",
+        help="acknowledge an unknown/partial readiness score for a current/future date",
+    )
+    resolver_preview.add_argument("--json", action="store_true")
+    resolver_validate = resolver_sub.add_parser(
+        "validate", help="validate a policy YAML without writing it"
+    )
+    resolver_validate.add_argument("--file", default=None, help="source YAML; defaults to stdin")
+
     modalities_parser = settings_sub.add_parser("modalities", help="list or update modality toggles")
     modalities_parser.add_argument("action", choices=("list", "show", "set"))
     modalities_parser.add_argument("module", nargs="?", default=None)
@@ -536,6 +580,7 @@ def main(argv: list[str] | None = None) -> int:
         "calibrate": _cmd_calibrate,
         "state": _cmd_state,
         "settings": _cmd_settings,
+        "resolver": _cmd_resolver,
         "e1rm": _cmd_e1rm,
         "test": _cmd_test,
         "symptom": _cmd_symptom,
@@ -589,13 +634,17 @@ def _cmd_run(args) -> int:
 
         # Readiness is required for a current/future workout: the score is part of the
         # prescription, not an optional afterthought. Historical dates stay reproducible.
-        if args.date >= datetime.date.today().isoformat():
-            assessment = readiness_score.compute(conn, args.date)
-            if assessment.status != "ready":
-                print(f"readiness required for {args.date}: {assessment.status} — "
-                      f"{assessment.basis}")
-                print("record it with 'strength-coach readiness set ...' (or the web form)")
-                return 2
+        try:
+            args.date = readiness_score.parse_date(args.date)
+        except ValueError as exc:
+            print(str(exc))
+            return 2
+        try:
+            readiness_score.require_ready(conn, args.date)
+        except readiness_score.ReadinessRequired as exc:
+            print(str(exc))
+            print("record it with 'strength-coach readiness set ...' (or the web form)")
+            return 2
 
         # V0-SCOPE §4.6: re-running the same run must append no duplicate artifacts.
         existing = conn.execute(
@@ -695,6 +744,16 @@ def _cmd_run(args) -> int:
                 calibration_ids=list(prescription.calibration_ids),
                 approved_by=approved_by,
                 items=prescription.as_rows(),
+                template_digest=(prescription.notes.get("resolver") or {}).get(
+                    "template_digest"
+                ),
+                policy_digest=(prescription.notes.get("resolver") or {}).get(
+                    "policy_digest"
+                ),
+                input_hash=(prescription.notes.get("resolver") or {}).get("input_hash"),
+                generated_session=(prescription.notes.get("resolver") or {}).get(
+                    "generated_session"
+                ),
             )
             volume_budget_mod.record_exemptions(
                 conn, prescription_id=prescription_id,
@@ -881,6 +940,140 @@ def _cmd_calibrate(args) -> int:
         store.close()
 
 
+def _cmd_resolver(args) -> int:
+    if args.resolver_action == "validate":
+        path = Path(args.file) if args.file else None
+        try:
+            body = path.read_text(encoding="utf-8") if path else sys.stdin.read()
+            policy = resolver_policy.validate_text(body)
+        except (OSError, ValueError) as exc:
+            print(f"resolver policy invalid: {exc}")
+            return 2
+        print(f"resolver policy valid · digest {policy.digest}")
+        return 0
+    if args.resolver_action == "policy":
+        if args.policy_action == "show":
+            try:
+                state = resolver_admin.policy_state()
+            except ValueError as exc:
+                print(f"resolver policy unavailable: {exc}")
+                return 2
+            if args.yaml:
+                print(state["yaml"], end="")
+            else:
+                print(f"path {state['path']}")
+                print(f"digest {state['digest']}")
+                print(f"backups {len(state['backups'])}/{state['backup_keep']}")
+            return 0
+        if args.policy_action == "restore":
+            try:
+                state = resolver_admin.restore_latest()
+            except ValueError as exc:
+                print(f"resolver policy restore failed: {exc}")
+                return 2
+            source = state.get("restored_from") or {}
+            print(f"restored resolver policy from {source.get('name', 'backup')} · digest {state['digest']}")
+            if state.get("pre_restore_backup"):
+                print(f"previous policy saved as {state['pre_restore_backup']['name']}")
+            return 0
+        try:
+            body = (
+                Path(args.file).read_text(encoding="utf-8")
+                if args.file else sys.stdin.read()
+            )
+            state = resolver_admin.save_policy(body)
+        except (OSError, ValueError) as exc:
+            print(f"resolver policy save failed: {exc}")
+            return 2
+        print(f"saved resolver policy · digest {state['digest']}")
+        return 0
+    if args.resolver_action == "preview":
+        store = db.Store(args.db)
+        try:
+            conn = store.connection
+            try:
+                for_date = readiness_score.parse_date(args.date)
+            except ValueError as exc:
+                if args.json:
+                    print(json.dumps({"ok": False, "stage": "date", "message": str(exc)}))
+                else:
+                    print(f"resolver preview failed [date]: {exc}")
+                return 2
+            try:
+                readiness_score.require_ready(
+                    conn, for_date, allow_unknown=args.allow_unknown_readiness
+                )
+            except readiness_score.ReadinessRequired as exc:
+                if args.json:
+                    print(json.dumps({"ok": False, "stage": "readiness", "message": str(exc)}))
+                else:
+                    print(f"resolver preview failed [readiness]: {exc}")
+                return 2
+            session_type = (
+                schedule_mod.next_session_type(conn, for_date)
+                if args.session_type == "auto" else args.session_type
+            )
+            top_set = None if args.top_set == "ask" else args.top_set == "on"
+            try:
+                resolved = resolver.build_resolved(
+                    conn,
+                    for_date=for_date,
+                    session_type=session_type,
+                    inputs=EvaluationInputs(top_set_requested=top_set),
+                )
+            except resolver.ResolverBuildError as exc:
+                if args.json:
+                    print(json.dumps({
+                        "ok": False, "stage": exc.stage, "message": str(exc),
+                        "beam": exc.beam_result.as_dict() if exc.beam_result else None,
+                    }))
+                else:
+                    print(f"resolver preview failed [{exc.stage}]: {exc}")
+                return 2
+            prescription = resolved.prescription
+            if args.json:
+                payload = {
+                    "assignment": dict(resolved.assignment),
+                    "choices": [
+                        {
+                            "slot_id": slot.id,
+                            "chosen": dict(resolved.assignment).get(slot.id),
+                            "alternatives": [
+                                item for item in resolved.pools.pools.get(slot.id, ())
+                                if item != dict(resolved.assignment).get(slot.id)
+                            ],
+                            "suggestions": list(
+                                resolved.pools.suggestions.get(slot.id, ())
+                            ),
+                        }
+                        for slot in resolved.pools.template.slots
+                    ],
+                    "beam": resolved.beam.as_dict(),
+                    "policy_digest": resolved.policy_digest,
+                    "catalogue_digest": resolved.catalogue_digest,
+                    "input_hash": resolved.input_hash,
+                    "for_date": prescription.for_date,
+                    "session_type": prescription.session_type,
+                    "top_set": prescription.notes.get("top_set"),
+                }
+                print(json.dumps(payload, indent=2, default=str))
+                return 0
+            print(f"resolver preview {for_date} ({prescription.session_type})")
+            for slot in resolved.pools.template.slots:
+                chosen = dict(resolved.assignment).get(slot.id)
+                alternatives = [
+                    item for item in resolved.pools.pools.get(slot.id, ())
+                    if item != chosen
+                ]
+                print(f"  {slot.id:<22} {chosen:<28} alternatives={alternatives}")
+            print(f"policy {resolved.policy_digest[:12]} · input {resolved.input_hash[:12]}")
+            return 0
+        finally:
+            store.close()
+    print("unknown resolver action")
+    return 2
+
+
 def _cmd_settings(args) -> int:
     store = db.Store(args.db)
     try:
@@ -954,6 +1147,7 @@ def _cmd_settings(args) -> int:
             effective_from=date,
             guard_confirmed=args.guard_confirm,
             reason=args.reason,
+            resolver_enable_confirmed=args.resolver_enable_confirm,
         )
         print(f"settings profile {data['profile_id']} effective {data['effective_from']}; "
               f"{len(data['overrides'])} override(s)")

@@ -7,6 +7,8 @@ leave the system with more evidence than before.
 
 from __future__ import annotations
 
+import datetime
+
 import pytest
 import yaml
 from conftest import make_readiness, make_training
@@ -14,6 +16,7 @@ from conftest import make_readiness, make_training
 from strength_coach import cli
 from strength_coach.eval import load_marks
 from strength_coach.store import db, importer, queries
+from strength_coach.utils import paths
 
 ROWS = [
     {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
@@ -50,6 +53,58 @@ def count(path, table: str) -> int:
         return store.connection.execute(f"SELECT COUNT(*) AS c FROM {table}").fetchone()["c"]
     finally:
         store.close()
+
+
+def test_resolver_policy_validation_and_preview_failure(capsys):
+    code = cli.main([
+        "resolver", "validate", "--file", str(paths.template_resolver_yaml()),
+    ])
+    assert code == 0
+    assert "resolver policy valid" in capsys.readouterr().out
+
+    code = cli.main(["resolver", "policy", "show"])
+    assert code == 0
+    assert "digest" in capsys.readouterr().out
+
+
+def test_resolver_preview_enforces_readiness_and_date_rules(database, capsys):
+    today = datetime.date.today().isoformat()
+    code = cli.main([
+        "--db", str(database), "resolver", "preview", "--date", today,
+        "--session-type", "squat",
+    ])
+    assert code == 2
+    assert "readiness required" in capsys.readouterr().out
+
+    code = cli.main([
+        "--db", str(database), "resolver", "preview", "--date", "not-a-date",
+    ])
+    assert code == 2
+    assert "YYYY-MM-DD" in capsys.readouterr().out
+
+    code = cli.main([
+        "--db", str(database), "resolver", "preview", "--date", today,
+        "--session-type", "squat", "--allow-unknown-readiness", "--json",
+    ])
+    assert code == 2
+    assert '"stage": "dispatch"' in capsys.readouterr().out
+
+
+def test_cli_resolver_enable_requires_acknowledgement(database, capsys):
+    code = cli.main([
+        "--db", str(database), "settings", "profile", "set",
+        "resolver.enabled=true", "--date", "2024-01-01",
+    ])
+    assert code == 2
+    assert "resolver.enabled requires explicit confirmation" in capsys.readouterr().out
+
+    code = cli.main([
+        "--db", str(database), "settings", "profile", "set",
+        "resolver.enabled=true", "--date", "2024-01-01",
+        "--resolver-enable-confirm",
+    ])
+    assert code == 0
+    assert "settings profile" in capsys.readouterr().out
 
 
 def test_run_persists_a_critique_and_a_prescription(database, capsys):

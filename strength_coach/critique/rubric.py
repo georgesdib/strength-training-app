@@ -149,7 +149,13 @@ def _rir_adherence(facts: CritiqueFacts, document) -> RubricItem:
     rated = sets[
         sets["exercise_id"].isin(exercises) & sets["is_working_set"] & sets["rir"].notna()
     ]
-    if rated.empty:
+    # A top set is intentionally harder than the normal 2-3 RIR window. Grade it against its
+    # own documented 1-2 RIR role instead of counting it as an out-of-window violation.
+    top_set_rows = rated.iloc[0:0]
+    if "set_role" in rated.columns:
+        top_set_rows = rated[rated["set_role"] == "top_set"]
+        rated = rated[rated["set_role"] != "top_set"]
+    if rated.empty and top_set_rows.empty:
         return _unmeasurable("RIR_ADHERENCE", ("PRG-RIR-001",),
                              "no RIR-rated working sets on primary compounds")
 
@@ -167,7 +173,13 @@ def _rir_adherence(facts: CritiqueFacts, document) -> RubricItem:
         else:
             violations.append(_set_ref(row.session_id, row.set_id))
 
-    score = compliant / len(rated)
+    for row in top_set_rows.itertuples(index=False):
+        if 1 <= int(row.rir) <= 2:
+            compliant += 1
+        else:
+            violations.append(_set_ref(row.session_id, row.set_id))
+    total = len(rated) + len(top_set_rows)
+    score = compliant / total
     return RubricItem(
         key="RIR_ADHERENCE",
         weight=RUBRIC_WEIGHTS["RIR_ADHERENCE"],
@@ -175,7 +187,11 @@ def _rir_adherence(facts: CritiqueFacts, document) -> RubricItem:
         measurable=True,
         evidence_refs=tuple(violations),
         rule_ids=("PRG-RIR-001",),
-        detail=f"{compliant}/{len(rated)} rated sets inside the effort window",
+        detail=(
+            f"{compliant}/{total} rated sets inside the effort window"
+            + (f"; {len(top_set_rows)} top set(s) graded at 1-2 RIR"
+               if len(top_set_rows) else "")
+        ),
     )
 
 

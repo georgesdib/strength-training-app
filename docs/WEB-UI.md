@@ -145,7 +145,7 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 - **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
   same-category substitute rises; a review question, never an action.
 - **Settings** — appearance (System / Light / Dark), optional LLM configuration (enable/disable, model, endpoint, write-only key,
-  temperature/tokens/timeout), browser-only Prescribe defaults, a collapsed read-only **Monitoring & reports** inventory with search/group filters, and read-only app/database paths.
+  temperature/tokens/timeout), browser-only Prescribe defaults, a collapsed read-only **Monitoring & reports** inventory with search/group filters, a dedicated **Resolver** panel (append-only scalar settings with explicit enable confirmation, validated structural YAML with backups/digest, read-only preview with alternatives/suggestions, inline suitability rating and Start handoff), and read-only app/database paths.
   The key is masked and lives in git-ignored `config/llm.local.toml`.
 - **Docs** — local Markdown rendered without external assets.
 
@@ -227,7 +227,11 @@ also disables while saving and reports the number of marks written.
 | `GET /api/settings/drop/window?date=N` | whether per-session drop confirmation applies on that date; the Prescribe checkbox is hidden when false |
 | `POST /api/settings/llm` | save local LLM settings; blank key keeps the stored key |
 | `POST /api/settings/drop` | legacy drop-only save path; the consolidated volume panel uses `/api/settings/volume` |
-| `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset, effective_from, guard_confirmed and reason |
+| `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset, effective_from, guard_confirmed, reason and resolver_enable_confirmed (required for a false->true resolver.enabled transition) |
+| `GET /api/resolver/policy` | raw resolver policy YAML, path, digest, schema and newest backup metadata |
+| `POST /api/resolver/policy` | validate the complete YAML, back up the current file, atomically replace it and prune to the newest 20 backups |
+| `POST /api/resolver/policy/restore` | restore the newest normal validated policy backup; the current policy is snapshotted as `template-resolver-prerestore-*` and reported, and pre-restore snapshots are not later restore candidates |
+| `POST /api/resolver/preview` | read-only candidate/beam/evaluator preview; returns the prescription directly (not nested), plus choices, alternatives, suggestions, top set, projected week and structured failure stages; the UI compares the full displayed prescription |
 | `GET /api/modalities` | module list with class, enabled source, dependencies, citations and factors |
 | `GET/POST /api/modalities/<id>` | module state or enabled/factor update; guarded modules need guard_confirmed and reason |
 | `POST /api/settings/llm/test` | call the configured model with a tiny connectivity prompt |

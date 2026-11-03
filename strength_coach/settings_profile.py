@@ -24,6 +24,22 @@ from strength_coach.prescribe import warmup as warmup_feature
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.store import repositories
 
+# Narrow historical-profile compatibility. These keys were retired in the Step 2 final audit;
+# old append-only profiles may still contain them. They are ignored on load and stripped from
+# inherited overrides on save, but an explicit new write is rejected like any invalid key.
+RETIRED_OVERRIDE_KEYS = frozenset({
+    "resolver.weights.rotation",
+    "resolver.weights.preference",
+})
+
+
+def _without_retired(overrides: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        str(key): value
+        for key, value in overrides.items()
+        if str(key) not in RETIRED_OVERRIDE_KEYS
+    }
+
 
 def _loads(value: str | None) -> dict[str, Any]:
     if not value:
@@ -41,7 +57,7 @@ def latest(conn, on_date: str) -> dict[str, Any] | None:
     return {
         "profile_id": int(row["profile_id"]),
         "effective_from": str(row["effective_from"]),
-        "overrides": _loads(row["overrides_json"]),
+        "overrides": _without_retired(_loads(row["overrides_json"])),
         "created_at": str(row["created_at"]),
         "reason": row.get("reason"),
     }
@@ -52,7 +68,7 @@ def history(conn) -> list[dict[str, Any]]:
         {
             "profile_id": int(row["profile_id"]),
             "effective_from": str(row["effective_from"]),
-            "overrides": _loads(row["overrides_json"]),
+            "overrides": _without_retired(_loads(row["overrides_json"])),
             "created_at": str(row["created_at"]),
             "reason": row.get("reason"),
         }
@@ -111,7 +127,7 @@ def _validate_overrides(
 def resolved_registry(overrides: Mapping[str, Any] | None = None) -> dict[str, Any]:
     values = dict(settings_registry.snapshot().values)
     for key, value in (overrides or {}).items():
-        if key == "budget":
+        if str(key) in RETIRED_OVERRIDE_KEYS or key == "budget":
             continue
         definition = settings_registry.BY_KEY.get(str(key))
         if definition is None:
@@ -138,14 +154,31 @@ def save(
     effective_from: str | None = None,
     guard_confirmed: bool = False,
     reason: str | None = None,
+    resolver_enable_confirmed: bool = False,
 ) -> dict[str, Any]:
     day = str(effective_from or dt.date.today().isoformat())
+    requested = {str(key): value for key, value in (set_values or {}).items()}
+    retired = sorted(RETIRED_OVERRIDE_KEYS & set(requested))
+    if retired:
+        raise ValueError(f"{retired[0]} is retired and cannot be set")
     current = latest(conn, day)
-    merged: dict[str, Any] = {} if reset or current is None else dict(current["overrides"])
+    inherited = {} if reset or current is None else dict(current["overrides"])
+    merged = _without_retired(inherited)
     for key in unset or []:
         merged.pop(str(key), None)
-    for key, value in (set_values or {}).items():
-        merged[str(key)] = value
+    for key, value in requested.items():
+        merged[key] = value
+    before = resolved_registry(_without_retired(inherited))
+    after = resolved_registry(merged)
+    if (
+        not bool(before.get("resolver.enabled"))
+        and bool(after.get("resolver.enabled"))
+        and not resolver_enable_confirmed
+    ):
+        raise ValueError(
+            "resolver.enabled requires explicit confirmation; pass "
+            "resolver_enable_confirmed / --resolver-enable-confirm"
+        )
     guarded = [
         key for key in merged
         if key == "spinal.override"

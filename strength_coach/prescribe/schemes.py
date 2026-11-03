@@ -22,6 +22,15 @@ class SchemeError(ValueError):
     """Unknown scheme, or a scheme used where it is not allowed."""
 
 
+# DEC-RESOLVER-04 allows the prescribed hinge main lifts on maximal. Accessory/risk hinges
+# stay excluded even when the flag is on.
+ALLOWED_HINGE_MAXIMAL = frozenset({
+    "trap_bar_deadlift",
+    "sumo_deadlift",
+    "conventional_deadlift",
+})
+
+
 @dataclass(frozen=True)
 class Scheme:
     name: str
@@ -52,11 +61,14 @@ class Schemes:
         `maximal` and `strength` are main-lift schemes; `volume` and `accessory` are for
         assistance work. This mirrors the templates rather than inventing a new rule: a main
         lift is prescribed for strength, an accessory for volume. `maximal_hinge_allowed`
-        overrides the configured hinge exclusion; the default keeps the back-history policy.
+        overrides the configured hinge exclusion only for the three prescribed hinge main
+        lifts; accessory/risk hinges stay excluded.
         """
         scheme = self.get(name)
         if not scheme.allows(exercise_id) and not (
-            scheme.name == "maximal" and maximal_hinge_allowed
+            scheme.name == "maximal"
+            and maximal_hinge_allowed
+            and exercise_id in ALLOWED_HINGE_MAXIMAL
         ):
             return False
         if scheme.name in ("maximal", "strength"):

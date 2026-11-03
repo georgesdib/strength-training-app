@@ -1,0 +1,115 @@
+# Template resolver policy — structural configuration (Step 1 skeleton).
+#
+# This file owns the structure of the deterministic session generator: which movement patterns
+# a session must cover, which patterns a slot may use, where candidate exercises come from, and
+# which main lifts are eligible for the optional top set. It contains no athlete data.
+#
+# Scalar tunables (rotation, eligibility flags, weights, top-set percentages/RIR, competition
+# windows and the on/off flag) live in the settings profile so they are append-only and
+# effective-dated. Keeping the structural policy here and the tunables there avoids two
+# competing sources for the same value.
+#
+# Step 1 loads and validates this file only. The generator is Step 2; changing this file does
+# not change any prescription until the resolver flag is on and the generator is wired.
+schema_version: "1.0.0"
+
+# The existing per-session/slot candidate catalogue remains the single source of candidate
+# exercises. The policy may add slot pools below, but it must not duplicate the catalogue:
+# two lists would drift (DEC-RESOLVER-01, DEC-RESOLVER-06).
+candidate_catalogue:
+  mode: reference
+  path: config/variants.v1.yaml
+
+# Required movement patterns per session. These are the blueprint defaults minus the fixed
+# power slot (power is structural and excluded from coverage). A pattern-flexible slot may
+# satisfy a requirement with another allowed pattern; the generator resolves that in Step 2.
+required_patterns:
+  squat:
+    - squat
+    - horizontal_push
+    - horizontal_pull
+    - erector_extension
+    - knee_flexion
+    - core_anti_extension
+  hinge:
+    - hinge
+    - horizontal_push
+    - vertical_pull
+    - horizontal_pull
+    - squat_unilateral
+    - knee_flexion
+  bench_squat:
+    - horizontal_push
+    - squat
+    - horizontal_pull
+    - vertical_push
+    - core_anti_extension
+  bench_hinge:
+    - horizontal_push
+    - hinge
+    - vertical_pull
+    - horizontal_pull
+    - vertical_push
+    - core_flexion
+
+# Pattern flexibility by slot role. A slot with no entry keeps its blueprint patterns.
+# Main and secondary/support slots are intentionally absent: the main lift stays inside the
+# session pattern family and the secondary inside its support pattern (DEC-RESOLVER-01).
+allowed_patterns:
+  accessory_row:
+    - horizontal_pull
+    - vertical_pull
+    - rear_delt_pull
+  accessory_pull_up:
+    - vertical_pull
+    - horizontal_pull
+    - lat_isolation
+  accessory_vertical_press:
+    - vertical_push
+    - horizontal_push
+  accessory_knee_flexion:
+    - knee_flexion
+    - hamstring_eccentric
+  erector:
+    - erector_extension
+  core_anti_extension:
+    - core_anti_extension
+    - core_stability
+  core_flexion:
+    - core_flexion
+    - core_stability
+  accessory_split_squat:
+    - squat_unilateral
+
+# Explicit pools are used instead of the catalogue for that slot. The hinge main lift needs
+# this because the catalogue has no hinge_main entry: the accepted main pool is trap bar and
+# sumo (conventional deadlift is not a taxonomy main lift).
+slot_pools:
+  hinge:
+    hinge_main:
+      - trap_bar_deadlift
+      - sumo_deadlift
+
+# A session should not become five variations of the same pattern or primary muscle. These are
+# policy defaults, not evidence-derived optima; Step 2 may tune them.
+redundancy:
+  max_per_pattern: 2
+  max_per_primary_muscle: 2
+
+# Top set/back-off is an optional main-lift structure. Only the session's primary main lift is
+# eligible in the MVP; the list is explicit so a new main lift is not silently opted in. The
+# numeric defaults (RIR mapping, back-off percentage, mode) live in the settings profile.
+top_set:
+  eligible_lifts:
+    - ssb_squat
+    - competition_squat
+    - front_squat
+    - high_bar_squat
+    - trap_bar_deadlift
+    - sumo_deadlift
+    # conventional_deadlift is intentionally absent: the taxonomy does not mark it
+    # main_lift or primary_compound, so it is not a valid top-set main lift yet.
+    - bench_press
+    - bench_press_narrow
+    - bench_press_pause
+  exceptions: {}

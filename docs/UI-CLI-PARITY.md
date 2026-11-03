@@ -73,6 +73,7 @@ These are known and intentional or still open.
 | `volume --weeks/--date` | UI panel uses the default 4-week window | partial |
 | Volume budget | `volume --budget`; `state --volume-budget/--main-lift-policy`; `run --drop-confirm` | Prescribe **Weekly volume** panel; Athlete profile fields; compensation preview/application; Settings **Volume budget**; `GET/POST /api/settings/volume` | full |
 | Settings profile (step 5) | `settings profile show/set/unset/reset --guard-confirm --reason` | Settings **Settings profile** editor; `GET/POST /api/settings/profile` | full |
+| Resolver policy/preview (step 5) | `resolver validate`; `resolver policy show/save/restore`; `resolver preview [--allow-unknown-readiness]`; `settings profile ... --resolver-enable-confirm` | Settings **Resolver** panel; `GET/POST /api/resolver/policy`, preview and suitability endpoints; profile POST accepts `resolver_enable_confirmed`; both read the same generated-session snapshot/provenance | full |
 | Modalities (5b/5c) | `settings modalities list/show/set` with guard flags | Settings **Modules**; `GET/POST /api/modalities`; profile factor editor | full |
 | `exposure ratio` | Prescribe **Exposure ratio** panel (same `compute`) | full |
 | `select --fatigue` | Exercise selection panel **Fatigue-informed suggestion** block | full |

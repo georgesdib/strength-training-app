@@ -10,7 +10,7 @@ from conftest import make_readiness, make_training
 
 from strength_coach.features import prescription_provenance
 from strength_coach.prescribe import build_prescription
-from strength_coach.prescribe.models import PrescriptionItem
+from strength_coach.prescribe.models import PrescriptionItem, SetGroup
 from strength_coach.prescribe.technique_throttle import (
     TechniqueThrottleConfig,
     apply,
@@ -73,6 +73,45 @@ def test_load_is_capped_and_rir_floored():
     assert after.rir_target == 3
     assert after.load_factor == pytest.approx(0.90)
     assert "MOD-TECH-001" in after.rationale_refs
+
+
+def test_throttle_updates_top_set_and_backoff_groups() -> None:
+    before = (
+        PrescriptionItem(
+            order_index=0, exercise_id="ssb_squat", sets=5, reps_low=5, reps_high=5,
+            load_kg=100.0, load_basis="external", rounding_increment_kg=2.5,
+            rir_target=2, rest_s=180, essential=True,
+            set_groups=(
+                SetGroup("top_set", 1, 120.0, 5, 5, 1),
+                SetGroup("back_off", 4, 100.0, 5, 5, 2, 0.85),
+            ),
+        ),
+    )
+    result = apply(before, PATTERNS)
+    after = by_id(result, "ssb_squat")
+    assert after.load_kg == 90.0
+    assert after.rir_target == 3
+    assert [group.load_kg for group in after.set_groups] == [107.5, 90.0]
+    assert [group.rir_target for group in after.set_groups] == [3, 3]
+    assert after.set_groups[0].load_kg > after.set_groups[1].load_kg
+
+
+def test_throttle_does_not_double_reduce_group_loads() -> None:
+    before = (
+        PrescriptionItem(
+            order_index=0, exercise_id="ssb_squat", sets=2, reps_low=5, reps_high=5,
+            load_kg=85.0, load_basis="external", rounding_increment_kg=2.5,
+            rir_target=2, rest_s=180, essential=True, load_factor=0.85,
+            set_groups=(
+                SetGroup("top_set", 1, 102.0, 5, 5, 1),
+                SetGroup("back_off", 1, 85.0, 5, 5, 2, 0.85),
+            ),
+        ),
+    )
+    after = by_id(apply(before, PATTERNS), "ssb_squat")
+    assert after.load_kg == 85.0
+    assert [group.load_kg for group in after.set_groups] == [102.0, 85.0]
+    assert [group.rir_target for group in after.set_groups] == [3, 3]
 
 
 def test_rir_floor_never_lowers_a_target_already_above_it():

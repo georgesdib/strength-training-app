@@ -99,6 +99,7 @@ def test_the_page_and_overview_are_served(server):
     assert "Apply selection:" in page
     assert "class A" in page and "class B" in page and "class C" in page
     assert "prescribe-minimum-options" in page
+    assert 'id="prescribe-top-set"' in page
     assert "Only used when minimum session is ticked" in page
     assert "A/B/C remains" not in page
     assert "Language model" in page
@@ -106,6 +107,8 @@ def test_the_page_and_overview_are_served(server):
     assert "rejected as predictor" in page
     assert 'id="toast"' in page
     assert 'id="settings-theme"' in page
+    assert 'id="settings-resolver-panel"' in page
+    assert 'id="settings-resolver-preview-form"' in page
     assert 'id="form-trend-result"' in page
     assert 'id="form-followup"' in page
     assert "selection-include-different" in page
@@ -949,6 +952,15 @@ def test_continuity_calibration_endpoint(server):
     assert isinstance(data["allow_relax_fixed"], bool)
 
 
+def test_prescribe_can_add_the_opt_in_top_set(server):
+    data = post(server, "/api/prescribe", {
+        "date": "2024-01-08", "session_type": "squat", "top_set": True,
+    })
+    item = next(row for row in data["items"] if row["exercise_id"] == "ssb_squat")
+    assert [group["role"] for group in item["set_groups"]] == ["top_set", "back_off"]
+    assert data["notes"]["top_set"]["applied"] is True
+
+
 def test_prescribe_accepts_a_session_type(server):
     data = post(server, "/api/prescribe", {
         "date": "2024-01-15", "session_type": "hinge",
@@ -1070,6 +1082,18 @@ def test_drop_window_endpoint_is_explicit_when_drop_mode_is_inactive(server):
     assert data["reason"] == "drop mode is not active"
 
 
+def test_resolver_panel_uses_every_registry_setting(server):
+    status, body = get(server, "/api/settings")
+    assert status == 200
+    registry = json.loads(body)["registry"]
+    resolver = [setting for setting in registry if setting["group"] == "Resolver"]
+    assert len(resolver) == 30
+    assert all(setting["key"].startswith("resolver.") for setting in resolver)
+    _status, js = get(server, "/static/settings.js")
+    assert 'setting.group === "Resolver"' in js
+    assert 'data-resolver-key' in js
+
+
 def test_settings_profile_endpoint(server):
     status, body = get(server, "/api/settings/profile?date=2024-01-01")
     assert status == 200
@@ -1082,6 +1106,50 @@ def test_settings_profile_endpoint(server):
     })
     assert saved["profile_id"] is not None
     assert saved["resolved"]["undulation.cycle_weeks"] == 3
+
+
+def test_resolver_policy_and_preview_endpoints(server):
+    status, body = get(server, "/api/resolver/policy")
+    assert status == 200
+    policy = json.loads(body)
+    assert policy["digest"]
+    assert "required_patterns" in policy["yaml"]
+
+    # An invalid edit is rejected before any file write or backup.
+    status, body = post_status(server, "/api/resolver/policy", {
+        "yaml": "schema_version: '9.9.9'\n",
+    })
+    assert status == 400
+    assert "schema" in body
+
+    # Resolver disabled: explicit preview returns a structured dispatch failure.
+    data = post(server, "/api/resolver/preview", {
+        "date": "2024-01-31", "session_type": "squat",
+    })
+    assert data["ok"] is False
+    assert data["stage"] == "dispatch"
+
+    status, body = post_status(server, "/api/settings/profile", {
+        "set": {"resolver.enabled": True},
+        "effective_from": "2024-01-01",
+    })
+    assert status == 400
+    assert "resolver.enabled" in body
+
+    post(server, "/api/settings/profile", {
+        "set": {
+            "resolver.enabled": True,
+            "resolver.eligibility.auto_requires_can_do": False,
+        },
+        "resolver_enable_confirmed": True,
+        "effective_from": "2024-01-01",
+    })
+    data = post(server, "/api/resolver/preview", {
+        "date": "2024-01-31", "session_type": "squat",
+    })
+    assert data["ok"] is False
+    assert data["stage"] in {"pool_generation", "assignment_search"}
+    assert data["message"]
 
 
 def test_programme_accepts_a_start_session_type(server):
@@ -1560,6 +1628,16 @@ def test_the_exercise_tab_offers_an_e1rm_override(server):
     js = client_js(server)
     assert "data-e1rm-exercise" in js
     assert "/api/state/e1rm" in js
+
+
+def test_resolver_preview_uses_the_direct_prescription_response(server):
+    _status, js = get(server, "/static/settings.js")
+    assert "previous.prescription" not in js
+    assert "current.prescription" not in js
+    assert "data.prescription" not in js
+    assert "const before = previous;" in js
+    assert "const after = current;" in js
+    assert "window.__lastPrescription = plan;" in js
 
 
 def test_the_athlete_page_shows_the_tests_needed_table(server):

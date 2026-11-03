@@ -18,7 +18,7 @@ from strength_coach.critique import UnknownSessionError, persist, score_session
 from strength_coach.critique.facts import build_facts
 from strength_coach.critique.rubric import RUBRIC_WEIGHTS, Critique
 from strength_coach.rules import policy as policy_mod
-from strength_coach.store import db, importer
+from strength_coach.store import db, importer, repositories
 from strength_coach.trace import RunTrace
 
 
@@ -249,6 +249,16 @@ def test_facts_hash_is_stable_and_changes_with_content():
     assert changed != first
 
 
+def test_facts_hash_changes_with_accessory_ranges():
+    with store_with(session_rows("2024-01-01")) as store:
+        facts = build_facts(store.connection, "2024-01-01")
+    changed = replace(
+        facts,
+        accessory_ranges={**facts.accessory_ranges, "dumbbell_row": (6, 10)},
+    )
+    assert facts.facts_hash() != changed.facts_hash()
+
+
 def test_persist_writes_the_critique_and_its_scores():
     rows = session_rows("2024-01-01")
     with store_with(rows) as store:
@@ -330,3 +340,134 @@ def test_a_zero_weight_item_becoming_measurable_does_not_change_the_composite():
     items = tuple(velocity if item.key == "VELOCITY_LOSS" else item for item in critique.items)
     augmented = Critique(critique.session_id, critique.facts_hash, items, critique.narrative)
     assert augmented.composite == pytest.approx(critique.composite)
+
+
+def test_a_top_set_is_graded_against_its_own_rir_role():
+    with store_with(session_rows("2024-01-01")) as store:
+        facts = build_facts(store.connection, "2024-01-01")
+        sets = facts.sets.copy()
+        sets["set_role"] = None
+        primary = sets[
+            sets["exercise_id"].isin({"trap_bar_deadlift", "back_squat", "front_squat"})
+            & sets["is_working_set"]
+        ]
+        index = primary.index[0]
+        sets.loc[index, "set_role"] = "top_set"
+        sets.loc[index, "rir"] = 1
+        critique = score_session(
+            store.connection, "2024-01-01", facts=replace(facts, sets=sets)
+        )
+    item = critique.item("RIR_ADHERENCE")
+    assert item.measurable
+    assert "top set(s) graded at 1-2 RIR" in item.detail
+
+
+def _attach_snapshot(store, *, slots, session_id="2024-01-01") -> None:
+    run = repositories.start_run(
+        store.connection,
+        input_hash="critique-snapshot",
+        code_version="test",
+        window_end=session_id,
+    )
+    repositories.append_prescription(
+        store.connection,
+        prescription_id="p-snapshot",
+        run_id=run.run_id,
+        for_date=session_id,
+        session_type="squat",
+        fallback_level="full",
+        rule_document_version="test",
+        calibration_ids=(),
+        approved_by="deterministic",
+        items=(),
+        generated_session={
+            "assignment": {slot["id"]: slot["exercise_id"] for slot in slots},
+            "slots": slots,
+        },
+    )
+    store.connection.execute(
+        "UPDATE session SET prescription_id = ? WHERE session_id = ?",
+        ("p-snapshot", session_id),
+    )
+
+
+def test_generated_snapshot_drives_critique_essential_slots_and_rep_ranges():
+    with store_with(session_rows("2024-01-01")) as store:
+        _attach_snapshot(store, slots=[
+            {
+                "id": "squat_main", "exercise_id": "front_squat", "sets": 4,
+                "reps_low": 3, "reps_high": 5, "essential": True,
+                "rir_low": 2, "rir_high": 3, "rest_s": 180,
+                "load_source": "e1rm", "power": False, "quality_stop": None,
+            },
+            {
+                "id": "accessory_row", "exercise_id": "dumbbell_row", "sets": 3,
+                "reps_low": 8, "reps_high": 12, "essential": False,
+                "rir_low": 2, "rir_high": 3, "rest_s": 90,
+                "load_source": "double_progression", "power": False,
+                "quality_stop": None,
+            },
+        ])
+        facts = build_facts(store.connection, "2024-01-01")
+        critique = score_session(store.connection, "2024-01-01")
+    assert facts.essential_slots == (("squat_main", ("front_squat",)),)
+    assert facts.rep_ranges["front_squat"] == (3, 5)
+    assert facts.accessory_ranges["dumbbell_row"] == (8, 12)
+    assert critique.item("ESSENTIAL_WORK").measurable
+    assert critique.item("ESSENTIAL_WORK").score == 0.0
+
+
+def test_generated_snapshot_drives_volume_exemptions_for_non_blueprint_exercise():
+    from strength_coach.prescribe import volume_budget
+
+    with store_with(session_rows("2024-01-01")) as store:
+        _attach_snapshot(store, slots=[
+            {
+                "id": "squat_main", "exercise_id": "front_squat", "sets": 4,
+                "reps_low": 3, "reps_high": 5, "essential": True,
+                "rir_low": 2, "rir_high": 3, "rest_s": 180,
+                "load_source": "e1rm", "power": False, "quality_stop": None,
+            },
+        ])
+        volume_budget.record_exemptions(
+            store.connection,
+            prescription_id="p-snapshot",
+            effective_on="2024-01-01",
+            session_type="squat",
+            items=[{
+                "exercise_id": "front_squat", "sets": 2,
+                "rationale_refs": ["MOD-SPINE-001"],
+            }],
+        )
+        rows = store.connection.execute(
+            "SELECT pattern, sets, source FROM volume_exemption "
+            "WHERE prescription_id = ?", ("p-snapshot",)
+        ).fetchall()
+    assert [(row["pattern"], row["sets"], row["source"]) for row in rows] == [
+        ("squat", 2, "MOD-SPINE-001")
+    ]
+
+
+def test_malformed_snapshot_fails_instead_of_silently_using_the_blueprint():
+    from strength_coach.prescribe import generated
+
+    with store_with(session_rows("2024-01-01")) as store:
+        _attach_snapshot(store, slots=[
+            {
+                "id": "squat_main", "exercise_id": "front_squat",
+                # sets is deliberately missing.
+                "reps_low": 3, "reps_high": 5, "essential": True,
+                "rir_low": 2, "rir_high": 3, "rest_s": 180,
+                "load_source": "e1rm", "power": False, "quality_stop": None,
+            },
+        ])
+        with pytest.raises(generated.SnapshotError, match="sets"):
+            build_facts(store.connection, "2024-01-01")
+
+
+def test_legacy_null_snapshot_still_uses_blueprint_critique():
+    with store_with(session_rows("2024-01-01")) as store:
+        facts = build_facts(store.connection, "2024-01-01")
+    # Imported fixture is a historical row; no snapshot means the old template path is used.
+    assert facts.essential_slots
+    assert facts.has_template

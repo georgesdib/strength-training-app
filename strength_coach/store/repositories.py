@@ -882,14 +882,23 @@ def append_prescription(
     approved_by: str,
     items: Sequence[Mapping[str, Any]],
     supersedes_id: str | None = None,
+    template_digest: str | None = None,
+    policy_digest: str | None = None,
+    input_hash: str | None = None,
+    generated_session: Mapping[str, Any] | None = None,
 ) -> str:
-    """Store a prescription and its items in one transaction-like sequence."""
+    """Store a prescription and its items in one transaction-like sequence.
+
+    The resolver fields are nullable on purpose: fixed-template and historical prescriptions
+    have no generated session to record, and a null means "not recorded", not "use current".
+    """
     conn.execute(
         """
         INSERT INTO prescription (prescription_id, run_id, for_date, session_type,
                                   fallback_level, rule_document_version, calibration_ids,
-                                  approved_by, supersedes_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                  approved_by, supersedes_id, template_digest, policy_digest,
+                                  input_hash, generated_session_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             prescription_id,
@@ -901,6 +910,10 @@ def append_prescription(
             _json(list(calibration_ids)),
             approved_by,
             supersedes_id,
+            template_digest,
+            policy_digest,
+            input_hash,
+            _json(dict(generated_session)) if generated_session is not None else None,
         ),
     )
     for item in items:
@@ -910,8 +923,9 @@ def append_prescription(
                 prescription_id, order_index, exercise_id, sets, reps_low, reps_high,
                 load_kg, load_basis, rounding_increment, rir_target, effort_model,
                 quality_stop, velocity_target, vbt_basis, e1rm_source_sets, rest_s,
-                time_cap_s, essential, rationale_refs, substitution_for, warmup_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                time_cap_s, essential, rationale_refs, substitution_for, warmup_json,
+                set_groups_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 prescription_id,
@@ -935,6 +949,7 @@ def append_prescription(
                 _json(list(item.get("rationale_refs") or [])),
                 item.get("substitution_for"),
                 _json(list(item.get("warmup") or [])),
+                _json(list(item.get("set_groups") or [])),
             ),
         )
     return prescription_id

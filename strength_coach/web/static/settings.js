@@ -403,6 +403,491 @@ async function saveVolumeSettings(event) {
 
 $("#settings-volume-form").addEventListener("submit", saveVolumeSettings);
 
+/* --- resolver ---------------------------------------------------------- */
+function resolverSettingId(key) {
+  return "resolver-" + String(key).replace(/[^a-zA-Z0-9_-]/g, "-");
+}
+
+function resolverControl(setting, id) {
+  if (setting.kind === "bool") {
+    return '<input type="checkbox" data-resolver-key="' + esc(setting.key) + '" id="' + id + '">';
+  }
+  if (setting.kind === "int" || setting.kind === "float") {
+    const step = setting.kind === "int" ? "1" : "0.01";
+    const min = setting.minimum == null ? "" : ' min="' + setting.minimum + '"';
+    const max = setting.maximum == null ? "" : ' max="' + setting.maximum + '"';
+    return '<input type="number" step="' + step + '"' + min + max +
+      ' data-resolver-key="' + esc(setting.key) + '" id="' + id + '">';
+  }
+  if (setting.kind === "table" || setting.kind === "list") {
+    return '<textarea rows="3" spellcheck="false" data-resolver-key="' + esc(setting.key) +
+      '" id="' + id + '"></textarea>';
+  }
+  if ((setting.choices || []).length) {
+    return '<select data-resolver-key="' + esc(setting.key) + '" id="' + id + '">' +
+      setting.choices.map((choice) => '<option value="' + esc(choice) + '">' +
+        esc(choice) + "</option>").join("") + "</select>";
+  }
+  return '<input type="text" data-resolver-key="' + esc(setting.key) + '" id="' + id + '">';
+}
+
+function renderResolverSettings(registry, profile) {
+  window.__resolverRegistry = (registry || []).filter(
+    (setting) => setting.group === "Resolver"
+  );
+  window.__resolverProfile = profile || {};
+  const box = $("#settings-resolver-fields");
+  if (!box) return;
+  const resolved = window.__resolverProfile.resolved || {};
+  const overrides = window.__resolverProfile.overrides || {};
+  box.innerHTML = window.__resolverRegistry.map((setting) => {
+    const value = Object.prototype.hasOwnProperty.call(overrides, setting.key)
+      ? overrides[setting.key] : resolved[setting.key];
+    const id = resolverSettingId(setting.key);
+    const badge = setting.classification === "guarded_safety"
+      ? ' <span class="badge warn">guarded</span>' : "";
+    return '<label class="grow">' + esc(setting.label) + badge +
+      resolverControl(setting, id) +
+      '<span class="muted">' + esc(setting.key) + " · " + esc(setting.source) +
+      "</span></label>";
+  }).join("");
+  window.__resolverRegistry.forEach((setting) => {
+    const node = document.getElementById(resolverSettingId(setting.key));
+    if (!node) return;
+    const value = Object.prototype.hasOwnProperty.call(overrides, setting.key)
+      ? overrides[setting.key] : resolved[setting.key];
+    if (setting.kind === "bool") node.checked = !!value;
+    else if (setting.kind === "table" || setting.kind === "list") {
+      node.value = JSON.stringify(value ?? (setting.kind === "list" ? [] : {}), null, 2);
+    } else node.value = value ?? "";
+    node.dataset.original = JSON.stringify(value ?? null);
+    node.dataset.classification = setting.classification;
+    node.addEventListener("input", updateResolverDiff);
+    node.addEventListener("change", updateResolverDiff);
+  });
+  const previewDate = $("#settings-resolver-preview-date");
+  if (previewDate && !previewDate.value) previewDate.value = today();
+  const status = $("#resolver-status");
+  if (status) {
+    const enabled = !!resolved["resolver.enabled"];
+    status.textContent = enabled ? "enabled" : "off";
+    status.className = "badge " + (enabled ? "" : "warn");
+  }
+  const warning = $("#settings-resolver-warning");
+  if (warning) warning.hidden = !resolved["resolver.enabled"];
+  updateResolverDiff();
+}
+
+function resolverNodeValue(node, setting) {
+  if (setting.kind === "bool") return node.checked;
+  if (setting.kind === "int") return Number(node.value);
+  if (setting.kind === "float") return Number(node.value);
+  if (setting.kind === "table" || setting.kind === "list") {
+    try { return JSON.parse(node.value || (setting.kind === "list" ? "[]" : "{}")); }
+    catch (error) { throw new Error(setting.key + ": invalid JSON — " + error.message); }
+  }
+  return node.value;
+}
+
+function resolverChanges() {
+  const changes = [];
+  (window.__resolverRegistry || []).forEach((setting) => {
+    const node = document.getElementById(resolverSettingId(setting.key));
+    if (!node) return;
+    const value = resolverNodeValue(node, setting);
+    const original = JSON.parse(node.dataset.original || "null");
+    if (JSON.stringify(value) !== JSON.stringify(original)) {
+      changes.push({ setting, value, original });
+    }
+  });
+  return changes;
+}
+
+function updateResolverDiff() {
+  const box = $("#settings-resolver-diff");
+  if (!box) return;
+  try {
+    const changes = resolverChanges();
+    box.innerHTML = changes.length
+      ? changes.map(({ setting, value, original }) =>
+          "<div><code>" + esc(setting.key) + "</code>: " +
+          esc(JSON.stringify(original)) + " → " + esc(JSON.stringify(value)) +
+          "</div>").join("")
+      : "No changes.";
+    const warning = $("#settings-resolver-warning");
+    const enabledNode = document.getElementById(resolverSettingId("resolver.enabled"));
+    if (warning) warning.hidden = !(enabledNode && enabledNode.checked);
+    const status = $("#resolver-status");
+    if (status && enabledNode) {
+      status.textContent = enabledNode.checked ? "enabled" : "off";
+      status.className = "badge " + (enabledNode.checked ? "" : "warn");
+    }
+  } catch (error) {
+    box.textContent = error.message;
+  }
+}
+
+async function saveResolverDraft() {
+  const msg = $("#settings-resolver-msg");
+  try {
+    const changes = resolverChanges();
+    if (!changes.length) {
+      msg.textContent = "No changes to save.";
+      return;
+    }
+    const set = {};
+    const guarded = [];
+    changes.forEach(({ setting, value, original }) => {
+      set[setting.key] = value;
+      if (setting.classification === "guarded_safety") guarded.push(setting.key);
+      if (setting.key === "resolver.enabled" && value && !original &&
+          !$("#settings-resolver-enable-confirm").checked) {
+        throw new Error("Tick 'Confirm resolver enable' before enabling resolver mode.");
+      }
+    });
+    const reason = $("#settings-resolver-reason").value.trim();
+    if (guarded.length) {
+      if (!$("#settings-resolver-guard").checked ||
+          $("#settings-resolver-guard-text").value.trim() !== "SPINAL" || !reason) {
+        throw new Error("Guarded resolver changes need the confirmation tick, SPINAL and a reason.");
+      }
+    }
+    await api("/api/settings/profile", {
+      method: "POST",
+      body: JSON.stringify({
+        set,
+        reason: reason || null,
+        guard_confirmed: $("#settings-resolver-guard").checked,
+        resolver_enable_confirmed: $("#settings-resolver-enable-confirm").checked,
+      }),
+    });
+    msg.textContent = "Saved a new profile version.";
+    $("#settings-resolver-enable-confirm").checked = false;
+    $("#settings-resolver-guard").checked = false;
+    $("#settings-resolver-guard-text").value = "";
+    $("#settings-resolver-reason").value = "";
+    await loadSettings();
+  } catch (error) {
+    msg.textContent = error.message;
+    applyFieldErrors(error, msg, (field) => {
+      if (field === "guard_confirmed") return "#settings-resolver-guard";
+      if (field === "reason") return "#settings-resolver-reason";
+      if (field === "settings") return "#settings-resolver-fields";
+      return "#" + resolverSettingId(field);
+    });
+  }
+}
+
+function renderResolverPolicy(policy) {
+  window.__resolverPolicy = policy || {};
+  const yaml = $("#settings-resolver-policy-yaml");
+  if (yaml) yaml.value = policy?.yaml || "";
+  const meta = $("#settings-resolver-policy-meta");
+  if (meta) {
+    meta.textContent = policy
+      ? "path " + policy.path + " · digest " + String(policy.digest || "").slice(0, 12) +
+        "… · backups " + (policy.backups || []).length + "/" + (policy.backup_keep || 20)
+      : "Policy unavailable.";
+  }
+  const box = $("#settings-resolver-backups");
+  if (box) {
+    box.innerHTML = (policy?.backups || []).slice(0, 20).map((row) =>
+      "<div><code>" + esc(row.name) + "</code> · " + esc(String(row.digest).slice(0, 12)) +
+      "…</div>").join("") || "<span>No backups yet.</span>";
+  }
+}
+
+async function saveResolverPolicy() {
+  const msg = $("#settings-resolver-policy-msg");
+  const text = $("#settings-resolver-policy-yaml").value;
+  if (!text.trim()) {
+    msg.textContent = "Policy YAML is empty.";
+    return;
+  }
+  if (!window.confirm("Validate and save the resolver policy? The current file is backed up first.")) {
+    return;
+  }
+  msg.textContent = "Validating…";
+  try {
+    const data = await api("/api/resolver/policy", {
+      method: "POST", body: JSON.stringify({ yaml: text }),
+    });
+    renderResolverPolicy(data);
+    msg.textContent = "Policy validated and saved.";
+    notify("Resolver policy saved.");
+  } catch (error) {
+    msg.textContent = error.message;
+  }
+}
+
+async function restoreResolverPolicy() {
+  const msg = $("#settings-resolver-policy-msg");
+  if (!window.confirm("Restore the latest resolver policy backup? The current file is backed up first.")) {
+    return;
+  }
+  msg.textContent = "Restoring…";
+  try {
+    const data = await api("/api/resolver/policy/restore", { method: "POST", body: "{}" });
+    renderResolverPolicy(data);
+    const source = data.restored_from?.name || "the latest backup";
+    const previous = data.pre_restore_backup?.name;
+    msg.textContent = "Restored " + source +
+      (previous ? "; previous policy saved as " + previous + "." : ".");
+    notify("Resolver policy restored.");
+  } catch (error) {
+    msg.textContent = error.message;
+  }
+}
+
+function resolverPreviewFormPayload() {
+  const value = $("#settings-resolver-preview-top-set").value;
+  return {
+    date: $("#settings-resolver-preview-date").value,
+    session_type: $("#settings-resolver-preview-session").value,
+    top_set: value === "on" ? true : value === "off" ? false : null,
+    allow_unknown_readiness: $("#settings-resolver-preview-allow-unknown").checked,
+  };
+}
+
+function resolverPreviewChoicesHtml(data) {
+  return (data.choices || []).map((choice) => {
+    const alternatives = (choice.alternatives || []).length
+      ? choice.alternatives.map((item) => "<code>" + esc(item) + "</code>").join(" ")
+      : "<span class='muted'>none</span>";
+    const suggestions = (choice.suggestions || []).length
+      ? choice.suggestions.map((item) =>
+          "<span class='badge warn'>" + esc(item) + "</span> " +
+          "<button type='button' class='ghost' data-resolver-rate='" + esc(item) +
+          "' data-resolver-rate-kind='auto' data-resolver-rate-date='" +
+          esc($("#settings-resolver-preview-date").value) + "'>Can do</button>" +
+          "<button type='button' class='ghost' data-resolver-rate='" + esc(item) +
+          "' data-resolver-rate-kind='will_no' data-resolver-rate-date='" +
+          esc($("#settings-resolver-preview-date").value) + "'>Won\'t do</button>" +
+          "<button type='button' class='ghost' data-resolver-rate='" + esc(item) +
+          "' data-resolver-rate-kind='feels_bad' data-resolver-rate-date='" +
+          esc($("#settings-resolver-preview-date").value) + "'>Feels bad</button>"
+        ).join("<br>")
+      : "<span class='muted'>none</span>";
+    return "<tr><td><strong>" + esc(choice.slot_id) + "</strong></td><td><strong>" +
+      esc(choice.chosen) + "</strong><div class='muted'>" +
+      esc(choice.pattern || "—") + "</div></td><td>" +
+      (choice.rank == null ? "—" : choice.rank + "/" + choice.pool_size) +
+      "</td><td>" + alternatives + "</td><td>" + suggestions + "</td></tr>";
+  }).join("");
+}
+
+function renderResolverPreview(data) {
+  window.__resolverPreview = data;
+  const box = $("#settings-resolver-preview");
+  if (!box) return;
+  if (!data.ok) {
+    const beam = data.beam ? "<details><summary>Search diagnostics</summary><pre>" +
+      esc(JSON.stringify(data.beam, null, 2)) + "</pre></details>" : "";
+    box.innerHTML = "<div class='warnbox'><strong>Resolver preview failed at " +
+      esc(data.stage || "resolver") + "</strong><p>" + esc(data.message) + "</p>" + beam +
+      "</div>";
+    return;
+  }
+  const topSet = data.top_set
+    ? "<details><summary>Top-set structure</summary><pre>" +
+      esc(JSON.stringify(data.top_set, null, 2)) + "</pre></details>" : "";
+  const projected = data.projected_week
+    ? "<details><summary>Projected week</summary><pre>" +
+      esc(JSON.stringify(data.projected_week, null, 2)) + "</pre></details>" : "";
+  box.innerHTML = "<div class='panel'><div class='panel-head'><h3>" +
+    esc(data.for_date) + " · " + esc(data.session_label || data.session_type) +
+    "</h3><span class='badge'>preview</span></div>" +
+    "<div class='table-scroll'><table><thead><tr><th>Slot</th><th>Chosen</th>" +
+    "<th>Rank</th><th>Alternatives</th><th>Suggestion-only</th></tr></thead><tbody>" +
+    resolverPreviewChoicesHtml(data) + "</tbody></table></div>" +
+    "<div class='form-row'><button type='button' class='primary' " +
+    "data-resolver-start>Start this preview</button><span class='muted'>" +
+    "Freezes the shown session; nothing is saved until the start form is submitted.</span></div>" +
+    topSet + projected +
+    "<details><summary>Warnings and beam diagnostics</summary><pre>" +
+    esc(JSON.stringify({warnings: data.warnings, beam: data.beam}, null, 2)) +
+    "</pre></details></div>";
+}
+
+function resolverDiffValue(key, value) {
+  if (value === null || value === undefined) return "—";
+  if (key === "load_kg") return fmt(value);
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function resolverItemKey(item, index) {
+  return item.order_index != null ? "order:" + item.order_index :
+    item.exercise_id ? "exercise:" + item.exercise_id : "index:" + index;
+}
+
+function renderResolverPreviewDiff(previous, current) {
+  const box = $("#settings-resolver-preview-diff");
+  if (!box) return;
+  if (!previous || !previous.ok || !current || !current.ok) {
+    box.textContent = "";
+    return;
+  }
+  // The toolbar response is the prescription payload itself; it is not nested under a
+  // `prescription` key.
+  const before = previous;
+  const after = current;
+  const changes = [];
+  const oldItems = {};
+  (before.items || []).forEach((item, index) => {
+    oldItems[resolverItemKey(item, index)] = item;
+  });
+  const currentKeys = new Set();
+  (after.items || []).forEach((item, index) => {
+    const key = resolverItemKey(item, index);
+    currentKeys.add(key);
+    const prior = oldItems[key];
+    const name = item.exercise_id || key;
+    if (!prior) {
+      changes.push("<div><strong>" + esc(name) + "</strong>: added to the prescription</div>");
+      return;
+    }
+    const fieldLabels = [
+      ["sets", "sets"], ["reps_low", "reps low"], ["reps_high", "reps high"],
+      ["load_kg", "load"], ["load_basis", "load basis"],
+      ["rir_target", "RIR"], ["rest_s", "rest"],
+      ["effort_model", "effort model"], ["quality_stop", "quality stop"],
+      ["time_cap_s", "time cap"], ["essential", "essential"],
+    ];
+    fieldLabels.forEach(([field, label]) => {
+      const left = prior[field];
+      const right = item[field];
+      if (JSON.stringify(left ?? null) !== JSON.stringify(right ?? null)) {
+        changes.push("<div><code>" + esc(name) + "</code> " + label + ": " +
+          esc(resolverDiffValue(field, left)) + " → " +
+          esc(resolverDiffValue(field, right)) + "</div>");
+      }
+    });
+    if (JSON.stringify(prior.warmup || []) !== JSON.stringify(item.warmup || [])) {
+      changes.push("<div><code>" + esc(name) + "</code>: warm-ups changed</div>");
+    }
+    if (JSON.stringify(prior.set_groups || []) !== JSON.stringify(item.set_groups || [])) {
+      changes.push("<div><code>" + esc(name) + "</code>: set groups changed</div>");
+    }
+  });
+  (before.items || []).forEach((item, index) => {
+    const key = resolverItemKey(item, index);
+    if (!currentKeys.has(key)) {
+      changes.push("<div><strong>" + esc(item.exercise_id || key) +
+        "</strong>: removed from the prescription</div>");
+    }
+  });
+  const timeBefore = before.notes?.session_time?.estimated_minutes;
+  const timeAfter = after.notes?.session_time?.estimated_minutes;
+  if (JSON.stringify(timeBefore ?? null) !== JSON.stringify(timeAfter ?? null)) {
+    changes.push("<div><strong>Estimated session time</strong>: " +
+      esc(resolverDiffValue("estimated_minutes", timeBefore)) + " → " +
+      esc(resolverDiffValue("estimated_minutes", timeAfter)) + "</div>");
+  }
+  if (JSON.stringify(previous.projected_week ?? null) !==
+      JSON.stringify(current.projected_week ?? null)) {
+    changes.push("<div><strong>Projected volume/week</strong> changed</div>");
+  }
+  ["session_type", "fallback_level", "rule_document_version", "time_cap_s",
+    "executable"].forEach((field) => {
+    if (JSON.stringify(before[field] ?? null) !== JSON.stringify(after[field] ?? null)) {
+      changes.push("<div><strong>Session " + esc(field.replaceAll("_", " ")) +
+        "</strong>: " + esc(resolverDiffValue(field, before[field])) + " → " +
+        esc(resolverDiffValue(field, after[field])) + "</div>");
+    }
+  });
+  if (JSON.stringify(before.issues || []) !== JSON.stringify(after.issues || [])) {
+    changes.push("<div><strong>Validation/constraint issues</strong> changed</div>");
+  }
+  if (JSON.stringify(before.warnings || []) !== JSON.stringify(after.warnings || [])) {
+    changes.push("<div><strong>Warnings</strong> changed</div>");
+  }
+  if (JSON.stringify(before.notes ?? null) !== JSON.stringify(after.notes ?? null)) {
+    changes.push("<div><strong>Session notes/volume context</strong> changed</div>");
+  }
+  if (JSON.stringify(previous.top_set ?? null) !== JSON.stringify(current.top_set ?? null)) {
+    changes.push("<div><strong>Top set</strong> changed</div>");
+  }
+  box.innerHTML = changes.length
+    ? "<strong>Prescription changes since previous preview</strong>" + changes.join("")
+    : "No prescription changes since the previous preview.";
+}
+
+
+async function runResolverPreview() {
+  const box = $("#settings-resolver-preview");
+  if (box) box.innerHTML = "<p class='empty'>Building resolver preview…</p>";
+  const previous = window.__resolverPreview;
+  try {
+    const data = await api("/api/resolver/preview", {
+      method: "POST",
+      body: JSON.stringify(resolverPreviewFormPayload()),
+    });
+    renderResolverPreview(data);
+    renderResolverPreviewDiff(previous, data);
+  } catch (error) {
+    if (box) box.innerHTML = "<div class='warnbox'>" + esc(error.message) + "</div>";
+    const diff = $("#settings-resolver-preview-diff");
+    if (diff) diff.textContent = "";
+  }
+}
+
+async function rateResolverSuggestion(button) {
+  const exerciseId = button.dataset.resolverRate;
+  const kind = button.dataset.resolverRateKind;
+  const date = button.dataset.resolverRateDate;
+  const payload = {
+    exercise_id: exerciseId,
+    rated_on: date,
+    can_do: true,
+    will_do: kind !== "will_no",
+    feels_bad: kind === "feels_bad",
+    note: "resolver preview inline rating",
+  };
+  try {
+    await api("/api/state/suitability", { method: "POST", body: JSON.stringify(payload) });
+    notify("Suitability recorded. Rebuilding preview…");
+    await runResolverPreview();
+  } catch (error) {
+    notify(error.message, "error");
+  }
+}
+
+async function openResolverPreviewStart() {
+  const data = window.__resolverPreview;
+  if (!data || !data.ok) return;
+  // The response is the exact prescription payload. Remove preview-only metadata so the
+  // frozen plan contains the displayed prescription, not UI/diff controls.
+  const plan = { ...data };
+  ["ok", "stage", "message", "choices", "beam", "top_set", "projected_week",
+    "session_time", "policy_digest", "catalogue_digest", "template_digest",
+    "input_hash", "scheduled_suggestion"].forEach((key) => { delete plan[key]; });
+  window.__lastPrescription = plan;
+  if (typeof openWorkoutStart === "function") openWorkoutStart();
+  else notify("Open Workflow to start this preview.", "error");
+}
+
+const resolverSave = $("#settings-resolver-save");
+if (resolverSave) resolverSave.addEventListener("click", saveResolverDraft);
+const resolverReset = $("#settings-resolver-reset");
+if (resolverReset) resolverReset.addEventListener("click", () => loadSettings());
+const resolverPolicySave = $("#settings-resolver-policy-save");
+if (resolverPolicySave) resolverPolicySave.addEventListener("click", saveResolverPolicy);
+const resolverPolicyRestore = $("#settings-resolver-policy-restore");
+if (resolverPolicyRestore) resolverPolicyRestore.addEventListener("click", restoreResolverPolicy);
+const resolverPreviewForm = $("#settings-resolver-preview-form");
+if (resolverPreviewForm) resolverPreviewForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  runResolverPreview();
+});
+const resolverPreviewBox = $("#settings-resolver-preview");
+if (resolverPreviewBox) resolverPreviewBox.addEventListener("click", (event) => {
+  const rate = event.target.closest("[data-resolver-rate]");
+  if (rate) { rateResolverSuggestion(rate); return; }
+  if (event.target.closest("[data-resolver-start]")) openResolverPreviewStart();
+});
+
+/* --- profile settings --------------------------------------------------- */
 function renderProfileSettings(registry, profile) {
   window.__profileSettings = profile || {};
   window.__settingsRegistry = registry || [];
@@ -410,8 +895,8 @@ function renderProfileSettings(registry, profile) {
   if (!fields) return;
   const groups = {};
   (registry || []).forEach((setting) => {
-    // Volume settings live in the consolidated Volume budget panel, not here.
-    if (setting.group === "Volume") return;
+    // Volume and Resolver settings have dedicated panels, not the generic profile list.
+    if (setting.group === "Volume" || setting.group === "Resolver") return;
     (groups[setting.group] = groups[setting.group] || []).push(setting);
   });
   const resolved = window.__profileSettings.resolved || {};
@@ -691,8 +1176,15 @@ async function loadSettings() {
   try {
     const profile = await api("/api/settings/profile");
     renderProfileSettings(data.registry || [], profile);
+    renderResolverSettings(data.registry || [], profile);
   } catch (error) {
     $("#settings-profile-msg").textContent = "Profile settings failed: " + error.message;
+    $("#settings-resolver-msg").textContent = "Resolver settings failed: " + error.message;
+  }
+  try {
+    renderResolverPolicy(await api("/api/resolver/policy"));
+  } catch (error) {
+    $("#settings-resolver-policy-msg").textContent = "Resolver policy failed: " + error.message;
   }
   try {
     renderVolumeSettings(await api("/api/settings/volume"));

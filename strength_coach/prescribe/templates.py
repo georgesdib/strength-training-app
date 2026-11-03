@@ -64,6 +64,9 @@ class SessionTemplate:
     time_cap_s: int
     schema_version: str
     primary_exercise: str | None = None
+    # SHA-256 of the shipped YAML body; provenance can identify the blueprint without a
+    # database copy of the file.
+    digest: str = ""
 
     def rep_ranges(self) -> dict[str, tuple[int, int]]:
         ranges: dict[str, tuple[int, int]] = {}
@@ -113,6 +116,7 @@ def _parse_session_template(session_type: str, source_name: str, digest: str,
             if types[session_type].get("primary_exercise")
             else next((s.exercise for s in slots if s.essential and s.exercise), None)
         ),
+        digest=digest,
     )
 
 

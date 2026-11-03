@@ -279,6 +279,10 @@ document version.
 | rule_document_version | |
 | calibration_ids | JSON |
 | approved_by | `deterministic` \| `llm+policy` |
+| template_digest | nullable SHA-256 of the blueprint file used (migration 0048) |
+| policy_digest | nullable SHA-256 of the resolver policy file; null on the fixed path |
+| input_hash | nullable canonical resolver input hash; null on the fixed path |
+| generated_session_json | nullable generated exercise/slot/top-set snapshot; Step 6 adds validated `slots` (chosen exercise, original sets/reps/RIR/rest, essential/power flags, load source, quality stop) for critique/exemption reads; null on the fixed path and pre-Step-6 snapshots remain readable |
 
 | item column | notes |
 |---|---|
@@ -295,6 +299,7 @@ document version.
 | rationale_refs | JSON list of rule IDs + data-point ids |
 | e1rm_source_sets | nullable; usable sets behind a formula e1RM (NULL for overrides/fallbacks) |
 | substitution_for | nullable |
+| set_groups_json | ordered top_set/back_off groups; empty for straight sets (migration 0049) |
 
 ### 8.4 `workout_form_rating` / `session_form_rating`
 
@@ -368,6 +373,12 @@ a behaviour the system did not have (`DEC-STATE-02`).
 Profile precedence is profile > config > registry default. Guarded-safety keys are rejected
 until the step-5 confirmation flow. The snapshot freezes what a prescription actually used;
 existing prescriptions without a row are not rewritten.
+
+Historical profiles may contain the retired resolver weights
+`resolver.weights.rotation` and `resolver.weights.preference`. Reading ignores exactly those
+keys and leaves the historical row untouched; saving an unrelated setting strips inherited
+retired keys before appending the new complete map. They are not active registry keys, defaults,
+snapshot values or UI controls, and an explicit new write of either key is rejected.
 
 ### 11.2 `athlete_constraint` — injuries, contraindications, mobility limits
 
@@ -541,7 +552,9 @@ until completion.
 | critique_id | deterministic rubric persisted at End workout |
 | reviewed_at | set when human review marks are saved |
 
-`workout_set` is append-only. A removed set is an event, not a DELETE:
+`workout_set` is append-only. A removed set is an event, not a DELETE. Migration `0049` also
+adds `clean_set.set_role`, copied on materialisation; it is nullable so imported and historical
+straight sets need no backfill.
 
 | column | notes |
 |---|---|
@@ -551,6 +564,7 @@ until completion.
 | load_kg / reps / rir / velocity | actual values |
 | source | `manual` \| `import` \| `device` |
 | prescription_item_index | index into the frozen plan, when matched |
+| set_role | nullable `top_set` / `back_off`; ordinary and historical sets stay null (migration 0049) |
 
 `workout_event` records `start`, `add_set`, `update_set`, `remove_set`, `restore_set`, `end`,
 `abandon`, `reviewed`, `import_applied` and `import_undone` with an optional `target_set_id`;

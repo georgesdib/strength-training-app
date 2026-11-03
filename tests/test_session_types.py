@@ -106,6 +106,37 @@ def test_validate_text_rejects_ambiguous_slots_and_missing_essential_work():
         raise AssertionError("session with no essential slot was accepted")
 
 
+def test_enabled_resolver_makes_scheduler_availability_pool_aware():
+    from strength_coach import settings_profile
+    from strength_coach.store import db, repositories
+
+    store = db.Store(":memory:")
+    try:
+        settings_profile.save(
+            store.connection,
+            set_values={
+                "resolver.enabled": True,
+                "resolver.eligibility.auto_requires_can_do": False,
+            },
+            resolver_enable_confirmed=True,
+            effective_from="2024-01-01",
+        )
+        repositories.append_athlete_constraint(
+            store.connection,
+            kind="injury",
+            region="knee",
+            severity="hard_exclude",
+            forbidden_patterns=("squat",),
+        )
+        availability = schedule._availability(store.connection, "2024-02-01")
+        assert availability["squat"] is False
+        assert availability["bench_squat"] is False
+        assert availability["hinge"] is True
+        assert availability["bench_hinge"] is True
+    finally:
+        store.close()
+
+
 def test_a_constrained_primary_family_falls_back_and_rebalances():
     from strength_coach.store import db, repositories
 
