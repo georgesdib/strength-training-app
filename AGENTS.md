@@ -204,6 +204,17 @@ A test that imports the real export is `integration`-marked and must not run in 
 fast lane. If a public test needs data, synthesise it with `make_training`/`make_readiness` —
 never read `data/raw`.
 
+### 7.2 Waiting for long test runs
+
+Do not poll a running suite in short increments. Estimate the duration from the collected test
+count and recent runs, start it as a managed background job, then wait once for approximately
+that duration plus a buffer. For this repository, the default full suite is normally **8–10
+minutes**; the golden layer is normally **under one minute**, and focused files are usually
+seconds. A reasonable default is `job_output(wait=True)` with a 9–10 minute timeout for the full
+suite, or one sleep near the estimate. If it is still running after that single wait, extend once
+and inspect; do not emit repeated near-identical status checks. Report the final summary when the
+job completes.
+
 ## 8. Style
 
 - Python 3.11+. `from __future__ import annotations`.
