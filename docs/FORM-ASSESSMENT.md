@@ -55,6 +55,10 @@ POST /api/history/<session_id>/edit
 { "sets": [...], "forms": [{ "exercise_id": "...", "rating": 4 }], ... }
 ```
 
+In the History edit sheet, a **blank rating means leave the existing rating and note
+unchanged**; it never silently clears a rating. The sheet does not remove ratings (removal would
+need an explicit append-only tombstone contract).
+
 ## 4. Rubric
 
 Rubric **1.2.0** adds `FORM_ASSESSMENT`:

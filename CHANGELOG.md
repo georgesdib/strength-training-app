@@ -5,13 +5,16 @@
 ### Added
 
 - **Prescribed-plan browser cache**: the latest deterministic prescription is kept in
-  `localStorage` for seven days and restored when Prescribe reloads, with a timestamped
-  notice and explicit **Discard**. Starting the workout clears the cache; the server still
-  owns the immutable active-workout plan.
-- **History form override**: History → Edit now renders the optional per-lift 1–5 post-lift
-  form assessment with notes, so imported and live sessions can be rated or corrected through
-  the append-only correction path. Form remains rubric-only and never changes load, sets or
-  exercise selection.
+  `localStorage` for seven days and restored when Prescribe reloads. The restored notice shows
+  the cached date/session beside the current form values, starting requires an explicit
+  **Start cached plan** confirmation, corrupt/future timestamps are rejected, and **Discard**
+  removes it. Starting the workout clears the cache; the server still owns the immutable
+  active-workout plan.
+- **History form override**: History → Edit renders the optional per-lift 1–5 post-lift form
+  assessment with notes, so imported and live sessions can be rated or corrected through the
+  append-only correction path. A blank rating means **leave the existing rating and note
+  unchanged**; this sheet does not remove ratings. Form remains rubric-only and never changes
+  load, sets or exercise selection.
 
 ## [1.2.0] — 2026-11-03
 

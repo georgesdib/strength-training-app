@@ -1636,6 +1636,35 @@ def test_history_endpoint_lists_and_edits_a_session(server):
     assert form["rating"] == 2
     assert form["note"] == "coach override"
 
+    # Blank means leave unchanged, not clear: the omitted rating must preserve both fields.
+    unchanged = post(server, f"/api/history/{session_id}/edit", {
+        "sets": current["sets"],
+        "forms": [{"exercise_id": first["exercise_id"], "rating": None,
+                   "note": "must not replace"}],
+        "reason": "blank form",
+    })
+    form = next(row for row in unchanged["session"]["forms"]
+                if row["exercise_id"] == first["exercise_id"])
+    assert form["rating"] == 2
+    assert form["note"] == "coach override"
+
+
+def test_form_ratings_do_not_change_the_prescription(server):
+    body = {"date": "2024-02-01", "session_type": "squat"}
+    baseline = post(server, "/api/prescribe", body)
+    _, payload = get(server, "/api/history?limit=1")
+    session_id = json.loads(payload)["sessions"][0]["session_id"]
+    _, payload = get(server, f"/api/history/{session_id}")
+    detail = json.loads(payload)
+    exercise_id = detail["sets"][0]["exercise_id"]
+    post(server, f"/api/history/{session_id}/edit", {
+        "sets": detail["sets"],
+        "forms": [{"exercise_id": exercise_id, "rating": 1, "note": "form only"}],
+        "reason": "form-only correction",
+    })
+    after = post(server, "/api/prescribe", body)
+    assert after == baseline
+
 
 def test_history_edit_rejects_an_unknown_exercise(server):
     _, body = get(server, "/api/history?limit=1")
@@ -1770,19 +1799,33 @@ def test_the_history_edit_sheet_can_override_form_ratings(server):
     assert "collectHistoryForms" in js
     assert "data-h-form-rating" in js
     assert "data-h-form-note" in js
+    assert "Leave a rating blank" in page
+    assert "leave any existing rating and note unchanged" in page
+    assert "ratings cannot be removed" in page
+    assert "— leave unchanged" in js
 
 
 def test_a_prescribed_plan_is_cached_across_reloads(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert '/static/prescription-cache.js' in page
+    status, cache = get(server, "/static/prescription-cache.js")
+    assert status == 200
+    assert "strength-coach.prescription.v1" in cache
+    assert "MAX_AGE_MS" in cache and "savedAt > current" in cache
+    assert "selectionDiffers" in cache
     status, js = get(server, "/static/app.js")
     assert status == 200
-    assert "PRESCRIPTION_CACHE_KEY" in js
-    assert "localStorage.setItem(PRESCRIPTION_CACHE_KEY" in js
     assert "restoreCachedPrescription" in js
     assert "Cached prescription restored" in js
+    assert "Cached plan:" in js and "Current form:" in js
+    assert "Start cached plan" in js
     assert "discard-cached-prescription" in js
     status, workout = get(server, "/static/workout.js")
     assert status == 200
     assert "clearCachedPrescription" in workout
+    assert "__prescriptionFromCache" in workout
+    assert "Start the cached plan" in workout
     status, settings = get(server, "/static/settings.js")
     assert status == 200
     assert "cachePrescription(plan)" in settings

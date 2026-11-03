@@ -232,7 +232,7 @@ function historyFormRows(data) {
   if (!ids.length) return "<p class='muted'>No exercises in this session.</p>";
   return ids.map(function (exerciseId) {
     var current = forms[exerciseId] || {};
-    var options = ['<option value="">—</option>'];
+    var options = ['<option value="">— leave unchanged</option>'];
     for (var rating = 1; rating <= 5; rating += 1) {
       options.push('<option value="' + rating + '"' +
         (Number(current.rating) === rating ? " selected" : "") + ">" + rating + "</option>");
@@ -258,6 +258,8 @@ function collectHistoryForms() {
       rating: rating === "" ? null : Number(rating),
       note: row.querySelector("[data-h-form-note]").value.trim() || null
     };
+  // Blank is a leave-unchanged instruction, not a removal: omit the exercise so the
+  // append-only correction preserves the existing rating and note.
   }).filter(function (form) { return form.rating != null; });
 }
 

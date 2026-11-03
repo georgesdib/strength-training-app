@@ -29,6 +29,17 @@ function workoutField(key, required) {
 function openWorkoutStart() {
   var plan = window.__lastPrescription;
   if (!plan) return;
+  if (window.__prescriptionFromCache) {
+    var currentDate = document.getElementById("prescribe-date")
+      ? document.getElementById("prescribe-date").value : "";
+    var currentType = document.getElementById("prescribe-session-type")
+      ? document.getElementById("prescribe-session-type").value : "auto";
+    var message = "Start the cached plan from " + plan.for_date + " ("
+      + (plan.session_type || "unknown") + ")?\n\n"
+      + "The current Prescribe form is " + (currentDate || "no date") + " ("
+      + currentType + "). This starts the cached plan, not the form selection.";
+    if (!window.confirm(message)) return;
+  }
   $("#workout-empty").hidden = true;
   $("#workout-active-panel").hidden = true;
   $("#workout-ended-panel").hidden = true;
@@ -109,6 +120,7 @@ function submitWorkoutStart(event) {
     // The server now owns the frozen plan; a second Start must not reuse the browser cache.
     if (typeof clearCachedPrescription === "function") clearCachedPrescription();
     window.__lastPrescription = null;
+    window.__prescriptionFromCache = false;
     $("#prescribe-result").innerHTML = "";
     notify("Workout started.");
     renderWorkout(data.workout);

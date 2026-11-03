@@ -16,6 +16,7 @@ document.addEventListener("click", (event) => {
   else if (action === "discard-cached-prescription") {
     clearCachedPrescription();
     window.__lastPrescription = null;
+    window.__prescriptionFromCache = false;
     $("#prescribe-result").innerHTML = "";
   }
 });
@@ -1016,49 +1017,19 @@ function setGroupsHtml(item) {
   ).join(" · ") + "</div>";
 }
 
-const PRESCRIPTION_CACHE_KEY = "strength-coach.prescription.v1";
-const PRESCRIPTION_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-
 function cachePrescription(plan) {
-  if (!plan || !plan.for_date || !Array.isArray(plan.items)) return;
-  try {
-    localStorage.setItem(PRESCRIPTION_CACHE_KEY, JSON.stringify({
-      version: 1,
-      saved_at: new Date().toISOString(),
-      for_date: plan.for_date,
-      session_type: plan.session_type || "",
-      plan: plan,
-    }));
-  } catch (error) {
-    // Quota or private-mode denial must not break prescription rendering or Start.
+  if (window.PrescriptionCache) {
+    window.PrescriptionCache.save(localStorage, plan, Date.now());
   }
 }
 
 function clearCachedPrescription() {
-  try { localStorage.removeItem(PRESCRIPTION_CACHE_KEY); } catch (error) { /* ignore */ }
+  if (window.PrescriptionCache) window.PrescriptionCache.clear(localStorage);
 }
 
 function readCachedPrescription() {
-  try {
-    var raw = localStorage.getItem(PRESCRIPTION_CACHE_KEY);
-    if (!raw) return null;
-    var data = JSON.parse(raw);
-    if (data.version !== 1 || !data.plan || !Array.isArray(data.plan.items)
-        || !data.plan.for_date) {
-      clearCachedPrescription();
-      return null;
-    }
-    var savedAt = Date.parse(data.saved_at);
-    // Keep the plan across navigation/reloads, but do not offer a stale plan indefinitely.
-    if (!Number.isFinite(savedAt) || Date.now() - savedAt > PRESCRIPTION_CACHE_MAX_AGE_MS) {
-      clearCachedPrescription();
-      return null;
-    }
-    return data;
-  } catch (error) {
-    clearCachedPrescription();
-    return null;
-  }
+  return window.PrescriptionCache
+    ? window.PrescriptionCache.read(localStorage, Date.now()) : null;
 }
 
 function restoreCachedPrescription() {
@@ -1069,17 +1040,36 @@ function restoreCachedPrescription() {
   return true;
 }
 
-function cachedPrescriptionNotice(savedAt) {
+function currentPrescribeSelection() {
+  var date = $("#prescribe-date") ? $("#prescribe-date").value : "";
+  var type = $("#prescribe-session-type") ? $("#prescribe-session-type").value : "auto";
+  return { date: date, session_type: type || "auto" };
+}
+
+function cachedPrescriptionNotice(plan, savedAt) {
   var when = savedAt ? new Date(savedAt).toLocaleString() : "recently";
+  var current = currentPrescribeSelection();
+  var differs = window.PrescriptionCache
+    ? window.PrescriptionCache.selectionDiffers(plan, current) : false;
+  var currentType = current.session_type === "auto"
+    ? "Auto (rolling)" : sessionLabel(current.session_type);
   return '<div class="warnbox"><strong>Cached prescription restored.</strong> Saved ' +
-    esc(when) + '. This plan is held in this browser until you discard it or start the workout. ' +
+    esc(when) + '.<br><strong>Cached plan:</strong> ' + esc(plan.for_date) + ' · ' +
+    esc(sessionLabel(plan.session_type || "unknown")) + '.<br><strong>Current form:</strong> ' +
+    esc(current.date || "no date") + ' · ' + esc(currentType) + '. ' +
+    (differs
+      ? 'This cached plan is not the current form selection. Rebuild the prescription to use the form, or explicitly start the cached plan below.'
+      : 'This cached plan matches the current form selection.') +
+    ' Held in this browser until you discard it or start the workout. ' +
     '<button class="ghost" type="button" data-action="discard-cached-prescription">Discard</button></div>';
 }
 
 function renderPrescription(p, options = {}) {
   window.__lastPrescription = p;
+  window.__prescriptionFromCache = Boolean(options.fromCache);
   if (!options.fromCache) cachePrescription(p);
-  const cachedBox = options.fromCache ? cachedPrescriptionNotice(options.savedAt) : "";
+  const cachedBox = options.fromCache
+    ? cachedPrescriptionNotice(p, options.savedAt) : "";
   const sessionTime = p.notes?.session_time || {};
   const timeLine = sessionTime.estimated_minutes == null ? "" :
     `<p class="muted"><strong>Estimated session time:</strong> ~${fmt(sessionTime.estimated_minutes)} min
@@ -1192,11 +1182,17 @@ function renderPrescription(p, options = {}) {
       <p class="muted">${esc(item.refs.slice(-2).join(", "))}</p>
     </article>`;
   }).join("");
+  const cachedStart = Boolean(options.fromCache);
+  const startLabel = cachedStart
+    ? `Start cached plan (${esc(p.for_date)})` : "Start workout";
+  const startHint = cachedStart
+    ? "Starts this cached plan, not the current form selection; a confirmation follows."
+    : "Freezes this plan and opens the start form.";
   const startAction = `<div class="form-row">
       ${p.executable
-        ? '<button class="primary" type="button" data-action="open-workout-start">Start workout</button>'
-        : '<button class="primary" type="button" disabled>Start workout</button>'}
-      <span class="muted">${p.executable ? "Freezes this plan and opens the start form." : "Fix the warnings above before starting."}</span>
+        ? `<button class="primary" type="button" data-action="open-workout-start">${startLabel}</button>`
+        : `<button class="primary" type="button" disabled>${startLabel}</button>`}
+      <span class="muted">${p.executable ? startHint : "Fix the warnings above before starting."}</span>
     </div>`;
   $("#prescribe-result").innerHTML = `<div class="panel">
     ${cachedBox}
