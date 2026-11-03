@@ -9,7 +9,7 @@ from types import MappingProxyType, SimpleNamespace
 import pytest
 from conftest import make_readiness, make_training
 
-from strength_coach import settings_profile, workout
+from strength_coach import history, settings_profile, workout
 from strength_coach.features import programme
 from strength_coach.prescribe import (
     build_prescription,
@@ -250,6 +250,18 @@ def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
                 "stress": 4, "nutrition": 4, "hydration": 4,
             },
         )
+        import json
+
+        persisted = instance.connection.execute(
+            "SELECT exercise_id, sets, reps_low, reps_high, load_kg, rir_target, "
+            "set_groups_json FROM prescription_item WHERE prescription_id = ? "
+            "ORDER BY order_index",
+            (prescription_id,),
+        ).fetchall()
+        persisted_main = next(row for row in persisted if row["exercise_id"] == "ssb_squat")
+        assert persisted_main["sets"] == main["sets"]
+        assert persisted_main["load_kg"] == main["load_kg"]
+        assert json.loads(persisted_main["set_groups_json"]) == groups
         top = groups[0]
         back = groups[1]
         workout.add_set(
@@ -271,10 +283,36 @@ def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
                 "SELECT set_role FROM clean_set ORDER BY set_id"
             )
         ]
+        from strength_coach.features import strength_trend
+
+        observations = strength_trend.observations(
+            instance.connection, "ssb_squat", "2024-01-15", "2024-01-15"
+        )
         facts = build_facts(instance.connection, ended["workout_id"])
         critique = score_session(instance.connection, ended["workout_id"], facts=facts)
+        second = workout.start(
+            instance.connection,
+            for_date="2024-01-15",
+            plan={
+                "for_date": "2024-01-15",
+                "session_type": "squat",
+                "items": [{
+                    "exercise_id": "ssb_squat", "sets": 1, "reps_low": 5,
+                    "reps_high": 5, "load_kg": 100.0, "rir_target": 2,
+                }],
+            },
+            readiness={
+                "sleep": 4, "energy": 4, "mood": 4, "soreness": 2,
+                "stress": 4, "nutrition": 4, "hydration": 4,
+            },
+        )
+        workout.end(instance.connection, second["workout_id"], session_rpe=7, duration_min=10)
+        day = history.list_training_days(instance.connection)["days"][0]
     assert roles.count("top_set") == 1
     assert roles.count("back_off") == back["sets"]
+    assert observations
+    assert day["fragment_count"] == 2
+    assert day["active_fragment_count"] == 2
     assert critique.item("RIR_ADHERENCE").measurable
 
 

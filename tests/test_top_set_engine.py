@@ -6,6 +6,7 @@ from contextlib import contextmanager
 
 from conftest import make_readiness, make_training
 
+from strength_coach.features.deload import DeloadDecision
 from strength_coach.prescribe import build_prescription, loads
 from strength_coach.store import db, importer, repositories
 
@@ -68,6 +69,21 @@ def test_top_set_applies_to_the_session_main_and_preserves_sets() -> None:
     assert main.set_groups[0].rir_target == 1
     assert main.set_groups[0].load_kg > main.set_groups[1].load_kg
     assert main.warmup[0].load_kg < main.load_kg
+
+
+def test_deload_suppresses_top_set_and_keeps_the_plan_executable() -> None:
+    with store_with() as store:
+        prescription = build_prescription(
+            store.connection,
+            for_date="2024-01-15",
+            session_type="squat",
+            top_set_requested=True,
+            deload_decision=DeloadDecision(reason="test deload", trigger="test"),
+        )
+    main = _item(prescription, "ssb_squat")
+    assert main.set_groups == ()
+    assert prescription.notes["top_set"]["applied"] is False
+    assert "deload" in prescription.notes["top_set"]["reason"]
 
 
 def test_ask_mode_does_not_apply_without_confirmation() -> None:
