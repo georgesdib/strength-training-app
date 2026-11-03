@@ -14,6 +14,7 @@ from conftest import make_readiness, make_training
 from strength_coach import cli
 from strength_coach.eval import load_marks
 from strength_coach.store import db, importer, queries
+from strength_coach.utils import paths
 
 ROWS = [
     {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
@@ -50,6 +51,18 @@ def count(path, table: str) -> int:
         return store.connection.execute(f"SELECT COUNT(*) AS c FROM {table}").fetchone()["c"]
     finally:
         store.close()
+
+
+def test_resolver_policy_validation_and_preview_failure(capsys):
+    code = cli.main([
+        "resolver", "validate", "--file", str(paths.template_resolver_yaml()),
+    ])
+    assert code == 0
+    assert "resolver policy valid" in capsys.readouterr().out
+
+    code = cli.main(["resolver", "policy", "show"])
+    assert code == 0
+    assert "digest" in capsys.readouterr().out
 
 
 def test_run_persists_a_critique_and_a_prescription(database, capsys):

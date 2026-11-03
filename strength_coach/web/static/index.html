@@ -1091,6 +1091,72 @@
         <div id="settings-modalities"></div>
       </div>
 
+      <div class="panel" id="settings-resolver-panel">
+        <div class="panel-head"><h2>Resolver</h2>
+          <span class="badge" id="resolver-status">loading…</span></div>
+        <p class="section-help"><span>Opt-in deterministic exercise generation. Settings are append-only profile versions; structural policy is a versioned local YAML file with validated backups.</span>
+          <a class="doc-link" href="#docs?doc=docs/PROGRAMME-BUILDER-PLAN.md">Resolver plan</a></p>
+        <div id="settings-resolver-warning" class="warnbox" hidden>
+          Resolver mode is enabled. Preview and start paths use generated exercise pools; the fixed-template path remains available when it is disabled.
+        </div>
+        <div id="settings-resolver-fields"><p class="empty">Loading resolver settings…</p></div>
+        <div class="form-row">
+          <label class="grow">Reason <input id="settings-resolver-reason" placeholder="required for guarded settings"></label>
+          <label><input type="checkbox" id="settings-resolver-enable-confirm"> Confirm resolver enable</label>
+          <label><input type="checkbox" id="settings-resolver-guard"> Confirm guarded change</label>
+          <label>Type SPINAL <input id="settings-resolver-guard-text" placeholder="SPINAL" autocomplete="off"></label>
+          <button class="primary" type="button" id="settings-resolver-save">Save resolver settings</button>
+          <button class="ghost" type="button" id="settings-resolver-reset">Reset draft</button>
+        </div>
+        <div id="settings-resolver-diff" class="muted">No changes.</div>
+        <p class="muted" id="settings-resolver-msg" role="status" aria-live="polite"></p>
+        <p class="muted">Enable is off by default. Enabling requires the explicit confirmation above; guarded weights and top-set safety values also need the tick, the typed word and a reason.</p>
+
+        <details class="advanced" id="settings-resolver-policy-disclosure">
+          <summary>Advanced structural policy YAML</summary>
+          <p class="section-help"><span>Validated against the taxonomy and blueprint. Saving creates a timestamped local backup and keeps the newest 20.</span>
+            <a class="doc-link" href="#docs?doc=docs/PROGRAMME-BUILDER-PLAN.md">Policy reference</a></p>
+          <p class="muted" id="settings-resolver-policy-meta">Loading policy…</p>
+          <textarea id="settings-resolver-policy-yaml" rows="20" spellcheck="false" aria-label="Resolver policy YAML"></textarea>
+          <div class="form-row">
+            <button class="primary" type="button" id="settings-resolver-policy-save">Validate and save policy</button>
+            <button class="ghost" type="button" id="settings-resolver-policy-restore">Restore latest backup</button>
+            <span class="muted" id="settings-resolver-policy-msg" role="status" aria-live="polite"></span>
+          </div>
+          <div id="settings-resolver-backups" class="muted"></div>
+        </details>
+
+        <div class="panel" style="margin:12px 0 0">
+          <div class="panel-head"><h3>Generation preview</h3><span class="muted">read-only · nothing is persisted</span></div>
+          <p class="section-help"><span>Preview is read-only; rating a suggestion updates suitability, and Start opens the frozen workflow.</span>
+            <a class="doc-link" href="#docs?doc=docs/PROGRAMME-BUILDER-PLAN.md">Resolver methodology</a></p>
+          <form id="settings-resolver-preview-form" class="form-row">
+            <label>Date <input type="date" id="settings-resolver-preview-date" required></label>
+            <label>Session
+              <select id="settings-resolver-preview-session">
+                <option value="auto">Auto (rolling)</option>
+                <option value="squat">Squat emphasis</option>
+                <option value="hinge">Hinge emphasis</option>
+                <option value="bench_squat">Bench + squat support</option>
+                <option value="bench_hinge">Bench + hinge support</option>
+              </select>
+            </label>
+            <label>Top set
+              <select id="settings-resolver-preview-top-set">
+                <option value="">Ask (offer, no structure yet)</option>
+                <option value="on">Add top set / back-off</option>
+                <option value="off">Straight sets</option>
+              </select>
+            </label>
+            <label><input type="checkbox" id="settings-resolver-preview-allow-unknown"> Allow unknown readiness</label>
+            <button class="primary" type="submit">Build preview</button>
+          </form>
+          <p class="muted">Preview uses the same engine as Start. Rating a suggestion below appends a suitability record; it never changes the preview silently.</p>
+          <div id="settings-resolver-preview"><p class="empty">No preview built.</p></div>
+          <div id="settings-resolver-preview-diff" class="muted"></div>
+        </div>
+      </div>
+
       <div class="panel">
         <div class="panel-head"><h2>Settings profile</h2>
           <span class="badge" id="settings-profile-meta">loading…</span></div>

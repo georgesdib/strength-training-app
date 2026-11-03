@@ -103,6 +103,7 @@ class ResolvedPrescription:
     catalogue_digest: str
     input_hash: str
     beam: beam_mod.BeamResult
+    pools: generator.CandidatePools
     generated_session: dict
 
 
@@ -431,5 +432,6 @@ def build_resolved(
         catalogue_digest=pools.catalogue_digest,
         input_hash=input_hash,
         beam=result,
+        pools=pools,
         generated_session=generated_session,
     )

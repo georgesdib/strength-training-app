@@ -37,6 +37,13 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 5 Settings -> Resolver**: dedicated Settings panel for
+  append-only resolver scalars with explicit enable confirmation and guarded-change handling;
+  validated structural policy YAML editor with atomic writes, timestamped backups, digest display
+  and newest-20 retention; read-only generation preview with chosen/alternative/suggestion-only
+  candidates, top-set and projected-week diagnostics, inline suitability rating, regenerate/diff
+  and a Start handoff into the existing frozen-workflow path; minimal `resolver validate`, policy
+  and preview CLI commands. No volume-target duplication, no automatic fallback and no Step 6 work.
 - Deterministic template resolver **Step 4C remediation**: explicit `use_resolver=True` now
   fails when the resolver is disabled or a template is supplied; scheduler availability uses the
   same automatic-candidate classification and slot-aware required-pattern matching as candidate

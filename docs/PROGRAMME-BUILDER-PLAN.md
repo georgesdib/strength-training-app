@@ -1,9 +1,9 @@
 # Dynamic Template Resolver — implementation plan
 
-**Status:** **Steps 0–3 and Step 4A–4C are complete 2026-11-01; Step 4C remediation is
-complete 2026-11-02. Step 5 is not started.** The
-generator is internal and still not wired into the production prescription path; the top-set
-structure is opt-in. The hinge maximal-week change is implemented. The resolver flag remains off.
+**Status:** **Steps 0–5 are complete 2026-11-01/02; Step 4C audit remediation is complete
+2026-11-02. Step 6 is not started.** The resolver is wired into the opt-in production path, the
+Settings -> Resolver panel and read-only preview are implemented, and the top-set structure is
+opt-in. The hinge maximal-week change is implemented. The resolver flag remains off by default.
 
 **Scope:** make the four canonical session templates a **deterministic session generator** at
 generation time while keeping the existing scheduler, prescription engine, volume engine and
@@ -619,9 +619,9 @@ High-level controls use the existing settings-profile form (append-only, effecti
 reason, guarded confirmation). Structural policy uses the advanced validated YAML editor.
 No volume targets are duplicated here; link to Settings -> Volume.
 
-**Step 1 note:** the scalar keys are already registered, so the generic Settings profile shows a
-**Resolver** group. The dedicated Settings -> Resolver panel, preview and policy editor are
-Step 5; Step 1 does not wire the values into any prescription.
+**Step 1 note:** the scalar keys were registered in Step 1. Step 5 now provides the dedicated
+Settings -> Resolver panel, inline preview and validated policy editor; the generic Settings
+profile intentionally excludes the Resolver group to avoid duplicate controls.
 
 **Resolver settings inventory**
 
@@ -1099,7 +1099,7 @@ uses the chosen exercises and top-set structure; old rows unchanged.
 
 **Risk:** highest-risk step; a missed template load site or a double budget pass is a silent mix.
 
-### Step 5 — Settings -> Resolver and generation preview
+### Step 5 — Settings -> Resolver and generation preview  (complete 2026-11-02)
 
 **Objective:** make every resolver configuration editable and the generated session reviewable.
 
@@ -1114,6 +1114,17 @@ failure UX; mobile; no volume-target duplication.
 rate an unrated suggestion, regenerate before start, and start the frozen session.
 
 **Merge gate:** merge after UI/API and policy-validation tests.
+
+**Implementation note (2026-11-02):** the dedicated Settings panel excludes Resolver fields from
+the generic profile list. Scalar changes use the append-only settings profile; enabling the
+resolver requires an explicit confirmation tick. The structural policy remains
+`config/template-resolver.v1.yaml`; saves validate the complete YAML, write atomically, create a
+timestamped backup and keep the newest 20 under the git-ignored `data/resolver-policy-backups/`.
+Preview is read-only and returns chosen candidates, alternatives, suggestion-only candidates,
+beam diagnostics, top-set structure and projected-week context; inline suitability ratings append
+to `exercise_suitability` and rebuild the preview. Start hands the exact preview to the existing
+frozen-workflow start path. Minimal `resolver validate`, `resolver policy` and `resolver preview`
+CLI commands share the same core. No volume targets are duplicated in this panel.
 
 ### Step 6 — Historical hardening, rollout and documentation
 
@@ -1212,7 +1223,9 @@ Recorded as `DEC-RESOLVER-01`–`11` in [DECISIONS.md](DECISIONS.md).
 - Forecast option (c): blueprint/expected pattern, generated at start.
 - No second scheduler, prescription engine, volume engine, lifecycle or LLM.
 
-## 14. Related
+## Related
+
+**Decisions:** [DECISIONS.md](DECISIONS.md) · **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) · **Roadmap:** [ROADMAP.md](../ROADMAP.md)
 
 - **Methodology:** [METHODOLOGY.md](METHODOLOGY.md)
 - **Templates:** [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md)

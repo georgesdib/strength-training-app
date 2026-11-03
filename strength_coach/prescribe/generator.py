@@ -91,6 +91,7 @@ class CandidatePools:
     candidate_patterns: Mapping[str, Mapping[str, str | None]] = field(
         default_factory=dict
     )
+    suggestions: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     warnings: tuple[str, ...] = ()
 
 
@@ -396,6 +397,7 @@ def candidate_pools(
         )
 
     ordered: dict[str, tuple[str, ...]] = {}
+    suggestions_by_slot: dict[str, tuple[str, ...]] = {}
     for index, slot in enumerate(template.slots):
         auto = list(auto_by_slot[slot.id])
         role = _slot_role(slot, main_slot)
@@ -408,6 +410,16 @@ def candidate_pools(
             rest = [candidate for candidate in auto if candidate != last_id]
             auto = rest + [last_id] if must_rotate else [last_id] + rest
         ordered[slot.id] = tuple(auto)
+        _auto_check, suggestions = _classify_candidates(
+            raw_pools[slot.id],
+            _permitted_patterns(slot, role, policy, main_slot, taxonomy),
+            vetoed,
+            active_linked,
+            suitability,
+            settings,
+            taxonomy,
+        )
+        suggestions_by_slot[slot.id] = tuple(suggestions)
 
     return CandidatePools(
         template=template,
@@ -423,6 +435,7 @@ def candidate_pools(
             }
             for slot in template.slots
         },
+        suggestions=suggestions_by_slot,
     )
 
 

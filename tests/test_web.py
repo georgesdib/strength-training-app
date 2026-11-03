@@ -107,6 +107,8 @@ def test_the_page_and_overview_are_served(server):
     assert "rejected as predictor" in page
     assert 'id="toast"' in page
     assert 'id="settings-theme"' in page
+    assert 'id="settings-resolver-panel"' in page
+    assert 'id="settings-resolver-preview-form"' in page
     assert 'id="form-trend-result"' in page
     assert 'id="form-followup"' in page
     assert "selection-include-different" in page
@@ -1092,6 +1094,42 @@ def test_settings_profile_endpoint(server):
     })
     assert saved["profile_id"] is not None
     assert saved["resolved"]["undulation.cycle_weeks"] == 3
+
+
+def test_resolver_policy_and_preview_endpoints(server):
+    status, body = get(server, "/api/resolver/policy")
+    assert status == 200
+    policy = json.loads(body)
+    assert policy["digest"]
+    assert "required_patterns" in policy["yaml"]
+
+    # An invalid edit is rejected before any file write or backup.
+    status, body = post_status(server, "/api/resolver/policy", {
+        "yaml": "schema_version: '9.9.9'\n",
+    })
+    assert status == 400
+    assert "schema" in body
+
+    # Resolver disabled: explicit preview returns a structured dispatch failure.
+    data = post(server, "/api/resolver/preview", {
+        "date": "2024-01-31", "session_type": "squat",
+    })
+    assert data["ok"] is False
+    assert data["stage"] == "dispatch"
+
+    post(server, "/api/settings/profile", {
+        "set": {
+            "resolver.enabled": True,
+            "resolver.eligibility.auto_requires_can_do": False,
+        },
+        "effective_from": "2024-01-01",
+    })
+    data = post(server, "/api/resolver/preview", {
+        "date": "2024-01-31", "session_type": "squat",
+    })
+    assert data["ok"] is False
+    assert data["stage"] in {"pool_generation", "assignment_search"}
+    assert data["message"]
 
 
 def test_programme_accepts_a_start_session_type(server):
