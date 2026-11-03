@@ -135,6 +135,26 @@ def _day_exercises(conn, *, start: str | None, end: str | None) -> dict[str, set
     return out
 
 
+def _records(frame: pd.DataFrame) -> list[dict[str, Any]]:
+    """Convert pandas rows without leaking NaN into JSON responses.
+
+    ``json.dumps`` accepts NaN by default but browsers' JSON.parse does not. A missing
+    prescription/workout id must be null, not an unquoted NaN token.
+    """
+    records = []
+    for raw in frame.to_dict("records"):
+        row = dict(raw)
+        for key, value in row.items():
+            try:
+                if bool(pd.isna(value)):
+                    row[key] = None
+            except (TypeError, ValueError):
+                # Non-scalar values (for example a list column) are already JSON-safe.
+                pass
+        records.append(row)
+    return records
+
+
 def group(conn, *, start: str | None = None, end: str | None = None,
           include_voided: bool = False, with_exercises: bool = True) -> list[dict[str, Any]]:
     """Training days in ascending date order, each with its fragments.
@@ -151,7 +171,7 @@ def group(conn, *, start: str | None = None, end: str | None = None,
     exercises = _day_exercises(conn, start=start, end=end) if with_exercises else {}
     days: list[dict[str, Any]] = []
     for occurred_on, group_frame in sessions.groupby("occurred_on", sort=True):
-        fragments = [dict(row) for row in group_frame.to_dict("records")]
+        fragments = _records(group_frame)
         day_key = str(occurred_on)[:10]
         day = _day(fragments, prescriptions, exercises.get(day_key, set()))
         day["occurred_on"] = day_key

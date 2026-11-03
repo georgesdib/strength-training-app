@@ -1277,6 +1277,21 @@ def test_imported_and_live_fragment_share_a_training_day(server):
     assert set(day["sources"]) >= {"import", "workout"}
 
 
+def test_history_api_is_strict_json_with_missing_values(server):
+    status, body = get(server, "/api/history/days?limit=5")
+    assert status == 200
+    assert "NaN" not in body
+    # Python's json module accepts NaN; browsers do not. Make that contract explicit.
+    data = json.loads(
+        body,
+        parse_constant=lambda token: (_ for _ in ()).throw(
+            ValueError(f"non-strict JSON constant: {token}")
+        ),
+    )
+    assert data["days"]
+    assert data["days"][0]["fragments"][0]["prescription_id"] is None
+
+
 def test_manual_workout_sets_require_reps_and_bound_rir(server):
     plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
     readiness = {
