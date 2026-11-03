@@ -210,6 +210,114 @@ def test_preview_payload_freezes_into_workout_start(monkeypatch) -> None:
     assert frozen["plan"]["generated_session"] == payload["generated_session"]
 
 
+def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
+    from strength_coach.critique import build_facts, score_session
+
+    _without_required_patterns(monkeypatch)
+    with store() as instance:
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
+            effective_from="2024-01-01",
+        )
+        monkeypatch.setattr(
+            resolver.generator, "candidate_pools", lambda *args, **kwargs: _pools()
+        )
+        resolved = resolver.build_resolved(
+            instance.connection,
+            for_date="2024-01-15",
+            session_type="squat",
+            inputs=EvaluationInputs(
+                minimum_target_minutes=30, top_set_requested=True,
+            ),
+        )
+        payload = server.prescription_dict(resolved.prescription)
+        main = next(item for item in payload["items"] if item["exercise_id"] == "ssb_squat")
+        groups = main["set_groups"]
+        assert [group["role"] for group in groups] == ["top_set", "back_off"]
+        assert sum(group["sets"] for group in groups) == main["sets"]
+        prescription_id = prescription_persistence.store_plan(
+            instance.connection, payload
+        )
+        started = workout.start(
+            instance.connection,
+            for_date="2024-01-15",
+            plan=payload,
+            prescription_id=prescription_id,
+            readiness={
+                "sleep": 4, "energy": 4, "mood": 4, "soreness": 2,
+                "stress": 4, "nutrition": 4, "hydration": 4,
+            },
+        )
+        top = groups[0]
+        back = groups[1]
+        workout.add_set(
+            instance.connection, started["workout_id"], exercise_id="ssb_squat",
+            load_kg=top["load_kg"], reps=top["reps_low"], rir=top["rir_target"],
+            set_role="top_set",
+        )
+        for _ in range(back["sets"]):
+            workout.add_set(
+                instance.connection, started["workout_id"], exercise_id="ssb_squat",
+                load_kg=back["load_kg"], reps=back["reps_low"],
+                rir=back["rir_target"], set_role="back_off",
+            )
+        ended = workout.end(
+            instance.connection, started["workout_id"], session_rpe=7, duration_min=30
+        )
+        roles = [
+            row["set_role"] for row in instance.connection.execute(
+                "SELECT set_role FROM clean_set ORDER BY set_id"
+            )
+        ]
+        facts = build_facts(instance.connection, ended["workout_id"])
+        critique = score_session(instance.connection, ended["workout_id"], facts=facts)
+    assert roles.count("top_set") == 1
+    assert roles.count("back_off") == back["sets"]
+    assert critique.item("RIR_ADHERENCE").measurable
+
+
+def test_resolver_top_set_composes_with_budget_and_minimum_session(monkeypatch) -> None:
+    _without_required_patterns(monkeypatch)
+    with store() as instance:
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
+            effective_from="2024-01-01",
+        )
+        repositories.append_athlete_profile(
+            instance.connection,
+            effective_from="2024-01-01",
+            sessions_per_week_target=1,
+            max_session_minutes=30,
+            volume_budget_enabled=True,
+            main_lift_policy="preserve",
+        )
+        monkeypatch.setattr(
+            resolver.generator, "candidate_pools", lambda *args, **kwargs: _pools()
+        )
+        resolved = resolver.build_resolved(
+            instance.connection,
+            for_date="2024-01-15",
+            session_type="squat",
+            inputs=EvaluationInputs(
+                minimum_session=True,
+                minimum_target_minutes=30,
+                top_set_requested=True,
+            ),
+        )
+        prescription = resolved.prescription
+        main = next(item for item in prescription.items if item.exercise_id == "ssb_squat")
+        assert prescription.notes["minimum_session"]["requested"] is True
+        assert prescription.notes["volume_budget"]["enabled"] is True
+        assert sum(group.sets for group in main.set_groups) == main.sets
+        assert all(
+            group.load_kg is not None for group in main.set_groups
+        )
+
+
 def test_explicit_resolver_mode_cannot_silently_fall_back() -> None:
     with store() as instance, pytest.raises(ValueError, match="resolver.enabled is false"):
         build_prescription(

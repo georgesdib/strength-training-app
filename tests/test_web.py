@@ -1296,6 +1296,37 @@ def test_history_api_is_strict_json_with_missing_values(server):
     assert data["days"][0]["fragments"][0]["prescription_id"] is None
 
 
+def test_workout_start_rejects_invalid_groups_and_snapshot_without_active_workout(server):
+    readiness = {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
+    bad_groups = json.loads(json.dumps(plan))
+    bad_groups["items"][0]["set_groups"] = [
+        {"role": "top_set", "sets": 1, "load_kg": 110, "reps_low": 3,
+         "reps_high": 5, "rir_target": 1},
+        {"role": "back_off", "sets": 1, "load_kg": 90, "reps_low": 3,
+         "reps_high": 5, "rir_target": 2},
+    ]
+    status, body = post_status(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": bad_groups, "readiness": readiness,
+    })
+    assert status == 400
+    assert "must equal item.sets" in body
+
+    bad_snapshot = json.loads(json.dumps(plan))
+    bad_snapshot["generated_session"] = {"slots": [{"id": "hinge_main"}]}
+    status, body = post_status(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": bad_snapshot, "readiness": readiness,
+    })
+    assert status == 400
+    assert "exercise_id" in body
+
+    active = json.loads(get(server, "/api/workout/active")[1])
+    assert active["workout"] is None
+
+
 def test_manual_workout_sets_require_reps_and_bound_rir(server):
     plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
     readiness = {

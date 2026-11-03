@@ -465,6 +465,45 @@ def test_malformed_snapshot_fails_instead_of_silently_using_the_blueprint():
             build_facts(store.connection, "2024-01-01")
 
 
+def test_snapshot_reads_use_historical_provenance_not_current_policy(monkeypatch):
+    from strength_coach.prescribe import resolver_policy, volume_budget
+
+    with store_with(session_rows("2024-01-01")) as store:
+        _attach_snapshot(store, slots=[
+            {
+                "id": "squat_main", "exercise_id": "front_squat", "sets": 4,
+                "reps_low": 3, "reps_high": 5, "essential": True,
+                "rir_low": 2, "rir_high": 3, "rest_s": 180,
+                "load_source": "e1rm", "power": False, "quality_stop": None,
+            },
+        ])
+        monkeypatch.setattr(
+            resolver_policy.ResolverPolicy,
+            "load",
+            classmethod(lambda cls, path=None: (_ for _ in ()).throw(
+                AssertionError("historical snapshot read consulted current policy")
+            )),
+        )
+        facts = build_facts(store.connection, "2024-01-01")
+        volume_budget.record_exemptions(
+            store.connection,
+            prescription_id="p-snapshot",
+            effective_on="2024-01-01",
+            session_type="squat",
+            items=[{
+                "exercise_id": "front_squat", "sets": 2,
+                "rationale_refs": ["MOD-SPINE-001"],
+            }],
+        )
+        exemption = store.connection.execute(
+            "SELECT pattern, sets FROM volume_exemption WHERE prescription_id = ?",
+            ("p-snapshot",),
+        ).fetchone()
+    assert facts.essential_slots == (("squat_main", ("front_squat",)),)
+    assert exemption["pattern"] == "squat"
+    assert exemption["sets"] == 2
+
+
 def test_legacy_null_snapshot_still_uses_blueprint_critique():
     with store_with(session_rows("2024-01-01")) as store:
         facts = build_facts(store.connection, "2024-01-01")
