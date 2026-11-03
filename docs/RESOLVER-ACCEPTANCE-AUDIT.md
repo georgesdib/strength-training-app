@@ -1,6 +1,7 @@
 # RESOLVER ACCEPTANCE AUDIT
 
-**Status:** closed 2026-11-03. The resolver remains off by default and is not released.
+**Status:** closed 2026-11-03. The resolver is released in v1.2.0 as an opt-in feature; the
+flag remains off by default.
 **Scope:** end-to-end production acceptance of the deterministic template resolver on
 `development`.
 
@@ -14,8 +15,8 @@ fixed:
 
 The audit also confirmed that resolver-generated snapshots, critique/exemption reads, evaluator
 output and flag-off behaviour were already covered by working contracts. The follow-up
-verification run closed the remaining automated lifecycle gates; only a manual browser smoke
-remains.
+verification run closed the remaining automated lifecycle gates. The owner validated the
+manual Workflow smoke on 2026-11-03.
 
 ## Fixes
 
@@ -39,7 +40,7 @@ remains.
 | Completed workouts/actual sets/fragments | **Passed** — top-set/back-off roles materialise into `clean_set`; resolver workout plus same-date fragment grouped correctly |
 | Top-set across prescription/execution/persistence | **Passed** — start, materialisation, persisted set groups and e1RM observations covered |
 | Malformed config/snapshot/infeasible/evaluator failures | **Passed for covered paths** |
-| Browser/manual smoke | **Not performed** |
+| Browser/manual smoke | **Passed — owner validation 2026-11-03** |
 
 ## Follow-up verification (2026-11-03)
 
@@ -55,14 +56,12 @@ remains.
 
 ## Residual release gate
 
-Only one check remains before enabling the resolver for normal use:
-
-- **manual browser Workflow smoke** — confirm group display and top-set/back-off prefill through
-the actual UI.
+None. The owner accepted the manual Workflow smoke on 2026-11-03. The resolver is released in
+v1.2.0 as an opt-in feature; enabling it remains an explicit Settings choice and the default
+flag stays off.
 
 ## Closure
 
-The audit is closed as of 2026-11-03. No P0/P1/P2 implementation item and no automated acceptance
-gate remains open. The resolver remains opt-in and off by default. Production enablement is still
-gated only by the manual browser smoke. See [ROADMAP.md](../ROADMAP.md) §4.25 and
-[PROGRAMME-BUILDER-PLAN.md](PROGRAMME-BUILDER-PLAN.md).
+The audit is closed as of 2026-11-03. No P0/P1/P2 implementation, automated acceptance or manual
+validation item remains open. The resolver is part of v1.2.0 and remains opt-in. See
+[ROADMAP.md](../ROADMAP.md) §4.25 and [PROGRAMME-BUILDER-PLAN.md](PROGRAMME-BUILDER-PLAN.md).

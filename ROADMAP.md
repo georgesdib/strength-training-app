@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-11-03 · **v1.1 beta.2 released; v1.2 planned** · version `1.1.0b2`
+Last updated: 2026-11-03 · **v1.2.0 released; v1.3 planned** · version `1.2.0`
 
 
 ---
@@ -50,9 +50,9 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v0.4 | Audit, documentation and form closeout | **done 2026-10-25** | form assessment/prospective follow-up, fatigue diagnostic closure, UI documentation P0–P4, parent-ratio evidence review, weakness test plan, calibration milestone (§4.22) |
 | v1.0 beta | Workable app + guided Workflow UI | **released 2026-10-27** | full strength loop, guided readiness → preview → workout → post-workout, effective volume accounting, template editor, schedule fallback/rebalance; user testing in progress |
 | v1.1 beta | Performance + monitoring analysis | **released 2026-10-31 (b2); b1 2026-10-30** | raw e1RM Performance view, rolling median, breaks, degraded observations, dose, configured relative-strength ratios, read-only monitoring analysis, calibration transparency; Phase 5A review follow-up |
-| v1.2 | Beta removal + cardio + calibration depth | **planned; plan at §4.13a** | drop the beta label after user testing; pending: cardio capture audit, reproducible impulse, shadow cardio load (§4.13); comparable calibration depth (§4.14) |
+| v1.2 | Stable release + opt-in resolver | **released 2026-11-03** | beta label removed; deterministic template resolver shipped as opt-in (`resolver.enabled` default false) with acceptance audit closed; cardio depth, reproducible impulse/shadow load and comparable calibration depth deferred to v1.3 (§4.13a/§4.14) |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
-| future | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03 and merged to `development` 2026-11-03; 4C audit remediation 2026-11-02; Step 5 remediation 2026-11-03; Step 6 audit remediation 2026-11-03; not released, flag off** | plan and confirmed decisions at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
+| — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
@@ -82,15 +82,17 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v0.4 | audit/documentation/form closeout: form assessment, fatigue diagnostic, UI docs P0–P4, ratio review, weakness plan, calibration milestone | **done 2026-10-25** |
 | v1.0 beta | workable app, guided Workflow UI and the current strength/volume feature set | **released 2026-10-27; beta** |
 | v1.1 beta | monitoring and Performance surfaces | **released 2026-10-31 (b2); beta** |
-| v1.2 | beta removal plus cardio depth and comparable calibration data | **planned; see §4.13a** |
+| v1.2 | beta removal plus opt-in deterministic resolver | **released 2026-11-03; stable** |
+| v1.3 | cardio depth, reproducible cardio impulse/shadow load and comparable calibration data | **planned; see §4.13a/§4.14** |
 | — | training-day session fragments | **done 2026-11-01** (see §4.27) |
 | — | post-workout form assessment | **done 2026-10-25** |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional (§4.24)** |
 
 **Rule:** cardio work does not enter v0.3; video is descoped. The strength model (§4.16) is
 strength-only and closed with v0.3. Audit/documentation/form closeout is v0.4. v1.0 is the beta
-release for user testing; v1.1 is the monitoring beta; v1.2 is planned to drop the beta label
-and add cardio depth and comparable calibration data.
+release for user testing; v1.1 is the monitoring beta; v1.2.0 is the stable release that removes
+the beta label and ships the resolver as an opt-in feature. Cardio depth and comparable
+calibration data move to v1.3.
 
 ### What works end to end today
 
@@ -680,7 +682,7 @@ load and never replaces the global readiness score; see [`docs/LIFT-READINESS.md
 define a standardised velocity check at a fixed load, collect measured e1RM tests for a better
 trend, then test prospectively whether a low per-lift score predicts a missed rep or a worse
 session. Do not change the load policy from this score until that validation exists. Not
-scheduled; it is not part of v1.2.
+scheduled; it is not part of v1.3.
 
 #### 4.9.3 Learned weights — closed
 
@@ -829,7 +831,7 @@ Acceptance: `strength-coach continuity` and `GET /api/continuity` show observed 
 the fixed rule; the minimum-data rule is explicit; a sparse band keeps the fixed factor; a
 well-observed band applies the calibrated factor; the prescription cites the applied rule.
 
-### 4.13 Cardio workouts and an impulse fatigue model  (capture v0.2 done; cardio model v1.2; strength model is §4.16)
+### 4.13 Cardio workouts and an impulse fatigue model  (capture v0.2 done; cardio model v1.3; strength model is §4.16)
 
 The app currently measures resistance training only. Cardio is a separate exposure with a
 different fatigue signature, and a single "fatigue score" would hide that. This item adds the
@@ -902,7 +904,7 @@ method; the fatigue state is displayed with inputs and time constants; a shadow 
 no prescription; constraints and injury ceilings remain vetoes; no cardio session silently
 counts as resistance volume or vice versa.
 
-### 4.13a v1.2 plan — cardio depth and calibration  (approved 2026-10-25)
+### 4.13a v1.3 plan — cardio depth and calibration  (deferred from v1.2; approved 2026-10-25)
 
 **Goal:** make cardio a first-class, reproducible exposure; add only a shadow cardio-load
 context; and deepen calibration enough to decide whether any rubric definition should change.
@@ -971,7 +973,7 @@ These are planning windows, not promises; missing data pauses the dependent phas
 3. Add the A2 impulse contract and fixed test cases before any model work.
 4. Keep collecting live workouts and per-rep data for B0 in parallel.
 
-### 4.14 Labelled calibration set  (v1.2; moved from v0.3)
+### 4.14 Labelled calibration set  (v1.3; deferred from v1.2, moved from v0.3)
 
 No code. Continue reviewing sessions while they are fresh; the rubric report needs roughly ten
 *remembered* sessions per item before changing a definition or weight (DEC-EVAL-03,
@@ -1203,8 +1205,8 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | P2 | Step 8 effective-set accounting | **implemented and live 2026-10-27** — 0.25 map, target 68.25, landmarks unscaled, effective budget/ledger, raw UI column, `hard`/`effective` switch; rollback one profile change (VOLUME-MODULATION-PLAN §15–16) |
 | P2 | Volume modulation: weekly target + session cap | **complete/closed 2026-10-27** — steps 1, 2, 2b, 9a and 9b implemented: read-only budget, per-group accessory budget behind the off-by-default profile flag (`MOD-VOL-003`, constitution 1.17.0), opt-in main-lift `reduce`, compensation preview, and opt-in additive compensation application (`MOD-VOL-004`, executable load required, high-band guarded); **9c-1 drop engine** and **9c-2 identity/UX** implemented (labels/API/UI, startable empty technique, derived review, forecast actual types, migration 0038; `MOD-VOL-005`/constitution 1.18.0); **9c-3 confirmation/settings** implemented (Settings/API, local overlay, per-session confirmation); **7a settings registry/snapshot** implemented (deload reactive constants moved to config); **step 4 settings profile** implemented (append-only versions, budget wiring, snapshots); **7b profile-backed feature wiring** implemented (DUP, deload, volume, readiness, e1RM, plausibility); **step 5 Settings UI/guarded settings** implemented; **5b modality registry/UI** implemented (11 modules, CLI/API/UI parity); **step 6 budget-aware forecast/weekly panels**, **5c remaining modules** and **step 8 effective-set accounting** implemented and live; the plan is closed. Step 3 is a standing Today-page review follow-up, not a plan milestone. The programme forecast now supports 1–5 sessions/week; 4 uses Mon/Wed/Fri/Sun and 5 uses Mon/Tue/Thu/Fri/Sun. Design in `docs/VOLUME-MODULATION-PLAN.md` |
 | v1.1 | Fatigue signals: exposure, substitution, advisories | **Phase 0 done 2026-10-28** (five decisions; `docs/FATIGUE-SIGNALS.md`, `docs/EXERCISE-DEMANDS.md`). **Phase 1 done 2026-10-28**: `config/exercises/demands.v1.yaml` populated for **28/63** reachable ids (4 in-scope dimensions at 55.6 % known, 2 `supported` claims, 4 evidence entries). **Rating path done 2026-10-28**: git-ignored `config/exercises/demands.local.yaml` overlay merged over the reviewed file, with `exercise demands report|unrated|set|clear` and automatic rollback on a rejected write (digest covers both files). **Phase 2 done 2026-10-28**: `features/exposure.py` (7/28-day ratio, coverage, gap/deload/break abstention, exposure dedup, per-group ratios), `exposure ratio` CLI, `GET /api/exposure`, Prescribe **Exposure ratio** panel and the Part D low-exposure advisory; report-only, trim not implemented. **Demand display done 2026-10-28**: Exercises rows show `rated/4` and the details dialog shows the profile with confidence, reason, catalogue digest and overlay state; the same form rates or clears a dimension (`POST /api/exercises/demands`, same `set_claim` as the CLI). **Phase 3 done 2026-10-28**: `MOD-EXP-001` (constitution 1.20.0) trims at most one non-essential accessory set per affected group (≤2/session, floor 1) when `athlete_profile.exposure_trim_enabled` is on (default off), skipping main lifts, essential items, readiness cuts and under-MEV additions; `shadow_decision` table + repository exist (append-only triggers). Shadow writes and the review report land in Phase 6 so forecast builds never write rows. **Phase 4 done 2026-10-28**: `prescribe/fatigue_selection.py` suggests at most one accessory substitution when the exposure signal is high, the candidate is A/B comparable, covers the current lift's primary muscles and is rated strictly lower on an in-scope demand dimension; `GET /api/substitution`, the Exercise-selection panel block and `select --fatigue` expose it. Suggest-only; abstains when the trim already acted or the metadata is unknown. **Phase 5 done 2026-10-28**: `features/residual.py` computes the VBT-only execution residual (observed minus prescribed velocity) from linked workout sets, lift-scoped, 84-day window, with the ≥5 signal and ≥20/8-week/two-lift evaluation gates; `residual`, `GET /api/residual` and the Prescribe panel expose it. Shadow only. **Phase 6 done 2026-10-28**: `prescribe/shadow.py` writes exposure + substitution rows only when a prescription is persisted; `features/shadow_report.py` and `shadow`/`GET /api/shadow`/Prescribe **Shadow review** expose counts, abstentions, conflicts and the four gate checks. The gate never enables anything (`activation_allowed: false`); the fatigue-signals specification is fully implemented. |
-| v1.2 | Cardio depth and shadow cardio load | planned (§4.13a, Q14) |
-| v1.2 | Deeper labelled calibration set | planned (§4.14) |
+| v1.3 | Cardio depth and shadow cardio load | planned (§4.13a, Q14) |
+| v1.3 | Deeper labelled calibration set | planned (§4.14) |
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
@@ -1266,7 +1268,7 @@ No implementation, no automatic substitution and no load effect follows from thi
 | Parent-variant e1RM ratios | unscheduled; display-only profile/prior, not weakness | §4.20.2; `PARENT-VARIANT-WEAKNESS-EVIDENCE.md` |
 | Weakness targeting | plan only; deferred to after v1.2 / ~April 2027 | §4.20.3, `WEAKNESS-TARGETING-PLAN.md`, Q22, DEC-SELECT-05 |
 | Selection A/B boundary (pause/narrow, SSB/high-bar) | dormant policy decision; current default is conservative (A only same exercise) | Q21, docs/SELECTION-COMPARABILITY.md |
-| Cardio model | v1.2 | §4.13, Q14 |
+| Cardio model | v1.3 | §4.13, Q14 |
 | Low-bar competition squat and the weekly spinal cap | **closed 2026-10-25**: counts cost 1; cap raised 3 → 6; bench+hinge uses sumo 2.5 | `DEC-SPINE-05`, Q24, LIM-44 |
 
 ### 4.21 Live workout mode  (v0.3, CLOSED 2026-10-23)
@@ -1305,10 +1307,10 @@ not the cardio release and does not implement weakness targeting.
 | Naming/consistency | legacy A/B/C wording removed; docs/test counts reconciled | commits c0c8d80..83c0180 |
 
 **Not in v0.4:** cardio prescription/model, comparable calibration depth, weakness targeting,
-parent-ratio implementation, and any new model load effect. Those move to v1.2 or remain
+parent-ratio implementation, and any new model load effect. Those move to v1.3 or remain
 unscheduled.
 
-**v1.2:** see §4.13a. First actions are the cardio data audit, capture completion, impulse
+**v1.3:** see §4.13a. First actions are the cardio data audit, capture completion, impulse
 contract, and comparable workout data collection.
 
 ### 4.23 Nicer UI, adherence encouragement and KPIs  (future; not scheduled)
@@ -1375,7 +1377,7 @@ framework.
 | 5 | Opt-in approval + evaluation: diff UI/CLI, explicit approval, provenance, shadow/opt-in gates; no selector work | phase 4; phase 1b; approved gates; privacy review | **planned** |
 | exit | Iteration 1 exit gate: selector retired; analyst/explainer accepted; proposer shadow/opt-in gates green; no-LLM path tested | phases 1, 1b and 2–5 | **gate** |
 
-**Dependency order:** v1.2 cardio/calibration work, then phase 1, then 2 → 3 → 4 → 5; phase 1b
+**Dependency order:** v1.3 cardio/calibration work, then phase 1, then 2 → 3 → 4 → 5; phase 1b
 runs after phase 1, in parallel with 2/3 if useful, and must finish before the Iteration 1 exit.
 No capability code starts before the owner approves its contracts. Phases 4–5 do not run on
 sessions already downgraded by a safety modifier (`DEC-LLM-04`); any relaxation is a new
@@ -1466,9 +1468,9 @@ complete 2026-11-01; (4) joint evaluator and pipeline integration, 4A–4C compl
 feature/template-resolver branch, merged to `development` on 2026-11-03. LLM assistance
 remains deferred to §4.24 until the deterministic resolver is accepted.
 
-Implementation is merged to `development` as of 2026-11-03; it is not released. With the
-resolver flag off, the existing template pathway, golden prescriptions and /api/programme
-forecast remain unchanged.
+Implementation is released in **v1.2.0** as an opt-in feature. With the resolver flag off
+(default), the existing template pathway, golden prescriptions and /api/programme forecast
+remain unchanged.
 
 **Acceptance audit:** closed 2026-11-03. The read-only lifecycle audit found no P0 defects;
 its P1/P2 findings (Workflow set-group execution and plan/snapshot validation) were fixed in
@@ -1476,9 +1478,9 @@ its P1/P2 findings (Workflow set-group execution and plan/snapshot validation) w
 [`docs/RESOLVER-ACCEPTANCE-AUDIT.md`](docs/RESOLVER-ACCEPTANCE-AUDIT.md).
 
 Follow-up verification is complete: deload/top-set, drop contract, same-date fragments, top-set
-e1RM, evaluator-to-persisted-plan equality, regression/slow (26 passed) and integration (15
-passed) are closed. The only remaining release gate is a **manual browser Workflow smoke**.
-No resolver implementation or documentation item remains open.
+e1RM, evaluator-to-persisted-plan equality, regression/slow (26 passed), integration (15 passed)
+and the owner's manual browser Workflow validation are closed. No resolver implementation,
+documentation or acceptance item remains open.
 
 ### 4.26 Symptom attribution and injury-signal verification  (closed 2026-11-01)
 
@@ -1545,7 +1547,7 @@ and is not a reason to reopen it.
 
 This section keeps **no list**. Every accepted limitation is registered with an id, a status and
 a "revisit when" in [`docs/LIMITATIONS-REGISTER.md`](docs/LIMITATIONS-REGISTER.md); forward-looking
-work lives in §4.19 and the v1.2 plan in §4.13a. The table that used to sit here was folded into
+work lives in §4.19 and the v1.3 plan in §4.13a. The table that used to sit here was folded into
 that register on 2026-10-26 — `LIM-45`–`LIM-49` are its new rows, and the rest already existed
 (`LIM-07`/`LIM-10` duration and timestamps, `LIM-14` spinal cost, `LIM-24`/`LIM-43` e1RM bias).
 Two rows that described *planned work* were not limitations and did not move: calibration

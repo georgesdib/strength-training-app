@@ -13,11 +13,11 @@ the system must still emit a safe, valid prescription.
 
 ## 2. Current status — read this first
 
-**v1.1 beta.2 is released; v1.2 is planned.** v1.0 packaged the workable app and guided Workflow
-UI for user testing. v1.1 beta adds the Performance, monitoring-analysis, configuration and
-report-control surfaces. v1.2 is
-planned to drop the beta label; cardio depth and comparable calibration data remain (see
-ROADMAP §4.13a/§4.14).
+**v1.2.0 is released; v1.3 is planned.** The beta label is removed. v1.0 beta packaged the
+workable app and v1.1 beta added the monitoring/Performance surfaces. The deterministic template
+resolver is available as an opt-in feature (`resolver.enabled=false` by default) with its
+acceptance audit closed. Cardio depth, a reproducible cardio impulse/shadow load and comparable
+calibration data are deferred to v1.3 (see ROADMAP §4.13a/§4.14).
 
 **Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
 and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
