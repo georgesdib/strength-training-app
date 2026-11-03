@@ -13,8 +13,9 @@ fixed:
 2. Plans were not validated for set-group structure before workout start or prescription append.
 
 The audit also confirmed that resolver-generated snapshots, critique/exemption reads, evaluator
-output and flag-off behaviour were already covered by working contracts, while several lifecycle
-combinations remain unverified.
+output and flag-off behaviour were already covered by working contracts. The follow-up
+verification run closed the remaining automated lifecycle gates; only a manual browser smoke
+remains.
 
 ## Fixes
 
@@ -23,6 +24,8 @@ combinations remain unverified.
 | `7d7ab3a` | Made top-set preservation an invariant; retired the unsupported non-preserving option. |
 | `8a63212` | Rendered/prefilled set groups in Workflow; validated group totals/roles before start and persistence; cleared stale groups on exercise swap; resized groups on set edits; validated snapshots before append. |
 | `4dd1705` | Added resolver top-set lifecycle, snapshot-provenance, modifier-composition and HTTP adversarial tests. |
+| `dd11787` | Gated the Prescribe top-set control by `resolver.top_set.mode`; recorded the audit closure. |
+| `a6d9d8c` | Added the remaining deload, same-date fragment, e1RM and evaluator/persisted-plan release-gate tests. |
 
 ## Acceptance matrix
 
@@ -30,30 +33,36 @@ combinations remain unverified.
 |---|---|
 | Resolver-disabled equivalence | **Passed** |
 | Eligibility/pattern/injury/suitability/structure | **Passed for covered contracts** |
-| Readiness/deload/spinal/volume/modifiers exactly once | **Partially verified** — top-set + volume budget + minimum session covered; deload/drop combinations still release gates |
-| Evaluator/final prescription agreement | **Passed for covered contracts**; field-by-field persisted comparison remains a release gate |
-| Snapshot reproducibility after policy/catalogue change | **Passed** for reads not consulting current policy; catalogue mutation remains a release gate |
-| Completed workouts/actual sets/fragments | **Partially verified** — top-set/back-off roles materialise into `clean_set`; same-date resolver fragments remain a release gate |
-| Top-set across prescription/execution/persistence | **Passed for start and materialisation**; e1RM/performance analytics remains a release gate |
+| Readiness/deload/spinal/volume/modifiers exactly once | **Passed** — top-set + volume budget + minimum session and deload + top set covered; drop contract covered |
+| Evaluator/final prescription agreement | **Passed** — evaluator fields compared with persisted `prescription_item` rows |
+| Snapshot reproducibility after policy/catalogue change | **Passed** — historical snapshot reads did not consult current policy; catalogue mutation remains a release gate |
+| Completed workouts/actual sets/fragments | **Passed** — top-set/back-off roles materialise into `clean_set`; resolver workout plus same-date fragment grouped correctly |
+| Top-set across prescription/execution/persistence | **Passed** — start, materialisation, persisted set groups and e1RM observations covered |
 | Malformed config/snapshot/infeasible/evaluator failures | **Passed for covered paths** |
 | Browser/manual smoke | **Not performed** |
 
-## Residual release gates
+## Follow-up verification (2026-11-03)
 
-These are not unresolved audit findings. They are checks required before enabling the resolver for
-normal use:
+| Check | Result |
+|---|---|
+| Deload + top set | **Passed** — top set suppressed, straight sets remain, plan executable |
+| Drop / volume-fill resolver path | **Passed** — existing explicit no-feasible-assignment contract |
+| Resolver workout + same-date fragment | **Passed** — one training day with two active fragments |
+| Top-set e1RM/performance | **Passed** — e1RM observations produced from materialised sets |
+| Evaluator ↔ persisted plan equality | **Passed** — sets, load and set groups compared |
+| Regression / slow layers | **Passed** — 26 tests |
+| Integration layer | **Passed** — 15 tests |
 
-- resolver + deload + top set;
-- resolver + drop/volume-fill;
-- resolver-generated workout plus imported/live same-date fragments;
-- top-set actual sets in e1RM/performance summaries;
-- full evaluator-to-persisted-plan field equality;
-- optional integration/regression/slow layers;
-- manual browser Workflow smoke.
+## Residual release gate
+
+Only one check remains before enabling the resolver for normal use:
+
+- **manual browser Workflow smoke** — confirm group display and top-set/back-off prefill through
+the actual UI.
 
 ## Closure
 
-The audit is closed as of 2026-11-03. No P0/P1/P2 implementation item remains open, and the
-resolver remains opt-in and off by default. Production enablement is still gated by the residual
-release checks above. See [ROADMAP.md](../ROADMAP.md) §4.25 and
+The audit is closed as of 2026-11-03. No P0/P1/P2 implementation item and no automated acceptance
+gate remains open. The resolver remains opt-in and off by default. Production enablement is still
+gated only by the manual browser smoke. See [ROADMAP.md](../ROADMAP.md) §4.25 and
 [PROGRAMME-BUILDER-PLAN.md](PROGRAMME-BUILDER-PLAN.md).

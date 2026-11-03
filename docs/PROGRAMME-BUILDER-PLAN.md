@@ -1159,9 +1159,9 @@ generator and top set work end-to-end; the feature can be disabled without data 
 (merge commit `4842fa0`). The final acceptance run covered the default suite, prescription
 goldens, flag-off equivalence, snapshot validation/legacy fallback, critique/top-set/volume
 exemptions, settings registry/API/UI and preview-to-frozen-workout start. No implementation or
-documentation item remains open. A manual live-browser smoke remains an acceptance check, not
-unresolved resolver work. The final audit closure and residual release gates are recorded in
-[`RESOLVER-ACCEPTANCE-AUDIT.md`](RESOLVER-ACCEPTANCE-AUDIT.md).
+documentation item remains open. A manual live-browser smoke remains the only acceptance check, not
+unresolved resolver work. The final audit closure and completed automated verification are
+recorded in [`RESOLVER-ACCEPTANCE-AUDIT.md`](RESOLVER-ACCEPTANCE-AUDIT.md).
 
 **Implementation note (2026-11-03):** resolver-generated prescriptions now persist a `slots`
 array alongside the assignment: slot id, chosen exercise, original sets/reps/RIR/rest, essential

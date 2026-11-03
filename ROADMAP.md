@@ -1475,10 +1475,10 @@ its P1/P2 findings (Workflow set-group execution and plan/snapshot validation) w
 `7d7ab3a`, `8a63212` and `4dd1705`. The closure record and residual release gates are in
 [`docs/RESOLVER-ACCEPTANCE-AUDIT.md`](docs/RESOLVER-ACCEPTANCE-AUDIT.md).
 
-Residual release gates before enabling the resolver by default: deload/drop combinations,
-same-date fragments, top-set e1RM/performance analytics, full evaluator-to-persisted-plan field
-equality, the optional test layers and a manual browser Workflow smoke. No resolver
-implementation or documentation item remains open.
+Follow-up verification is complete: deload/top-set, drop contract, same-date fragments, top-set
+e1RM, evaluator-to-persisted-plan equality, regression/slow (26 passed) and integration (15
+passed) are closed. The only remaining release gate is a **manual browser Workflow smoke**.
+No resolver implementation or documentation item remains open.
 
 ### 4.26 Symptom attribution and injury-signal verification  (closed 2026-11-01)
 
