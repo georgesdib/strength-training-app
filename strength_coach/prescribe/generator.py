@@ -14,7 +14,7 @@ import datetime as dt
 import json
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import pandas as pd
@@ -87,6 +87,10 @@ class CandidatePools:
     main_slot: templates.Slot | None
     policy_digest: str
     catalogue_digest: str
+    required_patterns: tuple[str, ...] = ()
+    candidate_patterns: Mapping[str, Mapping[str, str | None]] = field(
+        default_factory=dict
+    )
     warnings: tuple[str, ...] = ()
 
 
@@ -411,6 +415,14 @@ def candidate_pools(
         main_slot=main_slot,
         policy_digest=policy.digest,
         catalogue_digest=catalogue_digest,
+        required_patterns=_required_pattern_keys(policy, session_type),
+        candidate_patterns={
+            slot.id: {
+                exercise_id: _pattern_key(exercise_id, taxonomy)
+                for exercise_id in ordered[slot.id]
+            }
+            for slot in template.slots
+        },
     )
 
 
@@ -440,6 +452,13 @@ def _patterns_assignable(
         return False
 
     return all(assign(key, set()) for key in required)
+
+
+def patterns_assignable(
+    required: Sequence[str], patterns_by_slot: Mapping[str, set[str]]
+) -> bool:
+    """Public structural matching contract shared with the bounded beam."""
+    return _patterns_assignable(required, patterns_by_slot)
 
 
 def _structure_check(

@@ -255,6 +255,63 @@ def test_beam_rejects_malformed_candidate_ids(bad) -> None:
         )
 
 
+def _structural_fixture():
+    return SimpleNamespace(
+        slots=(SimpleNamespace(id="first"), SimpleNamespace(id="second"))
+    )
+
+
+def _feasible_evaluator(conn, *, assignment, **kwargs):
+    return SimpleNamespace(
+        assignment=tuple(assignment.items()),
+        score=0.0,
+        feasible=True,
+        prescription=None,
+    )
+
+
+def test_beam_prunes_structural_dead_ends_before_width() -> None:
+    result = beam.search(
+        None,
+        for_date="2026-11-01",
+        base_template=_structural_fixture(),
+        candidates={"first": ("a_x", "a_y"), "second": ("b_x",)},
+        structure=beam.BeamStructure(
+            required_patterns=("x", "y"),
+            patterns_by_slot={
+                "first": {"a_x": "x", "a_y": "y"},
+                "second": {"b_x": "x"},
+            },
+        ),
+        config=beam.BeamConfig(width=1),
+        evaluator=_feasible_evaluator,
+    )
+    assert result.best is not None
+    assert dict(result.best.assignment) == {"first": "a_y", "second": "b_x"}
+    assert result.structural_pruned >= 1
+
+
+def test_candidate_cap_retains_structurally_required_candidates() -> None:
+    result = beam.search(
+        None,
+        for_date="2026-11-01",
+        base_template=_structural_fixture(),
+        candidates={"first": ("a_x", "a_y"), "second": ("b_x",)},
+        structure=beam.BeamStructure(
+            required_patterns=("x", "y"),
+            patterns_by_slot={
+                "first": {"a_x": "x", "a_y": "y"},
+                "second": {"b_x": "x"},
+            },
+        ),
+        config=beam.BeamConfig(max_candidates_per_slot=1),
+        evaluator=_feasible_evaluator,
+    )
+    assert result.best is not None
+    assert dict(result.best.assignment) == {"first": "a_y", "second": "b_x"}
+    assert result.candidate_cap_applied is True
+
+
 def test_beam_default_budget_is_reachable() -> None:
     assert beam.DEFAULT_FULL_EVALUATION_BUDGET == beam.DEFAULT_BEAM_WIDTH
 

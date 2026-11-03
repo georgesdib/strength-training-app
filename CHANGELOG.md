@@ -40,7 +40,9 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 - Deterministic template resolver **Step 4C remediation**: explicit `use_resolver=True` now
   fails when the resolver is disabled or a template is supplied; scheduler availability uses the
   same automatic-candidate classification and slot-aware required-pattern matching as candidate
-  pools; the persisted resolver fingerprint is a documented canonical `prescription-input-v3`
+  pools; the bounded beam tracks required-pattern coverage while expanding partials and retains
+  structurally necessary candidates before applying the slot cap; the persisted resolver
+  fingerprint is a documented canonical `prescription-input-v3`
   audit hash including effective beam configuration; resolver failures carry a stable
   stage/cause/beam diagnostic, evaluator exceptions are classified separately, required
   patterns are enforced on complete assignments and at final integrity, and public flag-off

@@ -4,9 +4,10 @@ Step 4B is the search layer only. Candidate pools are supplied by the caller (la
 generator); this module keeps partial assignments by a cheap deterministic candidate-rank order,
 then runs the real read-only evaluator only on the final beam. The final build remains Step 4C.
 
-This is not a globally optimal search and does not score partial prescriptions. Its partial
-pruning is candidate rank order; only the final complete assignments receive the real pipeline
-score.
+This is not a globally optimal search and does not score partial prescriptions. When structural
+metadata is supplied, partial expansion tracks required-pattern coverage and prunes only branches
+that can no longer satisfy the policy; beam-width pruning then applies to the structurally viable
+set. Only final complete assignments receive the real pipeline score.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from strength_coach.prescribe.evaluator import (
     candidate_ids,
     evaluate_assignment,
 )
+from strength_coach.prescribe.generator import patterns_assignable
 
 DEFAULT_BEAM_WIDTH = 4
 DEFAULT_CANDIDATE_CAP = 6
@@ -61,7 +63,8 @@ class BeamResult:
     best is None when no evaluated assignment is feasible; diagnostic then preserves the best
     scored result for the caller, but it is never a successful generated session. truncated
     means a candidate cap or the full-evaluation budget removed options; partial beam pruning is
-    counted separately by pruned.
+    counted separately by pruned, and structural dead ends by structural_pruned. Candidate cap
+    selection retains candidates needed for required-pattern coverage before other truncation.
     """
 
     best: AssignmentEvaluation | None
@@ -72,6 +75,7 @@ class BeamResult:
     candidate_cap_applied: bool
     evaluation_budget_applied: bool
     candidate_ids_removed: int
+    structural_pruned: int
     final_assignments_pruned: int
     exhaustive: bool
     reason: str
@@ -85,6 +89,7 @@ class BeamResult:
             "evaluated": len(self.evaluated),
             "pruned": self.pruned,
             "candidate_ids_removed": self.candidate_ids_removed,
+            "structural_pruned": self.structural_pruned,
             "final_assignments_pruned": self.final_assignments_pruned,
             "candidate_cap_applied": self.candidate_cap_applied,
             "evaluation_budget_applied": self.evaluation_budget_applied,
@@ -95,17 +100,31 @@ class BeamResult:
 
 
 @dataclass(frozen=True)
+class BeamStructure:
+    """Required-pattern metadata used for partial-assignment feasibility.
+
+    patterns_by_slot maps each slot to candidate -> materialised pattern key. It is supplied by
+    the generator so the beam shares the same structural vocabulary as candidate-pool feasibility.
+    """
+
+    required_patterns: tuple[str, ...]
+    patterns_by_slot: Mapping[str, Mapping[str, str | None]]
+
+
+@dataclass(frozen=True)
 class _Partial:
     assignment: tuple[tuple[str, str], ...]
     order_cost: int
     ranks: tuple[int, ...]
+    covered: frozenset[int] = frozenset()
 
 
 def _slot_candidates(
     slot,
     candidates: Mapping[str, Sequence[str]],
     cap: int,
-) -> tuple[tuple[str, ...], int]:
+    structure: BeamStructure | None,
+) -> tuple[tuple[str, ...], int, bool]:
     raw = candidates.get(slot.id)
     if raw is None:
         raise BeamEligibilityError(slot.id, "eligible candidate pool is missing")
@@ -113,7 +132,23 @@ def _slot_candidates(
         unique = candidate_ids(raw, where=f"slot {slot.id!r}")
     except ValueError as exc:
         raise BeamEligibilityError(slot.id, str(exc)) from exc
-    return tuple(unique[:cap]), max(0, len(unique) - cap)
+
+    selected_indices = set(range(min(cap, len(unique))))
+    if structure is not None:
+        patterns = structure.patterns_by_slot.get(slot.id, {})
+        for pattern in structure.required_patterns:
+            if any(patterns.get(unique[index]) == pattern for index in selected_indices):
+                continue
+            for index, exercise_id in enumerate(unique):
+                if patterns.get(exercise_id) == pattern:
+                    selected_indices.add(index)
+                    break
+    selected = [unique[index] for index in sorted(selected_indices)]
+    return (
+        tuple(selected),
+        max(0, len(unique) - len(selected)),
+        len(unique) > cap,
+    )
 
 
 def search(
@@ -123,6 +158,7 @@ def search(
     base_template,
     candidates: Mapping[str, Sequence[str]],
     config: BeamConfig | None = None,
+    structure: BeamStructure | None = None,
     inputs: EvaluationInputs | None = None,
     evaluator: Callable[..., AssignmentEvaluation] = evaluate_assignment,
     evaluator_kwargs: Mapping[str, Any] | None = None,
@@ -143,29 +179,101 @@ def search(
     if unknown:
         raise ValueError(f"unknown slot(s) in candidates: {sorted(unknown)}")
 
-    beam: list[_Partial] = [_Partial((), 0, ())]
-    pruned = 0
+    required = structure.required_patterns if structure is not None else ()
+    slot_specs = []
     candidate_ids_removed = 0
+    candidate_cap_applied = False
     for slot in base_template.slots:
-        slot_candidates, removed = _slot_candidates(
-            slot, candidates, cfg.max_candidates_per_slot
+        slot_candidates, removed, capped = _slot_candidates(
+            slot, candidates, cfg.max_candidates_per_slot, structure
         )
+        slot_specs.append((slot, slot_candidates))
         candidate_ids_removed += removed
+        candidate_cap_applied = candidate_cap_applied or capped
+
+    capped_patterns: dict[str, set[str]] = {}
+    capped_lookup: dict[str, dict[str, str | None]] = {}
+    if structure is not None:
+        for slot, slot_candidates in slot_specs:
+            candidate_patterns = structure.patterns_by_slot.get(slot.id, {})
+            capped_lookup[slot.id] = {
+                exercise_id: candidate_patterns.get(exercise_id)
+                for exercise_id in slot_candidates
+            }
+            capped_patterns[slot.id] = {
+                pattern
+                for pattern in capped_lookup[slot.id].values()
+                if pattern is not None
+            }
+        if not patterns_assignable(required, capped_patterns):
+            raise BeamError(
+                "candidate pools cannot satisfy required patterns after truncation"
+            )
+
+    beam: list[_Partial] = [_Partial((), 0, (), frozenset())]
+    pruned = 0
+    structural_pruned = 0
+    for position, (slot, slot_candidates) in enumerate(slot_specs):
         expanded: list[_Partial] = []
         for partial in beam:
             for rank, exercise_id in enumerate(slot_candidates):
+                covered = partial.covered
+                if structure is not None:
+                    pattern = capped_lookup[slot.id].get(exercise_id)
+                    if pattern is not None:
+                        for required_index, required_pattern in enumerate(required):
+                            if (
+                                required_index not in covered
+                                and required_pattern == pattern
+                            ):
+                                covered = covered | {required_index}
+                                break
                 expanded.append(
                     _Partial(
                         partial.assignment + ((slot.id, exercise_id),),
                         partial.order_cost + rank,
                         partial.ranks + (rank,),
+                        covered,
                     )
                 )
+        if structure is not None:
+            future_patterns = {
+                future.id: capped_patterns[future.id]
+                for future in base_template.slots[position + 1:]
+            }
+            viable: list[_Partial] = []
+            for item in expanded:
+                outstanding = [
+                    required[index]
+                    for index in range(len(required))
+                    if index not in item.covered
+                ]
+                if patterns_assignable(outstanding, future_patterns):
+                    viable.append(item)
+                else:
+                    structural_pruned += 1
+            expanded = viable
         expanded.sort(
             key=lambda item: (item.order_cost, item.ranks, item.assignment)
         )
         pruned += max(0, len(expanded) - cfg.width)
         beam = expanded[: cfg.width]
+        if not beam:
+            raise BeamError(
+                "no partial assignment can satisfy the remaining required patterns"
+            )
+
+    if structure is not None:
+        before = len(beam)
+        beam = [
+            item for item in beam
+            if len(item.covered) == len(required)
+        ]
+        structural_pruned += before - len(beam)
+        if not beam:
+            raise BeamError(
+                "no complete assignment satisfies the required patterns"
+            )
 
     final_assignments_pruned = max(0, len(beam) - cfg.max_full_evaluations)
     evaluation_budget_applied = final_assignments_pruned > 0
@@ -223,6 +331,8 @@ def search(
         reason = f"selected a feasible assignment from {len(evaluated)} evaluated"
     if pruned:
         reason += f"; {pruned} partial assignment(s) pruned by beam width"
+    if structural_pruned:
+        reason += f"; {structural_pruned} partial assignment(s) pruned as structurally impossible"
     if candidate_ids_removed:
         reason += f"; {candidate_ids_removed} candidate(s) removed by slot cap"
     if final_assignments_pruned:
@@ -240,9 +350,10 @@ def search(
         evaluated=tuple(evaluated),
         pruned=pruned,
         truncated=truncated,
-        candidate_cap_applied=candidate_ids_removed > 0,
+        candidate_cap_applied=candidate_cap_applied,
         evaluation_budget_applied=evaluation_budget_applied,
         candidate_ids_removed=candidate_ids_removed,
+        structural_pruned=structural_pruned,
         final_assignments_pruned=final_assignments_pruned,
         exhaustive=exhaustive,
         reason=reason,

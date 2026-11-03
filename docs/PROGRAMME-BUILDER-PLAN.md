@@ -1016,8 +1016,10 @@ six candidates per slot and four full evaluations (the default budget is reachab
 Missing or empty candidate pools are field-level failures; malformed or duplicate ids are
 rejected through the evaluator's shared pool validator; no blueprint fallback is allowed.
 `best` contains only a feasible assignment, and `diagnostic` preserves the best scored result
-when none is feasible. Search diagnostics distinguish partial pruning, candidate caps and final
-evaluation-budget pruning; `exhaustive` is true only when none of those removed options.
+when none is feasible. Search diagnostics distinguish structural dead-end pruning, partial width
+pruning, candidate caps and final evaluation-budget pruning; `exhaustive` is true only when none
+of those limiting options removed assignments. The beam tracks required-pattern coverage during
+expansion and retains structurally necessary candidates before applying the slot cap.
 `tests/test_evaluator.py` covers validation/parity/no-write; `tests/test_beam.py` covers
 determinism, limits, empty-pool failure, feasible alternatives, infeasible results and
 real-evaluator use. 4C below wires the generator into the production path; Step 5 UI and generated

@@ -305,6 +305,10 @@ def build_resolved(
             base_template=pools.template,
             candidates=pools.pools,
             config=effective_beam_config,
+            structure=beam_mod.BeamStructure(
+                required_patterns=pools.required_patterns,
+                patterns_by_slot=pools.candidate_patterns,
+            ),
             inputs=inputs,
             evaluator=_stage_evaluator,
         )
