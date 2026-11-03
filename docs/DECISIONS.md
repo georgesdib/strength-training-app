@@ -279,8 +279,8 @@ Numbers are never reused. Superseding a decision adds a new row; it never edits 
 
 Historical status clauses inside `DEC-RESOLVER-01` and `DEC-RESOLVER-07` describe the point at
 which those decisions were recorded. The current implementation status is tracked in
-[`ROADMAP.md`](../ROADMAP.md) §4.25: Steps 0–6 are complete on `feature/template-resolver`,
-awaiting review; the resolver flag remains off.
+[`ROADMAP.md`](../ROADMAP.md) §4.25: Steps 0–6 are complete and merged to `development`
+(2026-11-03); the resolver flag remains off.
 
 ## Open questions that are *not* decided
 

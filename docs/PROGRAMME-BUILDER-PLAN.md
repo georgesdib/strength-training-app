@@ -1156,12 +1156,12 @@ generator and top set work end-to-end; the feature can be disabled without data 
 
 **Merge gate:** final merge to development after review; no release from the feature branch.
 
-**Closure (2026-11-03):** Steps 0–6 are implemented and accepted on
-`feature/template-resolver`. The final acceptance run covered the default suite, prescription
+**Closure (2026-11-03):** Steps 0–6 are implemented, accepted and merged to `development`
+(merge commit `4842fa0`). The final acceptance run covered the default suite, prescription
 goldens, flag-off equivalence, snapshot validation/legacy fallback, critique/top-set/volume
-exemptions, settings registry/API/UI and preview-to-frozen-workout start. No implementation item
-remains open. Owner review and the final merge remain deliberate gates, not unresolved resolver
-work.
+exemptions, settings registry/API/UI and preview-to-frozen-workout start. No implementation or
+documentation item remains open. A manual live-browser smoke remains an acceptance check, not
+unresolved resolver work.
 
 **Implementation note (2026-11-03):** resolver-generated prescriptions now persist a `slots`
 array alongside the assignment: slot id, chosen exercise, original sets/reps/RIR/rest, essential
