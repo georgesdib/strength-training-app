@@ -1082,6 +1082,18 @@ def test_drop_window_endpoint_is_explicit_when_drop_mode_is_inactive(server):
     assert data["reason"] == "drop mode is not active"
 
 
+def test_resolver_panel_uses_every_registry_setting(server):
+    status, body = get(server, "/api/settings")
+    assert status == 200
+    registry = json.loads(body)["registry"]
+    resolver = [setting for setting in registry if setting["group"] == "Resolver"]
+    assert len(resolver) == 30
+    assert all(setting["key"].startswith("resolver.") for setting in resolver)
+    _status, js = get(server, "/static/settings.js")
+    assert 'setting.group === "Resolver"' in js
+    assert 'data-resolver-key' in js
+
+
 def test_settings_profile_endpoint(server):
     status, body = get(server, "/api/settings/profile?date=2024-01-01")
     assert status == 200

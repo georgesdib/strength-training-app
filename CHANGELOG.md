@@ -37,6 +37,12 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **Step 6 closure**: final documentation corrected the
+  DEC-RESOLVER-01–12 references, 30-key registry/UI count, current implementation status,
+  methodology version and forecast/default wording. Acceptance covered the default suite,
+  prescription goldens, flag-off equivalence, snapshot validation/legacy fallback,
+  critique/top-set/volume exemptions, settings registry/API/UI and preview-to-frozen-workout
+  start. Owner review/merge and a manual browser smoke remain the only open acceptance items.
 - Deterministic template resolver **Step 6 audit remediation**: generated slot snapshots are
   strictly validated (required fields/types/ranges, unique slot ids and exercise assignments,
   assignment completeness); malformed payloads raise instead of silently using the blueprint,

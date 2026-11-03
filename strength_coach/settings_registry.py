@@ -299,10 +299,10 @@ def _definitions() -> tuple[SettingDefinition, ...]:
         _d("high_intensity.override", "Exposure", "Exposure guard", "table", {},
            "high-intensity-exposure.v1.yaml", "guarded_safety",
            "Guarded lookback, symptom window and per-kind exposure windows."),
-        # Resolver scalar tunables (Step 1). Structural pools/patterns live in
+        # Resolver scalar tunables. Structural pools/patterns live in
         # config/template-resolver.v1.yaml; these values are append-only profile settings so a
-        # change is effective-dated and auditable. The generator does not read them until the
-        # flag is enabled in Step 2.
+        # change is effective-dated and auditable. The generator reads them when the flag is
+        # enabled; the default false preserves the fixed-template path.
         _d("resolver.enabled", "Resolver", "Dynamic session generation", "bool", False,
            "settings profile (registry defaults)", "prescription_policy",
            "Enable the deterministic generator; off keeps the fixed templates."),

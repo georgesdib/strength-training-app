@@ -9,7 +9,7 @@ from types import MappingProxyType, SimpleNamespace
 import pytest
 from conftest import make_readiness, make_training
 
-from strength_coach import settings_profile
+from strength_coach import settings_profile, workout
 from strength_coach.features import programme
 from strength_coach.prescribe import (
     build_prescription,
@@ -173,6 +173,41 @@ def test_enabled_resolver_rejects_selection_override(monkeypatch) -> None:
             assert "cannot apply selection" in str(exc)
         else:
             raise AssertionError("resolver must reject selection override")
+
+
+def test_preview_payload_freezes_into_workout_start(monkeypatch) -> None:
+    _without_required_patterns(monkeypatch)
+    with store() as instance:
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
+            effective_from="2024-01-01",
+        )
+        monkeypatch.setattr(
+            resolver.generator, "candidate_pools", lambda *args, **kwargs: _pools()
+        )
+        resolved = resolver.build_resolved(
+            instance.connection,
+            for_date="2024-01-15",
+            session_type="squat",
+            inputs=EvaluationInputs(minimum_target_minutes=30, top_set_requested=False),
+        )
+        payload = server.prescription_dict(resolved.prescription)
+        started = workout.start(
+            instance.connection,
+            for_date="2024-01-15",
+            plan=payload,
+            readiness={
+                "sleep": 4, "energy": 4, "mood": 4, "soreness": 2,
+                "stress": 4, "nutrition": 4, "hydration": 4,
+            },
+        )
+        frozen = workout.get(instance.connection, started["workout_id"])
+    assert [item["exercise_id"] for item in frozen["plan"]["items"]] == [
+        item["exercise_id"] for item in payload["items"]
+    ]
+    assert frozen["plan"]["generated_session"] == payload["generated_session"]
 
 
 def test_explicit_resolver_mode_cannot_silently_fall_back() -> None:

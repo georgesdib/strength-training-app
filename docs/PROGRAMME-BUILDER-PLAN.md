@@ -816,7 +816,7 @@ behaviour.
   cause preserved; SHA-256 digest;
 - 30 scalar resolver keys in settings_registry/settings_profile after the Step 2 final
   remediation retired the redundant rotation and preference weights (Step 1 originally
-  registered 32; DEC-RESOLVER-10); the existing generic Settings profile now shows a Resolver
+  registered 32 at Step 1, then 30 after DEC-RESOLVER-10 retired two); the existing generic Settings profile now shows a Resolver
   group, while the dedicated panel remains Step 5;
 - migration 0048 adds nullable template_digest, policy_digest, input_hash and
   generated_session_json to prescription; append_prescription accepts them and preserves null
@@ -1156,6 +1156,13 @@ generator and top set work end-to-end; the feature can be disabled without data 
 
 **Merge gate:** final merge to development after review; no release from the feature branch.
 
+**Closure (2026-11-03):** Steps 0–6 are implemented and accepted on
+`feature/template-resolver`. The final acceptance run covered the default suite, prescription
+goldens, flag-off equivalence, snapshot validation/legacy fallback, critique/top-set/volume
+exemptions, settings registry/API/UI and preview-to-frozen-workout start. No implementation item
+remains open. Owner review and the final merge remain deliberate gates, not unresolved resolver
+work.
+
 **Implementation note (2026-11-03):** resolver-generated prescriptions now persist a `slots`
 array alongside the assignment: slot id, chosen exercise, original sets/reps/RIR/rest, essential
 and power flags, load source and quality stop. Snapshot slots are strictly validated for field
@@ -1222,7 +1229,7 @@ database was read-smoked for the legacy NULL path. The default remains off.
 
 ## 13. Confirmed decisions
 
-Recorded as `DEC-RESOLVER-01`–`11` in [DECISIONS.md](DECISIONS.md).
+Recorded as `DEC-RESOLVER-01`–`12` in [DECISIONS.md](DECISIONS.md).
 
 - Session generator per session; no block-level exercise pin; generated session frozen at workout
   start.
