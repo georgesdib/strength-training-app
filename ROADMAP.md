@@ -1470,7 +1470,14 @@ Implementation is merged to `development` as of 2026-11-03; it is not released. 
 resolver flag off, the existing template pathway, golden prescriptions and /api/programme
 forecast remain unchanged.
 
-Open acceptance item: a manual live-browser smoke of the Resolver panel. No resolver
+**Acceptance audit:** closed 2026-11-03. The read-only lifecycle audit found no P0 defects;
+its P1/P2 findings (Workflow set-group execution and plan/snapshot validation) were fixed in
+`7d7ab3a`, `8a63212` and `4dd1705`. The closure record and residual release gates are in
+[`docs/RESOLVER-ACCEPTANCE-AUDIT.md`](docs/RESOLVER-ACCEPTANCE-AUDIT.md).
+
+Residual release gates before enabling the resolver by default: deload/drop combinations,
+same-date fragments, top-set e1RM/performance analytics, full evaluator-to-persisted-plan field
+equality, the optional test layers and a manual browser Workflow smoke. No resolver
 implementation or documentation item remains open.
 
 ### 4.26 Symptom attribution and injury-signal verification  (closed 2026-11-01)

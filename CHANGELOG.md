@@ -37,6 +37,10 @@ Monitoring configuration, relationship CRUD and report-control hardening beta.
 
 ### Added
 
+- Deterministic template resolver **acceptance audit closed**: the Workflow top-set control
+  now follows `resolver.top_set.mode` instead of the resolver flag, and a read-only lifecycle
+  audit closure with residual release gates is recorded in
+  [`docs/RESOLVER-ACCEPTANCE-AUDIT.md`](docs/RESOLVER-ACCEPTANCE-AUDIT.md).
 - Deterministic template resolver **top-set execution integrity**: the Workflow plan now
   renders top-set/back-off groups, prefills the next group's load/RIR/role, keeps plan group
   edits consistent with item sets, clears stale groups on exercise swaps, and validates

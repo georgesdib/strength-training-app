@@ -1690,6 +1690,16 @@ def test_resolver_preview_uses_the_direct_prescription_response(server):
     assert "window.__lastPrescription = plan;" in js
 
 
+def test_prescribe_top_set_control_is_gated_by_the_setting(server):
+    _status, page = get(server, "/")
+    assert 'id="prescribe-top-set-note"' in page
+    _status, js = get(server, "/static/app.js")
+    assert "syncPrescribeTopSet" in js
+    assert 'resolver.top_set.mode' in js
+    assert "Top set is off in Settings" in js
+    assert "independent of dynamic exercise selection" in js
+
+
 def test_workout_ui_renders_and_prefills_planned_set_groups(server):
     _status, js = get(server, "/static/workout.js")
     assert "workoutSetGroupsHtml(item)" in js

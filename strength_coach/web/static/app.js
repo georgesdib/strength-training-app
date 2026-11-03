@@ -24,7 +24,7 @@ const VIEW_LOADERS = {
   measures: () => loadMeasurements(),
   prescribe: () => {
     loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget(); loadExposure();
-    loadResidual(); loadShadowReview(); restoreProgramme();
+    loadResidual(); loadShadowReview(); restoreProgramme(); syncPrescribeTopSet();
   },
   workout: () => {
     loadReadiness($("#readiness-date").value);
@@ -871,6 +871,33 @@ $("#prescribe-selection-llm").addEventListener("change", () => {
 $("#prescribe-selection-confirm").addEventListener("change", () => {
   if (prescribeBusy) prescribeQueued = true;
 });
+
+async function syncPrescribeTopSet() {
+  const select = $("#prescribe-top-set");
+  const note = $("#prescribe-top-set-note");
+  if (!select || !note) return;
+  try {
+    const profile = await api("/api/settings/profile");
+    const mode = (profile.resolved || {})["resolver.top_set.mode"] || "off";
+    if (mode === "off") {
+      select.value = "";
+      select.disabled = true;
+      note.textContent = "Top set is off in Settings → Resolver. Enable it there to use this control.";
+      note.className = "muted";
+    } else {
+      select.disabled = false;
+      note.textContent = mode === "on"
+        ? "Optional main-lift structure; the Settings default is top set on. Applies to fixed and resolver-generated sessions."
+        : "Optional main-lift structure; independent of dynamic exercise selection. Applies to fixed and resolver-generated sessions.";
+      note.className = "muted";
+    }
+  } catch (error) {
+    // Do not hide the control on a transient settings read; the server remains authoritative
+    // and will return the explicit top-set rejection if the setting is off.
+    note.textContent = "Could not read the top-set setting: " + error.message;
+    note.className = "muted warnbox";
+  }
+}
 
 let lastPrescribePayload = null;
 
