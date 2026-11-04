@@ -1837,6 +1837,12 @@ def test_resolver_preview_uses_the_direct_prescription_response(server):
     assert "pending_ratings" in app_js
 
 
+def test_prescribe_renders_a_top_set_rejection_reason(server):
+    _status, js = get(server, "/static/app.js")
+    assert "Top set not applied" in js
+    assert "topSet?.reason" in js
+
+
 def test_prescribe_top_set_control_is_gated_by_the_setting(server):
     _status, page = get(server, "/")
     assert 'id="prescribe-top-set-note"' in page

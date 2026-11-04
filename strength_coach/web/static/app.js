@@ -1180,11 +1180,9 @@ function renderPrescription(p, options = {}) {
     <strong>${esc(cadence.due ? "due" : "not due")}</strong>
     — ${esc(cadence.next_scheme)} by ${esc(cadence.next_due)}. ${esc(cadence.reason)}</p>` : "";
   const topSet = p.notes?.top_set;
-  const topSetBox = topSet && topSet.status !== "not_applied" || topSet?.applied
-    ? `<p class="muted"><strong>Top set:</strong> ${esc(topSet.reason)}</p>`
-    : topSet?.status === "not_applied" && topSet.reason?.includes("awaiting confirmation")
-      ? `<p class="muted"><strong>Top set offered:</strong> choose Add top set / back-off and rebuild to apply it.</p>`
-      : "";
+  const topSetBox = topSet?.reason
+    ? `<p class="muted"><strong>${topSet.applied ? "Top set" : "Top set not applied"}:</strong> ${esc(topSet.reason)}</p>`
+    : "";
   const deload = p.notes?.deload;
   const deloadBox = deload ? `<p class="warnbox"><strong>Deload (${esc(deload.trigger)})</strong>
     — ${esc(deload.reason)}. Sets -${deload.set_reduction}, load
