@@ -1156,6 +1156,24 @@ def test_resolver_policy_and_preview_endpoints(server):
     assert data["message"]
 
 
+def test_resolver_preview_job_returns_a_pollable_result(server):
+    started = post(server, "/api/resolver/preview/jobs", {
+        "date": "2024-01-31", "session_type": "squat",
+    })
+    assert started["status"] == "running"
+    job = started
+    for _ in range(100):
+        status, body = get(server, "/api/resolver/preview/jobs/" + started["job_id"])
+        assert status == 200
+        job = json.loads(body)
+        if job["status"] != "running":
+            break
+        time.sleep(0.05)
+    assert job["status"] == "done"
+    assert job["result"]["ok"] is False
+    assert job["result"]["stage"] == "dispatch"
+
+
 def test_programme_accepts_a_start_session_type(server):
     data = post(server, "/api/programme", {
         "weeks": 1, "sessions_per_week": 1, "start_session_type": "bench_hinge",
@@ -1730,6 +1748,8 @@ def test_resolver_preview_uses_the_direct_prescription_response(server):
     assert "const before = previous;" in js
     assert "const after = current;" in js
     assert "window.__lastPrescription = plan;" in js
+    assert "/api/resolver/preview/jobs" in js
+    assert "job.status === \"running\"" in js
     assert "pending_ratings" in js
     assert "Rate suggestions to start" in js
     assert "Suitability ratings needed" in js

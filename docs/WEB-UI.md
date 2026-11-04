@@ -153,7 +153,7 @@ the same lift.
 - **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
   same-category substitute rises; a review question, never an action.
 - **Settings** — appearance (System / Light / Dark), optional LLM configuration (enable/disable, model, endpoint, write-only key,
-  temperature/tokens/timeout), browser-only Prescribe defaults, a collapsed read-only **Monitoring & reports** inventory with search/group filters, a dedicated **Resolver** panel (append-only scalar settings with explicit enable confirmation, validated structural YAML with backups/digest, read-only preview with alternatives/suggestions, unrated suggestions shown provisionally with inline suitability rating and a Start handoff blocked until they are rated), and read-only app/database paths.
+  temperature/tokens/timeout), browser-only Prescribe defaults, a collapsed read-only **Monitoring & reports** inventory with search/group filters, a dedicated **Resolver** panel (append-only scalar settings with explicit enable confirmation, validated structural YAML with backups/digest, read-only preview with alternatives/suggestions, unrated suggestions shown provisionally with inline suitability rating and a Start handoff blocked until they are rated; the preview runs as a polled background job so a long resolver build cannot end in a browser load failure), and read-only app/database paths.
   The key is masked and lives in git-ignored `config/llm.local.toml`.
 - **Docs** — local Markdown rendered without external assets.
 

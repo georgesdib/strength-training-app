@@ -25,6 +25,9 @@
 - **Native exercise search filter**: typing in an exercise filter now rebuilds the select
   options to the matching subset instead of relying on `option.hidden`, which browsers do not
   reliably honour.
+- **Resolver preview load failures**: the Settings preview now starts a short-request background
+  job and polls for its result, so a multi-minute deterministic build no longer trips the
+  browser's request timeout.
 
 ## [1.2.0] — 2026-11-03
 

@@ -825,21 +825,44 @@ function renderResolverPreviewDiff(previous, current) {
 }
 
 
+let resolverPreviewRunning = false;
+
 async function runResolverPreview() {
   const box = $("#settings-resolver-preview");
+  if (resolverPreviewRunning) return;
+  resolverPreviewRunning = true;
   if (box) box.innerHTML = "<p class='empty'>Building resolver preview…</p>";
   const previous = window.__resolverPreview;
   try {
-    const data = await api("/api/resolver/preview", {
+    const started = await api("/api/resolver/preview/jobs", {
       method: "POST",
       body: JSON.stringify(resolverPreviewFormPayload()),
     });
+    const startedAt = Date.now();
+    let job = started;
+    while (job.status === "running") {
+      if (box) {
+        const seconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+        box.innerHTML = "<p class='empty'>Building resolver preview… " + seconds + "s</p>";
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      try {
+        job = await api("/api/resolver/preview/jobs/" + encodeURIComponent(job.job_id));
+      } catch (error) {
+        throw new Error("resolver preview job was lost: " + error.message);
+      }
+    }
+    if (job.status === "error") throw new Error(job.error || "resolver preview failed");
+    const data = job.result;
+    if (!data) throw new Error("resolver preview returned no result");
     renderResolverPreview(data);
     renderResolverPreviewDiff(previous, data);
   } catch (error) {
     if (box) box.innerHTML = "<div class='warnbox'>" + esc(error.message) + "</div>";
     const diff = $("#settings-resolver-preview-diff");
     if (diff) diff.textContent = "";
+  } finally {
+    resolverPreviewRunning = false;
   }
 }
 

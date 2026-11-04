@@ -617,6 +617,75 @@ def programme_job(job_id: str) -> dict:
         return dict(job)
 
 
+_RESOLVER_PREVIEW_JOBS: dict[str, dict[str, Any]] = {}
+_RESOLVER_PREVIEW_JOBS_LOCK = threading.Lock()
+_RESOLVER_PREVIEW_JOB_TTL_SECONDS = 3600
+_RESOLVER_PREVIEW_JOB_MAX = 20
+MAX_RUNNING_RESOLVER_PREVIEW_JOBS = 1
+
+
+def _resolver_preview_job_cleanup() -> None:
+    cutoff = datetime.datetime.now().timestamp() - _RESOLVER_PREVIEW_JOB_TTL_SECONDS
+    stale = [
+        job_id for job_id, job in _RESOLVER_PREVIEW_JOBS.items()
+        if job["created_at"] < cutoff
+    ]
+    for job_id in stale:
+        _RESOLVER_PREVIEW_JOBS.pop(job_id, None)
+    while len(_RESOLVER_PREVIEW_JOBS) > _RESOLVER_PREVIEW_JOB_MAX:
+        oldest = min(_RESOLVER_PREVIEW_JOBS, key=lambda key: _RESOLVER_PREVIEW_JOBS[key]["created_at"])
+        _RESOLVER_PREVIEW_JOBS.pop(oldest, None)
+
+
+def _run_resolver_preview_job(job_id: str, db_path, body: dict) -> None:
+    try:
+        with db.Store(db_path) as store:
+            # The synchronous endpoint is intentionally kept for API/tests. The preview
+            # implementation has no handler state, so the same method can serve the job.
+            result = Handler._resolver_preview(None, store.connection, body)
+        with _RESOLVER_PREVIEW_JOBS_LOCK:
+            if job_id in _RESOLVER_PREVIEW_JOBS:
+                _RESOLVER_PREVIEW_JOBS[job_id].update(status="done", result=result)
+    except Exception as exc:
+        with _RESOLVER_PREVIEW_JOBS_LOCK:
+            if job_id in _RESOLVER_PREVIEW_JOBS:
+                _RESOLVER_PREVIEW_JOBS[job_id].update(status="error", error=str(exc))
+
+
+def start_resolver_preview_job(db_path, body: dict) -> dict:
+    """Run a slow resolver preview off the request thread; the browser polls a short GET."""
+    with _RESOLVER_PREVIEW_JOBS_LOCK:
+        _resolver_preview_job_cleanup()
+        running = sum(
+            1 for job in _RESOLVER_PREVIEW_JOBS.values() if job["status"] == "running"
+        )
+        if running >= MAX_RUNNING_RESOLVER_PREVIEW_JOBS:
+            raise RequestError(409, "a resolver preview is already running")
+    job_id = uuid.uuid4().hex
+    job = {
+        "job_id": job_id,
+        "status": "running",
+        "created_at": datetime.datetime.now().timestamp(),
+        "result": None,
+        "error": None,
+    }
+    with _RESOLVER_PREVIEW_JOBS_LOCK:
+        _RESOLVER_PREVIEW_JOBS[job_id] = job
+    threading.Thread(
+        target=_run_resolver_preview_job, args=(job_id, db_path, body), daemon=True,
+    ).start()
+    return job
+
+
+def resolver_preview_job(job_id: str) -> dict:
+    with _RESOLVER_PREVIEW_JOBS_LOCK:
+        _resolver_preview_job_cleanup()
+        job = _RESOLVER_PREVIEW_JOBS.get(job_id)
+        if job is None:
+            raise KeyError("resolver preview job not found")
+        return dict(job)
+
+
 def analysis_readonly_connection(db_path: str | Path) -> sqlite3.Connection:
     """Dedicated read-only connection for the monitoring-analysis endpoint."""
     path = Path(db_path)
@@ -1076,6 +1145,14 @@ class Handler(BaseHTTPRequestHandler):
                     self._error(404, str(exc.args[0]))
                 else:
                     self._json(200, job)
+            elif path.startswith("/api/resolver/preview/jobs/"):
+                job_id = path.rsplit("/", 1)[-1]
+                try:
+                    job = resolver_preview_job(job_id)
+                except KeyError as exc:
+                    self._error(404, str(exc.args[0]))
+                else:
+                    self._json(200, job)
             elif path == "/api/logs":
                 query = parse_qs(urlparse(self.path).query)
                 limit = max(1, min(500, int(query.get("limit", ["200"])[0])))
@@ -1232,6 +1309,9 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(200, resolver_admin.restore_latest())
                 except resolver_policy.ResolverPolicyError as exc:
                     raise FieldError(str(exc), {"policy": str(exc)}) from exc
+            elif path == "/api/resolver/preview/jobs":
+                job = start_resolver_preview_job(self.db_path, body)
+                self._json(202, job)
             elif path == "/api/resolver/preview":
                 self._json(200, self._with_conn(lambda c: self._resolver_preview(c, body)))
             elif path.startswith("/api/modalities/"):
