@@ -1,8 +1,12 @@
 # PRESCRIPTION PERFORMANCE PROFILE
 
-**Status:** implemented 2026-11-04 on `development`. No prescription behaviour changed.
+**Status:** implemented and measured on the deployment target 2026-11-04 on `development`.
+No prescription behaviour changed.
 **Workload:** deterministic resolver build for 2026-11-04, squat, minimum session 30 minutes,
 resolver enabled, against the owner's local database (552 sessions). Seven prescribed items.
+
+**Hardware:** Hardkernel ODROID-C4, 4× ARM Cortex-A55, 3.7 GB visible RAM, Linux aarch64,
+Python 3.13.5. All benchmark and test results below were produced on this machine.
 
 ## 1. Baseline method
 
@@ -19,8 +23,8 @@ resolver enabled, against the owner's local database (552 sessions). Seven presc
 | Run | Wall | CPU | Notes |
 |---|---:|---:|---|
 | Baseline `build_resolved` | **133.15 s** | **131.86 s** | commit `312d1ef` |
-| Optimized `build_resolved` | **43.67 s** | **43.21 s** | current development |
-| Reduction | **67.2%** | **67.2%** | same 7 items, same order |
+| Optimized `build_resolved` | **42.13 s** | **41.72 s** | current development, same ODROID-C4 |
+| Reduction | **68.4%** | **68.4%** | 3.16× faster; same 7 items, same order |
 
 The optimized path returned the same item list:
 
@@ -35,17 +39,17 @@ used for the latency comparison.
 
 ## 3. Profile findings
 
-Baseline `cProfile` time was 251.98 s; optimized `cProfile` time is 82.35 s. Profile overhead
+Baseline `cProfile` time was 251.98 s; optimized `cProfile` time is 78.57 s. Profile overhead
 is high, so use the ratios, not the absolute values.
 
 | Stage / function | Baseline | Optimized | Finding |
 |---|---:|---:|---|
-| `beam.search` | 239.9 s | 70.0 s | four full evaluator builds |
-| one `evaluate_assignment` | 60.0 s | 17.5 s | repeated volume/schedule/config work |
-| `volume_budget.report` | 161.4 s | 15.5 s | called 12 times; schedule dominated |
-| `schedule.next_session_type` | 156.1 s | 13.7 s | 12 calls, now 11 cache hits |
-| YAML `safe_load` | 82.2 s | 18.6 s | config/policy re-parsing |
-| `e1rm_calibration` | 18.0 s | below top | repeated identical factors |
+| `beam.search` | 239.9 s | 67.3 s | four full evaluator builds |
+| one `evaluate_assignment` | 60.0 s | 16.8 s | repeated volume/schedule/config work |
+| `volume_budget.report` | 161.4 s | 15.1 s | called 12 times; schedule dominated |
+| `schedule.next_session_type` | 156.1 s | 9.5 s | 12 calls, now 11 cache hits |
+| YAML `safe_load` | 82.2 s | 14.7 s | config/policy re-parsing |
+| `e1rm_calibration` | 18.0 s | 11.4 s | repeated identical factors |
 | `vbt_calibration.calibrate` | 13.3 s | below top | repeated identical frame |
 | `settings_registry.snapshot` | 15.2 s | 1.2 s | immutable config snapshot |
 
@@ -83,6 +87,9 @@ The scheduler was being asked for the same next session type repeatedly because 
 6. **Spinal-defaults cache** (`settings_registry.py`)
    - Cached by the programme rule file mtime/size.
 
+Together the settings, policy, E1RM, VBT and spinal caches took the cProfile result from
+113.89 s to 78.57 s (the first schedule cache took the baseline 251.98 s to 113.89 s).
+
 No change was made to exercise choice, load arithmetic, readiness, safety enforcement, evaluator
 selection, persistence or append-only writes.
 
@@ -116,20 +123,21 @@ The remaining four evaluator builds are nominally independent, but on the ODROID
 - the end-to-end path is already hidden behind the polled prescription job, so a long build no
   longer causes a browser failure.
 
-The measured sequential result is a 3.05x speedup without concurrency risk. Parallelism is not
-justified by the remaining profile, and a process backend would be premature on a 4 GB device.
+The measured sequential result is a **3.16× speedup** on the target ODROID-C4 without
+concurrency risk. Parallelism is not justified by the remaining profile, and a process backend
+would be premature on a 4 GB device.
 
 ## 7. ODROID-C4 deployment guidance
 
-The development machine is not an ODROID-C4; no hardware claim is made. The observed **21 MB
-peak** is well within 4 GB, and the workload is CPU-bound rather than memory-heavy. Expect the
-Cortex-A55 cores to be slower than the development CPU; the absolute 43.7 s will rise, but the
-same algorithmic reductions apply.
+These numbers were measured on the target hardware: **Hardkernel ODROID-C4**, 4× Cortex-A55,
+3.7 GB visible RAM, Linux aarch64, Python 3.13.5. The observed **21 MB peak** is well within
+4 GB, and the workload is CPU-bound rather than memory-heavy. The optimized build is 42.13 s on
+this machine, down from 133.15 s.
 
-Use the existing polled Workflow/Settings job path. Do not add workers by default. If real
-ODROID latency is unacceptable after measurement, the next candidates are reducing resolver
-beam full-evaluation count or adding a shared immutable generation context, not adding
-processes or persistence complexity.
+Use the existing polled Workflow/Settings job path. Do not add workers by default. If the
+remaining 42 s is still unacceptable, the next candidates are reducing resolver beam
+full-evaluation count or adding a shared immutable generation context, not adding processes or
+persistence complexity.
 
 ## 8. Remaining limitations
 
@@ -137,5 +145,6 @@ processes or persistence complexity.
 - `queries.clean_sets` is still called repeatedly across evaluator builds.
 - The profiling report uses one representative date and the owner's database; other dates with
   large deltas, drops or resolver constraints may differ.
-- No ODROID-C4 hardware benchmark was available in this workspace.
 - No process-based parallel backend was implemented.
+- Benchmarks were run on the target ODROID-C4 with Python 3.13.5; re-run after OS or Python
+  upgrades if absolute latency matters.

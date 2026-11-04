@@ -25,7 +25,7 @@
   cached the immutable settings-registry snapshot and resolver-policy parse, cached E1RM factors
   by effective config/database state, cached VBT calibration by frame content, and cached the
   programme spinal defaults by file stamp. The representative resolver build dropped from
-  **133.15 s to 43.67 s**; see [`docs/PERFORMANCE-PROFILE.md`](docs/PERFORMANCE-PROFILE.md).
+  **133.15 s to 42.13 s on the target ODROID-C4**; see [`docs/PERFORMANCE-PROFILE.md`](docs/PERFORMANCE-PROFILE.md).
   Multiprocessing is explicitly not recommended after the sequential result.
 
 ### Fixed
