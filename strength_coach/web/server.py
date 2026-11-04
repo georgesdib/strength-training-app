@@ -261,6 +261,7 @@ def prescription_dict(prescription) -> dict:
         "session_kind": (
             "volume_fill" if session_identity.is_volume_fill(prescription.session_type)
             else "technique" if session_identity.is_technique(prescription.session_type)
+            else "accessory" if session_identity.is_accessory(prescription.session_type)
             else "normal"
         ),
         "session_original_type": session_identity.original_type(prescription.session_type),
