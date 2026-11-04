@@ -402,6 +402,12 @@ def build_resolved(
             "final_integrity", f"prescription fingerprint failed: {exc}", cause=exc,
             beam_result=result,
         ) from exc
+    pending_ratings = sorted({
+        exercise_id
+        for slot in pools.template.slots
+        if (exercise_id := dict(best.assignment).get(slot.id))
+        and exercise_id in pools.suggestions.get(slot.id, ())
+    })
     generated_session = {
         "for_date": for_date,
         "session_type": session_type,
@@ -451,6 +457,7 @@ def build_resolved(
         "beam": result.as_dict(),
         "evaluator": best.as_dict(),
         "top_set": best.prescription.notes.get("top_set"),
+        "pending_ratings": pending_ratings,
         "generated_session": generated_session,
     }
     notes = dict(best.prescription.notes)

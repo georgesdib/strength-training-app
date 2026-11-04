@@ -1117,6 +1117,12 @@ function renderPrescription(p, options = {}) {
   const warnings = p.warnings.length
     ? '<div class="warnbox"><strong>Warnings</strong><ul class="list">' +
       p.warnings.map((w) => "<li>" + esc(w) + "</li>").join("") + "</ul></div>" : "";
+  const pendingRatings = p.notes?.resolver?.pending_ratings || [];
+  const pendingBox = pendingRatings.length
+    ? '<div class="warnbox"><strong>Suitability ratings needed.</strong> Rate ' +
+      pendingRatings.map((item) => '<code>' + esc(item) + '</code>').join(', ') +
+      ' in Settings → Resolver preview, then rebuild. Start is blocked until then.</div>'
+    : "";
   const volumeBox = p.notes?.volume_budget?.enabled
     ? volumePanelHtml(p.notes?.volume_panel) : "";
   const comp = p.notes?.compensation || {};
@@ -1202,16 +1208,19 @@ function renderPrescription(p, options = {}) {
     ? "Starts this cached plan, not the current form selection; a confirmation follows."
     : "Freezes this plan and opens the start form.";
   const startAction = `<div class="form-row">
-      ${p.executable
+      ${p.executable && !pendingRatings.length
         ? `<button class="primary" type="button" data-action="open-workout-start">${startLabel}</button>`
         : `<button class="primary" type="button" disabled>${startLabel}</button>`}
-      <span class="muted">${p.executable ? startHint : "Fix the warnings above before starting."}</span>
+      <span class="muted">${p.executable && !pendingRatings.length
+        ? startHint : pendingRatings.length
+          ? "Rate the suggested exercises in Settings → Resolver preview first."
+          : "Fix the warnings above before starting."}</span>
     </div>`;
   $("#prescribe-result").innerHTML = `<div class="panel">
     ${cachedBox}
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_label || sessionLabel(p.session_type || "unknown"))}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
-    ${timeLine}${volumeBox}${compBox}${topSetBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
+    ${timeLine}${volumeBox}${compBox}${topSetBox}${pendingBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <div class="table-scroll desktop-table"><table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>e1RM n</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table></div>
     <div class="mobile-cards prescription-cards">${cards}</div>

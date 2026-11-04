@@ -2403,6 +2403,9 @@ class Handler(BaseHTTPRequestHandler):
         payload = prescription_dict(prescription)
         payload["ok"] = True
         payload["choices"] = choices
+        payload["pending_ratings"] = list(
+            (prescription.notes.get("resolver") or {}).get("pending_ratings") or []
+        )
         payload["beam"] = resolved.beam.as_dict()
         payload["top_set"] = prescription.notes.get("top_set")
         payload["projected_week"] = prescription.notes.get("volume_budget")

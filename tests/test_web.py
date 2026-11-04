@@ -1730,6 +1730,12 @@ def test_resolver_preview_uses_the_direct_prescription_response(server):
     assert "const before = previous;" in js
     assert "const after = current;" in js
     assert "window.__lastPrescription = plan;" in js
+    assert "pending_ratings" in js
+    assert "Rate suggestions to start" in js
+    assert "Suitability ratings needed" in js
+    _status, app_js = get(server, "/static/app.js")
+    assert "Suitability ratings needed" in app_js
+    assert "pending_ratings" in app_js
 
 
 def test_prescribe_top_set_control_is_gated_by_the_setting(server):
@@ -1803,6 +1809,15 @@ def test_the_history_edit_sheet_can_override_form_ratings(server):
     assert "leave any existing rating and note unchanged" in page
     assert "ratings cannot be removed" in page
     assert "— leave unchanged" in js
+
+
+def test_exercise_search_filter_rebuilds_the_select_options(server):
+    status, js = get(server, "/static/core.js")
+    assert status == 200
+    assert "optionSignature" in js
+    assert "select.innerHTML = entries.map" in js
+    assert "option.hidden" not in js
+    assert "select._filterAll" in js
 
 
 def test_a_prescribed_plan_is_cached_across_reloads(server):

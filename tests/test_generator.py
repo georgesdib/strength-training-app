@@ -194,13 +194,14 @@ def test_every_session_type_generates(session_type: str) -> None:
         store.close()
 
 
-def test_unrated_power_slot_fails_when_can_do_is_required() -> None:
+def test_unrated_power_slot_is_suggested_for_rating() -> None:
     store = db.Store(":memory:")
     try:
-        with pytest.raises(generator.GenerationError, match="fixed power exercise"):
-            generator.generate(
-                store.connection, for_date="2026-11-01", session_type="squat"
-            )
+        session = generator.generate(
+            store.connection, for_date="2026-11-01", session_type="squat"
+        )
+        assert "box_jump" in session.exercise_ids
+        assert "box_jump" in session.pending_ratings
     finally:
         store.close()
 
@@ -240,17 +241,16 @@ def test_can_do_replaces_a_vetoed_default() -> None:
         store.close()
 
 
-def test_no_eligible_main_is_a_field_error() -> None:
+def test_unrated_main_alternative_is_suggested_for_rating() -> None:
     store = db.Store(":memory:")
     try:
         _rate_defaults(store.connection, "squat")
         _rate(store.connection, "ssb_squat", can_do=False, rated_on="2026-10-31")
-        with pytest.raises(
-            generator.GenerationError, match="no automatically eligible candidate"
-        ):
-            generator.generate(
-                store.connection, for_date="2026-11-01", session_type="squat"
-            )
+        session = generator.generate(
+            store.connection, for_date="2026-11-01", session_type="squat"
+        )
+        assert session.template.primary_exercise != "ssb_squat"
+        assert session.template.primary_exercise in session.pending_ratings
     finally:
         store.close()
 

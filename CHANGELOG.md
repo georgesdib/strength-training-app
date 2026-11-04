@@ -16,6 +16,16 @@
   unchanged**; this sheet does not remove ratings. Form remains rubric-only and never changes
   load, sets or exercise selection.
 
+### Fixed
+
+- **Unrated resolver suggestions can reach the preview**: a slot with no automatically
+  eligible candidate but unrated suggestions now produces a provisional plan so the athlete
+  can see and rate it. The preview marks the plan pending and blocks **Start** until the rating
+  is saved and the plan rebuilt; the server also rejects a pending plan at workout start.
+- **Native exercise search filter**: typing in an exercise filter now rebuilds the select
+  options to the matching subset instead of relying on `option.hidden`, which browsers do not
+  reliably honour.
+
 ## [1.2.0] — 2026-11-03
 
 Stable release: beta label removed. The deterministic template resolver ships as an

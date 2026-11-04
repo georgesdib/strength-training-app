@@ -114,6 +114,15 @@ def start(
     if active is not None:
         raise ValueError("a workout is already in progress; end or abandon it first")
     resolved_type = str(session_type or (plan.get("session_type") if isinstance(plan, dict) else "") or "")
+    pending = (
+        (((plan.get("notes") if isinstance(plan, dict) else {}) or {})
+         .get("resolver") or {})
+        .get("pending_ratings") or []
+    )
+    if pending:
+        raise ValueError(
+            "rate the suggested exercise(s) before starting: " + ", ".join(map(str, pending))
+        )
     plan_data = _plan(plan, allow_empty=session_identity.is_technique(resolved_type))
     readiness_data = validate_readiness(
         readiness, allow_partial=allow_partial_readiness

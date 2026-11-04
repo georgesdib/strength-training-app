@@ -37,9 +37,10 @@ pinning, a two-stage volume pass, or a hinge top-set RIR cap.
 - **Eligibility.** With require_can_do on (the shipped default), auto-select only with explicit
   can_do = 1; will_do = 0 or feels_bad = 1 is suggestion-only. Unrated exercises are
   suggestion-only under unrated_mode = confirm and hidden under exclude. A default or fallback
-  never bypasses this. If no automatically eligible candidate exists, generation is a field-level
-  error that names the slot and the available suggestions; it does not silently keep the
-  blueprint default.
+  never bypasses this. When a slot has no automatic candidate but has unrated suggestions, the
+  preview may use one provisionally so the athlete can rate it; the plan is marked pending and
+  **Start** is blocked until the rating is saved and the plan is rebuilt. A will_do/feels_bad
+  block never becomes provisional.
 - **Joint optimisation.** The resolver is a bilevel search: the outer loop chooses exercises;
   the inner evaluator runs the existing readiness set cuts, deload, spinal trim, volume budget,
   time estimate and validation in read-only mode; the score is the post-budget outcome. The
