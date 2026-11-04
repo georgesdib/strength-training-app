@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from strength_coach.prescribe import minimum_session
-from strength_coach.store import db
+import pytest
+from conftest import make_readiness, make_training
+
+from strength_coach.prescribe import minimum_session, resolver
+from strength_coach.store import db, importer
 
 
 def test_main_lift_shape_keeps_essential_slots_and_trims_optional_slots():
@@ -42,6 +45,88 @@ def test_include_main_reduces_main_sets_to_floor():
     slots = {slot.id: slot for slot in shape.template.slots}
     assert slots["squat_main"].sets == 2
     assert slots["bench_support"].sets == 2
+
+
+def _history_store(rows):
+    store = db.Store(":memory:")
+    training = make_training(rows)
+    readiness = make_readiness([{}])
+    importer.import_export(
+        store.connection, training, readiness,
+        training_sha256=importer.sha256_frame(training),
+        readiness_sha256=importer.sha256_frame(readiness),
+    )
+    return store
+
+
+def _row(day, exercise):
+    return {
+        "Date": day, "Exercise": exercise, "Weight_Used": "20",
+        "RIR": "2", "Reps_Done": "8",
+    }
+
+
+def test_least_recent_optional_patterns_are_retained_first():
+    rows = [
+        _row("2024-01-01", "Ab Wheel"),
+        _row("2024-02-01", "Lying Leg Curls"),
+        _row("2024-03-01", "Dumbbell Row"),
+        _row("2024-04-01", "Back Extension"),
+    ]
+    with _history_store(rows) as store:
+        shape = minimum_session.build_resolver_shape(
+            store.connection, for_date="2024-04-05", session_type="squat",
+            target_minutes=30, include_main=True, accessories_only=False,
+        )
+    retained = set(shape.note["retained_slots"])
+    # Ab Wheel is outside the 84-day window and is treated as least recently trained.
+    assert {"core_anti_extension", "accessory_knee_flexion"} <= retained
+    assert "accessory_row" not in retained
+    assert "erector" not in retained
+
+
+def test_optional_pattern_ties_keep_template_order():
+    store = db.Store(":memory:")
+    try:
+        shape = minimum_session.build_resolver_shape(
+            store.connection, for_date="2024-04-05", session_type="squat",
+            target_minutes=30, include_main=True, accessories_only=False,
+        )
+    finally:
+        store.close()
+    retained = set(shape.note["retained_slots"])
+    assert {"erector", "accessory_row"} <= retained
+    assert "accessory_knee_flexion" not in retained
+    assert "core_anti_extension" not in retained
+
+
+def test_required_patterns_use_candidate_patterns_not_slot_defaults():
+    kept, dropped, retained, _omitted = resolver._minimum_required_patterns(
+        {"squat": ("vertical_pull", "horizontal_pull")},
+        "squat",
+        {"accessory_row"},
+        {"accessory_pull_up"},
+        {
+            # The row slot's template default is horizontal_pull, but its eligible candidates
+            # can include a vertical_pull exercise for this shape.
+            "accessory_row": {"dumbbell_row": "vertical_pull"},
+            "accessory_pull_up": {"pull_up": "horizontal_pull"},
+        },
+    )
+    assert kept == ["vertical_pull"]
+    assert dropped == ["horizontal_pull"]
+    assert retained == {"vertical_pull"}
+
+
+def test_required_pattern_not_supported_by_any_candidate_is_an_error():
+    with pytest.raises(resolver.ResolverBuildError, match="cannot cover required pattern"):
+        resolver._minimum_required_patterns(
+            {"squat": ("squat",)},
+            "squat",
+            {"accessory_row"},
+            set(),
+            {"accessory_row": {"dumbbell_row": "horizontal_pull"}},
+        )
 
 
 def test_accessories_only_removes_all_essential_slots():

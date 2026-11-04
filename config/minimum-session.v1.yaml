@@ -11,3 +11,6 @@ main_lift_floor_sets: 2
 # Estimated seconds per working set; this is a planning estimate, not a measurement.
 set_seconds: 30
 warmup_set_seconds: 30
+# Pattern recency window for optional accessory ordering. A pattern last trained before this
+# window is treated as least recently trained; ties keep template order.
+pattern_history_days: 84

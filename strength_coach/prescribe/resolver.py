@@ -19,6 +19,7 @@ from pathlib import PurePath
 from types import MappingProxyType
 
 from strength_coach import settings_profile
+from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import beam as beam_mod
 from strength_coach.prescribe import generated as generated_snapshot
 from strength_coach.prescribe import generator, minimum_session, resolver_policy
@@ -32,6 +33,35 @@ class _PrescriptionEvaluationError(Exception):
     def __init__(self, cause: Exception) -> None:
         self.cause = cause
         super().__init__(str(cause))
+
+
+def _minimum_required_patterns(
+    required: Mapping[str, tuple[str, ...]],
+    session_type: str,
+    retained_ids: set[str],
+    omitted_ids: set[str],
+    candidate_patterns: Mapping[str, Mapping[str, str | None]],
+) -> tuple[list[str], list[str], set[str], set[str]]:
+    """Filter required patterns using actual eligible candidate patterns, not slot defaults."""
+    retained_patterns: set[str] = set()
+    omitted_patterns: set[str] = set()
+    for slot_id, patterns in candidate_patterns.items():
+        bucket = retained_patterns if slot_id in retained_ids else omitted_patterns
+        bucket.update(pattern for pattern in patterns.values() if pattern)
+    kept: list[str] = []
+    dropped: list[str] = []
+    for pattern in required.get(session_type, ()):
+        key = volume_feature.volume_target_key(pattern)
+        if key in retained_patterns:
+            kept.append(pattern)
+        elif key in omitted_patterns:
+            dropped.append(pattern)
+        else:
+            raise ResolverBuildError(
+                "final_integrity",
+                f"minimum-session shape cannot cover required pattern {pattern!r}",
+            )
+    return kept, dropped, retained_patterns, omitted_patterns
 
 
 def _stage_evaluator(
@@ -326,12 +356,33 @@ def build_resolved(
                 "dispatch", f"minimum-session shape failed: {exc}", cause=exc,
                 details={"for_date": for_date, "session_type": session_type},
             ) from exc
-        retained = set(shape.retained_patterns)
-        required = dict(policy.required_patterns)
-        required[session_type] = tuple(
-            pattern for pattern in required.get(session_type, ())
-            if pattern in retained
+        empty_required = dict(policy.required_patterns)
+        empty_required[session_type] = ()
+        permissive = replace(
+            policy, required_patterns=MappingProxyType(empty_required)
         )
+        try:
+            all_pools = generator.candidate_pools(
+                conn, for_date=for_date, session_type=session_type,
+                policy=permissive, settings=settings,
+            )
+        except Exception as exc:
+            raise ResolverBuildError(
+                "pool_generation",
+                f"candidate pools for minimum-session shape failed: {exc}",
+                cause=exc,
+                details={"for_date": for_date, "session_type": session_type},
+            ) from exc
+        retained_ids = {slot.id for slot in shape.template.slots}
+        omitted_ids = {slot.id for slot in all_pools.template.slots} - retained_ids
+        required = dict(policy.required_patterns)
+        kept, dropped, retained_patterns, _omitted_patterns = _minimum_required_patterns(
+            required, session_type, retained_ids, omitted_ids,
+            all_pools.candidate_patterns,
+        )
+        required[session_type] = tuple(kept)
+        shape.note["retained_patterns"] = sorted(retained_patterns)
+        shape.note["omitted_required_patterns"] = sorted(dropped)
         policy = replace(policy, required_patterns=MappingProxyType(required))
         inputs = replace(
             inputs, minimum_session=False, minimum_accessories_only=False,

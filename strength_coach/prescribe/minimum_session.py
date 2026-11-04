@@ -7,6 +7,7 @@ applied after the automatic modifiers, so it can only take work away.
 
 from __future__ import annotations
 
+import datetime as dt
 import sqlite3
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
@@ -31,6 +32,7 @@ class MinimumSessionConfig:
     main_lift_floor_sets: int = 2
     set_seconds: int = 30
     warmup_set_seconds: int = 30
+    pattern_history_days: int = 84
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> MinimumSessionConfig:
@@ -49,6 +51,7 @@ class MinimumSessionConfig:
             main_lift_floor_sets=max(1, int(raw.get("main_lift_floor_sets", 2))),
             set_seconds=max(1, int(raw.get("set_seconds", 30))),
             warmup_set_seconds=max(1, int(raw.get("warmup_set_seconds", 30))),
+            pattern_history_days=max(1, int(raw.get("pattern_history_days", 84))),
         )
 
 
@@ -95,10 +98,12 @@ def _slot_pattern(slot: templates.Slot, taxonomy: Mapping[str, Mapping[str, Any]
 
 def _least_trained(
     conn, end: str, slots: list[templates.Slot], taxonomy: Mapping[str, Mapping[str, Any]],
+    *, window_days: int,
 ) -> list[templates.Slot]:
     if getattr(conn, "row_factory", None) is None:
         conn.row_factory = sqlite3.Row
-    frame = queries.clean_sets(conn, end=end)
+    start = (dt.date.fromisoformat(end) - dt.timedelta(days=window_days)).isoformat()
+    frame = queries.clean_sets(conn, start=start, end=end)
     latest: dict[str, str] = {}
     if not frame.empty:
         for row in frame.itertuples(index=False):
@@ -140,7 +145,9 @@ def build_resolver_shape(
         slot for slot in template.slots
         if not slot.essential and not slot.power
     ]
-    ranked_optional = _least_trained(conn, for_date, optional, taxonomy)
+    ranked_optional = _least_trained(
+        conn, for_date, optional, taxonomy, window_days=cfg.pattern_history_days,
+    )
     base = [] if accessories_only else essential
     selection_base = base
     if include_main and not accessories_only:

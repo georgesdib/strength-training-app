@@ -73,8 +73,13 @@ their planned count when time allows);
 4. freeze that shape, then let the resolver choose exercises inside it;
 5. never remove an assigned exercise after the resolver search.
 
-The operation is deterministic and cites `MOD-MIN-001`. If floors prevent reaching the target,
-the result is `partial`; the shape is still shown and remains executable.
+The operation is deterministic and cites `MOD-MIN-001`. Optional patterns are ordered by
+last-trained date within `pattern_history_days` (default 84); ties keep template order. Required
+patterns are filtered from the **eligible candidate patterns** of the retained slots, not from a
+slot's template-default exercise. A required pattern with no eligible candidate in any slot is an
+error, not silently dropped; assignment still has to cover each retained required pattern with a
+distinct slot. If floors prevent reaching the target, the result is `partial`; the shape is still
+shown and remains executable.
 
 **Accessories only** is an explicit separate mode. It omits the main and secondary lifts, keeps
 only accessory slots, and is not a normal main-lift session. A requested top set is reported
@@ -90,7 +95,10 @@ sets × (30 s set + rest_s) + warm-up sets × 30 s
 ```
 
 The seconds are config (`config/minimum-session.v1.yaml`). This is **not** a measured session
-length and is not a fatigue model. A partial result is labelled `partial` when the floors are
+length and is not a fatigue model. The pre-assignment shape uses the template's rest values; the
+final resolved prescription can differ by candidate-specific rest and warm-up attachments. The
+final note therefore recomputes the estimate from the resolved items and marks the result
+`partial` if it exceeds the target. A partial result is labelled `partial` when the floors are
 reached before the target.
 
 Because the target is judged against an estimate, the **ended-workout screen shows all three
