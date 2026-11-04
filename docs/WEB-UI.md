@@ -91,7 +91,9 @@ hidden unless **show different lifts** is ticked). Each applied substitution cit
 type does not change, and nothing is persisted until Start workout. The latest preview is also
 cached in this browser for seven days so a reload or navigation away can restore it. The restore
 notice shows the cached date/session beside the current form values; **Start cached plan**
-requires an explicit confirmation, and corrupt or future timestamps are rejected. The Workflow
+requires an explicit confirmation, and corrupt or future timestamps are rejected. A cached plan
+whose date/session no longer matches the form is discarded, and changing the form selection
+invalidates the cache immediately. The Workflow
 build itself runs as a polled background job and shows elapsed seconds, so a long resolver build
 cannot end in a browser load failure. The cache is
 not a server-side prescription and is cleared when the workout starts. **Use LLM** appears only when Apply is ticked. Without the toggle the

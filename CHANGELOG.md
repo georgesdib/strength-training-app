@@ -8,8 +8,9 @@
   `localStorage` for seven days and restored when Prescribe reloads. The restored notice shows
   the cached date/session beside the current form values, starting requires an explicit
   **Start cached plan** confirmation, corrupt/future timestamps are rejected, and **Discard**
-  removes it. Starting the workout clears the cache; the server still owns the immutable
-  active-workout plan.
+  removes it. A cached plan whose date/session no longer matches the form is discarded instead
+  of being shown; changing the form selection invalidates it immediately. Starting the workout
+  clears the cache; the server still owns the immutable active-workout plan.
 - **Workout per-rep VBT logging**: the Log a set form accepts optional comma/space-separated
   per-rep mean concentric velocities, validates them against the set's reps, derives the set
   mean when omitted, and stores them in the append-only `workout_rep_event` / `clean_rep` path.

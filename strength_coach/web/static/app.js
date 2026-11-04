@@ -758,9 +758,11 @@ async function loadReadinessFeedback(weeks, day) {
 /* --- prescribe ---------------------------------------------------------- */
 $("#prescribe-date").value = today();
 $("#prescribe-date").addEventListener("change", () => {
+  invalidateStalePrescriptionCache();
   loadDropWindow();
   loadVolumeBudget();
 });
+$("#prescribe-session-type").addEventListener("change", invalidateStalePrescriptionCache);
 const volumeDate = $("#volume-date");
 const continuityDate = $("#continuity-date");
 const fatigueDate = $("#fatigue-date");
@@ -1062,6 +1064,12 @@ function restoreCachedPrescription() {
   if (window.__lastPrescription) return true;
   var cached = readCachedPrescription();
   if (!cached) return false;
+  if (window.PrescriptionCache &&
+      window.PrescriptionCache.selectionDiffers(cached.plan, currentPrescribeSelection())) {
+    // The plan belongs to another date/session selection; it is not a valid restore target.
+    clearCachedPrescription();
+    return false;
+  }
   renderPrescription(cached.plan, { fromCache: true, savedAt: cached.saved_at });
   // A restored plan is a preview, not a new build: show it even before today's readiness
   // is entered. The start form still enforces readiness and its acknowledgement.
@@ -1081,6 +1089,19 @@ function currentPrescribeSelection() {
   var date = $("#prescribe-date") ? $("#prescribe-date").value : "";
   var type = $("#prescribe-session-type") ? $("#prescribe-session-type").value : "auto";
   return { date: date, session_type: type || "auto" };
+}
+
+function invalidateStalePrescriptionCache() {
+  var cached = readCachedPrescription();
+  if (!cached) return;
+  if (!window.PrescriptionCache ||
+      !window.PrescriptionCache.selectionDiffers(cached.plan, currentPrescribeSelection())) {
+    return;
+  }
+  clearCachedPrescription();
+  window.__lastPrescription = null;
+  window.__prescriptionFromCache = false;
+  $("#prescribe-result").innerHTML = "";
 }
 
 function cachedPrescriptionNotice(plan, savedAt) {

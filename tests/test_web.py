@@ -1950,6 +1950,8 @@ def test_a_prescribed_plan_is_cached_across_reloads(server):
     assert "Cached prescription restored" in js
     assert "Cached plan:" in js and "Current form:" in js
     assert "Start cached plan" in js
+    assert "invalidateStalePrescriptionCache" in js
+    assert "selectionDiffers(cached.plan, currentPrescribeSelection" in js
     assert "discard-cached-prescription" in js
     assert "updateWorkflowStep();\n    restoreCachedPrescription();" in js
     assert "const show = allowed || cached;" in js
