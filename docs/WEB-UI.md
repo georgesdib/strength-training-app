@@ -91,7 +91,9 @@ hidden unless **show different lifts** is ticked). Each applied substitution cit
 type does not change, and nothing is persisted until Start workout. The latest preview is also
 cached in this browser for seven days so a reload or navigation away can restore it. The restore
 notice shows the cached date/session beside the current form values; **Start cached plan**
-requires an explicit confirmation, and corrupt or future timestamps are rejected. The cache is
+requires an explicit confirmation, and corrupt or future timestamps are rejected. The Workflow
+build itself runs as a polled background job and shows elapsed seconds, so a long resolver build
+cannot end in a browser load failure. The cache is
 not a server-side prescription and is cleared when the workout starts. **Use LLM** appears only when Apply is ticked. Without the toggle the
   prescription is unchanged. The **Retrospective validation** panel runs the walk-forward check. A scheduled deload is shown as a suggestion with an **Apply deload** button; it is not applied until confirmed. Reactive deloads are automatic. Applied deloads cite `MOD-DELOAD-001`. Main lifts show their warm-up ramp; the strength-test cadence is shown in the notes. The volume ledger now applies `MOD-VOL-002` (one accessory set after three weeks below MEV).
 - **Outcomes → Form trend** — current vs previous equal window, latest rating, change and

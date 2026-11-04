@@ -1174,6 +1174,23 @@ def test_resolver_preview_job_returns_a_pollable_result(server):
     assert job["result"]["stage"] == "dispatch"
 
 
+def test_prescribe_job_returns_a_pollable_result(server):
+    started = post(server, "/api/prescribe/jobs", {
+        "date": "2024-01-01", "session_type": "squat",
+    })
+    assert started["status"] == "running"
+    job = started
+    for _ in range(100):
+        status, body = get(server, "/api/prescribe/jobs/" + started["job_id"])
+        assert status == 200
+        job = json.loads(body)
+        if job["status"] != "running":
+            break
+        time.sleep(0.05)
+    assert job["status"] == "done"
+    assert job["result"]["items"]
+
+
 def test_programme_accepts_a_start_session_type(server):
     data = post(server, "/api/programme", {
         "weeks": 1, "sessions_per_week": 1, "start_session_type": "bench_hinge",
@@ -1858,6 +1875,8 @@ def test_a_prescribed_plan_is_cached_across_reloads(server):
     assert "discard-cached-prescription" in js
     assert "updateWorkflowStep();\n    restoreCachedPrescription();" in js
     assert "const show = allowed || cached;" in js
+    assert "requestPrescription" in js
+    assert "/api/prescribe/jobs" in js
     status, workout = get(server, "/static/workout.js")
     assert status == 200
     assert "clearCachedPrescription" in workout

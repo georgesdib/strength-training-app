@@ -686,6 +686,73 @@ def resolver_preview_job(job_id: str) -> dict:
         return dict(job)
 
 
+_PRESCRIBE_JOBS: dict[str, dict[str, Any]] = {}
+_PRESCRIBE_JOBS_LOCK = threading.Lock()
+_PRESCRIBE_JOB_TTL_SECONDS = 3600
+_PRESCRIBE_JOB_MAX = 20
+MAX_RUNNING_PRESCRIBE_JOBS = 1
+
+
+def _prescribe_job_cleanup() -> None:
+    cutoff = datetime.datetime.now().timestamp() - _PRESCRIBE_JOB_TTL_SECONDS
+    stale = [
+        job_id for job_id, job in _PRESCRIBE_JOBS.items()
+        if job["created_at"] < cutoff
+    ]
+    for job_id in stale:
+        _PRESCRIBE_JOBS.pop(job_id, None)
+    while len(_PRESCRIBE_JOBS) > _PRESCRIBE_JOB_MAX:
+        oldest = min(_PRESCRIBE_JOBS, key=lambda key: _PRESCRIBE_JOBS[key]["created_at"])
+        _PRESCRIBE_JOBS.pop(oldest, None)
+
+
+def _run_prescribe_job(job_id: str, db_path, body: dict) -> None:
+    try:
+        with db.Store(db_path) as store:
+            result = Handler._prescribe(None, store.connection, body)
+        with _PRESCRIBE_JOBS_LOCK:
+            if job_id in _PRESCRIBE_JOBS:
+                _PRESCRIBE_JOBS[job_id].update(status="done", result=result)
+    except Exception as exc:
+        with _PRESCRIBE_JOBS_LOCK:
+            if job_id in _PRESCRIBE_JOBS:
+                _PRESCRIBE_JOBS[job_id].update(status="error", error=str(exc))
+
+
+def start_prescribe_job(db_path, body: dict) -> dict:
+    """Run the slow Workflow prescription build off the request thread."""
+    with _PRESCRIBE_JOBS_LOCK:
+        _prescribe_job_cleanup()
+        running = sum(
+            1 for job in _PRESCRIBE_JOBS.values() if job["status"] == "running"
+        )
+        if running >= MAX_RUNNING_PRESCRIBE_JOBS:
+            raise RequestError(409, "a prescription build is already running")
+    job_id = uuid.uuid4().hex
+    job = {
+        "job_id": job_id,
+        "status": "running",
+        "created_at": datetime.datetime.now().timestamp(),
+        "result": None,
+        "error": None,
+    }
+    with _PRESCRIBE_JOBS_LOCK:
+        _PRESCRIBE_JOBS[job_id] = job
+    threading.Thread(
+        target=_run_prescribe_job, args=(job_id, db_path, body), daemon=True,
+    ).start()
+    return job
+
+
+def prescribe_job(job_id: str) -> dict:
+    with _PRESCRIBE_JOBS_LOCK:
+        _prescribe_job_cleanup()
+        job = _PRESCRIBE_JOBS.get(job_id)
+        if job is None:
+            raise KeyError("prescription job not found")
+        return dict(job)
+
+
 def analysis_readonly_connection(db_path: str | Path) -> sqlite3.Connection:
     """Dedicated read-only connection for the monitoring-analysis endpoint."""
     path = Path(db_path)
@@ -1153,6 +1220,14 @@ class Handler(BaseHTTPRequestHandler):
                     self._error(404, str(exc.args[0]))
                 else:
                     self._json(200, job)
+            elif path.startswith("/api/prescribe/jobs/"):
+                job_id = path.rsplit("/", 1)[-1]
+                try:
+                    job = prescribe_job(job_id)
+                except KeyError as exc:
+                    self._error(404, str(exc.args[0]))
+                else:
+                    self._json(200, job)
             elif path == "/api/logs":
                 query = parse_qs(urlparse(self.path).query)
                 limit = max(1, min(500, int(query.get("limit", ["200"])[0])))
@@ -1311,6 +1386,9 @@ class Handler(BaseHTTPRequestHandler):
                     raise FieldError(str(exc), {"policy": str(exc)}) from exc
             elif path == "/api/resolver/preview/jobs":
                 job = start_resolver_preview_job(self.db_path, body)
+                self._json(202, job)
+            elif path == "/api/prescribe/jobs":
+                job = start_prescribe_job(self.db_path, body)
                 self._json(202, job)
             elif path == "/api/resolver/preview":
                 self._json(200, self._with_conn(lambda c: self._resolver_preview(c, body)))

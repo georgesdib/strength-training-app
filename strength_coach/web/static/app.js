@@ -910,6 +910,30 @@ async function syncPrescribeTopSet() {
 
 let lastPrescribePayload = null;
 
+async function requestPrescription(payload, message = "Building…") {
+  const box = $("#prescribe-result");
+  const started = await api("/api/prescribe/jobs", {
+    method: "POST", body: JSON.stringify(payload),
+  });
+  const startedAt = Date.now();
+  let job = started;
+  while (job.status === "running") {
+    if (box) {
+      const seconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+      box.innerHTML = "<p class='empty'>" + esc(message) + " " + seconds + "s</p>";
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      job = await api("/api/prescribe/jobs/" + encodeURIComponent(job.job_id));
+    } catch (error) {
+      throw new Error("prescription build was lost: " + error.message);
+    }
+  }
+  if (job.status === "error") throw new Error(job.error || "prescription build failed");
+  if (!job.result) throw new Error("prescription build returned no result");
+  return job.result;
+}
+
 $("#prescribe-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (prescribeBusy) {
@@ -940,7 +964,7 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
     allow_unknown_readiness: !scoreReady && Boolean(window.__workflowAllowUnknown),
   };
   try {
-    const data = await api("/api/prescribe", { method: "POST", body: JSON.stringify(lastPrescribePayload) });
+    const data = await requestPrescription(lastPrescribePayload, "Building…");
     if (!prescribeQueued) renderPrescription(data);
   } catch (error) {
     if (!prescribeQueued) {
@@ -983,7 +1007,7 @@ async function applySuggestedDeload() {
   const payload = { ...lastPrescribePayload, deload_confirmed: true };
   $("#prescribe-result").innerHTML = "<p class='empty'>Applying deload…</p>";
   try {
-    const data = await api("/api/prescribe", { method: "POST", body: JSON.stringify(payload) });
+    const data = await requestPrescription(payload, "Applying deload…");
     renderPrescription(data);
   } catch (error) {
     $("#prescribe-result").innerHTML = `<div class="panel warnbox">${esc(error.message)}</div>`;
