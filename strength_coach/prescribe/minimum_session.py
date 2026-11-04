@@ -22,6 +22,7 @@ from strength_coach.store import queries
 from strength_coach.utils import exercises, paths
 
 MODIFIER = "MOD-MIN-001"
+ACCESSORY_SESSION_TYPE = "accessory"
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,7 @@ class MinimumSessionConfig:
     set_seconds: int = 30
     warmup_set_seconds: int = 30
     pattern_history_days: int = 84
+    accessory_max_sets: int = 4
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> MinimumSessionConfig:
@@ -52,6 +54,7 @@ class MinimumSessionConfig:
             set_seconds=max(1, int(raw.get("set_seconds", 30))),
             warmup_set_seconds=max(1, int(raw.get("warmup_set_seconds", 30))),
             pattern_history_days=max(1, int(raw.get("pattern_history_days", 84))),
+            accessory_max_sets=max(1, int(raw.get("accessory_max_sets", 4))),
         )
 
 
@@ -117,7 +120,50 @@ def _least_trained(
                 latest[key] = day
     return sorted(
         slots,
-        key=lambda slot: (latest.get(_slot_pattern(slot, taxonomy), ""), slots.index(slot)),
+        key=lambda slot: (
+            slot.power,
+            latest.get(_slot_pattern(slot, taxonomy), ""),
+            slots.index(slot),
+        ),
+    )
+
+
+def build_accessory_template() -> templates.SessionTemplate:
+    """A synthetic cross-template pool for an accessory-only session.
+
+    No main-lift slots are present. Duplicate exercises are removed across templates so the
+    same movement cannot appear twice; power slots are retained and ranked last by the shape.
+    """
+    slots: list[templates.Slot] = []
+    seen: set[tuple[str, ...]] = set()
+    seen_patterns: set[str] = set()
+    taxonomy = exercises.taxonomy().entities
+    for session_type in templates.SESSION_TYPES:
+        source = templates.SessionTemplate.load(session_type)
+        for slot in source.slots:
+            if slot.essential:
+                continue
+            key = tuple(sorted(slot.exercises))
+            pattern = _slot_pattern(slot, taxonomy)
+            if key in seen or (not slot.power and pattern in seen_patterns):
+                continue
+            seen.add(key)
+            if not slot.power:
+                seen_patterns.add(pattern)
+            slots.append(replace(slot, id=f"acc_{session_type}_{slot.id}"))
+    if not slots:
+        raise ValueError("accessory session has no eligible slots")
+    digest = "accessory:" + ":".join(
+        templates.SessionTemplate.load(value).digest for value in templates.SESSION_TYPES
+    )
+    return templates.SessionTemplate(
+        session_type=ACCESSORY_SESSION_TYPE,
+        label="Accessory only",
+        slots=tuple(slots),
+        time_cap_s=5400,
+        schema_version="1.0.0",
+        primary_exercise=None,
+        digest=digest,
     )
 
 
@@ -136,15 +182,22 @@ def build_resolver_shape(
     the post-selection deletion that used to make minimum-session plans infeasible.
     """
     cfg = MinimumSessionConfig.load()
-    if target_minutes not in cfg.targets_minutes:
+    is_accessory = session_type == ACCESSORY_SESSION_TYPE
+    if is_accessory:
+        if target_minutes <= 0:
+            raise ValueError("target_minutes must be positive")
+        accessories_only = True
+    elif target_minutes not in cfg.targets_minutes:
         raise ValueError(f"target_minutes must be one of {cfg.targets_minutes}")
-    template = templates.SessionTemplate.load(session_type)
+    template = build_accessory_template() if is_accessory else templates.SessionTemplate.load(session_type)
     taxonomy = exercises.taxonomy().entities
     essential = [slot for slot in template.slots if slot.essential]
-    optional = [
-        slot for slot in template.slots
-        if not slot.essential and not slot.power
-    ]
+    optional = (
+        list(template.slots) if is_accessory else [
+            slot for slot in template.slots
+            if not slot.essential and not slot.power
+        ]
+    )
     ranked_optional = _least_trained(
         conn, for_date, optional, taxonomy, window_days=cfg.pattern_history_days,
     )
@@ -170,8 +223,8 @@ def build_resolver_shape(
             sets = min(int(slot.sets), cfg.main_lift_floor_sets)
         elif not slot.essential:
             # Minimum shaping is not a reason to throw away accessory sets when the selected
-            # pattern still fits the target; use the planned set count.
-            sets = int(slot.sets)
+            # pattern still fits the target; use the planned set count up to the configured cap.
+            sets = min(int(slot.sets), cfg.accessory_max_sets)
         else:
             sets = int(slot.sets)
         resized.append(replace(slot, sets=sets))

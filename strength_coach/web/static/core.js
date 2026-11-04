@@ -27,6 +27,7 @@ function sessionLabel(value) {
     return `Volume fill (${text.slice("volume_fill_".length).replaceAll("_", " ")} omitted)`;
   }
   if (text === "technique") return "Technique (week complete)";
+  if (text === "accessory") return "Accessory only";
   return text;
 }
 

@@ -468,8 +468,14 @@ def template_rows(session_type: str) -> list[dict[str, Any]]:
     """The session template as budget rows, one row per slot.
 
     Variant slots use their first exercise: this is a read-only projection, not the selector.
+    The synthetic accessory session uses the same cross-template pool as the resolver shape.
     """
-    template = templates.SessionTemplate.load(session_type)
+    if session_type == "accessory":
+        from strength_coach.prescribe import minimum_session
+
+        template = minimum_session.build_accessory_template()
+    else:
+        template = templates.SessionTemplate.load(session_type)
     taxonomy = exercises.taxonomy()
     rows: list[dict[str, Any]] = []
     for slot in template.slots:

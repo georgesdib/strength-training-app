@@ -14,3 +14,6 @@ warmup_set_seconds: 30
 # Pattern recency window for optional accessory ordering. A pattern last trained before this
 # window is treated as least recently trained; ties keep template order.
 pattern_history_days: 84
+# Soft cap for any accessory slot selected by an accessory-only shape. The shape adds patterns
+# before raising sets, and never raises a slot above this value just to fill the clock.
+accessory_max_sets: 4

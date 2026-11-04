@@ -355,7 +355,7 @@ def candidate_pools(
     evaluator is authoritative for assignment quality; candidate order only supplies deterministic
     beam rank cost/tie-breaking. No Step 2 objective is double-counted.
     """
-    if session_type not in templates.SESSION_TYPES:
+    if session_type not in templates.SESSION_TYPES and template is None:
         raise GenerationError(
             f"unknown session type {session_type!r}", session_type=str(session_type)
         )

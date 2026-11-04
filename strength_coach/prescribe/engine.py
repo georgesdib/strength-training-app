@@ -122,6 +122,41 @@ def build_prescription(
                 "resolver.enabled is on but an explicit template was supplied; pass "
                 "use_resolver=False for the fixed-template path",
             )
+    accessory_requested = (
+        session_type == minimum_session_mod.ACCESSORY_SESSION_TYPE
+        or minimum_accessories_only
+    )
+    if accessory_requested and use_resolver is False and template is not None:
+        # The evaluator builds the already-shaped synthetic accessory template through the
+        # fixed read-only path; it must not recurse into resolver dispatch.
+        accessory_requested = False
+    if accessory_requested:
+        if use_resolver is False or not resolver_enabled:
+            from strength_coach.prescribe.resolver import ResolverBuildError
+
+            raise ResolverBuildError(
+                "dispatch",
+                "accessory-only sessions require the resolver; enable Settings -> Resolver",
+            )
+        if template is not None:
+            from strength_coach.prescribe.resolver import ResolverBuildError
+
+            raise ResolverBuildError(
+                "dispatch", "accessory-only sessions cannot accept an explicit template",
+            )
+        session_type = minimum_session_mod.ACCESSORY_SESSION_TYPE
+        minimum_session = True
+        minimum_accessories_only = True
+        if minimum_target_minutes is None:
+            profile = queries.athlete_profile(conn) or {}
+            configured = profile.get("max_session_minutes")
+            if configured is not None:
+                minimum_target_minutes = max(1, int(configured))
+            else:
+                threshold_cfg = thresholds or config_mod.Thresholds.load()
+                minimum_target_minutes = max(
+                    1, int(round(threshold_cfg.session_time_cap_s / 60)),
+                )
     if resolver_enabled:
         from strength_coach.prescribe import resolver
         from strength_coach.prescribe.evaluator import EvaluationInputs

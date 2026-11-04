@@ -356,33 +356,40 @@ def build_resolved(
                 "dispatch", f"minimum-session shape failed: {exc}", cause=exc,
                 details={"for_date": for_date, "session_type": session_type},
             ) from exc
-        empty_required = dict(policy.required_patterns)
-        empty_required[session_type] = ()
-        permissive = replace(
-            policy, required_patterns=MappingProxyType(empty_required)
-        )
-        try:
-            all_pools = generator.candidate_pools(
-                conn, for_date=for_date, session_type=session_type,
-                policy=permissive, settings=settings,
-            )
-        except Exception as exc:
-            raise ResolverBuildError(
-                "pool_generation",
-                f"candidate pools for minimum-session shape failed: {exc}",
-                cause=exc,
-                details={"for_date": for_date, "session_type": session_type},
-            ) from exc
-        retained_ids = {slot.id for slot in shape.template.slots}
-        omitted_ids = {slot.id for slot in all_pools.template.slots} - retained_ids
         required = dict(policy.required_patterns)
-        kept, dropped, retained_patterns, _omitted_patterns = _minimum_required_patterns(
-            required, session_type, retained_ids, omitted_ids,
-            all_pools.candidate_patterns,
-        )
-        required[session_type] = tuple(kept)
-        shape.note["retained_patterns"] = sorted(retained_patterns)
-        shape.note["omitted_required_patterns"] = sorted(dropped)
+        if session_type == minimum_session.ACCESSORY_SESSION_TYPE:
+            # Accessory-only has no main-lift coverage contract. Its candidate pools still go
+            # through the normal eligibility and redundancy checks below.
+            required[session_type] = ()
+            shape.note["retained_patterns"] = sorted(shape.retained_patterns)
+            shape.note["omitted_required_patterns"] = []
+        else:
+            empty_required = dict(policy.required_patterns)
+            empty_required[session_type] = ()
+            permissive = replace(
+                policy, required_patterns=MappingProxyType(empty_required)
+            )
+            try:
+                all_pools = generator.candidate_pools(
+                    conn, for_date=for_date, session_type=session_type,
+                    policy=permissive, settings=settings,
+                )
+            except Exception as exc:
+                raise ResolverBuildError(
+                    "pool_generation",
+                    f"candidate pools for minimum-session shape failed: {exc}",
+                    cause=exc,
+                    details={"for_date": for_date, "session_type": session_type},
+                ) from exc
+            retained_ids = {slot.id for slot in shape.template.slots}
+            omitted_ids = {slot.id for slot in all_pools.template.slots} - retained_ids
+            kept, dropped, retained_patterns, _omitted_patterns = _minimum_required_patterns(
+                required, session_type, retained_ids, omitted_ids,
+                all_pools.candidate_patterns,
+            )
+            required[session_type] = tuple(kept)
+            shape.note["retained_patterns"] = sorted(retained_patterns)
+            shape.note["omitted_required_patterns"] = sorted(dropped)
         policy = replace(policy, required_patterns=MappingProxyType(required))
         inputs = replace(
             inputs, minimum_session=False, minimum_accessories_only=False,

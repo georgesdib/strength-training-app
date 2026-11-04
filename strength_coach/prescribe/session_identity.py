@@ -5,6 +5,7 @@ from __future__ import annotations
 ORIGINAL_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
 VOLUME_FILL_PREFIX = "volume_fill_"
 TECHNIQUE = "technique"
+ACCESSORY = "accessory"
 
 
 def is_volume_fill(session_type: str) -> bool:
@@ -15,8 +16,16 @@ def is_technique(session_type: str) -> bool:
     return str(session_type) == TECHNIQUE
 
 
+def is_accessory(session_type: str) -> bool:
+    return str(session_type) == ACCESSORY
+
+
 def is_derived(session_type: str) -> bool:
-    return is_volume_fill(session_type) or is_technique(session_type)
+    return (
+        is_volume_fill(session_type)
+        or is_technique(session_type)
+        or is_accessory(session_type)
+    )
 
 
 def original_type(session_type: str) -> str | None:
@@ -35,6 +44,8 @@ def label(session_type: str) -> str:
         return f"Volume fill ({original} omitted)"
     if is_technique(value):
         return "Technique (week complete)"
+    if is_accessory(value):
+        return "Accessory only"
     return value
 
 
@@ -44,7 +55,7 @@ def counts_as_main(session_type: str) -> bool:
 
 def rotation_family(session_type: str) -> str | None:
     value = str(session_type)
-    if is_technique(value):
+    if is_technique(value) or is_accessory(value):
         return None
     if is_volume_fill(value):
         value = value[len(VOLUME_FILL_PREFIX):]

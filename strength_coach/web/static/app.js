@@ -811,8 +811,21 @@ function syncMinimumSession() {
   const on = $("#prescribe-minimum").checked;
   $("#prescribe-minimum-options").hidden = !on;
   $("#prescribe-target").disabled = !on;
-  $("#prescribe-minimum-main").disabled = !on || $("#prescribe-accessories-only").checked;
+  const accessoriesOnly = $("#prescribe-accessories-only").checked;
+  $("#prescribe-minimum-main").disabled = !on || accessoriesOnly;
   $("#prescribe-accessories-only").disabled = !on;
+  const sessionSelect = $("#prescribe-session-type");
+  if (on && accessoriesOnly) {
+    sessionSelect.dataset.previous = sessionSelect.value;
+    sessionSelect.value = "accessory";
+    sessionSelect.disabled = true;
+  } else {
+    sessionSelect.disabled = false;
+    if (sessionSelect.dataset.previous !== undefined) {
+      sessionSelect.value = sessionSelect.dataset.previous;
+      delete sessionSelect.dataset.previous;
+    }
+  }
   if (!on) {
     $("#prescribe-minimum-main").checked = false;
     $("#prescribe-accessories-only").checked = false;

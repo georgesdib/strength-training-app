@@ -86,6 +86,15 @@ only accessory slots, and is not a normal main-lift session. A requested top set
 as not applicable rather than silently dropped. It requires an explicit session type (not
 `auto`).
 
+Selecting the **Accessory only** session type, or enabling “Accessories only” on a normal
+type, produces the same effective `accessory` session. Its pool is drawn from non-essential
+slots across all four templates, deduplicated by exercise and pattern; power work is optional
+and ranked last. A pattern is retained at most once. Accessory slots are capped by
+`accessory_max_sets` (default 4). Without a minimum target, the session uses
+`athlete_profile.max_session_minutes`; the explicit minimum target overrides it. The target is
+a fill/cap goal, and the final estimate may be under it when readiness or volume limits remove
+sets.
+
 ## 4. Time estimate
 
 The target is checked against an explicit planning estimate:

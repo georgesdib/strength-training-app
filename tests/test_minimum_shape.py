@@ -100,6 +100,43 @@ def test_optional_pattern_ties_keep_template_order():
     assert "core_anti_extension" not in retained
 
 
+def test_accessory_template_is_cross_template_and_has_no_essential_slots():
+    template = minimum_session.build_accessory_template()
+    assert template.session_type == "accessory"
+    assert template.primary_exercise is None
+    assert not any(slot.essential for slot in template.slots)
+    assert any(slot.power for slot in template.slots)
+    source_types = {
+        slot.id.split("_")[1] for slot in template.slots
+    }
+    assert source_types == {"squat", "hinge", "bench"}
+
+
+def test_accessory_shape_retains_cross_template_slots_and_power_last():
+    store = db.Store(":memory:")
+    try:
+        shape = minimum_session.build_resolver_shape(
+            store.connection, for_date="2024-04-05", session_type="accessory",
+            target_minutes=60, include_main=False, accessories_only=False,
+        )
+    finally:
+        store.close()
+    assert shape.note["accessories_only"] is True
+    assert not any(slot.essential for slot in shape.template.slots)
+    assert shape.note["retained_slots"]
+    power_ids = [slot.id for slot in shape.template.slots if slot.power]
+    non_power_ids = [slot.id for slot in shape.template.slots if not slot.power]
+    assert not power_ids or non_power_ids
+
+
+def test_accessory_session_has_its_own_identity():
+    from strength_coach.prescribe import session_identity
+
+    assert session_identity.label("accessory") == "Accessory only"
+    assert session_identity.counts_as_main("accessory") is False
+    assert session_identity.rotation_family("accessory") is None
+
+
 def test_required_patterns_use_candidate_patterns_not_slot_defaults():
     kept, dropped, retained, _omitted = resolver._minimum_required_patterns(
         {"squat": ("vertical_pull", "horizontal_pull")},

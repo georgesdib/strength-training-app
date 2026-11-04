@@ -14,6 +14,10 @@
 - **Workout per-rep VBT logging**: the Log a set form accepts optional comma/space-separated
   per-rep mean concentric velocities, validates them against the set's reps, derives the set
   mean when omitted, and stores them in the append-only `workout_rep_event` / `clean_rep` path.
+- **Accessory-only session type**: the prescription form exposes an explicit `accessory`
+  session type. It draws non-essential slots from all four templates, deduplicates by exercise
+  and pattern, ranks power last, uses the athlete's session-time target when no minimum target
+  is selected, and caps each accessory slot via config (`accessory_max_sets`).
 - **Resolver-compatible minimum session**: minimum session now chooses a pre-assignment shape
   instead of deleting a resolver-selected exercise. Essential main/support slots are retained;
   optional patterns are added by least-trained order (84-day recency window) while the target
