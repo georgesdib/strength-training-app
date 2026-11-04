@@ -442,6 +442,44 @@ def test_per_rep_rows_must_match_a_main_set(conn):
         )
 
 
+def test_manual_set_accepts_per_rep_velocities(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    updated = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=3, rir=2,
+        rep_velocities=[
+            {"rep_index": 1, "velocity_mps": 0.62},
+            {"rep_index": 2, "velocity_mps": 0.58},
+            {"rep_index": 3, "velocity_mps": 0.55},
+        ],
+    )
+    row = next(item for item in updated["sets"] if item["exercise_id"] == "trap_bar_deadlift")
+    assert row["velocity"] == 0.583
+    assert row["rep_summary"]["count"] == 3
+    assert row["rep_summary"]["first"] == 0.62
+    assert row["rep_summary"]["last"] == 0.55
+    workout.end(conn, started["workout_id"], session_rpe=7, duration_min=30)
+    reps = conn.execute(
+        "SELECT rep_index, velocity_mps FROM clean_rep ORDER BY rep_index"
+    ).fetchall()
+    assert [item["velocity_mps"] for item in reps] == [0.62, 0.58, 0.55]
+
+
+def test_manual_per_rep_count_cannot_exceed_reps(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    with pytest.raises(ValueError, match="exceeds reps"):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=100, reps=2, rir=2,
+            rep_velocities=[
+                {"rep_index": 1, "velocity_mps": 0.62},
+                {"rep_index": 2, "velocity_mps": 0.58},
+                {"rep_index": 3, "velocity_mps": 0.55},
+            ],
+        )
+    assert conn.execute("SELECT COUNT(*) FROM workout_set").fetchone()[0] == 0
+
+
 def test_rep_import_materialises_clean_rep_rows(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
     workout.import_csv(

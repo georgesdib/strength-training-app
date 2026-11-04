@@ -2404,6 +2404,7 @@ class Handler(BaseHTTPRequestHandler):
                 source=source,
                 set_index=_integer(body.get("set_index")),
                 set_role=body.get("set_role") or None,
+                rep_velocities=body.get("rep_velocities"),
             )
         elif action == "update-set":
             reps, rir, load, velocity = _manual_set_values(body)

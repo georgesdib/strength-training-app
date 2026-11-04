@@ -799,6 +799,37 @@ def _event(conn, workout_id: str, event_type: str, payload: dict,
     )
 
 
+def _rep_velocity_detail(reps: int | None, values) -> list[dict]:
+    """Validate optional per-rep velocities before a set is written."""
+    if not values:
+        return []
+    if not isinstance(values, list):
+        raise ValueError("rep_velocities must be a list")
+    if reps is None:
+        raise ValueError("reps are required with per-rep velocities")
+    ordered: dict[int, float] = {}
+    for position, item in enumerate(values, start=1):
+        if isinstance(item, dict):
+            rep_index = int(item.get("rep_index", position))
+            velocity = float(item.get("velocity_mps"))
+        else:
+            rep_index = position
+            velocity = float(item)
+        if rep_index < 1:
+            raise ValueError("per-rep index must be positive")
+        if rep_index in ordered:
+            raise ValueError(f"duplicate per-rep index {rep_index}")
+        if velocity <= 0:
+            raise ValueError("per-rep velocity must be positive")
+        ordered[rep_index] = velocity
+    if len(ordered) > int(reps):
+        raise ValueError("per-rep count exceeds reps")
+    return [
+        {"rep_index": index, "velocity_mps": round(velocity, 3)}
+        for index, velocity in sorted(ordered.items())
+    ]
+
+
 def add_set(
     conn,
     workout_id: str,
@@ -811,6 +842,7 @@ def add_set(
     source: str = "manual",
     set_index: int | None = None,
     set_role: str | None = None,
+    rep_velocities: list[dict] | None = None,
 ) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
@@ -833,6 +865,11 @@ def add_set(
     set_index = int(set_index)
     if set_index < 1:
         raise ValueError("set_index must be positive")
+    rep_detail = _rep_velocity_detail(reps, rep_velocities)
+    if rep_detail and velocity is None:
+        velocity = round(
+            sum(item["velocity_mps"] for item in rep_detail) / len(rep_detail), 3
+        )
     item_index = next(
         (index for index, item in enumerate(workout["plan"]["items"])
          if item.get("exercise_id") == exercise_id),
@@ -861,6 +898,11 @@ def add_set(
         _event(conn, workout_id, "add_set", {"exercise_id": exercise_id,
                                               "set_index": set_index},
                target_set_id=int(cursor.lastrowid))
+        if rep_detail:
+            _append_reps(
+                conn, workout_id, int(cursor.lastrowid), rep_detail,
+                source=source,
+            )
     return get(conn, workout_id)
 
 

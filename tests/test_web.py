@@ -1272,6 +1272,29 @@ def test_workout_start_active_and_end(server):
     assert json.loads(get(server, "/api/workout/active")[1])["workout"] is None
 
 
+def test_workout_set_endpoint_accepts_per_rep_velocities(server):
+    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": plan,
+        "readiness": {
+            "sleep": 4, "energy": 4, "mood": 4, "soreness": 2,
+            "stress": 3, "nutrition": 4, "hydration": 4,
+        },
+    })["workout"]
+    added = post(server, f"/api/workout/{started['workout_id']}/sets", {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 3, "rir": 2,
+        "rep_velocities": [
+            {"rep_index": 1, "velocity_mps": 0.62},
+            {"rep_index": 2, "velocity_mps": 0.58},
+            {"rep_index": 3, "velocity_mps": 0.55},
+        ],
+    })
+    row = next(item for item in added["workout"]["sets"]
+               if item["exercise_id"] == "trap_bar_deadlift")
+    assert row["velocity"] == 0.583
+    assert row["rep_summary"]["count"] == 3
+
+
 def test_second_fragment_reuses_day_plan_and_readiness(server):
     plan = post(server, "/api/prescribe", {"date": "2024-01-02", "session_type": "hinge"})
     readiness = {
@@ -1830,6 +1853,16 @@ def test_a_declared_break_can_be_recorded_and_cancelled(server):
     cancelled = post(server, "/api/state/break/cancel", {"break_id": break_id})
     assert next(row for row in cancelled["breaks"]
                 if row["break_id"] == break_id)["cancelled"] is True
+
+
+def test_the_workout_logger_accepts_per_rep_velocity(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert 'id="workout-set-rep-velocities"' in page
+    status, js = get(server, "/static/workout.js")
+    assert status == 200
+    assert "parseRepVelocities" in js
+    assert "rep_velocities" in js
 
 
 def test_the_history_edit_sheet_can_override_form_ratings(server):

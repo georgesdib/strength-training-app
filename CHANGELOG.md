@@ -10,6 +10,9 @@
   **Start cached plan** confirmation, corrupt/future timestamps are rejected, and **Discard**
   removes it. Starting the workout clears the cache; the server still owns the immutable
   active-workout plan.
+- **Workout per-rep VBT logging**: the Log a set form accepts optional comma/space-separated
+  per-rep mean concentric velocities, validates them against the set's reps, derives the set
+  mean when omitted, and stores them in the append-only `workout_rep_event` / `clean_rep` path.
 - **History form override**: History → Edit renders the optional per-lift 1–5 post-lift form
   assessment with notes, so imported and live sessions can be rated or corrected through the
   append-only correction path. A blank rating means **leave the existing rating and note

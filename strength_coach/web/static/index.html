@@ -546,9 +546,10 @@
               </select>
             </label>
             <label>Velocity m/s <input type="number" inputmode="decimal" step="0.01" id="workout-set-velocity" placeholder="optional"></label>
+            <label class="grow">Per-rep m/s <input type="text" id="workout-set-rep-velocities" placeholder="e.g. 0.62, 0.58, 0.55"></label>
             <button class="primary" type="submit">Add set</button>
           </form>
-          <p class="field-hint">RIR 0 = failure; 6 = warm-up. Load is added load for bodyweight movements.</p>
+          <p class="field-hint">RIR 0 = failure; 6 = warm-up. Load is added load for bodyweight movements. Per-rep m/s is optional; values map to reps 1..n and the set mean is derived when the mean field is blank.</p>
           <div id="workout-set-msg" role="status" aria-live="polite"></div>
         </section>
 
