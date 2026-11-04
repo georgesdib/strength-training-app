@@ -76,6 +76,7 @@ def build_prescription(
     minimum_session: bool = False,
     minimum_target_minutes: int | None = None,
     minimum_include_main: bool = False,
+    minimum_accessories_only: bool = False,
     technique_throttle: bool = False,
     technique_throttle_pattern: str | Collection[str] | None = None,
     deload_decision: Any | None = None,
@@ -138,6 +139,7 @@ def build_prescription(
             minimum_session=minimum_session,
             minimum_target_minutes=minimum_target_minutes,
             minimum_include_main=minimum_include_main,
+            minimum_accessories_only=minimum_accessories_only,
             technique_throttle=technique_throttle,
             technique_throttle_pattern=technique_throttle_pattern,
             deload_decision=deload_decision,
@@ -153,6 +155,11 @@ def build_prescription(
             inputs=options,
         ).prescription
 
+    if minimum_accessories_only:
+        raise ValueError(
+            "accessories-only minimum session requires the resolver; "
+            "disable the option or enable Settings -> Resolver"
+        )
     resolved = settings_profile.feature_settings(conn, for_date)
     resolver_cfg = resolver_settings.ResolverSettings.load(conn, for_date)
     document = document or load_document()

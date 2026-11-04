@@ -2613,6 +2613,13 @@ class Handler(BaseHTTPRequestHandler):
             str(body.get("date") or datetime.date.today().isoformat())
         )
         requested_type = body.get("session_type")
+        if _truth(body.get("minimum_accessories_only")) and requested_type in (
+            None, "", "auto",
+        ):
+            raise FieldError(
+                "accessories-only minimum session requires an explicit session type",
+                {"session_type": "choose a session type for accessory-only minimum"},
+            )
         session_type = (
             schedule_mod.next_session_type(conn, for_date)
             if requested_type in (None, "", "auto") else str(requested_type)
@@ -2677,6 +2684,7 @@ class Handler(BaseHTTPRequestHandler):
             minimum_session=minimum_session,
             minimum_target_minutes=target_minutes,
             minimum_include_main=minimum_include_main,
+            minimum_accessories_only=_truth(body.get("minimum_accessories_only")),
             deload_decision=deload_decision,
             technique_throttle=technique_throttle,
             technique_throttle_pattern=technique_patterns,

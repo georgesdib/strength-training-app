@@ -471,7 +471,8 @@
               </select>
             </label>
             <label><input type="checkbox" id="prescribe-minimum-main" disabled> also reduce main lifts</label>
-            <span class="muted">Only used when minimum session is ticked: it trims accessory volume to the estimated target, then main-lift sets to a floor of 2 if you opt in. Loads and RIR stay unchanged.</span>
+            <label><input type="checkbox" id="prescribe-accessories-only" disabled> Accessories only (drop main lifts)</label>
+            <span class="muted">Only used when minimum session is ticked: it trims accessory volume to the estimated target, then main-lift sets to a floor of 2 if you opt in. Accessories only removes the main-lift work; top set is then unavailable. Loads and RIR stay unchanged.</span>
           </span>
           <label><input type="checkbox" id="prescribe-technique"> Technique throttle</label>
           <label id="prescribe-drop-confirm-wrap" hidden><input type="checkbox" id="prescribe-drop-confirm"> Confirm drop in competition window</label>

@@ -14,6 +14,11 @@
 - **Workout per-rep VBT logging**: the Log a set form accepts optional comma/space-separated
   per-rep mean concentric velocities, validates them against the set's reps, derives the set
   mean when omitted, and stores them in the append-only `workout_rep_event` / `clean_rep` path.
+- **Resolver-compatible minimum session**: minimum session now chooses a pre-assignment shape
+  instead of deleting a resolver-selected exercise. Essential main/support slots are retained;
+  optional patterns are added by least-trained order while the target allows; accessory sets are
+  kept when time permits. An explicit **Accessories only** mode omits main lifts, requires an
+  explicit session type, and reports top set as unavailable.
 - **History form override**: History → Edit renders the optional per-lift 1–5 post-lift form
   assessment with notes, so imported and live sessions can be rated or corrected through the
   append-only correction path. A blank rating means **leave the existing rating and note

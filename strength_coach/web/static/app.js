@@ -811,10 +811,15 @@ function syncMinimumSession() {
   const on = $("#prescribe-minimum").checked;
   $("#prescribe-minimum-options").hidden = !on;
   $("#prescribe-target").disabled = !on;
-  $("#prescribe-minimum-main").disabled = !on;
-  if (!on) $("#prescribe-minimum-main").checked = false;
+  $("#prescribe-minimum-main").disabled = !on || $("#prescribe-accessories-only").checked;
+  $("#prescribe-accessories-only").disabled = !on;
+  if (!on) {
+    $("#prescribe-minimum-main").checked = false;
+    $("#prescribe-accessories-only").checked = false;
+  }
 }
 $("#prescribe-minimum").addEventListener("change", syncMinimumSession);
+$("#prescribe-accessories-only").addEventListener("change", syncMinimumSession);
 
 function populateThrottlePatterns(patterns) {
   const select = $("#prescribe-throttle-pattern");
@@ -959,6 +964,7 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
     minimum_session: $("#prescribe-minimum").checked,
     target_minutes: Number($("#prescribe-target").value),
     minimum_include_main: $("#prescribe-minimum-main").checked,
+    minimum_accessories_only: $("#prescribe-accessories-only").checked,
     technique_throttle: $("#prescribe-technique").checked,
     technique_throttle_pattern: [...$("#prescribe-throttle-pattern").selectedOptions]
       .map((option) => option.value),
@@ -1217,8 +1223,10 @@ function renderPrescription(p, options = {}) {
   const minimum = p.notes?.minimum_session;
   const minimumBox = minimum ? `<p class="warnbox"><strong>Minimum session</strong>
     — ${esc(minimum.status)}: ${esc(minimum.reason)}.
+    ${minimum.accessories_only ? "Accessories only: main-lift work omitted." : ""}
     ${minimum.removed_sets ? `Removed ${minimum.removed_sets} set(s).` : ""}
     ${minimum.removed_exercises?.length ? `Removed exercises: ${esc(minimum.removed_exercises.join(", "))}.` : ""}
+    ${minimum.retained_patterns?.length ? `Retained patterns: ${esc(minimum.retained_patterns.join(", "))}.` : ""}
     Load and RIR unchanged. Heuristic, not a validated minimum dose.</p>` : "";
   const suggestion = p.notes?.deload_suggestion;
   const suggestionBox = suggestion ? `<div class="warnbox"><strong>Deload suggested</strong>

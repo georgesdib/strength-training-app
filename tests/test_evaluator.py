@@ -323,6 +323,7 @@ def test_shared_input_contract_covers_every_build_input() -> None:
         "minimum_session",
         "minimum_target_minutes",
         "minimum_include_main",
+        "minimum_accessories_only",
         "technique_throttle",
         "technique_throttle_pattern",
         "deload_decision",

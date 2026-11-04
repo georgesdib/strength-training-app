@@ -7,6 +7,7 @@ applied after the automatic modifiers, so it can only take work away.
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -14,8 +15,10 @@ from typing import Any
 
 import yaml
 
+from strength_coach.prescribe import templates
 from strength_coach.prescribe.models import PrescriptionItem
-from strength_coach.utils import paths
+from strength_coach.store import queries
+from strength_coach.utils import exercises, paths
 
 MODIFIER = "MOD-MIN-001"
 
@@ -71,6 +74,146 @@ def estimate_minutes(items: Iterable[Any],
         total += int(_field(item, "sets") or 0) * (cfg.set_seconds + rest)
         total += len(_field(item, "warmup") or ()) * cfg.warmup_set_seconds
     return round(total / 60.0, 1)
+
+
+@dataclass(frozen=True)
+class ResolverMinimumShape:
+    """A pre-assignment session shape for the resolver."""
+
+    template: templates.SessionTemplate
+    note: dict[str, Any]
+    retained_patterns: tuple[str, ...]
+
+
+def _slot_pattern(slot: templates.Slot, taxonomy: Mapping[str, Mapping[str, Any]]) -> str:
+    for exercise_id in slot.exercises:
+        pattern = (taxonomy.get(exercise_id) or {}).get("pattern")
+        if pattern:
+            return str(pattern)
+    return "unclassified"
+
+
+def _least_trained(
+    conn, end: str, slots: list[templates.Slot], taxonomy: Mapping[str, Mapping[str, Any]],
+) -> list[templates.Slot]:
+    if getattr(conn, "row_factory", None) is None:
+        conn.row_factory = sqlite3.Row
+    frame = queries.clean_sets(conn, end=end)
+    latest: dict[str, str] = {}
+    if not frame.empty:
+        for row in frame.itertuples(index=False):
+            entity = taxonomy.get(str(row.exercise_id)) or {}
+            pattern = entity.get("pattern")
+            if not pattern:
+                continue
+            key = str(pattern)
+            day = str(row.date)[:10]
+            if day > latest.get(key, ""):
+                latest[key] = day
+    return sorted(
+        slots,
+        key=lambda slot: (latest.get(_slot_pattern(slot, taxonomy), ""), slots.index(slot)),
+    )
+
+
+def build_resolver_shape(
+    conn,
+    *,
+    for_date: str,
+    session_type: str,
+    target_minutes: int,
+    include_main: bool,
+    accessories_only: bool,
+) -> ResolverMinimumShape:
+    """Choose the session's slots before the resolver sees them.
+
+    The resolver then assigns exercises only inside this frozen shape. This is what prevents
+    the post-selection deletion that used to make minimum-session plans infeasible.
+    """
+    cfg = MinimumSessionConfig.load()
+    if target_minutes not in cfg.targets_minutes:
+        raise ValueError(f"target_minutes must be one of {cfg.targets_minutes}")
+    template = templates.SessionTemplate.load(session_type)
+    taxonomy = exercises.taxonomy().entities
+    essential = [slot for slot in template.slots if slot.essential]
+    optional = [
+        slot for slot in template.slots
+        if not slot.essential and not slot.power
+    ]
+    ranked_optional = _least_trained(conn, for_date, optional, taxonomy)
+    base = [] if accessories_only else essential
+    selection_base = base
+    if include_main and not accessories_only:
+        selection_base = [
+            replace(slot, sets=min(int(slot.sets), cfg.main_lift_floor_sets))
+            if slot.essential else slot
+            for slot in base
+        ]
+    chosen_optional = []
+    for slot in ranked_optional:
+        trial = selection_base + chosen_optional + [slot]
+        if estimate_minutes(trial, cfg) <= target_minutes:
+            chosen_optional.append(slot)
+    chosen = base + chosen_optional
+    chosen_ids = {slot.id for slot in chosen}
+    ordered = [slot for slot in template.slots if slot.id in chosen_ids]
+    resized = []
+    for slot in ordered:
+        if slot.essential and not accessories_only and include_main:
+            sets = min(int(slot.sets), cfg.main_lift_floor_sets)
+        elif not slot.essential:
+            # Minimum shaping is not a reason to throw away accessory sets when the selected
+            # pattern still fits the target; use the planned set count.
+            sets = int(slot.sets)
+        else:
+            sets = int(slot.sets)
+        resized.append(replace(slot, sets=sets))
+    if not resized:
+        raise ValueError("minimum session shape has no slots")
+    removed_slots = [slot.id for slot in template.slots if slot.id not in chosen_ids]
+    retained_patterns = tuple(
+        dict.fromkeys(_slot_pattern(slot, taxonomy) for slot in resized)
+    )
+    before = estimate_minutes(template.slots, cfg)
+    after = estimate_minutes(resized, cfg)
+    removed_sets = sum(int(slot.sets) for slot in template.slots) - sum(
+        int(slot.sets) for slot in resized
+    )
+    status = "applied" if after <= target_minutes else "partial"
+    reason = (
+        f"estimated {before:.1f} -> {after:.1f} min; target {target_minutes} min"
+        if status == "applied"
+        else f"floors reached at {after:.1f} min; target {target_minutes} min"
+    )
+    note = {
+        "requested": True,
+        "applied": True,
+        "status": status,
+        "reason": reason,
+        "target_minutes": target_minutes,
+        "include_main": include_main,
+        "accessories_only": accessories_only,
+        "before_minutes": before,
+        "after_minutes": after,
+        "removed_sets": max(0, removed_sets),
+        "removed_exercises": [
+            exercise_id
+            for slot in template.slots if slot.id in removed_slots
+            for exercise_id in slot.exercises
+        ],
+        "retained_slots": [slot.id for slot in resized],
+        "omitted_slots": removed_slots,
+        "retained_patterns": list(retained_patterns),
+        "omitted_patterns": [
+            _slot_pattern(slot, taxonomy)
+            for slot in template.slots if slot.id in removed_slots
+        ],
+    }
+    return ResolverMinimumShape(
+        template=replace(template, slots=tuple(resized)),
+        note=note,
+        retained_patterns=retained_patterns,
+    )
 
 
 def _available(items: list[PrescriptionItem]) -> tuple[bool, str | None]:

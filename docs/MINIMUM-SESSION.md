@@ -1,8 +1,9 @@
 # MINIMUM EFFECTIVE SESSION — MOD-MIN-001
 
-**Status:** implemented 2026-10-23.
-**Nature:** user-selected, volume-only fallback. It never changes load, RIR, reps or exercise
-identity.
+**Status:** implemented 2026-10-23; resolver-compatible shaping added 2026-11-04.
+**Nature:** user-selected volume fallback. The fixed-template path removes only accessory work;
+the resolver path chooses a minimum-compatible shape before assignment. Explicit accessories-only
+mode may omit the main lifts and is labelled accordingly.
 
 ---
 
@@ -23,6 +24,7 @@ UI:
 ```text
 Prescribe → tick Minimum session → the 30/45/60 target and deeper-tier options appear (hidden while unticked)
 → optional “also reduce main lifts” (deeper tier)
+→ optional “Accessories only” (explicitly omits main lifts; no top set)
 → build
 ```
 
@@ -58,6 +60,26 @@ Deeper explicit tier (`--minimum-include-main` / UI checkbox):
 6. never remove an essential item.
 
 Loads and RIR targets are copied unchanged. Rep ranges are unchanged.
+
+### Resolver-compatible shape
+
+When the resolver is enabled, minimum session is a **pre-assignment shape** rather than a
+post-selection deletion:
+
+1. retain the essential main/support slots;
+2. add optional accessory slots in least-trained-pattern order while the planning estimate fits;
+3. resize only sets (main floor when “also reduce main lifts” is ticked; accessory sets keep
+their planned count when time allows);
+4. freeze that shape, then let the resolver choose exercises inside it;
+5. never remove an assigned exercise after the resolver search.
+
+The operation is deterministic and cites `MOD-MIN-001`. If floors prevent reaching the target,
+the result is `partial`; the shape is still shown and remains executable.
+
+**Accessories only** is an explicit separate mode. It omits the main and secondary lifts, keeps
+only accessory slots, and is not a normal main-lift session. A requested top set is reported
+as not applicable rather than silently dropped. It requires an explicit session type (not
+`auto`).
 
 ## 4. Time estimate
 

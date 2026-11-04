@@ -342,6 +342,7 @@ def candidate_pools(
     policy: resolver_policy.ResolverPolicy | None = None,
     settings: ResolverSettings | None = None,
     context: RuleContext | None = None,
+    template: templates.SessionTemplate | None = None,
 ) -> CandidatePools:
     """Return eligible candidate pools for the joint beam.
 
@@ -369,7 +370,7 @@ def candidate_pools(
             spinal_cap=runtime.spinal_cap,
             spinal_costs=runtime.spinal_costs,
         )
-    template = templates.SessionTemplate.load(session_type)
+    template = template or templates.SessionTemplate.load(session_type)
     catalogue = resolver_policy.load_candidate_catalogue(policy)
     catalogue_digest = resolver_policy.candidate_catalogue_digest(catalogue)
     taxonomy = exercises.taxonomy().entities
