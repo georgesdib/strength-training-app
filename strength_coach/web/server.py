@@ -428,6 +428,9 @@ def _settled(value):
 
 _PROGRAMME_JOBS: dict[str, dict[str, Any]] = {}
 _PROGRAMME_JOBS_LOCK = threading.Lock()
+# Resolver preview, Workflow prescription and programme forecasts are all CPU-bound. One
+# shared slot prevents two multi-minute builds from competing on the four ODROID cores.
+_CPU_JOB_SLOTS = threading.Semaphore(1)
 _READ_CACHE: dict[tuple, dict] = {}
 _READ_CACHE_LOCK = threading.Lock()
 _READ_CACHE_MAX = 16
@@ -576,6 +579,8 @@ def _run_programme_job(job_id: str, db_path, body: dict) -> None:
         with _PROGRAMME_JOBS_LOCK:
             if job_id in _PROGRAMME_JOBS:
                 _PROGRAMME_JOBS[job_id].update(status="error", error=str(exc))
+    finally:
+        _CPU_JOB_SLOTS.release()
 
 
 MAX_RUNNING_PROGRAMME_JOBS = 1
@@ -592,19 +597,26 @@ def start_programme_job(db_path, body: dict) -> dict:
             # A forecast is CPU-bound and reads the same database; queueing duplicates only
             # makes both slower (DEC-PROGRAMME-09).
             raise RequestError(409, "a programme forecast is already running")
-    job_id = uuid.uuid4().hex
-    job = {
-        "job_id": job_id,
-        "status": "running",
-        "created_at": datetime.datetime.now().timestamp(),
-        "result": None,
-        "error": None,
-    }
-    with _PROGRAMME_JOBS_LOCK:
+        if not _CPU_JOB_SLOTS.acquire(blocking=False):
+            raise RequestError(409, "a CPU-heavy job is already running")
+        job_id = uuid.uuid4().hex
+        job = {
+            "job_id": job_id,
+            "status": "running",
+            "created_at": datetime.datetime.now().timestamp(),
+            "result": None,
+            "error": None,
+        }
         _PROGRAMME_JOBS[job_id] = job
-    threading.Thread(
-        target=_run_programme_job, args=(job_id, db_path, body), daemon=True,
-    ).start()
+    try:
+        threading.Thread(
+            target=_run_programme_job, args=(job_id, db_path, body), daemon=True,
+        ).start()
+    except Exception:
+        with _PROGRAMME_JOBS_LOCK:
+            _PROGRAMME_JOBS.pop(job_id, None)
+        _CPU_JOB_SLOTS.release()
+        raise
     return job
 
 
@@ -650,6 +662,8 @@ def _run_resolver_preview_job(job_id: str, db_path, body: dict) -> None:
         with _RESOLVER_PREVIEW_JOBS_LOCK:
             if job_id in _RESOLVER_PREVIEW_JOBS:
                 _RESOLVER_PREVIEW_JOBS[job_id].update(status="error", error=str(exc))
+    finally:
+        _CPU_JOB_SLOTS.release()
 
 
 def start_resolver_preview_job(db_path, body: dict) -> dict:
@@ -661,19 +675,26 @@ def start_resolver_preview_job(db_path, body: dict) -> dict:
         )
         if running >= MAX_RUNNING_RESOLVER_PREVIEW_JOBS:
             raise RequestError(409, "a resolver preview is already running")
-    job_id = uuid.uuid4().hex
-    job = {
-        "job_id": job_id,
-        "status": "running",
-        "created_at": datetime.datetime.now().timestamp(),
-        "result": None,
-        "error": None,
-    }
-    with _RESOLVER_PREVIEW_JOBS_LOCK:
+        if not _CPU_JOB_SLOTS.acquire(blocking=False):
+            raise RequestError(409, "a CPU-heavy job is already running")
+        job_id = uuid.uuid4().hex
+        job = {
+            "job_id": job_id,
+            "status": "running",
+            "created_at": datetime.datetime.now().timestamp(),
+            "result": None,
+            "error": None,
+        }
         _RESOLVER_PREVIEW_JOBS[job_id] = job
-    threading.Thread(
-        target=_run_resolver_preview_job, args=(job_id, db_path, body), daemon=True,
-    ).start()
+    try:
+        threading.Thread(
+            target=_run_resolver_preview_job, args=(job_id, db_path, body), daemon=True,
+        ).start()
+    except Exception:
+        with _RESOLVER_PREVIEW_JOBS_LOCK:
+            _RESOLVER_PREVIEW_JOBS.pop(job_id, None)
+        _CPU_JOB_SLOTS.release()
+        raise
     return job
 
 
@@ -717,6 +738,8 @@ def _run_prescribe_job(job_id: str, db_path, body: dict) -> None:
         with _PRESCRIBE_JOBS_LOCK:
             if job_id in _PRESCRIBE_JOBS:
                 _PRESCRIBE_JOBS[job_id].update(status="error", error=str(exc))
+    finally:
+        _CPU_JOB_SLOTS.release()
 
 
 def start_prescribe_job(db_path, body: dict) -> dict:
@@ -728,19 +751,26 @@ def start_prescribe_job(db_path, body: dict) -> dict:
         )
         if running >= MAX_RUNNING_PRESCRIBE_JOBS:
             raise RequestError(409, "a prescription build is already running")
-    job_id = uuid.uuid4().hex
-    job = {
-        "job_id": job_id,
-        "status": "running",
-        "created_at": datetime.datetime.now().timestamp(),
-        "result": None,
-        "error": None,
-    }
-    with _PRESCRIBE_JOBS_LOCK:
+        if not _CPU_JOB_SLOTS.acquire(blocking=False):
+            raise RequestError(409, "a CPU-heavy job is already running")
+        job_id = uuid.uuid4().hex
+        job = {
+            "job_id": job_id,
+            "status": "running",
+            "created_at": datetime.datetime.now().timestamp(),
+            "result": None,
+            "error": None,
+        }
         _PRESCRIBE_JOBS[job_id] = job
-    threading.Thread(
-        target=_run_prescribe_job, args=(job_id, db_path, body), daemon=True,
-    ).start()
+    try:
+        threading.Thread(
+            target=_run_prescribe_job, args=(job_id, db_path, body), daemon=True,
+        ).start()
+    except Exception:
+        with _PRESCRIBE_JOBS_LOCK:
+            _PRESCRIBE_JOBS.pop(job_id, None)
+        _CPU_JOB_SLOTS.release()
+        raise
     return job
 
 

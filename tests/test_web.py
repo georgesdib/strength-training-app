@@ -1295,6 +1295,45 @@ def test_workout_set_endpoint_accepts_per_rep_velocities(server):
     assert row["rep_summary"]["count"] == 3
 
 
+def test_workout_set_api_rejects_bad_per_rep_values_and_accepts_sparse(server):
+    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": plan,
+        "readiness": {
+            "sleep": 4, "energy": 4, "mood": 4, "soreness": 2,
+            "stress": 3, "nutrition": 4, "hydration": 4,
+        },
+    })["workout"]
+    url = f"/api/workout/{started['workout_id']}/sets"
+    cases = [
+        ([{"rep_index": 4, "velocity_mps": 0.6}], "exceeds reps"),
+        ([{"rep_index": 1.5, "velocity_mps": 0.6}], "positive integer"),
+        ([{"rep_index": 1, "velocity_mps": float("nan")}], "finite and positive"),
+        ([{"rep_index": 1, "velocity_mps": float("inf")}], "finite and positive"),
+        ([{"rep_index": 1, "velocity_mps": 0.6},
+          {"rep_index": 1, "velocity_mps": 0.5}], "duplicate"),
+    ]
+    for values, message in cases:
+        status, body = post_status(server, url, {
+            "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 3,
+            "rir": 2, "rep_velocities": values,
+        })
+        assert status == 400, body
+        assert message in body
+
+    added = post(server, url, {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 3,
+        "rir": 2, "rep_velocities": [
+            {"rep_index": 1, "velocity_mps": 0.62},
+            {"rep_index": 3, "velocity_mps": 0.55},
+        ],
+    })
+    row = next(item for item in added["workout"]["sets"]
+               if item["exercise_id"] == "trap_bar_deadlift")
+    assert row["rep_summary"]["count"] == 2
+    assert row["velocity"] == 0.585
+
+
 def test_second_fragment_reuses_day_plan_and_readiness(server):
     plan = post(server, "/api/prescribe", {"date": "2024-01-02", "session_type": "hinge"})
     readiness = {

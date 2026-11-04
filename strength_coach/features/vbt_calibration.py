@@ -10,6 +10,7 @@ result is *no target* rather than a plausible number.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import threading
 from dataclasses import dataclass, field
@@ -118,12 +119,13 @@ def calibrate(sets: pd.DataFrame, *, params: CalibrationParams | None = None) ->
     with _CALIBRATION_CACHE_LOCK:
         cached = _CALIBRATION_CACHE.get(digest)
     if cached is not None:
-        return cached
+        # Callers may annotate or sort their result; never let that mutate the cache.
+        return copy.deepcopy(cached)
     result = _calibrate_uncached(sets, params=effective)
     with _CALIBRATION_CACHE_LOCK:
         if len(_CALIBRATION_CACHE) >= _CALIBRATION_CACHE_MAX:
             _CALIBRATION_CACHE.pop(next(iter(_CALIBRATION_CACHE)))
-        _CALIBRATION_CACHE[digest] = result
+        _CALIBRATION_CACHE[digest] = copy.deepcopy(result)
     return result
 
 

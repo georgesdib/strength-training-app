@@ -127,6 +127,14 @@ The measured sequential result is a **3.16× speedup** on the target ODROID-C4 w
 concurrency risk. Parallelism is not justified by the remaining profile, and a process backend
 would be premature on a 4 GB device.
 
+**Global CPU-job admission:** resolver preview, Workflow prescription and programme forecast
+share one process-wide semaphore. Admission and job registration happen under the same lock;
+the worker thread starts only after the lock is released; a second CPU-heavy request gets a
+409. This keeps one expensive build at a time on the four Cortex-A55 cores.
+
+**VBT cache isolation:** cached calibration results are deep-copied on store and retrieval, so
+a caller mutating `targets` or `excluded` cannot affect a later result.
+
 ## 7. ODROID-C4 deployment guidance
 
 These numbers were measured on the target hardware: **Hardkernel ODROID-C4**, 4× Cortex-A55,

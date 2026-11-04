@@ -799,6 +799,25 @@ def _event(conn, workout_id: str, event_type: str, payload: dict,
     )
 
 
+def _positive_int(value, label: str) -> int:
+    """Accept an integer value without silently truncating a fractional one."""
+    if isinstance(value, bool):
+        raise ValueError(f"{label} must be a positive integer")
+    if isinstance(value, int):
+        parsed = value
+    elif isinstance(value, float):
+        if not math.isfinite(value) or not value.is_integer():
+            raise ValueError(f"{label} must be a positive integer")
+        parsed = int(value)
+    elif isinstance(value, str) and value.strip().isdigit():
+        parsed = int(value.strip())
+    else:
+        raise ValueError(f"{label} must be a positive integer")
+    if parsed < 1:
+        raise ValueError(f"{label} must be a positive integer")
+    return parsed
+
+
 def _rep_velocity_detail(reps: int | None, values) -> list[dict]:
     """Validate optional per-rep velocities before a set is written."""
     if not values:
@@ -807,23 +826,32 @@ def _rep_velocity_detail(reps: int | None, values) -> list[dict]:
         raise ValueError("rep_velocities must be a list")
     if reps is None:
         raise ValueError("reps are required with per-rep velocities")
+    rep_count = _positive_int(reps, "reps")
     ordered: dict[int, float] = {}
     for position, item in enumerate(values, start=1):
         if isinstance(item, dict):
-            rep_index = int(item.get("rep_index", position))
-            velocity = float(item.get("velocity_mps"))
+            rep_index = _positive_int(
+                item.get("rep_index", position), "per-rep index"
+            )
+            raw_velocity = item.get("velocity_mps")
         else:
             rep_index = position
-            velocity = float(item)
-        if rep_index < 1:
-            raise ValueError("per-rep index must be positive")
+            raw_velocity = item
+        if isinstance(raw_velocity, bool):
+            raise ValueError("per-rep velocity must be finite and positive")
+        try:
+            velocity = float(raw_velocity)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("per-rep velocity must be finite and positive") from exc
+        if not math.isfinite(velocity) or velocity <= 0:
+            raise ValueError("per-rep velocity must be finite and positive")
+        if rep_index > rep_count:
+            raise ValueError(
+                f"per-rep index {rep_index} exceeds reps {rep_count}"
+            )
         if rep_index in ordered:
             raise ValueError(f"duplicate per-rep index {rep_index}")
-        if velocity <= 0:
-            raise ValueError("per-rep velocity must be positive")
         ordered[rep_index] = velocity
-    if len(ordered) > int(reps):
-        raise ValueError("per-rep count exceeds reps")
     return [
         {"rep_index": index, "velocity_mps": round(velocity, 3)}
         for index, velocity in sorted(ordered.items())

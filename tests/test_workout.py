@@ -480,6 +480,42 @@ def test_manual_per_rep_count_cannot_exceed_reps(conn):
     assert conn.execute("SELECT COUNT(*) FROM workout_set").fetchone()[0] == 0
 
 
+def test_manual_per_rep_rejects_invalid_indices_and_velocities(conn):
+    import math
+
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    cases = [
+        ([{"rep_index": 4, "velocity_mps": 0.6}], "exceeds reps"),
+        ([{"rep_index": 1.5, "velocity_mps": 0.6}], "positive integer"),
+        ([{"rep_index": 0, "velocity_mps": 0.6}], "positive integer"),
+        ([{"rep_index": 1, "velocity_mps": math.nan}], "finite and positive"),
+        ([{"rep_index": 1, "velocity_mps": math.inf}], "finite and positive"),
+        ([{"rep_index": 1, "velocity_mps": -math.inf}], "finite and positive"),
+        ([{"rep_index": 1, "velocity_mps": 0}], "finite and positive"),
+        ([{"rep_index": 1, "velocity_mps": 0.6},
+          {"rep_index": 1, "velocity_mps": 0.5}], "duplicate"),
+    ]
+    for values, message in cases:
+        with pytest.raises(ValueError, match=message):
+            workout.add_set(
+                conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+                load_kg=100, reps=3, rir=2, rep_velocities=values,
+            )
+    assert conn.execute("SELECT COUNT(*) FROM workout_set").fetchone()[0] == 0
+
+    updated = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=3, rir=2,
+        rep_velocities=[
+            {"rep_index": 1, "velocity_mps": 0.62},
+            {"rep_index": 3, "velocity_mps": 0.55},
+        ],
+    )
+    row = next(item for item in updated["sets"] if item["exercise_id"] == "trap_bar_deadlift")
+    assert row["rep_summary"]["count"] == 2
+    assert row["velocity"] == 0.585
+
+
 def test_rep_import_materialises_clean_rep_rows(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
     workout.import_csv(

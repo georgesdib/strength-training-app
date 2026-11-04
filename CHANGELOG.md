@@ -41,6 +41,14 @@
   build now start short-request background jobs and poll for their results, so a multi-minute
   deterministic build no longer trips the browser's request timeout. Workflow shows elapsed
   seconds while the job runs.
+- **Per-rep VBT validation**: rejects rep indices above the set's reps, fractional or
+  non-positive indices, duplicate reps, and non-finite or non-positive velocities; valid sparse
+  rep measurements remain accepted.
+- **CPU job admission**: resolver preview, Workflow prescription and programme forecasts share
+  one process-wide CPU slot. Capacity check and registration are atomic; concurrent starts
+  cannot exceed the limit and the worker starts after the lock is released.
+- **VBT cache isolation**: cached calibration results are deep-copied, so a caller mutating a
+  returned result cannot affect subsequent calls.
 
 ## [1.2.0] — 2026-11-03
 
