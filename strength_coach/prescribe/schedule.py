@@ -12,9 +12,11 @@ how three consecutive squat sessions were produced.
 from __future__ import annotations
 
 from collections import Counter
+from functools import lru_cache
 
 from strength_coach.features import training_day
 from strength_coach.prescribe import session_identity
+from strength_coach.utils import paths
 
 SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
 TARGETS = ("squat", "hinge", "bench")
@@ -94,8 +96,50 @@ def _choose_family(recent: list[str], targets: dict[str, int]) -> str:
     )
 
 
+def _schedule_stamp(conn) -> tuple[int, int, tuple[int, ...]]:
+    """Database and config stamp that makes a per-connection schedule cache safe."""
+    try:
+        data_version = int(conn.execute("PRAGMA data_version").fetchone()[0])
+    except Exception:
+        data_version = -1
+    try:
+        changes = int(conn.total_changes)
+    except Exception:
+        changes = -1
+    mtimes = []
+    for path in (paths.session_types_yaml(), paths.template_resolver_yaml()):
+        try:
+            mtimes.append(int(path.stat().st_mtime_ns))
+        except OSError:
+            mtimes.append(0)
+    return data_version, changes, tuple(mtimes)
+
+
+@lru_cache(maxsize=32)
+def _cached_next_session_type(
+    conn, before: str, prior: tuple[str, ...], data_version: int, changes: int,
+    config_stamp: tuple[int, ...],
+) -> str:
+    return _next_session_type_uncached(conn, before, prior_types=prior)
+
+
 def next_session_type(conn, before: str, *, prior_types=()) -> str:
-    """Choose the next type from recent training days plus any forecast choices."""
+    """Choose the next type from recent training days plus any forecast choices.
+
+    The result is memoised per connection and invalidated by SQLite's data version,
+    the connection's write count and the template/policy file mtimes. This removes the
+    repeated forecast calculations inside one resolver build without sharing mutable state
+    between requests or database writers.
+    """
+    prior = tuple(str(item) for item in prior_types)
+    data_version, changes, config_stamp = _schedule_stamp(conn)
+    return _cached_next_session_type(
+        conn, before, prior, data_version, changes, config_stamp,
+    )
+
+
+def _next_session_type_uncached(conn, before: str, *, prior_types=()) -> str:
+    """Uncached rolling-session choice used by the memoised public entry point."""
     days = training_day.group(conn, end=before, with_exercises=False)
     recent = [
         str(day["planned_type"]) for day in days

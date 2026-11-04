@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
 import yaml
@@ -436,6 +437,19 @@ class SettingsSnapshot:
 
 
 def _spinal_defaults() -> dict[str, Any]:
+    source = paths.config_dir("rules/programme.v1.yaml")
+    try:
+        stamp = (str(source), source.stat().st_mtime_ns, source.stat().st_size)
+    except OSError:
+        stamp = (str(source), 0, 0)
+    return _spinal_defaults_for_stamp(stamp)
+
+
+@lru_cache(maxsize=4)
+def _spinal_defaults_for_stamp(
+    stamp: tuple[str, int, int],
+) -> dict[str, Any]:
+    del stamp
     raw = yaml.safe_load(
         paths.config_dir("rules/programme.v1.yaml").read_text(encoding="utf-8")
     ) or {}
@@ -563,8 +577,22 @@ def _snapshot_values() -> dict[str, Any]:
     return values
 
 
+def _config_stamp() -> tuple[tuple[str, int, int], ...]:
+    return tuple(
+        (str(path), path.stat().st_mtime_ns, path.stat().st_size)
+        for path in sorted(paths.config_dir().rglob("*.yaml"))
+    )
+
+
+@lru_cache(maxsize=4)
+def _snapshot_for_stamp(stamp: tuple[tuple[str, int, int], ...]) -> dict[str, Any]:
+    return _snapshot_values()
+
+
 def snapshot() -> SettingsSnapshot:
-    values = _snapshot_values()
+    # Immutable config data: cache by the exact file set/mtime/size so a profile write does
+    # not parse YAML again, while a config edit cannot reuse stale definitions.
+    values = _snapshot_for_stamp(_config_stamp())
     missing = sorted(set(BY_KEY) - set(values))
     extra = sorted(set(values) - set(BY_KEY))
     if missing or extra:

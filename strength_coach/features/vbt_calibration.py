@@ -10,6 +10,8 @@ result is *no target* rather than a plausible number.
 
 from __future__ import annotations
 
+import hashlib
+import threading
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -94,7 +96,40 @@ def default_params() -> CalibrationParams:
     return CalibrationParams()
 
 
+def _frame_digest(sets: pd.DataFrame, params: CalibrationParams) -> str:
+    columns = tuple(str(column) for column in sets.columns)
+    values = (
+        pd.util.hash_pandas_object(sets, index=True).to_numpy().tobytes()
+        if not sets.empty else b""
+    )
+    material = repr(columns).encode() + values + repr(params.as_dict()).encode()
+    return hashlib.sha256(METHOD_VERSION.encode() + material).hexdigest()
+
+
+_CALIBRATION_CACHE: dict[str, CalibrationResult] = {}
+_CALIBRATION_CACHE_LOCK = threading.Lock()
+_CALIBRATION_CACHE_MAX = 8
+
+
 def calibrate(sets: pd.DataFrame, *, params: CalibrationParams | None = None) -> CalibrationResult:
+    """Build calibration targets from clean, enriched sets, cached by immutable frame content."""
+    effective = params or default_params()
+    digest = _frame_digest(sets, effective)
+    with _CALIBRATION_CACHE_LOCK:
+        cached = _CALIBRATION_CACHE.get(digest)
+    if cached is not None:
+        return cached
+    result = _calibrate_uncached(sets, params=effective)
+    with _CALIBRATION_CACHE_LOCK:
+        if len(_CALIBRATION_CACHE) >= _CALIBRATION_CACHE_MAX:
+            _CALIBRATION_CACHE.pop(next(iter(_CALIBRATION_CACHE)))
+        _CALIBRATION_CACHE[digest] = result
+    return result
+
+
+def _calibrate_uncached(
+    sets: pd.DataFrame, *, params: CalibrationParams | None = None,
+) -> CalibrationResult:
     """Build calibration targets from clean, enriched sets.
 
     Expects the output of `features.derived.enrich` (needs `velocity_present`, `rir_class`,
