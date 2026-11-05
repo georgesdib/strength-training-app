@@ -1,8 +1,9 @@
 # UI documentation map
 
-**Status:** Existing view map plus the six-area UI refresh. Every view/panel gets a short
-explanation and a documentation deep-link; this file is the canonical map used to build and
-audit those links. See [UI design audit and plan](UI-DESIGN-IMPLEMENTATION-PLAN.md).
+**Status:** Existing view map plus the six-area UI refresh. The redesign's P0–P2 work is
+implemented; its final audit is pending. Every view/panel gets a short explanation and a
+documentation deep-link; this file is the canonical map used to build and audit those links.
+See [UI design audit and plan](UI-DESIGN-IMPLEMENTATION-PLAN.md).
 
 ## Link contract
 
@@ -132,7 +133,8 @@ current destinations; they do not duplicate their forms or imply new data contra
 - [x] P3: every UI-linked doc has a Related block.
 - [x] P4: `tools/check_ui_docs.py` and `tests/test_ui_docs.py` enforce the contract,
   including docs links generated inside any client script (`core.js`, `settings.js`, `app.js`,
-  `exercises.js`, `history.js`, `workout.js`, `summary.js`, `performance.js`).
+  `exercises.js`, `history.js`, `workout.js`, `summary.js`, `performance.js`, `progress.js`,
+  `analytics-charts.js`).
 
 ## Related
 

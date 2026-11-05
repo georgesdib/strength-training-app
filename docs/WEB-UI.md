@@ -7,6 +7,10 @@ replacement for the CLI.
 dates, safe error responses, data-integrity checks, browser coverage and frontend modularisation
 were implemented and closed in [`UI-IMPROVEMENT-PLAN.md`](UI-IMPROVEMENT-PLAN.md) on 2026-10-27.
 
+**UI redesign:** the six-area navigation, actionable Today and integrated Progress work
+(P0–P2) is implemented; the final audit is pending in
+[`UI-DESIGN-IMPLEMENTATION-PLAN.md`](UI-DESIGN-IMPLEMENTATION-PLAN.md).
+
 ## Run
 
 ```bash
@@ -78,7 +82,7 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
   as configurable landmarks, the spinal cap as ordinal, and deload/minimum-session evidence
   limits. A `recent stress` column, a `readiness` column, the **strength fatigue diagnostic**
   panel (predictive form rejected; per-lift + overall state is descriptive context with 95% intervals,
-  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only; week/date controls), the **per-rep velocity** panel (descriptive loss and associations; n ≥ 10 for correlations), the **continuity calibration** panel (per-band returns/fixed/applied and the
+  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only; week/date controls), the **continuity calibration** panel (per-band returns/fixed/applied and the
   `allow_relax_fixed` setting, with an as-of date), the **strength fatigue diagnostic** date control and the **retrospective validation** maximum-dates control (integer 1–100, default 12, server-validated; invalid values are rejected rather than clamped), and the **exercise selection** panel (preview rankings with A/B/C
   comparison classes and a display-only own-history e1RM ratio; optional LLM chooser). Under
   the rankings it shows the **fatigue-informed suggestion** (Part C): at most one accessory
