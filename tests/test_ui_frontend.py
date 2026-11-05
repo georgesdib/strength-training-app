@@ -575,6 +575,8 @@ renderMonitoringAnalysis({
          {date: "2024-01-15", session_type: "hinge", working_sets: 4, hard_sets: 3,
           tonnage_kg: 500, tonnage_status: "observed", session_load_au: 200}],
   associations: [{exercise_id: "squat", observations: 4,
+    dose: [{date: "2024-01-01", working_sets: 2, hard_sets: 1},
+           {date: "2024-01-08", working_sets: 3, hard_sets: 2}],
     hard_sets_vs_next_e1rm: {n: 3, r: 0.5, status: "descriptive"},
     session_load_vs_next_e1rm: {n: 2, r: null, status: "insufficient"},
     hard_sets_points: [{x: 1, y: 100}, {x: 2, y: 110}, {x: 3, y: 120}],
@@ -592,6 +594,7 @@ var html = global.__target.innerHTML;
 if (html.indexOf("<svg") < 0) throw new Error("charts missing");
 if (html.indexOf("chart-frame") < 0) throw new Error("chart expand frame missing");
 if (html.indexOf("Session date") < 0) throw new Error("x axis title missing");
+if (html.indexOf("squat training dose over time") < 0) throw new Error("per-exercise dose chart missing");
 if (html.indexOf("Hard sets") < 0) throw new Error("scatter x axis title missing");
 if (html.indexOf("click to enlarge") < 0) throw new Error("expand hint missing");
 if (html.indexOf("Insufficient observations for squat session load vs next e1RM") < 0) throw new Error("insufficient chart state");

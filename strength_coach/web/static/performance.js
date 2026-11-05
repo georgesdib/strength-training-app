@@ -590,8 +590,9 @@ function monitoringAnalysisAssociation(row) {
 }
 
 
-function analysisLineChart(rows) {
-  if (!Array.isArray(rows) || rows.length < 2) return "<p class='empty'>Insufficient session dose observations for a chart.</p>";
+function analysisLineChart(rows, chartTitle) {
+  if (!Array.isArray(rows) || rows.length < 1) return "<p class='empty'>Insufficient session dose observations for a chart.</p>";
+  var title = chartTitle || "Training dose over time";
   var width = 640, height = 240, max = 1;
   rows.forEach(function (row) {
     max = Math.max(max, Number(row.hard_sets || 0), Number(row.working_sets || 0));
@@ -600,7 +601,9 @@ function analysisLineChart(rows) {
   var plot = { left: 56, right: width - 16, top: 16, bottom: height - 42 };
   function coords(key) {
     return rows.map(function (row, index) {
-      var x = plot.left + (index / (rows.length - 1)) * (plot.right - plot.left);
+      var x = rows.length === 1
+        ? (plot.left + plot.right) / 2
+        : plot.left + (index / (rows.length - 1)) * (plot.right - plot.left);
       var y = plot.bottom - (Number(row[key] || 0) / max) * (plot.bottom - plot.top);
       return x.toFixed(1) + "," + y.toFixed(1);
     }).join(" ");
@@ -617,11 +620,11 @@ function analysisLineChart(rows) {
     { y: plot.top, label: String(max) },
   ];
   var svg = "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
-    "' role='img' aria-label='Session dose over time'><title>Session dose over time: hard sets and working sets</title>" +
+    "' role='img' aria-label='" + esc(title) + "'><title>" + esc(title) + ": hard sets and working sets</title>" +
     chartAxes("Session date", "Sets", xTicks, yTicks, plot, width, height) +
     "<polyline points='" + coords("working_sets") + "' fill='none' stroke='currentColor' stroke-width='2'></polyline>" +
     "<polyline points='" + coords("hard_sets") + "' fill='none' stroke='currentColor' stroke-width='2' stroke-dasharray='5 3'></polyline></svg>";
-  return chartFrame("Training dose over time", svg, "Solid: working sets. Dashed: hard sets. Missing values are not plotted as zero.");
+  return chartFrame(title, svg, "Solid: working sets. Dashed: hard sets. Missing values are not plotted as zero.");
 }
 
 function analysisScatter(points, association, label, xTitle, yTitle) {
@@ -725,6 +728,7 @@ function renderMonitoringAnalysis(data) {
       (monitoringAnalysisShowAllDose ? "Show latest dose only" : "Show full dose list (" + allDoseRows.length + ")") + "</button>" : "") +
     "<h3>Hard sets vs subsequent e1RM</h3><p class='muted'>Session dose precedes the next session best for the same lift. Correlation is descriptive and not causal.</p>" +
     (selectedAssociation ? "<h4>" + esc(selectedAssociation.exercise_id) + "</h4>" +
+      analysisLineChart(selectedAssociation.dose || [], selectedAssociation.exercise_id + " training dose over time") +
       analysisScatter(selectedAssociation.hard_sets_points, selectedAssociation.hard_sets_vs_next_e1rm, selectedAssociation.exercise_id + " hard sets vs next e1RM", "Hard sets", "Next e1RM (kg)") +
       analysisScatter(selectedAssociation.session_load_points, selectedAssociation.session_load_vs_next_e1rm, selectedAssociation.exercise_id + " session load vs next e1RM", "Session load (AU)", "Next e1RM (kg)") :
       "<p class='empty'>Insufficient observations for lagged associations.</p>") +

@@ -7,8 +7,9 @@ factor, volume target, or recommendation.
 ## Entry points
 
 - **Performance -> Monitoring analysis** in the web UI: explicit Run analysis, optional
-  as-of date, dose chart, two lagged scatter charts, supporting tables and calibration
-  transparency.
+  as-of date, global session-dose chart, a per-exercise dose chart for the selected
+  association exercise, two lagged scatter charts, supporting tables and calibration
+  transparency. Each chart shows labelled axes and legends and can be opened larger.
 - **Settings -> Monitoring & reports**: a collapsed, read-only inventory of effective
   monitoring, calibration, prescription and volume parameters, with search, group filters and
   canonical/local/default/code provenance.
