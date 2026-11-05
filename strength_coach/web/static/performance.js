@@ -551,7 +551,8 @@ function analysisScatter(points, association, label) {
     var y = height - 20 - ((Number(point.y) - yMin) / ySpan) * (height - 40);
     return "<circle cx='" + x.toFixed(1) + "' cy='" + y.toFixed(1) + "' r='4'></circle>";
   }).join("");
-  return "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
+  return "<p class='chart-title'><strong>" + esc(label) + "</strong></p>" +
+    "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
     "' role='img' aria-label='" + esc(label) + "'><title>" + esc(label) + "</title>" + circles + "</svg>" +
     "<p class='muted'>" + esc(monitoringAnalysisAssociation(association)) +
     ". The displayed correlation is calculated by the analysis service, never by this page.</p>";

@@ -1847,9 +1847,13 @@ def test_prescribe_exposes_accessories_only_minimum_mode(server):
     _status, page = get(server, "/")
     assert 'id="prescribe-accessories-only"' in page
     assert 'value="accessory"' in page
+    assert 'value="auto" selected' in page
     _status, js = get(server, "/static/app.js")
     assert "minimum_accessories_only" in js
     assert "Accessories only" in page
+    _status, performance_js = get(server, "/static/performance.js")
+    assert "chart-title" in performance_js
+    assert "hard sets vs next e1RM" in performance_js
 
 
 def test_prescribe_top_set_control_is_gated_by_the_setting(server):

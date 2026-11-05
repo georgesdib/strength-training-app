@@ -815,6 +815,7 @@ function syncMinimumSession() {
   $("#prescribe-minimum-main").disabled = !on || accessoriesOnly;
   $("#prescribe-accessories-only").disabled = !on;
   const sessionSelect = $("#prescribe-session-type");
+  if (!sessionSelect.value) sessionSelect.value = "auto";
   if (on && accessoriesOnly) {
     sessionSelect.dataset.previous = sessionSelect.value;
     sessionSelect.value = "accessory";

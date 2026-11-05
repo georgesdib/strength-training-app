@@ -96,12 +96,15 @@ slots across all four templates, deduplicated by exercise and pattern; power wor
 and ranked last. A pattern is retained at most once. Accessory slots are capped by
 `accessory_max_sets` (default 4). The shape adds accessory sets only while the target fits; a
 final pass re-applies the cap after readiness, volume and top-up modifiers, so later modifiers
-may trim but cannot leave an accessory above the cap. Without a minimum target, the session
-uses `athlete_profile.max_session_minutes`; the explicit minimum target overrides it. The
-target is a fill/cap goal, and the final estimate may be under it when readiness or volume
-limits remove sets. A readiness-reduced item is not directly re-added; the existing under-MEV
-skip list preserves that item-level rule, though another eligible accessory may still be topped
-up by the separate progression rule.
+may trim but cannot leave an accessory above the cap. Selecting the `accessory` session type
+**always** enables the time-shaped accessory mode, even when the “Minimum session” box is not
+ticked. Without a minimum target, the session uses `athlete_profile.max_session_minutes` (or
+the configured fallback when the profile is unset); the explicit 30/45/60 minimum target
+overrides it for that build. A profile target of 30 minutes therefore produces a 30-minute
+accessory session without a hidden separate default. The target is a fill/cap goal, and the
+final estimate may be under it when readiness or volume limits remove sets. A readiness-reduced
+item is not directly re-added; the existing under-MEV skip list preserves that item-level rule,
+though another eligible accessory may still be topped up by the separate progression rule.
 
 ## 4. Time estimate
 
