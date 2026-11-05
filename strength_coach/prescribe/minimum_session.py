@@ -230,6 +230,33 @@ def build_resolver_shape(
         resized.append(replace(slot, sets=sets))
     if not resized:
         raise ValueError("minimum session shape has no slots")
+    added_sets = 0
+    if is_accessory:
+        # Fill the target with additional sets after patterns are chosen. The final engine
+        # pass enforces the same cap after readiness/volume modifiers, so later trims still win.
+        by_id = {slot.id: slot for slot in resized}
+        while True:
+            best_id = None
+            best_minutes = -1.0
+            for slot in chosen_optional:
+                current = by_id[slot.id]
+                if int(current.sets) >= cfg.accessory_max_sets:
+                    continue
+                trial = list(resized)
+                index = next(i for i, existing in enumerate(trial) if existing.id == slot.id)
+                trial[index] = replace(current, sets=int(current.sets) + 1)
+                minutes = estimate_minutes(trial, cfg)
+                if minutes <= target_minutes and minutes > best_minutes:
+                    best_id = slot.id
+                    best_minutes = minutes
+            if best_id is None:
+                break
+            index = next(i for i, existing in enumerate(resized) if existing.id == best_id)
+            resized[index] = replace(
+                resized[index], sets=int(resized[index].sets) + 1,
+            )
+            by_id[best_id] = resized[index]
+            added_sets += 1
     removed_slots = [slot.id for slot in template.slots if slot.id not in chosen_ids]
     retained_patterns = tuple(
         dict.fromkeys(_slot_pattern(slot, taxonomy) for slot in resized)
@@ -255,6 +282,7 @@ def build_resolver_shape(
         "accessories_only": accessories_only,
         "before_minutes": before,
         "after_minutes": after,
+        "added_sets": added_sets,
         "removed_sets": max(0, removed_sets),
         "removed_exercises": [
             exercise_id

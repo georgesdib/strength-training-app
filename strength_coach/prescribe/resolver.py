@@ -332,6 +332,17 @@ def build_resolved(
             "dispatch", "resolver is disabled; enable it or use the fixed path",
             details={"for_date": for_date, "session_type": session_type},
         )
+    if session_type == minimum_session.ACCESSORY_SESSION_TYPE and not inputs.minimum_session:
+        # Direct callers (resolver preview/CLI) do not pass the web form's default target.
+        inputs = replace(
+            inputs,
+            minimum_session=True,
+            minimum_accessories_only=True,
+            minimum_target_minutes=(
+                inputs.minimum_target_minutes
+                or minimum_session.MinimumSessionConfig.load().default_target_minutes
+            ),
+        )
     try:
         inputs.validate_for_resolver()
     except ValueError as exc:

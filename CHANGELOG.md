@@ -17,7 +17,11 @@
 - **Accessory-only session type**: the prescription form exposes an explicit `accessory`
   session type. It draws non-essential slots from all four templates, deduplicates by exercise
   and pattern, ranks power last, uses the athlete's session-time target when no minimum target
-  is selected, and caps each accessory slot via config (`accessory_max_sets`).
+  is selected, and caps each accessory slot via config (`accessory_max_sets`). The shape
+  adds sets toward the target up to that cap, and a final post-modifier cap is applied before
+  validation. Accessory review uses an explicit no-main-lift explanation rather than a missing
+  template, and the volume budget projects the actual shaped session.
+
 - **Resolver-compatible minimum session**: minimum session now chooses a pre-assignment shape
   instead of deleting a resolver-selected exercise. Essential main/support slots are retained;
   optional patterns are added by least-trained order (84-day recency window) while the target

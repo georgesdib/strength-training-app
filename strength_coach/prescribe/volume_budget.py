@@ -1392,9 +1392,15 @@ def report(
     conn, on_date: str, *, config: BudgetConfig | None = None,
     session_type: str | None = None,
     projected_items: Iterable[Mapping[str, Any]] = (),
+    session_items: Iterable[Mapping[str, Any]] = (),
     projected_sessions: int = 0,
 ) -> dict[str, Any]:
-    """Read-only weekly budget for a date. Writes nothing."""
+    """Read-only weekly budget for a date. Writes nothing.
+
+    `session_items` is the actual shaped session for an open date. It replaces the template
+    projection for today's rows; future sessions still use their templates.
+    """
+    actual_today_rows = list(session_items)
     cfg = config or BudgetConfig.load(conn=conn, on_date=on_date)
     start, end = week_bounds(on_date)
     profile = queries.athlete_profile(conn) or {}
@@ -1438,7 +1444,7 @@ def report(
     else:
         future_count = max(0, target_frequency - sessions_done - 1)
         today_type = session_type or schedule.next_session_type(conn, str(on_date))
-        today_rows = template_rows(today_type)
+        today_rows = actual_today_rows or template_rows(today_type)
         prior = [today_type]
 
     future_types: list[str] = []
@@ -1564,10 +1570,10 @@ def report(
         "compensation": compensation,
         "plan": plan,
         "note": (
-            "Read-only template projection; the live prescription may include history-driven "
-            "sets (for example under-MEV) that this report does not model. Per-group status "
-            "and capacity are read-only; the engine applies the budget only when the profile "
-            "flag is on."
+            "Read-only projection. When actual session items are supplied they replace the "
+            "template projection for today; the live prescription may still include "
+            "history-driven sets (for example under-MEV). Per-group status and capacity are "
+            "read-only; the engine applies the budget only when the profile flag is on."
         ),
     }
 
@@ -1587,12 +1593,6 @@ def week_panel(
 ) -> dict[str, Any]:
     """Weekly position after this session, using the same report as the engine."""
     cfg = config or BudgetConfig.load(conn=conn, on_date=on_date)
-    # Derived types have no template; the panel only needs completed/targets, not a template.
-    report_type = session_type if session_type in templates.SESSION_TYPES else None
-    data = report(
-        conn, on_date, config=cfg, session_type=report_type,
-        projected_items=projected_items, projected_sessions=projected_sessions,
-    )
     rows = [
         {
             "exercise_id": str(item["exercise_id"] if isinstance(item, Mapping)
@@ -1601,6 +1601,17 @@ def week_panel(
         }
         for item in items
     ]
+    # Derived types have no template; the panel has the actual shaped items instead.
+    report_type = (
+        session_type
+        if session_type in templates.SESSION_TYPES or session_type == "accessory"
+        else None
+    )
+    data = report(
+        conn, on_date, config=cfg, session_type=report_type,
+        projected_items=projected_items, session_items=rows,
+        projected_sessions=projected_sessions,
+    )
     today_sets = pattern_sets(rows)
     after = projection(data["completed"], today_sets, ())
     groups = {}
@@ -1673,6 +1684,7 @@ def apply(
     data = report(
         conn, for_date, config=cfg, session_type=session_type,
         projected_items=rows if same_date else projected_items,
+        session_items=rows,
         projected_sessions=projected_sessions,
     )
     policy = str(profile.get("main_lift_policy") or "preserve")

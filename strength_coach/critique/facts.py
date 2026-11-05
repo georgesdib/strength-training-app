@@ -18,7 +18,7 @@ from typing import Any
 
 import pandas as pd
 
-from strength_coach.prescribe import SessionTemplate, TemplateError
+from strength_coach.prescribe import SessionTemplate, TemplateError, session_identity
 from strength_coach.prescribe import generated as generated_snapshot
 from strength_coach.prescribe.templates import SESSION_TYPES
 from strength_coach.rules import RuleContext, load_document, registry
@@ -205,6 +205,10 @@ def build_facts(
 
 def _template_for(session_type: str, loader) -> SessionTemplate | None:
     """The session template, or None when the imported session type is unknown."""
+    if session_identity.is_accessory(session_type):
+        from strength_coach.prescribe import minimum_session
+
+        return minimum_session.build_accessory_template()
     if session_type not in SESSION_TYPES:
         return None
     try:

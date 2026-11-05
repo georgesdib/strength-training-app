@@ -119,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
 
     run = sub.add_parser("run", help="critique the last session and prescribe a date")
     run.add_argument("--date", required=True, help="date to prescribe, YYYY-MM-DD")
-    run.add_argument("--session-type", choices=("auto", "squat", "hinge", "bench_squat", "bench_hinge"),
+    run.add_argument("--session-type", choices=("auto", "squat", "hinge", "bench_squat", "bench_hinge", "accessory"),
                      default="auto", help="session emphasis (default: auto rolling)")
     run.add_argument("--llm", choices=("on", "off"), default="off",
                      help="ask the configured model for a narrative (default: off)")
@@ -223,7 +223,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     resolver_preview.add_argument("--date", required=True, help="YYYY-MM-DD")
     resolver_preview.add_argument(
-        "--session-type", choices=("auto",) + templates.SESSION_TYPES,
+        "--session-type", choices=("auto",) + templates.SESSION_TYPES + ("accessory",),
         default="auto",
     )
     resolver_preview.add_argument(

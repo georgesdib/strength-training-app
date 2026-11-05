@@ -69,9 +69,13 @@ post-selection deletion:
 1. retain the essential main/support slots;
 2. add optional accessory slots in least-trained-pattern order while the planning estimate fits;
 3. resize only sets (main floor when “also reduce main lifts” is ticked; accessory sets keep
-their planned count when time allows);
-4. freeze that shape, then let the resolver choose exercises inside it;
-5. never remove an assigned exercise after the resolver search.
+their planned count up to `accessory_max_sets`);
+4. for accessory-only, add accessory sets deterministically while the target fits and the cap
+   permits;
+5. freeze that shape, then let the resolver choose exercises inside it;
+6. never remove an assigned exercise after the resolver search;
+7. after readiness/volume/top-up modifiers, apply the final `accessory_max_sets` cap before
+   validation.
 
 The operation is deterministic and cites `MOD-MIN-001`. Optional patterns are ordered by
 last-trained date within `pattern_history_days` (default 84); ties keep template order. Required
@@ -90,10 +94,14 @@ Selecting the **Accessory only** session type, or enabling “Accessories only�
 type, produces the same effective `accessory` session. Its pool is drawn from non-essential
 slots across all four templates, deduplicated by exercise and pattern; power work is optional
 and ranked last. A pattern is retained at most once. Accessory slots are capped by
-`accessory_max_sets` (default 4). Without a minimum target, the session uses
-`athlete_profile.max_session_minutes`; the explicit minimum target overrides it. The target is
-a fill/cap goal, and the final estimate may be under it when readiness or volume limits remove
-sets.
+`accessory_max_sets` (default 4). The shape adds accessory sets only while the target fits; a
+final pass re-applies the cap after readiness, volume and top-up modifiers, so later modifiers
+may trim but cannot leave an accessory above the cap. Without a minimum target, the session
+uses `athlete_profile.max_session_minutes`; the explicit minimum target overrides it. The
+target is a fill/cap goal, and the final estimate may be under it when readiness or volume
+limits remove sets. A readiness-reduced item is not directly re-added; the existing under-MEV
+skip list preserves that item-level rule, though another eligible accessory may still be topped
+up by the separate progression rule.
 
 ## 4. Time estimate
 

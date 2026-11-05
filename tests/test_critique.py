@@ -10,11 +10,12 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 from conftest import make_readiness, make_training
 
-from strength_coach.critique import UnknownSessionError, persist, score_session
+from strength_coach.critique import UnknownSessionError, persist, rubric, score_session
 from strength_coach.critique.facts import build_facts
 from strength_coach.critique.rubric import RUBRIC_WEIGHTS, Critique
 from strength_coach.rules import policy as policy_mod
@@ -510,3 +511,9 @@ def test_legacy_null_snapshot_still_uses_blueprint_critique():
     # Imported fixture is a historical row; no snapshot means the old template path is used.
     assert facts.essential_slots
     assert facts.has_template
+
+
+def test_accessory_essential_work_is_not_a_missing_template():
+    item = rubric._essential_work(SimpleNamespace(session_type="accessory"))
+    assert item.measurable is False
+    assert "accessory-only" in item.detail

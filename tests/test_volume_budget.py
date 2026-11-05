@@ -940,3 +940,12 @@ def test_cli_prints_the_read_only_budget(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "volume budget" in out and "read-only" in out
     assert "compensation" in out
+
+
+def test_report_uses_the_actual_accessory_session_rows():
+    with store_with() as store:
+        data = volume_budget.report(
+            store.connection, "2026-11-15", session_type="accessory",
+            session_items=[{"exercise_id": "ab_wheel", "sets": 2}],
+        )
+    assert data["today"]["sets"]["core"] == 2

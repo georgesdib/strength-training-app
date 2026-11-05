@@ -703,6 +703,27 @@ def build_prescription(
         )
     warnings.extend(constraint_report.warnings)
 
+    if session_type == minimum_session_mod.ACCESSORY_SESSION_TYPE:
+        cap_cfg = minimum_session_mod.MinimumSessionConfig.load()
+        capped = []
+        capped_ids = []
+        for item in items:
+            if not item.essential and int(item.sets) > cap_cfg.accessory_max_sets:
+                capped.append(replace(
+                    item,
+                    sets=cap_cfg.accessory_max_sets,
+                    rationale_refs=tuple(item.rationale_refs) + ("MOD-MIN-001",),
+                ))
+                capped_ids.append(item.exercise_id)
+            else:
+                capped.append(item)
+        if capped_ids:
+            items = capped
+            warnings.append(
+                "MOD-MIN-001: accessory set cap applied after modifiers; "
+                f"trimmed {', '.join(capped_ids)} to {cap_cfg.accessory_max_sets} set(s)"
+            )
+
     issues = validate_prescription(tuple(items), context, document, session_type, for_date)
     for exercise_id, reason in constraint_report.vetoes:
         issues.append(f"CONSTRAINT_VETO:{exercise_id}:{reason}")
