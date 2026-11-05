@@ -90,6 +90,9 @@ The tools read `data/raw/training_log.csv` and `data/raw/readiness.csv`. See
 [`data/README.md`](data/README.md) for the expected schema. Use `--no-git` to leave `.git` out
 of the export; the default archive contains private health data and is not encrypted.
 
+After extracting an export, `./setup-venv.sh` creates `.venv` and installs the dev extras;
+use `./setup-venv.sh --locked` for the `requirements.lock` versions.
+
 ## CI and releases
 
 CI installs the pinned [`requirements.lock`](requirements.lock), runs Ruff, the public
