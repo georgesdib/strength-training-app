@@ -1031,8 +1031,21 @@ def test_volume_ledger_endpoint(server):
     assert "patterns" in data
     assert data["window_weeks"] == 4
     assert any(row["mrv"] is not None for row in data["patterns"])
+    assert "groups" in data
+    assert all("effective_counts" in row for row in data["groups"])
+    assert data["coverage"]["accounting"] == "hard"
     assert "heavy_spinal" in data
     assert data["heavy_spinal"]["rir_max"] == 1
+
+    status, body = get(server, "/api/volume?date=2024-01-15&weeks=4&accounting=effective")
+    assert status == 200
+    effective = json.loads(body)
+    assert effective["coverage"]["accounting"] == "effective"
+    assert any(row["effective_counts"] != row["counts"] for row in effective["groups"])
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/volume?date=2024-01-15&weeks=4&accounting=invalid")
+    assert excinfo.value.code == 400
 
 
 def test_volume_budget_endpoint_is_read_only(server):

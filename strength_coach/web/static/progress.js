@@ -101,32 +101,51 @@ function progressRenderDose(volumeData) {
   var note = $("#progress-dose-note");
   var select = $("#progress-pattern");
   if (!host || !volumeData) return;
-  var rows = volumeData.patterns || [];
+  var coverage = volumeData.coverage || {};
+  var effective = coverage.accounting === "effective";
+  var rows = effective ? (volumeData.groups || []) : (volumeData.patterns || []);
+  var key = effective ? "group" : "pattern";
   var chosen = select && select.value;
-  if (!rows.some(function (row) { return row.pattern === chosen; })) chosen = rows.length ? rows[0].pattern : "";
+  if (!rows.some(function (row) { return row[key] === chosen; })) chosen = rows.length ? rows[0][key] : "";
   if (select) {
     select.innerHTML = rows.map(function (row) {
-      return "<option value='" + esc(row.pattern) + "'" + (row.pattern === chosen ? " selected" : "") + ">" +
-        esc(String(row.pattern).replace(/_/g, " ")) + "</option>";
+      return "<option value='" + esc(row[key]) + "'" + (row[key] === chosen ? " selected" : "") + ">" +
+        esc(String(row[key]).replace(/_/g, " ")) + "</option>";
     }).join("");
   }
-  var row = rows.find(function (item) { return item.pattern === chosen; });
+  var row = rows.find(function (item) { return item[key] === chosen; });
   var categories = progressVolumeCategories(volumeData);
+  var series = [];
+  if (row && effective) {
+    series = [
+      {id: "direct", label: "Direct sets", values: row.counts || []},
+      {id: "effective", label: "Effective sets", values: row.effective_counts || []},
+    ];
+  } else if (row) {
+    series = [{id: "working-sets", label: "Working sets", values: row.weeks || []}];
+  }
   host.innerHTML = row && categories.length ? groupedBarChart({
-    title: String(row.pattern).replace(/_/g, " ") + " weekly working sets",
-    xTitle: "Observed ISO week number", yTitle: "Working sets",
+    title: String(row[key]).replace(/_/g, " ") + " weekly " + (effective ? "effective" : "working") + " sets",
+    xTitle: "Observed ISO week number", yTitle: effective ? "Sets (direct + configured indirect)" : "Working sets",
     categories: categories,
-    series: [{id: "working-sets", label: "Working sets", values: row.weeks || []}],
-    formatY: function (value) { return chartNumber(value, 0); },
-    note: "Counts are working sets from the volume API, not RIR-defined hard sets. " +
-      "Window " + (volumeData.from || progressCurrent.from) + " to " + (volumeData.to || progressCurrent.to) +
-      ". The API returns ISO week numbers; weeks absent under unknown coverage are omitted, not zero-filled."
+    series: series,
+    formatY: function (value) { return chartNumber(value, effective ? 1 : 0); },
+    note: effective
+      ? "Effective sets = direct 1.0 + configured indirect credit (0.25); direct sets are shown separately. " +
+        "Window " + (volumeData.from || progressCurrent.from) + " to " + (volumeData.to || progressCurrent.to) +
+        ". Missing weeks follow the coverage mode and are not zero-filled under unknown coverage."
+      : "Counts are working sets from the volume API, not RIR-defined hard sets. " +
+        "Window " + (volumeData.from || progressCurrent.from) + " to " + (volumeData.to || progressCurrent.to) +
+        ". The API returns ISO week numbers; weeks absent under unknown coverage are omitted, not zero-filled."
   }) : "<p class='empty'>No working-set observations for this pattern in the selected period.</p>";
   if (note) {
-    var coverage = volumeData.coverage || {};
     note.textContent = coverage.mode === "complete"
       ? "Configured complete coverage: empty calendar weeks are shown as zero recorded working sets. This is still the stored training log, not proof of missed sessions."
       : "Coverage is unknown: only weeks represented in the log are listed. Missing weeks are omitted, not interpreted as zero.";
+    if (effective && row) {
+      note.textContent += " Direct " + fmt(row.total) + " + indirect " + fmt(row.effective_total - row.total) +
+        " = effective " + fmt(row.effective_total) + " sets across the window.";
+    }
   }
 }
 
@@ -307,7 +326,8 @@ async function loadProgressOverview() {
   var weeks = Number($("#progress-overview-weeks") && $("#progress-overview-weeks").value || 8);
   var to = $("#progress-overview-date") && $("#progress-overview-date").value || today();
   var from = progressShiftDate(to, -(7 * weeks - 1));
-  progressCurrent = {from: from, to: to, weeks: weeks, volume: null, days: [], attendance: null, exerciseLabel: "", exerciseId: ""};
+  var accounting = $("#progress-accounting") && $("#progress-accounting").value || "";
+  progressCurrent = {from: from, to: to, weeks: weeks, volume: null, days: [], attendance: null, exerciseLabel: "", exerciseId: "", accounting: accounting};
   var associationHost = $("#progress-association");
   if (associationHost) associationHost.innerHTML = "<p class='empty'>Load an association to inspect available paired observations.</p>";
   target.innerHTML = "<p class='empty'>Loading progress data…</p>";
@@ -317,7 +337,8 @@ async function loadProgressOverview() {
     var historyQuery = "?start=" + encodeURIComponent(from) + "&end=" + encodeURIComponent(to) + "&limit=200&offset=0";
     var results = await Promise.all([
       api("/api/outcomes" + outcomesQuery),
-      api("/api/volume?date=" + encodeURIComponent(to) + "&weeks=" + encodeURIComponent(weeks)),
+      api("/api/volume?date=" + encodeURIComponent(to) + "&weeks=" + encodeURIComponent(weeks) +
+        (accounting ? "&accounting=" + encodeURIComponent(accounting) : "")),
       api("/api/history/days" + historyQuery),
       api("/api/performance/relationship-options"),
       api("/api/progress?date=" + encodeURIComponent(to))
@@ -326,6 +347,9 @@ async function loadProgressOverview() {
     var outcomesData = results[0], volumeData = results[1], historyData = results[2], options = results[3], progressData = results[4];
     var attendance = outcomesData.strength && outcomesData.strength.attendance || {};
     progressCurrent.volume = volumeData;
+    progressCurrent.accounting = (volumeData.coverage || {}).accounting || "hard";
+    var accountingSelect = $("#progress-accounting");
+    if (accountingSelect) accountingSelect.value = progressCurrent.accounting;
     progressCurrent.days = historyData.days || [];
     progressCurrent.attendance = attendance;
     progressRenderSummary(outcomesData, volumeData, progressData, from, to, (options.exercises || []).length);
@@ -389,6 +413,7 @@ if (typeof document !== "undefined" && typeof document.addEventListener === "fun
     loadProgressLiftCharts(this.value);
   });
   $("#progress-pattern")?.addEventListener("change", function () { progressRenderDose(progressCurrent.volume); });
+  $("#progress-accounting")?.addEventListener("change", function () { loadProgressOverview(); });
   $("#progress-load-association")?.addEventListener("click", loadProgressAssociation);
   $("#progress-workout")?.addEventListener("change", function () { loadProgressExecution(this.value); });
 }

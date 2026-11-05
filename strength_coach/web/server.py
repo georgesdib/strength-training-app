@@ -1077,8 +1077,9 @@ class Handler(BaseHTTPRequestHandler):
                 weeks = int(raw_weeks)
                 if not 1 <= weeks <= 52:
                     raise ValueError("weeks must be an integer from 1 to 52")
+                accounting = query.get("accounting", [None])[0] or None
                 self._json(200, self._with_conn(
-                    lambda c: self._volume(c, day, weeks)
+                    lambda c: self._volume(c, day, weeks, accounting)
                 ))
             elif path == "/api/exposure":
                 query = parse_qs(urlparse(self.path).query)
@@ -3123,11 +3124,19 @@ class Handler(BaseHTTPRequestHandler):
             "slots": selection_mod.as_dict(rows),
         }
 
-    def _volume(self, conn, day: str | None = None, weeks: int = 4) -> dict:
+    def _volume(self, conn, day: str | None = None, weeks: int = 4,
+                accounting: str | None = None) -> dict:
+        if accounting not in (None, "hard", "effective"):
+            raise FieldError(
+                "accounting must be hard or effective",
+                {"accounting": "must be hard or effective"},
+            )
         on_date = day or datetime.date.today().isoformat()
         context = RuleContext.from_store(conn, end=on_date)
         cfg = settings_profile.feature_settings(conn, on_date).volume
         cfg = replace(cfg, window_weeks=weeks)
+        if accounting is not None:
+            cfg = replace(cfg, set_accounting=accounting)
         report = volume_feature.compute(context.sets, on_date=on_date, config=cfg)
         heavy_cfg = heavy_spinal.HeavySpinalConfig.load()
         heavy_cfg = heavy_spinal.HeavySpinalConfig(
