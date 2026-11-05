@@ -168,8 +168,7 @@ details summary { cursor: pointer; color: var(--muted); }
 }
 #exercise-catalog .pill { display: inline-block; border: 1px solid var(--line); border-radius: 999px;
   padding: 1px 7px; margin: 1px 3px 1px 0; font-size: 12px; color: var(--muted); }
-#exercise-editor textarea { width: 100%; }
-#exercise-editor input#exercise-id[readonly] { background: var(--soft); }
+#exercise-detail-id[readonly] { background: var(--soft); }
 
 /* `hidden` must beat the flex display on form-row labels. */
 [hidden] { display: none !important; }
@@ -272,6 +271,14 @@ details summary { cursor: pointer; color: var(--muted); }
 #sidebar nav { display: flex; flex-direction: column; gap: 2px; }
 #sidebar nav button { text-align: left; width: 100%; border-radius: 9px; padding: 9px 10px; }
 #sidebar nav button.active { background: var(--ink); color: #fff; }
+.nav-group { margin-top: 5px; }
+.nav-group > summary { list-style: none; cursor: pointer; padding: 9px 10px; border-radius: 9px;
+  color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.nav-group > summary::-webkit-details-marker { display: none; }
+.nav-group > summary::after { content: "+"; float: right; font-size: 14px; line-height: 1.2; }
+.nav-group[open] > summary::after { content: "−"; }
+.nav-group > summary:hover, .nav-group[open] > summary { background: var(--soft); color: var(--ink); }
+.nav-group-items { display: grid; gap: 2px; padding: 2px 0 4px 8px; }
 .sidebar-backdrop { position: fixed; inset: 0; background: rgba(20,24,20,.32); z-index: 25; }
 body.menu-open { overflow: hidden; }
 @media (max-width: 760px) {
@@ -341,6 +348,9 @@ body.menu-open { overflow: hidden; }
   padding: 16px; border: 1px solid var(--line); border-radius: 12px;
   background: var(--paper); color: var(--ink); }
 .app-dialog.wide { max-width: 900px; }
+.exercise-trends { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 14px; }
+.exercise-trends h3 { margin: 0 0 4px; }
+.exercise-trend-chart { margin: 12px 0; min-width: 0; }
 .app-dialog::backdrop { background: rgba(20, 24, 20, .45); }
 
 @media (max-width: 760px) {
@@ -437,6 +447,8 @@ body.menu-open { overflow: hidden; }
 /* Performance and monitoring charts: responsive SVG, never zero-height. */
 .performance-chart { display: block; width: 100%; height: auto; min-height: 140px; overflow: visible; }
 .performance-chart polyline { stroke: var(--ink); }
+.performance-chart .chart-series-raw { stroke: var(--accent); }
+.performance-chart .chart-series-median { stroke: var(--accent-2); stroke-dasharray: 7 4; }
 .performance-chart circle { fill: var(--accent); }
 .chart-frame { border: 1px solid var(--line); border-radius: 8px; padding: 8px; cursor: zoom-in;
   background: var(--paper); }

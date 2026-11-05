@@ -50,7 +50,7 @@ links for every view. Run `python tools/check_ui_docs.py` to validate the contra
 
 ## Pages
 
-The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the backdrop or Escape closes it. The main content stays full width.
+The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the backdrop or Escape closes it. Views are grouped into Training, Insights and Data & setup; selecting a view opens its group and collapses the others. The main content stays full width.
 
 - **Outcomes** — read-only 4/8/12-week strength review, attendance, volume and **Prospective check**; no prescription effect.
 - **Performance** — raw e1RM session bests, rolling median, series breaks, separate degraded observations, descriptive dose and explicitly configured relative-strength ratios with source-aware add/edit/delete/reset management; filters apply server-side. A read-only **[Monitoring analysis](MONITORING-ANALYSIS.md)** section runs on demand and reports dose, lagged associations, coverage and calibration transparency. Charts show labelled x/y axes and legends; clicking or keyboard-activating a chart opens a larger dialog with the same axes and legend. No targets, diagnosis, decay or calibration change; equipment changes cannot be detected because equipment is not stored.
@@ -125,10 +125,15 @@ the same lift.
 - **Measures** — periodic outcomes (VO2max, grip, 5x sit-to-stand, steps, sitting), with latest
   value, change and entries, filtered by metric. Metrics and directions are config;
   nothing changes a load.
-- **Exercises** — full canonical catalogue with search/filter, all properties per row, and an
-  add/edit form. Pattern, VBT family and primary muscles are constrained controls (VBT offers
-  existing families plus an explicit new-family path); additional-properties JSON is under an
-  advanced disclosure. Edits are written to `config/exercises/overrides.v1.yaml`; ids are immutable.
+- **Exercises** — full canonical catalogue with search/filter and one **Open** action per row for
+  add/view/edit in the same dialog. Pattern, VBT family and primary muscles are constrained
+  controls (VBT offers existing families plus an explicit new-family path); additional-properties
+  JSON is under an advanced disclosure. Edits are written to `config/exercises/overrides.v1.yaml`;
+  existing ids are immutable. The dialog includes descriptive per-lift e1RM (raw estimates plus
+  rolling median) and working-set-count-by-training-day charts. The latter combines same-day
+  session fragments and reads only completed/imported working sets (latest 50 sessions); neither
+  chart changes prescription behavior. e1RM-ineligible lifts and missing histories have explicit
+  empty states.
   Each row carries a **Demands** count (`rated/4` in-scope dimensions) and the details dialog
   shows the demand profile with level, confidence and reason, plus the catalogue digest and
   whether the git-ignored local overlay is active (`docs/EXERCISE-DEMANDS.md`). The profile is

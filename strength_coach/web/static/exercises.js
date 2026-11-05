@@ -97,45 +97,20 @@ function selectedMusclesIn(selector) {
     .map((input) => input.value);
 }
 
-function openExerciseEditor(row) {
+function openExerciseDetails(row) {
+  const isNew = !row;
   const props = row ? JSON.parse(JSON.stringify(row.props || {})) : {
     display: "", log_names: [], pattern: "", primary_muscles: [],
     primary_compound: false, loadable: true, bodyweight_type: false,
     time_based: false, e1rm_applicable: true,
   };
-  $("#exercise-editor").hidden = false;
-  $("#exercise-editor-title").textContent = row ? "Edit " + row.id : "Add exercise";
-  $("#exercise-id").value = row ? row.id : "";
-  $("#exercise-id").readOnly = !!row;
-  $("#exercise-display").value = props.display || "";
-  setPatternSelect("#exercise-pattern", props.pattern || "");
-  setVbtFamily("#exercise-vbt", "#exercise-vbt-new", "#exercise-vbt-new-wrap", props.vbt_family || "");
-  $("#exercise-log-names").value = (props.log_names || []).join("\n");
-  setMuscleChoices("#exercise-muscles", props.primary_muscles || []);
-  $("#exercise-compound").checked = !!props.primary_compound;
-  $("#exercise-loadable").checked = props.loadable !== false;
-  $("#exercise-bodyweight").checked = !!props.bodyweight_type;
-  $("#exercise-timed").checked = !!props.time_based;
-  $("#exercise-e1rm").checked = props.e1rm_applicable !== undefined
-    ? !!props.e1rm_applicable
-    : (props.loadable !== false && !props.time_based && !props.bodyweight_type);
-  $("#exercise-main").checked = !!props.main_lift;
-  $("#exercise-spinal").checked = !!props.high_fatigue_spinal;
-  $("#exercise-erector").checked = !!props.erector_family;
-  $("#exercise-direct-erector").checked = !!props.direct_erector;
-  $("#exercise-msg").textContent = row ? "source: " + row.source : "new override entity";
-  const extra = { ...props };
-  EXERCISE_KNOWN.forEach((key) => delete extra[key]);
-  $("#exercise-extra").value = Object.keys(extra).length ? JSON.stringify(extra, null, 2) : "{}";
-  $("#exercise-editor").scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function openExerciseDetails(row) {
-  const props = JSON.parse(JSON.stringify(row.props || {}));
-  window.__exerciseDetailsId = row.id;
-  $("#exercise-details-title").textContent = row.id + " · " + (row.display || "");
-  $("#exercise-detail-display").value = props.display || row.display || "";
-  setPatternSelect("#exercise-detail-pattern", props.pattern || row.pattern || "");
+  window.__exerciseDetailsId = row ? row.id : "";
+  $("#exercise-details-title").textContent = row
+    ? row.id + " · " + (row.display || "") : "Add exercise";
+  $("#exercise-detail-id").value = row ? row.id : "";
+  $("#exercise-detail-id").readOnly = !isNew;
+  $("#exercise-detail-display").value = props.display || (row && row.display) || "";
+  setPatternSelect("#exercise-detail-pattern", props.pattern || (row && row.pattern) || "");
   setVbtFamily("#exercise-detail-vbt", "#exercise-detail-vbt-new",
     "#exercise-detail-vbt-new-wrap", props.vbt_family || "");
   $("#exercise-detail-spinal-cost").value = props.spinal_cost == null ? "" : props.spinal_cost;
@@ -159,8 +134,8 @@ function openExerciseDetails(row) {
   delete extra.day_roles;
   $("#exercise-detail-extra").value = Object.keys(extra).length
     ? JSON.stringify(extra, null, 2) : "{}";
-  $("#exercise-details-msg").textContent = "source: " + row.source;
-  const demands = row.demands || { rated: 0, dimensions: {} };
+  $("#exercise-details-msg").textContent = row ? "source: " + row.source : "New local override entity";
+  const demands = (row && row.demands) || { rated: 0, dimensions: {} };
   const meta = window.__exerciseCatalog?.demand_catalogue || {};
   const scope = (meta.in_scope || []).length || 4;
   $("#exercise-detail-demands").innerHTML = Object.entries(demands.dimensions)
@@ -176,20 +151,66 @@ function openExerciseDetails(row) {
     + (meta.overlay ? " · local overlay active" : "");
   $("#exercise-demand-dimension").innerHTML = Object.keys(demands.dimensions)
     .map((dimension) => `<option>${esc(dimension)}</option>`).join("");
-  $("#exercise-demand-msg").textContent =
-    "Writes config/exercises/demands.local.yaml; the reviewed file is untouched.";
+  $("#exercise-demand-msg").textContent = isNew
+    ? "Save the exercise before adding a local demand rating."
+    : "Writes config/exercises/demands.local.yaml; the reviewed file is untouched.";
+  $("#exercise-demand-save").disabled = isNew;
+  $("#exercise-demand-clear").disabled = isNew;
+  $("#exercise-demand-dimension").disabled = isNew;
+  $("#exercise-detail-e1rm").innerHTML = row
+    ? "<p class='empty'>Loading e1RM trend…</p>" : "<p class='empty'>Save the exercise before viewing its trend.</p>";
+  $("#exercise-detail-dose").innerHTML = row
+    ? "<p class='empty'>Loading completed-session set history…</p>" : "<p class='empty'>Save the exercise before viewing its trend.</p>";
   $("#exercise-details-dialog").showModal();
+  if (row) loadExerciseTrends(row);
+}
+
+async function loadExerciseTrends(row) {
+  const id = row.id;
+  const queryId = encodeURIComponent(id);
+  if (row.props?.e1rm_applicable === false) {
+    $("#exercise-detail-e1rm").innerHTML = "<p class='empty'>This exercise is not marked as e1RM applicable.</p>";
+  } else {
+    try {
+      const data = await api("/api/performance/e1rm?exercise_id=" + queryId + "&to=" + encodeURIComponent(today()));
+      if (window.__exerciseDetailsId !== id) return;
+      $("#exercise-detail-e1rm").innerHTML = data.points?.length
+        ? performanceSvg(data.points, id + " e1RM trend")
+        : "<p class='empty'>No eligible e1RM observations for this exercise.</p>";
+    } catch (error) {
+      if (window.__exerciseDetailsId === id) {
+        $("#exercise-detail-e1rm").innerHTML = `<p class='empty'>e1RM trend unavailable: ${esc(error.message)}</p>`;
+      }
+    }
+  }
+  try {
+    const history = await api("/api/exercise-history?exercise_id=" + queryId + "&limit=50");
+    if (window.__exerciseDetailsId !== id) return;
+    const sessions = history.sessions || [];
+    $("#exercise-detail-dose").innerHTML = sessions.length
+      ? exerciseSetCountChart(sessions, row.display || id, history.total)
+      : "<p class='empty'>No completed working-set history for this exercise.</p>";
+  } catch (error) {
+    if (window.__exerciseDetailsId === id) {
+      $("#exercise-detail-dose").innerHTML = `<p class='empty'>Set history unavailable: ${esc(error.message)}</p>`;
+    }
+  }
 }
 
 function saveExerciseDetails(event) {
   event.preventDefault();
-  const id = window.__exerciseDetailsId;
+  const id = $("#exercise-detail-id").value.trim();
+  window.__exerciseDetailsId = id;
   if (!id) return;
   let extra;
   try {
     extra = JSON.parse($("#exercise-detail-extra").value.trim() || "{}");
   } catch (error) {
     $("#exercise-details-msg").textContent = "Additional properties must be valid JSON.";
+    return;
+  }
+  if (!extra || Array.isArray(extra) || typeof extra !== "object") {
+    $("#exercise-details-msg").textContent = "Additional properties must be a JSON object.";
     return;
   }
   const props = Object.assign({}, extra, {
@@ -207,6 +228,8 @@ function saveExerciseDetails(event) {
     erector_family: $("#exercise-detail-erector").checked,
     direct_erector: $("#exercise-detail-direct-erector").checked,
   });
+  props.spinal_cost = $("#exercise-detail-spinal-cost").value === ""
+    ? null : Number($("#exercise-detail-spinal-cost").value);
   const detailVbt = readVbtFamily("#exercise-detail-vbt", "#exercise-detail-vbt-new");
   if ($("#exercise-detail-vbt").value === VBT_NEW_VALUE && !detailVbt) {
     $("#exercise-details-msg").textContent = "Enter a name for the new VBT family, or choose an existing one.";
@@ -227,11 +250,12 @@ function saveExerciseDetails(event) {
     .then((data) => {
       window.__exerciseCatalog = data;
       $("#exercise-details-dialog").close();
+      notify("Exercise saved.");
       loadExerciseCatalog();
       loadExercises();
     })
     .catch((error) => applyFieldErrors(error, $("#exercise-details-msg"), {
-      id: "#exercise-id",
+      id: "#exercise-detail-id",
       display: "#exercise-detail-display",
       pattern: "#exercise-detail-pattern",
       primary_muscles: "#exercise-detail-muscles input",
@@ -284,8 +308,7 @@ function renderExerciseCatalog() {
       <td>${names || "—"}</td>
       <td>${demands}</td>
       <td><div class="row-actions">
-        <button class="ghost" data-details-exercise="${esc(row.id)}">Details</button>
-        <button class="ghost" data-edit-exercise="${esc(row.id)}">Edit</button>
+        <button class="ghost" data-details-exercise="${esc(row.id)}">Open</button>
         <button class="ghost" data-e1rm-exercise="${esc(row.id)}" title="Append an e1RM override for this lift">e1RM</button>
         <details><summary class="muted">all fields</summary>
         <pre class="props">${esc(JSON.stringify(p, null, 2))}</pre></details>
@@ -295,12 +318,6 @@ function renderExerciseCatalog() {
   $("#exercise-catalog").innerHTML = `<div class="table-scroll"><table class="exercise-table">
     <thead><tr><th>Exercise</th><th>Pattern</th><th>Primary muscles</th><th>Flags</th>
     <th>Log names</th><th>Demands</th><th></th></tr></thead><tbody>${body}</tbody></table></div>`;
-  document.querySelectorAll("[data-edit-exercise]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const row = window.__exerciseCatalog.entities.find((e) => e.id === button.dataset.editExercise);
-      if (row) openExerciseEditor(row);
-    });
-  });
   document.querySelectorAll("[data-details-exercise]").forEach((button) => {
     button.addEventListener("click", () => {
       const row = window.__exerciseCatalog.entities.find((e) => e.id === button.dataset.detailsExercise);
@@ -426,71 +443,10 @@ async function loadExerciseCatalog() {
   }
 }
 
-$("#exercise-vbt").addEventListener("change", function () {
-  syncVbtFamily("#exercise-vbt", "#exercise-vbt-new", "#exercise-vbt-new-wrap");
-});
 $("#exercise-detail-vbt").addEventListener("change", function () {
   syncVbtFamily("#exercise-detail-vbt", "#exercise-detail-vbt-new", "#exercise-detail-vbt-new-wrap");
 });
 $("#exercise-search").addEventListener("input", renderExerciseCatalog);
 $("#exercise-filter").addEventListener("change", renderExerciseCatalog);
 $("#exercise-refresh").addEventListener("click", loadExerciseCatalog);
-$("#exercise-add").addEventListener("click", () => openExerciseEditor(null));
-$("#exercise-cancel").addEventListener("click", () => { $("#exercise-editor").hidden = true; });
-
-$("#exercise-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const id = $("#exercise-id").value.trim();
-  const extraText = $("#exercise-extra").value.trim() || "{}";
-  let extra;
-  try { extra = JSON.parse(extraText); } catch (error) {
-    $("#exercise-msg").textContent = "Additional properties must be valid JSON: " + error.message;
-    return;
-  }
-  if (!extra || Array.isArray(extra) || typeof extra !== "object") {
-    $("#exercise-msg").textContent = "Additional properties must be a JSON object.";
-    return;
-  }
-  const vbt = readVbtFamily("#exercise-vbt", "#exercise-vbt-new");
-  if ($("#exercise-vbt").value === VBT_NEW_VALUE && !vbt) {
-    $("#exercise-msg").textContent = "Enter a name for the new VBT family, or choose an existing one.";
-    $("#exercise-vbt-new").focus();
-    return;
-  }
-  const props = Object.assign({}, extra, {
-    display: $("#exercise-display").value.trim(),
-    log_names: $("#exercise-log-names").value.split("\n").filter((line) => line.length > 0),
-    pattern: $("#exercise-pattern").value.trim(),
-    primary_muscles: selectedMusclesIn("#exercise-muscles"),
-    primary_compound: $("#exercise-compound").checked,
-    loadable: $("#exercise-loadable").checked,
-    bodyweight_type: $("#exercise-bodyweight").checked,
-    time_based: $("#exercise-timed").checked,
-    e1rm_applicable: $("#exercise-e1rm").checked,
-    vbt_family: vbt || null,
-    main_lift: $("#exercise-main").checked,
-    high_fatigue_spinal: $("#exercise-spinal").checked,
-    erector_family: $("#exercise-erector").checked,
-    direct_erector: $("#exercise-direct-erector").checked,
-  });
-  $("#exercise-msg").textContent = "Saving…";
-  try {
-    const data = await api("/api/exercises", { method: "POST", body: JSON.stringify({ id, props }) });
-    window.__exerciseCatalog = data;
-    $("#exercise-editor").hidden = true;
-    notify("Exercise saved.");
-    await loadExerciseCatalog();
-    await loadExercises();
-  } catch (error) {
-    applyFieldErrors(error, $("#exercise-msg"), {
-      id: "#exercise-id",
-      display: "#exercise-display",
-      pattern: "#exercise-pattern",
-      primary_muscles: "#exercise-muscles input",
-      log_names: "#exercise-log-names",
-      vbt_family: "#exercise-vbt",
-      spinal_cost: "#exercise-extra",
-      props: "#exercise-extra",
-    });
-  }
-});
+$("#exercise-add").addEventListener("click", () => openExerciseDetails(null));

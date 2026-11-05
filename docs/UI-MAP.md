@@ -46,7 +46,7 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 | **Cardio** | Cardio capture and summary | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Measures** | Measurements; History | [OUTCOMES.md](OUTCOMES.md), [DATA-MODEL.md](DATA-MODEL.md) | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Import** | Import training/readiness; After the import | [USER-GUIDE.md](../USER-GUIDE.md), [DATA-QUALITY.md](DATA-QUALITY.md) | [PRIVACY.md](PRIVACY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
-| **Exercises** | Exercise catalogue; Edit exercise; Exercise details dialog; read-only Demand profile | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md), [DATA-MODEL.md](DATA-MODEL.md) | [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Exercises** | Exercise catalogue; unified add/view/edit dialog; read-only Demand profile; per-exercise e1RM and working-set trends | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md), [DATA-MODEL.md](DATA-MODEL.md), [WEB-UI.md](WEB-UI.md) | [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Athlete** | Profile (incl. exposure trim), constraints, suitability, e1RM, tests, block start, symptoms with optional athlete-attributed session/lift, calibration/coverage window previews, raw symptom history, test cadence with measured-coverage status and Record-test link | [DATA-MODEL.md](DATA-MODEL.md), [INJURY-SIGNAL.md](INJURY-SIGNAL.md), [SYMPTOM-LOGGING.md](SYMPTOM-LOGGING.md) | [READINESS.md](READINESS.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Settings** | Appearance; Language model; Prescribe defaults; Volume budget; Monitoring & reports inventory; Modules; **Resolver** panel (profile scalars, enable confirmation, validated policy YAML with backups, read-only generation preview with full-prescription diff, provisional unrated suggestions rated inline before Start); Settings profile; App | [WEB-UI.md](WEB-UI.md), [VOLUME-BUDGET.md](VOLUME-BUDGET.md), [MONITORING-ANALYSIS.md](MONITORING-ANALYSIS.md), [ARCHITECTURE.md](ARCHITECTURE.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Docs** | Docs list and document viewer | [WEB-UI.md](WEB-UI.md), [METHODOLOGY.md](METHODOLOGY.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
@@ -93,8 +93,8 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 | Measurements history | Filterable append-only measurement history | [DATA-MODEL.md](DATA-MODEL.md) |
 | Import | Two CSV uploads, overlap matching, no repository writes | [DATA-QUALITY.md](DATA-QUALITY.md) |
 | After the import | Counts, warnings and next step | [DATA-QUALITY.md](DATA-QUALITY.md) |
-| Exercise catalogue | Taxonomy plus local overrides | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md) |
-| Edit exercise | Local display/property overrides; no history rewrite | [DATA-MODEL.md](DATA-MODEL.md) |
+| Exercise catalogue | Taxonomy plus local overrides; one Open action launches the unified add/view/edit dialog | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md) |
+| Exercise details and trends | Local display/property overrides plus descriptive e1RM and working-set-count charts; no history rewrite | [WEB-UI.md](WEB-UI.md), [DATA-MODEL.md](DATA-MODEL.md) |
 | Athlete state | Goals, constraints, suitability and symptoms as state, not prompt text | [DATA-MODEL.md](DATA-MODEL.md) |
 | Measured tests needed | P1 coverage: counted tests per main lift against the `MOD-E1RM-001` gate | [ROADMAP.md](../ROADMAP.md) |
 | Declared break | Append-only holiday/deload/test-week range; freezes the DUP week and the erector ramp | [CONTINUITY.md](CONTINUITY.md) |

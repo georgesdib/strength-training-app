@@ -65,6 +65,13 @@ function setView(name, options = {}) {
   document.querySelectorAll(".view").forEach((v) => {
     v.classList.toggle("active", v.id === "view-" + name);
   });
+  const activeGroup = [...document.querySelectorAll("#nav button")]
+    .find((button) => button.dataset.view === name)?.closest(".nav-group");
+  if (activeGroup) {
+    document.querySelectorAll("#nav .nav-group").forEach((group) => {
+      group.open = group === activeGroup;
+    });
+  }
   const loader = VIEW_LOADERS[name];
   if (loader) loader(options);
   if (!options.fromHash && location.hash !== "#" + name) {
@@ -108,8 +115,8 @@ let sidebarReturnFocus = null;
 function sidebarFocusables() {
   const sidebar = document.querySelector("#sidebar");
   if (!sidebar) return [];
-  return [...sidebar.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
-    .filter((node) => !node.disabled && !node.hidden);
+  return [...sidebar.querySelectorAll('button, summary, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter((node) => !node.disabled && !node.hidden && (!node.closest("details:not([open])") || node.matches("summary")));
 }
 
 function setSidebar(open) {

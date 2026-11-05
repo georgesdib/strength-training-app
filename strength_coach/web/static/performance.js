@@ -73,11 +73,16 @@ function chartAxes(xTitle, yTitle, xTicks, yTicks, plot, width, height) {
   return markup;
 }
 
-function performanceSvg(points) {
+function performanceSvg(points, chartTitle) {
   if (!points || points.length < 1) return "";
-  var values = points.map(function (point) { return Number(point.kg); });
-  var min = Math.min.apply(null, values);
-  var max = Math.max.apply(null, values);
+  var title = chartTitle || "Raw e1RM observations";
+  var rawValues = points.map(function (point) { return Number(point.kg); });
+  var medianValues = points.map(function (point) {
+    return point.rolling_median_kg == null ? null : Number(point.rolling_median_kg);
+  }).filter(function (value) { return value != null && Number.isFinite(value); });
+  var allValues = rawValues.concat(medianValues);
+  var min = Math.min.apply(null, allValues);
+  var max = Math.max.apply(null, allValues);
   var span = Math.max(1, max - min);
   var width = 640, height = 240;
   var plot = { left: 56, right: width - 16, top: 16, bottom: height - 42 };
@@ -88,7 +93,18 @@ function performanceSvg(points) {
     var y = plot.bottom - ((Number(point.kg) - min) / span) * (plot.bottom - plot.top);
     return [x, y];
   });
+  var medianCoords = points.map(function (point, index) {
+    if (point.rolling_median_kg == null || !Number.isFinite(Number(point.rolling_median_kg))) return null;
+    var x = points.length === 1
+      ? (plot.left + plot.right) / 2
+      : plot.left + (index / (points.length - 1)) * (plot.right - plot.left);
+    var y = plot.bottom - ((Number(point.rolling_median_kg) - min) / span) * (plot.bottom - plot.top);
+    return [x, y];
+  }).filter(Boolean);
   var line = coords.map(function (pair) { return pair[0].toFixed(1) + "," + pair[1].toFixed(1); }).join(" ");
+  var medianLine = medianCoords.map(function (pair) {
+    return pair[0].toFixed(1) + "," + pair[1].toFixed(1);
+  }).join(" ");
   var circles = coords.map(function (pair) {
     return "<circle cx='" + pair[0].toFixed(1) + "' cy='" + pair[1].toFixed(1) + "' r='3'></circle>";
   }).join("");
@@ -104,11 +120,56 @@ function performanceSvg(points) {
     { y: plot.top, label: fmt(max) },
   ];
   var svg = "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
-    "' role='img' aria-label='Raw e1RM observations'><title>Raw e1RM observations</title>" +
+    "' role='img' aria-label='" + esc(title) + " with rolling median'><title>" + esc(title) + "</title>" +
     chartAxes("Date", "e1RM (kg)", xTicks, yTicks, plot, width, height) +
-    "<polyline points='" + line + "' fill='none' stroke='currentColor' stroke-width='2'></polyline>" +
+    "<polyline class='chart-series-raw' points='" + line + "' fill='none' stroke-width='2'></polyline>" +
+    (medianLine ? "<polyline class='chart-series-median' points='" + medianLine + "' fill='none' stroke-width='2'></polyline>" : "") +
     circles + "</svg>";
-  return chartFrame("Raw e1RM observations", svg, "Raw e1RM (kg) by date");
+  return chartFrame(title, svg, "Solid with dots: raw e1RM observations. Dashed: rolling median; early points appear only when a window exists.");
+}
+
+function exerciseSetCountChart(sessions, exerciseLabel, total) {
+  var days = {};
+  sessions.forEach(function (session) {
+    var date = String(session.occurred_on || "");
+    if (!date) return;
+    days[date] = (days[date] || 0) + (session.sets || []).length;
+  });
+  var points = Object.keys(days).sort().map(function (date) { return { date: date, value: days[date] }; });
+  if (!points.length) return "<p class='empty'>No completed working-set history for this exercise.</p>";
+  var title = exerciseLabel + " working sets by training day";
+  var values = points.map(function (point) { return point.value; });
+  var min = 0, max = Math.max(1, Math.max.apply(null, values));
+  var span = Math.max(1, max - min);
+  var width = 640, height = 240;
+  var plot = { left: 56, right: width - 16, top: 16, bottom: height - 42 };
+  var coords = points.map(function (point, index) {
+    var x = points.length === 1 ? (plot.left + plot.right) / 2
+      : plot.left + (index / (points.length - 1)) * (plot.right - plot.left);
+    var y = plot.bottom - (point.value / span) * (plot.bottom - plot.top);
+    return [x, y];
+  });
+  var line = coords.map(function (pair) { return pair[0].toFixed(1) + "," + pair[1].toFixed(1); }).join(" ");
+  var circles = coords.map(function (pair) {
+    return "<circle cx='" + pair[0].toFixed(1) + "' cy='" + pair[1].toFixed(1) + "' r='3'></circle>";
+  }).join("");
+  var xTicks = [
+    { x: plot.left, label: points[0].date },
+    { x: (plot.left + plot.right) / 2, label: points[Math.floor((points.length - 1) / 2)].date },
+    { x: plot.right, label: points[points.length - 1].date },
+  ];
+  var yTicks = [
+    { y: plot.bottom, label: "0" },
+    { y: (plot.top + plot.bottom) / 2, label: String(Math.round(max / 2)) },
+    { y: plot.top, label: String(max) },
+  ];
+  var note = "Working sets from completed/imported sessions; same-day fragments are combined. " +
+    (total > sessions.length ? "Showing the latest " + sessions.length + " of " + total + " sessions." : "");
+  var svg = "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
+    "' role='img' aria-label='" + esc(title) + "'><title>" + esc(title) + "</title>" +
+    chartAxes("Training day", "Working sets", xTicks, yTicks, plot, width, height) +
+    "<polyline class='chart-series-raw' points='" + line + "' fill='none' stroke-width='2'></polyline>" + circles + "</svg>";
+  return chartFrame(title, svg, note);
 }
 
 function renderPerformanceE1rm(data) {

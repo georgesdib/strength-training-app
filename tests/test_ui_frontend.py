@@ -211,14 +211,14 @@ def test_format_local_date_uses_the_local_calendar_day() -> None:
 
 def test_constrained_controls_are_not_free_text() -> None:
     page = INDEX.read_text(encoding="utf-8")
-    assert '<select id="exercise-pattern" required>' in page
-    assert 'id="exercise-muscles" class="choice-list"' in page
+    assert 'id="exercise-detail-id" required pattern="[a-z][a-z0-9_]*"' in page
     assert 'id="exercise-detail-pattern" required>' in page
     assert 'id="exercise-detail-muscles" class="choice-list"' in page
-    assert '<select id="exercise-vbt"></select>' in page
-    assert 'id="exercise-vbt-new"' in page
     assert '<select id="exercise-detail-vbt"></select>' in page
     assert 'id="exercise-detail-vbt-new"' in page
+    assert 'id="exercise-editor"' not in page
+    assert 'id="exercise-details-dialog"' in page
+    assert 'id="exercise-detail-e1rm"' in page and 'id="exercise-detail-dose"' in page
     assert 'exercise-vbt-families' not in page
     exercises_js = (STATIC / "exercises.js").read_text(encoding="utf-8")
     assert "VBT_NEW_VALUE" in exercises_js
@@ -395,7 +395,7 @@ def test_remaining_ui_controls_are_present() -> None:
     core = (STATIC / "core.js").read_text(encoding="utf-8")
     workout = (STATIC / "workout.js").read_text(encoding="utf-8")
     assert 'id="exercise-detail-spinal-cost" type="number" step="0.5" min="0" max="5"' in page
-    assert 'id="exercise-extra"' in page and '<details class="advanced">' in page
+    assert 'id="exercise-detail-extra"' in page and '<details class="advanced">' in page
     assert 'id="settings-volume-form"' in page
     assert 'id="settings-volume-fields"' in page
     assert "review-table" in app and "review-why" in app
@@ -631,6 +631,8 @@ var html = global.__target.innerHTML;
 if (html.indexOf("<svg") < 0) throw new Error("single-point chart missing");
 if (html.indexOf("Raw e1RM observations") < 0) throw new Error("chart title missing");
 if (html.indexOf("Date") < 0) throw new Error("date axis missing");
+if (html.indexOf("chart-series-median") < 0) throw new Error("rolling median overlay missing");
+if (html.indexOf("rolling median") < 0) throw new Error("rolling median legend missing");
 """
     script = script.replace("SOURCE", json.dumps(source))
     subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
@@ -878,3 +880,45 @@ if (elements["settings-monitoring-empty"].hidden !== true) throw new Error("empt
 """
     script = script.replace("ESC", json.dumps(esc_match.group(0))).replace("CHUNK", json.dumps(chunk))
     subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+
+def test_exercise_training_day_chart_combines_same_day_fragments() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    script = r"""
+global.esc = function (value) { return String(value == null ? "" : value); };
+global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
+global.__frame = function (title, svg, legend) {
+  return title + " " + svg + " " + legend;
+};
+var chartFrame = global.__frame;
+eval(SOURCE);
+var html = exerciseSetCountChart([
+  {occurred_on: "2026-10-01", sets: [{}, {}]},
+  {occurred_on: "2026-10-01", sets: [{}]},
+  {occurred_on: "2026-10-08", sets: [{}, {}, {}]},
+], "Squat", 3);
+if (html.indexOf("Squat working sets by training day") < 0) throw new Error("chart title missing");
+if (html.indexOf("Working sets") < 0) throw new Error("y axis missing");
+if (html.indexOf("same-day fragments are combined") < 0) throw new Error("training-day aggregation missing");
+if ((html.match(/<circle/g) || []).length !== 2) throw new Error("dates were not combined into two points");
+""".replace("SOURCE", json.dumps(source))
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+
+def test_exercise_views_are_grouped_and_add_edit_share_one_dialog() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    exercises = (STATIC / "exercises.js").read_text(encoding="utf-8")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert 'class="nav-group"' in page
+    assert "Training" in page and "Insights" in page and "Data &amp; setup" in page
+    assert "activeGroup" in app and 'details:not([open])' in app
+    assert 'data-details-exercise="${esc(row.id)}">Open</button>' in exercises
+    assert 'data-edit-exercise=' not in exercises
+    assert 'openExerciseEditor' not in exercises
+    assert '$("#exercise-add").addEventListener("click", () => openExerciseDetails(null));' in exercises
+    assert 'api("/api/exercise-history?exercise_id="' in exercises
+    assert 'api("/api/performance/e1rm?exercise_id="' in exercises

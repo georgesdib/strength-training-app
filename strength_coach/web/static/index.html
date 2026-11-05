@@ -25,25 +25,40 @@
   <aside id="sidebar" class="sidebar" hidden aria-label="Main menu">
     <div class="sidebar-head"><span>Menu</span>
       <button id="sidebar-close" class="sidebar-close" type="button" aria-label="Close menu">×</button></div>
-    <nav id="nav">
+    <nav id="nav" aria-label="App views">
       <button data-view="dashboard" class="active">Today</button>
-      <button data-view="history">History</button>
-      <button data-view="outcomes">Outcomes</button>
-      <button data-view="performance">Performance</button>
-      <button data-view="longevity">Longevity</button>
-      <button data-view="prescribe">Prescribe</button>
-      <button data-view="workout">Workflow</button>
-      <button data-view="programme">Programme</button>
-      <button data-view="review">Review</button>
-      <button data-view="readiness">Readiness</button>
-      <button data-view="cardio">Cardio</button>
-      <button data-view="measures">Measures</button>
-      <button data-view="import">Import</button>
-      <button data-view="exercises">Exercises</button>
-      <button data-view="state">Athlete</button>
-      <button data-view="settings">Settings</button>
-      <button data-view="logs">Logs</button>
-      <button data-view="docs">Docs</button>
+      <details class="nav-group" open>
+        <summary>Training</summary>
+        <div class="nav-group-items">
+          <button data-view="workout">Workflow</button>
+          <button data-view="history">History</button>
+          <button data-view="exercises">Exercises</button>
+          <button data-view="prescribe">Prescribe</button>
+          <button data-view="programme">Programme</button>
+        </div>
+      </details>
+      <details class="nav-group">
+        <summary>Insights</summary>
+        <div class="nav-group-items">
+          <button data-view="performance">Performance</button>
+          <button data-view="outcomes">Outcomes</button>
+          <button data-view="review">Review</button>
+          <button data-view="readiness">Readiness</button>
+          <button data-view="longevity">Longevity</button>
+          <button data-view="cardio">Cardio</button>
+          <button data-view="measures">Measures</button>
+        </div>
+      </details>
+      <details class="nav-group">
+        <summary>Data &amp; setup</summary>
+        <div class="nav-group-items">
+          <button data-view="state">Athlete</button>
+          <button data-view="import">Import</button>
+          <button data-view="settings">Settings</button>
+          <button data-view="logs">Logs</button>
+          <button data-view="docs">Docs</button>
+        </div>
+      </details>
     </nav>
   </aside>
   <div id="sidebar-backdrop" class="sidebar-backdrop" hidden></div>
@@ -911,50 +926,6 @@
         <div id="exercise-e1rm-msg" class="muted"></div>
       </div>
 
-      <div class="panel" id="exercise-editor" hidden>
-        <div class="panel-head"><h2 id="exercise-editor-title">Edit exercise</h2>
-          <button class="ghost" id="exercise-cancel" type="button">Close</button></div>
-        <p class="section-help"><span>Edits local display/property overrides without rewriting history.</span> <a class="doc-link" href="#docs?doc=docs/EXERCISE-VARIANTS.md">Exercise editing</a></p>
-        <form id="exercise-form">
-          <div class="form-row">
-            <label>ID <input id="exercise-id" required pattern="[a-z][a-z0-9_]*"></label>
-            <label class="grow">Display name <input id="exercise-display" required></label>
-            <label>Pattern <select id="exercise-pattern" required></select></label>
-            <label>VBT family
-              <select id="exercise-vbt"></select>
-            </label>
-            <label id="exercise-vbt-new-wrap" hidden>New VBT family
-              <input id="exercise-vbt-new" placeholder="lower_snake_case" pattern="[a-z][a-z0-9_]*">
-            </label>
-          </div>
-          <label class="grow">Log names — one exact raw name per line
-            <textarea id="exercise-log-names" rows="4"></textarea></label>
-          <div class="grow">
-            <span class="field-label">Primary muscles</span>
-            <div id="exercise-muscles" class="choice-list" data-muscle-group="exercise"></div>
-          </div>
-          <div class="form-row">
-            <label><input type="checkbox" id="exercise-compound"> primary compound</label>
-            <label><input type="checkbox" id="exercise-loadable"> loadable</label>
-            <label><input type="checkbox" id="exercise-bodyweight"> bodyweight type</label>
-            <label><input type="checkbox" id="exercise-timed"> time based</label>
-            <label><input type="checkbox" id="exercise-e1rm"> e1RM applicable</label>
-            <label><input type="checkbox" id="exercise-main"> main lift</label>
-            <label><input type="checkbox" id="exercise-spinal"> high fatigue spinal</label>
-            <label><input type="checkbox" id="exercise-erector"> erector family</label>
-            <label><input type="checkbox" id="exercise-direct-erector"> direct erector</label>
-          </div>
-          <details class="advanced">
-            <summary>Additional properties (advanced JSON; unknown fields are preserved)</summary>
-            <label class="grow">Properties JSON
-              <textarea id="exercise-extra" rows="5" spellcheck="false"></textarea></label>
-          </details>
-          <div class="form-row">
-            <button class="primary" type="submit">Save exercise</button>
-            <span id="exercise-msg" class="muted" role="status" aria-live="polite"></span>
-          </div>
-        </form>
-      </div>
     </section>
 
     <section id="view-state" class="view">
@@ -1227,12 +1198,13 @@
       </div>
     </section>
 
-    <dialog id="exercise-details-dialog" class="app-dialog" aria-labelledby="exercise-details-title">
+    <dialog id="exercise-details-dialog" class="app-dialog wide" aria-labelledby="exercise-details-title">
       <div class="panel-head"><h2 id="exercise-details-title">Exercise details</h2>
         <button class="ghost" type="button" id="exercise-details-cancel">Close</button></div>
-        <p class="section-help"><span>Edits local exercise properties without rewriting history; ids stay immutable.</span> <a class="doc-link" href="#docs?doc=docs/EXERCISE-VARIANTS.md&amp;anchor=0-web-exercises-tab">Exercise editing</a></p>
+        <p class="section-help"><span>Adds or edits local exercise properties without rewriting history; existing ids stay immutable.</span> <a class="doc-link" href="#docs?doc=docs/EXERCISE-VARIANTS.md&amp;anchor=0-web-exercises-tab">Exercise editing</a></p>
       <form id="exercise-details-form">
         <div class="form-row">
+          <label>ID <input id="exercise-detail-id" required pattern="[a-z][a-z0-9_]*"></label>
           <label>Display name <input id="exercise-detail-display" required></label>
           <label>Pattern <select id="exercise-detail-pattern" required></select></label>
           <label>VBT family
@@ -1297,6 +1269,12 @@
             </div>
           </div>
         </div>
+        <section class="exercise-trends" aria-labelledby="exercise-trends-title">
+          <h3 id="exercise-trends-title">Training trends</h3>
+          <p class="muted">Descriptive history only. The charts do not change prescriptions or infer causation.</p>
+          <div id="exercise-detail-e1rm" class="exercise-trend-chart"><p class="empty">Open an exercise to load its strength trend.</p></div>
+          <div id="exercise-detail-dose" class="exercise-trend-chart"><p class="empty">Completed-session set history will appear here.</p></div>
+        </section>
         <div class="form-row">
           <button class="primary" type="submit">Save details</button>
           <span id="exercise-details-msg" class="muted" role="status" aria-live="polite"></span>
