@@ -2439,6 +2439,7 @@ class Handler(BaseHTTPRequestHandler):
                 source=source,
                 set_index=_integer(body.get("set_index")),
                 set_role=body.get("set_role") or None,
+                plan_item_index=_integer(body.get("plan_item_index")),
                 rep_velocities=body.get("rep_velocities"),
             )
         elif action == "update-set":

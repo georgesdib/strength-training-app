@@ -1254,10 +1254,16 @@ def test_workout_start_active_and_end(server):
     active = json.loads(get(server, "/api/workout/active")[1])
     assert active["workout"]["workout_id"] == workout_id
 
+    item_index = next(
+        index for index, item in enumerate(plan["items"])
+        if item["exercise_id"] == "trap_bar_deadlift"
+    )
     added = post(server, f"/api/workout/{workout_id}/sets", {
         "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
+        "plan_item_index": item_index,
     })
     assert len(added["workout"]["sets"]) == 1
+    assert added["workout"]["sets"][0]["prescription_item_index"] == item_index
 
     ended = post(server, f"/api/workout/{workout_id}/end", {
         "session_rpe": 7, "duration_min": 50,

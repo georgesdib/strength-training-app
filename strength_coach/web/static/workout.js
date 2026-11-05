@@ -590,13 +590,13 @@ function renderWorkout(w) {
     });
   });
 
-  var seen = {};
   var options = "";
   var previousExercise = $("#workout-set-exercise").value;
-  items.forEach(function (item) {
-    if (seen[item.exercise_id]) return;
-    seen[item.exercise_id] = true;
-    options += '<option value="' + esc(item.exercise_id) + '">' + esc(item.exercise_id) + "</option>";
+  items.forEach(function (item, index) {
+    options += '<option value="' + esc(item.exercise_id) + '" data-plan-index="' + index +
+      '">' + esc(item.exercise_id) + (items.filter(function (other) {
+        return other.exercise_id === item.exercise_id;
+      }).length > 1 ? " (item " + (index + 1) + ")" : "") + "</option>";
   });
   $("#workout-set-exercise").innerHTML = options;
   var desired = previousExercise || (items[0] && items[0].exercise_id) || "";
@@ -1047,8 +1047,13 @@ function submitWorkoutSet(event) {
     return;
   }
   $("#workout-set-rep-velocities").removeAttribute("aria-invalid");
+  var select = $("#workout-set-exercise");
+  var selectedOption = select.options[select.selectedIndex];
+  var planItemIndex = selectedOption && selectedOption.dataset.planIndex != null
+    ? Number(selectedOption.dataset.planIndex) : null;
   var body = {
     exercise_id: exerciseId,
+    plan_item_index: planItemIndex,
     load_kg: numericOrNull("#workout-set-load"),
     reps: reps,
     rir: numericOrNull("#workout-set-rir"),

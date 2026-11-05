@@ -229,6 +229,61 @@ def test_end_materialises_session_and_comparison(conn):
     assert ended["comparison"]["items"][1]["status"] == "missing"
 
 
+def test_a_duplicate_exercise_is_matched_by_explicit_plan_item_index(conn):
+    duplicate = {
+        **PLAN,
+        "items": [PLAN["items"][0], {**PLAN["items"][0], "sets": 1}],
+    }
+    started = workout.start(conn, for_date="2024-01-01", plan=duplicate, readiness=READINESS)
+    added = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2, plan_item_index=1,
+    )
+    assert added["sets"][0]["prescription_item_index"] == 1
+    items = added["comparison"]["items"]
+    assert items[0]["status"] == "missing"
+    assert items[1]["status"] == "complete"
+    assert items[1]["match_status"] == "matched"
+    assert items[1]["actual_set_ids"] == [added["sets"][0]["set_id"]]
+
+
+def test_a_duplicate_exercise_without_an_index_remains_ambiguous(conn):
+    duplicate = {
+        **PLAN,
+        "items": [PLAN["items"][0], {**PLAN["items"][0], "sets": 2}],
+    }
+    started = workout.start(conn, for_date="2024-01-01", plan=duplicate, readiness=READINESS)
+    added = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2,
+    )
+    assert added["sets"][0]["prescription_item_index"] is None
+    assert added["comparison"]["items"][0]["status"] == "missing"
+    assert added["comparison"]["extra"][0]["match_status"] == "ambiguous"
+
+
+def test_an_explicit_plan_item_index_must_match_the_exercise(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    with pytest.raises(ValueError, match="does not match"):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=100, reps=5, rir=2, plan_item_index=1,
+        )
+
+
+def test_original_comparison_is_unavailable_after_a_plan_swap(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2, plan_item_index=0,
+    )
+    changed = workout.swap_exercise(
+        conn, started["workout_id"], 0, "bench_press",
+    )
+    assert changed["comparison"]["items"][0]["match_status"] == "unavailable"
+    assert changed["original_comparison"]["items"][0]["match_status"] == "unavailable"
+
+
 def test_end_scores_rubric_and_review_closes_workout(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
     workout.add_set(conn, started["workout_id"], exercise_id="trap_bar_deadlift",

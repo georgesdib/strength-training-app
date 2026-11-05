@@ -186,7 +186,7 @@ def get(conn, workout_id: str) -> dict | None:
         row["rep_summary"] = _rep_summary(detail["reps"]) if detail else None
     data["elapsed_seconds"] = _elapsed(data)
     data["comparison"] = _comparison(data)
-    data["original_comparison"] = _comparison({**data, "plan": original})
+    data["original_comparison"] = _comparison({**data, "plan": original}, original=True)
     data["minimum_session"] = _minimum_session_summary(data)
     return data
 
@@ -858,6 +858,29 @@ def _rep_velocity_detail(reps: int | None, values) -> list[dict]:
     ]
 
 
+def _plan_item_index(workout: Mapping[str, Any], exercise_id: str,
+                     plan_item_index: int | None) -> int | None:
+    """Resolve an actual set to a frozen plan item without guessing from its name.
+
+    An explicit index is authoritative and must point at the same exercise. Without one,
+    resolve only when the exercise appears exactly once; a repeated exercise is ambiguous
+    and must remain unmatched rather than being assigned to the first occurrence.
+    """
+    items = list((workout.get("plan") or {}).get("items") or [])
+    if plan_item_index is not None:
+        index = int(plan_item_index)
+        if not 0 <= index < len(items):
+            raise ValueError("plan_item_index is out of range")
+        if str(items[index].get("exercise_id")) != exercise_id:
+            raise ValueError("plan_item_index does not match exercise_id")
+        return index
+    matches = [
+        index for index, item in enumerate(items)
+        if str(item.get("exercise_id")) == exercise_id
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def add_set(
     conn,
     workout_id: str,
@@ -870,6 +893,7 @@ def add_set(
     source: str = "manual",
     set_index: int | None = None,
     set_role: str | None = None,
+    plan_item_index: int | None = None,
     rep_velocities: list[dict] | None = None,
 ) -> dict:
     workout = get(conn, workout_id)
@@ -898,11 +922,7 @@ def add_set(
         velocity = round(
             sum(item["velocity_mps"] for item in rep_detail) / len(rep_detail), 3
         )
-    item_index = next(
-        (index for index, item in enumerate(workout["plan"]["items"])
-         if item.get("exercise_id") == exercise_id),
-        None,
-    )
+    item_index = _plan_item_index(workout, exercise_id, plan_item_index)
     with db.transaction(conn):
         existing = conn.execute(
             "SELECT set_id FROM workout_set WHERE workout_id = ? AND exercise_id = ? "
@@ -1532,19 +1552,49 @@ def undo_import(conn, workout_id: str) -> dict:
     return get(conn, workout_id)
 
 
-def _comparison(workout: Mapping[str, Any]) -> dict:
-    """Compare actual sets with the frozen plan; extra work is explicit."""
+def _comparison(workout: Mapping[str, Any], *, original: bool = False) -> dict:
+    """Compare actual sets with the frozen plan using stored plan-item identity.
+
+    The exercise name is never used as the join key. A set written before the item index was
+    stored, or one whose index points at a different exercise, remains unmatched and is
+    visible in ``extra`` instead of being guessed into the first same-name item.
+    """
     items = list((workout.get("plan") or {}).get("items") or [])
     actual = list(workout.get("sets") or [])
+    plan_modified = bool(workout.get("plan_modified"))
+    duplicate_exercises = {
+        str(item.get("exercise_id")) for item in items
+        if sum(1 for other in items if other.get("exercise_id") == item.get("exercise_id")) > 1
+    }
+    def item_index_of(row: Mapping[str, Any]) -> int:
+        value = row.get("prescription_item_index")
+        return -1 if value is None else int(value)
+
     rows = []
+    assigned: set[int] = set()
     for index, item in enumerate(items):
+        planned_sets = int(item.get("sets") or 0)
         matching = [
             row for row in actual
-            if row.get("exercise_id") == item.get("exercise_id")
+            if item_index_of(row) == index
+            and str(row.get("exercise_id")) == str(item.get("exercise_id"))
         ]
-        planned_sets = int(item.get("sets") or 0)
+        mismatched = [
+            row for row in actual
+            if item_index_of(row) == index
+            and str(row.get("exercise_id")) != str(item.get("exercise_id"))
+        ]
+        assigned.update(int(row["set_id"]) for row in matching)
+        if mismatched:
+            match_status = "unavailable"
+        elif original and plan_modified:
+            match_status = "unavailable"
+        else:
+            match_status = "matched"
         count = len(matching)
-        if count == 0:
+        if match_status != "matched":
+            status = "unavailable"
+        elif count == 0:
             status = "missing"
         elif count < planned_sets:
             status = "under"
@@ -1554,10 +1604,13 @@ def _comparison(workout: Mapping[str, Any]) -> dict:
             status = "over"
         rows.append({
             "index": index,
+            "plan_item_index": index,
             "exercise_id": item.get("exercise_id"),
+            "match_status": match_status,
             "status": status,
             "planned_sets": planned_sets,
             "actual_sets": count,
+            "actual_set_ids": [row.get("set_id") for row in matching],
             "planned_reps": [item.get("reps_low"), item.get("reps_high")],
             "actual_reps": [row.get("reps") for row in matching],
             "planned_load_kg": item.get("load_kg"),
@@ -1565,11 +1618,18 @@ def _comparison(workout: Mapping[str, Any]) -> dict:
             "planned_rir": item.get("rir_target"),
             "actual_rir": [row.get("rir") for row in matching],
         })
-    planned_ids = {str(item.get("exercise_id")) for item in items}
-    extra = [
-        row for row in actual
-        if row.get("exercise_id") not in planned_ids
-    ]
+    extra = []
+    for row in actual:
+        if int(row["set_id"]) in assigned:
+            continue
+        item_index = row.get("prescription_item_index")
+        match_status = "unavailable"
+        if item_index is None:
+            match_status = (
+                "ambiguous" if str(row.get("exercise_id")) in duplicate_exercises
+                else "unavailable"
+            )
+        extra.append({**row, "match_status": match_status})
     return {"items": rows, "extra": extra}
 
 
