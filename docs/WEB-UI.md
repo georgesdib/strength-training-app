@@ -50,12 +50,13 @@ links for every view. Run `python tools/check_ui_docs.py` to validate the contra
 
 ## Pages
 
-The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the backdrop or Escape closes it. Views are grouped into Training, Insights and Data & setup; selecting a view opens its group and collapses the others. The main content stays full width.
+The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the backdrop or Escape closes it. Navigation groups existing destinations into **Today**, **Training**, **Progress**, **Health & Longevity**, **Programme Intelligence**, and **Administration**; selecting a view opens its area and collapses the others. The selected area is announced through `aria-current`. Groups organize existing workflows rather than duplicate their forms.
 
+- **Today** — an active-workout-aware Start/Continue action, readiness and block context, review/form-follow-up shortcuts, recent sessions, periodic review prompts, and a compact descriptive progress snapshot. The longer form follow-up is collapsed; detailed analytics are in Progress, Performance, Outcomes, and Review. The review list is fed by `config/reviews.v1.yaml`; acknowledging one writes an append-only human record and changes no threshold or flag.
+- **Progress** — a unified 4/8/12-week entry point combining training-day counts (compared with the configured weekly target, not a saved schedule), canonical main-lift e1RM summaries, volume-by-pattern averages, sRPE coverage, and the recent dated performance-ratio observations. The ratio chart shows exact observations and a 1.00 reference; lines connect recorded points only, with no imputation. Performance and Outcomes retain detailed filters and drill-ins.
 - **Outcomes** — read-only 4/8/12-week strength review, attendance, volume and **Prospective check**; no prescription effect.
-- **Performance** — raw e1RM session bests, rolling median, series breaks, separate degraded observations, descriptive dose and explicitly configured relative-strength ratios with source-aware add/edit/delete/reset management; filters apply server-side. A read-only **[Monitoring analysis](MONITORING-ANALYSIS.md)** section runs on demand and reports dose, lagged associations, coverage and calibration transparency. Charts show labelled x/y axes and legends; clicking or keyboard-activating a chart opens a larger dialog with the same axes and legend. No targets, diagnosis, decay or calibration change; equipment changes cannot be detected because equipment is not stored.
-- **Longevity** — consolidated cardio, measurement, readiness and symptom context with deterministic **Going well / Needs attention** labels; no targets beyond the WHO cardio reference and no prescription effect.
-- **Today** — goal, block week, readiness, injury signal, unreviewed count, **rubric calibration** (high-confidence sessions, agreement, per-item marks/comparable counts, gaps), recent sessions, and a **Descriptive progress** panel (sRPE coverage, attendance, family exposures, performance ratio, weekly volume status, latest back symptom; monitoring only). The **periodic reviews** list is fed by `config/reviews.v1.yaml` and includes the 8-week **Fatigue-signal review** (rate missing demand dimensions, read the exposure ratio, open the shadow review, record a decision); acknowledging a review writes an append-only human record and changes no threshold or flag.
+- **Performance** — raw e1RM session bests, rolling median, series breaks, separate degraded observations, descriptive dose and explicitly configured relative-strength ratios with source-aware add/edit/delete/reset management; filters apply server-side. A read-only **[Monitoring analysis](MONITORING-ANALYSIS.md)** section runs on demand and reports dose, lagged associations, coverage and calibration transparency. Optional per-rep velocity analysis is also here. Charts show labelled axes and legends; clicking or keyboard-activating a chart opens a larger dialog with the same axes and legend. No targets, diagnosis, decay or calibration change; equipment changes cannot be detected because equipment is not stored.
+- **Longevity** — consolidated cardio, measurement, readiness and symptom context with recorded-count and data-gap summaries. Latest measurement summaries use available history, while readiness aggregates use the selected window. WHO cardio minutes are general reference context only; no clinical status judgment or prescription effect.
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
   SQLite, never written to the repository. New cumulative exports are overlap-matched against
   stored rows, so old history is not duplicated. An **After the import** panel states the
@@ -118,7 +119,7 @@ the same lift.
   in History. The *Plan and plan edits* section is open by default so the toggle is visible.
 - **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
   date and first session type (`auto` or a specific type).
-  every session is rebuilt on the day and nothing is persisted.
+  Every session is a projection rebuilt on the day; no future plan is persisted or promised.
 - **Cardio** — log a session (modality, minutes, HR, distance, sRPE) choose the window (4/12/26/52 weeks) and an optional as-of date:
   sessions, total/average minutes, weekly breakdown and the WHO reference as context. Capture
   only; no load changes.
@@ -130,10 +131,11 @@ the same lift.
   controls (VBT offers existing families plus an explicit new-family path); additional-properties
   JSON is under an advanced disclosure. Edits are written to `config/exercises/overrides.v1.yaml`;
   existing ids are immutable. The dialog includes descriptive per-lift e1RM (raw estimates plus
-  rolling median) and working-set-count-by-training-day charts. The latter combines same-day
-  session fragments and reads only completed/imported working sets (latest 50 sessions); neither
-  chart changes prescription behavior. e1RM-ineligible lifts and missing histories have explicit
-  empty states.
+  rolling median), working-set-count-by-training-day, load-by-basis and repetitions-by-recorded-unit
+  charts. They combine same-day fragments and summarize completed/imported working sets (latest
+  50 sessions); load bases and repetition units are kept in separate charts, exact medians are
+  shown in point tooltips, and no dates are imputed. None changes prescription behavior.
+  e1RM-ineligible lifts and missing histories have explicit empty states.
   Each row carries a **Demands** count (`rated/4` in-scope dimensions) and the details dialog
   shows the demand profile with level, confidence and reason, plus the catalogue digest and
   whether the git-ignored local overlay is active (`docs/EXERCISE-DEMANDS.md`). The profile is
@@ -164,6 +166,8 @@ the same lift.
 - **Settings** — appearance (System / Light / Dark), optional LLM configuration (enable/disable, model, endpoint, write-only key,
   temperature/tokens/timeout), browser-only Prescribe defaults, a collapsed read-only **Monitoring & reports** inventory with search/group filters, a dedicated **Resolver** panel (append-only scalar settings with explicit enable confirmation, validated structural YAML with backups/digest, read-only preview with alternatives/suggestions, unrated suggestions shown provisionally with inline suitability rating and a Start handoff blocked until they are rated; the preview runs as a polled background job so a long resolver build cannot end in a browser load failure), and read-only app/database paths.
   The key is masked and lives in git-ignored `config/llm.local.toml`.
+- **Logs** — manually refreshed recent tail, capped at 500 records in process memory and cleared
+  when the server restarts; this is not a durable audit history or system-health monitor.
 - **Docs** — local Markdown rendered without external assets.
 
 The in-browser **Terminal** was removed on 2026-10-28 (`DEC-WEB-02`): it was a state-changing surface with no authentication. Actions the UI does not expose (bulk `review --pending`, `state --import`) stay CLI-only and are listed in [`UI-CLI-PARITY.md`](UI-CLI-PARITY.md).
@@ -178,6 +182,8 @@ also disables while saving and reports the number of marks written.
 | route | purpose |
 |---|---|
 | `GET /api/overview` | dashboard data |
+| `GET /api/progress?date=` | descriptive attendance aggregate, weekly average volume, sRPE coverage, recent dated performance-ratio observations |
+| `GET /api/outcomes?weeks=&date=` | read-only strength, volume, attendance, readiness, cardio, measurement and symptom summaries |
 | `GET /api/performance/e1rm?exercise_id=&from=&to=` | raw e1RM observations, rolling median, breaks and descriptive summary |
 | `GET /api/performance/dose?from=&to=&group_by=session` | descriptive session dose |
 | `GET /api/performance/ratios?relationship_id=&from=&to=` | configured ratio current value and paired history |

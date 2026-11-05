@@ -50,8 +50,9 @@ const VIEW_LOADERS = {
   },
   settings: () => loadSettings(),
   history: () => loadHistory(),
+  progress: () => loadProgressOverview(),
   outcomes: () => loadOutcomes(),
-  performance: () => loadPerformance(),
+  performance: () => { loadPerformance(); loadRepVelocityProgress(); },
   longevity: () => loadLongevity(),
 };
 
@@ -67,11 +68,13 @@ function setView(name, options = {}) {
   });
   const activeGroup = [...document.querySelectorAll("#nav button")]
     .find((button) => button.dataset.view === name)?.closest(".nav-group");
-  if (activeGroup) {
-    document.querySelectorAll("#nav .nav-group").forEach((group) => {
-      group.open = group === activeGroup;
-    });
-  }
+  document.querySelectorAll("#nav .nav-group").forEach((group) => {
+    group.open = group === activeGroup;
+    const summary = group.querySelector(":scope > summary");
+    if (!summary) return;
+    if (group === activeGroup) summary.setAttribute("aria-current", "location");
+    else summary.removeAttribute("aria-current");
+  });
   const loader = VIEW_LOADERS[name];
   if (loader) loader(options);
   if (!options.fromHash && location.hash !== "#" + name) {
@@ -198,10 +201,12 @@ async function loadOverview() {
     const data = await api("/api/overview");
     window.__overview = data;
     loadDropWindow();
-    $("#today-title").textContent = data.profile ? "Coach" : "No athlete state yet";
+    $("#today-title").textContent = data.profile ? "Your training day" : "Set up athlete profile";
     $("#today-sub").textContent = "Block week " + (data.block_week ?? "unknown")
       + " · " + data.today + " · " + (data.unreviewed.length ? data.unreviewed.length
         + " unreviewed session(s)" : "reviews up to date");
+    const activeWorkout = await api("/api/workout/active").catch(() => ({workout: null}));
+    $("#today-session").textContent = todaySessionActionLabel(activeWorkout.workout);
     const readiness = data.readiness;
     const signal = data.injury_signal;
     const formEval = data.form_evaluation || {};
@@ -223,9 +228,6 @@ async function loadOverview() {
       ["Cardio (4 wk avg)", data.cardio ? data.cardio.average_weekly_minutes + " min/wk" : "unknown",
         data.cardio ? "reference " + data.cardio.reference_min + "-" + data.cardio.reference_max
           + " · " + data.cardio.sessions + " session(s)" : "no entry"],
-      ["Calibration", (data.calibration?.high_sessions ?? 0) + " reviewed",
-        (data.calibration?.agreement == null ? "agreement —" : data.calibration.agreement + "% agreement")
-        + " · " + (data.calibration?.comparable_items ?? 0) + " comparable"],
       ["Unreviewed", data.unreviewed.length, data.unreviewed.length ? "run review to catch up" : "all caught up"],
     ];
     $("#cards").innerHTML = cards.map(([label, value, sub]) => `
@@ -233,10 +235,9 @@ async function loadOverview() {
       <div class="value">${esc(value)}</div><div class="sub">${esc(sub)}</div></div>`).join("");
     renderFormFollowup(formEval);
     renderRecent(data.sessions);
-    renderCalibration(data.calibration);
+    renderTodayPriorities(data);
     fillSessionSelect();
     loadProgress();
-    loadRepVelocityProgress();
     loadReviews();
     // The hero button reloads this whole page; the stamp is the only visible proof it ran.
     const stamp = $("#today-updated");
@@ -261,6 +262,39 @@ async function refreshToday() {
       button.textContent = "Refresh";
     }
   }
+}
+
+function renderTodayPriorities(data) {
+  const target = $("#today-priorities");
+  if (!target) return;
+  const open = (data.unreviewed || []).length;
+  const followup = data.form_evaluation || {};
+  const due = followup.due_on ? `Review due ${followup.due_on}` : followup.message || "No follow-up status available";
+  target.innerHTML = `<div class="today-priority-row">
+      <div><strong>${open ? `${open} session${open === 1 ? "" : "s"} need review` : "Reviews are up to date"}</strong>
+        <p class="muted">${open ? "Open Review to inspect stored sessions." : "No unreviewed sessions are currently listed."}</p></div>
+      <a class="button-link" href="#review" data-view-link="review">${open ? "Open Review" : "Review sessions"}</a>
+    </div>
+    <div class="today-priority-row">
+      <div><strong>Form follow-up: ${esc(followup.status || "unknown")}</strong>
+        <p class="muted">${esc(due)}</p></div>
+      <a class="button-link" href="#outcomes" data-view-link="outcomes">View Outcomes</a>
+    </div>
+    <div class="today-quick-links" aria-label="More today views">
+      <a href="#programme" data-view-link="programme">Programme forecast</a>
+      <a href="#history" data-view-link="history">Training history</a>
+      <a href="#progress" data-view-link="progress">Progress dashboard</a>
+    </div>`;
+  target.querySelectorAll("[data-view-link]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      setView(link.dataset.viewLink);
+    });
+  });
+}
+
+function todaySessionActionLabel(workout) {
+  return workout?.status === "in_progress" ? "Continue workout" : "Start today’s workout";
 }
 
 const todayRefresh = $("#today-refresh");
@@ -306,55 +340,83 @@ function renderFormFollowup(formEval) {
       <a href="#outcomes" data-view-link="outcomes">Outcomes → Form trend</a>.</p>`;
 }
 
-function renderCalibration(data) {
-  if (!data) {
-    $("#calibration").innerHTML = "<p class='muted'>No calibration data.</p>";
-    return;
-  }
-  const rows = (data.items || []).map((item) =>
-    "<tr><td>" + esc(item.item) + "</td><td>" + item.marks + "</td><td>" +
-    item.comparable + "</td><td>" + esc(item.status) + "</td></tr>").join("");
-  $("#calibration").innerHTML =
-    "<p class='muted'><strong>" + data.high_sessions + "</strong> high-confidence sessions · " +
-    (data.agreement == null ? "agreement unknown" : data.agreement + "% agreement") +
-    " · " + (data.mae == null ? "MAE unknown" : "MAE " + data.mae) +
-    " · " + data.comparable_items + " comparable items.</p>" +
-    "<table><thead><tr><th>Item</th><th>high marks</th><th>comparable</th><th>status</th></tr></thead><tbody>" +
-    rows + "</tbody></table>" +
-    (data.gaps && data.gaps.length
-      ? "<p class='warnbox'><strong>Still collecting:</strong> " + esc(data.gaps.join(", ")) + "</p>"
-      : "<p class='muted'>All items have 10 marks and 10 comparable scores.</p>") +
-    "<p class='muted'>" + esc(data.next_action) + "</p>";
-}
-
 async function loadProgress() {
   try {
     const data = (await api("/api/progress")) || {};
-    const coverage = data.coverage || {};
     const p = data.performance || {};
-    const latest = p.latest ? `${p.latest.ratio.toFixed(3)} on ${p.latest.date}` : "insufficient";
     const rows = (data.volume || []).filter((row) => row.status !== "untargeted").slice(0, 8)
       .map((row) => `<tr><td>${esc(row.pattern)}</td><td>${row.average}</td>
         <td>${esc(row.status)}</td></tr>`).join("");
-    const back = data.back?.level == null ? "none logged" :
-      `${data.back.level}/3 on ${data.back.date}`;
     const attendance = data.attendance || {};
-    const families = attendance.families || {};
     $("#progress").innerHTML = `
-      <p class="muted">sRPE coverage: ${coverage.with_srpe ?? "—"}/${coverage.sessions ?? "—"}
-        (${coverage.pct ?? "—"}%). Performance ratio: <strong>${esc(latest)}</strong>;
-        median ${p.median_ratio ?? "—"} across ${p.n} sessions. Back: ${esc(back)}.</p>
-      <p>Attendance: <strong>${attendance.completed ?? "unknown"}</strong> /
-        ${attendance.target ?? "unknown"} (${attendance.pct ?? "unknown"}%). Shortfall:
-        ${attendance.target_shortfall ?? "unknown"}. Families:
-        squat ${families.squat ?? 0} · hinge ${families.hinge ?? 0} · bench ${families.bench ?? 0}.</p>
+      <div class="cards compact-cards">
+        <div class="card"><div class="label">Training days</div><div class="value">${attendance.completed ?? "unknown"}</div><div class="sub">${attendance.target == null ? "target unknown" : `${attendance.pct ?? "—"}% of configured target`}</div></div>
+        <div class="card"><div class="label">Latest ratio</div><div class="value">${p.latest?.ratio == null ? "unknown" : Number(p.latest.ratio).toFixed(3)}</div><div class="sub">${esc(p.latest?.date || "no observation")}</div></div>
+        <div class="card"><div class="label">Recent ratio median</div><div class="value">${p.median_ratio ?? "unknown"}</div><div class="sub">${p.n ?? 0} session observations</div></div>
+      </div>
+      ${typeof progressRatioSvg === "function" ? progressRatioSvg(p.points || [], "Recent performance-ratio observations") : ""}
       <table><thead><tr><th>Pattern</th><th>avg sets/week</th><th>status</th></tr></thead>
       <tbody>${rows || "<tr><td colspan='3' class='muted'>no targeted volume</td></tr>"}</tbody></table>
-      <p class="muted">${esc(data.note)}</p>`;
+      <p class="muted">${esc(data.note)} Attendance is an aggregate, not adherence to planned dates.</p>
+      <p><a href="#progress" data-view-link="progress">Open Progress overview</a></p>`;
   } catch (error) {
     $("#progress").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
+
+async function loadProgressOverview() {
+  const target = $("#progress-dashboard");
+  const status = $("#progress-overview-status");
+  if (!target) return;
+  const weeks = $("#progress-overview-weeks")?.value || "8";
+  const date = $("#progress-overview-date")?.value || "";
+  target.innerHTML = "<p class='empty'>Loading progress data…</p>";
+  try {
+    const outcomesQuery = new URLSearchParams({weeks});
+    if (date) outcomesQuery.set("date", date);
+    const [outcomesData, progressData] = await Promise.all([
+      api("/api/outcomes?" + outcomesQuery.toString()),
+      api("/api/progress" + (date ? "?date=" + encodeURIComponent(date) : "")),
+    ]);
+    const strength = outcomesData.strength || {};
+    const attendance = strength.attendance || {};
+    const lifts = strength.main_lifts || [];
+    const volume = strength.volume || [];
+    const feedback = progressData.coverage || {};
+    const liftRows = lifts.map((row) => `<tr><td>${esc(row.exercise_id)}</td><td>${row.n}</td><td>${fmt(row.first_e1rm)} kg <span class="muted">(${esc(row.first_on)})</span></td><td>${fmt(row.last_e1rm)} kg <span class="muted">(${esc(row.last_on)})</span></td><td>${row.change_kg > 0 ? "+" : ""}${fmt(row.change_kg)} kg</td><td>${fmt(row.best_e1rm)} kg</td></tr>`).join("");
+    const volumeRows = volume.map((row) => `<tr><td>${esc(row.pattern)}</td><td>${row.average_per_week ?? "unknown"}</td><td>${row.weeks_present ?? 0}</td></tr>`).join("");
+    const attendanceLabel = attendance.target == null ? "target unknown" : `${attendance.completed ?? 0} / ${attendance.target} target days (${attendance.pct ?? "—"}%)`;
+    const srpe = strength.sRPE || {};
+    target.innerHTML = `<p class="muted">${esc(outcomesData.window?.from || "unknown")} to ${esc(outcomesData.window?.to || "unknown")} · measured values are estimates/observations as labelled.</p>
+      <div class="cards">
+        <div class="card"><div class="label">Training days</div><div class="value">${attendance.completed ?? 0}</div><div class="sub">${esc(attendanceLabel)} · not planned-date compliance</div></div>
+        <div class="card"><div class="label">Main lifts observed</div><div class="value">${lifts.length}</div><div class="sub">${strength.sessions ?? 0} distinct training days</div></div>
+        <div class="card"><div class="label">sRPE recorded</div><div class="value">${srpe.n ?? 0}</div><div class="sub">${srpe.average == null ? "average unavailable" : `mean ${fmt(srpe.average)} / 10`}</div></div>
+        <div class="card"><div class="label">All-to-date sRPE coverage</div><div class="value">${feedback.with_srpe ?? 0} / ${feedback.sessions ?? 0}</div><div class="sub">${feedback.pct == null ? "unknown" : feedback.pct + "%"} through selected date</div></div>
+      </div>
+      <div class="panel"><div class="panel-head"><h2>Strength changes</h2><span class="muted">one eligible best per exercise per training day</span></div>
+        <div class="table-scroll"><table><thead><tr><th>Exercise</th><th>observations</th><th>first estimate</th><th>latest estimate</th><th>change</th><th>best estimate</th></tr></thead><tbody>${liftRows || "<tr><td colspan='6' class='muted'>No eligible main-lift observations in this period.</td></tr>"}</tbody></table></div>
+      </div>
+      <div class="panel"><div class="panel-head"><h2>Training dose</h2><span class="muted">average sets per week by pattern</span></div>
+        <div class="table-scroll"><table><thead><tr><th>Pattern</th><th>average sets/week</th><th>weeks present</th></tr></thead><tbody>${volumeRows || "<tr><td colspan='3' class='muted'>No volume observations.</td></tr>"}</tbody></table></div>
+      </div>
+      <div class="panel"><div class="panel-head"><h2>Recent performance ratio</h2><span class="muted">fixed 56-day lookback; observed values</span></div>
+        ${typeof progressRatioSvg === "function" ? progressRatioSvg(progressData.performance?.points || [], "Cross-lift performance ratio by training date") : "<p class='empty'>Chart renderer unavailable.</p>"}
+        <p class="muted">${esc(progressData.note || "")} This ratio is descriptive, not an e1RM series, readiness score, causal estimate, or prescription input.</p>
+      </div>
+      <div class="today-quick-links"><a href="#performance" data-view-link="performance">Detailed Performance analysis</a><a href="#outcomes" data-view-link="outcomes">Detailed Outcomes review</a></div>
+      <p class="muted">${esc(outcomesData.note || "")} Missing values remain unknown; attendance is compared with a configured weekly target and is not a stored schedule.</p>`;
+    if (status) status.textContent = "Updated";
+  } catch (error) {
+    target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+    if (status) status.textContent = "Could not load";
+  }
+}
+
+$("#progress-overview-form")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  loadProgressOverview();
+});
 
 async function loadRepVelocityProgress() {
   try {
@@ -665,28 +727,28 @@ async function loadLongevity() {
     const cardioAvg = cardio.rolling_4w_average ?? cardio.average_weekly_minutes;
     const refMin = cardio.reference_min ?? 150;
     const refMax = cardio.reference_max ?? 300;
-    const metricCount = Object.keys(metrics).length;
+    const metricCount = Object.values(metrics).filter((row) => Number(row.count || 0) > 0).length;
     const readinessCount = Object.values(fields).filter((row) => row.n > 0).length;
+    const readinessTotal = Object.keys(fields).length;
     const regions = Object.values(symptoms);
     const symptomReadings = regions.reduce((sum, row) => sum + (row.readings || 0), 0);
     const flares = regions.reduce((sum, row) => sum + (row.flares || 0), 0);
-    const well = [];
-    const attention = [];
-    if (cardioAvg != null && cardioAvg >= refMin) well.push("Cardio is at or above the WHO reference (" + cardioAvg + " min/wk).");
-    else if (cardioAvg == null) attention.push("No cardio minutes captured in this window.");
-    else attention.push("Cardio is below the WHO reference (" + cardioAvg + " vs " + refMin + " min/wk).");
-    if (metricCount) well.push(metricCount + " longevity measurement(s) captured.");
-    else attention.push("No periodic measurements in this window.");
-    if (readinessCount >= 7) well.push("Readiness coverage is complete (" + readinessCount + " fields).");
-    else attention.push("Readiness coverage is partial (" + readinessCount + "/7 fields).");
-    if (symptomReadings === 0) attention.push("No symptom readings; flare status is unknown, not zero.");
-    else if (flares === 0) well.push("No recorded symptom flares in the window.");
-    else attention.push(flares + " symptom flare(s) recorded; review context.");
-    if (attendance.pct != null && attendance.pct >= 80) well.push("Attendance is at or above 80%.");
-    else if (attendance.pct != null) attention.push("Attendance is below 80% (" + attendance.pct + "%).");
-    else attention.push("Attendance target is unknown.");
+    const contextNotes = [];
+    contextNotes.push(cardioAvg == null
+      ? "No cardio minutes recorded in this window."
+      : cardioAvg + " cardio minutes per week on average; the 150–300 minute WHO reference is general context, not an individualized goal.");
+    contextNotes.push(metricCount
+      ? metricCount + " configured measurement type(s) have recorded values; latest values below use available history, not only this window."
+      : "No configured measurement types have recorded values in available history.");
+    contextNotes.push("Readiness entries are present for " + readinessCount + " of " + readinessTotal + " subjective fields in this window; missing is unknown.");
+    contextNotes.push(symptomReadings === 0
+      ? "No symptom readings; flare status is unknown, not zero."
+      : flares + " symptom flare(s) among " + symptomReadings + " recorded reading(s); descriptive context only.");
+    contextNotes.push(attendance.pct == null
+      ? (attendance.completed ?? 0) + " training day(s) recorded; target is unknown and no planned-session calendar is stored."
+      : attendance.completed + " training day(s), " + attendance.pct + "% of the configured weekly target; this is not planned-date adherence.");
     const metricRows = Object.entries(metrics).map(([key, row]) =>
-      "<tr><td>" + esc(key) + "</td><td>" + (row.latest_value ?? "—") + "</td><td>" +
+      "<tr><td>" + esc(key) + "</td><td>" + (row.count ?? 0) + "</td><td>" + (row.latest_value ?? "—") + "</td><td>" +
       (row.change == null ? "—" : (row.change > 0 ? "+" : "") + row.change) +
       "</td><td>" + esc(row.latest_on || "—") + "</td></tr>").join("");
     const readinessRows = Object.entries(fields).map(([field, row]) =>
@@ -707,22 +769,20 @@ async function loadLongevity() {
       (cardioAvg == null ? "unknown" : cardioAvg + " min/wk") + "</div><div class='sub'>reference " +
       refMin + "–" + refMax + " · context only</div></div>" +
       "<div class='card'><div class='label'>Measurements</div><div class='value'>" +
-      metricCount + "</div><div class='sub'>captured metrics</div></div>" +
+      metricCount + "</div><div class='sub'>recorded metric types</div></div>" +
       "<div class='card'><div class='label'>Readiness</div><div class='value'>" +
-      readinessCount + "/7</div><div class='sub'>fields with data</div></div>" +
+      readinessCount + "/" + readinessTotal + "</div><div class='sub'>subjective fields with data</div></div>" +
       "<div class='card'><div class='label'>Symptoms</div><div class='value'>" +
       (symptomReadings ? flares + " flare(s)" : "unknown") + "</div><div class='sub'>" +
       symptomReadings + " reading(s)</div></div></div>" +
-      "<h3>Going well</h3><ul class='list'>" +
-      (well.length ? well.map((x) => "<li>" + esc(x) + "</li>").join("") : "<li class='muted'>nothing confidently positive</li>") +
-      "</ul><h3>Needs attention</h3><ul class='list'>" +
-      (attention.length ? attention.map((x) => "<li>" + esc(x) + "</li>").join("") : "<li class='muted'>none identified</li>") +
-      "</ul><p class='muted'>These are descriptive context labels, not medical advice and not a prescription change.</p>";
+      "<h3>Recorded context and coverage</h3><ul class='list'>" +
+      contextNotes.map((x) => "<li>" + esc(x) + "</li>").join("") +
+      "</ul><p class='muted'>Descriptive records only; no medical interpretation or prescription change.</p>";
     $("#longevity-details").innerHTML =
       "<h3>Cardio weeks</h3><table><thead><tr><th>Week</th><th>minutes</th></tr></thead><tbody>" +
       (cardioWeeks || "<tr><td colspan='2' class='muted'>no cardio entries</td></tr>") + "</tbody></table>" +
-      "<h3>Measurements</h3><table><thead><tr><th>Metric</th><th>latest</th><th>change</th><th>date</th></tr></thead><tbody>" +
-      (metricRows || "<tr><td colspan='4' class='muted'>none in this window</td></tr>") + "</tbody></table>" +
+      "<h3>Measurements (latest available history)</h3><table><thead><tr><th>Metric</th><th>n</th><th>latest</th><th>change</th><th>date</th></tr></thead><tbody>" +
+      (metricRows || "<tr><td colspan='5' class='muted'>no recorded measurements</td></tr>") + "</tbody></table>" +
       "<h3>Readiness fields</h3><table><thead><tr><th>Field</th><th>n</th><th>average</th><th>first → last</th></tr></thead><tbody>" +
       (readinessRows || "<tr><td colspan='4' class='muted'>no readiness fields</td></tr>") + "</tbody></table>" +
       "<h3>Symptoms</h3><table><thead><tr><th>Region</th><th>flares</th><th>readings</th><th>latest</th></tr></thead><tbody>" +

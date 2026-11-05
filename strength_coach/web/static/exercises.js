@@ -189,6 +189,7 @@ async function loadExerciseTrends(row) {
     const sessions = history.sessions || [];
     $("#exercise-detail-dose").innerHTML = sessions.length
       ? exerciseSetCountChart(sessions, row.display || id, history.total)
+        + exerciseLoadRepsCharts(sessions, row.display || id)
       : "<p class='empty'>No completed working-set history for this exercise.</p>";
   } catch (error) {
     if (window.__exerciseDetailsId === id) {

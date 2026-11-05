@@ -73,6 +73,57 @@ function chartAxes(xTitle, yTitle, xTicks, yTicks, plot, width, height) {
   return markup;
 }
 
+function progressRatioSvg(points, title) {
+  var usable = (points || []).map(function (point) {
+    return { date: String(point.date || ""), ratio: Number(point.ratio), lifts: Number(point.lifts || 0) };
+  }).filter(function (point) {
+    return point.date && Number.isFinite(Date.parse(point.date + "T00:00:00Z")) && Number.isFinite(point.ratio);
+  }).sort(function (a, b) { return a.date.localeCompare(b.date); });
+  if (!usable.length) return "<p class='empty'>No performance-ratio observations in this range.</p>";
+  var width = 640, height = 240;
+  var plot = { left: 68, right: width - 16, top: 16, bottom: height - 42 };
+  var values = usable.map(function (point) { return point.ratio; });
+  var minValue = Math.min(1, Math.min.apply(null, values));
+  var maxValue = Math.max(1, Math.max.apply(null, values));
+  var pad = Math.max((maxValue - minValue) * 0.12, 0.025);
+  var min = Math.max(0, minValue - pad), max = maxValue + pad;
+  var span = Math.max(0.05, max - min);
+  var dates = usable.map(function (point) { return Date.parse(point.date + "T00:00:00Z"); });
+  var dateSpan = Math.max(1, dates[dates.length - 1] - dates[0]);
+  function xFor(index) {
+    return usable.length === 1 ? (plot.left + plot.right) / 2
+      : plot.left + ((dates[index] - dates[0]) / dateSpan) * (plot.right - plot.left);
+  }
+  function yFor(value) { return plot.bottom - ((value - min) / span) * (plot.bottom - plot.top); }
+  var coords = usable.map(function (point, index) { return [xFor(index), yFor(point.ratio)]; });
+  var line = coords.map(function (pair) { return pair[0].toFixed(1) + "," + pair[1].toFixed(1); }).join(" ");
+  var marks = coords.map(function (pair, index) {
+    var point = usable[index];
+    return "<circle cx='" + pair[0].toFixed(1) + "' cy='" + pair[1].toFixed(1) + "' r='4'><title>" +
+      esc(point.date + ": ratio " + point.ratio.toFixed(3) + "; " + point.lifts + " lift comparisons") + "</title></circle>";
+  }).join("");
+  var xTicks = usable.length === 1
+    ? [{ x: (plot.left + plot.right) / 2, label: usable[0].date }]
+    : [{ x: plot.left, label: usable[0].date }, { x: plot.right, label: usable[usable.length - 1].date }];
+  if (usable.length > 2) {
+    var midIndex = Math.floor((usable.length - 1) / 2);
+    xTicks.splice(1, 0, { x: xFor(midIndex), label: usable[midIndex].date });
+  }
+  var yTicks = [
+    { y: plot.bottom, label: min.toFixed(2) },
+    { y: (plot.top + plot.bottom) / 2, label: ((min + max) / 2).toFixed(2) },
+    { y: plot.top, label: max.toFixed(2) },
+  ];
+  var referenceY = yFor(1).toFixed(1);
+  var chartTitle = title || "Recent performance ratio observations";
+  var svg = "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
+    "' role='img' aria-label='" + esc(chartTitle + ", observed ratio values over time") + "'><title>" + esc(chartTitle) + "</title>" +
+    chartAxes("Date", "Performance ratio", xTicks, yTicks, plot, width, height) +
+    "<line class='chart-reference' x1='" + plot.left + "' y1='" + referenceY + "' x2='" + plot.right + "' y2='" + referenceY + "'></line>" +
+    (coords.length > 1 ? "<polyline class='chart-series-raw' points='" + line + "' fill='none' stroke-width='2'></polyline>" : "") + marks + "</svg>";
+  return chartFrame(chartTitle, svg, "Dots are session-level ratio observations; same-date fragments may overlap. Tooltips give exact values. Lines only connect recorded observations; no values are imputed. Dashed reference: ratio 1.00.");
+}
+
 function performanceSvg(points, chartTitle) {
   if (!points || points.length < 1) return "";
   var title = chartTitle || "Raw e1RM observations";
@@ -143,33 +194,111 @@ function exerciseSetCountChart(sessions, exerciseLabel, total) {
   var span = Math.max(1, max - min);
   var width = 640, height = 240;
   var plot = { left: 56, right: width - 16, top: 16, bottom: height - 42 };
+  var timestamps = points.map(function (point) { return Date.parse(point.date + "T00:00:00Z"); });
+  var dateSpan = Math.max(1, timestamps[timestamps.length - 1] - timestamps[0]);
   var coords = points.map(function (point, index) {
     var x = points.length === 1 ? (plot.left + plot.right) / 2
-      : plot.left + (index / (points.length - 1)) * (plot.right - plot.left);
+      : plot.left + ((timestamps[index] - timestamps[0]) / dateSpan) * (plot.right - plot.left);
     var y = plot.bottom - (point.value / span) * (plot.bottom - plot.top);
     return [x, y];
   });
   var line = coords.map(function (pair) { return pair[0].toFixed(1) + "," + pair[1].toFixed(1); }).join(" ");
-  var circles = coords.map(function (pair) {
-    return "<circle cx='" + pair[0].toFixed(1) + "' cy='" + pair[1].toFixed(1) + "' r='3'></circle>";
+  var circles = coords.map(function (pair, index) {
+    return "<circle cx='" + pair[0].toFixed(1) + "' cy='" + pair[1].toFixed(1) + "' r='3'><title>" +
+      esc(points[index].date + ": " + points[index].value + " working sets") + "</title></circle>";
   }).join("");
-  var xTicks = [
-    { x: plot.left, label: points[0].date },
-    { x: (plot.left + plot.right) / 2, label: points[Math.floor((points.length - 1) / 2)].date },
-    { x: plot.right, label: points[points.length - 1].date },
-  ];
+  var xTicks = points.length === 1
+    ? [{ x: (plot.left + plot.right) / 2, label: points[0].date }]
+    : [{ x: plot.left, label: points[0].date }, { x: plot.right, label: points[points.length - 1].date }];
+  if (points.length > 2) {
+    var midIndex = Math.floor((points.length - 1) / 2);
+    xTicks.splice(1, 0, { x: plot.left + ((timestamps[midIndex] - timestamps[0]) / dateSpan) * (plot.right - plot.left), label: points[midIndex].date });
+  }
   var yTicks = [
     { y: plot.bottom, label: "0" },
     { y: (plot.top + plot.bottom) / 2, label: String(Math.round(max / 2)) },
     { y: plot.top, label: String(max) },
   ];
-  var note = "Working sets from completed/imported sessions; same-day fragments are combined. " +
+  var note = "Working sets from completed/imported sessions; same-day fragments are combined. Dots are exact training-day totals; no dates are imputed. " +
     (total > sessions.length ? "Showing the latest " + sessions.length + " of " + total + " sessions." : "");
   var svg = "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
     "' role='img' aria-label='" + esc(title) + "'><title>" + esc(title) + "</title>" +
     chartAxes("Training day", "Working sets", xTicks, yTicks, plot, width, height) +
     "<polyline class='chart-series-raw' points='" + line + "' fill='none' stroke-width='2'></polyline>" + circles + "</svg>";
   return chartFrame(title, svg, note);
+}
+
+function exerciseHistoryMetricCharts(sessions, exerciseLabel, field, groupField, metricLabel, unitLabel) {
+  var grouped = {};
+  (sessions || []).forEach(function (session) {
+    var date = String(session.occurred_on || "");
+    if (!date) return;
+    (session.sets || []).forEach(function (set) {
+      if (set[field] == null) return;
+      var value = Number(set[field]);
+      if (!Number.isFinite(value)) return;
+      var group = String(set[groupField] || "unspecified");
+      if (!grouped[group]) grouped[group] = {};
+      if (!grouped[group][date]) grouped[group][date] = [];
+      grouped[group][date].push(value);
+    });
+  });
+  var groups = Object.keys(grouped).sort();
+  if (!groups.length) return "<p class='empty'>No compatible " + esc(metricLabel.toLowerCase()) + " observations.</p>";
+  return groups.map(function (group) {
+    var actualUnit = groupField === "reps_unit" ? group : unitLabel;
+    var points = Object.keys(grouped[group]).sort().map(function (date) {
+      var values = grouped[group][date].slice().sort(function (a, b) { return a - b; });
+      var mid = Math.floor(values.length / 2);
+      var median = values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+      return { date: date, value: median, n: values.length };
+    });
+    var title = exerciseLabel + " " + metricLabel.toLowerCase() + " (" + group + ") by training day";
+    var width = 640, height = 240;
+    var plot = { left: 64, right: width - 16, top: 16, bottom: height - 42 };
+    var values = points.map(function (point) { return point.value; });
+    var min = 0, max = Math.max(1, Math.max.apply(null, values) * 1.1);
+    var timestamps = points.map(function (point) { return Date.parse(point.date + "T00:00:00Z"); });
+    var dateSpan = Math.max(1, timestamps[timestamps.length - 1] - timestamps[0]);
+    function xFor(index) {
+      return points.length === 1 ? (plot.left + plot.right) / 2
+        : plot.left + ((timestamps[index] - timestamps[0]) / dateSpan) * (plot.right - plot.left);
+    }
+    function yFor(value) { return plot.bottom - (value / max) * (plot.bottom - plot.top); }
+    var coords = points.map(function (point, index) { return [xFor(index), yFor(point.value)]; });
+    var polyline = coords.map(function (pair) { return pair[0].toFixed(1) + "," + pair[1].toFixed(1); }).join(" ");
+    var circles = coords.map(function (pair, index) {
+      var point = points[index];
+      return "<circle cx='" + pair[0].toFixed(1) + "' cy='" + pair[1].toFixed(1) + "' r='4'><title>" +
+        esc(point.date + ": median " + fmt(point.value) + " " + actualUnit + " across " + point.n + " working sets; " + group) + "</title></circle>";
+    }).join("");
+    var xTicks = points.length === 1
+      ? [{ x: (plot.left + plot.right) / 2, label: points[0].date }]
+      : [{ x: plot.left, label: points[0].date }, { x: plot.right, label: points[points.length - 1].date }];
+    if (points.length > 2) {
+      var midIndex = Math.floor((points.length - 1) / 2);
+      xTicks.splice(1, 0, { x: xFor(midIndex), label: points[midIndex].date });
+    }
+    var yTicks = [
+      { y: plot.bottom, label: "0" },
+      { y: (plot.top + plot.bottom) / 2, label: fmt(max / 2) },
+      { y: plot.top, label: fmt(max) },
+    ];
+    var svg = "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
+      "' role='img' aria-label='" + esc(title) + "'><title>" + esc(title) + "</title>" +
+      chartAxes("Training day", metricLabel + " (" + actualUnit + ")", xTicks, yTicks, plot, width, height) +
+      (coords.length > 1 ? "<polyline class='chart-series-raw' points='" + polyline + "' fill='none' stroke-width='2'></polyline>" : "") +
+      circles + "</svg>";
+    return chartFrame(title, svg, "Each dot is the exact median of completed working sets on that training date; same-day fragments are combined. Grouped by " + groupField + " so unlike units/bases are never mixed. No dates are imputed.");
+  }).join("");
+}
+
+function exerciseLoadRepsCharts(sessions, exerciseLabel) {
+  return "<div class='exercise-history-charts'><h4>Working-set load</h4>" +
+    exerciseHistoryMetricCharts(sessions, exerciseLabel, "load_kg", "load_basis", "Load", "kg") +
+    "<h4>Repetitions / recorded unit</h4>" +
+    exerciseHistoryMetricCharts(sessions, exerciseLabel, "reps", "reps_unit", "Repetitions", "recorded unit") +
+    "</div>";
 }
 
 function renderPerformanceE1rm(data) {

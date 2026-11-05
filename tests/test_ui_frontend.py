@@ -357,6 +357,16 @@ def test_accessibility_and_navigation_guards() -> None:
     assert 'aria-labelledby="exercise-details-title"' in page
     assert 'aria-labelledby="template-dialog-title"' in page
     assert 'id="today-session"' in page
+    for area in ("Today", "Training", "Progress", "Health &amp; Longevity",
+                 "Programme Intelligence", "Administration"):
+        assert area in page
+    assert 'id="view-progress"' in page
+    assert 'id="progress-dashboard"' in page
+    assert 'id="today-priorities"' in page
+    assert 'data-view="progress"' in page
+    assert "Continue workout" in app and "/api/workout/active" in app
+    assert "progressRatioSvg" in app
+    assert 'id="rep-velocity-progress"' in page
     assert 'id="workflow-readiness-presets"' in page
     assert "aria-current" in app
     assert "sidebarFocusables" in app
@@ -638,6 +648,118 @@ if (html.indexOf("rolling median") < 0) throw new Error("rolling median legend m
     subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
 
 
+def test_progress_ratio_chart_is_observation_based_and_handles_empty_data() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    script = r"""
+global.esc = function (value) { return String(value == null ? "" : value); };
+eval(SOURCE);
+const empty = progressRatioSvg([], "Cross-lift ratio");
+if (empty.indexOf("No performance-ratio observations") < 0) throw new Error("empty state missing");
+const html = progressRatioSvg([
+  {date: "2024-01-01", ratio: 0.91, lifts: 2},
+  {date: "2024-01-20", ratio: 1.06, lifts: 3}
+], "Cross-lift ratio");
+if (html.indexOf("<svg") < 0) throw new Error("chart missing");
+if (html.indexOf("2024-01-01: ratio 0.910; 2 lift comparisons") < 0) throw new Error("exact tooltip missing");
+if (html.indexOf("chart-reference") < 0) throw new Error("neutral reference line missing");
+if (html.indexOf("no values are imputed") < 0) throw new Error("missing-data disclosure missing");
+if (html.indexOf("role='button'") < 0 || html.indexOf("tabindex='0'") < 0) throw new Error("accessible expansion missing");
+"""
+    script = script.replace("SOURCE", json.dumps(source))
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+
+def test_longevity_coverage_counts_observations_and_uses_returned_fields() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    match = re.search(r"async function loadLongevity\(\) \{[\s\S]*?\n\}", source)
+    assert match, "loadLongevity() not found"
+    script = r"""
+const els = {
+  "#longevity-weeks": {value: "8"}, "#longevity-date": {value: "2024-01-31"},
+  "#longevity-summary": {innerHTML: ""}, "#longevity-details": {innerHTML: ""}
+};
+global.$ = function (selector) { return els[selector]; };
+global.esc = function (value) { return String(value == null ? "" : value); };
+global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
+global.api = function () { return Promise.resolve({
+  window: {from: "2023-12-07", to: "2024-01-31"},
+  longevity: {cardio: {average_weekly_minutes: null, reference_min: 150, reference_max: 300, weekly_minutes: {}},
+    measurements: {bodyweight_kg: {count: 0}, grip_strength_kg: {count: 2, latest_value: 44, change: 4, latest_on: "2024-01-20"}},
+    readiness: {fields: {sleep: {n: 1, average: 4, first: 4, last: 4}, energy: {n: 0}, stress: {n: 0}, soreness: {n: 0}}},
+    symptoms: {}},
+  strength: {symptoms: {regions: {}}, attendance: {completed: 0, pct: null}}, note: "descriptive"
+}); };
+eval(FUNCTION);
+loadLongevity().then(() => {
+  const html = els["#longevity-summary"].innerHTML;
+  if (!html.includes("recorded metric types")) throw new Error("metric count label missing");
+  if (!html.includes("1/4")) throw new Error("readiness denominator must match returned fields");
+  if (html.includes("80%") || html.includes("Going well") || html.includes("Needs attention"))
+    throw new Error("unsupported status threshold remains");
+  if (!html.includes("latest values below use available history")) throw new Error("measurement window caveat missing");
+});
+""".replace("FUNCTION", json.dumps(match.group(0)))
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+
+def test_today_workout_action_handles_active_and_missing_workouts() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    match = re.search(r"function todaySessionActionLabel\(workout\) \{[\s\S]*?\n\}", source)
+    assert match, "todaySessionActionLabel() not found"
+    script = f"eval({json.dumps(match.group(0))});\n"
+    script += "if (todaySessionActionLabel({status: 'in_progress'}) !== 'Continue workout') throw new Error('active action');\n"
+    script += "if (todaySessionActionLabel(null) !== 'Start today’s workout') throw new Error('missing action');\n"
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+
+def test_progress_overview_renders_real_outcome_fields_and_as_of_filters() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    match = re.search(r"async function loadProgressOverview\(\) \{[\s\S]*?\n\}", source)
+    assert match, "loadProgressOverview() not found"
+    script = r"""
+const els = {"#progress-dashboard": {innerHTML: ""}, "#progress-overview-status": {textContent: ""},
+  "#progress-overview-weeks": {value: "4"}, "#progress-overview-date": {value: "2024-04-30"}};
+global.$ = function (selector) { return els[selector]; };
+global.esc = function (value) { return String(value == null ? "" : value); };
+global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
+global.progressRatioSvg = function () { return "<svg aria-label='ratio'></svg>"; };
+const calls = [];
+global.api = function (url) {
+  calls.push(url);
+  if (url.startsWith("/api/outcomes")) return Promise.resolve({window: {from: "2024-04-03", to: "2024-04-30"}, note: "descriptive",
+    strength: {sessions: 3, attendance: {completed: 3, target: 4, pct: 75},
+      main_lifts: [{exercise_id: "ssb_squat", n: 2, first_on: "2024-04-05", first_e1rm: 100, last_on: "2024-04-25", last_e1rm: 105, change_kg: 5, best_e1rm: 105}],
+      volume: [{pattern: "squat", average_per_week: 6.5, weeks_present: 3}], sRPE: {n: 2, average: 6.5}}});
+  return Promise.resolve({coverage: {with_srpe: 4, sessions: 8, pct: 50}, performance: {points: []}, note: "descriptive"});
+};
+eval(FUNCTION);
+loadProgressOverview().then(() => {
+  const html = els["#progress-dashboard"].innerHTML;
+  if (!calls.some((url) => url.includes("weeks=4") && url.includes("date=2024-04-30"))) throw new Error("outcomes filter missing");
+  if (!calls.some((url) => url === "/api/progress?date=2024-04-30")) throw new Error("as-of ratio filter missing");
+  if (!html.includes("6.5") || !html.includes("weeks present") || !html.includes("All-to-date sRPE coverage")) throw new Error("API field mappings missing");
+  if (!html.includes("ratio") || els["#progress-overview-status"].textContent !== "Updated") throw new Error("chart or status missing");
+});
+""".replace("FUNCTION", json.dumps(match.group(0)))
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+
 def test_step5_report_controls_are_wired() -> None:
     page = INDEX.read_text(encoding="utf-8")
     source = (STATIC / "app.js").read_text(encoding="utf-8")
@@ -905,6 +1027,42 @@ if (html.indexOf("Squat working sets by training day") < 0) throw new Error("cha
 if (html.indexOf("Working sets") < 0) throw new Error("y axis missing");
 if (html.indexOf("same-day fragments are combined") < 0) throw new Error("training-day aggregation missing");
 if ((html.match(/<circle/g) || []).length !== 2) throw new Error("dates were not combined into two points");
+if (html.indexOf("2026-10-01: 3 working sets") < 0) throw new Error("exact set-count tooltip missing");
+if (html.indexOf("no dates are imputed") < 0) throw new Error("date-gap disclosure missing");
+""".replace("SOURCE", json.dumps(source))
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+
+def test_exercise_load_and_reps_charts_keep_incompatible_units_separate() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    script = r"""
+global.esc = function (value) { return String(value == null ? "" : value); };
+global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
+eval(SOURCE);
+const empty = exerciseLoadRepsCharts([], "No history");
+if (empty.indexOf("No compatible load observations") < 0 || empty.indexOf("No compatible repetitions observations") < 0)
+  throw new Error("empty exercise metric state missing");
+const html = exerciseLoadRepsCharts([
+  {occurred_on: "2024-01-01", sets: [
+    {load_kg: 100, load_basis: "external", reps: 5, reps_unit: "reps"},
+    {load_kg: 110, load_basis: "external", reps: 6, reps_unit: "reps"},
+    {load_kg: null, load_basis: "external", reps: null, reps_unit: "reps"}]},
+  {occurred_on: "2024-01-01", sets: [
+    {load_kg: 90, load_basis: "external", reps: 4, reps_unit: "reps"}]},
+  {occurred_on: "2024-01-10", sets: [
+    {load_kg: 30, load_basis: "assisted", reps: 30, reps_unit: "seconds"}]}
+], "Example lift");
+if (html.indexOf("Example lift load (external) by training day") < 0 ||
+    html.indexOf("Example lift load (assisted) by training day") < 0) throw new Error("load bases mixed");
+if (html.indexOf("Repetitions (reps)") < 0 || html.indexOf("Repetitions (seconds)") < 0) throw new Error("rep units mixed");
+if (html.indexOf("median 100 kg across 3 working sets; external") < 0) throw new Error("same-day exact median missing");
+if (html.indexOf("median 5 reps across 3 working sets; reps") < 0) throw new Error("rep median missing");
+if (html.indexOf("median 0") >= 0) throw new Error("null values became observed zeros");
+if (html.indexOf("No dates are imputed") < 0) throw new Error("imputation disclosure missing");
 """.replace("SOURCE", json.dumps(source))
     subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
 
@@ -914,7 +1072,10 @@ def test_exercise_views_are_grouped_and_add_edit_share_one_dialog() -> None:
     exercises = (STATIC / "exercises.js").read_text(encoding="utf-8")
     app = (STATIC / "app.js").read_text(encoding="utf-8")
     assert 'class="nav-group"' in page
-    assert "Training" in page and "Insights" in page and "Data &amp; setup" in page
+    assert all(label in page for label in (
+        "Training", "Progress", "Health &amp; Longevity",
+        "Programme Intelligence", "Administration",
+    ))
     assert "activeGroup" in app and 'details:not([open])' in app
     assert 'data-details-exercise="${esc(row.id)}">Open</button>' in exercises
     assert 'data-edit-exercise=' not in exercises

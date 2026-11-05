@@ -278,12 +278,30 @@ details summary { cursor: pointer; color: var(--muted); }
 .nav-group > summary::after { content: "+"; float: right; font-size: 14px; line-height: 1.2; }
 .nav-group[open] > summary::after { content: "−"; }
 .nav-group > summary:hover, .nav-group[open] > summary { background: var(--soft); color: var(--ink); }
+.nav-group > summary[aria-current="location"] { color: var(--accent); box-shadow: inset 3px 0 var(--accent); }
 .nav-group-items { display: grid; gap: 2px; padding: 2px 0 4px 8px; }
+.today-priorities { display: grid; gap: 8px; }
+.today-priority-row { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 12px 0; border-bottom: 1px solid var(--line); }
+.today-priority-row:last-of-type { border-bottom: 0; }
+.today-priority-row p { margin: 3px 0 0; }
+.button-link { display: inline-block; flex: 0 0 auto; padding: 7px 12px; border: 1px solid var(--line);
+  border-radius: 999px; color: var(--accent); text-decoration: none; }
+.button-link:hover { background: var(--soft); }
+.today-quick-links { display: flex; flex-wrap: wrap; gap: 8px 18px; padding-top: 10px; }
+.compact-cards { grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); margin: 0 0 14px; }
+.compact-cards .card { padding: 11px 13px; }
+.compact-cards .card .value { font-size: 20px; }
+.exercise-history-charts { margin-top: 18px; }
+.exercise-history-charts h4 { margin: 18px 0 8px; }
+.exercise-history-charts .chart-frame { margin: 10px 0 16px; }
 .sidebar-backdrop { position: fixed; inset: 0; background: rgba(20,24,20,.32); z-index: 25; }
 body.menu-open { overflow: hidden; }
 @media (max-width: 760px) {
   .sidebar { width: 86vw; }
   .topbar { gap: 10px; }
+  .today-priority-row { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .button-link { min-height: 40px; display: inline-flex; align-items: center; }
 }
 
 /* One-line explanation plus a deep documentation link, used on every panel. */
@@ -449,6 +467,7 @@ body.menu-open { overflow: hidden; }
 .performance-chart polyline { stroke: var(--ink); }
 .performance-chart .chart-series-raw { stroke: var(--accent); }
 .performance-chart .chart-series-median { stroke: var(--accent-2); stroke-dasharray: 7 4; }
+.performance-chart .chart-reference { stroke: var(--muted); stroke-dasharray: 4 4; stroke-width: 1.5; }
 .performance-chart circle { fill: var(--accent); }
 .chart-frame { border: 1px solid var(--line); border-radius: 8px; padding: 8px; cursor: zoom-in;
   background: var(--paper); }

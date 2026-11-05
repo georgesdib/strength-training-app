@@ -85,10 +85,20 @@ def dashboard(conn, on_date: str | None = None, *, weeks: int = 8) -> dict:
     ).fetchone()[0]
     feedback = conn.execute(
         """
-        SELECT COUNT(DISTINCT session_id) AS n
-          FROM session_feedback
-         WHERE srpe IS NOT NULL AND duration_min IS NOT NULL
-        """
+        SELECT COUNT(DISTINCT feedback.session_id) AS n
+         FROM session_feedback AS feedback
+          JOIN session ON session.session_id = feedback.session_id
+         WHERE feedback.srpe IS NOT NULL
+           AND session.occurred_on <= ? AND session.voided = 0
+           AND NOT EXISTS (
+               SELECT 1 FROM session_feedback AS newer
+                WHERE newer.session_id = feedback.session_id
+                  AND (newer.recorded_at > feedback.recorded_at
+                       OR (newer.recorded_at = feedback.recorded_at
+                           AND newer.feedback_id > feedback.feedback_id))
+           )
+        """,
+        (day,),
     ).fetchone()[0]
     points = performance_points(conn, day)
     latest = points[-1] if points else None

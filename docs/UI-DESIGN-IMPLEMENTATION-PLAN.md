@@ -29,26 +29,28 @@ The main opportunities are to make the six areas discoverable in navigation with
 
 ## Prioritized milestones and acceptance criteria
 
-### P0 — Information architecture and compatibility (this pass)
+### P0 — Information architecture and compatibility — complete (2026-11-05)
 
 - Implement six named navigation groups with existing destination buttons, preserve hash routes and route loaders, expose the active group, and support keyboard focus on collapsed navigation.
 - Keep existing view IDs and data-entry destinations. Add no empty placeholder pages just to satisfy a top-level area name.
-- Acceptance: navigation/API/data writes are unchanged; docs map links resolve; frontend and accessibility contracts pass.
+- Implemented in `index.html`/`app.js`; hash routes and destination IDs remain intact, active areas are exposed accessibly, and existing destination tests pass.
 
-### P1 — Actionable Today and truthful summaries
+### P1 — Actionable Today and truthful summaries — complete (2026-11-05)
 
 - Use existing active-workout state to offer Continue vs Start; keep readiness unknown/partial explicit and link to Workflow.
 - Move detail-heavy Today reports to their owning Progress/Review/Training view, retaining concise status and shortcuts.
 - Expose the existing dated progress-ratio points as a descriptive chart and average volume as a snapshot (never attendance as a trend).
 - Correct as-of sRPE coverage, observed-measurement count, readiness denominator and Outcomes e1RM day-level series. Surface already-returned outcome fields rather than duplicating feature calculations.
-- Acceptance: focused tests cover active/unknown states, partial coverage, future feedback, no observations, same-day fragments and chart empty states.
+- Today now uses `/api/workout/active`, a compact action hub and a recent-ratio/volume snapshot. Detailed per-rep velocity moved to Performance; form follow-up details are collapsed.
+- Reporting fixes: `/api/progress` counts the latest effective sRPE feedback independent of duration, constrained to non-voided sessions on/before the requested date; Longevity counts metrics with observations and shows the actual readiness-field denominator; Outcomes uses canonical eligible best-per-exercise-per-day observations.
+- Focused tests cover future feedback/as-of coverage, sRPE with no duration, same-day e1RM deduplication, chart no-data behavior and Longevity coverage labels.
 
-### P2 — Reusable charts and existing-data drill-ins
+### P2 — Reusable charts and existing-data drill-ins — partial (2026-11-05)
 
-- Build on `performance.js` chart primitives, not a dependency: consistent frame/axes/units/legend, tooltip with exact observed values, accessible toggles, range controls and visible gaps; introduce line/bar series progressively.
-- Extend Training/Explorer with load/reps history only when bases/units are compatible; optionally show per-session completion comparisons and projected forecast sequence using returned fields.
-- Add cardio weekly minutes/reference context, measurement raw-entry trends (method-aware), and carefully qualified programme snapshot visuals where they materially help comprehension.
-- Acceptance: renderer tests cover empty/one-point/missing/mixed-unit cases and touch/keyboard use; no presentation-side business calculations or interpolated data.
+- Added an observation-based performance-ratio line chart with exact tooltips, real-date spacing, a 1.00 reference and no-imputation disclosure; the working-set chart now uses date-proportional spacing and exact tooltips.
+- Exercise Explorer now shows completed working-set count, load medians split by `load_basis`, and rep medians split by `reps_unit`; same-date fragments combine, null values stay missing, and units are never mixed. Existing e1RM/rolling-median graph remains.
+- Extend shared axes/style and selectively add cardio weekly minutes/reference context, method-aware measurement-entry trends, or carefully qualified programme snapshot visuals only after confirming date/unit/method contracts. No projection or attendance time series from snapshots.
+- Acceptance still open for the remaining P2 plots and a touch/keyboard browser smoke test. Current renderer tests cover empty ratio, one-point and missing/mixed-unit exercise data; browser automation is not installed.
 
 ### P3 — Optional read-only data contracts
 
@@ -61,6 +63,11 @@ No prescription engine or rule changes; no database-semantic changes, data delet
 ## Verification
 
 For each milestone run focused tests, `python tools/check_ui_docs.py`, `ruff check .`, and the repository default pytest suite before finalizing. Browser automation is not installed in this repo's documented environment; report a manual iPhone/browser smoke test only if one is actually performed.
+**2026-11-05 implementation verification:** 1,518 tests passed; targeted Progress/Outcomes/UI/API tests passed; `python tools/check_ui_docs.py`, `ruff check .`, `git diff --check`, and Node syntax checks passed. No browser/iPhone smoke test was performed.
+
+## Implementation updates
+
+- **2026-11-05:** Six-area sidebar, active-group state, Today action summary, combined Progress entry point, per-exercise load/reps graphs, as-of/canonical reporting corrections, UI/docs-map updates, and regression coverage are implemented on `ui-improvement`. See the implementation commit for branch delivery status.
 
 ## Initial code-map
 

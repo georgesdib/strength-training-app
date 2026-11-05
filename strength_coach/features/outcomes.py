@@ -12,12 +12,11 @@ from collections import defaultdict
 
 import pandas as pd
 
-from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.domain.symptoms import flare_from
 from strength_coach.features import attendance as attendance_feature
 from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import measurements as measurements_feature
-from strength_coach.features import readiness_score, training_day
+from strength_coach.features import readiness_score, strength_trend, training_day
 from strength_coach.rules import RuleContext, evaluate, load_document
 from strength_coach.store import queries
 from strength_coach.utils import exercises
@@ -53,30 +52,22 @@ def _strength(conn, sets: pd.DataFrame, start: dt.date, end: dt.date) -> dict:
     taxonomy = exercises.taxonomy().entities
     entities = {k: v for k, v in taxonomy.items() if v.get("main_lift")}
     frame = sets[sets["is_working_set"].astype(bool)] if not sets.empty else sets
-    by_lift: dict[str, list[tuple[str, float]]] = defaultdict(list)
-    if not frame.empty:
-        for row in frame.itertuples():
-            if row.exercise_id not in entities:
-                continue
-            estimate = e1rm_mod.estimate_e1rm(
-                row.load_kg, row.reps, row.rir if pd.notna(row.rir) else None
-            )
-            if estimate is None or not estimate.is_usable:
-                continue
-            by_lift[str(row.exercise_id)].append((str(row.date)[:10], estimate.value_kg))
-
     lifts = []
-    for exercise_id, points in sorted(by_lift.items()):
-        points.sort()
-        values = [value for _, value in points]
+    for exercise_id in sorted(entities):
+        points = strength_trend.observations(
+            conn, exercise_id, start.isoformat(), end.isoformat(),
+        )
+        if not points:
+            continue
+        values = [point.estimate.kg for point in points]
         first, last = values[0], values[-1]
         change = round(last - first, 2)
         lifts.append({
             "exercise_id": exercise_id,
             "n": len(values),
-            "first_on": points[0][0],
+            "first_on": points[0].date,
             "first_e1rm": round(first, 1),
-            "last_on": points[-1][0],
+            "last_on": points[-1].date,
             "last_e1rm": round(last, 1),
             "change_kg": change,
             "change_pct": round(100 * change / first, 1) if first else None,
@@ -113,7 +104,7 @@ def _strength(conn, sets: pd.DataFrame, start: dt.date, end: dt.date) -> dict:
             ),
         },
         "volume": patterns,
-        "note": "e1RM values are estimates from working sets; change is descriptive.",
+        "note": "Eligible raw formula e1RM estimates use the best observation per exact exercise and training day; change is descriptive.",
     }
 
 
