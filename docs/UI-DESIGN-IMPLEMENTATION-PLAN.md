@@ -50,14 +50,19 @@ The main opportunities are to make the six areas discoverable in navigation with
 - Added a shared, dependency-free SVG chart layer for date-proportional multi-series lines and grouped bars; it supports reference lines/bands, exact point/category tooltips, consistent axes/units, empty states, responsive SVG, and keyboard/touch series toggles. e1RM, performance ratio, session dose, monitoring, cardio, and measurement charts use the shared renderers; existing chart-expand behavior and semantics remain.
 - Exercise Explorer now shows completed working-set count, load medians split by `load_basis`, rep medians split by `reps_unit`, and eligible e1RM observations; same-date fragments combine, null values stay missing, and units are never mixed. Date bounds apply to analytics and exact records; summaries cover the selected range, while duplicate-safe 50-session pages load all exact records without a history cap. “All history” clears both date bounds.
 - Progress now combines selectable e1RM raw/trailing-median series and best/latest context, basis-aware logged load/reps, weekly pattern and selected-exercise working-set volume, selected-exercise training dates, an observed-day calendar, non-overlapping weekly training frequency against an optional configured target, the existing fixed-56-day ratio, on-demand lagged dose/e1RM scatters, and one completed app-workout original-plan vs logged-set-row comparison. That comparison is aggregate-only (rows may include different roles, no item matching) and is not an adherence measure. Main-lift change detail and sRPE coverage are retained.
-- Clear omissions: no bodyweight-relative trend, weekly tonnage/intensity, or longitudinal VBT residuals because current API contracts do not provide reliable complete series; no imported-session plan comparison; no invented schedule. Pattern-group effective sets (direct 1 + configured indirect 0.25) are available when the existing hard/effective accounting setting is `effective`; they are not an omission. No new API, database, or dependency was added.
+- P2 clear omissions: no bodyweight-relative trend, weekly tonnage/intensity, or longitudinal VBT residuals yet; no imported-session plan comparison; no invented schedule. Pattern-group effective sets (direct 1 + configured indirect 0.25) are available through the volume data when the existing hard/effective accounting setting is `effective`, but there is no visible Progress control yet. P3 below covers the additional read-only contracts and the effective-series control. No new API, database, or dependency was added in P2.
 - Cardio charts only ISO weeks containing logged sessions, with WHO reference lines explicitly labelled context and partial-window/missing-log caveats. Measurements chart independent recorded points from the latest 50 API entries, split by method with no line connection, same-day averaging, or interpolation. Regression tests cover aggregation/date filters, exact tooltips, empty/missing values, series toggles, execution caveats, and method/coverage semantics.
 
-### P3 — Optional read-only data contracts
+### P3 — Read-only data contracts and pattern-group effective series (planned, in scope)
 
-Only if validated product need remains: complete plan/execution item matching, date-indexed bodyweight/readiness or measurement pagination, or weekly RIR/tonnage/residual history. Specify and test contracts before graphing. No schema migration is assumed by current evidence.
+P3 is **in scope for closure** and is not deferred. It covers four read-only additions:
 
-P3 is **not a prerequisite for completing the UI redesign**. If no sufficiently justified product need remains, record P3 as deferred rather than expanding scope.
+1. **Complete plan/execution item matching** — match a frozen app-workout plan item to its logged set rows by stable plan item identity where the snapshot exists. Imported sessions without a frozen plan remain unavailable; do not infer a match from exercise name alone.
+2. **Date-indexed bodyweight/readiness and measurement pagination** — add date-range/offset contracts for observed measurement and readiness records, including the bodyweight metric, so complete series and exact-record pages can be requested. Existing single-point and summary behavior remains; missing dates remain missing; no zero-fill.
+3. **Weekly RIR/tonnage/residual history** — return weekly series with explicit units, coverage and missing periods. Do not interpolate, merge incompatible units, or turn absent weeks into zeroes.
+4. **Pattern-group effective series** — add a read-only `accounting=hard|effective` selection to `/api/volume` (default: the profile setting), and a Progress hard/effective control over the existing pattern-group volume data. `effective_total` uses direct 1.0 plus the configured indirect credit. No new weighting model, no anatomical muscle mapping, and no missing-week fill. The chart must label direct/indirect and coverage.
+
+Acceptance: each contract has an explicit API shape and regression tests; `/api/volume` rejects invalid accounting values and the default preserves the profile setting; the UI distinguishes observed, missing and unavailable states; no prescription, storage, append-only or training-policy semantics change. No schema migration is assumed by current evidence.
 
 ## Explicitly out of scope
 
@@ -77,11 +82,11 @@ For implementation changes, run focused tests, `python tools/check_ui_docs.py`, 
 
 **Status:** Pending
 
-**Purpose:** Verify the completed implementation against P0–P2, correct any remaining concrete defects, reconcile documentation, and formally close the UI redesign without introducing unnecessary feature work.
+**Purpose:** Verify the completed implementation against P0–P3, correct any remaining concrete defects, reconcile documentation, and formally close the UI redesign without introducing unnecessary feature work.
 
 ### Audit
 
-- Verify every P0–P2 acceptance criterion against the current implementation.
+- Verify every P0–P3 acceptance criterion against the current implementation.
 - Inspect the actual implementation rather than relying solely on commit messages or previous reports.
 - Identify discrepancies between this plan, `UI-MAP.md`, `WEB-UI.md`, `ROADMAP.md`, and the current code.
 - Confirm that the six-area information architecture and existing workflows remain coherent.
@@ -95,19 +100,18 @@ For implementation changes, run focused tests, `python tools/check_ui_docs.py`, 
 - Do not undertake speculative improvements, unrelated refactoring, feature expansion, or new dependencies.
 - Do not change prescription engine behavior, training methodology, or database semantics.
 
-### P3 decision
+### P3 verification
 
-- Reassess whether a validated product need justifies any P3 work.
-- If a specific requirement remains, document its scope, rationale, contract, and tests before implementation.
-- Otherwise explicitly defer P3 and record the rationale.
-- P3 must not prevent closure of the UI redesign.
+- Verify every P3 contract against the current implementation: plan/execution matching, measurement/readiness pagination and bodyweight series, weekly RIR/tonnage/residual history, and the pattern-group effective control.
+- Confirm missing data remains visible and no anatomical muscle mapping was introduced.
+- P3 must be implemented before closure; it is not deferred.
 
 ### Documentation reconciliation
 
 - Update this plan with actual final audit findings and closure status.
 - Reconcile `UI-MAP.md`, `WEB-UI.md`, and `ROADMAP.md` with the implemented navigation, features, limitations, and outstanding work.
 - Remove obsolete implementation instructions and mark completed work accurately.
-- Document any intentional limitations and deferred work.
+- Document intentional limitations and any out-of-scope work; P3 is in scope.
 
 ### Verification
 
@@ -121,10 +125,10 @@ For implementation changes, run focused tests, `python tools/check_ui_docs.py`, 
 
 The UI redesign can be marked complete when:
 
-- P0, P1, and P2 acceptance criteria have been verified against the current implementation.
+- P0, P1, P2, and P3 acceptance criteria have been verified against the current implementation.
 - No known blocking or material UI redesign defects remain unresolved.
 - Corrections have appropriate regression coverage.
-- P3 is either justified and implemented or explicitly deferred.
+- P3 is implemented and verified.
 - Supporting documentation accurately reflects the implementation.
 - Automated verification results and known limitations are documented.
 - The final audit report records the closure decision.
@@ -133,10 +137,10 @@ The UI redesign can be marked complete when:
 
 A concise final report containing:
 
-- P0–P2 acceptance criteria verified.
+- P0–P3 acceptance criteria verified.
 - Defects identified and corrections made.
 - Tests and checks executed, with actual results.
-- P3 decision and rationale.
+- P3 implementation and verification.
 - Remaining known limitations.
 - Final UI redesign completion status.
 - Recommended merge of `ui-improvement` into `development`, if closure criteria are satisfied.

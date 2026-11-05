@@ -1,7 +1,7 @@
 # UI documentation map
 
 **Status:** Existing view map plus the six-area UI refresh. The redesign's P0–P2 work is
-implemented; its final audit is pending. Every view/panel gets a short explanation and a
+implemented; P3 is planned; its final audit is pending. Every view/panel gets a short explanation and a
 documentation deep-link; this file is the canonical map used to build and audit those links.
 See [UI design audit and plan](UI-DESIGN-IMPLEMENTATION-PLAN.md).
 
