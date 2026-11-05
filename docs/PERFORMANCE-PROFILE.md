@@ -1,9 +1,13 @@
 # PRESCRIPTION PERFORMANCE PROFILE
 
 **Status:** implemented and measured on the deployment target 2026-11-04 on `development`.
+Updated 2026-11-05: per-generation `clean_sets` snapshot implemented and A/B rebenchmarked;
+§8 statuses clarified.
 No prescription behaviour changed.
-**Workload:** deterministic resolver build for 2026-11-04, squat, minimum session 30 minutes,
-resolver enabled, against the owner's local database (552 sessions). Seven prescribed items.
+**Workload:** deterministic resolver build for 2026-11-04, squat, target field 30 minutes
+(minimum-session trimming not applied), resolver enabled, against the owner's local database
+(552 sessions). Seven prescribed items.
+The 2026-11-05 A/B below uses the current 375-session database with the same seven-item output.
 
 **Hardware:** Hardkernel ODROID-C4, 4× ARM Cortex-A55, 3.7 GB visible RAM, Linux aarch64,
 Python 3.13.5. All benchmark and test results below were produced on this machine.
@@ -25,6 +29,9 @@ Python 3.13.5. All benchmark and test results below were produced on this machin
 | Baseline `build_resolved` | **133.15 s** | **131.86 s** | commit `312d1ef` |
 | Optimized `build_resolved` | **42.13 s** | **41.72 s** | current development, same ODROID-C4 |
 | Reduction | **68.4%** | **68.4%** | 3.16× faster; same 7 items, same order |
+| 2026-11-05 A/B, no snapshot | **46.19 s** | **45.69 s** | current 375-session DB; direct _build_resolved |
+| 2026-11-05 A/B, snapshot | **35.41 s** | **35.06 s** | same DB and same 7 items; public build_resolved |
+| Snapshot reduction | **23.3%** | **23.3%** | 10.78 s wall / 10.63 s CPU |
 
 The optimized path returned the same item list:
 
@@ -32,6 +39,12 @@ The optimized path returned the same item list:
 box_jump, ssb_squat, bench_press_narrow, back_extension,
 dumbbell_row, lying_leg_curls, ab_wheel
 ```
+
+The 42.13 s optimized figure predates the per-generation `clean_sets` snapshot (§4.7);
+the snapshot is implemented and rebenchmarked here. The 2026-11-04 42.13 s figure used a
+552-session database and is not directly comparable to the 2026-11-05 A/B, which holds the
+current 375-session database and the seven-item output constant: 46.19 s without the snapshot
+vs 35.41 s with it (CPU 45.69 s vs 35.06 s).
 
 Peak traced memory on the optimized run: **21.1 MB**. The traced run recorded **311 SQL
 statements**. The trace callback and `tracemalloc` made that run slower (172.9 s) and were not
@@ -87,6 +100,17 @@ The scheduler was being asked for the same next session type repeatedly because 
 6. **Spinal-defaults cache** (`settings_registry.py`)
    - Cached by the programme rule file mtime/size.
 
+7. **Per-generation clean-set snapshot** (`store/queries.py`, `prescribe/resolver.py`)
+   - `resolver.build_resolved` opens one scoped snapshot; nested `clean_sets` calls with
+     identical filters share one query/frame across the four complete evaluator builds.
+   - The snapshot is build-scoped, invalidated by SQLite `data_version`/write count, and
+     returns defensive deep copies so a caller cannot mutate the cached frame.
+   - No cross-request cache and no change to exercise choice, load arithmetic, readiness,
+     safety validation or persistence.
+   - 2026-11-05 A/B on the current 375-session database: direct no-snapshot build **46.19 s**
+     (CPU 45.69 s) vs public build **35.41 s** (CPU 35.06 s), both returning the same seven
+     items in the same order.
+
 Together the settings, policy, E1RM, VBT and spinal caches took the cProfile result from
 113.89 s to 78.57 s (the first schedule cache took the baseline 251.98 s to 113.89 s).
 
@@ -103,6 +127,7 @@ selection, persistence or append-only writes.
 | e1RM factors | DB data version/write count, date/window or calibration/decay config change |
 | VBT calibration | different frame content, params or method version |
 | spinal defaults | programme rule file mtime/size |
+| clean_sets snapshot | DB data version/connection write count; end of the generation build; filters are part of the key |
 | existing browser prescription cache | unchanged; seven-day browser cache, cleared on start/discard |
 
 Correctness rule: caches only return immutable values or values treated as read-only. Database
@@ -139,20 +164,32 @@ a caller mutating `targets` or `excluded` cannot affect a later result.
 
 These numbers were measured on the target hardware: **Hardkernel ODROID-C4**, 4× Cortex-A55,
 3.7 GB visible RAM, Linux aarch64, Python 3.13.5. The observed **21 MB peak** is well within
-4 GB, and the workload is CPU-bound rather than memory-heavy. The optimized build is 42.13 s on
-this machine, down from 133.15 s.
+4 GB, and the workload is CPU-bound rather than memory-heavy. The historical optimized build
+is 42.13 s on this machine, down from 133.15 s; the current same-DB A/B is 46.19 s without the
+snapshot and 35.41 s with it.
 
 Use the existing polled Workflow/Settings job path. Do not add workers by default. If the
-remaining 42 s is still unacceptable, the next candidates are reducing resolver beam
-full-evaluation count or adding a shared immutable generation context, not adding processes or
-persistence complexity.
+remaining 42 s is still unacceptable, the next candidate is reducing the resolver beam's
+full-evaluation count. The shared immutable clean-set snapshot is now implemented (§4.7); a
+broader generation context remains a candidate, not a commitment. Do not add processes or
+persistence complexity by default.
 
-## 8. Remaining limitations
+## 8. Remaining limitations and status
 
-- Four full evaluator builds remain; they are the largest residual cost.
-- `queries.clean_sets` is still called repeatedly across evaluator builds.
-- The profiling report uses one representative date and the owner's database; other dates with
-  large deltas, drops or resolver constraints may differ.
-- No process-based parallel backend was implemented.
-- Benchmarks were run on the target ODROID-C4 with Python 3.13.5; re-run after OS or Python
-  upgrades if absolute latency matters.
+1. **Acceptable limitation — four full evaluator builds remain.** They are the largest residual
+   cost. The four builds are the beam's four complete candidate evaluations; removing them
+   would change candidate coverage or selection, not just performance.
+2. **Implemented mitigation — repeated `clean_sets` reads.** `resolver.build_resolved` now
+   opens a per-generation snapshot (§4.7), so identical clean-set filters are queried once
+   across the four evaluator builds. Callers receive defensive copies; the snapshot is
+   invalidated by DB state and ends with the build. Measured 2026-11-05 on the current
+   375-session database: **46.19 s without the snapshot vs 35.41 s with it**, same seven items.
+3. **Informational only — representative benchmark.** The profile uses one date (2026-11-04)
+   and one session shape. The historical run used the owner's 552-session database; the
+   2026-11-05 A/B used the current 375-session database. Other dates with larger deltas, drops
+   or resolver constraints may differ.
+4. **Informational only — no process-based parallel backend.** Multiprocessing was assessed and
+   rejected: SQLite connections, pickling/re-derivation, deterministic merging and memory on a
+   4 GB device outweigh the benefit; one CPU-heavy build runs at a time.
+5. **Informational only — hardware/Python-specific numbers.** Benchmarks use the ODROID-C4 and
+   Python 3.13.5; re-run after OS or Python upgrades if absolute latency matters.

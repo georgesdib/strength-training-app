@@ -283,7 +283,7 @@ job completes.
 | `docs/LLM-INTEGRATION-PLAN.md` | future LLM analyst/explainer/constrained-proposer architecture: Iteration 1 (practical capabilities, selector retirement), conditional Iteration 2 (retrieval/RAG/advanced orchestration), shared context/evidence contracts, approval, privacy and evaluation gates; plan only |
 | `docs/PROGRAMME-BUILDER-PLAN.md` | deterministic dynamic template resolver: fixed four-template blueprint/fallback, per-session exercise resolution, versioned policy and provenance, reuse of the existing scheduler/prescription/volume/history; Steps 0–6 implemented and closed |
 | `docs/RESOLVER-ACCEPTANCE-AUDIT.md` | closed end-to-end production acceptance audit: P0/P1/P2 findings, fixes, acceptance matrix and residual release gates |
-| `docs/PERFORMANCE-PROFILE.md` | 2026-11-04 resolver prescription benchmark, stage profile, cache design/invalidation and parallelism assessment |
+| `docs/PERFORMANCE-PROFILE.md` | 2026-11-04 resolver prescription benchmark, 2026-11-05 clean-set snapshot A/B, stage profile, cache design/invalidation and parallelism assessment |
 | `docs/TRAINING-DAY-MODEL.md` | implemented training-day/session-fragment model: one local date may hold multiple fragments, day-level attendance/e1RM, combined volume/spinal, shared readiness, no schema migration |
 | `docs/WEB-UI.md` | local web UI surface, API and its limitations |
 | `docs/MONITORING-ANALYSIS.md` | read-only exploratory monitoring analysis: dose, lagged associations, calibration transparency, API/UI/CLI, non-causal limits and privacy |

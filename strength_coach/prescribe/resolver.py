@@ -26,6 +26,7 @@ from strength_coach.prescribe import generator, minimum_session, resolver_policy
 from strength_coach.prescribe.evaluator import EvaluationInputs, evaluate_assignment
 from strength_coach.prescribe.models import Prescription
 from strength_coach.prescribe.resolver_settings import ResolverSettings
+from strength_coach.store import queries
 from strength_coach.utils import exercises
 
 
@@ -314,6 +315,34 @@ def prescription_input_fingerprint(
 
 
 def build_resolved(
+    conn,
+    *,
+    for_date: str,
+    session_type: str,
+    inputs: EvaluationInputs,
+    policy=None,
+    settings: ResolverSettings | None = None,
+    beam_config: beam_mod.BeamConfig | None = None,
+) -> ResolvedPrescription:
+    """Run the resolver inside one shared clean-set snapshot.
+
+    The beam evaluates four complete assignments and each nested build reads the same
+    history. The snapshot makes those reads one query per distinct filter for this build,
+    without creating a cross-request cache.
+    """
+    with queries.clean_sets_snapshot(conn):
+        return _build_resolved(
+            conn,
+            for_date=for_date,
+            session_type=session_type,
+            inputs=inputs,
+            policy=policy,
+            settings=settings,
+            beam_config=beam_config,
+        )
+
+
+def _build_resolved(
     conn,
     *,
     for_date: str,

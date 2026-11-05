@@ -14,7 +14,7 @@ import sqlite3
 import pytest
 from conftest import make_readiness, make_training
 
-from strength_coach.store import db, importer
+from strength_coach.store import db, importer, queries
 from strength_coach.store import repositories as repo
 
 
@@ -324,3 +324,66 @@ def test_quarantine_reason_is_preserved(conn):
     do_import(conn, training, readiness)
     reasons = [row["reason"] for row in conn.execute("SELECT reason FROM quarantine")]
     assert reasons == ["null_date"]
+
+
+# --- clean-set generation snapshot -----------------------------------------
+
+
+def test_clean_sets_snapshot_queries_once_and_returns_copies(conn):
+    training, readiness = build_frames(
+        [{"Date": "2024-01-01", "Exercise": "Competition Squat", "Weight_Used": "100", "RIR": "2"}]
+    )
+    do_import(conn, training, readiness)
+
+    trace: list[str] = []
+    conn.set_trace_callback(trace.append)
+    try:
+        with queries.clean_sets_snapshot(conn):
+            first = queries.clean_sets(conn)
+            second = queries.clean_sets(conn)
+            assert first.equals(second)
+            first.loc[first.index[0], "reps"] = 999
+            third = queries.clean_sets(conn)
+            assert third.equals(second)
+            assert int(third.iloc[0]["reps"]) != 999
+    finally:
+        conn.set_trace_callback(None)
+
+    clean_queries = [sql for sql in trace if "FROM clean_set s JOIN raw_row" in sql]
+    assert len(clean_queries) == 1
+
+
+def test_clean_sets_snapshot_reloads_after_a_write(conn):
+    rows = [
+        {"Date": "2024-01-01", "Exercise": "Competition Squat", "Weight_Used": "100", "RIR": "2"}
+    ]
+    training, readiness = build_frames(rows)
+    do_import(conn, training, readiness)
+
+    with queries.clean_sets_snapshot(conn):
+        first = queries.clean_sets(conn)
+        assert len(first) == 1
+        more_training, more_readiness = build_frames(
+            rows + [{"Date": "2024-01-02", "Exercise": "Competition Squat",
+                     "Weight_Used": "105", "RIR": "2"}]
+        )
+        do_import(conn, more_training, more_readiness)
+        second = queries.clean_sets(conn)
+        assert len(second) == 2
+
+
+def test_clean_sets_snapshot_keeps_distinct_filters_separate(conn):
+    training, readiness = build_frames(
+        [
+            {"Date": "2024-01-01", "Exercise": "Competition Squat", "Weight_Used": "100", "RIR": "2"},
+            {"Date": "2024-01-02", "Exercise": "Competition Squat", "Weight_Used": "105", "RIR": "2"},
+        ]
+    )
+    do_import(conn, training, readiness)
+
+    with queries.clean_sets_snapshot(conn):
+        all_sets = queries.clean_sets(conn)
+        day_one = queries.clean_sets(conn, end="2024-01-01")
+    assert len(all_sets) == 2
+    assert len(day_one) == 1
+    assert str(day_one.iloc[0]["date"].date()) == "2024-01-01"

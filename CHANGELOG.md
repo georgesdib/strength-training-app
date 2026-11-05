@@ -43,6 +43,13 @@
   programme spinal defaults by file stamp. The representative resolver build dropped from
   **133.15 s to 42.13 s on the target ODROID-C4**; see [`docs/PERFORMANCE-PROFILE.md`](docs/PERFORMANCE-PROFILE.md).
   Multiprocessing is explicitly not recommended after the sequential result.
+- **Per-generation clean-set snapshot**: resolver builds now share one build-scoped
+  `clean_sets` snapshot across the four complete evaluator builds. Identical filters are queried
+  once; callers receive defensive copies; the snapshot is invalidated by SQLite data version and
+  write count and ends with the build. A 2026-11-05 same-DB A/B on the current 375-session
+  database measured **46.19 s without the snapshot vs 35.41 s with it** (same seven items); the
+  historical 42.13 s figure used 552 sessions and is not directly comparable. The four full
+  evaluator builds remain an accepted limitation.
 
 ### Fixed
 
