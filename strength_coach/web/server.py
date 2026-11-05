@@ -1054,7 +1054,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/breaks":
                 self._json(200, self._with_conn(self._breaks))
             elif path == "/api/measurements":
-                self._json(200, self._with_conn(self._measurements))
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(
+                    lambda c: self._measurements(c, query)
+                ))
             elif path == "/api/fatigue":
                 day = parse_qs(urlparse(self.path).query).get("date", [None])[0]
                 self._json(200, self._with_conn(
@@ -1318,6 +1321,11 @@ class Handler(BaseHTTPRequestHandler):
                     "path": str(source.relative_to(ROOT)),
                     "presets": readiness_feature.presets(),
                 })
+            elif path == "/api/readiness/history":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(
+                    lambda c: self._readiness_history(c, query)
+                ))
             elif path.startswith("/api/readiness/"):
                 day = path[len("/api/readiness/"):]
                 self._json(200, self._with_conn(lambda c: self._readiness(c, day)))
@@ -3160,10 +3168,75 @@ class Handler(BaseHTTPRequestHandler):
             ),
         }
 
-    def _measurements(self, conn) -> dict:
+    def _measurements(self, conn, query: dict | None = None) -> dict:
+        query = query or {}
+        metric = query.get("metric_key", [None])[0] or query.get("metric", [None])[0]
+        since = query.get("from", [None])[0] or None
+        until = query.get("to", [None])[0] or None
+        for name, value in (("from", since), ("to", until)):
+            if value is None:
+                continue
+            try:
+                datetime.date.fromisoformat(str(value))
+            except ValueError as exc:
+                raise FieldError(
+                    f"{name} must be YYYY-MM-DD", {name: f"{name} must be YYYY-MM-DD"}
+                ) from exc
+        if since and until and since > until:
+            raise FieldError("from must not be after to", {"from": "must not be after to"})
+        try:
+            limit = int(query.get("limit", ["50"])[0])
+            offset = int(query.get("offset", ["0"])[0])
+        except (TypeError, ValueError) as exc:
+            raise FieldError("limit and offset must be integers", {
+                "limit": "must be an integer", "offset": "must be an integer",
+            }) from exc
+        try:
+            page = measurements_feature.page(
+                conn, metric_key=metric, since=since, until=until,
+                limit=limit, offset=offset,
+            )
+        except ValueError as exc:
+            raise FieldError(str(exc), {"limit": str(exc)}) from exc
+        return {"summary": measurements_feature.summary(conn), **page}
+
+    def _readiness_history(self, conn, query: dict) -> dict:
+        start = query.get("from", [None])[0]
+        end = query.get("to", [None])[0]
+        if not start or not end:
+            raise FieldError(
+                "from and to are required",
+                {"from": "required", "to": "required"},
+            )
+        try:
+            start_day = datetime.date.fromisoformat(str(start))
+            end_day = datetime.date.fromisoformat(str(end))
+        except ValueError as exc:
+            raise FieldError("from and to must be YYYY-MM-DD", {
+                "from": "must be YYYY-MM-DD", "to": "must be YYYY-MM-DD",
+            }) from exc
+        if start_day > end_day:
+            raise FieldError("from must not be after to", {"from": "must not be after to"})
+        raw_fields = query.get("fields", ["bodyweight_kg"])[0]
+        fields = tuple(field.strip() for field in str(raw_fields).split(",") if field.strip())
+        unknown = [field for field in fields if field not in readiness_utils.READINESS_FIELDS]
+        if unknown:
+            raise FieldError(
+                "unknown readiness field(s): " + ", ".join(unknown),
+                {"fields": "unknown readiness field"},
+            )
+        points = queries.readiness_series(
+            conn, start_day.isoformat(), end_day.isoformat(), fields,
+        )
         return {
-            "summary": measurements_feature.summary(conn),
-            "entries": measurements_feature.entries(conn, limit=50),
+            "from": start_day.isoformat(),
+            "to": end_day.isoformat(),
+            "fields": list(fields),
+            "points": points,
+            "coverage": {
+                "window_days": (end_day - start_day).days + 1,
+                "observed_days": len(points),
+            },
         }
 
     def _save_measurement(self, conn, body: dict) -> dict:

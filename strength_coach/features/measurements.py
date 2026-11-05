@@ -205,3 +205,40 @@ def entries(conn, *, metric_key: str | None = None,
             limit: int = 100) -> list[dict[str, Any]]:
     rows = queries.measurements(conn, metric_key=metric_key)
     return rows[-limit:]
+
+
+def page(
+    conn,
+    *,
+    metric_key: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Newest-first exact-record pagination; entries remain date-ascending.
+
+    Offset 0 preserves the former latest-50 behavior. The next offset walks backwards in
+    time; no record is invented for a date without a measurement.
+    """
+    if limit < 1 or limit > 200:
+        raise ValueError("limit must be between 1 and 200")
+    if offset < 0:
+        raise ValueError("offset must be non-negative")
+    rows = queries.measurements(
+        conn, metric_key=metric_key, since=since, until=until,
+    )
+    total = len(rows)
+    end = max(0, total - offset)
+    start = max(0, end - limit)
+    entries = rows[start:end]
+    next_offset = offset + limit if start > 0 else None
+    return {
+        "entries": entries,
+        "page": {
+            "limit": limit,
+            "offset": offset,
+            "total": total,
+            "next_offset": next_offset,
+        },
+    }

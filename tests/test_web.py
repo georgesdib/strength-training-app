@@ -810,6 +810,55 @@ def test_measurements_round_trip(server):
     assert json.loads(body)["entries"][-1]["value"] == 45.2
 
 
+def test_measurements_support_date_bounds_and_pagination(server):
+    for day, value in (("2024-01-01", 40.0), ("2024-01-08", 41.0), ("2024-01-15", 42.0)):
+        post(server, "/api/measurements", {
+            "metric": "vo2max", "value": value, "date": day, "method": "step test",
+        })
+
+    status, body = get(server, "/api/measurements?metric_key=vo2max&limit=1&offset=0")
+    assert status == 200
+    latest = json.loads(body)
+    assert latest["entries"][0]["value"] == 42.0
+    assert latest["page"]["total"] == 3
+    assert latest["page"]["next_offset"] == 1
+
+    status, body = get(server, "/api/measurements?metric_key=vo2max&limit=1&offset=1")
+    older = json.loads(body)
+    assert older["entries"][0]["value"] == 41.0
+
+    status, body = get(server, "/api/measurements?from=2024-01-02&to=2024-01-09")
+    bounded = json.loads(body)
+    assert [row["value"] for row in bounded["entries"]] == [41.0]
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/measurements?from=2024-01-20&to=2024-01-01")
+    assert excinfo.value.code == 400
+
+
+def test_readiness_history_returns_observed_bodyweight_only(server):
+    post(server, "/api/readiness", {
+        "date": "2024-01-01", "values": {"sleep": 3, "bodyweight_kg": 80.5},
+    })
+    post(server, "/api/readiness", {
+        "date": "2024-01-03", "values": {"sleep": 4, "bodyweight_kg": 80.1},
+    })
+    status, body = get(
+        server,
+        "/api/readiness/history?from=2024-01-01&to=2024-01-05&fields=bodyweight_kg",
+    )
+    assert status == 200
+    data = json.loads(body)
+    assert [point["date"] for point in data["points"]] == ["2024-01-01", "2024-01-03"]
+    assert [point["bodyweight_kg"] for point in data["points"]] == [80.5, 80.1]
+    assert data["points"][0]["sources"]["bodyweight_kg"] == "manual"
+    assert data["coverage"]["observed_days"] == 2
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/readiness/history?from=2024-01-01&to=2024-01-05&fields=unknown")
+    assert excinfo.value.code == 400
+
+
 def test_review_accepts_optional_session_detail(server):
     data = post(server, "/api/review/2024-01-01", {
         "scores": {"RIR_ADHERENCE": 0.9},
