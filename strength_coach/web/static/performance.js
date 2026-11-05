@@ -14,27 +14,99 @@ function performanceDate(daysAgo) {
   return formatLocalDate(date);
 }
 
+function chartFrame(title, svg, legend) {
+  return "<div class='chart-frame' role='button' tabindex='0' data-chart-title='" + esc(title) +
+    "' data-chart-legend='" + esc(legend || "") + "' aria-label='Enlarge chart: " + esc(title) + "'>" +
+    "<p class='chart-title'><strong>" + esc(title) + "</strong><span class='muted'>click to enlarge</span></p>" +
+    svg + (legend ? "<p class='chart-legend'>" + esc(legend) + "</p>" : "") + "</div>";
+}
+
+function openChartDialog(frame) {
+  var dialog = document.getElementById("chart-dialog");
+  var body = document.getElementById("chart-dialog-body");
+  var title = document.getElementById("chart-dialog-title");
+  if (!dialog || !body || !title || typeof dialog.showModal !== "function") return;
+  var svg = frame.querySelector("svg");
+  var legend = frame.querySelector(".chart-legend");
+  title.textContent = frame.dataset.chartTitle || "Chart";
+  body.innerHTML = (svg ? svg.outerHTML : "") + (legend ? legend.outerHTML : "");
+  dialog.showModal();
+}
+
+if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+  document.addEventListener("click", function (event) {
+    var close = event.target.closest("#chart-dialog-close");
+    var dialog = document.getElementById("chart-dialog");
+    if (close && dialog) {
+      dialog.close();
+      return;
+    }
+    var frame = event.target.closest(".chart-frame");
+    if (frame) openChartDialog(frame);
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    var frame = event.target.closest(".chart-frame");
+    if (!frame) return;
+    event.preventDefault();
+    openChartDialog(frame);
+  });
+}
+
+function chartAxes(xTitle, yTitle, xTicks, yTicks, plot, width, height) {
+  var left = plot.left, right = plot.right, top = plot.top, bottom = plot.bottom;
+  var markup = "<g class='chart-axis'>" +
+    "<line x1='" + left + "' y1='" + bottom + "' x2='" + right + "' y2='" + bottom + "'></line>" +
+    "<line x1='" + left + "' y1='" + top + "' x2='" + left + "' y2='" + bottom + "'></line>";
+  xTicks.forEach(function (tick) {
+    markup += "<line x1='" + tick.x + "' y1='" + bottom + "' x2='" + tick.x + "' y2='" + (bottom + 4) + "'></line>" +
+      "<text class='chart-tick' x='" + tick.x + "' y='" + (height - 18) + "' text-anchor='middle'>" + esc(tick.label) + "</text>";
+  });
+  yTicks.forEach(function (tick) {
+    markup += "<line class='chart-grid' x1='" + left + "' y1='" + tick.y + "' x2='" + right + "' y2='" + tick.y + "'></line>" +
+      "<text class='chart-tick' x='" + (left - 8) + "' y='" + (tick.y + 2) + "' text-anchor='end'>" + esc(tick.label) + "</text>";
+  });
+  markup += "<text class='chart-axis-title' x='" + ((left + right) / 2) + "' y='" + (height - 2) + "' text-anchor='middle'>" + esc(xTitle) + "</text>" +
+    "<text class='chart-axis-title' transform='rotate(-90 14 " + ((top + bottom) / 2) + ")' x='14' y='" + ((top + bottom) / 2) + "' text-anchor='middle'>" + esc(yTitle) + "</text>" +
+    "</g>";
+  return markup;
+}
+
 function performanceSvg(points) {
   if (!points || points.length < 2) return "";
   var values = points.map(function (point) { return Number(point.kg); });
   var min = Math.min.apply(null, values);
   var max = Math.max.apply(null, values);
   var span = Math.max(1, max - min);
-  var width = 640;
-  var height = 220;
+  var width = 640, height = 240;
+  var plot = { left: 56, right: width - 16, top: 16, bottom: height - 42 };
   var coords = points.map(function (point, index) {
-    var x = points.length === 1 ? 0 : (index / (points.length - 1)) * (width - 40) + 20;
-    var y = height - 20 - ((Number(point.kg) - min) / span) * (height - 40);
+    var x = plot.left + (index / (points.length - 1)) * (plot.right - plot.left);
+    var y = plot.bottom - ((Number(point.kg) - min) / span) * (plot.bottom - plot.top);
     return [x, y];
   });
   var line = coords.map(function (pair) { return pair[0].toFixed(1) + "," + pair[1].toFixed(1); }).join(" ");
   var circles = coords.map(function (pair) {
     return "<circle cx='" + pair[0].toFixed(1) + "' cy='" + pair[1].toFixed(1) + "' r='3'></circle>";
   }).join("");
-  return "<svg class='performance-chart' viewBox='0 0 " + width + " " + height +
+  var dates = points.map(function (point) { return String(point.date || ""); });
+  var xTicks = [
+    { x: plot.left, label: dates[0] },
+    { x: (plot.left + plot.right) / 2, label: dates[Math.floor((dates.length - 1) / 2)] },
+    { x: plot.right, label: dates[dates.length - 1] },
+  ];
+  var yTicks = [
+    { y: plot.bottom, label: fmt(min) },
+    { y: (plot.top + plot.bottom) / 2, label: fmt((min + max) / 2) },
+    { y: plot.top, label: fmt(max) },
+  ];
+  var svg = "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
     "' role='img' aria-label='Raw e1RM observations'><title>Raw e1RM observations</title>" +
+    chartAxes("Date", "e1RM (kg)", xTicks, yTicks, plot, width, height) +
     "<polyline points='" + line + "' fill='none' stroke='currentColor' stroke-width='2'></polyline>" +
     circles + "</svg>";
+  return chartFrame("Raw e1RM observations", svg, "Raw e1RM (kg) by date");
 }
 
 function renderPerformanceE1rm(data) {
@@ -518,44 +590,69 @@ function monitoringAnalysisAssociation(row) {
 
 function analysisLineChart(rows) {
   if (!Array.isArray(rows) || rows.length < 2) return "<p class='empty'>Insufficient session dose observations for a chart.</p>";
-  var width = 640, height = 220, max = 1;
+  var width = 640, height = 240, max = 1;
   rows.forEach(function (row) {
     max = Math.max(max, Number(row.hard_sets || 0), Number(row.working_sets || 0));
   });
+  max = Math.ceil(max);
+  var plot = { left: 56, right: width - 16, top: 16, bottom: height - 42 };
   function coords(key) {
     return rows.map(function (row, index) {
-      var x = (index / (rows.length - 1)) * (width - 40) + 20;
-      var y = height - 20 - (Number(row[key] || 0) / max) * (height - 40);
+      var x = plot.left + (index / (rows.length - 1)) * (plot.right - plot.left);
+      var y = plot.bottom - (Number(row[key] || 0) / max) * (plot.bottom - plot.top);
       return x.toFixed(1) + "," + y.toFixed(1);
     }).join(" ");
   }
-  return "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
+  var dates = rows.map(function (row) { return String(row.date || ""); });
+  var xTicks = [
+    { x: plot.left, label: dates[0] },
+    { x: (plot.left + plot.right) / 2, label: dates[Math.floor((dates.length - 1) / 2)] },
+    { x: plot.right, label: dates[dates.length - 1] },
+  ];
+  var yTicks = [
+    { y: plot.bottom, label: "0" },
+    { y: (plot.top + plot.bottom) / 2, label: String(max / 2) },
+    { y: plot.top, label: String(max) },
+  ];
+  var svg = "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
     "' role='img' aria-label='Session dose over time'><title>Session dose over time: hard sets and working sets</title>" +
+    chartAxes("Session date", "Sets", xTicks, yTicks, plot, width, height) +
     "<polyline points='" + coords("working_sets") + "' fill='none' stroke='currentColor' stroke-width='2'></polyline>" +
-    "<polyline points='" + coords("hard_sets") + "' fill='none' stroke='currentColor' stroke-width='2' stroke-dasharray='5 3'></polyline></svg>" +
-    "<p class='muted'>Solid: working sets. Dashed: hard sets. Missing values are not plotted as zero.</p>";
+    "<polyline points='" + coords("hard_sets") + "' fill='none' stroke='currentColor' stroke-width='2' stroke-dasharray='5 3'></polyline></svg>";
+  return chartFrame("Training dose over time", svg, "Solid: working sets. Dashed: hard sets. Missing values are not plotted as zero.");
 }
 
-function analysisScatter(points, association, label) {
+function analysisScatter(points, association, label, xTitle, yTitle) {
   if (!Array.isArray(points) || points.length < 3) {
     return "<p class='empty'>Insufficient observations for " + esc(label) + " chart.</p>";
   }
-  var width = 640, height = 220;
+  var width = 640, height = 240;
   var xs = points.map(function (point) { return Number(point.x); });
   var ys = points.map(function (point) { return Number(point.y); });
   var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
   var yMin = Math.min.apply(null, ys), yMax = Math.max.apply(null, ys);
   var xSpan = Math.max(1, xMax - xMin), ySpan = Math.max(1, yMax - yMin);
+  var plot = { left: 56, right: width - 16, top: 16, bottom: height - 42 };
   var circles = points.map(function (point) {
-    var x = 20 + ((Number(point.x) - xMin) / xSpan) * (width - 40);
-    var y = height - 20 - ((Number(point.y) - yMin) / ySpan) * (height - 40);
+    var x = plot.left + ((Number(point.x) - xMin) / xSpan) * (plot.right - plot.left);
+    var y = plot.bottom - ((Number(point.y) - yMin) / ySpan) * (plot.bottom - plot.top);
     return "<circle cx='" + x.toFixed(1) + "' cy='" + y.toFixed(1) + "' r='4'></circle>";
   }).join("");
-  return "<p class='chart-title'><strong>" + esc(label) + "</strong></p>" +
-    "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
-    "' role='img' aria-label='" + esc(label) + "'><title>" + esc(label) + "</title>" + circles + "</svg>" +
-    "<p class='muted'>" + esc(monitoringAnalysisAssociation(association)) +
-    ". The displayed correlation is calculated by the analysis service, never by this page.</p>";
+  var xTicks = [
+    { x: plot.left, label: fmt(xMin) },
+    { x: (plot.left + plot.right) / 2, label: fmt((xMin + xMax) / 2) },
+    { x: plot.right, label: fmt(xMax) },
+  ];
+  var yTicks = [
+    { y: plot.bottom, label: fmt(yMin) },
+    { y: (plot.top + plot.bottom) / 2, label: fmt((yMin + yMax) / 2) },
+    { y: plot.top, label: fmt(yMax) },
+  ];
+  var svg = "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
+    "' role='img' aria-label='" + esc(label) + "'><title>" + esc(label) + "</title>" +
+    chartAxes(xTitle, yTitle, xTicks, yTicks, plot, width, height) + circles + "</svg>";
+  return chartFrame(label, svg, esc(monitoringAnalysisAssociation(association)) +
+    ". Each point is one session pair; the correlation is calculated by the analysis service, never by this page.");
 }
 
 function renderMonitoringAnalysis(data) {
@@ -620,14 +717,14 @@ function renderMonitoringAnalysis(data) {
     " · with feedback " + (coverage.sessions_with_feedback == null ? "Unavailable" : coverage.sessions_with_feedback) +
     " · sets " + (coverage.sets == null ? "Unavailable" : coverage.sets) +
     " · exercises " + (coverage.exercises == null ? "Unavailable" : coverage.exercises) + "</p>" +
-    "<h3>Training dose over time</h3>" + analysisLineChart(data.dose || []) +
+    analysisLineChart(data.dose || []) +
     (rows ? "<h4>Dose by session</h4><div class='table-scroll'><table><thead><tr><th>Date</th><th>Type</th><th>Working sets</th><th>Hard sets</th><th>Tonnage</th><th>Session load</th></tr></thead><tbody>" + rows + "</tbody></table></div>" : "<p class='empty'>No session dose observations.</p>") +
     (allDoseRows.length > 8 ? "<button type='button' class='ghost' id='monitoring-analysis-toggle-dose'>" +
       (monitoringAnalysisShowAllDose ? "Show latest dose only" : "Show full dose list (" + allDoseRows.length + ")") + "</button>" : "") +
     "<h3>Hard sets vs subsequent e1RM</h3><p class='muted'>Session dose precedes the next session best for the same lift. Correlation is descriptive and not causal.</p>" +
     (selectedAssociation ? "<h4>" + esc(selectedAssociation.exercise_id) + "</h4>" +
-      analysisScatter(selectedAssociation.hard_sets_points, selectedAssociation.hard_sets_vs_next_e1rm, selectedAssociation.exercise_id + " hard sets vs next e1RM") +
-      analysisScatter(selectedAssociation.session_load_points, selectedAssociation.session_load_vs_next_e1rm, selectedAssociation.exercise_id + " session load vs next e1RM") :
+      analysisScatter(selectedAssociation.hard_sets_points, selectedAssociation.hard_sets_vs_next_e1rm, selectedAssociation.exercise_id + " hard sets vs next e1RM", "Hard sets", "Next e1RM (kg)") +
+      analysisScatter(selectedAssociation.session_load_points, selectedAssociation.session_load_vs_next_e1rm, selectedAssociation.exercise_id + " session load vs next e1RM", "Session load (AU)", "Next e1RM (kg)") :
       "<p class='empty'>Insufficient observations for lagged associations.</p>") +
     (associations ? "<div class='table-scroll'><table><thead><tr><th>Exercise</th><th>Obs</th><th>Hard sets vs next e1RM</th><th>Session load vs next e1RM</th></tr></thead><tbody>" + associations + "</tbody></table></div>" : "") +
     (associationRows.length > 1 ? "<button type='button' class='ghost' id='monitoring-analysis-toggle-list'>" +

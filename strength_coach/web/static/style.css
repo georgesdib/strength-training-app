@@ -438,6 +438,20 @@ body.menu-open { overflow: hidden; }
 .performance-chart { display: block; width: 100%; height: auto; min-height: 140px; overflow: visible; }
 .performance-chart polyline { stroke: var(--ink); }
 .performance-chart circle { fill: var(--accent); }
+.chart-frame { border: 1px solid var(--line); border-radius: 8px; padding: 8px; cursor: zoom-in;
+  background: var(--paper); }
+.chart-frame:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chart-title { display: flex; justify-content: space-between; gap: 8px; align-items: baseline;
+  margin: 0 0 4px; }
+.chart-title .muted { font-size: 12px; }
+.chart-legend { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.chart-axis line { stroke: var(--line); stroke-width: 1; }
+.chart-axis .chart-grid { stroke: var(--line); stroke-dasharray: 2 3; opacity: .55; }
+.chart-axis .chart-tick { fill: var(--muted); font-size: 10px; }
+.chart-axis .chart-axis-title { fill: var(--muted); font-size: 11px; }
+.chart-dialog #chart-dialog-body { margin-top: 8px; }
+.chart-dialog .performance-chart { min-height: 320px; }
+.chart-dialog .chart-legend { font-size: 13px; }
 
 /* Settings monitoring inventory: grouped read-only reference tables. */
 #settings-monitoring-disclosure > summary { cursor: pointer; font-weight: 600; margin: 8px 0; }

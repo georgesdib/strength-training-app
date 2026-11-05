@@ -1853,6 +1853,8 @@ def test_prescribe_exposes_accessories_only_minimum_mode(server):
     assert "Accessories only" in page
     _status, performance_js = get(server, "/static/performance.js")
     assert "chart-title" in performance_js
+    assert "chartAxes" in performance_js
+    assert "chart-dialog" in page
     assert "hard sets vs next e1RM" in performance_js
 
 

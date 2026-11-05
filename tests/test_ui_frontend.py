@@ -590,6 +590,10 @@ renderMonitoringAnalysis({
 });
 var html = global.__target.innerHTML;
 if (html.indexOf("<svg") < 0) throw new Error("charts missing");
+if (html.indexOf("chart-frame") < 0) throw new Error("chart expand frame missing");
+if (html.indexOf("Session date") < 0) throw new Error("x axis title missing");
+if (html.indexOf("Hard sets") < 0) throw new Error("scatter x axis title missing");
+if (html.indexOf("click to enlarge") < 0) throw new Error("expand hint missing");
 if (html.indexOf("Insufficient observations for squat session load vs next e1RM") < 0) throw new Error("insufficient chart state");
 if (html.indexOf("2024-01-31") < 0) throw new Error("calibration context date");
 if (html.indexOf("Unavailable") < 0) throw new Error("missing tonnage shown as unavailable");
