@@ -51,11 +51,13 @@ The main opportunities are to make the six areas discoverable in navigation with
 - Exercise Explorer now shows completed working-set count, load medians split by `load_basis`, rep medians split by `reps_unit`, and eligible e1RM observations; same-date fragments combine, null values stay missing, and units are never mixed. Date bounds apply to analytics and exact records; summaries cover the selected range, while duplicate-safe 50-session pages load all exact records without a history cap. “All history” clears both date bounds.
 - Progress now combines selectable e1RM raw/trailing-median series and best/latest context, basis-aware logged load/reps, weekly pattern and selected-exercise working-set volume, selected-exercise training dates, an observed-day calendar, non-overlapping weekly training frequency against an optional configured target, the existing fixed-56-day ratio, on-demand lagged dose/e1RM scatters, and one completed app-workout original-plan vs logged-set-row comparison. That comparison is aggregate-only (rows may include different roles, no item matching) and is not an adherence measure. Main-lift change detail and sRPE coverage are retained.
 - Clear omissions: no bodyweight-relative trend, weighted muscle volume, weekly tonnage/intensity, or longitudinal VBT residuals because current API contracts do not provide reliable complete series; no imported-session plan comparison; no invented schedule. No new API, database, or dependency was added.
-- Cardio charts only ISO weeks containing logged sessions, with WHO reference lines explicitly labelled context and partial-window/missing-log caveats. Measurements chart independent recorded points from the latest 50 API entries, split by method with no line connection, same-day averaging, or interpolation. Regression tests cover aggregation/date filters, exact tooltips, empty/missing values, series toggles, execution caveats, and method/coverage semantics. A manual desktop-browser smoke test on a temporary empty database verified navigation, the Exercise Explorer dialog, unique chart/form IDs, explicit no-data states, and the All history re-fetch; an iPhone-sized viewport/device check remains outstanding.
+- Cardio charts only ISO weeks containing logged sessions, with WHO reference lines explicitly labelled context and partial-window/missing-log caveats. Measurements chart independent recorded points from the latest 50 API entries, split by method with no line connection, same-day averaging, or interpolation. Regression tests cover aggregation/date filters, exact tooltips, empty/missing values, series toggles, execution caveats, and method/coverage semantics.
 
 ### P3 — Optional read-only data contracts
 
 Only if validated product need remains: complete plan/execution item matching, date-indexed bodyweight/readiness or measurement pagination, weighted muscle attribution, or weekly RIR/tonnage/residual history. Specify and test contracts before graphing. No schema migration is assumed by current evidence.
+
+P3 is **not a prerequisite for completing the UI redesign**. If no sufficiently justified product need remains, record P3 as deferred rather than expanding scope.
 
 ## Explicitly out of scope
 
@@ -63,12 +65,81 @@ No prescription engine or rule changes; no database-semantic changes, data delet
 
 ## Verification
 
-For each milestone run focused tests, `python tools/check_ui_docs.py`, `ruff check .`, and the repository default pytest suite before finalizing. Distinguish desktop-browser smoke tests from tests performed at an actual iPhone viewport/device.
+For implementation changes, run focused tests, `python tools/check_ui_docs.py`, `ruff check .`, and the repository default pytest suite before finalizing where practical. Record actual results and distinguish automated tests from any manual verification already performed.
+
 **2026-11-05 prior implementation verification:** 1,518 tests passed; targeted Progress/Outcomes/UI/API tests passed; `python tools/check_ui_docs.py`, `ruff check .`, `git diff --check`, and Node syntax checks passed. No browser/iPhone smoke test was performed.
 
 **2026-11-05 follow-on verification:** 1,521 tests passed; `python tools/check_ui_docs.py`, `ruff check .`, `git diff --check`, and Node syntax checks for `analytics-charts.js`, `progress.js`, `performance.js`, and `app.js` passed. No browser/iPhone smoke test was performed.
 
-**2026-11-05 final verification:** 1,525 tests passed; `python tools/check_ui_docs.py`, `ruff check .`, `git diff --check`, and Node syntax checks for all static JavaScript modules passed. The manual desktop-browser smoke test described above passed; no iPhone-sized viewport/device test was performed.
+**2026-11-05 final verification:** 1,525 tests passed; `python tools/check_ui_docs.py`, `ruff check .`, `git diff --check`, and Node syntax checks for all static JavaScript modules passed. The manual desktop-browser smoke test described in the implementation history passed; no iPhone-sized viewport/device test was performed.
+
+## Final Audit and Closure
+
+**Status:** Pending
+
+**Purpose:** Verify the completed implementation against P0–P2, correct any remaining concrete defects, reconcile documentation, and formally close the UI redesign without introducing unnecessary feature work.
+
+### Audit
+
+- Verify every P0–P2 acceptance criterion against the current implementation.
+- Inspect the actual implementation rather than relying solely on commit messages or previous reports.
+- Identify discrepancies between this plan, `UI-MAP.md`, `WEB-UI.md`, `ROADMAP.md`, and the current code.
+- Confirm that the six-area information architecture and existing workflows remain coherent.
+- Confirm that existing charts and drill-ins accurately represent their underlying data and documented limitations.
+- Confirm that no UI change has inadvertently altered prescription calculations, database semantics, historical records, or append-only behavior.
+
+### Corrections
+
+- Fix verified functional, data-integrity, presentation, or documentation defects that materially affect the completed redesign.
+- Add or update targeted regression tests where appropriate.
+- Do not undertake speculative improvements, unrelated refactoring, feature expansion, or new dependencies.
+- Do not change prescription engine behavior, training methodology, or database semantics.
+
+### P3 decision
+
+- Reassess whether a validated product need justifies any P3 work.
+- If a specific requirement remains, document its scope, rationale, contract, and tests before implementation.
+- Otherwise explicitly defer P3 and record the rationale.
+- P3 must not prevent closure of the UI redesign.
+
+### Documentation reconciliation
+
+- Update this plan with actual final audit findings and closure status.
+- Reconcile `UI-MAP.md`, `WEB-UI.md`, and `ROADMAP.md` with the implemented navigation, features, limitations, and outstanding work.
+- Remove obsolete implementation instructions and mark completed work accurately.
+- Document any intentional limitations and deferred work.
+
+### Verification
+
+- Run relevant focused tests and regression tests.
+- Run the repository default pytest suite where practical.
+- Run `python tools/check_ui_docs.py`, `ruff check .`, `git diff --check`, and applicable JavaScript syntax checks.
+- Record the commands executed and their actual results.
+- Do not require smoke tests, browser tests, or browser walkthroughs.
+
+### Closure criteria
+
+The UI redesign can be marked complete when:
+
+- P0, P1, and P2 acceptance criteria have been verified against the current implementation.
+- No known blocking or material UI redesign defects remain unresolved.
+- Corrections have appropriate regression coverage.
+- P3 is either justified and implemented or explicitly deferred.
+- Supporting documentation accurately reflects the implementation.
+- Automated verification results and known limitations are documented.
+- The final audit report records the closure decision.
+
+### Final audit deliverable
+
+A concise final report containing:
+
+- P0–P2 acceptance criteria verified.
+- Defects identified and corrections made.
+- Tests and checks executed, with actual results.
+- P3 decision and rationale.
+- Remaining known limitations.
+- Final UI redesign completion status.
+- Recommended merge of `ui-improvement` into `development`, if closure criteria are satisfied.
 
 ## Implementation updates
 
