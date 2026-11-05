@@ -93,7 +93,7 @@ function progressRenderSummary(outcomesData, volumeData, progressData, from, to,
       (exerciseCount || 0) + " e1RM-eligible exercises</div></div></div>" +
     "<details class='panel'><summary>Main-lift change table (selected period)</summary><div class='table-scroll'><table><thead><tr><th>Exercise</th><th>Observations</th><th>First estimate</th><th>Latest estimate</th><th>Change</th><th>Best</th></tr></thead>" +
       "<tbody>" + (liftRows || "<tr><td colspan='6' class='muted'>No eligible main-lift observations in this period.</td></tr>") + "</tbody></table></div></details>" +
-    "<p class='muted'>Not plotted: bodyweight-relative strength (no dedicated date-indexed bodyweight series or plausibility bounds), muscle-volume totals (overlapping primary-muscle tags without weighted contributions), tonnage/intensity time series (no matching weekly report), or VBT residual trends (aggregate gate/status only). Sets, repetitions, tonnage and RIR are not interchangeable.</p>";
+    "<p class='muted'>Not plotted: bodyweight-relative strength (no dedicated date-indexed bodyweight series or plausibility bounds), tonnage/intensity time series (no matching weekly report), or VBT residual trends (aggregate gate/status only). Sets, repetitions, tonnage and RIR are not interchangeable.</p>";
 }
 
 function progressRenderDose(volumeData) {
