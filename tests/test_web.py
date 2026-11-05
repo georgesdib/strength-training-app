@@ -1499,6 +1499,18 @@ def test_exercise_history_api_returns_completed_sets_and_pages(server):
     assert status == 200
     assert json.loads(body)["total"] == 0
 
+    status, body = get(
+        server,
+        "/api/exercise-history?exercise_id=ssb_squat&limit=1&start=2024-01-01&"
+        "end=2024-01-01&include_analytics=true",
+    )
+    assert status == 200
+    bounded = json.loads(body)
+    assert bounded["start"] == "2024-01-01" and bounded["end"] == "2024-01-01"
+    assert bounded["analytics"]["session_count"] == 1
+    assert bounded["analytics"]["working_sets"] == 1
+    assert bounded["analytics"]["daily"][0]["date"] == "2024-01-01"
+
     with pytest.raises(urllib.error.HTTPError) as excinfo:
         get(server, "/api/exercise-history?exercise_id=not_a_lift")
     assert excinfo.value.code == 400

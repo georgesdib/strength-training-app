@@ -97,6 +97,163 @@ function selectedMusclesIn(selector) {
     .map((input) => input.value);
 }
 
+let exerciseTrendsGeneration = 0;
+let exerciseHistoryState = null;
+let exerciseHistoryLoading = false;
+const EXERCISE_HISTORY_PAGE_SIZE = 50;
+
+function exerciseDefaultHistoryStart() {
+  const date = new Date(today() + "T12:00:00");
+  date.setDate(date.getDate() - 364);
+  return formatLocalDate(date);
+}
+
+function exerciseHistoryUrl(exerciseId, state, offset, includeAnalytics) {
+  const params = new URLSearchParams();
+  params.set("exercise_id", exerciseId);
+  params.set("limit", String(EXERCISE_HISTORY_PAGE_SIZE));
+  params.set("offset", String(offset));
+  if (state.start) params.set("start", state.start);
+  if (state.end) params.set("end", state.end);
+  if (includeAnalytics) params.set("include_analytics", "true");
+  return "/api/exercise-history?" + params.toString();
+}
+
+function exerciseE1rmUrl(exerciseId, start, end) {
+  const params = new URLSearchParams({ exercise_id: exerciseId, quality: "degraded" });
+  if (start) params.set("from", start);
+  if (end) params.set("to", end);
+  return "/api/performance/e1rm?" + params.toString();
+}
+
+function exerciseMetricCell(value, suffix) {
+  return value == null ? "<span class='muted'>not recorded</span>" : esc(value) + (suffix || "");
+}
+
+function renderExerciseE1rmHistory(data, exerciseId) {
+  const target = $("#exercise-trend-e1rm");
+  const summary = data.summary || {};
+  const points = data.points || [];
+  const rows = points.map((point) => `<tr><td>${esc(point.date)}</td><td>${fmt(point.kg)} kg</td>
+    <td>${exerciseMetricCell(point.rolling_median_kg, " kg")}</td><td>${esc(point.n_window)}</td></tr>`).join("");
+  const degraded = data.degraded || [];
+  target.innerHTML = `<div class="cards compact-cards">
+    <div class="card"><div class="label">Best eligible</div><div class="value">${summary.best ? fmt(summary.best.kg) + " kg" : "unknown"}</div><div class="sub">${esc(summary.best && summary.best.date || "no eligible observation")}</div></div>
+    <div class="card"><div class="label">Latest eligible</div><div class="value">${summary.latest ? fmt(summary.latest.kg) + " kg" : "unknown"}</div><div class="sub">${esc(summary.latest && summary.latest.date || "no eligible observation")}</div></div>
+    <div class="card"><div class="label">Eligible observations</div><div class="value">${Number(summary.n || 0)}</div><div class="sub">${esc(summary.status || "unavailable")}</div></div></div>` +
+    (points.length ? performanceSvg(points, exerciseId + " eligible e1RM") : "<p class='empty'>No eligible e1RM observations in this range.</p>") +
+    (rows ? `<details class="exercise-data-table"><summary>Exact eligible daily observations (${points.length})</summary>
+      <div class="table-scroll"><table><thead><tr><th>Date</th><th>Raw e1RM</th><th>Trailing median</th><th>Window n</th></tr></thead><tbody>${rows}</tbody></table></div></details>` : "") +
+    ((data.breaks || []).length ? `<p class="muted">Series breaks: ${data.breaks.map((item) => esc(item.date + " — " + item.reason)).join("; ")}</p>` : "") +
+    (degraded.length ? `<details class="exercise-data-table"><summary>Degraded observations excluded from the eligible trend (${degraded.length})</summary>
+      <div class="table-scroll"><table><thead><tr><th>Date</th><th>e1RM</th><th>Quality</th></tr></thead><tbody>${degraded.map((point) => `<tr><td>${esc(point.date)}</td><td>${fmt(point.kg)} kg</td><td>${esc(point.quality)}</td></tr>`).join("")}</tbody></table></div></details>` : "") +
+    `<p class="muted">${esc(data.basis || "raw_formula_epley_rir")} · decay/calibration not applied · equipment changes are not stored.</p>`;
+}
+
+function renderExerciseHistoryRecords() {
+  const state = exerciseHistoryState;
+  const host = $("#exercise-detail-records");
+  const more = $("#exercise-history-more");
+  const pageStatus = $("#exercise-history-page-status");
+  if (!state || !host) return;
+  if (!state.sessions.length) {
+    host.innerHTML = "<p class='empty'>No completed working-set records in this selected date range.</p>";
+  } else {
+    host.innerHTML = state.sessions.map((session) => {
+      const sets = (session.sets || []).map((set) => `<tr><td>${esc(set.set_index)}</td>
+        <td>${exerciseMetricCell(set.load_kg, " kg")} · ${esc(set.load_basis || "unspecified basis")}</td>
+        <td>${exerciseMetricCell(set.reps, " " + (set.reps_unit || "unit"))}</td>
+        <td>${exerciseMetricCell(set.rir, " RIR")}</td>
+        <td>${exerciseMetricCell(set.tonnage_kg, " kg")}</td></tr>`).join("");
+      return `<details class="exercise-session-record"><summary>${esc(session.occurred_on)} · ${esc(session.session_type || "session")} · ${(session.sets || []).length} working sets · <code>${esc(session.session_id)}</code></summary>
+        <div class="table-scroll"><table><thead><tr><th>Set</th><th>Recorded load</th><th>Recorded reps/unit</th><th>RIR</th><th>Stored physical tonnage</th></tr></thead><tbody>${sets}</tbody></table></div></details>`;
+    }).join("");
+  }
+  if (more) {
+    more.hidden = !state.hasMore;
+    more.disabled = exerciseHistoryLoading;
+    more.textContent = exerciseHistoryLoading ? "Loading…" : "Load 50 older sessions";
+  }
+  if (pageStatus) pageStatus.textContent = state.total === 0 ? "0 sessions in selected range."
+    : `Showing ${state.sessions.length} of ${state.total} sessions. Analytics above cover the complete selected date range.`;
+}
+
+function compareExerciseSessions(a, b) {
+  const dateOrder = String(b.occurred_on).localeCompare(String(a.occurred_on));
+  return dateOrder || String(b.session_id).localeCompare(String(a.session_id));
+}
+
+async function loadExerciseHistoryPage(generation) {
+  const state = exerciseHistoryState;
+  if (!state || generation !== exerciseTrendsGeneration || exerciseHistoryLoading) return;
+  exerciseHistoryLoading = true;
+  const more = $("#exercise-history-more");
+  if (more) more.disabled = true;
+  const status = $("#exercise-history-status");
+  if (status) status.textContent = `Loading session records ${state.offset + 1}–${Math.min(state.offset + EXERCISE_HISTORY_PAGE_SIZE, state.total || EXERCISE_HISTORY_PAGE_SIZE)}…`;
+  try {
+    const firstPage = state.offset === 0;
+    const page = await api(exerciseHistoryUrl(state.exerciseId, state, state.offset, firstPage));
+    if (generation !== exerciseTrendsGeneration || window.__exerciseDetailsId !== state.exerciseId) return;
+    if (!Array.isArray(page.sessions) || !Number.isInteger(Number(page.total)) || typeof page.has_more !== "boolean") {
+      throw new Error("Exercise-history API returned an invalid pagination response.");
+    }
+    if (page.start !== state.start && (page.start || state.start) || page.end !== state.end && (page.end || state.end)) {
+      throw new Error("Exercise-history API returned a different date range; retry the selection.");
+    }
+    if (state.total != null && Number(page.total) !== state.total) {
+      throw new Error("History changed while pages were loading; reapply the date range to retry safely.");
+    }
+    if (firstPage) {
+      if (!page.analytics || Number(page.analytics.session_count) !== Number(page.total)) {
+        throw new Error("Complete-range analytics are unavailable or inconsistent with the session count.");
+      }
+      state.analytics = page.analytics;
+      state.total = Number(page.total);
+      state.includedExercises = page.included_exercises || [];
+      $("#exercise-detail-dose").innerHTML = exerciseHistoryAnalyticsCharts(
+        state.analytics, state.display
+      );
+      const equivalents = state.includedExercises.filter((item) => item.id !== state.exerciseId);
+      if (equivalents.length) $("#exercise-detail-dose").insertAdjacentHTML("beforeend",
+        `<p class="muted">Declared history equivalents included: ${equivalents.map((item) => esc(item.display || item.id)).join(", ")}.</p>`);
+    }
+    if (page.sessions.length === 0 && page.has_more) {
+      throw new Error("The API returned an empty page while reporting more history. Results are incomplete; retry or narrow the range.");
+    }
+    if (state.offset + page.sessions.length > Number(page.total) ||
+        page.has_more !== (state.offset + page.sessions.length < Number(page.total))) {
+      throw new Error("Exercise-history pagination totals are inconsistent; results are marked incomplete.");
+    }
+    const seen = new Set(state.sessions.map((session) => session.session_id));
+    if (page.sessions.some((session) => !session.session_id || seen.has(session.session_id))) {
+      throw new Error("Duplicate or missing session id detected across history pages; refresh the range before using the table.");
+    }
+    const combined = state.sessions.concat(page.sessions);
+    if (combined.some((session, index) => index > 0 && compareExerciseSessions(combined[index - 1], session) > 0)) {
+      throw new Error("History page ordering changed between requests; refresh the selected range.");
+    }
+    state.sessions = combined;
+    state.offset += page.sessions.length;
+    state.hasMore = page.has_more;
+    state.complete = !page.has_more && state.sessions.length === state.total;
+    renderExerciseHistoryRecords();
+    if (status) status.textContent = state.complete
+      ? `Complete: ${state.total} session records and all date-range analytics loaded.`
+      : `Loaded ${state.sessions.length} of ${state.total} session records; complete-range charts are already loaded.`;
+  } catch (error) {
+    if (generation !== exerciseTrendsGeneration) return;
+    if (status) status.textContent = "History records incomplete: " + error.message;
+    const pageStatus = $("#exercise-history-page-status");
+    if (pageStatus) pageStatus.textContent = "Retry loading this page or reapply the date range. Complete-range analytics are separate.";
+  } finally {
+    if (generation === exerciseTrendsGeneration) {
+      exerciseHistoryLoading = false;
+      renderExerciseHistoryRecords();
+    }
+  }
+}
+
 function openExerciseDetails(row) {
   const isNew = !row;
   const props = row ? JSON.parse(JSON.stringify(row.props || {})) : {
@@ -105,8 +262,15 @@ function openExerciseDetails(row) {
     time_based: false, e1rm_applicable: true,
   };
   window.__exerciseDetailsId = row ? row.id : "";
+  window.__exerciseDetailsRow = row || null;
+  exerciseHistoryState = null;
+  exerciseHistoryLoading = false;
+  exerciseTrendsGeneration++;
   $("#exercise-details-title").textContent = row
     ? row.id + " · " + (row.display || "") : "Add exercise";
+  $("#exercise-detail-profile").textContent = row
+    ? `${row.display || row.id} · immutable id ${row.id} · source ${row.source || "unknown"} · pattern ${row.pattern || props.pattern || "unspecified"} · primary muscles ${(props.primary_muscles || []).join(", ") || "unspecified"}`
+    : "Save the new exercise before loading historical analytics.";
   $("#exercise-detail-id").value = row ? row.id : "";
   $("#exercise-detail-id").readOnly = !isNew;
   $("#exercise-detail-display").value = props.display || (row && row.display) || "";
@@ -139,16 +303,9 @@ function openExerciseDetails(row) {
   const meta = window.__exerciseCatalog?.demand_catalogue || {};
   const scope = (meta.in_scope || []).length || 4;
   $("#exercise-detail-demands").innerHTML = Object.entries(demands.dimensions)
-    .map(([dimension, claim]) => `<tr>
-      <td><code>${esc(dimension)}</code></td>
-      <td>${esc(claim.level)}</td>
-      <td>${esc(claim.confidence || "—")}</td>
-      <td class="muted">${esc(claim.reason || "—")}</td></tr>`)
+    .map(([dimension, claim]) => `<tr><td><code>${esc(dimension)}</code></td><td>${esc(claim.level)}</td><td>${esc(claim.confidence || "—")}</td><td class="muted">${esc(claim.reason || "—")}</td></tr>`)
     .join("");
-  $("#exercise-detail-demands-note").textContent =
-    `${demands.rated}/${scope} in-scope dimensions rated · catalogue ${meta.digest || "none"}`
-    + ` · reviewed ${meta.reviewed_on || "never"}`
-    + (meta.overlay ? " · local overlay active" : "");
+  $("#exercise-detail-demands-note").textContent = `${demands.rated}/${scope} in-scope dimensions rated · catalogue ${meta.digest || "none"} · reviewed ${meta.reviewed_on || "never"}` + (meta.overlay ? " · local overlay active" : "");
   $("#exercise-demand-dimension").innerHTML = Object.keys(demands.dimensions)
     .map((dimension) => `<option>${esc(dimension)}</option>`).join("");
   $("#exercise-demand-msg").textContent = isNew
@@ -157,45 +314,49 @@ function openExerciseDetails(row) {
   $("#exercise-demand-save").disabled = isNew;
   $("#exercise-demand-clear").disabled = isNew;
   $("#exercise-demand-dimension").disabled = isNew;
+  const start = $("#exercise-history-start");
+  const end = $("#exercise-history-end");
+  start.value = exerciseDefaultHistoryStart();
+  end.value = today();
+  start.disabled = isNew;
+  end.disabled = isNew;
+  $("#exercise-history-range-form").querySelector("button[type='submit']").disabled = isNew;
+  $("#exercise-history-all").disabled = isNew;
+  $("#exercise-history-more").hidden = true;
+  $("#exercise-history-page-status").textContent = "";
+  $("#exercise-history-status").textContent = isNew ? "Save this exercise before viewing history." : "Ready to load the selected date range.";
   $("#exercise-detail-e1rm").innerHTML = row
-    ? "<p class='empty'>Loading e1RM trend…</p>" : "<p class='empty'>Save the exercise before viewing its trend.</p>";
+    ? "<p class='empty'>Loading strength observations…</p>" : "<p class='empty'>Save the exercise before viewing its trend.</p>";
   $("#exercise-detail-dose").innerHTML = row
-    ? "<p class='empty'>Loading completed-session set history…</p>" : "<p class='empty'>Save the exercise before viewing its trend.</p>";
+    ? "<p class='empty'>Loading complete-range analytics…</p>" : "<p class='empty'>Save the exercise before viewing analytics.</p>";
+  $("#exercise-detail-records").innerHTML = "<p class='empty'>No historical records loaded.</p>";
   $("#exercise-details-dialog").showModal();
   if (row) loadExerciseTrends(row);
 }
 
 async function loadExerciseTrends(row) {
   const id = row.id;
-  const queryId = encodeURIComponent(id);
-  if (row.props?.e1rm_applicable === false) {
-    $("#exercise-detail-e1rm").innerHTML = "<p class='empty'>This exercise is not marked as e1RM applicable.</p>";
-  } else {
-    try {
-      const data = await api("/api/performance/e1rm?exercise_id=" + queryId + "&to=" + encodeURIComponent(today()));
-      if (window.__exerciseDetailsId !== id) return;
-      $("#exercise-detail-e1rm").innerHTML = data.points?.length
-        ? performanceSvg(data.points, id + " e1RM trend")
-        : "<p class='empty'>No eligible e1RM observations for this exercise.</p>";
-    } catch (error) {
-      if (window.__exerciseDetailsId === id) {
-        $("#exercise-detail-e1rm").innerHTML = `<p class='empty'>e1RM trend unavailable: ${esc(error.message)}</p>`;
-      }
-    }
-  }
+  const generation = ++exerciseTrendsGeneration;
+  const start = $("#exercise-history-start").value || "";
+  const end = $("#exercise-history-end").value || "";
+  exerciseHistoryState = {exerciseId: id, display: row.display || id, start: start, end: end,
+    offset: 0, total: null, sessions: [], hasMore: false, complete: false, analytics: null};
+  $("#exercise-trend-e1rm").innerHTML = "<p class='empty'>Loading eligible strength observations…</p>";
+  $("#exercise-detail-dose").innerHTML = "<p class='empty'>Loading complete-range Python analytics…</p>";
+  $("#exercise-detail-records").innerHTML = "<p class='empty'>Loading session records…</p>";
+  $("#exercise-history-status").textContent = "Loading selected date range…";
   try {
-    const history = await api("/api/exercise-history?exercise_id=" + queryId + "&limit=50");
-    if (window.__exerciseDetailsId !== id) return;
-    const sessions = history.sessions || [];
-    $("#exercise-detail-dose").innerHTML = sessions.length
-      ? exerciseSetCountChart(sessions, row.display || id, history.total)
-        + exerciseLoadRepsCharts(sessions, row.display || id)
-      : "<p class='empty'>No completed working-set history for this exercise.</p>";
-  } catch (error) {
-    if (window.__exerciseDetailsId === id) {
-      $("#exercise-detail-dose").innerHTML = `<p class='empty'>Set history unavailable: ${esc(error.message)}</p>`;
+    if (row.props?.e1rm_applicable === false) {
+      $("#exercise-trend-e1rm").innerHTML = "<p class='empty'>This exercise is not marked e1RM-applicable; eligible strength estimates are unavailable.</p>";
+    } else {
+      const e1rm = await api(exerciseE1rmUrl(id, start, end));
+      if (generation !== exerciseTrendsGeneration || window.__exerciseDetailsId !== id) return;
+      renderExerciseE1rmHistory(e1rm, id);
     }
+  } catch (error) {
+    if (generation === exerciseTrendsGeneration) $("#exercise-trend-e1rm").innerHTML = `<p class='warnbox'>Strength history unavailable: ${esc(error.message)}</p>`;
   }
+  if (generation === exerciseTrendsGeneration) await loadExerciseHistoryPage(generation);
 }
 
 function saveExerciseDetails(event) {
@@ -446,6 +607,21 @@ async function loadExerciseCatalog() {
 
 $("#exercise-detail-vbt").addEventListener("change", function () {
   syncVbtFamily("#exercise-detail-vbt", "#exercise-detail-vbt-new", "#exercise-detail-vbt-new-wrap");
+});
+$("#exercise-history-range-form").addEventListener("submit", function (event) {
+  event.preventDefault();
+  const row = window.__exerciseDetailsRow;
+  if (row) loadExerciseTrends(row);
+});
+$("#exercise-history-all").addEventListener("click", function () {
+  $("#exercise-history-start").value = "";
+  $("#exercise-history-end").value = "";
+  const row = window.__exerciseDetailsRow;
+  if (row) loadExerciseTrends(row);
+});
+$("#exercise-history-more").addEventListener("click", function () {
+  if (!exerciseHistoryState || !exerciseHistoryState.hasMore) return;
+  loadExerciseHistoryPage(exerciseTrendsGeneration);
 });
 $("#exercise-search").addEventListener("input", renderExerciseCatalog);
 $("#exercise-filter").addEventListener("change", renderExerciseCatalog);

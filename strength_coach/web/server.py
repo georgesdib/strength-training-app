@@ -1026,6 +1026,10 @@ class Handler(BaseHTTPRequestHandler):
                         limit=int(query.get("limit", ["5"])[0]),
                         offset=int(query.get("offset", ["0"])[0]),
                         on_or_before=query.get("on_or_before", [None])[0],
+                        start=query.get("start", [None])[0],
+                        end=query.get("end", [None])[0],
+                        include_analytics=str(query.get("include_analytics", ["false"])[0]).lower()
+                        in {"1", "true", "yes", "on"},
                     )
                 ))
             elif path == "/api/calibrate":

@@ -41,7 +41,7 @@ function dateSeriesChart(spec) {
     var requestedClass = String(item.className || "chart-series-" + index);
     var className = /^[a-zA-Z0-9_-]+$/.test(requestedClass) ? requestedClass : "chart-series-" + index;
     return {id: String(item.id || "series-" + index), label: String(item.label || item.id || "Series " + (index + 1)),
-      className: className, points: points};
+      className: className, points: points, line: item.line !== false};
   }).filter(function (item) { return item.points.length > 0; });
   var allPoints = series.reduce(function (out, item) { return out.concat(item.points); }, []);
   if (!allPoints.length) return "<p class='empty'>" + esc(spec.emptyMessage || "No eligible observations in this period.") + "</p>";
@@ -96,7 +96,7 @@ function dateSeriesChart(spec) {
   });
   series.forEach(function (item) {
     var coords = item.points.map(function (point) { return [xFor(point.time), yFor(point.value)]; });
-    var polyline = coords.length > 1 ? "<polyline class='" + item.className + "' points='" +
+    var polyline = item.line && coords.length > 1 ? "<polyline class='" + item.className + "' points='" +
       coords.map(function (coord) { return coord[0].toFixed(1) + "," + coord[1].toFixed(1); }).join(" ") + "'></polyline>" : "";
     var circles = item.points.map(function (point) {
       var tooltip = typeof spec.tooltip === "function" ? spec.tooltip(point, item) :
@@ -180,4 +180,79 @@ if (typeof document !== "undefined" && typeof document.addEventListener === "fun
     button.setAttribute("aria-pressed", String(show));
     group.style.display = show ? "" : "none";
   });
+}
+
+function exerciseHistoryAnalyticsCharts(analytics, exerciseLabel) {
+  if (!analytics || !Number(analytics.working_sets || 0)) {
+    return "<p class='empty'>No completed working-set observations in this date range.</p>";
+  }
+  var label = String(exerciseLabel || "Exercise");
+  var daily = Array.isArray(analytics.daily) ? analytics.daily : [];
+  var sections = [];
+  sections.push("<section class='exercise-analytics-block'><h4>Working sets and training dates</h4>" +
+    dateSeriesChart({
+      title: label + " working sets per recorded training date", xTitle: "Training date", yTitle: "Working sets",
+      series: [{id: "sets", label: "Working sets", points: daily.map(function (item) {
+        return {date: item.date, value: item.working_sets, label: item.sessions + " session fragment(s)"};
+      })}],
+      note: "One point per date with completed working sets; session fragments on the same date are combined. " +
+        Number(analytics.training_dates || 0) + " distinct training dates across " +
+        Number(analytics.session_count || 0) + " session records in the selected range. No dates are imputed."
+    }) + "</section>");
+  (Array.isArray(analytics.loads) ? analytics.loads : []).forEach(function (group) {
+    sections.push("<section class='exercise-analytics-block'><h4>Load · " + esc(group.basis) + "</h4>" +
+      dateSeriesChart({
+        title: label + " median recorded load (" + group.basis + ")", xTitle: "Training date", yTitle: "Load (kg)",
+        series: [{id: "load-" + group.basis, label: "Daily median load", points: (group.points || []).map(function (point) {
+          return {date: point.date, value: point.median_kg, label: point.observations + " working-set observations"};
+        })}],
+        note: "Python-computed median of recorded load within this load basis; no bases are mixed and missing loads are omitted, not zero-filled."
+      }) + "</section>");
+  });
+  (Array.isArray(analytics.repetitions) ? analytics.repetitions : []).forEach(function (group) {
+    sections.push("<section class='exercise-analytics-block'><h4>Recorded volume · " + esc(group.unit) + "</h4>" +
+      dateSeriesChart({
+        title: label + " recorded " + group.unit + " per training date", xTitle: "Training date", yTitle: "Recorded " + group.unit,
+        series: [{id: "reps-" + group.unit, label: "Recorded " + group.unit, points: (group.points || []).map(function (point) {
+          return {date: point.date, value: point.total, label: point.observed_sets + " working-set observation(s)"};
+        })}],
+        note: "Python-computed sum of recorded values within this unit only; seconds are not combined with repetitions. Missing values are excluded and coverage is shown below."
+      }) + "</section>");
+  });
+  if (Array.isArray(analytics.rir) && analytics.rir.length) {
+    sections.push("<section class='exercise-analytics-block'><h4>Recorded effort · RIR</h4>" +
+      dateSeriesChart({
+        title: label + " median recorded RIR by training date", xTitle: "Training date", yTitle: "Recorded RIR",
+        series: [{id: "rir", label: "Median recorded RIR", points: analytics.rir.map(function (point) {
+          return {date: point.date, value: point.median, label: point.observations + " sets with RIR"};
+        })}],
+        note: "Descriptive median of logged RIR only; no intensity zones or targets are inferred. Missing RIR is not treated as zero."
+      }) + "</section>");
+  }
+  if (Array.isArray(analytics.rir_distribution) && analytics.rir_distribution.length) {
+    sections.push("<section class='exercise-analytics-block'><h4>RIR observation counts</h4>" +
+      groupedBarChart({
+        title: label + " recorded RIR distribution", xTitle: "Recorded RIR", yTitle: "Working sets",
+        categories: analytics.rir_distribution.map(function (item) { return {label: "RIR " + item.rir}; }),
+        series: [{id: "rir-count", label: "Sets", values: analytics.rir_distribution.map(function (item) { return item.sets; })}],
+        formatY: function (value) { return chartNumber(value, 0); },
+        note: "Counts of non-missing RIR observations. RIR 0 is a recorded value, not missing; no intensity band is defined here."
+      }) + "</section>");
+  }
+  if (Array.isArray(analytics.tonnage_daily) && analytics.tonnage_daily.length) {
+    sections.push("<section class='exercise-analytics-block'><h4>Stored physical tonnage</h4>" +
+      dateSeriesChart({
+        title: label + " recorded added-load tonnage", xTitle: "Training date", yTitle: "Tonnage (kg)",
+        series: [{id: "tonnage", label: "Stored tonnage", points: analytics.tonnage_daily.map(function (point) {
+          return {date: point.date, value: point.tonnage_kg, label: point.tonnage_observed_sets + " of " + point.working_sets + " working sets have defined tonnage"};
+        })}],
+        note: "Uses only the stored tonnage_kg field (added load × repetitions); bodyweight mass is excluded by the domain definition. Dates with no defined tonnage are omitted, not zero-filled."
+      }) + "</section>");
+  }
+  return "<div class='exercise-analytics-grid'>" + sections.join("") + "</div>" +
+    "<p class='muted'>Coverage: " + Number(analytics.working_sets || 0) + " working sets · load present " +
+    Number(analytics.load_observed_sets || 0) + " (missing " + Number(analytics.load_missing_sets || 0) + ") · recorded repetitions/units " +
+    Number(analytics.reps_observed_sets || 0) + " (missing " + Number(analytics.reps_missing_sets || 0) + ") · RIR present " +
+    Number(analytics.rir_observed_sets || 0) + " (missing " + Number(analytics.rir_missing_sets || 0) + ") · tonnage defined for " +
+    Number(analytics.tonnage_observed_sets || 0) + " (undefined " + Number(analytics.tonnage_missing_sets || 0) + ")</p>";
 }

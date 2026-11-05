@@ -779,10 +779,17 @@ global.api = function (url) {
   if (url.startsWith("/api/performance/e1rm")) return Promise.resolve({exercise_id: "ssb_squat", points: [
     {date: "2024-04-05", kg: 100, rolling_median_kg: 100, n_window: 1},
     {date: "2024-04-25", kg: 105, rolling_median_kg: 102.5, n_window: 2}],
-    summary: {n: 2, status: "points_only", latest: {date: "2024-04-25", kg: 105}}});
-  if (url.startsWith("/api/exercise-history")) return Promise.resolve({total: 1, has_more: false, sessions: [
-    {occurred_on: "2024-04-05", sets: [{load_kg: 80, load_basis: "external", reps: 5, reps_unit: "reps"}]}
-  ]});
+    summary: {n: 2, status: "points_only", latest: {date: "2024-04-25", kg: 105}, best: {date: "2024-04-25", kg: 105}}});
+  if (url.startsWith("/api/exercise-history")) return Promise.resolve({total: 1, has_more: false, start: "2024-04-03", end: "2024-04-30", included_exercises: [],
+    analytics: {session_count: 1, training_dates: 1, working_sets: 1, load_observed_sets: 1, load_missing_sets: 0,
+      reps_observed_sets: 1, reps_missing_sets: 0, rir_observed_sets: 1, rir_missing_sets: 0,
+      tonnage_observed_sets: 1, tonnage_missing_sets: 0,
+      daily: [{date: "2024-04-05", sessions: 1, working_sets: 1, tonnage_kg: 400, tonnage_observed_sets: 1}],
+      weekly: [{iso_year: 2024, iso_week: 14, start: "2024-04-03", end: "2024-04-09", training_dates: 1, working_sets: 1}],
+      loads: [{basis: "external", points: [{date: "2024-04-05", median_kg: 80, observations: 1}]}],
+      repetitions: [{unit: "reps", points: [{date: "2024-04-05", total: 5, observed_sets: 1}]}],
+      rir: [{date: "2024-04-05", median: 2, observations: 1}], rir_distribution: [{rir: 2, sets: 1}],
+      tonnage_daily: [{date: "2024-04-05", tonnage_kg: 400, tonnage_observed_sets: 1, working_sets: 1}]}, sessions: []});
   return Promise.reject(new Error("unexpected API request: " + url));
 };
 eval(SOURCE);
@@ -800,9 +807,10 @@ loadProgressOverview().then(() => {
   if (!els["#progress-frequency-chart"].innerHTML.includes("Recorded training days")) throw new Error("frequency chart missing");
   if (!els["#progress-frequency-note"].textContent.includes("not planned dates")) throw new Error("target semantics missing");
   if (!els["#progress-calendar"].innerHTML.includes("2024-04-05")) throw new Error("observed-day calendar missing");
-  if (!els["#progress-exercise-frequency-chart"].innerHTML.includes("training days per 7-day period")) throw new Error("exercise exposure frequency missing");
-  if (!els["#progress-exercise-volume-chart"].innerHTML.includes("working sets per 7-day period")) throw new Error("exercise working-set volume missing");
-  if (!els["#progress-load-chart"].innerHTML.includes("Working-set load")) throw new Error("load trend missing");
+  if (!els["#progress-exercise-frequency-chart"].innerHTML.includes("training dates per ISO week")) throw new Error("exercise exposure frequency missing");
+  if (!els["#progress-exercise-volume-chart"].innerHTML.includes("working sets per ISO week")) throw new Error("exercise working-set volume missing");
+  if (!els["#progress-load-chart"].innerHTML.includes("median recorded load")) throw new Error("load trend missing");
+  if (!els["#progress-load-chart"].innerHTML.includes("recorded RIR")) throw new Error("RIR history missing");
   if (!els["#progress-dashboard"].innerHTML.includes("all-to-date coverage 4 / 8")) throw new Error("sRPE coverage field missing");
   if (!els["#progress-dashboard"].innerHTML.includes("Main-lift change table")) throw new Error("main-lift change detail missing");
   if (!els["#progress-ratio-chart"].innerHTML.includes("ratio 1.020; 2 lift comparisons")) throw new Error("existing ratio chart missing");
@@ -810,6 +818,49 @@ loadProgressOverview().then(() => {
   if (els["#progress-overview-status"].textContent !== "Updated") throw new Error("status missing");
 });
 """.replace("SOURCE", json.dumps(source))
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_health_longevity_charts_preserve_logged_observations_and_methods() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    chunks = []
+    for name in ("cardioWeeklyChart", "measurementHistoryChart"):
+        match = re.search(r"function " + name + r"\([\s\S]*?^}", source, re.MULTILINE)
+        assert match, f"{name}() not found"
+        chunks.append(match.group(0))
+    script = r"""
+global.esc = function (value) { return String(value == null ? "" : value); };
+let barSpec = null, lineSpec = null;
+global.groupedBarChart = function (spec) { barSpec = spec; return "bars"; };
+global.dateSeriesChart = function (spec) { lineSpec = spec; return "dots"; };
+eval(CHUNKS);
+const cardio = cardioWeeklyChart({weekly_minutes: {"2024-W01": 45, "2024-W03": 20}, reference_min: 150, reference_max: 300});
+if (cardio !== "bars") throw new Error("weekly cardio chart not returned");
+if (barSpec.categories.map(x => x.label).join(",") !== "2024-W01,2024-W03") throw new Error("unlogged weeks were invented");
+if (barSpec.series[0].values.join(",") !== "45,20") throw new Error("logged minutes changed");
+if (barSpec.referenceLines.length !== 2 || barSpec.referenceLines[0].value !== 150 || barSpec.referenceLines[1].value !== 300)
+  throw new Error("cardio context references missing");
+if (!barSpec.note.includes("omitted, not treated as zero") || !barSpec.note.includes("partial"))
+  throw new Error("cardio missing-data caveat absent");
+if (!cardioWeeklyChart({weekly_minutes: {}}).includes("No logged cardio weeks")) throw new Error("cardio empty state absent");
+
+const data = {summary: [{key: "grip", label: "Grip", unit: "kg"}], entries: [
+  {metric_key: "grip", measured_on: "2024-01-01", value: 30, method: "dynamometer"},
+  {metric_key: "grip", measured_on: "2024-01-01", value: 31, method: "dynamometer"},
+  {metric_key: "grip", measured_on: "2024-02-01", value: 32, method: "alternate device"},
+  {metric_key: "steps", measured_on: "2024-02-02", value: 9000, method: null}
+]};
+if (measurementHistoryChart(data, "grip") !== "dots") throw new Error("measurement chart not returned");
+if (lineSpec.series.length !== 2 || lineSpec.series.some(x => x.line !== false)) throw new Error("measurement methods were combined or connected");
+if (lineSpec.series.reduce((sum, series) => sum + series.points.length, 0) !== 3) throw new Error("measurement observations were averaged or discarded");
+if (!lineSpec.note.includes("API limit 50") || !lineSpec.note.includes("no averaging, interpolation")) throw new Error("measurement coverage caveat absent");
+if (!measurementHistoryChart(data, "missing").includes("Select a configured measurement")) throw new Error("metric empty state absent");
+""".replace("CHUNKS", json.dumps("\n".join(chunks)))
     result = subprocess.run([node, "-e", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
 
@@ -845,7 +896,7 @@ if (!groupedBarChart({categories: [], series: []}).includes("No observations")) 
     assert result.returncode == 0, result.stderr
 
 
-def test_chart_series_toggle_and_truncated_exercise_history_preserve_missingness() -> None:
+def test_chart_series_toggle_and_complete_range_exercise_analytics() -> None:
     node = shutil.which("node")
     if node is None:
         import pytest
@@ -870,11 +921,15 @@ seriesHandler({target: button});
 if (pressed !== "false" || group.style.display !== "none") throw new Error("series did not hide");
 seriesHandler({target: button});
 if (pressed !== "true" || group.style.display !== "") throw new Error("series did not restore");
-progressRenderExerciseExposure([{occurred_on: "2024-04-25", sets: [{}, {}, {}]}], "2024-04-03", 6,
-  "squat", "Squat", {has_more: true, sessions: [{occurred_on: "2024-04-25", sets: [{}, {}, {}]}, {occurred_on: "2024-04-10", sets: [{}]}]});
+progressRenderExerciseExposure({weekly: [
+  {iso_year: 2024, iso_week: 14, start: "2024-04-03", end: "2024-04-09", training_dates: 0, working_sets: 0},
+  {iso_year: 2024, iso_week: 15, start: "2024-04-10", end: "2024-04-16", training_dates: 1, working_sets: 3},
+  {iso_year: 2024, iso_week: 16, start: "2024-04-17", end: "2024-04-23", training_dates: 0, working_sets: 0}
+]}, "2024-04-03", 6, "squat", "Squat", {included_exercises: []});
 const frequency = els["#progress-exercise-frequency-chart"].innerHTML;
-if (!frequency.includes("older periods whose completeness cannot be verified are left blank")) throw new Error("pagination caveat missing");
-if ((frequency.match(/<rect class=/g) || []).length !== 4) throw new Error("unknown earliest exercise weeks were zero-filled");
+if (!frequency.includes("complete-range Python aggregates")) throw new Error("complete-range analytics disclosure missing");
+if (!frequency.includes("W14 2024") || !frequency.includes("W15 2024")) throw new Error("complete older ISO-week analytics missing");
+if ((frequency.match(/<rect class=/g) || []).length !== 3) throw new Error("complete weekly categories missing");
 """.replace("SOURCE", json.dumps(source))
     result = subprocess.run([node, "-e", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
@@ -1161,67 +1216,156 @@ if (elements["settings-monitoring-empty"].hidden !== true) throw new Error("empt
     assert result.returncode == 0, result.stderr
 
 
-def test_exercise_training_day_chart_combines_same_day_fragments() -> None:
+def test_exercise_analytics_charts_render_complete_range_python_observations() -> None:
     node = shutil.which("node")
     if node is None:
         import pytest
         pytest.skip("node is not installed")
-    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8") + "\n" + (STATIC / "analytics-charts.js").read_text(encoding="utf-8")
     script = r"""
-global.esc = function (value) { return String(value == null ? "" : value); };
-global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
-global.__frame = function (title, svg, legend) {
-  return title + " " + svg + " " + legend;
-};
+function esc(value) { return String(value == null ? "" : value); }
+function fmt(value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); }
+global.esc = esc; global.fmt = fmt;
+global.__frame = function (title, svg, legend, note) { return title + " " + svg + " " + legend + " " + (note || ""); };
 var chartFrame = global.__frame;
 eval(SOURCE);
-var html = exerciseSetCountChart([
-  {occurred_on: "2026-10-01", sets: [{}, {}]},
-  {occurred_on: "2026-10-01", sets: [{}]},
-  {occurred_on: "2026-10-08", sets: [{}, {}, {}]},
-], "Squat", 3);
-if (html.indexOf("Squat working sets by training day") < 0) throw new Error("chart title missing");
-if (html.indexOf("Working sets") < 0) throw new Error("y axis missing");
-if (html.indexOf("same-day fragments are combined") < 0) throw new Error("training-day aggregation missing");
-if ((html.match(/<circle/g) || []).length !== 2) throw new Error("dates were not combined into two points");
-if (html.indexOf("2026-10-01: 3 working sets") < 0) throw new Error("exact set-count tooltip missing");
-if (html.indexOf("no dates are imputed") < 0) throw new Error("date-gap disclosure missing");
+const days = Array.from({length: 65}, (_, i) => {
+  const date = new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10);
+  return {date, sessions: i % 2 ? 1 : 2, working_sets: 3, tonnage_kg: i === 0 ? null : 300 + i,
+    tonnage_observed_sets: i === 0 ? 0 : 3, working_sets: 3};
+});
+const analytics = {session_count: 90, training_dates: 65, working_sets: 195,
+  load_observed_sets: 190, load_missing_sets: 5, reps_observed_sets: 180, reps_missing_sets: 15,
+  rir_observed_sets: 120, rir_missing_sets: 75, tonnage_observed_sets: 150, tonnage_missing_sets: 45,
+  daily: days, loads: [
+    {basis: "external", points: days.map(d => ({date: d.date, median_kg: 80, observations: 3}))},
+    {basis: "assisted", points: [{date: "2024-03-05", median_kg: 20, observations: 1}]}],
+  repetitions: [
+    {unit: "reps", points: days.map(d => ({date: d.date, total: 15, observed_sets: 3}))},
+    {unit: "seconds", points: [{date: "2024-03-05", total: 60, observed_sets: 2}]}],
+  rir: [{date: "2024-01-01", median: 0, observations: 2}],
+  rir_distribution: [{rir: 0, sets: 2}, {rir: 2, sets: 10}],
+  tonnage_daily: days.filter(d => d.tonnage_kg != null)};
+const html = exerciseHistoryAnalyticsCharts(analytics, "Example lift");
+if (!html.includes("2024-01-01") || !html.includes("2024-03-05")) throw new Error("complete 65-date range not represented");
+if (!html.includes("assisted") || !html.includes("external") || !html.includes("seconds") || !html.includes("reps")) throw new Error("load bases or rep units mixed/omitted");
+if (!html.includes("RIR 0") || !html.includes("median recorded RIR")) throw new Error("RIR zero or recorded effort chart missing");
+if (!html.includes("stored tonnage_kg") && !html.includes("stored tonnage")) throw new Error("stored tonnage caveat missing");
+if (!html.includes("missing 75") || !html.includes("undefined 45")) throw new Error("missingness coverage not displayed");
+if (!html.includes("no dates are imputed") && !html.includes("No dates are imputed")) throw new Error("date omission caveat missing");
+const empty = exerciseHistoryAnalyticsCharts({working_sets: 0}, "No history");
+if (!empty.includes("No completed working-set observations")) throw new Error("empty-state disclosure missing");
 """.replace("SOURCE", json.dumps(source))
     result = subprocess.run([node, "-e", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
 
 
-def test_exercise_load_and_reps_charts_keep_incompatible_units_separate() -> None:
+def test_exercise_history_pages_append_safely_and_report_duplicates() -> None:
     node = shutil.which("node")
     if node is None:
         import pytest
         pytest.skip("node is not installed")
-    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    source = (STATIC / "exercises.js").read_text(encoding="utf-8")
+    names = ["exerciseHistoryUrl", "exerciseMetricCell", "renderExerciseHistoryRecords",
+             "compareExerciseSessions", "loadExerciseHistoryPage"]
+    chunks = []
+    for name in names:
+        match = re.search(r"(?:async )?function " + name + r"\([\s\S]*?^}", source, re.MULTILINE)
+        assert match, f"{name}() not found"
+        chunks.append(match.group(0))
     script = r"""
+const els = {
+  "#exercise-history-more": {hidden: true, disabled: false, textContent: ""},
+  "#exercise-history-page-status": {textContent: ""},
+  "#exercise-history-status": {textContent: ""},
+  "#exercise-detail-records": {innerHTML: ""},
+  "#exercise-detail-dose": {innerHTML: "", insertAdjacentHTML: function (_, html) { this.innerHTML += html; }}
+};
+global.$ = function (selector) { return els[selector] || null; };
+global.window = {__exerciseDetailsId: "lift"};
 global.esc = function (value) { return String(value == null ? "" : value); };
-global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
-eval(SOURCE);
-const empty = exerciseLoadRepsCharts([], "No history");
-if (empty.indexOf("No compatible load observations") < 0 || empty.indexOf("No compatible repetitions observations") < 0)
-  throw new Error("empty exercise metric state missing");
-const html = exerciseLoadRepsCharts([
-  {occurred_on: "2024-01-01", sets: [
-    {load_kg: 100, load_basis: "external", reps: 5, reps_unit: "reps"},
-    {load_kg: 110, load_basis: "external", reps: 6, reps_unit: "reps"},
-    {load_kg: null, load_basis: "external", reps: null, reps_unit: "reps"}]},
-  {occurred_on: "2024-01-01", sets: [
-    {load_kg: 90, load_basis: "external", reps: 4, reps_unit: "reps"}]},
-  {occurred_on: "2024-01-10", sets: [
-    {load_kg: 30, load_basis: "assisted", reps: 30, reps_unit: "seconds"}]}
-], "Example lift");
-if (html.indexOf("Example lift load (external) by training day") < 0 ||
-    html.indexOf("Example lift load (assisted) by training day") < 0) throw new Error("load bases mixed");
-if (html.indexOf("Repetitions (reps)") < 0 || html.indexOf("Repetitions (seconds)") < 0) throw new Error("rep units mixed");
-if (html.indexOf("median 100 kg across 3 working sets; external") < 0) throw new Error("same-day exact median missing");
-if (html.indexOf("median 5 reps across 3 working sets; reps") < 0) throw new Error("rep median missing");
-if (html.indexOf("median 0") >= 0) throw new Error("null values became observed zeros");
-if (html.indexOf("No dates are imputed") < 0) throw new Error("imputation disclosure missing");
-""".replace("SOURCE", json.dumps(source))
+global.exerciseHistoryAnalyticsCharts = function () { return "complete-range charts"; };
+const EXERCISE_HISTORY_PAGE_SIZE = 50;
+let exerciseTrendsGeneration = 1, exerciseHistoryLoading = false;
+let exerciseHistoryState = {exerciseId: "lift", display: "Lift", start: "2024-01-01", end: "2024-03-01",
+  offset: 0, total: null, sessions: [], hasMore: false, complete: false, analytics: null};
+eval(CHUNKS);
+function records(begin, count) { return Array.from({length: count}, (_, j) => {
+  const index = begin - j;
+  return {session_id: "s" + index, occurred_on: new Date(Date.UTC(2024, 0, 1 + index)).toISOString().slice(0, 10),
+    session_type: "test", sets: []};
+}); }
+const urls = [];
+global.api = async function (url) {
+  urls.push(url);
+  const params = new URLSearchParams(url.split("?")[1]);
+  const offset = Number(params.get("offset"));
+  return {total: 53, start: "2024-01-01", end: "2024-03-01", has_more: offset === 0,
+    included_exercises: [], analytics: offset === 0 ? {session_count: 53, working_sets: 53, daily: []} : undefined,
+    sessions: offset === 0 ? records(52, 50) : records(2, 3)};
+};
+(async function () {
+  await loadExerciseHistoryPage(1);
+  if (exerciseHistoryState.sessions.length !== 50 || exerciseHistoryState.offset !== 50 || !exerciseHistoryState.hasMore)
+    throw new Error("first page state not retained");
+  await loadExerciseHistoryPage(1);
+  if (exerciseHistoryState.sessions.length !== 53 || !exerciseHistoryState.complete)
+    throw new Error("second page not appended to completion");
+  if (new Set(exerciseHistoryState.sessions.map(x => x.session_id)).size !== 53)
+    throw new Error("duplicate session rows were rendered");
+  if (els["#exercise-history-status"].textContent.indexOf("Complete: 53 session records") !== 0)
+    throw new Error("complete state not announced");
+  const offsets = urls.map(url => new URLSearchParams(url.split("?")[1]).get("offset"));
+  if (offsets.join(",") !== "0,50") throw new Error("page offsets advanced incorrectly");
+
+  exerciseTrendsGeneration = 2;
+  exerciseHistoryState = {exerciseId: "lift", display: "Lift", start: "2024-01-01", end: "2024-03-01",
+    offset: 50, total: 53, sessions: records(52, 50), hasMore: true, complete: false, analytics: {session_count: 53}};
+  global.api = async function () { return {total: 53, start: "2024-01-01", end: "2024-03-01", has_more: true,
+    sessions: [{session_id: "s3", occurred_on: "2024-01-04", session_type: "test", sets: []}]}; };
+  await loadExerciseHistoryPage(2);
+  if (exerciseHistoryState.sessions.length !== 50) throw new Error("duplicate page partially appended");
+  if (!els["#exercise-history-status"].textContent.includes("History records incomplete: Duplicate"))
+    throw new Error("duplicate page was not surfaced as incomplete");
+})();
+""".replace("CHUNKS", json.dumps("\n".join(chunks)))
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_exercise_history_range_and_all_history_buttons_refetch() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "exercises.js").read_text(encoding="utf-8")
+    handlers = []
+    for selector, event in (("exercise-history-range-form", "submit"), ("exercise-history-all", "click")):
+        pattern = r'\$\("#' + selector + r'"\)\.addEventListener\("' + event + r'", function \([^)]*\) \{[\s\S]*?\n\}\);'
+        match = re.search(pattern, source)
+        assert match, f"{selector} handler not found"
+        handlers.append(match.group(0))
+    script = r"""
+const controls = {
+  "#exercise-history-range-form": {addEventListener: function (_, handler) { this.handler = handler; },
+    querySelector: function () { return {disabled: false}; }},
+  "#exercise-history-all": {value: "", addEventListener: function (_, handler) { this.handler = handler; }},
+  "#exercise-history-start": {value: ""}, "#exercise-history-end": {value: ""}
+};
+global.$ = function (selector) { return controls[selector]; };
+global.window = {__exerciseDetailsRow: {id: "lift"}};
+let fetches = 0, prevented = false;
+global.loadExerciseTrends = function (row) { if (row.id !== "lift") throw new Error("wrong exercise"); fetches += 1; };
+eval(HANDLERS);
+controls["#exercise-history-start"].value = "2024-02-01";
+controls["#exercise-history-end"].value = "2024-02-29";
+controls["#exercise-history-range-form"].handler({preventDefault: function () { prevented = true; }});
+if (!prevented || fetches !== 1) throw new Error("Apply range did not prevent submit and refetch");
+controls["#exercise-history-all"].handler();
+if (controls["#exercise-history-start"].value || controls["#exercise-history-end"].value)
+  throw new Error("All history did not clear both date bounds");
+if (fetches !== 2) throw new Error("All history did not refetch");
+""".replace("HANDLERS", json.dumps("\n".join(handlers)))
     result = subprocess.run([node, "-e", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
 
@@ -1240,5 +1384,21 @@ def test_exercise_views_are_grouped_and_add_edit_share_one_dialog() -> None:
     assert 'data-edit-exercise=' not in exercises
     assert 'openExerciseEditor' not in exercises
     assert '$("#exercise-add").addEventListener("click", () => openExerciseDetails(null));' in exercises
-    assert 'api("/api/exercise-history?exercise_id="' in exercises
-    assert 'api("/api/performance/e1rm?exercise_id="' in exercises
+    assert 'api(exerciseHistoryUrl(state.exerciseId, state, state.offset, firstPage))' in exercises
+    assert 'api(exerciseE1rmUrl(id, start, end))' in exercises
+    assert 'include_analytics' in exercises and 'Number(page.analytics.session_count)' in exercises
+    assert 'Duplicate or missing session id detected across history pages' in exercises
+    assert 'Load 50 older sessions' in exercises
+    assert 'id="exercise-history-start"' in page and 'id="exercise-history-end"' in page
+    assert 'id="exercise-history-all"' in page and 'id="exercise-history-more"' in page
+    assert 'id="exercise-detail-records"' in page
+    assert page.count('id="exercise-detail-e1rm"') == 1
+    assert page.count('id="exercise-trend-e1rm"') == 1
+    assert page.count('id="exercise-detail-dose"') == 1
+    assert page.count('id="exercise-trends-title"') == 1
+    assert 'const target = $("#exercise-trend-e1rm")' in exercises
+    assert 'e1rm_applicable: $("#exercise-detail-e1rm").checked' in exercises
+    config_form_end = page.index('</form>', page.index('<form id="exercise-details-form">'))
+    analytics_start = page.index('<section class="exercise-trends"', config_form_end)
+    assert config_form_end < analytics_start
+    assert 'exerciseHistoryAnalyticsCharts' in exercises

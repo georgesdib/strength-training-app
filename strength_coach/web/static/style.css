@@ -369,6 +369,21 @@ body.menu-open { overflow: hidden; }
 .exercise-trends { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 14px; }
 .exercise-trends h3 { margin: 0 0 4px; }
 .exercise-trend-chart { margin: 12px 0; min-width: 0; }
+.exercise-history-range { align-items: end; padding: 10px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--soft); }
+.exercise-history-range label { flex: 1 1 150px; min-width: 130px; }
+.exercise-analytics-section { margin: 12px 0; border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; background: var(--paper); }
+.exercise-analytics-section > summary { min-height: 36px; cursor: pointer; color: var(--ink);
+  font-weight: 700; display: flex; align-items: center; }
+.exercise-analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: 12px; align-items: start; }
+.exercise-analytics-block { min-width: 0; border-top: 1px solid var(--line); padding-top: 8px; }
+.exercise-analytics-block h4 { margin: 4px 0; }
+.exercise-data-table, .exercise-session-record { margin: 10px 0; border-top: 1px solid var(--line); padding-top: 8px; }
+.exercise-data-table > summary, .exercise-session-record > summary { cursor: pointer; min-height: 34px;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.exercise-data-table table, .exercise-session-record table { min-width: 560px; }
 .app-dialog::backdrop { background: rgba(20, 24, 20, .45); }
 
 @media (max-width: 760px) {
@@ -382,6 +397,9 @@ body.menu-open { overflow: hidden; }
   main { padding-bottom: max(60px, env(safe-area-inset-bottom)); }
   .toast { bottom: max(12px, env(safe-area-inset-bottom)); }
   .app-dialog { width: 96%; max-height: calc(100dvh - 16px); }
+  .exercise-history-range { align-items: stretch; }
+  .exercise-history-range label { flex-basis: 100%; }
+  .exercise-analytics-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (orientation: landscape) and (max-height: 500px) {
@@ -509,6 +527,7 @@ body.menu-open { overflow: hidden; }
 
 
 /* Shared longitudinal charts and the unified Progress workspace. */
+.health-trend-chart { min-width: 0; margin: 12px 0; }
 .progress-dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
 .progress-dashboard-panel { min-width: 0; margin: 0; }
 .progress-dashboard-panel > label { display: grid; gap: 4px; margin: 8px 0; max-width: 560px; }

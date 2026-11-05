@@ -1267,8 +1267,10 @@
     <dialog id="exercise-details-dialog" class="app-dialog wide" aria-labelledby="exercise-details-title">
       <div class="panel-head"><h2 id="exercise-details-title">Exercise details</h2>
         <button class="ghost" type="button" id="exercise-details-cancel">Close</button></div>
-        <p class="section-help"><span>Adds or edits local exercise properties without rewriting history; existing ids stay immutable.</span> <a class="doc-link" href="#docs?doc=docs/EXERCISE-VARIANTS.md&amp;anchor=0-web-exercises-tab">Exercise editing</a></p>
+        <p class="section-help"><span>Exercise identity is immutable. Configuration edits are separate from these read-only historical observations.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md&amp;anchor=exercise-explorer-history">Exercise Explorer and history API</a></p>
       <form id="exercise-details-form">
+        <h3>Identity and configuration</h3>
+        <p class="muted" id="exercise-detail-profile"></p>
         <div class="form-row">
           <label>ID <input id="exercise-detail-id" required pattern="[a-z][a-z0-9_]*"></label>
           <label>Display name <input id="exercise-detail-display" required></label>
@@ -1335,17 +1337,38 @@
             </div>
           </div>
         </div>
-        <section class="exercise-trends" aria-labelledby="exercise-trends-title">
-          <h3 id="exercise-trends-title">Training trends</h3>
-          <p class="muted">Descriptive history only. Load bases and repetition units are plotted separately; same-day fragments are combined. The charts do not change prescriptions or infer causation.</p>
-          <div id="exercise-detail-e1rm" class="exercise-trend-chart"><p class="empty">Open an exercise to load its strength trend.</p></div>
-          <div id="exercise-detail-dose" class="exercise-trend-chart"><p class="empty">Completed-session set history will appear here.</p></div>
-        </section>
         <div class="form-row">
           <button class="primary" type="submit">Save details</button>
           <span id="exercise-details-msg" class="muted" role="status" aria-live="polite"></span>
         </div>
       </form>
+      <section class="exercise-trends" aria-labelledby="exercise-trends-title">
+        <div class="panel-head"><h3 id="exercise-trends-title">Historical observations</h3>
+          <span id="exercise-history-status" class="muted" role="status" aria-live="polite"></span></div>
+        <p class="section-help"><span>Explore complete-range per-exercise trends and page through exact completed-session records.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md&amp;anchor=exercise-explorer-history">Read more</a></p>
+        <p class="muted">Charts use complete Python summaries for the selected date range. Exact records are loaded in safe 50-session pages; missing values remain missing. These observations do not change prescriptions.</p>
+        <form id="exercise-history-range-form" class="form-row exercise-history-range">
+          <label>From (inclusive) <input id="exercise-history-start" type="date"></label>
+          <label>Through (inclusive) <input id="exercise-history-end" type="date"></label>
+          <button class="primary" type="submit">Apply range</button>
+          <button class="ghost" type="button" id="exercise-history-all">All history</button>
+        </form>
+        <details class="exercise-analytics-section" open>
+          <summary>Strength and performance</summary>
+          <div id="exercise-trend-e1rm" class="exercise-trend-chart"><p class="empty">Open an exercise to load eligible strength observations.</p></div>
+        </details>
+        <details class="exercise-analytics-section" open>
+          <summary>Training dose and exposure</summary>
+          <div id="exercise-detail-dose" class="exercise-trend-chart"><p class="empty">Open an exercise to load complete-range working-set analytics.</p></div>
+        </details>
+        <details class="exercise-analytics-section">
+          <summary>Exact historical records and monitoring</summary>
+          <p class="muted">RIR is shown only where recorded. Tonnage uses stored, domain-defined physical tonnage; unavailable values are not converted to zero.</p>
+          <div id="exercise-detail-records"></div>
+          <div class="form-row"><button class="ghost" type="button" id="exercise-history-more" hidden>Load older sessions</button>
+            <span id="exercise-history-page-status" class="muted" role="status" aria-live="polite"></span></div>
+        </details>
+      </section>
     </dialog>
 
     <dialog id="workout-swap-dialog" class="app-dialog" aria-labelledby="workout-swap-title">

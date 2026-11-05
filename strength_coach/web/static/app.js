@@ -3233,6 +3233,24 @@ async function runProgramme() {
 }
 
 /* --- cardio ------------------------------------------------------------- */
+function cardioWeeklyChart(data) {
+  const weeks = Object.entries(data.weekly_minutes || {}).sort(([a], [b]) => a.localeCompare(b));
+  if (!weeks.length) return "<p class='empty'>No logged cardio weeks to chart in this window.</p>";
+  return groupedBarChart({
+    title: "Logged cardio minutes by recorded ISO week",
+    xTitle: "ISO week", yTitle: "Logged minutes",
+    categories: weeks.map(([week]) => ({label: week})),
+    series: [{id: "minutes", label: "Logged cardio minutes", values: weeks.map(([, minutes]) => minutes)}],
+    referenceLines: [
+      {value: Number(data.reference_min), label: "WHO reference lower bound (context only)"},
+      {value: Number(data.reference_max), label: "WHO reference upper bound (context only)"},
+    ],
+    note: "Only ISO weeks with logged sessions are shown; weeks without entries are omitted, not " +
+      "treated as zero or evidence of inactivity. Reference lines are context, not personal targets; " +
+      "the first and last weeks may be partial within the selected date window.",
+  });
+}
+
 function renderCardio(data) {
   const weeks = Object.entries(data.weekly_minutes || {}).map(([week, minutes]) =>
     `<tr><td>${esc(week)}</td><td>${minutes}</td></tr>`).join("");
@@ -3245,6 +3263,7 @@ function renderCardio(data) {
         session(s) · <strong>${data.average_weekly_minutes}</strong> min/week average</p>
       <p class="muted">Reference: ${data.reference_min}-${data.reference_max} min/week.
         ${esc(data.reference_note)}</p>
+      <div class="health-trend-chart"><h3>Weekly logged minutes</h3>${cardioWeeklyChart(data)}</div>
       ${weeks ? `<table><thead><tr><th>Week</th><th>Minutes</th></tr></thead>
         <tbody>${weeks}</tbody></table>` : "<p class='empty'>No cardio logged in this window.</p>"}
       ${modalities ? `<table><thead><tr><th>Modality</th><th>Sessions</th></tr></thead>
@@ -3307,6 +3326,39 @@ $("#cardio-form").addEventListener("submit", async (event) => {
 /* --- measurements ------------------------------------------------------- */
 let lastMeasurements = null;
 
+function measurementHistoryChart(data, metricKey) {
+  const metric = (data.summary || []).find((item) => item.key === metricKey);
+  if (!metric) return "<p class='empty'>Select a configured measurement to view its observations.</p>";
+  const entries = (data.entries || []).filter((item) => item.metric_key === metricKey);
+  if (!entries.length) return "<p class='empty'>No recorded observations for this metric in the returned history.</p>";
+  const unit = String(metric.unit || "recorded units");
+  const byMethod = new Map();
+  entries.forEach((entry) => {
+    const method = String(entry.method || "Method not recorded");
+    if (!byMethod.has(method)) byMethod.set(method, []);
+    byMethod.get(method).push({
+      date: entry.measured_on,
+      value: entry.value,
+      label: `${method} · ${entry.value} ${unit}`,
+    });
+  });
+  const series = [...byMethod.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([method, points], index) => ({
+    id: `method-${index}`,
+    label: method,
+    line: false,
+    points,
+  }));
+  return dateSeriesChart({
+    title: `${metric.label} · recorded observations by method`,
+    xTitle: "Measurement date", yTitle: unit,
+    series,
+    tooltip: (point, item) => `${point.date} · ${item.label}: ${point.value} ${unit}`,
+    note: `Independent recorded observations from the latest ${Number((data.entries || []).length)} entries ` +
+      `returned across all metrics (API limit 50). Methods are separated; same-day entries remain separate ` +
+      "markers, with no averaging, interpolation or inferred measurements.",
+  });
+}
+
 function renderMeasurements(data) {
   lastMeasurements = data;
   const all = data.summary || [];
@@ -3336,10 +3388,13 @@ function renderMeasurements(data) {
     .slice().reverse().map((e) => `
     <tr><td>${esc(e.measured_on)}</td><td>${esc(e.metric_key)}</td>
     <td>${e.value}</td><td>${esc(e.method || "")}</td></tr>`).join("");
+  const trendMetric = filter ? summary[0] :
+    all.find((metric) => (data.entries || []).some((entry) => entry.metric_key === metric.key)) || all[0];
   $("#measure-result").innerHTML = `
     <div class="panel"><div class="panel-head"><h2>Latest</h2></div>
       <table><thead><tr><th>Metric</th><th>Latest</th><th>Change</th><th>Entries</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>
+      <tbody>${rows}</tbody></table>
+      <div class="health-trend-chart"><h3>Recorded trend · ${esc(trendMetric?.label || "measurements")}</h3>${measurementHistoryChart(data, trendMetric?.key)}</div></div>
     <div class="panel"><div class="panel-head"><h2>Recent entries</h2></div>
       ${entries ? `<table><thead><tr><th>Date</th><th>Metric</th><th>Value</th><th>Method</th></tr></thead>
         <tbody>${entries}</tbody></table>` : "<p class='empty'>No measurements yet.</p>"}</div>`;

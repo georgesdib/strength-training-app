@@ -180,7 +180,8 @@ async function loadProgressLiftCharts(exerciseId) {
   e1rmHost.innerHTML = "<p class='empty'>Loading eligible strength observations…</p>";
   loadHost.innerHTML = "<p class='empty'>Loading completed working-set history…</p>";
   try {
-    var historyQuery = "?exercise_id=" + encodeURIComponent(exerciseId) + "&limit=50&offset=0&on_or_before=" + encodeURIComponent(progressCurrent.to);
+    var historyQuery = "?exercise_id=" + encodeURIComponent(exerciseId) + "&limit=1&offset=0&include_analytics=true&start=" +
+      encodeURIComponent(progressCurrent.from) + "&end=" + encodeURIComponent(progressCurrent.to);
     var results = await Promise.all([
       api("/api/performance/e1rm" + query),
       api("/api/exercise-history" + historyQuery)
@@ -199,34 +200,27 @@ async function loadProgressLiftCharts(exerciseId) {
       note: "API-provided raw formula Epley+RIR best per training day and trailing median of up to 3 observed points. Degraded observations, gaps, equipment changes and missing days are not imputed."
     });
     var summary = e1rm.summary || {};
-    var best = points.reduce(function (current, point) {
-      return !current || Number(point.kg) > Number(current.kg) ? point : current;
-    }, null);
     if (summaryHost) summaryHost.innerHTML = "<div class='cards compact-cards'>" +
       "<div class='card'><div class='label'>Latest eligible estimate</div><div class='value'>" +
         (summary.latest ? fmt(summary.latest.kg) + " kg" : "unknown") + "</div><div class='sub'>" + esc(summary.latest && summary.latest.date || "no observation") + "</div></div>" +
       "<div class='card'><div class='label'>Best in selected period</div><div class='value'>" +
-        (best ? fmt(best.kg) + " kg" : "unknown") + "</div><div class='sub'>" + esc(best && best.date || "no eligible observation") + "</div></div>" +
+        (summary.best ? fmt(summary.best.kg) + " kg" : "unknown") + "</div><div class='sub'>" + esc(summary.best && summary.best.date || "no eligible observation") + "</div></div>" +
       "<div class='card'><div class='label'>Eligible observations</div><div class='value'>" + (summary.n == null ? 0 : summary.n) +
         "</div><div class='sub'>" + esc(summary.status || "unavailable") + " · raw formula; no decay/calibration</div></div></div>" +
       "<p class='muted'>Equipment changes are not stored and cannot be detected.</p>";
 
     var history = results[1];
-    var sessions = (history.sessions || []).filter(function (session) {
-      return String(session.occurred_on || "") >= progressCurrent.from && String(session.occurred_on || "") <= progressCurrent.to;
-    });
     var choices = progressExerciseChoices || [];
     var choice = choices.find(function (item) { return item.id === exerciseId; });
     var label = choice ? choice.label : exerciseId;
     progressCurrent.exerciseLabel = label;
-    progressRenderExerciseExposure(sessions, progressCurrent.from, progressCurrent.weeks, exerciseId, label, history);
+    progressRenderExerciseExposure(history.analytics, progressCurrent.from, progressCurrent.weeks, exerciseId, label, history);
     var equivalents = (history.included_exercises || []).filter(function (item) { return item.id !== exerciseId; });
     var equivalentNote = equivalents.length
       ? "<p class='muted'>Declared history equivalents are combined by the existing endpoint: " +
         equivalents.map(function (item) { return esc(item.display || item.id); }).join(", ") + ".</p>" : "";
-    loadHost.innerHTML = sessions.length
-      ? exerciseLoadRepsCharts(sessions, label) + equivalentNote +
-        (history.has_more ? "<p class='muted'>History is paged at 50 sessions; this chart shows the latest returned sessions in the selected date range and may not include the entire range.</p>" : "")
+    loadHost.innerHTML = history.analytics && Number(history.analytics.working_sets || 0)
+      ? exerciseHistoryAnalyticsCharts(history.analytics, label) + equivalentNote
       : "<p class='empty'>No completed working-set history for this exercise in the selected period.</p>";
   } catch (error) {
     if (generation !== progressLiftGeneration) return;
@@ -430,56 +424,29 @@ function progressRenderCalendar(days, start, weeks) {
     }).join("") + cells + "</div>";
 }
 
-function progressRenderExerciseExposure(sessions, start, weeks, exerciseId, exerciseLabel, history) {
+function progressRenderExerciseExposure(analytics, start, weeks, exerciseId, exerciseLabel, history) {
   var frequencyHost = $("#progress-exercise-frequency-chart");
   var volumeHost = $("#progress-exercise-volume-chart");
   if (!frequencyHost || !volumeHost) return;
-  var daily = {};
-  (sessions || []).forEach(function (session) {
-    var date = String(session.occurred_on || "").slice(0, 10);
-    var count = Array.isArray(session.sets) ? session.sets.length : 0;
-    if (date && count > 0) daily[date] = (daily[date] || 0) + count;
-  });
-  var periods = progressWeekCategories(start, weeks);
-  var categories = periods.map(function (period) {
-    var from = new Date(period.start + "T12:00:00"), to = new Date(period.end + "T12:00:00");
-    return {label: (from.getMonth() + 1) + "/" + from.getDate() + "–" + (to.getMonth() + 1) + "/" + to.getDate(),
-      start: period.start, end: period.end};
-  });
-  var dates = Object.keys(daily);
-  var returnedSessions = (history && history.sessions) || [];
-  var oldestReturnedDate = returnedSessions.reduce(function (oldest, session) {
-    var date = String(session.occurred_on || "").slice(0, 10);
-    return date && (!oldest || date < oldest) ? date : oldest;
-  }, "");
-  var dayCounts = periods.map(function (period) {
-    if (history && history.has_more && oldestReturnedDate && oldestReturnedDate >= period.start) return null;
-    return dates.filter(function (date) { return date >= period.start && date <= period.end; }).length;
-  });
-  var setCounts = periods.map(function (period) {
-    if (history && history.has_more && oldestReturnedDate && oldestReturnedDate >= period.start) return null;
-    return dates.reduce(function (total, date) {
-      return total + (date >= period.start && date <= period.end ? daily[date] : 0);
-    }, 0);
-  });
+  var weeks = analytics && analytics.weekly || [];
   var equivalents = ((history && history.included_exercises) || []).filter(function (item) { return item.id !== exerciseId; });
   var equivalentNote = equivalents.length
     ? " History includes declared equivalents: " + equivalents.map(function (item) { return item.display || item.id; }).join(", ") + "."
     : "";
-  var pageNote = history && history.has_more
-    ? " Only the latest 50 sessions are returned; older periods whose completeness cannot be verified are left blank, not zero-filled."
-    : "";
-  var common = "Based on completed working-set history for " + exerciseLabel + ". Same-day fragments are grouped by date." + equivalentNote + pageNote;
+  var common = "Based on complete-range Python aggregates for " + exerciseLabel + ". ISO-week buckets are clipped to the selected dates." + equivalentNote;
+  var categories = weeks.map(function (period) {
+    return {label: "W" + period.iso_week + " " + period.iso_year, start: period.start, end: period.end};
+  });
   frequencyHost.innerHTML = groupedBarChart({
-    title: exerciseLabel + " training days per 7-day period", xTitle: "7-day period", yTitle: "Distinct training dates",
-    categories: categories, series: [{id: "exercise-days", label: "Days with working sets", values: dayCounts}],
-    emptyMessage: history && history.has_more ? "No complete weekly exercise-frequency buckets are available; older periods are unknown because history is paged." : "No exercise-frequency observations in this period.",
+    title: exerciseLabel + " training dates per ISO week", xTitle: "ISO week in selected range", yTitle: "Distinct training dates",
+    categories: categories, series: [{id: "exercise-days", label: "Days with working sets", values: weeks.map(function (item) { return item.training_dates; })}],
+    emptyMessage: "No complete exercise-frequency observations in this period.",
     formatY: function (value) { return chartNumber(value, 0); }, note: common + " Counts are distinct dates, not session fragments."
   });
   volumeHost.innerHTML = groupedBarChart({
-    title: exerciseLabel + " working sets per 7-day period", xTitle: "7-day period", yTitle: "Completed working sets",
-    categories: categories, series: [{id: "exercise-sets", label: "Working sets", values: setCounts}],
-    emptyMessage: history && history.has_more ? "No complete weekly working-set buckets are available; older periods are unknown because history is paged." : "No exercise working-set observations in this period.",
+    title: exerciseLabel + " working sets per ISO week", xTitle: "ISO week in selected range", yTitle: "Completed working sets",
+    categories: categories, series: [{id: "exercise-sets", label: "Working sets", values: weeks.map(function (item) { return item.working_sets; })}],
+    emptyMessage: "No complete weekly working-set observations in this period.",
     formatY: function (value) { return chartNumber(value, 0); }, note: common + " This count is not repetitions, tonnage, or RIR-defined hard sets."
   });
 }

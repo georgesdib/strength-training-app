@@ -239,7 +239,8 @@ def series_breaks(points: list[RawObservation], taxonomy: Any = None) -> list[Br
 
 def summarize(points: list[RawObservation]) -> dict[str, Any]:
     if not points:
-        return {"n": 0, "status": "unavailable", "latest": None, "recent_median_kg": None}
+        return {"n": 0, "status": "unavailable", "latest": None, "best": None,
+                "recent_median_kg": None}
     values = [point.estimate.kg for point in points]
     recent = values[-3:]
     recent_median = sorted(recent)[len(recent) // 2] if len(recent) % 2 else (
@@ -248,10 +249,12 @@ def summarize(points: list[RawObservation]) -> dict[str, Any]:
     status = "points_only" if len(points) < 3 else (
         "limited" if len(points) < 5 else "descriptive"
     )
+    best = max(points, key=lambda point: (point.estimate.kg, point.date))
     return {
         "n": len(points),
         "status": status,
         "latest": {"date": points[-1].date, "kg": round(values[-1], 1)},
+        "best": {"date": best.date, "kg": round(best.estimate.kg, 1)},
         "recent_median_kg": round(recent_median, 1),
         "change_from_median_kg": round(values[-1] - recent_median, 1),
         "trend_statement": None if len(points) < 5 else "descriptive rolling median available",
