@@ -74,7 +74,7 @@ function chartAxes(xTitle, yTitle, xTicks, yTicks, plot, width, height) {
 }
 
 function performanceSvg(points) {
-  if (!points || points.length < 2) return "";
+  if (!points || points.length < 1) return "";
   var values = points.map(function (point) { return Number(point.kg); });
   var min = Math.min.apply(null, values);
   var max = Math.max.apply(null, values);
@@ -82,7 +82,9 @@ function performanceSvg(points) {
   var width = 640, height = 240;
   var plot = { left: 56, right: width - 16, top: 16, bottom: height - 42 };
   var coords = points.map(function (point, index) {
-    var x = plot.left + (index / (points.length - 1)) * (plot.right - plot.left);
+    var x = points.length === 1
+      ? (plot.left + plot.right) / 2
+      : plot.left + (index / (points.length - 1)) * (plot.right - plot.left);
     var y = plot.bottom - ((Number(point.kg) - min) / span) * (plot.bottom - plot.top);
     return [x, y];
   });

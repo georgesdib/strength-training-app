@@ -603,6 +603,36 @@ if (html.indexOf("0 kg (observed_zero)") < 0) throw new Error("genuine zero lost
     subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
 
 
+def test_performance_chart_renders_a_single_observation() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    script = r"""
+global.__target = {innerHTML: ""};
+global.document = {getElementById: function () { return global.__target; },
+                  addEventListener: function () {}};
+global.esc = function (value) { return String(value == null ? "" : value); };
+global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
+global.today = function () { return "2024-01-31"; };
+global.api = function () { return Promise.resolve({}); };
+eval(SOURCE);
+renderPerformanceE1rm({
+  exercise_id: "ssb_squat",
+  points: [{date: "2024-01-20", kg: 120, rolling_median_kg: 120, n_window: 1}],
+  summary: {n: 1, status: "points_only", latest: {date: "2024-01-20", kg: 120},
+            recent_median_kg: 120},
+});
+var html = global.__target.innerHTML;
+if (html.indexOf("<svg") < 0) throw new Error("single-point chart missing");
+if (html.indexOf("Raw e1RM observations") < 0) throw new Error("chart title missing");
+if (html.indexOf("Date") < 0) throw new Error("date axis missing");
+"""
+    script = script.replace("SOURCE", json.dumps(source))
+    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+
+
 def test_step5_report_controls_are_wired() -> None:
     page = INDEX.read_text(encoding="utf-8")
     source = (STATIC / "app.js").read_text(encoding="utf-8")
