@@ -181,16 +181,63 @@
     <section id="view-progress" class="view">
       <div class="hero">
         <div><p class="eyebrow">Progress</p><h1>Training progress</h1>
-          <p class="muted">A combined entry point for strength, dose, performance and consistency. All displays are descriptive.</p></div>
+          <p class="muted">Strength, working-set dose, recorded training frequency and workout execution. Descriptive views; no prescription or causal claims.</p></div>
       </div>
       <div class="panel">
         <form id="progress-overview-form" class="form-row">
           <label>Period<select id="progress-overview-weeks"><option value="4">4 weeks</option><option value="8" selected>8 weeks</option><option value="12">12 weeks</option></select></label>
           <label>As of<input type="date" id="progress-overview-date"></label>
+          <label>Exercise (e1RM-eligible; main lifts first)<select id="progress-exercise"><option value="">Loading eligible exercises…</option></select></label>
+          <label>Movement pattern<select id="progress-pattern"><option value="">Loading patterns…</option></select></label>
           <button class="primary" type="submit">Update overview</button>
           <span class="muted" id="progress-overview-status" role="status" aria-live="polite"></span>
         </form>
         <div id="progress-dashboard"><p class="empty">Loading progress…</p></div>
+        <div class="progress-dashboard-grid">
+          <section class="panel progress-dashboard-panel"><div class="panel-head"><h2>Strength trend</h2><span class="muted">eligible raw e1RM observations</span></div>
+            <p class="section-help"><span>Raw eligible daily estimates only; gaps and equipment changes are not imputed.</span> <a class="doc-link" href="#docs?doc=docs/OUTCOMES.md">Strength and outcome definitions</a></p>
+            <div id="progress-strength-chart"><p class="empty">Choose an e1RM-eligible exercise.</p></div>
+            <div id="progress-strength-summary"></div>
+            <details class="progress-subsection"><summary>Logged working load and repetitions</summary>
+              <div id="progress-load-chart"><p class="empty">Choose an exercise to view recorded working-set loads.</p></div>
+            </details>
+          </section>
+          <section class="panel progress-dashboard-panel"><div class="panel-head"><h2>Weekly working-set volume</h2><span class="muted">by movement pattern</span></div>
+            <p class="section-help"><span>Counts are working sets from the volume report, not tonnage or RIR-defined hard sets.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Progress chart scope and caveats</a></p>
+            <div id="progress-dose-chart"><p class="empty">Loading working-set history…</p></div>
+            <p class="muted" id="progress-dose-note"></p>
+            <details class="progress-subsection"><summary>Selected-exercise dose and exposure</summary>
+              <p class="muted">Same exercise selector as Strength; counts are working sets and distinct training dates, not tonnage.</p>
+              <div class="progress-exposure-grid">
+                <div id="progress-exercise-frequency-chart"><p class="empty">Loading exercise exposure…</p></div>
+                <div id="progress-exercise-volume-chart"><p class="empty">Loading exercise working sets…</p></div>
+              </div>
+            </details>
+          </section>
+          <section class="panel progress-dashboard-panel"><div class="panel-head"><h2>Recorded training frequency</h2><span class="muted">non-overlapping 7-day periods</span></div>
+            <p class="section-help"><span>Distinct stored training dates; the optional target is not a planned-session calendar.</span> <a class="doc-link" href="#docs?doc=docs/TRAINING-DAY-MODEL.md">Training-day grouping</a></p>
+            <div id="progress-calendar"><p class="empty">Loading observed training calendar…</p></div>
+            <div id="progress-frequency-chart"><p class="empty">Loading recorded training dates…</p></div>
+            <p class="muted" id="progress-frequency-note"></p>
+          </section>
+          <section class="panel progress-dashboard-panel"><div class="panel-head"><h2>Performance vs dose</h2><span class="muted">exploratory association</span></div>
+            <p class="section-help"><span>Descriptive paired observations only; no prediction, causal claim, or prescription change.</span> <a class="doc-link" href="#docs?doc=docs/MONITORING-ANALYSIS.md">Monitoring analysis method and limits</a></p>
+            <p class="muted">The existing fixed-56-day cross-lift ratio is shown above. Its selected-lift lagged association uses all eligible history through the selected date, independently of the 4/8/12-week window; it remains observational, not predictive or causal.</p>
+            <p class="muted">The existing cross-lift ratio endpoint uses its fixed 56-day lookback, independently of the strength/volume period filter.</p>
+            <div id="progress-ratio-chart"><p class="empty">Loading recent observed performance ratio…</p></div>
+            <details class="progress-subsection"><summary>Selected-lift dose association</summary>
+              <button type="button" class="ghost" id="progress-load-association">Load selected-lift association</button>
+              <div id="progress-association"><p class="empty">Load an association to inspect available paired observations.</p></div>
+            </details>
+          </section>
+          <details class="panel progress-dashboard-panel progress-subsection"><summary>Prescribed vs logged</summary>
+            <p class="muted">Completed app-tracked workouts only; imported sessions without a frozen plan are unavailable.</p>
+            <label>Completed workout<select id="progress-workout"><option value="">No workout selected</option></select></label>
+            <div id="progress-execution"><p class="empty">Select a completed workout with a stored plan snapshot.</p></div>
+            <p class="muted">The actual is a count of logged set rows (which can include different roles), not a working-set-only or exercise-matched compliance score. Repetitions, loads and RIR remain in workout detail because ranges, nullable actuals and differing load bases do not form one comparable longitudinal total.</p>
+          </details>
+        </div>
+        <div class="today-quick-links"><a href="#performance" data-view-link="performance">Detailed Performance analysis</a><a href="#outcomes" data-view-link="outcomes">Detailed Outcomes review</a></div>
       </div>
     </section>
 
@@ -1364,6 +1411,8 @@
   <script src="/static/prescription-cache.js"></script>
   <script src="/static/settings.js"></script>
   <script src="/static/performance.js"></script>
+  <script src="/static/analytics-charts.js"></script>
+  <script src="/static/progress.js"></script>
   <script src="/static/app.js"></script>
   <script src="/static/exercises.js"></script>
   <script src="/static/history.js"></script>

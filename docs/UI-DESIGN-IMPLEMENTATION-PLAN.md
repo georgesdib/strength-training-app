@@ -1,10 +1,10 @@
 # Strength Training App UI Design — audit and implementation plan
 
-**Audit basis:** `ui-improvement` at `eb601ab`; read-only source/API review on 2026-11-05. This plan continues the existing vanilla-JS, local-first UI; it does not replace the app architecture.
+**Audit basis:** `ui-improvement` at `c6e45ae`; read-only source/API review on 2026-11-05. Follow-on work continues the existing vanilla-JS, local-first UI; it does not replace the app architecture.
 
 ## Audit summary
 
-The current product already has separate Today, Workflow, History, Exercises, Outcomes, Performance, Longevity, Cardio, Measures, Prescribe, Programme, Review, Readiness and Administration-style views. Its chart layer is dependency-free SVG in `strength_coach/web/static/performance.js`; it already supports axes, legends, enlargement, e1RM/rolling median, dose time-series, and descriptive scatters. The Exercise Explorer now combines add/view/edit, an e1RM trend and working-set counts by training day. APIs return more useful data than some surfaces currently show.
+The current product already has separate Today, Workflow, History, Exercises, Outcomes, Performance, Longevity, Cardio, Measures, Prescribe, Programme, Review, Readiness and Administration-style views. Its dependency-free SVG charts now share frame/axis and line/bar renderers in `performance.js` and `analytics-charts.js`; existing e1RM, ratio, dose and monitoring charts use them. Exercise Explorer combines add/view/edit, e1RM, per-day working sets, and load/reps history with basis/unit separation. Existing APIs return more useful dated data than the former Progress summary exposed.
 
 The main opportunities are to make the six areas discoverable in navigation without duplicating existing forms; keep Today focused; make charts look and behave consistently; fix a few misleading coverage displays; and make existing descriptive data easier to scan. Preserve current routes, IDs, loaders, workflows, and append-only semantics.
 
@@ -21,9 +21,9 @@ The main opportunities are to make the six areas discoverable in navigation with
 
 ## Data/API audit and limits
 
-**Available without a new backend contract:** `/api/overview` (today/readiness/reviews/recent), `/api/workout/active`, `/api/progress` (ratio points, aggregate attendance, average volume/status), `/api/outcomes` (strength/volume/readiness/cardio/measurement summaries), `/api/performance/*`, `/api/exercise-history`, `/api/cardio`, `/api/measurements`, `/api/exposure`, `/api/residual`, `/api/shadow`, `/api/programme`, completed workout summaries, `/api/state`, and settings/import/logs/docs endpoints. These support navigation, summaries, per-exercise trends, cardio weekly bars, raw measurement plots within the returned window, and snapshot visuals with qualifications.
+**Available without a new backend contract:** `/api/overview`, `/api/workout/active`, `/api/progress` (fixed-lookback ratio points and coverage), `/api/outcomes`, `/api/volume` (bounded weekly working sets by pattern), `/api/history/days` (bounded stored active dates/workout IDs), `/api/performance/e1rm`, `/api/performance/relationship-options`, `/api/exercise-history` (last 50 sessions), `/api/monitoring-analysis` (descriptive lagged pairs), `/api/workout/{id}` (frozen plan and completed workout), `/api/cardio`, `/api/measurements`, `/api/exposure`, `/api/residual`, `/api/shadow`, `/api/programme`, `/api/state`, and settings/import/logs/docs endpoints. These support the present Progress charts without duplicated domain calculations.
 
-**Not available as truthful time series today:** an actual future-session calendar, weekly attendance history, a longitudinal actual-vs-plan series, date-indexed readiness history in the Outcomes response, and full measurement history beyond the current endpoint window. Do not derive these from a snapshot or aggregate. Consider a bounded, read-only API only after users explicitly need the trend; it would need as-of, grouping, fragment, missingness and pagination contracts.
+**Not available as truthful time series today:** an actual future-session calendar, complete historical execution comparisons for imported sessions without frozen app-workout plans, a dedicated date-indexed bodyweight series, weighted muscle-group attribution, and a weekly tonnage/intensity/residual series with matching units and coverage. The Progress calendar/frequency counts describe stored active dates, never scheduled adherence; exercise history is capped at 50 sessions; the cross-lift ratio keeps its fixed 56-day window. Do not convert these limits into zeroes or infer unavailable dimensions.
 
 **Correctness issues to address before adding interpretations:** progress sRPE coverage must be as-of and count the stated field independently of duration; Longevity must count observed measurements rather than configured metric keys; readiness coverage text must reflect the actual intended/returned fields; Outcomes first/last e1RM should agree with canonical eligible best-per-training-day observations. These are reporting corrections, not prescription or storage changes.
 
@@ -45,16 +45,17 @@ The main opportunities are to make the six areas discoverable in navigation with
 - Reporting fixes: `/api/progress` counts the latest effective sRPE feedback independent of duration, constrained to non-voided sessions on/before the requested date; Longevity counts metrics with observations and shows the actual readiness-field denominator; Outcomes uses canonical eligible best-per-exercise-per-day observations.
 - Focused tests cover future feedback/as-of coverage, sRPE with no duration, same-day e1RM deduplication, chart no-data behavior and Longevity coverage labels.
 
-### P2 — Reusable charts and existing-data drill-ins — partial (2026-11-05)
+### P2 — Reusable charts and existing-data drill-ins — partial (Progress analytics stage complete 2026-11-05)
 
-- Added an observation-based performance-ratio line chart with exact tooltips, real-date spacing, a 1.00 reference and no-imputation disclosure; the working-set chart now uses date-proportional spacing and exact tooltips.
+- Added a shared, dependency-free SVG chart layer for date-proportional multi-series lines and grouped bars; it supports reference lines/bands, exact point/category tooltips, consistent axes/units, empty states, responsive SVG, and keyboard/touch series toggles. e1RM, performance ratio, session dose, and monitoring line charts were migrated incrementally; existing chart-expand behavior and semantics remain.
 - Exercise Explorer now shows completed working-set count, load medians split by `load_basis`, and rep medians split by `reps_unit`; same-date fragments combine, null values stay missing, and units are never mixed. Existing e1RM/rolling-median graph remains.
-- Extend shared axes/style and selectively add cardio weekly minutes/reference context, method-aware measurement-entry trends, or carefully qualified programme snapshot visuals only after confirming date/unit/method contracts. No projection or attendance time series from snapshots.
-- Acceptance still open for the remaining P2 plots and a touch/keyboard browser smoke test. Current renderer tests cover empty ratio, one-point and missing/mixed-unit exercise data; browser automation is not installed.
+- Progress now combines selectable e1RM raw/trailing-median series and best/latest context, basis-aware logged load/reps, weekly pattern and selected-exercise working-set volume, selected-exercise training dates, an observed-day calendar, non-overlapping weekly training frequency against an optional configured target, the existing fixed-56-day ratio, on-demand lagged dose/e1RM scatters, and one completed app-workout original-plan vs logged-set-row comparison. That comparison is aggregate-only (rows may include different roles, no item matching) and is not an adherence measure. Main-lift change detail and sRPE coverage are retained.
+- Clear omissions: no bodyweight-relative trend, weighted muscle volume, weekly tonnage/intensity, or longitudinal VBT residuals because current API contracts do not provide reliable complete series; no imported-session plan comparison; no invented schedule. No new API, database, or dependency was added.
+- Remaining P2 opportunities are cardio weekly reference context and method-aware measurement-entry trends after date/unit/method review. Regression tests cover aggregation/date filters, exact tooltips, empty/missing values, series toggles, and execution caveats; a real iPhone/browser smoke test remains outstanding.
 
 ### P3 — Optional read-only data contracts
 
-Only if validated product need remains: bounded weekly attendance, completed-only execution aggregation, date-indexed readiness, or measurement pagination. Specify and test contracts before graphing. No schema migration is assumed by current evidence.
+Only if validated product need remains: complete plan/execution item matching, date-indexed bodyweight/readiness or measurement pagination, weighted muscle attribution, or weekly RIR/tonnage/residual history. Specify and test contracts before graphing. No schema migration is assumed by current evidence.
 
 ## Explicitly out of scope
 
@@ -63,15 +64,18 @@ No prescription engine or rule changes; no database-semantic changes, data delet
 ## Verification
 
 For each milestone run focused tests, `python tools/check_ui_docs.py`, `ruff check .`, and the repository default pytest suite before finalizing. Browser automation is not installed in this repo's documented environment; report a manual iPhone/browser smoke test only if one is actually performed.
-**2026-11-05 implementation verification:** 1,518 tests passed; targeted Progress/Outcomes/UI/API tests passed; `python tools/check_ui_docs.py`, `ruff check .`, `git diff --check`, and Node syntax checks passed. No browser/iPhone smoke test was performed.
+**2026-11-05 prior implementation verification:** 1,518 tests passed; targeted Progress/Outcomes/UI/API tests passed; `python tools/check_ui_docs.py`, `ruff check .`, `git diff --check`, and Node syntax checks passed. No browser/iPhone smoke test was performed.
+
+**2026-11-05 follow-on verification:** 1,521 tests passed; `python tools/check_ui_docs.py`, `ruff check .`, `git diff --check`, and Node syntax checks for `analytics-charts.js`, `progress.js`, `performance.js`, and `app.js` passed. No browser/iPhone smoke test was performed.
 
 ## Implementation updates
 
 - **2026-11-05:** Six-area sidebar, active-group state, Today action summary, combined Progress entry point, per-exercise load/reps graphs, as-of/canonical reporting corrections, UI/docs-map updates, and regression coverage are implemented on `ui-improvement`. See the implementation commit for branch delivery status.
+- **2026-11-05 follow-on:** Shared chart primitives and the integrated Progress workspace are implemented without new APIs or metric definitions. The former summary fields and cross-lift ratio remain; bounded chart additions and all explicit omissions are documented above.
 
 ## Initial code-map
 
 - Navigation/views: `strength_coach/web/static/index.html`, `app.js`, `docs/UI-MAP.md`.
 - Workouts/history/exercises: `workout.js`, `history.js`, `exercises.js`, `summary.js`; APIs in `server.py` and feature modules.
-- Chart presentation: `performance.js`, `style.css`; canonical computations remain in Python feature modules.
+- Chart presentation: `performance.js`, `analytics-charts.js`, `progress.js`, `style.css`; canonical computations remain in Python feature modules.
 - Contracts: `tests/test_ui_frontend.py`, `tests/test_web.py`, `tests/test_progress.py`, `tests/test_outcomes.py`, `tests/test_exercise_history.py`, and docs consistency checks.

@@ -364,59 +364,6 @@ async function loadProgress() {
   }
 }
 
-async function loadProgressOverview() {
-  const target = $("#progress-dashboard");
-  const status = $("#progress-overview-status");
-  if (!target) return;
-  const weeks = $("#progress-overview-weeks")?.value || "8";
-  const date = $("#progress-overview-date")?.value || "";
-  target.innerHTML = "<p class='empty'>Loading progress data…</p>";
-  try {
-    const outcomesQuery = new URLSearchParams({weeks});
-    if (date) outcomesQuery.set("date", date);
-    const [outcomesData, progressData] = await Promise.all([
-      api("/api/outcomes?" + outcomesQuery.toString()),
-      api("/api/progress" + (date ? "?date=" + encodeURIComponent(date) : "")),
-    ]);
-    const strength = outcomesData.strength || {};
-    const attendance = strength.attendance || {};
-    const lifts = strength.main_lifts || [];
-    const volume = strength.volume || [];
-    const feedback = progressData.coverage || {};
-    const liftRows = lifts.map((row) => `<tr><td>${esc(row.exercise_id)}</td><td>${row.n}</td><td>${fmt(row.first_e1rm)} kg <span class="muted">(${esc(row.first_on)})</span></td><td>${fmt(row.last_e1rm)} kg <span class="muted">(${esc(row.last_on)})</span></td><td>${row.change_kg > 0 ? "+" : ""}${fmt(row.change_kg)} kg</td><td>${fmt(row.best_e1rm)} kg</td></tr>`).join("");
-    const volumeRows = volume.map((row) => `<tr><td>${esc(row.pattern)}</td><td>${row.average_per_week ?? "unknown"}</td><td>${row.weeks_present ?? 0}</td></tr>`).join("");
-    const attendanceLabel = attendance.target == null ? "target unknown" : `${attendance.completed ?? 0} / ${attendance.target} target days (${attendance.pct ?? "—"}%)`;
-    const srpe = strength.sRPE || {};
-    target.innerHTML = `<p class="muted">${esc(outcomesData.window?.from || "unknown")} to ${esc(outcomesData.window?.to || "unknown")} · measured values are estimates/observations as labelled.</p>
-      <div class="cards">
-        <div class="card"><div class="label">Training days</div><div class="value">${attendance.completed ?? 0}</div><div class="sub">${esc(attendanceLabel)} · not planned-date compliance</div></div>
-        <div class="card"><div class="label">Main lifts observed</div><div class="value">${lifts.length}</div><div class="sub">${strength.sessions ?? 0} distinct training days</div></div>
-        <div class="card"><div class="label">sRPE recorded</div><div class="value">${srpe.n ?? 0}</div><div class="sub">${srpe.average == null ? "average unavailable" : `mean ${fmt(srpe.average)} / 10`}</div></div>
-        <div class="card"><div class="label">All-to-date sRPE coverage</div><div class="value">${feedback.with_srpe ?? 0} / ${feedback.sessions ?? 0}</div><div class="sub">${feedback.pct == null ? "unknown" : feedback.pct + "%"} through selected date</div></div>
-      </div>
-      <div class="panel"><div class="panel-head"><h2>Strength changes</h2><span class="muted">one eligible best per exercise per training day</span></div>
-        <div class="table-scroll"><table><thead><tr><th>Exercise</th><th>observations</th><th>first estimate</th><th>latest estimate</th><th>change</th><th>best estimate</th></tr></thead><tbody>${liftRows || "<tr><td colspan='6' class='muted'>No eligible main-lift observations in this period.</td></tr>"}</tbody></table></div>
-      </div>
-      <div class="panel"><div class="panel-head"><h2>Training dose</h2><span class="muted">average sets per week by pattern</span></div>
-        <div class="table-scroll"><table><thead><tr><th>Pattern</th><th>average sets/week</th><th>weeks present</th></tr></thead><tbody>${volumeRows || "<tr><td colspan='3' class='muted'>No volume observations.</td></tr>"}</tbody></table></div>
-      </div>
-      <div class="panel"><div class="panel-head"><h2>Recent performance ratio</h2><span class="muted">fixed 56-day lookback; observed values</span></div>
-        ${typeof progressRatioSvg === "function" ? progressRatioSvg(progressData.performance?.points || [], "Cross-lift performance ratio by training date") : "<p class='empty'>Chart renderer unavailable.</p>"}
-        <p class="muted">${esc(progressData.note || "")} This ratio is descriptive, not an e1RM series, readiness score, causal estimate, or prescription input.</p>
-      </div>
-      <div class="today-quick-links"><a href="#performance" data-view-link="performance">Detailed Performance analysis</a><a href="#outcomes" data-view-link="outcomes">Detailed Outcomes review</a></div>
-      <p class="muted">${esc(outcomesData.note || "")} Missing values remain unknown; attendance is compared with a configured weekly target and is not a stored schedule.</p>`;
-    if (status) status.textContent = "Updated";
-  } catch (error) {
-    target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
-    if (status) status.textContent = "Could not load";
-  }
-}
-
-$("#progress-overview-form")?.addEventListener("submit", (event) => {
-  event.preventDefault();
-  loadProgressOverview();
-});
 
 async function loadRepVelocityProgress() {
   try {

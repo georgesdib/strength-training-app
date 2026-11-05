@@ -171,7 +171,8 @@ def test_esc_escapes_html_metacharacters() -> None:
         "const got = esc(\"'\\\"><&\");"
         "if (got !== \"&#39;&quot;&gt;&lt;&amp;\") throw new Error(got);"
     )
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 def test_no_utc_or_locale_date_contract() -> None:
     source = "\n".join(path.read_text(encoding="utf-8")
@@ -346,7 +347,8 @@ def test_fatigue_diagnostic_reveals_ten_rows_at_a_time() -> None:
         + "if (all.indexOf('Show 10 more') >= 0) throw new Error('button should disappear');"
         + "if (all.indexOf('Showing all 23 lifts') < 0) throw new Error('all count missing');"
     )
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_accessibility_and_navigation_guards() -> None:
@@ -461,7 +463,8 @@ def test_volume_panel_is_consolidated_and_linked_to_its_guide() -> None:
             "if (volumeNestedValue(budget, 'tolerance') !== 0.1) throw new Error('flat value');"
             "if (volumeNestedValue(budget, 'missing.total') !== undefined) throw new Error('missing');"
         )
-        subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+        result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_technique_throttle_scope_is_a_constrained_select() -> None:
@@ -557,7 +560,8 @@ html = render(base);
 if (html.indexOf("degraded") < 0) throw new Error("degraded status");
 """
     script = script.replace("SOURCE", json.dumps(source))
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_monitoring_analysis_charts_and_missingness_render() -> None:
@@ -565,7 +569,7 @@ def test_monitoring_analysis_charts_and_missingness_render() -> None:
     if node is None:
         import pytest
         pytest.skip("node is not installed")
-    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8") + "\n" + (STATIC / "analytics-charts.js").read_text(encoding="utf-8")
     script = r"""
 global.__target = {innerHTML: "", dataset: {}, addEventListener: function () {}};
 global.document = {getElementById: function () { return global.__target; }};
@@ -613,7 +617,8 @@ if (html.indexOf("Unavailable") < 0) throw new Error("missing tonnage shown as u
 if (html.indexOf("0 kg (observed_zero)") < 0) throw new Error("genuine zero lost");
 """
     script = script.replace("SOURCE", json.dumps(source))
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_performance_chart_renders_a_single_observation() -> None:
@@ -621,7 +626,7 @@ def test_performance_chart_renders_a_single_observation() -> None:
     if node is None:
         import pytest
         pytest.skip("node is not installed")
-    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8") + "\n" + (STATIC / "analytics-charts.js").read_text(encoding="utf-8")
     script = r"""
 global.__target = {innerHTML: ""};
 global.document = {getElementById: function () { return global.__target; },
@@ -645,7 +650,8 @@ if (html.indexOf("chart-series-median") < 0) throw new Error("rolling median ove
 if (html.indexOf("rolling median") < 0) throw new Error("rolling median legend missing");
 """
     script = script.replace("SOURCE", json.dumps(source))
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_progress_ratio_chart_is_observation_based_and_handles_empty_data() -> None:
@@ -653,7 +659,7 @@ def test_progress_ratio_chart_is_observation_based_and_handles_empty_data() -> N
     if node is None:
         import pytest
         pytest.skip("node is not installed")
-    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8") + "\n" + (STATIC / "analytics-charts.js").read_text(encoding="utf-8")
     script = r"""
 global.esc = function (value) { return String(value == null ? "" : value); };
 eval(SOURCE);
@@ -670,7 +676,8 @@ if (html.indexOf("no values are imputed") < 0) throw new Error("missing-data dis
 if (html.indexOf("role='button'") < 0 || html.indexOf("tabindex='0'") < 0) throw new Error("accessible expansion missing");
 """
     script = script.replace("SOURCE", json.dumps(source))
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_longevity_coverage_counts_observations_and_uses_returned_fields() -> None:
@@ -707,7 +714,8 @@ loadLongevity().then(() => {
   if (!html.includes("latest values below use available history")) throw new Error("measurement window caveat missing");
 });
 """.replace("FUNCTION", json.dumps(match.group(0)))
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_today_workout_action_handles_active_and_missing_workouts() -> None:
@@ -721,44 +729,190 @@ def test_today_workout_action_handles_active_and_missing_workouts() -> None:
     script = f"eval({json.dumps(match.group(0))});\n"
     script += "if (todaySessionActionLabel({status: 'in_progress'}) !== 'Continue workout') throw new Error('active action');\n"
     script += "if (todaySessionActionLabel(null) !== 'Start today’s workout') throw new Error('missing action');\n"
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
-def test_progress_overview_renders_real_outcome_fields_and_as_of_filters() -> None:
+def test_progress_overview_renders_strength_dose_frequency_and_real_api_fields() -> None:
     node = shutil.which("node")
     if node is None:
         import pytest
         pytest.skip("node is not installed")
-    source = (STATIC / "app.js").read_text(encoding="utf-8")
-    match = re.search(r"async function loadProgressOverview\(\) \{[\s\S]*?\n\}", source)
-    assert match, "loadProgressOverview() not found"
+    app = (STATIC / "progress.js").read_text(encoding="utf-8")
+    charts = (STATIC / "analytics-charts.js").read_text(encoding="utf-8")
+    performance = (STATIC / "performance.js").read_text(encoding="utf-8")
+    source = performance + "\n" + charts + "\n" + app
     script = r"""
-const els = {"#progress-dashboard": {innerHTML: ""}, "#progress-overview-status": {textContent: ""},
-  "#progress-overview-weeks": {value: "4"}, "#progress-overview-date": {value: "2024-04-30"}};
-global.$ = function (selector) { return els[selector]; };
+function el(value) { return {innerHTML: "", textContent: "", value: value || "", disabled: false,
+  addEventListener: function () {}}; }
+const els = {
+  "#progress-dashboard": el(), "#progress-overview-status": el(), "#progress-overview-weeks": el("4"),
+  "#progress-overview-date": el("2024-04-30"), "#progress-exercise": el(), "#progress-pattern": el(),
+  "#progress-strength-chart": el(), "#progress-strength-summary": el(), "#progress-load-chart": el(),
+  "#progress-dose-chart": el(), "#progress-dose-note": el(), "#progress-frequency-chart": el(),
+  "#progress-calendar": el(), "#progress-exercise-frequency-chart": el(), "#progress-exercise-volume-chart": el(),
+  "#progress-frequency-note": el(), "#progress-ratio-chart": el(), "#progress-association": el(), "#progress-load-association": el(),
+  "#progress-workout": el(), "#progress-execution": el()
+};
+global.$ = function (selector) { return els[selector] || null; };
+global.document = {addEventListener: function () {}};
 global.esc = function (value) { return String(value == null ? "" : value); };
 global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
-global.progressRatioSvg = function () { return "<svg aria-label='ratio'></svg>"; };
+global.today = function () { return "2024-04-30"; };
 const calls = [];
 global.api = function (url) {
   calls.push(url);
   if (url.startsWith("/api/outcomes")) return Promise.resolve({window: {from: "2024-04-03", to: "2024-04-30"}, note: "descriptive",
-    strength: {sessions: 3, attendance: {completed: 3, target: 4, pct: 75},
-      main_lifts: [{exercise_id: "ssb_squat", n: 2, first_on: "2024-04-05", first_e1rm: 100, last_on: "2024-04-25", last_e1rm: 105, change_kg: 5, best_e1rm: 105}],
-      volume: [{pattern: "squat", average_per_week: 6.5, weeks_present: 3}], sRPE: {n: 2, average: 6.5}}});
-  return Promise.resolve({coverage: {with_srpe: 4, sessions: 8, pct: 50}, performance: {points: []}, note: "descriptive"});
+    strength: {sessions: 3, attendance: {completed: 3, target: 4, weeks: 4, pct: 75},
+      main_lifts: [{exercise_id: "ssb_squat", n: 2, first_e1rm: 100, first_on: "2024-04-05", last_e1rm: 105,
+        last_on: "2024-04-25", change_kg: 5, best_e1rm: 105}], volume: [], sRPE: {n: 2, average: 6.5}}});
+  if (url.startsWith("/api/volume")) return Promise.resolve({from: "2024-04-08", to: "2024-04-30", weeks: [16, 17], patterns: [{pattern: "squat", weeks: [6, 7], total: 13}],
+    coverage: {mode: "unknown", observed_weeks: 2, denominator: 2}});
+  if (url.startsWith("/api/history/days")) return Promise.resolve({days: [
+    {occurred_on: "2024-04-05", active_fragment_count: 1, workout_ids: []},
+    {occurred_on: "2024-04-08", active_fragment_count: 0, workout_ids: []},
+    {occurred_on: "2024-04-25", active_fragment_count: 2, workout_ids: []}
+  ]});
+  if (url === "/api/performance/relationship-options") return Promise.resolve({exercises: [{id: "ssb_squat", label: "Safety bar squat"}]});
+  if (url.startsWith("/api/progress?")) return Promise.resolve({coverage: {with_srpe: 4, sessions: 8, pct: 50},
+    performance: {points: [{date: "2024-04-25", ratio: 1.02, lifts: 2}]}});
+  if (url.startsWith("/api/performance/e1rm")) return Promise.resolve({exercise_id: "ssb_squat", points: [
+    {date: "2024-04-05", kg: 100, rolling_median_kg: 100, n_window: 1},
+    {date: "2024-04-25", kg: 105, rolling_median_kg: 102.5, n_window: 2}],
+    summary: {n: 2, status: "points_only", latest: {date: "2024-04-25", kg: 105}}});
+  if (url.startsWith("/api/exercise-history")) return Promise.resolve({total: 1, has_more: false, sessions: [
+    {occurred_on: "2024-04-05", sets: [{load_kg: 80, load_basis: "external", reps: 5, reps_unit: "reps"}]}
+  ]});
+  return Promise.reject(new Error("unexpected API request: " + url));
 };
-eval(FUNCTION);
+eval(SOURCE);
 loadProgressOverview().then(() => {
-  const html = els["#progress-dashboard"].innerHTML;
-  if (!calls.some((url) => url.includes("weeks=4") && url.includes("date=2024-04-30"))) throw new Error("outcomes filter missing");
-  if (!calls.some((url) => url === "/api/progress?date=2024-04-30")) throw new Error("as-of ratio filter missing");
-  if (!html.includes("6.5") || !html.includes("weeks present") || !html.includes("All-to-date sRPE coverage")) throw new Error("API field mappings missing");
-  if (!html.includes("ratio") || els["#progress-overview-status"].textContent !== "Updated") throw new Error("chart or status missing");
+  if (!calls.some((url) => url.startsWith("/api/outcomes?weeks=4&date=2024-04-30"))) throw new Error("outcomes as-of filter missing");
+  if (!calls.some((url) => url.startsWith("/api/volume?date=2024-04-30&weeks=4"))) throw new Error("volume window missing");
+  if (!calls.some((url) => url.includes("/api/history/days?start=2024-04-03&end=2024-04-30"))) throw new Error("history date window missing");
+  if (!calls.some((url) => url.includes("/api/performance/e1rm?exercise_id=ssb_squat&from=2024-04-03&to=2024-04-30"))) throw new Error("selected exercise date filter missing");
+  if (els["#progress-exercise"].value !== "ssb_squat") throw new Error("main-lift-first default missing");
+  if (!els["#progress-strength-chart"].innerHTML.includes("Trailing 3-observation median")) throw new Error("e1RM rolling median missing");
+  if (!els["#progress-dose-chart"].innerHTML.includes("weekly working sets")) throw new Error("dose chart missing");
+  if (!els["#progress-dose-chart"].innerHTML.includes("2024-04-15 to 2024-04-21")) throw new Error("exact volume week dates missing");
+  const yearCrossing = progressVolumeCategories({from: "2023-12-25", to: "2024-01-07", weeks: [52, 1]});
+  if (yearCrossing[0].label !== "W52 2023" || yearCrossing[1].label !== "W1 2024" || yearCrossing[1].start !== "2024-01-01") throw new Error("ISO week-year mapping incorrect");
+  if (!els["#progress-frequency-chart"].innerHTML.includes("Recorded training days")) throw new Error("frequency chart missing");
+  if (!els["#progress-frequency-note"].textContent.includes("not planned dates")) throw new Error("target semantics missing");
+  if (!els["#progress-calendar"].innerHTML.includes("2024-04-05")) throw new Error("observed-day calendar missing");
+  if (!els["#progress-exercise-frequency-chart"].innerHTML.includes("training days per 7-day period")) throw new Error("exercise exposure frequency missing");
+  if (!els["#progress-exercise-volume-chart"].innerHTML.includes("working sets per 7-day period")) throw new Error("exercise working-set volume missing");
+  if (!els["#progress-load-chart"].innerHTML.includes("Working-set load")) throw new Error("load trend missing");
+  if (!els["#progress-dashboard"].innerHTML.includes("all-to-date coverage 4 / 8")) throw new Error("sRPE coverage field missing");
+  if (!els["#progress-dashboard"].innerHTML.includes("Main-lift change table")) throw new Error("main-lift change detail missing");
+  if (!els["#progress-ratio-chart"].innerHTML.includes("ratio 1.020; 2 lift comparisons")) throw new Error("existing ratio chart missing");
+  if (!els["#progress-dashboard"].innerHTML.includes("bodyweight-relative strength")) throw new Error("unsupported graph limitations missing");
+  if (els["#progress-overview-status"].textContent !== "Updated") throw new Error("status missing");
 });
-""".replace("FUNCTION", json.dumps(match.group(0)))
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+""".replace("SOURCE", json.dumps(source))
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
+
+def test_shared_chart_core_renders_dates_bars_tooltips_and_reference_bands() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8") + "\n" + (STATIC / "analytics-charts.js").read_text(encoding="utf-8")
+    script = r"""
+global.esc = function (value) { return String(value == null ? "" : value); };
+global.fmt = function (value) { return Number(value).toFixed(1); };
+global.document = {addEventListener: function () {}};
+eval(SOURCE);
+const line = dateSeriesChart({title: "Strength", xTitle: "Date", yTitle: "kg",
+  series: [{id: "raw", label: "Raw", points: [{date: "2024-01-01", value: 100}, {date: "2024-01-31", value: 110}]},
+           {id: "median", label: "Rolling median", points: [{date: "2024-01-01", value: 100}, {date: "2024-01-31", value: 105}]}],
+  referenceLines: [{value: 100, label: "Reference"}], referenceBands: [{from: 101, to: 104, label: "Band"}]});
+if (!line.includes("2024-01-01: Raw 100")) throw new Error("exact point tooltip missing");
+if (!line.includes("data-chart-series-toggle='median'")) throw new Error("series toggle missing");
+if (!line.includes("aria-pressed='true'")) throw new Error("accessible series state missing");
+if (!line.includes("chart-reference-band") || !line.includes("chart-reference")) throw new Error("reference overlays missing");
+if (!line.includes("68.0,") || !line.includes("622.0,")) throw new Error("date-proportional spacing missing");
+const bars = groupedBarChart({title: "Dose", categories: [{label: "W1"}, {label: "W2"}],
+  series: [{id: "sets", label: "Working sets", values: [3, 5]}, {id: "hard", label: "Hard sets", values: [2, null]}],
+  referenceLines: [{value: 4, label: "Target"}]});
+if ((bars.match(/<rect class=/g) || []).length !== 3) throw new Error("bar series/missing-value behavior incorrect");
+if (!bars.includes("Target") || !bars.includes("Working sets")) throw new Error("bar labels missing");
+if (!groupedBarChart({categories: [], series: []}).includes("No observations")) throw new Error("empty state missing");
+""".replace("SOURCE", json.dumps(source))
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_chart_series_toggle_and_truncated_exercise_history_preserve_missingness() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8") + "\n" + (STATIC / "analytics-charts.js").read_text(encoding="utf-8") + "\n" + (STATIC / "progress.js").read_text(encoding="utf-8")
+    script = r"""
+const listeners = [];
+const els = {"#progress-exercise-frequency-chart": {innerHTML: ""}, "#progress-exercise-volume-chart": {innerHTML: ""}};
+global.$ = function (selector) { return els[selector] || null; };
+global.document = {addEventListener: function (name, callback) { listeners.push({name, callback}); }};
+global.esc = function (value) { return String(value == null ? "" : value); };
+global.fmt = function (value) { return Number(value).toFixed(1); };
+eval(SOURCE);
+let pressed = "true";
+const group = {style: {}, getAttribute: function (name) { return name === "data-chart-series" ? "raw" : null; }};
+const chart = {querySelectorAll: function () { return [group]; }};
+const button = {closest: function (selector) { return selector === "[data-chart-series-toggle]" ? button : chart; },
+  getAttribute: function (name) { return name === "data-chart-series-toggle" ? "raw" : pressed; },
+  setAttribute: function (name, value) { if (name === "aria-pressed") pressed = value; }};
+const seriesHandler = listeners.filter(function (entry) { return entry.name === "click"; }).pop().callback;
+seriesHandler({target: button});
+if (pressed !== "false" || group.style.display !== "none") throw new Error("series did not hide");
+seriesHandler({target: button});
+if (pressed !== "true" || group.style.display !== "") throw new Error("series did not restore");
+progressRenderExerciseExposure([{occurred_on: "2024-04-25", sets: [{}, {}, {}]}], "2024-04-03", 6,
+  "squat", "Squat", {has_more: true, sessions: [{occurred_on: "2024-04-25", sets: [{}, {}, {}]}, {occurred_on: "2024-04-10", sets: [{}]}]});
+const frequency = els["#progress-exercise-frequency-chart"].innerHTML;
+if (!frequency.includes("older periods whose completeness cannot be verified are left blank")) throw new Error("pagination caveat missing");
+if ((frequency.match(/<rect class=/g) || []).length !== 4) throw new Error("unknown earliest exercise weeks were zero-filled");
+""".replace("SOURCE", json.dumps(source))
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_progress_association_and_original_workout_execution_are_descriptive() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8") + "\n" + (STATIC / "analytics-charts.js").read_text(encoding="utf-8") + "\n" + (STATIC / "progress.js").read_text(encoding="utf-8")
+    script = r"""
+function el(value) { return {innerHTML: "", textContent: "", value: value || "", disabled: false, addEventListener: function () {}}; }
+const els = {"#progress-execution": el(), "#progress-association": el(), "#progress-exercise": el("squat"), "#progress-load-association": el()};
+global.$ = function (selector) { return els[selector] || null; };
+global.document = {addEventListener: function () {}};
+global.esc = function (value) { return String(value == null ? "" : value); };
+global.fmt = function (value) { return Number(value).toFixed(1); };
+global.api = function (url) {
+  if (url === "/api/workout/w1") return Promise.resolve({workout: {status: "completed", for_date: "2024-04-25", plan_modified: true,
+    original_plan: {items: [{exercise_id: "squat", sets: 2}, {exercise_id: "bench", sets: 3}]},
+    sets: [{}, {}, {}, {}]}});
+  if (url.includes("/api/monitoring-analysis")) return Promise.resolve({meta: {as_of: "2024-04-30", note: "Descriptive associations only."},
+    associations: [{exercise_id: "squat", hard_sets_points: [{x: 1, y: 100}, {x: 2, y: 110}, {x: 3, y: 120}],
+      hard_sets_vs_next_e1rm: {n: 3, r: 0.5, status: "descriptive"}, session_load_points: [], session_load_vs_next_e1rm: {n: 0, r: null, status: "insufficient"}}]});
+  return Promise.reject(new Error("unexpected API request " + url));
+};
+eval(SOURCE);
+Promise.all([loadProgressExecution("w1"), loadProgressAssociation()]).then(() => {
+  if (!els["#progress-execution"].innerHTML.includes("Original planned sets")) throw new Error("original prescription series missing");
+  if (!els["#progress-execution"].innerHTML.includes("Logged set rows")) throw new Error("logged execution missing");
+  if (!els["#progress-execution"].innerHTML.includes("original start-time plan")) throw new Error("edited-plan disclosure missing");
+  if (!els["#progress-association"].innerHTML.includes("Prior hard sets vs next e1RM")) throw new Error("dose/performance association missing");
+  if (!els["#progress-association"].innerHTML.includes("not refit or predict")) throw new Error("association caveat missing");
+});
+""".replace("SOURCE", json.dumps(source))
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 def test_step5_report_controls_are_wired() -> None:
     page = INDEX.read_text(encoding="utf-8")
@@ -878,7 +1032,8 @@ eval(FUNC);
 })().catch(error => { throw error; });
 """
     script = script.replace("FUNC", json.dumps(function_source))
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_relationship_config_reload_returns_failure_and_clears_stale() -> None:
@@ -923,7 +1078,8 @@ eval(FUNC);
 })().catch(error => { throw error; });
 """
     script = script.replace("FUNC", json.dumps(function_source))
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 def test_monitoring_inventory_reason_disclosures_and_empty_state() -> None:
     node = shutil.which("node")
     if node is None:
@@ -1001,7 +1157,8 @@ applyMonitoringFilter();
 if (elements["settings-monitoring-empty"].hidden !== true) throw new Error("empty state should hide when results return");
 """
     script = script.replace("ESC", json.dumps(esc_match.group(0))).replace("CHUNK", json.dumps(chunk))
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_exercise_training_day_chart_combines_same_day_fragments() -> None:
@@ -1030,7 +1187,8 @@ if ((html.match(/<circle/g) || []).length !== 2) throw new Error("dates were not
 if (html.indexOf("2026-10-01: 3 working sets") < 0) throw new Error("exact set-count tooltip missing");
 if (html.indexOf("no dates are imputed") < 0) throw new Error("date-gap disclosure missing");
 """.replace("SOURCE", json.dumps(source))
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_exercise_load_and_reps_charts_keep_incompatible_units_separate() -> None:
@@ -1064,7 +1222,8 @@ if (html.indexOf("median 5 reps across 3 working sets; reps") < 0) throw new Err
 if (html.indexOf("median 0") >= 0) throw new Error("null values became observed zeros");
 if (html.indexOf("No dates are imputed") < 0) throw new Error("imputation disclosure missing");
 """.replace("SOURCE", json.dumps(source))
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True)
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_exercise_views_are_grouped_and_add_edit_share_one_dialog() -> None:

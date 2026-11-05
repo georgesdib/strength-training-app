@@ -506,3 +506,54 @@ body.menu-open { overflow: hidden; }
   .relationship-admin-row { flex-direction: column; }
   .relationship-actions { justify-content: start; }
 }
+
+
+/* Shared longitudinal charts and the unified Progress workspace. */
+.progress-dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+.progress-dashboard-panel { min-width: 0; margin: 0; }
+.progress-dashboard-panel > label { display: grid; gap: 4px; margin: 8px 0; max-width: 560px; }
+.progress-association-grid { margin-top: 8px; }
+.chart-series-controls { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.chart-series-toggle { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 6px 10px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--paper); color: var(--ink); font-size: 12px; }
+.chart-series-toggle[aria-pressed="false"] { color: var(--muted); opacity: .72; text-decoration: line-through; }
+.chart-series-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chart-series-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: var(--accent); }
+.chart-series-swatch.chart-series-1 { background: var(--accent-2); }
+.chart-series-swatch.chart-series-2 { background: #577d64; }
+.chart-series-swatch.chart-series-3 { background: #b0783d; }
+.performance-chart .chart-series-raw, .performance-chart .chart-series-0 { stroke: var(--accent); }
+.performance-chart .chart-series-median, .performance-chart .chart-series-1 { stroke: var(--accent-2); stroke-dasharray: 7 4; }
+.performance-chart .chart-series-working { stroke: var(--accent); }
+.performance-chart .chart-series-hard { stroke: var(--accent-2); stroke-dasharray: 5 3; }
+.performance-chart .chart-series-2 { stroke: #577d64; }
+.performance-chart .chart-series-3 { stroke: #b0783d; }
+.performance-chart circle.chart-series-1-point, .performance-chart circle.chart-series-1-point { fill: var(--accent-2); }
+.performance-chart .chart-reference-band { fill: var(--accent); opacity: .1; }
+.performance-chart rect.chart-series-0 { fill: var(--accent); opacity: .78; stroke: none; }
+.performance-chart rect.chart-series-1 { fill: var(--accent-2); opacity: .78; stroke: none; }
+.performance-chart rect.chart-series-2 { fill: #577d64; opacity: .78; stroke: none; }
+.performance-chart rect.chart-series-3 { fill: #b0783d; opacity: .78; stroke: none; }
+@media (max-width: 760px) {
+  .progress-dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+  #progress-overview-form label { min-width: min(100%, 220px); }
+  .progress-dashboard-panel .chart-frame { padding: 6px; }
+}
+
+.progress-exposure-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.progress-calendar { display: grid; grid-template-columns: repeat(7, minmax(28px, 1fr)); gap: 4px; max-width: 680px; margin: 8px 0 14px; }
+.progress-calendar .activity-weekday { text-align: center; color: var(--muted); font-size: 11px; font-weight: 700; padding: 3px 0; }
+.progress-calendar .activity-cell { display: grid; place-items: center; min-height: 30px; border: 1px solid var(--line);
+  border-radius: 5px; background: var(--soft); color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.progress-calendar .activity-cell.is-active { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 700; }
+.progress-calendar .activity-cell.outside-range { visibility: hidden; }
+@media (max-width: 760px) { .progress-exposure-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.progress-subsection { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.progress-subsection > summary { cursor: pointer; min-height: 38px; display: flex; align-items: center; color: var(--ink); font-weight: 700; }
+.progress-subsection > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.progress-subsection > summary::marker { color: var(--accent); }
+
+.performance-chart circle.chart-series-1-point,
+.performance-chart circle.chart-series-median-point,
+.performance-chart circle.chart-series-hard-point { fill: var(--accent-2); }
