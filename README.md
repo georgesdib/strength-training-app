@@ -82,11 +82,13 @@ source .venv/bin/activate           # so `strength-coach` is on PATH
 .venv/bin/python tools/import_export.py   # load data/raw into data/coach.db
 .venv/bin/python tools/eval_prepare.py --session <date>   # labelling sheet
 .venv/bin/python tools/backtest.py        # rubric vs hand marks
+.venv/bin/python tools/export_repo.py     # full export incl. private data and .git, no build/cache data
 ./run-web.sh                              # local web UI at http://127.0.0.1:8000
 ```
 
 The tools read `data/raw/training_log.csv` and `data/raw/readiness.csv`. See
-[`data/README.md`](data/README.md) for the expected schema.
+[`data/README.md`](data/README.md) for the expected schema. Use `--no-git` to leave `.git` out
+of the export; the default archive contains private health data and is not encrypted.
 
 ## CI and releases
 
