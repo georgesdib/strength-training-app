@@ -1585,12 +1585,9 @@ def _comparison(workout: Mapping[str, Any], *, original: bool = False) -> dict:
             and str(row.get("exercise_id")) != str(item.get("exercise_id"))
         ]
         assigned.update(int(row["set_id"]) for row in matching)
-        if mismatched:
-            match_status = "unavailable"
-        elif original and plan_modified:
-            match_status = "unavailable"
-        else:
-            match_status = "matched"
+        match_status = (
+            "unavailable" if mismatched or (original and plan_modified) else "matched"
+        )
         count = len(matching)
         if match_status != "matched":
             status = "unavailable"

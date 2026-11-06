@@ -75,11 +75,12 @@ class ResidualReport:
         }
 
 
-def _rows(conn, start: str, end: str) -> list[Any]:
+def _rows(conn, start: str, end: str, *, completed_only: bool = False) -> list[Any]:
     # Only sets that were performed against a stored prescription target can have a residual;
     # imported sets carry no target and must not be compared with a later calibration.
+    status = "AND w.status = 'completed'" if completed_only else ""
     return conn.execute(
-        """
+        f"""
         SELECT ws.velocity, ws.reps, ws.exercise_id, w.for_date,
                pi.velocity_target, pi.load_basis, pi.vbt_basis
         FROM workout_set ws
@@ -91,6 +92,7 @@ def _rows(conn, start: str, end: str) -> list[Any]:
           AND ws.reps IS NOT NULL
           AND pi.velocity_target IS NOT NULL
           AND w.for_date BETWEEN ? AND ?
+          {status}
         ORDER BY w.for_date
         """,
         (start, end),
@@ -103,7 +105,7 @@ def weekly_history(conn, start: str, end: str) -> list[dict[str, Any]]:
     A week without a comparable set is absent; it is never emitted as a zero residual.
     """
     grouped: dict[str, list[float]] = {}
-    for row in _rows(conn, str(start), str(end)):
+    for row in _rows(conn, str(start), str(end), completed_only=True):
         scope = str(row["vbt_basis"] or "").split(" · ")[0].strip()
         if scope != "lift":
             continue

@@ -879,7 +879,7 @@ const data = {summary: [{key: "grip", label: "Grip", unit: "kg"}], entries: [
 if (measurementHistoryChart(data, "grip") !== "dots") throw new Error("measurement chart not returned");
 if (lineSpec.series.length !== 2 || lineSpec.series.some(x => x.line !== false)) throw new Error("measurement methods were combined or connected");
 if (lineSpec.series.reduce((sum, series) => sum + series.points.length, 0) !== 3) throw new Error("measurement observations were averaged or discarded");
-if (!lineSpec.note.includes("API limit 50") || !lineSpec.note.includes("no averaging, interpolation")) throw new Error("measurement coverage caveat absent");
+if (!lineSpec.note.includes("newest-first pages") || !lineSpec.note.includes("no averaging, interpolation")) throw new Error("measurement coverage caveat absent");
 if (!measurementHistoryChart(data, "missing").includes("Select a configured measurement")) throw new Error("metric empty state absent");
 """.replace("CHUNKS", json.dumps("\n".join(chunks)))
     result = subprocess.run([node, "-e", script], capture_output=True, text=True)

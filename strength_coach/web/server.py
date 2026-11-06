@@ -76,7 +76,6 @@ from strength_coach.features import monitoring_analysis as monitoring_analysis_f
 from strength_coach.features import outcomes as outcomes_feature
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import progress as progress_feature
-from strength_coach.features import weekly as weekly_feature
 from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import regime_change as regime_feature
@@ -88,6 +87,7 @@ from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import test_cadence as test_cadence_feature
 from strength_coach.features import volume as volume_feature
+from strength_coach.features import weekly as weekly_feature
 from strength_coach.features.readiness_score import ReadinessRequired
 from strength_coach.prescribe import (
     build_prescription,

@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 
 from strength_coach import history, workout
-from strength_coach.store import db
+from strength_coach.features import residual
+from strength_coach.store import db, repositories
 
 PLAN = {
     "for_date": "2024-01-01",
@@ -282,6 +283,44 @@ def test_original_comparison_is_unavailable_after_a_plan_swap(conn):
     )
     assert changed["comparison"]["items"][0]["match_status"] == "unavailable"
     assert changed["original_comparison"]["items"][0]["match_status"] == "unavailable"
+
+
+def test_weekly_residual_uses_stored_plan_item_target(conn):
+    conn.execute(
+        "INSERT INTO run (run_id, started_at, input_hash, code_version, status) "
+        "VALUES ('run-1', '2024-01-01T00:00:00Z', 'input', 'test', 'ok')"
+    )
+    repositories.append_prescription(
+        conn,
+        prescription_id="rx-1",
+        run_id="run-1",
+        for_date="2024-01-01",
+        session_type="hinge",
+        fallback_level="full",
+        rule_document_version="test",
+        calibration_ids=(),
+        approved_by="deterministic",
+        items=[{
+            "order_index": 0, "exercise_id": "trap_bar_deadlift", "sets": 1,
+            "reps_low": 5, "reps_high": 5, "load_kg": 100,
+            "load_basis": "external", "rounding_increment": None, "rir_target": 2,
+            "velocity_target": 0.5, "vbt_basis": "lift", "essential": True,
+        }],
+    )
+    started = workout.start(
+        conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS,
+        prescription_id="rx-1",
+    )
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2, velocity=0.4, plan_item_index=0,
+    )
+    workout.end(conn, started["workout_id"], session_rpe=7, duration_min=30)
+    weekly = residual.weekly_history(conn, "2024-01-01", "2024-01-01")
+    assert weekly == [{
+        "week_start": "2024-01-01", "n": 1, "mean_mps": -0.1,
+        "spread_mps": None, "status": "insufficient",
+    }]
 
 
 def test_end_scores_rubric_and_review_closes_workout(conn):

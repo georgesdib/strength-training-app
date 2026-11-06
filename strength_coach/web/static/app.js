@@ -3375,8 +3375,8 @@ function measurementHistoryChart(data, metricKey) {
     xTitle: "Measurement date", yTitle: unit,
     series,
     tooltip: (point, item) => `${point.date} · ${item.label}: ${point.value} ${unit}`,
-    note: `Independent recorded observations from the latest ${Number((data.entries || []).length)} entries ` +
-      `returned across all metrics (API limit 50). Methods are separated; same-day entries remain separate ` +
+    note: `Independent recorded observations from the ${Number((data.entries || []).length)} entries ` +
+      `currently returned across all metrics (newest-first pages; 50 per request). Methods are separated; same-day entries remain separate ` +
       "markers, with no averaging, interpolation or inferred measurements.",
   });
 }
