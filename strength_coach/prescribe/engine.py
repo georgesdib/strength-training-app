@@ -1145,7 +1145,7 @@ def _apply_spinal_trim(
     """Drop non-essential spinal work when the proposed session would exceed the weekly cap.
 
     PRG-SPINE-001 vetoes a *week*, and the standard cycle is designed to sit exactly on the
-    cap (docs/W9-SPINAL-CAP.md), so one extra exposure is enough to make an otherwise good
+    cap (docs/archive/W9-SPINAL-CAP.md), so one extra exposure is enough to make an otherwise good
     prescription non-executable. This is the same one-directional remedy the MRV cap uses:
     remove only non-essential high-fatigue spinal work, never an essential lift, and only
     while the removal actually reduces the week's cost. If the overage comes from essential

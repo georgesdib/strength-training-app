@@ -346,7 +346,7 @@ is scored.
 These tables exist so that constraints, injuries, tightness, suitability and preferences are
 **state**, not prompt text. A hard constraint stored here can veto a prescription
 deterministically, no matter what the LLM says. They are empty until the user answers
-`docs/INFO-REQUESTS.md`.
+`private/docs/INFO-REQUESTS.md`.
 
 ### 11.1 `athlete_profile` — singleton, versioned
 
@@ -424,7 +424,7 @@ a preference masquerade as a medical restriction, or the reverse.
 
 | column | notes |
 |---|---|
-| metric_key PK | e.g. `vo2max`, `grip_kg` |
+| metric_key PK | e.g. `vo2max`, `grip_strength_kg` |
 | label | human name |
 | scale_min / scale_max | bounds |
 | higher_is_better | **0/1 — mandatory.** The documented trap (stress 5 = good) is exactly this field |

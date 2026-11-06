@@ -207,8 +207,8 @@ This is a protocol plus summary, not an evaluation result. No training policy ch
 
 ## Related
 
-- **UI surface:** [UI-MAP.md](UI-MAP.md)
-- **Evidence:** [OUTCOMES.md](OUTCOMES.md)
-- **Decisions:** [DECISIONS.md](DECISIONS.md)
-- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
-- **Roadmap:** [ROADMAP.md](../ROADMAP.md)
+- **UI surface:** [UI-MAP.md](../UI-MAP.md)
+- **Evidence:** [OUTCOMES.md](../OUTCOMES.md)
+- **Decisions:** [DECISIONS.md](../DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../../ROADMAP.md)

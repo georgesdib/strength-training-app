@@ -1,6 +1,6 @@
 """Weekly volume budget: target, projection, allocation and feasibility.
 
-This is step 1 of docs/VOLUME-MODULATION-PLAN.md: it computes what the engine *would* do and
+This is step 1 of docs/archive/VOLUME-MODULATION-PLAN.md: it computes what the engine *would* do and
 changes no prescription. The engine hook and MOD-VOL-003 land later.
 
 It lives in prescribe because it needs the session templates and the rolling schedule; the

@@ -1,7 +1,7 @@
 # TEST FATIGUE — superseded proposal
 
 This narrow proposal has been superseded by the broader
-[`HIGH-INTENSITY-EXPOSURE-PLAN.md`](HIGH-INTENSITY-EXPOSURE-PLAN.md).
+[`HIGH-INTENSITY-EXPOSURE-PLAN.md`](../HIGH-INTENSITY-EXPOSURE-PLAN.md).
 
 The broader plan covers tests, max attempts, competition lifts and unplanned near-max
 exposures, while keeping the same principle:

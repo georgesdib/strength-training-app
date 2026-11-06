@@ -116,7 +116,7 @@ from strength_coach.store import (
     repositories,
     symptom_attribution,
 )
-from strength_coach.utils import exercises, io_utils, paths
+from strength_coach.utils import docs_manifest, exercises, io_utils, paths
 from strength_coach.utils import readiness as readiness_utils
 from strength_coach.web import markdown, validation
 from strength_coach.web import options as options_mod
@@ -309,22 +309,18 @@ def _session_rows(conn, limit: int = 20) -> list[dict]:
 
 
 def _docs() -> list[dict]:
-    files = [ROOT / "USER-GUIDE.md", ROOT / "ROADMAP.md", ROOT / "README.md"]
-    docs_dir = ROOT / "docs"
-    if docs_dir.is_dir():
-        files.extend(sorted(docs_dir.glob("*.md")))
-    out = []
-    for path in files:
-        if not path.is_file():
-            continue
-        rel = path.relative_to(ROOT).as_posix()
-        title = path.stem.replace("-", " ").title()
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if line.startswith("# "):
-                title = line[2:].strip()
-                break
-        out.append({"name": rel, "title": title})
-    return out
+    labels = docs_manifest.manifest().category_labels
+    return [
+        {
+            "name": doc.path,
+            "title": doc.title,
+            "description": doc.description,
+            "category": doc.category,
+            "category_label": labels[doc.category],
+            "status": doc.status,
+        }
+        for doc in docs_manifest.public_docs()
+    ]
 
 
 def _number(value):

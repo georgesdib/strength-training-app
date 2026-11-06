@@ -5,12 +5,12 @@ replacement for the CLI.
 
 **UI and functionality hardening:** request-body limits, inline-handler safety, deterministic
 dates, safe error responses, data-integrity checks, browser coverage and frontend modularisation
-were implemented and closed in [`UI-IMPROVEMENT-PLAN.md`](UI-IMPROVEMENT-PLAN.md) on 2026-10-27.
+were implemented and closed in [`UI-IMPROVEMENT-PLAN.md`](archive/UI-IMPROVEMENT-PLAN.md) on 2026-10-27.
 
 **UI redesign:** the six-area navigation, actionable Today and integrated Progress work
 (P0–P3), including the read-only data contracts and pattern-group effective control, is
 implemented; the final audit closed 2026-11-06. See
-[`UI-DESIGN-IMPLEMENTATION-PLAN.md`](UI-DESIGN-IMPLEMENTATION-PLAN.md).
+[`UI-DESIGN-IMPLEMENTATION-PLAN.md`](archive/UI-DESIGN-IMPLEMENTATION-PLAN.md).
 
 ## Run
 
@@ -309,7 +309,7 @@ also disables while saving and reports the number of marks written.
 | `POST /api/measurements` | `{metric, value, date, method, note}` -> summary |
 | `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy`; goals, constraint kinds/regions, forbidden patterns/exercises and exercise ids are validated against the canonical vocabulary; `symptom` accepts optional `timing`, `attributed_session_id`, `attributed_exercise_id`, `onset_on` and `attribution_confidence`, plus the short aliases the UI uses |
 | `GET /api/calibrate` | calibration report |
-| `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |
+| `GET /api/docs` / `GET /api/docs/<name>` | doc list and rendered doc from `docs/manifest.yaml`; public entries only, grouped by category; `private/` and maintainer-only design docs are never served |
 
 ## Request security
 

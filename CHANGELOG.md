@@ -4,6 +4,13 @@
 
 ### Added
 
+- **Documentation manifest and archive**: `docs/manifest.yaml` is now the single source of
+  truth for public documentation metadata and navigation (id, path, title, description,
+  category, status, audience). The Docs API and viewer list and group documents from it, and
+  completed plans/closed audits moved to `docs/archive/` behind a new
+  `docs/README.md` index. `docs/design/` stays maintainer-only and `private/` is never
+  listed or served; both rules are enforced by the loader and tests. No application behaviour
+  changed.
 - **Body fat is a measurement**: `body_fat_pct` joins the periodic measurement catalogue
   (%, `last`, plausible 3–70; lower-is-better is a display convention, with the U-shaped
   caveat in the note). Migration 0051 copies the historical readiness `Fat_Percent` values
@@ -135,7 +142,7 @@ cardio impulse/shadow load and comparable calibration depth are deferred to v1.3
 - Deterministic template resolver **acceptance audit closed**: the Workflow top-set control
   now follows `resolver.top_set.mode` instead of the resolver flag, and a read-only lifecycle
   audit closure with completed automated release gates is recorded in
-  [`docs/RESOLVER-ACCEPTANCE-AUDIT.md`](docs/RESOLVER-ACCEPTANCE-AUDIT.md); only the manual
+  [`docs/archive/RESOLVER-ACCEPTANCE-AUDIT.md`](docs/archive/RESOLVER-ACCEPTANCE-AUDIT.md); only the manual
   browser Workflow smoke remains.
 - Deterministic template resolver **top-set execution integrity**: the Workflow plan now
   renders top-set/back-off groups, prefills the next group's load/RIR/role, keeps plan group
@@ -364,7 +371,7 @@ First **v1.0 beta**: the workable app for user testing. The beta label is remove
   panel): target, safety exemptions, completed sets, projected week, session cap and feasibility,
   plus per-group week status, persistent four-week status and non-essential top-up capacity. It
   writes nothing and changes no prescription (`DEC-VOLUME-06`, step 1 of
-  `docs/VOLUME-MODULATION-PLAN.md`).
+  `docs/archive/VOLUME-MODULATION-PLAN.md`).
 - Opt-in **per-group volume budget** behind `athlete_profile.volume_budget_enabled` (default
   off): trims or tops up non-essential accessory sets toward each group's effective target,
   cites `MOD-VOL-003` (constitution 1.15.0, amended through 1.17.0), and records

@@ -96,8 +96,8 @@ strength_coach/
     backtest.py labelled_rubric.yaml scenarios/
   cli.py                             [x]
 tools/
-  profile_data.py                    [x] regenerates docs/EVIDENCE.md
-  baseline.py                        [x] regenerates docs/BASELINE.md numbers
+  profile_data.py                    [x] regenerates private/docs/EVIDENCE.md
+  baseline.py                        [x] regenerates private/docs/BASELINE.md numbers
 tests/
   conftest.py                        [x] fixtures + raw-CSV availability guard
   test_dates.py test_numeric.py      [x] sentinels

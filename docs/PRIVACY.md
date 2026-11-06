@@ -45,6 +45,8 @@ Before committing a doc, ask:
 2. Is this a reproducible method or rule? → public.
 3. Is this an example? → synthesise it.
 4. Does a test need it? → synthesise it; never read `data/raw` in a public test.
+5. Is it classified? → add public docs to `docs/manifest.yaml` with audience `public`; never add
+   a `private/` path to the public manifest.
 
 ## 6. Scope
 

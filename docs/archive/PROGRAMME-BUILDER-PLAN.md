@@ -78,9 +78,9 @@ pinning, a two-stage volume pass, or a hinge top-set RIR cap.
 - **Historical integrity.** The generated session is frozen at workout start; old prescriptions
   keep their stored items and null snapshots; no backfill and no rewrite.
 
-**Related:** [METHODOLOGY.md](METHODOLOGY.md), [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md),
-[WORKOUT-GENERATION.md](WORKOUT-GENERATION.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md),
-[LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md), [ROADMAP.md](../ROADMAP.md).
+**Related:** [METHODOLOGY.md](../METHODOLOGY.md), [SESSION-TEMPLATES.md](../SESSION-TEMPLATES.md),
+[WORKOUT-GENERATION.md](../WORKOUT-GENERATION.md), [VOLUME-MANAGEMENT.md](../VOLUME-MANAGEMENT.md),
+[LLM-INTEGRATION-PLAN.md](../LLM-INTEGRATION-PLAN.md), [ROADMAP.md](../../ROADMAP.md).
 
 ---
 
@@ -690,7 +690,7 @@ workout never changes.
 ### 8.5 CLI
 
 UI-first for MVP; read-only status/show later. Document the temporary gap in
-[UI-CLI-PARITY.md](UI-CLI-PARITY.md). Do not rename the existing `programme` command.
+[UI-CLI-PARITY.md](../UI-CLI-PARITY.md). Do not rename the existing `programme` command.
 
 ### 8.6 Mobile
 
@@ -1234,7 +1234,7 @@ database was read-smoked for the legacy NULL path. The default remains off.
 
 ## 13. Confirmed decisions
 
-Recorded as `DEC-RESOLVER-01`–`12` in [DECISIONS.md](DECISIONS.md).
+Recorded as `DEC-RESOLVER-01`–`12` in [DECISIONS.md](../DECISIONS.md).
 
 - Session generator per session; no block-level exercise pin; generated session frozen at workout
   start.
@@ -1262,12 +1262,12 @@ Recorded as `DEC-RESOLVER-01`–`12` in [DECISIONS.md](DECISIONS.md).
 
 ## Related
 
-**Decisions:** [DECISIONS.md](DECISIONS.md) · **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) · **Roadmap:** [ROADMAP.md](../ROADMAP.md)
+**Decisions:** [DECISIONS.md](../DECISIONS.md) · **Open questions:** [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md) · **Roadmap:** [ROADMAP.md](../../ROADMAP.md)
 
-- **Methodology:** [METHODOLOGY.md](METHODOLOGY.md)
-- **Templates:** [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md)
-- **Workout generation:** [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md)
-- **Volume:** [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md)
-- **LLM workstream:** [LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md)
-- **Decisions:** [DECISIONS.md](DECISIONS.md)
-- **Roadmap:** [ROADMAP.md](../ROADMAP.md)
+- **Methodology:** [METHODOLOGY.md](../METHODOLOGY.md)
+- **Templates:** [SESSION-TEMPLATES.md](../SESSION-TEMPLATES.md)
+- **Workout generation:** [WORKOUT-GENERATION.md](../WORKOUT-GENERATION.md)
+- **Volume:** [VOLUME-MANAGEMENT.md](../VOLUME-MANAGEMENT.md)
+- **LLM workstream:** [LLM-INTEGRATION-PLAN.md](../LLM-INTEGRATION-PLAN.md)
+- **Decisions:** [DECISIONS.md](../DECISIONS.md)
+- **Roadmap:** [ROADMAP.md](../../ROADMAP.md)

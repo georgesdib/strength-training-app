@@ -78,7 +78,7 @@ The current/future readiness gate remains mandatory. Readiness feedback is descr
 does not tune the policy.
 
 The no-readiness counterfactual is not identifiable from the retrospective log; see
-[`READINESS-AUDIT.md`](READINESS-AUDIT.md).
+[`READINESS-AUDIT.md`](archive/READINESS-AUDIT.md).
 
 ## 5. Volume and minimum sessions
 

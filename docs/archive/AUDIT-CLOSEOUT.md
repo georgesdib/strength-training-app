@@ -7,7 +7,7 @@ counted the competition squat; the cap statements below describe the audited sta
 
 **Meaning:** the planned audit work is complete. It does **not** mean every limitation is
 closed; remaining limitations are tracked in
-[`LIMITATIONS-REGISTER.md`](LIMITATIONS-REGISTER.md).
+[`LIMITATIONS-REGISTER.md`](../LIMITATIONS-REGISTER.md).
 
 ---
 
@@ -58,7 +58,7 @@ Only fixes with separate approval were applied:
 
 The register had **42 entries on 2026-10-25**, when that count was last updated (36 when the
 closeout was written on 2026-10-24); it is a living list, and the current rows are in
-[`LIMITATIONS-REGISTER.md`](LIMITATIONS-REGISTER.md). The important open ones are:
+[`LIMITATIONS-REGISTER.md`](../LIMITATIONS-REGISTER.md). The important open ones are:
 
 - readiness has no validated no-readiness counterfactual;
 - no stored plan calendar;
@@ -79,7 +79,7 @@ These are limitation records, not incomplete audit workstreams.
 - No new model adopted: **yes**.
 - Open limitations visible and revisitable: **yes** — 36 entries when the closeout was written
   (2026-10-24), 42 on 2026-10-25; neither is a live count. The single current list is
-  [`LIMITATIONS-REGISTER.md`](LIMITATIONS-REGISTER.md).
+  [`LIMITATIONS-REGISTER.md`](../LIMITATIONS-REGISTER.md).
 
 The next planned product work is **v1.1 — cardio depth and comparable calibration**, not
 another audit slice.

@@ -72,7 +72,7 @@ Each of these is deferred *with a reason*, not forgotten:
 v0 is done when all of these are true:
 
 1. `python -m pytest` passes; every domain function in `utils` and `domain` is unit-tested.
-2. `python tools/profile_data.py` reproduces `docs/EVIDENCE.md` exactly.
+2. `python tools/profile_data.py` reproduces `private/docs/EVIDENCE.md` exactly.
 3. `python tools/baseline.py --as-of <date>` reproduces the baseline for that date
    (the quantitative baseline lives in the private docs).
 4. A prescription for the chosen date is **executable**: every load is a positive multiple of a

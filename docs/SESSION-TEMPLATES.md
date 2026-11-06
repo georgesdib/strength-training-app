@@ -134,5 +134,5 @@ not test code.
 - **Decisions:** [DECISIONS.md](DECISIONS.md)
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md)
-- [Volume modulation](VOLUME-MODULATION-PLAN.md) — how prescribed sets feed the volume budget.
+- [Volume modulation](archive/VOLUME-MODULATION-PLAN.md) — how prescribed sets feed the volume budget.
 - [Methodology](METHODOLOGY.md) — change-control rules.

@@ -2357,7 +2357,7 @@ function renderStateForms(data) {
         accessories only. <strong>reduce</strong> also trims filled-group main lifts;
         <strong>drop</strong> also removes/relabels the main lift. The main-lift policy is ignored
         while the volume budget is off. <a class="doc-link"
-        href="#docs?doc=docs/VOLUME-MODULATION-PLAN.md&amp;anchor=44-what-steps-2-and-2b-actually-do-implemented">Volume budget rules</a></p>
+        href="#docs?doc=docs/archive/VOLUME-MODULATION-PLAN.md&amp;anchor=44-what-steps-2-and-2b-actually-do-implemented">Volume budget rules</a></p>
     </div>
 
     <div class="panel"><div class="panel-head"><h2>Add constraint</h2></div>
@@ -2699,8 +2699,21 @@ async function loadDocs(requested, anchor) {
   try {
     const docs = await api("/api/docs");
     $("#docs-list").dataset.loaded = "1";
-    $("#docs-list").innerHTML = docs.map((doc) => `<a href="#docs?doc=${encodeURIComponent(doc.name)}">
-      ${esc(doc.title)}</a>`).join("");
+    const groups = [];
+    docs.forEach((doc) => {
+      const key = doc.category || "other";
+      let group = groups[groups.length - 1];
+      if (!group || group.key !== key) {
+        group = { key, label: doc.category_label || key, items: [] };
+        groups.push(group);
+      }
+      group.items.push(doc);
+    });
+    $("#docs-list").innerHTML = groups.map((group) =>
+      `<p class="muted docs-group-label"><strong>${esc(group.label)}</strong></p>` +
+      group.items.map((doc) => `<a href="#docs?doc=${encodeURIComponent(doc.name)}">
+        ${esc(doc.title)}</a>`).join("")
+    ).join("");
     if (!requested && $("#doc-body").dataset.loaded) return;
     const target = requested || docs[0]?.name;
     if (!target) return;
@@ -2778,7 +2791,7 @@ async function loadVolume() {
     $("#volume-ledger").innerHTML = `<p class="muted">${esc(data.from)} to ${esc(data.to)} · accounting <strong>${esc(accounting)}</strong></p>${heavyLine}
       <table><thead><tr><th>pattern</th><th>raw/wk</th><th>effective/wk</th>
       <th>MEV</th><th>MAV</th><th>MRV</th><th>status</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="muted">Effective/wk adds configured indirect work at 0.25; raw/wk is unchanged. MEV/MAV/MRV are configurable coaching landmarks, not measured individual thresholds. <a class="doc-link" href="#docs?doc=docs/VOLUME-MODULATION-PLAN.md&amp;anchor=16-effective-set-audit-and-the-target-decision-step-8-pre-activation">Accounting rules</a></p>`;
+      <p class="muted">Effective/wk adds configured indirect work at 0.25; raw/wk is unchanged. MEV/MAV/MRV are configurable coaching landmarks, not measured individual thresholds. <a class="doc-link" href="#docs?doc=docs/archive/VOLUME-MODULATION-PLAN.md&amp;anchor=16-effective-set-audit-and-the-target-decision-step-8-pre-activation">Accounting rules</a></p>`;
   } catch (error) {
     $("#volume-ledger").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }

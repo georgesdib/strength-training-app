@@ -279,6 +279,14 @@ def test_readiness_override_lives_with_the_daily_score() -> None:
     assert 'date: $("#readiness-date").value' in app
 
 
+def test_docs_viewer_groups_by_manifest_category() -> None:
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert "category_label" in app
+    assert "docs-group-label" in app
+    index = INDEX.read_text(encoding="utf-8")
+    assert 'id="docs-list"' in index
+
+
 def test_today_progress_ratio_is_explained_and_links_to_its_doc() -> None:
     page = INDEX.read_text(encoding="utf-8")
     assert "session best e1RM" in page

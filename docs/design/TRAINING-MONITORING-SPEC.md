@@ -1454,9 +1454,9 @@ If measured tests are absent or insufficient, report that criterion-based indivi
 
 **D. Deliverable and gate**
 
-Deliverable: a reproducible report, for example docs/MONITORING-HISTORICAL-AUDIT.md, containing data coverage, analysis methodology, results, limitations and recommendations. It is generated from existing data without changing historical training records.
+Deliverable: a reproducible report, `private/docs/MONITORING-HISTORICAL-AUDIT.md` (local-only and git-ignored), containing data coverage, analysis methodology, results, limitations and recommendations. It is generated from existing data without changing historical training records.
 
-If repository data-access or privacy constraints make a committed report unsuitable, specify a local-only report workflow and keep private athlete data out of Git.
+Repository data-access and privacy constraints make a committed report unsuitable, so the report stays local and private athlete data stays out of Git.
 
 The report informs whether any calibration, quality rule or estimator needs reconsideration. It must not automatically introduce a fitted correction factor. Phase 0 must precede implementation of the monitoring UI. It must not become a reason to delay basic descriptive metrics indefinitely: if criterion calibration is unavailable, implement the measurement layer with transparent limitations.
 
@@ -1468,7 +1468,7 @@ The report informs whether any calibration, quality rule or estimator needs reco
 **Files**
 
 - New: tools/monitoring_historical_audit.py; tests/test_monitoring_historical_audit.py.
-- New report: docs/MONITORING-HISTORICAL-AUDIT.md if public-safe, or a local-only equivalent.
+- New report: private/docs/MONITORING-HISTORICAL-AUDIT.md (local-only; git-ignored).
 
 **Schema changes**
 
@@ -1687,7 +1687,7 @@ The report informs whether any calibration, quality rule or estimator needs reco
 
 - Capture changes only if justified: session_feedback.srpe_timing, structured power quality event, per-rep velocity capture.
 - Conduct repeated standardised 1RM/3RM/5RM tests for the main lifts where feasible and record them through the existing measured-test path; do not prescribe a validated minimum number.
-- docs/MONITORING-PROSPECTIVE.md (protocol and results).
+- private/docs/MONITORING-PROSPECTIVE.md (protocol and results; local-only, git-ignored).
 
 **Schema changes**
 

@@ -288,6 +288,22 @@ def test_docs_are_rendered_local(server):
     assert "<h1 id=" in json.loads(body)["html"]
 
 
+def test_docs_api_exposes_only_the_public_manifest(server):
+    status, body = get(server, "/api/docs")
+    assert status == 200
+    entries = json.loads(body)
+    names = {entry["name"] for entry in entries}
+    assert "docs/README.md" in names
+    assert "docs/archive/W9-SPINAL-CAP.md" in names
+    assert "docs/design/TRAINING-MONITORING-SPEC.md" not in names
+    assert not any(name.startswith("private/") for name in names)
+    assert all(entry["category"] and entry["category_label"] for entry in entries)
+    for name in ("private/docs/EVIDENCE.md", "docs/design/TRAINING-MONITORING-SPEC.md"):
+        with pytest.raises(urllib.error.HTTPError) as excinfo:
+            get(server, "/api/docs/" + quote(name, safe=""))
+        assert excinfo.value.code == 400, name
+
+
 def test_markdown_tables_and_links():
     rendered = markdown.render("# Title\n\n| a | b |\n|---|---|\n| 1 | 2 |")
     assert '<h1 id="title">Title</h1>' in rendered
