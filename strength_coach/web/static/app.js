@@ -664,6 +664,18 @@ async function loadLongevity() {
     if (day) query.set("date", day);
     const data = (await api("/api/outcomes?" + query.toString())) || {};
     const period = data.window || {};
+    const bodyweightHost = $("#longevity-bodyweight");
+    let bodyweight = null;
+    let bodyweightError = false;
+    if (bodyweightHost && period.from && period.to) {
+      try {
+        bodyweight = await api("/api/readiness/history?from=" + encodeURIComponent(period.from) +
+          "&to=" + encodeURIComponent(period.to) + "&fields=bodyweight_kg");
+      } catch (error) {
+        bodyweightError = true;
+        bodyweightHost.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+      }
+    }
     const longevity = data.longevity || {};
     const cardio = longevity.cardio || {};
     const metrics = longevity.measurements || {};
@@ -735,6 +747,16 @@ async function loadLongevity() {
       "<h3>Symptoms</h3><table><thead><tr><th>Region</th><th>flares</th><th>readings</th><th>latest</th></tr></thead><tbody>" +
       (symptomRows || "<tr><td colspan='4' class='muted'>no symptom entries — unknown, not “no flare”</td></tr>") + "</tbody></table>" +
       "<p class='muted'>" + esc(longevity.note || "") + "</p>";
+    if (bodyweightHost && !bodyweightError) {
+      const points = (bodyweight && bodyweight.points) || [];
+      const rows = points.map((point) =>
+        `<tr><td>${esc(point.date)}</td><td>${fmt(point.bodyweight_kg)} kg</td><td>${esc(point.sources?.bodyweight_kg || "unknown")}</td></tr>`
+      ).join("");
+      bodyweightHost.innerHTML = "<h3>Bodyweight history</h3>" +
+        (rows ? `<table><thead><tr><th>Date</th><th>Bodyweight</th><th>Source</th></tr></thead><tbody>${rows}</tbody></table>` :
+          "<p class='empty'>No observed bodyweight values in this window.</p>") +
+        `<p class='muted'>Observed readiness dates only; missing dates are not filled. ${points.length} of ${bodyweight?.coverage?.window_days ?? "unknown"} window days observed.</p>`;
+    }
   } catch (error) {
     $("#longevity-summary").innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
   }
@@ -3361,6 +3383,9 @@ function measurementHistoryChart(data, metricKey) {
 
 function renderMeasurements(data) {
   lastMeasurements = data;
+  const page = data.page || {};
+  const older = page.next_offset == null ? "" :
+    `<button class="ghost" type="button" id="measure-older">Load older measurements (offset ${page.next_offset})</button>`;
   const all = data.summary || [];
   const filter = $("#measure-filter").value;
   const summary = all.filter((m) => !filter || m.key === filter);
@@ -3397,17 +3422,26 @@ function renderMeasurements(data) {
       <div class="health-trend-chart"><h3>Recorded trend · ${esc(trendMetric?.label || "measurements")}</h3>${measurementHistoryChart(data, trendMetric?.key)}</div></div>
     <div class="panel"><div class="panel-head"><h2>Recent entries</h2></div>
       ${entries ? `<table><thead><tr><th>Date</th><th>Metric</th><th>Value</th><th>Method</th></tr></thead>
-        <tbody>${entries}</tbody></table>` : "<p class='empty'>No measurements yet.</p>"}</div>`;
+        <tbody>${entries}</tbody></table>${older}` : "<p class='empty'>No measurements yet.</p>"}</div>`;
+  const olderButton = document.getElementById("measure-older");
+  if (olderButton) olderButton.addEventListener("click", () => loadMeasurements(page.next_offset));
 }
 
 $("#measure-filter").addEventListener("change", () => {
   if (lastMeasurements) renderMeasurements(lastMeasurements);
 });
 
-async function loadMeasurements() {
+async function loadMeasurements(offset = 0) {
   try {
-    const data = await api("/api/measurements");
-    renderMeasurements(data);
+    const data = await api(`/api/measurements?limit=50&offset=${Number(offset) || 0}`);
+    if (Number(offset) > 0 && lastMeasurements) {
+      renderMeasurements({
+        ...data,
+        entries: [...(lastMeasurements.entries || []), ...(data.entries || [])],
+      });
+    } else {
+      renderMeasurements(data);
+    }
   } catch (error) {
     $("#measure-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }

@@ -654,6 +654,19 @@ if (html.indexOf("rolling median") < 0) throw new Error("rolling median legend m
     assert result.returncode == 0, result.stderr
 
 
+def test_measurement_pagination_and_volume_controls_are_present() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    progress = (STATIC / "progress.js").read_text(encoding="utf-8")
+    assert 'id="measure-older"' not in page  # button is rendered only when a next page exists
+    assert "measure-older" in app
+    assert "progress-accounting" in page
+    assert "progress-weekly" in page
+    assert "volumeData.groups" in progress
+    assert "effective_counts" in progress
+    assert "progressRenderWeekly" in progress
+
+
 def test_progress_ratio_chart_is_observation_based_and_handles_empty_data() -> None:
     node = shutil.which("node")
     if node is None:
@@ -752,7 +765,8 @@ const els = {
   "#progress-dose-chart": el(), "#progress-dose-note": el(), "#progress-frequency-chart": el(),
   "#progress-calendar": el(), "#progress-exercise-frequency-chart": el(), "#progress-exercise-volume-chart": el(),
   "#progress-frequency-note": el(), "#progress-ratio-chart": el(), "#progress-association": el(), "#progress-load-association": el(),
-  "#progress-workout": el(), "#progress-execution": el()
+  "#progress-workout": el(), "#progress-execution": el(), "#progress-accounting": el(),
+  "#progress-weekly": el(), "#progress-weekly-note": el()
 };
 global.$ = function (selector) { return els[selector] || null; };
 global.document = {addEventListener: function () {}};
@@ -775,7 +789,11 @@ global.api = function (url) {
   ]});
   if (url === "/api/performance/relationship-options") return Promise.resolve({exercises: [{id: "ssb_squat", label: "Safety bar squat"}]});
   if (url.startsWith("/api/progress?")) return Promise.resolve({coverage: {with_srpe: 4, sessions: 8, pct: 50},
-    performance: {points: [{date: "2024-04-25", ratio: 1.02, lifts: 2}]}});
+    performance: {points: [{date: "2024-04-25", ratio: 1.02, lifts: 2}]},
+    weekly: {weeks: [{week_start: "2024-04-22", week_end: "2024-04-28", working_sets: 4,
+      hard_sets: 3, rir: {observed_sets: 3, mean: 2.0}, tonnage_kg: 800,
+      tonnage: {observed_sets: 3}, residual: {n: 1, mean_mps: 0.1, status: "insufficient"}}],
+      missing_weeks: ["2024-04-15"]}});
   if (url.startsWith("/api/performance/e1rm")) return Promise.resolve({exercise_id: "ssb_squat", points: [
     {date: "2024-04-05", kg: 100, rolling_median_kg: 100, n_window: 1},
     {date: "2024-04-25", kg: 105, rolling_median_kg: 102.5, n_window: 2}],
@@ -815,6 +833,9 @@ loadProgressOverview().then(() => {
   if (!els["#progress-dashboard"].innerHTML.includes("Main-lift change table")) throw new Error("main-lift change detail missing");
   if (!els["#progress-ratio-chart"].innerHTML.includes("ratio 1.020; 2 lift comparisons")) throw new Error("existing ratio chart missing");
   if (!els["#progress-dashboard"].innerHTML.includes("bodyweight-relative strength")) throw new Error("unsupported graph limitations missing");
+  if (!els["#progress-weekly"].innerHTML.includes("RIR observed / mean")) throw new Error("weekly RIR table missing");
+  if (!els["#progress-weekly"].innerHTML.includes("0.1 m/s")) throw new Error("weekly residual missing");
+  if (!els["#progress-weekly-note"].textContent.includes("missing weeks")) throw new Error("weekly missing-week caveat missing");
   if (els["#progress-overview-status"].textContent !== "Updated") throw new Error("status missing");
 });
 """.replace("SOURCE", json.dumps(source))
