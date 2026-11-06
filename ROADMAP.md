@@ -175,6 +175,10 @@ A. proceed to Phase 5B;
 B. extend Phase 5A once by approximately four weeks, documenting the missing evidence;
 C. close Phase 5A without Phase 5B, documenting which metrics remain unvalidated.
 
+**Documentation at the same gate:** fold the maintainer-only monitoring design history
+(docs/design/) into [docs/MONITORING-ANALYSIS.md](docs/MONITORING-ANALYSIS.md) and retire or mark
+the separate design trail; tracked in §4.19. Do it only after this review classifies the metrics.
+
 Completing the Today follow-up requires an explicit decision; it never starts Phase 5B or
 changes monitoring automatically.
 
@@ -1200,6 +1204,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | priority | action | status |
 |---|---|---|
 | P1 | Record **≥3 measured tests per main lift** so `MOD-E1RM-001` can calibrate the formula (the bias question is data-starved, not mechanism-starved) | **next** — `e1rm tests-needed` reports counted tests per main lift against the gate (the Athlete page shows the same table); `e1rm calibrate` shows the ratio and CI; record from the Athlete page, an Exercises row or the post-workout panel |
+| P2 | Fold the monitoring design history into docs/MONITORING-ANALYSIS.md | **scheduled 2027-01-22, with the Phase 5A review gate** — the canonical analysis already indexes the design trail; at the gate, summarise docs/design/... into the canonical document and retire or mark the separate trail. Do not do it earlier: Phase 5A classifies each metric, and the design must not be presented as settled first |
 | P2 | Web authentication + per-user data | **backlog; overkill for now** — CLI-only user provisioning, auth DB, per-user coach DB, login/session/CSRF, password reset, birthdate/gender/timezone onboarding, TLS reverse proxy and home-network host. Temporary no-auth HTTP bind is accepted under `LIM-57` |
 | P2 | Parent-variant e1RM ratios | unscheduled; display-only at most (§4.20.2) |
 | P2 | Weakness/injury-targeted selection | deferred to after v1.2 / ~April 2027; gates in §4.20.3 and `DEC-SELECT-05` |
