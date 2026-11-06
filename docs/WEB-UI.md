@@ -127,7 +127,7 @@ the same lift.
 - **Cardio** — log a session (modality, minutes, HR, distance, sRPE) choose the window (4/12/26/52 weeks) and an optional as-of date:
   sessions, total/average minutes, weekly breakdown and a chart of weeks with logged minutes. Weeks with no entries are omitted rather than represented as zero or proof of inactivity; boundary weeks may be partial. WHO reference lines are context only. Capture only; no load changes.
 - **Measures** — periodic outcomes (VO2max, grip, body fat, 5x sit-to-stand, steps, sitting),
-  with latest value, change and entries, filtered by metric. Every metric with recorded values gets its own chart, loaded from that metric's latest 200 entries; metrics without data show no chart. Charts plot independent events, separate methods (including “method not recorded”), and do not average same-day observations or connect/infer values. Metrics and directions are config; nothing changes a load.
+  with latest value, change and entries, filtered by metric. Every metric with recorded values gets its own chart; a **Chart window** control selects the last 3, 6 or 12 months or all history, and each chart pages through that metric's entries (200 per request) so the window is complete. Metrics without data show no chart. Charts plot independent events, separate methods (including “method not recorded”), and do not average same-day observations or connect/infer values. Metrics and directions are config; nothing changes a load.
 ### Exercise Explorer history
 
 - **Exercises** — full canonical catalogue with search/filter and one **Open** action per row for

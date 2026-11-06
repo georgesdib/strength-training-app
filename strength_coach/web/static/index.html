@@ -911,6 +911,14 @@
         <p class="section-help"><span>Filterable append-only measurement history; no values are deleted.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=11-4-metric-definition-declared-measurement-direction">Measurement model</a></p>
         <div class="form-row">
           <label>Metric <select id="measure-filter"><option value="">all metrics</option></select></label>
+          <label>Chart window
+            <select id="measure-window">
+              <option value="3">last 3 months</option>
+              <option value="6">last 6 months</option>
+              <option value="12" selected>last 12 months</option>
+              <option value="all">all history</option>
+            </select>
+          </label>
         </div>
       </div>
       <div id="measure-result"></div>

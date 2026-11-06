@@ -868,12 +868,17 @@ def test_health_longevity_charts_preserve_logged_observations_and_methods() -> N
         pytest.skip("node is not installed")
     source = (STATIC / "app.js").read_text(encoding="utf-8")
     chunks = []
-    for name in ("cardioWeeklyChart", "measurementHistoryChart", "measureChartMetrics"):
+    for name in ("cardioWeeklyChart", "measurementHistoryChart", "measureChartMetrics",
+                 "measureWindowFrom", "measureWindowLabel"):
         match = re.search(r"function " + name + r"\([\s\S]*?^}", source, re.MULTILINE)
         assert match, f"{name}() not found"
         chunks.append(match.group(0))
     script = r"""
 global.esc = function (value) { return String(value == null ? "" : value); };
+global.formatLocalDate = function (date) {
+  return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" +
+    String(date.getDate()).padStart(2, "0");
+};
 let barSpec = null, lineSpec = null;
 global.groupedBarChart = function (spec) { barSpec = spec; return "bars"; };
 global.dateSeriesChart = function (spec) { lineSpec = spec; return "dots"; };
@@ -901,10 +906,15 @@ if (!lineSpec.note.includes("newest-first pages") || !lineSpec.note.includes("no
 if (!measurementHistoryChart(data, "missing").includes("Select a configured measurement")) throw new Error("metric empty state absent");
 const charted = measureChartMetrics([{key: "a", count: 0}, {key: "b", count: 3}, {key: "c", count: null}, {key: "d", count: 1}]);
 if (charted.map(m => m.key).join(",") !== "b,d") throw new Error("only recorded measures may get a chart");
-const perMetric = measurementHistoryChart({...data, page: {total: 10}}, "grip", true);
+const perMetric = measurementHistoryChart({summary: data.summary, entries: data.entries}, "grip", true, "the last 3 months");
 if (perMetric !== "dots") throw new Error("per-metric chart not returned");
-if (!lineSpec.note.includes("latest 3 entries loaded of 10 total") || !lineSpec.note.includes("no averaging"))
-  throw new Error("per-metric chart note missing");
+if (!lineSpec.note.includes("the last 3 months (3)") || !lineSpec.note.includes("no averaging"))
+  throw new Error("per-metric chart window note missing");
+const boundary = new Date(2024, 5, 15);
+if (measureWindowFrom("3", boundary) !== "2024-03-15") throw new Error("window start incorrect");
+if (measureWindowFrom("all", boundary) !== "") throw new Error("all-history window must be unbounded");
+if (measureWindowLabel("all") !== "all history" || measureWindowLabel("6") !== "the last 6 months")
+  throw new Error("window label incorrect");
 """.replace("CHUNKS", json.dumps("\n".join(chunks)))
     result = subprocess.run([node, "-e", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
@@ -915,9 +925,14 @@ def test_measures_page_charts_every_metric_with_recorded_data() -> None:
     assert "function measureChartMetrics" in app
     assert "data-measure-chart" in app
     assert "loadMeasureCharts" in app
-    assert '"/api/measurements?metric_key="' in app
+    assert "measureWindowFrom" in app
+    assert "fetchMeasurementWindow" in app
+    assert '"/api/measurements?"' in app
+    assert "metric_key: metricKey" in app
     page = INDEX.read_text(encoding="utf-8")
     assert 'id="measure-result"' in page
+    assert 'id="measure-window"' in page
+    assert '<option value="all">all history</option>' in page
 
 
 def test_shared_chart_core_renders_dates_bars_tooltips_and_reference_bands() -> None:

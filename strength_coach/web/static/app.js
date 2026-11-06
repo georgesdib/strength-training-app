@@ -3355,7 +3355,7 @@ $("#cardio-form").addEventListener("submit", async (event) => {
 /* --- measurements ------------------------------------------------------- */
 let lastMeasurements = null;
 
-function measurementHistoryChart(data, metricKey, perMetric = false) {
+function measurementHistoryChart(data, metricKey, perMetric = false, windowLabel = null) {
   const metric = (data.summary || []).find((item) => item.key === metricKey);
   if (!metric) return "<p class='empty'>Select a configured measurement to view its observations.</p>";
   const entries = (data.entries || []).filter((item) => item.metric_key === metricKey);
@@ -3378,12 +3378,9 @@ function measurementHistoryChart(data, metricKey, perMetric = false) {
     points,
   }));
   const note = perMetric
-    ? "Independent recorded observations for this metric from the latest " + entries.length +
-      " entries loaded" +
-      (data.page && data.page.total != null && Number(data.page.total) > entries.length
-        ? " of " + Number(data.page.total) + " total" : "") +
-      " (newest-first; methods separated; same-day entries remain separate markers; no averaging, " +
-      "interpolation or inferred measurements)."
+    ? "Independent recorded observations for this metric in " +
+      (windowLabel || "the selected window") + " (" + entries.length + "); methods separated; " +
+      "same-day entries remain separate markers; no averaging, interpolation or inferred measurements."
     : "Independent recorded observations from the " + Number((data.entries || []).length) + " entries " +
       "currently returned across all metrics (newest-first pages; 50 per request). Methods are separated; " +
       "same-day entries remain separate markers, with no averaging, interpolation or inferred measurements.";
@@ -3458,18 +3455,49 @@ function renderMeasurements(data) {
 
 let measureChartGeneration = 0;
 
+function measureWindowFrom(value, now = new Date()) {
+  const months = Number(value);
+  if (!Number.isFinite(months) || months <= 0) return "";
+  return formatLocalDate(new Date(now.getFullYear(), now.getMonth() - months, now.getDate()));
+}
+
+function measureWindowLabel(value) {
+  return String(value) === "all" ? "all history" : "the last " + Number(value) + " months";
+}
+
+async function fetchMeasurementWindow(metricKey, from, to) {
+  // The API caps one page at 200; walk the pages so a selected window is complete.
+  const entries = [];
+  let offset = 0;
+  for (let page = 0; page < 10; page += 1) {
+    const query = new URLSearchParams({
+      metric_key: metricKey, limit: "200", offset: String(offset),
+    });
+    if (from) query.set("from", from);
+    if (to) query.set("to", to);
+    const data = await api("/api/measurements?" + query.toString());
+    entries.push(...(data.entries || []));
+    if (data.page == null || data.page.next_offset == null) break;
+    offset = data.page.next_offset;
+  }
+  entries.sort((a, b) => String(a.measured_on).localeCompare(String(b.measured_on)));
+  return entries;
+}
+
 async function loadMeasureCharts(metrics) {
   const generation = ++measureChartGeneration;
+  const windowValue = $("#measure-window") ? $("#measure-window").value : "12";
+  const from = measureWindowFrom(windowValue);
+  const to = today();
+  const windowLabel = measureWindowLabel(windowValue);
   await Promise.all((metrics || []).map(async (metric) => {
     const host = document.querySelector('[data-measure-chart="' + metric.key + '"]');
     if (!host) return;
     try {
-      const data = await api(
-        "/api/measurements?metric_key=" + encodeURIComponent(metric.key) + "&limit=200"
-      );
+      const entries = await fetchMeasurementWindow(metric.key, from, to);
       if (generation !== measureChartGeneration) return;
       host.innerHTML = '<h3>' + esc(metric.label) + '</h3>' +
-        measurementHistoryChart(data, metric.key, true);
+        measurementHistoryChart({summary: [metric], entries: entries}, metric.key, true, windowLabel);
     } catch (error) {
       if (generation === measureChartGeneration) {
         host.innerHTML = '<h3>' + esc(metric.label) + '</h3><p class="warnbox">' +
@@ -3480,6 +3508,10 @@ async function loadMeasureCharts(metrics) {
 }
 
 $("#measure-filter").addEventListener("change", () => {
+  if (lastMeasurements) renderMeasurements(lastMeasurements);
+});
+
+$("#measure-window").addEventListener("change", () => {
   if (lastMeasurements) renderMeasurements(lastMeasurements);
 });
 
