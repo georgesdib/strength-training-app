@@ -1,7 +1,7 @@
 # RELEASING AND CI
 
-**Status:** CI and release gates are implemented in the repository. **v1.2.0** was published
-as a stable GitHub Release on 2026-11-03; the process below remains the release contract.
+**Status:** CI and release gates are implemented in the repository. **v1.3.0** was published
+as a stable GitHub Release on 2026-11-06; the process below remains the release contract.
 
 The app is a local-first Python 3.11+ web application. There is no PWA, service worker, Node
 build or compiled frontend. The deployable production artifact is a source archive containing

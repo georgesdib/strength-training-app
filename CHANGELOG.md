@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-11-06
+
 ### Added
 
 - **Documentation manifest and archive**: `docs/manifest.yaml` is now the single source of
