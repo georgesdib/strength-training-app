@@ -106,7 +106,10 @@ without the reduction, and it does not tune weights, cut-points or the volume va
 - no new fatigue model;
 - no automatic rule or weight change;
 - no snapshot table;
-- no prescription change.
+- no prescription change;
+- the Today **Progress snapshot** performance ratio is a separate rolling 56-day e1RM index,
+  documented in [WEB-UI.md](WEB-UI.md#progress-snapshot-ratio-today); it is not part of this
+  review.
 
 ## Related
 

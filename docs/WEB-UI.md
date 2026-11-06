@@ -128,6 +128,26 @@ the same lift.
   sessions, total/average minutes, weekly breakdown and a chart of weeks with logged minutes. Weeks with no entries are omitted rather than represented as zero or proof of inactivity; boundary weeks may be partial. WHO reference lines are context only. Capture only; no load changes.
 - **Measures** — periodic outcomes (VO2max, grip, body fat, 5x sit-to-stand, steps, sitting),
   with latest value, change and entries, filtered by metric. Every metric with recorded values gets its own chart; a **Chart window** control selects the last 3, 6 or 12 months or all history, and each chart pages through that metric's entries (200 per request) so the window is complete. Metrics without data show no chart. Charts plot independent events, separate methods (including “method not recorded”), and do not average same-day observations or connect/infer values. Metrics and directions are config; nothing changes a load.
+### Progress snapshot ratio (Today)
+
+The Today **Progress snapshot** (and `GET /api/progress`) reports a descriptive session
+performance ratio:
+
+- for each eligible lift in a session: the session's best e1RM ÷ that lift's best e1RM in the
+  preceding 84 days (strictly before the session);
+- the session value is the median of those lift ratios (a session with one eligible lift uses
+  that lift);
+- the snapshot uses sessions in the last 56 days. **Latest ratio** is the newest session,
+  **recent ratio median** is the median over all of those sessions, and `n` is their count.
+  The chart plots at most the last 12 points.
+
+`1.000` means the session matched the prior best; values above or below are relative to that
+history, not a verdict. Only loaded working sets with a usable e1RM (reps 1–20, not voided or
+superseded) enter; a lift with no prior e1RM in the 84-day window contributes no ratio, and a
+session with no eligible lift produces no point. It is descriptive: not a measured test, not a
+target, not an injury signal, and it never changes a prescription. e1RM is an estimate, so the
+ratio inherits its precision limits.
+
 ### Exercise Explorer history
 
 - **Exercises** — full canonical catalogue with search/filter and one **Open** action per row for

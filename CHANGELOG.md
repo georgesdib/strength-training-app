@@ -87,6 +87,11 @@
 
 ### Fixed
 
+- **Today's progress-snapshot ratio is explained and linked correctly**: the panel linked to
+  OUTCOMES.md, which does not define the ratio. It now states the calculation inline (session
+  best e1RM vs that lift's prior 84-day best, median across lifts, last 56 days) and links to a
+  new **Progress snapshot ratio (Today)** section in WEB-UI.md; OUTCOMES cross-references it as
+  a separate index. No calculation change.
 - **Measures charts every metric with data**: the page previously showed a single trend chart
   and defaulted to the first metric that had an entry in the loaded page (VO2max), so body fat
   with 828 recorded values had no chart unless the metric filter was changed. The page now

@@ -74,7 +74,7 @@ current destinations; they do not duplicate their forms or imply new data contra
 | Panel | What it does | Primary doc |
 |---|---|---|
 | Recent sessions | Shows the newest stored sessions; **Details** opens a read-only view, **Edit** opens append-only correction | [WEB-UI.md](WEB-UI.md) |
-| Progress snapshot | Recent observed ratio points, aggregate attendance and current average volume. Full Progress additionally charts recorded dates, working-set history and bounded completed-workout comparisons; no planned-date calendar is inferred | [OUTCOMES.md](OUTCOMES.md), [WEB-UI.md](WEB-UI.md) |
+| Progress snapshot | Recent observed ratio points, aggregate attendance and current average volume. The session ratio (best e1RM vs prior 84-day best, median across lifts, last 56 days) is defined in [WEB-UI.md](WEB-UI.md#progress-snapshot-ratio-today). Full Progress additionally charts recorded dates, working-set history and bounded completed-workout comparisons; no planned-date calendar is inferred | [WEB-UI.md](WEB-UI.md) |
 | Rubric calibration | Human marks vs engine scores; counts and gaps; never an automatic rubric change | [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md) |
 | Per-rep velocity | Optional device data and descriptive associations, now in Performance rather than Today | [REP-VELOCITY.md](REP-VELOCITY.md) |
 | Periodic reviews | Prompt list from `config/reviews.v1.yaml`; no automatic change. Includes the 8-week **Fatigue-signal review** (rate unrated exercises, read the exposure ratio, open the shadow review, record a decision) | [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md), [ROADMAP.md](../ROADMAP.md) |

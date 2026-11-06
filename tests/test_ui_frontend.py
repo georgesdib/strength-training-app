@@ -279,6 +279,17 @@ def test_readiness_override_lives_with_the_daily_score() -> None:
     assert 'date: $("#readiness-date").value' in app
 
 
+def test_today_progress_ratio_is_explained_and_links_to_its_doc() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    assert "session best e1RM" in page
+    assert "prior 84-day best" in page
+    assert "docs/WEB-UI.md&amp;anchor=progress-snapshot-ratio-today" in page
+    doc = (ROOT / "docs" / "WEB-UI.md").read_text(encoding="utf-8")
+    assert "### Progress snapshot ratio (Today)" in doc
+    assert "preceding 84 days" in doc
+    assert "last 56 days" in doc
+
+
 def test_readiness_scale_labels_are_shared() -> None:
     core = (STATIC / "core.js").read_text(encoding="utf-8")
     assert "READINESS_SCALE_ENDS" in core
