@@ -8,8 +8,8 @@ dates, safe error responses, data-integrity checks, browser coverage and fronten
 were implemented and closed in [`UI-IMPROVEMENT-PLAN.md`](UI-IMPROVEMENT-PLAN.md) on 2026-10-27.
 
 **UI redesign:** the six-area navigation, actionable Today and integrated Progress work
-(P0–P2) is implemented; P3 read-only contracts and the pattern-group effective control are
-planned; the final audit is pending in
+(P0–P3), including the read-only data contracts and pattern-group effective control, is
+implemented; the final audit closed 2026-11-06. See
 [`UI-DESIGN-IMPLEMENTATION-PLAN.md`](UI-DESIGN-IMPLEMENTATION-PLAN.md).
 
 ## Run
@@ -58,10 +58,10 @@ links for every view. Run `python tools/check_ui_docs.py` to validate the contra
 The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the backdrop or Escape closes it. Navigation groups existing destinations into **Today**, **Training**, **Progress**, **Health & Longevity**, **Programme Intelligence**, and **Administration**; selecting a view opens its area and collapses the others. The selected area is announced through `aria-current`. Groups organize existing workflows rather than duplicate their forms.
 
 - **Today** — an active-workout-aware Start/Continue action, readiness and block context, review/form-follow-up shortcuts, recent sessions, periodic review prompts, and a compact descriptive progress snapshot. The longer form follow-up is collapsed; detailed analytics are in Progress, Performance, Outcomes, and Review. The review list is fed by `config/reviews.v1.yaml`; acknowledging one writes an append-only human record and changes no threshold or flag.
-- **Progress** — an integrated 4/8/12-week workspace combining the retained main-lift change table and sRPE coverage with selectable e1RM trajectories (raw daily best, trailing 3-observation median, best/latest context), selected-exercise working load/reps (basis/unit separated), weekly working sets by movement pattern and selected exercise, exercise training dates, an observed-day calendar, and recorded training days by rolling 7-day period. A configured weekly target appears only as a reference, not a saved schedule. The existing cross-lift ratio keeps its fixed 56-day lookback. An on-demand selected-lift panel reuses read-only lagged hard-set/session-load associations; an execution panel compares original plan set totals with logged set rows for one completed app-tracked workout. Logged rows may include different roles, are not matched item-by-item, and do not measure adherence. These are descriptive, not causal or prescriptive. Missing observations stay missing; charts do not interpolate. Imported sessions without frozen app-workout plans are unavailable for plan comparison. Exercise Explorer analytics cover the complete selected date range, while exact completed-session records load in duplicate-safe 50-session pages with no 50-session history cap; “All history” clears both date bounds. The current Progress view omits bodyweight-relative trends, weekly tonnage/intensity and longitudinal residuals because the current APIs do not provide reliable comparable series. P3 plans the read-only contracts for those series and a visible hard/effective pattern-group control; pattern-group effective data (direct 1 + configured indirect 0.25) already exists when the existing hard/effective accounting setting is `effective`. Strength, Performance and Outcomes details remain linked for further drill-down.
+- **Progress** — an integrated 4/8/12-week workspace combining the retained main-lift change table and sRPE coverage with selectable e1RM trajectories (raw daily best, trailing 3-observation median, best/latest context), selected-exercise working load/reps (basis/unit separated), weekly working sets by movement pattern and selected exercise, a hard/effective pattern-group control, weekly working sets/RIR/tonnage/residuals, exercise training dates, an observed-day calendar, and recorded training days by rolling 7-day period. A configured weekly target appears only as a reference, not a saved schedule. The existing cross-lift ratio keeps its fixed 56-day lookback. An on-demand selected-lift panel reuses read-only lagged hard-set/session-load associations; an execution panel compares original plan set totals with logged set rows for one completed app-tracked workout. Logged rows may include different roles, are matched by the frozen plan item index where available, and do not measure adherence. These are descriptive, not causal or prescriptive. Missing observations stay missing; charts do not interpolate. Imported sessions without frozen app-workout plans are unavailable for plan comparison. Exercise Explorer analytics cover the complete selected date range, while exact completed-session records load in duplicate-safe 50-session pages with no 50-session history cap; “All history” clears both date bounds. Pattern-group effective sets use the existing direct 1.0 plus configured indirect 0.25 credit, and match the profile's accounting setting unless the Progress control overrides it for the report. Bodyweight history uses observed readiness dates only and is shown in Longevity; missing dates are never filled. Strength, Performance and Outcomes details remain linked for further drill-down.
 - **Outcomes** — read-only 4/8/12-week strength review, attendance, volume and **Prospective check**; no prescription effect.
 - **Performance** — raw e1RM session bests, rolling median, series breaks, separate degraded observations, descriptive dose and explicitly configured relative-strength ratios with source-aware add/edit/delete/reset management; filters apply server-side. A read-only **[Monitoring analysis](MONITORING-ANALYSIS.md)** section runs on demand and reports dose, lagged associations, coverage and calibration transparency. Optional per-rep velocity analysis is also here. Shared SVG chart helpers support date-scaled lines, grouped bars, references/bands, exact tooltips, and keyboard/touch series toggles without adding a chart dependency. Charts show labelled axes and legends; clicking or keyboard-activating a chart opens a larger dialog with the same axes and legend. No targets, diagnosis, decay or calibration change; equipment changes cannot be detected because equipment is not stored.
-- **Longevity** — consolidated cardio, measurement, readiness and symptom context with recorded-count and data-gap summaries. Cardio charts only ISO weeks containing logged sessions; WHO reference lines are context, and partial windows/missing logs remain visible. Measurements plot exact observed values as method-separated points without interpolation, same-day averaging, or cross-method lines. Latest measurement summaries use available history, while readiness aggregates use the selected window. No clinical status judgment or prescription effect.
+- **Longevity** — consolidated cardio, measurement, readiness and symptom context with recorded-count and data-gap summaries. Cardio charts only ISO weeks containing logged sessions; WHO reference lines are context, and partial windows/missing logs remain visible. Measurements plot exact observed values as method-separated points without interpolation, same-day averaging, or cross-method lines; **Load older measurements** pages through exact append-only records. An observed **Bodyweight history** table uses the readiness series, including manual-over-import precedence, and never fills missing dates. Latest measurement summaries use available history, while readiness aggregates use the selected window. No clinical status judgment or prescription effect.
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
   SQLite, never written to the repository. New cumulative exports are overlap-matched against
   stored rows, so old history is not duplicated. An **After the import** panel states the
@@ -189,7 +189,7 @@ also disables while saving and reports the number of marks written.
 | route | purpose |
 |---|---|
 | `GET /api/overview` | dashboard data |
-| `GET /api/progress?date=` | descriptive attendance aggregate, weekly average volume, sRPE coverage, recent dated performance-ratio observations |
+| `GET /api/progress?date=&weeks=` | descriptive attendance aggregate, weekly average volume, sRPE coverage, recent performance-ratio observations and observed weekly RIR/tonnage/residual series (`weekly`, `missing_weeks`) |
 | `GET /api/outcomes?weeks=&date=` | read-only strength, volume, attendance, readiness, cardio, measurement and symptom summaries |
 | `GET /api/performance/e1rm?exercise_id=&from=&to=` | raw e1RM observations, rolling median, breaks and descriptive summary |
 | `GET /api/performance/dose?from=&to=&group_by=session` | descriptive session dose |
@@ -207,7 +207,7 @@ also disables while saving and reports the number of marks written.
 | `GET /api/workout/<id>/summary` | completed-workout descriptive summary; 404 unknown, 409 in progress |
 | `GET /api/form-trend?weeks=N&date=N` | descriptive current/baseline form trend |
 | `POST /api/workout/<id>/form` | `{exercise_id, rating 1-5}` -> optional post-lift form rating |
-| `POST /api/workout/<id>/sets` | `{exercise_id, load_kg, reps, rir, velocity?}` -> add manual set; manual reps are required and RIR is restricted to 0-6 |
+| `POST /api/workout/<id>/sets` | `{exercise_id, load_kg, reps, rir, velocity?, plan_item_index?}` -> add manual set; explicit plan-item identity is validated against the frozen exercise; omitted identity resolves only a unique item |
 | `POST /api/workout/<id>/remove-set` | `{set_id}` -> append a removal event |
 | `POST /api/workout/<id>/end` | `{session_rpe?, not_recorded?, duration_min?, productivity?, notes?}` -> completed |
 | `POST /api/workout/<id>/update-set` | `{set_id, load_kg, reps, rir, velocity}` -> append correction event |
@@ -226,6 +226,7 @@ also disables while saving and reports the number of marks written.
 | `GET /api/review/<session>` | session sheet |
 | `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes, productivity}` -> marks + optional session detail |
 | `GET /api/readiness/<date>` | merged readiness |
+| `GET /api/readiness/history?from=&to=&fields=` | inclusive observed readiness/bodyweight series with per-field sources; requires date bounds, merges manual-over-import per field, no fill |
 | `POST /api/readiness` | `{date, values, note}` -> merged readiness + score |
 | `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |
 | `GET /api/readiness/calibrate` | calibration report text (no auto-apply) |
@@ -242,12 +243,11 @@ also disables while saving and reports the number of marks written.
 | `GET /api/fatigue?date=N` | strength fitness-fatigue diagnostic (per-lift state and status; not a predictor) |
 | `GET /api/validation?max_dates=N` | retrospective walk-forward report (not prospective) |
 | `GET /api/continuity?date=N` | return-to-training calibration: per-band n/median/CI/fixed/applied and `allow_relax_fixed` |
-| `GET /api/volume?date=N&weeks=4` | weekly hard-set ledger by movement pattern (advisory) |
+| `GET /api/volume?date=N&weeks=4&accounting=hard\|effective` | weekly pattern-group ledger with `patterns` and direct/indirect/effective `groups`; optional accounting override defaults to the profile setting |
 | `GET /api/shadow?date=N&window_days=84` | shadow review: rows by component/action, applied/applied-nothing counts, high-signal days, abstention reasons and the four gate checks; `activation_allowed` is always false |
 | `GET /api/residual?date=N&window_days=84` | VBT execution residual grouped by lift/reps/load basis, lift-scoped only, with the signal/evaluation gates and abstention reasons (shadow) |
 | `GET /api/exposure?date=N` | rolling hard-set exposure ratio with windows, coverage, abstention reasons, per-group ratios and Part D advisories (read-only; `DEC-EXPOSURE-02`) |
 | `GET /api/volume/budget?date=N` | read-only weekly volume budget: target, exemptions, completed, projection, session cap, feasibility and per-group status/persistent/top-up capacity |
-| `GET /api/progress?date=N` | descriptive progress: sRPE coverage, performance ratio, volume status, latest back symptom |
 | `GET /api/outcomes?weeks=N&date=N` | read-only 4/8/12-week strength, longevity and coverage review |
 | `GET /api/prospective?weeks=N&date=N` | W5 read-only prospective summary: statuses, attendance, work, RIR, duration, flags |
 | `GET /api/regime?weeks=N&date=N` | read-only main-lift/substitute regime check |
@@ -280,7 +280,7 @@ also disables while saving and reports the number of marks written.
 | `GET /api/options` | canonical goal, constraint, severity, region, pattern, VBT-family, muscle and exercise choices |
 | `GET /api/exercises/catalog` | full exercise catalogue with source/properties, patterns, VBT families and muscles |
 | `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml`; unknown new patterns/muscles are rejected, legacy values are preserved |
-| `GET /api/measurements` | metric catalogue, per-metric summary and recent entries |
+| `GET /api/measurements?metric_key=&from=&to=&limit=&offset=` | metric catalogue, summary and newest-first exact-record pages; offset walks older, entries stay date-ascending, date bounds are inclusive |
 | `POST /api/measurements` | `{metric, value, date, method, note}` -> summary |
 | `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy`; goals, constraint kinds/regions, forbidden patterns/exercises and exercise ids are validated against the canonical vocabulary; `symptom` accepts optional `timing`, `attributed_session_id`, `attributed_exercise_id`, `onset_on` and `attribution_confidence`, plus the short aliases the UI uses |
 | `GET /api/calibrate` | calibration report |

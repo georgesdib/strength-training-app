@@ -21,9 +21,11 @@ The main opportunities are to make the six areas discoverable in navigation with
 
 ## Data/API audit and limits
 
-**Available without a new backend contract:** `/api/overview`, `/api/workout/active`, `/api/progress` (fixed-lookback ratio points and coverage), `/api/outcomes`, `/api/volume` (bounded weekly working sets by pattern), `/api/history/days` (bounded stored active dates/workout IDs), `/api/performance/e1rm`, `/api/performance/relationship-options`, `/api/exercise-history` (50-record page limit with full-range analytics and offset pagination), `/api/monitoring-analysis` (descriptive lagged pairs), `/api/workout/{id}` (frozen plan and completed workout), `/api/cardio`, `/api/measurements` (latest 50 exact entries plus full summary), `/api/exposure`, `/api/residual`, `/api/shadow`, `/api/programme`, `/api/state`, and settings/import/logs/docs endpoints. These support Progress and Health & Longevity charts without duplicated domain calculations.
+**Available before P3:** `/api/overview`, `/api/workout/active`, `/api/progress` (fixed-lookback ratio points and coverage), `/api/outcomes`, `/api/volume` (bounded weekly working sets by pattern), `/api/history/days` (bounded stored active dates/workout IDs), `/api/performance/e1rm`, `/api/performance/relationship-options`, `/api/exercise-history` (50-record page limit with full-range analytics and offset pagination), `/api/monitoring-analysis` (descriptive lagged pairs), `/api/workout/{id}` (frozen plan and completed workout), `/api/cardio`, `/api/measurements` (latest 50 exact entries plus full summary), `/api/exposure`, `/api/residual`, `/api/shadow`, `/api/programme`, `/api/state`, and settings/import/logs/docs endpoints.
 
-**Not available as truthful time series today:** an actual future-session calendar, complete historical execution comparisons for imported sessions without frozen app-workout plans, a dedicated date-indexed bodyweight series, and a weekly tonnage/intensity/residual series with matching units and coverage. The Progress calendar/frequency counts describe stored active dates, never scheduled adherence; exact exercise-history records page at 50 per request while summaries span the selected range; the cross-lift ratio keeps its fixed 56-day window. Do not convert these limits into zeroes or infer unavailable dimensions.
+**Added by P3:** plan-item identity on set writes and item-level comparisons; paginated exact measurements and an inclusive readiness/bodyweight series; observed weekly RIR/tonnage/residual series; and read-only hard/effective pattern-group volume with direct/indirect/effective counts.
+
+**Still unavailable:** an actual future-session calendar and complete historical execution comparisons for imported sessions without frozen app-workout plans. P3 does not invent either. The Progress calendar/frequency counts describe stored active dates, never scheduled adherence; exact exercise-history records page at 50 per request while summaries span the selected range; the cross-lift ratio keeps its fixed 56-day window. Do not convert these limits into zeroes or infer unavailable dimensions.
 
 **Correctness issues to address before adding interpretations:** progress sRPE coverage must be as-of and count the stated field independently of duration; Longevity must count observed measurements rather than configured metric keys; readiness coverage text must reflect the actual intended/returned fields; Outcomes first/last e1RM should agree with canonical eligible best-per-training-day observations. These are reporting corrections, not prescription or storage changes.
 
@@ -50,12 +52,12 @@ The main opportunities are to make the six areas discoverable in navigation with
 - Added a shared, dependency-free SVG chart layer for date-proportional multi-series lines and grouped bars; it supports reference lines/bands, exact point/category tooltips, consistent axes/units, empty states, responsive SVG, and keyboard/touch series toggles. e1RM, performance ratio, session dose, monitoring, cardio, and measurement charts use the shared renderers; existing chart-expand behavior and semantics remain.
 - Exercise Explorer now shows completed working-set count, load medians split by `load_basis`, rep medians split by `reps_unit`, and eligible e1RM observations; same-date fragments combine, null values stay missing, and units are never mixed. Date bounds apply to analytics and exact records; summaries cover the selected range, while duplicate-safe 50-session pages load all exact records without a history cap. “All history” clears both date bounds.
 - Progress now combines selectable e1RM raw/trailing-median series and best/latest context, basis-aware logged load/reps, weekly pattern and selected-exercise working-set volume, selected-exercise training dates, an observed-day calendar, non-overlapping weekly training frequency against an optional configured target, the existing fixed-56-day ratio, on-demand lagged dose/e1RM scatters, and one completed app-workout original-plan vs logged-set-row comparison. That comparison is aggregate-only (rows may include different roles, no item matching) and is not an adherence measure. Main-lift change detail and sRPE coverage are retained.
-- P2 clear omissions: no bodyweight-relative trend, weekly tonnage/intensity, or longitudinal VBT residuals yet; no imported-session plan comparison; no invented schedule. Pattern-group effective sets (direct 1 + configured indirect 0.25) are available through the volume data when the existing hard/effective accounting setting is `effective`, but there is no visible Progress control yet. P3 below covers the additional read-only contracts and the effective-series control. No new API, database, or dependency was added in P2.
+- P2 clear omissions, now addressed by P3 except where noted: no bodyweight-relative trend, weekly tonnage/intensity, or longitudinal VBT residuals at P2; no imported-session plan comparison; no invented schedule. Pattern-group effective sets (direct 1 + configured indirect 0.25) were available through the volume data when the accounting setting was `effective`, but there was no visible Progress control yet. P3 adds the read-only contracts and the effective-series control. No new API, database, or dependency was added in P2.
 - Cardio charts only ISO weeks containing logged sessions, with WHO reference lines explicitly labelled context and partial-window/missing-log caveats. Measurements chart independent recorded points from the latest 50 API entries, split by method with no line connection, same-day averaging, or interpolation. Regression tests cover aggregation/date filters, exact tooltips, empty/missing values, series toggles, execution caveats, and method/coverage semantics.
 
-### P3 — Read-only data contracts and pattern-group effective series (planned, in scope)
+### P3 — Read-only data contracts and pattern-group effective series (implemented 2026-11-06)
 
-P3 is **in scope for closure** and is not deferred. It covers four read-only additions:
+P3 is **in scope for closure**, implemented, and is not deferred. It covers four read-only additions:
 
 1. **Complete plan/execution item matching** — match a frozen app-workout plan item to its logged set rows by stable plan item identity where the snapshot exists. Imported sessions without a frozen plan remain unavailable; do not infer a match from exercise name alone.
 2. **Date-indexed bodyweight/readiness and measurement pagination** — add date-range/offset contracts for observed measurement and readiness records, including the bodyweight metric, so complete series and exact-record pages can be requested. Existing single-point and summary behavior remains; missing dates remain missing; no zero-fill.
@@ -63,6 +65,14 @@ P3 is **in scope for closure** and is not deferred. It covers four read-only add
 4. **Pattern-group effective series** — add a read-only `accounting=hard|effective` selection to `/api/volume` (default: the profile setting), and a Progress hard/effective control over the existing pattern-group volume data. `effective_total` uses direct 1.0 plus the configured indirect credit. No new weighting model, no anatomical muscle mapping, and no missing-week fill. The chart must label direct/indirect and coverage.
 
 Acceptance: each contract has an explicit API shape and regression tests; `/api/volume` rejects invalid accounting values and the default preserves the profile setting; the UI distinguishes observed, missing and unavailable states; no prescription, storage, append-only or training-policy semantics change. No schema migration is assumed by current evidence.
+
+**Implementation evidence (2026-11-06):**
+
+- **P3.1** — explicit `plan_item_index`, item-index comparison and ambiguity handling (`bf89890`).
+- **P3.2** — exact measurement pagination and inclusive readiness/bodyweight series (`f20459f`, UI in `7e37f8d`).
+- **P3.3** — weekly RIR/tonnage/residual history and Progress table (`55c9ecc`).
+- **P3.4** — `accounting=hard|effective`, group-level direct/indirect/effective counts and Progress control (`bc89214`).
+- No migration was added; existing schema columns and append-only tables were reused.
 
 ## Explicitly out of scope
 
@@ -78,9 +88,11 @@ For implementation changes, run focused tests, `python tools/check_ui_docs.py`, 
 
 **2026-11-05 final verification:** 1,525 tests passed; `python tools/check_ui_docs.py`, `ruff check .`, `git diff --check`, and Node syntax checks for all static JavaScript modules passed. The manual desktop-browser smoke test described in the implementation history passed; no iPhone-sized viewport/device test was performed.
 
+**2026-11-06 P3/final verification:** 1,534 default tests passed; the optional `integration or regression or slow` layer passed with 41 tests; `python tools/check_ui_docs.py`, `ruff check .`, `git diff --check`, and Node syntax checks passed. No browser or iPhone walkthrough was performed.
+
 ## Final Audit and Closure
 
-**Status:** Pending
+**Status:** Complete 2026-11-06.
 
 **Purpose:** Verify the completed implementation against P0–P3, correct any remaining concrete defects, reconcile documentation, and formally close the UI redesign without introducing unnecessary feature work.
 
@@ -144,6 +156,23 @@ A concise final report containing:
 - Remaining known limitations.
 - Final UI redesign completion status.
 - Recommended merge of `ui-improvement` into `development`, if closure criteria are satisfied.
+
+## Final audit report (2026-11-06)
+
+**Status: CLOSED — UI redesign complete.**
+
+- **P0:** six-area navigation, preserved routes, active-area accessibility and keyboard focus verified against the current source and existing destination tests.
+- **P1:** Today continues to use `/api/workout/active`; as-of sRPE coverage, observed-measurement counts, readiness denominators, Outcomes day-level e1RM observations, chart empty states and Longevity coverage labels remain covered by focused tests.
+- **P2:** the shared SVG chart layer, complete-range Exercise Explorer analytics, paged exact records, Progress drill-ins and explicit data limitations were rechecked against the source and tests.
+- **P3.1:** sets use explicit frozen-plan item identity; duplicate exercises without an index remain ambiguous; original comparisons become unavailable after plan edits.
+- **P3.2:** `/api/measurements` paginates exact records with inclusive date bounds; `/api/readiness/history` returns observed bodyweight/readiness points with manual-over-import precedence and no fill.
+- **P3.3:** `/api/progress` returns observed weekly RIR/tonnage/residual history and a missing-week list; the Progress table never zero-fills missing weeks.
+- **P3.4:** `/api/volume` accepts `accounting=hard|effective`, returns group-level direct/indirect/effective counts, and the Progress control labels the existing indirect-credit model. No anatomical muscle model was added.
+- **Corrections:** removed stale muscle-group claims, stale per-rep Prescribe wording, and stale verification notes; added item-identity, pagination, weekly-history and accounting contracts with regression tests.
+- **No migration or dependency changes:** no migration file, schema change, new package, prescription-engine change or append-only semantic change was introduced.
+- **Verification:** full default suite passed with **1,534 tests**; the optional `integration or regression or slow` layer passed with **41 tests**; `tools/check_ui_docs.py`, `ruff check .`, `git diff --check` and Node syntax checks passed. No browser or iPhone smoke test was performed, as allowed by the plan.
+- **Known limitations:** imported sessions without a frozen plan cannot be item-matched; historical rows whose identity cannot be proven remain unavailable; bodyweight history uses observed readiness dates only; weekly residual history only includes app-workout sets with stored targets; pattern-group effective volume is not anatomical muscle volume.
+- **Merge recommendation:** merge `ui-improvement` into `development` after final push and delete the feature branch. Do not merge into `main` directly.
 
 ## Implementation updates
 
