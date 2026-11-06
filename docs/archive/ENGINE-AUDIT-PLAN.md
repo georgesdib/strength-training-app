@@ -70,7 +70,7 @@ argument.
 
 ### W0 — Execution-path map and baseline
 
-**Status:** complete 2026-10-23. See [`W0-EXECUTION-MAP.md`](W0-EXECUTION-MAP.md).
+**Status:** complete 2026-10-23. See [`W0-EXECUTION-MAP.md`](audits/W0-EXECUTION-MAP.md).
 
 **Question:** what actually happens, in order, from import to the next prescription?
 
@@ -106,7 +106,7 @@ Exit criteria:
 
 ### W1 — Attendance and rolling schedule
 
-**Status:** complete 2026-10-23; W1/W7 recommendations implemented. See [`W1-W7-ATTENDANCE.md`](W1-W7-ATTENDANCE.md).
+**Status:** complete 2026-10-23; W1/W7 recommendations implemented. See [`W1-W7-ATTENDANCE.md`](audits/W1-W7-ATTENDANCE.md).
 
 **Question:** does the rolling programme remain coherent when attendance is imperfect?
 
@@ -152,7 +152,7 @@ Exit criteria:
 ### W2 — Load lineage and incomplete sessions
 
 **Status:** audit complete; bodyweight-basis and incomplete-workout defects fixed with tests.
-See [`W2-LOAD-LINEAGE.md`](W2-LOAD-LINEAGE.md).
+See [`W2-LOAD-LINEAGE.md`](audits/W2-LOAD-LINEAGE.md).
 
 **Question:** can a stale, missing or changed input produce a misleading load?
 
@@ -194,7 +194,7 @@ Exit criteria:
 ### W3 — Modifier interaction matrix
 
 **Status:** audit complete 2026-10-23; six confirmed defects fixed and regression-tested. See
-[`W3-MODIFIER-MATRIX.md`](W3-MODIFIER-MATRIX.md).
+[`W3-MODIFIER-MATRIX.md`](audits/W3-MODIFIER-MATRIX.md).
 
 **Question:** do readiness, stress, continuity, deload, volume and injury rules stack
 coherently?
@@ -237,7 +237,7 @@ Exit criteria:
 
 ### W4 — Programme quality and evidence
 
-**Status:** audit complete 2026-10-23. See [`W4-PROGRAMME-EVIDENCE.md`](W4-PROGRAMME-EVIDENCE.md).
+**Status:** audit complete 2026-10-23. See [`W4-PROGRAMME-EVIDENCE.md`](audits/W4-PROGRAMME-EVIDENCE.md).
 
 **Question:** is the programme a coherent strength stimulus, and which rules are evidence,
 heuristic, hypothesis, constraint or unvalidated model?
@@ -282,7 +282,7 @@ Exit criteria:
 
 ### W5 — Prospective evaluation design
 
-**Status:** protocol complete 2026-10-23. See [`W5-PROSPECTIVE-EVALUATION.md`](W5-PROSPECTIVE-EVALUATION.md).
+**Status:** protocol complete 2026-10-23. See [`W5-PROSPECTIVE-EVALUATION.md`](audits/W5-PROSPECTIVE-EVALUATION.md).
 
 **Question:** what is the smallest evaluation that can distinguish real progress from noise?
 
@@ -472,7 +472,7 @@ every item is a confirmed defect.
 
 > **Post-close note:** A4's cap of 3 is the audited state. `DEC-SPINE-05` (2026-10-25) later
 > raised the cap to 6 and counted the low-bar competition squat; see
-> [`W9-SPINAL-CAP.md`](W9-SPINAL-CAP.md) §8 for the current state.
+> [`W9-SPINAL-CAP.md`](audits/W9-SPINAL-CAP.md) §8 for the current state.
 
 #### A1 detail — readiness baseline
 

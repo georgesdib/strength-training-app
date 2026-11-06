@@ -294,7 +294,7 @@ def test_docs_api_exposes_only_the_public_manifest(server):
     entries = json.loads(body)
     names = {entry["name"] for entry in entries}
     assert "docs/README.md" in names
-    assert "docs/archive/W9-SPINAL-CAP.md" in names
+    assert "docs/archive/audits/W9-SPINAL-CAP.md" in names
     assert "docs/design/TRAINING-MONITORING-SPEC.md" not in names
     assert not any(name.startswith("private/") for name in names)
     assert all(entry["category"] and entry["category_label"] for entry in entries)

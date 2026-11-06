@@ -238,12 +238,12 @@ job completes.
 | `docs/FORM-ASSESSMENT.md` | optional per-lift 1-5 form assessment; Workout/History and rubric 1.2.0 |
 | `docs/REGIME-CHANGE.md` | read-only main-lift/substitute regime check; thresholds and limits |
 | `docs/archive/AUDIT-CLOSEOUT.md` | final W0–W12 audit outcome, implemented fixes and remaining limitations |
-| `docs/archive/W11-W12-CLOSEOUT.md` | W11 documentation consistency (including rubric 1.1.0 duration) and W12 public-data inventory/history decision |
-| `docs/archive/W10-AGE.md` | W10 age-in-state audit; optional birth-year, wording and no age-based load rule |
-| `docs/archive/W8-VOLUME-BALANCE.md` | W8 weekly set/spinal/time balance and four options; no change |
-| `docs/archive/W5-PROSPECTIVE-EVALUATION.md` | W5 prospective protocol and implemented read-only summary |
+| `docs/archive/audits/W11-W12-CLOSEOUT.md` | W11 documentation consistency (including rubric 1.1.0 duration) and W12 public-data inventory/history decision |
+| `docs/archive/audits/W10-AGE.md` | W10 age-in-state audit; optional birth-year, wording and no age-based load rule |
+| `docs/archive/audits/W8-VOLUME-BALANCE.md` | W8 weekly set/spinal/time balance and four options; no change |
+| `docs/archive/audits/W5-PROSPECTIVE-EVALUATION.md` | W5 prospective protocol and implemented read-only summary |
 | `docs/OUTCOMES.md` | read-only 4/8/12-week outcomes review: what changed, not why |
-| `docs/archive/W4-PROGRAMME-EVIDENCE.md` | W4 evidence classification and user-facing evidence labels |
+| `docs/archive/audits/W4-PROGRAMME-EVIDENCE.md` | W4 evidence classification and user-facing evidence labels |
 | `docs/LIMITATIONS-REGISTER.md` | living index of known limitations from all audits |
 | `docs/METHODOLOGY.md` | canonical versioned decision flow, limitations, never-do list and change control |
 | `docs/PRIVACY.md` | public/private documentation boundary; no new personal health/performance data; external-LLM payload and sensitive-field rules |
@@ -286,7 +286,8 @@ job completes.
 | `docs/archive/RESOLVER-ACCEPTANCE-AUDIT.md` | closed end-to-end production acceptance audit: P0/P1/P2 findings, fixes, acceptance matrix and residual release gates |
 | `docs/PERFORMANCE-PROFILE.md` | 2026-11-04 resolver prescription benchmark, 2026-11-05 clean-set snapshot A/B, stage profile, cache design/invalidation and parallelism assessment |
 | `docs/TRAINING-DAY-MODEL.md` | implemented training-day/session-fragment model: one local date may hold multiple fragments, day-level attendance/e1RM, combined volume/spinal, shared readiness, no schema migration |
-| `docs/WEB-UI.md` | local web UI surface, API and its limitations |
+| `docs/WEB-UI.md` | local web UI surface and its limitations |
+| `docs/API.md` | HTTP API reference: routes, request security and limits, dates, errors and client modules |
 | `docs/MONITORING-ANALYSIS.md` | read-only exploratory monitoring analysis: dose, lagged associations, calibration transparency, API/UI/CLI, non-causal limits and privacy |
 | `docs/WORKOUT-GENERATION.md` | Plain-English explanation of the deterministic prescription pipeline, inputs, modifiers, validation and limitations |
 | `docs/UI-CLI-PARITY.md` | current first-class parity, intentional differences and remaining gaps |
@@ -305,12 +306,12 @@ job completes.
 | `docs/HIGH-INTENSITY-EXPOSURE-PLAN.md` | detailed proposal: tests/max attempts/competition exposures, guard windows, evidence and phased evaluation |
 | `docs/archive/ENGINE-AUDIT-PLAN.md` | closed W0–W12 audit plan; outcome in `docs/archive/AUDIT-CLOSEOUT.md` |
 | `docs/archive/READINESS-AUDIT.md` | W6 audit: readiness vs no readiness is not identifiable retrospectively; descriptive associations and policy options |
-| `docs/archive/W2-LOAD-LINEAGE.md` | W2 audit: load lineage; bodyweight-basis and incomplete-workout defects fixed |
-| `docs/archive/W9-SPINAL-CAP.md` | W9 audit: explicit high-fatigue costs, at-cap display; cap 3 at close, superseded by cap 6 in §8 |
-| `docs/archive/W1-W7-ATTENDANCE.md` | W1 schedule audit and W7 attendance metrics; forecast-deload path and session cap implemented |
-| `docs/archive/W0-EXECUTION-MAP.md` | W0 execution map, modifier ownership/order, input risks, test coverage and candidate findings |
-| `docs/archive/W3-MODIFIER-MATRIX.md` | W3 audit: six confirmed deload/order/floor/RIR defects, fixed and tested |
-| `docs/archive/W3-INTERACTION-MATRIX-2026-10-31.md` | 768-case modifier interaction matrix: method, raw flags, preliminary triage and next pass; LIM-30 remains open |
+| `docs/archive/audits/W2-LOAD-LINEAGE.md` | W2 audit: load lineage; bodyweight-basis and incomplete-workout defects fixed |
+| `docs/archive/audits/W9-SPINAL-CAP.md` | W9 audit: explicit high-fatigue costs, at-cap display; cap 3 at close, superseded by cap 6 in §8 |
+| `docs/archive/audits/W1-W7-ATTENDANCE.md` | W1 schedule audit and W7 attendance metrics; forecast-deload path and session cap implemented |
+| `docs/archive/audits/W0-EXECUTION-MAP.md` | W0 execution map, modifier ownership/order, input risks, test coverage and candidate findings |
+| `docs/archive/audits/W3-MODIFIER-MATRIX.md` | W3 audit: six confirmed deload/order/floor/RIR defects, fixed and tested |
+| `docs/archive/audits/W3-INTERACTION-MATRIX-2026-10-31.md` | 768-case modifier interaction matrix: method, raw flags, preliminary triage and next pass; LIM-30 remains open |
 | `docs/MINIMUM-SESSION.md` | `MOD-MIN-001` user-selected volume-only fallback: targets, floors, precedence, refusal and provenance |
 | `docs/archive/IMPLEMENTATION-PLAN-2026-10.md` | approved direction and phased implementation plan; A0–F implemented |
 | `docs/archive/TEST-FATIGUE-PLAN.md` | superseded narrow test-fatigue proposal; points to the broader plan |

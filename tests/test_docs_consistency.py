@@ -175,7 +175,7 @@ def test_spinal_cap_matches_w9_current_state() -> None:
     document = yaml.safe_load(_read("config", "rules", "programme.v1.yaml"))
     rule = next(item for item in document["rules"] if item["id"] == "PRG-SPINE-001")
     cap = rule["params"]["cap"]
-    w9 = _read("docs", "archive", "W9-SPINAL-CAP.md")
+    w9 = _read("docs", "archive", "audits", "W9-SPINAL-CAP.md")
     assert "Superseded in part" in w9
     current = w9.split("## 8. Current state", 1)[1]
     assert f"params.cap: {cap}" in current

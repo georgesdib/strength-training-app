@@ -1,6 +1,6 @@
 """W5 prospective review: a read-only, pre-specified 4/8/12-week check.
 
-The protocol is docs/archive/W5-PROSPECTIVE-EVALUATION.md. This module implements the summary; it
+The protocol is docs/archive/audits/W5-PROSPECTIVE-EVALUATION.md. This module implements the summary; it
 does not create a model, store a snapshot or change a prescription.
 """
 

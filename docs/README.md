@@ -50,7 +50,8 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 
 ## Features, UI and operations
 
-- [WEB-UI.md](WEB-UI.md) — local web surface, API and limits
+- [WEB-UI.md](WEB-UI.md) — local web surface and limits
+- [API.md](API.md) — HTTP API routes, security, limits and errors
 - [UI-MAP.md](UI-MAP.md) — panel/route map and docs links
 - [UI-CLI-PARITY.md](UI-CLI-PARITY.md) — parity and intentional gaps
 - [OUTCOMES.md](OUTCOMES.md), [MONITORING-ANALYSIS.md](MONITORING-ANALYSIS.md)
@@ -75,7 +76,8 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 ## Archive and internal design
 
 - [archive/](archive/README.md) — closed audits, completed plans and superseded proposals. Do not
-  treat archived text as current guidance; each entry names its current canonical source.
+  treat archived text as current guidance; each entry names its current canonical source. The
+  W0–W12 working reports are grouped in the [audit appendix](archive/audits/README.md).
 - `design/` — internal design specifications (monitoring). These are maintained in the
   repository but deliberately not shown in the Docs viewer; they are **public source**, not
   private data.

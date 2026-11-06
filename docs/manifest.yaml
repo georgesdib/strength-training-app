@@ -374,6 +374,14 @@ documents:
   status: evidence
   audience: public
   nav: true
+- id: api
+  path: docs/API.md
+  title: HTTP API
+  description: 'HTTP API reference: routes, request security and limits, dates, errors and client modules'
+  category: features
+  status: canonical
+  audience: public
+  nav: true
 - id: jump-variants
   path: docs/JUMP-VARIANTS.md
   title: Jump variants and power work
@@ -548,7 +556,7 @@ documents:
 - id: web-ui
   path: docs/WEB-UI.md
   title: WEB UI
-  description: local web UI surface, API and its limitations
+  description: local web UI surface and its limitations
   category: features
   status: canonical
   audience: public
@@ -654,6 +662,14 @@ documents:
     closed'
   category: archive
   status: archived
+  audience: public
+  nav: true
+- id: archive-audits-readme
+  path: docs/archive/audits/README.md
+  title: Engine audit appendix (W0–W12)
+  description: Engine audit appendix (W0–W12)
+  category: archive
+  status: reference
   audience: public
   nav: true
 - id: archive-audit-closeout
@@ -766,48 +782,48 @@ documents:
   status: archived
   audience: public
   nav: true
-- id: archive-w0-execution-map
-  path: docs/archive/W0-EXECUTION-MAP.md
+- id: archive-audits-w0-execution-map
+  path: docs/archive/audits/W0-EXECUTION-MAP.md
   title: W0 — EXECUTION-PATH MAP AND BASELINE
   description: W0 execution map, modifier ownership/order, input risks, test coverage and candidate findings
   category: archive
   status: archived
   audience: public
   nav: true
-- id: archive-w1-w7-attendance
-  path: docs/archive/W1-W7-ATTENDANCE.md
+- id: archive-audits-w1-w7-attendance
+  path: docs/archive/audits/W1-W7-ATTENDANCE.md
   title: W1 / W7 — ATTENDANCE AND ROLLING SCHEDULE
   description: W1 schedule audit and W7 attendance metrics; forecast-deload path and session cap implemented
   category: archive
   status: archived
   audience: public
   nav: true
-- id: archive-w10-age
-  path: docs/archive/W10-AGE.md
+- id: archive-audits-w10-age
+  path: docs/archive/audits/W10-AGE.md
   title: W10 — AGE IN ATHLETE STATE
   description: W10 age-in-state audit; optional birth-year, wording and no age-based load rule
   category: archive
   status: archived
   audience: public
   nav: true
-- id: archive-w11-w12-closeout
-  path: docs/archive/W11-W12-CLOSEOUT.md
+- id: archive-audits-w11-w12-closeout
+  path: docs/archive/audits/W11-W12-CLOSEOUT.md
   title: W11/W12 — DOCUMENTATION AND PUBLIC-DATA CLOSEOUT
   description: W11 documentation consistency (including rubric 1.1.0 duration) and W12 public-data inventory/history decision
   category: archive
   status: archived
   audience: public
   nav: true
-- id: archive-w2-load-lineage
-  path: docs/archive/W2-LOAD-LINEAGE.md
+- id: archive-audits-w2-load-lineage
+  path: docs/archive/audits/W2-LOAD-LINEAGE.md
   title: W2 — LOAD LINEAGE AND INCOMPLETE SESSIONS
   description: 'W2 audit: load lineage; bodyweight-basis and incomplete-workout defects fixed'
   category: archive
   status: archived
   audience: public
   nav: true
-- id: archive-w3-interaction-matrix-2026-10-31
-  path: docs/archive/W3-INTERACTION-MATRIX-2026-10-31.md
+- id: archive-audits-w3-interaction-matrix-2026-10-31
+  path: docs/archive/audits/W3-INTERACTION-MATRIX-2026-10-31.md
   title: W3 modifier interaction matrix — 2026-10-31
   description: '768-case modifier interaction matrix: method, raw flags, preliminary triage and next pass; LIM-30 remains
     open'
@@ -815,40 +831,40 @@ documents:
   status: archived
   audience: public
   nav: true
-- id: archive-w3-modifier-matrix
-  path: docs/archive/W3-MODIFIER-MATRIX.md
+- id: archive-audits-w3-modifier-matrix
+  path: docs/archive/audits/W3-MODIFIER-MATRIX.md
   title: W3 — MODIFIER INTERACTION MATRIX
   description: 'W3 audit: six confirmed deload/order/floor/RIR defects, fixed and tested'
   category: archive
   status: archived
   audience: public
   nav: true
-- id: archive-w4-programme-evidence
-  path: docs/archive/W4-PROGRAMME-EVIDENCE.md
+- id: archive-audits-w4-programme-evidence
+  path: docs/archive/audits/W4-PROGRAMME-EVIDENCE.md
   title: W4 — PROGRAMME QUALITY AND EVIDENCE
   description: W4 evidence classification and user-facing evidence labels
   category: archive
   status: archived
   audience: public
   nav: true
-- id: archive-w5-prospective-evaluation
-  path: docs/archive/W5-PROSPECTIVE-EVALUATION.md
+- id: archive-audits-w5-prospective-evaluation
+  path: docs/archive/audits/W5-PROSPECTIVE-EVALUATION.md
   title: W5 — PROSPECTIVE EVALUATION PROTOCOL
   description: W5 prospective protocol and implemented read-only summary
   category: archive
   status: archived
   audience: public
   nav: true
-- id: archive-w8-volume-balance
-  path: docs/archive/W8-VOLUME-BALANCE.md
+- id: archive-audits-w8-volume-balance
+  path: docs/archive/audits/W8-VOLUME-BALANCE.md
   title: W8 — VOLUME BALANCE
   description: W8 weekly set/spinal/time balance and four options; no change
   category: archive
   status: archived
   audience: public
   nav: true
-- id: archive-w9-spinal-cap
-  path: docs/archive/W9-SPINAL-CAP.md
+- id: archive-audits-w9-spinal-cap
+  path: docs/archive/audits/W9-SPINAL-CAP.md
   title: W9 — SPINAL-CAP HEADROOM
   description: 'W9 audit: explicit high-fatigue costs, at-cap display; cap 3 at close, superseded by cap 6 in §8'
   category: archive

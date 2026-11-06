@@ -406,7 +406,7 @@ number that every consumer has to remember to ignore.
 | `strength_coach/cli.py`, `agents/narrative.py`, `agents/proposal.py` | display/prompt; no RIR options for quality. |
 | `tests/*` + golden fixture | see B.5. |
 | `docs/DECISIONS.md` | `DEC-POWER-02` is recorded; do not edit `DEC-POWER-01`. |
-| `docs/LONGEVITY-REVIEW.md`, `docs/archive/W4-PROGRAMME-EVIDENCE.md`, `docs/RULES-FORMAT.md` | power wording already says "quality stop" in places; reconcile any remaining "RIR 4–5" text. |
+| `docs/LONGEVITY-REVIEW.md`, `docs/archive/audits/W4-PROGRAMME-EVIDENCE.md`, `docs/RULES-FORMAT.md` | power wording already says "quality stop" in places; reconcile any remaining "RIR 4–5" text. |
 | `CHANGELOG.md`, `ROADMAP.md` | entry and status row. |
 
 ## B.5 Tests
@@ -467,8 +467,8 @@ The drift is material, not cosmetic:
 | bench+hinge week spinal total | 3 | 5.5 |
 
 The same stale movement appears in `docs/CORE-TRAINING.md`, `ROADMAP.md` §4.17 (table and prose),
-and the dated adjustment note in `docs/VOLUME-MANAGEMENT.md`. `docs/archive/W8-VOLUME-BALANCE.md` is a
-dated audit with an explicit later-amendment note; `docs/archive/W9-SPINAL-CAP.md` §8 is current and
+and the dated adjustment note in `docs/VOLUME-MANAGEMENT.md`. `docs/archive/audits/W8-VOLUME-BALANCE.md` is a
+dated audit with an explicit later-amendment note; `docs/archive/audits/W9-SPINAL-CAP.md` §8 is current and
 already correct; `docs/DECISIONS.md` rows are historical and must not be edited.
 
 **Agreement:** update the current-state documents to the template, and make the factual tables
@@ -482,7 +482,7 @@ regenerate the whole review: its evidence assessment and prose are human work. G
   `docs/STRENGTH-PROGRAM-REVIEW.md`, between explicit markers, from
   `config/templates/session-types.v1.yaml`, the taxonomy and `config/volume.v1.yaml`.
 - **Manual:** the review's evidence claims, prose and conclusions. They are not generated.
-- **Historical:** `docs/archive/W8-VOLUME-BALANCE.md` and `docs/archive/W9-SPINAL-CAP.md` keep their dated
+- **Historical:** `docs/archive/audits/W8-VOLUME-BALANCE.md` and `docs/archive/audits/W9-SPINAL-CAP.md` keep their dated
   analysis; W8 already carries the later-amendment note, W9 §8 is the live summary. The decision
   log is append-only and is never rewritten.
 - **Current-state docs to correct:** `docs/STRENGTH-PROGRAM-REVIEW.md`,

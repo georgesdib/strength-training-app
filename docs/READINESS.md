@@ -164,6 +164,17 @@ a preference of convenience: record it in `docs/DECISIONS.md` when you do.
 - No inference of readiness from training data, sleep reports or anything else: absent means
   absent.
 
+## Reference map
+
+- [READINESS-SCORE.md](READINESS-SCORE.md) — the implemented global, category and per-lift
+  score, overrides, gate and limits.
+- [LIFT-READINESS.md](LIFT-READINESS.md) — per-lift components, evidence and the downward-only
+  rule.
+- [READINESS-WEIGHT-EVIDENCE.md](READINESS-WEIGHT-EVIDENCE.md) — weight evidence and the closed
+  learned-weight question.
+- This document remains the canonical description of the daily input, merge and sentinel
+  policy; the three references above do not repeat it.
+
 ## Related
 
 - **UI surface:** [UI-MAP.md](UI-MAP.md)

@@ -120,6 +120,19 @@ explicit decision.
 Phase 5B is gated and not approved or underway. It may begin only after the Phase 5A review and
 explicit user approval, and every change must trace to a documented Phase 5A finding.
 
+## Design history
+
+The maintainer-only design trail is kept in the repository but out of the public Docs viewer:
+
+- [Training monitoring specification](design/TRAINING-MONITORING-SPEC.md)
+- [Training monitoring implementation plan](design/TRAINING-MONITORING-IMPLEMENTATION-PLAN.md)
+- [Monitoring configuration/UI plan](design/MONITORING-CONFIG-UI-PLAN.md)
+
+Folding their design history into this canonical analysis is deliberately deferred until the
+Phase 5A review (due 2027-01-22): that review classifies each metric, and summarising the design
+as settled before then would pre-empt its evidence decision. The links above are the interim
+index.
+
 ## Related
 
 - [Training monitoring specification](design/TRAINING-MONITORING-SPEC.md)

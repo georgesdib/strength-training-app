@@ -239,7 +239,7 @@ this section is the live summary and takes precedence where they differ.
   an exact-cap week does not trigger it. That behaviour did not change when the cap moved.
 - The limits in §4 (W9-05) still hold: the sum is ordinal, load-blind and counts one exposure
   per (session, exercise), not sets or RIR. A cap of 6 is a programme-owner number, not a
-  measured safety threshold ([SPINAL-COST.md](../SPINAL-COST.md), `ASSUMPTION-02`).
+  measured safety threshold ([SPINAL-COST.md](../../SPINAL-COST.md), `ASSUMPTION-02`).
 
 The original cap-3 analysis is retained above because it documents the zero-headroom finding
 that motivated `DEC-SPINE-03`, and because the frequency data in §3 is still the evidence base
@@ -247,7 +247,7 @@ for the ordinal model.
 
 ## Related
 
-- **Evidence:** [SPINAL-COST.md](../SPINAL-COST.md), [SPINAL-LOAD-EVIDENCE.md](../SPINAL-LOAD-EVIDENCE.md)
-- **Decisions:** [DECISIONS.md](../DECISIONS.md) (`DEC-SPINE-03/04/05/06`)
-- **Open questions:** [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md) (Q2, Q24)
-- **Roadmap:** [ROADMAP.md](../../ROADMAP.md)
+- **Evidence:** [SPINAL-COST.md](../../SPINAL-COST.md), [SPINAL-LOAD-EVIDENCE.md](../../SPINAL-LOAD-EVIDENCE.md)
+- **Decisions:** [DECISIONS.md](../../DECISIONS.md) (`DEC-SPINE-03/04/05/06`)
+- **Open questions:** [OPEN-QUESTIONS.md](../../OPEN-QUESTIONS.md) (Q2, Q24)
+- **Roadmap:** [ROADMAP.md](../../../ROADMAP.md)

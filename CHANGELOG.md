@@ -8,9 +8,12 @@
   truth for public documentation metadata and navigation (id, path, title, description,
   category, status, audience). The Docs API and viewer list and group documents from it, and
   completed plans/closed audits moved to `docs/archive/` behind a new
-  `docs/README.md` index. `docs/design/` stays maintainer-only and `private/` is never
-  listed or served; both rules are enforced by the loader and tests. No application behaviour
-  changed.
+  `docs/README.md` index. The W0–W12 working reports are grouped in
+  `docs/archive/audits/`, the HTTP API reference is split out of `docs/WEB-UI.md` into
+  `docs/API.md`, and `docs/READINESS.md` gained a reference map. `docs/design/` stays
+  maintainer-only (its monitoring design history is indexed from the canonical analysis and
+  its final fold waits for the Phase 5A review) and `private/` is never listed or served;
+  both rules are enforced by the loader and tests. No application behaviour changed.
 - **Body fat is a measurement**: `body_fat_pct` joins the periodic measurement catalogue
   (%, `last`, plausible 3–70; lower-is-better is a display convention, with the U-shaped
   caveat in the note). Migration 0051 copies the historical readiness `Fat_Percent` values
