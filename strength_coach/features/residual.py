@@ -97,6 +97,36 @@ def _rows(conn, start: str, end: str) -> list[Any]:
     ).fetchall()
 
 
+def weekly_history(conn, start: str, end: str) -> list[dict[str, Any]]:
+    """Weekly residual observations for app-workout sets with stored targets.
+
+    A week without a comparable set is absent; it is never emitted as a zero residual.
+    """
+    grouped: dict[str, list[float]] = {}
+    for row in _rows(conn, str(start), str(end)):
+        scope = str(row["vbt_basis"] or "").split(" · ")[0].strip()
+        if scope != "lift":
+            continue
+        day = dt.date.fromisoformat(str(row["for_date"])[:10])
+        week_start = day - dt.timedelta(days=day.weekday())
+        residual = float(row["velocity"]) - float(row["velocity_target"])
+        grouped.setdefault(week_start.isoformat(), []).append(residual)
+
+    out: list[dict[str, Any]] = []
+    for week_start, values in sorted(grouped.items()):
+        n = len(values)
+        spread = statistics.stdev(values) if n > 1 else None
+        status = "signal" if n >= MIN_OBSERVATIONS else "insufficient"
+        out.append({
+            "week_start": week_start,
+            "n": n,
+            "mean_mps": round(statistics.fmean(values), 3),
+            "spread_mps": None if spread is None else round(spread, 3),
+            "status": status,
+        })
+    return out
+
+
 def compute(conn, on_date: str, *, window_days: int = WINDOW_DAYS) -> ResidualReport:
     """Group comparable execution residuals and apply the two sufficiency gates."""
     day = dt.date.fromisoformat(str(on_date)[:10])

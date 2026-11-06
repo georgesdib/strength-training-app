@@ -1292,6 +1292,8 @@ def test_progress_dashboard_endpoint(server):
     assert "coverage" in data
     assert "performance" in data
     assert "volume" in data
+    assert "weekly" in data
+    assert isinstance(data["weekly"]["weeks"], list)
     assert "no prescription change" in data["note"]
 
 def test_retrospective_validation_endpoint(server):

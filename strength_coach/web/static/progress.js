@@ -149,6 +149,40 @@ function progressRenderDose(volumeData) {
   }
 }
 
+function progressRenderWeekly(progressData) {
+  var host = $("#progress-weekly");
+  var note = $("#progress-weekly-note");
+  if (!host) return;
+  var weekly = (progressData && progressData.weekly) || {};
+  var rows = weekly.weeks || [];
+  if (!rows.length) {
+    host.innerHTML = "<p class='empty'>No weekly observations in the selected period.</p>";
+  } else {
+    host.innerHTML = "<div class='table-scroll'><table><thead><tr><th>Week</th><th>Working sets</th>" +
+      "<th>Hard sets</th><th>RIR observed / mean</th><th>Tonnage kg</th><th>Residual</th></tr></thead><tbody>" +
+      rows.map(function (row) {
+        var rir = row.rir || {};
+        var tonnage = row.tonnage || {};
+        var residual = row.residual;
+        var residualText = residual
+          ? residual.n + " obs · " + fmt(residual.mean_mps) + " m/s · " + esc(residual.status)
+          : "unavailable";
+        return "<tr><td>" + esc(row.week_start) + " to " + esc(row.week_end) +
+          "</td><td>" + row.working_sets + "</td><td>" + row.hard_sets + "</td><td>" +
+          (rir.observed_sets == null ? "unknown" : rir.observed_sets + " / " +
+            (rir.mean == null ? "—" : fmt(rir.mean))) + "</td><td>" +
+          (row.tonnage_kg == null ? "unavailable" : fmt(row.tonnage_kg)) +
+          " <span class='muted'>(" + (tonnage.observed_sets == null ? "unknown" : tonnage.observed_sets) +
+          " sets)</span></td><td>" + residualText + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  if (note) {
+    var missing = (weekly.missing_weeks || []).length;
+    note.textContent = "Observed weeks only; missing weeks are not zero-filled" +
+      (missing ? " (" + missing + " missing week(s) omitted)." : ".");
+  }
+}
+
 function progressRenderFrequency(days, attendance, start, weeks) {
   var host = $("#progress-frequency-chart");
   var note = $("#progress-frequency-note");
@@ -353,6 +387,7 @@ async function loadProgressOverview() {
     progressCurrent.days = historyData.days || [];
     progressCurrent.attendance = attendance;
     progressRenderSummary(outcomesData, volumeData, progressData, from, to, (options.exercises || []).length);
+    progressRenderWeekly(progressData);
     var ratioHost = $("#progress-ratio-chart");
     if (ratioHost) ratioHost.innerHTML = progressRatioSvg((progressData.performance || {}).points || [], "Recent observed performance ratio");
     progressRenderFrequency(progressCurrent.days, attendance, from, weeks);

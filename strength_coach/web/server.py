@@ -76,6 +76,7 @@ from strength_coach.features import monitoring_analysis as monitoring_analysis_f
 from strength_coach.features import outcomes as outcomes_feature
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import progress as progress_feature
+from strength_coach.features import weekly as weekly_feature
 from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import regime_change as regime_feature
@@ -1129,9 +1130,21 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/progress":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0]
-                self._json(200, self._with_conn(
-                    lambda c: progress_feature.dashboard(c, day)
-                ))
+                try:
+                    weeks = int(query.get("weeks", ["8"])[0])
+                except (TypeError, ValueError) as exc:
+                    raise FieldError("weeks must be an integer from 1 to 52", {
+                        "weeks": "must be an integer from 1 to 52",
+                    }) from exc
+                if not 1 <= weeks <= 52:
+                    raise FieldError("weeks must be an integer from 1 to 52", {
+                        "weeks": "must be an integer from 1 to 52",
+                    })
+                def progress_payload(c):
+                    payload = progress_feature.dashboard(c, day, weeks=weeks)
+                    payload["weekly"] = weekly_feature.history(c, day or datetime.date.today().isoformat(), weeks=weeks)
+                    return payload
+                self._json(200, self._with_conn(progress_payload))
             elif path == "/api/validation":
                 query = parse_qs(urlparse(self.path).query)
                 max_dates = int(query.get("max_dates", ["12"])[0])
