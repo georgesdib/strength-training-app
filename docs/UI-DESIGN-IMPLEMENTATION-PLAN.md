@@ -116,7 +116,7 @@ For implementation changes, run focused tests, `python tools/check_ui_docs.py`, 
 
 - Verify every P3 contract against the current implementation: plan/execution matching, measurement/readiness pagination and bodyweight series, weekly RIR/tonnage/residual history, and the pattern-group effective control.
 - Confirm missing data remains visible and no anatomical muscle mapping was introduced.
-- P3 must be implemented before closure; it is not deferred.
+- P3 is implemented and verified; it is not deferred.
 
 ### Documentation reconciliation
 
