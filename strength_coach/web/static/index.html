@@ -514,6 +514,33 @@
         </div>
         <div id="readiness-result"></div>
         <div id="readiness-score"></div>
+        <div class="panel" id="readiness-override-panel">
+          <div class="panel-head"><h2>Override the score</h2><span class="muted">0.00–1.00, same as the score</span></div>
+          <p class="section-help"><span>Applies to <strong id="override-date-label">this date</strong> only, global or per pattern; it changes the load but never bypasses an injury ceiling or constraint.</span> <a class="doc-link" href="#docs?doc=docs/READINESS-SCORE.md">Readiness score</a></p>
+          <form id="override-form" class="form-row">
+            <label>Scope
+              <select id="override-scope">
+                <option value="global">global</option>
+                <option value="category:hinge">category: hinge</option>
+                <option value="category:squat">category: squat</option>
+                <option value="category:horizontal_push">category: horizontal push</option>
+                <option value="category:vertical_push">category: vertical push</option>
+                <option value="category:horizontal_pull">category: horizontal pull</option>
+                <option value="category:vertical_pull">category: vertical pull</option>
+                <option value="category:elbow_flexion">category: elbow flexion</option>
+                <option value="category:knee_extension">category: knee extension</option>
+                <option value="category:knee_flexion">category: knee flexion</option>
+                <option value="category:dorsiflexion">category: dorsiflexion</option>
+                <option value="category:spinal_extension">category: spinal extension</option>
+                <option value="category:core_carry">category: core / carry</option>
+              </select>
+            </label>
+            <label>Value <input type="number" id="override-value" min="0" max="1" step="0.01" required></label>
+            <label class="grow">Reason <input type="text" id="override-reason" required></label>
+            <button class="primary" type="submit">Override</button>
+          </form>
+          <p class="muted">A category override wins over global; both expire with the date, so re-enter for another day. Current overrides and per-category scores are listed above.</p>
+        </div>
       </div>
       <div class="workflow-step-block locked" id="workflow-preview">
         <div class="workflow-step-head"><span class="step-number">2</span><div><h2>Preview and configure</h2><p class="muted">Build the deterministic plan, inspect warnings, then start it.</p></div></div>
@@ -828,33 +855,6 @@
           <button class="ghost" id="shadow-run">Run baseline shadow</button>
           <div id="calibration-result"></div>
           <div id="shadow-result"></div>
-        </div>
-        <div class="panel" style="margin-top:14px">
-          <div class="panel-head"><h2>Override the score</h2><span class="muted">0.00–1.00, same as the score</span></div>
-        <p class="section-help"><span>Explicit readiness override on a 0–1 scale; the old value remains auditable.</span> <a class="doc-link" href="#docs?doc=docs/READINESS-SCORE.md">Readiness score</a></p>
-          <form id="override-form" class="form-row">
-            <label>Scope
-              <select id="override-scope">
-                <option value="global">global</option>
-                <option value="category:hinge">category: hinge</option>
-                <option value="category:squat">category: squat</option>
-                <option value="category:horizontal_push">category: horizontal push</option>
-                <option value="category:vertical_push">category: vertical push</option>
-                <option value="category:horizontal_pull">category: horizontal pull</option>
-                <option value="category:vertical_pull">category: vertical pull</option>
-                <option value="category:elbow_flexion">category: elbow flexion</option>
-                <option value="category:knee_extension">category: knee extension</option>
-                <option value="category:knee_flexion">category: knee flexion</option>
-                <option value="category:dorsiflexion">category: dorsiflexion</option>
-                <option value="category:spinal_extension">category: spinal extension</option>
-                <option value="category:core_carry">category: core / carry</option>
-              </select>
-            </label>
-            <label>Value <input type="number" id="override-value" min="0" max="1" step="0.01" required></label>
-            <label class="grow">Reason <input type="text" id="override-reason" required></label>
-            <button class="primary" type="submit">Override</button>
-          </form>
-          <p class="muted">The override wins over the computed score and changes the load, but never bypasses an injury ceiling or constraint.</p>
         </div>
       </div>
     </section>

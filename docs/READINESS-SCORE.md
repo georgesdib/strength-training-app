@@ -445,7 +445,8 @@ target until the athlete provides one.
 ## 2.9 Readiness overrides
 
 Computed readiness is a model output, so the athlete must be able to correct it. Overrides are
-append-only, dated and reasoned.
+append-only, dated and reasoned. In the app they sit beside the computed score on the Workflow
+readiness step, so the date being overridden is visible; the panel names that date explicitly.
 
 - **Scopes:** `global` and `category:<name>` (for example `category:hinge`).
 - **Value:** 0.00-1.00, the same scale as the computed score (higher = more ready). No separate

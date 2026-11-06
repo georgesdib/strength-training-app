@@ -1680,8 +1680,15 @@ $("#workflow-ack")?.addEventListener("click", () => {
 $("#readiness-date").value = today();
 $("#readiness-fields").innerHTML = SCORE_FIELDS.map((f) => fieldInput(f)).join("");
 $("#readiness-device").innerHTML = DEVICE_FIELDS.map((f) => fieldInput(f, true)).join("");
+function syncOverrideDateLabel() {
+  // The override lives beside the daily score, so it must say which date it writes.
+  const label = $("#override-date-label");
+  if (label) label.textContent = $("#readiness-date").value || "this date";
+}
+syncOverrideDateLabel();
 $("#readiness-date").addEventListener("change", () => {
   window.__workflowAllowUnknown = false;
+  syncOverrideDateLabel();
   loadReadiness($("#readiness-date").value);
 });
 
@@ -1885,6 +1892,7 @@ $("#override-form").addEventListener("submit", async (event) => {
       }),
     });
     renderReadiness(data);
+    syncOverrideDateLabel();
     $("#override-value").value = "";
     $("#override-reason").value = "";
     notify("Readiness override saved.");

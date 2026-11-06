@@ -261,6 +261,24 @@ def test_active_workout_is_card_based_and_keeps_context() -> None:
     assert 'id="workout-set-load").value = ""' not in workout
 
 
+def test_readiness_override_lives_with_the_daily_score() -> None:
+    page = INDEX.read_text(encoding="utf-8")
+    workflow = page.split('id="workflow-readiness"', 1)[1].split('id="workflow-preview"', 1)[0]
+    assert 'id="readiness-date"' in workflow
+    assert 'id="readiness-score"' in workflow
+    assert 'id="override-form"' in workflow
+    assert 'id="override-date-label"' in workflow
+    assert 'id="override-scope"' in workflow
+
+    # The settings page keeps policy, not the daily score override.
+    settings = page.split('id="view-readiness"', 1)[1].split('id="view-cardio"', 1)[0]
+    assert 'id="override-form"' not in settings
+
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert "syncOverrideDateLabel" in app
+    assert 'date: $("#readiness-date").value' in app
+
+
 def test_readiness_scale_labels_are_shared() -> None:
     core = (STATIC / "core.js").read_text(encoding="utf-8")
     assert "READINESS_SCALE_ENDS" in core

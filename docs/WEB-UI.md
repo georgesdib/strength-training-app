@@ -70,14 +70,13 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
 - **Review** — unreviewed/recent session sheet; engine scores shown for context; human marks, optional session RPE and session length,
   plus a **Run rubric calibration** button (same report as `strength-coach calibrate`),
   confidence and note; calibration report after saving.
-- **Workflow** — guided readiness → preview → start → active workout → post-workout comparison; owns the daily readiness form and prescription preview.
-- **Readiness** — baseline and policy settings; the daily log lives in Workflow;
-  the computed global/category score is shown in Workflow; per-athlete
-  baseline settings and the shadow baseline report are available; overrides take 0.00–1.00
-  with a reason; quick presets show their sleep/energy/soreness/stress values and an **Edit preset
-  YAML** action edits `config/readiness-presets.v1.yaml` with validation before saving; the
-  **Volume valve** sets the poor-readiness accessory set reduction; the volume ledger and MRV cap
-  are on Prescribe. A current workout is refused until readiness is ready.
+- **Workflow** — guided readiness → preview → start → active workout → post-workout comparison; owns the daily readiness form, the computed global/category score and the **Override the score** panel beside it. The panel names the date it writes (the readiness date above it), offers global or per-pattern scopes, and states that a category override wins over global and that both expire with the date. The prescription preview is also here.
+- **Readiness** — baseline and policy settings; the daily log and score overrides live in Workflow;
+  per-athlete baseline settings and the shadow baseline report are available; quick presets show
+  their sleep/energy/soreness/stress values and an **Edit preset YAML** action edits
+  `config/readiness-presets.v1.yaml` with validation before saving; the **Volume valve** sets the
+  poor-readiness accessory set reduction; the volume ledger and MRV cap are on Prescribe. A
+  current workout is refused until readiness is ready.
 - **Prescribe** — analysis for continuity, volume, regime, fatigue, selection and validation; the prescription form lives in Workflow; the preview builds the deterministic prescription with date + session type (`auto` rolling, squat, hinge, bench+squat, bench+hinge), an optional one-session **Technique throttle** (`MOD-TECH-001`: 90% load cap and RIR floor 3 on the session's essential items, or on one named movement pattern; it never reads a form rating and stores no state), warnings and notes; every item cites
   rule ids and shows the e1RM source-set count where one exists. The page labels e1RM as an estimate, readiness as a bounded heuristic, MEV/MAV/MRV
   as configurable landmarks, the spinal cap as ordinal, and deload/minimum-session evidence

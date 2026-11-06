@@ -87,6 +87,11 @@
 
 ### Fixed
 
+- **Readiness override sits beside the daily score**: the **Override the score** panel moved
+  from the Readiness settings page into the Workflow readiness step, below the computed score
+  and category table. It names the date it writes (the readiness date above it), covers global
+  and per-pattern scopes, and repeats that a category override wins over global and both expire
+  with the date. No API or scoring change.
 - **Unrated resolver suggestions can reach the preview**: a slot with no automatically
   eligible candidate but unrated suggestions now produces a provisional plan so the athlete
   can see and rate it. The preview marks the plan pending and blocks **Start** until the rating
