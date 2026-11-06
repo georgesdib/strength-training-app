@@ -87,6 +87,12 @@
 
 ### Fixed
 
+- **Measures charts every metric with data**: the page previously showed a single trend chart
+  and defaulted to the first metric that had an entry in the loaded page (VO2max), so body fat
+  with 828 recorded values had no chart unless the metric filter was changed. The page now
+  renders one chart per metric that has recorded values, each fetched from that metric's latest
+  200 entries (methods separated, no averaging or interpolation); metrics with no data show no
+  chart.
 - **Readiness override sits beside the daily score**: the **Override the score** panel moved
   from the Readiness settings page into the Workflow readiness step, below the computed score
   and category table. It names the date it writes (the readiness date above it), covers global

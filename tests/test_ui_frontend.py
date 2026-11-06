@@ -868,7 +868,7 @@ def test_health_longevity_charts_preserve_logged_observations_and_methods() -> N
         pytest.skip("node is not installed")
     source = (STATIC / "app.js").read_text(encoding="utf-8")
     chunks = []
-    for name in ("cardioWeeklyChart", "measurementHistoryChart"):
+    for name in ("cardioWeeklyChart", "measurementHistoryChart", "measureChartMetrics"):
         match = re.search(r"function " + name + r"\([\s\S]*?^}", source, re.MULTILINE)
         assert match, f"{name}() not found"
         chunks.append(match.group(0))
@@ -899,9 +899,25 @@ if (lineSpec.series.length !== 2 || lineSpec.series.some(x => x.line !== false))
 if (lineSpec.series.reduce((sum, series) => sum + series.points.length, 0) !== 3) throw new Error("measurement observations were averaged or discarded");
 if (!lineSpec.note.includes("newest-first pages") || !lineSpec.note.includes("no averaging, interpolation")) throw new Error("measurement coverage caveat absent");
 if (!measurementHistoryChart(data, "missing").includes("Select a configured measurement")) throw new Error("metric empty state absent");
+const charted = measureChartMetrics([{key: "a", count: 0}, {key: "b", count: 3}, {key: "c", count: null}, {key: "d", count: 1}]);
+if (charted.map(m => m.key).join(",") !== "b,d") throw new Error("only recorded measures may get a chart");
+const perMetric = measurementHistoryChart({...data, page: {total: 10}}, "grip", true);
+if (perMetric !== "dots") throw new Error("per-metric chart not returned");
+if (!lineSpec.note.includes("latest 3 entries loaded of 10 total") || !lineSpec.note.includes("no averaging"))
+  throw new Error("per-metric chart note missing");
 """.replace("CHUNKS", json.dumps("\n".join(chunks)))
     result = subprocess.run([node, "-e", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_measures_page_charts_every_metric_with_recorded_data() -> None:
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert "function measureChartMetrics" in app
+    assert "data-measure-chart" in app
+    assert "loadMeasureCharts" in app
+    assert '"/api/measurements?metric_key="' in app
+    page = INDEX.read_text(encoding="utf-8")
+    assert 'id="measure-result"' in page
 
 
 def test_shared_chart_core_renders_dates_bars_tooltips_and_reference_bands() -> None:

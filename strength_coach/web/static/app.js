@@ -3355,7 +3355,7 @@ $("#cardio-form").addEventListener("submit", async (event) => {
 /* --- measurements ------------------------------------------------------- */
 let lastMeasurements = null;
 
-function measurementHistoryChart(data, metricKey) {
+function measurementHistoryChart(data, metricKey, perMetric = false) {
   const metric = (data.summary || []).find((item) => item.key === metricKey);
   if (!metric) return "<p class='empty'>Select a configured measurement to view its observations.</p>";
   const entries = (data.entries || []).filter((item) => item.metric_key === metricKey);
@@ -3377,15 +3377,28 @@ function measurementHistoryChart(data, metricKey) {
     line: false,
     points,
   }));
+  const note = perMetric
+    ? "Independent recorded observations for this metric from the latest " + entries.length +
+      " entries loaded" +
+      (data.page && data.page.total != null && Number(data.page.total) > entries.length
+        ? " of " + Number(data.page.total) + " total" : "") +
+      " (newest-first; methods separated; same-day entries remain separate markers; no averaging, " +
+      "interpolation or inferred measurements)."
+    : "Independent recorded observations from the " + Number((data.entries || []).length) + " entries " +
+      "currently returned across all metrics (newest-first pages; 50 per request). Methods are separated; " +
+      "same-day entries remain separate markers, with no averaging, interpolation or inferred measurements.";
   return dateSeriesChart({
-    title: `${metric.label} · recorded observations by method`,
+    title: metric.label + " · recorded observations by method",
     xTitle: "Measurement date", yTitle: unit,
     series,
-    tooltip: (point, item) => `${point.date} · ${item.label}: ${point.value} ${unit}`,
-    note: `Independent recorded observations from the ${Number((data.entries || []).length)} entries ` +
-      `currently returned across all metrics (newest-first pages; 50 per request). Methods are separated; same-day entries remain separate ` +
-      "markers, with no averaging, interpolation or inferred measurements.",
+    tooltip: (point, item) => point.date + " · " + item.label + ": " + point.value + " " + unit,
+    note: note,
   });
+}
+
+function measureChartMetrics(summary) {
+  // One chart per metric that has recorded values; an unmeasured metric keeps its empty row.
+  return (summary || []).filter((metric) => Number(metric.count || 0) > 0);
 }
 
 function renderMeasurements(data) {
@@ -3420,18 +3433,50 @@ function renderMeasurements(data) {
     .slice().reverse().map((e) => `
     <tr><td>${esc(e.measured_on)}</td><td>${esc(e.metric_key)}</td>
     <td>${e.value}</td><td>${esc(e.method || "")}</td></tr>`).join("");
-  const trendMetric = filter ? summary[0] :
-    all.find((metric) => (data.entries || []).some((entry) => entry.metric_key === metric.key)) || all[0];
-  $("#measure-result").innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Latest</h2></div>
-      <table><thead><tr><th>Metric</th><th>Latest</th><th>Change</th><th>Entries</th></tr></thead>
-      <tbody>${rows}</tbody></table>
-      <div class="health-trend-chart"><h3>Recorded trend · ${esc(trendMetric?.label || "measurements")}</h3>${measurementHistoryChart(data, trendMetric?.key)}</div></div>
-    <div class="panel"><div class="panel-head"><h2>Recent entries</h2></div>
-      ${entries ? `<table><thead><tr><th>Date</th><th>Metric</th><th>Value</th><th>Method</th></tr></thead>
-        <tbody>${entries}</tbody></table>${older}` : "<p class='empty'>No measurements yet.</p>"}</div>`;
+  const chartMetrics = measureChartMetrics(summary);
+  const chartPanel = chartMetrics.length
+    ? '<div id="measure-charts">' + chartMetrics.map((metric) =>
+        '<div class="health-trend-chart" data-measure-chart="' + esc(metric.key) + '">' +
+        '<h3>' + esc(metric.label) + '</h3><p class="empty">Loading…</p></div>'
+      ).join("") + '</div>'
+    : "<p class='empty'>No recorded measurements yet.</p>";
+  $("#measure-result").innerHTML =
+    '<div class="panel"><div class="panel-head"><h2>Latest</h2></div>' +
+    '<table><thead><tr><th>Metric</th><th>Latest</th><th>Change</th><th>Entries</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div>' +
+    '<div class="panel"><div class="panel-head"><h2>Recorded trends</h2></div>' + chartPanel + '</div>' +
+    '<div class="panel"><div class="panel-head"><h2>Recent entries</h2></div>' +
+    (entries
+      ? '<table><thead><tr><th>Date</th><th>Metric</th><th>Value</th><th>Method</th></tr></thead>' +
+        '<tbody>' + entries + '</tbody></table>' + older
+      : "<p class='empty'>No measurements yet.</p>") +
+    '</div>';
+  loadMeasureCharts(chartMetrics);
   const olderButton = document.getElementById("measure-older");
   if (olderButton) olderButton.addEventListener("click", () => loadMeasurements(page.next_offset));
+}
+
+let measureChartGeneration = 0;
+
+async function loadMeasureCharts(metrics) {
+  const generation = ++measureChartGeneration;
+  await Promise.all((metrics || []).map(async (metric) => {
+    const host = document.querySelector('[data-measure-chart="' + metric.key + '"]');
+    if (!host) return;
+    try {
+      const data = await api(
+        "/api/measurements?metric_key=" + encodeURIComponent(metric.key) + "&limit=200"
+      );
+      if (generation !== measureChartGeneration) return;
+      host.innerHTML = '<h3>' + esc(metric.label) + '</h3>' +
+        measurementHistoryChart(data, metric.key, true);
+    } catch (error) {
+      if (generation === measureChartGeneration) {
+        host.innerHTML = '<h3>' + esc(metric.label) + '</h3><p class="warnbox">' +
+          esc(error.message) + '</p>';
+      }
+    }
+  }));
 }
 
 $("#measure-filter").addEventListener("change", () => {
