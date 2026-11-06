@@ -810,6 +810,55 @@ def test_measurements_round_trip(server):
     assert json.loads(body)["entries"][-1]["value"] == 45.2
 
 
+def test_measurements_support_date_bounds_and_pagination(server):
+    for day, value in (("2024-01-01", 40.0), ("2024-01-08", 41.0), ("2024-01-15", 42.0)):
+        post(server, "/api/measurements", {
+            "metric": "vo2max", "value": value, "date": day, "method": "step test",
+        })
+
+    status, body = get(server, "/api/measurements?metric_key=vo2max&limit=1&offset=0")
+    assert status == 200
+    latest = json.loads(body)
+    assert latest["entries"][0]["value"] == 42.0
+    assert latest["page"]["total"] == 3
+    assert latest["page"]["next_offset"] == 1
+
+    status, body = get(server, "/api/measurements?metric_key=vo2max&limit=1&offset=1")
+    older = json.loads(body)
+    assert older["entries"][0]["value"] == 41.0
+
+    status, body = get(server, "/api/measurements?from=2024-01-02&to=2024-01-09")
+    bounded = json.loads(body)
+    assert [row["value"] for row in bounded["entries"]] == [41.0]
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/measurements?from=2024-01-20&to=2024-01-01")
+    assert excinfo.value.code == 400
+
+
+def test_readiness_history_returns_observed_bodyweight_only(server):
+    post(server, "/api/readiness", {
+        "date": "2024-01-01", "values": {"sleep": 3, "bodyweight_kg": 80.5},
+    })
+    post(server, "/api/readiness", {
+        "date": "2024-01-03", "values": {"sleep": 4, "bodyweight_kg": 80.1},
+    })
+    status, body = get(
+        server,
+        "/api/readiness/history?from=2024-01-01&to=2024-01-05&fields=bodyweight_kg",
+    )
+    assert status == 200
+    data = json.loads(body)
+    assert [point["date"] for point in data["points"]] == ["2024-01-01", "2024-01-03"]
+    assert [point["bodyweight_kg"] for point in data["points"]] == [80.5, 80.1]
+    assert data["points"][0]["sources"]["bodyweight_kg"] == "manual"
+    assert data["coverage"]["observed_days"] == 2
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/readiness/history?from=2024-01-01&to=2024-01-05&fields=unknown")
+    assert excinfo.value.code == 400
+
+
 def test_review_accepts_optional_session_detail(server):
     data = post(server, "/api/review/2024-01-01", {
         "scores": {"RIR_ADHERENCE": 0.9},
@@ -982,8 +1031,21 @@ def test_volume_ledger_endpoint(server):
     assert "patterns" in data
     assert data["window_weeks"] == 4
     assert any(row["mrv"] is not None for row in data["patterns"])
+    assert "groups" in data
+    assert all("effective_counts" in row for row in data["groups"])
+    assert data["coverage"]["accounting"] == "hard"
     assert "heavy_spinal" in data
     assert data["heavy_spinal"]["rir_max"] == 1
+
+    status, body = get(server, "/api/volume?date=2024-01-15&weeks=4&accounting=effective")
+    assert status == 200
+    effective = json.loads(body)
+    assert effective["coverage"]["accounting"] == "effective"
+    assert any(row["effective_counts"] != row["counts"] for row in effective["groups"])
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/volume?date=2024-01-15&weeks=4&accounting=invalid")
+    assert excinfo.value.code == 400
 
 
 def test_volume_budget_endpoint_is_read_only(server):
@@ -1230,6 +1292,8 @@ def test_progress_dashboard_endpoint(server):
     assert "coverage" in data
     assert "performance" in data
     assert "volume" in data
+    assert "weekly" in data
+    assert isinstance(data["weekly"]["weeks"], list)
     assert "no prescription change" in data["note"]
 
 def test_retrospective_validation_endpoint(server):
@@ -1254,10 +1318,16 @@ def test_workout_start_active_and_end(server):
     active = json.loads(get(server, "/api/workout/active")[1])
     assert active["workout"]["workout_id"] == workout_id
 
+    item_index = next(
+        index for index, item in enumerate(plan["items"])
+        if item["exercise_id"] == "trap_bar_deadlift"
+    )
     added = post(server, f"/api/workout/{workout_id}/sets", {
         "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
+        "plan_item_index": item_index,
     })
     assert len(added["workout"]["sets"]) == 1
+    assert added["workout"]["sets"][0]["prescription_item_index"] == item_index
 
     ended = post(server, f"/api/workout/{workout_id}/end", {
         "session_rpe": 7, "duration_min": 50,
@@ -1498,6 +1568,18 @@ def test_exercise_history_api_returns_completed_sets_and_pages(server):
     )
     assert status == 200
     assert json.loads(body)["total"] == 0
+
+    status, body = get(
+        server,
+        "/api/exercise-history?exercise_id=ssb_squat&limit=1&start=2024-01-01&"
+        "end=2024-01-01&include_analytics=true",
+    )
+    assert status == 200
+    bounded = json.loads(body)
+    assert bounded["start"] == "2024-01-01" and bounded["end"] == "2024-01-01"
+    assert bounded["analytics"]["session_count"] == 1
+    assert bounded["analytics"]["working_sets"] == 1
+    assert bounded["analytics"]["daily"][0]["date"] == "2024-01-01"
 
     with pytest.raises(urllib.error.HTTPError) as excinfo:
         get(server, "/api/exercise-history?exercise_id=not_a_lift")

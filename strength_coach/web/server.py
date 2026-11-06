@@ -87,6 +87,7 @@ from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import test_cadence as test_cadence_feature
 from strength_coach.features import volume as volume_feature
+from strength_coach.features import weekly as weekly_feature
 from strength_coach.features.readiness_score import ReadinessRequired
 from strength_coach.prescribe import (
     build_prescription,
@@ -1026,6 +1027,10 @@ class Handler(BaseHTTPRequestHandler):
                         limit=int(query.get("limit", ["5"])[0]),
                         offset=int(query.get("offset", ["0"])[0]),
                         on_or_before=query.get("on_or_before", [None])[0],
+                        start=query.get("start", [None])[0],
+                        end=query.get("end", [None])[0],
+                        include_analytics=str(query.get("include_analytics", ["false"])[0]).lower()
+                        in {"1", "true", "yes", "on"},
                     )
                 ))
             elif path == "/api/calibrate":
@@ -1050,7 +1055,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/breaks":
                 self._json(200, self._with_conn(self._breaks))
             elif path == "/api/measurements":
-                self._json(200, self._with_conn(self._measurements))
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(
+                    lambda c: self._measurements(c, query)
+                ))
             elif path == "/api/fatigue":
                 day = parse_qs(urlparse(self.path).query).get("date", [None])[0]
                 self._json(200, self._with_conn(
@@ -1070,8 +1078,9 @@ class Handler(BaseHTTPRequestHandler):
                 weeks = int(raw_weeks)
                 if not 1 <= weeks <= 52:
                     raise ValueError("weeks must be an integer from 1 to 52")
+                accounting = query.get("accounting", [None])[0] or None
                 self._json(200, self._with_conn(
-                    lambda c: self._volume(c, day, weeks)
+                    lambda c: self._volume(c, day, weeks, accounting)
                 ))
             elif path == "/api/exposure":
                 query = parse_qs(urlparse(self.path).query)
@@ -1121,9 +1130,21 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/progress":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0]
-                self._json(200, self._with_conn(
-                    lambda c: progress_feature.dashboard(c, day)
-                ))
+                try:
+                    weeks = int(query.get("weeks", ["8"])[0])
+                except (TypeError, ValueError) as exc:
+                    raise FieldError("weeks must be an integer from 1 to 52", {
+                        "weeks": "must be an integer from 1 to 52",
+                    }) from exc
+                if not 1 <= weeks <= 52:
+                    raise FieldError("weeks must be an integer from 1 to 52", {
+                        "weeks": "must be an integer from 1 to 52",
+                    })
+                def progress_payload(c):
+                    payload = progress_feature.dashboard(c, day, weeks=weeks)
+                    payload["weekly"] = weekly_feature.history(c, day or datetime.date.today().isoformat(), weeks=weeks)
+                    return payload
+                self._json(200, self._with_conn(progress_payload))
             elif path == "/api/validation":
                 query = parse_qs(urlparse(self.path).query)
                 max_dates = int(query.get("max_dates", ["12"])[0])
@@ -1314,6 +1335,11 @@ class Handler(BaseHTTPRequestHandler):
                     "path": str(source.relative_to(ROOT)),
                     "presets": readiness_feature.presets(),
                 })
+            elif path == "/api/readiness/history":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(
+                    lambda c: self._readiness_history(c, query)
+                ))
             elif path.startswith("/api/readiness/"):
                 day = path[len("/api/readiness/"):]
                 self._json(200, self._with_conn(lambda c: self._readiness(c, day)))
@@ -2435,6 +2461,7 @@ class Handler(BaseHTTPRequestHandler):
                 source=source,
                 set_index=_integer(body.get("set_index")),
                 set_role=body.get("set_role") or None,
+                plan_item_index=_integer(body.get("plan_item_index")),
                 rep_velocities=body.get("rep_velocities"),
             )
         elif action == "update-set":
@@ -3110,11 +3137,19 @@ class Handler(BaseHTTPRequestHandler):
             "slots": selection_mod.as_dict(rows),
         }
 
-    def _volume(self, conn, day: str | None = None, weeks: int = 4) -> dict:
+    def _volume(self, conn, day: str | None = None, weeks: int = 4,
+                accounting: str | None = None) -> dict:
+        if accounting not in (None, "hard", "effective"):
+            raise FieldError(
+                "accounting must be hard or effective",
+                {"accounting": "must be hard or effective"},
+            )
         on_date = day or datetime.date.today().isoformat()
         context = RuleContext.from_store(conn, end=on_date)
         cfg = settings_profile.feature_settings(conn, on_date).volume
         cfg = replace(cfg, window_weeks=weeks)
+        if accounting is not None:
+            cfg = replace(cfg, set_accounting=accounting)
         report = volume_feature.compute(context.sets, on_date=on_date, config=cfg)
         heavy_cfg = heavy_spinal.HeavySpinalConfig.load()
         heavy_cfg = heavy_spinal.HeavySpinalConfig(
@@ -3155,10 +3190,75 @@ class Handler(BaseHTTPRequestHandler):
             ),
         }
 
-    def _measurements(self, conn) -> dict:
+    def _measurements(self, conn, query: dict | None = None) -> dict:
+        query = query or {}
+        metric = query.get("metric_key", [None])[0] or query.get("metric", [None])[0]
+        since = query.get("from", [None])[0] or None
+        until = query.get("to", [None])[0] or None
+        for name, value in (("from", since), ("to", until)):
+            if value is None:
+                continue
+            try:
+                datetime.date.fromisoformat(str(value))
+            except ValueError as exc:
+                raise FieldError(
+                    f"{name} must be YYYY-MM-DD", {name: f"{name} must be YYYY-MM-DD"}
+                ) from exc
+        if since and until and since > until:
+            raise FieldError("from must not be after to", {"from": "must not be after to"})
+        try:
+            limit = int(query.get("limit", ["50"])[0])
+            offset = int(query.get("offset", ["0"])[0])
+        except (TypeError, ValueError) as exc:
+            raise FieldError("limit and offset must be integers", {
+                "limit": "must be an integer", "offset": "must be an integer",
+            }) from exc
+        try:
+            page = measurements_feature.page(
+                conn, metric_key=metric, since=since, until=until,
+                limit=limit, offset=offset,
+            )
+        except ValueError as exc:
+            raise FieldError(str(exc), {"limit": str(exc)}) from exc
+        return {"summary": measurements_feature.summary(conn), **page}
+
+    def _readiness_history(self, conn, query: dict) -> dict:
+        start = query.get("from", [None])[0]
+        end = query.get("to", [None])[0]
+        if not start or not end:
+            raise FieldError(
+                "from and to are required",
+                {"from": "required", "to": "required"},
+            )
+        try:
+            start_day = datetime.date.fromisoformat(str(start))
+            end_day = datetime.date.fromisoformat(str(end))
+        except ValueError as exc:
+            raise FieldError("from and to must be YYYY-MM-DD", {
+                "from": "must be YYYY-MM-DD", "to": "must be YYYY-MM-DD",
+            }) from exc
+        if start_day > end_day:
+            raise FieldError("from must not be after to", {"from": "must not be after to"})
+        raw_fields = query.get("fields", ["bodyweight_kg"])[0]
+        fields = tuple(field.strip() for field in str(raw_fields).split(",") if field.strip())
+        unknown = [field for field in fields if field not in readiness_utils.READINESS_FIELDS]
+        if unknown:
+            raise FieldError(
+                "unknown readiness field(s): " + ", ".join(unknown),
+                {"fields": "unknown readiness field"},
+            )
+        points = queries.readiness_series(
+            conn, start_day.isoformat(), end_day.isoformat(), fields,
+        )
         return {
-            "summary": measurements_feature.summary(conn),
-            "entries": measurements_feature.entries(conn, limit=50),
+            "from": start_day.isoformat(),
+            "to": end_day.isoformat(),
+            "fields": list(fields),
+            "points": points,
+            "coverage": {
+                "window_days": (end_day - start_day).days + 1,
+                "observed_days": len(points),
+            },
         }
 
     def _save_measurement(self, conn, body: dict) -> dict:

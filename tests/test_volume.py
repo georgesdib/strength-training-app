@@ -179,6 +179,13 @@ def test_effective_accounting_credits_indirect_groups():
     )
     assert indirect_push["group_average"] == 0.5
     assert indirect_pull["group_average"] == 0.5
+    hard_groups = {row["group"]: row for row in hard_report["groups"]}
+    effective_groups = {row["group"]: row for row in effective_report["groups"]}
+    assert hard_groups["horizontal_push"]["effective_counts"] == hard_groups[
+        "horizontal_push"
+    ]["counts"]
+    assert effective_groups["vertical_push"]["indirect_counts"] == [0.5, 0.5, 0.5]
+    assert effective_groups["vertical_push"]["effective_counts"] == [0.5, 0.5, 0.5]
 
 
 def test_under_mev_never_adds_a_set_to_a_sibling_pattern():

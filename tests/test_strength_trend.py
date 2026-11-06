@@ -58,8 +58,12 @@ def test_rolling_median_and_sparse_status():
         110 * (1 + 7 / 30),
     ])
     assert strength_trend.summarize(points[:2])["status"] == "points_only"
+    summary = strength_trend.summarize(points[:4])
+    assert summary["best"]["date"] == "2024-01-22"
+    assert summary["best"] == summary["latest"]
     assert strength_trend.summarize(points[:4])["status"] == "limited"
     assert strength_trend.summarize(points[:4])["trend_statement"] is None
+    assert strength_trend.summarize([])["best"] is None
 
 
 def test_degraded_observations_are_separate_from_primary():

@@ -1,7 +1,9 @@
 # UI documentation map
 
-**Status:** P0–P4 complete (2026-10-25). Every view/panel gets a short explanation and a
+**Status:** Existing view map plus the six-area UI refresh. The redesign is complete: P0–P3
+are implemented and the final audit closed 2026-11-06. Every view/panel gets a short explanation and a
 documentation deep-link; this file is the canonical map used to build and audit those links.
+See [UI design audit and plan](UI-DESIGN-IMPLEMENTATION-PLAN.md).
 
 ## Link contract
 
@@ -29,26 +31,42 @@ Every linked document should end with:
 Operational pages (Settings, Docs) may replace “Evidence” with the relevant implementation
 or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 
+## Principal navigation areas
+
+The sidebar groups existing routes into six task areas. These groups organize and expose the
+current destinations; they do not duplicate their forms or imply new data contracts.
+
+| Area | Destinations |
+|---|---|
+| **Today** | Today action hub |
+| **Training** | Workflow, History, Exercises |
+| **Progress** | Overview, Performance, Outcomes |
+| **Health & Longevity** | Longevity overview, Cardio, Measures, Readiness settings |
+| **Programme Intelligence** | Prescribe diagnostics, Programme forecast, Review |
+| **Administration** | Athlete, Import, Settings, Logs, Docs |
+
 ## View map
 
 | View | Panels / subsections | Primary documentation | Evidence / decisions / questions / roadmap |
 |---|---|---|---|
-| **Today** | Recent sessions; Descriptive progress; Rubric calibration; Per-rep velocity; Periodic reviews; How this works; summary cards | [WEB-UI.md](WEB-UI.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Today** | Actionable workout/readiness summary; review and form follow-up shortcuts; Recent sessions; compact progress snapshot; Periodic reviews; collapsed form follow-up details | [WEB-UI.md](WEB-UI.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **History** | Training-day list; expandable session fragments; Session details; Edit session (sets, form 1–5 override, velocity, session details); editor Session details | [WEB-UI.md](WEB-UI.md), [DATA-MODEL.md](DATA-MODEL.md), [TRAINING-DAY-MODEL.md](TRAINING-DAY-MODEL.md) | [DATA-QUALITY.md](DATA-QUALITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Progress overview** | Selectable 4/8/12-week window; eligible e1RM trajectories with trailing median/best context; load/reps split by recorded basis/unit; weekly working sets by movement pattern with a hard/effective accounting control; selected-exercise training days; observed weekly RIR/tonnage/residual table; observed-day calendar and weekly frequency vs configured target; fixed-56-day cross-lift ratio; on-demand lagged dose/performance association; completed app-workout original-plan vs logged-set-row comparison by frozen plan item index (aggregate only; not adherence); retained main-lift change table and sRPE coverage | [WEB-UI.md](WEB-UI.md), [OUTCOMES.md](OUTCOMES.md), [UI-DESIGN-IMPLEMENTATION-PLAN.md](UI-DESIGN-IMPLEMENTATION-PLAN.md) | [TRAINING-DAY-MODEL.md](TRAINING-DAY-MODEL.md), [MONITORING-ANALYSIS.md](MONITORING-ANALYSIS.md) |
 | **Outcomes** | Outcome review; Prospective check; Form trend; Readiness feedback | [OUTCOMES.md](OUTCOMES.md), [W5-PROSPECTIVE-EVALUATION.md](W5-PROSPECTIVE-EVALUATION.md) | [FORM-PROSPECTIVE.md](FORM-PROSPECTIVE.md), [FORM-USE-EVIDENCE.md](FORM-USE-EVIDENCE.md), [READINESS.md](READINESS.md), [ROADMAP.md](../ROADMAP.md) |
-| **Performance** | Raw e1RM observations; rolling median; series breaks; separate degraded observations; functional session-type/deload/quality filters; dose context; configured relative-strength ratios with local-overlay CRUD; read-only monitoring analysis | [WEB-UI.md](WEB-UI.md), [TRAINING-DYNAMICS.md](TRAINING-DYNAMICS.md) | [PARENT-VARIANT-WEAKNESS-EVIDENCE.md](PARENT-VARIANT-WEAKNESS-EVIDENCE.md), [METHODOLOGY.md](METHODOLOGY.md) |
-| **Longevity** | Longevity context; summary cards; cardio, measurements, readiness, symptoms tables | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Performance** | Raw e1RM observations; rolling median; series breaks; separate degraded observations; functional session-type/deload/quality filters; dose context; configured relative-strength ratios with local-overlay CRUD; read-only monitoring and optional per-rep velocity analysis | [WEB-UI.md](WEB-UI.md), [TRAINING-DYNAMICS.md](TRAINING-DYNAMICS.md) | [PARENT-VARIANT-WEAKNESS-EVIDENCE.md](PARENT-VARIANT-WEAKNESS-EVIDENCE.md), [METHODOLOGY.md](METHODOLOGY.md) |
+| **Longevity** | Longevity context; summary cards; cardio, measurement, readiness, symptom and attendance coverage; observed bodyweight history from readiness dates; values are records/context, not health-status judgments | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Prescribe** | Prescribe form with seven-day browser plan cache and rebuilt native exercise filters; Continuity calibration (as-of date); Weekly volume (weeks/date); Exposure ratio; Performance residual; Shadow review; Regime change; Strength fatigue diagnostic (as-of date); Exercise selection; Fatigue-informed suggestion; Retrospective validation (maximum dates 1–100, default 12) | [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md), [RULES-FORMAT.md](RULES-FORMAT.md), [METHODOLOGY.md](METHODOLOGY.md) | [CONTINUITY.md](CONTINUITY.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md), [REGIME-CHANGE.md](REGIME-CHANGE.md), [FATIGUE-FITNESS.md](FATIGUE-FITNESS.md), [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md), [RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md) |
 | **Workflow** | Readiness; Preview/configure; Start workout; Active workout; Per-exercise history; Log/edit sets; Optional device data; Import workout CSV; Per-rep velocity; End workout; Post-workout comparison; Descriptive session summary | [USER-GUIDE.md](../USER-GUIDE.md), [WEB-UI.md](WEB-UI.md) | [VBT-CALIBRATION.md](VBT-CALIBRATION.md), [REP-VELOCITY.md](REP-VELOCITY.md), [WORKOUT-TYPE-READINESS-EVIDENCE.md](WORKOUT-TYPE-READINESS-EVIDENCE.md), [DECISIONS.md](DECISIONS.md) |
 | **Programme** | Programme forecast | [TRAINING-DYNAMICS.md](TRAINING-DYNAMICS.md), [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md) | [REFERENCES.md](REFERENCES.md), [ROADMAP.md](../ROADMAP.md) |
 | **Review** | Review a session; Rubric agreement | [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md), [RULES-FORMAT.md](RULES-FORMAT.md) | [REFERENCES.md](REFERENCES.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Readiness** | Log readiness; Quick readiness; Baseline settings; Volume valve; Calibration report; Override the score | [READINESS.md](READINESS.md), [READINESS-SCORE.md](READINESS-SCORE.md) | [LIFT-READINESS.md](LIFT-READINESS.md), [READINESS-WEIGHT-EVIDENCE.md](READINESS-WEIGHT-EVIDENCE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
-| **Cardio** | Cardio capture and summary | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md) | [REFERENCES.md](REFERENCES.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
-| **Measures** | Measurements; History | [OUTCOMES.md](OUTCOMES.md), [DATA-MODEL.md](DATA-MODEL.md) | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Cardio** | Cardio capture and summary; logged ISO-week minute chart with reference context and partial-week caveat | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md), [WEB-UI.md](WEB-UI.md) | [REFERENCES.md](REFERENCES.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Measures** | Measurements; latest-entry method-separated observation chart; append-only history with exact-record older paging | [OUTCOMES.md](OUTCOMES.md), [DATA-MODEL.md](DATA-MODEL.md), [WEB-UI.md](WEB-UI.md) | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Import** | Import training/readiness; After the import | [USER-GUIDE.md](../USER-GUIDE.md), [DATA-QUALITY.md](DATA-QUALITY.md) | [PRIVACY.md](PRIVACY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
-| **Exercises** | Exercise catalogue; Edit exercise; Exercise details dialog; read-only Demand profile | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md), [DATA-MODEL.md](DATA-MODEL.md) | [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Exercises** | Exercise catalogue; unified add/view/edit dialog; read-only Demand profile; complete-range e1RM, working-set count, load-basis-specific load, reps-unit-specific history charts; exact session records paginated 50 at a time | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md), [DATA-MODEL.md](DATA-MODEL.md), [WEB-UI.md](WEB-UI.md) | [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Athlete** | Profile (incl. exposure trim), constraints, suitability, e1RM, tests, block start, symptoms with optional athlete-attributed session/lift, calibration/coverage window previews, raw symptom history, test cadence with measured-coverage status and Record-test link | [DATA-MODEL.md](DATA-MODEL.md), [INJURY-SIGNAL.md](INJURY-SIGNAL.md), [SYMPTOM-LOGGING.md](SYMPTOM-LOGGING.md) | [READINESS.md](READINESS.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Settings** | Appearance; Language model; Prescribe defaults; Volume budget; Monitoring & reports inventory; Modules; **Resolver** panel (profile scalars, enable confirmation, validated policy YAML with backups, read-only generation preview with full-prescription diff, provisional unrated suggestions rated inline before Start); Settings profile; App | [WEB-UI.md](WEB-UI.md), [VOLUME-BUDGET.md](VOLUME-BUDGET.md), [MONITORING-ANALYSIS.md](MONITORING-ANALYSIS.md), [ARCHITECTURE.md](ARCHITECTURE.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Logs** | Manually refreshed, capped in-memory log tail; cleared on server restart, not a durable audit history | [WEB-UI.md](WEB-UI.md) | [PRIVACY.md](PRIVACY.md), [ROADMAP.md](../ROADMAP.md) |
 | **Docs** | Docs list and document viewer | [WEB-UI.md](WEB-UI.md), [METHODOLOGY.md](METHODOLOGY.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
 
 ## Panel-specific notes
@@ -56,9 +74,9 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 | Panel | What it does | Primary doc |
 |---|---|---|
 | Recent sessions | Shows the newest stored sessions; **Details** opens a read-only view, **Edit** opens append-only correction | [WEB-UI.md](WEB-UI.md) |
-| Descriptive progress | Monitoring-only trends: sRPE coverage, attendance, volume, performance ratio | [OUTCOMES.md](OUTCOMES.md) |
+| Progress snapshot | Recent observed ratio points, aggregate attendance and current average volume. Full Progress additionally charts recorded dates, working-set history and bounded completed-workout comparisons; no planned-date calendar is inferred | [OUTCOMES.md](OUTCOMES.md), [WEB-UI.md](WEB-UI.md) |
 | Rubric calibration | Human marks vs engine scores; counts and gaps; never an automatic rubric change | [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md) |
-| Per-rep velocity | Optional device data, descriptive only | [REP-VELOCITY.md](REP-VELOCITY.md) |
+| Per-rep velocity | Optional device data and descriptive associations, now in Performance rather than Today | [REP-VELOCITY.md](REP-VELOCITY.md) |
 | Periodic reviews | Prompt list from `config/reviews.v1.yaml`; no automatic change. Includes the 8-week **Fatigue-signal review** (rate unrated exercises, read the exposure ratio, open the shadow review, record a decision) | [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md), [ROADMAP.md](../ROADMAP.md) |
 | Session details | Read-only stored sets, RIR, VBT, reps, notes | [DATA-MODEL.md](DATA-MODEL.md) |
 | Edit session | Append-only supersede/tombstone correction; date and type fixed | [DATA-MODEL.md](DATA-MODEL.md) |
@@ -88,13 +106,13 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 | Volume valve | Poor-readiness set reduction; main lifts opt-in | [READINESS.md](READINESS.md) |
 | Calibration report | Readiness weight/baseline report; descriptive | [READINESS-WEIGHT-EVIDENCE.md](READINESS-WEIGHT-EVIDENCE.md) |
 | Override the score | Explicit readiness override, logged | [READINESS-SCORE.md](READINESS-SCORE.md) |
-| Cardio | Separate aerobic exposure; no prescription yet | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md) |
-| Measurements | Periodic outcome metrics; never a load change | [OUTCOMES.md](OUTCOMES.md) |
+| Cardio | Separate aerobic exposure; chart includes only weeks with logged sessions and labels reference bands as context | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [WEB-UI.md](WEB-UI.md) |
+| Measurements | Periodic outcomes; latest 50 returned records as independent markers, separated by method; never a load change | [OUTCOMES.md](OUTCOMES.md), [WEB-UI.md](WEB-UI.md) |
 | Measurements history | Filterable append-only measurement history | [DATA-MODEL.md](DATA-MODEL.md) |
 | Import | Two CSV uploads, overlap matching, no repository writes | [DATA-QUALITY.md](DATA-QUALITY.md) |
 | After the import | Counts, warnings and next step | [DATA-QUALITY.md](DATA-QUALITY.md) |
-| Exercise catalogue | Taxonomy plus local overrides | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md) |
-| Edit exercise | Local display/property overrides; no history rewrite | [DATA-MODEL.md](DATA-MODEL.md) |
+| Exercise catalogue | Taxonomy plus local overrides; one Open action launches the unified add/view/edit dialog | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md) |
+| Exercise details and trends | Local display/property overrides plus complete-range descriptive e1RM, working-set-count, load and reps charts; units/bases are separate, same-day fragments are combined; exact records page at 50 per request with no total-history cap; no history rewrite | [WEB-UI.md](WEB-UI.md), [DATA-MODEL.md](DATA-MODEL.md) |
 | Athlete state | Goals, constraints, suitability and symptoms as state, not prompt text | [DATA-MODEL.md](DATA-MODEL.md) |
 | Measured tests needed | P1 coverage: counted tests per main lift against the `MOD-E1RM-001` gate | [ROADMAP.md](../ROADMAP.md) |
 | Declared break | Append-only holiday/deload/test-week range; freezes the DUP week and the erector ramp | [CONTINUITY.md](CONTINUITY.md) |
@@ -115,7 +133,8 @@ or parity document. The Terminal view was removed on 2026-10-28 (`DEC-WEB-02`).
 - [x] P3: every UI-linked doc has a Related block.
 - [x] P4: `tools/check_ui_docs.py` and `tests/test_ui_docs.py` enforce the contract,
   including docs links generated inside any client script (`core.js`, `settings.js`, `app.js`,
-  `exercises.js`, `history.js`, `workout.js`, `summary.js`, `performance.js`).
+  `exercises.js`, `history.js`, `workout.js`, `summary.js`, `performance.js`, `progress.js`,
+  `analytics-charts.js`).
 
 ## Related
 

@@ -75,11 +75,12 @@ class ResidualReport:
         }
 
 
-def _rows(conn, start: str, end: str) -> list[Any]:
+def _rows(conn, start: str, end: str, *, completed_only: bool = False) -> list[Any]:
     # Only sets that were performed against a stored prescription target can have a residual;
     # imported sets carry no target and must not be compared with a later calibration.
+    status = "AND w.status = 'completed'" if completed_only else ""
     return conn.execute(
-        """
+        f"""
         SELECT ws.velocity, ws.reps, ws.exercise_id, w.for_date,
                pi.velocity_target, pi.load_basis, pi.vbt_basis
         FROM workout_set ws
@@ -91,10 +92,41 @@ def _rows(conn, start: str, end: str) -> list[Any]:
           AND ws.reps IS NOT NULL
           AND pi.velocity_target IS NOT NULL
           AND w.for_date BETWEEN ? AND ?
+          {status}
         ORDER BY w.for_date
         """,
         (start, end),
     ).fetchall()
+
+
+def weekly_history(conn, start: str, end: str) -> list[dict[str, Any]]:
+    """Weekly residual observations for app-workout sets with stored targets.
+
+    A week without a comparable set is absent; it is never emitted as a zero residual.
+    """
+    grouped: dict[str, list[float]] = {}
+    for row in _rows(conn, str(start), str(end), completed_only=True):
+        scope = str(row["vbt_basis"] or "").split(" · ")[0].strip()
+        if scope != "lift":
+            continue
+        day = dt.date.fromisoformat(str(row["for_date"])[:10])
+        week_start = day - dt.timedelta(days=day.weekday())
+        residual = float(row["velocity"]) - float(row["velocity_target"])
+        grouped.setdefault(week_start.isoformat(), []).append(residual)
+
+    out: list[dict[str, Any]] = []
+    for week_start, values in sorted(grouped.items()):
+        n = len(values)
+        spread = statistics.stdev(values) if n > 1 else None
+        status = "signal" if n >= MIN_OBSERVATIONS else "insufficient"
+        out.append({
+            "week_start": week_start,
+            "n": n,
+            "mean_mps": round(statistics.fmean(values), 3),
+            "spread_mps": None if spread is None else round(spread, 3),
+            "status": status,
+        })
+    return out
 
 
 def compute(conn, on_date: str, *, window_days: int = WINDOW_DAYS) -> ResidualReport:

@@ -73,42 +73,38 @@ function chartAxes(xTitle, yTitle, xTicks, yTicks, plot, width, height) {
   return markup;
 }
 
-function performanceSvg(points) {
-  if (!points || points.length < 1) return "";
-  var values = points.map(function (point) { return Number(point.kg); });
-  var min = Math.min.apply(null, values);
-  var max = Math.max.apply(null, values);
-  var span = Math.max(1, max - min);
-  var width = 640, height = 240;
-  var plot = { left: 56, right: width - 16, top: 16, bottom: height - 42 };
-  var coords = points.map(function (point, index) {
-    var x = points.length === 1
-      ? (plot.left + plot.right) / 2
-      : plot.left + (index / (points.length - 1)) * (plot.right - plot.left);
-    var y = plot.bottom - ((Number(point.kg) - min) / span) * (plot.bottom - plot.top);
-    return [x, y];
+function progressRatioSvg(points, title) {
+  var usable = (points || []).map(function (point) {
+    return {date: String(point.date || ""), ratio: Number(point.ratio), lifts: Number(point.lifts || 0)};
+  }).filter(function (point) {
+    return point.date && Number.isFinite(Date.parse(point.date + "T00:00:00Z")) && Number.isFinite(point.ratio);
+  }).sort(function (a, b) { return a.date.localeCompare(b.date); });
+  if (!usable.length) return "<p class='empty'>No performance-ratio observations in this range.</p>";
+  return dateSeriesChart({
+    title: title || "Cross-lift performance-ratio observations",
+    xTitle: "Training date", yTitle: "Descriptive ratio",
+    series: [{id: "ratio", label: "Observed ratio", className: "chart-series-raw",
+      points: usable.map(function (point) { return {date: point.date, value: point.ratio, label: point.lifts + " lift comparisons"}; })}],
+    referenceLines: [{value: 1, label: "1.00 neutral reference"}],
+    formatY: function (value) { return Number(value).toFixed(3); },
+    tooltip: function (point) { return point.date + ": ratio " + Number(point.value).toFixed(3) + "; " + point.label; },
+    note: "Each point is an observed session-level ratio; same-date fragments can overlap. The 1.00 line is a neutral reference only; no values are imputed."
   });
-  var line = coords.map(function (pair) { return pair[0].toFixed(1) + "," + pair[1].toFixed(1); }).join(" ");
-  var circles = coords.map(function (pair) {
-    return "<circle cx='" + pair[0].toFixed(1) + "' cy='" + pair[1].toFixed(1) + "' r='3'></circle>";
-  }).join("");
-  var dates = points.map(function (point) { return String(point.date || ""); });
-  var xTicks = [
-    { x: plot.left, label: dates[0] },
-    { x: (plot.left + plot.right) / 2, label: dates[Math.floor((dates.length - 1) / 2)] },
-    { x: plot.right, label: dates[dates.length - 1] },
-  ];
-  var yTicks = [
-    { y: plot.bottom, label: fmt(min) },
-    { y: (plot.top + plot.bottom) / 2, label: fmt((min + max) / 2) },
-    { y: plot.top, label: fmt(max) },
-  ];
-  var svg = "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
-    "' role='img' aria-label='Raw e1RM observations'><title>Raw e1RM observations</title>" +
-    chartAxes("Date", "e1RM (kg)", xTicks, yTicks, plot, width, height) +
-    "<polyline points='" + line + "' fill='none' stroke='currentColor' stroke-width='2'></polyline>" +
-    circles + "</svg>";
-  return chartFrame("Raw e1RM observations", svg, "Raw e1RM (kg) by date");
+}
+
+function performanceSvg(points, chartTitle) {
+  if (!points || points.length < 1) return "";
+  var title = chartTitle || "Raw e1RM observations";
+  return dateSeriesChart({
+    title: title, xTitle: "Training date", yTitle: "e1RM (kg)",
+    series: [
+      {id: "raw", label: "Raw e1RM observations", className: "chart-series-raw",
+        points: points.map(function (point) { return {date: point.date, value: point.kg}; })},
+      {id: "median", label: "Rolling median", className: "chart-series-median",
+        points: points.map(function (point) { return {date: point.date, value: point.rolling_median_kg}; })}
+    ],
+    note: "Solid: raw e1RM observations. Dashed: API-provided rolling median, a trailing median of up to 3 observed points; early points appear only when a window exists. Gaps are not imputed."
+  });
 }
 
 function renderPerformanceE1rm(data) {
@@ -593,42 +589,25 @@ function monitoringAnalysisAssociation(row) {
 function analysisLineChart(rows, chartTitle) {
   if (!Array.isArray(rows) || rows.length < 1) return "<p class='empty'>Insufficient session dose observations for a chart.</p>";
   var title = chartTitle || "Training dose over time";
-  var width = 640, height = 240, max = 1;
-  rows.forEach(function (row) {
-    max = Math.max(max, Number(row.hard_sets || 0), Number(row.working_sets || 0));
+  return dateSeriesChart({
+    title: title, xTitle: "Session date", yTitle: "Sets",
+    series: [
+      {id: "working", label: "Working sets", className: "chart-series-working",
+        points: rows.map(function (row) { return {date: row.date, value: row.working_sets}; })},
+      {id: "hard", label: "RIR-defined hard sets", className: "chart-series-hard",
+        points: rows.map(function (row) { return {date: row.date, value: row.hard_sets}; })}
+    ],
+    zeroBaseline: true,
+    formatY: function (value) { return chartNumber(value, 0); },
+    note: "Working sets and RIR-defined hard sets use different definitions. Dots show recorded sessions; gaps are not imputed."
   });
-  max = Math.ceil(max);
-  var plot = { left: 56, right: width - 16, top: 16, bottom: height - 42 };
-  function coords(key) {
-    return rows.map(function (row, index) {
-      var x = rows.length === 1
-        ? (plot.left + plot.right) / 2
-        : plot.left + (index / (rows.length - 1)) * (plot.right - plot.left);
-      var y = plot.bottom - (Number(row[key] || 0) / max) * (plot.bottom - plot.top);
-      return x.toFixed(1) + "," + y.toFixed(1);
-    }).join(" ");
-  }
-  var dates = rows.map(function (row) { return String(row.date || ""); });
-  var xTicks = [
-    { x: plot.left, label: dates[0] },
-    { x: (plot.left + plot.right) / 2, label: dates[Math.floor((dates.length - 1) / 2)] },
-    { x: plot.right, label: dates[dates.length - 1] },
-  ];
-  var yTicks = [
-    { y: plot.bottom, label: "0" },
-    { y: (plot.top + plot.bottom) / 2, label: String(max / 2) },
-    { y: plot.top, label: String(max) },
-  ];
-  var svg = "<svg class='performance-chart' style='width:100%;height:auto' viewBox='0 0 " + width + " " + height +
-    "' role='img' aria-label='" + esc(title) + "'><title>" + esc(title) + ": hard sets and working sets</title>" +
-    chartAxes("Session date", "Sets", xTicks, yTicks, plot, width, height) +
-    "<polyline points='" + coords("working_sets") + "' fill='none' stroke='currentColor' stroke-width='2'></polyline>" +
-    "<polyline points='" + coords("hard_sets") + "' fill='none' stroke='currentColor' stroke-width='2' stroke-dasharray='5 3'></polyline></svg>";
-  return chartFrame(title, svg, "Solid: working sets. Dashed: hard sets. Missing values are not plotted as zero.");
 }
 
 function analysisScatter(points, association, label, xTitle, yTitle) {
-  if (!Array.isArray(points) || points.length < 3) {
+  points = (Array.isArray(points) ? points : []).filter(function (point) {
+    return Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y));
+  });
+  if (points.length < 3) {
     return "<p class='empty'>Insufficient observations for " + esc(label) + " chart.</p>";
   }
   var width = 640, height = 240;
@@ -641,7 +620,8 @@ function analysisScatter(points, association, label, xTitle, yTitle) {
   var circles = points.map(function (point) {
     var x = plot.left + ((Number(point.x) - xMin) / xSpan) * (plot.right - plot.left);
     var y = plot.bottom - ((Number(point.y) - yMin) / ySpan) * (plot.bottom - plot.top);
-    return "<circle cx='" + x.toFixed(1) + "' cy='" + y.toFixed(1) + "' r='4'></circle>";
+    return "<circle cx='" + x.toFixed(1) + "' cy='" + y.toFixed(1) + "' r='4'><title>" +
+      esc(xTitle + ": " + chartNumber(point.x, 2) + "; " + yTitle + ": " + chartNumber(point.y, 2)) + "</title></circle>";
   }).join("");
   var xTicks = [
     { x: plot.left, label: fmt(xMin) },

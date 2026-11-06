@@ -414,6 +414,54 @@ def readiness_day(conn, on_date: str) -> dict | None:
     return merged
 
 
+def readiness_series(conn, start: str, end: str, fields: tuple[str, ...]) -> list[dict]:
+    """Merge readiness values for an inclusive date window, observed dates only.
+
+    Imported values live in readiness_day; manual values are append-only entries and win per
+    field. Dates with no requested value are omitted rather than filled.
+    """
+    wanted = tuple(str(field) for field in fields)
+    rows = {
+        str(row["on_date"]): dict(row)
+        for row in conn.execute(
+            """
+            SELECT * FROM readiness_day
+             WHERE on_date BETWEEN ? AND ?
+             ORDER BY on_date
+            """,
+            (str(start), str(end)),
+        )
+    }
+    entries = conn.execute(
+        """
+        SELECT on_date, field, value, source, recorded_at
+          FROM readiness_entry
+         WHERE on_date BETWEEN ? AND ?
+         ORDER BY on_date, recorded_at, rowid
+        """,
+        (str(start), str(end)),
+    )
+    for entry in entries:
+        day = str(entry["on_date"])
+        row = rows.setdefault(day, {"on_date": day})
+        row[str(entry["field"])] = entry["value"]
+        row.setdefault("sources", {})[str(entry["field"])] = str(entry["source"])
+    points = []
+    for day in sorted(rows):
+        row = rows[day]
+        values = {
+            field: row.get(field) for field in wanted
+            if row.get(field) is not None
+        }
+        if not values:
+            continue
+        sources = dict(row.get("sources") or {})
+        for field in values:
+            sources.setdefault(field, "import")
+        points.append({"date": day, **values, "sources": sources})
+    return points
+
+
 def readiness_history(conn, before: str, days: int = 28) -> list[dict]:
     """Merged readiness rows in the window [before-days, before), newest last.
 

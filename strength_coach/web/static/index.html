@@ -25,25 +25,51 @@
   <aside id="sidebar" class="sidebar" hidden aria-label="Main menu">
     <div class="sidebar-head"><span>Menu</span>
       <button id="sidebar-close" class="sidebar-close" type="button" aria-label="Close menu">×</button></div>
-    <nav id="nav">
+    <nav id="nav" aria-label="App views">
       <button data-view="dashboard" class="active">Today</button>
-      <button data-view="history">History</button>
-      <button data-view="outcomes">Outcomes</button>
-      <button data-view="performance">Performance</button>
-      <button data-view="longevity">Longevity</button>
-      <button data-view="prescribe">Prescribe</button>
-      <button data-view="workout">Workflow</button>
-      <button data-view="programme">Programme</button>
-      <button data-view="review">Review</button>
-      <button data-view="readiness">Readiness</button>
-      <button data-view="cardio">Cardio</button>
-      <button data-view="measures">Measures</button>
-      <button data-view="import">Import</button>
-      <button data-view="exercises">Exercises</button>
-      <button data-view="state">Athlete</button>
-      <button data-view="settings">Settings</button>
-      <button data-view="logs">Logs</button>
-      <button data-view="docs">Docs</button>
+      <details class="nav-group" open>
+        <summary>Training</summary>
+        <div class="nav-group-items">
+          <button data-view="workout">Workflow</button>
+          <button data-view="history">History</button>
+          <button data-view="exercises">Exercises</button>
+        </div>
+      </details>
+      <details class="nav-group">
+        <summary>Progress</summary>
+        <div class="nav-group-items">
+          <button data-view="progress">Overview</button>
+          <button data-view="performance">Performance</button>
+          <button data-view="outcomes">Outcomes</button>
+        </div>
+      </details>
+      <details class="nav-group">
+        <summary>Health &amp; Longevity</summary>
+        <div class="nav-group-items">
+          <button data-view="longevity">Longevity overview</button>
+          <button data-view="cardio">Cardio</button>
+          <button data-view="measures">Measures</button>
+          <button data-view="readiness">Readiness settings</button>
+        </div>
+      </details>
+      <details class="nav-group">
+        <summary>Programme Intelligence</summary>
+        <div class="nav-group-items">
+          <button data-view="prescribe">Prescribe</button>
+          <button data-view="programme">Programme</button>
+          <button data-view="review">Review</button>
+        </div>
+      </details>
+      <details class="nav-group">
+        <summary>Administration</summary>
+        <div class="nav-group-items">
+          <button data-view="state">Athlete</button>
+          <button data-view="import">Import</button>
+          <button data-view="settings">Settings</button>
+          <button data-view="logs">Logs</button>
+          <button data-view="docs">Docs</button>
+        </div>
+      </details>
     </nav>
   </aside>
   <div id="sidebar-backdrop" class="sidebar-backdrop" hidden></div>
@@ -57,17 +83,16 @@
           <p class="muted" id="today-sub"></p>
         </div>
         <div class="hero-actions">
-          <button class="primary" id="today-session" type="button">Start today’s session</button>
+          <button class="primary" id="today-session" type="button">Start today’s workout</button>
           <button class="ghost" id="today-refresh" type="button">Refresh</button>
           <span class="muted" id="today-updated"></span>
         </div>
       </div>
       <div id="cards" class="cards"></div>
       <div class="panel">
-        <div class="panel-head"><h2>Form evaluation follow-up</h2>
-          <span class="muted">manual review; no automatic change</span></div>
-        <p class="section-help"><span>Tracks the open low-form follow-up; it never changes a load or prescription.</span> <a class="doc-link" href="#docs?doc=docs/FORM-PROSPECTIVE.md">Form evaluation protocol</a></p>
-        <div id="form-followup"></div>
+        <div class="panel-head"><h2>Today’s priorities</h2><span class="muted">actions and review status</span></div>
+        <p class="section-help"><span>Quick paths to the workout, session review, form follow-up, and detailed analytics.</span> <a class="doc-link" href="#docs?doc=docs/UI-MAP.md">Today and navigation map</a></p>
+        <div id="today-priorities" class="today-priorities" aria-live="polite"></div>
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Recent sessions</h2><span class="muted">newest first</span></div>
@@ -75,32 +100,20 @@
         <div id="recent"></div>
       </div>
       <div class="panel">
-        <div class="panel-head"><h2>Descriptive progress</h2><span class="muted">monitoring only; no prescription change</span></div>
-        <p class="section-help"><span>Monitoring-only trends for sRPE coverage, attendance, volume and performance.</span> <a class="doc-link" href="#docs?doc=docs/OUTCOMES.md">Outcomes review</a></p>
+        <div class="panel-head"><h2>Progress snapshot</h2><span class="muted">descriptive; no prescription change</span></div>
+        <p class="section-help"><span>Recent observed performance-ratio points and current average volume only; attendance below is an aggregate, not a calendar trend.</span> <a class="doc-link" href="#docs?doc=docs/OUTCOMES.md">Outcomes review</a></p>
         <div id="progress"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h2>Rubric calibration</h2><span class="muted">human marks vs engine</span></div>
-        <p class="section-help"><span>Compares human rubric marks with engine scores; gaps are prompts, not automatic rubric changes.</span> <a class="doc-link" href="#docs?doc=docs/STRENGTH-PROGRAM-REVIEW.md">Strength programme review</a></p>
-        <div id="calibration"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h2>Per-rep velocity</h2><span class="muted">descriptive only; no prescription change</span></div>
-        <p class="section-help"><span>Summarises optional device velocity data; descriptive only, never a load input.</span> <a class="doc-link" href="#docs?doc=docs/REP-VELOCITY.md">Per-rep velocity</a></p>
-        <div id="rep-velocity-progress"></div>
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Periodic reviews</h2><span class="muted">prompts, not automatic changes</span></div>
         <p class="section-help"><span>Shows configured review prompts; they never apply automatic changes.</span> <a class="doc-link" href="#docs?doc=ROADMAP.md">Roadmap and review prompts</a></p>
         <div id="reviews"></div>
       </div>
-      <div class="panel">
-        <div class="panel-head"><h2>How this works</h2></div>
-        <p class="section-help"><span>Explains the Python-computes/UI-routes boundary and how to find the design record.</span> <a class="doc-link" href="#docs?doc=docs/UI-MAP.md">UI documentation map</a></p>
-        <p class="muted">Python computes every load, RIR and warning. The web page is a view over the same
-          core as the CLI; nothing is inferred from a missing value. Docs are linked under
-          <a href="#docs" data-view-link="docs">Docs</a>.</p>
-      </div>
+      <details class="panel">
+        <summary>Form evaluation follow-up details</summary>
+        <p class="section-help"><span>Manual review; it never changes a load or prescription.</span> <a class="doc-link" href="#docs?doc=docs/FORM-PROSPECTIVE.md">Form evaluation protocol</a></p>
+        <div id="form-followup"></div>
+      </details>
     </section>
 
     <section id="view-history" class="view">
@@ -162,6 +175,75 @@
           <span class="muted" id="history-edit-msg" role="status" aria-live="polite"></span>
         </div>
         <p class="muted">Saving supersedes the old sets, rebuilds the session totals and critique, and marks the session for re-review. Old rows and marks stay for audit.</p>
+      </div>
+    </section>
+
+    <section id="view-progress" class="view">
+      <div class="hero">
+        <div><p class="eyebrow">Progress</p><h1>Training progress</h1>
+          <p class="muted">Strength, working-set dose, recorded training frequency and workout execution. Descriptive views; no prescription or causal claims.</p></div>
+      </div>
+      <div class="panel">
+        <form id="progress-overview-form" class="form-row">
+          <label>Period<select id="progress-overview-weeks"><option value="4">4 weeks</option><option value="8" selected>8 weeks</option><option value="12">12 weeks</option></select></label>
+          <label>As of<input type="date" id="progress-overview-date"></label>
+          <label>Exercise (e1RM-eligible; main lifts first)<select id="progress-exercise"><option value="">Loading eligible exercises…</option></select></label>
+          <label>Movement pattern<select id="progress-pattern"><option value="">Loading patterns…</option></select></label>
+          <label>Volume accounting<select id="progress-accounting"><option value="">profile default</option><option value="hard">hard sets</option><option value="effective">effective sets</option></select></label>
+          <button class="primary" type="submit">Update overview</button>
+          <span class="muted" id="progress-overview-status" role="status" aria-live="polite"></span>
+        </form>
+        <div id="progress-dashboard"><p class="empty">Loading progress…</p></div>
+        <div class="progress-dashboard-grid">
+          <section class="panel progress-dashboard-panel"><div class="panel-head"><h2>Strength trend</h2><span class="muted">eligible raw e1RM observations</span></div>
+            <p class="section-help"><span>Raw eligible daily estimates only; gaps and equipment changes are not imputed.</span> <a class="doc-link" href="#docs?doc=docs/OUTCOMES.md">Strength and outcome definitions</a></p>
+            <div id="progress-strength-chart"><p class="empty">Choose an e1RM-eligible exercise.</p></div>
+            <div id="progress-strength-summary"></div>
+            <details class="progress-subsection"><summary>Logged working load and repetitions</summary>
+              <div id="progress-load-chart"><p class="empty">Choose an exercise to view recorded working-set loads.</p></div>
+            </details>
+          </section>
+          <section class="panel progress-dashboard-panel"><div class="panel-head"><h2>Weekly working-set volume</h2><span class="muted">by movement pattern</span></div>
+            <p class="section-help"><span>Counts are working sets from the volume report, not tonnage or RIR-defined hard sets.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Progress chart scope and caveats</a></p>
+            <div id="progress-dose-chart"><p class="empty">Loading working-set history…</p></div>
+            <p class="muted" id="progress-dose-note"></p>
+            <details class="progress-subsection"><summary>Selected-exercise dose and exposure</summary>
+              <p class="muted">Same exercise selector as Strength; counts are working sets and distinct training dates, not tonnage.</p>
+              <div class="progress-exposure-grid">
+                <div id="progress-exercise-frequency-chart"><p class="empty">Loading exercise exposure…</p></div>
+                <div id="progress-exercise-volume-chart"><p class="empty">Loading exercise working sets…</p></div>
+              </div>
+            </details>
+          </section>
+          <section class="panel progress-dashboard-panel"><div class="panel-head"><h2>Weekly load and execution</h2><span class="muted">observed weeks only</span></div>
+            <p class="section-help"><span>Weekly working sets, RIR coverage, tonnage and VBT residual; missing weeks stay missing.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Progress chart scope and caveats</a></p>
+            <div id="progress-weekly"><p class="empty">Loading weekly history…</p></div>
+            <p class="muted" id="progress-weekly-note"></p>
+          </section>
+          <section class="panel progress-dashboard-panel"><div class="panel-head"><h2>Recorded training frequency</h2><span class="muted">non-overlapping 7-day periods</span></div>
+            <p class="section-help"><span>Distinct stored training dates; the optional target is not a planned-session calendar.</span> <a class="doc-link" href="#docs?doc=docs/TRAINING-DAY-MODEL.md">Training-day grouping</a></p>
+            <div id="progress-calendar"><p class="empty">Loading observed training calendar…</p></div>
+            <div id="progress-frequency-chart"><p class="empty">Loading recorded training dates…</p></div>
+            <p class="muted" id="progress-frequency-note"></p>
+          </section>
+          <section class="panel progress-dashboard-panel"><div class="panel-head"><h2>Performance vs dose</h2><span class="muted">exploratory association</span></div>
+            <p class="section-help"><span>Descriptive paired observations only; no prediction, causal claim, or prescription change.</span> <a class="doc-link" href="#docs?doc=docs/MONITORING-ANALYSIS.md">Monitoring analysis method and limits</a></p>
+            <p class="muted">The existing fixed-56-day cross-lift ratio is shown above. Its selected-lift lagged association uses all eligible history through the selected date, independently of the 4/8/12-week window; it remains observational, not predictive or causal.</p>
+            <p class="muted">The existing cross-lift ratio endpoint uses its fixed 56-day lookback, independently of the strength/volume period filter.</p>
+            <div id="progress-ratio-chart"><p class="empty">Loading recent observed performance ratio…</p></div>
+            <details class="progress-subsection"><summary>Selected-lift dose association</summary>
+              <button type="button" class="ghost" id="progress-load-association">Load selected-lift association</button>
+              <div id="progress-association"><p class="empty">Load an association to inspect available paired observations.</p></div>
+            </details>
+          </section>
+          <details class="panel progress-dashboard-panel progress-subsection"><summary>Prescribed vs logged</summary>
+            <p class="muted">Completed app-tracked workouts only; imported sessions without a frozen plan are unavailable.</p>
+            <label>Completed workout<select id="progress-workout"><option value="">No workout selected</option></select></label>
+            <div id="progress-execution"><p class="empty">Select a completed workout with a stored plan snapshot.</p></div>
+            <p class="muted">The actual is a count of logged set rows (which can include different roles), not a working-set-only or exercise-matched compliance score. Repetitions, loads and RIR remain in workout detail because ranges, nullable actuals and differing load bases do not form one comparable longitudinal total.</p>
+          </details>
+        </div>
+        <div class="today-quick-links"><a href="#performance" data-view-link="performance">Detailed Performance analysis</a><a href="#outcomes" data-view-link="outcomes">Detailed Outcomes review</a></div>
       </div>
     </section>
 
@@ -237,6 +319,11 @@
           </div>
           <div id="monitoring-analysis-result"><p class="empty">Run the analysis to load a descriptive snapshot.</p></div>
         </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Per-rep velocity</h3><span class="muted">optional device data; descriptive only</span></div>
+          <p class="section-help"><span>Velocity observations and associations are not load inputs or prescription recommendations.</span> <a class="doc-link" href="#docs?doc=docs/REP-VELOCITY.md">Per-rep velocity</a></p>
+          <div id="rep-velocity-progress"><p class="empty">Open Performance to load optional velocity analysis.</p></div>
+        </div>
       </div>
     </section>
 
@@ -257,6 +344,7 @@
           <button class="primary" type="submit">Build longevity view</button>
         </form>
         <div id="longevity-summary"></div>
+        <div id="longevity-bodyweight"></div>
         <div id="longevity-details"></div>
       </div>
     </section>
@@ -911,50 +999,6 @@
         <div id="exercise-e1rm-msg" class="muted"></div>
       </div>
 
-      <div class="panel" id="exercise-editor" hidden>
-        <div class="panel-head"><h2 id="exercise-editor-title">Edit exercise</h2>
-          <button class="ghost" id="exercise-cancel" type="button">Close</button></div>
-        <p class="section-help"><span>Edits local display/property overrides without rewriting history.</span> <a class="doc-link" href="#docs?doc=docs/EXERCISE-VARIANTS.md">Exercise editing</a></p>
-        <form id="exercise-form">
-          <div class="form-row">
-            <label>ID <input id="exercise-id" required pattern="[a-z][a-z0-9_]*"></label>
-            <label class="grow">Display name <input id="exercise-display" required></label>
-            <label>Pattern <select id="exercise-pattern" required></select></label>
-            <label>VBT family
-              <select id="exercise-vbt"></select>
-            </label>
-            <label id="exercise-vbt-new-wrap" hidden>New VBT family
-              <input id="exercise-vbt-new" placeholder="lower_snake_case" pattern="[a-z][a-z0-9_]*">
-            </label>
-          </div>
-          <label class="grow">Log names — one exact raw name per line
-            <textarea id="exercise-log-names" rows="4"></textarea></label>
-          <div class="grow">
-            <span class="field-label">Primary muscles</span>
-            <div id="exercise-muscles" class="choice-list" data-muscle-group="exercise"></div>
-          </div>
-          <div class="form-row">
-            <label><input type="checkbox" id="exercise-compound"> primary compound</label>
-            <label><input type="checkbox" id="exercise-loadable"> loadable</label>
-            <label><input type="checkbox" id="exercise-bodyweight"> bodyweight type</label>
-            <label><input type="checkbox" id="exercise-timed"> time based</label>
-            <label><input type="checkbox" id="exercise-e1rm"> e1RM applicable</label>
-            <label><input type="checkbox" id="exercise-main"> main lift</label>
-            <label><input type="checkbox" id="exercise-spinal"> high fatigue spinal</label>
-            <label><input type="checkbox" id="exercise-erector"> erector family</label>
-            <label><input type="checkbox" id="exercise-direct-erector"> direct erector</label>
-          </div>
-          <details class="advanced">
-            <summary>Additional properties (advanced JSON; unknown fields are preserved)</summary>
-            <label class="grow">Properties JSON
-              <textarea id="exercise-extra" rows="5" spellcheck="false"></textarea></label>
-          </details>
-          <div class="form-row">
-            <button class="primary" type="submit">Save exercise</button>
-            <span id="exercise-msg" class="muted" role="status" aria-live="polite"></span>
-          </div>
-        </form>
-      </div>
     </section>
 
     <section id="view-state" class="view">
@@ -1227,12 +1271,15 @@
       </div>
     </section>
 
-    <dialog id="exercise-details-dialog" class="app-dialog" aria-labelledby="exercise-details-title">
+    <dialog id="exercise-details-dialog" class="app-dialog wide" aria-labelledby="exercise-details-title">
       <div class="panel-head"><h2 id="exercise-details-title">Exercise details</h2>
         <button class="ghost" type="button" id="exercise-details-cancel">Close</button></div>
-        <p class="section-help"><span>Edits local exercise properties without rewriting history; ids stay immutable.</span> <a class="doc-link" href="#docs?doc=docs/EXERCISE-VARIANTS.md&amp;anchor=0-web-exercises-tab">Exercise editing</a></p>
+        <p class="section-help"><span>Exercise identity is immutable. Configuration edits are separate from these read-only historical observations.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md&amp;anchor=exercise-explorer-history">Exercise Explorer and history API</a></p>
       <form id="exercise-details-form">
+        <h3>Identity and configuration</h3>
+        <p class="muted" id="exercise-detail-profile"></p>
         <div class="form-row">
+          <label>ID <input id="exercise-detail-id" required pattern="[a-z][a-z0-9_]*"></label>
           <label>Display name <input id="exercise-detail-display" required></label>
           <label>Pattern <select id="exercise-detail-pattern" required></select></label>
           <label>VBT family
@@ -1302,6 +1349,33 @@
           <span id="exercise-details-msg" class="muted" role="status" aria-live="polite"></span>
         </div>
       </form>
+      <section class="exercise-trends" aria-labelledby="exercise-trends-title">
+        <div class="panel-head"><h3 id="exercise-trends-title">Historical observations</h3>
+          <span id="exercise-history-status" class="muted" role="status" aria-live="polite"></span></div>
+        <p class="section-help"><span>Explore complete-range per-exercise trends and page through exact completed-session records.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md&amp;anchor=exercise-explorer-history">Read more</a></p>
+        <p class="muted">Charts use complete Python summaries for the selected date range. Exact records are loaded in safe 50-session pages; missing values remain missing. These observations do not change prescriptions.</p>
+        <form id="exercise-history-range-form" class="form-row exercise-history-range">
+          <label>From (inclusive) <input id="exercise-history-start" type="date"></label>
+          <label>Through (inclusive) <input id="exercise-history-end" type="date"></label>
+          <button class="primary" type="submit">Apply range</button>
+          <button class="ghost" type="button" id="exercise-history-all">All history</button>
+        </form>
+        <details class="exercise-analytics-section" open>
+          <summary>Strength and performance</summary>
+          <div id="exercise-trend-e1rm" class="exercise-trend-chart"><p class="empty">Open an exercise to load eligible strength observations.</p></div>
+        </details>
+        <details class="exercise-analytics-section" open>
+          <summary>Training dose and exposure</summary>
+          <div id="exercise-detail-dose" class="exercise-trend-chart"><p class="empty">Open an exercise to load complete-range working-set analytics.</p></div>
+        </details>
+        <details class="exercise-analytics-section">
+          <summary>Exact historical records and monitoring</summary>
+          <p class="muted">RIR is shown only where recorded. Tonnage uses stored, domain-defined physical tonnage; unavailable values are not converted to zero.</p>
+          <div id="exercise-detail-records"></div>
+          <div class="form-row"><button class="ghost" type="button" id="exercise-history-more" hidden>Load older sessions</button>
+            <span id="exercise-history-page-status" class="muted" role="status" aria-live="polite"></span></div>
+        </details>
+      </section>
     </dialog>
 
     <dialog id="workout-swap-dialog" class="app-dialog" aria-labelledby="workout-swap-title">
@@ -1366,11 +1440,13 @@
   <script src="/static/core.js"></script>
   <script src="/static/prescription-cache.js"></script>
   <script src="/static/settings.js"></script>
+  <script src="/static/performance.js"></script>
+  <script src="/static/analytics-charts.js"></script>
+  <script src="/static/progress.js"></script>
   <script src="/static/app.js"></script>
   <script src="/static/exercises.js"></script>
   <script src="/static/history.js"></script>
   <script src="/static/workout.js"></script>
   <script src="/static/summary.js"></script>
-  <script src="/static/performance.js"></script>
 </body>
 </html>

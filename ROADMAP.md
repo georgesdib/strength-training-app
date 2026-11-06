@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-11-03 · **v1.2.0 released; v1.3 planned** · version `1.2.0`
+Last updated: 2026-11-05 · **v1.2.0 released; v1.3 planned** · version `1.2.0`
 
 
 ---
@@ -71,7 +71,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | — | Post-workout form assessment | **done 2026-10-25** | optional per-lift 1–5; Workout + History edit; rubric 1.2.0 |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video descoped; 3.8 labelled set moved to §4.14 |
 | — | Performance | **resolver sequential build 133.15 s → 42.13 s historical; clean-set snapshot A/B 46.19 s → 35.41 s on the current 375-session DB; multiprocessing not justified** | `docs/PERFORMANCE-PROFILE.md`; schedule/settings/policy/E1RM/VBT caches plus the per-generation clean-set snapshot, no behaviour change |
-| — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000`; Settings tab for LLM and browser defaults; seven-day prescribed-plan cache, History form override, provisional unrated resolver suggestions with a start gate, polled resolver preview and Workflow builds, rebuilt native exercise filters and direct per-rep VBT logging added 2026-11-03/04 |
+| — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000`; six task areas and actionable Today; integrated 4/8/12-week Progress with reusable dependency-free SVG line/bar charts, selectable e1RM, pattern/exercise working-set trends, observed-day calendar/frequency, lagged dose associations, bounded original-plan vs logged execution, retained sRPE/main-lift summaries and explicit data gaps; basis/unit-safe load/reps graphs and consolidated exercise dialog; Settings defaults, seven-day plan cache, History form override, resolver and VBT work; **UI redesign P0–P3 complete; final audit passed 2026-11-06** in `docs/UI-DESIGN-IMPLEMENTATION-PLAN.md` |
 | — | Engine audit W0–W12 | **closed 2026-10-23** | `docs/AUDIT-CLOSEOUT.md`; open items in `docs/LIMITATIONS-REGISTER.md` |
 
 ### Version plan (2026-10-25)
