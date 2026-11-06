@@ -5,8 +5,8 @@ A0–F are implemented, including the canonical methodology/privacy docs. The fu
 **Date:** 2026-10-23
 **Scope:** A–F from the final review, constrained by the existing deterministic architecture.
 **Related:** [`ENGINE-AUDIT-PLAN.md`](ENGINE-AUDIT-PLAN.md),
-[`HIGH-INTENSITY-EXPOSURE-PLAN.md`](HIGH-INTENSITY-EXPOSURE-PLAN.md),
-[`READINESS-WEIGHT-EVIDENCE.md`](READINESS-WEIGHT-EVIDENCE.md).
+[`HIGH-INTENSITY-EXPOSURE-PLAN.md`](../HIGH-INTENSITY-EXPOSURE-PLAN.md),
+[`READINESS-WEIGHT-EVIDENCE.md`](../READINESS-WEIGHT-EVIDENCE.md).
 
 ---
 

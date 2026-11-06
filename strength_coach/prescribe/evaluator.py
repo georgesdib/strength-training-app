@@ -53,6 +53,8 @@ class EvaluationInputs:
     minimum_session: bool = False
     minimum_target_minutes: int | None = None
     minimum_include_main: bool = False
+    minimum_accessories_only: bool = False
+    resolver_policy: Any = None
     technique_throttle: bool = False
     technique_throttle_pattern: str | Sequence[str] | None = None
     deload_decision: Any = None
@@ -84,6 +86,7 @@ class EvaluationInputs:
             "minimum_session": self.minimum_session,
             "minimum_target_minutes": self.minimum_target_minutes,
             "minimum_include_main": self.minimum_include_main,
+            "minimum_accessories_only": self.minimum_accessories_only,
             "technique_throttle": self.technique_throttle,
             "technique_throttle_pattern": self.technique_throttle_pattern,
             "deload_decision": self.deload_decision,
@@ -386,7 +389,7 @@ def evaluate_assignment(
     structural_violations = generator.required_pattern_violations(
         template,
         dict(validated),
-        resolver_policy.ResolverPolicy.load(),
+        build_inputs.resolver_policy or resolver_policy.ResolverPolicy.load(),
         exercises.taxonomy().entities,
     )
     prescription = build_prescription(

@@ -161,11 +161,25 @@ def build_analysis(
             load = monitoring.session_load(feedback) if feedback else monitoring.Unavailable("no feedback")
             if not isinstance(load, monitoring.Unavailable):
                 load_pairs.append((float(load), next_observation.estimate.kg))
+        exercise_sets = sets_by_exercise.get(exercise_id, empty_sets)
+        exercise_work = (
+            exercise_sets[exercise_sets["is_working_set"].fillna(False).astype(bool)]
+            if not exercise_sets.empty else exercise_sets
+        )
+        dose = []
+        if not exercise_work.empty:
+            for day, day_sets in exercise_work.groupby("date", sort=True):
+                dose.append({
+                    "date": str(day)[:10],
+                    "working_sets": int(len(day_sets)),
+                    "hard_sets": int(monitoring.hard_sets(day_sets, exposure_config)),
+                })
         associations.append({
             "exercise_id": exercise_id,
             "observations": len(observations),
             "first": dates[0],
             "last": dates[-1],
+            "dose": dose,
             "hard_sets_vs_next_e1rm": _corr(hard_pairs),
             "session_load_vs_next_e1rm": _corr(load_pairs),
             "hard_sets_points": [

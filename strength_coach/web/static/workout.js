@@ -2,12 +2,12 @@
  * Kept out of app.js so the workout lifecycle can evolve without touching the
  * prescription renderer. All reads/writes go through the same JSON API. */
 
-const WORKOUT_REQUIRED = ["sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration"];
-const WORKOUT_OPTIONAL = ["hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "wearable_score"];
+const WORKOUT_REQUIRED = ["sleep", "energy", "mood", "soreness", "stress"];
+const WORKOUT_OPTIONAL = ["hrv_ms", "rhr_bpm", "bodyweight_kg", "wearable_score"];
 const WORKOUT_LABELS = {
   sleep: "Sleep", energy: "Energy", mood: "Mood", soreness: "Soreness", stress: "Stress",
-  nutrition: "Nutrition", hydration: "Hydration", hrv_ms: "HRV (ms)", rhr_bpm: "Resting HR",
-  bodyweight_kg: "Bodyweight (kg)", fat_pct: "Body fat (%)", wearable_score: "Wearable (0-100)"
+  hrv_ms: "HRV (ms)", rhr_bpm: "Resting HR",
+  bodyweight_kg: "Bodyweight (kg)", wearable_score: "Wearable (0-100)"
 };
 let workoutTimer = null;
 let activeWorkoutId = null;
@@ -29,6 +29,17 @@ function workoutField(key, required) {
 function openWorkoutStart() {
   var plan = window.__lastPrescription;
   if (!plan) return;
+  if (window.__prescriptionFromCache) {
+    var currentDate = document.getElementById("prescribe-date")
+      ? document.getElementById("prescribe-date").value : "";
+    var currentType = document.getElementById("prescribe-session-type")
+      ? document.getElementById("prescribe-session-type").value : "auto";
+    var message = "Start the cached plan from " + plan.for_date + " ("
+      + (plan.session_type || "unknown") + ")?\n\n"
+      + "The current Prescribe form is " + (currentDate || "no date") + " ("
+      + currentType + "). This starts the cached plan, not the form selection.";
+    if (!window.confirm(message)) return;
+  }
   $("#workout-empty").hidden = true;
   $("#workout-active-panel").hidden = true;
   $("#workout-ended-panel").hidden = true;
@@ -106,6 +117,11 @@ function submitWorkoutStart(event) {
     })
   }).then(function (data) {
     $("#workout-start-panel").hidden = true;
+    // The server now owns the frozen plan; a second Start must not reuse the browser cache.
+    if (typeof clearCachedPrescription === "function") clearCachedPrescription();
+    window.__lastPrescription = null;
+    window.__prescriptionFromCache = false;
+    $("#prescribe-result").innerHTML = "";
     notify("Workout started.");
     renderWorkout(data.workout);
   }).catch(function (error) {
@@ -159,6 +175,21 @@ function workoutExerciseOptions(selected) {
 function numericOrNull(selector) {
   var value = $(selector).value;
   return value === "" ? null : Number(value);
+}
+
+function parseRepVelocities(selector) {
+  var text = ($(selector).value || "").trim();
+  if (!text) return null;
+  var parts = text.split(/[,\s]+/).filter(function (part) { return part !== ""; });
+  var values = parts.map(function (part) { return Number(part); });
+  if (!values.length || values.some(function (value) {
+    return !Number.isFinite(value) || value <= 0;
+  })) {
+    throw new Error("Per-rep velocities must be positive numbers.");
+  }
+  return values.map(function (value, index) {
+    return { rep_index: index + 1, velocity_mps: value };
+  });
 }
 
 function workoutPlanItem(exerciseId) {
@@ -559,13 +590,13 @@ function renderWorkout(w) {
     });
   });
 
-  var seen = {};
   var options = "";
   var previousExercise = $("#workout-set-exercise").value;
-  items.forEach(function (item) {
-    if (seen[item.exercise_id]) return;
-    seen[item.exercise_id] = true;
-    options += '<option value="' + esc(item.exercise_id) + '">' + esc(item.exercise_id) + "</option>";
+  items.forEach(function (item, index) {
+    options += '<option value="' + esc(item.exercise_id) + '" data-plan-index="' + index +
+      '">' + esc(item.exercise_id) + (items.filter(function (other) {
+        return other.exercise_id === item.exercise_id;
+      }).length > 1 ? " (item " + (index + 1) + ")" : "") + "</option>";
   });
   $("#workout-set-exercise").innerHTML = options;
   var desired = previousExercise || (items[0] && items[0].exercise_id) || "";
@@ -999,13 +1030,36 @@ function submitWorkoutSet(event) {
     return;
   }
   $("#workout-set-reps").removeAttribute("aria-invalid");
+  var reps = numericOrNull("#workout-set-reps");
+  var repVelocities;
+  try {
+    repVelocities = parseRepVelocities("#workout-set-rep-velocities");
+  } catch (error) {
+    $("#workout-set-msg").textContent = error.message;
+    $("#workout-set-rep-velocities").setAttribute("aria-invalid", "true");
+    $("#workout-set-rep-velocities").focus();
+    return;
+  }
+  if (repVelocities && reps != null && repVelocities.length > reps) {
+    $("#workout-set-msg").textContent = "Per-rep count cannot exceed reps.";
+    $("#workout-set-rep-velocities").setAttribute("aria-invalid", "true");
+    $("#workout-set-rep-velocities").focus();
+    return;
+  }
+  $("#workout-set-rep-velocities").removeAttribute("aria-invalid");
+  var select = $("#workout-set-exercise");
+  var selectedOption = select.options[select.selectedIndex];
+  var planItemIndex = selectedOption && selectedOption.dataset.planIndex != null
+    ? Number(selectedOption.dataset.planIndex) : null;
   var body = {
     exercise_id: exerciseId,
+    plan_item_index: planItemIndex,
     load_kg: numericOrNull("#workout-set-load"),
-    reps: numericOrNull("#workout-set-reps"),
+    reps: reps,
     rir: numericOrNull("#workout-set-rir"),
     set_role: $("#workout-set-role").value || null,
     velocity: numericOrNull("#workout-set-velocity"),
+    rep_velocities: repVelocities,
     set_index: nextWorkoutSetNumber(exerciseId)
   };
   workoutSetBusy = true;
@@ -1017,8 +1071,9 @@ function submitWorkoutSet(event) {
   }).then(function (data) {
     $("#workout-set-msg").textContent = "";
     // Keep the exercise and the last set's values for the next set; the athlete can edit
-    // any field or add a deliberate different set. Only velocity is optional per set.
+    // any field or add a deliberate different set. Velocity detail is optional per set.
     $("#workout-set-velocity").value = "";
+    $("#workout-set-rep-velocities").value = "";
     notify("Set added.");
     renderWorkout(data.workout);
   }).catch(function (error) {
@@ -1028,6 +1083,7 @@ function submitWorkoutSet(event) {
       reps: "#workout-set-reps",
       rir: "#workout-set-rir",
       velocity: "#workout-set-velocity",
+      rep_velocities: "#workout-set-rep-velocities",
     });
   }).finally(function () {
     workoutSetBusy = false;

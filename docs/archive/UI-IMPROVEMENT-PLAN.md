@@ -87,10 +87,10 @@ Status labels:
 
 ### A1. Replace dynamic inline handlers
 
-The five dynamic handlers at [app.js:343](../strength_coach/web/static/app.js#L343),
-[344](../strength_coach/web/static/app.js#L344), [398](../strength_coach/web/static/app.js#L398),
-[860](../strength_coach/web/static/app.js#L860) and
-[1207](../strength_coach/web/static/app.js#L1207) must stop embedding values in `onclick`.
+The five dynamic handlers at [app.js:343](../../strength_coach/web/static/app.js#L343),
+[344](../../strength_coach/web/static/app.js#L344), [398](../../strength_coach/web/static/app.js#L398),
+[860](../../strength_coach/web/static/app.js#L860) and
+[1207](../../strength_coach/web/static/app.js#L1207) must stop embedding values in `onclick`.
 
 Use one of:
 
@@ -103,7 +103,7 @@ The correct fix is to remove the executable-string context.
 
 Keep the two static handlers (`applySuggestedDeload()`, `openWorkoutStart()`) only if they
 remain literal and non-interpolated; otherwise convert them for consistency. The static
-`saveReadinessContext()` at [index.html:567](../strength_coach/web/static/index.html#L567) can
+`saveReadinessContext()` at [index.html:567](../../strength_coach/web/static/index.html#L567) can
 stay until the same conversion is applied to that panel.
 
 Checks:
@@ -116,7 +116,7 @@ Checks:
 - a manual/browser check that the affected actions still fire.
 
 Current value domains are constrained: exercise ids must match
-`^[a-z][a-z0-9_]*$` at [exercise_admin.py:20](../strength_coach/store/exercise_admin.py#L20),
+`^[a-z][a-z0-9_]*$` at [exercise_admin.py:20](../../strength_coach/store/exercise_admin.py#L20),
 review task keys are a fixed pair, and session ids are dates/UUIDs. The finding is therefore a
 latent unsafe construction, not a demonstrated live exploit. Fix it anyway.
 
@@ -134,7 +134,7 @@ MAX_IMPORT_FILE_BYTES = 20 * 1024 * 1024
 Rationale: two 20 MiB decoded CSVs are 40 MiB; JSON escaping and keys need headroom; 64 MiB is
 the smallest sensible cap. A pathological escape-heavy file can expand about 2x; document that
 a near-limit file can receive 413, or choose 96 MiB for a hard guarantee. Do not go below
-44 MiB. Replace the hard-coded `20 * 1024 * 1024` in [server.py:766](../strength_coach/web/server.py#L766).
+44 MiB. Replace the hard-coded `20 * 1024 * 1024` in [server.py:766](../../strength_coach/web/server.py#L766).
 
 Body contract:
 
@@ -167,8 +167,8 @@ Tests, with patched limits and no 40 MiB allocations:
 
 ### A3. Safe backend errors
 
-At [server.py:476](../strength_coach/web/server.py#L476) and
-[server.py:611](../strength_coach/web/server.py#L611), replace
+At [server.py:476](../../strength_coach/web/server.py#L476) and
+[server.py:611](../../strength_coach/web/server.py#L611), replace
 `f"{type(exc).__name__}: {exc}"` with a generic JSON 500, for example
 `{"error": "internal server error"}`.
 
@@ -176,7 +176,7 @@ At [server.py:476](../strength_coach/web/server.py#L476) and
 - never log request bodies, API keys or personal training data;
 - keep the useful 400/404/409 messages;
 - keep the JSON shape consistent;
-- sanitize [history.py:430](../strength_coach/history.py#L430): log the detail and return a
+- sanitize [history.py:430](../../strength_coach/history.py#L430): log the detail and return a
   generic warning, or omit the raw exception from the response.
 
 Tests: monkeypatch a handler to raise, assert 500 and generic body, assert the traceback is
@@ -198,9 +198,9 @@ Implement one helper, used everywhere:
 - no `toLocaleDateString` for a machine-readable date;
 - no `toISOString().slice(0, 10)` for a local date.
 
-Replace [app.js:3](../strength_coach/web/static/app.js#L3),
-[app.js:780](../strength_coach/web/static/app.js#L780) and
-[app.js:1595](../strength_coach/web/static/app.js#L1595). Check date inputs, history filters,
+Replace [app.js:3](../../strength_coach/web/static/app.js#L3),
+[app.js:780](../../strength_coach/web/static/app.js#L780) and
+[app.js:1595](../../strength_coach/web/static/app.js#L1595). Check date inputs, history filters,
 prescription/readiness defaults and workout start dates for the same pattern.
 
 Tests:
@@ -238,7 +238,7 @@ For duplicate sets, the robust options are:
    justify it before adding.
 
 Do not deduplicate sets by content: identical sets are real sets. Do not add global locks. Use
-`db.transaction` at [db.py:145](../strength_coach/store/db.py#L145), which already handles
+`db.transaction` at [db.py:145](../../strength_coach/store/db.py#L145), which already handles
 savepoints.
 
 Import failure design needs a decision: a transaction that rolls back the data also rolls back
@@ -261,7 +261,7 @@ dependency:
 - `playwright` in `[project.optional-dependencies].browser`;
 - a `browser` pytest marker, skipped with a clear reason if Playwright or the browser binary is
   absent;
-- reuse the temp-DB server fixture at [test_web.py:30](../tests/test_web.py#L30), or add a
+- reuse the temp-DB server fixture at [test_web.py:30](../../tests/test_web.py#L30), or add a
   browser fixture that starts the same server;
 - start with a small smoke suite, not the full ten-step journey.
 
@@ -291,7 +291,7 @@ This is UI-08, last and separate. It depends on the boot fix and the handler wor
 
 - add `core.js` first with `$`, `today`, `esc`, `sessionLabel`, `fmt`, `api`, `notify`;
 - load order: core, app, history, workout;
-- move the boot block at [app.js:3041](../strength_coach/web/static/app.js#L3041) into a
+- move the boot block at [app.js:3041](../../strength_coach/web/static/app.js#L3041) into a
   `DOMContentLoaded` listener (or a final `boot.js`);
 - this also fixes the existing `#history`/`#workout` deep-link failure, because `setView`
   will no longer run before those files load.
@@ -299,7 +299,7 @@ This is UI-08, last and separate. It depends on the boot fix and the handler wor
 ### E2. Extract Exercises
 
 Move the exercise catalogue block from `app.js` (around
-[app.js:2049](../strength_coach/web/static/app.js#L2049) through `loadExerciseCatalog`) and its
+[app.js:2049](../../strength_coach/web/static/app.js#L2049) through `loadExerciseCatalog`) and its
 listeners to `exercises.js`. Keep `loadExercises()` (the picker) in `app.js` unless the move
 is clearly cheaper. The module uses core helpers and exposes `loadExerciseCatalog`,
 `openExerciseEditor`, `openExerciseDetails`, `saveExerciseDetails` and `openExerciseE1rm`.
@@ -522,7 +522,7 @@ installed; it remains the accepted coverage limitation for this closure.
 
 ## Related
 
-- **Evidence:** [WEB-UI.md](WEB-UI.md), [UI-MAP.md](UI-MAP.md)
-- **Decisions:** [DECISIONS.md](DECISIONS.md)
-- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
-- **Roadmap:** [ROADMAP.md](../ROADMAP.md)
+- **Evidence:** [WEB-UI.md](../WEB-UI.md), [UI-MAP.md](../UI-MAP.md)
+- **Decisions:** [DECISIONS.md](../DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../../ROADMAP.md)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from conftest import make_readiness, make_training
 
-from strength_coach.features import progress
+from strength_coach.features import progress, weekly
 from strength_coach.store import db, importer, repositories
 
 
@@ -13,6 +13,8 @@ def test_dashboard_reports_coverage_performance_and_volume():
         {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
          "RIR": "2", "Reps_Done": "5"},
         {"Date": "2024-01-08", "Exercise": "Trap Bar Deadlift", "Weight_Used": "155",
+         "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2024-01-15", "Exercise": "Trap Bar Deadlift", "Weight_Used": "160",
          "RIR": "2", "Reps_Done": "5"},
     ]
     training = make_training(rows)
@@ -25,7 +27,10 @@ def test_dashboard_reports_coverage_performance_and_volume():
             readiness_sha256=importer.sha256_frame(readiness),
         )
         repositories.append_session_feedback(
-            store.connection, session_id="2024-01-08", srpe=6, duration_min=45,
+            store.connection, session_id="2024-01-08", srpe=6, duration_min=None,
+        )
+        repositories.append_session_feedback(
+            store.connection, session_id="2024-01-15", srpe=8, duration_min=50,
         )
         repositories.append_athlete_profile(
             store.connection, effective_from="2024-01-01",
@@ -35,6 +40,7 @@ def test_dashboard_reports_coverage_performance_and_volume():
     finally:
         store.close()
     assert report["coverage"]["with_srpe"] == 1
+    assert report["coverage"]["pct"] == 50.0
     assert report["performance"]["n"] == 1
     assert report["performance"]["latest"]["ratio"] > 1.0
     assert any(row["pattern"] == "hinge" for row in report["volume"])
@@ -42,6 +48,35 @@ def test_dashboard_reports_coverage_performance_and_volume():
     assert report["attendance"]["target"] == 24
     assert report["attendance"]["families"]["hinge"] == 2
     assert report["attendance"]["injury_free_weeks"] is None
+
+
+def test_weekly_history_reports_rir_tonnage_and_missing_weeks():
+    rows = [
+        {"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
+         "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2024-01-08", "Exercise": "Trap Bar Deadlift", "Weight_Used": "155",
+         "RIR": "1", "Reps_Done": "5"},
+        {"Date": "2024-01-15", "Exercise": "Trap Bar Deadlift", "Weight_Used": "160",
+         "RIR": "3", "Reps_Done": "4"},
+    ]
+    store = db.Store(":memory:")
+    try:
+        training = make_training(rows)
+        readiness = make_readiness([{}])
+        importer.import_export(
+            store.connection, training, readiness,
+            training_sha256=importer.sha256_frame(training),
+            readiness_sha256=importer.sha256_frame(readiness),
+        )
+        report = weekly.history(store.connection, "2024-01-15", weeks=3)
+    finally:
+        store.close()
+    assert len(report["weeks"]) == 3
+    assert report["weeks"][0]["working_sets"] == 1
+    assert report["weeks"][0]["rir"]["observed_sets"] == 1
+    assert report["weeks"][0]["tonnage_kg"] == 750.0
+    assert report["weeks"][0]["tonnage"]["coverage"] == 1.0
+    assert report["missing_weeks"] == []
 
 
 def test_injury_free_state_persists_until_another_log():

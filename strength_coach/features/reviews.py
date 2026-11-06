@@ -347,7 +347,7 @@ def status(conn, on_date: str) -> dict:
                 "Keep or adjust config; roll back to hard if a defect appears.",
             ),
             dont=("Do not treat this reminder as an unresolved plan item.",),
-            doc="docs/VOLUME-MODULATION-PLAN.md",
+            doc="docs/archive/VOLUME-MODULATION-PLAN.md",
         ).as_dict())
     due = [task for task in tasks if task["status"] in {"due", "attention"}]
     return {"on_date": on_date, "due_count": len(due), "tasks": tasks}

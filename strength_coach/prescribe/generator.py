@@ -205,9 +205,19 @@ def generate(
         default_state = _candidate_class(
             default_id, permitted, vetoed, active_linked, suitability, settings, taxonomy
         )
+        unrated_suggestions = [item for item in slot_suggestions if item not in suitability]
+        if not auto and unrated_suggestions:
+            # Carry only unrated suggestions into the preview; pending_rating remains true
+            # until the athlete rates one. will_do/feels_bad blocks stay suggestion-only.
+            auto = list(unrated_suggestions)
+            warnings.append(
+                f"{slot.id}: no rated candidate; suggesting {sorted(unrated_suggestions)} for rating"
+            )
 
         if slot.power:
-            if default_state != AUTO:
+            if default_state != AUTO and not (
+                default_state == SUGGESTION and default_id not in suitability
+            ):
                 raise GenerationError(
                     f"{session_type}/{slot.id}: fixed power exercise {default_id!r} "
                     f"is {_state_reason(default_state)}",
@@ -332,6 +342,7 @@ def candidate_pools(
     policy: resolver_policy.ResolverPolicy | None = None,
     settings: ResolverSettings | None = None,
     context: RuleContext | None = None,
+    template: templates.SessionTemplate | None = None,
 ) -> CandidatePools:
     """Return eligible candidate pools for the joint beam.
 
@@ -344,7 +355,7 @@ def candidate_pools(
     evaluator is authoritative for assignment quality; candidate order only supplies deterministic
     beam rank cost/tie-breaking. No Step 2 objective is double-counted.
     """
-    if session_type not in templates.SESSION_TYPES:
+    if session_type not in templates.SESSION_TYPES and template is None:
         raise GenerationError(
             f"unknown session type {session_type!r}", session_type=str(session_type)
         )
@@ -359,7 +370,7 @@ def candidate_pools(
             spinal_cap=runtime.spinal_cap,
             spinal_costs=runtime.spinal_costs,
         )
-    template = templates.SessionTemplate.load(session_type)
+    template = template or templates.SessionTemplate.load(session_type)
     catalogue = resolver_policy.load_candidate_catalogue(policy)
     catalogue_digest = resolver_policy.candidate_catalogue_digest(catalogue)
     taxonomy = exercises.taxonomy().entities
@@ -490,10 +501,15 @@ def _structure_check(
     for slot in template.slots:
         role = _slot_role(slot, main_slot)
         permitted = _permitted_patterns(slot, role, policy, main_slot, taxonomy)
-        auto, _suggestions = _classify_candidates(
+        auto, suggestions = _classify_candidates(
             pools[slot.id], permitted, vetoed, active_injury, suitability, settings,
             taxonomy,
         )
+        # A suggestion-only slot is a provisional preview candidate, not an automatic
+        # selection. It lets the athlete see and rate the proposed lift instead of losing
+        # the whole session family before the rating UI can appear. Start remains gated.
+        if not auto:
+            auto = [item for item in suggestions if item not in suitability]
         if not auto:
             return False, f"slot {slot.id!r}: no automatically eligible candidate", {}
         auto_by_slot[slot.id] = auto

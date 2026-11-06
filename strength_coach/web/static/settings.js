@@ -688,6 +688,12 @@ function renderResolverPreview(data) {
       "</div>";
     return;
   }
+  const pending = data.pending_ratings || [];
+  const pendingBox = pending.length
+    ? "<div class='warnbox'><strong>Suitability ratings needed.</strong> Rate the suggested " +
+      "exercise(s) below before starting: " +
+      pending.map((item) => "<code>" + esc(item) + "</code>").join(", ") +
+      "</div>" : "";
   const topSet = data.top_set
     ? "<details><summary>Top-set structure</summary><pre>" +
       esc(JSON.stringify(data.top_set, null, 2)) + "</pre></details>" : "";
@@ -696,13 +702,18 @@ function renderResolverPreview(data) {
       esc(JSON.stringify(data.projected_week, null, 2)) + "</pre></details>" : "";
   box.innerHTML = "<div class='panel'><div class='panel-head'><h3>" +
     esc(data.for_date) + " · " + esc(data.session_label || data.session_type) +
-    "</h3><span class='badge'>preview</span></div>" +
+    "</h3><span class='badge'>preview</span></div>" + pendingBox +
     "<div class='table-scroll'><table><thead><tr><th>Slot</th><th>Chosen</th>" +
     "<th>Rank</th><th>Alternatives</th><th>Suggestion-only</th></tr></thead><tbody>" +
     resolverPreviewChoicesHtml(data) + "</tbody></table></div>" +
     "<div class='form-row'><button type='button' class='primary' " +
-    "data-resolver-start>Start this preview</button><span class='muted'>" +
-    "Freezes the shown session; nothing is saved until the start form is submitted.</span></div>" +
+    (pending.length ? "disabled " : "") +
+    "data-resolver-start>" + (pending.length ? "Rate suggestions to start" : "Start this preview") +
+    "</button><span class='muted'>" +
+    (pending.length
+      ? "The shown exercise(s) are suggestion-only until rated."
+      : "Freezes the shown session; nothing is saved until the start form is submitted.") +
+    "</span></div>" +
     topSet + projected +
     "<details><summary>Warnings and beam diagnostics</summary><pre>" +
     esc(JSON.stringify({warnings: data.warnings, beam: data.beam}, null, 2)) +
@@ -814,21 +825,44 @@ function renderResolverPreviewDiff(previous, current) {
 }
 
 
+let resolverPreviewRunning = false;
+
 async function runResolverPreview() {
   const box = $("#settings-resolver-preview");
+  if (resolverPreviewRunning) return;
+  resolverPreviewRunning = true;
   if (box) box.innerHTML = "<p class='empty'>Building resolver preview…</p>";
   const previous = window.__resolverPreview;
   try {
-    const data = await api("/api/resolver/preview", {
+    const started = await api("/api/resolver/preview/jobs", {
       method: "POST",
       body: JSON.stringify(resolverPreviewFormPayload()),
     });
+    const startedAt = Date.now();
+    let job = started;
+    while (job.status === "running") {
+      if (box) {
+        const seconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+        box.innerHTML = "<p class='empty'>Building resolver preview… " + seconds + "s</p>";
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      try {
+        job = await api("/api/resolver/preview/jobs/" + encodeURIComponent(job.job_id));
+      } catch (error) {
+        throw new Error("resolver preview job was lost: " + error.message);
+      }
+    }
+    if (job.status === "error") throw new Error(job.error || "resolver preview failed");
+    const data = job.result;
+    if (!data) throw new Error("resolver preview returned no result");
     renderResolverPreview(data);
     renderResolverPreviewDiff(previous, data);
   } catch (error) {
     if (box) box.innerHTML = "<div class='warnbox'>" + esc(error.message) + "</div>";
     const diff = $("#settings-resolver-preview-diff");
     if (diff) diff.textContent = "";
+  } finally {
+    resolverPreviewRunning = false;
   }
 }
 
@@ -856,6 +890,10 @@ async function rateResolverSuggestion(button) {
 async function openResolverPreviewStart() {
   const data = window.__resolverPreview;
   if (!data || !data.ok) return;
+  if ((data.pending_ratings || []).length) {
+    notify("Rate the suggested exercise(s) before starting this preview.", "error");
+    return;
+  }
   // The response is the exact prescription payload. Remove preview-only metadata so the
   // frozen plan contains the displayed prescription, not UI/diff controls.
   const plan = { ...data };
@@ -863,6 +901,7 @@ async function openResolverPreviewStart() {
     "session_time", "policy_digest", "catalogue_digest", "template_digest",
     "input_hash", "scheduled_suggestion"].forEach((key) => { delete plan[key]; });
   window.__lastPrescription = plan;
+  if (typeof cachePrescription === "function") cachePrescription(plan);
   if (typeof openWorkoutStart === "function") openWorkoutStart();
   else notify("Open Workflow to start this preview.", "error");
 }

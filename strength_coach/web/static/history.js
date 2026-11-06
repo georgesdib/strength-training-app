@@ -208,6 +208,61 @@ function wireHistorySetButtons() {
   });
 }
 
+function historyExerciseName(exerciseId) {
+  var list = window.__exerciseList || [];
+  var match = list.find(function (row) { return String(row.id) === String(exerciseId); });
+  return match ? (match.display || match.id || exerciseId) : exerciseId;
+}
+
+function historyFormRows(data) {
+  var forms = {};
+  (data.forms || []).forEach(function (form) {
+    forms[String(form.exercise_id)] = form;
+  });
+  var ids = [];
+  var seen = {};
+  (data.sets || []).forEach(function (set) {
+    var id = String(set.exercise_id || "");
+    if (id && !seen[id]) { seen[id] = true; ids.push(id); }
+  });
+  (data.forms || []).forEach(function (form) {
+    var id = String(form.exercise_id || "");
+    if (id && !seen[id]) { seen[id] = true; ids.push(id); }
+  });
+  if (!ids.length) return "<p class='muted'>No exercises in this session.</p>";
+  return ids.map(function (exerciseId) {
+    var current = forms[exerciseId] || {};
+    var options = ['<option value="">— leave unchanged</option>'];
+    for (var rating = 1; rating <= 5; rating += 1) {
+      options.push('<option value="' + rating + '"' +
+        (Number(current.rating) === rating ? " selected" : "") + ">" + rating + "</option>");
+    }
+    return '<div class="history-set" data-history-form data-exercise-id="' +
+      esc(exerciseId) + '">' +
+      '<div class="history-set-head"><strong>' + esc(historyExerciseName(exerciseId)) +
+      '</strong><span class="muted">' + esc(exerciseId) + '</span></div>' +
+      '<div class="history-set-grid">' +
+      '<label>Form (1–5) <select data-h-form-rating aria-label="Form rating for ' +
+      esc(exerciseId) + '">' + options.join("") + '</select></label>' +
+      '<label class="grow">Note <input type="text" data-h-form-note value="' +
+      esc(current.note || "") + '" placeholder="optional context"></label>' +
+      '</div></div>';
+  }).join("");
+}
+
+function collectHistoryForms() {
+  return Array.from(document.querySelectorAll("[data-history-form]")).map(function (row) {
+    var rating = row.querySelector("[data-h-form-rating]").value;
+    return {
+      exercise_id: row.dataset.exerciseId,
+      rating: rating === "" ? null : Number(rating),
+      note: row.querySelector("[data-h-form-note]").value.trim() || null
+    };
+  // Blank is a leave-unchanged instruction, not a removal: omit the exercise so the
+  // append-only correction preserves the existing rating and note.
+  }).filter(function (form) { return form.rating != null; });
+}
+
 async function openHistoryEdit(sessionId) {
   var panel = document.getElementById("history-edit-panel");
   panel.hidden = false;
@@ -223,6 +278,7 @@ async function openHistoryEdit(sessionId) {
     document.getElementById("history-edit-sets").innerHTML =
       (data.sets || []).map(historySetRow).join("") ||
       "<p class='muted'>No current sets.</p>";
+    document.getElementById("history-edit-forms").innerHTML = historyFormRows(data);
     wireHistorySetButtons();
     // Backfilled values live in session_feedback for imported sessions; show them rather than
     // an empty box that would overwrite them with a blank on the next save.

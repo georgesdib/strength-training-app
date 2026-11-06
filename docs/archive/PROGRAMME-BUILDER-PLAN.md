@@ -37,9 +37,10 @@ pinning, a two-stage volume pass, or a hinge top-set RIR cap.
 - **Eligibility.** With require_can_do on (the shipped default), auto-select only with explicit
   can_do = 1; will_do = 0 or feels_bad = 1 is suggestion-only. Unrated exercises are
   suggestion-only under unrated_mode = confirm and hidden under exclude. A default or fallback
-  never bypasses this. If no automatically eligible candidate exists, generation is a field-level
-  error that names the slot and the available suggestions; it does not silently keep the
-  blueprint default.
+  never bypasses this. When a slot has no automatic candidate but has unrated suggestions, the
+  preview may use one provisionally so the athlete can rate it; the plan is marked pending and
+  **Start** is blocked until the rating is saved and the plan is rebuilt. A will_do/feels_bad
+  block never becomes provisional.
 - **Joint optimisation.** The resolver is a bilevel search: the outer loop chooses exercises;
   the inner evaluator runs the existing readiness set cuts, deload, spinal trim, volume budget,
   time estimate and validation in read-only mode; the score is the post-budget outcome. The
@@ -77,9 +78,9 @@ pinning, a two-stage volume pass, or a hinge top-set RIR cap.
 - **Historical integrity.** The generated session is frozen at workout start; old prescriptions
   keep their stored items and null snapshots; no backfill and no rewrite.
 
-**Related:** [METHODOLOGY.md](METHODOLOGY.md), [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md),
-[WORKOUT-GENERATION.md](WORKOUT-GENERATION.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md),
-[LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md), [ROADMAP.md](../ROADMAP.md).
+**Related:** [METHODOLOGY.md](../METHODOLOGY.md), [SESSION-TEMPLATES.md](../SESSION-TEMPLATES.md),
+[WORKOUT-GENERATION.md](../WORKOUT-GENERATION.md), [VOLUME-MANAGEMENT.md](../VOLUME-MANAGEMENT.md),
+[LLM-INTEGRATION-PLAN.md](../LLM-INTEGRATION-PLAN.md), [ROADMAP.md](../../ROADMAP.md).
 
 ---
 
@@ -433,8 +434,9 @@ Exercise Rotation is a deterministic dwell rule, not a random score weight.
 
 The generator can offer a top set + back-off structure for the session's primary main lift. It is
 a set-configuration feature, not a second periodisation engine. Eligibility is validated against
-the taxonomy's main-lift markers (`main_lift` or `primary_compound`); `conventional_deadlift` is
-not in the list because the taxonomy does not classify it as a main lift today.
+the taxonomy's main-lift markers (`main_lift` or `primary_compound`). `conventional_deadlift`
+now passes that gate (it is a `primary_compound` since `DEC-RESOLVER-13`), but it is still not in
+the shipped list: opting a lift into the top-set structure is an explicit policy decision.
 
 **Structure**
 
@@ -688,7 +690,7 @@ workout never changes.
 ### 8.5 CLI
 
 UI-first for MVP; read-only status/show later. Document the temporary gap in
-[UI-CLI-PARITY.md](UI-CLI-PARITY.md). Do not rename the existing `programme` command.
+[UI-CLI-PARITY.md](../UI-CLI-PARITY.md). Do not rename the existing `programme` command.
 
 ### 8.6 Mobile
 
@@ -1232,7 +1234,7 @@ database was read-smoked for the legacy NULL path. The default remains off.
 
 ## 13. Confirmed decisions
 
-Recorded as `DEC-RESOLVER-01`–`12` in [DECISIONS.md](DECISIONS.md).
+Recorded as `DEC-RESOLVER-01`–`12` in [DECISIONS.md](../DECISIONS.md).
 
 - Session generator per session; no block-level exercise pin; generated session frozen at workout
   start.
@@ -1260,12 +1262,12 @@ Recorded as `DEC-RESOLVER-01`–`12` in [DECISIONS.md](DECISIONS.md).
 
 ## Related
 
-**Decisions:** [DECISIONS.md](DECISIONS.md) · **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) · **Roadmap:** [ROADMAP.md](../ROADMAP.md)
+**Decisions:** [DECISIONS.md](../DECISIONS.md) · **Open questions:** [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md) · **Roadmap:** [ROADMAP.md](../../ROADMAP.md)
 
-- **Methodology:** [METHODOLOGY.md](METHODOLOGY.md)
-- **Templates:** [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md)
-- **Workout generation:** [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md)
-- **Volume:** [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md)
-- **LLM workstream:** [LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md)
-- **Decisions:** [DECISIONS.md](DECISIONS.md)
-- **Roadmap:** [ROADMAP.md](../ROADMAP.md)
+- **Methodology:** [METHODOLOGY.md](../METHODOLOGY.md)
+- **Templates:** [SESSION-TEMPLATES.md](../SESSION-TEMPLATES.md)
+- **Workout generation:** [WORKOUT-GENERATION.md](../WORKOUT-GENERATION.md)
+- **Volume:** [VOLUME-MANAGEMENT.md](../VOLUME-MANAGEMENT.md)
+- **LLM workstream:** [LLM-INTEGRATION-PLAN.md](../LLM-INTEGRATION-PLAN.md)
+- **Decisions:** [DECISIONS.md](../DECISIONS.md)
+- **Roadmap:** [ROADMAP.md](../../ROADMAP.md)

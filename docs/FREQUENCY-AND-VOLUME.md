@@ -127,7 +127,7 @@ a short gap matters, but it is a continuity problem, not a make-up-volume protoc
 Automatic compensation would also need a rule nobody has validated: how much, on which lift,
 after how short a session, and with what cap. The W6 readiness audit already found that
 readiness-driven volume changes are not identifiable retrospectively
-([READINESS-AUDIT.md](READINESS-AUDIT.md)), and main-lift set reduction was made opt-in for the
+([READINESS-AUDIT.md](archive/READINESS-AUDIT.md)), and main-lift set reduction was made opt-in for the
 same reason (`DEC-READINESS-12`).
 
 ### 4.3 "A heavy session should make the next one smaller"
@@ -154,7 +154,7 @@ no new evidence claim. This is the only option that is purely documentation.
 **B. Frequency-aware weekly dose.** When `per_week < 3`, scale per-session sets toward a
 weekly target (bounded by a session cap and MRV), so a 1/week plan is a genuinely different
 prescription rather than a truncated one. This is now specified in
-[VOLUME-MODULATION-PLAN.md](VOLUME-MODULATION-PLAN.md), including the settings/modality layer it
+[VOLUME-MODULATION-PLAN.md](archive/VOLUME-MODULATION-PLAN.md), including the settings/modality layer it
 must sit behind. It is still a programme change: it alters sessions at 1–2/week, needs its own
 `DEC`, and should start with accessories rather than main lifts.
 

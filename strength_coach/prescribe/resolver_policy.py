@@ -14,6 +14,7 @@ import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
@@ -206,6 +207,7 @@ def _check_duplicate_keys(
         active.remove(marker)
 
 
+@lru_cache(maxsize=8)
 def _parse(body: str, source_path: Path, digest: str) -> ResolverPolicy:
     raw = _load_yaml(body, source_path.name)
     if not isinstance(raw, Mapping):

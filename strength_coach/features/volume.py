@@ -272,12 +272,36 @@ def compute(
                 effective_total=float(sum(member["total"] for member in members) + indirect_total),
             ))
     rows.sort(key=lambda row: (-row.total, row.pattern))
+    groups = []
+    for target_key, members in sorted(grouped.items()):
+        counts = [
+            sum(float(member["counts"][index]) for member in members)
+            for index in range(len(labels))
+        ]
+        indirect_counts = list(indirect.get(target_key, [0.0] * len(labels)))
+        effective_counts = [
+            round(counts[index] + indirect_counts[index], 2)
+            for index in range(len(labels))
+        ]
+        total = sum(counts)
+        effective_total = sum(effective_counts)
+        groups.append({
+            "group": target_key,
+            "counts": counts,
+            "indirect_counts": [round(value, 2) for value in indirect_counts],
+            "effective_counts": effective_counts,
+            "total": total,
+            "effective_total": round(effective_total, 2),
+            "average": round(total / denominator, 2),
+            "effective_average": round(effective_total / denominator, 2),
+        })
     zero_weeks = [week for week in labels if week not in set(observed)]
     return {
         "from": start.date().isoformat(),
         "to": end.date().isoformat(),
         "weeks": labels,
         "patterns": [row.as_dict() for row in rows],
+        "groups": groups,
         "coverage": {
             "mode": cfg.ledger_coverage,
             "accounting": cfg.set_accounting,

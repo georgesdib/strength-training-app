@@ -119,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
 
     run = sub.add_parser("run", help="critique the last session and prescribe a date")
     run.add_argument("--date", required=True, help="date to prescribe, YYYY-MM-DD")
-    run.add_argument("--session-type", choices=("auto", "squat", "hinge", "bench_squat", "bench_hinge"),
+    run.add_argument("--session-type", choices=("auto", "squat", "hinge", "bench_squat", "bench_hinge", "accessory"),
                      default="auto", help="session emphasis (default: auto rolling)")
     run.add_argument("--llm", choices=("on", "off"), default="off",
                      help="ask the configured model for a narrative (default: off)")
@@ -223,7 +223,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     resolver_preview.add_argument("--date", required=True, help="YYYY-MM-DD")
     resolver_preview.add_argument(
-        "--session-type", choices=("auto",) + templates.SESSION_TYPES,
+        "--session-type", choices=("auto",) + templates.SESSION_TYPES + ("accessory",),
         default="auto",
     )
     resolver_preview.add_argument(
@@ -362,12 +362,9 @@ def main(argv: list[str] | None = None) -> int:
     readiness.add_argument("--mood", type=int, default=None)
     readiness.add_argument("--soreness", type=int, default=None)
     readiness.add_argument("--stress", type=int, default=None)
-    readiness.add_argument("--nutrition", type=int, default=None)
-    readiness.add_argument("--hydration", type=int, default=None)
     readiness.add_argument("--hrv", dest="hrv_ms", type=float, default=None)
     readiness.add_argument("--rhr", dest="rhr_bpm", type=float, default=None)
     readiness.add_argument("--bodyweight", dest="bodyweight_kg", type=float, default=None)
-    readiness.add_argument("--fat-percent", dest="fat_pct", type=float, default=None)
     readiness.add_argument("--wearable-score", dest="wearable_score", type=float,
                            default=None, help="third-party readiness score, 0-100")
     readiness.add_argument("--note", default=None)

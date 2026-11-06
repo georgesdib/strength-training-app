@@ -64,4 +64,4 @@ flag stays off.
 
 The audit is closed as of 2026-11-03. No P0/P1/P2 implementation, automated acceptance or manual
 validation item remains open. The resolver is part of v1.2.0 and remains opt-in. See
-[ROADMAP.md](../ROADMAP.md) §4.25 and [PROGRAMME-BUILDER-PLAN.md](PROGRAMME-BUILDER-PLAN.md).
+[ROADMAP.md](../../ROADMAP.md) §4.25 and [PROGRAMME-BUILDER-PLAN.md](PROGRAMME-BUILDER-PLAN.md).

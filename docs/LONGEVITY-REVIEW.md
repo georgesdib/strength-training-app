@@ -52,7 +52,7 @@ Two conclusions follow immediately:
 | Grip / loaded carry | **no** | grip is prognostic; carries load the trunk | **optional — priority 3** |
 | Balance | **no** | falls prevention in 60+ | **age-dependent — priority 3** |
 | Mobility / stretching | no | no injury-prevention evidence as a standalone | **not needed** |
-| Assessment (VO2max, grip, sit-to-stand, steps) | **no** | you cannot track what you do not measure | **missing — priority 2** |
+| Assessment (VO2max, grip, body fat, sit-to-stand, steps) | **no** | you cannot track what you do not measure | **missing — priority 2** (body fat has been captured as a periodic measurement since 2026-11-06; the others are captured when tested) |
 
 The programme is also **narrower than the athlete's actual practice**. The log shows rows,
 pull-ups, vertical pressing, jumps, calf work and carries that no template prescribes; the

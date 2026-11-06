@@ -79,9 +79,9 @@ For a field present on the date:
 global = sum(weight_i * normalised_i) / sum(weight_i)   over present, eligible fields
 ```
 
-`readiness.score` is independent of the legacy `readiness.composite.enabled` flag. The flag
-only controls the imported `readiness_day.composite`; `MOD-FAT-001` reads the computed score
-from `readiness_score.compute(...)` and can fire with the composite disabled.
+`readiness.score` is computed from the fields above and nothing else. The legacy imported
+`readiness_day.composite` (and its `composite.enabled` flag) was removed by migration 0050;
+`MOD-FAT-001` reads the computed score from `readiness_score.compute(...)`.
 
 Defaults (config, not code): weight 1 for the five subjective fields; weight 0.5 for HRV and
 RHR when a baseline exists; no score with fewer than **three** subjective fields (report
@@ -445,7 +445,8 @@ target until the athlete provides one.
 ## 2.9 Readiness overrides
 
 Computed readiness is a model output, so the athlete must be able to correct it. Overrides are
-append-only, dated and reasoned.
+append-only, dated and reasoned. In the app they sit beside the computed score on the Workflow
+readiness step, so the date being overridden is visible; the panel names that date explicitly.
 
 - **Scopes:** `global` and `category:<name>` (for example `category:hinge`).
 - **Value:** 0.00-1.00, the same scale as the computed score (higher = more ready). No separate

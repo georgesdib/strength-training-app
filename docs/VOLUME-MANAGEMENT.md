@@ -203,5 +203,5 @@ Readiness page and recorded in the `MOD-FAT-001` warning.
 - **Evidence:** [REFERENCES.md](REFERENCES.md)
 - **Decisions:** [DECISIONS.md](DECISIONS.md)
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
-- [VOLUME-MODULATION-PLAN.md](VOLUME-MODULATION-PLAN.md) — proposed weekly target + session cap budget
+- [VOLUME-MODULATION-PLAN.md](archive/VOLUME-MODULATION-PLAN.md) — proposed weekly target + session cap budget
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md)

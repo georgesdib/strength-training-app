@@ -1731,8 +1731,9 @@ started or been approved. See [ROADMAP.md](../../ROADMAP.md) section 2A.
 - Complete the Phase 5A review by 2027-01-22 and classify each metric as supported,
   provisionally supported, insufficient evidence, not validated or not applicable.
 - Decide proceed/extend/close at the gate; Phase 5B requires explicit approval.
-- Capture measured-test protocol/equipment and formula version only through a separately
-  approved future schema enhancement (LIM-59).
+- Measured-test protocol/equipment/formula-version capture is **closed as a design choice**
+  (LIM-59, 2026-11-06): the transparency view keeps reporting both as unknown and the factor
+  as current-as-of. Reviving it needs a separately approved schema enhancement.
 - Equipment changes remain undetectable in trend series (LIM-58).
 - Monitoring metrics remain provisional until Phase 5A (LIM-61).
 - Existing out-of-scope data/interpretation defects recorded during the audit remain separate:

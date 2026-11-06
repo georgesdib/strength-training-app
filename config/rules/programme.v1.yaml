@@ -9,7 +9,7 @@
 
 document:
   id: programme.constitution
-  version: "1.20.0"
+  version: "1.21.0"
   status: draft_for_approval
   effective_from: null            # set when the user approves
   owner: user
@@ -59,6 +59,8 @@ document:
       change: "MOD-BACK-001 names its scope: the effort hold covers essential items and high-fatigue spinal lifts, and the direct-erector dose is a ceiling that never restores a set removed by readiness. PRG-RIR-001 says primary compounds; MOD-MIN-001 says essential items; MOD-VOL-003 distinguishes essential items from taxonomy main lifts (DEC-SPINE-07)."
     - version: "1.20.0"
       change: "MOD-EXP-001 adds the opt-in rolling exposure trim: when the athlete enables it and the seven-day hard-set ratio is high, one non-essential accessory set per affected group is removed, bounded by the configured caps and floor, never a main lift or an essential item, and never a set already reduced or topped up (DEC-EXPOSURE-02)."
+    - version: "1.21.0"
+      change: "MOD-FAT-001's scale-direction guard lists only the readiness fields still accepted: nutrition and hydration are no longer readiness inputs (DEC-READINESS-20). No rule condition, threshold or load behaviour changes."
 
 # Named collections referenced by scope. Kept here so a rule never lists exercises
 # inline and drifts out of sync with the taxonomy.
@@ -390,7 +392,7 @@ modifiers:
       # Readiness is 1-5 with HIGHER BETTER. A guard is required here because the
       # intuitive reading of "Stress = 5" is inverted.
       scale_direction: higher_is_better
-      fields: [sleep, energy, mood, soreness, stress, nutrition, hydration]
+      fields: [sleep, energy, mood, soreness, stress]
     notes: >
       The "or" is deliberate: which branch is chosen depends on how many factors fired,
       and that choice belongs to the deterministic engine, not to an LLM. The score,

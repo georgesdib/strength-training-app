@@ -87,6 +87,7 @@ from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import test_cadence as test_cadence_feature
 from strength_coach.features import volume as volume_feature
+from strength_coach.features import weekly as weekly_feature
 from strength_coach.features.readiness_score import ReadinessRequired
 from strength_coach.prescribe import (
     build_prescription,
@@ -115,7 +116,7 @@ from strength_coach.store import (
     repositories,
     symptom_attribution,
 )
-from strength_coach.utils import exercises, io_utils, paths
+from strength_coach.utils import docs_manifest, exercises, io_utils, paths
 from strength_coach.utils import readiness as readiness_utils
 from strength_coach.web import markdown, validation
 from strength_coach.web import options as options_mod
@@ -261,6 +262,7 @@ def prescription_dict(prescription) -> dict:
         "session_kind": (
             "volume_fill" if session_identity.is_volume_fill(prescription.session_type)
             else "technique" if session_identity.is_technique(prescription.session_type)
+            else "accessory" if session_identity.is_accessory(prescription.session_type)
             else "normal"
         ),
         "session_original_type": session_identity.original_type(prescription.session_type),
@@ -307,22 +309,18 @@ def _session_rows(conn, limit: int = 20) -> list[dict]:
 
 
 def _docs() -> list[dict]:
-    files = [ROOT / "USER-GUIDE.md", ROOT / "ROADMAP.md", ROOT / "README.md"]
-    docs_dir = ROOT / "docs"
-    if docs_dir.is_dir():
-        files.extend(sorted(docs_dir.glob("*.md")))
-    out = []
-    for path in files:
-        if not path.is_file():
-            continue
-        rel = path.relative_to(ROOT).as_posix()
-        title = path.stem.replace("-", " ").title()
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if line.startswith("# "):
-                title = line[2:].strip()
-                break
-        out.append({"name": rel, "title": title})
-    return out
+    labels = docs_manifest.manifest().category_labels
+    return [
+        {
+            "name": doc.path,
+            "title": doc.title,
+            "description": doc.description,
+            "category": doc.category,
+            "category_label": labels[doc.category],
+            "status": doc.status,
+        }
+        for doc in docs_manifest.public_docs()
+    ]
 
 
 def _number(value):
@@ -428,6 +426,9 @@ def _settled(value):
 
 _PROGRAMME_JOBS: dict[str, dict[str, Any]] = {}
 _PROGRAMME_JOBS_LOCK = threading.Lock()
+# Resolver preview, Workflow prescription and programme forecasts are all CPU-bound. One
+# shared slot prevents two multi-minute builds from competing on the four ODROID cores.
+_CPU_JOB_SLOTS = threading.Semaphore(1)
 _READ_CACHE: dict[tuple, dict] = {}
 _READ_CACHE_LOCK = threading.Lock()
 _READ_CACHE_MAX = 16
@@ -576,6 +577,8 @@ def _run_programme_job(job_id: str, db_path, body: dict) -> None:
         with _PROGRAMME_JOBS_LOCK:
             if job_id in _PROGRAMME_JOBS:
                 _PROGRAMME_JOBS[job_id].update(status="error", error=str(exc))
+    finally:
+        _CPU_JOB_SLOTS.release()
 
 
 MAX_RUNNING_PROGRAMME_JOBS = 1
@@ -592,19 +595,26 @@ def start_programme_job(db_path, body: dict) -> dict:
             # A forecast is CPU-bound and reads the same database; queueing duplicates only
             # makes both slower (DEC-PROGRAMME-09).
             raise RequestError(409, "a programme forecast is already running")
-    job_id = uuid.uuid4().hex
-    job = {
-        "job_id": job_id,
-        "status": "running",
-        "created_at": datetime.datetime.now().timestamp(),
-        "result": None,
-        "error": None,
-    }
-    with _PROGRAMME_JOBS_LOCK:
+        if not _CPU_JOB_SLOTS.acquire(blocking=False):
+            raise RequestError(409, "a CPU-heavy job is already running")
+        job_id = uuid.uuid4().hex
+        job = {
+            "job_id": job_id,
+            "status": "running",
+            "created_at": datetime.datetime.now().timestamp(),
+            "result": None,
+            "error": None,
+        }
         _PROGRAMME_JOBS[job_id] = job
-    threading.Thread(
-        target=_run_programme_job, args=(job_id, db_path, body), daemon=True,
-    ).start()
+    try:
+        threading.Thread(
+            target=_run_programme_job, args=(job_id, db_path, body), daemon=True,
+        ).start()
+    except Exception:
+        with _PROGRAMME_JOBS_LOCK:
+            _PROGRAMME_JOBS.pop(job_id, None)
+        _CPU_JOB_SLOTS.release()
+        raise
     return job
 
 
@@ -614,6 +624,160 @@ def programme_job(job_id: str) -> dict:
         job = _PROGRAMME_JOBS.get(job_id)
         if job is None:
             raise KeyError("programme job not found")
+        return dict(job)
+
+
+_RESOLVER_PREVIEW_JOBS: dict[str, dict[str, Any]] = {}
+_RESOLVER_PREVIEW_JOBS_LOCK = threading.Lock()
+_RESOLVER_PREVIEW_JOB_TTL_SECONDS = 3600
+_RESOLVER_PREVIEW_JOB_MAX = 20
+MAX_RUNNING_RESOLVER_PREVIEW_JOBS = 1
+
+
+def _resolver_preview_job_cleanup() -> None:
+    cutoff = datetime.datetime.now().timestamp() - _RESOLVER_PREVIEW_JOB_TTL_SECONDS
+    stale = [
+        job_id for job_id, job in _RESOLVER_PREVIEW_JOBS.items()
+        if job["created_at"] < cutoff
+    ]
+    for job_id in stale:
+        _RESOLVER_PREVIEW_JOBS.pop(job_id, None)
+    while len(_RESOLVER_PREVIEW_JOBS) > _RESOLVER_PREVIEW_JOB_MAX:
+        oldest = min(_RESOLVER_PREVIEW_JOBS, key=lambda key: _RESOLVER_PREVIEW_JOBS[key]["created_at"])
+        _RESOLVER_PREVIEW_JOBS.pop(oldest, None)
+
+
+def _run_resolver_preview_job(job_id: str, db_path, body: dict) -> None:
+    try:
+        with db.Store(db_path) as store:
+            # The synchronous endpoint is intentionally kept for API/tests. The preview
+            # implementation has no handler state, so the same method can serve the job.
+            result = Handler._resolver_preview(None, store.connection, body)
+        with _RESOLVER_PREVIEW_JOBS_LOCK:
+            if job_id in _RESOLVER_PREVIEW_JOBS:
+                _RESOLVER_PREVIEW_JOBS[job_id].update(status="done", result=result)
+    except Exception as exc:
+        with _RESOLVER_PREVIEW_JOBS_LOCK:
+            if job_id in _RESOLVER_PREVIEW_JOBS:
+                _RESOLVER_PREVIEW_JOBS[job_id].update(status="error", error=str(exc))
+    finally:
+        _CPU_JOB_SLOTS.release()
+
+
+def start_resolver_preview_job(db_path, body: dict) -> dict:
+    """Run a slow resolver preview off the request thread; the browser polls a short GET."""
+    with _RESOLVER_PREVIEW_JOBS_LOCK:
+        _resolver_preview_job_cleanup()
+        running = sum(
+            1 for job in _RESOLVER_PREVIEW_JOBS.values() if job["status"] == "running"
+        )
+        if running >= MAX_RUNNING_RESOLVER_PREVIEW_JOBS:
+            raise RequestError(409, "a resolver preview is already running")
+        if not _CPU_JOB_SLOTS.acquire(blocking=False):
+            raise RequestError(409, "a CPU-heavy job is already running")
+        job_id = uuid.uuid4().hex
+        job = {
+            "job_id": job_id,
+            "status": "running",
+            "created_at": datetime.datetime.now().timestamp(),
+            "result": None,
+            "error": None,
+        }
+        _RESOLVER_PREVIEW_JOBS[job_id] = job
+    try:
+        threading.Thread(
+            target=_run_resolver_preview_job, args=(job_id, db_path, body), daemon=True,
+        ).start()
+    except Exception:
+        with _RESOLVER_PREVIEW_JOBS_LOCK:
+            _RESOLVER_PREVIEW_JOBS.pop(job_id, None)
+        _CPU_JOB_SLOTS.release()
+        raise
+    return job
+
+
+def resolver_preview_job(job_id: str) -> dict:
+    with _RESOLVER_PREVIEW_JOBS_LOCK:
+        _resolver_preview_job_cleanup()
+        job = _RESOLVER_PREVIEW_JOBS.get(job_id)
+        if job is None:
+            raise KeyError("resolver preview job not found")
+        return dict(job)
+
+
+_PRESCRIBE_JOBS: dict[str, dict[str, Any]] = {}
+_PRESCRIBE_JOBS_LOCK = threading.Lock()
+_PRESCRIBE_JOB_TTL_SECONDS = 3600
+_PRESCRIBE_JOB_MAX = 20
+MAX_RUNNING_PRESCRIBE_JOBS = 1
+
+
+def _prescribe_job_cleanup() -> None:
+    cutoff = datetime.datetime.now().timestamp() - _PRESCRIBE_JOB_TTL_SECONDS
+    stale = [
+        job_id for job_id, job in _PRESCRIBE_JOBS.items()
+        if job["created_at"] < cutoff
+    ]
+    for job_id in stale:
+        _PRESCRIBE_JOBS.pop(job_id, None)
+    while len(_PRESCRIBE_JOBS) > _PRESCRIBE_JOB_MAX:
+        oldest = min(_PRESCRIBE_JOBS, key=lambda key: _PRESCRIBE_JOBS[key]["created_at"])
+        _PRESCRIBE_JOBS.pop(oldest, None)
+
+
+def _run_prescribe_job(job_id: str, db_path, body: dict) -> None:
+    try:
+        with db.Store(db_path) as store:
+            result = Handler._prescribe(None, store.connection, body)
+        with _PRESCRIBE_JOBS_LOCK:
+            if job_id in _PRESCRIBE_JOBS:
+                _PRESCRIBE_JOBS[job_id].update(status="done", result=result)
+    except Exception as exc:
+        with _PRESCRIBE_JOBS_LOCK:
+            if job_id in _PRESCRIBE_JOBS:
+                _PRESCRIBE_JOBS[job_id].update(status="error", error=str(exc))
+    finally:
+        _CPU_JOB_SLOTS.release()
+
+
+def start_prescribe_job(db_path, body: dict) -> dict:
+    """Run the slow Workflow prescription build off the request thread."""
+    with _PRESCRIBE_JOBS_LOCK:
+        _prescribe_job_cleanup()
+        running = sum(
+            1 for job in _PRESCRIBE_JOBS.values() if job["status"] == "running"
+        )
+        if running >= MAX_RUNNING_PRESCRIBE_JOBS:
+            raise RequestError(409, "a prescription build is already running")
+        if not _CPU_JOB_SLOTS.acquire(blocking=False):
+            raise RequestError(409, "a CPU-heavy job is already running")
+        job_id = uuid.uuid4().hex
+        job = {
+            "job_id": job_id,
+            "status": "running",
+            "created_at": datetime.datetime.now().timestamp(),
+            "result": None,
+            "error": None,
+        }
+        _PRESCRIBE_JOBS[job_id] = job
+    try:
+        threading.Thread(
+            target=_run_prescribe_job, args=(job_id, db_path, body), daemon=True,
+        ).start()
+    except Exception:
+        with _PRESCRIBE_JOBS_LOCK:
+            _PRESCRIBE_JOBS.pop(job_id, None)
+        _CPU_JOB_SLOTS.release()
+        raise
+    return job
+
+
+def prescribe_job(job_id: str) -> dict:
+    with _PRESCRIBE_JOBS_LOCK:
+        _prescribe_job_cleanup()
+        job = _PRESCRIBE_JOBS.get(job_id)
+        if job is None:
+            raise KeyError("prescription job not found")
         return dict(job)
 
 
@@ -859,6 +1023,10 @@ class Handler(BaseHTTPRequestHandler):
                         limit=int(query.get("limit", ["5"])[0]),
                         offset=int(query.get("offset", ["0"])[0]),
                         on_or_before=query.get("on_or_before", [None])[0],
+                        start=query.get("start", [None])[0],
+                        end=query.get("end", [None])[0],
+                        include_analytics=str(query.get("include_analytics", ["false"])[0]).lower()
+                        in {"1", "true", "yes", "on"},
                     )
                 ))
             elif path == "/api/calibrate":
@@ -883,7 +1051,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/breaks":
                 self._json(200, self._with_conn(self._breaks))
             elif path == "/api/measurements":
-                self._json(200, self._with_conn(self._measurements))
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(
+                    lambda c: self._measurements(c, query)
+                ))
             elif path == "/api/fatigue":
                 day = parse_qs(urlparse(self.path).query).get("date", [None])[0]
                 self._json(200, self._with_conn(
@@ -903,8 +1074,9 @@ class Handler(BaseHTTPRequestHandler):
                 weeks = int(raw_weeks)
                 if not 1 <= weeks <= 52:
                     raise ValueError("weeks must be an integer from 1 to 52")
+                accounting = query.get("accounting", [None])[0] or None
                 self._json(200, self._with_conn(
-                    lambda c: self._volume(c, day, weeks)
+                    lambda c: self._volume(c, day, weeks, accounting)
                 ))
             elif path == "/api/exposure":
                 query = parse_qs(urlparse(self.path).query)
@@ -954,9 +1126,21 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/progress":
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [None])[0]
-                self._json(200, self._with_conn(
-                    lambda c: progress_feature.dashboard(c, day)
-                ))
+                try:
+                    weeks = int(query.get("weeks", ["8"])[0])
+                except (TypeError, ValueError) as exc:
+                    raise FieldError("weeks must be an integer from 1 to 52", {
+                        "weeks": "must be an integer from 1 to 52",
+                    }) from exc
+                if not 1 <= weeks <= 52:
+                    raise FieldError("weeks must be an integer from 1 to 52", {
+                        "weeks": "must be an integer from 1 to 52",
+                    })
+                def progress_payload(c):
+                    payload = progress_feature.dashboard(c, day, weeks=weeks)
+                    payload["weekly"] = weekly_feature.history(c, day or datetime.date.today().isoformat(), weeks=weeks)
+                    return payload
+                self._json(200, self._with_conn(progress_payload))
             elif path == "/api/validation":
                 query = parse_qs(urlparse(self.path).query)
                 max_dates = int(query.get("max_dates", ["12"])[0])
@@ -1076,6 +1260,22 @@ class Handler(BaseHTTPRequestHandler):
                     self._error(404, str(exc.args[0]))
                 else:
                     self._json(200, job)
+            elif path.startswith("/api/resolver/preview/jobs/"):
+                job_id = path.rsplit("/", 1)[-1]
+                try:
+                    job = resolver_preview_job(job_id)
+                except KeyError as exc:
+                    self._error(404, str(exc.args[0]))
+                else:
+                    self._json(200, job)
+            elif path.startswith("/api/prescribe/jobs/"):
+                job_id = path.rsplit("/", 1)[-1]
+                try:
+                    job = prescribe_job(job_id)
+                except KeyError as exc:
+                    self._error(404, str(exc.args[0]))
+                else:
+                    self._json(200, job)
             elif path == "/api/logs":
                 query = parse_qs(urlparse(self.path).query)
                 limit = max(1, min(500, int(query.get("limit", ["200"])[0])))
@@ -1097,6 +1297,19 @@ class Handler(BaseHTTPRequestHandler):
                     "reviewed_on": catalogue.reviewed_on,
                     "overlay": catalogue.overlay_path is not None,
                     "in_scope": list(demands_feature.IN_SCOPE),
+                    # The browser can only cite an evidence id that already exists; sending the
+                    # inventory makes that constraint a dropdown instead of a blind text field.
+                    "evidence": [
+                        {
+                            "id": entry.evidence_id,
+                            "citation": entry.citation,
+                            "study_type": entry.study_type,
+                            "confidence": entry.confidence,
+                        }
+                        for entry in sorted(
+                            catalogue.evidence.values(), key=lambda item: item.evidence_id
+                        )
+                    ],
                 }
                 self._json(200, payload)
             elif path == "/api/exercises":
@@ -1131,6 +1344,11 @@ class Handler(BaseHTTPRequestHandler):
                     "path": str(source.relative_to(ROOT)),
                     "presets": readiness_feature.presets(),
                 })
+            elif path == "/api/readiness/history":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(
+                    lambda c: self._readiness_history(c, query)
+                ))
             elif path.startswith("/api/readiness/"):
                 day = path[len("/api/readiness/"):]
                 self._json(200, self._with_conn(lambda c: self._readiness(c, day)))
@@ -1232,6 +1450,12 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(200, resolver_admin.restore_latest())
                 except resolver_policy.ResolverPolicyError as exc:
                     raise FieldError(str(exc), {"policy": str(exc)}) from exc
+            elif path == "/api/resolver/preview/jobs":
+                job = start_resolver_preview_job(self.db_path, body)
+                self._json(202, job)
+            elif path == "/api/prescribe/jobs":
+                job = start_prescribe_job(self.db_path, body)
+                self._json(202, job)
             elif path == "/api/resolver/preview":
                 self._json(200, self._with_conn(lambda c: self._resolver_preview(c, body)))
             elif path.startswith("/api/modalities/"):
@@ -2246,6 +2470,8 @@ class Handler(BaseHTTPRequestHandler):
                 source=source,
                 set_index=_integer(body.get("set_index")),
                 set_role=body.get("set_role") or None,
+                plan_item_index=_integer(body.get("plan_item_index")),
+                rep_velocities=body.get("rep_velocities"),
             )
         elif action == "update-set":
             reps, rir, load, velocity = _manual_set_values(body)
@@ -2403,6 +2629,9 @@ class Handler(BaseHTTPRequestHandler):
         payload = prescription_dict(prescription)
         payload["ok"] = True
         payload["choices"] = choices
+        payload["pending_ratings"] = list(
+            (prescription.notes.get("resolver") or {}).get("pending_ratings") or []
+        )
         payload["beam"] = resolved.beam.as_dict()
         payload["top_set"] = prescription.notes.get("top_set")
         payload["projected_week"] = prescription.notes.get("volume_budget")
@@ -2421,6 +2650,13 @@ class Handler(BaseHTTPRequestHandler):
             str(body.get("date") or datetime.date.today().isoformat())
         )
         requested_type = body.get("session_type")
+        if _truth(body.get("minimum_accessories_only")) and requested_type in (
+            None, "", "auto",
+        ):
+            raise FieldError(
+                "accessories-only minimum session requires an explicit session type",
+                {"session_type": "choose a session type for accessory-only minimum"},
+            )
         session_type = (
             schedule_mod.next_session_type(conn, for_date)
             if requested_type in (None, "", "auto") else str(requested_type)
@@ -2485,6 +2721,7 @@ class Handler(BaseHTTPRequestHandler):
             minimum_session=minimum_session,
             minimum_target_minutes=target_minutes,
             minimum_include_main=minimum_include_main,
+            minimum_accessories_only=_truth(body.get("minimum_accessories_only")),
             deload_decision=deload_decision,
             technique_throttle=technique_throttle,
             technique_throttle_pattern=technique_patterns,
@@ -2909,11 +3146,19 @@ class Handler(BaseHTTPRequestHandler):
             "slots": selection_mod.as_dict(rows),
         }
 
-    def _volume(self, conn, day: str | None = None, weeks: int = 4) -> dict:
+    def _volume(self, conn, day: str | None = None, weeks: int = 4,
+                accounting: str | None = None) -> dict:
+        if accounting not in (None, "hard", "effective"):
+            raise FieldError(
+                "accounting must be hard or effective",
+                {"accounting": "must be hard or effective"},
+            )
         on_date = day or datetime.date.today().isoformat()
         context = RuleContext.from_store(conn, end=on_date)
         cfg = settings_profile.feature_settings(conn, on_date).volume
         cfg = replace(cfg, window_weeks=weeks)
+        if accounting is not None:
+            cfg = replace(cfg, set_accounting=accounting)
         report = volume_feature.compute(context.sets, on_date=on_date, config=cfg)
         heavy_cfg = heavy_spinal.HeavySpinalConfig.load()
         heavy_cfg = heavy_spinal.HeavySpinalConfig(
@@ -2954,10 +3199,75 @@ class Handler(BaseHTTPRequestHandler):
             ),
         }
 
-    def _measurements(self, conn) -> dict:
+    def _measurements(self, conn, query: dict | None = None) -> dict:
+        query = query or {}
+        metric = query.get("metric_key", [None])[0] or query.get("metric", [None])[0]
+        since = query.get("from", [None])[0] or None
+        until = query.get("to", [None])[0] or None
+        for name, value in (("from", since), ("to", until)):
+            if value is None:
+                continue
+            try:
+                datetime.date.fromisoformat(str(value))
+            except ValueError as exc:
+                raise FieldError(
+                    f"{name} must be YYYY-MM-DD", {name: f"{name} must be YYYY-MM-DD"}
+                ) from exc
+        if since and until and since > until:
+            raise FieldError("from must not be after to", {"from": "must not be after to"})
+        try:
+            limit = int(query.get("limit", ["50"])[0])
+            offset = int(query.get("offset", ["0"])[0])
+        except (TypeError, ValueError) as exc:
+            raise FieldError("limit and offset must be integers", {
+                "limit": "must be an integer", "offset": "must be an integer",
+            }) from exc
+        try:
+            page = measurements_feature.page(
+                conn, metric_key=metric, since=since, until=until,
+                limit=limit, offset=offset,
+            )
+        except ValueError as exc:
+            raise FieldError(str(exc), {"limit": str(exc)}) from exc
+        return {"summary": measurements_feature.summary(conn), **page}
+
+    def _readiness_history(self, conn, query: dict) -> dict:
+        start = query.get("from", [None])[0]
+        end = query.get("to", [None])[0]
+        if not start or not end:
+            raise FieldError(
+                "from and to are required",
+                {"from": "required", "to": "required"},
+            )
+        try:
+            start_day = datetime.date.fromisoformat(str(start))
+            end_day = datetime.date.fromisoformat(str(end))
+        except ValueError as exc:
+            raise FieldError("from and to must be YYYY-MM-DD", {
+                "from": "must be YYYY-MM-DD", "to": "must be YYYY-MM-DD",
+            }) from exc
+        if start_day > end_day:
+            raise FieldError("from must not be after to", {"from": "must not be after to"})
+        raw_fields = query.get("fields", ["bodyweight_kg"])[0]
+        fields = tuple(field.strip() for field in str(raw_fields).split(",") if field.strip())
+        unknown = [field for field in fields if field not in readiness_utils.READINESS_FIELDS]
+        if unknown:
+            raise FieldError(
+                "unknown readiness field(s): " + ", ".join(unknown),
+                {"fields": "unknown readiness field"},
+            )
+        points = queries.readiness_series(
+            conn, start_day.isoformat(), end_day.isoformat(), fields,
+        )
         return {
-            "summary": measurements_feature.summary(conn),
-            "entries": measurements_feature.entries(conn, limit=50),
+            "from": start_day.isoformat(),
+            "to": end_day.isoformat(),
+            "fields": list(fields),
+            "points": points,
+            "coverage": {
+                "window_days": (end_day - start_day).days + 1,
+                "observed_days": len(points),
+            },
         }
 
     def _save_measurement(self, conn, body: dict) -> dict:
@@ -3029,7 +3339,7 @@ class Handler(BaseHTTPRequestHandler):
                 exercise_id, dimension, str(body.get("level") or ""),
                 confidence=body.get("confidence"),
                 reason=body.get("reason"),
-                evidence=body.get("evidence") or (),
+                evidence=_list(body.get("evidence")),
             )
         return {
             "exercise_id": exercise_id,

@@ -1,11 +1,66 @@
 # Exercise catalogue overrides written by the local UI (Exercises tab).
-#
-# The checked-in taxonomy remains the base. Each entry here patches that entity field by
-# field, or adds a new entity when its id is absent from the base. `log_names` are exact
-# strings; editing an id would orphan history, so ids are immutable.
-#
-# The UI writes this file atomically. Keep it in version control if the changes should be
-# reproducible; it is configuration, not personal training data.
+# `log_names` are exact strings; ids are immutable.
 
-schema_version: "1.0.0"
-entities: {}
+schema_version: 1.0.0
+entities:
+  rack_pull:
+    display: Rack Pull
+    log_names:
+    - Rack Pull
+    pattern: hinge
+    e1rm_applicable: true
+    vbt_family: rack_pull
+    high_fatigue_spinal: true
+    spinal_cost: 3.0
+    substitutable_for_back_extension: false
+    erector_family: true
+    direct_erector: false
+    loadable: true
+    time_based: false
+    primary_muscles:
+    - erectors
+    - glutes
+    primary_compound: true
+    bodyweight_type: false
+    main_lift: false
+  competition_squat:
+    display: Competition Squat
+    log_names:
+    - Competition Squat
+    pattern: squat
+    main_lift: false
+    primary_compound: true
+    programme_slot_of: ssb_squat
+    erector_family: false
+    high_fatigue_spinal: true
+    spinal_cost: 1.0
+    vbt_family: squat
+    loadable: true
+    time_based: false
+    primary_muscles:
+    - erectors
+    - quadriceps
+    bodyweight_type: false
+    e1rm_applicable: true
+    direct_erector: false
+  conventional_deadlift:
+    display: Conventional Deadlift
+    log_names:
+    - Deadlift (conventional)
+    pattern: hinge
+    main_lift: false
+    primary_compound: true
+    primary_muscles:
+    - erectors
+    - glutes
+    - hamstrings
+    e1rm_applicable: true
+    bodyweight_type: false
+    high_fatigue_spinal: true
+    spinal_cost: 3.0
+    substitutable_for_back_extension: false
+    erector_family: true
+    direct_erector: false
+    vbt_family: conventional_deadlift
+    loadable: true
+    time_based: false

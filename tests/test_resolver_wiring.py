@@ -151,6 +151,64 @@ def test_enabled_resolver_dispatches_and_attaches_provenance(monkeypatch) -> Non
     assert row["generated_session_json"]
 
 
+def test_cached_resolver_build_matches_uncached_serialization(monkeypatch) -> None:
+    _without_required_patterns(monkeypatch)
+    with store() as instance:
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
+            effective_from="2024-01-01",
+        )
+        monkeypatch.setattr(
+            resolver.generator, "candidate_pools", lambda *args, **kwargs: _pools()
+        )
+        first = build_prescription(
+            instance.connection, for_date="2024-01-15", session_type="squat"
+        )
+        second = build_prescription(
+            instance.connection, for_date="2024-01-15", session_type="squat"
+        )
+    assert server.prescription_dict(first) == server.prescription_dict(second)
+
+
+def test_resolver_marks_unrated_suggestions_as_pending_and_blocks_start(monkeypatch) -> None:
+    _without_required_patterns(monkeypatch)
+    with store() as instance:
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
+            effective_from="2024-01-01",
+        )
+        base = _pools()
+        provisional = replace(
+            base,
+            suggestions={"power": ("box_jump",), "squat_main": ("ssb_squat",)},
+        )
+        monkeypatch.setattr(
+            resolver.generator, "candidate_pools", lambda *args, **kwargs: provisional
+        )
+        prescription = build_prescription(
+            instance.connection, for_date="2024-01-15", session_type="squat"
+        )
+        pending = prescription.notes["resolver"]["pending_ratings"]
+        assert pending == ["box_jump", "ssb_squat"]
+        payload = server.prescription_dict(prescription)
+        with pytest.raises(ValueError, match="rate the suggested exercise"):
+            workout.start(
+                instance.connection, for_date="2024-01-15", plan=payload,
+                readiness={
+                    "sleep": 4, "energy": 4, "mood": 4, "soreness": 2,
+                    "stress": 4, "nutrition": 4, "hydration": 4,
+                },
+            )
+        count = instance.connection.execute(
+            "SELECT COUNT(*) FROM workout_session"
+        ).fetchone()[0]
+    assert count == 0
+
+
 def test_enabled_resolver_rejects_selection_override(monkeypatch) -> None:
     with store() as instance:
         settings_profile.save(

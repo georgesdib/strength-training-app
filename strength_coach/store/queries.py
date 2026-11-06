@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 import pandas as pd
 
@@ -48,6 +50,59 @@ _SET_COLUMNS = {
 }
 
 
+class _CleanSetsSnapshot:
+    """Lazy, request-scoped clean-set frame cache.
+
+    The resolver evaluates four complete assignments, and every evaluator path asks for the
+    same history frames. Caching inside an explicit generation scope avoids repeating those
+    queries without creating a long-lived cache that could go stale between requests.
+    """
+
+    def __init__(self, conn) -> None:
+        self.conn = conn
+        self._frames: dict[tuple, pd.DataFrame] = {}
+        self._revision = self._current_revision()
+
+    def _current_revision(self) -> tuple[int, int]:
+        row = self.conn.execute("PRAGMA data_version").fetchone()
+        return int(self.conn.total_changes), int(row[0])
+
+    def _refresh(self) -> None:
+        revision = self._current_revision()
+        if revision != self._revision:
+            # Any write from this or another connection invalidates every frame. The
+            # resolver path is read-only, but this keeps the snapshot correct if that changes.
+            self._frames.clear()
+            self._revision = revision
+
+    def get(self, key: tuple) -> pd.DataFrame | None:
+        self._refresh()
+        return self._frames.get(key)
+
+    def put(self, key: tuple, frame: pd.DataFrame) -> None:
+        self._refresh()
+        self._frames[key] = frame
+
+
+_CLEAN_SETS_SNAPSHOT = ContextVar("clean_sets_snapshot", default=None)
+
+
+@contextmanager
+def clean_sets_snapshot(conn):
+    """Share clean-set reads across one deterministic generation build.
+
+    resolver.build_resolved evaluates four complete assignments; each evaluator reads the
+    same history repeatedly. The snapshot is scoped to that build and invalidated by SQLite's
+    data version/write count, so it cannot become a stale cross-request cache. Callers receive
+    deep copies because the cached frame is shared and pandas frames are mutable.
+    """
+    token = _CLEAN_SETS_SNAPSHOT.set(_CleanSetsSnapshot(conn))
+    try:
+        yield
+    finally:
+        _CLEAN_SETS_SNAPSHOT.reset(token)
+
+
 def clean_sets(
     conn,
     *,
@@ -55,7 +110,31 @@ def clean_sets(
     end: str | None = None,
     exercise_ids: Iterable[str] | None = None,
 ) -> pd.DataFrame:
-    """Every clean set in [start, end], in the cleaner's domain shape."""
+    """Every clean set in [start, end], in the cleaner's domain shape.
+
+    Inside clean_sets_snapshot, identical filters are queried once and returned as defensive
+    copies. Outside it, behaviour is unchanged.
+    """
+    ids = None if exercise_ids is None else tuple(str(item) for item in exercise_ids)
+    snapshot = _CLEAN_SETS_SNAPSHOT.get()
+    if snapshot is None or snapshot.conn is not conn:
+        return _clean_sets_query(conn, start=start, end=end, exercise_ids=ids)
+    key = (start, end, ids)
+    frame = snapshot.get(key)
+    if frame is None:
+        frame = _clean_sets_query(conn, start=start, end=end, exercise_ids=ids)
+        snapshot.put(key, frame)
+    return frame.copy(deep=True)
+
+
+def _clean_sets_query(
+    conn,
+    *,
+    start: str | None = None,
+    end: str | None = None,
+    exercise_ids: tuple[str, ...] | None = None,
+) -> pd.DataFrame:
+    """Build one clean-set frame; keep the cache wrapper above free of SQL details."""
     sql = (
         "SELECT s.set_id, s.session_id, s.occurred_on, s.exercise_id, s.raw_exercise,"
         " s.load_kg, s.load_basis, s.external_load_kg, s.reps, s.reps_unit, s.rir,"
@@ -75,11 +154,10 @@ def clean_sets(
         clauses.append("s.occurred_on <= ?")
         params.append(end)
     if exercise_ids is not None:
-        ids = tuple(str(item) for item in exercise_ids)
-        if not ids:
+        if not exercise_ids:
             return pd.DataFrame(columns=list(_SET_COLUMNS.values()) + ["rir_class", "total_load_kg"])
-        clauses.append("s.exercise_id IN (" + ", ".join("?" for _ in ids) + ")")
-        params.extend(ids)
+        clauses.append("s.exercise_id IN (" + ", ".join("?" for _ in exercise_ids) + ")")
+        params.extend(exercise_ids)
     if clauses:
         sql += " AND " + " AND ".join(clauses)
     sql += " ORDER BY s.occurred_on, s.set_id"
@@ -334,6 +412,54 @@ def readiness_day(conn, on_date: str) -> dict | None:
         field for field, source in sources.items() if source == "manual"
     )
     return merged
+
+
+def readiness_series(conn, start: str, end: str, fields: tuple[str, ...]) -> list[dict]:
+    """Merge readiness values for an inclusive date window, observed dates only.
+
+    Imported values live in readiness_day; manual values are append-only entries and win per
+    field. Dates with no requested value are omitted rather than filled.
+    """
+    wanted = tuple(str(field) for field in fields)
+    rows = {
+        str(row["on_date"]): dict(row)
+        for row in conn.execute(
+            """
+            SELECT * FROM readiness_day
+             WHERE on_date BETWEEN ? AND ?
+             ORDER BY on_date
+            """,
+            (str(start), str(end)),
+        )
+    }
+    entries = conn.execute(
+        """
+        SELECT on_date, field, value, source, recorded_at
+          FROM readiness_entry
+         WHERE on_date BETWEEN ? AND ?
+         ORDER BY on_date, recorded_at, rowid
+        """,
+        (str(start), str(end)),
+    )
+    for entry in entries:
+        day = str(entry["on_date"])
+        row = rows.setdefault(day, {"on_date": day})
+        row[str(entry["field"])] = entry["value"]
+        row.setdefault("sources", {})[str(entry["field"])] = str(entry["source"])
+    points = []
+    for day in sorted(rows):
+        row = rows[day]
+        values = {
+            field: row.get(field) for field in wanted
+            if row.get(field) is not None
+        }
+        if not values:
+            continue
+        sources = dict(row.get("sources") or {})
+        for field in values:
+            sources.setdefault(field, "import")
+        points.append({"date": day, **values, "sources": sources})
+    return points
 
 
 def readiness_history(conn, before: str, days: int = 28) -> list[dict]:

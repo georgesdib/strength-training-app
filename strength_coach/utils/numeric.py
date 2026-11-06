@@ -43,7 +43,6 @@ ZERO_IS_MISSING: dict[str, str] = {
     "HRV": "0 ms is physiologically impossible",
     "RHR": "0 bpm is physiologically impossible",
     "Weight": "0 kg bodyweight impossible; real values are always positive",
-    "Fat_Percent": "0% body fat is impossible",
     "Squat_Readiness": "1-5 scale has no zero bucket",
     "Bench_Readiness": "1-5 scale has no zero bucket",
     "Deadlift_Readiness": "1-5 scale has no zero bucket",

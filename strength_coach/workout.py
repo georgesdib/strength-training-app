@@ -42,10 +42,8 @@ from strength_coach.rules import RuleContext, load_document, registry
 from strength_coach.store import db, queries, repositories
 from strength_coach.utils import exercises
 
-REQUIRED_READINESS = (
-    "sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration",
-)
-OPTIONAL_READINESS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "wearable_score")
+REQUIRED_READINESS = ("sleep", "energy", "mood", "soreness", "stress")
+OPTIONAL_READINESS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "wearable_score")
 
 
 def _now() -> str:
@@ -63,7 +61,7 @@ def _parse(value: str | None) -> dt.datetime | None:
 
 def validate_readiness(values: Mapping[str, Any], *,
                        allow_partial: bool = False) -> dict[str, float]:
-    """Validate supplied readiness fields; the seven are required only by default.
+    """Validate supplied readiness fields; the five core fields are required by default.
 
     ``allow_partial`` is the explicit "start without a complete score" path. Missing fields
     stay absent, never invented, and the caller must have acknowledged that no readiness
@@ -114,6 +112,15 @@ def start(
     if active is not None:
         raise ValueError("a workout is already in progress; end or abandon it first")
     resolved_type = str(session_type or (plan.get("session_type") if isinstance(plan, dict) else "") or "")
+    pending = (
+        (((plan.get("notes") if isinstance(plan, dict) else {}) or {})
+         .get("resolver") or {})
+        .get("pending_ratings") or []
+    )
+    if pending:
+        raise ValueError(
+            "rate the suggested exercise(s) before starting: " + ", ".join(map(str, pending))
+        )
     plan_data = _plan(plan, allow_empty=session_identity.is_technique(resolved_type))
     readiness_data = validate_readiness(
         readiness, allow_partial=allow_partial_readiness
@@ -177,7 +184,7 @@ def get(conn, workout_id: str) -> dict | None:
         row["rep_summary"] = _rep_summary(detail["reps"]) if detail else None
     data["elapsed_seconds"] = _elapsed(data)
     data["comparison"] = _comparison(data)
-    data["original_comparison"] = _comparison({**data, "plan": original})
+    data["original_comparison"] = _comparison({**data, "plan": original}, original=True)
     data["minimum_session"] = _minimum_session_summary(data)
     return data
 
@@ -790,6 +797,88 @@ def _event(conn, workout_id: str, event_type: str, payload: dict,
     )
 
 
+def _positive_int(value, label: str) -> int:
+    """Accept an integer value without silently truncating a fractional one."""
+    if isinstance(value, bool):
+        raise ValueError(f"{label} must be a positive integer")
+    if isinstance(value, int):
+        parsed = value
+    elif isinstance(value, float):
+        if not math.isfinite(value) or not value.is_integer():
+            raise ValueError(f"{label} must be a positive integer")
+        parsed = int(value)
+    elif isinstance(value, str) and value.strip().isdigit():
+        parsed = int(value.strip())
+    else:
+        raise ValueError(f"{label} must be a positive integer")
+    if parsed < 1:
+        raise ValueError(f"{label} must be a positive integer")
+    return parsed
+
+
+def _rep_velocity_detail(reps: int | None, values) -> list[dict]:
+    """Validate optional per-rep velocities before a set is written."""
+    if not values:
+        return []
+    if not isinstance(values, list):
+        raise ValueError("rep_velocities must be a list")
+    if reps is None:
+        raise ValueError("reps are required with per-rep velocities")
+    rep_count = _positive_int(reps, "reps")
+    ordered: dict[int, float] = {}
+    for position, item in enumerate(values, start=1):
+        if isinstance(item, dict):
+            rep_index = _positive_int(
+                item.get("rep_index", position), "per-rep index"
+            )
+            raw_velocity = item.get("velocity_mps")
+        else:
+            rep_index = position
+            raw_velocity = item
+        if isinstance(raw_velocity, bool):
+            raise ValueError("per-rep velocity must be finite and positive")
+        try:
+            velocity = float(raw_velocity)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("per-rep velocity must be finite and positive") from exc
+        if not math.isfinite(velocity) or velocity <= 0:
+            raise ValueError("per-rep velocity must be finite and positive")
+        if rep_index > rep_count:
+            raise ValueError(
+                f"per-rep index {rep_index} exceeds reps {rep_count}"
+            )
+        if rep_index in ordered:
+            raise ValueError(f"duplicate per-rep index {rep_index}")
+        ordered[rep_index] = velocity
+    return [
+        {"rep_index": index, "velocity_mps": round(velocity, 3)}
+        for index, velocity in sorted(ordered.items())
+    ]
+
+
+def _plan_item_index(workout: Mapping[str, Any], exercise_id: str,
+                     plan_item_index: int | None) -> int | None:
+    """Resolve an actual set to a frozen plan item without guessing from its name.
+
+    An explicit index is authoritative and must point at the same exercise. Without one,
+    resolve only when the exercise appears exactly once; a repeated exercise is ambiguous
+    and must remain unmatched rather than being assigned to the first occurrence.
+    """
+    items = list((workout.get("plan") or {}).get("items") or [])
+    if plan_item_index is not None:
+        index = int(plan_item_index)
+        if not 0 <= index < len(items):
+            raise ValueError("plan_item_index is out of range")
+        if str(items[index].get("exercise_id")) != exercise_id:
+            raise ValueError("plan_item_index does not match exercise_id")
+        return index
+    matches = [
+        index for index, item in enumerate(items)
+        if str(item.get("exercise_id")) == exercise_id
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def add_set(
     conn,
     workout_id: str,
@@ -802,6 +891,8 @@ def add_set(
     source: str = "manual",
     set_index: int | None = None,
     set_role: str | None = None,
+    plan_item_index: int | None = None,
+    rep_velocities: list[dict] | None = None,
 ) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
@@ -824,11 +915,12 @@ def add_set(
     set_index = int(set_index)
     if set_index < 1:
         raise ValueError("set_index must be positive")
-    item_index = next(
-        (index for index, item in enumerate(workout["plan"]["items"])
-         if item.get("exercise_id") == exercise_id),
-        None,
-    )
+    rep_detail = _rep_velocity_detail(reps, rep_velocities)
+    if rep_detail and velocity is None:
+        velocity = round(
+            sum(item["velocity_mps"] for item in rep_detail) / len(rep_detail), 3
+        )
+    item_index = _plan_item_index(workout, exercise_id, plan_item_index)
     with db.transaction(conn):
         existing = conn.execute(
             "SELECT set_id FROM workout_set WHERE workout_id = ? AND exercise_id = ? "
@@ -852,6 +944,11 @@ def add_set(
         _event(conn, workout_id, "add_set", {"exercise_id": exercise_id,
                                               "set_index": set_index},
                target_set_id=int(cursor.lastrowid))
+        if rep_detail:
+            _append_reps(
+                conn, workout_id, int(cursor.lastrowid), rep_detail,
+                source=source,
+            )
     return get(conn, workout_id)
 
 
@@ -1453,19 +1550,46 @@ def undo_import(conn, workout_id: str) -> dict:
     return get(conn, workout_id)
 
 
-def _comparison(workout: Mapping[str, Any]) -> dict:
-    """Compare actual sets with the frozen plan; extra work is explicit."""
+def _comparison(workout: Mapping[str, Any], *, original: bool = False) -> dict:
+    """Compare actual sets with the frozen plan using stored plan-item identity.
+
+    The exercise name is never used as the join key. A set written before the item index was
+    stored, or one whose index points at a different exercise, remains unmatched and is
+    visible in ``extra`` instead of being guessed into the first same-name item.
+    """
     items = list((workout.get("plan") or {}).get("items") or [])
     actual = list(workout.get("sets") or [])
+    plan_modified = bool(workout.get("plan_modified"))
+    duplicate_exercises = {
+        str(item.get("exercise_id")) for item in items
+        if sum(1 for other in items if other.get("exercise_id") == item.get("exercise_id")) > 1
+    }
+    def item_index_of(row: Mapping[str, Any]) -> int:
+        value = row.get("prescription_item_index")
+        return -1 if value is None else int(value)
+
     rows = []
+    assigned: set[int] = set()
     for index, item in enumerate(items):
+        planned_sets = int(item.get("sets") or 0)
         matching = [
             row for row in actual
-            if row.get("exercise_id") == item.get("exercise_id")
+            if item_index_of(row) == index
+            and str(row.get("exercise_id")) == str(item.get("exercise_id"))
         ]
-        planned_sets = int(item.get("sets") or 0)
+        mismatched = [
+            row for row in actual
+            if item_index_of(row) == index
+            and str(row.get("exercise_id")) != str(item.get("exercise_id"))
+        ]
+        assigned.update(int(row["set_id"]) for row in matching)
+        match_status = (
+            "unavailable" if mismatched or (original and plan_modified) else "matched"
+        )
         count = len(matching)
-        if count == 0:
+        if match_status != "matched":
+            status = "unavailable"
+        elif count == 0:
             status = "missing"
         elif count < planned_sets:
             status = "under"
@@ -1475,10 +1599,13 @@ def _comparison(workout: Mapping[str, Any]) -> dict:
             status = "over"
         rows.append({
             "index": index,
+            "plan_item_index": index,
             "exercise_id": item.get("exercise_id"),
+            "match_status": match_status,
             "status": status,
             "planned_sets": planned_sets,
             "actual_sets": count,
+            "actual_set_ids": [row.get("set_id") for row in matching],
             "planned_reps": [item.get("reps_low"), item.get("reps_high")],
             "actual_reps": [row.get("reps") for row in matching],
             "planned_load_kg": item.get("load_kg"),
@@ -1486,11 +1613,18 @@ def _comparison(workout: Mapping[str, Any]) -> dict:
             "planned_rir": item.get("rir_target"),
             "actual_rir": [row.get("rir") for row in matching],
         })
-    planned_ids = {str(item.get("exercise_id")) for item in items}
-    extra = [
-        row for row in actual
-        if row.get("exercise_id") not in planned_ids
-    ]
+    extra = []
+    for row in actual:
+        if int(row["set_id"]) in assigned:
+            continue
+        item_index = row.get("prescription_item_index")
+        match_status = "unavailable"
+        if item_index is None:
+            match_status = (
+                "ambiguous" if str(row.get("exercise_id")) in duplicate_exercises
+                else "unavailable"
+            )
+        extra.append({**row, "match_status": match_status})
     return {"items": rows, "extra": extra}
 
 

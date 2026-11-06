@@ -421,13 +421,18 @@ def test_baseline_shadow_report_does_not_apply_a_baseline():
     assert before == after
 
 
-def test_score_is_independent_of_the_legacy_composite_flag():
+def test_the_legacy_composite_config_and_columns_are_gone():
+    # Task 4: the never-written imported-composite path was removed, not merely left disabled.
     with store_with() as store:
         config = readiness_feature.ReadinessConfig.load()
-        day = queries.readiness_day(store.connection, TODAY)
+        columns = {
+            row[1] for row in store.connection.execute("PRAGMA table_info(readiness_day)")
+        }
         assessment = readiness_score.compute(store.connection, TODAY)
-    assert config.composite_enabled is False
-    assert day["composite"] is None
+    assert not hasattr(config, "composite_enabled")
+    assert "composite_enabled" not in readiness_feature.as_dict(config)
+    assert "composite" not in columns
+    assert "composite_basis" not in columns
     assert assessment.status == "ready"
     assert assessment.score == pytest.approx(0.8)
 

@@ -190,3 +190,59 @@ def test_calibration_is_deterministic():
 def test_method_version_is_recorded():
     rows = bench_day("2024-01-01", 6) + bench_day("2024-01-08", 6) + bench_day("2024-01-15", 6)
     assert calibrate(rows).lookup("bench_press", 3).method_version == vbt.METHOD_VERSION
+
+
+def _enriched(rows):
+    result = clean.build_clean_sets(make_training(rows), make_readiness([{}]))
+    return derived.enrich(result.sets)
+
+
+def test_calibration_cache_hits_identical_content_and_params(monkeypatch):
+    frame = _enriched(trap_bar_days("2"))
+    calls = 0
+    original = vbt._calibrate_uncached
+
+    def counted(sets, *, params=None):
+        nonlocal calls
+        calls += 1
+        return original(sets, params=params)
+
+    monkeypatch.setattr(vbt, "_calibrate_uncached", counted)
+    vbt._CALIBRATION_CACHE.clear()
+    first = vbt.calibrate(frame)
+    second = vbt.calibrate(frame)
+    assert calls == 1
+    assert first.lookup("trap_bar_deadlift", 3) == second.lookup("trap_bar_deadlift", 3)
+
+
+def test_calibration_cache_misses_for_frame_params_and_method_version(monkeypatch):
+    calls = 0
+    original = vbt._calibrate_uncached
+
+    def counted(sets, *, params=None):
+        nonlocal calls
+        calls += 1
+        return original(sets, params=params)
+
+    monkeypatch.setattr(vbt, "_calibrate_uncached", counted)
+    vbt._CALIBRATION_CACHE.clear()
+    frame = _enriched(trap_bar_days("2"))
+    vbt.calibrate(frame)
+    changed = _enriched(trap_bar_days("3"))
+    vbt.calibrate(changed)
+    vbt.calibrate(changed, params=vbt.CalibrationParams(reps_max=7))
+    monkeypatch.setattr(vbt, "METHOD_VERSION", "1.0.1")
+    vbt.calibrate(changed)
+    assert calls == 4
+
+
+def test_cached_calibration_result_is_isolated_from_caller_mutation():
+    frame = _enriched(trap_bar_days("2"))
+    vbt._CALIBRATION_CACHE.clear()
+    first = vbt.calibrate(frame)
+    assert first.targets
+    first.targets.clear()
+    first.excluded["caller mutation"] = 99
+    second = vbt.calibrate(frame)
+    assert second.targets
+    assert "caller mutation" not in second.excluded

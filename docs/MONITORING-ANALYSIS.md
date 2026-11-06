@@ -7,8 +7,9 @@ factor, volume target, or recommendation.
 ## Entry points
 
 - **Performance -> Monitoring analysis** in the web UI: explicit Run analysis, optional
-  as-of date, dose chart, two lagged scatter charts, supporting tables and calibration
-  transparency.
+  as-of date, global session-dose chart, a per-exercise dose chart for the selected
+  association exercise, two lagged scatter charts, supporting tables and calibration
+  transparency. Each chart shows labelled axes and legends and can be opened larger.
 - **Settings -> Monitoring & reports**: a collapsed, read-only inventory of effective
   monitoring, calibration, prescription and volume parameters, with search, group filters and
   canonical/local/default/code provenance.
@@ -91,6 +92,8 @@ the report's selected date, not necessarily the state that existed on the test d
 factor snapshots are not reconstructed; the response says this explicitly.
 
 Protocol and equipment are reported as unknown because the current tables do not store them.
+That is a design choice, not a backlog item: measured-test protocol/equipment capture is out of
+scope (LIM-59, closed 2026-11-06) and would need a separately approved schema enhancement.
 
 ## Reproducibility and privacy
 
@@ -105,7 +108,7 @@ committed.
 - Associations are descriptive, not causal or predictive.
 - Small samples and missing feedback often make an association unavailable.
 - Calibration factor/CI is current-as-of, not a historical snapshot.
-- Protocol/equipment provenance is unavailable.
+- Protocol/equipment provenance is unavailable by design (LIM-59, closed 2026-11-06).
 
 ## Phase 5A and Phase 5B
 
@@ -116,6 +119,19 @@ explicit decision.
 
 Phase 5B is gated and not approved or underway. It may begin only after the Phase 5A review and
 explicit user approval, and every change must trace to a documented Phase 5A finding.
+
+## Design history
+
+The maintainer-only design trail is kept in the repository but out of the public Docs viewer:
+
+- [Training monitoring specification](design/TRAINING-MONITORING-SPEC.md)
+- [Training monitoring implementation plan](design/TRAINING-MONITORING-IMPLEMENTATION-PLAN.md)
+- [Monitoring configuration/UI plan](design/MONITORING-CONFIG-UI-PLAN.md)
+
+Folding their design history into this canonical analysis is deliberately deferred until the
+Phase 5A review (due 2027-01-22): that review classifies each metric, and summarising the design
+as settled before then would pre-empt its evidence decision. The links above are the interim
+index.
 
 ## Related
 

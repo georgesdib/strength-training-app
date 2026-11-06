@@ -27,10 +27,11 @@ absent together, and one flag `telemetry_present = Avg_velocity > 0` describes i
 rep — that would make an unmeasured set look like a fatigued one.
 
 ### DQ-SENT-02 — readiness zeros  `CONFIRMED`
-`HRV`, `RHR`, `Weight`, `Fat_Percent` and the per-lift `*_Readiness` fields use 0 for
-missing. This is provable rather than assumed: a bodyweight of 0 kg, an HRV of 0 ms, a
-resting heart rate of 0 bpm and 0% body fat are all physiologically impossible, and the
-recorded non-zero bodyweight range is a narrow band consistent with one person.
+`HRV`, `RHR`, `Weight` and the per-lift `*_Readiness` fields use 0 for missing. This is
+provable rather than assumed: a bodyweight of 0 kg, an HRV of 0 ms and a resting heart rate
+of 0 bpm are all physiologically impossible, and the recorded non-zero bodyweight range is a
+narrow band consistent with one person. `Fat_Percent` keeps the same zero-is-missing rule in
+the body-fat measurement import (`DEC-MEASURE-02`).
 
 **Action:** coerce to null. The 1–5 wellness fields have no zero bucket, so a 0 there is a
 hard data error, not a sentinel.
@@ -150,7 +151,7 @@ telemetry, which is effectively impossible for genuinely distinct sets.
 ### DQ-RD-01 — readiness conflicts  `NEEDS CONFIRMATION`
 Multiple readiness rows per date occur. Only a minority are exact duplicates; the rest are
 **mutually contradictory** measurements for the same day (different HRV, different
-hydration). This is not duplication, it is multiple or edited entries.
+bodyweight). This is not duplication, it is multiple or edited entries.
 
 Proposed merge, in order:
 1. drop rows where every field is a sentinel;

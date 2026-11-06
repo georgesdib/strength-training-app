@@ -143,5 +143,5 @@ it never computes the load or RIR and never adds a reduction of its own.
 
 - **Rejected automatic variant:** [`FORM-USE-EVIDENCE.md`](FORM-USE-EVIDENCE.md), `DEC-FORM-01`–`05`
 - **Precedent for a user-selected modifier:** [`MINIMUM-SESSION.md`](MINIMUM-SESSION.md)
-- **Modifier order:** [`W0-EXECUTION-MAP.md`](W0-EXECUTION-MAP.md) §3
+- **Modifier order:** [`W0-EXECUTION-MAP.md`](archive/audits/W0-EXECUTION-MAP.md) §3
 - **Decisions:** [`DECISIONS.md`](DECISIONS.md) (`DEC-TECH-01`)

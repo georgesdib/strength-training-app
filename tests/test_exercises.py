@@ -174,6 +174,17 @@ def test_single_leg_rdl_is_not_romanian_deadlift(taxonomy):
     assert taxonomy.resolve("Single Leg DB RDL").pattern == "hinge_unilateral"
 
 
+def test_conventional_deadlift_is_a_primary_compound_but_not_a_main_lift(taxonomy):
+    """DEC-RESOLVER-13: classified in the checked-in taxonomy, not in a local UI override."""
+    entity = _shipped_taxonomy_entities()["conventional_deadlift"]
+    assert entity["primary_compound"] is True
+    assert entity["main_lift"] is False
+    # The RIR effort window and top-set classification read the property, not the id.
+    resolved = taxonomy.resolve("Deadlift (conventional)")
+    assert resolved.props["primary_compound"] is True
+    assert resolved.is_main_lift is False
+
+
 # --- unit semantics --------------------------------------------------------
 def test_planks_log_seconds_not_reps(taxonomy):
     """Chinese Plank values of 80-110 in Reps_Done are seconds (DQ-REPS-01)."""

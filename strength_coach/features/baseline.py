@@ -189,7 +189,9 @@ def readiness_summary(
     frame = readiness.copy()
     frame["date"] = dates.parse_dates(frame["Date"])
     recent = frame[frame["date"] > pd.Timestamp(as_of) - pd.Timedelta(days=days)]
-    fields = ["Sleep", "Energy", "Mood", "Soreness", "Stress", "Nutrition", "Hydration"]
+    # The five scored fields only: nutrition/hydration are not readiness inputs
+    # (DEC-READINESS-20), so they must not reappear in the baseline profile.
+    fields = ["Sleep", "Energy", "Mood", "Soreness", "Stress"]
     out: dict[str, float | None] = {}
     for name in fields:
         values = numeric.coerce_numeric(recent[name]).dropna()

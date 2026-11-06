@@ -1,0 +1,913 @@
+schema_version: 1.0.0
+categories:
+- key: overview
+  label: Overview
+- key: architecture
+  label: Architecture
+- key: methodology
+  label: Methodology
+- key: readiness
+  label: Readiness and health
+- key: features
+  label: Features and evidence
+- key: plans
+  label: Active plans
+- key: evidence
+  label: Registers and evidence
+- key: decisions
+  label: Decisions
+- key: archive
+  label: Archive
+- key: design
+  label: Internal design
+- key: development
+  label: Development
+documents:
+- id: documentation-index
+  path: docs/README.md
+  title: Documentation index
+  description: Human documentation index, category map and maintenance rules.
+  category: overview
+  status: canonical
+  audience: public
+  nav: true
+- id: readme
+  path: README.md
+  title: Evidence-Based Strength Coach
+  description: 'Project entry point: what it is, install, run, and where to start reading.'
+  category: overview
+  status: canonical
+  audience: public
+  nav: true
+- id: roadmap
+  path: ROADMAP.md
+  title: ROADMAP
+  description: Live phase status, next actions and resume checklist.
+  category: overview
+  status: canonical
+  audience: public
+  nav: true
+- id: user-guide
+  path: USER-GUIDE.md
+  title: User Guide
+  description: How to install, run and read the app output.
+  category: overview
+  status: canonical
+  audience: public
+  nav: true
+- id: architecture
+  path: docs/ARCHITECTURE.md
+  title: ARCHITECTURE
+  description: layers, data flow, where the LLM sits
+  category: architecture
+  status: canonical
+  audience: public
+  nav: true
+- id: data-model
+  path: docs/DATA-MODEL.md
+  title: DATA MODEL
+  description: canonical schemas, tables, append-only records
+  category: architecture
+  status: canonical
+  audience: public
+  nav: true
+- id: data-quality
+  path: docs/DATA-QUALITY.md
+  title: DATA-QUALITY DECISIONS
+  description: the decision ledger (DQ-*) and open sentinel questions
+  category: architecture
+  status: canonical
+  audience: public
+  nav: true
+- id: performance-profile
+  path: docs/PERFORMANCE-PROFILE.md
+  title: PRESCRIPTION PERFORMANCE PROFILE
+  description: 2026-11-04 resolver prescription benchmark, 2026-11-05 clean-set snapshot A/B, stage profile, cache design/invalidation
+    and parallelism assessment
+  category: architecture
+  status: canonical
+  audience: public
+  nav: true
+- id: privacy
+  path: docs/PRIVACY.md
+  title: PRIVACY AND PUBLIC DOCS
+  description: public/private documentation boundary; no new personal health/performance data; external-LLM payload and sensitive-field
+    rules
+  category: architecture
+  status: canonical
+  audience: public
+  nav: true
+- id: releasing
+  path: docs/RELEASING.md
+  title: RELEASING AND CI
+  description: CI checks, pinned dependencies, release tagging, artifact generation and branch-protection requirements
+  category: architecture
+  status: canonical
+  audience: public
+  nav: true
+- id: core-training
+  path: docs/CORE-TRAINING.md
+  title: CORE TRAINING — is the programme doing enough?
+  description: core/trunk training evidence and the proposed programme amendment
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
+- id: frequency-and-volume
+  path: docs/FREQUENCY-AND-VOLUME.md
+  title: FREQUENCY AND VOLUME — what `--sessions-per-week` actually changes
+  description: reproduced `programme --sessions-per-week` behaviour, existing volume rules, evidence and the closed Q26 dates-only
+    decision
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
+- id: workout-generation
+  path: docs/WORKOUT-GENERATION.md
+  title: How Workout Generation Works
+  description: Plain-English explanation of the deterministic prescription pipeline, inputs, modifiers, validation and limitations
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
+- id: methodology
+  path: docs/METHODOLOGY.md
+  title: METHODOLOGY
+  description: canonical versioned decision flow, limitations, never-do list and change control
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
+- id: minimum-session
+  path: docs/MINIMUM-SESSION.md
+  title: MINIMUM EFFECTIVE SESSION — MOD-MIN-001
+  description: '`MOD-MIN-001` user-selected volume-only fallback: targets, floors, precedence, refusal and provenance'
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
+- id: rir-evidence
+  path: docs/RIR-EVIDENCE.md
+  title: RIR EVIDENCE — why the effort window is 1-4 with a 2-3 target
+  description: why the effort window is RIR 1-4 with a 2-3 target
+  category: methodology
+  status: evidence
+  audience: public
+  nav: true
+- id: rules-format
+  path: docs/RULES-FORMAT.md
+  title: RULES DOCUMENT FORMAT
+  description: citable rule IDs + 5 encoded rules
+  category: methodology
+  status: reference
+  audience: public
+  nav: true
+- id: sanity-checks
+  path: docs/SANITY-CHECKS.md
+  title: SANITY CHECKS — external verification of classification and formulas
+  description: external verification of classification/formulas
+  category: methodology
+  status: reference
+  audience: public
+  nav: true
+- id: session-templates
+  path: docs/SESSION-TEMPLATES.md
+  title: Session templates — field guide
+  description: 'field guide to session templates: scheduling source of truth, prescription blocks, slot fields, variants,
+    day roles and safety rules'
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
+- id: spinal-cost
+  path: docs/SPINAL-COST.md
+  title: SPINAL COST — what the ordinal actually rests on
+  description: evidence behind the ordinal spinal-cost ratings
+  category: methodology
+  status: evidence
+  audience: public
+  nav: true
+- id: spinal-load-evidence
+  path: docs/SPINAL-LOAD-EVIDENCE.md
+  title: Spinal load and load-weighting — focused evidence review
+  description: focused review of load-weighting; keep ordinal, no load/RIR weighting
+  category: methodology
+  status: evidence
+  audience: public
+  nav: true
+- id: technique-throttle
+  path: docs/TECHNIQUE-THROTTLE.md
+  title: TECHNIQUE THROTTLE — MOD-TECH-001
+  description: user-declared one-session load/RIR throttle (`MOD-TECH-001`); why the automatic form was rejected
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
+- id: training-dynamics
+  path: docs/TRAINING-DYNAMICS.md
+  title: TRAINING DYNAMICS — testing, rep ranges, and undulation
+  description: evidence on 1RM testing, rep ranges and DUP; proposal, not decision
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
+- id: training-guidelines
+  path: docs/TRAINING-GUIDELINES.md
+  title: TRAINING GUIDELINES — external evidence check on the programme
+  description: programme vs published evidence, with conflicts
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
+- id: v0-scope
+  path: docs/V0-SCOPE.md
+  title: V0 SCOPE — the smallest end-to-end slice
+  description: smallest end-to-end slice and its exclusions
+  category: methodology
+  status: reference
+  audience: public
+  nav: true
+- id: volume-budget
+  path: docs/VOLUME-BUDGET.md
+  title: Volume budget guide
+  description: 'operator guide to the consolidated Volume budget panel: targets, caps, floors, policy, drop, compensation,
+    profile storage and validation'
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
+- id: volume-management
+  path: docs/VOLUME-MANAGEMENT.md
+  title: Volume management — evidence and implementation
+  description: MEV/MAV/MRV evidence, configured landmarks, ledger and MRV cap
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
+- id: continuity
+  path: docs/CONTINUITY.md
+  title: CONTINUITY AND BACK SIGNAL
+  description: gap detection and re-entry rules; the injury signal is separate
+  category: readiness
+  status: canonical
+  audience: public
+  nav: true
+- id: form-prospective
+  path: docs/FORM-PROSPECTIVE.md
+  title: FORM RATING — PROSPECTIVE EVALUATION
+  description: 'open prospective form evaluation: anchors, sampling, outcomes and limits'
+  category: readiness
+  status: canonical
+  audience: public
+  nav: true
+- id: form-use-evidence
+  path: docs/FORM-USE-EVIDENCE.md
+  title: FORM RATINGS — WHAT THEY CAN AND CANNOT BE USED FOR
+  description: form evidence review, retrospective association and allowed uses
+  category: readiness
+  status: evidence
+  audience: public
+  nav: true
+- id: injury-signal
+  path: docs/INJURY-SIGNAL.md
+  title: INJURY SIGNAL — from a symptom number to a decision the athlete can inspect
+  description: per-region injury signals, what "tolerated" loading means, injury-to-exercise links
+  category: readiness
+  status: canonical
+  audience: public
+  nav: true
+- id: lift-readiness
+  path: docs/LIFT-READINESS.md
+  title: Per-lift readiness — evidence and implementation
+  description: per-lift readiness evidence, components, weights and downward-only rule
+  category: readiness
+  status: canonical
+  audience: public
+  nav: true
+- id: form-assessment
+  path: docs/FORM-ASSESSMENT.md
+  title: POST-LIFT FORM ASSESSMENT
+  description: optional per-lift 1-5 form assessment; Workout/History and rubric 1.2.0
+  category: readiness
+  status: canonical
+  audience: public
+  nav: true
+- id: readiness-score
+  path: docs/READINESS-SCORE.md
+  title: READINESS SCORE — global, category and calibration
+  description: implemented global, category and per-lift readiness scoring; evidence, phases, overrides and limits
+  category: readiness
+  status: canonical
+  audience: public
+  nav: true
+- id: readiness-weight-evidence
+  path: docs/READINESS-WEIGHT-EVIDENCE.md
+  title: Readiness weights — evidence and sensitivity check
+  description: readiness-weight evidence and held-out comparison; learned weights closed
+  category: readiness
+  status: evidence
+  audience: public
+  nav: true
+- id: readiness
+  path: docs/READINESS.md
+  title: READINESS — how the daily signal is derived
+  description: how readiness is derived, merged and used; what is config vs rule
+  category: readiness
+  status: canonical
+  audience: public
+  nav: true
+- id: workout-type-readiness-evidence
+  path: docs/WORKOUT-TYPE-READINESS-EVIDENCE.md
+  title: Readiness, injury and workout type — evidence and decision
+  description: 'evidence/decision: readiness and injury adjust load/sets, not the planned rep scheme'
+  category: readiness
+  status: canonical
+  audience: public
+  nav: true
+- id: readiness-exercise-selection-plan
+  path: docs/READINESS-EXERCISE-SELECTION-PLAN.md
+  title: Readiness- and symptom-driven exercise selection
+  description: implemented readiness/symptom substitution policy and review panel; automatic withholding deferred
+  category: readiness
+  status: canonical
+  audience: public
+  nav: true
+- id: symptom-logging
+  path: docs/SYMPTOM-LOGGING.md
+  title: SYMPTOM LOGGING — the 0–3 reading, and what to log when it settles
+  description: 'the 0-3 reading: what counts as a flare, and what to log when a symptom settles'
+  category: readiness
+  status: canonical
+  audience: public
+  nav: true
+- id: exercise-demands
+  path: docs/EXERCISE-DEMANDS.md
+  title: EXERCISE DEMANDS — companion demand catalogue
+  description: 'companion demand catalogue: six dimensions, per-dimension levels, provenance, coverage, upper-bound rule and
+    no aggregate'
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: exercise-variants
+  path: docs/EXERCISE-VARIANTS.md
+  title: Exercise variants — configuration
+  description: how to add a canonical variant, slot wiring, history caveat, selection tuning
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: fatigue-signals
+  path: docs/FATIGUE-SIGNALS.md
+  title: FATIGUE SIGNALS — exposure, residuals, substitution and advisories
+  description: 'Parts A–D: exposure ratio, VBT residual, suggest-only substitution, advisories, shadow table, flags and activation
+    gates'
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: fatigue-fitness
+  path: docs/FATIGUE-FITNESS.md
+  title: 'Fatigue, fitness, and strength: evidence and options'
+  description: fatigue-fitness evidence, strength recovery, e1RM calibration and why no model drives loads
+  category: features
+  status: evidence
+  audience: public
+  nav: true
+- id: api
+  path: docs/API.md
+  title: HTTP API
+  description: 'HTTP API reference: routes, request security and limits, dates, errors and client modules'
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: jump-variants
+  path: docs/JUMP-VARIANTS.md
+  title: Jump variants and power work
+  description: 'jump-training evidence and implementation: box jump on squat, broad jump on hinge, quality limits and alternatives'
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: longevity-review
+  path: docs/LONGEVITY-REVIEW.md
+  title: LONGEVITY REVIEW — do the training modalities match the goal?
+  description: 'modality review against the longevity-first goal: gaps, doses, priorities'
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: monitoring-analysis
+  path: docs/MONITORING-ANALYSIS.md
+  title: Monitoring analysis
+  description: 'read-only exploratory monitoring analysis: dose, lagged associations, calibration transparency, API/UI/CLI,
+    non-causal limits and privacy'
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: outcomes
+  path: docs/OUTCOMES.md
+  title: OUTCOMES — descriptive 4/8/12-week review
+  description: 'read-only 4/8/12-week outcomes review: what changed, not why'
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: parent-variant-weakness-evidence
+  path: docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md
+  title: Parent-variant e1RM ratios and weakness — evidence review
+  description: why parent-variant ratios are not weakness or injury measures
+  category: features
+  status: evidence
+  audience: public
+  nav: true
+- id: rep-velocity-evidence
+  path: docs/REP-VELOCITY-EVIDENCE.md
+  title: Per-rep velocity — evidence and analysis decision
+  description: velocity-loss evidence; descriptive only, no RIR/injury prediction
+  category: features
+  status: evidence
+  audience: public
+  nav: true
+- id: regime-change
+  path: docs/REGIME-CHANGE.md
+  title: REGIME-CHANGE DETECTION
+  description: read-only main-lift/substitute regime check; thresholds and limits
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: vbt-rep-level
+  path: docs/VBT-REP-LEVEL.md
+  title: Rep-level VBT — post-hoc value, cost and decision
+  description: 'post-hoc rep-level VBT: benefits, limitations and optional device-CSV capture'
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: rep-velocity
+  path: docs/REP-VELOCITY.md
+  title: Rep-level velocity — optional post-workout detail
+  description: optional per-rep CSV contract, storage, analyses and limits
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: retrospective-validation
+  path: docs/RETROSPECTIVE-VALIDATION.md
+  title: RETROSPECTIVE WALK-FORWARD — method and result
+  description: retrospective walk-forward method/result; not prospective; no model adoption
+  category: features
+  status: evidence
+  audience: public
+  nav: true
+- id: reverse-hyper-belt-squat-evidence
+  path: docs/REVERSE-HYPER-BELT-SQUAT-EVIDENCE.md
+  title: Reverse hyperextension and belt squat — evidence review
+  description: reverse hyperextension and belt squat evidence; optional accessories, no programme change
+  category: features
+  status: evidence
+  audience: public
+  nav: true
+- id: selection-comparability
+  path: docs/SELECTION-COMPARABILITY.md
+  title: SELECTION COMPARABILITY — evidence and proposed guard
+  description: evidence and proposed three-class guard for variant substitution
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: strength-program-review
+  path: docs/STRENGTH-PROGRAM-REVIEW.md
+  title: Strength programme review — 2026-10-20
+  description: evidence check and critique of the strength programme (review only)
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: top-set-backoff-evidence
+  path: docs/TOP-SET-BACKOFF-EVIDENCE.md
+  title: Top set + back-off sets — evidence review
+  description: top set/back-off review; no direct trial, no programme change
+  category: features
+  status: evidence
+  audience: public
+  nav: true
+- id: training-day-model
+  path: docs/TRAINING-DAY-MODEL.md
+  title: Training day and session fragments
+  description: 'implemented training-day/session-fragment model: one local date may hold multiple fragments, day-level attendance/e1RM,
+    combined volume/spinal, shared readiness, no schema migration'
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: ui-map
+  path: docs/UI-MAP.md
+  title: UI documentation map
+  description: 'web UI surface map: panels, routes, docs links and the behaviour each panel exposes'
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: ui-cli-parity
+  path: docs/UI-CLI-PARITY.md
+  title: UI ↔ CLI PARITY
+  description: current first-class parity, intentional differences and remaining gaps
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: throw-variants
+  path: docs/THROW-VARIANTS.md
+  title: Upper-body throws
+  description: 'upper-body throw evidence and implementation: medicine-ball chest pass on both bench days, implement-only
+    quality limits'
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: vbt-calibration
+  path: docs/VBT-CALIBRATION.md
+  title: VBT CALIBRATION
+  description: clean set, sparsity, overrides, versioning, current wiring
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: vbt-evidence
+  path: docs/VBT-EVIDENCE.md
+  title: VBT EVIDENCE — what velocity can and cannot tell us
+  description: VBT evidence, best practices, what our data can and cannot support
+  category: features
+  status: evidence
+  audience: public
+  nav: true
+- id: weakness-injury-selection
+  path: docs/WEAKNESS-INJURY-SELECTION.md
+  title: WEAKNESS / INJURY-TARGETED SELECTION — evidence and decision
+  description: evidence and deferral of weakness/injury-targeted selection
+  category: features
+  status: evidence
+  audience: public
+  nav: true
+- id: web-ui
+  path: docs/WEB-UI.md
+  title: WEB UI
+  description: local web UI surface and its limitations
+  category: features
+  status: canonical
+  audience: public
+  nav: true
+- id: high-intensity-exposure-plan
+  path: docs/HIGH-INTENSITY-EXPOSURE-PLAN.md
+  title: HIGH-INTENSITY EXPOSURE — evidence, model and implementation plan
+  description: 'detailed proposal: tests/max attempts/competition exposures, guard windows, evidence and phased evaluation'
+  category: plans
+  status: plan
+  audience: public
+  nav: true
+- id: injury-attribution-plan
+  path: docs/INJURY-ATTRIBUTION-PLAN.md
+  title: INJURY ATTRIBUTION AND VERIFICATION PLAN
+  description: injury-signal verification hygiene and optional session/lift symptom attribution (Phases 1–2 closed; Phase
+    3 is separate roadmap §4.28)
+  category: plans
+  status: plan
+  audience: public
+  nav: true
+- id: llm-integration-plan
+  path: docs/LLM-INTEGRATION-PLAN.md
+  title: LLM INTEGRATION — FUTURE ARCHITECTURE AND PHASED PLAN
+  description: 'future LLM analyst/explainer/constrained-proposer architecture: Iteration 1 (practical capabilities, selector
+    retirement), conditional Iteration 2 (retrieval/RAG/advanced orchestration), shared context/evidence contracts, approval,
+    privacy and evaluation gates; plan only'
+  category: plans
+  status: plan
+  audience: public
+  nav: true
+- id: weakness-targeting-plan
+  path: docs/WEAKNESS-TARGETING-PLAN.md
+  title: Weakness targeting and testing — plan
+  description: gated weakness metric, retrospective screen and N-of-1 test plan
+  category: plans
+  status: plan
+  audience: public
+  nav: true
+- id: limitations-register
+  path: docs/LIMITATIONS-REGISTER.md
+  title: LIMITATIONS REGISTER
+  description: living index of known limitations from all audits
+  category: evidence
+  status: reference
+  audience: public
+  nav: true
+- id: open-questions
+  path: docs/OPEN-QUESTIONS.md
+  title: OPEN QUESTIONS — ranked by how much they change the design
+  description: ranked design questions blocking the build
+  category: evidence
+  status: reference
+  audience: public
+  nav: true
+- id: references
+  path: docs/REFERENCES.md
+  title: REFERENCES — the scientific sources behind the rules
+  description: consolidated scientific bibliography with DOIs and where each is used
+  category: evidence
+  status: reference
+  audience: public
+  nav: true
+- id: decisions
+  path: docs/DECISIONS.md
+  title: DECISION LOG
+  description: append-only decision log (`DEC-*`) with where each is enforced
+  category: decisions
+  status: canonical
+  audience: public
+  nav: true
+- id: archive-index
+  path: docs/archive/README.md
+  title: Archive
+  description: Index of archived plans, audits and superseded proposals.
+  category: archive
+  status: reference
+  audience: public
+  nav: true
+- id: archive-audit-follow-up-plan
+  path: docs/archive/AUDIT-FOLLOW-UP-PLAN.md
+  title: AUDIT FOLLOW-UP — implementation plan
+  description: 'implemented audit follow-up: back-flare scope, quality-limited power, programme-document drift, same-date
+    accounting and the audit gate'
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-audit-follow-up-report
+  path: docs/archive/AUDIT-FOLLOW-UP-REPORT.md
+  title: AUDIT FOLLOW-UP — report
+  description: 'closed audit follow-up report: five fixes verified, all residuals closed, accepted coverage limitations and
+    no follow-up actions'
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-programme-builder-plan
+  path: docs/archive/PROGRAMME-BUILDER-PLAN.md
+  title: Dynamic Template Resolver — implementation plan
+  description: 'deterministic dynamic template resolver: fixed four-template blueprint/fallback, per-session exercise resolution,
+    versioned policy and provenance, reuse of the existing scheduler/prescription/volume/history; Steps 0–6 implemented and
+    closed'
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-audits-readme
+  path: docs/archive/audits/README.md
+  title: Engine audit appendix (W0–W12)
+  description: Engine audit appendix (W0–W12)
+  category: archive
+  status: reference
+  audience: public
+  nav: true
+- id: archive-audit-closeout
+  path: docs/archive/AUDIT-CLOSEOUT.md
+  title: ENGINE AUDIT — CLOSEOUT
+  description: final W0–W12 audit outcome, implemented fixes and remaining limitations
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-implementation-plan-2026-10
+  path: docs/archive/IMPLEMENTATION-PLAN-2026-10.md
+  title: IMPLEMENTATION PLAN — outcomes, longevity, readiness and minimum sessions
+  description: approved direction and phased implementation plan; A0–F implemented
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-ui-mobile-audit
+  path: docs/archive/UI-MOBILE-AUDIT.md
+  title: MOBILE UI AND FORM-CONTROL AUDIT
+  description: 'consolidated iPhone UI/usability and form-control audit: P0 contract defects, active-workout findings, restricted-choice
+    inventory, verification and checkpoints; closed 2026-10-28 (implemented, verified, native pass complete)'
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-module-layout
+  path: docs/archive/MODULE-LAYOUT.md
+  title: MODULE LAYOUT AND TEST STRATEGY
+  description: file layout and test strategy
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-next-phase-fatigue-plan
+  path: docs/archive/NEXT-PHASE-FATIGUE-PLAN.md
+  title: Next-phase fatigue-management plan — final lean version
+  description: 'final lean non-cardio fatigue plan: sRPE/duration backfill, descriptive calibration, optional deload; no experiments'
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-readiness-audit
+  path: docs/archive/READINESS-AUDIT.md
+  title: READINESS AUDIT — can the current readiness policy be validated?
+  description: 'W6 audit: readiness vs no readiness is not identifiable retrospectively; descriptive associations and policy
+    options'
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-resolver-acceptance-audit
+  path: docs/archive/RESOLVER-ACCEPTANCE-AUDIT.md
+  title: RESOLVER ACCEPTANCE AUDIT
+  description: 'closed end-to-end production acceptance audit: P0/P1/P2 findings, fixes, acceptance matrix and residual release
+    gates'
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-ui-design-implementation-plan
+  path: docs/archive/UI-DESIGN-IMPLEMENTATION-PLAN.md
+  title: Strength Training App UI Design — audit and implementation plan
+  description: six-area UI audit, existing API/data inventory, prioritized milestones, acceptance criteria and explicit data/architecture
+    deferrals
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-engine-audit-plan
+  path: docs/archive/ENGINE-AUDIT-PLAN.md
+  title: STRENGTH-FIRST ENGINE AUDIT — living plan
+  description: closed W0–W12 audit plan; outcome in `docs/archive/AUDIT-CLOSEOUT.md`
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-test-fatigue-plan
+  path: docs/archive/TEST-FATIGUE-PLAN.md
+  title: TEST FATIGUE — superseded proposal
+  description: superseded narrow test-fatigue proposal; points to the broader plan
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-ui-improvement-plan
+  path: docs/archive/UI-IMPROVEMENT-PLAN.md
+  title: UI AND FUNCTIONALITY IMPROVEMENT PLAN — UI-04, UI-08 AND FINAL AUDIT
+  description: 'UI-04/UI-08 plus the final functionality/code audit: findings ledger, workstreams, permanent guardrails, commit
+    sequence and optional follow-ups; closed 2026-10-27 (implemented and merged into `main`)'
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-variant-pattern-audit
+  path: docs/archive/VARIANT-PATTERN-AUDIT.md
+  title: Variant pattern audit — 2026-10-20
+  description: '2026-10-20 variant pattern/muscle audit: checked exceptions and applied corrections'
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-volume-modulation-plan
+  path: docs/archive/VOLUME-MODULATION-PLAN.md
+  title: VOLUME MODULATION — weekly target, session cap, and a settings layer
+  description: implemented and closed weekly target/session cap volume budget, exemptions, effective accounting and modality
+    layer
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-audits-w0-execution-map
+  path: docs/archive/audits/W0-EXECUTION-MAP.md
+  title: W0 — EXECUTION-PATH MAP AND BASELINE
+  description: W0 execution map, modifier ownership/order, input risks, test coverage and candidate findings
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-audits-w1-w7-attendance
+  path: docs/archive/audits/W1-W7-ATTENDANCE.md
+  title: W1 / W7 — ATTENDANCE AND ROLLING SCHEDULE
+  description: W1 schedule audit and W7 attendance metrics; forecast-deload path and session cap implemented
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-audits-w10-age
+  path: docs/archive/audits/W10-AGE.md
+  title: W10 — AGE IN ATHLETE STATE
+  description: W10 age-in-state audit; optional birth-year, wording and no age-based load rule
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-audits-w11-w12-closeout
+  path: docs/archive/audits/W11-W12-CLOSEOUT.md
+  title: W11/W12 — DOCUMENTATION AND PUBLIC-DATA CLOSEOUT
+  description: W11 documentation consistency (including rubric 1.1.0 duration) and W12 public-data inventory/history decision
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-audits-w2-load-lineage
+  path: docs/archive/audits/W2-LOAD-LINEAGE.md
+  title: W2 — LOAD LINEAGE AND INCOMPLETE SESSIONS
+  description: 'W2 audit: load lineage; bodyweight-basis and incomplete-workout defects fixed'
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-audits-w3-interaction-matrix-2026-10-31
+  path: docs/archive/audits/W3-INTERACTION-MATRIX-2026-10-31.md
+  title: W3 modifier interaction matrix — 2026-10-31
+  description: '768-case modifier interaction matrix: method, raw flags, preliminary triage and next pass; LIM-30 remains
+    open'
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-audits-w3-modifier-matrix
+  path: docs/archive/audits/W3-MODIFIER-MATRIX.md
+  title: W3 — MODIFIER INTERACTION MATRIX
+  description: 'W3 audit: six confirmed deload/order/floor/RIR defects, fixed and tested'
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-audits-w4-programme-evidence
+  path: docs/archive/audits/W4-PROGRAMME-EVIDENCE.md
+  title: W4 — PROGRAMME QUALITY AND EVIDENCE
+  description: W4 evidence classification and user-facing evidence labels
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-audits-w5-prospective-evaluation
+  path: docs/archive/audits/W5-PROSPECTIVE-EVALUATION.md
+  title: W5 — PROSPECTIVE EVALUATION PROTOCOL
+  description: W5 prospective protocol and implemented read-only summary
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-audits-w8-volume-balance
+  path: docs/archive/audits/W8-VOLUME-BALANCE.md
+  title: W8 — VOLUME BALANCE
+  description: W8 weekly set/spinal/time balance and four options; no change
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: archive-audits-w9-spinal-cap
+  path: docs/archive/audits/W9-SPINAL-CAP.md
+  title: W9 — SPINAL-CAP HEADROOM
+  description: 'W9 audit: explicit high-fatigue costs, at-cap display; cap 3 at close, superseded by cap 6 in §8'
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: design-monitoring-config-ui-plan
+  path: docs/design/MONITORING-CONFIG-UI-PLAN.md
+  title: Monitoring configuration and report-control UI plan
+  description: Monitoring configuration and report-control UI plan
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
+- id: design-training-monitoring-spec
+  path: docs/design/TRAINING-MONITORING-SPEC.md
+  title: Training monitoring design specification
+  description: Training monitoring design specification
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
+- id: design-training-monitoring-implementation-plan
+  path: docs/design/TRAINING-MONITORING-IMPLEMENTATION-PLAN.md
+  title: Training monitoring implementation plan
+  description: Training monitoring implementation plan
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
+- id: agents
+  path: AGENTS.md
+  title: AGENTS.md — how to work in this repository
+  description: Engineering rules, invariants, code layout and definition of done.
+  category: development
+  status: development
+  audience: maintainer
+  nav: false
+- id: changelog
+  path: CHANGELOG.md
+  title: Changelog
+  description: Released and unreleased user-facing changes.
+  category: development
+  status: development
+  audience: maintainer
+  nav: false

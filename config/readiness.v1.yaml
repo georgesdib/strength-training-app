@@ -33,13 +33,6 @@ modifier:
   # means *no stress*; a naive "stress >= 4" reading would be inverted.
   at_or_below: 2
 
-composite:
-  # Legacy imported readiness_day.composite only. This is NOT readiness.score:
-  # readiness_score.compute(...) always derives the score from the subjective core, and
-  # MOD-FAT-001 reads that score. A 0-1 imported composite needs every metric's scale and
-  # direction declared first; until then this stays off and readiness_day.composite stays null.
-  enabled: false
-
 set_reduction:
   # Poor readiness first reduces load/RIR (MOD-FAT-001). This second, conservative valve
   # removes one accessory set. Main-lift set reduction is opt-in: the athlete must enable it

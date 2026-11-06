@@ -5,7 +5,12 @@ replacement for the CLI.
 
 **UI and functionality hardening:** request-body limits, inline-handler safety, deterministic
 dates, safe error responses, data-integrity checks, browser coverage and frontend modularisation
-were implemented and closed in [`UI-IMPROVEMENT-PLAN.md`](UI-IMPROVEMENT-PLAN.md) on 2026-10-27.
+were implemented and closed in [`UI-IMPROVEMENT-PLAN.md`](archive/UI-IMPROVEMENT-PLAN.md) on 2026-10-27.
+
+**UI redesign:** the six-area navigation, actionable Today and integrated Progress work
+(P0–P3), including the read-only data contracts and pattern-group effective control, is
+implemented; the final audit closed 2026-11-06. See
+[`UI-DESIGN-IMPLEMENTATION-PLAN.md`](archive/UI-DESIGN-IMPLEMENTATION-PLAN.md).
 
 ## Run
 
@@ -50,12 +55,13 @@ links for every view. Run `python tools/check_ui_docs.py` to validate the contra
 
 ## Pages
 
-The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the backdrop or Escape closes it. The main content stays full width.
+The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the backdrop or Escape closes it. Navigation groups existing destinations into **Today**, **Training**, **Progress**, **Health & Longevity**, **Programme Intelligence**, and **Administration**; selecting a view opens its area and collapses the others. The selected area is announced through `aria-current`. Groups organize existing workflows rather than duplicate their forms.
 
+- **Today** — an active-workout-aware Start/Continue action, readiness and block context, review/form-follow-up shortcuts, recent sessions, periodic review prompts, and a compact descriptive progress snapshot. The longer form follow-up is collapsed; detailed analytics are in Progress, Performance, Outcomes, and Review. The review list is fed by `config/reviews.v1.yaml`; acknowledging one writes an append-only human record and changes no threshold or flag.
+- **Progress** — an integrated 4/8/12-week workspace combining the retained main-lift change table and sRPE coverage with selectable e1RM trajectories (raw daily best, trailing 3-observation median, best/latest context), selected-exercise working load/reps (basis/unit separated), weekly working sets by movement pattern and selected exercise, a hard/effective pattern-group control, weekly working sets/RIR/tonnage/residuals, exercise training dates, an observed-day calendar, and recorded training days by rolling 7-day period. A configured weekly target appears only as a reference, not a saved schedule. The existing cross-lift ratio keeps its fixed 56-day lookback. An on-demand selected-lift panel reuses read-only lagged hard-set/session-load associations; an execution panel compares original plan set totals with logged set rows for one completed app-tracked workout. Logged rows may include different roles, are matched by the frozen plan item index where available, and do not measure adherence. These are descriptive, not causal or prescriptive. Missing observations stay missing; charts do not interpolate. Imported sessions without frozen app-workout plans are unavailable for plan comparison. Exercise Explorer analytics cover the complete selected date range, while exact completed-session records load in duplicate-safe 50-session pages with no 50-session history cap; “All history” clears both date bounds. Pattern-group effective sets use the existing direct 1.0 plus configured indirect 0.25 credit, and match the profile's accounting setting unless the Progress control overrides it for the report. Bodyweight history uses observed readiness dates only and is shown in Longevity; missing dates are never filled. Strength, Performance and Outcomes details remain linked for further drill-down.
 - **Outcomes** — read-only 4/8/12-week strength review, attendance, volume and **Prospective check**; no prescription effect.
-- **Performance** — raw e1RM session bests, rolling median, series breaks, separate degraded observations, descriptive dose and explicitly configured relative-strength ratios with source-aware add/edit/delete/reset management; filters apply server-side. A read-only **[Monitoring analysis](MONITORING-ANALYSIS.md)** section runs on demand and reports dose, lagged associations, coverage and calibration transparency. No targets, diagnosis, decay or calibration change; equipment changes cannot be detected because equipment is not stored.
-- **Longevity** — consolidated cardio, measurement, readiness and symptom context with deterministic **Going well / Needs attention** labels; no targets beyond the WHO cardio reference and no prescription effect.
-- **Today** — goal, block week, readiness, injury signal, unreviewed count, **rubric calibration** (high-confidence sessions, agreement, per-item marks/comparable counts, gaps), recent sessions, and a **Descriptive progress** panel (sRPE coverage, attendance, family exposures, performance ratio, weekly volume status, latest back symptom; monitoring only). The **periodic reviews** list is fed by `config/reviews.v1.yaml` and includes the 8-week **Fatigue-signal review** (rate missing demand dimensions, read the exposure ratio, open the shadow review, record a decision); acknowledging a review writes an append-only human record and changes no threshold or flag.
+- **Performance** — raw e1RM session bests, rolling median, series breaks, separate degraded observations, descriptive dose and explicitly configured relative-strength ratios with source-aware add/edit/delete/reset management; filters apply server-side. A read-only **[Monitoring analysis](MONITORING-ANALYSIS.md)** section runs on demand and reports dose, lagged associations, coverage and calibration transparency. Optional per-rep velocity analysis is also here. Shared SVG chart helpers support date-scaled lines, grouped bars, references/bands, exact tooltips, and keyboard/touch series toggles without adding a chart dependency. Charts show labelled axes and legends; clicking or keyboard-activating a chart opens a larger dialog with the same axes and legend. No targets, diagnosis, decay or calibration change; equipment changes cannot be detected because equipment is not stored.
+- **Longevity** — consolidated cardio, measurement, readiness and symptom context with recorded-count and data-gap summaries. Cardio charts only ISO weeks containing logged sessions; WHO reference lines are context, and partial windows/missing logs remain visible. Measurements plot exact observed values as method-separated points without interpolation, same-day averaging, or cross-method lines; **Load older measurements** pages through exact append-only records. An observed **Bodyweight history** table uses the readiness series, including manual-over-import precedence, and never fills missing dates. Latest measurement summaries use available history, while readiness aggregates use the selected window. No clinical status judgment or prescription effect.
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
   SQLite, never written to the repository. New cumulative exports are overlap-matched against
   stored rows, so old history is not duplicated. An **After the import** panel states the
@@ -64,20 +70,19 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
 - **Review** — unreviewed/recent session sheet; engine scores shown for context; human marks, optional session RPE and session length,
   plus a **Run rubric calibration** button (same report as `strength-coach calibrate`),
   confidence and note; calibration report after saving.
-- **Workflow** — guided readiness → preview → start → active workout → post-workout comparison; owns the daily readiness form and prescription preview.
-- **Readiness** — baseline and policy settings; the daily log lives in Workflow;
-  the computed global/category score is shown in Workflow; per-athlete
-  baseline settings and the shadow baseline report are available; overrides take 0.00–1.00
-  with a reason; quick presets show their sleep/energy/soreness/stress values and an **Edit preset
-  YAML** action edits `config/readiness-presets.v1.yaml` with validation before saving; the
-  **Volume valve** sets the poor-readiness accessory set reduction; the volume ledger and MRV cap
-  are on Prescribe. A current workout is refused until readiness is ready.
+- **Workflow** — guided readiness → preview → start → active workout → post-workout comparison; owns the daily readiness form, the computed global/category score and the **Override the score** panel beside it. The panel names the date it writes (the readiness date above it), offers global or per-pattern scopes, and states that a category override wins over global and that both expire with the date. The prescription preview is also here.
+- **Readiness** — baseline and policy settings; the daily log and score overrides live in Workflow;
+  per-athlete baseline settings and the shadow baseline report are available; quick presets show
+  their sleep/energy/soreness/stress values and an **Edit preset YAML** action edits
+  `config/readiness-presets.v1.yaml` with validation before saving; the **Volume valve** sets the
+  poor-readiness accessory set reduction; the volume ledger and MRV cap are on Prescribe. A
+  current workout is refused until readiness is ready.
 - **Prescribe** — analysis for continuity, volume, regime, fatigue, selection and validation; the prescription form lives in Workflow; the preview builds the deterministic prescription with date + session type (`auto` rolling, squat, hinge, bench+squat, bench+hinge), an optional one-session **Technique throttle** (`MOD-TECH-001`: 90% load cap and RIR floor 3 on the session's essential items, or on one named movement pattern; it never reads a form rating and stores no state), warnings and notes; every item cites
   rule ids and shows the e1RM source-set count where one exists. The page labels e1RM as an estimate, readiness as a bounded heuristic, MEV/MAV/MRV
   as configurable landmarks, the spinal cap as ordinal, and deload/minimum-session evidence
   limits. A `recent stress` column, a `readiness` column, the **strength fatigue diagnostic**
   panel (predictive form rejected; per-lift + overall state is descriptive context with 95% intervals,
-  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only; week/date controls), the **per-rep velocity** panel (descriptive loss and associations; n ≥ 10 for correlations), the **continuity calibration** panel (per-band returns/fixed/applied and the
+  R²/status; no load effect), the **weekly volume** panel (hard sets by pattern against MEV/MAV/MRV landmarks; the MRV cap trims accessory sets; a separate heavy-spinal-set count at RIR ≤ 1 is context only; week/date controls), the **continuity calibration** panel (per-band returns/fixed/applied and the
   `allow_relax_fixed` setting, with an as-of date), the **strength fatigue diagnostic** date control and the **retrospective validation** maximum-dates control (integer 1–100, default 12, server-validated; invalid values are rejected rather than clamped), and the **exercise selection** panel (preview rankings with A/B/C
   comparison classes and a display-only own-history e1RM ratio; optional LLM chooser). Under
   the rankings it shows the **fatigue-informed suggestion** (Part C): at most one accessory
@@ -88,11 +93,23 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
 automatically, **Confirm near-comparable** is required for B, and C is never applied (it is
 hidden unless **show different lifts** is ticked). Each applied substitution cites
 `MOD-SELECT-001` and the load is re-solved from the selected lift's own history; the session
-type does not change, and nothing is persisted until Start workout. **Use LLM** appears only when Apply is ticked. Without the toggle the
+type does not change, and nothing is persisted until Start workout. The latest preview is also
+cached in this browser for seven days so a reload or navigation away can restore it. The restore
+notice shows the cached date/session beside the current form values; **Start cached plan**
+requires an explicit confirmation, and corrupt or future timestamps are rejected. A cached plan
+whose date/session no longer matches the form is discarded, and changing the form selection
+invalidates the cache immediately. The Workflow
+build itself runs as a polled background job and shows elapsed seconds, so a long resolver build
+cannot end in a browser load failure. The cache is
+not a server-side prescription and is cleared when the workout starts. **Use LLM** appears only when Apply is ticked. Without the toggle the
   prescription is unchanged. The **Retrospective validation** panel runs the walk-forward check. A scheduled deload is shown as a suggestion with an **Apply deload** button; it is not applied until confirmed. Reactive deloads are automatic. Applied deloads cite `MOD-DELOAD-001`. Main lifts show their warm-up ramp; the strength-test cadence is shown in the notes. The volume ledger now applies `MOD-VOL-002` (one accessory set after three weeks below MEV).
 - **Outcomes → Form trend** — current vs previous equal window, latest rating, change and
   session counts; descriptive only.
-- **History** — paginated list of training days, each expandable into its session fragments, with date filters, fragment detail and append-only correction. Attendance and day totals count each local date once; fragments keep their own ids, sets and edits. Edits rebuild totals/critique and mark the fragment re-review; date/type are fixed. The edit sheet also carries optional per-lift **Form** 1–5 ratings. Review shows the current rating beside up to five prior ratings for the same lift.
+- **History** — paginated list of training days, each expandable into its session fragments, with date filters, fragment detail and append-only correction. Attendance and day totals count each local date once; fragments keep their own ids, sets and edits. Edits rebuild totals/critique and mark the fragment re-review; date/type are fixed. The edit sheet carries optional per-lift **Form** 1–5 ratings and an
+  optional note; saving appends a correction so imported and live sessions can be rated or
+  overridden. A blank rating means **leave the existing rating and note unchanged**; the sheet
+does not remove ratings. Review shows the current rating beside up to five prior ratings for
+the same lift.
 - **Workflow → Workout** — start from the preview with a score-ready assessment or an explicit unknown/partial acknowledgement (device fields optional), log sets manually, remove a set, end with measured/manual duration and sRPE or mark sRPE not recorded, or abandon. A prescription snapshot is frozen at start. During the workout the plan is editable: adjust planned sets, swap/add/remove exercises; swap opens one searchable exercise dialog, each add/swap is an append-only event and the original prescription stays frozen. On completion the workout materialises, the end screen shows actual vs modified plan, actual vs original prescription, the deterministic rubric, and a descriptive Phase 2 summary. **Review workout** opens the rubric sheet; saving marks runs calibration and closes the workout. In-workout CSV import is available by paste or file with columns `Exercise,Set,RPE,Value,Weight,Reps`; preview first, then apply. A recognised exercise absent from the prescription is added to the workout plan; an unrecognised exercise is shown as unknown and blocks apply. The file has no date, so backfill is not supported. Each planned lift has an optional **Form** 1–5 rating, editable later in History. An optional second per-rep CSV (`Exercise Name,Set Number,Metric Name,Rep Number,Velocity`) can be added in the same panel; it joins by exercise + set, never creates a set, and is shown descriptively after the workout. The ended screen also offers an optional **e1RM**
   record: a measured test from a set (kg x reps, which registers a high-intensity exposure and
   rejects a 1RM until the interval allows it) or a direct override. Both append; nothing is edited.
@@ -106,24 +123,58 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
   in History. The *Plan and plan edits* section is open by default so the toggle is visible.
 - **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
   date and first session type (`auto` or a specific type).
-  every session is rebuilt on the day and nothing is persisted.
+  Every session is a projection rebuilt on the day; no future plan is persisted or promised.
 - **Cardio** — log a session (modality, minutes, HR, distance, sRPE) choose the window (4/12/26/52 weeks) and an optional as-of date:
-  sessions, total/average minutes, weekly breakdown and the WHO reference as context. Capture
-  only; no load changes.
-- **Measures** — periodic outcomes (VO2max, grip, 5x sit-to-stand, steps, sitting), with latest
-  value, change and entries, filtered by metric. Metrics and directions are config;
-  nothing changes a load.
-- **Exercises** — full canonical catalogue with search/filter, all properties per row, and an
-  add/edit form. Pattern, VBT family and primary muscles are constrained controls (VBT offers
-  existing families plus an explicit new-family path); additional-properties JSON is under an
-  advanced disclosure. Edits are written to `config/exercises/overrides.v1.yaml`; ids are immutable.
+  sessions, total/average minutes, weekly breakdown and a chart of weeks with logged minutes. Weeks with no entries are omitted rather than represented as zero or proof of inactivity; boundary weeks may be partial. WHO reference lines are context only. Capture only; no load changes.
+- **Measures** — periodic outcomes (VO2max, grip, body fat, 5x sit-to-stand, steps, sitting),
+  with latest value, change and entries, filtered by metric. Every metric with recorded values gets its own chart; a **Chart window** control selects the last 3, 6 or 12 months or all history, and each chart pages through that metric's entries (200 per request) so the window is complete. Metrics without data show no chart. Charts plot independent events, separate methods (including “method not recorded”), and do not average same-day observations or connect/infer values. Metrics and directions are config; nothing changes a load.
+### Progress snapshot ratio (Today)
+
+The Today **Progress snapshot** (and `GET /api/progress`) reports a descriptive session
+performance ratio:
+
+- for each eligible lift in a session: the session's best e1RM ÷ that lift's best e1RM in the
+  preceding 84 days (strictly before the session);
+- the session value is the median of those lift ratios (a session with one eligible lift uses
+  that lift);
+- the snapshot uses sessions in the last 56 days. **Latest ratio** is the newest session,
+  **recent ratio median** is the median over all of those sessions, and `n` is their count.
+  The chart plots at most the last 12 points.
+
+`1.000` means the session matched the prior best; values above or below are relative to that
+history, not a verdict. Only loaded working sets with a usable e1RM (reps 1–20, not voided or
+superseded) enter; a lift with no prior e1RM in the 84-day window contributes no ratio, and a
+session with no eligible lift produces no point. It is descriptive: not a measured test, not a
+target, not an injury signal, and it never changes a prescription. e1RM is an estimate, so the
+ratio inherits its precision limits.
+
+### Exercise Explorer history
+
+- **Exercises** — full canonical catalogue with search/filter and one **Open** action per row for
+  add/view/edit in the same dialog. Pattern, VBT family and primary muscles are constrained
+  controls (VBT offers existing families plus an explicit new-family path); additional-properties
+  JSON is under an advanced disclosure. Edits are written to `config/exercises/overrides.v1.yaml`;
+  existing ids are immutable. The dialog includes descriptive per-lift e1RM (raw estimates plus
+  rolling median), working-set-count-by-training-day, load-by-basis and repetitions-by-recorded-unit
+  charts. Choose an inclusive date range or **All history**; summary charts and coverage use the
+  complete selected range, while exact records are loaded in pages of 50 sessions until exhausted.
+  Same-day fragments are combined for descriptive daily analytics; load bases and repetition units
+  are kept in separate charts, exact medians are shown in point tooltips, and no dates are imputed.
+  None changes prescription behavior.
+  e1RM-ineligible lifts and missing histories have explicit empty states.
   Each row carries a **Demands** count (`rated/4` in-scope dimensions) and the details dialog
-  shows the demand profile with level, confidence and reason, plus the catalogue digest and
-  whether the git-ignored local overlay is active (`docs/EXERCISE-DEMANDS.md`). The profile is
-  editable there: **Rate this dimension** writes `config/exercises/demands.local.yaml` through
-  `POST /api/exercises/demands` (same `set_claim` the CLI uses), **Clear local rating** removes
-  the override, and a rejected write leaves the overlay untouched. The reviewed file is never
-  edited from the browser.
+  shows the demand profile with level, confidence, reason and cited evidence ids, plus the
+  catalogue digest and whether the git-ignored local overlay is active
+  (`docs/EXERCISE-DEMANDS.md`). The profile is editable there: **Rate this dimension** writes
+  `config/exercises/demands.local.yaml` through `POST /api/exercises/demands` (same
+  `set_claim` the CLI uses), **Clear local rating** removes the override, and a rejected write
+  leaves the overlay untouched. The **Evidence** list offers only ids the reviewed file
+  defines (with citation tooltips) and is required for `supported`, so the browser cannot
+  invent a source; the reviewed file is never edited from the browser. It is a checkbox list,
+  not a `<select multiple>`, because iOS Safari renders a multiple select as "0 items" no
+  matter what is ticked. The form opens on the selected dimension's saved claim — level,
+  confidence, reason and cited ids are preselected and a live `N selected` count follows the
+  choice — so saving cannot silently look empty or drop an existing citation.
   A row's **e1RM** button opens an override panel for that lift: it shows the override currently
   in force and appends a new one (kg, effective-from, reason) through the same endpoint the
   Athlete page and `e1rm set` use, so the next prescription cites it.
@@ -145,8 +196,10 @@ type does not change, and nothing is persisted until Start workout. **Use LLM** 
 - **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
   same-category substitute rises; a review question, never an action.
 - **Settings** — appearance (System / Light / Dark), optional LLM configuration (enable/disable, model, endpoint, write-only key,
-  temperature/tokens/timeout), browser-only Prescribe defaults, a collapsed read-only **Monitoring & reports** inventory with search/group filters, a dedicated **Resolver** panel (append-only scalar settings with explicit enable confirmation, validated structural YAML with backups/digest, read-only preview with alternatives/suggestions, inline suitability rating and Start handoff), and read-only app/database paths.
+  temperature/tokens/timeout), browser-only Prescribe defaults, a collapsed read-only **Monitoring & reports** inventory with search/group filters, a dedicated **Resolver** panel (append-only scalar settings with explicit enable confirmation, validated structural YAML with backups/digest, read-only preview with alternatives/suggestions, unrated suggestions shown provisionally with inline suitability rating and a Start handoff blocked until they are rated; the preview runs as a polled background job so a long resolver build cannot end in a browser load failure), and read-only app/database paths.
   The key is masked and lives in git-ignored `config/llm.local.toml`.
+- **Logs** — manually refreshed recent tail, capped at 500 records in process memory and cleared
+  when the server restarts; this is not a durable audit history or system-health monitor.
 - **Docs** — local Markdown rendered without external assets.
 
 The in-browser **Terminal** was removed on 2026-10-28 (`DEC-WEB-02`): it was a state-changing surface with no authentication. Actions the UI does not expose (bulk `review --pending`, `state --import`) stay CLI-only and are listed in [`UI-CLI-PARITY.md`](UI-CLI-PARITY.md).
@@ -158,166 +211,8 @@ also disables while saving and reports the number of marks written.
 
 ## API
 
-| route | purpose |
-|---|---|
-| `GET /api/overview` | dashboard data |
-| `GET /api/performance/e1rm?exercise_id=&from=&to=` | raw e1RM observations, rolling median, breaks and descriptive summary |
-| `GET /api/performance/dose?from=&to=&group_by=session` | descriptive session dose |
-| `GET /api/performance/ratios?relationship_id=&from=&to=` | configured ratio current value and paired history |
-| `GET /api/performance/relationships` | merged relationship configuration, source provenance and revision |
-| `POST /api/performance/relationships` | add a validated local relationship; requires the current revision |
-| `POST /api/performance/relationships/{id}/update\|delete\|reset` | edit, hide or reset a local relationship override; requires the current revision; stale revisions return 409 |
-| `GET /api/monitoring-analysis?as_of=` | read-only dose, lagged associations, coverage and calibration transparency; no path disclosure |
-| `GET /api/settings/monitoring` | read-only monitoring/config inventory, canonical/local/default/code provenance, Phase 5A period and lock, complete effective-inventory revision; no paths or athlete data |
-| `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
-| `POST /api/prescribe` | `{date, session_type?, apply_selection?, selection_confirmed?, selection_llm?, minimum_session?, target_minutes?, minimum_include_main?, allow_unknown_readiness?}` -> prescription; `session_type=auto` uses the rolling rule; unknown readiness requires the explicit flag |
-| `POST /api/workout/start` | `{date, plan, readiness, readiness_ack?, note?}` -> live workout; a score-ready assessment or explicit acknowledgement is required; partial readiness stays partial |
-| `GET /api/workout/active` | active workout, or `{workout: null}` |
-| `GET /api/workout/<id>` | workout detail |
-| `GET /api/workout/<id>/summary` | completed-workout descriptive summary; 404 unknown, 409 in progress |
-| `GET /api/form-trend?weeks=N&date=N` | descriptive current/baseline form trend |
-| `POST /api/workout/<id>/form` | `{exercise_id, rating 1-5}` -> optional post-lift form rating |
-| `POST /api/workout/<id>/sets` | `{exercise_id, load_kg, reps, rir, velocity?}` -> add manual set; manual reps are required and RIR is restricted to 0-6 |
-| `POST /api/workout/<id>/remove-set` | `{set_id}` -> append a removal event |
-| `POST /api/workout/<id>/end` | `{session_rpe?, not_recorded?, duration_min?, productivity?, notes?}` -> completed |
-| `POST /api/workout/<id>/update-set` | `{set_id, load_kg, reps, rir, velocity}` -> append correction event |
-| `POST /api/workout/<id>/import` | `{text, rep_text?, apply}` -> parse/preview/apply workout CSV; optional per-rep table; no date column |
-| `POST /api/workout/<id>/import/undo` | undo the latest import batch, including rep detail |
-| `GET /api/history?limit=&offset=&start=&end=` | paginated session-fragment history |
-| `GET /api/history/days?limit=&offset=&start=&end=` | paginated training days with their fragments |
-| `GET /api/exercise-history?exercise_id=&limit=&offset=&on_or_before=` | read-only completed-session history for one exercise, grouped by session; limit counts sessions and defaults to 5 |
-| `GET /api/history/<id>` | current session sets and feedback |
-| `POST /api/history/<id>/edit` | append-only correction of sets and session metadata |
-| `POST /api/history/<id>/vbt` | set/rep VBT overrides (also accepted inside `/edit`) |
-| `POST /api/history/<id>/void` | void or unvoid a whole session |
-| `GET /api/rep-velocity?session=<id>` | descriptive per-rep report after completion |
-| `GET /api/rep-velocity/analysis?weeks=&date=` | stratified cross-session descriptive report |
-| `POST /api/workout/<id>/abandon` | abandon the active workout |
-| `GET /api/review/<session>` | session sheet |
-| `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes, productivity}` -> marks + optional session detail |
-| `GET /api/readiness/<date>` | merged readiness |
-| `POST /api/readiness` | `{date, values, note}` -> merged readiness + score |
-| `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |
-| `GET /api/readiness/calibrate` | calibration report text (no auto-apply) |
-| `GET /api/logs?limit=N` | recent in-memory application/HTTP log records (max 500; cleared on restart) |
-| `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, attributed symptoms, injury signal |
-| `GET /api/symptoms/attribution-options?onset=&timing=` | completed sessions and performed lifts available for an attributed symptom |
-| `GET /api/exercises` | canonical exercise catalogue for the pickers |
-| `POST /api/programme/key` | request body -> `{cache_key}` covering version, request, resolved profile, database revision and relevant config hashes |
-| `POST /api/programme/jobs` | starts a background build; returns `202` with `job_id` and status |
-| `GET /api/programme/jobs/<id>` | `running` / `done` with entries / `error`; has a one-hour in-memory TTL and is capped at 20 jobs |
-| `POST /api/programme` | synchronous compatibility endpoint -> date entries; Apply selection mirrors `/api/prescribe`, and `selection_llm` lets the model choose only among filtered variants |
-| `GET /api/cardio?weeks=N` | cardio summary for the window |
-| `POST /api/cardio` | `{date, modality, minutes, avg_hr, max_hr, distance_km, srpe, note}` -> summary |
-| `GET /api/fatigue?date=N` | strength fitness-fatigue diagnostic (per-lift state and status; not a predictor) |
-| `GET /api/validation?max_dates=N` | retrospective walk-forward report (not prospective) |
-| `GET /api/continuity?date=N` | return-to-training calibration: per-band n/median/CI/fixed/applied and `allow_relax_fixed` |
-| `GET /api/volume?date=N&weeks=4` | weekly hard-set ledger by movement pattern (advisory) |
-| `GET /api/shadow?date=N&window_days=84` | shadow review: rows by component/action, applied/applied-nothing counts, high-signal days, abstention reasons and the four gate checks; `activation_allowed` is always false |
-| `GET /api/residual?date=N&window_days=84` | VBT execution residual grouped by lift/reps/load basis, lift-scoped only, with the signal/evaluation gates and abstention reasons (shadow) |
-| `GET /api/exposure?date=N` | rolling hard-set exposure ratio with windows, coverage, abstention reasons, per-group ratios and Part D advisories (read-only; `DEC-EXPOSURE-02`) |
-| `GET /api/volume/budget?date=N` | read-only weekly volume budget: target, exemptions, completed, projection, session cap, feasibility and per-group status/persistent/top-up capacity |
-| `GET /api/progress?date=N` | descriptive progress: sRPE coverage, performance ratio, volume status, latest back symptom |
-| `GET /api/outcomes?weeks=N&date=N` | read-only 4/8/12-week strength, longevity and coverage review |
-| `GET /api/prospective?weeks=N&date=N` | W5 read-only prospective summary: statuses, attendance, work, RIR, duration, flags |
-| `GET /api/regime?weeks=N&date=N` | read-only main-lift/substitute regime check |
-| `GET /api/settings` | masked LLM settings, drop settings, config/database paths and app version |
-| `GET /api/settings/volume?date=N` | consolidated volume panel: effective budget, volume policy, landmarks, athlete-level values, profile source and local-overlay warning |
-| `POST /api/settings/volume` | validate and append a settings-profile version for volume budget/policy; requires reason and typed VOLUME for target/cap/MRV/landmark changes |
-| `GET /api/settings/drop/window?date=N` | whether per-session drop confirmation applies on that date; the Prescribe checkbox is hidden when false |
-| `POST /api/settings/llm` | save local LLM settings; blank key keeps the stored key |
-| `POST /api/settings/drop` | legacy drop-only save path; the consolidated volume panel uses `/api/settings/volume` |
-| `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset, effective_from, guard_confirmed, reason and resolver_enable_confirmed (required for a false->true resolver.enabled transition) |
-| `GET /api/resolver/policy` | raw resolver policy YAML, path, digest, schema and newest backup metadata |
-| `POST /api/resolver/policy` | validate the complete YAML, back up the current file, atomically replace it and prune to the newest 20 backups |
-| `POST /api/resolver/policy/restore` | restore the newest normal validated policy backup; the current policy is snapshotted as `template-resolver-prerestore-*` and reported, and pre-restore snapshots are not later restore candidates |
-| `POST /api/resolver/preview` | read-only candidate/beam/evaluator preview; returns the prescription directly (not nested), plus choices, alternatives, suggestions, top set, projected week and structured failure stages; the UI compares the full displayed prescription |
-| `GET /api/modalities` | module list with class, enabled source, dependencies, citations and factors |
-| `GET/POST /api/modalities/<id>` | module state or enabled/factor update; guarded modules need guard_confirmed and reason |
-| `POST /api/settings/llm/test` | call the configured model with a tiny connectivity prompt |
-| `GET /api/exposures?date=N` | recent high-intensity exposures and recovery guard |
-| `POST /api/exposures` | log a manual max/competition/unplanned exposure; tests use the test endpoint |
-| `POST /api/continuity/settings` | `{allow_relax_fixed}` -> update the calibration policy |
-| `POST /api/readiness/volume` | update the readiness volume valve (enabled, score below, sets, include essentials — main lifts opt-in) |
-| `GET /api/readiness/presets` | raw `config/readiness-presets.v1.yaml`, its path and the parsed presets |
-| `POST /api/readiness/presets` | `{yaml}` -> validate and atomically replace the preset YAML; no schema change |
-| `POST /api/readiness/preset` | write a quick-readiness preset as ordinary entries with `source=preset` |
-| `POST /api/readiness/context` | append display-only context flags |
-| `GET /api/readiness/feedback?weeks=N&date=N` | descriptive follow-up of MOD-FAT-001 reductions, including completed workout snapshots and set adherence |
-| `GET /api/selection?date=N&session_type=X&llm=0\|1&include_different=0\|1` | exercise-selection rankings with A/B/C comparability classes |
-| `GET /api/substitution?date=N&session_type=X` | Part C fatigue-informed suggestion (at most one, suggest-only) plus abstention reasons |
-| `POST /api/exercises/demands` | `{exercise_id, dimension, level, confidence?, reason?, evidence?, clear?}` -> writes the git-ignored demand overlay and returns the merged profile; `supported` needs an existing evidence id |
-| `GET /api/options` | canonical goal, constraint, severity, region, pattern, VBT-family, muscle and exercise choices |
-| `GET /api/exercises/catalog` | full exercise catalogue with source/properties, patterns, VBT families and muscles |
-| `POST /api/exercises` | create/update an entity in `config/exercises/overrides.v1.yaml`; unknown new patterns/muscles are rejected, legacy values are preserved |
-| `GET /api/measurements` | metric catalogue, per-metric summary and recent entries |
-| `POST /api/measurements` | `{metric, value, date, method, note}` -> summary |
-| `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy`; goals, constraint kinds/regions, forbidden patterns/exercises and exercise ids are validated against the canonical vocabulary; `symptom` accepts optional `timing`, `attributed_session_id`, `attributed_exercise_id`, `onset_on` and `attribution_confidence`, plus the short aliases the UI uses |
-| `GET /api/calibrate` | calibration report |
-| `GET /api/docs` / `GET /api/docs/<name>` | doc list / rendered doc |
-
-## Request security
-
-**Temporary home-network mode (2026-10-28, `DEC-WEB-03`):** the loopback Host, Origin and
-`Sec-Fetch-Site` guards were removed by owner decision; the UI binds `0.0.0.0` and has **no
-authentication**. The accepted risk is `LIM-57`. Never expose it to the public internet.
-
-What remains:
-
-- `Content-Type: application/json` is required for mutation bodies, so a `text/plain` simple
-  request cannot be used as a JSON body;
-- request bodies are capped at 64 MiB;
-- logs do not record passwords or session tokens;
-- authentication, per-user data, password reset, birth date/gender/timezone, CSRF and TLS are
-  the `ROADMAP.md` §4.19 backlog. They must land before any exposure beyond the home LAN.
-
-## Request limits
-
-- A request body is capped at **64 MiB** (`MAX_BODY_BYTES`) before it is read. This covers two
-  20 MiB decoded CSVs plus JSON escaping and keys. The per-file limit remains **20 MiB** on the
-  decoded UTF-8 text (`MAX_IMPORT_FILE_BYTES`).
-- Oversized bodies return **413** before `rfile.read`; a missing length returns **411**;
-  invalid, negative or duplicate lengths and chunked transfer return **400**. The connection is
-  closed on every framing rejection. The browser maps 411/413 to plain next-action copy:
-  “reload and try again” and “split or compress the file and try again.”
-- The handler is HTTP/1.0 today. If it ever becomes HTTP/1.1, a rejected body must still be
-  closed or drained.
-- The import is JSON text, not multipart; the per-file check stays in the import handler.
-
-## Dates
-
-- The **local calendar date in YYYY-MM-DD** is authoritative for UI defaults and daily records.
-  The server's local timezone is authoritative today; a profile timezone (default
-  Europe/London) is part of the auth/per-user backlog. Do not assume a remote browser shares it.
-- Use `formatLocalDate`/`today`; never `toLocaleDateString` or a UTC
-  `toISOString().slice(0, 10)` for a date default.
-
-## Error responses
-
-- Expected validation failures keep their useful 400/404/409 JSON messages.
-- Form-validation 400s may add a `fields` map, for example
-  `{"error": "...", "fields": {"main_lift_policy": "..."}}`. This is additive; clients that only
-  read `error` keep working. Forms mark the named input `aria-invalid` and focus it.
-- An unexpected server exception returns a stable `{"error": "internal server error"}` 500 and
-  is logged with method, path and traceback. Exception classes, filesystem paths and database
-  details are not returned to the client.
-
-## Client modules
-
-No build step and no bundler. The scripts load in this order:
-
-1. `core.js` — API requests, HTML escaping, formatting, notices and local dates.
-2. `settings.js` — Settings panels: LLM, profile, volume, modalities and monitoring.
-3. `app.js` — navigation, routing, boot and the shared views.
-4. `exercises.js` — exercise catalogue, editor and e1RM override.
-5. `history.js` — history list, session details, corrections and VBT backfill.
-6. `workout.js` — live workout start, sets, end and post-workout screens.
-7. `summary.js` — descriptive workout summary.
-8. `performance.js` — performance and relationship panels.
-
-Feature modules use the core helpers. `app.js` dispatches view loaders through `VIEW_LOADERS`
-rather than an if-chain. Boot is deferred to `DOMContentLoaded` so every module is loaded
-before a deep link can call its loader.
+The HTTP API is documented in [API.md](API.md): endpoints, request security and limits,
+dates, error responses and client modules. The UI sections here call the same core.
 
 ## Design
 
@@ -395,6 +290,7 @@ behaviour still require a physical-device pass.
 
 ## Related
 
+- **HTTP API:** [API.md](API.md)
 - **Canonical UI map:** [UI-MAP.md](UI-MAP.md)
 - **Evidence:** [REFERENCES.md](REFERENCES.md)
 - **Decisions:** [DECISIONS.md](DECISIONS.md)

@@ -2,9 +2,9 @@
 
 **Status:** audit complete 2026-10-23; evidence labels implemented in the UI. No programme change.
 **Scope:** the controlling strength rules, their evidence class and their weakest claims.
-**Related:** [`STRENGTH-PROGRAM-REVIEW.md`](STRENGTH-PROGRAM-REVIEW.md),
-[`RIR-EVIDENCE.md`](RIR-EVIDENCE.md), [`VOLUME-MANAGEMENT.md`](VOLUME-MANAGEMENT.md),
-[`W6`](READINESS-AUDIT.md), [`W9`](W9-SPINAL-CAP.md).
+**Related:** [`STRENGTH-PROGRAM-REVIEW.md`](../../STRENGTH-PROGRAM-REVIEW.md),
+[`RIR-EVIDENCE.md`](../../RIR-EVIDENCE.md), [`VOLUME-MANAGEMENT.md`](../../VOLUME-MANAGEMENT.md),
+[`W6`](../READINESS-AUDIT.md), [`W9`](W9-SPINAL-CAP.md).
 
 ---
 

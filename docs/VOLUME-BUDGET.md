@@ -3,7 +3,7 @@
 This is the operator guide for the **Volume budget** panel in Settings. It explains what each
 control changes, how saving works, and which values remain in the athlete State form rather
 than this panel. The technical specification and formulas remain in
-[`VOLUME-MODULATION-PLAN.md`](VOLUME-MODULATION-PLAN.md).
+[`VOLUME-MODULATION-PLAN.md`](archive/VOLUME-MODULATION-PLAN.md).
 
 ## 1. What the budget does
 
@@ -129,7 +129,7 @@ The Volume budget panel shows their current values. Change them in **State → E
 
 ## Related
 
-- **Technical plan:** [VOLUME-MODULATION-PLAN.md](VOLUME-MODULATION-PLAN.md)
+- **Technical plan:** [VOLUME-MODULATION-PLAN.md](archive/VOLUME-MODULATION-PLAN.md)
 - **Volume landmarks:** [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md)
 - **Web UI and API:** [WEB-UI.md](WEB-UI.md)
 - **Data model:** [DATA-MODEL.md](DATA-MODEL.md)

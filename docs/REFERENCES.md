@@ -338,4 +338,4 @@ claim that the study is definitive; the evidence notes state the limitations.
 - `ROADMAP.md` §4.13 — cardio load and impulse-fatigue model plan
 - `docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md` — variant ratios, weakness assessment and screening
 - `docs/REVERSE-HYPER-BELT-SQUAT-EVIDENCE.md` — reverse hyperextension and belt squat evidence
-- `docs/VOLUME-MANAGEMENT.md` / `docs/VOLUME-MODULATION-PLAN.md` — volume landmarks, the knee-flexion row and its targets
+- `docs/VOLUME-MANAGEMENT.md` / `docs/archive/VOLUME-MODULATION-PLAN.md` — volume landmarks, the knee-flexion row and its targets

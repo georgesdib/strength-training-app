@@ -14,11 +14,16 @@ the evidence unit.
 
 from __future__ import annotations
 
+# DEC-READINESS-20: nutrition and hydration are no longer readiness inputs. They never
+# entered the score or any modifier, so keeping them in the accepted set implied an input that
+# did not exist. The historical readiness_day/readiness_entry rows remain for provenance.
 SCORE_FIELDS = (
-    "sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration",
+    "sleep", "energy", "mood", "soreness", "stress",
     "squat_readiness", "bench_readiness", "deadlift_readiness",
 )
-MEASURE_FIELDS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "wearable_score")
+# DEC-MEASURE-02: body fat is a periodic measurement, not a daily readiness input. Its
+# readiness_day column stays for historical rows but no readiness path accepts new ones.
+MEASURE_FIELDS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "wearable_score")
 # `grip_strength_kg` is deliberately absent: grip is a periodic capacity measurement, not a
 # daily readiness input (DEC-GRIP-01). The readiness_day/readiness_entry columns remain for
 # historical rows but no readiness path accepts new ones; use `measure --metric grip_strength_kg`.
@@ -34,15 +39,12 @@ FIELD_LABELS = {
     "mood": "mood",
     "soreness": "soreness",
     "stress": "stress",
-    "nutrition": "nutrition",
-    "hydration": "hydration",
     "squat_readiness": "squat readiness",
     "bench_readiness": "bench readiness",
     "deadlift_readiness": "deadlift readiness (legacy label)",
     "hrv_ms": "HRV (ms)",
     "rhr_bpm": "resting HR (bpm)",
     "bodyweight_kg": "bodyweight (kg)",
-    "fat_pct": "body fat (%)",
     "grip_strength_kg": "grip strength (kg, legacy readiness field)",
     "wearable_score": "wearable readiness (0-100)",
 }

@@ -28,7 +28,9 @@ GET /api/outcomes?weeks=8&date=YYYY-MM-DD
 
 ## 2. Strength section
 
-- main-lift e1RM first/last/change, with observation count;
+- eligible raw formula main-lift e1RM first/last/change and best, with observation count; one
+  best eligible observation is retained per exact exercise and training day (including
+  same-date fragments), matching the Performance trend semantics;
 - weekly hard-set volume by movement pattern;
 - target-based attendance (`sessions_per_week_target` × weeks), with shortfall, family
   exposures, session types, duration and observed symptom coverage;
@@ -48,7 +50,9 @@ GET /api/outcomes?weeks=8&date=YYYY-MM-DD
 - readiness score trend and status counts;
 - symptom history by region.
 
-Cardio and measurements are **captured, not prescribed**.
+Cardio and measurements are **captured, not prescribed**. The API's measurement summary reports
+the latest and change over available history, which may extend beyond the selected Outcomes
+window; the UI labels it accordingly.
 
 ## 4. Missing data
 
@@ -102,7 +106,10 @@ without the reduction, and it does not tune weights, cut-points or the volume va
 - no new fatigue model;
 - no automatic rule or weight change;
 - no snapshot table;
-- no prescription change.
+- no prescription change;
+- the Today **Progress snapshot** performance ratio is a separate rolling 56-day e1RM index,
+  documented in [WEB-UI.md](WEB-UI.md#progress-snapshot-ratio-today); it is not part of this
+  review.
 
 ## Related
 

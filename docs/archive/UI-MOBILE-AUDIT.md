@@ -282,7 +282,7 @@ ready for commit. No further audit actions are open.
 
 ## Related
 
-- [UI-MAP.md](UI-MAP.md) — route and panel map.
-- [WEB-UI.md](WEB-UI.md) — API surface and manual browser checklist.
+- [UI-MAP.md](../UI-MAP.md) — route and panel map.
+- [WEB-UI.md](../WEB-UI.md) — API surface and manual browser checklist.
 - [UI-IMPROVEMENT-PLAN.md](UI-IMPROVEMENT-PLAN.md) — earlier UI hardening work.
 

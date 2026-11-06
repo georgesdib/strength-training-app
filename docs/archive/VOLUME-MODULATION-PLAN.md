@@ -21,9 +21,9 @@ trim/top-up, and a settings/modality registry with append-only profiles. `MOD-VO
 declared in constitution 1.16.0; it only runs when the athlete profile enables it (default off).
 document yet (`DEC-VOLUME-06`, `DEC-VOLUME-07`).
 
-Related: [FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md), [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md),
-operator guide [VOLUME-BUDGET.md](VOLUME-BUDGET.md), Q26 in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md),
-LIM-51 in [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md).
+Related: [FREQUENCY-AND-VOLUME.md](../FREQUENCY-AND-VOLUME.md), [VOLUME-MANAGEMENT.md](../VOLUME-MANAGEMENT.md),
+operator guide [VOLUME-BUDGET.md](../VOLUME-BUDGET.md), Q26 in [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md),
+LIM-51 in [LIMITATIONS-REGISTER.md](../LIMITATIONS-REGISTER.md).
 
 ---
 
@@ -544,7 +544,7 @@ The drop decision is made at the start of a session, from the remaining week, no
   when the budget and drop policy are active and the selected date is inside the configured
   competition window; outside it the control is hidden rather than inert. The drop controls,
   volume policy and budget targets now live in one Settings **Volume budget** panel backed by
-  `GET/POST /api/settings/volume`; see the operator guide [VOLUME-BUDGET.md](VOLUME-BUDGET.md).
+  `GET/POST /api/settings/volume`; see the operator guide [VOLUME-BUDGET.md](../VOLUME-BUDGET.md).
   The older `/api/settings/drop` endpoint remains as a compatibility path.
 
 **Activation and safety**
@@ -605,7 +605,7 @@ not as a fifth hard-wired flag.
 ### 7.1 Current state
 
 Toggles are scattered: `deload.enabled`, `undulation.enabled`, `volume.apply_mrv_cap`,
-`volume.under_mev.enabled`, `readiness.set_reduction.enabled`, `readiness.composite.enabled`,
+`volume.under_mev.enabled`, `readiness.set_reduction.enabled`,
 `e1rm-decay.apply`, `e1rm-calibration.apply`, `continuity-calibration.enabled`,
 `fatigue-fitness.enabled`, `test-cadence.enabled`, `warmup.enabled`. The constitution
 (`config/rules/programme.v1.yaml`) is versioned separately and owns the hard rules. The Settings
@@ -1029,14 +1029,14 @@ alternatives are in §3–§7; the decision records are `DEC-VOLUME-06`, `DEC-VO
 
 ## Related
 
-- [FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md) — the reproduced behaviour and the options
-- [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md) — ledger, landmarks, MRV cap, under-MEV
-- [MINIMUM-SESSION.md](MINIMUM-SESSION.md) — the explicit short-session path
-- [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) Q26
-- [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md) LIM-51
-- **Decisions:** [DECISIONS.md](DECISIONS.md)
-- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
-- **Roadmap:** [ROADMAP.md](../ROADMAP.md)
+- [FREQUENCY-AND-VOLUME.md](../FREQUENCY-AND-VOLUME.md) — the reproduced behaviour and the options
+- [VOLUME-MANAGEMENT.md](../VOLUME-MANAGEMENT.md) — ledger, landmarks, MRV cap, under-MEV
+- [MINIMUM-SESSION.md](../MINIMUM-SESSION.md) — the explicit short-session path
+- [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md) Q26
+- [LIMITATIONS-REGISTER.md](../LIMITATIONS-REGISTER.md) LIM-51
+- **Decisions:** [DECISIONS.md](../DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../../ROADMAP.md)
 ## 13. Personalised volume-response model (future, gated)
 
 **Status: future idea, not scheduled, not implemented.** This records the design principle, not

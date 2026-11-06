@@ -48,7 +48,7 @@ def write_document(tmp_path, *, rules=None, collections=None, document=None, nam
 def test_loads_the_real_constitution():
     document = loader.load_document()
     assert document.document_id == "programme.constitution"
-    assert document.version == "1.20.0"
+    assert document.version == "1.21.0"
     assert document.rule_ids == (
         "PRG-RIR-001",
         "PRG-DP-001",

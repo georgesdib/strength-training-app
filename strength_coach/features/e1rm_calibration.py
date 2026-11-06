@@ -13,6 +13,7 @@ a single robust ratio is the smallest defensible adjustment (`ASSUMPTION-26`).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from statistics import mean, median
 from typing import Any
@@ -443,6 +444,30 @@ def coverage(
     return sorted(out, key=lambda item: (not item.is_main_lift, item.exercise_id))
 
 
+def _db_stamp(conn) -> tuple[int, int]:
+    try:
+        data_version = int(conn.execute("PRAGMA data_version").fetchone()[0])
+    except Exception:
+        data_version = -1
+    try:
+        changes = int(conn.total_changes)
+    except Exception:
+        changes = -1
+    return data_version, changes
+
+
+@lru_cache(maxsize=16)
+def _cached_factors(
+    conn, on_date: str, window_days: int, config: E1RMCalibrationConfig,
+    decay_config: e1rm_decay.DecayConfig, data_version: int, changes: int,
+) -> dict[str, LiftCalibration]:
+    report = build(
+        conn, window_days=window_days, as_of=on_date, config=config,
+        decay_config=decay_config,
+    )
+    return {row.exercise_id: row for row in report if row.correction_applied}
+
+
 def factors(
     conn,
     on_date: str,
@@ -451,12 +476,18 @@ def factors(
     config: E1RMCalibrationConfig | None = None,
     decay_config: e1rm_decay.DecayConfig | None = None,
 ) -> dict[str, LiftCalibration]:
-    """Per-lift corrections in force on `on_date`; only applied rows have factor != 1."""
-    report = build(
-        conn, window_days=window_days, as_of=on_date, config=config,
-        decay_config=decay_config,
+    """Per-lift corrections in force on `on_date`; only applied rows have factor != 1.
+
+    The effective config is part of the memo key, as are SQLite's data version and the
+    connection write count, so a settings or database change cannot reuse an old factor.
+    """
+    effective_config = config or E1RMCalibrationConfig.load()
+    effective_decay = decay_config or e1rm_decay.DecayConfig.load()
+    data_version, changes = _db_stamp(conn)
+    return _cached_factors(
+        conn, on_date, window_days, effective_config, effective_decay,
+        data_version, changes,
     )
-    return {row.exercise_id: row for row in report if row.correction_applied}
 
 
 def as_dict(report: list[LiftCalibration]) -> list[dict[str, Any]]:

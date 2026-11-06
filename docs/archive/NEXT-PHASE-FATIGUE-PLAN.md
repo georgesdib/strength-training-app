@@ -254,7 +254,7 @@ Produce, with uncertainty and limitations:
 
 **Retrospective result:** continuity MAE 0.150 vs 0.128 fixed; fatigue MAE 0.158 vs 0.074
 persistence. Both candidates lost, so neither is adopted. See
-[RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md).
+[RETROSPECTIVE-VALIDATION.md](../RETROSPECTIVE-VALIDATION.md).
 
 Do not produce:
 

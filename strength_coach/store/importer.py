@@ -24,6 +24,7 @@ from strength_coach.ingest import readiness as readiness_mod
 from strength_coach.ingest import sessions as sessions_mod
 from strength_coach.store import db
 from strength_coach.store import repositories as repo
+from strength_coach.utils import measurements as measurement_utils
 from strength_coach.utils import paths
 
 
@@ -39,6 +40,7 @@ class ImportReport:
     sessions_written: int
     quarantined: int
     readiness_days: int = 0
+    body_fat_measurements: int = 0
     issues: dict[str, int] = field(default_factory=dict)
     window_start: str | None = None
     window_end: str | None = None
@@ -78,6 +80,9 @@ def config_hash() -> str:
         # Readiness derivation decides whether a session is downgraded, so it belongs in the
         # run's config hash for the same reason the load thresholds do.
         paths.readiness_yaml(),
+        # The measurement catalogue decides which exported body-fat values are imported and
+        # how they are declared, so it is part of the run's config hash too.
+        paths.measurements_yaml(),
         # Rep schemes decide the reps (and therefore the solved load), so they belong in the
         # run's config hash alongside the thresholds.
         paths.schemes_yaml(),
@@ -134,6 +139,22 @@ def import_export(
             readiness_result = readiness_mod.build_readiness_day(readiness)
             readiness_days = repo.upsert_readiness_days(conn, readiness_result.days)
 
+            # Body fat is a periodic outcome, not a readiness input (DEC-MEASURE-02): the
+            # export's Fat_Percent column feeds the measurement log instead. Dates that
+            # already carry the metric are left alone so a re-import never duplicates a row.
+            catalogue = measurement_utils.MeasurementConfig.load()
+            body_spec = catalogue.metrics.get("body_fat_pct")
+            body_fat_measurements = 0
+            if body_spec is not None:
+                repo.ensure_metric_definition(conn, body_spec)
+                body_fat_measurements = repo.append_measurements_missing(
+                    conn,
+                    body_spec,
+                    readiness_mod.body_fat_measurements(readiness),
+                    source="device",
+                    method="imported from readiness Fat_Percent",
+                )
+
             dates = (result.sets["date"].dropna() if "date" in result.sets
                      else pd.Series(dtype="object"))
             window_start = pd.Timestamp(dates.min()).date().isoformat() if len(dates) else None
@@ -161,6 +182,7 @@ def import_export(
                     "sessions_written": len(reconstructed),
                     "quarantined": quarantined,
                     "readiness_days": readiness_days,
+                    "body_fat_measurements": body_fat_measurements,
                 },
             )
             repo.finish_run(conn, run.run_id, status="ok")
@@ -174,6 +196,7 @@ def import_export(
             sessions_written=len(reconstructed),
             quarantined=quarantined,
             readiness_days=readiness_days,
+            body_fat_measurements=body_fat_measurements,
             issues=dict(result.issues),
             window_start=window_start,
             window_end=window_end,

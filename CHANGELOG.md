@@ -2,7 +2,139 @@
 
 ## [Unreleased]
 
-_No unreleased changes._
+## [1.3.0] — 2026-11-06
+
+### Added
+
+- **Documentation manifest and archive**: `docs/manifest.yaml` is now the single source of
+  truth for public documentation metadata and navigation (id, path, title, description,
+  category, status, audience). The Docs API and viewer list and group documents from it, and
+  completed plans/closed audits moved to `docs/archive/` behind a new
+  `docs/README.md` index. The W0–W12 working reports are grouped in
+  `docs/archive/audits/`, the HTTP API reference is split out of `docs/WEB-UI.md` into
+  `docs/API.md`, and `docs/READINESS.md` gained a reference map. `docs/design/` stays
+  maintainer-only (its monitoring design history is indexed from the canonical analysis and
+  its final fold waits for the Phase 5A review) and `private/` is never listed or served;
+  both rules are enforced by the loader and tests. No application behaviour changed.
+- **Body fat is a measurement**: `body_fat_pct` joins the periodic measurement catalogue
+  (%, `last`, plausible 3–70; lower-is-better is a display convention, with the U-shaped
+  caveat in the note). Migration 0051 copies the historical readiness `Fat_Percent` values
+  into the measurement log, and the importer appends future export values idempotently per
+  date. Body fat leaves the readiness form, API, CLI and importer (`DEC-MEASURE-02`).
+- **Demand-profile evidence ids**: the Exercise details Demand profile form now offers the
+  reviewed catalogue's evidence ids as a checklist (citation per id, preselected from the saved
+  claim, live count) and sends them with a `supported` rating. A checkbox list replaces the
+  native multi-select, which iOS Safari renders as "0 items" regardless of selection.
+- **Prescribed-plan browser cache**: the latest deterministic prescription is kept in
+  `localStorage` for seven days and restored when Prescribe reloads. The restored notice shows
+  the cached date/session beside the current form values, starting requires an explicit
+  **Start cached plan** confirmation, corrupt/future timestamps are rejected, and **Discard**
+  removes it. A cached plan whose date/session no longer matches the form is discarded instead
+  of being shown; changing the form selection invalidates it immediately. Starting the workout
+  clears the cache; the server still owns the immutable active-workout plan.
+- **Workout per-rep VBT logging**: the Log a set form accepts optional comma/space-separated
+  per-rep mean concentric velocities, validates them against the set's reps, derives the set
+  mean when omitted, and stores them in the append-only `workout_rep_event` / `clean_rep` path.
+- **Accessory-only session type**: the prescription form exposes an explicit `accessory`
+  session type. It draws non-essential slots from all four templates, deduplicates by exercise
+  and pattern, ranks power last, uses the athlete's session-time target when no minimum target
+  is selected, and caps each accessory slot via config (`accessory_max_sets`). The shape
+  adds sets toward the target up to that cap, and a final post-modifier cap is applied before
+  validation. Accessory review uses an explicit no-main-lift explanation rather than a missing
+  template, and the volume budget projects the actual shaped session.
+
+- **Resolver-compatible minimum session**: minimum session now chooses a pre-assignment shape
+  instead of deleting a resolver-selected exercise. Essential main/support slots are retained;
+  optional patterns are added by least-trained order (84-day recency window) while the target
+  allows; accessory sets are kept when time permits. Required patterns are derived from eligible
+  candidate pools for retained slots, and an unsupported required pattern is an error. An explicit
+  **Accessories only** mode omits main lifts, requires an explicit session type, and reports top
+  set as unavailable.
+- **History form override**: History → Edit renders the optional per-lift 1–5 post-lift form
+  assessment with notes, so imported and live sessions can be rated or corrected through the
+  append-only correction path. A blank rating means **leave the existing rating and note
+  unchanged**; this sheet does not remove ratings. Form remains rubric-only and never changes
+  load, sets or exercise selection.
+
+### Performance
+
+- **Resolver prescription latency**: memoised the rolling schedule per connection/database state,
+  cached the immutable settings-registry snapshot and resolver-policy parse, cached E1RM factors
+  by effective config/database state, cached VBT calibration by frame content, and cached the
+  programme spinal defaults by file stamp. The representative resolver build dropped from
+  **133.15 s to 42.13 s on the target ODROID-C4**; see [`docs/PERFORMANCE-PROFILE.md`](docs/PERFORMANCE-PROFILE.md).
+  Multiprocessing is explicitly not recommended after the sequential result.
+- **Per-generation clean-set snapshot**: resolver builds now share one build-scoped
+  `clean_sets` snapshot across the four complete evaluator builds. Identical filters are queried
+  once; callers receive defensive copies; the snapshot is invalidated by SQLite data version and
+  write count and ends with the build. A 2026-11-05 same-DB A/B on the current 375-session
+  database measured **46.19 s without the snapshot vs 35.41 s with it** (same seven items); the
+  historical 42.13 s figure used 552 sessions and is not directly comparable. The four full
+  evaluator builds remain an accepted limitation.
+
+### Changed
+
+- **Conventional deadlift is a primary compound**: `conventional_deadlift` now carries
+  `primary_compound: true` in `config/exercises/taxonomy.v1.yaml` (`main_lift` stays false,
+  `DEC-RESOLVER-13`). `PRG-RIR-001`'s RIR window therefore covers its logged sets, and the lift
+  passes the resolver's top-set classification gate; it is still not in the shipped
+  `top_set.eligible_lifts`. The local UI override for it was removed and the generated
+  programme/workout documentation was regenerated (digest only).
+- **Body fat leaves readiness**: `fat_pct` is no longer accepted by the readiness/workout
+  forms, the API, the CLI or the importer. The legacy `readiness_day.fat_pct` column stays for
+  provenance and a re-import preserves it; new body-fat entries go through **Measures** or
+  `measure --metric body_fat_pct`.
+- **Readiness is five fields**: nutrition and hydration are no longer readiness inputs
+  (`DEC-READINESS-20`). They are gone from the readiness form, the workout-start panel, the CLI,
+  the API validation and the importer; old export columns are ignored rather than rejected.
+  Historical `readiness_day` values stay in their legacy columns and a re-import preserves them.
+  The constitution's MOD-FAT-001 scale-direction guard is narrowed to the remaining fields
+  (1.21.0; no load or threshold change).
+
+### Removed
+
+- **Dead readiness composite**: `readiness_day.composite` / `composite_basis` and the disabled
+  `readiness.composite.enabled` config key are removed (migration 0050). No export column fed
+  them, no rule or UI read them, and the app computes its own non-authoritative score.
+
+### Fixed
+
+- **Today's progress-snapshot ratio is explained and linked correctly**: the panel linked to
+  OUTCOMES.md, which does not define the ratio. It now states the calculation inline (session
+  best e1RM vs that lift's prior 84-day best, median across lifts, last 56 days) and links to a
+  new **Progress snapshot ratio (Today)** section in WEB-UI.md; OUTCOMES cross-references it as
+  a separate index. No calculation change.
+- **Measures charts every metric with data**: the page previously showed a single trend chart
+  and defaulted to the first metric that had an entry in the loaded page (VO2max), so body fat
+  with 828 recorded values had no chart unless the metric filter was changed. The page now
+  renders one chart per metric that has recorded values, each fetched through a selectable
+  **Chart window** (last 3/6/12 months or all history) and paged at 200 entries per request so
+  the window is complete (methods separated, no averaging or interpolation); metrics with no
+  data show no chart.
+- **Readiness override sits beside the daily score**: the **Override the score** panel moved
+  from the Readiness settings page into the Workflow readiness step, below the computed score
+  and category table. It names the date it writes (the readiness date above it), covers global
+  and per-pattern scopes, and repeats that a category override wins over global and both expire
+  with the date. No API or scoring change.
+- **Unrated resolver suggestions can reach the preview**: a slot with no automatically
+  eligible candidate but unrated suggestions now produces a provisional plan so the athlete
+  can see and rate it. The preview marks the plan pending and blocks **Start** until the rating
+  is saved and the plan rebuilt; the server also rejects a pending plan at workout start.
+- **Native exercise search filter**: typing in an exercise filter now rebuilds the select
+  options to the matching subset instead of relying on `option.hidden`, which browsers do not
+  reliably honour.
+- **Resolver preview load failures**: the Settings resolver preview and Workflow prescription
+  build now start short-request background jobs and poll for their results, so a multi-minute
+  deterministic build no longer trips the browser's request timeout. Workflow shows elapsed
+  seconds while the job runs.
+- **Per-rep VBT validation**: rejects rep indices above the set's reps, fractional or
+  non-positive indices, duplicate reps, and non-finite or non-positive velocities; valid sparse
+  rep measurements remain accepted.
+- **CPU job admission**: resolver preview, Workflow prescription and programme forecasts share
+  one process-wide CPU slot. Capacity check and registration are atomic; concurrent starts
+  cannot exceed the limit and the worker starts after the lock is released.
+- **VBT cache isolation**: cached calibration results are deep-copied, so a caller mutating a
+  returned result cannot affect subsequent calls.
 
 ## [1.2.0] — 2026-11-03
 
@@ -15,7 +147,7 @@ cardio impulse/shadow load and comparable calibration depth are deferred to v1.3
 - Deterministic template resolver **acceptance audit closed**: the Workflow top-set control
   now follows `resolver.top_set.mode` instead of the resolver flag, and a read-only lifecycle
   audit closure with completed automated release gates is recorded in
-  [`docs/RESOLVER-ACCEPTANCE-AUDIT.md`](docs/RESOLVER-ACCEPTANCE-AUDIT.md); only the manual
+  [`docs/archive/RESOLVER-ACCEPTANCE-AUDIT.md`](docs/archive/RESOLVER-ACCEPTANCE-AUDIT.md); only the manual
   browser Workflow smoke remains.
 - Deterministic template resolver **top-set execution integrity**: the Workflow plan now
   renders top-set/back-off groups, prefills the next group's load/RIR/role, keeps plan group
@@ -244,7 +376,7 @@ First **v1.0 beta**: the workable app for user testing. The beta label is remove
   panel): target, safety exemptions, completed sets, projected week, session cap and feasibility,
   plus per-group week status, persistent four-week status and non-essential top-up capacity. It
   writes nothing and changes no prescription (`DEC-VOLUME-06`, step 1 of
-  `docs/VOLUME-MODULATION-PLAN.md`).
+  `docs/archive/VOLUME-MODULATION-PLAN.md`).
 - Opt-in **per-group volume budget** behind `athlete_profile.volume_budget_enabled` (default
   off): trims or tops up non-essential accessory sets toward each group's effective target,
   cites `MOD-VOL-003` (constitution 1.15.0, amended through 1.17.0), and records

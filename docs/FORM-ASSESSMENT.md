@@ -55,6 +55,10 @@ POST /api/history/<session_id>/edit
 { "sets": [...], "forms": [{ "exercise_id": "...", "rating": 4 }], ... }
 ```
 
+In the History edit sheet, a **blank rating means leave the existing rating and note
+unchanged**; it never silently clears a rating. The sheet does not remove ratings (removal would
+need an explicit append-only tombstone contract).
+
 ## 4. Rubric
 
 Rubric **1.2.0** adds `FORM_ASSESSMENT`:
@@ -119,3 +123,13 @@ association was near zero and does not support e1RM filtering or load changes.
 - `critique/facts.py`, `critique/rubric.py`
 - `web/server.py`, `web/static/workout.js`, `web/static/history.js`, `web/static/app.js`
 - `tests/test_workout.py`, `tests/test_history.py`, `tests/test_critique.py`, `tests/test_web.py`
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md), [WEB-UI.md](WEB-UI.md)
+- **Workout lifecycle:** [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md)
+- **Evidence:** [FORM-USE-EVIDENCE.md](FORM-USE-EVIDENCE.md)
+- **Prospective limits:** [FORM-PROSPECTIVE.md](FORM-PROSPECTIVE.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

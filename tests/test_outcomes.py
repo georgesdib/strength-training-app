@@ -71,6 +71,31 @@ def test_outcome_review_marks_missing_data_unknown():
         store.close()
 
 
+def test_outcomes_strength_uses_best_eligible_observation_per_training_day():
+    from strength_coach.features import strength_trend
+
+    store = _store([
+        {"Date": "2024-01-01", "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+         "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2024-01-01", "Exercise": "Safety Squat Bar", "Weight_Used": "110",
+         "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2024-01-08", "Exercise": "Safety Squat Bar", "Weight_Used": "105",
+         "RIR": "2", "Reps_Done": "5"},
+    ])
+    try:
+        report = outcomes.report(store.connection, weeks=8, on_date="2024-01-31")
+        canonical = strength_trend.observations(
+            store.connection, "ssb_squat", "2023-12-07", "2024-01-31",
+        )
+    finally:
+        store.close()
+    lift = next(row for row in report["strength"]["main_lifts"] if row["exercise_id"] == "ssb_squat")
+    assert lift["n"] == len(canonical) == 2
+    assert lift["first_on"] == canonical[0].date == "2024-01-01"
+    assert lift["first_e1rm"] == round(canonical[0].estimate.kg, 1)
+    assert lift["best_e1rm"] == max(round(point.estimate.kg, 1) for point in canonical)
+
+
 def test_modifier_provenance_is_extracted_without_guessing():
     from types import SimpleNamespace
 

@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 
 from strength_coach import history, workout
-from strength_coach.store import db
+from strength_coach.features import residual
+from strength_coach.store import db, repositories
 
 PLAN = {
     "for_date": "2024-01-01",
@@ -229,6 +230,99 @@ def test_end_materialises_session_and_comparison(conn):
     assert ended["comparison"]["items"][1]["status"] == "missing"
 
 
+def test_a_duplicate_exercise_is_matched_by_explicit_plan_item_index(conn):
+    duplicate = {
+        **PLAN,
+        "items": [PLAN["items"][0], {**PLAN["items"][0], "sets": 1}],
+    }
+    started = workout.start(conn, for_date="2024-01-01", plan=duplicate, readiness=READINESS)
+    added = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2, plan_item_index=1,
+    )
+    assert added["sets"][0]["prescription_item_index"] == 1
+    items = added["comparison"]["items"]
+    assert items[0]["status"] == "missing"
+    assert items[1]["status"] == "complete"
+    assert items[1]["match_status"] == "matched"
+    assert items[1]["actual_set_ids"] == [added["sets"][0]["set_id"]]
+
+
+def test_a_duplicate_exercise_without_an_index_remains_ambiguous(conn):
+    duplicate = {
+        **PLAN,
+        "items": [PLAN["items"][0], {**PLAN["items"][0], "sets": 2}],
+    }
+    started = workout.start(conn, for_date="2024-01-01", plan=duplicate, readiness=READINESS)
+    added = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2,
+    )
+    assert added["sets"][0]["prescription_item_index"] is None
+    assert added["comparison"]["items"][0]["status"] == "missing"
+    assert added["comparison"]["extra"][0]["match_status"] == "ambiguous"
+
+
+def test_an_explicit_plan_item_index_must_match_the_exercise(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    with pytest.raises(ValueError, match="does not match"):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=100, reps=5, rir=2, plan_item_index=1,
+        )
+
+
+def test_original_comparison_is_unavailable_after_a_plan_swap(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2, plan_item_index=0,
+    )
+    changed = workout.swap_exercise(
+        conn, started["workout_id"], 0, "bench_press",
+    )
+    assert changed["comparison"]["items"][0]["match_status"] == "unavailable"
+    assert changed["original_comparison"]["items"][0]["match_status"] == "unavailable"
+
+
+def test_weekly_residual_uses_stored_plan_item_target(conn):
+    conn.execute(
+        "INSERT INTO run (run_id, started_at, input_hash, code_version, status) "
+        "VALUES ('run-1', '2024-01-01T00:00:00Z', 'input', 'test', 'ok')"
+    )
+    repositories.append_prescription(
+        conn,
+        prescription_id="rx-1",
+        run_id="run-1",
+        for_date="2024-01-01",
+        session_type="hinge",
+        fallback_level="full",
+        rule_document_version="test",
+        calibration_ids=(),
+        approved_by="deterministic",
+        items=[{
+            "order_index": 0, "exercise_id": "trap_bar_deadlift", "sets": 1,
+            "reps_low": 5, "reps_high": 5, "load_kg": 100,
+            "load_basis": "external", "rounding_increment": None, "rir_target": 2,
+            "velocity_target": 0.5, "vbt_basis": "lift", "essential": True,
+        }],
+    )
+    started = workout.start(
+        conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS,
+        prescription_id="rx-1",
+    )
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2, velocity=0.4, plan_item_index=0,
+    )
+    workout.end(conn, started["workout_id"], session_rpe=7, duration_min=30)
+    weekly = residual.weekly_history(conn, "2024-01-01", "2024-01-01")
+    assert weekly == [{
+        "week_start": "2024-01-01", "n": 1, "mean_mps": -0.1,
+        "spread_mps": None, "status": "insufficient",
+    }]
+
+
 def test_end_scores_rubric_and_review_closes_workout(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
     workout.add_set(conn, started["workout_id"], exercise_id="trap_bar_deadlift",
@@ -440,6 +534,80 @@ def test_per_rep_rows_must_match_a_main_set(conn):
         workout.import_csv(
             conn, started["workout_id"], CSV, apply=True, rep_text=rep_text
         )
+
+
+def test_manual_set_accepts_per_rep_velocities(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    updated = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=3, rir=2,
+        rep_velocities=[
+            {"rep_index": 1, "velocity_mps": 0.62},
+            {"rep_index": 2, "velocity_mps": 0.58},
+            {"rep_index": 3, "velocity_mps": 0.55},
+        ],
+    )
+    row = next(item for item in updated["sets"] if item["exercise_id"] == "trap_bar_deadlift")
+    assert row["velocity"] == 0.583
+    assert row["rep_summary"]["count"] == 3
+    assert row["rep_summary"]["first"] == 0.62
+    assert row["rep_summary"]["last"] == 0.55
+    workout.end(conn, started["workout_id"], session_rpe=7, duration_min=30)
+    reps = conn.execute(
+        "SELECT rep_index, velocity_mps FROM clean_rep ORDER BY rep_index"
+    ).fetchall()
+    assert [item["velocity_mps"] for item in reps] == [0.62, 0.58, 0.55]
+
+
+def test_manual_per_rep_count_cannot_exceed_reps(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    with pytest.raises(ValueError, match="exceeds reps"):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=100, reps=2, rir=2,
+            rep_velocities=[
+                {"rep_index": 1, "velocity_mps": 0.62},
+                {"rep_index": 2, "velocity_mps": 0.58},
+                {"rep_index": 3, "velocity_mps": 0.55},
+            ],
+        )
+    assert conn.execute("SELECT COUNT(*) FROM workout_set").fetchone()[0] == 0
+
+
+def test_manual_per_rep_rejects_invalid_indices_and_velocities(conn):
+    import math
+
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    cases = [
+        ([{"rep_index": 4, "velocity_mps": 0.6}], "exceeds reps"),
+        ([{"rep_index": 1.5, "velocity_mps": 0.6}], "positive integer"),
+        ([{"rep_index": 0, "velocity_mps": 0.6}], "positive integer"),
+        ([{"rep_index": 1, "velocity_mps": math.nan}], "finite and positive"),
+        ([{"rep_index": 1, "velocity_mps": math.inf}], "finite and positive"),
+        ([{"rep_index": 1, "velocity_mps": -math.inf}], "finite and positive"),
+        ([{"rep_index": 1, "velocity_mps": 0}], "finite and positive"),
+        ([{"rep_index": 1, "velocity_mps": 0.6},
+          {"rep_index": 1, "velocity_mps": 0.5}], "duplicate"),
+    ]
+    for values, message in cases:
+        with pytest.raises(ValueError, match=message):
+            workout.add_set(
+                conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+                load_kg=100, reps=3, rir=2, rep_velocities=values,
+            )
+    assert conn.execute("SELECT COUNT(*) FROM workout_set").fetchone()[0] == 0
+
+    updated = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=3, rir=2,
+        rep_velocities=[
+            {"rep_index": 1, "velocity_mps": 0.62},
+            {"rep_index": 3, "velocity_mps": 0.55},
+        ],
+    )
+    row = next(item for item in updated["sets"] if item["exercise_id"] == "trap_bar_deadlift")
+    assert row["rep_summary"]["count"] == 2
+    assert row["velocity"] == 0.585
 
 
 def test_rep_import_materialises_clean_rep_rows(conn):

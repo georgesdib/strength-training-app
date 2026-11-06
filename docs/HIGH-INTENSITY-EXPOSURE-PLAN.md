@@ -2,7 +2,7 @@
 
 **Status:** Phase 1 (record/display) and Phase 2 (deterministic guard) implemented 2026-10-23.
 Phase 3 (prospective review) is pending. No automatic load, RIR or set change was added.
-**Supersedes:** the narrower [`TEST-FATIGUE-PLAN.md`](TEST-FATIGUE-PLAN.md) proposal.
+**Supersedes:** the narrower [`TEST-FATIGUE-PLAN.md`](archive/TEST-FATIGUE-PLAN.md) proposal.
 **Question:** how should the app represent a very hard exposure that is not ordinary working
 volume — a test, a max attempt, a competition lift, or unplanned heavy work — without inventing
 a fatigue score?

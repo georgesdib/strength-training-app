@@ -288,6 +288,22 @@ def test_docs_are_rendered_local(server):
     assert "<h1 id=" in json.loads(body)["html"]
 
 
+def test_docs_api_exposes_only_the_public_manifest(server):
+    status, body = get(server, "/api/docs")
+    assert status == 200
+    entries = json.loads(body)
+    names = {entry["name"] for entry in entries}
+    assert "docs/README.md" in names
+    assert "docs/archive/audits/W9-SPINAL-CAP.md" in names
+    assert "docs/design/TRAINING-MONITORING-SPEC.md" not in names
+    assert not any(name.startswith("private/") for name in names)
+    assert all(entry["category"] and entry["category_label"] for entry in entries)
+    for name in ("private/docs/EVIDENCE.md", "docs/design/TRAINING-MONITORING-SPEC.md"):
+        with pytest.raises(urllib.error.HTTPError) as excinfo:
+            get(server, "/api/docs/" + quote(name, safe=""))
+        assert excinfo.value.code == 400, name
+
+
 def test_markdown_tables_and_links():
     rendered = markdown.render("# Title\n\n| a | b |\n|---|---|\n| 1 | 2 |")
     assert '<h1 id="title">Title</h1>' in rendered
@@ -810,6 +826,55 @@ def test_measurements_round_trip(server):
     assert json.loads(body)["entries"][-1]["value"] == 45.2
 
 
+def test_measurements_support_date_bounds_and_pagination(server):
+    for day, value in (("2024-01-01", 40.0), ("2024-01-08", 41.0), ("2024-01-15", 42.0)):
+        post(server, "/api/measurements", {
+            "metric": "vo2max", "value": value, "date": day, "method": "step test",
+        })
+
+    status, body = get(server, "/api/measurements?metric_key=vo2max&limit=1&offset=0")
+    assert status == 200
+    latest = json.loads(body)
+    assert latest["entries"][0]["value"] == 42.0
+    assert latest["page"]["total"] == 3
+    assert latest["page"]["next_offset"] == 1
+
+    status, body = get(server, "/api/measurements?metric_key=vo2max&limit=1&offset=1")
+    older = json.loads(body)
+    assert older["entries"][0]["value"] == 41.0
+
+    status, body = get(server, "/api/measurements?from=2024-01-02&to=2024-01-09")
+    bounded = json.loads(body)
+    assert [row["value"] for row in bounded["entries"]] == [41.0]
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/measurements?from=2024-01-20&to=2024-01-01")
+    assert excinfo.value.code == 400
+
+
+def test_readiness_history_returns_observed_bodyweight_only(server):
+    post(server, "/api/readiness", {
+        "date": "2024-01-01", "values": {"sleep": 3, "bodyweight_kg": 80.5},
+    })
+    post(server, "/api/readiness", {
+        "date": "2024-01-03", "values": {"sleep": 4, "bodyweight_kg": 80.1},
+    })
+    status, body = get(
+        server,
+        "/api/readiness/history?from=2024-01-01&to=2024-01-05&fields=bodyweight_kg",
+    )
+    assert status == 200
+    data = json.loads(body)
+    assert [point["date"] for point in data["points"]] == ["2024-01-01", "2024-01-03"]
+    assert [point["bodyweight_kg"] for point in data["points"]] == [80.5, 80.1]
+    assert data["points"][0]["sources"]["bodyweight_kg"] == "manual"
+    assert data["coverage"]["observed_days"] == 2
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/readiness/history?from=2024-01-01&to=2024-01-05&fields=unknown")
+    assert excinfo.value.code == 400
+
+
 def test_review_accepts_optional_session_detail(server):
     data = post(server, "/api/review/2024-01-01", {
         "scores": {"RIR_ADHERENCE": 0.9},
@@ -873,6 +938,9 @@ def test_exercise_catalog_endpoint(server):
     ]
     assert all("demands" in row for row in data["entities"])
     assert any(row["demands"]["dimensions"] for row in data["entities"])
+    evidence = data["demand_catalogue"]["evidence"]
+    assert any(entry["id"] == "EV-CHOLEWICKI-1991" for entry in evidence)
+    assert all(entry["citation"] for entry in evidence)
 
 
 def test_a_demand_rating_can_be_saved_and_cleared_in_the_ui(server, tmp_path, monkeypatch):
@@ -916,6 +984,42 @@ def test_a_supported_demand_rating_needs_evidence(server, tmp_path, monkeypatch)
     })
     assert status == 400
     assert not (tmp_path / "demands.local.yaml").exists()
+
+
+def test_a_supported_demand_rating_can_cite_an_existing_evidence_id(server, tmp_path,
+                                                                     monkeypatch):
+    base = tmp_path / "demands.v1.yaml"
+    base.write_text(json.dumps({
+        "schema_version": "1.0.0",
+        "reviewed_on": "2026-10-28",
+        "evidence": {"EV-TEST-1": {
+            "citation": "Author. Title. Journal, 2020.",
+            "doi": "10.1000/test",
+            "study_type": "controlled",
+            "confidence": "supported",
+        }},
+        "exercises": {},
+    }), encoding="utf-8")
+    monkeypatch.setattr(demands_feature.paths, "exercise_demands_yaml", lambda: base)
+
+    data = post(server, "/api/exercises/demands", {
+        "exercise_id": "seal_row", "dimension": "axial_spinal",
+        "level": "low", "confidence": "supported", "reason": "measured, not inferred",
+        "evidence": ["EV-TEST-1"],
+    })
+    claim = data["demands"]["dimensions"]["axial_spinal"]
+    assert claim["confidence"] == "supported"
+    assert claim["evidence"] == ["EV-TEST-1"]
+
+    # An id the reviewed file does not define is refused, and no overlay is written.
+    status, _ = post_status(server, "/api/exercises/demands", {
+        "exercise_id": "seal_row", "dimension": "trunk_stability",
+        "level": "low", "confidence": "supported", "reason": "invented source",
+        "evidence": ["EV-INVENTED-1"],
+    })
+    assert status == 400
+    assert "EV-TEST-1" in (tmp_path / "demands.local.yaml").read_text(encoding="utf-8")
+    assert "EV-INVENTED-1" not in (tmp_path / "demands.local.yaml").read_text(encoding="utf-8")
 
 
 def test_exercise_post_rejects_an_invalid_id_without_writing(server):
@@ -982,8 +1086,21 @@ def test_volume_ledger_endpoint(server):
     assert "patterns" in data
     assert data["window_weeks"] == 4
     assert any(row["mrv"] is not None for row in data["patterns"])
+    assert "groups" in data
+    assert all("effective_counts" in row for row in data["groups"])
+    assert data["coverage"]["accounting"] == "hard"
     assert "heavy_spinal" in data
     assert data["heavy_spinal"]["rir_max"] == 1
+
+    status, body = get(server, "/api/volume?date=2024-01-15&weeks=4&accounting=effective")
+    assert status == 200
+    effective = json.loads(body)
+    assert effective["coverage"]["accounting"] == "effective"
+    assert any(row["effective_counts"] != row["counts"] for row in effective["groups"])
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/volume?date=2024-01-15&weeks=4&accounting=invalid")
+    assert excinfo.value.code == 400
 
 
 def test_volume_budget_endpoint_is_read_only(server):
@@ -1156,6 +1273,41 @@ def test_resolver_policy_and_preview_endpoints(server):
     assert data["message"]
 
 
+def test_resolver_preview_job_returns_a_pollable_result(server):
+    started = post(server, "/api/resolver/preview/jobs", {
+        "date": "2024-01-31", "session_type": "squat",
+    })
+    assert started["status"] == "running"
+    job = started
+    for _ in range(100):
+        status, body = get(server, "/api/resolver/preview/jobs/" + started["job_id"])
+        assert status == 200
+        job = json.loads(body)
+        if job["status"] != "running":
+            break
+        time.sleep(0.05)
+    assert job["status"] == "done"
+    assert job["result"]["ok"] is False
+    assert job["result"]["stage"] == "dispatch"
+
+
+def test_prescribe_job_returns_a_pollable_result(server):
+    started = post(server, "/api/prescribe/jobs", {
+        "date": "2024-01-01", "session_type": "squat",
+    })
+    assert started["status"] == "running"
+    job = started
+    for _ in range(100):
+        status, body = get(server, "/api/prescribe/jobs/" + started["job_id"])
+        assert status == 200
+        job = json.loads(body)
+        if job["status"] != "running":
+            break
+        time.sleep(0.05)
+    assert job["status"] == "done"
+    assert job["result"]["items"]
+
+
 def test_programme_accepts_a_start_session_type(server):
     data = post(server, "/api/programme", {
         "weeks": 1, "sessions_per_week": 1, "start_session_type": "bench_hinge",
@@ -1195,6 +1347,8 @@ def test_progress_dashboard_endpoint(server):
     assert "coverage" in data
     assert "performance" in data
     assert "volume" in data
+    assert "weekly" in data
+    assert isinstance(data["weekly"]["weeks"], list)
     assert "no prescription change" in data["note"]
 
 def test_retrospective_validation_endpoint(server):
@@ -1219,10 +1373,16 @@ def test_workout_start_active_and_end(server):
     active = json.loads(get(server, "/api/workout/active")[1])
     assert active["workout"]["workout_id"] == workout_id
 
+    item_index = next(
+        index for index, item in enumerate(plan["items"])
+        if item["exercise_id"] == "trap_bar_deadlift"
+    )
     added = post(server, f"/api/workout/{workout_id}/sets", {
         "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
+        "plan_item_index": item_index,
     })
     assert len(added["workout"]["sets"]) == 1
+    assert added["workout"]["sets"][0]["prescription_item_index"] == item_index
 
     ended = post(server, f"/api/workout/{workout_id}/end", {
         "session_rpe": 7, "duration_min": 50,
@@ -1235,6 +1395,68 @@ def test_workout_start_active_and_end(server):
     assert comparison["trap_bar_deadlift"]["status"] == "under"
     assert comparison["trap_bar_deadlift"]["actual_sets"] == 1
     assert json.loads(get(server, "/api/workout/active")[1])["workout"] is None
+
+
+def test_workout_set_endpoint_accepts_per_rep_velocities(server):
+    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": plan,
+        "readiness": {
+            "sleep": 4, "energy": 4, "mood": 4, "soreness": 2,
+            "stress": 3, "nutrition": 4, "hydration": 4,
+        },
+    })["workout"]
+    added = post(server, f"/api/workout/{started['workout_id']}/sets", {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 3, "rir": 2,
+        "rep_velocities": [
+            {"rep_index": 1, "velocity_mps": 0.62},
+            {"rep_index": 2, "velocity_mps": 0.58},
+            {"rep_index": 3, "velocity_mps": 0.55},
+        ],
+    })
+    row = next(item for item in added["workout"]["sets"]
+               if item["exercise_id"] == "trap_bar_deadlift")
+    assert row["velocity"] == 0.583
+    assert row["rep_summary"]["count"] == 3
+
+
+def test_workout_set_api_rejects_bad_per_rep_values_and_accepts_sparse(server):
+    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": plan,
+        "readiness": {
+            "sleep": 4, "energy": 4, "mood": 4, "soreness": 2,
+            "stress": 3, "nutrition": 4, "hydration": 4,
+        },
+    })["workout"]
+    url = f"/api/workout/{started['workout_id']}/sets"
+    cases = [
+        ([{"rep_index": 4, "velocity_mps": 0.6}], "exceeds reps"),
+        ([{"rep_index": 1.5, "velocity_mps": 0.6}], "positive integer"),
+        ([{"rep_index": 1, "velocity_mps": float("nan")}], "finite and positive"),
+        ([{"rep_index": 1, "velocity_mps": float("inf")}], "finite and positive"),
+        ([{"rep_index": 1, "velocity_mps": 0.6},
+          {"rep_index": 1, "velocity_mps": 0.5}], "duplicate"),
+    ]
+    for values, message in cases:
+        status, body = post_status(server, url, {
+            "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 3,
+            "rir": 2, "rep_velocities": values,
+        })
+        assert status == 400, body
+        assert message in body
+
+    added = post(server, url, {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 3,
+        "rir": 2, "rep_velocities": [
+            {"rep_index": 1, "velocity_mps": 0.62},
+            {"rep_index": 3, "velocity_mps": 0.55},
+        ],
+    })
+    row = next(item for item in added["workout"]["sets"]
+               if item["exercise_id"] == "trap_bar_deadlift")
+    assert row["rep_summary"]["count"] == 2
+    assert row["velocity"] == 0.585
 
 
 def test_second_fragment_reuses_day_plan_and_readiness(server):
@@ -1401,6 +1623,18 @@ def test_exercise_history_api_returns_completed_sets_and_pages(server):
     )
     assert status == 200
     assert json.loads(body)["total"] == 0
+
+    status, body = get(
+        server,
+        "/api/exercise-history?exercise_id=ssb_squat&limit=1&start=2024-01-01&"
+        "end=2024-01-01&include_analytics=true",
+    )
+    assert status == 200
+    bounded = json.loads(body)
+    assert bounded["start"] == "2024-01-01" and bounded["end"] == "2024-01-01"
+    assert bounded["analytics"]["session_count"] == 1
+    assert bounded["analytics"]["working_sets"] == 1
+    assert bounded["analytics"]["daily"][0]["date"] == "2024-01-01"
 
     with pytest.raises(urllib.error.HTTPError) as excinfo:
         get(server, "/api/exercise-history?exercise_id=not_a_lift")
@@ -1623,6 +1857,48 @@ def test_history_endpoint_lists_and_edits_a_session(server):
     assert result["session"]["edited_at"]
     assert result["session"]["forms"][0]["rating"] == 4
 
+    status, body = get(server, f"/api/history/{session_id}")
+    current = json.loads(body)
+    overridden = post(server, f"/api/history/{session_id}/edit", {
+        "sets": current["sets"],
+        "forms": [{"exercise_id": first["exercise_id"], "rating": 2,
+                   "note": "coach override"}],
+        "reason": "form override",
+    })
+    form = next(row for row in overridden["session"]["forms"]
+                if row["exercise_id"] == first["exercise_id"])
+    assert form["rating"] == 2
+    assert form["note"] == "coach override"
+
+    # Blank means leave unchanged, not clear: the omitted rating must preserve both fields.
+    unchanged = post(server, f"/api/history/{session_id}/edit", {
+        "sets": current["sets"],
+        "forms": [{"exercise_id": first["exercise_id"], "rating": None,
+                   "note": "must not replace"}],
+        "reason": "blank form",
+    })
+    form = next(row for row in unchanged["session"]["forms"]
+                if row["exercise_id"] == first["exercise_id"])
+    assert form["rating"] == 2
+    assert form["note"] == "coach override"
+
+
+def test_form_ratings_do_not_change_the_prescription(server):
+    body = {"date": "2024-02-01", "session_type": "squat"}
+    baseline = post(server, "/api/prescribe", body)
+    _, payload = get(server, "/api/history?limit=1")
+    session_id = json.loads(payload)["sessions"][0]["session_id"]
+    _, payload = get(server, f"/api/history/{session_id}")
+    detail = json.loads(payload)
+    exercise_id = detail["sets"][0]["exercise_id"]
+    post(server, f"/api/history/{session_id}/edit", {
+        "sets": detail["sets"],
+        "forms": [{"exercise_id": exercise_id, "rating": 1, "note": "form only"}],
+        "reason": "form-only correction",
+    })
+    after = post(server, "/api/prescribe", body)
+    assert after == baseline
+
 
 def test_history_edit_rejects_an_unknown_exercise(server):
     _, body = get(server, "/api/history?limit=1")
@@ -1688,6 +1964,35 @@ def test_resolver_preview_uses_the_direct_prescription_response(server):
     assert "const before = previous;" in js
     assert "const after = current;" in js
     assert "window.__lastPrescription = plan;" in js
+    assert "/api/resolver/preview/jobs" in js
+    assert "job.status === \"running\"" in js
+    assert "pending_ratings" in js
+    assert "Rate suggestions to start" in js
+    assert "Suitability ratings needed" in js
+    _status, app_js = get(server, "/static/app.js")
+    assert "Suitability ratings needed" in app_js
+    assert "pending_ratings" in app_js
+
+
+def test_prescribe_renders_a_top_set_rejection_reason(server):
+    _status, js = get(server, "/static/app.js")
+    assert "Top set not applied" in js
+    assert "topSet?.reason" in js
+
+
+def test_prescribe_exposes_accessories_only_minimum_mode(server):
+    _status, page = get(server, "/")
+    assert 'id="prescribe-accessories-only"' in page
+    assert 'value="accessory"' in page
+    assert 'value="auto" selected' in page
+    _status, js = get(server, "/static/app.js")
+    assert "minimum_accessories_only" in js
+    assert "Accessories only" in page
+    _status, performance_js = get(server, "/static/performance.js")
+    assert "chart-title" in performance_js
+    assert "chartAxes" in performance_js
+    assert "chart-dialog" in page
+    assert "hard sets vs next e1RM" in performance_js
 
 
 def test_prescribe_top_set_control_is_gated_by_the_setting(server):
@@ -1745,6 +2050,73 @@ def test_a_declared_break_can_be_recorded_and_cancelled(server):
     cancelled = post(server, "/api/state/break/cancel", {"break_id": break_id})
     assert next(row for row in cancelled["breaks"]
                 if row["break_id"] == break_id)["cancelled"] is True
+
+
+def test_the_workout_logger_accepts_per_rep_velocity(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert 'id="workout-set-rep-velocities"' in page
+    status, js = get(server, "/static/workout.js")
+    assert status == 200
+    assert "parseRepVelocities" in js
+    assert "rep_velocities" in js
+
+
+def test_the_history_edit_sheet_can_override_form_ratings(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert 'id="history-edit-forms"' in page
+    status, js = get(server, "/static/history.js")
+    assert status == 200
+    assert "historyFormRows" in js
+    assert "collectHistoryForms" in js
+    assert "data-h-form-rating" in js
+    assert "data-h-form-note" in js
+    assert "Leave a rating blank" in page
+    assert "leave any existing rating and note unchanged" in page
+    assert "ratings cannot be removed" in page
+    assert "— leave unchanged" in js
+
+
+def test_exercise_search_filter_rebuilds_the_select_options(server):
+    status, js = get(server, "/static/core.js")
+    assert status == 200
+    assert "optionSignature" in js
+    assert "select.innerHTML = entries.map" in js
+    assert "option.hidden" not in js
+    assert "select._filterAll" in js
+
+
+def test_a_prescribed_plan_is_cached_across_reloads(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert '/static/prescription-cache.js' in page
+    status, cache = get(server, "/static/prescription-cache.js")
+    assert status == 200
+    assert "strength-coach.prescription.v1" in cache
+    assert "MAX_AGE_MS" in cache and "savedAt > current" in cache
+    assert "selectionDiffers" in cache
+    status, js = get(server, "/static/app.js")
+    assert status == 200
+    assert "restoreCachedPrescription" in js
+    assert "Cached prescription restored" in js
+    assert "Cached plan:" in js and "Current form:" in js
+    assert "Start cached plan" in js
+    assert "invalidateStalePrescriptionCache" in js
+    assert "selectionDiffers(cached.plan, currentPrescribeSelection" in js
+    assert "discard-cached-prescription" in js
+    assert "updateWorkflowStep();\n    restoreCachedPrescription();" in js
+    assert "const show = allowed || cached;" in js
+    assert "requestPrescription" in js
+    assert "/api/prescribe/jobs" in js
+    status, workout = get(server, "/static/workout.js")
+    assert status == 200
+    assert "clearCachedPrescription" in workout
+    assert "__prescriptionFromCache" in workout
+    assert "Start the cached plan" in workout
+    status, settings = get(server, "/static/settings.js")
+    assert status == 200
+    assert "cachePrescription(plan)" in settings
 
 
 def test_the_history_edit_sheet_can_backfill_per_rep_velocity(server):

@@ -6,6 +6,8 @@ a workout import: first/last/mean/min/max and within-set velocity loss.
 
 from __future__ import annotations
 
+from strength_coach.utils import readiness as readiness_utils
+
 
 def summarize(values: list[float]) -> dict | None:
     if not values:
@@ -133,15 +135,15 @@ def _latest_feedback(conn) -> dict[str, float]:
 
 
 def _readiness_by_date(conn) -> dict[str, float]:
+    # The five scored fields only: nutrition/hydration are not readiness inputs
+    # (DEC-READINESS-20), and the descriptive mean must not outlive the score contract.
+    fields = readiness_utils.CORE_SCORE_FIELDS
     rows = conn.execute(
-        "SELECT on_date, sleep, energy, mood, soreness, stress, nutrition, hydration "
-        "FROM readiness_day"
+        "SELECT on_date, " + ", ".join(fields) + " FROM readiness_day"
     ).fetchall()
     out = {}
     for row in rows:
-        values = [float(row[key]) for key in (
-            "sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration"
-        ) if row[key] is not None]
+        values = [float(row[key]) for key in fields if row[key] is not None]
         if values:
             out[str(row["on_date"])] = round(sum(values) / len(values), 2)
     return out

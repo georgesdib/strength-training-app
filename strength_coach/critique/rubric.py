@@ -285,6 +285,11 @@ def _weekly_spinal_cost(facts: CritiqueFacts) -> RubricItem:
 
 
 def _essential_work(facts: CritiqueFacts) -> RubricItem:
+    if facts.session_type == "accessory":
+        return _unmeasurable(
+            "ESSENTIAL_WORK", (),
+            "accessory-only session has no main-lift essential work",
+        )
     if not facts.has_template:
         # Day A/C have no prescription template yet, so their essential work is genuinely
         # unassessable rather than absent.

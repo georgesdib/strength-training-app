@@ -30,10 +30,22 @@ metrics:
     unit: "kg"
     higher_is_better: true
     aggregation: best_of_3
-    # The same field exists in readiness for daily context. This entry is the periodic
-    # assessment; use it when testing grip deliberately, not as a readiness input.
+    # Grip is not a readiness input (DEC-GRIP-01); this is the periodic assessment.
     plausible: [5, 150]
     note: "Best of three per hand; record which hand and dynamometer in the method."
+
+  body_fat_pct:
+    label: "Body fat"
+    unit: "%"
+    # Display convention only: lower is treated as the better direction because the number is
+    # tracked, not because very low body fat is a target. The catalogue is boolean, so the
+    # note carries the "U-shaped, no optimum" caveat.
+    higher_is_better: false
+    aggregation: last
+    plausible: [3, 70]
+    note: >
+      Measured by DEXA, callipers or a scale; record the method, because protocols are not
+      comparable. Lower-is-better is a display convention, not a health optimum.
 
   sit_to_stand_5_s:
     label: "5x sit-to-stand"

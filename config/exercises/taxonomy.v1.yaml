@@ -298,6 +298,13 @@ entities:
     display: "Conventional Deadlift"
     log_names: ["Deadlift (conventional)"]
     pattern: hinge
+    main_lift: false               # not a constitution main lift, but a heavy hinge the athlete logs
+    # DEC-RESOLVER-13: classified as a heavy compound so the RIR effort window applies to it.
+    # The marker also makes it a valid top-set lift if the explicit policy list opts in.
+    primary_compound: true
+    primary_muscles: [glutes, hamstrings]
+    e1rm_applicable: true          # full-range barbell pull: a 1RM is meaningful
+    bodyweight_type: false
     high_fatigue_spinal: true
     spinal_cost: 3        # straighter bar path = longer lumbar moment than the trap bar
     substitutable_for_back_extension: false

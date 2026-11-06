@@ -50,7 +50,7 @@ srpe_coverage:
   window_days: 56
   target_pct: 80
   minimum_sessions: 6
-  doc: docs/NEXT-PHASE-FATIGUE-PLAN.md
+  doc: docs/archive/NEXT-PHASE-FATIGUE-PLAN.md
   why: Missing sRPE/duration weakens every descriptive calibration and the dashboard.
   steps:
   - Review recent sessions with missing sRPE or duration.

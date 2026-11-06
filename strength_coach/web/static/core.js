@@ -27,6 +27,7 @@ function sessionLabel(value) {
     return `Volume fill (${text.slice("volume_fill_".length).replaceAll("_", " ")} omitted)`;
   }
   if (text === "technique") return "Technique (week complete)";
+  if (text === "accessory") return "Accessory only";
   return text;
 }
 
@@ -36,8 +37,6 @@ const READINESS_SCALE_ENDS = {
   mood: ["very low", "excellent"],
   soreness: ["severe", "none"],
   stress: ["extreme", "none"],
-  nutrition: ["very poor", "excellent"],
-  hydration: ["very poor", "excellent"],
 };
 
 function readinessScaleOptions(field) {
@@ -53,21 +52,45 @@ function fmt(value, digits = 1) {
   return Number.isFinite(n) ? n.toFixed(digits).replace(/\.0+$/, "") : esc(value);
 }
 
-/* Filter a native select without replacing it: the select stays the constrained control. */
+/* Filter a native select by rebuilding its option list: browsers do not reliably hide
+ * option elements, so display:none is not a filter. The constrained select remains the control. */
+function optionSignature(select) {
+  return [...select.options].map((option) => option.value + "\u0000" + option.textContent).join("\u0001");
+}
+
 function filterNativeSelect(filter) {
   const wrapper = filter.closest(".search-select");
   const select = wrapper ? wrapper.querySelector("select") : null;
   if (!select) return;
+  const signature = optionSignature(select);
+  // Cache the full list once. An external innerHTML replacement is detected even while a
+  // previous query is active, so the next filter starts from the new source list.
+  const sourceChanged = !select._filterAll ||
+    (!select._filtered && select._sourceSignature !== signature) ||
+    (select._filtered && select._filteredSignature !== signature);
+  if (sourceChanged) {
+    select._filterAll = [...select.options].map((option) => ({
+      value: option.value,
+      text: option.textContent,
+    }));
+    select._sourceSignature = signature;
+  }
   const query = filter.value.trim().toLowerCase();
-  [...select.options].forEach((option) => {
-    if (!option.value) return;
-    const match = option.selected || !query ||
-      option.textContent.toLowerCase().includes(query) ||
-      String(option.value).toLowerCase().includes(query);
-    option.hidden = !match;
-    option.disabled = !match && !option.selected;
-    option.style.display = match ? "" : "none";
-  });
+  const current = select.value;
+  const entries = select._filterAll.filter((entry) =>
+    !entry.value || !query ||
+    entry.value.toLowerCase().includes(query) ||
+    entry.text.toLowerCase().includes(query) ||
+    entry.value === current
+  );
+  select.innerHTML = entries.map((entry) =>
+    '<option value="' + esc(entry.value) + '">' + esc(entry.text) + "</option>"
+  ).join("");
+  if ([...select.options].some((option) => option.value === current)) {
+    select.value = current;
+  }
+  select._filtered = Boolean(query);
+  select._filteredSignature = optionSignature(select);
 }
 
 document.addEventListener("input", (event) => {

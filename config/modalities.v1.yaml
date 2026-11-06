@@ -11,7 +11,7 @@ modules:
     dependencies: [volume_ledger]
     citations: [MOD-VOL-003]
     factors: [budget]
-    doc: docs/VOLUME-MODULATION-PLAN.md
+    doc: docs/archive/VOLUME-MODULATION-PLAN.md
 
   - id: dup
     label: DUP / weekly undulation
@@ -44,7 +44,7 @@ modules:
       - deload.prescription.include_essential
       - deload.prescription.load_multiplier
       - deload.prescription.rir_add
-    doc: docs/NEXT-PHASE-FATIGUE-PLAN.md
+    doc: docs/archive/NEXT-PHASE-FATIGUE-PLAN.md
 
   - id: mrv_cap
     label: MRV cap

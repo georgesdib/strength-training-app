@@ -137,6 +137,25 @@ def test_enabled_resolver_makes_scheduler_availability_pool_aware():
         store.close()
 
 
+def test_schedule_cache_is_invalidated_by_a_database_write():
+    from strength_coach.store import db, repositories
+
+    store = db.Store(":memory:")
+    try:
+        assert schedule.next_session_type(store.connection, "2024-02-01") == "squat"
+        repositories.append_athlete_constraint(
+            store.connection,
+            kind="injury",
+            region="knee",
+            severity="hard_exclude",
+            forbidden_patterns=("squat",),
+        )
+        chosen = schedule.next_session_type(store.connection, "2024-02-01")
+        assert chosen != "squat"
+    finally:
+        store.close()
+
+
 def test_a_constrained_primary_family_falls_back_and_rebalances():
     from strength_coach.store import db, repositories
 

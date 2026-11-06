@@ -16,14 +16,17 @@ from collections.abc import Mapping
 from dataclasses import dataclass, fields, is_dataclass, replace
 from decimal import Decimal
 from pathlib import PurePath
+from types import MappingProxyType
 
 from strength_coach import settings_profile
+from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import beam as beam_mod
 from strength_coach.prescribe import generated as generated_snapshot
-from strength_coach.prescribe import generator, resolver_policy
+from strength_coach.prescribe import generator, minimum_session, resolver_policy
 from strength_coach.prescribe.evaluator import EvaluationInputs, evaluate_assignment
 from strength_coach.prescribe.models import Prescription
 from strength_coach.prescribe.resolver_settings import ResolverSettings
+from strength_coach.store import queries
 from strength_coach.utils import exercises
 
 
@@ -31,6 +34,35 @@ class _PrescriptionEvaluationError(Exception):
     def __init__(self, cause: Exception) -> None:
         self.cause = cause
         super().__init__(str(cause))
+
+
+def _minimum_required_patterns(
+    required: Mapping[str, tuple[str, ...]],
+    session_type: str,
+    retained_ids: set[str],
+    omitted_ids: set[str],
+    candidate_patterns: Mapping[str, Mapping[str, str | None]],
+) -> tuple[list[str], list[str], set[str], set[str]]:
+    """Filter required patterns using actual eligible candidate patterns, not slot defaults."""
+    retained_patterns: set[str] = set()
+    omitted_patterns: set[str] = set()
+    for slot_id, patterns in candidate_patterns.items():
+        bucket = retained_patterns if slot_id in retained_ids else omitted_patterns
+        bucket.update(pattern for pattern in patterns.values() if pattern)
+    kept: list[str] = []
+    dropped: list[str] = []
+    for pattern in required.get(session_type, ()):
+        key = volume_feature.volume_target_key(pattern)
+        if key in retained_patterns:
+            kept.append(pattern)
+        elif key in omitted_patterns:
+            dropped.append(pattern)
+        else:
+            raise ResolverBuildError(
+                "final_integrity",
+                f"minimum-session shape cannot cover required pattern {pattern!r}",
+            )
+    return kept, dropped, retained_patterns, omitted_patterns
 
 
 def _stage_evaluator(
@@ -292,6 +324,34 @@ def build_resolved(
     settings: ResolverSettings | None = None,
     beam_config: beam_mod.BeamConfig | None = None,
 ) -> ResolvedPrescription:
+    """Run the resolver inside one shared clean-set snapshot.
+
+    The beam evaluates four complete assignments and each nested build reads the same
+    history. The snapshot makes those reads one query per distinct filter for this build,
+    without creating a cross-request cache.
+    """
+    with queries.clean_sets_snapshot(conn):
+        return _build_resolved(
+            conn,
+            for_date=for_date,
+            session_type=session_type,
+            inputs=inputs,
+            policy=policy,
+            settings=settings,
+            beam_config=beam_config,
+        )
+
+
+def _build_resolved(
+    conn,
+    *,
+    for_date: str,
+    session_type: str,
+    inputs: EvaluationInputs,
+    policy=None,
+    settings: ResolverSettings | None = None,
+    beam_config: beam_mod.BeamConfig | None = None,
+) -> ResolvedPrescription:
     """Run the generator/beam/evaluator path and return the already-built final prescription."""
     settings = settings or ResolverSettings.load(conn, for_date)
     effective_beam_config = beam_config or beam_mod.BeamConfig()
@@ -301,6 +361,17 @@ def build_resolved(
             "dispatch", "resolver is disabled; enable it or use the fixed path",
             details={"for_date": for_date, "session_type": session_type},
         )
+    if session_type == minimum_session.ACCESSORY_SESSION_TYPE and not inputs.minimum_session:
+        # Direct callers (resolver preview/CLI) do not pass the web form's default target.
+        inputs = replace(
+            inputs,
+            minimum_session=True,
+            minimum_accessories_only=True,
+            minimum_target_minutes=(
+                inputs.minimum_target_minutes
+                or minimum_session.MinimumSessionConfig.load().default_target_minutes
+            ),
+        )
     try:
         inputs.validate_for_resolver()
     except ValueError as exc:
@@ -308,6 +379,62 @@ def build_resolved(
             "prescription_evaluation", str(exc), cause=exc,
             details={"for_date": for_date, "session_type": session_type},
         ) from exc
+    shape = None
+    requested_inputs = inputs
+    if inputs.minimum_session:
+        try:
+            shape = minimum_session.build_resolver_shape(
+                conn,
+                for_date=for_date,
+                session_type=session_type,
+                target_minutes=inputs.minimum_target_minutes or 45,
+                include_main=inputs.minimum_include_main,
+                accessories_only=inputs.minimum_accessories_only,
+            )
+        except Exception as exc:
+            raise ResolverBuildError(
+                "dispatch", f"minimum-session shape failed: {exc}", cause=exc,
+                details={"for_date": for_date, "session_type": session_type},
+            ) from exc
+        required = dict(policy.required_patterns)
+        if session_type == minimum_session.ACCESSORY_SESSION_TYPE:
+            # Accessory-only has no main-lift coverage contract. Its candidate pools still go
+            # through the normal eligibility and redundancy checks below.
+            required[session_type] = ()
+            shape.note["retained_patterns"] = sorted(shape.retained_patterns)
+            shape.note["omitted_required_patterns"] = []
+        else:
+            empty_required = dict(policy.required_patterns)
+            empty_required[session_type] = ()
+            permissive = replace(
+                policy, required_patterns=MappingProxyType(empty_required)
+            )
+            try:
+                all_pools = generator.candidate_pools(
+                    conn, for_date=for_date, session_type=session_type,
+                    policy=permissive, settings=settings,
+                )
+            except Exception as exc:
+                raise ResolverBuildError(
+                    "pool_generation",
+                    f"candidate pools for minimum-session shape failed: {exc}",
+                    cause=exc,
+                    details={"for_date": for_date, "session_type": session_type},
+                ) from exc
+            retained_ids = {slot.id for slot in shape.template.slots}
+            omitted_ids = {slot.id for slot in all_pools.template.slots} - retained_ids
+            kept, dropped, retained_patterns, _omitted_patterns = _minimum_required_patterns(
+                required, session_type, retained_ids, omitted_ids,
+                all_pools.candidate_patterns,
+            )
+            required[session_type] = tuple(kept)
+            shape.note["retained_patterns"] = sorted(retained_patterns)
+            shape.note["omitted_required_patterns"] = sorted(dropped)
+        policy = replace(policy, required_patterns=MappingProxyType(required))
+        inputs = replace(
+            inputs, minimum_session=False, minimum_accessories_only=False,
+            resolver_policy=policy,
+        )
     try:
         pools = generator.candidate_pools(
             conn,
@@ -315,6 +442,7 @@ def build_resolved(
             session_type=session_type,
             policy=policy,
             settings=settings,
+            template=shape.template if shape else None,
         )
     except Exception as exc:
         raise ResolverBuildError(
@@ -402,6 +530,12 @@ def build_resolved(
             "final_integrity", f"prescription fingerprint failed: {exc}", cause=exc,
             beam_result=result,
         ) from exc
+    pending_ratings = sorted({
+        exercise_id
+        for slot in pools.template.slots
+        if (exercise_id := dict(best.assignment).get(slot.id))
+        and exercise_id in pools.suggestions.get(slot.id, ())
+    })
     generated_session = {
         "for_date": for_date,
         "session_type": session_type,
@@ -451,11 +585,29 @@ def build_resolved(
         "beam": result.as_dict(),
         "evaluator": best.as_dict(),
         "top_set": best.prescription.notes.get("top_set"),
+        "pending_ratings": pending_ratings,
         "generated_session": generated_session,
     }
     notes = dict(best.prescription.notes)
+    if shape is not None:
+        note = dict(shape.note)
+        after = minimum_session.estimate_minutes(best.prescription.items)
+        note["after_minutes"] = after
+        note["status"] = "applied" if after <= note["target_minutes"] else "partial"
+        note["reason"] = (
+            f"estimated {note['before_minutes']:.1f} -> {after:.1f} min; "
+            f"target {note['target_minutes']} min"
+            if note["status"] == "applied"
+            else f"floors reached at {after:.1f} min; target {note['target_minutes']} min"
+        )
+        notes["minimum_session"] = note
     notes["resolver"] = metadata
-    prescription = replace(best.prescription, notes=notes)
+    warnings = tuple(best.prescription.warnings)
+    if shape is not None and shape.note.get("accessories_only") and requested_inputs.top_set_requested:
+        warnings += (
+            "Top set not applied: accessory-only minimum session has no main lift",
+        )
+    prescription = replace(best.prescription, notes=notes, warnings=warnings)
     return ResolvedPrescription(
         prescription=prescription,
         assignment=best.assignment,

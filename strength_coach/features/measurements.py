@@ -12,86 +12,19 @@ direction is assumed is a data bug waiting to happen (the `stress 5 = good` trap
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Mapping
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
-import yaml
-
 from strength_coach.store import queries, repositories
-from strength_coach.utils import paths
+from strength_coach.utils import measurements as measurement_utils
 
-AGGREGATIONS = ("mean", "max", "best_of_3", "last")
+AGGREGATIONS = measurement_utils.AGGREGATIONS
 DEFAULT_SOURCE = "user"
 
-
-class MeasurementError(ValueError):
-    """A metric is unknown, mis-declared, or the value is outside a plausible range."""
-
-
-@dataclass(frozen=True)
-class MetricSpec:
-    key: str
-    label: str
-    unit: str | None
-    higher_is_better: bool
-    aggregation: str
-    plausible_min: float | None = None
-    plausible_max: float | None = None
-    note: str = ""
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "key": self.key,
-            "label": self.label,
-            "unit": self.unit,
-            "higher_is_better": self.higher_is_better,
-            "aggregation": self.aggregation,
-            "plausible_min": self.plausible_min,
-            "plausible_max": self.plausible_max,
-            "note": self.note,
-        }
-
-
-@dataclass(frozen=True)
-class MeasurementConfig:
-    metrics: Mapping[str, MetricSpec]
-    source_path: Path = Path()
-
-    @classmethod
-    def load(cls, path: str | Path | None = None) -> MeasurementConfig:
-        source = Path(path or paths.measurements_yaml())
-        if not source.exists():
-            return cls(metrics={}, source_path=source)
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
-        metrics: dict[str, MetricSpec] = {}
-        for key, body in (raw.get("metrics") or {}).items():
-            name = str(key).strip()
-            body = body or {}
-            aggregation = str(body.get("aggregation", "last"))
-            if aggregation not in AGGREGATIONS:
-                raise MeasurementError(
-                    f"{name}: aggregation must be one of {AGGREGATIONS}, got {aggregation!r}"
-                )
-            plausible = body.get("plausible") or (None, None)
-            low = None if plausible[0] is None else float(plausible[0])
-            high = None if plausible[1] is None else float(plausible[1])
-            if low is not None and high is not None and low > high:
-                raise MeasurementError(f"{name}: plausible min exceeds max")
-            metrics[name] = MetricSpec(
-                key=name,
-                label=str(body.get("label", name)),
-                unit=(str(body["unit"]) if body.get("unit") else None),
-                higher_is_better=bool(body.get("higher_is_better", True)),
-                aggregation=aggregation,
-                plausible_min=low,
-                plausible_max=high,
-                note=str(body.get("note") or "").strip(),
-            )
-        if not metrics:
-            raise MeasurementError("no measurement metrics configured")
-        return cls(metrics=metrics, source_path=source)
+# The catalogue is config and therefore lives in utils; these re-exports keep the feature's
+# public names stable for callers and tests.
+MeasurementError = measurement_utils.MeasurementError
+MetricSpec = measurement_utils.MetricSpec
+MeasurementConfig = measurement_utils.MeasurementConfig
 
 
 def record(
@@ -118,15 +51,7 @@ def record(
         day = dt.date.fromisoformat(measured_on) if measured_on else dt.date.today()
     except ValueError as exc:
         raise MeasurementError(f"date must be YYYY-MM-DD: {measured_on!r}") from exc
-    number = float(value)
-    if spec.plausible_min is not None and number < spec.plausible_min:
-        raise MeasurementError(
-            f"{spec.key}={number:g} is below the plausible minimum {spec.plausible_min:g}"
-        )
-    if spec.plausible_max is not None and number > spec.plausible_max:
-        raise MeasurementError(
-            f"{spec.key}={number:g} is above the plausible maximum {spec.plausible_max:g}"
-        )
+    number = spec.validate(value)
 
     _ensure_definition(conn, spec)
     repositories.append_measurement(
@@ -142,34 +67,8 @@ def record(
 
 
 def _ensure_definition(conn, spec: MetricSpec) -> None:
-    """Create the metric declaration once; refuse a direction change later.
-
-    A previously declared metric keeps its original direction and unit. Silently accepting a
-    different one would reinterpret every stored value, which is exactly the kind of quiet
-    inversion the project forbids.
-    """
-    existing = queries.metric_definitions(conn).get(spec.key)
-    if existing is None:
-        repositories.append_metric_definition(
-            conn,
-            metric_key=spec.key,
-            label=spec.label,
-            higher_is_better=spec.higher_is_better,
-            aggregation=spec.aggregation,
-            scale_min=spec.plausible_min,
-            scale_max=spec.plausible_max,
-            unit=spec.unit,
-            source="config",
-        )
-        return
-    stored_direction = bool(existing["higher_is_better"])
-    stored_unit = existing.get("unit")
-    if stored_direction != spec.higher_is_better or stored_unit != spec.unit:
-        raise MeasurementError(
-            f"{spec.key} is already declared as higher_is_better="
-            f"{stored_direction}, unit={stored_unit!r}; config says "
-            f"{spec.higher_is_better}, unit={spec.unit!r}"
-        )
+    """Create the metric declaration once; refuse a direction/unit change later."""
+    repositories.ensure_metric_definition(conn, spec)
 
 
 def summary(conn, *, config: MeasurementConfig | None = None) -> list[dict[str, Any]]:
@@ -205,3 +104,40 @@ def entries(conn, *, metric_key: str | None = None,
             limit: int = 100) -> list[dict[str, Any]]:
     rows = queries.measurements(conn, metric_key=metric_key)
     return rows[-limit:]
+
+
+def page(
+    conn,
+    *,
+    metric_key: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Newest-first exact-record pagination; entries remain date-ascending.
+
+    Offset 0 preserves the former latest-50 behavior. The next offset walks backwards in
+    time; no record is invented for a date without a measurement.
+    """
+    if limit < 1 or limit > 200:
+        raise ValueError("limit must be between 1 and 200")
+    if offset < 0:
+        raise ValueError("offset must be non-negative")
+    rows = queries.measurements(
+        conn, metric_key=metric_key, since=since, until=until,
+    )
+    total = len(rows)
+    end = max(0, total - offset)
+    start = max(0, end - limit)
+    entries = rows[start:end]
+    next_offset = offset + limit if start > 0 else None
+    return {
+        "entries": entries,
+        "page": {
+            "limit": limit,
+            "offset": offset,
+            "total": total,
+            "next_offset": next_offset,
+        },
+    }

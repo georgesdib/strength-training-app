@@ -38,7 +38,7 @@ landmarks:
   core: {mev: 3, mav: [4, 9], mrv: 12}
 
 budget:
-  # Weekly volume budget (docs/VOLUME-MODULATION-PLAN.md, DEC-VOLUME-06). The target is
+  # Weekly volume budget (docs/archive/VOLUME-MODULATION-PLAN.md, DEC-VOLUME-06). The target is
   # the six-session cycle average; tests/test_volume_budget.py pins these numbers to the
   # templates, so a template change fails loudly instead of silently moving the dose.
   # enabled is the fallback used only when no athlete profile flag is recorded; the profile

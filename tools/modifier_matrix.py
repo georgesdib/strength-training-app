@@ -34,7 +34,6 @@ GAPS = (7, 28, 56)
 FOR_DATE = {7: "2024-01-08", 28: "2024-01-29", 56: "2024-02-26"}
 LOW_READINESS = {
     "Sleep": "1", "Energy": "1", "Mood": "1", "Soreness": "1", "Stress": "1",
-    "Nutrition": "1", "Hydration": "1",
 }
 E1RM = {
     "ssb_squat": 180.0, "trap_bar_deadlift": 190.0, "bench_press": 110.0,
@@ -94,7 +93,7 @@ def _build_store(readiness_kind: str, gap: int, decay: str, flare: bool):
     for_date = FOR_DATE[gap]
     readiness = make_readiness([{
         "Date": for_date, "Sleep": "4", "Energy": "4", "Mood": "4",
-        "Soreness": "4", "Stress": "4", "Nutrition": "4", "Hydration": "4",
+        "Soreness": "4", "Stress": "4",
     }])
     rows = _rows(for_date, gap)
     if readiness_kind == "low":

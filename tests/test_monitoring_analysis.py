@@ -62,6 +62,8 @@ def test_analysis_is_deterministic_and_read_only(tmp_path):
     assert payload["meta"]["seed"] == 0
     assert payload["dose"]
     assert payload["associations"]
+    assert payload["associations"][0]["dose"]
+    assert payload["associations"][0]["dose"][0]["date"]
 
 
 def test_tonnage_distinguishes_zero_from_missing():

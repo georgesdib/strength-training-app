@@ -93,7 +93,7 @@ workout, it is descriptive.
 
 ## 6. Surfaces
 
-- Workout mode: optional per-rep file/paste box, preview table and rep summary.
+- Workout mode: optional per-rep field on **Log a set** (comma/space-separated m/s, rep 1..n), plus the optional per-rep file/paste box, preview table and rep summary.
 - `GET /api/rep-velocity?session=...`: per-session report.
 - `GET /api/rep-velocity/analysis?weeks=...`: stratified cross-session report.
 - **Progress → Per-rep velocity**: correlations (n >= 10), recent session rows and missing-data context.
@@ -104,8 +104,8 @@ workout, it is descriptive.
 ## 7. How to use it
 
 1. Record the workout with the required set-level CSV/mean. The per-rep table is optional and
-   does not replace it.
-2. Export the per-rep CSV from the device.
+   does not replace it. You can also type the per-rep values directly in the Log a set form.
+2. Export the per-rep CSV from the device, or use the direct field.
 3. In Workout mode, paste/choose the main CSV and the per-rep CSV in the same import panel;
    preview before applying.
 4. The preview shows the optional per-rep rows; matching is by canonical exercise + set number.

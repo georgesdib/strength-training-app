@@ -52,7 +52,7 @@ def test_sentinel_and_valid_sets_are_disjoint():
 
 def test_readiness_sentinels_documented_fields():
     """Every readiness field that has no physical zero must be in the sentinel map."""
-    for field in ["HRV", "RHR", "Weight", "Fat_Percent"]:
+    for field in ["HRV", "RHR", "Weight"]:
         assert field in numeric.ZERO_IS_MISSING
 
 

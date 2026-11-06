@@ -141,6 +141,18 @@ def test_the_prescription_applies_the_calibrated_factor_and_cites_it():
     assert any("e1RM calibrated" in warning for warning in prescription.warnings)
 
 
+def test_factors_cache_is_invalidated_by_a_new_measured_test():
+    with _store_with_three_tests() as store:
+        first = e1rm_calibration.factors(store.connection, "2024-05-02")
+        repositories.append_e1rm_override(
+            store.connection, exercise_id="ssb_squat", e1rm_kg=130.0,
+            effective_from="2024-04-15", reason="fourth test", source="measured",
+        )
+        second = e1rm_calibration.factors(store.connection, "2024-05-02")
+    assert first["ssb_squat"].n == 3
+    assert second["ssb_squat"].n == 4
+
+
 def test_fixed_measured_test_fixture_keeps_exact_factor_and_applied_flag():
     with _store_with_three_tests() as store:
         factors = e1rm_calibration.factors(store.connection, "2024-04-02", window_days=84)

@@ -11,3 +11,9 @@ main_lift_floor_sets: 2
 # Estimated seconds per working set; this is a planning estimate, not a measurement.
 set_seconds: 30
 warmup_set_seconds: 30
+# Pattern recency window for optional accessory ordering. A pattern last trained before this
+# window is treated as least recently trained; ties keep template order.
+pattern_history_days: 84
+# Soft cap for any accessory slot selected by an accessory-only shape. The shape adds patterns
+# before raising sets, and never raises a slot above this value just to fill the clock.
+accessory_max_sets: 4

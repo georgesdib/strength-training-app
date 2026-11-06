@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-11-03 · **v1.2.0 released; v1.3 planned** · version `1.2.0`
+Last updated: 2026-11-06 · **v1.3.0 released; v1.4 planned** · version `1.3.0`
 
 
 ---
@@ -34,7 +34,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 
 | # | Phase | Status | Artifacts |
 |---|---|---|---|
-| 0 | Design + approval | **done** | `docs/ARCHITECTURE.md`, `DATA-MODEL.md`, `DATA-QUALITY.md`, `RULES-FORMAT.md`, `VBT-CALIBRATION.md`, `MODULE-LAYOUT.md`, `V0-SCOPE.md`, `OPEN-QUESTIONS.md`, `SANITY-CHECKS.md`, `TRAINING-GUIDELINES.md` |
+| 0 | Design + approval | **done** | `docs/ARCHITECTURE.md`, `DATA-MODEL.md`, `DATA-QUALITY.md`, `RULES-FORMAT.md`, `VBT-CALIBRATION.md`, `docs/archive/MODULE-LAYOUT.md`, `V0-SCOPE.md`, `OPEN-QUESTIONS.md`, `SANITY-CHECKS.md`, `TRAINING-GUIDELINES.md` |
 | 1 | Ingest (clean + sessions) | **done** | `ingest/clean.py`, `ingest/sessions.py`, `config/templates/inference.v1.yaml` |
 | 2 | Derived features + VBT calibration | **done** | `features/derived.py`, `features/baseline.py`, `features/vbt_calibration.py`, `domain/e1rm.py`, `domain/load.py`, `domain/rir.py` |
 | 3 | Store (SQLite, append-only) | **done** | `store/migrations/0001_initial.sql`, `store/db.py`, `store/repositories.py`, `store/importer.py` |
@@ -50,10 +50,12 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v0.4 | Audit, documentation and form closeout | **done 2026-10-25** | form assessment/prospective follow-up, fatigue diagnostic closure, UI documentation P0–P4, parent-ratio evidence review, weakness test plan, calibration milestone (§4.22) |
 | v1.0 beta | Workable app + guided Workflow UI | **released 2026-10-27** | full strength loop, guided readiness → preview → workout → post-workout, effective volume accounting, template editor, schedule fallback/rebalance; user testing in progress |
 | v1.1 beta | Performance + monitoring analysis | **released 2026-10-31 (b2); b1 2026-10-30** | raw e1RM Performance view, rolling median, breaks, degraded observations, dose, configured relative-strength ratios, read-only monitoring analysis, calibration transparency; Phase 5A review follow-up |
-| v1.2 | Stable release + opt-in resolver | **released 2026-11-03** | beta label removed; deterministic template resolver shipped as opt-in (`resolver.enabled` default false) with acceptance audit closed; cardio depth, reproducible impulse/shadow load and comparable calibration depth deferred to v1.3 (§4.13a/§4.14) |
+| v1.2 | Stable release + opt-in resolver | **released 2026-11-03** | beta label removed; deterministic template resolver shipped as opt-in (`resolver.enabled` default false) with acceptance audit closed; cardio depth, reproducible impulse/shadow load and comparable calibration depth deferred to v1.4 (§4.13a/§4.14) |
+| v1.3 | UI closure, measurement/readiness cleanup and documentation infrastructure | **released 2026-11-06** | UI redesign P0–P3 closed; body fat moved to measurements with historical migration, readiness inputs cleaned up, measurement chart windows, readiness override beside the score, and the manifest-backed documentation archive; no prescription change |
+| v1.4 | Cardio depth and calibration | **planned** | cardio data audit, reproducible cardio impulse/shadow load and comparable calibration data (§4.13a/§4.14) |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
-| — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/PROGRAMME-BUILDER-PLAN.md`](docs/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
-| future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
+| — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
+| future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.4; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
 | — | 2026-10-26 pass | **done 2026-10-26** | declared breaks — append-only range, `break` CLI, Athlete panel, freeze in the trained-week cycle (`DEC-CONTINUITY-04`, `LIM-50`); P1 measured-test coverage view (`e1rm tests-needed` + Athlete table); symptom settling made fail-safe — a level-1 reading without a recorded 48 h settlement is a flare (`DEC-SYMPTOM-04`, Q25 closed) and `docs/SYMPTOM-LOGGING.md` documents the episode workflow; minimum-session target shown against the measured clock (`DEC-MIN-02`, `LIM-47` mitigated); gaps table folded into `docs/LIMITATIONS-REGISTER.md` |
@@ -66,12 +68,15 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | — | 2026-10-30 monitoring Phase 3 | **done 2026-10-30** | Performance view and API/CLI for raw e1RM observations, rolling median, series breaks and dose; functional session-type/deload/quality filters; degraded observations shown separately; explicitly configured relative-strength ratios with eligibility-aware history; comparable-session descriptive summary; no target ratios, diagnosis, decay or calibration. Equipment breaks remain undetectable because equipment is not stored |
 | — | 2026-10-30 monitoring Phase 2 | **done 2026-10-30** | completed-workout descriptive summary (completion, raw strength, dose, special exposure, feedback) with API/CLI/end-screen; approved append-only `session_feedback.productivity` 1–5 migration preserving existing rows; no ratios, longitudinal trends or prescription control |
 | — | 2026-10-28 knee-flexion accessory | **done 2026-10-28** | `lying_leg_curls` 3×8-12 added to the squat and hinge sessions with `nordic_curl` as an opt-in candidate; `knee_flexion` is a managed ledger key (MEV 3 / MAV 4–8 / MRV 10, target 6/week, cap 4) and the `hamstring_eccentric` pattern maps onto it; weekly total 57→63, effective 68.25→74.25; programme summary regenerated; remaining unprescribed groups recorded as accepted gaps (`LIM-54`) (`DEC-KNEEFLEX-01`, `ASSUMPTION-50`) |
-| — | 2026-10-27 audit follow-up | **done 2026-10-27** | back-flare alignment (`DEC-SPINE-07/08`), quality-limited power (`DEC-POWER-02/03`), same-date plan accounting (`DEC-VOLUME-30/31/32`), readiness RIR re-solve (`DEC-READINESS-18`), generated programme summary; independent audit report [`docs/AUDIT-FOLLOW-UP-REPORT.md`](docs/AUDIT-FOLLOW-UP-REPORT.md); `LIM-53` closed; **audit fully closed 2026-10-27, no open follow-ups** |
+| — | 2026-10-27 audit follow-up | **done 2026-10-27** | back-flare alignment (`DEC-SPINE-07/08`), quality-limited power (`DEC-POWER-02/03`), same-date plan accounting (`DEC-VOLUME-30/31/32`), readiness RIR re-solve (`DEC-READINESS-18`), generated programme summary; independent audit report [`docs/archive/AUDIT-FOLLOW-UP-REPORT.md`](docs/archive/AUDIT-FOLLOW-UP-REPORT.md); `LIM-53` closed; **audit fully closed 2026-10-27, no open follow-ups** |
 | — | 2026-10-25 corrective pass | **done 2026-10-25** | e1RM selector + plausibility advisory (`DEC-E1RM-SOURCE-01`, `DEC-E1RM-PLAUS-01`), `MOD-SPINE-001` spinal trim, group-level volume status (`DEC-VOLUME-05`), technique throttle in the API and Prescribe form (`MOD-TECH-001`), e1RM overrides in Exercises and post-workout; legacy A/B/C labels removed from rule scopes and taxonomy `day_roles`; squat loading kept out of the spinal cap as a recorded scope decision (`DEC-SPINE-04`, later superseded by `DEC-SPINE-05`); constitution 1.13.1 (`DEC-RIR-04`; `MOD-TECH-001`/`MOD-MIN-001` declared) |
 | — | Post-workout form assessment | **done 2026-10-25** | optional per-lift 1–5; Workout + History edit; rubric 1.2.0 |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video descoped; 3.8 labelled set moved to §4.14 |
-| — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000`; Settings tab for LLM and browser defaults |
-| — | Engine audit W0–W12 | **closed 2026-10-23** | `docs/AUDIT-CLOSEOUT.md`; open items in `docs/LIMITATIONS-REGISTER.md` |
+| — | Performance | **resolver sequential build 133.15 s → 42.13 s historical; clean-set snapshot A/B 46.19 s → 35.41 s on the current 375-session DB; multiprocessing not justified** | `docs/PERFORMANCE-PROFILE.md`; schedule/settings/policy/E1RM/VBT caches plus the per-generation clean-set snapshot, no behaviour change |
+| — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000`; six task areas and actionable Today; integrated 4/8/12-week Progress with reusable dependency-free SVG line/bar charts, selectable e1RM, pattern/exercise working-set trends, observed-day calendar/frequency, lagged dose associations, bounded original-plan vs logged execution, retained sRPE/main-lift summaries and explicit data gaps; basis/unit-safe load/reps graphs and consolidated exercise dialog; Settings defaults, seven-day plan cache, History form override, resolver and VBT work; **UI redesign P0–P3 complete; final audit passed 2026-11-06** in `docs/archive/UI-DESIGN-IMPLEMENTATION-PLAN.md` |
+| — | Engine audit W0–W12 | **closed 2026-10-23** | `docs/archive/AUDIT-CLOSEOUT.md`; open items in `docs/LIMITATIONS-REGISTER.md` |
+| — | 2026-11-06 documentation manifest + archive | **done 2026-11-06** | Public documentation now has one authoritative manifest (`docs/manifest.yaml`) consumed by the Docs API/viewer and tests, a curated index (`docs/README.md`), and an archive of 27 completed plans/closed audits under `docs/archive/` with an index. The W0–W12 reports are grouped in `docs/archive/audits/`, the HTTP API reference is split into `docs/API.md`, and readiness has a reference map. Categories replace the flat list in the Docs viewer; `docs/design/` remains maintainer-only and `private/` is never listed or served (boundary tests added). Links and tests updated; no application, API, schema or prescription change |
+| — | 2026-11-06 demand evidence + readiness/measurement cleanup | **done 2026-11-06** | Demand-profile form cites existing evidence ids from the reviewed catalogue through a preselected, iOS-safe checkbox list (a native multi-select shows "0 items" on iPhone). `conventional_deadlift` is a taxonomy `primary_compound` (`DEC-RESOLVER-13`, `main_lift` unchanged) so `PRG-RIR-001`'s RIR window covers its logged sets; its local UI override is removed and the generated programme/workout docs are regenerated (digest only). Readiness drops the unused nutrition/hydration inputs (`DEC-READINESS-20`, constitution 1.21.0 guard list only) and body fat moves to the periodic measurement log as `body_fat_pct` (`DEC-MEASURE-02`, migration 0051 copies 828 historical values and future imports are idempotent). The never-written readiness `composite`/`composite_basis` columns and `composite.enabled` config key are removed (migration 0050). LIM-59 closed as a design choice; no prescription or load arithmetic changed |
 
 ### Version plan (2026-10-25)
 
@@ -83,16 +88,18 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.0 beta | workable app, guided Workflow UI and the current strength/volume feature set | **released 2026-10-27; beta** |
 | v1.1 beta | monitoring and Performance surfaces | **released 2026-10-31 (b2); beta** |
 | v1.2 | beta removal plus opt-in deterministic resolver | **released 2026-11-03; stable** |
-| v1.3 | cardio depth, reproducible cardio impulse/shadow load and comparable calibration data | **planned; see §4.13a/§4.14** |
+| v1.3 | UI closure, measurement/readiness cleanup and documentation infrastructure | **released 2026-11-06; stable** |
+| v1.4 | cardio depth, reproducible cardio impulse/shadow load and comparable calibration data | **planned; see §4.13a/§4.14** |
 | — | training-day session fragments | **done 2026-11-01** (see §4.27) |
 | — | post-workout form assessment | **done 2026-10-25** |
-| future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.2; Iteration 2 conditional (§4.24)** |
+| future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.4; Iteration 2 conditional (§4.24)** |
 
 **Rule:** cardio work does not enter v0.3; video is descoped. The strength model (§4.16) is
 strength-only and closed with v0.3. Audit/documentation/form closeout is v0.4. v1.0 is the beta
-release for user testing; v1.1 is the monitoring beta; v1.2.0 is the stable release that removes
-the beta label and ships the resolver as an opt-in feature. Cardio depth and comparable
-calibration data move to v1.3.
+release for user testing; v1.1 is the monitoring beta; v1.2.0 removed the beta label and
+shipped the resolver as an opt-in feature; v1.3.0 closes the UI redesign and consolidates the
+measurement/readiness and documentation work. Cardio depth and comparable calibration data
+move to v1.4.
 
 ### What works end to end today
 
@@ -171,6 +178,10 @@ Evidence classes: **supported**, **provisionally supported**, **insufficient evi
 A. proceed to Phase 5B;
 B. extend Phase 5A once by approximately four weeks, documenting the missing evidence;
 C. close Phase 5A without Phase 5B, documenting which metrics remain unvalidated.
+
+**Documentation at the same gate:** fold the maintainer-only monitoring design history
+(docs/design/) into [docs/MONITORING-ANALYSIS.md](docs/MONITORING-ANALYSIS.md) and retire or mark
+the separate design trail; tracked in §4.19. Do it only after this review classifies the metrics.
 
 Completing the Today follow-up requires an explicit decision; it never starts Phase 5B or
 changes monitoring automatically.
@@ -682,7 +693,7 @@ load and never replaces the global readiness score; see [`docs/LIFT-READINESS.md
 define a standardised velocity check at a fixed load, collect measured e1RM tests for a better
 trend, then test prospectively whether a low per-lift score predicts a missed rep or a worse
 session. Do not change the load policy from this score until that validation exists. Not
-scheduled; it is not part of v1.3.
+scheduled; it is not part of v1.4.
 
 #### 4.9.3 Learned weights — closed
 
@@ -765,11 +776,11 @@ action leaves no partial write; API tests cover each new write; no load, score o
 computed in the browser.
 
 **Later UI and functionality work:** the UI-04/UI-08 brief and the final functionality/code
-audit are consolidated in [`docs/UI-IMPROVEMENT-PLAN.md`](docs/UI-IMPROVEMENT-PLAN.md); closed
+audit are consolidated in [`docs/archive/UI-IMPROVEMENT-PLAN.md`](docs/archive/UI-IMPROVEMENT-PLAN.md); closed
 2026-10-27 (implemented and merged into `main`; merge `db1cc8f`, lint `49a49cd`).
 
 **Mobile UI audit (2026-10-28):** the consolidated iPhone/form-control audit lives in
-[`docs/UI-MOBILE-AUDIT.md`](docs/UI-MOBILE-AUDIT.md). Checkpoints 1–4 fixed the P0 contract
+[`docs/archive/UI-MOBILE-AUDIT.md`](docs/archive/UI-MOBILE-AUDIT.md). Checkpoints 1–4 fixed the P0 contract
 failures, canonical athlete/exercise choices, the active-workout/readiness presentation, mobile
 cards, searchable pickers, touch/dialog/safe-area rules and the accessibility/field-error gaps.
 The owner completed the native-iPhone pass and the full automated suite is green; the audit is
@@ -831,7 +842,7 @@ Acceptance: `strength-coach continuity` and `GET /api/continuity` show observed 
 the fixed rule; the minimum-data rule is explicit; a sparse band keeps the fixed factor; a
 well-observed band applies the calibrated factor; the prescription cites the applied rule.
 
-### 4.13 Cardio workouts and an impulse fatigue model  (capture v0.2 done; cardio model v1.3; strength model is §4.16)
+### 4.13 Cardio workouts and an impulse fatigue model  (capture v0.2 done; cardio model v1.4; strength model is §4.16)
 
 The app currently measures resistance training only. Cardio is a separate exposure with a
 different fatigue signature, and a single "fatigue score" would hide that. This item adds the
@@ -904,7 +915,7 @@ method; the fatigue state is displayed with inputs and time constants; a shadow 
 no prescription; constraints and injury ceilings remain vetoes; no cardio session silently
 counts as resistance volume or vice versa.
 
-### 4.13a v1.3 plan — cardio depth and calibration  (deferred from v1.2; approved 2026-10-25)
+### 4.13a v1.4 plan — cardio depth and calibration  (deferred from v1.2; approved 2026-10-25)
 
 **Goal:** make cardio a first-class, reproducible exposure; add only a shadow cardio-load
 context; and deepen calibration enough to decide whether any rubric definition should change.
@@ -973,7 +984,7 @@ These are planning windows, not promises; missing data pauses the dependent phas
 3. Add the A2 impulse contract and fixed test cases before any model work.
 4. Keep collecting live workouts and per-rep data for B0 in parallel.
 
-### 4.14 Labelled calibration set  (v1.3; deferred from v1.2, moved from v0.3)
+### 4.14 Labelled calibration set  (v1.4; deferred from v1.2, moved from v0.3)
 
 No code. Continue reviewing sessions while they are fresh; the rubric report needs roughly ten
 *remembered* sessions per item before changing a definition or weight (DEC-EVAL-03,
@@ -999,7 +1010,7 @@ never edits; the report states the sample size and excludes low-confidence marks
 **Current implementation:** `prescribe/selection.py` ranks the configured and catalogue variants per slot from readiness, recent stress, rotation and preference; the rejected fitness-fatigue state is no longer an input; constraints and `can_do: false` exclude a candidate; injury is a penalty, not a veto. Candidates carry an A/B/C comparability class: A applies automatically, B requires confirmation, C is hidden by default and never automatic; the selected lift's own history is always used. A display-only own-history e1RM ratio is shown, but it does not enter the score. See `DEC-SELECT-03` and [SELECTION-COMPARABILITY.md](docs/SELECTION-COMPARABILITY.md). It is exposed as `strength-coach select` and a Prescribe panel. With the explicit **Apply selection** toggle, the chosen candidate replaces the slot exercise and the load is re-solved from that lift's own history (`MOD-SELECT-001`). Without the toggle nothing changes. All synthetic raw variant names were canonicalised and their history rewritten (migration 0014, 114 entities, 3,607 audited remaps; migration 0015 split close-grip pulldown); trap-bar date-scoping and back-extension equivalence are preserved.
 
 **Weakness/injury tailoring — deferred.** No positive weakness/injury targeting. Injury remains
-an exclusion/penalty/ceiling. Earliest review is after v1.2 and ~April 2027, and only with 12
+an exclusion/penalty/ceiling. Earliest review is after v1.3 and ~April 2027, and only with 12
 sessions per target lift over 12 weeks, a pre-registered own-trend metric, a retrospective
 baseline win, and an opt-in N-of-1/alternating test; injury targeting remains unscheduled.
 See [WEAKNESS-INJURY-SELECTION.md](docs/WEAKNESS-INJURY-SELECTION.md),
@@ -1183,7 +1194,7 @@ in §4.24 and [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); th
 kept as the original idea record.
 
 **Next-phase design:** the final lean non-cardio fatigue-management plan is **closed**
-([`docs/NEXT-PHASE-FATIGUE-PLAN.md`](docs/NEXT-PHASE-FATIGUE-PLAN.md)). It used the existing
+([`docs/archive/NEXT-PHASE-FATIGUE-PLAN.md`](docs/archive/NEXT-PHASE-FATIGUE-PLAN.md)). It used the existing
 data plus an sRPE/duration backfill for descriptive calibration and implemented the optional
 deload plus four deterministic programme changes, and closed individual MRV as not estimable.
 No programme experiments, no individualised MRV and no randomised deload trial. The remaining
@@ -1197,16 +1208,17 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | priority | action | status |
 |---|---|---|
 | P1 | Record **≥3 measured tests per main lift** so `MOD-E1RM-001` can calibrate the formula (the bias question is data-starved, not mechanism-starved) | **next** — `e1rm tests-needed` reports counted tests per main lift against the gate (the Athlete page shows the same table); `e1rm calibrate` shows the ratio and CI; record from the Athlete page, an Exercises row or the post-workout panel |
+| P2 | Fold the monitoring design history into docs/MONITORING-ANALYSIS.md | **scheduled 2027-01-22, with the Phase 5A review gate** — the canonical analysis already indexes the design trail; at the gate, summarise docs/design/... into the canonical document and retire or mark the separate trail. Do not do it earlier: Phase 5A classifies each metric, and the design must not be presented as settled first |
 | P2 | Web authentication + per-user data | **backlog; overkill for now** — CLI-only user provisioning, auth DB, per-user coach DB, login/session/CSRF, password reset, birthdate/gender/timezone onboarding, TLS reverse proxy and home-network host. Temporary no-auth HTTP bind is accepted under `LIM-57` |
 | P2 | Parent-variant e1RM ratios | unscheduled; display-only at most (§4.20.2) |
-| P2 | Weakness/injury-targeted selection | deferred to after v1.2 / ~April 2027; gates in §4.20.3 and `DEC-SELECT-05` |
+| P2 | Weakness/injury-targeted selection | deferred to after v1.3 / ~April 2027; gates in §4.20.3 and `DEC-SELECT-05` |
 | P2 | Main-lift upward-revision ratchet | **deferred, not scheduled** — rejected as a controller in `DEC-E1RM-PLAUS-01`; revisit only if calibration cannot close the bias |
 | P2 | Volume-ledger denominator and zero-week coverage | **implemented** — calendar-window denominator, complete-coverage zero-fill, break/deload reset for under-MEV; live profile coverage complete; design in VOLUME-MODULATION-PLAN §14, Q29 |
 | P2 | Step 8 effective-set accounting | **implemented and live 2026-10-27** — 0.25 map, target 68.25, landmarks unscaled, effective budget/ledger, raw UI column, `hard`/`effective` switch; rollback one profile change (VOLUME-MODULATION-PLAN §15–16) |
-| P2 | Volume modulation: weekly target + session cap | **complete/closed 2026-10-27** — steps 1, 2, 2b, 9a and 9b implemented: read-only budget, per-group accessory budget behind the off-by-default profile flag (`MOD-VOL-003`, constitution 1.17.0), opt-in main-lift `reduce`, compensation preview, and opt-in additive compensation application (`MOD-VOL-004`, executable load required, high-band guarded); **9c-1 drop engine** and **9c-2 identity/UX** implemented (labels/API/UI, startable empty technique, derived review, forecast actual types, migration 0038; `MOD-VOL-005`/constitution 1.18.0); **9c-3 confirmation/settings** implemented (Settings/API, local overlay, per-session confirmation); **7a settings registry/snapshot** implemented (deload reactive constants moved to config); **step 4 settings profile** implemented (append-only versions, budget wiring, snapshots); **7b profile-backed feature wiring** implemented (DUP, deload, volume, readiness, e1RM, plausibility); **step 5 Settings UI/guarded settings** implemented; **5b modality registry/UI** implemented (11 modules, CLI/API/UI parity); **step 6 budget-aware forecast/weekly panels**, **5c remaining modules** and **step 8 effective-set accounting** implemented and live; the plan is closed. Step 3 is a standing Today-page review follow-up, not a plan milestone. The programme forecast now supports 1–5 sessions/week; 4 uses Mon/Wed/Fri/Sun and 5 uses Mon/Tue/Thu/Fri/Sun. Design in `docs/VOLUME-MODULATION-PLAN.md` |
+| P2 | Volume modulation: weekly target + session cap | **complete/closed 2026-10-27** — steps 1, 2, 2b, 9a and 9b implemented: read-only budget, per-group accessory budget behind the off-by-default profile flag (`MOD-VOL-003`, constitution 1.17.0), opt-in main-lift `reduce`, compensation preview, and opt-in additive compensation application (`MOD-VOL-004`, executable load required, high-band guarded); **9c-1 drop engine** and **9c-2 identity/UX** implemented (labels/API/UI, startable empty technique, derived review, forecast actual types, migration 0038; `MOD-VOL-005`/constitution 1.18.0); **9c-3 confirmation/settings** implemented (Settings/API, local overlay, per-session confirmation); **7a settings registry/snapshot** implemented (deload reactive constants moved to config); **step 4 settings profile** implemented (append-only versions, budget wiring, snapshots); **7b profile-backed feature wiring** implemented (DUP, deload, volume, readiness, e1RM, plausibility); **step 5 Settings UI/guarded settings** implemented; **5b modality registry/UI** implemented (11 modules, CLI/API/UI parity); **step 6 budget-aware forecast/weekly panels**, **5c remaining modules** and **step 8 effective-set accounting** implemented and live; the plan is closed. Step 3 is a standing Today-page review follow-up, not a plan milestone. The programme forecast now supports 1–5 sessions/week; 4 uses Mon/Wed/Fri/Sun and 5 uses Mon/Tue/Thu/Fri/Sun. Design in `docs/archive/VOLUME-MODULATION-PLAN.md` |
 | v1.1 | Fatigue signals: exposure, substitution, advisories | **Phase 0 done 2026-10-28** (five decisions; `docs/FATIGUE-SIGNALS.md`, `docs/EXERCISE-DEMANDS.md`). **Phase 1 done 2026-10-28**: `config/exercises/demands.v1.yaml` populated for **28/63** reachable ids (4 in-scope dimensions at 55.6 % known, 2 `supported` claims, 4 evidence entries). **Rating path done 2026-10-28**: git-ignored `config/exercises/demands.local.yaml` overlay merged over the reviewed file, with `exercise demands report|unrated|set|clear` and automatic rollback on a rejected write (digest covers both files). **Phase 2 done 2026-10-28**: `features/exposure.py` (7/28-day ratio, coverage, gap/deload/break abstention, exposure dedup, per-group ratios), `exposure ratio` CLI, `GET /api/exposure`, Prescribe **Exposure ratio** panel and the Part D low-exposure advisory; report-only, trim not implemented. **Demand display done 2026-10-28**: Exercises rows show `rated/4` and the details dialog shows the profile with confidence, reason, catalogue digest and overlay state; the same form rates or clears a dimension (`POST /api/exercises/demands`, same `set_claim` as the CLI). **Phase 3 done 2026-10-28**: `MOD-EXP-001` (constitution 1.20.0) trims at most one non-essential accessory set per affected group (≤2/session, floor 1) when `athlete_profile.exposure_trim_enabled` is on (default off), skipping main lifts, essential items, readiness cuts and under-MEV additions; `shadow_decision` table + repository exist (append-only triggers). Shadow writes and the review report land in Phase 6 so forecast builds never write rows. **Phase 4 done 2026-10-28**: `prescribe/fatigue_selection.py` suggests at most one accessory substitution when the exposure signal is high, the candidate is A/B comparable, covers the current lift's primary muscles and is rated strictly lower on an in-scope demand dimension; `GET /api/substitution`, the Exercise-selection panel block and `select --fatigue` expose it. Suggest-only; abstains when the trim already acted or the metadata is unknown. **Phase 5 done 2026-10-28**: `features/residual.py` computes the VBT-only execution residual (observed minus prescribed velocity) from linked workout sets, lift-scoped, 84-day window, with the ≥5 signal and ≥20/8-week/two-lift evaluation gates; `residual`, `GET /api/residual` and the Prescribe panel expose it. Shadow only. **Phase 6 done 2026-10-28**: `prescribe/shadow.py` writes exposure + substitution rows only when a prescription is persisted; `features/shadow_report.py` and `shadow`/`GET /api/shadow`/Prescribe **Shadow review** expose counts, abstentions, conflicts and the four gate checks. The gate never enables anything (`activation_allowed: false`); the fatigue-signals specification is fully implemented. |
-| v1.3 | Cardio depth and shadow cardio load | planned (§4.13a, Q14) |
-| v1.3 | Deeper labelled calibration set | planned (§4.14) |
+| v1.4 | Cardio depth and shadow cardio load | planned (§4.13a, Q14) |
+| v1.4 | Deeper labelled calibration set | planned (§4.14) |
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
@@ -1241,7 +1253,7 @@ Moved out of the strength-programme review so it can close. These are **not** v0
 3. **Weakness/injury targeting.** No positive targeting. A display-only own-history context is
    implemented. A gated testing plan is in
    [WEAKNESS-TARGETING-PLAN.md](docs/WEAKNESS-TARGETING-PLAN.md). Weakness targeting is gated by
-   DEC-SELECT-05 (earliest after v1.2 / ~April 2027); injury targeting is unscheduled and remains
+   DEC-SELECT-05 (earliest after v1.3 / ~April 2027); injury targeting is unscheduled and remains
    constraint/penalty/ceiling only.
 
 ### 4.20.3 Weakness targeting test plan  (plan only; unscheduled)
@@ -1266,9 +1278,9 @@ No implementation, no automatic substitution and no load effect follows from thi
 |---|---|---|
 | Prospective validation of a future continuity/fatigue candidate | gate only; current candidates rejected | §4.20.1, DEC-VALIDATION-01 |
 | Parent-variant e1RM ratios | unscheduled; display-only profile/prior, not weakness | §4.20.2; `PARENT-VARIANT-WEAKNESS-EVIDENCE.md` |
-| Weakness targeting | plan only; deferred to after v1.2 / ~April 2027 | §4.20.3, `WEAKNESS-TARGETING-PLAN.md`, Q22, DEC-SELECT-05 |
+| Weakness targeting | plan only; deferred to after v1.3 / ~April 2027 | §4.20.3, `WEAKNESS-TARGETING-PLAN.md`, Q22, DEC-SELECT-05 |
 | Selection A/B boundary (pause/narrow, SSB/high-bar) | dormant policy decision; current default is conservative (A only same exercise) | Q21, docs/SELECTION-COMPARABILITY.md |
-| Cardio model | v1.3 | §4.13, Q14 |
+| Cardio model | v1.4 | §4.13, Q14 |
 | Low-bar competition squat and the weekly spinal cap | **closed 2026-10-25**: counts cost 1; cap raised 3 → 6; bench+hinge uses sumo 2.5 | `DEC-SPINE-05`, Q24, LIM-44 |
 
 ### 4.21 Live workout mode  (v0.3, CLOSED 2026-10-23)
@@ -1307,10 +1319,10 @@ not the cardio release and does not implement weakness targeting.
 | Naming/consistency | legacy A/B/C wording removed; docs/test counts reconciled | commits c0c8d80..83c0180 |
 
 **Not in v0.4:** cardio prescription/model, comparable calibration depth, weakness targeting,
-parent-ratio implementation, and any new model load effect. Those move to v1.3 or remain
+parent-ratio implementation, and any new model load effect. Those move to v1.4 or remain
 unscheduled.
 
-**v1.3:** see §4.13a. First actions are the cardio data audit, capture completion, impulse
+**v1.4:** see §4.13a. First actions are the cardio data audit, capture completion, impulse
 contract, and comparable workout data collection.
 
 ### 4.23 Nicer UI, adherence encouragement and KPIs  (future; not scheduled)
@@ -1330,10 +1342,10 @@ training into a streak contest. Planned scope:
 - **No new prescription controller:** KPIs and nudges are read-only; they do not add sets, change
   loads, or punish a legitimate break.
 
-Design reference: [`docs/UI-IMPROVEMENT-PLAN.md`](docs/UI-IMPROVEMENT-PLAN.md). This placeholder
+Design reference: [`docs/archive/UI-IMPROVEMENT-PLAN.md`](docs/archive/UI-IMPROVEMENT-PLAN.md). This placeholder
 does not schedule that plan; it records the next UI/adherence direction for a future pass.
 
-### 4.24 Future LLM integration workstream  (planned; dependency-ordered after v1.2)
+### 4.24 Future LLM integration workstream  (planned; dependency-ordered after v1.4)
 
 **Status: planned, not implemented, not scheduled to a date.** No prompt, source, schema, API,
 UI or training-rule change is part of this workstream yet. The detailed architecture, contracts,
@@ -1377,7 +1389,7 @@ framework.
 | 5 | Opt-in approval + evaluation: diff UI/CLI, explicit approval, provenance, shadow/opt-in gates; no selector work | phase 4; phase 1b; approved gates; privacy review | **planned** |
 | exit | Iteration 1 exit gate: selector retired; analyst/explainer accepted; proposer shadow/opt-in gates green; no-LLM path tested | phases 1, 1b and 2–5 | **gate** |
 
-**Dependency order:** v1.3 cardio/calibration work, then phase 1, then 2 → 3 → 4 → 5; phase 1b
+**Dependency order:** v1.4 cardio/calibration work, then phase 1, then 2 → 3 → 4 → 5; phase 1b
 runs after phase 1, in parallel with 2/3 if useful, and must finish before the Iteration 1 exit.
 No capability code starts before the owner approves its contracts. Phases 4–5 do not run on
 sessions already downgraded by a safety modifier (`DEC-LLM-04`); any relaxation is a new
@@ -1435,8 +1447,11 @@ blueprint fallback; forecast remains fixed option (c), the resolver flag remains
 and the flag-off fixed-template path is unchanged. The generator core was remediated on
 2026-11-01 for the review's shared eligibility, power-slot safety, settings, repair, availability,
 spinal, history, warning and provenance defects. The current record is
-[docs/PROGRAMME-BUILDER-PLAN.md](docs/PROGRAMME-BUILDER-PLAN.md) and
-[docs/DECISIONS.md](docs/DECISIONS.md) (DEC-RESOLVER-01 to DEC-RESOLVER-12).
+[docs/archive/PROGRAMME-BUILDER-PLAN.md](docs/archive/PROGRAMME-BUILDER-PLAN.md) and
+[docs/DECISIONS.md](docs/DECISIONS.md) (DEC-RESOLVER-01 to DEC-RESOLVER-13).
+`DEC-RESOLVER-13` (2026-11-06) is a taxonomy-classification change rather than a resolver step:
+`conventional_deadlift` is a `primary_compound`, so it passes the top-set classification gate
+but remains outside the shipped `top_set.eligible_lifts` list.
 
 The four canonical session identities stay and the shipped four-template YAML remains the
 blueprint and fallback. A deterministic **session generator** resolves every slot at generation
@@ -1475,7 +1490,7 @@ remain unchanged.
 **Acceptance audit:** closed 2026-11-03. The read-only lifecycle audit found no P0 defects;
 its P1/P2 findings (Workflow set-group execution and plan/snapshot validation) were fixed in
 `7d7ab3a`, `8a63212` and `4dd1705`. The closure record and residual release gates are in
-[`docs/RESOLVER-ACCEPTANCE-AUDIT.md`](docs/RESOLVER-ACCEPTANCE-AUDIT.md).
+[`docs/archive/RESOLVER-ACCEPTANCE-AUDIT.md`](docs/archive/RESOLVER-ACCEPTANCE-AUDIT.md).
 
 Follow-up verification is complete: deload/top-set, drop contract, same-date fragments, top-set
 e1RM, evaluator-to-persisted-plan equality, regression/slow (26 passed), integration (15 passed)
@@ -1547,7 +1562,7 @@ and is not a reason to reopen it.
 
 This section keeps **no list**. Every accepted limitation is registered with an id, a status and
 a "revisit when" in [`docs/LIMITATIONS-REGISTER.md`](docs/LIMITATIONS-REGISTER.md); forward-looking
-work lives in §4.19 and the v1.3 plan in §4.13a. The table that used to sit here was folded into
+work lives in §4.19 and the v1.4 plan in §4.13a. The table that used to sit here was folded into
 that register on 2026-10-26 — `LIM-45`–`LIM-49` are its new rows, and the rest already existed
 (`LIM-07`/`LIM-10` duration and timestamps, `LIM-14` spinal cost, `LIM-24`/`LIM-43` e1RM bias).
 Two rows that described *planned work* were not limitations and did not move: calibration
@@ -1571,7 +1586,7 @@ removed on 2026-10-25; their record is in `CHANGELOG.md`.
 - Personalised volume-response model — future, shadow-only: estimate productive/tolerable
   volume per group/lift with calibrated uncertainty and a pre-registered prospective gate; no
   prescription change until validated. Fixed budget and safety guards remain authoritative.
-  Idea only; see `docs/VOLUME-MODULATION-PLAN.md` §13 and Q28.
+  Idea only; see `docs/archive/VOLUME-MODULATION-PLAN.md` §13 and Q28.
 - Nicer UI, adherence encouragement and KPI panel (placeholder §4.23; not scheduled).
 - LLM integration workstream (planned §4.24; analyst, explainer, constrained proposer; not started).
 - Wider proposal licence (more than one increment on the menu) once the menu has proved itself

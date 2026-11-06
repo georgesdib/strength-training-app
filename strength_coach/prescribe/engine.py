@@ -76,6 +76,7 @@ def build_prescription(
     minimum_session: bool = False,
     minimum_target_minutes: int | None = None,
     minimum_include_main: bool = False,
+    minimum_accessories_only: bool = False,
     technique_throttle: bool = False,
     technique_throttle_pattern: str | Collection[str] | None = None,
     deload_decision: Any | None = None,
@@ -121,6 +122,41 @@ def build_prescription(
                 "resolver.enabled is on but an explicit template was supplied; pass "
                 "use_resolver=False for the fixed-template path",
             )
+    accessory_requested = (
+        session_type == minimum_session_mod.ACCESSORY_SESSION_TYPE
+        or minimum_accessories_only
+    )
+    if accessory_requested and use_resolver is False and template is not None:
+        # The evaluator builds the already-shaped synthetic accessory template through the
+        # fixed read-only path; it must not recurse into resolver dispatch.
+        accessory_requested = False
+    if accessory_requested:
+        if use_resolver is False or not resolver_enabled:
+            from strength_coach.prescribe.resolver import ResolverBuildError
+
+            raise ResolverBuildError(
+                "dispatch",
+                "accessory-only sessions require the resolver; enable Settings -> Resolver",
+            )
+        if template is not None:
+            from strength_coach.prescribe.resolver import ResolverBuildError
+
+            raise ResolverBuildError(
+                "dispatch", "accessory-only sessions cannot accept an explicit template",
+            )
+        session_type = minimum_session_mod.ACCESSORY_SESSION_TYPE
+        minimum_session = True
+        minimum_accessories_only = True
+        if minimum_target_minutes is None:
+            profile = queries.athlete_profile(conn) or {}
+            configured = profile.get("max_session_minutes")
+            if configured is not None:
+                minimum_target_minutes = max(1, int(configured))
+            else:
+                threshold_cfg = thresholds or config_mod.Thresholds.load()
+                minimum_target_minutes = max(
+                    1, int(round(threshold_cfg.session_time_cap_s / 60)),
+                )
     if resolver_enabled:
         from strength_coach.prescribe import resolver
         from strength_coach.prescribe.evaluator import EvaluationInputs
@@ -138,6 +174,7 @@ def build_prescription(
             minimum_session=minimum_session,
             minimum_target_minutes=minimum_target_minutes,
             minimum_include_main=minimum_include_main,
+            minimum_accessories_only=minimum_accessories_only,
             technique_throttle=technique_throttle,
             technique_throttle_pattern=technique_throttle_pattern,
             deload_decision=deload_decision,
@@ -153,6 +190,11 @@ def build_prescription(
             inputs=options,
         ).prescription
 
+    if minimum_accessories_only:
+        raise ValueError(
+            "accessories-only minimum session requires the resolver; "
+            "disable the option or enable Settings -> Resolver"
+        )
     resolved = settings_profile.feature_settings(conn, for_date)
     resolver_cfg = resolver_settings.ResolverSettings.load(conn, for_date)
     document = document or load_document()
@@ -661,6 +703,27 @@ def build_prescription(
         )
     warnings.extend(constraint_report.warnings)
 
+    if session_type == minimum_session_mod.ACCESSORY_SESSION_TYPE:
+        cap_cfg = minimum_session_mod.MinimumSessionConfig.load()
+        capped = []
+        capped_ids = []
+        for item in items:
+            if not item.essential and int(item.sets) > cap_cfg.accessory_max_sets:
+                capped.append(replace(
+                    item,
+                    sets=cap_cfg.accessory_max_sets,
+                    rationale_refs=tuple(item.rationale_refs) + ("MOD-MIN-001",),
+                ))
+                capped_ids.append(item.exercise_id)
+            else:
+                capped.append(item)
+        if capped_ids:
+            items = capped
+            warnings.append(
+                "MOD-MIN-001: accessory set cap applied after modifiers; "
+                f"trimmed {', '.join(capped_ids)} to {cap_cfg.accessory_max_sets} set(s)"
+            )
+
     issues = validate_prescription(tuple(items), context, document, session_type, for_date)
     for exercise_id, reason in constraint_report.vetoes:
         issues.append(f"CONSTRAINT_VETO:{exercise_id}:{reason}")
@@ -1082,7 +1145,7 @@ def _apply_spinal_trim(
     """Drop non-essential spinal work when the proposed session would exceed the weekly cap.
 
     PRG-SPINE-001 vetoes a *week*, and the standard cycle is designed to sit exactly on the
-    cap (docs/W9-SPINAL-CAP.md), so one extra exposure is enough to make an otherwise good
+    cap (docs/archive/audits/W9-SPINAL-CAP.md), so one extra exposure is enough to make an otherwise good
     prescription non-executable. This is the same one-directional remedy the MRV cap uses:
     remove only non-essential high-fatigue spinal work, never an essential lift, and only
     while the removal actually reduces the week's cost. If the overage comes from essential

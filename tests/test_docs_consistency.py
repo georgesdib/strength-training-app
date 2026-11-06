@@ -175,7 +175,7 @@ def test_spinal_cap_matches_w9_current_state() -> None:
     document = yaml.safe_load(_read("config", "rules", "programme.v1.yaml"))
     rule = next(item for item in document["rules"] if item["id"] == "PRG-SPINE-001")
     cap = rule["params"]["cap"]
-    w9 = _read("docs", "W9-SPINAL-CAP.md")
+    w9 = _read("docs", "archive", "audits", "W9-SPINAL-CAP.md")
     assert "Superseded in part" in w9
     current = w9.split("## 8. Current state", 1)[1]
     assert f"params.cap: {cap}" in current
@@ -209,7 +209,7 @@ def test_superseded_decisions_are_recorded() -> None:
 
 
 def test_audit_closeout_has_no_undated_register_count() -> None:
-    text = _read("docs", "AUDIT-CLOSEOUT.md")
+    text = _read("docs", "archive", "AUDIT-CLOSEOUT.md")
     assert not re.search(r"register has \*\*\d+ entries\*\*", text, re.IGNORECASE)
 
 

@@ -173,16 +173,16 @@ without conditioning on provenance penalises the athlete for following the presc
   the magnitudes; no schema states it.
 - **ASSUMPTION-39** — the weekly spinal cap counts the low-bar competition squat at cost 1 and leaves the SSB/high-bar squats outside by explicit exercise identity. The taxonomy has no bar-position field, so this is a scope classification, not a measurement; the cap itself was raised from 3 to 6 by `DEC-SPINE-05`. The evidence ranks the variants (low-bar > high-bar > SSB in forward lean and erector demand), but does not measure lumbar load.
 
-- **ASSUMPTION-40** — the proposed volume budget's default weekly target is the six-session template average (51 targeted + 6 untargeted sets, 57 total), not a landmark value. It keeps a normal week unchanged; changing it is a programme decision (`docs/VOLUME-MODULATION-PLAN.md`).
+- **ASSUMPTION-40** — the proposed volume budget's default weekly target is the six-session template average (51 targeted + 6 untargeted sets, 57 total), not a landmark value. It keeps a normal week unchanged; changing it is a programme decision (`docs/archive/VOLUME-MODULATION-PLAN.md`).
 - **ASSUMPTION-41** — the 30-set total cap and the per-pattern caps are fatigue-management choices, not measured maxima; the existing time estimate remains the practical limit.
 - **ASSUMPTION-42** — safety and recovery removals (readiness, deload, spinal trim, constraints) lower the effective weekly target; they do not lower the session cap or the MRV ceiling. Only scheduling shortfalls are reallocated.
 - **ASSUMPTION-43** — the budget uses the ISO week and creates no cross-week debt.
 - **ASSUMPTION-44** — automatic top-ups are accessory-only; main-lift top-ups are opt-in.
-- **ASSUMPTION-45** — the proposed volume budget projects future sessions at template sets; the projection is recomputed on every build and is not a stored plan (`docs/VOLUME-MODULATION-PLAN.md`).
-- **ASSUMPTION-46** — the Settings range for the spinal cap (0–12) and per-exercise costs (0–5) is a guardrail, not a measured bound; values outside it require a config edit (`DEC-SPINE-06`, `docs/VOLUME-MODULATION-PLAN.md`).
-- **ASSUMPTION-47** — cross-group compensation weights are inverse-similarity heuristics (squat and hinge similar, squat and bench less so) with a floor, not measured set equivalence; the mode is opt-in and `preserve` is the default (`docs/VOLUME-MODULATION-PLAN.md`).
-- **ASSUMPTION-48** — the compensation slot pool (`dumbbell_bench_press`, `rdl`) and the similarity matrix are design heuristics, not measured equivalence; the slot is non-essential and the main lift stays in `preserve` (`docs/VOLUME-MODULATION-PLAN.md` §4.2).
-- **ASSUMPTION-49** — the reduce floor default (three sets) is a coaching assumption, configurable, not a measured minimum; the main lift stays in the session (`docs/VOLUME-MODULATION-PLAN.md` §4.2/§10).
+- **ASSUMPTION-45** — the proposed volume budget projects future sessions at template sets; the projection is recomputed on every build and is not a stored plan (`docs/archive/VOLUME-MODULATION-PLAN.md`).
+- **ASSUMPTION-46** — the Settings range for the spinal cap (0–12) and per-exercise costs (0–5) is a guardrail, not a measured bound; values outside it require a config edit (`DEC-SPINE-06`, `docs/archive/VOLUME-MODULATION-PLAN.md`).
+- **ASSUMPTION-47** — cross-group compensation weights are inverse-similarity heuristics (squat and hinge similar, squat and bench less so) with a floor, not measured set equivalence; the mode is opt-in and `preserve` is the default (`docs/archive/VOLUME-MODULATION-PLAN.md`).
+- **ASSUMPTION-48** — the compensation slot pool (`dumbbell_bench_press`, `rdl`) and the similarity matrix are design heuristics, not measured equivalence; the slot is non-essential and the main lift stays in `preserve` (`docs/archive/VOLUME-MODULATION-PLAN.md` §4.2).
+- **ASSUMPTION-49** — the reduce floor default (three sets) is a coaching assumption, configurable, not a measured minimum; the main lift stays in the session (`docs/archive/VOLUME-MODULATION-PLAN.md` §4.2/§10).
 
 - **ASSUMPTION-51** — the exposure windows (acute 7 days, chronic the preceding 28), the 8-session and 80 % RIR-coverage minimums and the high-ratio threshold of 1.3 are design choices, not measured cut-points. The ratio is ACWR-shaped and contested; it is descriptive and the trim is off by default (`DEC-EXPOSURE-02`, `LIM-56`).
 
@@ -198,7 +198,7 @@ without conditioning on provenance penalises the athlete for following the presc
 
 - **ASSUMPTION-55** — the Part D advisory thresholds (low exposure below 0.7 for two weeks; a positive residual above its own spread) are display heuristics and never change a prescription.
 
-- **ASSUMPTION-50** — the knee-flexion landmarks (MEV 3 / MAV 4–8 / MRV 10), the 6-set weekly target, the 4-set session cap and the 63-set weekly total are coaching estimates chosen to fit the two-exposure template, not measurements; MEV 3 is a maintenance floor, not a validated minimum (`docs/VOLUME-MODULATION-PLAN.md` §13, `DEC-KNEEFLEX-01`).
+- **ASSUMPTION-50** — the knee-flexion landmarks (MEV 3 / MAV 4–8 / MRV 10), the 6-set weekly target, the 4-set session cap and the 63-set weekly total are coaching estimates chosen to fit the two-exposure template, not measurements; MEV 3 is a maintenance floor, not a validated minimum (`docs/archive/VOLUME-MODULATION-PLAN.md` §13, `DEC-KNEEFLEX-01`).
 
 - **ASSUMPTION-38** — historically a session was assumed to be one calendar date; unverifiable without timestamps. Superseded 2026-11-01 by the training-day model (`DEC-SESSION-03`): same-date fragments are grouped, while the plan remains one per day.
 

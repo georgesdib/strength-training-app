@@ -3,7 +3,7 @@
 **Status:** audit completed 2026-10-23. Option B accepted: main-lift set reduction is now opt-in;
 load/RIR, the safety floor and the gate are unchanged.
 **Scope:** W6 readiness vs no readiness; descriptive association and data availability.
-**Related:** [`READINESS-WEIGHT-EVIDENCE.md`](READINESS-WEIGHT-EVIDENCE.md),
+**Related:** [`READINESS-WEIGHT-EVIDENCE.md`](../READINESS-WEIGHT-EVIDENCE.md),
 [`ENGINE-AUDIT-PLAN.md`](ENGINE-AUDIT-PLAN.md),
 [`IMPLEMENTATION-PLAN-2026-10.md`](IMPLEMENTATION-PLAN-2026-10.md).
 
