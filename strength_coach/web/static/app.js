@@ -1598,12 +1598,12 @@ async function loadFatigue() {
 }
 
 /* --- readiness ---------------------------------------------------------- */
-const SCORE_FIELDS = ["sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration"];
-const DEVICE_FIELDS = ["hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "wearable_score"];
+const SCORE_FIELDS = ["sleep", "energy", "mood", "soreness", "stress"];
+const DEVICE_FIELDS = ["hrv_ms", "rhr_bpm", "bodyweight_kg", "wearable_score"];
 const LABELS = { sleep: "Sleep", energy: "Energy", mood: "Mood", soreness: "Soreness",
-  stress: "Stress", nutrition: "Nutrition", hydration: "Hydration",
+  stress: "Stress",
   hrv_ms: "HRV (ms)", rhr_bpm: "Resting HR (bpm)",
-  bodyweight_kg: "Bodyweight (kg)", fat_pct: "Body fat (%)",
+  bodyweight_kg: "Bodyweight (kg)",
   wearable_score: "Wearable readiness (0-100)" };
 
 const READINESS_FIELD_MAP = Object.fromEntries(
@@ -1619,7 +1619,6 @@ function fieldInput(field, device = false) {
 }
 
 /* --- workout workflow -------------------------------------------------- */
-const WORKFLOW_REQUIRED = ["sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration"];
 const WORKFLOW_ORDER = ["readiness", "preview", "active", "post"];
 
 function setWorkflowStep(step) {

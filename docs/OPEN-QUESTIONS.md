@@ -60,7 +60,7 @@ enforced; the reasoning lives in the decision record and the linked document.
 | Q3 | How is the erector ramp anchored? | explicit `athlete_profile.block_start_date`; `--force` restarts at week 1; a missing symptom reading stays `unknown` | `DEC-RAMP-02`, `docs/DECISIONS.md` |
 | Q4 | Is there a symptom input? | manual pre-session 0-3 back level in `symptom_log`; missing stays `unknown` | `DEC-SYMPTOM-01/02` |
 | Q5 | Is session duration measurable? | imported sessions unmeasurable; live workouts store measured duration; optional review length | rubric 1.1.0, `session_feedback.duration_min` |
-| Q6 | How do readiness rows merge, and is the composite authoritative? | most-complete row, latest tie-break, manual wins; `composite` stays null and the score is separate and non-authoritative | `DEC-READINESS-01`, `ASSUMPTION-04` |
+| Q6 | How do readiness rows merge, and is the composite authoritative? | most-complete row, latest tie-break, manual wins; the computed score is separate and non-authoritative. The unused `composite`/`composite_basis` columns were removed on 2026-11-06 (migration 0050) | `DEC-READINESS-01`, `ASSUMPTION-04` |
 | Q7 | Does "RIR 2-3" forbid easier sets? | floor-only veto: RIR 0, below window and near-max singles fail; above-window sets are reported only | `DEC-RIR-03`, `docs/RIR-EVIDENCE.md` |
 | Q9 | Can the RIR window widen? | window is RIR 1-4 with a 2-3 target; changing it is a constitution change | `DEC-RIR-02`, `docs/RIR-EVIDENCE.md` |
 | Q10, Q11 | Is the sumo deadlift an accessory? | replacement for the trap-bar hinge only; its 2.5 spinal cost is an accepted ordinal choice, not recalibrated | `DEC-TRAPBAR-03`, `DEC-SPINE-01` |

@@ -92,6 +92,8 @@ the report's selected date, not necessarily the state that existed on the test d
 factor snapshots are not reconstructed; the response says this explicitly.
 
 Protocol and equipment are reported as unknown because the current tables do not store them.
+That is a design choice, not a backlog item: measured-test protocol/equipment capture is out of
+scope (LIM-59, closed 2026-11-06) and would need a separately approved schema enhancement.
 
 ## Reproducibility and privacy
 
@@ -106,7 +108,7 @@ committed.
 - Associations are descriptive, not causal or predictive.
 - Small samples and missing feedback often make an association unavailable.
 - Calibration factor/CI is current-as-of, not a historical snapshot.
-- Protocol/equipment provenance is unavailable.
+- Protocol/equipment provenance is unavailable by design (LIM-59, closed 2026-11-06).
 
 ## Phase 5A and Phase 5B
 

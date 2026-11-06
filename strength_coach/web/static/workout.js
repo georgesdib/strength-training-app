@@ -2,12 +2,12 @@
  * Kept out of app.js so the workout lifecycle can evolve without touching the
  * prescription renderer. All reads/writes go through the same JSON API. */
 
-const WORKOUT_REQUIRED = ["sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration"];
-const WORKOUT_OPTIONAL = ["hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "wearable_score"];
+const WORKOUT_REQUIRED = ["sleep", "energy", "mood", "soreness", "stress"];
+const WORKOUT_OPTIONAL = ["hrv_ms", "rhr_bpm", "bodyweight_kg", "wearable_score"];
 const WORKOUT_LABELS = {
   sleep: "Sleep", energy: "Energy", mood: "Mood", soreness: "Soreness", stress: "Stress",
-  nutrition: "Nutrition", hydration: "Hydration", hrv_ms: "HRV (ms)", rhr_bpm: "Resting HR",
-  bodyweight_kg: "Bodyweight (kg)", fat_pct: "Body fat (%)", wearable_score: "Wearable (0-100)"
+  hrv_ms: "HRV (ms)", rhr_bpm: "Resting HR",
+  bodyweight_kg: "Bodyweight (kg)", wearable_score: "Wearable (0-100)"
 };
 let workoutTimer = null;
 let activeWorkoutId = null;

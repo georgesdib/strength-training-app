@@ -160,8 +160,6 @@ def make_readiness(rows: list[dict]):
         "Mood": "4",
         "Soreness": "4",
         "Stress": "4",
-        "Nutrition": "4",
-        "Hydration": "4",
         "Squat_Readiness": "4",
         "Bench_Readiness": "4",
         "Deadlift_Readiness": "4",

@@ -303,11 +303,32 @@ function openExerciseDetails(row) {
   const meta = window.__exerciseCatalog?.demand_catalogue || {};
   const scope = (meta.in_scope || []).length || 4;
   $("#exercise-detail-demands").innerHTML = Object.entries(demands.dimensions)
-    .map(([dimension, claim]) => `<tr><td><code>${esc(dimension)}</code></td><td>${esc(claim.level)}</td><td>${esc(claim.confidence || "—")}</td><td class="muted">${esc(claim.reason || "—")}</td></tr>`)
+    .map(([dimension, claim]) => `<tr><td><code>${esc(dimension)}</code></td><td>${esc(claim.level)}</td><td>${esc(claim.confidence || "—")}</td><td class="muted">${esc(claim.reason || "—")}</td><td class="muted">${esc((claim.evidence || []).join(", ") || "—")}</td></tr>`)
     .join("");
   $("#exercise-detail-demands-note").textContent = `${demands.rated}/${scope} in-scope dimensions rated · catalogue ${meta.digest || "none"} · reviewed ${meta.reviewed_on || "never"}` + (meta.overlay ? " · local overlay active" : "");
-  $("#exercise-demand-dimension").innerHTML = Object.keys(demands.dimensions)
+  const demandDimensionSelect = $("#exercise-demand-dimension");
+  // Keep the dimension being edited across the re-render that follows a save, but never carry
+  // one exercise's dimension over to another.
+  const sameExercise = demandDimensionSelect.dataset.exerciseId === (row ? row.id : "");
+  const previousDimension = sameExercise ? demandDimensionSelect.value : "";
+  demandDimensionSelect.innerHTML = Object.keys(demands.dimensions)
     .map((dimension) => `<option>${esc(dimension)}</option>`).join("");
+  if (previousDimension && previousDimension in demands.dimensions) {
+    demandDimensionSelect.value = previousDimension;
+  }
+  demandDimensionSelect.dataset.exerciseId = row ? row.id : "";
+  // Only ids the reviewed file already defines can be cited, so the form offers exactly those.
+  // A <select multiple> renders as "0 items" on iOS Safari whatever is ticked, so evidence is a
+  // checkbox list (the same .choice-list pattern the muscle picker uses).
+  const evidence = meta.evidence || [];
+  const evidenceBox = $("#exercise-demand-evidence");
+  evidenceBox.innerHTML = evidence.length
+    ? evidence.map((entry) => `<label class="choice" title="${esc(entry.citation)}"><input type="checkbox" value="${esc(entry.id)}"${isNew ? " disabled" : ""}> <span><code>${esc(entry.id)}</code> — ${esc(entry.citation)}</span></label>`).join("")
+    : '<span class="muted">No evidence ids in the reviewed catalogue.</span>';
+  // Show the saved claim, including its evidence, instead of an empty form: a saved citation
+  // that is not preselected reads as lost and would be dropped by the next provisional edit.
+  evidenceBox._claims = demands.dimensions || {};
+  syncDemandForm();
   $("#exercise-demand-msg").textContent = isNew
     ? "Save the exercise before adding a local demand rating."
     : "Writes config/exercises/demands.local.yaml; the reviewed file is untouched.";
@@ -523,6 +544,34 @@ async function openExerciseE1rm(exerciseId) {
   panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
+function demandClaims() {
+  return $("#exercise-demand-evidence")?._claims || {};
+}
+
+function syncDemandEvidenceCount() {
+  const box = $("#exercise-demand-evidence");
+  const count = box
+    ? box.querySelectorAll('input[type="checkbox"]:checked').length : 0;
+  const label = $("#exercise-demand-evidence-count");
+  if (label) label.textContent = count + " selected";
+}
+
+function syncDemandForm() {
+  const dimension = $("#exercise-demand-dimension").value;
+  const claim = demandClaims()[dimension] || {};
+  $("#exercise-demand-level").value = claim.level || "unknown";
+  $("#exercise-demand-confidence").value = claim.confidence || "provisional";
+  $("#exercise-demand-reason").value = claim.reason || "";
+  const ids = new Set(claim.evidence || []);
+  const box = $("#exercise-demand-evidence");
+  if (box) {
+    box.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+      input.checked = ids.has(input.value);
+    });
+  }
+  syncDemandEvidenceCount();
+}
+
 async function saveDemandRating(clear) {
   const exerciseId = window.__exerciseDetailsId;
   if (!exerciseId) return;
@@ -533,6 +582,8 @@ async function saveDemandRating(clear) {
     level: $("#exercise-demand-level").value,
     confidence: $("#exercise-demand-confidence").value,
     reason: $("#exercise-demand-reason").value,
+    evidence: [...$("#exercise-demand-evidence").querySelectorAll('input[type="checkbox"]:checked')]
+      .map((input) => input.value),
   };
   try {
     const data = await api("/api/exercises/demands", {
@@ -559,6 +610,8 @@ async function saveDemandRating(clear) {
 
 $("#exercise-demand-save").addEventListener("click", () => saveDemandRating(false));
 $("#exercise-demand-clear").addEventListener("click", () => saveDemandRating(true));
+$("#exercise-demand-dimension").addEventListener("change", syncDemandForm);
+$("#exercise-demand-evidence").addEventListener("change", syncDemandEvidenceCount);
 
 $("#exercise-e1rm-close").addEventListener("click", () => {
   $("#exercise-e1rm-panel").hidden = true;

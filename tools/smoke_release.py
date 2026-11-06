@@ -113,7 +113,7 @@ def main() -> int:
                 "date": today,
                 "values": {
                     "sleep": 4, "energy": 4, "mood": 4, "soreness": 4,
-                    "stress": 4, "nutrition": 4, "hydration": 4,
+                    "stress": 4,
                 },
             }
             status, saved = _request(base, "/api/readiness", method="POST", body=readiness)

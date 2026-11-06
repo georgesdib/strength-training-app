@@ -127,8 +127,8 @@ the same lift.
   Every session is a projection rebuilt on the day; no future plan is persisted or promised.
 - **Cardio** — log a session (modality, minutes, HR, distance, sRPE) choose the window (4/12/26/52 weeks) and an optional as-of date:
   sessions, total/average minutes, weekly breakdown and a chart of weeks with logged minutes. Weeks with no entries are omitted rather than represented as zero or proof of inactivity; boundary weeks may be partial. WHO reference lines are context only. Capture only; no load changes.
-- **Measures** — periodic outcomes (VO2max, grip, 5x sit-to-stand, steps, sitting), with latest
-  value, change and entries, filtered by metric. The trend plots independent points from the latest 50 entries returned across metrics, separates methods (including “method not recorded”), and does not average same-day observations or connect/infer values. Metrics and directions are config; nothing changes a load.
+- **Measures** — periodic outcomes (VO2max, grip, body fat, 5x sit-to-stand, steps, sitting),
+  with latest value, change and entries, filtered by metric. The trend plots independent points from the latest 50 entries returned across metrics, separates methods (including “method not recorded”), and does not average same-day observations or connect/infer values. Metrics and directions are config; nothing changes a load.
 ### Exercise Explorer history
 
 - **Exercises** — full canonical catalogue with search/filter and one **Open** action per row for
@@ -144,12 +144,18 @@ the same lift.
   None changes prescription behavior.
   e1RM-ineligible lifts and missing histories have explicit empty states.
   Each row carries a **Demands** count (`rated/4` in-scope dimensions) and the details dialog
-  shows the demand profile with level, confidence and reason, plus the catalogue digest and
-  whether the git-ignored local overlay is active (`docs/EXERCISE-DEMANDS.md`). The profile is
-  editable there: **Rate this dimension** writes `config/exercises/demands.local.yaml` through
-  `POST /api/exercises/demands` (same `set_claim` the CLI uses), **Clear local rating** removes
-  the override, and a rejected write leaves the overlay untouched. The reviewed file is never
-  edited from the browser.
+  shows the demand profile with level, confidence, reason and cited evidence ids, plus the
+  catalogue digest and whether the git-ignored local overlay is active
+  (`docs/EXERCISE-DEMANDS.md`). The profile is editable there: **Rate this dimension** writes
+  `config/exercises/demands.local.yaml` through `POST /api/exercises/demands` (same
+  `set_claim` the CLI uses), **Clear local rating** removes the override, and a rejected write
+  leaves the overlay untouched. The **Evidence** list offers only ids the reviewed file
+  defines (with citation tooltips) and is required for `supported`, so the browser cannot
+  invent a source; the reviewed file is never edited from the browser. It is a checkbox list,
+  not a `<select multiple>`, because iOS Safari renders a multiple select as "0 items" no
+  matter what is ticked. The form opens on the selected dimension's saved claim — level,
+  confidence, reason and cited ids are preselected and a live `N selected` count follows the
+  choice — so saving cannot silently look empty or drop an existing citation.
   A row's **e1RM** button opens an override panel for that lift: it shows the override currently
   in force and appends a new one (kg, effective-from, reason) through the same endpoint the
   Athlete page and `e1rm set` use, so the next prescription cites it.

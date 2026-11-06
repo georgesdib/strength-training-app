@@ -210,9 +210,19 @@ def test_top_set_eligible_lifts_must_exist() -> None:
 
 def test_top_set_eligible_lifts_must_be_main_lifts() -> None:
     raw = yaml.safe_load(_base_text())
-    raw["top_set"]["eligible_lifts"].append("conventional_deadlift")
+    raw["top_set"]["eligible_lifts"].append("ab_wheel")
     with pytest.raises(ResolverPolicyError, match="not a main lift"):
         ResolverPolicy.from_text(yaml.safe_dump(raw, sort_keys=False))
+
+
+def test_top_set_accepts_a_classified_primary_compound() -> None:
+    # DEC-RESOLVER-13: conventional_deadlift is a primary compound, so it passes the
+    # classification gate even though the shipped policy list does not opt it in.
+    raw = yaml.safe_load(_base_text())
+    raw["top_set"]["eligible_lifts"].append("conventional_deadlift")
+    policy = ResolverPolicy.from_text(yaml.safe_dump(raw, sort_keys=False))
+    assert "conventional_deadlift" in policy.top_set.eligible_lifts
+    assert "conventional_deadlift" not in ResolverPolicy.from_text(_base_text()).top_set.eligible_lifts
 
 
 def test_candidate_catalogue_must_have_the_expected_structure(tmp_path) -> None:

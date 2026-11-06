@@ -1322,20 +1322,28 @@
           <div class="grow">
             <h3>Demand profile</h3>
             <p class="muted" id="exercise-detail-demands-note"></p>
-            <table><thead><tr><th>dimension</th><th>level</th><th>confidence</th><th>reason</th></tr></thead>
+            <table><thead><tr><th>dimension</th><th>level</th><th>confidence</th><th>reason</th><th>evidence</th></tr></thead>
             <tbody id="exercise-detail-demands"></tbody></table>
             <div class="form-row">
               <label>Dimension <select id="exercise-demand-dimension"></select></label>
               <label>Level <select id="exercise-demand-level">
                 <option value="unknown">unknown</option>
-                <option value="none">none</option>
                 <option value="low">low</option>
                 <option value="moderate">moderate</option>
                 <option value="high">high</option></select></label>
               <label>Confidence <select id="exercise-demand-confidence">
                 <option value="provisional">provisional</option>
-                <option value="supported">supported</option></select></label>
+                <option value="supported">supported</option>
+                <option value="contested">contested</option></select></label>
               <label class="grow">Reason <input id="exercise-demand-reason" placeholder="why this rating"></label>
+            </div>
+            <div class="form-row">
+              <div class="grow">
+                <span class="field-label">Evidence <span id="exercise-demand-evidence-count" class="muted">0 selected</span></span>
+                <div id="exercise-demand-evidence" class="choice-list" role="group" aria-label="Evidence ids"></div>
+                <span class="muted">Required when confidence is <code>supported</code>. Ids come from
+                <code>config/exercises/demands.v1.yaml</code>; a local rating cannot invent a source.</span>
+              </div>
             </div>
             <div class="form-row">
               <button class="ghost" type="button" id="exercise-demand-save">Rate this dimension</button>

@@ -14,7 +14,7 @@ from conftest import make_readiness
 from strength_coach.ingest import readiness as rd
 
 ALL_FIELDS = [
-    "Sleep", "Energy", "Mood", "Soreness", "Stress", "Nutrition", "Hydration",
+    "Sleep", "Energy", "Mood", "Soreness", "Stress",
     "Squat_Readiness", "Bench_Readiness", "Deadlift_Readiness",
     "HRV", "RHR", "Weight", "Fat_Percent",
 ]
@@ -75,11 +75,73 @@ def test_duplicate_and_conflict_counts():
     assert result.conflicting_dates == 1
 
 
-def test_composite_is_left_empty_until_metrics_are_declared():
+def test_composite_columns_are_not_part_of_the_imported_row():
     result = rd.build_readiness_day(make_readiness([{"Date": "2024-01-01"}]))
     [day] = result.days.to_dict(orient="records")
-    assert day["composite"] is None
-    assert day["composite_basis"] is None
+    assert "composite" not in day
+    assert "composite_basis" not in day
+
+
+def test_nutrition_and_hydration_are_ignored_not_rejected():
+    # DEC-READINESS-20: old exports still carry the columns; the import must survive them
+    # without turning them into readiness fields.
+    frame = make_readiness([{"Date": "2024-01-01", "Nutrition": "2", "Hydration": "1"}])
+    result = rd.build_readiness_day(frame)
+    [day] = result.days.to_dict(orient="records")
+    assert "nutrition" not in day
+    assert "hydration" not in day
+
+
+def test_a_reimport_preserves_historical_nutrition_values():
+    # The columns stay for provenance; a re-import must not NULL them just because the
+    # exporter no longer feeds them.
+    from strength_coach.store import db, repositories
+
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        conn.execute(
+            "INSERT INTO readiness_day (on_date, nutrition, hydration, fat_pct) "
+            "VALUES ('2024-01-01', 3, 2, 21.0)"
+        )
+        frame = rd.build_readiness_day(make_readiness([{"Date": "2024-01-01"}])).days
+        repositories.upsert_readiness_days(conn, frame)
+        row = conn.execute(
+            "SELECT nutrition, hydration, fat_pct FROM readiness_day "
+            "WHERE on_date = '2024-01-01'"
+        ).fetchone()
+    assert tuple(row) == (3, 2, 21.0)
+
+
+def test_the_removed_fields_are_not_accepted_as_manual_readings():
+    from strength_coach.utils import readiness as readiness_utils
+
+    for field in ("nutrition", "hydration", "fat_pct"):
+        assert field not in readiness_utils.READINESS_FIELDS
+        with pytest.raises(ValueError, match="unknown readiness field"):
+            readiness_utils.validate(field, 4)
+
+
+def test_the_baseline_readiness_summary_uses_the_five_scored_fields():
+    # The raw export still carries Nutrition/Hydration (old files must import), but the
+    # baseline profile must report only the fields readiness still accepts.
+    from strength_coach.features import baseline
+
+    summary = baseline.readiness_summary(
+        make_readiness([{"Date": "2024-01-01"}]), as_of="2024-01-02", days=7
+    )
+    assert set(summary) == {"sleep", "energy", "mood", "soreness", "stress"}
+
+
+def test_body_fat_measurements_are_extracted_from_the_export():
+    # DEC-MEASURE-02: Fat_Percent feeds the measurement log; the last row with a value wins,
+    # and the zero sentinel is not a measurement.
+    frame = make_readiness([
+        {"Date": "2024-01-01", "Fat_Percent": "22.5"},
+        {"Date": "2024-01-01", "Fat_Percent": "23.5"},
+        {"Date": "2024-01-02", "Fat_Percent": "0"},
+    ])
+    rows = rd.body_fat_measurements(frame)
+    assert rows == [{"measured_on": "2024-01-01", "value": 23.5}]
 
 def test_grip_strength_is_not_a_readiness_input():
     # DEC-GRIP-01: grip is capacity, tracked with `measure`; readiness no longer accepts it.

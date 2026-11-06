@@ -55,12 +55,13 @@ there. Those fields become missing, never zero:
 |---|---|
 | `Weight` | 0 kg bodyweight is impossible |
 | `HRV`, `RHR` | 0 ms / 0 bpm are incompatible with life |
-| `Fat_Percent` | 0% body fat is impossible |
 | `Squat_Readiness`, `Bench_Readiness`, `Deadlift_Readiness` | the 1-5 scale has no zero bucket |
 
-The 1–5 fields (`Sleep`, `Energy`, `Mood`, `Soreness`, `Stress`, `Nutrition`, `Hydration`)
-have **no** sentinel: a zero would be an invalid entry, not a missing one, and is treated as
-unparseable rather than silently converted.
+The 1–5 fields (`Sleep`, `Energy`, `Mood`, `Soreness`, `Stress`) have **no** sentinel: a
+zero would be an invalid entry, not a missing one, and is treated as unparseable rather than
+silently converted. `Nutrition` and `Hydration` are no longer readiness inputs
+(`DEC-READINESS-20`); old export columns are ignored, and historical values stay in the
+legacy `readiness_day` columns for provenance.
 
 This is `numeric.ZERO_IS_MISSING` and `numeric.ZERO_IS_VALID`; the split exists because the same
 `0` means different things in different columns (AGENTS.md §5).
@@ -80,15 +81,17 @@ measurement.
 
 ## 4. Storage
 
-One row per date in `readiness_day`, with the 1–5 fields, the device fields (HRV, RHR,
-bodyweight, body fat, wearable score), and a nullable `composite`. The legacy
-`grip_strength_kg` column remains for historical rows but is no longer accepted or scored;
-grip is tracked with `measure --metric grip_strength_kg` (`DEC-GRIP-01`).
+One row per date in `readiness_day`, with the 1–5 fields and the device fields (HRV, RHR,
+bodyweight, wearable score). Four legacy columns remain for historical rows but are no longer
+accepted, imported or scored: `grip_strength_kg` (`DEC-GRIP-01`), `nutrition` and
+`hydration` (`DEC-READINESS-20`), and `fat_pct` (`DEC-MEASURE-02`; body fat is now a periodic
+measurement). `composite`/`composite_basis` were **removed** by migration 0050: no source
+column ever fed them and nothing read them.
 
-**`readiness_day.composite` is deliberately null.** The computed score is a separate
-`readiness_score` assessment (`docs/READINESS-SCORE.md`), so the imported row stays a
-measurement record. Its HRV/RHR baseline and optional wearable blend are explicit and shown
-with the result; they are not written back into `readiness_day.composite`.
+The computed score is a separate `readiness_score` assessment
+(`docs/READINESS-SCORE.md`), so the imported row stays a measurement record. Its HRV/RHR
+baseline and optional wearable blend are explicit and shown with the result; they are never
+written back into the imported row.
 
 Manual readings live in `readiness_entry`: one row per field, append-only, with source
 `manual`, a timestamp and an optional note. Re-logging a date appends; the latest entry per
@@ -145,7 +148,6 @@ Everything a user might reasonably want different is in `config/readiness.v1.yam
 | `score.baseline_days` / `score.baseline_min_readings` | HRV/RHR baseline window and minimum |
 | `score.hrv_weight` / `score.rhr_weight` | device-field weights (default 0.5) |
 | `score.wearable_weight` | optional wearable blend (default 0.10) |
-| `composite.enabled` | reserved; stays off. No implementation consumes it; a dynamic composite needs weight/role/baseline metadata, not just metric rows |
 
 An unimplemented value raises rather than being ignored — a config that silently did nothing
 would leave the athlete believing they had changed the behaviour.
@@ -156,7 +158,7 @@ a preference of convenience: record it in `docs/DECISIONS.md` when you do.
 ## 7. What is deliberately not done
 
 - The global/category score is implemented in [`READINESS-SCORE.md`](READINESS-SCORE.md);
-  `readiness_day.composite` itself stays null. The old sleep/energy trigger remains a floor.
+  the imported composite path was removed. The old sleep/energy trigger remains a floor.
 - Grip strength stays a capacity trend, not a daily score input.
 - The wearable score is not used to override constraints or the injury ceiling.
 - No inference of readiness from training data, sleep reports or anything else: absent means

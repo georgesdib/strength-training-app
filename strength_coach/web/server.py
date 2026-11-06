@@ -1301,6 +1301,19 @@ class Handler(BaseHTTPRequestHandler):
                     "reviewed_on": catalogue.reviewed_on,
                     "overlay": catalogue.overlay_path is not None,
                     "in_scope": list(demands_feature.IN_SCOPE),
+                    # The browser can only cite an evidence id that already exists; sending the
+                    # inventory makes that constraint a dropdown instead of a blind text field.
+                    "evidence": [
+                        {
+                            "id": entry.evidence_id,
+                            "citation": entry.citation,
+                            "study_type": entry.study_type,
+                            "confidence": entry.confidence,
+                        }
+                        for entry in sorted(
+                            catalogue.evidence.values(), key=lambda item: item.evidence_id
+                        )
+                    ],
                 }
                 self._json(200, payload)
             elif path == "/api/exercises":
@@ -3330,7 +3343,7 @@ class Handler(BaseHTTPRequestHandler):
                 exercise_id, dimension, str(body.get("level") or ""),
                 confidence=body.get("confidence"),
                 reason=body.get("reason"),
-                evidence=body.get("evidence") or (),
+                evidence=_list(body.get("evidence")),
             )
         return {
             "exercise_id": exercise_id,

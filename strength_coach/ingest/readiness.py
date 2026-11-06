@@ -9,8 +9,9 @@ rather than repeat (OPEN-QUESTIONS Q6). The documented default is:
 that completeness equals authority -- recorded as ASSUMPTION-04, not a claim. The decision is
 reversible because `merge_note` keeps every candidate and the reason it lost.
 
-The composite is deliberately left empty: it needs declared metric directions (Q6 part 2),
-and inventing a 0-1 score would make a guess indistinguishable from a measurement.
+Nutrition and hydration are not readiness inputs (DEC-READINESS-20); their export columns are
+ignored so the raw file still imports. The legacy `composite`/`composite_basis` columns were
+removed from the schema: no source column fed them and the app computes its own score.
 """
 
 from __future__ import annotations
@@ -29,15 +30,15 @@ RAW_RENAME = {
     "Mood": "mood",
     "Soreness": "soreness",
     "Stress": "stress",
-    "Nutrition": "nutrition",
-    "Hydration": "hydration",
     "Squat_Readiness": "squat_readiness",
     "Bench_Readiness": "bench_readiness",
     "Deadlift_Readiness": "deadlift_readiness",
     "HRV": "hrv_ms",
     "RHR": "rhr_bpm",
     "Weight": "bodyweight_kg",
-    "Fat_Percent": "fat_pct",
+    # Fat_Percent is deliberately absent: body fat is a periodic measurement, not a readiness
+    # input (DEC-MEASURE-02). body_fat_measurements reads the raw column for the measurement
+    # log; the legacy readiness_day.fat_pct column is kept for historical rows only.
     # Optional third-party readiness score. Aliases cover the common export headers.
     "Wearable_Score": "wearable_score",
     "Wearable Score": "wearable_score",
@@ -50,7 +51,7 @@ RAW_RENAME = {
 # Columns where a physical 0 is impossible, so 0 is a missing-value sentinel. These are the
 # RAW names, because `apply_zero_sentinels` is keyed by the export's own vocabulary.
 SENTINEL_COLUMNS = [
-    "HRV", "RHR", "Weight", "Fat_Percent",
+    "HRV", "RHR", "Weight",
     "Squat_Readiness", "Bench_Readiness", "Deadlift_Readiness", "Grip_Strength",
 ]
 
@@ -107,8 +108,6 @@ def build_readiness_day(readiness: pd.DataFrame) -> ReadinessResult:
             {
                 "on_date": key,
                 **{name: chosen.get(name) for name in present},
-                "composite": None,
-                "composite_basis": None,
                 "source_row": int(chosen["source_row"]),
             }
         )
@@ -129,6 +128,32 @@ def build_readiness_day(readiness: pd.DataFrame) -> ReadinessResult:
     )
 
 
+def body_fat_measurements(readiness: pd.DataFrame) -> list[dict]:
+    """One body-fat value per date from the export's Fat_Percent column.
+
+    Body fat is a periodic outcome, not a readiness input (DEC-MEASURE-02), so it is read from
+    the raw column directly: RAW_RENAME no longer maps it. Zero is the export's missing
+    sentinel. When duplicate rows disagree, the last row with a value wins, matching the
+    readiness merge's "latest word" tie-break.
+    """
+    if readiness.empty or "Fat_Percent" not in readiness.columns:
+        return []
+    frame = readiness.copy()
+    frame["_row"] = range(1, len(frame) + 1)
+    frame["_date"] = dates.parse_dates(frame["Date"])
+    value = numeric.coerce_numeric(frame["Fat_Percent"])
+    frame["_value"] = value.where(value > 0)
+    frame = frame.dropna(subset=["_date", "_value"]).sort_values("_row")
+    out: list[dict] = []
+    for day, group in frame.groupby("_date", sort=True):
+        last = group.iloc[-1]
+        out.append({
+            "measured_on": pd.Timestamp(day).date().isoformat(),
+            "value": float(last["_value"]),
+        })
+    return out
+
+
 def _empty_frame() -> pd.DataFrame:
-    columns = ["on_date", *FIELDS, "composite", "composite_basis", "source_row", "merge_note"]
+    columns = ["on_date", *FIELDS, "source_row", "merge_note"]
     return pd.DataFrame(columns=columns)

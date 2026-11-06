@@ -362,12 +362,9 @@ def main(argv: list[str] | None = None) -> int:
     readiness.add_argument("--mood", type=int, default=None)
     readiness.add_argument("--soreness", type=int, default=None)
     readiness.add_argument("--stress", type=int, default=None)
-    readiness.add_argument("--nutrition", type=int, default=None)
-    readiness.add_argument("--hydration", type=int, default=None)
     readiness.add_argument("--hrv", dest="hrv_ms", type=float, default=None)
     readiness.add_argument("--rhr", dest="rhr_bpm", type=float, default=None)
     readiness.add_argument("--bodyweight", dest="bodyweight_kg", type=float, default=None)
-    readiness.add_argument("--fat-percent", dest="fat_pct", type=float, default=None)
     readiness.add_argument("--wearable-score", dest="wearable_score", type=float,
                            default=None, help="third-party readiness score, 0-100")
     readiness.add_argument("--note", default=None)

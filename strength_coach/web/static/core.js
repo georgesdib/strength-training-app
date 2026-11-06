@@ -37,8 +37,6 @@ const READINESS_SCALE_ENDS = {
   mood: ["very low", "excellent"],
   soreness: ["severe", "none"],
   stress: ["extreme", "none"],
-  nutrition: ["very poor", "excellent"],
-  hydration: ["very poor", "excellent"],
 };
 
 function readinessScaleOptions(field) {

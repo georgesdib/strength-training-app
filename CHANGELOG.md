@@ -4,6 +4,15 @@
 
 ### Added
 
+- **Body fat is a measurement**: `body_fat_pct` joins the periodic measurement catalogue
+  (%, `last`, plausible 3–70; lower-is-better is a display convention, with the U-shaped
+  caveat in the note). Migration 0051 copies the historical readiness `Fat_Percent` values
+  into the measurement log, and the importer appends future export values idempotently per
+  date. Body fat leaves the readiness form, API, CLI and importer (`DEC-MEASURE-02`).
+- **Demand-profile evidence ids**: the Exercise details Demand profile form now offers the
+  reviewed catalogue's evidence ids as a checklist (citation per id, preselected from the saved
+  claim, live count) and sends them with a `supported` rating. A checkbox list replaces the
+  native multi-select, which iOS Safari renders as "0 items" regardless of selection.
 - **Prescribed-plan browser cache**: the latest deterministic prescription is kept in
   `localStorage` for seven days and restored when Prescribe reloads. The restored notice shows
   the cached date/session beside the current form values, starting requires an explicit
@@ -50,6 +59,31 @@
   database measured **46.19 s without the snapshot vs 35.41 s with it** (same seven items); the
   historical 42.13 s figure used 552 sessions and is not directly comparable. The four full
   evaluator builds remain an accepted limitation.
+
+### Changed
+
+- **Conventional deadlift is a primary compound**: `conventional_deadlift` now carries
+  `primary_compound: true` in `config/exercises/taxonomy.v1.yaml` (`main_lift` stays false,
+  `DEC-RESOLVER-13`). `PRG-RIR-001`'s RIR window therefore covers its logged sets, and the lift
+  passes the resolver's top-set classification gate; it is still not in the shipped
+  `top_set.eligible_lifts`. The local UI override for it was removed and the generated
+  programme/workout documentation was regenerated (digest only).
+- **Body fat leaves readiness**: `fat_pct` is no longer accepted by the readiness/workout
+  forms, the API, the CLI or the importer. The legacy `readiness_day.fat_pct` column stays for
+  provenance and a re-import preserves it; new body-fat entries go through **Measures** or
+  `measure --metric body_fat_pct`.
+- **Readiness is five fields**: nutrition and hydration are no longer readiness inputs
+  (`DEC-READINESS-20`). They are gone from the readiness form, the workout-start panel, the CLI,
+  the API validation and the importer; old export columns are ignored rather than rejected.
+  Historical `readiness_day` values stay in their legacy columns and a re-import preserves them.
+  The constitution's MOD-FAT-001 scale-direction guard is narrowed to the remaining fields
+  (1.21.0; no load or threshold change).
+
+### Removed
+
+- **Dead readiness composite**: `readiness_day.composite` / `composite_basis` and the disabled
+  `readiness.composite.enabled` config key are removed (migration 0050). No export column fed
+  them, no rule or UI read them, and the app computes its own non-authoritative score.
 
 ### Fixed
 

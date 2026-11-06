@@ -116,9 +116,9 @@ Break any of these and the result is wrong even if the tests pass.
 | `Avg_velocity`, `Avg_power`, `Avg_rom`, `TUT` | device not used | sentinel → NaN |
 | `Weight_Used` | unweighted bodyweight movement | **valid**, preserve |
 | `RIR` | true failure | **valid**, preserve. `RIR 6` = warm-up (`DEC-RIR-01`) |
-| readiness `Weight`, `HRV`, `RHR`, `Fat_Percent` | missing | sentinel → NaN |
+| readiness `Weight`, `HRV`, `RHR` | missing | sentinel → NaN |
 | readiness `*_Readiness` | missing | sentinel → NaN |
-| readiness `Sleep`/`Energy`/`Mood`/`Soreness`/`Stress`/`Nutrition`/`Hydration` | impossible (1–5 scale) | no sentinel exists |
+| readiness `Sleep`/`Energy`/`Mood`/`Soreness`/`Stress` | impossible (1–5 scale) | no sentinel exists |
 
 Do **not** reuse `dates.NULL_DATE_TOKENS` for numeric columns: it contains `"0"` and doing
 so silently erased genuine `RIR = 0` observations during development.

@@ -605,7 +605,7 @@ not as a fifth hard-wired flag.
 ### 7.1 Current state
 
 Toggles are scattered: `deload.enabled`, `undulation.enabled`, `volume.apply_mrv_cap`,
-`volume.under_mev.enabled`, `readiness.set_reduction.enabled`, `readiness.composite.enabled`,
+`volume.under_mev.enabled`, `readiness.set_reduction.enabled`,
 `e1rm-decay.apply`, `e1rm-calibration.apply`, `continuity-calibration.enabled`,
 `fatigue-fitness.enabled`, `test-cadence.enabled`, `warmup.enabled`. The constitution
 (`config/rules/programme.v1.yaml`) is versioned separately and owns the hard rules. The Settings

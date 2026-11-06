@@ -434,8 +434,9 @@ Exercise Rotation is a deterministic dwell rule, not a random score weight.
 
 The generator can offer a top set + back-off structure for the session's primary main lift. It is
 a set-configuration feature, not a second periodisation engine. Eligibility is validated against
-the taxonomy's main-lift markers (`main_lift` or `primary_compound`); `conventional_deadlift` is
-not in the list because the taxonomy does not classify it as a main lift today.
+the taxonomy's main-lift markers (`main_lift` or `primary_compound`). `conventional_deadlift`
+now passes that gate (it is a `primary_compound` since `DEC-RESOLVER-13`), but it is still not in
+the shipped list: opting a lift into the top-set structure is an explicit policy decision.
 
 **Structure**
 

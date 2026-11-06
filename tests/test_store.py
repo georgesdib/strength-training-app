@@ -137,6 +137,27 @@ def test_run_stays_mutable_so_it_can_finish(conn):
     assert row["finished_at"] is not None
 
 
+def test_import_moves_fat_percent_into_measurements(conn):
+    # DEC-MEASURE-02: body fat is a periodic measurement, not a readiness input, and a
+    # re-import must not duplicate the (metric, date) row.
+    training, readiness = build_frames(
+        [{}], [{"Date": "2024-01-01", "Fat_Percent": "22.5"}]
+    )
+    report = do_import(conn, training, readiness)
+    assert report.body_fat_measurements == 1
+    row = conn.execute(
+        "SELECT measured_on, value, source, method FROM measurement "
+        "WHERE metric_key = 'body_fat_pct'"
+    ).fetchone()
+    assert tuple(row) == (
+        "2024-01-01", 22.5, "device", "imported from readiness Fat_Percent",
+    )
+
+    again = do_import(conn, training, readiness)
+    assert again.body_fat_measurements == 0
+    assert count(conn, "measurement") == 1
+
+
 # --- identity rules (DQ-DUP-01) -------------------------------------------
 
 

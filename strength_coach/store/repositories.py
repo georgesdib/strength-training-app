@@ -29,6 +29,7 @@ import pandas as pd
 
 from strength_coach.ingest.sessions import Session
 from strength_coach.store import symptom_attribution
+from strength_coach.utils import measurements as measurement_utils
 from strength_coach.utils import numeric
 from strength_coach.utils import readiness as readiness_utils
 
@@ -291,10 +292,13 @@ def upsert_readiness_days(conn: sqlite3.Connection, days: pd.DataFrame) -> int:
     if days.empty:
         return 0
 
+    # Nutrition/hydration (DEC-READINESS-20) are deliberately absent: the importer no longer
+    # supplies them, and omitting them from the update keeps historical values instead of
+    # nulling them on every re-import. Grip is absent for the same reason (DEC-GRIP-01).
     columns = [
-        "sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration",
+        "sleep", "energy", "mood", "soreness", "stress",
         "squat_readiness", "bench_readiness", "deadlift_readiness", "hrv_ms", "rhr_bpm",
-        "bodyweight_kg", "fat_pct", "grip_strength_kg", "wearable_score",
+        "bodyweight_kg", "grip_strength_kg", "wearable_score",
     ]
     rows = []
     for record in days.to_dict(orient="records"):
@@ -302,8 +306,6 @@ def upsert_readiness_days(conn: sqlite3.Connection, days: pd.DataFrame) -> int:
             (
                 str(record["on_date"]),
                 *[_opt(record.get(name)) for name in columns],
-                _opt(record.get("composite")),
-                _opt(record.get("composite_basis")),
                 _opt(record.get("merge_note")),
             )
         )
@@ -312,12 +314,10 @@ def upsert_readiness_days(conn: sqlite3.Connection, days: pd.DataFrame) -> int:
         conn,
         f"""
         INSERT INTO readiness_day (
-            on_date, {", ".join(columns)}, composite, composite_basis, merge_note
-        ) VALUES (?, {", ".join("?" * len(columns))}, ?, ?, ?)
+            on_date, {", ".join(columns)}, merge_note
+        ) VALUES (?, {", ".join("?" * len(columns))}, ?)
         ON CONFLICT(on_date) DO UPDATE SET
             {assignments},
-            composite = excluded.composite,
-            composite_basis = excluded.composite_basis,
             merge_note = excluded.merge_note
         """,
         rows,
@@ -1186,6 +1186,67 @@ def append_measurement(
         ),
     )
     return measurement_id
+
+
+def ensure_metric_definition(conn, spec) -> None:
+    """Declare a metric once; a later direction or unit change is refused.
+
+    Lives in the store because the importer may record an exported metric without importing
+    the feature layer; the spec itself is a utils.measurements.MetricSpec.
+    """
+    existing = conn.execute(
+        "SELECT higher_is_better, unit FROM metric_definition WHERE metric_key = ?",
+        (spec.key,),
+    ).fetchone()
+    if existing is None:
+        append_metric_definition(
+            conn,
+            metric_key=spec.key,
+            label=spec.label,
+            higher_is_better=spec.higher_is_better,
+            aggregation=spec.aggregation,
+            scale_min=spec.plausible_min,
+            scale_max=spec.plausible_max,
+            unit=spec.unit,
+            source="config",
+        )
+        return
+    stored_direction = bool(existing["higher_is_better"])
+    stored_unit = existing["unit"]
+    if stored_direction != spec.higher_is_better or stored_unit != spec.unit:
+        raise measurement_utils.MeasurementError(
+            f"{spec.key} is already declared as higher_is_better="
+            f"{stored_direction}, unit={stored_unit!r}; config says "
+            f"{spec.higher_is_better}, unit={spec.unit!r}"
+        )
+
+
+def append_measurements_missing(conn, spec, rows, *, source="device", method=None) -> int:
+    """Append only the dates the metric does not already have; return how many were written.
+
+    Imports are routinely re-run and measurement is append-only, so an existing (metric, date)
+    is left alone rather than duplicated. The spec is a utils.measurements.MetricSpec.
+    """
+    if not rows:
+        return 0
+    existing = {
+        str(row[0]) for row in conn.execute(
+            "SELECT measured_on FROM measurement WHERE metric_key = ?", (spec.key,)
+        )
+    }
+    written = 0
+    for row in rows:
+        day = str(row["measured_on"])
+        if day in existing:
+            continue
+        value = spec.validate(row["value"])
+        append_measurement(
+            conn, metric_key=spec.key, measured_on=day, value=value,
+            method=method, source=source,
+        )
+        existing.add(day)
+        written += 1
+    return written
 
 
 def append_session_feedback(

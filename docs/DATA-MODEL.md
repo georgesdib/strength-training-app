@@ -164,16 +164,18 @@ trap bar.
 | column | notes |
 |---|---|
 | on_date PK | |
-| sleep, energy, mood, soreness, stress, nutrition, hydration | 1–5, higher better, null when absent |
-| squat_readiness, bench_readiness, deadlift_readiness | 1–5 or null |
-| hrv_ms, rhr_bpm, bodyweight_kg, fat_pct, grip_strength_kg | null when 0 sentinel |
+| sleep, energy, mood, soreness, stress | 1–5, higher better, null when absent |
+| nutrition, hydration | legacy columns: no longer accepted or imported (`DEC-READINESS-20`); historical values are preserved, not read |
+| fat_pct | legacy column: no longer accepted or imported (`DEC-MEASURE-02`); body fat lives in `measurement.body_fat_pct` |
+| squat_readiness, bench_readiness, deadlift_readiness | 1–5 or null (legacy calibration labels) |
+| hrv_ms, rhr_bpm, bodyweight_kg, grip_strength_kg | null when 0 sentinel |
 | wearable_score | 0–100 device-computed readiness; null when absent; 0 is a valid worst score |
-| composite | derived, 0–1, with `composite_basis` listing which inputs existed |
 | merge_note | JSON: which duplicate rows were considered and why one won |
 
 Duplicate-readiness merge rule is DQ-RD-01; implemented as most-complete-row, ties to the
-latest (`DEC-READINESS-01`, `ingest/readiness.py`). `composite` stays null until the metric
-directions in Q6 part 2 are declared.
+latest (`DEC-READINESS-01`, `ingest/readiness.py`). The imported `composite`/`composite_basis`
+columns were removed by migration 0050: no export column fed them, nothing read them, and the
+app computes its own non-authoritative score.
 
 ### 5.1 `readiness_entry` (append-only)
 
@@ -181,7 +183,7 @@ directions in Q6 part 2 are declared.
 |---|---|
 | entry_id PK | opaque id |
 | on_date | the day the reading describes |
-| field | one of the readiness fields |
+| field | an accepted readiness field; historical rows may carry the legacy `nutrition`, `hydration`, `fat_pct` or `grip_strength_kg` values, which the code now rejects for new writes |
 | value | numeric; 1–5 for score fields, positive for device fields (including grip strength in kg), 0–100 for wearable_score |
 | source | `manual` (currently the only writer) |
 | recorded_at | when it was entered |
@@ -435,10 +437,10 @@ It is consumed by the periodic **measurement** path (`features/measurements.py`,
 `DEC-MEASURE-01`): a measurement whose key has no row, or whose direction changes, is
 refused rather than reinterpreted.
 
-**It is not a live readiness-composite driver.** The current readiness score uses hardcoded
-core fields plus weights/slopes from `config/readiness.v1.yaml`; `composite.enabled` is false
-and `readiness_day.composite` stays null. Adding a new readiness metric therefore still needs
-code/config work. The table has no weight/role, baseline or slope columns.
+**It is not a live readiness-score driver.** The current readiness score uses hardcoded core
+fields plus weights/slopes from `config/readiness.v1.yaml`; there is no imported composite
+column or config flag any more. Adding a new readiness metric therefore still needs code/config
+work. The table has no weight/role, baseline or slope columns.
 
 A future dynamic composite would need at least:
 

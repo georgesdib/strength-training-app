@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-11-05 · **v1.2.0 released; v1.3 planned** · version `1.2.0`
+Last updated: 2026-11-06 · **v1.2.0 released; v1.3 planned** · version `1.2.0`
 
 
 ---
@@ -73,6 +73,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | — | Performance | **resolver sequential build 133.15 s → 42.13 s historical; clean-set snapshot A/B 46.19 s → 35.41 s on the current 375-session DB; multiprocessing not justified** | `docs/PERFORMANCE-PROFILE.md`; schedule/settings/policy/E1RM/VBT caches plus the per-generation clean-set snapshot, no behaviour change |
 | — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000`; six task areas and actionable Today; integrated 4/8/12-week Progress with reusable dependency-free SVG line/bar charts, selectable e1RM, pattern/exercise working-set trends, observed-day calendar/frequency, lagged dose associations, bounded original-plan vs logged execution, retained sRPE/main-lift summaries and explicit data gaps; basis/unit-safe load/reps graphs and consolidated exercise dialog; Settings defaults, seven-day plan cache, History form override, resolver and VBT work; **UI redesign P0–P3 complete; final audit passed 2026-11-06** in `docs/UI-DESIGN-IMPLEMENTATION-PLAN.md` |
 | — | Engine audit W0–W12 | **closed 2026-10-23** | `docs/AUDIT-CLOSEOUT.md`; open items in `docs/LIMITATIONS-REGISTER.md` |
+| — | 2026-11-06 demand evidence + readiness/measurement cleanup | **done 2026-11-06** | Demand-profile form cites existing evidence ids from the reviewed catalogue through a preselected, iOS-safe checkbox list (a native multi-select shows "0 items" on iPhone). `conventional_deadlift` is a taxonomy `primary_compound` (`DEC-RESOLVER-13`, `main_lift` unchanged) so `PRG-RIR-001`'s RIR window covers its logged sets; its local UI override is removed and the generated programme/workout docs are regenerated (digest only). Readiness drops the unused nutrition/hydration inputs (`DEC-READINESS-20`, constitution 1.21.0 guard list only) and body fat moves to the periodic measurement log as `body_fat_pct` (`DEC-MEASURE-02`, migration 0051 copies 828 historical values and future imports are idempotent). The never-written readiness `composite`/`composite_basis` columns and `composite.enabled` config key are removed (migration 0050). LIM-59 closed as a design choice; no prescription or load arithmetic changed |
 
 ### Version plan (2026-10-25)
 
@@ -1437,7 +1438,10 @@ and the flag-off fixed-template path is unchanged. The generator core was remedi
 2026-11-01 for the review's shared eligibility, power-slot safety, settings, repair, availability,
 spinal, history, warning and provenance defects. The current record is
 [docs/PROGRAMME-BUILDER-PLAN.md](docs/PROGRAMME-BUILDER-PLAN.md) and
-[docs/DECISIONS.md](docs/DECISIONS.md) (DEC-RESOLVER-01 to DEC-RESOLVER-12).
+[docs/DECISIONS.md](docs/DECISIONS.md) (DEC-RESOLVER-01 to DEC-RESOLVER-13).
+`DEC-RESOLVER-13` (2026-11-06) is a taxonomy-classification change rather than a resolver step:
+`conventional_deadlift` is a `primary_compound`, so it passes the top-set classification gate
+but remains outside the shipped `top_set.eligible_lifts` list.
 
 The four canonical session identities stay and the shipped four-template YAML remains the
 blueprint and fallback. A deterministic **session generator** resolves every slot at generation

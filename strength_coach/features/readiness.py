@@ -47,7 +47,6 @@ class ReadinessConfig:
     at_or_below: float = 2.0
     merge_strategy: str = "most_complete"
     tie_break: str = "latest"
-    composite_enabled: bool = False
     baseline_days: int = 28
     baseline_min_readings: int = 7
     hrv_slope: float = 0.5
@@ -119,7 +118,6 @@ class ReadinessConfig:
         if unknown_context:
             raise ReadinessConfigError(f"context: unknown flags {unknown_context}")
 
-        composite = raw.get("composite") or {}
         score = raw.get("score") or {}
         baseline_days = int(score.get("baseline_days", 28))
         baseline_min = int(score.get("baseline_min_readings", 7))
@@ -143,7 +141,6 @@ class ReadinessConfig:
             at_or_below=float(modifier.get("at_or_below", 2)),
             merge_strategy=strategy,
             tie_break=tie_break,
-            composite_enabled=bool(composite.get("enabled", False)),
             baseline_days=baseline_days,
             baseline_min_readings=baseline_min,
             hrv_slope=hrv_slope,
@@ -205,7 +202,6 @@ def as_dict(config: ReadinessConfig) -> dict[str, Any]:
         "at_or_below": config.at_or_below,
         "merge_strategy": config.merge_strategy,
         "tie_break": config.tie_break,
-        "composite_enabled": config.composite_enabled,
         "baseline_days": config.baseline_days,
         "baseline_min_readings": config.baseline_min_readings,
         "hrv_slope": config.hrv_slope,

@@ -145,10 +145,14 @@ Rules the command enforces, because a rating is a claim rather than a preference
 
 The same write path is available in the app: **Exercises → Details → Demand profile → Rate this
 dimension** (or **Clear local rating**) posts to `/api/exercises/demands`, which calls the same
-`set_claim`/`clear_claim`. The table updates immediately and the reviewed file is never touched
-from the browser. Editing the YAML directly is supported and reviewed like any config change.
-The overlay is for quick, honest "I know this lift" corrections; anything with a citation
-belongs in the shipped file.
+`set_claim`/`clear_claim`. The form's **Evidence** checklist is the same list as the
+`evidence:` block below and is empty when that list is empty; it is *required* when the
+chosen confidence is `supported`, so the browser cannot record a citation the reviewed file
+does not define. (A checkbox list, not a multi-select: iOS Safari shows a multiple select as
+"0 items" regardless of the selection.) The table updates immediately and the reviewed file is never touched from the
+browser. Editing the YAML directly is supported and reviewed like any config change. The
+overlay is for quick, honest "I know this lift" corrections; anything with a citation belongs
+in the shipped file.
 
 ## 3. Scope and coverage
 
@@ -170,6 +174,12 @@ sending values to the LLM as if they were measured, or treating `low` as safe. A
 profile is evidence about a movement, not a prediction about a person on a given day.
 
 ## 5. Populated evidence and coverage (2026-10-28)
+
+This section is the human-readable **inventory of evidence ids**: the table below lists every
+id, what it supports and its limits. The machine-readable source is the `evidence:` block in
+`config/exercises/demands.v1.yaml` (the UI dropdown and `--evidence` read from it), and the
+full bibliography with DOIs is [REFERENCES.md](REFERENCES.md). A new id can only be added by
+editing the reviewed file with a real citation; the local overlay cannot invent one.
 
 Only two claims meet the `supported` bar in this pass. The rest are `provisional` expert
 classification, which is what the specification asked for as a seed.

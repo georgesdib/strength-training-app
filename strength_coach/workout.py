@@ -42,10 +42,8 @@ from strength_coach.rules import RuleContext, load_document, registry
 from strength_coach.store import db, queries, repositories
 from strength_coach.utils import exercises
 
-REQUIRED_READINESS = (
-    "sleep", "energy", "mood", "soreness", "stress", "nutrition", "hydration",
-)
-OPTIONAL_READINESS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "fat_pct", "wearable_score")
+REQUIRED_READINESS = ("sleep", "energy", "mood", "soreness", "stress")
+OPTIONAL_READINESS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "wearable_score")
 
 
 def _now() -> str:
@@ -63,7 +61,7 @@ def _parse(value: str | None) -> dt.datetime | None:
 
 def validate_readiness(values: Mapping[str, Any], *,
                        allow_partial: bool = False) -> dict[str, float]:
-    """Validate supplied readiness fields; the seven are required only by default.
+    """Validate supplied readiness fields; the five core fields are required by default.
 
     ``allow_partial`` is the explicit "start without a complete score" path. Missing fields
     stay absent, never invented, and the caller must have acknowledged that no readiness

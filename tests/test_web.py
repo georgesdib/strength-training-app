@@ -922,6 +922,9 @@ def test_exercise_catalog_endpoint(server):
     ]
     assert all("demands" in row for row in data["entities"])
     assert any(row["demands"]["dimensions"] for row in data["entities"])
+    evidence = data["demand_catalogue"]["evidence"]
+    assert any(entry["id"] == "EV-CHOLEWICKI-1991" for entry in evidence)
+    assert all(entry["citation"] for entry in evidence)
 
 
 def test_a_demand_rating_can_be_saved_and_cleared_in_the_ui(server, tmp_path, monkeypatch):
@@ -965,6 +968,42 @@ def test_a_supported_demand_rating_needs_evidence(server, tmp_path, monkeypatch)
     })
     assert status == 400
     assert not (tmp_path / "demands.local.yaml").exists()
+
+
+def test_a_supported_demand_rating_can_cite_an_existing_evidence_id(server, tmp_path,
+                                                                     monkeypatch):
+    base = tmp_path / "demands.v1.yaml"
+    base.write_text(json.dumps({
+        "schema_version": "1.0.0",
+        "reviewed_on": "2026-10-28",
+        "evidence": {"EV-TEST-1": {
+            "citation": "Author. Title. Journal, 2020.",
+            "doi": "10.1000/test",
+            "study_type": "controlled",
+            "confidence": "supported",
+        }},
+        "exercises": {},
+    }), encoding="utf-8")
+    monkeypatch.setattr(demands_feature.paths, "exercise_demands_yaml", lambda: base)
+
+    data = post(server, "/api/exercises/demands", {
+        "exercise_id": "seal_row", "dimension": "axial_spinal",
+        "level": "low", "confidence": "supported", "reason": "measured, not inferred",
+        "evidence": ["EV-TEST-1"],
+    })
+    claim = data["demands"]["dimensions"]["axial_spinal"]
+    assert claim["confidence"] == "supported"
+    assert claim["evidence"] == ["EV-TEST-1"]
+
+    # An id the reviewed file does not define is refused, and no overlay is written.
+    status, _ = post_status(server, "/api/exercises/demands", {
+        "exercise_id": "seal_row", "dimension": "trunk_stability",
+        "level": "low", "confidence": "supported", "reason": "invented source",
+        "evidence": ["EV-INVENTED-1"],
+    })
+    assert status == 400
+    assert "EV-TEST-1" in (tmp_path / "demands.local.yaml").read_text(encoding="utf-8")
+    assert "EV-INVENTED-1" not in (tmp_path / "demands.local.yaml").read_text(encoding="utf-8")
 
 
 def test_exercise_post_rejects_an_invalid_id_without_writing(server):

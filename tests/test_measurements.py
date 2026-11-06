@@ -20,6 +20,41 @@ def test_the_default_catalogue_has_the_longevity_metrics():
     assert CONFIG.metrics["vo2max"].higher_is_better is True
 
 
+def test_body_fat_is_a_measurement_metric_with_a_display_direction():
+    spec = CONFIG.metrics["body_fat_pct"]
+    assert spec.unit == "%"
+    assert spec.higher_is_better is False
+    assert spec.aggregation == "last"
+    with db.Store(":memory:") as store:
+        recorded = measurements.record(
+            store.connection, metric_key="body_fat_pct", value=22.5,
+            measured_on="2026-01-10", method="DEXA",
+        )
+        summary = next(
+            row for row in measurements.summary(store.connection)
+            if row["key"] == "body_fat_pct"
+        )
+    assert recorded.key == "body_fat_pct"
+    assert summary["latest_value"] == 22.5
+    assert summary["count"] == 1
+
+
+def test_the_migrated_body_fat_definition_matches_the_catalogue():
+    # Migration 0051 hardcodes the definition so it can copy history before any feature call;
+    # this keeps the migration and config/measurements.v1.yaml from drifting apart.
+    spec = CONFIG.metrics["body_fat_pct"]
+    with db.Store(":memory:") as store:
+        row = store.connection.execute(
+            "SELECT higher_is_better, aggregation, unit, scale_min, scale_max "
+            "FROM metric_definition WHERE metric_key = 'body_fat_pct'"
+        ).fetchone()
+    assert row["higher_is_better"] == (1 if spec.higher_is_better else 0)
+    assert row["aggregation"] == spec.aggregation
+    assert row["unit"] == spec.unit
+    assert row["scale_min"] == spec.plausible_min
+    assert row["scale_max"] == spec.plausible_max
+
+
 def test_recording_declares_the_metric_and_summarises_it():
     with db.Store(":memory:") as store:
         conn = store.connection
