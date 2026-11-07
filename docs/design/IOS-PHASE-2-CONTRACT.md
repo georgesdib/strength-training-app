@@ -664,7 +664,7 @@ mutations. These are config/contract values, not new training rules.
   instead of returning 500.
 - **Client:** readiness form, prescription preview, start-by-id, active workout, optional manual
   mean velocity, optional 1–5 form ratings, session RPE or explicit not-recorded completion,
-  abandon, and the Progress screen; 43 unit tests at Phase 2 closure (52 after R1/R3); optional
+  abandon, and the Progress screen; 43 unit tests at Phase 2 closure (55 after R1/R3/R5); optional
   live UI smoke tests; Release build.
   Plan-item attribution is automatic only for a unique exercise; a repeated exercise defaults to
   nil and can be explicitly attributed through the R3 picker. Retry keys are body-aware, duplicate
@@ -682,8 +682,9 @@ mutations. These are config/contract values, not new training rules.
 - **Closure:** accepted 2026-11-07. No Phase 3 work has begun. R1's durable pending-mutation
   journal was added immediately after closure and closed on 2026-11-07 (51 client tests total); it
   replays attempted operations with the original UUID/body and is not an offline queue. R3
-  explicit plan-item selection was implemented and verified on 2026-11-07. R2, R4, R5 and R6 remain
-  deferred in roadmap §4.30 and are not Phase 2 closure blockers.
+  explicit plan-item selection and R5 workout recovery/reconciliation UX were implemented and
+  verified on 2026-11-07. R2, R4 and R6 remain deferred in roadmap §4.30 and are not Phase 2
+  closure blockers.
 
 ## 17. References
 

@@ -6,7 +6,7 @@
 0053_ios_workflow, the ios CLI, the bearer-authenticated /api/ios/v1/ facade, and its tests; the
 Swift client in the separate StrengthApp repository has pairing, Today, History, Settings/Forget,
 readiness entry, prescription preview/start-by-id, active workout, completion/abandon and
-Progress, Keychain storage, 52 unit tests after R1/R3 and optional live UI smoke tests. Phase 3 is not started
+Progress, Keychain storage, 55 unit tests after R1/R3/R5 and optional live UI smoke tests. Phase 3 is not started
 and needs its own approved contract. Later phases remain proposals and need separate approval.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
@@ -501,7 +501,8 @@ own approved contract and has not started.
   review screen; personal-team signing expires after 7 days. Phase 2 itself had no durable
   pending-mutation journal; that was added immediately after closure as R1 (see below). It is not
   a general offline queue: only attempted mutations are journaled, and new mutations are blocked
-  while one is unresolved. R2, R4, R5 and R6 remain deferred and are not Phase 2 closure blockers.
+  while one is unresolved. R5 recovery/reconciliation UX is implemented; R2, R4 and R6 remain
+  deferred and are not Phase 2 closure blockers.
 
 ### R1 durable pending-mutation journal (implemented and closed 2026-11-07)
 
@@ -522,11 +523,11 @@ pass was not performed.
 - Today shows the pending operation with retry/discard actions. A conflict or terminal server
   response stops automatic replay rather than guessing.
 - This is not an offline queue: only operations the owner actually attempted are recorded, and
-  the cap/blocking prevent an unbounded queue. R2, R4, R5 and R6 remain deferred.
+  the cap/blocking prevent an unbounded queue. R2, R4 and R6 remain deferred.
 
-Client tests: 52 (43 Phase 2 + 8 journal/recovery + 1 R3 plan-selection test). The normal live
-simulator workflow passes with the journal enabled. R1 is closed; a dedicated physical-iPhone R1
-force-quit/lost-response pass was not separately performed.
+Client tests: 55 (43 Phase 2 + 8 journal/recovery + 1 R3 plan-selection + 3 R5 recovery tests).
+The normal live simulator workflow passes with the journal and recovery UI enabled. R1 is closed;
+dedicated physical-iPhone R1/R3/R5 passes were not separately performed.
 
 ### R3 explicit plan-item selection (implemented 2026-11-07)
 
@@ -539,6 +540,21 @@ force-quit/lost-response pass was not separately performed.
   paths are unchanged.
 - Unit verification covers repeated choices, unique auto-attribution and the nil fallback; a
   separate physical-iPhone R3 pass was not performed.
+
+
+### R5 workout recovery/reconciliation UX (implemented 2026-11-07)
+
+- On refresh, if the server has an active workout not represented locally, Today shows a Recovery
+  section with **Resume server workout**, **Abandon server workout**, and **Dismiss**.
+- If a local in-progress workout is no longer active on the server, Today shows that it may have
+  been completed or abandoned elsewhere, with **Refresh server state** and **Clear local state**.
+- If starting a prescription returns consumed/expired/superseded, the unusable prescription is
+  cleared and a **Refresh server state** recovery state is shown instead of silently resetting.
+- Unreplayable pending mutations continue to use the R1 pending-operation panel with retry/discard.
+- A one-read grace after a local workout mutation prevents a false ended-elsewhere state before
+  the next server read; the next refresh still reconciles an externally finished workout.
+- Unit tests cover server-active discovery, ended-elsewhere detection and consumed-prescription
+  recovery. The normal live simulator workflow passes; a separate physical R5 pass was not done.
 
 No HealthKit integration, training logic or server-behaviour change exists beyond the additive
 Phase 1/2 facade. Each later phase requires the owner's approval before it starts.
