@@ -1578,7 +1578,7 @@ authenticated readiness/prescription/workout/complete/abandon routes, and 27 con
 the client adds readiness entry, prescription preview, start-by-id, active workout with optional
 manual mean velocity, form ratings, RPE/not-recorded completion, abandon and a Progress screen.
 The contract is [`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md).
-The default server suite is 1632 tests and the client has 43 unit tests; the live UI workflow
+The default server suite is 1632 tests and the client has 51 unit tests after R1; the live UI workflow
 passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2 acceptance was owner-confirmed on
 2026-11-07 on the iPhone 16 Pro Max (iPhone17,2), iOS 27.2. Phase 2 is closed; Phase 3 is not
 started and needs its own approval.
@@ -1627,7 +1627,7 @@ of executing twice; a receipt uniqueness race is rolled back and re-read rather 
 500. The server owns readiness, load and set decisions; manual mean velocity is stored as an
 optional performed value, never a new prescription input. Client: readiness form, prescription
 preview, active workout, optional form ratings, RPE or explicit not-recorded completion, abandon,
-and the Progress screen; 43 unit tests and optional live UI smoke tests. Plan-item attribution is
+and the Progress screen; 43 unit tests at closure (51 after R1) and optional live UI smoke tests. Plan-item attribution is
 sent only when the exercise occurs exactly once; repeated exercises remain nil/unmatched instead
 of being guessed. Retry keys are body-aware, duplicate UI mutations are guarded, and an ambiguous
 finish locks the exact completion body for replay. Verification: the live UI test passed on the
@@ -1641,11 +1641,12 @@ b919ae0283edef91e31ac1d1d2062537288258818ab707b527caee3be29db9d7) and verified b
 import. The Release build passes. Rollback: set mutations_enabled: false to return mutation
 routes to 503 while reads stay available; drop ios_issued_plan and ios_operation_receipt, remove
 the Phase 2 routes/client screens, and forget the device. Existing prescriptions/workouts already
-committed by a started session remain valid. Residual limitations: no durable pending-mutation
-journal or offline queue, so a lost response cannot be replayed after app termination; no
-HealthKit; no plan editing on the phone; and plain HTTP on the trusted LAN. The deferred
-reliability items are roadmap §4.30 (R1-R6); they are not Phase 2 closure blockers. Phase 2 is
-closed 2026-11-07.
+committed by a started session remain valid. Residual limitations: no offline queue; no
+HealthKit; no plan editing on the phone; and plain HTTP on the trusted LAN. R1's durable
+pending-mutation journal was added immediately after closure (51 client tests), so a lost response
+is replayable after termination within its 28-day window while the server receipt remains. R2-R6
+remain deferred in roadmap §4.30 and are not Phase 2 closure blockers. Phase 2 is closed
+2026-11-07.
 
 **Release gate:** the existing web/CLI API is unauthenticated HTTP on the home LAN
 (LIM-57); the phone uses the separate per-device bearer facade. Keep existing web/CLI
@@ -1671,26 +1672,29 @@ feature is proposed.
 
 Full acceptance criteria and rollback gates are in the plan.
 
-### 4.30 iOS reliability follow-ups (deferred, after Phase 2)
+### 4.30 iOS reliability follow-ups (R1 implemented; R2–R6 deferred)
 
-Phase 2 closes with **in-memory operation keys** and server-authoritative recovery. It does not
-implement a durable pending-mutation journal, an offline queue, HealthKit, or Phase 3. The
-following are planned improvements, in priority order; none is current behaviour.
+R1 was implemented on 2026-11-07 after Phase 2 closure: the client now has a durable,
+device-scoped pending-mutation journal. Unit and simulator verification pass; a dedicated
+physical-device R1 check remains a follow-up. R2–R6 remain planned improvements, in priority
+order. This work still does not add an unrestricted offline queue, HealthKit, or Phase 3.
 
 | id | priority | item | scope / constraints |
 |---|---|---|---|
-| R1 | High | Durable pending-mutation journal | Persist the operation UUID, target workout/plan id, mutation type/route, exact canonical request body, creation timestamp, and pending/acknowledged status. Replay only with the original UUID and body; remove/acknowledge only after definitive success or reconciliation. Do not build an unrestricted offline queue; preserve server authority. Define expired-receipt, conflict, terminal-workout, secure-storage and retention behaviour. This is the next reliability iteration. |
+| R1 | High | Durable pending-mutation journal — **implemented 2026-11-07** | Persists the operation UUID, device/server, mutation kind, target workout/plan id, route, exact encoded request body, creation timestamp and pending/conflict state in Application Support with iOS file protection and backup exclusion. Replays only the original UUID/body; 2xx removes, definitive 4xx removes, idempotency conflicts and terminal states are surfaced, and transport/5xx stay pending. Capped at 16 entries, 30-day retention, 28-day replay window. No unrestricted offline queue; new mutations are blocked while an unresolved operation exists. |
 | R2 | Low | Unstarted issued-plan recovery | Consider a server endpoint returning the device's current unconsumed, non-superseded issued plan, so a relaunched app can restore the preview without issuing a replacement. Never expose another device's plan or permit reuse. |
 | R3 | Medium | Explicit plan-item selection | When an exercise appears multiple times, let the owner select the exact prescription item. Keep the current nil-attribution fallback. |
 | R4 | Low | Form-rating correction UX | Distinguish an initial rating from a later correction/additional rating. Do not change append-only database semantics without a separate decision. |
 | R5 | Medium | Workout recovery/reconciliation UX | Add a dedicated recovery state for a server active workout not represented locally, an unreplayable pending mutation, a consumed/superseded prescription, or a workout completed/abandoned elsewhere. Show server state and offer safe actions instead of silently resetting. |
 | R6 | Low | Idempotency operational monitoring | Lightweight diagnostics for replay counts, idempotency conflicts, receipt expiry, unexpected mutation failures and reconciliation failures. No telemetry platform or unnecessary personal data. |
 
-**Current recovery boundary:** after an acknowledged set, force-quitting and relaunching recovers
-the active workout and its sets through `GET /api/ios/v1/today`. A request whose response was lost
-before acknowledgement can be retried only while the view/process and its in-memory
-`Idempotency-Key` survive; after termination it is not replayed. The server retains the receipt,
-so a future R1 journal can recover the original response safely.
+**Recovery boundary after R1:** every attempted mutation is journaled before the HTTP request.
+After termination, the app replays journaled operations with the original UUID and exact body,
+then reconciles through the normal server responses. A response lost before acknowledgement is
+therefore recoverable within the replay window, provided the server receipt has not expired.
+Conflicts, stale entries, and terminal workout states stop automatic replay and require explicit
+review/discard in Today. The journal is capped and blocks new mutations while an unfinished
+operation exists; it is not a general offline queue.
 
 ## 5. Known gaps and risks
 

@@ -164,10 +164,12 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
   index only for a unique exercise, and otherwise stores the set with no plan-item attribution.
 - **Progress is available to the client in Phase 2.** GET /api/ios/v1/progress is the same
   progress_feature.dashboard payload used by the web UI; the native client has a Progress tab.
-- **Retry boundary.** The client keeps operation UUIDs and bodies in memory. A response lost before
-  acknowledgement can be retried with the same key while the process/view survives; there is no
-  durable pending-mutation journal or offline queue after app termination. The server receipt
-  remains available for a future journal.
+- **Retry boundary.** The client records each attempted mutation in a durable, capped journal
+  before sending it. After relaunch it replays only those attempted operations with the original
+  UUID and exact body, within a 28-day client window inside the server's 30-day receipt retention.
+  Definitive 4xx responses remove the entry; idempotency conflicts and stale entries stop
+  automatic replay and require review/discard. This is not an offline queue, and the server API is
+  unchanged.
 - **last_seen_at** is updated at most once per 60 seconds.
 - **Dates.** `server_date`/`server_time` come from the server's local clock; the phone must
   not derive the training date from a UTC slice. `bootstrap` sends the numeric UTC offset and

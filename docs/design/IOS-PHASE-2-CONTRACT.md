@@ -388,10 +388,11 @@ capabilities distinguish the phase:
   retries the same operation; it does not silently submit a different one.
 - Receipts are pruned after 30 days. Issued plans/receipts are device-scoped; one device cannot use
   another device’s plan or receipt.
-- **No durable client journal exists in Phase 2.** Operation keys and bodies are held in memory.
-  Force-quitting after an acknowledged set recovers the active workout through `today`; a pending
-  request whose response was lost before acknowledgement cannot be replayed after app termination
-  until the deferred durable-journal work (roadmap R1) lands.
+- **Phase 2 had no durable client journal.** R1 was added after Phase 2 closure (2026-11-07):
+  attempted mutations are journaled with the original UUID and exact body before sending, replayed
+  on launch within a 28-day window, capped at 16 entries, and stored with iOS file protection and
+  backup exclusion. A pending conflict or stale entry blocks new mutations until the owner
+  retries/discards it. This is not an offline queue. See roadmap §4.30 R1.
 - Start also adopts the active workout as in §5.3; set also deduplicates by `set_index` as in
   §5.4. These are independent of the receipt and protect against a lost response and a new key.
 
@@ -661,7 +662,8 @@ mutations. These are config/contract values, not new training rules.
   instead of returning 500.
 - **Client:** readiness form, prescription preview, start-by-id, active workout, optional manual
   mean velocity, optional 1–5 form ratings, session RPE or explicit not-recorded completion,
-  abandon, and the Progress screen; 43 unit tests; optional live UI smoke tests; Release build.
+  abandon, and the Progress screen; 43 unit tests at Phase 2 closure (51 after R1); optional
+  live UI smoke tests; Release build.
   Plan-item attribution is sent only for a unique exercise; repeated exercises remain nil and are
   never guessed. Retry keys are body-aware, duplicate UI mutations are guarded, and an ambiguous
   finish locks the exact completion body for replay.
@@ -675,10 +677,10 @@ mutations. These are config/contract values, not new training rules.
   b919ae0283edef91e31ac1d1d2062537288258818ab707b527caee3be29db9d7), verified by a dry-run
   import. Lost-response and concurrent duplicate tests cover readiness, start, set and completion
   at the real HTTP boundary. The server and client unit/contract suites pass.
-- **Closure:** accepted 2026-11-07. No Phase 3 work has begun. There is no durable
-  pending-mutation journal: a response lost before acknowledgement can be retried only while the
-  process/view and its in-memory key survive. The deferred items are roadmap §4.30 (R1–R6) and are
-  not Phase 2 closure blockers.
+- **Closure:** accepted 2026-11-07. No Phase 3 work has begun. R1's durable pending-mutation
+  journal was added immediately after closure (51 client tests total); it replays attempted
+  operations with the original UUID/body and is not an offline queue. R2-R6 remain deferred in
+  roadmap §4.30 and are not Phase 2 closure blockers.
 
 ## 17. References
 

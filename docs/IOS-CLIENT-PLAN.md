@@ -6,7 +6,7 @@
 0053_ios_workflow, the ios CLI, the bearer-authenticated /api/ios/v1/ facade, and its tests; the
 Swift client in the separate StrengthApp repository has pairing, Today, History, Settings/Forget,
 readiness entry, prescription preview/start-by-id, active workout, completion/abandon and
-Progress, Keychain storage, 43 unit tests and optional live UI smoke tests. Phase 3 is not started
+Progress, Keychain storage, 51 unit tests after R1 and optional live UI smoke tests. Phase 3 is not started
 and needs its own approved contract. Later phases remain proposals and need separate approval.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
@@ -477,9 +477,10 @@ own approved contract and has not started.
   stay available.
 - **Client:** readiness form, prescription preview, active workout, optional manual mean velocity,
   optional form ratings, session RPE or explicit not-recorded completion, abandon, and the Progress
-  screen; 43 unit tests; optional live UI smoke tests; Release build passes. Plan-item attribution
-  is sent only for a unique exercise; repeated exercises remain nil. Retry keys are body-aware,
-  duplicate UI mutations are guarded, and an ambiguous finish locks the exact completion body.
+  screen; 43 unit tests at Phase 2 closure (51 after R1); optional live UI smoke tests; Release
+  build passes. Plan-item attribution is sent only for a unique exercise; repeated exercises
+  remain nil. Retry keys are body-aware, duplicate UI mutations are guarded, and an ambiguous
+  finish locks the exact completion body.
 - **Verification:** the live UI test passed on the iPhone 18 Pro simulator against a temporary
   SQLite database, covering pair -> readiness -> issue -> start -> add VBT set -> force-quit/
   relaunch recovery -> finish -> Progress. Lost-response and concurrent duplicate tests cover
@@ -497,9 +498,33 @@ own approved contract and has not started.
   remove the Phase 2 routes/client screens and forget the device. Prescriptions/workouts already
   committed by a started session remain valid.
 - **Residual limitations:** plain HTTP on the trusted LAN only; no HealthKit, offline capture or
-  review screen; personal-team signing expires after 7 days. There is no durable pending-mutation
-  journal, so a response lost before acknowledgement cannot be replayed after app termination;
-  this is deferred as roadmap §4.30 R1. The deferred R1-R6 items are not Phase 2 closure blockers.
+  review screen; personal-team signing expires after 7 days. Phase 2 itself had no durable
+  pending-mutation journal; that was added immediately after closure as R1 (see below). It is not
+  a general offline queue: only attempted mutations are journaled, and new mutations are blocked
+  while one is unresolved. R2-R6 remain deferred and are not Phase 2 closure blockers.
+
+### R1 durable pending-mutation journal (post-Phase-2, 2026-11-07)
+
+R1 was implemented immediately after Phase 2 closure as a client-only reliability layer.
+
+- The journal stores attempted operations in Application Support with iOS file protection and
+  backup exclusion. Each entry carries the operation UUID, device/server, mutation kind, target
+  workout or plan id, route, exact encoded request body, creation timestamp and pending/conflict
+  state.
+- An entry is written immediately before the HTTP request. A 2xx acknowledges and removes it;
+  definitive 4xx responses remove it; transport/5xx keep it pending; an idempotency conflict marks
+  it conflicted. On launch, pending entries replay with their original UUID and body, in order.
+- The journal is capped at 16 entries, retained for 30 days, and auto-replayed only within
+  28 days (inside the server's 30-day receipt window). Older entries become conflicts and require
+  explicit discard/verification. New mutations are blocked while an unresolved entry exists.
+- Today shows the pending operation with retry/discard actions. A conflict or terminal server
+  response stops automatic replay rather than guessing.
+- This is not an offline queue: only operations the owner actually attempted are recorded, and
+  the cap/blocking prevent an unbounded queue. R2-R6 remain deferred.
+
+Client tests: 51 (43 Phase 2 + 8 journal/recovery tests). The normal live simulator workflow
+passes with the journal enabled; a dedicated physical-iPhone R1 force-quit/lost-response pass
+remains a follow-up.
 
 No HealthKit integration, training logic or server-behaviour change exists beyond the additive
 Phase 1/2 facade. Each later phase requires the owner's approval before it starts.
