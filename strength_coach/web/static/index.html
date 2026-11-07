@@ -791,7 +791,7 @@
     <section id="view-review" class="view">
       <div class="panel">
         <div class="panel-head"><h2>Review a session</h2><span class="muted">human marks, engine scores shown</span></div>
-        <p class="section-help"><span>Human rubric marks; engine values are shown for context and never copied.</span> <a class="doc-link" href="#docs?doc=docs/STRENGTH-PROGRAM-REVIEW.md">Rubric review</a></p>
+        <p class="section-help"><span>Human rubric marks; engine values are shown for context and never copied.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Rubric calibration</a></p>
         <form id="review-form" class="form-row">
           <label>Session <select id="review-session"></select></label>
           <button type="submit">Load sheet</button>
@@ -802,9 +802,19 @@
       <div id="review-result"></div>
       <div class="panel">
         <div class="panel-head"><h2>Rubric agreement</h2><span class="muted">the <code>calibrate</code> report</span></div>
-        <p class="section-help"><span>Runs the calibration report; only high-confidence marks count.</span> <a class="doc-link" href="#docs?doc=docs/STRENGTH-PROGRAM-REVIEW.md">Calibration</a></p>
+        <p class="section-help"><span>Runs the calibration report; only high-confidence marks count.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Calibration loop</a></p>
         <button class="ghost" id="rubric-calibration-run">Run rubric calibration</button>
         <div id="rubric-calibration"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Calibration review (B1)</h2><span class="muted">closed 2026-11-07 · rubric 1.2.0 unchanged</span></div>
+        <p class="section-help"><span>No weight or definition changed. Keep a thin stream of fresh marks and run the report later.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Calibration review</a></p>
+        <ul class="muted">
+          <li>Mark a session on the day, from memory, with <strong>high</strong> confidence.</li>
+          <li>Prefer a live workout with a prescription snapshot; skip an item you cannot judge.</li>
+          <li>Do not backfill old imports just to create calibration labels.</li>
+          <li>Run the report monthly or at the Phase 5A gate (2027-01-22); retuning is deferred.</li>
+        </ul>
       </div>
     </section>
 
@@ -951,11 +961,13 @@
           <li><strong>Check the report above.</strong> New raw rows/sessions are the history that
             was added; <em>overlapping</em> means it was already loaded. A high
             <em>quarantined</em> count means dates or exercise names need attention.</li>
-          <li><strong>Review recent sessions.</strong> Open <strong>Review</strong> and mark the
-            sessions you remember (or run <code>strength-coach review --pending</code>). Those
-            marks are the calibration labels; only <code>high</code>-confidence marks count.</li>
-          <li><strong>Calibrate later.</strong> After the review — weekly, or after a block —
-            run <strong>Run rubric calibration</strong> on the Review page
+          <li><strong>Mark a fresh session.</strong> Open <strong>Review</strong> and mark a
+            session you remember, ideally one just completed in Workout mode so a prescription
+            snapshot exists (or run <code>strength-coach review --pending</code>). Those marks are
+            the calibration labels; only <code>high</code>-confidence marks count. Do not backfill
+            old imports just to create labels.</li>
+          <li><strong>Calibrate later.</strong> Monthly, or at the Phase 5A gate, run
+            <strong>Run rubric calibration</strong> on the Review page
             (or <code>strength-coach calibrate</code>). Re-importing does not invalidate marks,
             and importing does not require a re-run on its own.</li>
         </ol>

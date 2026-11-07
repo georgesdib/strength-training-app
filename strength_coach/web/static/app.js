@@ -1332,8 +1332,16 @@ function renderPrescription(p, options = {}) {
 }
 
 /* --- review ------------------------------------------------------------- */
-function fillSessionSelect() {
+async function fillSessionSelect() {
   const select = $("#review-session");
+  if (!window.__overview && document.querySelector("#view-review")?.classList.contains("active")) {
+    try {
+      window.__overview = await api("/api/overview");
+    } catch (error) {
+      select.innerHTML = "<option value=''>could not load sessions</option>";
+      return;
+    }
+  }
   const sessions = window.__overview?.sessions || [];
   if (!sessions.length) { select.innerHTML = "<option value=''>no sessions</option>"; return; }
   const current = select.value;
@@ -1358,7 +1366,10 @@ $("#review-form").addEventListener("submit", (event) => {
 });
 
 async function loadReview(session) {
-  if (!session) return;
+  if (!session) {
+    $("#review-result").innerHTML = "<p class='warnbox'>No session selected. Reload the page if the list is empty.</p>";
+    return;
+  }
   $("#review-result").innerHTML = "<p class='empty'>Loading sheet…</p>";
   try {
     const data = await api("/api/review/" + encodeURIComponent(session));
