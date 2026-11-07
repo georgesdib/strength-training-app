@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Database transfer utility**: `tools/db_transfer.py export|import` moves `data/coach.db`
+  between machines as a full replacement. The archive carries a manifest with the complete
+  applied migration set and a database SHA-256; import fails before touching the target if any
+  migration, checksum or hash differs. It requires `--force`, refuses a target with WAL side
+  files, and writes an automatic `pre-transfer` backup before the atomic replace. No merge and
+  no authoritative label.
+
 ### Changed
 
 - **Rubric calibration review (B1) closed.** The review found the remaining disagreement is

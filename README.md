@@ -85,6 +85,7 @@ source .venv/bin/activate           # so `strength-coach` is on PATH
 .venv/bin/python tools/eval_prepare.py --session <date>   # labelling sheet
 .venv/bin/python tools/backtest.py        # rubric vs hand marks
 .venv/bin/python tools/export_repo.py     # full export incl. private data and .git, no build/cache data
+.venv/bin/python tools/db_transfer.py export   # database transfer archive (not a merge)
 ./run-web.sh                              # local web UI at http://127.0.0.1:8000
 ```
 
@@ -94,6 +95,33 @@ of the export; the default archive contains private health data and is not encry
 
 After extracting an export, `./setup-venv.sh` creates `.venv` and installs the dev extras;
 use `./setup-venv.sh --locked` for the `requirements.lock` versions.
+
+## Moving the database between machines
+
+`tools/db_transfer.py` moves `data/coach.db` as a **full replacement**, not a merge. It is for
+the case where one machine is authoritative and another is used for development.
+
+```bash
+# authoritative machine
+python tools/db_transfer.py export --db data/coach.db
+scp data/exports/coach-db-*.tar.gz dev-host:
+
+# development machine: stop the app first
+python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --dry-run
+python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --force
+```
+
+The archive contains the SQLite snapshot, a manifest with the full applied migration set
+(version and checksum), the app version and the database SHA-256. Import verifies the
+archive, compares the complete migration set with the target, and **fails before replacing
+anything** if any migration, checksum or database hash differs. It refuses while the target
+has SQLite WAL side files, writes a `coach.db.pre-transfer-*` backup beside the target, and
+then replaces the file atomically.
+
+Neither side is labelled authoritative: you choose which archive to import and must pass
+`--force`. There is no merge and no conflict resolution; anything created only on the target
+is lost unless the automatic backup is restored. The archive contains personal health data
+and is not encrypted, so transfer it over SSH or an encrypted disk.
 
 ## CI and releases
 

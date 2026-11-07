@@ -25,3 +25,17 @@ private/docs/INFO-REQUESTS.md    # personal goals/injury/suitability backlog
 
 The public repository contains the methodology, schemas, rules and code. It does not
 contain anyone's training data, bodyweight, injury history or derived metrics.
+
+## Moving the database between machines
+
+Use `tools/db_transfer.py` for a full-replacement transfer, not a merge:
+
+```bash
+python tools/db_transfer.py export --db data/coach.db
+python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --force
+```
+
+Stop the app before importing. The tool checks the complete migration set and the database
+checksum, refuses a target with SQLite WAL side files, and writes a `pre-transfer` backup
+beside the target before replacing it. The archive contains personal health data and is not
+encrypted.
