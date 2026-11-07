@@ -1225,7 +1225,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
-| done (Phases 0–2) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified; physical-iPhone acceptance pending); online strength workflow first; HealthKit readiness before offline capture; Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
+| done (Phases 0–2) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified and owner-confirmed on the physical iPhone); online strength workflow first; HealthKit readiness before offline capture; Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1579,8 +1579,9 @@ the client adds readiness entry, prescription preview, start-by-id, active worko
 manual mean velocity, form ratings, RPE/not-recorded completion, abandon and a Progress screen.
 The contract is [`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md).
 The default server suite is 1632 tests and the client has 43 unit tests; the live UI workflow
-passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2 acceptance remains the owner gate.
-Phase 3 is not started and needs its own approval.
+passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2 acceptance was owner-confirmed on
+2026-11-07 on the iPhone 16 Pro Max (iPhone17,2), iOS 27.2. Phase 2 is closed; Phase 3 is not
+started and needs its own approval.
 The first useful release is an online, authenticated native strength-training workflow against the
 owner's local Python server. Durable offline capture, HealthKit and Apple Intelligence
 are later phases, not first-release dependencies. PCC may be a separately enabled Apple AI option;
@@ -1631,16 +1632,20 @@ sent only when the exercise occurs exactly once; repeated exercises remain nil/u
 of being guessed. Retry keys are body-aware, duplicate UI mutations are guarded, and an ambiguous
 finish locks the exact completion body for replay. Verification: the live UI test passed on the
 iPhone 18 Pro simulator against a temporary SQLite database (pair -> readiness -> issue -> start ->
-add VBT set -> force-quit/relaunch recovery -> finish -> Progress); no live data/coach.db was
-touched. The Release build passes. Rollback: set mutations_enabled: false to return mutation
+add VBT set -> force-quit/relaunch recovery -> finish -> Progress). The owner confirmed the
+physical-iPhone Phase 2 checklist on 2026-11-07 (iPhone 16 Pro Max, iPhone17,2, iOS 27.2). The live
+data/coach.db is at schema 0053 with both Phase 2 tables present; PRAGMA quick_check returned ok.
+A post-acceptance backup was written to
+data/exports/phase2-post-acceptance-2026-11-07.tar.gz (SHA-256
+b919ae0283edef91e31ac1d1d2062537288258818ab707b527caee3be29db9d7) and verified by a dry-run
+import. The Release build passes. Rollback: set mutations_enabled: false to return mutation
 routes to 503 while reads stay available; drop ios_issued_plan and ios_operation_receipt, remove
 the Phase 2 routes/client screens, and forget the device. Existing prescriptions/workouts already
 committed by a started session remain valid. Residual limitations: no durable pending-mutation
 journal or offline queue, so a lost response cannot be replayed after app termination; no
-HealthKit; no plan editing on the phone; plain HTTP on the trusted LAN; and physical-iPhone
-Phase 2 acceptance remains the owner checklist. The deferred reliability items are roadmap
-§4.30 (R1-R6); Phase 2 is implementation-complete and ready for closure once the physical-device
-checklist is completed or explicitly accepted as pending.
+HealthKit; no plan editing on the phone; and plain HTTP on the trusted LAN. The deferred
+reliability items are roadmap §4.30 (R1-R6); they are not Phase 2 closure blockers. Phase 2 is
+closed 2026-11-07.
 
 **Release gate:** the existing web/CLI API is unauthenticated HTTP on the home LAN
 (LIM-57); the phone uses the separate per-device bearer facade. Keep existing web/CLI

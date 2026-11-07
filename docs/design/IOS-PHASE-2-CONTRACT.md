@@ -1,9 +1,11 @@
 # iOS Phase 2 — Online Strength Workflow: implementation contract
 
-**Status:** approved by the owner, implemented and remediated on 2026-11-07. Server work is on the
-`iOS-app` branch; client work is on `main` in the separate `StrengthApp` repository. Phase 1 is
-complete (see [`IOS-PHASE-1-CONTRACT.md`](IOS-PHASE-1-CONTRACT.md) §13). This contract remains the
-authority for the Phase 2 surface. Physical-iPhone Phase 2 acceptance is the remaining owner gate.
+**Status:** approved by the owner, implemented, remediated and accepted on 2026-11-07. Server work
+was implemented on `iOS-app` and merged to `development`; client work is on `main` in the separate
+`StrengthApp` repository. Phase 1 is complete (see
+[`IOS-PHASE-1-CONTRACT.md`](IOS-PHASE-1-CONTRACT.md) §13). This contract remains the authority for
+the Phase 2 surface. Physical-iPhone acceptance was owner-confirmed on 2026-11-07; Phase 2 is
+closed.
 
 **Scope:** fixes the exact server surface, data model, client surface, tests, acceptance and
 rollback for Phase 2 of [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md). The plan remains the
@@ -666,13 +668,17 @@ mutations. These are config/contract values, not new training rules.
 - **Verification:** the live UI test passed on the iPhone 18 Pro simulator against a temporary
   SQLite database, covering pair → readiness → issue → start → add a manual-VBT set → force-quit/
   relaunch recovery → finish → Progress. It verifies the acknowledged set is restored through
-  Today; no live data/coach.db was touched. Lost-response and concurrent duplicate tests cover
-  readiness, start, set and completion at the real HTTP boundary. The server and client
-  unit/contract suites pass.
-- **Remaining gate:** the owner's physical-iPhone acceptance checklist. No Phase 3 work has begun.
-  There is no durable pending-mutation journal: a response lost before acknowledgement can be
-  retried only while the process/view and its in-memory key survive. The deferred items are roadmap
-  §4.30 (R1–R6).
+  Today. The owner confirmed the physical-iPhone checklist on 2026-11-07 (iPhone 16 Pro Max,
+  iPhone17,2, iOS 27.2). The live data/coach.db is at schema 0053 with both Phase 2 tables;
+  PRAGMA quick_check returned ok. A post-acceptance backup is at
+  data/exports/phase2-post-acceptance-2026-11-07.tar.gz (SHA-256
+  b919ae0283edef91e31ac1d1d2062537288258818ab707b527caee3be29db9d7), verified by a dry-run
+  import. Lost-response and concurrent duplicate tests cover readiness, start, set and completion
+  at the real HTTP boundary. The server and client unit/contract suites pass.
+- **Closure:** accepted 2026-11-07. No Phase 3 work has begun. There is no durable
+  pending-mutation journal: a response lost before acknowledgement can be retried only while the
+  process/view and its in-memory key survive. The deferred items are roadmap §4.30 (R1–R6) and are
+  not Phase 2 closure blockers.
 
 ## 17. References
 

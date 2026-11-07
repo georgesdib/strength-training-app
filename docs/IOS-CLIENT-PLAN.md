@@ -1,8 +1,8 @@
 # Native iPhone Client — Online-First Implementation Plan
 
 **Status:** Phase 0 complete 2026-11-07 (owner-confirmed); **Phase 1 complete 2026-11-07**
-(owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (simulator-verified;
-physical-iPhone acceptance checklist pending). The server side is migrations 0052_ios_device and
+(owner-confirmed on the physical iPhone); **Phase 2 complete and closed 2026-11-07**
+(simulator-verified and owner-confirmed on the physical iPhone). The server side is migrations 0052_ios_device and
 0053_ios_workflow, the ios CLI, the bearer-authenticated /api/ios/v1/ facade, and its tests; the
 Swift client in the separate StrengthApp repository has pairing, Today, History, Settings/Forget,
 readiness entry, prescription preview/start-by-id, active workout, completion/abandon and
@@ -437,9 +437,9 @@ as part of a rollback.
 
 ## Completion state
 
-**Phase 0 complete 2026-11-07. Phase 1 complete 2026-11-07. Phase 2 complete 2026-11-07** on the
-simulator; physical-iPhone Phase 2 acceptance remains the owner checklist. Phase 3 requires its
-own approved contract.
+**Phase 0 complete 2026-11-07. Phase 1 complete 2026-11-07. Phase 2 complete and closed
+2026-11-07**, simulator-verified and owner-confirmed on the physical iPhone. Phase 3 requires its
+own approved contract and has not started.
 
 ### Phase 1 completion record
 
@@ -483,18 +483,23 @@ own approved contract.
 - **Verification:** the live UI test passed on the iPhone 18 Pro simulator against a temporary
   SQLite database, covering pair -> readiness -> issue -> start -> add VBT set -> force-quit/
   relaunch recovery -> finish -> Progress. Lost-response and concurrent duplicate tests cover
-  readiness, start, set and completion at the real HTTP boundary. No live data/coach.db was
-  touched. The physical-iPhone Phase 2 checklist remains the owner gate.
+  readiness, start, set and completion at the real HTTP boundary. The simulator test used a
+  temporary SQLite database. The owner confirmed the physical-iPhone Phase 2 checklist on
+  2026-11-07 (iPhone 16 Pro Max, iPhone17,2, iOS 27.2). The live data/coach.db is at schema 0053
+  with both Phase 2 tables; PRAGMA quick_check returned ok. A post-acceptance backup is at
+  data/exports/phase2-post-acceptance-2026-11-07.tar.gz
+  (SHA-256 b919ae0283edef91e31ac1d1d2062537288258818ab707b527caee3be29db9d7), verified by a
+  dry-run import.
 - **Data/decisions:** readiness is the accepted manual field set; the server owns load, sets and
   RIR; manual mean velocity is a performed observation only; the normal prescription tables remain
   the audit source; no plan editing on the phone; no offline queue, HealthKit or RPE coercion.
 - **Rollback:** set mutations_enabled: false; drop ios_issued_plan and ios_operation_receipt;
   remove the Phase 2 routes/client screens and forget the device. Prescriptions/workouts already
   committed by a started session remain valid.
-- **Residual limitations:** plain HTTP on the trusted LAN only; physical-iPhone Phase 2 acceptance
-  pending; no HealthKit, offline capture or review screen; personal-team signing expires after
-  7 days. There is no durable pending-mutation journal, so a response lost before acknowledgement
-  cannot be replayed after app termination; this is deferred as roadmap §4.30 R1.
+- **Residual limitations:** plain HTTP on the trusted LAN only; no HealthKit, offline capture or
+  review screen; personal-team signing expires after 7 days. There is no durable pending-mutation
+  journal, so a response lost before acknowledgement cannot be replayed after app termination;
+  this is deferred as roadmap §4.30 R1. The deferred R1-R6 items are not Phase 2 closure blockers.
 
 No HealthKit integration, training logic or server-behaviour change exists beyond the additive
 Phase 1/2 facade. Each later phase requires the owner's approval before it starts.
