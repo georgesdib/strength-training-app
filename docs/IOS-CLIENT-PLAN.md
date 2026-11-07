@@ -253,22 +253,31 @@ The present home-LAN server has no authentication and uses HTTP (`LIM-57`). The 
 
 ## 8. Swift client structure
 
-Keep the app simple and testable. A reasonable initial layout is:
+Keep the app simple and testable. The client lives in its own repository, not inside the server
+repository; the owner's workspace holds the two side by side:
 
 ```text
-ios/StrengthCoach/
-  App/
-  Features/
-    Today/
-    Readiness/
-    Workout/
-    History/
-  Core/
-  Networking/
-  Persistence/
-  HealthKit/       # added in Phase 3, not required by the initial app
-  Tests/
+strength-app/                    # workspace root; not itself a git repository
+  strength-training-app/         # Python server and web UI (this repository)
+  StrengthApp/                   # SwiftUI client (separate git repository)
+    StrengthApp.xcodeproj/
+    StrengthApp/                 # app sources
+      App/
+      Features/
+        Today/
+        Readiness/
+        Workout/
+        History/
+      Core/
+      Networking/
+      Persistence/
+      HealthKit/       # added in Phase 3, not required by the initial app
+      Tests/
 ```
+
+The two repositories are independent: separate history, remotes, CI and releases. A change that
+crosses the API boundary lands in the server repository first, then in the client; there is no
+atomic cross-repository commit.
 
 Use SwiftUI views for presentation, small observable feature state for user interaction, one API client for DTO/network handling, and a local persistence component only when needed by the phase. Add protocol abstractions when they make a boundary testable or are used by multiple features; do not require a distinct repository, service, and use-case layer for every screen. Keep business rules in Python. The initial app can be mostly online and need not ship a complex local database/outbox.
 

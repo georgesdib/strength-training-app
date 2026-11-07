@@ -1578,7 +1578,8 @@ approved.
 The detailed, repository-grounded plan is [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md).
 Recommendation: a small native SwiftUI client with Python remaining the sole authority for
 readiness scores and prescriptions. Phase 0 is complete; Phase 1 is the approved next step. The
-first release covers pairing, readiness entry, a server prescription,
+SwiftUI client is its own repository (`StrengthApp`), developed alongside this one rather than as
+an `ios/` subdirectory here. The first release covers pairing, readiness entry, a server prescription,
 online workout capture/completion with session RPE, optional inline form ratings and basic
 history/progress. Opt-in read-only HRV/RHR readiness (Phase 3A) comes before durable offline capture
 (Phase 4), because the server is always on at home; reviewed Apple Workout imports follow, with
