@@ -28,12 +28,18 @@ contain anyone's training data, bodyweight, injury history or derived metrics.
 
 ## Moving the database between machines
 
-Use `tools/db_transfer.py` for a full-replacement transfer, not a merge:
+Use `tools/db_transfer.py` for a full-replacement transfer:
 
 ```bash
 python tools/db_transfer.py export --db data/coach.db
 python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --force
 ```
+
+Default import requires the source and target schemas to match. `--upgrade` accepts an older
+source and applies the missing local migrations; `--upgrade-fill` also copies target-only rows
+into the upgraded source, but only when every row can be matched or copied safely. Both modes
+fail on a downgrade, a divergent migration, a row conflict, or any foreign-key/unique/trigger
+problem.
 
 Stop the app before importing. The tool checks the complete migration set and the database
 checksum, refuses a target with SQLite WAL side files, and writes a `pre-transfer` backup
