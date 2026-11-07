@@ -799,6 +799,13 @@
         <p class="muted">Only high-confidence marks count toward agreement. Leave an item blank to skip;
           the engine value is shown for context, not copied.</p>
       </div>
+      <div id="review-result"></div>
+      <div class="panel">
+        <div class="panel-head"><h2>Rubric agreement</h2><span class="muted">the <code>calibrate</code> report</span></div>
+        <p class="section-help"><span>Runs the calibration report; only high-confidence marks count.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Calibration loop</a></p>
+        <button class="ghost" id="rubric-calibration-run">Run rubric calibration</button>
+        <div id="rubric-calibration"></div>
+      </div>
       <div class="panel">
         <div class="panel-head"><h2>Calibration review (B1)</h2><span class="muted">closed 2026-11-07 · rubric 1.2.0 unchanged</span></div>
         <p class="section-help"><span>No weight or definition changed. Keep a thin stream of fresh marks and run the report later.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Calibration review</a></p>
@@ -808,13 +815,6 @@
           <li>Do not backfill old imports just to create calibration labels.</li>
           <li>Run the report monthly or at the Phase 5A gate (2027-01-22); retuning is deferred.</li>
         </ul>
-      </div>
-      <div id="review-result"></div>
-      <div class="panel">
-        <div class="panel-head"><h2>Rubric agreement</h2><span class="muted">the <code>calibrate</code> report</span></div>
-        <p class="section-help"><span>Runs the calibration report; only high-confidence marks count.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Calibration loop</a></p>
-        <button class="ghost" id="rubric-calibration-run">Run rubric calibration</button>
-        <div id="rubric-calibration"></div>
       </div>
     </section>
 
