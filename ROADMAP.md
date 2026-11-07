@@ -1574,30 +1574,31 @@ is approved.
 
 The detailed, repository-grounded plan is [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md).
 Recommendation: a small native SwiftUI client with Python remaining the sole authority for
-readiness scores and prescriptions; the first release covers pairing, readiness entry, a server
-prescription, online workout capture/completion with session RPE, and basic history/progress.
-Start with Phase 0 preconditions: a signed empty app under free provisioning, a HealthKit
-entitlement check, HTTPS on the Odroid with a trusted local certificate, and a rehearsed database
-backup. The first release covers pairing, readiness entry, a server prescription, online workout
-capture/completion with session RPE, optional inline form ratings and basic history/progress.
-Opt-in read-only HRV/RHR readiness (Phase 3A) comes before durable offline capture (Phase 4),
-because the server is always on at home; reviewed Apple Workout imports follow, with manual values
-taking precedence. Rubric review stays optional and may arrive after the first release. Apple
-Foundation Models/PCC are optional later tools, never training authorities.
+readiness scores and prescriptions. Start with lightweight Phase 0 preconditions: a signed empty
+app under free provisioning (including a HealthKit capability check) and a phone that reaches the
+server over the home LAN. The first release covers pairing, readiness entry, a server prescription,
+online workout capture/completion with session RPE, optional inline form ratings and basic
+history/progress. Opt-in read-only HRV/RHR readiness (Phase 3A) comes before durable offline capture
+(Phase 4), because the server is always on at home; reviewed Apple Workout imports follow, with
+manual values taking precedence. Rubric review stays optional and may arrive after the first
+release. Apple Foundation Models/PCC are optional later tools, never training authorities.
 Third-party Health exporters are not a core dependency; XML is, at most, a later manual history
 backfill.
 
 **Release gate:** the current API is unauthenticated HTTP on the home LAN (`LIM-57`). Before the
-phone sends personal workout data, add simple per-device authentication and a secure private
-transport appropriate to the owner's setup. Keep existing web/CLI routes compatible. No public
-endpoint, cloud database, analytics or telemetry is required. The sole proposed app-network
-exception is the separately enabled Apple PCC AI mode, with per-request context preview/consent;
-it is not part of the local server API. Do not require an elaborate egress-audit or certificate-
-pinning project for the core release.
+phone sends personal workout data, add simple per-device authentication. Keep existing web/CLI
+routes compatible and keep the API on the trusted home LAN over plain HTTP: LAN traffic, including
+the device credential, is unencrypted and the deployment assumes a trusted network with no public
+exposure. No port-forwarding, remote access, TLS/Caddy/internal CA, certificate installation,
+pinning or certificate management is required for this personal deployment; reconsider TLS only if
+the network stops being trusted or remote access is added. No public endpoint, cloud database,
+analytics or telemetry is required. The sole proposed app-network exception is the separately
+enabled Apple PCC AI mode, with per-request context preview/consent; it is not part of the local
+server API. Do not require an elaborate egress-audit project for the core release.
 
-**Proposed phases:** (0) preconditions: signed empty app under free provisioning, HealthKit
-entitlement check, Odroid HTTPS with a trusted local certificate, rehearsed backup; (1) secure
-native foundation and read-only views; (2) online strength workflow with readiness, server
+**Proposed phases:** (0) lightweight preconditions: signed empty app under free provisioning with
+a HealthKit capability check, and the phone reaching the server on the home LAN (plain HTTP);
+(1) native foundation and read-only views; (2) online strength workflow with readiness, server
 prescription, set logging, completion/session RPE, inline optional form ratings and basic history;
 (3) opt-in HealthKit HRV/RHR readiness inputs, then reviewed Apple Workout/cardio imports and
 source-aware effort mapping; (4) durable offline capture/reconciliation; (5) separately approved

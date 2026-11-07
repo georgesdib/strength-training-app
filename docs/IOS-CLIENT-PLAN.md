@@ -10,7 +10,7 @@ Build a modest SwiftUI client that calls the existing Python application through
 
 The **first useful release** is the following connected strength-training slice:
 
-1. Securely pair the iPhone with the owner's local server.
+1. Pair the iPhone with the owner's local server over the trusted home LAN.
 2. Show today's readiness and relevant training/workout status.
 3. Enter and save a manual readiness check-in.
 4. Request and display a server-generated prescription and its warnings.
@@ -36,6 +36,7 @@ HealthKit, Apple Workout import, offline mutation sync, manual cardio, advanced 
 - **No AI training decisions.** Apple Intelligence or any LLM may not generate/alter readiness scores, prescriptions, loads, RIR, exercise selections, form/rubric ratings, or other training decisions.
 - **Keep existing clients compatible.** Add a versioned facade incrementally; do not change existing unversioned routes in a way that breaks the web UI or CLI.
 - **Local-first, not cloud-dependent.** The normal product path is the owner's local server. No public endpoint, account, remote database, analytics, telemetry, or third-party exporter is required. PCC is a separate optional future AI exception, never a core dependency.
+- **No transport-security claim.** The first release speaks plain HTTP on the owner's trusted home LAN and does not terminate TLS. LAN traffic, including the per-device credential, is unencrypted; the deployment assumes a trusted network and no public exposure. TLS is a separate decision if that threat model changes.
 - **HealthKit is opt-in and read-only.** It is a measurement source, not a training authority. Preserve source, date/time, units and coverage. Python applies only its already documented readiness rules.
 - **Manual values win.** When HealthKit is added, a manual value takes precedence per field and cannot be erased by a later import. Keep both values and provenance where correction/audit requires them.
 - **Do not silently merge records.** Ambiguous HealthKit workouts remain separate until the owner explicitly associates them with an app session.
@@ -51,7 +52,7 @@ HealthKit, Apple Workout import, offline mutation sync, manual cardio, advanced 
 | Workout lifecycle | `strength_coach/workout.py`; current routes cover start, active/detail, set add/remove/correction, end and abandon. Sets and corrections have domain validation; ending requires session RPE 1–10 or an explicit not-recorded choice. Use those services, not a Swift workout engine. |
 | History/progress | Existing history, progress and outcomes queries are descriptive. Reuse a small read-only subset; no duplicated analytics in Swift. Dates follow server-local date semantics unless a future profile/time-zone decision changes this. |
 | Session RPE and review | Workout completion accepts manual session RPE. `session_feedback.srpe` accepts 1–10 and is append-only; current schema does not preserve whether a value came from a person or Apple Health. The review route returns server-built rubric items and writes marks/feedback. Form self-ratings have existing workout/history paths. The iOS client must not compute rubric values or calibration; preserve the server's rubric version and confidence semantics (see [`RUBRIC-CALIBRATION.md`](RUBRIC-CALIBRATION.md)). |
-| Security | Current web server is unauthenticated HTTP on the home LAN (`LIM-57`). Do not send an iOS bearer token or personal workout data through that interface until the additive iOS auth/transport gate is met. |
+| Security | Current web server is unauthenticated HTTP on the home LAN (`LIM-57`). The iOS facade adds per-device credentials before any personal data is sent; transport stays plain HTTP on the trusted home LAN (unencrypted by design). Do not expose the port publicly. |
 | Web/CLI | These remain supported, current ways to use the application. The iOS project is a thin additional client, not a replacement or administrative console. |
 
 ## 4. Phased implementation plan
@@ -68,43 +69,37 @@ optional and HealthKit readiness is the reason to build the app.
 **Goal:** settle the environment facts that can invalidate the architecture before any Swift or
 server work starts. This phase writes no application code, adds no route and changes no data.
 
-- **Device and build path:** confirm the target iPhone, the minimum iOS version the owner can run,
-  the Mac/Xcode used to build, and a personal (free-provisioning) team. Install an empty signed app
-  and note the seven-day signature expiry and the weekly re-sign routine. Moving to a paid team
-  later changes the Keychain access group, so expect exactly one re-pair at that point.
-- **HealthKit entitlement under free provisioning:** prove a minimal signed build can request
-  HealthKit read authorization with the personal team. If it cannot, decide then between a paid
-  account and deferring the HealthKit phase; do not discover this after the client is built.
-- **Server host:** the always-on Odroid Linux box, not the Mac — a DHCP reservation, a stable
-  hostname and the port the Python server already binds. The Mac is the build machine only.
-- **Transport:** Caddy on the Odroid publishing 'https://<host>' to '127.0.0.1:8000' with an internal
-  CA; keep the existing plain-HTTP path for household web devices; install the Caddy root CA on the
-  iPhone once, back it up, and make the certificate SAN match the typed hostname. No port-forwarding,
-  no VPN and no Tailscale in Phase 0.
-- **Backup:** a nightly 'sqlite3 .backup' of coach.db to another machine, off the SD card, with one
-  restore rehearsed before the phone becomes a client.
+- **Signed empty app (toolchain sanity check):** confirm the target iPhone, the minimum iOS version
+  the owner can run, the Mac/Xcode used to build, and a personal (free-provisioning) team. Build,
+  sign and launch an empty SwiftUI app and note the seven-day signature expiry and the weekly
+  re-sign routine. Moving to a paid team later changes the Keychain access group, so expect exactly
+  one re-pair at that point. Include the HealthKit capability in this build only to prove it signs
+  under the personal team; no HealthKit code is written here. If it cannot sign, decide then
+  between a paid account and deferring the HealthKit phase.
+- **Server host and LAN path:** the always-on Odroid Linux box, not the Mac. Record its LAN address
+  and the port the Python server already binds, and confirm the iPhone can reach it on home Wi-Fi
+  over plain HTTP. No port-forwarding, no VPN and no Tailscale.
 - **Pairing choices:** the CLI entry point ('strength-coach ios pair'), code length, TTL and attempt
   limit, and long-lived token handling (Keychain on the phone, verifier only on the server).
 - **Rollback:** stop. Phase 0 has no route, migration or data write to undo.
 
 **Exit criteria:** every item is settled or explicitly deferred; a signed app launches on the target
-phone; the Odroid serves HTTPS with a certificate the phone trusts; one backup has been restored;
-the owner has approved Phase 1.
+phone; the phone reaches the server on the home LAN; the owner has approved Phase 1.
 
-### Phase 1 — Secure Native Foundation
+### Phase 1 — Native Foundation and Read-Only Views
 
-**Goal:** install a small app that securely pairs and reads current server information.
+**Goal:** install a small app that pairs with the owner's server and reads current server information.
 
 **Steps:**
 
-1. Confirm the target iPhone/iOS, available Mac/Xcode path, local server host, and preferred deployment transport.
+1. Confirm the target iPhone/iOS, available Mac/Xcode path, and the server's LAN address and port (plain HTTP on the trusted home network).
 2. Implement a minimal SwiftUI shell and one-time pairing flow. A short-lived pairing code generated locally by the server/CLI authorizes exchange for a random per-device credential; there is no open device registration.
 3. Store the credential in Keychain. Add a simple local revoke/re-pair procedure. Store only a verifier/hash server-side where practical; never log the credential.
 4. Add the `/api/ios/v1/` namespace and only the first-phase read contracts: bootstrap/capabilities, today's status, and read-only history/progress summaries. Retain canonical server date/timezone semantics and response units.
 5. Add device authentication and server-side checks for every iOS request. Pairing-code exchange is protected by the one-time code; there are no unauthenticated write endpoints.
 6. Add the minimum API contract/integration tests for authentication, revocation, read-only status/history and errors. Do not define or implement the entire future API up front.
 
-**Acceptance:** the paired iPhone can retrieve relevant server information over the selected secure private-network path; an unpaired or revoked device is rejected; credentials do not appear in logs; existing web and CLI behavior is unchanged.
+**Acceptance:** the paired iPhone can retrieve relevant server information over the home LAN (plain HTTP); an unpaired or revoked device is rejected; credentials do not appear in logs; existing web and CLI behavior is unchanged.
 
 **Scope note:** showing cached read-only information is allowed only when clearly marked with its last successful refresh time. Offline mutation is not promised in this phase.
 
@@ -229,13 +224,25 @@ Review exact migration sequence against the implementation branch at coding time
 The present home-LAN server has no authentication and uses HTTP (`LIM-57`). The iPhone must not send credentials or personal workout data through the existing unauthenticated interface. Add the smallest defensible iOS boundary before personal use:
 
 - Authenticate all iOS requests with a per-device random credential; protect it in Keychain, keep only a verifier/hash server-side, and provide a clear revoke/re-pair command.
-- Pair only with a short-lived, one-use code generated locally by the owner. Protect the exchange against guessing; there is no open registration or unauthenticated data mutation.
-- Use a secure transport appropriate to the chosen private deployment and rely on standard platform TLS validation. A one-time trusted local CA profile is the accepted approach; do not add certificate pinning or a complex token lifecycle without a demonstrated need.
-- Do not port-forward the service or expose a public API. The default is home-LAN HTTPS: Caddy on the Odroid publishing 'https://<stable host>' to the existing Python port with an internal CA, while household web devices keep the current plain-HTTP route. Install the CA root on the iPhone once, back it up, and match the certificate SAN to the typed hostname. Tailscale remains an option only if a private remote path is wanted later; it does not replace app-level authentication and must not create an unauthenticated mutation path.
-- Do not build elaborate DNS-rebinding, public-IP-audit, packet-capture, Internet-disabled or general egress test programs as release gates. Basic tests still verify authentication/revocation, normal TLS validation, no secret logging, and that the app is configured for the paired private service rather than a public server.
+- Pair only with a short-lived, one-use code generated locally by the owner. The code protects against guessing, not against someone who can observe the LAN; there is no open registration or unauthenticated data mutation.
+- **Transport is plain HTTP on the trusted home LAN.** This is a personal deployment on the
+  owner's own network and does not terminate TLS. LAN HTTP traffic — including the device
+  credential and workout data — is unencrypted, so anyone who can observe or reach the home LAN
+  could read it or reuse the token. The deployment assumes a trusted network with no untrusted
+  devices or guests. Do not port-forward, expose the API publicly, or add remote access.
+- **HTTPS is out of scope unless the threat model changes.** No Caddy, reverse proxy, internal CA,
+  certificate installation, pinning or certificate management is required. Reconsider TLS only if
+  the network stops being trusted, the server becomes reachable from outside the LAN, or remote
+  access is added; that is a separate decision.
+- **No remote-access dependency.** Tailscale or a VPN is not required. Adding one later does not
+  replace app-level authentication and must not create an unauthenticated mutation path.
+- Do not build elaborate DNS-rebinding, public-IP-audit, packet-capture, Internet-disabled or
+  general egress test programs as release gates. Basic tests still verify authentication and
+  revocation, that no secret is logged, and that the app talks only to the paired LAN address
+  rather than a public server.
 - No analytics, telemetry, advertising SDK, remote crash reporting, cloud database, or automatic Internet fallback. Core features use the local Python server. The optional later PCC AI call is the only app-level non-local exception in scope, and is fully separate from core API traffic.
 
-**Stop condition:** if the chosen installation/transport cannot provide understandable secure communication and authentication on the owner's actual setup, stop at the disposable Phase 1 spike and choose an alternative. Do not invent custom cryptography or silently fall back to HTTP with a bearer token.
+**Stop condition:** if the home network cannot be treated as trusted, or the server must be reachable from outside it, stop at the disposable Phase 1 spike and revisit transport (TLS or a private tunnel) before sending personal data. Do not invent custom cryptography.
 
 ## 8. Swift client structure
 
@@ -295,7 +302,7 @@ Prioritize server contract/domain tests; keep UI tests focused and robust. Add c
 | Question/risk | Recommended handling |
 |---|---|
 | Target phone, OS, Xcode/signing | Confirm before Phase 1; keep the initial OS target to what the owner can run. Do not choose a higher OS solely for optional HealthKit effort or AI APIs. |
-| Private server transport | Home-LAN HTTPS through Caddy on the Odroid with an internal CA and one root profile on the phone; Tailscale only if a private remote path is later wanted. App authentication remains required. |
+| Private server transport | Plain HTTP on the trusted home LAN, with no TLS, proxy, CA or certificate work; revisit only if the network stops being trusted or remote access is added. App authentication remains required. |
 | Existing unauthenticated HTTP API | Add an authenticated versioned facade before iPhone mutations; do not retrofit/break existing web/CLI routes in this task. |
 | Plan staleness or concurrent web use | Server validates at start and on mutation; return a clear conflict. Client refreshes and asks the owner, never silently overwrites. |
 | Partial or missing readiness | Show the server's status and warnings; no Swift score and no missing-as-zero behavior. |
@@ -307,7 +314,7 @@ Prioritize server contract/domain tests; keep UI tests focused and robust. Add c
 
 ## 11. First task after approval
 
-Complete Phase 0 first: the signed empty app, the free-provisioning HealthKit check, the Odroid HTTPS path with a trusted certificate, and one rehearsed coach.db restore. Then implement Phase 1 only — pairing and read-only today/history — and prove a paired device can fetch status. Do not begin the workout, HealthKit, offline, cardio, or PCC work before the core iPhone strength workflow is accepted, and take Phase 3A (HealthKit readiness) before Phase 4 (offline).
+Complete Phase 0 first: the signed empty app (including the HealthKit capability check) and a phone that reaches the server over the home LAN. Then implement Phase 1 only — pairing and read-only today/history — and prove a paired device can fetch status. Do not begin the workout, HealthKit, offline, cardio, or PCC work before the core iPhone strength workflow is accepted, and take Phase 3A (HealthKit readiness) before Phase 4 (offline).
 
 ## 12. References
 
@@ -327,7 +334,7 @@ Complete Phase 0 first: the signed empty app, the free-provisioning HealthKit ch
 - [HKWorkout](https://developer.apple.com/documentation/healthkit/hkworkout), [HKWorkoutEffortRelationship](https://developer.apple.com/documentation/healthkit/hkworkouteffortrelationship), [HKWorkoutEffortRelationshipQuery](https://developer.apple.com/documentation/healthkit/hkworkouteffortrelationshipquery), and [Workout Effort Score](https://developer.apple.com/documentation/healthkit/hkquantitytypeidentifier/workouteffortscore) — workout and effort records. Confirm API availability and source semantics against the selected OS/device at implementation time.
 - [Protecting user privacy](https://developer.apple.com/documentation/healthkit/protecting-user-privacy) — HealthKit obligations.
 - [Foundation Models](https://developer.apple.com/documentation/foundationmodels), [SystemLanguageModel](https://developer.apple.com/documentation/foundationmodels/systemlanguagemodel), and [Private Cloud Compute integration](https://developer.apple.com/documentation/foundationmodels/adding-server-side-intelligence-with-private-cloud-compute) — optional later Apple on-device/PCC modes.
-- [App Transport Security](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity) and [local-network privacy](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy) — deployment considerations, not an instruction to implement a custom TLS stack.
+- [App Transport Security](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity) and [local-network privacy](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy) — the app may need the documented local-networking allowance for plain-HTTP LAN access, depending on whether the server is addressed by IP or a .local hostname; confirm at implementation. A deployment setting, not an instruction to build a TLS stack.
 
 ## 13. Rollback gates
 
