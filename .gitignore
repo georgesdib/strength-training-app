@@ -47,3 +47,6 @@ tests/*_integration.py
 # Anything that looks like a personal export
 *backupDB*.csv
 *backupReadiness*.csv
+
+# macOS Finder metadata
+.DS_Store
