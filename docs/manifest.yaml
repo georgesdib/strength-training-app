@@ -887,6 +887,14 @@ documents:
   status: archived
   audience: public
   nav: true
+- id: design-ios-phase-1-contract
+  path: docs/design/IOS-PHASE-1-CONTRACT.md
+  title: iOS Phase 1 native foundation contract
+  description: 'Phase 1 implementation contract: per-device pairing and hashed credentials, the authenticated /api/ios/v1 read facade, the Swift pairing/today/history shell, tests, acceptance and rollback'
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
 - id: design-monitoring-config-ui-plan
   path: docs/design/MONITORING-CONFIG-UI-PLAN.md
   title: Monitoring configuration and report-control UI plan

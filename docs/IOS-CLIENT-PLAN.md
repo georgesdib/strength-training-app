@@ -95,6 +95,9 @@ phone; the phone reaches the server on the home LAN; the owner has approved Phas
 
 **Status:** approved 2026-11-07; implementation not started.
 
+**Contract:** [`design/IOS-PHASE-1-CONTRACT.md`](design/IOS-PHASE-1-CONTRACT.md) — routes, auth
+flow, migration, tests and acceptance for this phase.
+
 **Goal:** install a small app that pairs with the owner's server and reads current server information.
 
 **Steps:**
