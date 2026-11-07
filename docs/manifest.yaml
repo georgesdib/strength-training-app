@@ -590,8 +590,8 @@ documents:
   nav: true
 - id: ios-client-plan
   path: docs/IOS-CLIENT-PLAN.md
-  title: Native iPhone Client — Local-Only Implementation Plan
-  description: 'proposal only: native local-first workout capture, Python-authoritative API, offline queue, HealthKit options, local-only security, phased implementation and evidence-informed Longevity display'
+  title: Native iPhone Client — Local-First Implementation Plan
+  description: 'proposal only: native workout capture and post-workout review, Python-authoritative API, offline queue, HealthKit cardio/readiness inputs with manual override, local-only core, optional Apple on-device/PCC AI, phased implementation and evidence-informed Longevity display'
   category: plans
   status: plan
   audience: public

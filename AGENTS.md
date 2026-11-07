@@ -282,7 +282,7 @@ job completes.
 | `docs/REVERSE-HYPER-BELT-SQUAT-EVIDENCE.md` | reverse hyperextension and belt squat evidence; optional accessories, no programme change |
 | `docs/WEAKNESS-TARGETING-PLAN.md` | gated weakness metric, retrospective screen and N-of-1 test plan |
 | `docs/LLM-INTEGRATION-PLAN.md` | future LLM analyst/explainer/constrained-proposer architecture: Iteration 1 (practical capabilities, selector retirement), conditional Iteration 2 (retrieval/RAG/advanced orchestration), shared context/evidence contracts, approval, privacy and evaluation gates; plan only |
-| `docs/IOS-CLIENT-PLAN.md` | proposal only: native local-only iPhone workout capture, versioned API, offline sync, HealthKit/Cardio options, security gates and phased acceptance criteria |
+| `docs/IOS-CLIENT-PLAN.md` | proposal only: native local-first iPhone workout capture/review, HealthKit cardio/readiness inputs with manual override, offline sync, local API/security gates and optional Apple on-device/PCC AI |
 | `docs/archive/PROGRAMME-BUILDER-PLAN.md` | deterministic dynamic template resolver: fixed four-template blueprint/fallback, per-session exercise resolution, versioned policy and provenance, reuse of the existing scheduler/prescription/volume/history; Steps 0–6 implemented and closed |
 | `docs/archive/RESOLVER-ACCEPTANCE-AUDIT.md` | closed end-to-end production acceptance audit: P0/P1/P2 findings, fixes, acceptance matrix and residual release gates |
 | `docs/PERFORMANCE-PROFILE.md` | 2026-11-04 resolver prescription benchmark, 2026-11-05 clean-set snapshot A/B, stage profile, cache design/invalidation and parallelism assessment |
