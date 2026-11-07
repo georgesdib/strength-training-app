@@ -275,11 +275,13 @@ Appends one performed set. No update/remove route exists in Phase 2.
   field; no per-rep table and no device import in Phase 2.
 - The workout must be `in_progress`; otherwise `409 workout_not_active`. Unknown workout →
   `404 workout_not_found`. A completing/abandoning workout rejects the set.
-- The client sends `plan_item_index` only when the exercise appears exactly once in the plan.
-  A repeated exercise is ambiguous and is sent as nil; the client never attributes a set to the
-  first matching occurrence. The backend keeps the existing rule: an explicit index is
-  authoritative and must match `exercise_id`; an omitted index resolves only a unique exercise
-  and otherwise stores no plan-item attribution. Logging the set still succeeds.
+- The client auto-attributes `plan_item_index` only when the exercise appears exactly once.
+  A repeated exercise is ambiguous: the add-set form lists every occurrence and defaults to
+  **Not attributed**. Selecting one sends that explicit index; leaving it unselected sends nil.
+  The client never attributes a set to the first matching occurrence. The backend keeps the
+  existing rule: an explicit index is authoritative and must match `exercise_id`; an omitted
+  index resolves only a unique exercise and otherwise stores no plan-item attribution. Logging
+  the set still succeeds.
 - The client offers the plan’s exercises and exercises already logged; the server keeps the
   existing add-set rules (no new plan-edit behaviour).
 - Response `200`: the existing `workout.get` payload with the new set and events.
@@ -662,11 +664,11 @@ mutations. These are config/contract values, not new training rules.
   instead of returning 500.
 - **Client:** readiness form, prescription preview, start-by-id, active workout, optional manual
   mean velocity, optional 1–5 form ratings, session RPE or explicit not-recorded completion,
-  abandon, and the Progress screen; 43 unit tests at Phase 2 closure (51 after R1); optional
+  abandon, and the Progress screen; 43 unit tests at Phase 2 closure (52 after R1/R3); optional
   live UI smoke tests; Release build.
-  Plan-item attribution is sent only for a unique exercise; repeated exercises remain nil and are
-  never guessed. Retry keys are body-aware, duplicate UI mutations are guarded, and an ambiguous
-  finish locks the exact completion body for replay.
+  Plan-item attribution is automatic only for a unique exercise; a repeated exercise defaults to
+  nil and can be explicitly attributed through the R3 picker. Retry keys are body-aware, duplicate
+  UI mutations are guarded, and an ambiguous finish locks the exact completion body for replay.
 - **Verification:** the live UI test passed on the iPhone 18 Pro simulator against a temporary
   SQLite database, covering pair → readiness → issue → start → add a manual-VBT set → force-quit/
   relaunch recovery → finish → Progress. It verifies the acknowledged set is restored through
@@ -679,8 +681,9 @@ mutations. These are config/contract values, not new training rules.
   at the real HTTP boundary. The server and client unit/contract suites pass.
 - **Closure:** accepted 2026-11-07. No Phase 3 work has begun. R1's durable pending-mutation
   journal was added immediately after closure and closed on 2026-11-07 (51 client tests total); it
-  replays attempted operations with the original UUID/body and is not an offline queue. R2-R6
-  remain deferred in roadmap §4.30 and are not Phase 2 closure blockers.
+  replays attempted operations with the original UUID/body and is not an offline queue. R3
+  explicit plan-item selection was implemented and verified on 2026-11-07. R2, R4, R5 and R6 remain
+  deferred in roadmap §4.30 and are not Phase 2 closure blockers.
 
 ## 17. References
 

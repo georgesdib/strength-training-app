@@ -158,10 +158,12 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
 - **Errors.** Phase 2 conflicts use {"error", "code", "fields", "details"} with codes such as readiness_required,
   confirmation_required, workout_active, plan_expired, plan_superseded, plan_consumed,
   workout_not_active, session_rpe_required and idempotency_conflict. Validation failures remain 400.
-- **Plan-item attribution.** A set's plan_item_index is optional. The client sends it only when
-  the exercise appears exactly once in the plan; a repeated exercise is ambiguous and is sent as
-  nil. The backend accepts an explicit index only when it matches exercise_id, resolves an omitted
-  index only for a unique exercise, and otherwise stores the set with no plan-item attribution.
+- **Plan-item attribution.** A set's plan_item_index is optional. The client auto-attributes a
+  unique exercise. When an exercise appears multiple times, the app lists the occurrences and
+  defaults to Not attributed; selecting one sends that explicit index, while leaving it unselected
+  sends nil. The backend accepts an explicit index only when it matches exercise_id, resolves an
+  omitted index only for a unique exercise, and otherwise stores the set with no plan-item
+  attribution.
 - **Progress is available to the client in Phase 2.** GET /api/ios/v1/progress is the same
   progress_feature.dashboard payload used by the web UI; the native client has a Progress tab.
 - **Retry boundary.** The client records each attempted mutation in a durable, capped journal

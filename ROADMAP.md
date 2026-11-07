@@ -1578,7 +1578,7 @@ authenticated readiness/prescription/workout/complete/abandon routes, and 27 con
 the client adds readiness entry, prescription preview, start-by-id, active workout with optional
 manual mean velocity, form ratings, RPE/not-recorded completion, abandon and a Progress screen.
 The contract is [`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md).
-The default server suite is 1632 tests and the client has 51 unit tests after R1; the live UI workflow
+The default server suite is 1632 tests and the client has 52 unit tests after R1/R3; the live UI workflow
 passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2 acceptance was owner-confirmed on
 2026-11-07 on the iPhone 16 Pro Max (iPhone17,2), iOS 27.2. Phase 2 is closed; Phase 3 is not
 started and needs its own approval.
@@ -1627,7 +1627,7 @@ of executing twice; a receipt uniqueness race is rolled back and re-read rather 
 500. The server owns readiness, load and set decisions; manual mean velocity is stored as an
 optional performed value, never a new prescription input. Client: readiness form, prescription
 preview, active workout, optional form ratings, RPE or explicit not-recorded completion, abandon,
-and the Progress screen; 43 unit tests at closure (51 after R1) and optional live UI smoke tests. Plan-item attribution is
+and the Progress screen; 43 unit tests at closure (52 after R1/R3) and optional live UI smoke tests. Plan-item attribution is
 sent only when the exercise occurs exactly once; repeated exercises remain nil/unmatched instead
 of being guessed. Retry keys are body-aware, duplicate UI mutations are guarded, and an ambiguous
 finish locks the exact completion body for replay. Verification: the live UI test passed on the
@@ -1644,8 +1644,9 @@ the Phase 2 routes/client screens, and forget the device. Existing prescriptions
 committed by a started session remain valid. Residual limitations: no offline queue; no
 HealthKit; no plan editing on the phone; and plain HTTP on the trusted LAN. R1's durable
 pending-mutation journal was added immediately after closure (51 client tests), so a lost response
-is replayable after termination within its 28-day window while the server receipt remains. R2-R6
-remain deferred in roadmap §4.30 and are not Phase 2 closure blockers. Phase 2 is closed
+is replayable after termination within its 28-day window while the server receipt remains. R3
+explicit plan-item selection is implemented; R2, R4, R5 and R6 remain deferred in roadmap §4.30
+and are not Phase 2 closure blockers. Phase 2 is closed
 2026-11-07.
 
 **Release gate:** the existing web/CLI API is unauthenticated HTTP on the home LAN
@@ -1672,19 +1673,20 @@ feature is proposed.
 
 Full acceptance criteria and rollback gates are in the plan.
 
-### 4.30 iOS reliability follow-ups (R1 closed; R2–R6 deferred)
+### 4.30 iOS reliability follow-ups (R1 closed; R3 implemented; R2/R4–R6 deferred)
 
 R1 was implemented and closed on 2026-11-07 after Phase 2 closure: the client now has a durable,
-device-scoped pending-mutation journal. Unit and simulator verification pass; a separate
-physical-device R1 pass was not performed, and the owner closed R1 on the recorded implementation.
-R2–R6 remain planned improvements, in priority order. This work still does not add an unrestricted
-offline queue, HealthKit, or Phase 3.
+device-scoped pending-mutation journal. R3 explicit plan-item selection was implemented on
+2026-11-07: repeated exercises can be attributed to an exact prescription item, with nil
+attribution retained as the default fallback. Unit verification passes; separate physical-device
+R1/R3 passes were not performed. R2, R4, R5 and R6 remain planned improvements. This work still
+does not add an unrestricted offline queue, HealthKit, or Phase 3.
 
 | id | priority | item | scope / constraints |
 |---|---|---|---|
 | R1 | High | Durable pending-mutation journal — **closed 2026-11-07** | Persists the operation UUID, device/server, mutation kind, target workout/plan id, route, exact encoded request body, creation timestamp and pending/conflict state in Application Support with iOS file protection and backup exclusion. Replays only the original UUID/body; 2xx removes, definitive 4xx removes, idempotency conflicts and terminal states are surfaced, and transport/5xx stay pending. Capped at 16 entries, 30-day retention, 28-day replay window. No unrestricted offline queue; new mutations are blocked while an unresolved operation exists. |
 | R2 | Low | Unstarted issued-plan recovery | Consider a server endpoint returning the device's current unconsumed, non-superseded issued plan, so a relaunched app can restore the preview without issuing a replacement. Never expose another device's plan or permit reuse. |
-| R3 | Medium | Explicit plan-item selection | When an exercise appears multiple times, let the owner select the exact prescription item. Keep the current nil-attribution fallback. |
+| R3 | Medium | Explicit plan-item selection — **implemented 2026-11-07** | When an exercise appears multiple times, the active workout offers a prescription-item picker listing each occurrence; the default remains nil/unattributed. Unique exercises keep automatic attribution. The existing backend explicit-index validation is reused; no schema or API change. Covered by the plan-choice client test. |
 | R4 | Low | Form-rating correction UX | Distinguish an initial rating from a later correction/additional rating. Do not change append-only database semantics without a separate decision. |
 | R5 | Medium | Workout recovery/reconciliation UX | Add a dedicated recovery state for a server active workout not represented locally, an unreplayable pending mutation, a consumed/superseded prescription, or a workout completed/abandoned elsewhere. Show server state and offer safe actions instead of silently resetting. |
 | R6 | Low | Idempotency operational monitoring | Lightweight diagnostics for replay counts, idempotency conflicts, receipt expiry, unexpected mutation failures and reconciliation failures. No telemetry platform or unnecessary personal data. |
