@@ -136,6 +136,9 @@ The authoritative interface is
   already used, `429` attempts exhausted. Five failed attempts exhaust one code.
 - **Read-only.** There is no write, prescription, readiness-write, set or HealthKit route in
   Phase 1. `last_seen_at` is updated at most once per 60 seconds.
+- **Progress is server-only in Phase 1.** `GET /api/ios/v1/progress` is implemented and tested
+  server-side, but the Phase 1 client screens are Pairing, Today, History and Settings; a Progress
+  screen is deferred to Phase 2.
 - **Dates.** `server_date`/`server_time` come from the server's local clock; the phone must
   not derive the training date from a UTC slice. `bootstrap` sends the numeric UTC offset and
   the platform timezone abbreviation, not an IANA name.

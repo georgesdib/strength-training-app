@@ -135,6 +135,9 @@ exists in the facade; Python services remain authoritative.
 - `today` reuses the existing readiness payload (which includes settings and presets); the client
   decodes the subset it shows. Reusing the payload avoids a second contract to maintain.
 - Invalid `limit`, `offset`, `weeks` or `date` → `400` with `fields`.
+- `GET /progress` is **server-only in Phase 1**. It is part of the facade and is covered by the
+  server contract tests, but the Phase 1 client deliberately has no Progress screen; a Progress
+  UI is Phase 2 work and must not be added under this contract.
 
 ### 5.4 Error envelope
 
@@ -183,6 +186,9 @@ Output is plain text; no secrets beyond the freshly printed code.
 - **Settings:** server URL, device id and label, "Forget this device" (deletes the local token and
   returns to pairing; it does not revoke server-side in Phase 1), app version, re-pair instructions.
 
+No **Progress** screen in Phase 1: `GET /progress` is server-only and tested server-side. A
+Progress UI is deferred to Phase 2 and must not be added under this contract.
+
 No prescription, workout, readiness entry, review, HealthKit or offline UI in Phase 1.
 
 ### 7.2 Storage
@@ -201,7 +207,9 @@ No prescription, workout, readiness entry, review, HealthKit or offline UI in Ph
 - `401`/`403` clear the paired state and show pairing; other 4xx show the server message; 5xx
   show a generic failure.
 - GET retries only for transient network errors, bounded; no mutation retries (there are none).
-- No cookie storage, no redirects to other hosts, no background transfers.
+- No cookie storage, no redirects outside the paired origin (scheme, host and port), no background
+  transfers. The redirect guard compares scheme, host and effective port, so a cross-port or
+  scheme-changing redirect cannot receive the bearer token.
 
 ### 7.4 Info.plist and platform behaviour
 
@@ -310,11 +318,18 @@ checklist on the physical iPhone (the record is `StrengthApp/DEVICE-ACCEPTANCE.m
   the authenticated read facade and `tests/test_ios_api.py`. The default suite is 1604 tests and
   `ruff` passes. Existing unversioned routes and stored training data are unchanged.
 - **Client:** pairing, Today, History and Settings/Forget in the separate `StrengthApp`
-  repository, Keychain token storage, 22 unit tests and the optional live UI smoke test.
+  repository, Keychain token storage, 29 unit tests and the optional live UI smoke test.
 - **Secrets:** neither the code nor the token is stored in plaintext, logged, or returned in an
   error body; the token is Keychain-only.
 - **Rollback:** remains as §10 — additive tables, routes and CLI only; the client can be forgotten
   or discarded independently.
+- **Progress:** `GET /api/ios/v1/progress` is server-only in Phase 1 and covered by the server
+  tests; the client has no Progress screen. A Progress screen is deferred to Phase 2.
+- **Post-acceptance remediation (2026-11-07):** the redirect guard now rejects any redirect whose
+  scheme, host or effective port differs from the paired origin. `RedirectPolicyTests` covers
+  same-origin, cross-port, scheme-changing, different-host, userinfo and delegate-rejection cases.
+  The device pass preceded this transport-internal hardening; the normal LAN path is unchanged.
 - **Residual limits:** plain HTTP on the trusted home LAN only; no writes, HealthKit, offline
   capture, review or prescription UI in Phase 1; personal-team signing expires after 7 days.
-- **Next:** Phase 2 requires a separate written contract and owner approval. It is not started.
+- **Next:** Phase 2 is specified by the draft [`IOS-PHASE-2-CONTRACT.md`](IOS-PHASE-2-CONTRACT.md);
+  it is not approved or started.

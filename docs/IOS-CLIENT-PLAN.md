@@ -4,7 +4,7 @@
 (owner-confirmed on the physical iPhone). The server side is migration `0052_ios_device`, the
 `ios` CLI, the bearer-authenticated read-only `/api/ios/v1/` facade and its tests; the Swift
 client in the separate `StrengthApp` repository has pairing, Today, History and Settings/Forget,
-Keychain storage, 22 unit tests and a live UI smoke test. Phase 2 is not started and needs its own
+Keychain storage, 29 unit tests and a live UI smoke test. Phase 2 is not started and needs its own
 approved contract. Later phases remain proposals and need separate approval.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
@@ -218,7 +218,7 @@ Preserve `/api/ios/v1/` as the future facade namespace, but implement endpoints 
 
 | Increment | Contract needed | Notes |
 |---|---|---|
-| Phase 1 | Protected pairing exchange; `GET bootstrap/today`; read-only recent history/progress | Return server/API version, server-local date/timezone, capabilities, readiness/workout status and small existing summaries. No config paths or secrets. |
+| Phase 1 | Protected pairing exchange; `GET bootstrap/today`; read-only recent history and a server-only progress summary | Return server/API version, server-local date/timezone, capabilities, readiness/workout status and small existing summaries. No config paths or secrets. The `progress` route is implemented and tested server-side; the Phase 1 client has no Progress screen (deferred to Phase 2). |
 | Phase 2 | Read/write readiness; request prescription; read active workout; start by issued-plan id; add set; complete/abandon; read history/progress; optional inline form ratings; optional review | Mutations require authentication and an idempotency receipt. The prescription is stored at issue and the client starts by id only, so plan content never comes from the phone. Validate every field via existing Python services. |
 | Phase 3 | HRV/RHR provenance; HealthKit record import and optional workout association | Add only the source/provenance fields and routes needed by enabled types; keep user-consented HealthKit read-only. |
 | Phase 4 | Add/correct/remove set and offline event replay/reconciliation | Reuse the Phase 2 receipts; add a conflict response only where replay needs it. |
@@ -338,10 +338,11 @@ Prioritize server contract/domain tests; keep UI tests focused and robust. Add c
 
 ## 11. Next task
 
-Phase 0 and Phase 1 are complete. The next task is Phase 2: agree its written contract and obtain
-owner approval before any implementation. Phase 2 is the online strength workflow (readiness write,
-server-issued prescription, start by issued-plan id, active workout, add set, complete/abandon,
-session RPE, optional form ratings, history/progress and idempotency receipts). Do not begin the
+Phase 0 and Phase 1 are complete. The next task is Phase 2: review and approve the draft written
+contract at [`design/IOS-PHASE-2-CONTRACT.md`](design/IOS-PHASE-2-CONTRACT.md), then implement only
+after approval. Phase 2 is the online strength workflow (readiness write, server-issued
+prescription, start by issued-plan id, active workout, add set, complete/abandon, session RPE,
+optional form ratings, history/progress, manual VBT and idempotency receipts). Do not begin the
 workout, HealthKit, offline, cardio, or PCC work before that contract is approved, and take Phase 3A
 (HealthKit readiness) before Phase 4 (offline).
 
@@ -399,10 +400,16 @@ its own approved contract.
   `history`, `progress`); `tests/test_ios_api.py`. The default suite is 1604 tests and
   `ruff` passes. Existing unversioned routes and stored training data are unchanged.
 - **Client:** pairing, Today, History and Settings/Forget in the separate `StrengthApp`
-  repository; Keychain token storage; 22 unit tests; optional live UI smoke test.
+  repository; Keychain token storage; 29 unit tests; optional live UI smoke test.
 - **Verification:** the live test passed on the iPhone 18 Pro simulator against a temporary SQLite
   database; the owner then confirmed the device checklist on the physical iPhone. The checklist is
   `StrengthApp/DEVICE-ACCEPTANCE.md`.
+- **Progress:** `GET /api/ios/v1/progress` is server-only in Phase 1 and is covered by the
+  server contract tests. The client screens are Pairing, Today, History and Settings; a Progress
+  screen is deferred to Phase 2 and was not added under the Phase 1 contract.
+- **Post-acceptance remediation:** the redirect guard is now same-origin (scheme, host and effective
+  port) and has dedicated unit tests for cross-port, scheme-changing, host, userinfo and
+  delegate-rejection cases. The device pass preceded this transport-internal hardening.
 - **Rollback:** drop `ios_device` and `ios_pairing_code`, remove the `/api/ios/v1/` routes and
   the `ios` CLI group, and forget/uninstall the client. No prescription, workout, readiness or
   review row is touched.

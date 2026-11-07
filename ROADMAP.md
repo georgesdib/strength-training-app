@@ -1571,8 +1571,10 @@ and read-only views) is **complete 2026-11-07**: the server side is migration `0
 the `strength-coach ios pair/devices/revoke` CLI, the bearer-authenticated read-only
 `/api/ios/v1/` facade and `tests/test_ios_api.py`; the Swift client in the separate
 `StrengthApp` repository provides pairing, Today, History and Settings/Forget with Keychain
-storage, 22 unit tests and a live UI smoke test. It passed on the iPhone 18 Pro simulator and was
-owner-confirmed on the physical iPhone. Phase 2 is not started and needs its own approved contract.
+storage, 29 unit tests and a live UI smoke test. It passed on the iPhone 18 Pro simulator and was
+owner-confirmed on the physical iPhone. Phase 2 is not started; the draft contract is
+[`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md) and awaits owner
+approval.
 The first useful release is an online, authenticated native strength-training workflow against the
 owner's local Python server. Durable offline capture, HealthKit and Apple Intelligence
 are later phases, not first-release dependencies. PCC may be a separately enabled Apple AI option;
@@ -1597,7 +1599,9 @@ backfill.
 `strength-coach ios pair/devices/revoke` CLI, the read-only `/api/ios/v1/` facade, and
 `tests/test_ios_api.py`; the default suite is 1604 tests and `ruff` passes. Client: pairing,
 Today, History and Settings/Forget in the separate `StrengthApp` repository, Keychain storage,
-22 unit tests and an optional live UI smoke test. Verification: the live test passed on the iPhone
+29 unit tests and an optional live UI smoke test. The `/progress` facade route is server-only in
+Phase 1; the client has no Progress screen (deferred to Phase 2). Verification: the live test
+passed on the iPhone
 18 Pro simulator against a temporary SQLite database, then the owner confirmed the device checklist
 on the physical iPhone. No existing unversioned route, prescription, workout or readiness record
 changed. Rollback is additive: drop `ios_device` and `ios_pairing_code`, remove the
