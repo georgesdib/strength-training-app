@@ -1,11 +1,13 @@
 # Native iPhone Client — Online-First Implementation Plan
 
 **Status:** Phase 0 complete 2026-11-07 (owner-confirmed); **Phase 1 complete 2026-11-07**
-(owner-confirmed on the physical iPhone). The server side is migration `0052_ios_device`, the
-`ios` CLI, the bearer-authenticated read-only `/api/ios/v1/` facade and its tests; the Swift
-client in the separate `StrengthApp` repository has pairing, Today, History and Settings/Forget,
-Keychain storage, 29 unit tests and a live UI smoke test. Phase 2 is not started and needs its own
-approved contract. Later phases remain proposals and need separate approval.
+(owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (simulator-verified;
+physical-iPhone acceptance checklist pending). The server side is migrations 0052_ios_device and
+0053_ios_workflow, the ios CLI, the bearer-authenticated /api/ios/v1/ facade, and its tests; the
+Swift client in the separate StrengthApp repository has pairing, Today, History, Settings/Forget,
+readiness entry, prescription preview/start-by-id, active workout, completion/abandon and
+Progress, Keychain storage, 39 unit tests and optional live UI smoke tests. Phase 3 is not started
+and needs its own approved contract. Later phases remain proposals and need separate approval.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
 
@@ -338,13 +340,13 @@ Prioritize server contract/domain tests; keep UI tests focused and robust. Add c
 
 ## 11. Next task
 
-Phase 0 and Phase 1 are complete. The next task is Phase 2: review and approve the draft written
-contract at [`design/IOS-PHASE-2-CONTRACT.md`](design/IOS-PHASE-2-CONTRACT.md), then implement only
-after approval. Phase 2 is the online strength workflow (readiness write, server-issued
-prescription, start by issued-plan id, active workout, add set, complete/abandon, session RPE,
-optional form ratings, history/progress, manual VBT and idempotency receipts). Do not begin the
-workout, HealthKit, offline, cardio, or PCC work before that contract is approved, and take Phase 3A
-(HealthKit readiness) before Phase 4 (offline).
+Phases 0–2 are complete. Phase 2 delivered the online strength workflow (readiness write,
+server-issued prescription, start by issued-plan id, active workout, add set, complete/abandon,
+session RPE, optional form ratings, history/progress, manual VBT and idempotency receipts) under
+[`design/IOS-PHASE-2-CONTRACT.md`](design/IOS-PHASE-2-CONTRACT.md). The next task is Phase 3A
+(opt-in HealthKit HRV/RHR readiness), which needs its own approved contract; do not begin
+HealthKit, offline, cardio or PCC work before that approval, and take Phase 3A before Phase 4
+(offline).
 
 ## 12. References
 
@@ -435,8 +437,9 @@ as part of a rollback.
 
 ## Completion state
 
-**Phase 0 complete 2026-11-07. Phase 1 complete 2026-11-07.** Phase 2 is not started and requires
-its own approved contract.
+**Phase 0 complete 2026-11-07. Phase 1 complete 2026-11-07. Phase 2 complete 2026-11-07** on the
+simulator; physical-iPhone Phase 2 acceptance remains the owner checklist. Phase 3 requires its
+own approved contract.
 
 ### Phase 1 completion record
 
@@ -461,5 +464,30 @@ its own approved contract.
 - **Residual limitations:** plain HTTP on the trusted LAN only; Phase 1 has no writes, HealthKit,
   offline capture, review or prescription UI; personal-team signing expires after 7 days.
 
+### Phase 2 completion record
+
+- **Server:** migration 0053_ios_workflow.sql; config/ios.v1.yaml; ios_config.py; the
+  issued-plan/receipt store; authenticated readiness, prescription issue, start-by-id, add-set,
+  form-rating, complete and abandon routes; tests/test_ios_workflow.py. The default suite is 1620
+  tests and ruff passes. The normal prescription is persisted at issue. The phone starts by
+  issued-plan id only and cannot supply prescription content. Every mutation requires a UUID
+  Idempotency-Key with a 30-day receipt. The mutation switch fails closed to 503 while reads stay
+  available.
+- **Client:** readiness form, prescription preview, active workout, optional manual mean velocity,
+  optional form ratings, session RPE or explicit not-recorded completion, abandon, and the Progress
+  screen; 39 unit tests; optional live UI smoke tests; Release build passes.
+- **Verification:** the live UI test passed on the iPhone 18 Pro simulator against a temporary
+  SQLite database, covering pair -> readiness -> issue -> start -> add VBT set -> finish -> Progress.
+  No live data/coach.db was touched. The physical-iPhone Phase 2 checklist remains the owner gate.
+- **Data/decisions:** readiness is the accepted manual field set; the server owns load, sets and
+  RIR; manual mean velocity is a performed observation only; the normal prescription tables remain
+  the audit source; no plan editing on the phone; no offline queue, HealthKit or RPE coercion.
+- **Rollback:** set mutations_enabled: false; drop ios_issued_plan and ios_operation_receipt;
+  remove the Phase 2 routes/client screens and forget the device. Prescriptions/workouts already
+  committed by a started session remain valid.
+- **Residual limitations:** plain HTTP on the trusted LAN only; physical-iPhone Phase 2 acceptance
+  pending; no HealthKit, offline capture or review screen; personal-team signing expires after
+  7 days.
+
 No HealthKit integration, training logic or server-behaviour change exists beyond the additive
-Phase 1 facade. Each later phase requires the owner's approval before it starts.
+Phase 1/2 facade. Each later phase requires the owner's approval before it starts.

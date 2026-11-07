@@ -1225,7 +1225,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
-| done | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); Phase 2 not started; online strength workflow first; HealthKit readiness before offline capture; Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
+| done (Phases 0–2) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified; physical-iPhone acceptance pending); online strength workflow first; HealthKit readiness before offline capture; Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1562,7 +1562,7 @@ later use needs a separate decision and validation.
 and a separate owner decision to start. Phase 3 is independent of the closed Phase 1–2 plan
 and is not a reason to reopen it.
 
-### 4.29 Native iPhone client — online-first (Phase 0 complete; Phase 1 complete)
+### 4.29 Native iPhone client — online-first (Phases 0–2 complete)
 
 **Status:** Phase 0 complete (2026-11-07): an empty SwiftUI app is signed and launches on the
 owner's iPhone under a personal team, the HealthKit capability is verified, the phone reaches the
@@ -1572,9 +1572,15 @@ the `strength-coach ios pair/devices/revoke` CLI, the bearer-authenticated read-
 `/api/ios/v1/` facade and `tests/test_ios_api.py`; the Swift client in the separate
 `StrengthApp` repository provides pairing, Today, History and Settings/Forget with Keychain
 storage, 29 unit tests and a live UI smoke test. It passed on the iPhone 18 Pro simulator and was
-owner-confirmed on the physical iPhone. Phase 2 is not started; the draft contract is
-[`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md) and awaits owner
-approval.
+owner-confirmed on the physical iPhone. Phase 2 (online strength workflow) is **complete
+2026-11-07**: migration 0053_ios_workflow.sql, the issued-plan/receipt store, the
+authenticated readiness/prescription/workout/complete/abandon routes, and 16 new contract tests;
+the client adds readiness entry, prescription preview, start-by-id, active workout with optional
+manual mean velocity, form ratings, RPE/not-recorded completion, abandon and a Progress screen.
+The contract is [`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md).
+The default server suite is 1620 tests and the client has 39 unit tests; the live UI workflow
+passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2 acceptance remains the owner gate.
+Phase 3 is not started and needs its own approval.
 The first useful release is an online, authenticated native strength-training workflow against the
 owner's local Python server. Durable offline capture, HealthKit and Apple Intelligence
 are later phases, not first-release dependencies. PCC may be a separately enabled Apple AI option;
@@ -1584,7 +1590,7 @@ approved.
 
 The detailed, repository-grounded plan is [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md).
 Recommendation: a small native SwiftUI client with Python remaining the sole authority for
-readiness scores and prescriptions. Phase 0 and Phase 1 are complete; Phase 2 needs approval. The
+readiness scores and prescriptions. Phases 0–2 are complete; Phase 3 needs approval. The
 SwiftUI client is its own repository (`StrengthApp`), developed alongside this one rather than as
 an `ios/` subdirectory here. The first release covers pairing, readiness entry, a server prescription,
 online workout capture/completion with session RPE, optional inline form ratings and basic
@@ -1609,8 +1615,27 @@ changed. Rollback is additive: drop `ios_device` and `ios_pairing_code`, remove 
 limitations: plain HTTP on the trusted LAN only, no writes in Phase 1, no HealthKit or offline
 capture, and 7-day personal-team signing.
 
-**Release gate:** the current API is unauthenticated HTTP on the home LAN (`LIM-57`). Before the
-phone sends personal workout data, add simple per-device authentication. Keep existing web/CLI
+**Phase 2 completion record (2026-11-07).** Server: migration 0053_ios_workflow.sql,
+config/ios.v1.yaml, ios_config.py, the issued-plan/receipt store, the authenticated
+readiness/prescription/start/add-set/form/complete/abandon routes, and 16 contract tests in
+tests/test_ios_workflow.py; the default suite is 1620 tests and ruff passes. The normal
+prescription is persisted at issue, the phone starts by issued-plan id only, and every mutation
+requires a UUID Idempotency-Key with a 30-day receipt. The server owns readiness, load and
+set decisions; manual mean velocity is stored as an optional performed value, never a new
+prescription input. Client: readiness form, prescription preview, active workout, optional form
+ratings, RPE or explicit not-recorded completion, abandon, and the Progress screen; 39 unit tests
+and optional live UI smoke tests. Verification: the live UI test passed on the iPhone 18 Pro
+simulator against a temporary SQLite database (pair -> readiness -> issue -> start -> add VBT set ->
+finish -> Progress); no live data/coach.db was touched. The Release build passes. Rollback:
+set mutations_enabled: false to return mutation routes to 503 while reads stay available; drop
+ios_issued_plan and ios_operation_receipt, remove the Phase 2 routes/client screens, and
+forget the device. Existing prescriptions/workouts already committed by a started session
+remain valid. Residual limitations: no offline queue, no HealthKit, no plan editing on the
+phone, plain HTTP on the trusted LAN, and physical-iPhone Phase 2 acceptance remains the owner
+checklist.
+
+**Release gate:** the existing web/CLI API is unauthenticated HTTP on the home LAN
+(LIM-57); the phone uses the separate per-device bearer facade. Keep existing web/CLI
 routes compatible and keep the API on the trusted home LAN over plain HTTP: LAN traffic, including
 the device credential, is unencrypted and the deployment assumes a trusted network with no public
 exposure. No port-forwarding, remote access, TLS/Caddy/internal CA, certificate installation,

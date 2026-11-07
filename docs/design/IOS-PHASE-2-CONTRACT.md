@@ -1,9 +1,9 @@
 # iOS Phase 2 — Online Strength Workflow: implementation contract
 
-**Status:** draft for owner approval, 2026-11-07. Documentation only; this contract creates no
-code, route, migration or CLI by itself. Phase 1 is complete (see
-[`IOS-PHASE-1-CONTRACT.md`](IOS-PHASE-1-CONTRACT.md) §13). Do not implement Phase 2 until the
-owner approves this contract.
+**Status:** approved by the owner and implemented on 2026-11-07. Server work is on the
+`iOS-app` branch; client work is on `main` in the separate `StrengthApp` repository. Phase 1 is
+complete (see [`IOS-PHASE-1-CONTRACT.md`](IOS-PHASE-1-CONTRACT.md) §13). This contract remains the
+authority for the Phase 2 surface. Physical-iPhone Phase 2 acceptance is the remaining owner gate.
 
 **Scope:** fixes the exact server surface, data model, client surface, tests, acceptance and
 rollback for Phase 2 of [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md). The plan remains the
@@ -340,7 +340,7 @@ capabilities distinguish the phase:
 ```
 
 - `readiness` remains the read capability. `readiness_write`, `prescription` and
-  `workout_write` are false when `ios.mutations_enabled` is false.
+  `workout_write` are false when `mutations_enabled` is false in `config/ios.v1.yaml`.
 - The client shows write UI only when the corresponding capability is true; otherwise it remains a
   read-only client with a clear server-disabled message. Do not infer capability from the app build.
 
@@ -588,7 +588,8 @@ Swift Phase 1 tests must remain unchanged and green.
 
 ## 14. Rollback
 
-- First switch: `ios.mutations_enabled: false`. Reads (bootstrap/today/history/progress) remain
+- First switch: `mutations_enabled: false` in `config/ios.v1.yaml`. Reads
+  (bootstrap/today/history/progress) remain
   available; every Phase 2 mutation returns `503 ios_mutations_disabled`; the client shows a
   read-only/disabled message.
 - Remove the Phase 2 routes and config; the existing web/CLI routes continue.
@@ -630,7 +631,24 @@ Settled defaults for this contract: 60-minute issued-plan TTL; 30-day receipt re
 Progress default with 1–52 selection; one active issued plan per device; 503 for disabled
 mutations. These are config/contract values, not new training rules.
 
-## 16. References
+## 16. Implementation record (2026-11-07)
+
+- **Server:** migration `0053_ios_workflow.sql`, `config/ios.v1.yaml`, `ios_config.py`, the
+  device-scoped issued-plan/receipt store, the authenticated readiness/prescription/start/add-set/
+  form/complete/abandon routes, and 16 contract tests in `tests/test_ios_workflow.py`. The default
+  suite is 1620 tests and `ruff` passes. The normal prescription is persisted at issue; the client
+  starts by issued-plan id only; successful mutations store a 30-day receipt keyed by the UUID
+  `Idempotency-Key`; `mutations_enabled: false` returns `503 ios_mutations_disabled` while reads
+  stay available.
+- **Client:** readiness form, prescription preview, start-by-id, active workout, optional manual
+  mean velocity, optional 1–5 form ratings, session RPE or explicit not-recorded completion,
+  abandon, and the Progress screen; 39 unit tests; optional live UI smoke tests; Release build.
+- **Verification:** the live UI test passed on the iPhone 18 Pro simulator against a temporary
+  SQLite database, covering pair → readiness → issue → start → add a manual-VBT set → finish →
+  Progress. No live `data/coach.db` was touched. The server and client unit/contract suites pass.
+- **Remaining gate:** the owner's physical-iPhone acceptance checklist. No Phase 3 work has begun.
+
+## 17. References
 
 - [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md) — phase boundary, invariants, rollback gates.
 - [`IOS-PHASE-1-CONTRACT.md`](IOS-PHASE-1-CONTRACT.md) — accepted Phase 1 interface and

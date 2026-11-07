@@ -30,7 +30,15 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import pandas as pd
 
-from strength_coach import __version__, history, modalities, settings_profile, settings_registry, workout
+from strength_coach import (
+    __version__,
+    history,
+    ios_config,
+    modalities,
+    settings_profile,
+    settings_registry,
+    workout,
+)
 from strength_coach.agents import selection as agent_selection
 from strength_coach.agents.client import LLMError
 from strength_coach.agents.config import (
@@ -113,6 +121,7 @@ from strength_coach.store import (
     exercise_admin,
     importer,
     ios_devices,
+    ios_workflow,
     queries,
     repositories,
     symptom_attribution,
@@ -131,11 +140,13 @@ TOLERANCE = 0.25
 MAX_BODY_BYTES = 64 * 1024 * 1024
 MAX_IMPORT_FILE_BYTES = 20 * 1024 * 1024
 
-# iOS Phase 1 is read-only. The capability map is deliberately explicit so the phone can
-# tell "not built yet" from "temporarily unavailable". See docs/IOS-PHASE-1-CONTRACT.md §5.3.
+# Phase 2 adds readiness_write and activates the write capabilities. The map is explicit so the
+# phone can distinguish "not built" from "temporarily unavailable"; the config flag can turn the
+# write capabilities off while leaving the read facade available.
 IOS_API_VERSION = "1"
-IOS_CAPABILITIES = {
+IOS_BASE_CAPABILITIES = {
     "readiness": True,
+    "readiness_write": False,
     "prescription": False,
     "workout_write": False,
     "healthkit": False,
@@ -224,6 +235,16 @@ def _json_default(value: Any) -> Any:
     if hasattr(value, "__dict__"):
         return value.__dict__
     return str(value)
+
+
+def _ios_capabilities() -> dict[str, bool]:
+    """Phase 2 capabilities; write capabilities follow the iOS mutation switch."""
+    enabled = ios_config.load_config().mutations_enabled
+    capabilities = dict(IOS_BASE_CAPABILITIES)
+    capabilities["readiness_write"] = enabled
+    capabilities["prescription"] = enabled
+    capabilities["workout_write"] = enabled
+    return capabilities
 
 
 def _ios_clock(now: datetime.datetime | None = None) -> dict[str, Any]:
@@ -889,19 +910,23 @@ class Handler(BaseHTTPRequestHandler):
         LOGGER.info(message)
         print(message)
 
-    def _send(self, status: int, body: bytes, content_type: str) -> None:
+    def _send(self, status: int, body: bytes, content_type: str,
+              headers: dict[str, str] | None = None) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        for key, value in (headers or {}).items():
+            self.send_header(key, value)
         if getattr(self, "close_connection", False):
             self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(body)
 
-    def _json(self, status: int, payload: Any) -> None:
+    def _json(self, status: int, payload: Any,
+              headers: dict[str, str] | None = None) -> None:
         body = json.dumps(payload, default=_json_default).encode("utf-8")
-        self._send(status, body, "application/json; charset=utf-8")
+        self._send(status, body, "application/json; charset=utf-8", headers=headers)
 
     def _error(self, status: int, message: str, fields: dict[str, str] | None = None) -> None:
         payload: dict[str, Any] = {"error": message}
@@ -982,7 +1007,7 @@ class Handler(BaseHTTPRequestHandler):
                     payload = {
                         "api_version": IOS_API_VERSION,
                         **_ios_clock(),
-                        "capabilities": dict(IOS_CAPABILITIES),
+                        "capabilities": _ios_capabilities(),
                     }
                 elif path == "/api/ios/v1/today":
                     clock = _ios_clock()
@@ -1048,17 +1073,578 @@ class Handler(BaseHTTPRequestHandler):
             self._error(500, "internal server error")
 
     def _ios_post(self) -> None:
-        # Phase 1 has no write routes. Authenticating first keeps an unknown POST under the
-        # facade indistinguishable from a known one until the token is valid.
+        path = unquote(urlparse(self.path).path)
         try:
             with db.Store(self.db_path) as store:
-                self._ios_authenticate(store.connection)
-                self._error(404, "not found")
+                device = self._ios_authenticate(store.connection)
+                conn = store.connection
+                if path == "/api/ios/v1/readiness":
+                    config = self._ios_require_mutations()
+                    body = self._body()
+                    self._ios_mutation(
+                        conn, device, path, body, config, self._ios_readiness,
+                    )
+                elif path == "/api/ios/v1/prescriptions":
+                    config = self._ios_require_mutations()
+                    body = self._body()
+                    self._ios_mutation(
+                        conn, device, path, body, config, self._ios_prescription,
+                    )
+                elif path == "/api/ios/v1/workouts":
+                    config = self._ios_require_mutations()
+                    body = self._body()
+                    self._ios_mutation(
+                        conn, device, path, body, config, self._ios_start,
+                    )
+                else:
+                    parts = [part for part in path.split("/") if part]
+                    if len(parts) == 6 and parts[:4] == ["api", "ios", "v1", "workouts"]:
+                        workout_id = parts[4]
+                        action = parts[5]
+                        handlers = {
+                            "sets": self._ios_workout_set,
+                            "form": self._ios_workout_form,
+                            "complete": self._ios_workout_complete,
+                            "abandon": self._ios_workout_abandon,
+                        }
+                        handler = handlers.get(action)
+                        if handler is None:
+                            self._error(404, "not found")
+                            return
+                        config = self._ios_require_mutations()
+                        body = self._body()
+                        self._ios_workout_mutation(
+                            conn, device, path, body, config, workout_id, handler,
+                        )
+                    else:
+                        self._error(404, "not found")
+        except RequestError as exc:
+            if exc.close:
+                self.close_connection = True
+            self._error(exc.status, exc.message)
         except ios_devices.AuthError as exc:
             self._error(exc.status, exc.message)
+        except ios_workflow.IOSWorkflowError as exc:
+            self._ios_workflow_error(exc)
+        except FieldError as exc:
+            self._error(400, str(exc), exc.fields)
+        except (ValueError, KeyError) as exc:
+            self._error(400, str(exc))
         except Exception:
-            LOGGER.exception("unhandled iOS POST")
+            LOGGER.exception("unhandled iOS POST %s", path)
             self._error(500, "internal server error")
+
+    def _ios_workflow_error(self, exc: ios_workflow.IOSWorkflowError) -> None:
+        payload: dict[str, Any] = {"error": exc.message, "code": exc.code}
+        if exc.fields:
+            payload["fields"] = exc.fields
+        if exc.details:
+            payload["details"] = exc.details
+        self._json(exc.status, payload)
+
+    def _ios_require_mutations(self) -> ios_config.IOSConfig:
+        config = ios_config.load_config()
+        if not config.mutations_enabled:
+            raise ios_workflow.IOSWorkflowError(
+                503, "ios_mutations_disabled",
+                "iOS writes are disabled on this server",
+            )
+        return config
+
+    @staticmethod
+    def _ios_closed_fields(body: dict, allowed: set[str]) -> None:
+        unknown = sorted(set(body) - allowed)
+        if unknown:
+            raise ios_workflow.IOSWorkflowError(
+                400, "unknown_field",
+                "unknown field(s): " + ", ".join(unknown),
+                fields={key: "not accepted" for key in unknown},
+            )
+
+    def _ios_mutation(self, conn, device: dict, route: str, body: dict,
+                      config: ios_config.IOSConfig, callback) -> None:
+        raw_key = self.headers.get("Idempotency-Key")
+        if raw_key is None:
+            raise ios_workflow.IOSWorkflowError(
+                400, "idempotency_key_required",
+                "Idempotency-Key header is required",
+            )
+        try:
+            operation_id = ios_workflow.normalize_operation_id(raw_key)
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "idempotency_key_invalid", str(exc)
+            ) from exc
+        digest = ios_workflow.request_hash(body)
+        existing = ios_workflow.get_receipt(conn, device["device_id"], operation_id)
+        if existing is not None:
+            if existing["route"] != route or existing["request_hash"] != digest:
+                raise ios_workflow.IOSWorkflowError(
+                    409, "idempotency_conflict",
+                    "Idempotency-Key was already used for a different request",
+                )
+            self._json(
+                int(existing["response_status"]),
+                json.loads(existing["response_json"]),
+                headers={ios_workflow.RECEIPT_REPLAY_HEADER: "true"},
+            )
+            return
+        created = ios_workflow.now()
+        with db.transaction(conn):
+            result = callback(conn, device, body)
+            ios_workflow.store_receipt(
+                conn,
+                device_id=device["device_id"],
+                operation_id=operation_id,
+                route=route,
+                digest=digest,
+                status=200,
+                payload=result,
+                created_at=ios_workflow.iso(created),
+                expires_at=ios_workflow.iso(
+                    ios_workflow.add_days(created, config.receipt_retention_days)
+                ),
+            )
+            ios_workflow.prune_receipts(conn, ios_workflow.iso(created))
+        self._json(200, result)
+
+    def _ios_workout_mutation(self, conn, device: dict, route: str, body: dict,
+                              config: ios_config.IOSConfig, workout_id: str,
+                              handler) -> None:
+        def callback(c, _device, payload):
+            return handler(c, workout_id, payload)
+
+        self._ios_mutation(conn, device, route, body, config, callback)
+
+    def _ios_readiness(self, conn, device: dict, body: dict) -> dict:
+        self._ios_closed_fields(body, {"values", "note"})
+        values = body.get("values")
+        if not isinstance(values, dict):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "values must be an object",
+                fields={"values": "must be an object"},
+            )
+        clean = {key: value for key, value in values.items() if value not in (None, "")}
+        if not clean:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "values must include at least one field",
+                fields={"values": "required"},
+            )
+        for field, value in clean.items():
+            try:
+                readiness_utils.validate(field, value)
+            except ValueError as exc:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", str(exc),
+                    fields={str(field): str(exc)},
+                ) from exc
+        note = body.get("note")
+        if note is not None and not isinstance(note, str):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "note must be a string",
+                fields={"note": "must be a string"},
+            )
+        today = datetime.date.today().isoformat()
+        readiness_feature.record_manual(
+            conn, today, clean, note=note or None
+        )
+        return self._readiness(conn, today)
+
+    def _ios_prescription(self, conn, device: dict, body: dict) -> dict:
+        config = self._ios_require_mutations()
+        self._ios_closed_fields(body, {"readiness_ack", "confirmations"})
+        acknowledge = body.get("readiness_ack", False)
+        if not isinstance(acknowledge, bool):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "readiness_ack must be true or false",
+                fields={"readiness_ack": "must be true or false"},
+            )
+        confirmations = body.get("confirmations") or {}
+        if not isinstance(confirmations, dict):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "confirmations must be an object",
+                fields={"confirmations": "must be an object"},
+            )
+        unknown = sorted(set(confirmations) - {"deload", "drop"})
+        if unknown:
+            raise ios_workflow.IOSWorkflowError(
+                400, "unknown_field",
+                "unknown confirmation(s): " + ", ".join(unknown),
+                fields={key: "not accepted" for key in unknown},
+            )
+        for key, value in confirmations.items():
+            if not isinstance(value, bool):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"{key} must be true or false",
+                    fields={key: "must be true or false"},
+                )
+
+        today = datetime.date.today().isoformat()
+        assessment = readiness_score.compute(conn, today)
+        if assessment.status != "ready" and not acknowledge:
+            raise ios_workflow.IOSWorkflowError(
+                409, "readiness_required",
+                "readiness is not score-ready; acknowledge starting without a score",
+                details={
+                    "status": assessment.status,
+                    "score": assessment.score,
+                    "basis": assessment.basis,
+                    "can_acknowledge": True,
+                },
+            )
+        try:
+            readiness_score.require_ready(conn, today, allow_unknown=acknowledge)
+        except ReadinessRequired as exc:
+            raise ios_workflow.IOSWorkflowError(
+                409, "readiness_required", str(exc),
+                details={
+                    "status": assessment.status,
+                    "score": assessment.score,
+                    "basis": assessment.basis,
+                    "can_acknowledge": True,
+                },
+            ) from exc
+
+        resolved = settings_profile.feature_settings(conn, today)
+        reactive = deload_feature.reactive_decision(
+            conn, today, config=resolved.deload
+        )
+        scheduled = deload_feature.scheduled_decision(
+            conn, today, config=resolved.deload
+        )
+        pending: dict[str, Any] = {}
+        if scheduled is not None and "deload" not in confirmations:
+            pending["deload"] = {
+                "reason": scheduled.reason,
+                "scheduled": True,
+            }
+        drop_window = self._drop_confirmation_window(conn, today)
+        if drop_window["applies"] and "drop" not in confirmations:
+            pending["drop"] = drop_window
+        if pending:
+            raise ios_workflow.IOSWorkflowError(
+                409, "confirmation_required",
+                "a training decision needs confirmation",
+                details=pending,
+            )
+
+        deload_decision = reactive
+        if (
+            deload_decision is None
+            and scheduled is not None
+            and confirmations.get("deload") is True
+        ):
+            deload_decision = scheduled
+        scheduled_suggestion = (
+            scheduled if scheduled is not None and deload_decision is None else None
+        )
+        session_type = schedule_mod.next_session_type(conn, today)
+        prescription = build_prescription(
+            conn,
+            for_date=today,
+            session_type=session_type,
+            deload_decision=deload_decision,
+            drop_confirmed=bool(confirmations.get("drop")),
+        )
+        if scheduled_suggestion is not None:
+            prescription = deload_mod.suggest(prescription, scheduled_suggestion)
+        plan = prescription_dict(prescription)
+
+        day = queries.readiness_day(conn, today) or {}
+        readiness_values = {
+            field: day[field]
+            for field in readiness_utils.READINESS_FIELDS
+            if day.get(field) is not None
+        }
+        clean_readiness = workout.validate_readiness(
+            readiness_values, allow_partial=True
+        )
+        created = ios_workflow.now()
+        created_iso = ios_workflow.iso(created)
+        expires_at = ios_workflow.iso(
+            created + datetime.timedelta(seconds=config.issued_plan_ttl_seconds)
+        )
+        issued_plan_id = uuid.uuid4().hex
+        with db.transaction(conn):
+            prescription_id = prescription_persistence.store_plan(conn, plan)
+            ios_workflow.mint_issued_plan(
+                conn,
+                issued_plan_id=issued_plan_id,
+                device_id=device["device_id"],
+                prescription_id=prescription_id,
+                for_date=today,
+                session_type=str(plan["session_type"]),
+                plan_json=json.dumps(plan, separators=(",", ":"), default=str),
+                readiness_json=json.dumps(
+                    clean_readiness, separators=(",", ":"), default=str
+                ),
+                readiness_ack=acknowledge,
+                created_at=created_iso,
+                expires_at=expires_at,
+            )
+        return {
+            "issued_plan_id": issued_plan_id,
+            "prescription_id": prescription_id,
+            "for_date": today,
+            "session_type": plan["session_type"],
+            "expires_at": expires_at,
+            "plan": plan,
+            "readiness": {
+                "status": assessment.status,
+                "score": assessment.score,
+                "basis": assessment.basis,
+                "overrides": assessment.overrides,
+                "context_flags": list(assessment.context_flags),
+            },
+            "warnings": list(plan.get("warnings") or []),
+        }
+
+    def _ios_start(self, conn, device: dict, body: dict) -> dict:
+        self._ios_closed_fields(body, {"issued_plan_id"})
+        issued_plan_id = body.get("issued_plan_id")
+        if not isinstance(issued_plan_id, str) or not issued_plan_id.strip():
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "issued_plan_id is required",
+                fields={"issued_plan_id": "required"},
+            )
+        row = ios_workflow.get_plan(conn, issued_plan_id.strip(), device["device_id"])
+        if row is None:
+            raise ios_workflow.IOSWorkflowError(
+                404, "plan_not_found", "issued plan not found"
+            )
+        today = datetime.date.today().isoformat()
+        if row["for_date"] != today:
+            raise ios_workflow.IOSWorkflowError(
+                410, "plan_expired", "issued plan was for an earlier server date"
+            )
+        if row["superseded_at"] is not None:
+            raise ios_workflow.IOSWorkflowError(
+                410, "plan_superseded", "a newer issued plan replaced this one"
+            )
+        if row["consumed_at"] is not None:
+            existing = (
+                workout.get(conn, row["workout_id"]) if row["workout_id"] else None
+            )
+            if existing is not None and existing["status"] == "in_progress":
+                return existing
+            raise ios_workflow.IOSWorkflowError(
+                410, "plan_consumed", "issued plan has already been used",
+                details={
+                    "workout_id": row["workout_id"],
+                    "status": existing["status"] if existing else None,
+                },
+            )
+        if row["expires_at"] <= ios_workflow.now_iso():
+            raise ios_workflow.IOSWorkflowError(
+                410, "plan_expired", "issued plan has expired"
+            )
+        active = workout.active_workout(conn)
+        if active is not None:
+            raise ios_workflow.IOSWorkflowError(
+                409, "workout_active", "a workout is already in progress",
+                details={"workout_id": active["workout_id"]},
+            )
+        plan = json.loads(row["plan_json"])
+        readiness = json.loads(row["readiness_json"])
+        try:
+            with db.transaction(conn):
+                result = workout.start(
+                    conn,
+                    for_date=row["for_date"],
+                    plan=plan,
+                    readiness=readiness,
+                    session_type=row["session_type"],
+                    prescription_id=row["prescription_id"],
+                    allow_partial_readiness=bool(row["readiness_ack"]),
+                )
+                consumed = ios_workflow.consume_plan(
+                    conn, issued_plan_id, result["workout_id"],
+                    ios_workflow.now_iso(),
+                )
+                if consumed != 1:
+                    raise ios_workflow.IOSWorkflowError(
+                        410, "plan_consumed", "issued plan has already been used"
+                    )
+                return result
+        except ValueError as exc:
+            if "already in progress" in str(exc):
+                current = workout.active_workout(conn)
+                raise ios_workflow.IOSWorkflowError(
+                    409, "workout_active", str(exc),
+                    details={
+                        "workout_id": current["workout_id"] if current else None
+                    },
+                ) from exc
+            raise
+
+    def _ios_workout(self, conn, workout_id: str) -> dict:
+        data = workout.get(conn, workout_id)
+        if data is None:
+            raise ios_workflow.IOSWorkflowError(
+                404, "workout_not_found", "workout not found"
+            )
+        if data["status"] != "in_progress":
+            raise ios_workflow.IOSWorkflowError(
+                409, "workout_not_active", "workout is not in progress",
+                details={"status": data["status"]},
+            )
+        return data
+
+    def _ios_workout_set(self, conn, workout_id: str, body: dict) -> dict:
+        self._ios_closed_fields(body, {
+            "exercise_id", "load_kg", "reps", "rir", "velocity_mps",
+            "set_index", "plan_item_index",
+        })
+        self._ios_workout(conn, workout_id)
+        exercise_id = body.get("exercise_id")
+        if not isinstance(exercise_id, str) or not exercise_id.strip():
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "exercise_id is required",
+                fields={"exercise_id": "required"},
+            )
+        try:
+            reps = _integer(body.get("reps"))
+            rir = _integer(body.get("rir"))
+            load = _number(body.get("load_kg"))
+            velocity = _number(body.get("velocity_mps"))
+            set_index = _integer(body.get("set_index"))
+            plan_item_index = _integer(body.get("plan_item_index"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        if reps is None:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "reps is required",
+                fields={"reps": "required"},
+            )
+        if reps < 0:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "reps cannot be negative",
+                fields={"reps": "must be non-negative"},
+            )
+        if rir is not None and not 0 <= rir <= 6:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "RIR must be 0-6",
+                fields={"rir": "must be 0-6"},
+            )
+        if load is not None and load < 0:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "load cannot be negative",
+                fields={"load_kg": "must be non-negative"},
+            )
+        if velocity is not None and velocity <= 0:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "velocity_mps must be positive when present",
+                fields={"velocity_mps": "must be positive"},
+            )
+        if set_index is not None and set_index < 1:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "set_index must be positive",
+                fields={"set_index": "must be positive"},
+            )
+        if plan_item_index is not None and plan_item_index < 0:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "plan_item_index must be non-negative",
+                fields={"plan_item_index": "must be non-negative"},
+            )
+        return workout.add_set(
+            conn, workout_id,
+            exercise_id=exercise_id.strip(),
+            load_kg=load,
+            reps=reps,
+            rir=rir,
+            velocity=velocity,
+            source="manual",
+            set_index=set_index,
+            plan_item_index=plan_item_index,
+        )
+
+    def _ios_workout_form(self, conn, workout_id: str, body: dict) -> dict:
+        self._ios_closed_fields(body, {"exercise_id", "rating", "note"})
+        self._ios_workout(conn, workout_id)
+        exercise_id = body.get("exercise_id")
+        if not isinstance(exercise_id, str) or not exercise_id.strip():
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "exercise_id is required",
+                fields={"exercise_id": "required"},
+            )
+        try:
+            rating = _integer(body.get("rating"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "rating must be an integer",
+                fields={"rating": "must be an integer"},
+            ) from exc
+        if rating is None or not 1 <= rating <= 5:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "rating must be 1-5",
+                fields={"rating": "must be 1-5"},
+            )
+        note = body.get("note")
+        if note is not None and not isinstance(note, str):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "note must be a string",
+                fields={"note": "must be a string"},
+            )
+        return workout.set_form_rating(
+            conn, workout_id, exercise_id=exercise_id.strip(),
+            rating=rating, note=note or None,
+        )
+
+    def _ios_workout_complete(self, conn, workout_id: str, body: dict) -> dict:
+        self._ios_closed_fields(
+            body, {"session_rpe", "not_recorded", "duration_min", "notes"}
+        )
+        self._ios_workout(conn, workout_id)
+        not_recorded = body.get("not_recorded", False)
+        if not isinstance(not_recorded, bool):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "not_recorded must be true or false",
+                fields={"not_recorded": "must be true or false"},
+            )
+        try:
+            rpe = _number(body.get("session_rpe"))
+            duration = _number(body.get("duration_min"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        if (rpe is None) == (not not_recorded):
+            raise ios_workflow.IOSWorkflowError(
+                400, "session_rpe_required",
+                "session_rpe is required, or mark it not recorded",
+                fields={"session_rpe": "required unless not_recorded is true"},
+            )
+        if rpe is not None and not 1 <= rpe <= 10:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "session_rpe must be between 1 and 10",
+                fields={"session_rpe": "must be 1-10"},
+            )
+        if duration is not None and duration <= 0:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "duration_min must be positive",
+                fields={"duration_min": "must be positive"},
+            )
+        notes = body.get("notes")
+        if notes is not None and not isinstance(notes, str):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "notes must be a string",
+                fields={"notes": "must be a string"},
+            )
+        return workout.end(
+            conn, workout_id,
+            session_rpe=rpe,
+            not_recorded=not_recorded,
+            duration_min=duration,
+            notes=notes or None,
+        )
+
+    def _ios_workout_abandon(self, conn, workout_id: str, body: dict) -> dict:
+        self._ios_closed_fields(body, set())
+        self._ios_workout(conn, workout_id)
+        return workout.abandon(conn, workout_id)
+
 
     def _monitoring_analysis(self, as_of: str) -> dict:
         key = (

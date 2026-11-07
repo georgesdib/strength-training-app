@@ -2,7 +2,8 @@
 
 **Status:** approved 2026-11-07; **implemented and accepted 2026-11-07** (iPhone 18 Pro
 simulator plus owner-confirmed physical iPhone). This document remains the authoritative Phase 1
-interface; the completion record is in §13. Phase 2 is not started.
+interface; the completion record is in §13. Phase 2 was implemented 2026-11-07 under
+[`IOS-PHASE-2-CONTRACT.md`](IOS-PHASE-2-CONTRACT.md).
 
 **Scope:** fixes the exact server surface, client surface, tests and acceptance for Phase 1 of
 [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md). The plan remains the authority for the phase
@@ -331,5 +332,5 @@ checklist on the physical iPhone (the record is `StrengthApp/DEVICE-ACCEPTANCE.m
   The device pass preceded this transport-internal hardening; the normal LAN path is unchanged.
 - **Residual limits:** plain HTTP on the trusted home LAN only; no writes, HealthKit, offline
   capture, review or prescription UI in Phase 1; personal-team signing expires after 7 days.
-- **Next:** Phase 2 is specified by the draft [`IOS-PHASE-2-CONTRACT.md`](IOS-PHASE-2-CONTRACT.md);
-  it is not approved or started.
+- **Next:** Phase 2 is specified by [`IOS-PHASE-2-CONTRACT.md`](IOS-PHASE-2-CONTRACT.md) and was
+  implemented 2026-11-07; Phase 3 needs its own approval.

@@ -107,21 +107,28 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list and rendered doc from `docs/manifest.yaml`; public entries only, grouped by category; `private/` and maintainer-only design docs are never served |
 
-### iOS facade — Phase 1 (read-only)
+### iOS facade — Phase 1 reads and Phase 2 workflow
 
-`/api/ios/v1/` is the authenticated boundary used by the native iPhone client. It is
+/api/ios/v1/ is the authenticated boundary used by the native iPhone client. It is
 additive: every unversioned route above keeps its current behaviour and stays unauthenticated.
-The authoritative interface is
-[IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CONTRACT.md); the phase rules are in
+The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CONTRACT.md) and
+[IOS-PHASE-2-CONTRACT.md](design/IOS-PHASE-2-CONTRACT.md); the phase rules are in
 [IOS-CLIENT-PLAN.md](IOS-CLIENT-PLAN.md).
 
 | route | auth | payload |
 |---|---|---|
 | `POST /api/ios/v1/pair` | none | `{code, label?}` -> `{api_version, device, token, server_date, server_time, utc_offset_minutes, server_timezone}`; the token is shown once |
-| `GET /api/ios/v1/bootstrap` | bearer | `{api_version, server_date, server_time, utc_offset_minutes, server_timezone, capabilities}`; Phase 1 capabilities are readiness only |
+| `GET /api/ios/v1/bootstrap` | bearer | `{api_version, server_date, server_time, utc_offset_minutes, server_timezone, capabilities}`; Phase 2 capabilities add `readiness_write`, `prescription` and `workout_write` |
 | `GET /api/ios/v1/today` | bearer | `{date, readiness, readiness_score, active_workout}`; `readiness` is the existing `/api/readiness/<date>` payload and `active_workout` is null or the live workout detail |
 | `GET /api/ios/v1/history?limit=&offset=&start=&end=` | bearer | exactly `history.list_sessions`; limit 1-100, default 50; offset >= 0, default 0 |
 | `GET /api/ios/v1/progress?weeks=&date=` | bearer | exactly `progress_feature.dashboard`; weeks 1-52, default 8 |
+| `POST /api/ios/v1/readiness` | bearer + Idempotency-Key | `{values, note?}` -> the existing readiness payload; values use the accepted manual field set; unknown/empty/zero-placeholder fields are rejected |
+| `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}}` -> `{issued_plan_id, prescription_id, for_date, session_type, expires_at, plan, readiness, warnings}`; the normal prescription is persisted at issue |
+| `POST /api/ios/v1/workouts` | bearer + Idempotency-Key | `{issued_plan_id}` -> the existing workout detail; starts by id only; expired/superseded/consumed plans are 410, another active workout is 409 |
+| `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?}` -> workout detail; `velocity_mps` is optional manual mean velocity and must be positive |
+| `POST /api/ios/v1/workouts/<id>/form` | bearer + Idempotency-Key | `{exercise_id, rating 1-5, note?}` -> workout detail |
+| `POST /api/ios/v1/workouts/<id>/complete` | bearer + Idempotency-Key | `{session_rpe? or not_recorded: true, duration_min?, notes?}` -> completed workout detail; RPE and not-recorded are mutually exclusive |
+| `POST /api/ios/v1/workouts/<id>/abandon` | bearer + Idempotency-Key | `{}` -> abandoned workout detail |
 
 - **Pairing is CLI-only.** `strength-coach ios pair [--label LABEL] [--ttl 300]` prints a
   one-use 8-digit code (spaces/hyphens are ignored by the exchange); the default TTL is 300
@@ -134,11 +141,23 @@ The authoritative interface is
   authenticated.
 - **Pairing errors.** `400` malformed body/code/label, `401` wrong code, `410` expired or
   already used, `429` attempts exhausted. Five failed attempts exhaust one code.
-- **Read-only.** There is no write, prescription, readiness-write, set or HealthKit route in
-  Phase 1. `last_seen_at` is updated at most once per 60 seconds.
-- **Progress is server-only in Phase 1.** `GET /api/ios/v1/progress` is implemented and tested
-  server-side, but the Phase 1 client screens are Pairing, Today, History and Settings; a Progress
-  screen is deferred to Phase 2.
+- **Phase 2 writes.** Every mutation requires a UUID Idempotency-Key. A successful response is
+  stored for 30 days and replayed with Idempotent-Replay: true; the same key with a different body
+  or route is 409 idempotency_conflict. Mutations are authenticated before dispatch and run through
+  the existing readiness, prescription and workout services. There is still no HealthKit route.
+- **Issued plans.** POST /api/ios/v1/prescriptions persists the normal prescription and returns a
+  single-use issued plan with a 60-minute TTL. The phone starts it by id only; plan content never
+  comes from the phone. One live plan is allowed per device; a newer issue supersedes the older one.
+  Device-scoped plans and receipts keep one device from reading another device's plan.
+- **Mutation switch.** Set mutations_enabled: false in config/ios.v1.yaml to return every Phase 2
+  mutation as 503 ios_mutations_disabled while bootstrap/today/history/progress remain available.
+  The bootstrap capabilities report the writes as disabled.
+- **Errors.** Phase 2 conflicts use {"error", "code", "fields", "details"} with codes such as readiness_required,
+  confirmation_required, workout_active, plan_expired, plan_superseded, plan_consumed,
+  workout_not_active, session_rpe_required and idempotency_conflict. Validation failures remain 400.
+- **Progress is available to the client in Phase 2.** GET /api/ios/v1/progress is the same
+  progress_feature.dashboard payload used by the web UI; the native client has a Progress tab.
+- **last_seen_at** is updated at most once per 60 seconds.
 - **Dates.** `server_date`/`server_time` come from the server's local clock; the phone must
   not derive the training date from a UTC slice. `bootstrap` sends the numeric UTC offset and
   the platform timezone abbreviation, not an IANA name.

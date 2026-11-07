@@ -351,8 +351,9 @@ def test_bootstrap_contract(ios):
     assert body["server_timezone"]
     assert body["capabilities"] == {
         "readiness": True,
-        "prescription": False,
-        "workout_write": False,
+        "readiness_write": True,
+        "prescription": True,
+        "workout_write": True,
         "healthkit": False,
         "offline": False,
     }
