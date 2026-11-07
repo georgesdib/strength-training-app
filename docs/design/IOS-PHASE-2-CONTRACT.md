@@ -1,6 +1,6 @@
 # iOS Phase 2 — Online Strength Workflow: implementation contract
 
-**Status:** approved by the owner and implemented on 2026-11-07. Server work is on the
+**Status:** approved by the owner, implemented and remediated on 2026-11-07. Server work is on the
 `iOS-app` branch; client work is on `main` in the separate `StrengthApp` repository. Phase 1 is
 complete (see [`IOS-PHASE-1-CONTRACT.md`](IOS-PHASE-1-CONTRACT.md) §13). This contract remains the
 authority for the Phase 2 surface. Physical-iPhone Phase 2 acceptance is the remaining owner gate.
@@ -273,6 +273,11 @@ Appends one performed set. No update/remove route exists in Phase 2.
   field; no per-rep table and no device import in Phase 2.
 - The workout must be `in_progress`; otherwise `409 workout_not_active`. Unknown workout →
   `404 workout_not_found`. A completing/abandoning workout rejects the set.
+- The client sends `plan_item_index` only when the exercise appears exactly once in the plan.
+  A repeated exercise is ambiguous and is sent as nil; the client never attributes a set to the
+  first matching occurrence. The backend keeps the existing rule: an explicit index is
+  authoritative and must match `exercise_id`; an omitted index resolves only a unique exercise
+  and otherwise stores no plan-item attribution. Logging the set still succeeds.
 - The client offers the plan’s exercises and exercises already logged; the server keeps the
   existing add-set rules (no new plan-edit behaviour).
 - Response `200`: the existing `workout.get` payload with the new set and events.
@@ -371,10 +376,20 @@ capabilities distinguish the phase:
   device id, route, canonical body hash, status and response. Same device+key+route+hash → replay
   the stored 2xx response (`Idempotent-Replay: true`). Same key with a different route or body →
   `409 idempotency_conflict`. A missing key → 400; no mutation is processed.
+- The receipt lookup and the mutation execute in one `BEGIN IMMEDIATE` transaction. A concurrent
+  duplicate waits for the write lock, then finds the committed receipt and replays it. A receipt
+  uniqueness race is rolled back and re-read rather than returned as a 500. Exactly one successful
+  callback is applied.
 - A network timeout is not a client failure: the app keeps the entered values, shows “not confirmed
-  yet”, and retries with the same key. It never claims “saved” before a 2xx response.
+  yet”, and retries with the same key. It never claims “saved” before a 2xx response. After an
+  ambiguous completion/abandonment response, the active view locks the completion body and only
+  retries the same operation; it does not silently submit a different one.
 - Receipts are pruned after 30 days. Issued plans/receipts are device-scoped; one device cannot use
   another device’s plan or receipt.
+- **No durable client journal exists in Phase 2.** Operation keys and bodies are held in memory.
+  Force-quitting after an acknowledged set recovers the active workout through `today`; a pending
+  request whose response was lost before acknowledgement cannot be replayed after app termination
+  until the deferred durable-journal work (roadmap R1) lands.
 - Start also adopts the active workout as in §5.3; set also deduplicates by `set_index` as in
   §5.4. These are independent of the receipt and protect against a lost response and a new key.
 
@@ -633,20 +648,31 @@ mutations. These are config/contract values, not new training rules.
 
 ## 16. Implementation record (2026-11-07)
 
-- **Server:** migration `0053_ios_workflow.sql`, `config/ios.v1.yaml`, `ios_config.py`, the
+- **Server:** migration 0053_ios_workflow.sql, config/ios.v1.yaml, ios_config.py, the
   device-scoped issued-plan/receipt store, the authenticated readiness/prescription/start/add-set/
-  form/complete/abandon routes, and 16 contract tests in `tests/test_ios_workflow.py`. The default
-  suite is 1620 tests and `ruff` passes. The normal prescription is persisted at issue; the client
+  form/complete/abandon routes, and 27 contract tests in tests/test_ios_workflow.py. The default
+  suite is 1632 tests and ruff passes. The normal prescription is persisted at issue; the client
   starts by issued-plan id only; successful mutations store a 30-day receipt keyed by the UUID
-  `Idempotency-Key`; `mutations_enabled: false` returns `503 ios_mutations_disabled` while reads
-  stay available.
+  Idempotency-Key; mutations_enabled: false returns 503 ios_mutations_disabled while reads stay
+  available. The receipt lookup and mutation share one BEGIN IMMEDIATE transaction; concurrent
+  duplicates replay the committed response, and a receipt uniqueness race rolls back and re-reads
+  instead of returning 500.
 - **Client:** readiness form, prescription preview, start-by-id, active workout, optional manual
   mean velocity, optional 1–5 form ratings, session RPE or explicit not-recorded completion,
-  abandon, and the Progress screen; 39 unit tests; optional live UI smoke tests; Release build.
+  abandon, and the Progress screen; 43 unit tests; optional live UI smoke tests; Release build.
+  Plan-item attribution is sent only for a unique exercise; repeated exercises remain nil and are
+  never guessed. Retry keys are body-aware, duplicate UI mutations are guarded, and an ambiguous
+  finish locks the exact completion body for replay.
 - **Verification:** the live UI test passed on the iPhone 18 Pro simulator against a temporary
-  SQLite database, covering pair → readiness → issue → start → add a manual-VBT set → finish →
-  Progress. No live `data/coach.db` was touched. The server and client unit/contract suites pass.
+  SQLite database, covering pair → readiness → issue → start → add a manual-VBT set → force-quit/
+  relaunch recovery → finish → Progress. It verifies the acknowledged set is restored through
+  Today; no live data/coach.db was touched. Lost-response and concurrent duplicate tests cover
+  readiness, start, set and completion at the real HTTP boundary. The server and client
+  unit/contract suites pass.
 - **Remaining gate:** the owner's physical-iPhone acceptance checklist. No Phase 3 work has begun.
+  There is no durable pending-mutation journal: a response lost before acknowledgement can be
+  retried only while the process/view and its in-memory key survive. The deferred items are roadmap
+  §4.30 (R1–R6).
 
 ## 17. References
 

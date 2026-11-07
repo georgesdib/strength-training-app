@@ -6,7 +6,7 @@ physical-iPhone acceptance checklist pending). The server side is migrations 005
 0053_ios_workflow, the ios CLI, the bearer-authenticated /api/ios/v1/ facade, and its tests; the
 Swift client in the separate StrengthApp repository has pairing, Today, History, Settings/Forget,
 readiness entry, prescription preview/start-by-id, active workout, completion/abandon and
-Progress, Keychain storage, 39 unit tests and optional live UI smoke tests. Phase 3 is not started
+Progress, Keychain storage, 43 unit tests and optional live UI smoke tests. Phase 3 is not started
 and needs its own approved contract. Later phases remain proposals and need separate approval.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
@@ -468,17 +468,23 @@ own approved contract.
 
 - **Server:** migration 0053_ios_workflow.sql; config/ios.v1.yaml; ios_config.py; the
   issued-plan/receipt store; authenticated readiness, prescription issue, start-by-id, add-set,
-  form-rating, complete and abandon routes; tests/test_ios_workflow.py. The default suite is 1620
+  form-rating, complete and abandon routes; tests/test_ios_workflow.py. The default suite is 1632
   tests and ruff passes. The normal prescription is persisted at issue. The phone starts by
   issued-plan id only and cannot supply prescription content. Every mutation requires a UUID
-  Idempotency-Key with a 30-day receipt. The mutation switch fails closed to 503 while reads stay
-  available.
+  Idempotency-Key with a 30-day receipt. The receipt lookup and mutation share one BEGIN IMMEDIATE
+  transaction, so concurrent duplicates replay instead of executing twice; a receipt uniqueness
+  race is re-read rather than returned as 500. The mutation switch fails closed to 503 while reads
+  stay available.
 - **Client:** readiness form, prescription preview, active workout, optional manual mean velocity,
   optional form ratings, session RPE or explicit not-recorded completion, abandon, and the Progress
-  screen; 39 unit tests; optional live UI smoke tests; Release build passes.
+  screen; 43 unit tests; optional live UI smoke tests; Release build passes. Plan-item attribution
+  is sent only for a unique exercise; repeated exercises remain nil. Retry keys are body-aware,
+  duplicate UI mutations are guarded, and an ambiguous finish locks the exact completion body.
 - **Verification:** the live UI test passed on the iPhone 18 Pro simulator against a temporary
-  SQLite database, covering pair -> readiness -> issue -> start -> add VBT set -> finish -> Progress.
-  No live data/coach.db was touched. The physical-iPhone Phase 2 checklist remains the owner gate.
+  SQLite database, covering pair -> readiness -> issue -> start -> add VBT set -> force-quit/
+  relaunch recovery -> finish -> Progress. Lost-response and concurrent duplicate tests cover
+  readiness, start, set and completion at the real HTTP boundary. No live data/coach.db was
+  touched. The physical-iPhone Phase 2 checklist remains the owner gate.
 - **Data/decisions:** readiness is the accepted manual field set; the server owns load, sets and
   RIR; manual mean velocity is a performed observation only; the normal prescription tables remain
   the audit source; no plan editing on the phone; no offline queue, HealthKit or RPE coercion.
@@ -487,7 +493,8 @@ own approved contract.
   committed by a started session remain valid.
 - **Residual limitations:** plain HTTP on the trusted LAN only; physical-iPhone Phase 2 acceptance
   pending; no HealthKit, offline capture or review screen; personal-team signing expires after
-  7 days.
+  7 days. There is no durable pending-mutation journal, so a response lost before acknowledgement
+  cannot be replayed after app termination; this is deferred as roadmap §4.30 R1.
 
 No HealthKit integration, training logic or server-behaviour change exists beyond the additive
 Phase 1/2 facade. Each later phase requires the owner's approval before it starts.

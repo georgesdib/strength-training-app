@@ -6,6 +6,8 @@ owner's live data/coach.db.
 
 from __future__ import annotations
 
+import concurrent.futures
+import contextlib
 import datetime
 import json
 import threading
@@ -593,6 +595,398 @@ def test_abandon_and_completion_retry_rules(ios):
     status, body = _start(ios, token, issued["issued_plan_id"])
     assert status == 410, body
     assert body["code"] == "plan_consumed"
+
+
+# --- concurrency, lost responses, recovery -------------------------------
+
+
+def _concurrent_require_barrier(monkeypatch):
+    """Release both requests from config loading at the same instant.
+
+    The receipt check moved inside the write transaction, so the second request must wait
+    there. In the old code both requests would reach their pre-transaction receipt lookup and
+    both see no receipt.
+    """
+    barrier = threading.Barrier(2)
+    original = web_server.Handler._ios_require_mutations
+
+    def synchronized(self):
+        config = original(self)
+        with contextlib.suppress(threading.BrokenBarrierError):
+            barrier.wait(timeout=2)
+        return config
+
+    monkeypatch.setattr(web_server.Handler, "_ios_require_mutations", synchronized)
+
+    # The old code looked up the receipt before opening the write transaction. Pausing both
+    # lookups makes that race deterministic: the fixed code holds one transaction, so only
+    # one lookup can enter and the other times out while waiting for the write lock.
+    receipt_barrier = threading.Barrier(2)
+    original_get = web_server.ios_workflow.get_receipt
+
+    def get_receipt(conn, device_id, operation_id):
+        result = original_get(conn, device_id, operation_id)
+        with contextlib.suppress(threading.BrokenBarrierError):
+            receipt_barrier.wait(timeout=0.5)
+        return result
+
+    monkeypatch.setattr(web_server.ios_workflow, "get_receipt", get_receipt)
+    return barrier
+
+
+def test_concurrent_identical_readiness_runs_once_and_replays(ios, monkeypatch):
+    token, device = _paired(ios)
+    key = uuid.uuid4().hex
+    payload = {"values": {"sleep": 4}}
+    _concurrent_require_barrier(monkeypatch)
+    before = int(_scalar(ios["path"], "SELECT COUNT(*) FROM readiness_entry"))
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [
+            pool.submit(
+                _request_full, ios["base"], "/api/ios/v1/readiness",
+                method="POST", payload=payload, token=token, key=key,
+            )
+            for _ in range(2)
+        ]
+        results = [future.result(timeout=20) for future in futures]
+
+    assert [status for status, _, _ in results] == [200, 200]
+    assert sum(
+        1 for _, _, headers in results
+        if headers.get("Idempotent-Replay") == "true"
+    ) == 1
+    after = int(_scalar(ios["path"], "SELECT COUNT(*) FROM readiness_entry"))
+    assert after == before + 1
+    assert int(_scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM ios_operation_receipt "
+        "WHERE device_id = ? AND operation_id = ?",
+        (device["device_id"], str(uuid.UUID(key))),
+    )) == 1
+    monkeypatch.undo()
+
+    status, replay, headers = _request_full(
+        ios["base"], "/api/ios/v1/readiness", method="POST",
+        payload=payload, token=token, key=key,
+    )
+    assert status == 200, replay
+    assert headers.get("Idempotent-Replay") == "true"
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM readiness_entry")) == after
+
+    status, body = _request(
+        ios["base"], "/api/ios/v1/readiness", method="POST",
+        payload={"values": {"sleep": 5}}, token=token, key=key,
+    )
+    assert status == 409, body
+    assert body["code"] == "idempotency_conflict"
+
+
+def test_lost_start_response_retry_replays_one_workout(ios):
+    token, _ = _paired(ios)
+    key = uuid.uuid4().hex
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    payload = {"issued_plan_id": issued["issued_plan_id"]}
+    first = _request_full(
+        ios["base"], "/api/ios/v1/workouts", method="POST",
+        payload=payload, token=token, key=key,
+    )
+    second = _request_full(
+        ios["base"], "/api/ios/v1/workouts", method="POST",
+        payload=payload, token=token, key=key,
+    )
+    assert first[0] == 200 and second[0] == 200, (first, second)
+    assert second[2].get("Idempotent-Replay") == "true"
+    assert first[1]["workout_id"] == second[1]["workout_id"]
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM workout_session")) == 1
+    row = _row(
+        ios["path"],
+        "SELECT consumed_at, workout_id FROM ios_issued_plan WHERE issued_plan_id = ?",
+        (payload["issued_plan_id"],),
+    )
+    assert row["consumed_at"] is not None
+    assert row["workout_id"] == first[1]["workout_id"]
+
+
+def test_lost_set_response_retry_replays_without_duplicate(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    item = _first_item(issued["plan"])
+    key = uuid.uuid4().hex
+    payload = {
+        "exercise_id": item["exercise_id"],
+        "load_kg": item.get("load_kg"),
+        "reps": 3, "rir": 2, "velocity_mps": 0.62, "set_index": 1,
+    }
+    first = _request_full(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/sets",
+        method="POST", payload=payload, token=token, key=key,
+    )
+    second = _request_full(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/sets",
+        method="POST", payload=payload, token=token, key=key,
+    )
+    assert first[0] == 200 and second[0] == 200, (first, second)
+    assert second[2].get("Idempotent-Replay") == "true"
+    assert len(first[1]["sets"]) == 1
+    assert len(second[1]["sets"]) == 1
+    assert int(_scalar(
+        ios["path"], "SELECT COUNT(*) FROM workout_set WHERE workout_id = ?",
+        (workout["workout_id"],),
+    )) == 1
+
+
+def test_lost_completion_response_retry_replays_one_session(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    item = _first_item(issued["plan"])
+    assert _add_set(ios, token, workout["workout_id"], item)[0] == 200
+    key = uuid.uuid4().hex
+    payload = {"session_rpe": 7, "duration_min": 45, "notes": "lost response"}
+    first = _request_full(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/complete",
+        method="POST", payload=payload, token=token, key=key,
+    )
+    second = _request_full(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/complete",
+        method="POST", payload=payload, token=token, key=key,
+    )
+    assert first[0] == 200 and second[0] == 200, (first, second)
+    assert second[2].get("Idempotent-Replay") == "true"
+    assert first[1]["status"] == "completed"
+    assert second[1]["status"] == "completed"
+    assert int(_scalar(
+        ios["path"], "SELECT COUNT(*) FROM session WHERE session_id = ?",
+        (workout["workout_id"],),
+    )) == 1
+
+
+def test_concurrent_identical_set_requests_do_not_duplicate(ios, monkeypatch):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    item = _first_item(issued["plan"])
+    key = uuid.uuid4().hex
+    payload = {
+        "exercise_id": item["exercise_id"],
+        "load_kg": item.get("load_kg"),
+        "reps": 3, "rir": 2, "velocity_mps": 0.62, "set_index": 1,
+    }
+    _concurrent_require_barrier(monkeypatch)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [
+            pool.submit(
+                _request_full,
+                ios["base"],
+                f"/api/ios/v1/workouts/{workout['workout_id']}/sets",
+                method="POST", payload=payload, token=token, key=key,
+            )
+            for _ in range(2)
+        ]
+        results = [future.result(timeout=20) for future in futures]
+    assert [status for status, _, _ in results] == [200, 200]
+    assert sum(
+        1 for _, _, headers in results
+        if headers.get("Idempotent-Replay") == "true"
+    ) == 1
+    assert int(_scalar(
+        ios["path"], "SELECT COUNT(*) FROM workout_set WHERE workout_id = ?",
+        (workout["workout_id"],),
+    )) == 1
+
+
+def test_concurrent_identical_start_requests_create_one_workout(ios, monkeypatch):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    key = uuid.uuid4().hex
+    payload = {"issued_plan_id": issued["issued_plan_id"]}
+    _concurrent_require_barrier(monkeypatch)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [
+            pool.submit(
+                _request_full, ios["base"], "/api/ios/v1/workouts",
+                method="POST", payload=payload, token=token, key=key,
+            )
+            for _ in range(2)
+        ]
+        results = [future.result(timeout=20) for future in futures]
+    assert [status for status, _, _ in results] == [200, 200]
+    assert len({body["workout_id"] for _, body, _ in results}) == 1
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM workout_session")) == 1
+    assert int(_scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM ios_issued_plan WHERE consumed_at IS NOT NULL",
+    )) == 1
+
+
+def test_concurrent_identical_completion_materialises_one_session(ios, monkeypatch):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    item = _first_item(issued["plan"])
+    assert _add_set(ios, token, workout["workout_id"], item)[0] == 200
+    key = uuid.uuid4().hex
+    payload = {"session_rpe": 7, "duration_min": 45}
+    _concurrent_require_barrier(monkeypatch)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [
+            pool.submit(
+                _request_full,
+                ios["base"],
+                f"/api/ios/v1/workouts/{workout['workout_id']}/complete",
+                method="POST", payload=payload, token=token, key=key,
+            )
+            for _ in range(2)
+        ]
+        results = [future.result(timeout=20) for future in futures]
+    assert [status for status, _, _ in results] == [200, 200]
+    assert sum(
+        1 for _, _, headers in results
+        if headers.get("Idempotent-Replay") == "true"
+    ) == 1
+    assert int(_scalar(
+        ios["path"], "SELECT COUNT(*) FROM session WHERE session_id = ?",
+        (workout["workout_id"],),
+    )) == 1
+
+
+def test_active_workout_recovery_returns_logged_sets(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    item = _first_item(issued["plan"])
+    first = _add_set(ios, token, workout["workout_id"], item)
+    assert first[0] == 200, first
+    status, today = _request(ios["base"], "/api/ios/v1/today", token=token)
+    assert status == 200, today
+    active = today["active_workout"]
+    assert active["workout_id"] == workout["workout_id"]
+    assert len(active["sets"]) == 1
+    assert active["sets"][0]["velocity"] == 0.62
+
+    second = _add_set(
+        ios, token, workout["workout_id"], item, set_index=2
+    )
+    assert second[0] == 200, second
+    assert len(second[1]["sets"]) == 2
+    status, completed = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/complete",
+        method="POST", payload={"session_rpe": 7}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 200, completed
+    assert completed["status"] == "completed"
+    assert int(_scalar(
+        ios["path"], "SELECT COUNT(*) FROM workout_set WHERE workout_id = ?",
+        (workout["workout_id"],),
+    )) == 2
+
+
+def test_set_is_rejected_after_completion_or_abandonment(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    item = _first_item(issued["plan"])
+    assert _add_set(ios, token, workout["workout_id"], item)[0] == 200
+    status, completed = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/complete",
+        method="POST", payload={"not_recorded": True}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 200, completed
+    status, body = _add_set(
+        ios, token, workout["workout_id"], item, set_index=2
+    )
+    assert status == 409, body
+    assert body["code"] == "workout_not_active"
+    assert int(_scalar(
+        ios["path"], "SELECT COUNT(*) FROM workout_set WHERE workout_id = ?",
+        (workout["workout_id"],),
+    )) == 1
+
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    status, abandoned = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/abandon",
+        method="POST", payload={}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, abandoned
+    status, body = _add_set(ios, token, workout["workout_id"], item)
+    assert status == 409, body
+    assert body["code"] == "workout_not_active"
+
+
+def test_second_start_while_active_is_rejected(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    status, second = _issue(ios, token)
+    assert status == 200, second
+    status, body = _start(ios, token, second["issued_plan_id"])
+    assert status == 409, body
+    assert body["code"] == "workout_active"
+    assert body["details"]["workout_id"] == workout["workout_id"]
+
+
+def test_lost_form_and_abandon_responses_replay(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    item = _first_item(issued["plan"])
+
+    form_key = uuid.uuid4().hex
+    form_payload = {"exercise_id": item["exercise_id"], "rating": 4}
+    first = _request_full(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/form",
+        method="POST", payload=form_payload, token=token, key=form_key,
+    )
+    second = _request_full(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/form",
+        method="POST", payload=form_payload, token=token, key=form_key,
+    )
+    assert first[0] == 200 and second[0] == 200, (first, second)
+    assert second[2].get("Idempotent-Replay") == "true"
+    assert int(_scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_form_rating WHERE workout_id = ?",
+        (workout["workout_id"],),
+    )) == 1
+
+    abandon_key = uuid.uuid4().hex
+    first = _request_full(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/abandon",
+        method="POST", payload={}, token=token, key=abandon_key,
+    )
+    second = _request_full(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/abandon",
+        method="POST", payload={}, token=token, key=abandon_key,
+    )
+    assert first[0] == 200 and second[0] == 200, (first, second)
+    assert second[2].get("Idempotent-Replay") == "true"
+    assert first[1]["status"] == "abandoned"
+    assert second[1]["status"] == "abandoned"
 
 
 # --- idempotency, config flag, security ------------------------------------

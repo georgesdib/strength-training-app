@@ -9,6 +9,14 @@ from strength_coach.store import exercise_admin
 from strength_coach.utils import exercises, paths
 
 
+@pytest.fixture(autouse=True)
+def _isolate_taxonomy_cache():
+    """Do not let a temporary taxonomy leak into the next test in this xdist worker."""
+    exercises.taxonomy.cache_clear()
+    yield
+    exercises.taxonomy.cache_clear()
+
+
 def _root(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "repo_root", lambda: tmp_path)
     cfg = tmp_path / "config" / "exercises"

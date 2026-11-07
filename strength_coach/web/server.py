@@ -1176,36 +1176,76 @@ class Handler(BaseHTTPRequestHandler):
                 400, "idempotency_key_invalid", str(exc)
             ) from exc
         digest = ios_workflow.request_hash(body)
-        existing = ios_workflow.get_receipt(conn, device["device_id"], operation_id)
-        if existing is not None:
+        replay = None
+        result = None
+        receipt_race = False
+        try:
+            # BEGIN IMMEDIATE serializes the receipt check with the mutation. A concurrent
+            # duplicate waits here, then sees the first request's committed receipt and
+            # replays it instead of executing the callback a second time.
+            with db.transaction(conn):
+                existing = ios_workflow.get_receipt(
+                    conn, device["device_id"], operation_id
+                )
+                if existing is not None:
+                    if existing["route"] != route or existing["request_hash"] != digest:
+                        raise ios_workflow.IOSWorkflowError(
+                            409, "idempotency_conflict",
+                            "Idempotency-Key was already used for a different request",
+                        )
+                    replay = (
+                        int(existing["response_status"]),
+                        json.loads(existing["response_json"]),
+                    )
+                else:
+                    created = ios_workflow.now()
+                    result = callback(conn, device, body)
+                    try:
+                        ios_workflow.store_receipt(
+                            conn,
+                            device_id=device["device_id"],
+                            operation_id=operation_id,
+                            route=route,
+                            digest=digest,
+                            status=200,
+                            payload=result,
+                            created_at=ios_workflow.iso(created),
+                            expires_at=ios_workflow.iso(
+                                ios_workflow.add_days(
+                                    created, config.receipt_retention_days
+                                )
+                            ),
+                        )
+                    except sqlite3.IntegrityError:
+                        # A second process could still win the insert; roll back this
+                        # transaction and replay the winner's committed receipt.
+                        receipt_race = True
+                        raise
+                    ios_workflow.prune_receipts(conn, ios_workflow.iso(created))
+        except sqlite3.IntegrityError:
+            if not receipt_race:
+                raise
+            existing = ios_workflow.get_receipt(
+                conn, device["device_id"], operation_id
+            )
+            if existing is None:
+                raise
             if existing["route"] != route or existing["request_hash"] != digest:
                 raise ios_workflow.IOSWorkflowError(
                     409, "idempotency_conflict",
                     "Idempotency-Key was already used for a different request",
-                )
-            self._json(
+                ) from None
+            replay = (
                 int(existing["response_status"]),
                 json.loads(existing["response_json"]),
+            )
+        if replay is not None:
+            status, payload = replay
+            self._json(
+                status, payload,
                 headers={ios_workflow.RECEIPT_REPLAY_HEADER: "true"},
             )
             return
-        created = ios_workflow.now()
-        with db.transaction(conn):
-            result = callback(conn, device, body)
-            ios_workflow.store_receipt(
-                conn,
-                device_id=device["device_id"],
-                operation_id=operation_id,
-                route=route,
-                digest=digest,
-                status=200,
-                payload=result,
-                created_at=ios_workflow.iso(created),
-                expires_at=ios_workflow.iso(
-                    ios_workflow.add_days(created, config.receipt_retention_days)
-                ),
-            )
-            ios_workflow.prune_receipts(conn, ios_workflow.iso(created))
         self._json(200, result)
 
     def _ios_workout_mutation(self, conn, device: dict, route: str, body: dict,

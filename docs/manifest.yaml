@@ -898,7 +898,7 @@ documents:
 - id: design-ios-phase-2-contract
   path: docs/design/IOS-PHASE-2-CONTRACT.md
   title: iOS Phase 2 online strength workflow contract
-  description: 'Implemented Phase 2 contract: readiness write, server-issued prescriptions, start/sets/finish with idempotency, manual VBT, Progress screen, tests, acceptance and rollback'
+  description: 'Implemented and remediated Phase 2 contract: readiness write, server-issued prescriptions, start/sets/finish with transactional idempotency, manual VBT, Progress screen, tests, acceptance and rollback'
   category: design
   status: design
   audience: maintainer

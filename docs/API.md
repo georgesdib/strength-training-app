@@ -143,8 +143,11 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
   already used, `429` attempts exhausted. Five failed attempts exhaust one code.
 - **Phase 2 writes.** Every mutation requires a UUID Idempotency-Key. A successful response is
   stored for 30 days and replayed with Idempotent-Replay: true; the same key with a different body
-  or route is 409 idempotency_conflict. Mutations are authenticated before dispatch and run through
-  the existing readiness, prescription and workout services. There is still no HealthKit route.
+  or route is 409 idempotency_conflict. The receipt check and mutation run in one BEGIN IMMEDIATE
+  transaction, so concurrent duplicates replay the committed response rather than executing twice;
+  a receipt uniqueness race is rolled back and re-read instead of returning 500. Mutations are
+  authenticated before dispatch and run through the existing readiness, prescription and workout
+  services. There is still no HealthKit route.
 - **Issued plans.** POST /api/ios/v1/prescriptions persists the normal prescription and returns a
   single-use issued plan with a 60-minute TTL. The phone starts it by id only; plan content never
   comes from the phone. One live plan is allowed per device; a newer issue supersedes the older one.
@@ -155,8 +158,16 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
 - **Errors.** Phase 2 conflicts use {"error", "code", "fields", "details"} with codes such as readiness_required,
   confirmation_required, workout_active, plan_expired, plan_superseded, plan_consumed,
   workout_not_active, session_rpe_required and idempotency_conflict. Validation failures remain 400.
+- **Plan-item attribution.** A set's plan_item_index is optional. The client sends it only when
+  the exercise appears exactly once in the plan; a repeated exercise is ambiguous and is sent as
+  nil. The backend accepts an explicit index only when it matches exercise_id, resolves an omitted
+  index only for a unique exercise, and otherwise stores the set with no plan-item attribution.
 - **Progress is available to the client in Phase 2.** GET /api/ios/v1/progress is the same
   progress_feature.dashboard payload used by the web UI; the native client has a Progress tab.
+- **Retry boundary.** The client keeps operation UUIDs and bodies in memory. A response lost before
+  acknowledgement can be retried with the same key while the process/view survives; there is no
+  durable pending-mutation journal or offline queue after app termination. The server receipt
+  remains available for a future journal.
 - **last_seen_at** is updated at most once per 60 seconds.
 - **Dates.** `server_date`/`server_time` come from the server's local clock; the phone must
   not derive the training date from a UTC slice. `bootstrap` sends the numeric UTC offset and
