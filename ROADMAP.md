@@ -1672,16 +1672,17 @@ feature is proposed.
 
 Full acceptance criteria and rollback gates are in the plan.
 
-### 4.30 iOS reliability follow-ups (R1 implemented; R2–R6 deferred)
+### 4.30 iOS reliability follow-ups (R1 closed; R2–R6 deferred)
 
-R1 was implemented on 2026-11-07 after Phase 2 closure: the client now has a durable,
-device-scoped pending-mutation journal. Unit and simulator verification pass; a dedicated
-physical-device R1 check remains a follow-up. R2–R6 remain planned improvements, in priority
-order. This work still does not add an unrestricted offline queue, HealthKit, or Phase 3.
+R1 was implemented and closed on 2026-11-07 after Phase 2 closure: the client now has a durable,
+device-scoped pending-mutation journal. Unit and simulator verification pass; a separate
+physical-device R1 pass was not performed, and the owner closed R1 on the recorded implementation.
+R2–R6 remain planned improvements, in priority order. This work still does not add an unrestricted
+offline queue, HealthKit, or Phase 3.
 
 | id | priority | item | scope / constraints |
 |---|---|---|---|
-| R1 | High | Durable pending-mutation journal — **implemented 2026-11-07** | Persists the operation UUID, device/server, mutation kind, target workout/plan id, route, exact encoded request body, creation timestamp and pending/conflict state in Application Support with iOS file protection and backup exclusion. Replays only the original UUID/body; 2xx removes, definitive 4xx removes, idempotency conflicts and terminal states are surfaced, and transport/5xx stay pending. Capped at 16 entries, 30-day retention, 28-day replay window. No unrestricted offline queue; new mutations are blocked while an unresolved operation exists. |
+| R1 | High | Durable pending-mutation journal — **closed 2026-11-07** | Persists the operation UUID, device/server, mutation kind, target workout/plan id, route, exact encoded request body, creation timestamp and pending/conflict state in Application Support with iOS file protection and backup exclusion. Replays only the original UUID/body; 2xx removes, definitive 4xx removes, idempotency conflicts and terminal states are surfaced, and transport/5xx stay pending. Capped at 16 entries, 30-day retention, 28-day replay window. No unrestricted offline queue; new mutations are blocked while an unresolved operation exists. |
 | R2 | Low | Unstarted issued-plan recovery | Consider a server endpoint returning the device's current unconsumed, non-superseded issued plan, so a relaunched app can restore the preview without issuing a replacement. Never expose another device's plan or permit reuse. |
 | R3 | Medium | Explicit plan-item selection | When an exercise appears multiple times, let the owner select the exact prescription item. Keep the current nil-attribution fallback. |
 | R4 | Low | Form-rating correction UX | Distinguish an initial rating from a later correction/additional rating. Do not change append-only database semantics without a separate decision. |

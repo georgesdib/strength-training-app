@@ -503,9 +503,11 @@ own approved contract and has not started.
   a general offline queue: only attempted mutations are journaled, and new mutations are blocked
   while one is unresolved. R2-R6 remain deferred and are not Phase 2 closure blockers.
 
-### R1 durable pending-mutation journal (post-Phase-2, 2026-11-07)
+### R1 durable pending-mutation journal (implemented and closed 2026-11-07)
 
-R1 was implemented immediately after Phase 2 closure as a client-only reliability layer.
+R1 was implemented immediately after Phase 2 closure as a client-only reliability layer, then
+closed by the owner on 2026-11-07. Verification is unit/simulator based; a separate physical R1
+pass was not performed.
 
 - The journal stores attempted operations in Application Support with iOS file protection and
   backup exclusion. Each entry carries the operation UUID, device/server, mutation kind, target
@@ -523,8 +525,8 @@ R1 was implemented immediately after Phase 2 closure as a client-only reliabilit
   the cap/blocking prevent an unbounded queue. R2-R6 remain deferred.
 
 Client tests: 51 (43 Phase 2 + 8 journal/recovery tests). The normal live simulator workflow
-passes with the journal enabled; a dedicated physical-iPhone R1 force-quit/lost-response pass
-remains a follow-up.
+passes with the journal enabled. R1 is closed; a dedicated physical-iPhone R1 force-quit/
+lost-response pass was not separately performed.
 
 No HealthKit integration, training logic or server-behaviour change exists beyond the additive
 Phase 1/2 facade. Each later phase requires the owner's approval before it starts.

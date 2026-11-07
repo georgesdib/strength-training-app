@@ -678,9 +678,9 @@ mutations. These are config/contract values, not new training rules.
   import. Lost-response and concurrent duplicate tests cover readiness, start, set and completion
   at the real HTTP boundary. The server and client unit/contract suites pass.
 - **Closure:** accepted 2026-11-07. No Phase 3 work has begun. R1's durable pending-mutation
-  journal was added immediately after closure (51 client tests total); it replays attempted
-  operations with the original UUID/body and is not an offline queue. R2-R6 remain deferred in
-  roadmap §4.30 and are not Phase 2 closure blockers.
+  journal was added immediately after closure and closed on 2026-11-07 (51 client tests total); it
+  replays attempted operations with the original UUID/body and is not an offline queue. R2-R6
+  remain deferred in roadmap §4.30 and are not Phase 2 closure blockers.
 
 ## 17. References
 
