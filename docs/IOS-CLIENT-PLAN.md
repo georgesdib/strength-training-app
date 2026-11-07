@@ -1,11 +1,11 @@
 # Native iPhone Client — Online-First Implementation Plan
 
-**Status:** Phase 0 complete 2026-11-07 (owner-confirmed); Phase 1 (native foundation and read-only
-views) implemented and verified on the iPhone 18 Pro simulator. The server side is migration
-`0052_ios_device`, the `ios` CLI, the bearer-authenticated read-only `/api/ios/v1/` facade and
-its tests; the Swift client in the separate `StrengthApp` repository has pairing, Today, History
-and Settings/Forget, Keychain storage, 22 unit tests and a live UI smoke test. The owner's iPhone
-16 Pro device acceptance pass remains. Later phases remain proposals and need separate approval.
+**Status:** Phase 0 complete 2026-11-07 (owner-confirmed); **Phase 1 complete 2026-11-07**
+(owner-confirmed on the physical iPhone). The server side is migration `0052_ios_device`, the
+`ios` CLI, the bearer-authenticated read-only `/api/ios/v1/` facade and its tests; the Swift
+client in the separate `StrengthApp` repository has pairing, Today, History and Settings/Forget,
+Keychain storage, 22 unit tests and a live UI smoke test. Phase 2 is not started and needs its own
+approved contract. Later phases remain proposals and need separate approval.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
 
@@ -95,10 +95,10 @@ phone; the phone reaches the server on the home LAN; the owner has approved Phas
 
 ### Phase 1 — Native Foundation and Read-Only Views
 
-**Status:** implemented and simulator-verified 2026-11-07. Server facade, migration, CLI and
-contract tests are implemented, and the Swift pairing/today/history/settings shell passes on the
-iPhone 18 Pro simulator. The owner's iPhone 16 Pro acceptance pass remains; the client repository
-carries `DEVICE-ACCEPTANCE.md`.
+**Status:** **complete 2026-11-07.** Server facade, migration, CLI and contract tests are
+implemented; the Swift pairing/today/history/settings shell passed on the iPhone 18 Pro simulator
+and the owner confirmed the device checklist on the physical iPhone. The client repository carries
+`DEVICE-ACCEPTANCE.md` with the completed record.
 
 **Contract:** [`design/IOS-PHASE-1-CONTRACT.md`](design/IOS-PHASE-1-CONTRACT.md) — routes, auth
 flow, migration, tests and acceptance for this phase.
@@ -338,10 +338,12 @@ Prioritize server contract/domain tests; keep UI tests focused and robust. Add c
 
 ## 11. Next task
 
-Phase 0 is complete and Phase 1 is implemented and verified on the simulator. The next task is the
-owner's iPhone 16 Pro acceptance pass against the checklist in the `StrengthApp` repository. Do not
-begin the workout, HealthKit, offline, cardio, or PCC work before that pass is accepted, and take
-Phase 3A (HealthKit readiness) before Phase 4 (offline).
+Phase 0 and Phase 1 are complete. The next task is Phase 2: agree its written contract and obtain
+owner approval before any implementation. Phase 2 is the online strength workflow (readiness write,
+server-issued prescription, start by issued-plan id, active workout, add set, complete/abandon,
+session RPE, optional form ratings, history/progress and idempotency receipts). Do not begin the
+workout, HealthKit, offline, cardio, or PCC work before that contract is approved, and take Phase 3A
+(HealthKit readiness) before Phase 4 (offline).
 
 ## 12. References
 
@@ -387,4 +389,25 @@ as part of a rollback.
 
 ## Completion state
 
-Phase 0 is complete (2026-11-07) and Phase 1 is implemented and verified on the iPhone 18 Pro simulator. The server facade, credential migration, CLI and contract tests are implemented, and the Swift client passes its 22 unit tests plus the live pairing/Today/History/relaunch/forget smoke test against a temporary local database. The owner's iPhone 16 Pro acceptance pass is the remaining Phase 1 work. No HealthKit integration, training logic or server-behaviour change exists beyond the additive Phase 1 facade. Each later phase requires the owner's approval before it starts.
+**Phase 0 complete 2026-11-07. Phase 1 complete 2026-11-07.** Phase 2 is not started and requires
+its own approved contract.
+
+### Phase 1 completion record
+
+- **Server:** migration `0052_ios_device`; the `strength-coach ios pair/devices/revoke` CLI; the
+  bearer-authenticated, read-only `/api/ios/v1/` facade (`pair`, `bootstrap`, `today`,
+  `history`, `progress`); `tests/test_ios_api.py`. The default suite is 1604 tests and
+  `ruff` passes. Existing unversioned routes and stored training data are unchanged.
+- **Client:** pairing, Today, History and Settings/Forget in the separate `StrengthApp`
+  repository; Keychain token storage; 22 unit tests; optional live UI smoke test.
+- **Verification:** the live test passed on the iPhone 18 Pro simulator against a temporary SQLite
+  database; the owner then confirmed the device checklist on the physical iPhone. The checklist is
+  `StrengthApp/DEVICE-ACCEPTANCE.md`.
+- **Rollback:** drop `ios_device` and `ios_pairing_code`, remove the `/api/ios/v1/` routes and
+  the `ios` CLI group, and forget/uninstall the client. No prescription, workout, readiness or
+  review row is touched.
+- **Residual limitations:** plain HTTP on the trusted LAN only; Phase 1 has no writes, HealthKit,
+  offline capture, review or prescription UI; personal-team signing expires after 7 days.
+
+No HealthKit integration, training logic or server-behaviour change exists beyond the additive
+Phase 1 facade. Each later phase requires the owner's approval before it starts.

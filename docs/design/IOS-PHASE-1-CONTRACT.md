@@ -1,7 +1,8 @@
 # iOS Phase 1 — Native Foundation and Read-Only Views: implementation contract
 
-**Status:** approved 2026-11-07. Documentation only; this contract creates no code, route or
-migration by itself. Implementation follows the approved plan and this contract.
+**Status:** approved 2026-11-07; **implemented and accepted 2026-11-07** (iPhone 18 Pro
+simulator plus owner-confirmed physical iPhone). This document remains the authoritative Phase 1
+interface; the completion record is in §13. Phase 2 is not started.
 
 **Scope:** fixes the exact server surface, client surface, tests and acceptance for Phase 1 of
 [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md). The plan remains the authority for the phase
@@ -298,3 +299,22 @@ Settled at approval (2026-11-07):
   payload, score status and override rules.
 - [`DATA-MODEL.md`](../DATA-MODEL.md) — append-only records and schema conventions.
 - [`PRIVACY.md`](../PRIVACY.md) — no personal data in the public repository.
+
+## 13. Completion record (2026-11-07)
+
+Phase 1 is complete. All §9 acceptance criteria were exercised; the live UI test passed on the
+iPhone 18 Pro simulator against a temporary SQLite database, and the owner then confirmed the device
+checklist on the physical iPhone (the record is `StrengthApp/DEVICE-ACCEPTANCE.md`).
+
+- **Server:** migration `0052_ios_device`, the `strength-coach ios pair/devices/revoke` CLI,
+  the authenticated read facade and `tests/test_ios_api.py`. The default suite is 1604 tests and
+  `ruff` passes. Existing unversioned routes and stored training data are unchanged.
+- **Client:** pairing, Today, History and Settings/Forget in the separate `StrengthApp`
+  repository, Keychain token storage, 22 unit tests and the optional live UI smoke test.
+- **Secrets:** neither the code nor the token is stored in plaintext, logged, or returned in an
+  error body; the token is Keychain-only.
+- **Rollback:** remains as §10 — additive tables, routes and CLI only; the client can be forgotten
+  or discarded independently.
+- **Residual limits:** plain HTTP on the trusted home LAN only; no writes, HealthKit, offline
+  capture, review or prescription UI in Phase 1; personal-team signing expires after 7 days.
+- **Next:** Phase 2 requires a separate written contract and owner approval. It is not started.
