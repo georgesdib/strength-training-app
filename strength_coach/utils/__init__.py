@@ -14,12 +14,14 @@ numeric     numeric coercion with an explicit missing-value policy
 stats       robust statistics (median/MAD) for noisy training data
 exercises   exercise taxonomy resolution: raw log string -> canonical id
 reporting   small table printers used by CLI and the profile tool
+ios_credentials  iOS pairing-code/token hashing and the constant-time comparison
 """
 
 from strength_coach.utils import (
     dates,
     exercises,
     io_utils,
+    ios_credentials,
     numeric,
     paths,
     reporting,
@@ -30,6 +32,7 @@ __all__ = [
     "dates",
     "exercises",
     "io_utils",
+    "ios_credentials",
     "numeric",
     "paths",
     "reporting",

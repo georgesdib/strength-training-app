@@ -288,7 +288,10 @@ behaviour still require a physical-device pass.
   **Clear cached forecasts** button; entries otherwise live for the browser tab and have no
   TTL. The cache is transport-only: the CLI rebuilds the same deterministic forecast directly
   and has no cached-forecast command (`LIM-27`).
-- No authentication; home-network HTTP only, never public.
+- No authentication; home-network HTTP only, never public. The separately authenticated
+  `/api/ios/v1/` facade is for the native iPhone client, not this UI.
+- iPhone pairing and device revocation are CLI-only (`strength-coach ios ...`); managing phone
+  credentials is a host-level security action, so the web UI does not expose it.
 - No delete/void action for a completed workout; only active-workout abandon and set removal/edit. See DATA-MODEL §17 for the recommended void design.
 
 

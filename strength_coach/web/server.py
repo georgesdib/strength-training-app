@@ -112,6 +112,7 @@ from strength_coach.store import (
     db,
     exercise_admin,
     importer,
+    ios_devices,
     queries,
     repositories,
     symptom_attribution,
@@ -129,6 +130,22 @@ TOLERANCE = 0.25
 # remains in _import; this is the HTTP-boundary guard.
 MAX_BODY_BYTES = 64 * 1024 * 1024
 MAX_IMPORT_FILE_BYTES = 20 * 1024 * 1024
+
+# iOS Phase 1 is read-only. The capability map is deliberately explicit so the phone can
+# tell "not built yet" from "temporarily unavailable". See docs/IOS-PHASE-1-CONTRACT.md §5.3.
+IOS_API_VERSION = "1"
+IOS_CAPABILITIES = {
+    "readiness": True,
+    "prescription": False,
+    "workout_write": False,
+    "healthkit": False,
+    "offline": False,
+}
+IOS_HISTORY_DEFAULT_LIMIT = 50
+IOS_HISTORY_MAX_LIMIT = 100
+IOS_PROGRESS_DEFAULT_WEEKS = 8
+IOS_PROGRESS_MAX_WEEKS = 52
+
 LOGGER = logging.getLogger(__name__)
 _LOG_BUFFER: deque[dict[str, Any]] = deque(maxlen=500)
 _LOG_LOCK = threading.Lock()
@@ -207,6 +224,78 @@ def _json_default(value: Any) -> Any:
     if hasattr(value, "__dict__"):
         return value.__dict__
     return str(value)
+
+
+def _ios_clock(now: datetime.datetime | None = None) -> dict[str, Any]:
+    """Server-local date/time and offset, never a UTC slice of a local timestamp.
+
+    The phone must not infer the training date from UTC, so both the date and the numeric
+    offset are sent. The timezone name is the platform abbreviation (e.g. GMT/BST); Phase 1
+    deliberately does not send an IANA name (contract §11.2).
+    """
+    at = (now or datetime.datetime.now()).astimezone()
+    offset = at.utcoffset() or datetime.timedelta(0)
+    return {
+        "server_date": at.date().isoformat(),
+        "server_time": at.isoformat(timespec="seconds"),
+        "utc_offset_minutes": int(offset.total_seconds() // 60),
+        "server_timezone": at.tzname() or "UTC",
+    }
+
+
+def _ios_query_int(query: dict, name: str, default: int, *,
+                   minimum: int, maximum: int | None = None) -> int:
+    values = query.get(name)
+    if not values:
+        return default
+    raw = str(values[0]).strip()
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        message = f"{name} must be an integer"
+        raise FieldError(message, {name: message}) from None
+    if value < minimum or (maximum is not None and value > maximum):
+        message = (
+            f"{name} must be at least {minimum}" if maximum is None
+            else f"{name} must be between {minimum} and {maximum}"
+        )
+        raise FieldError(message, {name: message})
+    return value
+
+
+def _ios_query_date(query: dict, name: str) -> str | None:
+    values = query.get(name)
+    if not values:
+        return None
+    raw = str(values[0]).strip()
+    try:
+        datetime.date.fromisoformat(raw)
+    except ValueError:
+        message = f"{name} must be YYYY-MM-DD"
+        raise FieldError(message, {name: message}) from None
+    return raw
+
+
+def _ios_history_params(query: dict) -> dict[str, Any]:
+    limit = _ios_query_int(
+        query, "limit", IOS_HISTORY_DEFAULT_LIMIT,
+        minimum=1, maximum=IOS_HISTORY_MAX_LIMIT,
+    )
+    offset = _ios_query_int(query, "offset", 0, minimum=0)
+    start = _ios_query_date(query, "start")
+    end = _ios_query_date(query, "end")
+    if start and end and start > end:
+        message = "start must be on or before end"
+        raise FieldError(message, {"start": message})
+    return {"limit": limit, "offset": offset, "start": start, "end": end}
+
+
+def _ios_progress_params(query: dict) -> dict[str, Any]:
+    weeks = _ios_query_int(
+        query, "weeks", IOS_PROGRESS_DEFAULT_WEEKS,
+        minimum=1, maximum=IOS_PROGRESS_MAX_WEEKS,
+    )
+    return {"weeks": weeks, "date": _ios_query_date(query, "date")}
 
 
 def _item_dict(item) -> dict:
@@ -867,6 +956,110 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             conn.close()
 
+    # --- iOS facade -------------------------------------------------------
+    def _ios_token(self) -> str | None:
+        header = self.headers.get("Authorization") or ""
+        parts = header.split(None, 1)
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            return None
+        token = parts[1].strip()
+        return token or None
+
+    def _ios_authenticate(self, conn) -> dict[str, Any]:
+        token = self._ios_token()
+        if token is None:
+            raise ios_devices.AuthError(401, "authentication required")
+        return ios_devices.authenticate(conn, token)
+
+    def _ios_get(self, path: str) -> None:
+        # Authentication runs before route dispatch: an unknown iOS path is 401 without a
+        # token and 404 with one, so the facade does not become a route oracle.
+        try:
+            with db.Store(self.db_path) as store:
+                self._ios_authenticate(store.connection)
+                conn = store.connection
+                if path == "/api/ios/v1/bootstrap":
+                    payload = {
+                        "api_version": IOS_API_VERSION,
+                        **_ios_clock(),
+                        "capabilities": dict(IOS_CAPABILITIES),
+                    }
+                elif path == "/api/ios/v1/today":
+                    clock = _ios_clock()
+                    readiness = self._readiness(conn, clock["server_date"])
+                    payload = {
+                        "date": clock["server_date"],
+                        "readiness": readiness,
+                        "readiness_score": readiness["score"],
+                        "active_workout": workout.active_workout(conn),
+                    }
+                elif path == "/api/ios/v1/history":
+                    params = _ios_history_params(
+                        parse_qs(urlparse(self.path).query, keep_blank_values=True)
+                    )
+                    payload = history.list_sessions(conn, **params)
+                elif path == "/api/ios/v1/progress":
+                    params = _ios_progress_params(
+                        parse_qs(urlparse(self.path).query, keep_blank_values=True)
+                    )
+                    payload = progress_feature.dashboard(
+                        conn, params["date"], weeks=params["weeks"]
+                    )
+                else:
+                    self._error(404, "not found")
+                    return
+                self._json(200, payload)
+        except ios_devices.AuthError as exc:
+            self._error(exc.status, exc.message)
+        except FieldError as exc:
+            self._error(400, str(exc), exc.fields)
+        except (ValueError, KeyError) as exc:
+            self._error(400, str(exc))
+        except Exception:
+            LOGGER.exception("unhandled iOS GET %s", path)
+            self._error(500, "internal server error")
+
+    def _ios_pair(self) -> None:
+        # The pairing exchange is the only unauthenticated iOS route. It is the one place a
+        # code and a token exist in plaintext, and neither is written to a log or error body.
+        try:
+            body = self._body()
+            pairing = self._with_conn(lambda c: ios_devices.pair(
+                c, code=body.get("code"), label=body.get("label"),
+            ))
+            self._json(200, {
+                "api_version": IOS_API_VERSION,
+                "device": pairing["device"],
+                "token": pairing["token"],
+                **_ios_clock(),
+            })
+        except RequestError as exc:
+            if exc.close:
+                self.close_connection = True
+            self._error(exc.status, exc.message)
+        except ios_devices.PairingError as exc:
+            self._error(exc.status, exc.message, exc.fields)
+        except FieldError as exc:
+            self._error(400, str(exc), exc.fields)
+        except (ValueError, KeyError) as exc:
+            self._error(400, str(exc))
+        except Exception:
+            LOGGER.exception("unhandled iOS POST /pair")
+            self._error(500, "internal server error")
+
+    def _ios_post(self) -> None:
+        # Phase 1 has no write routes. Authenticating first keeps an unknown POST under the
+        # facade indistinguishable from a known one until the token is valid.
+        try:
+            with db.Store(self.db_path) as store:
+                self._ios_authenticate(store.connection)
+                self._error(404, "not found")
+        except ios_devices.AuthError as exc:
+            self._error(exc.status, exc.message)
+        except Exception:
+            LOGGER.exception("unhandled iOS POST")
+            self._error(500, "internal server error")
+
     def _monitoring_analysis(self, as_of: str) -> dict:
         key = (
             "monitoring-analysis", str(self.db_path), _db_stamp(self.db_path),
@@ -899,6 +1092,9 @@ class Handler(BaseHTTPRequestHandler):
     # --- routes -----------------------------------------------------------
     def do_GET(self) -> None:
         path = unquote(urlparse(self.path).path)
+        if path == "/api/ios/v1" or path.startswith("/api/ios/v1/"):
+            self._ios_get(path)
+            return
         try:
             if path == "/":
                 self._serve_file(STATIC / "index.html", "text/html; charset=utf-8")
@@ -1368,6 +1564,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = unquote(urlparse(self.path).path)
+        if path == "/api/ios/v1/pair":
+            self._ios_pair()
+            return
+        if path == "/api/ios/v1" or path.startswith("/api/ios/v1/"):
+            self._ios_post()
+            return
         try:
             body = self._body()
             if path == "/api/import":

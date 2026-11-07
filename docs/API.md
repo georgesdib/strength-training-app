@@ -107,6 +107,39 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list and rendered doc from `docs/manifest.yaml`; public entries only, grouped by category; `private/` and maintainer-only design docs are never served |
 
+### iOS facade — Phase 1 (read-only)
+
+`/api/ios/v1/` is the authenticated boundary used by the native iPhone client. It is
+additive: every unversioned route above keeps its current behaviour and stays unauthenticated.
+The authoritative interface is
+[IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CONTRACT.md); the phase rules are in
+[IOS-CLIENT-PLAN.md](IOS-CLIENT-PLAN.md).
+
+| route | auth | payload |
+|---|---|---|
+| `POST /api/ios/v1/pair` | none | `{code, label?}` -> `{api_version, device, token, server_date, server_time, utc_offset_minutes, server_timezone}`; the token is shown once |
+| `GET /api/ios/v1/bootstrap` | bearer | `{api_version, server_date, server_time, utc_offset_minutes, server_timezone, capabilities}`; Phase 1 capabilities are readiness only |
+| `GET /api/ios/v1/today` | bearer | `{date, readiness, readiness_score, active_workout}`; `readiness` is the existing `/api/readiness/<date>` payload and `active_workout` is null or the live workout detail |
+| `GET /api/ios/v1/history?limit=&offset=&start=&end=` | bearer | exactly `history.list_sessions`; limit 1-100, default 50; offset >= 0, default 0 |
+| `GET /api/ios/v1/progress?weeks=&date=` | bearer | exactly `progress_feature.dashboard`; weeks 1-52, default 8 |
+
+- **Pairing is CLI-only.** `strength-coach ios pair [--label LABEL] [--ttl 300]` prints a
+  one-use 8-digit code (spaces/hyphens are ignored by the exchange); the default TTL is 300
+  seconds and the accepted range is 60-3600. `ios devices` lists devices and `ios revoke`
+  sets `revoked_at` (idempotent; an unknown id exits 2). No HTTP route issues a code.
+- **Credential model.** A successful exchange creates one device and returns a 32-byte
+  URL-safe bearer token. Only SHA-256 hex digests of the code and token are stored. A missing
+  or unknown token returns `401`; a revoked device returns `403`. Authentication runs before
+  route dispatch, so an unknown path under the namespace is `401` unauthenticated and `404`
+  authenticated.
+- **Pairing errors.** `400` malformed body/code/label, `401` wrong code, `410` expired or
+  already used, `429` attempts exhausted. Five failed attempts exhaust one code.
+- **Read-only.** There is no write, prescription, readiness-write, set or HealthKit route in
+  Phase 1. `last_seen_at` is updated at most once per 60 seconds.
+- **Dates.** `server_date`/`server_time` come from the server's local clock; the phone must
+  not derive the training date from a UTC slice. `bootstrap` sends the numeric UTC offset and
+  the platform timezone abbreviation, not an IANA name.
+
 ## Request security
 
 **Temporary home-network mode (2026-10-28, `DEC-WEB-03`):** the loopback Host, Origin and
@@ -118,6 +151,8 @@ What remains:
 - `Content-Type: application/json` is required for mutation bodies, so a `text/plain` simple
   request cannot be used as a JSON body;
 - request bodies are capped at 64 MiB;
+- `/api/ios/v1/` is the only authenticated surface (per-device bearer token); every
+  unversioned route remains unauthenticated as described above;
 - logs do not record passwords or session tokens;
 - authentication, per-user data, password reset, birth date/gender/timezone, CSRF and TLS are
   the `ROADMAP.md` §4.19 backlog. They must land before any exposure beyond the home LAN.

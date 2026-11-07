@@ -53,8 +53,8 @@ What exists today is:
 - `strength_coach/eval/` — backtest harness, labelled-set comparison, and the database-backed
   marks that make calibration continuous (`rubric_mark`, append-only).
 - `strength_coach/cli.py` — `import`, `run`, `review`, `calibrate`, `state`, `block`, `regime`, `e1rm`,
-  `test`, `symptom`, `cardio`, `measure`, `fatigue`, `select`, `exercise`, `readiness`, `programme`, `validate`, `workout`, `web`. `review` (with `--pending`) is the routine that keeps calibration current.
-- `strength_coach/web/` — home-network HTTP UI and JSON API over the same core; no authentication, bind 0.0.0.0 (temporary accepted risk `LIM-57`; never expose to the internet).
+  `test`, `symptom`, `cardio`, `measure`, `fatigue`, `select`, `exercise`, `readiness`, `ios`, `programme`, `validate`, `workout`, `web`. `review` (with `--pending`) is the routine that keeps calibration current.
+- `strength_coach/web/` — home-network HTTP UI and JSON API over the same core; no authentication, bind 0.0.0.0 (temporary accepted risk `LIM-57`; never expose to the internet). The additive `/api/ios/v1/` facade is bearer-authenticated and read-only in Phase 1; its credentials live in `store/ios_devices.py` and `utils/ios_credentials.py`.
 - `strength_coach/agents/` — LLM interface, config, narrative, exercise-selection chooser and structured proposals.
   `NullLLM` is the default; the model may explain or propose, but never compute. Keys live in the git-ignored `config/llm.local.toml`
   or the environment (`config/llm.example.toml` is the committed template).
@@ -283,7 +283,7 @@ job completes.
 | `docs/REVERSE-HYPER-BELT-SQUAT-EVIDENCE.md` | reverse hyperextension and belt squat evidence; optional accessories, no programme change |
 | `docs/WEAKNESS-TARGETING-PLAN.md` | gated weakness metric, retrospective screen and N-of-1 test plan |
 | `docs/LLM-INTEGRATION-PLAN.md` | future LLM analyst/explainer/constrained-proposer architecture: Iteration 1 (practical capabilities, selector retirement), conditional Iteration 2 (retrieval/RAG/advanced orchestration), shared context/evidence contracts, approval, privacy and evaluation gates; plan only |
-| `docs/IOS-CLIENT-PLAN.md` | Phase 0 complete 2026-11-07; Phase 1 approved; authenticated online-first native strength workflow; later HealthKit readiness/workout data with manual override, then offline capture, and optional Apple on-device/PCC AI |
+| `docs/IOS-CLIENT-PLAN.md` | Phase 0 complete 2026-11-07; Phase 1 server facade implemented, Swift client/device acceptance pending; authenticated online-first native strength workflow; later HealthKit readiness/workout data with manual override, then offline capture, and optional Apple on-device/PCC AI |
 | `docs/archive/PROGRAMME-BUILDER-PLAN.md` | deterministic dynamic template resolver: fixed four-template blueprint/fallback, per-session exercise resolution, versioned policy and provenance, reuse of the existing scheduler/prescription/volume/history; Steps 0–6 implemented and closed |
 | `docs/archive/RESOLVER-ACCEPTANCE-AUDIT.md` | closed end-to-end production acceptance audit: P0/P1/P2 findings, fixes, acceptance matrix and residual release gates |
 | `docs/PERFORMANCE-PROFILE.md` | 2026-11-04 resolver prescription benchmark, 2026-11-05 clean-set snapshot A/B, stage profile, cache design/invalidation and parallelism assessment |

@@ -1,9 +1,9 @@
 # Native iPhone Client — Online-First Implementation Plan
 
 **Status:** Phase 0 complete 2026-11-07 (owner-confirmed); Phase 1 (native foundation and read-only
-views) approved 2026-11-07. Later phases remain proposals. No product code, API route or migration
-exists yet; the only build so far is the empty signing-check app. Phase 1 implementation has not
-started.
+views) in progress. The server side is implemented: migration `0052_ios_device`, the `ios` CLI,
+the bearer-authenticated read-only `/api/ios/v1/` facade and its tests. The Swift client and the
+device acceptance pass remain. Later phases remain proposals and need separate approval.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
 
@@ -60,7 +60,7 @@ HealthKit, Apple Workout import, offline mutation sync, manual cardio, advanced 
 
 ## 4. Phased implementation plan
 
-Each phase is separately reviewable. Add only the endpoints, migrations, client screens, and tests needed for that phase. The first connected vertical slice should be implemented before any offline queue, HealthKit importer, or model feature. Phase 1 is approved; do not begin a later phase until the owner approves that phase.
+Each phase is separately reviewable. Add only the endpoints, migrations, client screens, and tests needed for that phase. The first connected vertical slice should be implemented before any offline queue, HealthKit importer, or model feature. Phase 1 is in progress; do not begin a later phase until the owner approves that phase.
 
 **Implementation order (owner decision, 2026-11-07):** Phase 0 is complete; next are 1, 2, 3A
 (HealthKit readiness), 4 (offline), then 3B (Apple Workout imports) and Phase 5. Phase numbers stay
@@ -93,7 +93,8 @@ phone; the phone reaches the server on the home LAN; the owner has approved Phas
 
 ### Phase 1 — Native Foundation and Read-Only Views
 
-**Status:** approved 2026-11-07; implementation not started.
+**Status:** in progress 2026-11-07. Server facade, migration, CLI and contract tests are
+implemented; the Swift pairing/today/history/settings shell and the device acceptance pass remain.
 
 **Contract:** [`design/IOS-PHASE-1-CONTRACT.md`](design/IOS-PHASE-1-CONTRACT.md) — routes, auth
 flow, migration, tests and acceptance for this phase.
@@ -333,9 +334,11 @@ Prioritize server contract/domain tests; keep UI tests focused and robust. Add c
 
 ## 11. Next task
 
-Phase 0 is complete. The next task is Phase 1: pairing and read-only today/history over the home
-LAN. Do not begin the workout, HealthKit, offline, cardio, or PCC work before the core iPhone
-strength workflow is accepted, and take Phase 3A (HealthKit readiness) before Phase 4 (offline).
+Phase 0 is complete and the Phase 1 server facade is implemented. The next task is the remaining
+Phase 1 client work: pairing, today, history and settings/forget in `StrengthApp`, verified against
+a local temporary database, then the iPhone 16 Pro acceptance pass. Do not begin the workout,
+HealthKit, offline, cardio, or PCC work before the core iPhone strength workflow is accepted, and
+take Phase 3A (HealthKit readiness) before Phase 4 (offline).
 
 ## 12. References
 
@@ -381,4 +384,4 @@ as part of a rollback.
 
 ## Completion state
 
-Phase 0 is complete (2026-11-07) and Phase 1 is approved. No product iOS feature, backend route, migration, HealthKit integration, training logic or server behaviour has been implemented; the only artifact is the empty signing-check app. Each later phase requires the owner's approval before it starts.
+Phase 0 is complete (2026-11-07) and Phase 1 is in progress. The server facade, credential migration, CLI and contract tests are implemented; the Swift client and the device acceptance pass are not. No HealthKit integration, training logic or server-behaviour change exists beyond the additive Phase 1 facade. Each later phase requires the owner's approval before it starts.
