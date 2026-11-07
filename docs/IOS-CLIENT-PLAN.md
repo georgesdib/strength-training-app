@@ -370,11 +370,56 @@ workout, HealthKit, offline, cardio, or PCC work before that contract is approve
 
 Every phase must be reversible without touching stored training history beyond the rows it added.
 
+### 13.1 Backup precondition
+
+The iOS migrations are applied to the owner's **single live database**, `data/coach.db`, the same
+file the web UI and CLI use. A wrong or failed migration therefore has the whole training history as
+its blast radius, not just the handful of rows the phase adds. There is no separate iOS database to
+throw away.
+
+Before applying any iOS migration to a live database, and before any rollback that drops tables:
+
+1. Stop `strength-coach web` and any CLI run. While the server holds the database, SQLite keeps
+   `data/coach.db-wal` and `data/coach.db-shm` beside it, and a copy of `coach.db` alone can miss
+   committed transactions that still live only in the WAL.
+2. Take a consistent backup through SQLite's backup API, never a raw file copy:
+   `python tools/db_transfer.py export --db data/coach.db` (archive under `data/exports/`, which is
+   git-ignored) or `python tools/backup_app.py`. `db_transfer` snapshots with
+   `sqlite3.Connection.backup`, so WAL contents are included, and it refuses to import over a target
+   whose `-wal`/`-shm` sidecars still exist.
+3. Run `PRAGMA quick_check` against the snapshot and record the archive path and the
+   `schema_migration` version in the phase's completion record.
+
+This applies on the always-on host too, where `data/coach.db` is the live database the phone writes
+to. A backup is a precondition of the phase, not an optional extra.
+
+### 13.2 Schema rollback is a paired operation
+
+Dropping the iOS tables alone leaves their `schema_migration` row in place. `migrate()` then treats
+`0052`/`0053` as applied and skips them forever, so re-enabling the feature later yields a database
+with no iOS tables and no migration that will recreate them. Roll a schema change back as one
+operation, with the server stopped:
+
+```sql
+BEGIN IMMEDIATE;
+DROP TABLE IF EXISTS ios_operation_receipt;
+DROP TABLE IF EXISTS ios_issued_plan;
+DROP TABLE IF EXISTS ios_pairing_code;
+DROP TABLE IF EXISTS ios_device;
+DELETE FROM schema_migration WHERE version IN ('0052', '0053');
+COMMIT;
+```
+
+Order matters: `ios_issued_plan` references `ios_device` and `workout_session`, so it is dropped
+before the device table. Removing the `schema_migration` rows is what makes a later re-apply work;
+neither statement touches a training, readiness, prescription or workout row. Restoring the §13.1
+backup is the fallback when the rollback itself went wrong.
+
 | Phase | Rollback | What stays |
 |---|---|---|
 | 0 | Stop. No code, route or data. | Nothing. |
-| 1 | Remove the iOS facade routes and delete device rows; the existing server is untouched. | Nothing. |
-| 2 | Disable the facade; the issued-plan and receipt tables are additive and can be dropped. The web/CLI path never depended on them. | Prescriptions and workouts already committed remain valid. |
+| 1 | Remove the iOS facade routes and delete device rows (§13.2); the existing server is untouched. | Nothing. |
+| 2 | Disable the facade; the issued-plan and receipt tables are additive and can be dropped (§13.2). The web/CLI path never depended on them. | Prescriptions and workouts already committed remain valid. |
 | 3 | Disable the feature; imported values carry source provenance and can be ignored, leaving manual readiness untouched. No prescription is derived from them. | Manual entries and prior readiness history. |
 | 4 | The queue is client-side; disabling it returns the Phase 2 online behavior. Server receipt rows can be pruned. | Any acknowledged server records remain. |
 | 5 | Each enhancement is independently disableable; removing one leaves the core flows intact. | Everything core. |

@@ -38,6 +38,8 @@ config/strength-relationships.local.yaml
 # ---------------------------------------------------------------------------
 data/raw/*
 data/export/
+# tools/db_transfer.py writes full-database archives here (singular "export" did not cover it).
+data/exports/
 private/
 
 # Tests that read the real export and assert values derived from it must stay private.

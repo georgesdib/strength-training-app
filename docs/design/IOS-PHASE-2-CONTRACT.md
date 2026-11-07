@@ -596,6 +596,14 @@ Swift Phase 1 tests must remain unchanged and green.
   prescriptions and workouts already committed by a started session remain valid and auditable.
 - Existing `ios_device`/`ios_pairing_code` and Phase 1 reads remain. Do not change any existing
   training, readiness, prescription, workout or review row as part of rollback.
+- **Back up first.** `0053` is applied to the one live `data/coach.db`; take the consistent backup
+  described in [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md) §13.1 with the server stopped before
+  applying or dropping anything.
+- **Drop the tables and their `schema_migration` row together.** Dropping only the tables leaves
+  `0053` recorded as applied, so `migrate()` skips it forever and a later re-enable has no tables
+  and no way to recreate them. Use the paired statement in
+  [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md) §13.2, which includes `ios_operation_receipt`,
+  `ios_issued_plan` and the matching `schema_migration` row.
 - Client rollback: return to the Phase 1 read-only screens or discard the Phase 2 build; the token
   and pairing remain.
 
