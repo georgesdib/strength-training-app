@@ -1225,7 +1225,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
-| in progress | Native iPhone online-first client | Phase 0 complete 2026-11-07; Phase 1 server facade implemented 2026-11-07, Swift client/device acceptance pending; online strength workflow first; HealthKit readiness before offline capture; Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
+| in progress | Native iPhone online-first client | Phase 0 complete 2026-11-07; Phase 1 implemented and verified on the iPhone 18 Pro simulator 2026-11-07, owner's iPhone 16 Pro device acceptance pending; online strength workflow first; HealthKit readiness before offline capture; Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1567,11 +1567,14 @@ and is not a reason to reopen it.
 **Status:** Phase 0 complete (2026-11-07): an empty SwiftUI app is signed and launches on the
 owner's iPhone under a personal team, the HealthKit capability is verified, the phone reaches the
 server over plain HTTP on the home LAN, and CLI-only pairing was chosen. Phase 1 (native foundation
-and read-only views) is in progress: the server side is implemented — migration `0052_ios_device`,
-the `strength-coach ios pair/devices/revoke` CLI, the bearer-authenticated read-only
-`/api/ios/v1/` facade and `tests/test_ios_api.py` — while the Swift client and the device
-acceptance pass remain. The first useful release is an online, authenticated native
-strength-training workflow against the owner's local Python server. Durable offline capture, HealthKit and Apple Intelligence
+and read-only views) is implemented and verified on the iPhone 18 Pro simulator: the server side is
+migration `0052_ios_device`, the `strength-coach ios pair/devices/revoke` CLI, the
+bearer-authenticated read-only `/api/ios/v1/` facade and `tests/test_ios_api.py`; the Swift client
+in the separate `StrengthApp` repository provides pairing, Today, History and Settings/Forget with
+Keychain storage, 22 unit tests and a live UI smoke test. The owner's iPhone 16 Pro device
+acceptance pass remains (the client repository carries the checklist). The first useful release is
+an online, authenticated native strength-training workflow against the owner's local Python
+server. Durable offline capture, HealthKit and Apple Intelligence
 are later phases, not first-release dependencies. PCC may be a separately enabled Apple AI option;
 it is disabled by default, user-invoked, never an automatic fallback, and never used for HealthKit
 sync. No public cloud service is required for core use. Do not begin a later phase until it is
@@ -1579,9 +1582,9 @@ approved.
 
 The detailed, repository-grounded plan is [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md).
 Recommendation: a small native SwiftUI client with Python remaining the sole authority for
-readiness scores and prescriptions. Phase 0 is complete and Phase 1 is in progress (server facade
-implemented; client next). The SwiftUI client is its own repository (`StrengthApp`), developed
-alongside this one rather than as an `ios/` subdirectory here. The first release covers pairing, readiness entry, a server prescription,
+readiness scores and prescriptions. Phase 0 is complete and Phase 1 is implemented on the
+simulator; only the owner's phone acceptance pass remains. The SwiftUI client is its own repository
+(`StrengthApp`), developed alongside this one rather than as an `ios/` subdirectory here. The first release covers pairing, readiness entry, a server prescription,
 online workout capture/completion with session RPE, optional inline form ratings and basic
 history/progress. Opt-in read-only HRV/RHR readiness (Phase 3A) comes before durable offline capture
 (Phase 4), because the server is always on at home; reviewed Apple Workout imports follow, with

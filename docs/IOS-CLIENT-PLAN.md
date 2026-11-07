@@ -1,9 +1,11 @@
 # Native iPhone Client — Online-First Implementation Plan
 
 **Status:** Phase 0 complete 2026-11-07 (owner-confirmed); Phase 1 (native foundation and read-only
-views) in progress. The server side is implemented: migration `0052_ios_device`, the `ios` CLI,
-the bearer-authenticated read-only `/api/ios/v1/` facade and its tests. The Swift client and the
-device acceptance pass remain. Later phases remain proposals and need separate approval.
+views) implemented and verified on the iPhone 18 Pro simulator. The server side is migration
+`0052_ios_device`, the `ios` CLI, the bearer-authenticated read-only `/api/ios/v1/` facade and
+its tests; the Swift client in the separate `StrengthApp` repository has pairing, Today, History
+and Settings/Forget, Keychain storage, 22 unit tests and a live UI smoke test. The owner's iPhone
+16 Pro device acceptance pass remains. Later phases remain proposals and need separate approval.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
 
@@ -93,8 +95,10 @@ phone; the phone reaches the server on the home LAN; the owner has approved Phas
 
 ### Phase 1 — Native Foundation and Read-Only Views
 
-**Status:** in progress 2026-11-07. Server facade, migration, CLI and contract tests are
-implemented; the Swift pairing/today/history/settings shell and the device acceptance pass remain.
+**Status:** implemented and simulator-verified 2026-11-07. Server facade, migration, CLI and
+contract tests are implemented, and the Swift pairing/today/history/settings shell passes on the
+iPhone 18 Pro simulator. The owner's iPhone 16 Pro acceptance pass remains; the client repository
+carries `DEVICE-ACCEPTANCE.md`.
 
 **Contract:** [`design/IOS-PHASE-1-CONTRACT.md`](design/IOS-PHASE-1-CONTRACT.md) — routes, auth
 flow, migration, tests and acceptance for this phase.
@@ -334,11 +338,10 @@ Prioritize server contract/domain tests; keep UI tests focused and robust. Add c
 
 ## 11. Next task
 
-Phase 0 is complete and the Phase 1 server facade is implemented. The next task is the remaining
-Phase 1 client work: pairing, today, history and settings/forget in `StrengthApp`, verified against
-a local temporary database, then the iPhone 16 Pro acceptance pass. Do not begin the workout,
-HealthKit, offline, cardio, or PCC work before the core iPhone strength workflow is accepted, and
-take Phase 3A (HealthKit readiness) before Phase 4 (offline).
+Phase 0 is complete and Phase 1 is implemented and verified on the simulator. The next task is the
+owner's iPhone 16 Pro acceptance pass against the checklist in the `StrengthApp` repository. Do not
+begin the workout, HealthKit, offline, cardio, or PCC work before that pass is accepted, and take
+Phase 3A (HealthKit readiness) before Phase 4 (offline).
 
 ## 12. References
 
@@ -384,4 +387,4 @@ as part of a rollback.
 
 ## Completion state
 
-Phase 0 is complete (2026-11-07) and Phase 1 is in progress. The server facade, credential migration, CLI and contract tests are implemented; the Swift client and the device acceptance pass are not. No HealthKit integration, training logic or server-behaviour change exists beyond the additive Phase 1 facade. Each later phase requires the owner's approval before it starts.
+Phase 0 is complete (2026-11-07) and Phase 1 is implemented and verified on the iPhone 18 Pro simulator. The server facade, credential migration, CLI and contract tests are implemented, and the Swift client passes its 22 unit tests plus the live pairing/Today/History/relaunch/forget smoke test against a temporary local database. The owner's iPhone 16 Pro acceptance pass is the remaining Phase 1 work. No HealthKit integration, training logic or server-behaviour change exists beyond the additive Phase 1 facade. Each later phase requires the owner's approval before it starts.
