@@ -599,7 +599,7 @@ documents:
 - id: ios-client-plan
   path: docs/IOS-CLIENT-PLAN.md
   title: Native iPhone Client — Local-First Implementation Plan
-  description: 'proposal only: native workout capture and post-workout review, Python-authoritative API, offline queue, HealthKit cardio/readiness inputs with manual override, local-only core, optional Apple on-device/PCC AI, phased implementation and evidence-informed Longevity display'
+  description: 'proposal only: authenticated online-first native strength workflow with Python-authoritative training; later offline capture, HealthKit readiness/workout imports with manual-over-import precedence, optional Apple on-device/PCC AI'
   category: plans
   status: plan
   audience: public

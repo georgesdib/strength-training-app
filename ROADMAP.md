@@ -1225,7 +1225,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
-| future | Native iPhone local-first client | proposal only; not approved for implementation; Apple PCC is a gated AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
+| future | Native iPhone local-first client | proposal only; online strength workflow first; offline capture and HealthKit later; Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1565,35 +1565,39 @@ and is not a reason to reopen it.
 ### 4.29 Native iPhone client — local-first proposal (not approved)
 
 **Status:** documentation proposal only; no iOS project, API route, migration or behaviour change
-exists. Core workflows must work locally/offline and communicate only with the owner's Python
-server on a trusted LAN. The owner has additionally allowed a future, explicitly configurable
-Apple Intelligence option that may use Apple's Private Cloud Compute (PCC); it is disabled by
-default, user-invoked, never an automatic fallback, and never used for HealthKit sync. Do not
-begin implementation until the plan is approved.
+exists. The first useful release is an online, authenticated native strength-training workflow
+against the owner's local Python server. Durable offline capture, HealthKit and Apple Intelligence
+are later phases, not first-release dependencies. PCC may be a separately enabled Apple AI option;
+it is disabled by default, user-invoked, never an automatic fallback, and never used for HealthKit
+sync. No public cloud service is required for core use. Do not begin implementation until the plan
+is approved.
 
 The detailed, repository-grounded plan is [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md).
 Recommendation: a small native SwiftUI client with Python remaining the sole authority for
-readiness scores and prescriptions; durable offline workout capture; a versioned authenticated
-local API; direct read-only HealthKit integration that fills supported HRV/RHR readiness inputs
-with manual-over-import precedence; and native post-workout review (form ratings, feedback and
-rubric marks). Apple Foundation Models are a later opt-in choice between on-device and Apple PCC.
+readiness scores and prescriptions; the first release covers pairing, readiness entry, a server
+prescription, online workout capture/completion with session RPE, and basic history/progress.
+Add durable offline capture in Phase 3; opt-in read-only HRV/RHR readiness and reviewed Apple
+Workout imports in Phase 4, with manual values taking precedence; make post-workout review
+available in the app, with optional marks and server-owned scoring. Apple Foundation Models/PCC
+are optional later tools, never training authorities.
 Third-party Health exporters are not a core dependency; XML is, at most, a later manual history
 backfill.
 
-**Release gate:** the current API is unauthenticated HTTP on the home LAN (`LIM-57`) and the
-server can be configured to call a remote LLM. Before the phone sends health or workout data,
-add local transport/authentication and a regression test that mobile requests cannot trigger
-any non-local Python/LLM call. No external analytics, telemetry, cloud sync or public endpoint
-is permitted. The sole proposed app-network exception is the separately enabled Apple PCC AI
-mode, with per-request context preview/consent; it is not part of the local server API.
+**Release gate:** the current API is unauthenticated HTTP on the home LAN (`LIM-57`). Before the
+phone sends personal workout data, add simple per-device authentication and a secure private
+transport appropriate to the owner's setup. Keep existing web/CLI routes compatible. No public
+endpoint, cloud database, analytics or telemetry is required. The sole proposed app-network
+exception is the separately enabled Apple PCC AI mode, with per-request context preview/consent;
+it is not part of the local server API. Do not require an elaborate egress-audit or certificate-
+pinning project for the core release.
 
-**Proposed phases:** (0) confirm target device and prove local TLS/pairing/zero-egress for core
-features; (1) add versioned API, scoped device tokens and idempotent receipts; (2) native shell/local
-persistence; (3) readiness → server prescription → workout capture and in-app review; (4) durable
-offline queue/reconciliation; (5) cardio capture and opt-in HealthKit cardio-workout plus HRV/RHR
-readiness import with manual override; (6) remaining selected HealthKit metrics and descriptive
-Longevity display; (7) optional Apple Intelligence on-device/PCC modes; (8) optional XML history
-import/background delivery only if needed.
+**Proposed phases:** (1) secure native foundation and read-only views; (2) online strength workflow
+with readiness, server prescription, set logging, completion/session RPE, an in-app review screen
+with optional entries, and basic history; (3)
+durable offline capture/reconciliation; (4) opt-in HealthKit HRV/RHR readiness inputs, then reviewed
+Apple Workout/cardio imports and source-aware effort mapping; (5) separately approved optional
+enhancements such as Apple Intelligence on-device/PCC. No sleep feature is proposed.
+
 Full acceptance criteria and rollback gates are in the plan.
 
 ## 5. Known gaps and risks
