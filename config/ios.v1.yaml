@@ -1,0 +1,14 @@
+# Phase 2 iOS facade (docs/design/IOS-PHASE-2-CONTRACT.md).
+#
+# mutations_enabled is the first rollback switch: false disables every Phase 2 mutation route
+# with 503 while bootstrap/today/history/progress remain available. It is read per request so a
+# config edit does not require a code change.
+#
+# issued_plan_ttl_seconds bounds a server-issued prescription; the phone starts it by id only.
+# receipt_retention_days bounds the idempotency receipts used for safe retries.
+mutations_enabled: true
+issued_plan_ttl_seconds: 3600
+receipt_retention_days: 30
+
+# Validation: TTL 60-86400 seconds; retention 1-365 days. Malformed or out-of-range values fail
+# closed with a server error rather than silently enabling a mutation path.

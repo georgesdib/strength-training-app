@@ -1,11 +1,13 @@
 # Native iPhone Client — Online-First Implementation Plan
 
 **Status:** Phase 0 complete 2026-11-07 (owner-confirmed); **Phase 1 complete 2026-11-07**
-(owner-confirmed on the physical iPhone). The server side is migration `0052_ios_device`, the
-`ios` CLI, the bearer-authenticated read-only `/api/ios/v1/` facade and its tests; the Swift
-client in the separate `StrengthApp` repository has pairing, Today, History and Settings/Forget,
-Keychain storage, 22 unit tests and a live UI smoke test. Phase 2 is not started and needs its own
-approved contract. Later phases remain proposals and need separate approval.
+(owner-confirmed on the physical iPhone); **Phase 2 complete and closed 2026-11-07**
+(simulator-verified and owner-confirmed on the physical iPhone). The server side is migrations 0052_ios_device and
+0053_ios_workflow, the ios CLI, the bearer-authenticated /api/ios/v1/ facade, and its tests; the
+Swift client in the separate StrengthApp repository has pairing, Today, History, Settings/Forget,
+readiness entry, prescription preview/start-by-id, active workout, completion/abandon and
+Progress, Keychain storage, 43 unit tests and optional live UI smoke tests. Phase 3 is not started
+and needs its own approved contract. Later phases remain proposals and need separate approval.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
 
@@ -218,7 +220,7 @@ Preserve `/api/ios/v1/` as the future facade namespace, but implement endpoints 
 
 | Increment | Contract needed | Notes |
 |---|---|---|
-| Phase 1 | Protected pairing exchange; `GET bootstrap/today`; read-only recent history/progress | Return server/API version, server-local date/timezone, capabilities, readiness/workout status and small existing summaries. No config paths or secrets. |
+| Phase 1 | Protected pairing exchange; `GET bootstrap/today`; read-only recent history and a server-only progress summary | Return server/API version, server-local date/timezone, capabilities, readiness/workout status and small existing summaries. No config paths or secrets. The `progress` route is implemented and tested server-side; the Phase 1 client has no Progress screen (deferred to Phase 2). |
 | Phase 2 | Read/write readiness; request prescription; read active workout; start by issued-plan id; add set; complete/abandon; read history/progress; optional inline form ratings; optional review | Mutations require authentication and an idempotency receipt. The prescription is stored at issue and the client starts by id only, so plan content never comes from the phone. Validate every field via existing Python services. |
 | Phase 3 | HRV/RHR provenance; HealthKit record import and optional workout association | Add only the source/provenance fields and routes needed by enabled types; keep user-consented HealthKit read-only. |
 | Phase 4 | Add/correct/remove set and offline event replay/reconciliation | Reuse the Phase 2 receipts; add a conflict response only where replay needs it. |
@@ -338,12 +340,13 @@ Prioritize server contract/domain tests; keep UI tests focused and robust. Add c
 
 ## 11. Next task
 
-Phase 0 and Phase 1 are complete. The next task is Phase 2: agree its written contract and obtain
-owner approval before any implementation. Phase 2 is the online strength workflow (readiness write,
+Phases 0–2 are complete. Phase 2 delivered the online strength workflow (readiness write,
 server-issued prescription, start by issued-plan id, active workout, add set, complete/abandon,
-session RPE, optional form ratings, history/progress and idempotency receipts). Do not begin the
-workout, HealthKit, offline, cardio, or PCC work before that contract is approved, and take Phase 3A
-(HealthKit readiness) before Phase 4 (offline).
+session RPE, optional form ratings, history/progress, manual VBT and idempotency receipts) under
+[`design/IOS-PHASE-2-CONTRACT.md`](design/IOS-PHASE-2-CONTRACT.md). The next task is Phase 3A
+(opt-in HealthKit HRV/RHR readiness), which needs its own approved contract; do not begin
+HealthKit, offline, cardio or PCC work before that approval, and take Phase 3A before Phase 4
+(offline).
 
 ## 12. References
 
@@ -369,11 +372,56 @@ workout, HealthKit, offline, cardio, or PCC work before that contract is approve
 
 Every phase must be reversible without touching stored training history beyond the rows it added.
 
+### 13.1 Backup precondition
+
+The iOS migrations are applied to the owner's **single live database**, `data/coach.db`, the same
+file the web UI and CLI use. A wrong or failed migration therefore has the whole training history as
+its blast radius, not just the handful of rows the phase adds. There is no separate iOS database to
+throw away.
+
+Before applying any iOS migration to a live database, and before any rollback that drops tables:
+
+1. Stop `strength-coach web` and any CLI run. While the server holds the database, SQLite keeps
+   `data/coach.db-wal` and `data/coach.db-shm` beside it, and a copy of `coach.db` alone can miss
+   committed transactions that still live only in the WAL.
+2. Take a consistent backup through SQLite's backup API, never a raw file copy:
+   `python tools/db_transfer.py export --db data/coach.db` (archive under `data/exports/`, which is
+   git-ignored) or `python tools/backup_app.py`. `db_transfer` snapshots with
+   `sqlite3.Connection.backup`, so WAL contents are included, and it refuses to import over a target
+   whose `-wal`/`-shm` sidecars still exist.
+3. Run `PRAGMA quick_check` against the snapshot and record the archive path and the
+   `schema_migration` version in the phase's completion record.
+
+This applies on the always-on host too, where `data/coach.db` is the live database the phone writes
+to. A backup is a precondition of the phase, not an optional extra.
+
+### 13.2 Schema rollback is a paired operation
+
+Dropping the iOS tables alone leaves their `schema_migration` row in place. `migrate()` then treats
+`0052`/`0053` as applied and skips them forever, so re-enabling the feature later yields a database
+with no iOS tables and no migration that will recreate them. Roll a schema change back as one
+operation, with the server stopped:
+
+```sql
+BEGIN IMMEDIATE;
+DROP TABLE IF EXISTS ios_operation_receipt;
+DROP TABLE IF EXISTS ios_issued_plan;
+DROP TABLE IF EXISTS ios_pairing_code;
+DROP TABLE IF EXISTS ios_device;
+DELETE FROM schema_migration WHERE version IN ('0052', '0053');
+COMMIT;
+```
+
+Order matters: `ios_issued_plan` references `ios_device` and `workout_session`, so it is dropped
+before the device table. Removing the `schema_migration` rows is what makes a later re-apply work;
+neither statement touches a training, readiness, prescription or workout row. Restoring the §13.1
+backup is the fallback when the rollback itself went wrong.
+
 | Phase | Rollback | What stays |
 |---|---|---|
 | 0 | Stop. No code, route or data. | Nothing. |
-| 1 | Remove the iOS facade routes and delete device rows; the existing server is untouched. | Nothing. |
-| 2 | Disable the facade; the issued-plan and receipt tables are additive and can be dropped. The web/CLI path never depended on them. | Prescriptions and workouts already committed remain valid. |
+| 1 | Remove the iOS facade routes and delete device rows (§13.2); the existing server is untouched. | Nothing. |
+| 2 | Disable the facade; the issued-plan and receipt tables are additive and can be dropped (§13.2). The web/CLI path never depended on them. | Prescriptions and workouts already committed remain valid. |
 | 3 | Disable the feature; imported values carry source provenance and can be ignored, leaving manual readiness untouched. No prescription is derived from them. | Manual entries and prior readiness history. |
 | 4 | The queue is client-side; disabling it returns the Phase 2 online behavior. Server receipt rows can be pruned. | Any acknowledged server records remain. |
 | 5 | Each enhancement is independently disableable; removing one leaves the core flows intact. | Everything core. |
@@ -389,8 +437,9 @@ as part of a rollback.
 
 ## Completion state
 
-**Phase 0 complete 2026-11-07. Phase 1 complete 2026-11-07.** Phase 2 is not started and requires
-its own approved contract.
+**Phase 0 complete 2026-11-07. Phase 1 complete 2026-11-07. Phase 2 complete and closed
+2026-11-07**, simulator-verified and owner-confirmed on the physical iPhone. Phase 3 requires its
+own approved contract and has not started.
 
 ### Phase 1 completion record
 
@@ -399,15 +448,58 @@ its own approved contract.
   `history`, `progress`); `tests/test_ios_api.py`. The default suite is 1604 tests and
   `ruff` passes. Existing unversioned routes and stored training data are unchanged.
 - **Client:** pairing, Today, History and Settings/Forget in the separate `StrengthApp`
-  repository; Keychain token storage; 22 unit tests; optional live UI smoke test.
+  repository; Keychain token storage; 29 unit tests; optional live UI smoke test.
 - **Verification:** the live test passed on the iPhone 18 Pro simulator against a temporary SQLite
   database; the owner then confirmed the device checklist on the physical iPhone. The checklist is
   `StrengthApp/DEVICE-ACCEPTANCE.md`.
+- **Progress:** `GET /api/ios/v1/progress` is server-only in Phase 1 and is covered by the
+  server contract tests. The client screens are Pairing, Today, History and Settings; a Progress
+  screen is deferred to Phase 2 and was not added under the Phase 1 contract.
+- **Post-acceptance remediation:** the redirect guard is now same-origin (scheme, host and effective
+  port) and has dedicated unit tests for cross-port, scheme-changing, host, userinfo and
+  delegate-rejection cases. The device pass preceded this transport-internal hardening.
 - **Rollback:** drop `ios_device` and `ios_pairing_code`, remove the `/api/ios/v1/` routes and
   the `ios` CLI group, and forget/uninstall the client. No prescription, workout, readiness or
   review row is touched.
 - **Residual limitations:** plain HTTP on the trusted LAN only; Phase 1 has no writes, HealthKit,
   offline capture, review or prescription UI; personal-team signing expires after 7 days.
 
+### Phase 2 completion record
+
+- **Server:** migration 0053_ios_workflow.sql; config/ios.v1.yaml; ios_config.py; the
+  issued-plan/receipt store; authenticated readiness, prescription issue, start-by-id, add-set,
+  form-rating, complete and abandon routes; tests/test_ios_workflow.py. The default suite is 1632
+  tests and ruff passes. The normal prescription is persisted at issue. The phone starts by
+  issued-plan id only and cannot supply prescription content. Every mutation requires a UUID
+  Idempotency-Key with a 30-day receipt. The receipt lookup and mutation share one BEGIN IMMEDIATE
+  transaction, so concurrent duplicates replay instead of executing twice; a receipt uniqueness
+  race is re-read rather than returned as 500. The mutation switch fails closed to 503 while reads
+  stay available.
+- **Client:** readiness form, prescription preview, active workout, optional manual mean velocity,
+  optional form ratings, session RPE or explicit not-recorded completion, abandon, and the Progress
+  screen; 43 unit tests; optional live UI smoke tests; Release build passes. Plan-item attribution
+  is sent only for a unique exercise; repeated exercises remain nil. Retry keys are body-aware,
+  duplicate UI mutations are guarded, and an ambiguous finish locks the exact completion body.
+- **Verification:** the live UI test passed on the iPhone 18 Pro simulator against a temporary
+  SQLite database, covering pair -> readiness -> issue -> start -> add VBT set -> force-quit/
+  relaunch recovery -> finish -> Progress. Lost-response and concurrent duplicate tests cover
+  readiness, start, set and completion at the real HTTP boundary. The simulator test used a
+  temporary SQLite database. The owner confirmed the physical-iPhone Phase 2 checklist on
+  2026-11-07 (iPhone 16 Pro Max, iPhone17,2, iOS 27.2). The live data/coach.db is at schema 0053
+  with both Phase 2 tables; PRAGMA quick_check returned ok. A post-acceptance backup is at
+  data/exports/phase2-post-acceptance-2026-11-07.tar.gz
+  (SHA-256 b919ae0283edef91e31ac1d1d2062537288258818ab707b527caee3be29db9d7), verified by a
+  dry-run import.
+- **Data/decisions:** readiness is the accepted manual field set; the server owns load, sets and
+  RIR; manual mean velocity is a performed observation only; the normal prescription tables remain
+  the audit source; no plan editing on the phone; no offline queue, HealthKit or RPE coercion.
+- **Rollback:** set mutations_enabled: false; drop ios_issued_plan and ios_operation_receipt;
+  remove the Phase 2 routes/client screens and forget the device. Prescriptions/workouts already
+  committed by a started session remain valid.
+- **Residual limitations:** plain HTTP on the trusted LAN only; no HealthKit, offline capture or
+  review screen; personal-team signing expires after 7 days. There is no durable pending-mutation
+  journal, so a response lost before acknowledgement cannot be replayed after app termination;
+  this is deferred as roadmap §4.30 R1. The deferred R1-R6 items are not Phase 2 closure blockers.
+
 No HealthKit integration, training logic or server-behaviour change exists beyond the additive
-Phase 1 facade. Each later phase requires the owner's approval before it starts.
+Phase 1/2 facade. Each later phase requires the owner's approval before it starts.

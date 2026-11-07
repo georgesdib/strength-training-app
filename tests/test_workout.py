@@ -230,6 +230,15 @@ def test_end_materialises_session_and_comparison(conn):
     assert ended["comparison"]["items"][1]["status"] == "missing"
 
 
+def test_a_unique_exercise_is_matched_without_an_explicit_index(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    added = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2,
+    )
+    assert added["sets"][0]["prescription_item_index"] == 0
+
+
 def test_a_duplicate_exercise_is_matched_by_explicit_plan_item_index(conn):
     duplicate = {
         **PLAN,

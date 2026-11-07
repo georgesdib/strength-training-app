@@ -694,6 +694,50 @@ The plaintext code/token never appear in a row, the application log or an error 
 8-digit digest is bounded by the TTL, the five-attempt limit, single use and the database being
 local-only ([IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CONTRACT.md) §4).
 
+## 20. ios_issued_plan / ios_operation_receipt — Phase 2 workflow
+
+Migration 0053_ios_workflow adds the Phase 2 plan/retry boundary. Both tables are additive;
+no training, readiness, prescription or review calculation reads them, and dropping both restores
+the non-iOS server unchanged apart from the already-created prescription/workout rows.
+
+ios_issued_plan:
+
+| column | notes |
+|---|---|
+| issued_plan_id | uuid4 hex, primary key |
+| device_id | references ios_device; device-scoped |
+| prescription_id | references the normal prescription persisted at issue |
+| for_date | server-local YYYY-MM-DD; start is today-only |
+| session_type | resolved session type |
+| plan_json | exact plan shown to the client; never supplied by the phone |
+| readiness_json | validated readiness values for workout.start |
+| readiness_ack | 0/1; explicit start without a complete score |
+| created_at / expires_at | UTC ISO-8601; default 60-minute TTL |
+| consumed_at | set atomically with workout creation |
+| superseded_at | set when a newer issue replaces this live plan |
+| workout_id | references workout_session after start |
+
+A partial unique index permits one live, unstarted plan per device. Issuing supersedes the old
+live plan before inserting the new one. A consumed plan returns its in-progress workout on a
+same-key replay; a completed/abandoned or superseded plan is a 410.
+
+ios_operation_receipt:
+
+| column | notes |
+|---|---|
+| device_id + operation_id | composite primary key; operation UUID normalized lowercase |
+| route | exact request path |
+| request_hash | SHA-256 of canonical JSON body |
+| response_status / response_json | stored 2xx response |
+| created_at / expires_at | UTC ISO-8601; 30-day retention |
+
+Only successful 2xx responses are stored. The receipt lookup and mutation execute in one
+BEGIN IMMEDIATE transaction; a concurrent duplicate waits, finds the committed receipt and
+replays it. A receipt uniqueness race is rolled back and re-read rather than returned as 500.
+A device cannot see another device's plan or receipt. The client keeps its operation UUID and body
+only in memory; a lost response cannot be replayed after app termination until a durable
+pending-mutation journal is added (ROADMAP §4.30 R1).
+
 ## Related
 
 - **UI surface:** [UI-MAP.md](UI-MAP.md)

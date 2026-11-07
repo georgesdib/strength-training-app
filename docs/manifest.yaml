@@ -895,6 +895,14 @@ documents:
   status: design
   audience: maintainer
   nav: false
+- id: design-ios-phase-2-contract
+  path: docs/design/IOS-PHASE-2-CONTRACT.md
+  title: iOS Phase 2 online strength workflow contract
+  description: 'Implemented and remediated Phase 2 contract: readiness write, server-issued prescriptions, start/sets/finish with transactional idempotency, manual VBT, Progress screen, tests, acceptance and rollback'
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
 - id: design-monitoring-config-ui-plan
   path: docs/design/MONITORING-CONFIG-UI-PLAN.md
   title: Monitoring configuration and report-control UI plan
