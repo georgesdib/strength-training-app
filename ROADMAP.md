@@ -1225,6 +1225,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
+| done | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); Phase 2 not started; online strength workflow first; HealthKit readiness before offline capture; Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1560,6 +1561,73 @@ later use needs a separate decision and validation.
 **Prerequisites.** Enough prospective symptom and exposure data, a written pre-registration
 and a separate owner decision to start. Phase 3 is independent of the closed Phase 1–2 plan
 and is not a reason to reopen it.
+
+### 4.29 Native iPhone client — online-first (Phase 0 complete; Phase 1 complete)
+
+**Status:** Phase 0 complete (2026-11-07): an empty SwiftUI app is signed and launches on the
+owner's iPhone under a personal team, the HealthKit capability is verified, the phone reaches the
+server over plain HTTP on the home LAN, and CLI-only pairing was chosen. Phase 1 (native foundation
+and read-only views) is **complete 2026-11-07**: the server side is migration `0052_ios_device`,
+the `strength-coach ios pair/devices/revoke` CLI, the bearer-authenticated read-only
+`/api/ios/v1/` facade and `tests/test_ios_api.py`; the Swift client in the separate
+`StrengthApp` repository provides pairing, Today, History and Settings/Forget with Keychain
+storage, 22 unit tests and a live UI smoke test. It passed on the iPhone 18 Pro simulator and was
+owner-confirmed on the physical iPhone. Phase 2 is not started and needs its own approved contract.
+The first useful release is an online, authenticated native strength-training workflow against the
+owner's local Python server. Durable offline capture, HealthKit and Apple Intelligence
+are later phases, not first-release dependencies. PCC may be a separately enabled Apple AI option;
+it is disabled by default, user-invoked, never an automatic fallback, and never used for HealthKit
+sync. No public cloud service is required for core use. Do not begin a later phase until it is
+approved.
+
+The detailed, repository-grounded plan is [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md).
+Recommendation: a small native SwiftUI client with Python remaining the sole authority for
+readiness scores and prescriptions. Phase 0 and Phase 1 are complete; Phase 2 needs approval. The
+SwiftUI client is its own repository (`StrengthApp`), developed alongside this one rather than as
+an `ios/` subdirectory here. The first release covers pairing, readiness entry, a server prescription,
+online workout capture/completion with session RPE, optional inline form ratings and basic
+history/progress. Opt-in read-only HRV/RHR readiness (Phase 3A) comes before durable offline capture
+(Phase 4), because the server is always on at home; reviewed Apple Workout imports follow, with
+manual values taking precedence. Rubric review stays optional and may arrive after the first
+release. Apple Foundation Models/PCC are optional later tools, never training authorities.
+Third-party Health exporters are not a core dependency; XML is, at most, a later manual history
+backfill.
+
+**Phase 1 completion record (2026-11-07).** Server: migration `0052_ios_device`, the
+`strength-coach ios pair/devices/revoke` CLI, the read-only `/api/ios/v1/` facade, and
+`tests/test_ios_api.py`; the default suite is 1604 tests and `ruff` passes. Client: pairing,
+Today, History and Settings/Forget in the separate `StrengthApp` repository, Keychain storage,
+22 unit tests and an optional live UI smoke test. Verification: the live test passed on the iPhone
+18 Pro simulator against a temporary SQLite database, then the owner confirmed the device checklist
+on the physical iPhone. No existing unversioned route, prescription, workout or readiness record
+changed. Rollback is additive: drop `ios_device` and `ios_pairing_code`, remove the
+`/api/ios/v1/` routes and the `ios` CLI group, and forget/uninstall the client. Residual
+limitations: plain HTTP on the trusted LAN only, no writes in Phase 1, no HealthKit or offline
+capture, and 7-day personal-team signing.
+
+**Release gate:** the current API is unauthenticated HTTP on the home LAN (`LIM-57`). Before the
+phone sends personal workout data, add simple per-device authentication. Keep existing web/CLI
+routes compatible and keep the API on the trusted home LAN over plain HTTP: LAN traffic, including
+the device credential, is unencrypted and the deployment assumes a trusted network with no public
+exposure. No port-forwarding, remote access, TLS/Caddy/internal CA, certificate installation,
+pinning or certificate management is required for this personal deployment; reconsider TLS only if
+the network stops being trusted or remote access is added. No public endpoint, cloud database,
+analytics or telemetry is required. The sole proposed app-network exception is the separately
+enabled Apple PCC AI mode, with per-request context preview/consent; it is not part of the local
+server API. Do not require an elaborate egress-audit project for the core release.
+
+**Proposed phases:** (0) preconditions — complete 2026-11-07: signed empty app under free
+provisioning with a HealthKit capability check, and the phone reaching the server on the home LAN
+(plain HTTP);
+(1) native foundation and read-only views; (2) online strength workflow with readiness, server
+prescription, set logging, completion/session RPE, inline optional form ratings and basic history;
+(3) opt-in HealthKit HRV/RHR readiness inputs, then reviewed Apple Workout/cardio imports and
+source-aware effort mapping; (4) durable offline capture/reconciliation; (5) separately approved
+optional enhancements such as Apple Intelligence on-device/PCC. Implementation order is 0 → 1 → 2
+→ 3A → 4 → 3B → 5. The rubric review screen is optional and may follow the first release. No sleep
+feature is proposed.
+
+Full acceptance criteria and rollback gates are in the plan.
 
 ## 5. Known gaps and risks
 

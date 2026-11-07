@@ -85,6 +85,7 @@ These are known and intentional or still open.
 | `validate --max-dates` | UI button uses 12 dates | partial |
 | `block --force` reset | profile/block form exists; explicit reset path is not first-class | partial |
 | `web` command | the UI is the web server | CLI-only by definition |
+| iOS pairing/devices/revocation | `ios pair`, `ios devices`, `ios revoke` | none | CLI-only by design: the phone never issues or revokes its own credential (IOS-PHASE-1-CONTRACT §6) |
 
 ## 4. UI-only capabilities
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Export and import a complete Strength Coach database between machines.
 
-The transfer is a **full replacement**, not a merge. It is built for the case where one
-machine is authoritative and another is used for development:
+The default transfer is a **full replacement**, not a merge; `--upgrade-fill` is a narrow,
+conservative exception for target-only rows. It is built for the case where one machine is
+authoritative and another is used for development:
 
     # authoritative machine
     python tools/db_transfer.py export --db data/coach.db
@@ -10,12 +11,19 @@ machine is authoritative and another is used for development:
 
     # development machine (stop the web server first)
     python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --force
+    python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --upgrade
+    python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --upgrade-fill
 
 The archive contains exactly two files: a consistent SQLite snapshot and a JSON manifest.
 The manifest records the full applied migration set (version and checksum), the app version,
 the database size and the database SHA-256. Import verifies all of it before replacing
-anything. If any applied migration differs between source and target, the import fails and
-the target is left untouched.
+anything. By default the source and target schemas must match exactly.
+
+Two opt-in modes exist. --upgrade accepts an older source, applies the missing local
+migrations to a copy, and fails on a downgrade or a divergent migration. --upgrade-fill does
+the same and then copies target-only rows into the upgraded copy; it requires the target to
+be at the local migration version and fails whenever a row cannot be matched or copied
+safely. It never overwrites an existing row.
 
 Import never runs while the target has SQLite WAL side files, and it writes an automatic
 backup next to the target before replacing it. The tool does not label either side
@@ -41,6 +49,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from strength_coach.store import db as store_db  # noqa: E402 - ROOT must be on sys.path first
 
 FORMAT = "strength-coach-db-transfer"
 FORMAT_VERSION = 1
@@ -99,6 +109,8 @@ class ImportResult:
     target: SchemaFingerprint
     backup: Path | None
     dry_run: bool
+    upgraded_from: str | None = None
+    filled_rows: int = 0
 
 
 def _sha256(path: Path) -> str:
@@ -149,6 +161,204 @@ def _sidecar_paths(db_path: Path) -> tuple[Path, Path]:
         db_path.with_name(db_path.name + "-wal"),
         db_path.with_name(db_path.name + "-shm"),
     )
+
+
+def _local_fingerprint() -> SchemaFingerprint:
+    migrations = store_db.discover_migrations()
+    return SchemaFingerprint(tuple((item.version, item.checksum) for item in migrations))
+
+
+def _is_ancestor(older: SchemaFingerprint, newer: SchemaFingerprint) -> bool:
+    if len(older.migrations) > len(newer.migrations):
+        return False
+    return older.migrations == newer.migrations[:len(older.migrations)]
+
+
+def _require_ancestor(candidate: SchemaFingerprint, code: SchemaFingerprint, label: str) -> None:
+    if _is_ancestor(candidate, code):
+        return
+    raise TransferError(
+        f"{label} schema is not an ancestor of the local migrations "
+        f"(database {candidate.latest}, code {code.latest}); "
+        "downgrade or divergent migrations are not supported"
+    )
+
+
+def _upgrade_source(source_db: Path, source: SchemaFingerprint, code: SchemaFingerprint) -> SchemaFingerprint:
+    if source == code:
+        return source
+    _require_ancestor(source, code, "source")
+    conn = store_db.connect(source_db)
+    try:
+        store_db.migrate(conn)
+    except store_db.MigrationError as exc:
+        raise TransferError(f"source database upgrade failed: {exc}") from exc
+    finally:
+        conn.close()
+    upgraded = read_fingerprint(source_db)
+    if upgraded != code:
+        raise TransferError(
+            f"source database did not reach the local schema after upgrade "
+            f"(got {upgraded.latest}, expected {code.latest})"
+        )
+    return upgraded
+
+
+def _quote(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _table_names(conn: sqlite3.Connection, schema: str) -> list[str]:
+    rows = conn.execute(
+        f"SELECT name FROM {schema}.sqlite_master "
+        "WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != 'schema_migration' "
+        "ORDER BY name"
+    ).fetchall()
+    return [str(row[0]) for row in rows]
+
+
+def _columns(conn: sqlite3.Connection, schema: str, table: str) -> list[str]:
+    rows = conn.execute(f"PRAGMA {schema}.table_info({_quote(table)})").fetchall()
+    return [str(row[1]) for row in rows]
+
+
+def _primary_key(conn: sqlite3.Connection, schema: str, table: str) -> list[str]:
+    rows = conn.execute(f"PRAGMA {schema}.table_info({_quote(table)})").fetchall()
+    ordered = sorted((row for row in rows if row[5]), key=lambda row: row[5])
+    return [str(row[1]) for row in ordered]
+
+
+def _table_has_insert_trigger(conn: sqlite3.Connection, table: str) -> bool:
+    rows = conn.execute(
+        "SELECT sql FROM main.sqlite_master WHERE type = 'trigger' AND tbl_name = ?",
+        (table,),
+    ).fetchall()
+    return any("INSERT" in (row[0] or "").upper() for row in rows)
+
+
+def _count(conn: sqlite3.Connection, sql: str, params: tuple = ()) -> int:
+    return int(conn.execute(sql, params).fetchone()[0])
+
+
+def _copy_target_only_rows(conn: sqlite3.Connection, table: str, columns: list[str], pks: list[str]) -> int:
+    quoted = ", ".join(_quote(column) for column in columns)
+    join = " AND ".join(f"s.{_quote(pk)} IS t.{_quote(pk)}" for pk in pks)
+    before = conn.total_changes
+    conn.execute(
+        f"INSERT INTO main.{_quote(table)} ({quoted}) "
+        f"SELECT {quoted} FROM target.{_quote(table)} AS t "
+        f"WHERE NOT EXISTS (SELECT 1 FROM main.{_quote(table)} AS s WHERE {join})"
+    )
+    return conn.total_changes - before
+
+
+def _fill_from_target(source_db: Path, target_db: Path, temp_dir: Path) -> int:
+    target_copy = temp_dir / "target-fill.db"
+    shutil.copyfile(target_db, target_copy)
+    conn = sqlite3.connect(str(source_db))
+    try:
+        conn.execute("PRAGMA foreign_keys = OFF")
+        conn.execute("ATTACH DATABASE ? AS target", (str(target_copy),))
+        conn.execute("BEGIN")
+        try:
+            main_tables = _table_names(conn, "main")
+            target_tables = _table_names(conn, "target")
+            if set(main_tables) != set(target_tables):
+                raise TransferError("cannot fill: source and target table sets differ")
+            filled = 0
+            for table in main_tables:
+                columns = _columns(conn, "main", table)
+                if columns != _columns(conn, "target", table):
+                    raise TransferError(f"cannot fill table {table}: column sets differ")
+                quoted = ", ".join(_quote(column) for column in columns)
+                source_count = _count(conn, f"SELECT COUNT(*) FROM main.{_quote(table)}")
+                target_count = _count(conn, f"SELECT COUNT(*) FROM target.{_quote(table)}")
+                pks = _primary_key(conn, "main", table)
+
+                if not pks:
+                    if source_count == 0 and target_count > 0:
+                        if _table_has_insert_trigger(conn, table):
+                            raise TransferError(f"cannot fill table {table}: INSERT trigger present")
+                        before = conn.total_changes
+                        try:
+                            conn.execute(
+                                f"INSERT INTO main.{_quote(table)} ({quoted}) "
+                                f"SELECT {quoted} FROM target.{_quote(table)}"
+                            )
+                        except sqlite3.IntegrityError as exc:
+                            raise TransferError(f"cannot fill table {table}: {exc}") from exc
+                        filled += conn.total_changes - before
+                        continue
+                    extra = _count(
+                        conn,
+                        f"SELECT COUNT(*) FROM (SELECT {quoted} FROM main.{_quote(table)} "
+                        f"EXCEPT SELECT {quoted} FROM target.{_quote(table)})",
+                    )
+                    missing = _count(
+                        conn,
+                        f"SELECT COUNT(*) FROM (SELECT {quoted} FROM target.{_quote(table)} "
+                        f"EXCEPT SELECT {quoted} FROM main.{_quote(table)})",
+                    )
+                    if extra or missing:
+                        raise TransferError(
+                            f"cannot merge table {table} without a primary key"
+                        )
+                    continue
+
+                join = " AND ".join(f"s.{_quote(pk)} IS t.{_quote(pk)}" for pk in pks)
+                source_only = _count(
+                    conn,
+                    f"SELECT COUNT(*) FROM main.{_quote(table)} AS s "
+                    f"WHERE NOT EXISTS (SELECT 1 FROM target.{_quote(table)} AS t WHERE {join})",
+                )
+                if source_only:
+                    raise TransferError(
+                        f"source has {source_only} row(s) that target lacks in {table}; "
+                        "refusing to guess which side is newer"
+                    )
+                non_pk = [column for column in columns if column not in pks]
+                if non_pk:
+                    differs = " OR ".join(
+                        f"s.{_quote(column)} IS NOT t.{_quote(column)}" for column in non_pk
+                    )
+                    conflicts = _count(
+                        conn,
+                        f"SELECT COUNT(*) FROM main.{_quote(table)} AS s "
+                        f"JOIN target.{_quote(table)} AS t ON {join} WHERE {differs}",
+                    )
+                    if conflicts:
+                        raise TransferError(
+                            f"{conflicts} row conflict(s) in {table}; refusing to overwrite either side"
+                        )
+                target_only = _count(
+                    conn,
+                    f"SELECT COUNT(*) FROM target.{_quote(table)} AS t "
+                    f"WHERE NOT EXISTS (SELECT 1 FROM main.{_quote(table)} AS s WHERE {join})",
+                )
+                if target_only:
+                    if _table_has_insert_trigger(conn, table):
+                        raise TransferError(f"cannot fill table {table}: INSERT trigger present")
+                    try:
+                        filled += _copy_target_only_rows(conn, table, columns, pks)
+                    except sqlite3.IntegrityError as exc:
+                        raise TransferError(f"cannot fill table {table}: {exc}") from exc
+
+            problems = conn.execute("PRAGMA main.foreign_key_check").fetchall()
+            if problems:
+                raise TransferError(
+                    f"foreign-key check failed after fill ({len(problems)} row(s)); "
+                    "the target was not changed"
+                )
+            integrity = conn.execute("PRAGMA main.integrity_check").fetchone()
+            if not integrity or integrity[0] != "ok":
+                raise TransferError("integrity check failed after fill; the target was not changed")
+            conn.execute("COMMIT")
+            return filled
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
 
 
 def _snapshot_database(source: Path, destination: Path) -> None:
@@ -361,6 +571,8 @@ def import_database(
     force: bool = False,
     dry_run: bool = False,
     backup_dir: Path | None = None,
+    upgrade: bool = False,
+    fill: bool = False,
 ) -> ImportResult:
     """Verify an archive and replace the target database if every check passes."""
     archive = archive.expanduser().resolve()
@@ -369,6 +581,8 @@ def import_database(
         raise TransferError(f"archive not found: {archive}")
     if not db_path.is_file():
         raise TransferError(f"target database not found: {db_path}; create it before importing")
+    if fill and not upgrade:
+        upgrade = True
 
     _require_not_in_use(db_path)
     with tempfile.TemporaryDirectory(prefix="strength-db-import-") as temp_dir:
@@ -377,7 +591,24 @@ def import_database(
         source_fingerprint = read_fingerprint(source_db)
         _validate_manifest(manifest, source_db, source_fingerprint)
         target_fingerprint = _read_fingerprint_copy(db_path, temp)
-        _require_same_schema(source_fingerprint, target_fingerprint)
+
+        upgraded_from = None
+        filled_rows = 0
+        if upgrade:
+            code = _local_fingerprint()
+            _require_ancestor(source_fingerprint, code, "source")
+            _require_ancestor(target_fingerprint, code, "target")
+            if fill and target_fingerprint != code:
+                raise TransferError(
+                    "--upgrade-fill requires the target to be at the local migration version; "
+                    "upgrade the target database first"
+                )
+            upgraded_from = source_fingerprint.latest if source_fingerprint != code else None
+            source_fingerprint = _upgrade_source(source_db, source_fingerprint, code)
+            if fill:
+                filled_rows = _fill_from_target(source_db, db_path, temp)
+        else:
+            _require_same_schema(source_fingerprint, target_fingerprint)
         _require_not_in_use(db_path)
 
         if dry_run:
@@ -388,6 +619,8 @@ def import_database(
                 target=target_fingerprint,
                 backup=None,
                 dry_run=True,
+                upgraded_from=upgraded_from,
+                filled_rows=filled_rows,
             )
         if not force:
             raise TransferError(
@@ -422,6 +655,8 @@ def import_database(
         target=target_fingerprint,
         backup=backup,
         dry_run=False,
+        upgraded_from=upgraded_from,
+        filled_rows=filled_rows,
     )
 
 
@@ -429,8 +664,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Export or import a complete Strength Coach database (full replacement).",
         epilog=(
-            "Import is destructive: stop the app, verify the source, and pass --force. "
-            "Use --dry-run to check an archive without replacing anything."
+            "Default import requires exact schema equality. --upgrade applies missing local "
+            "migrations to an older source and fails on downgrade. --upgrade-fill also copies "
+            "target-only rows and fails if any row cannot be merged safely. Import is "
+            "destructive: stop the app, verify the source, and pass --force. Use --dry-run "
+            "to check everything without replacing the target."
         ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
@@ -446,6 +684,17 @@ def _build_parser() -> argparse.ArgumentParser:
     imp.add_argument("--backup-dir", type=Path, default=None)
     imp.add_argument("--force", action="store_true", help="required to replace the database")
     imp.add_argument("--dry-run", action="store_true", help="check everything, replace nothing")
+    mode = imp.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--upgrade",
+        action="store_true",
+        help="apply missing local migrations to an older source; fail on downgrade",
+    )
+    mode.add_argument(
+        "--upgrade-fill",
+        action="store_true",
+        help="upgrade, then copy target-only rows; fail if the merge is not safe",
+    )
     return parser
 
 
@@ -469,9 +718,15 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
             dry_run=args.dry_run,
             backup_dir=args.backup_dir,
+            upgrade=args.upgrade or args.upgrade_fill,
+            fill=args.upgrade_fill,
         )
         print(f"Source schema: {result.source.latest}")
         print(f"Target schema: {result.target.latest}")
+        if result.upgraded_from:
+            print(f"Upgraded source: {result.upgraded_from} -> {result.source.latest}")
+        if result.filled_rows:
+            print(f"Filled target-only rows: {result.filled_rows}")
         if result.dry_run:
             print("Dry run: checks passed; target was not changed.")
         else:

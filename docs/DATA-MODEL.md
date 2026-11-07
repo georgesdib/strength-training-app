@@ -661,6 +661,39 @@ intervals. Reads: the trained-week index subtracts every week that contains a br
 DUP cycle and the erector ramp freeze for that week (`DEC-CONTINUITY-04`, `docs/CONTINUITY.md`).
 Nothing else reads this table — no load, RIR or set depends on it.
 
+## 19. `ios_device` / `ios_pairing_code` — iPhone credentials
+
+Migration `0052_ios_device` adds the Phase 1 credential boundary. Both tables are additive and
+nothing in training, readiness, prescription or review reads them; deleting both restores the
+non-iOS server unchanged. Only SHA-256 hex digests are stored: the plaintext code is printed
+once by the CLI and the plaintext token is returned once by the pairing exchange.
+
+`ios_device`:
+
+| column | notes |
+|---|---|
+| device_id | uuid4 hex, primary key |
+| label | device label; default `iPhone`, trimmed to 1-40 characters |
+| token_hash | hex SHA-256 of the bearer token; UNIQUE |
+| created_at | UTC ISO-8601 |
+| last_seen_at | UTC ISO-8601, nullable; updated at most once per 60 seconds |
+| revoked_at | UTC ISO-8601, nullable; set by `strength-coach ios revoke` and never cleared |
+
+`ios_pairing_code`:
+
+| column | notes |
+|---|---|
+| code_hash | hex SHA-256 of the 8-digit code; primary key |
+| created_at | UTC ISO-8601 |
+| expires_at | UTC ISO-8601; default 300 seconds after creation |
+| attempts | failed-exchange count, capped at 5 |
+| used_at | UTC ISO-8601, nullable; single use |
+
+The plaintext code/token never appear in a row, the application log or an error body.
+`last_seen_at` is audit/diagnostic, not an authorization input. The accepted risk of an
+8-digit digest is bounded by the TTL, the five-attempt limit, single use and the database being
+local-only ([IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CONTRACT.md) §4).
+
 ## Related
 
 - **UI surface:** [UI-MAP.md](UI-MAP.md)

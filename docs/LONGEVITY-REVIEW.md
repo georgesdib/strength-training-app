@@ -210,6 +210,26 @@ Cardio scope is Q14 and ROADMAP §4.13. This review only ranks the priorities.
   athlete's current fitness and preferences, neither of which is in the app yet.
 - Nothing here changes the constitution. The strength methodology remains the source of truth.
 
+## 8. Proposed data display extension (not implemented)
+
+The proposed native iPhone client could extend the **descriptive** Cardio/Longevity view with
+selected, source-labelled Apple Health data. This is a display proposal, not a change to cardio
+prescription, readiness-scoring rules, the constitution or the current scope of the app. It may
+surface imported HRV/RHR through the existing readiness inputs and baseline rules, with manual
+values taking precedence as described below.
+
+| display | recommendation | evidence and guardrail |
+|---|---|---|
+| Cardio sessions and minutes | Show observed session count, recorded duration by ISO week/modality, source (manual vs Apple workout), and available HR/distance with data-coverage markers. Keep weeks with no coverage distinct from observed zero. | WHO 150–300 moderate or 75–150 vigorous minutes remains a **population reference**, not an individual prescription. If intensity was not measured/classified, show “recorded cardio time — intensity unknown”; do not count the whole duration as moderate/vigorous. |
+| Steps | Show exact observed daily/weekly values, days covered and a recent median/trend. | A 2025 systematic review of prospective studies found population-level dose-response associations, with nonlinear inflection points around 5,000–7,000 steps/day for several outcomes. A correction was published; do not repeat the original numerical effect estimates until reviewed. This is not a universal step target or a causal inference for one person [#175]. |
+| Cardiorespiratory fitness | Plot exact VO₂max/test observations as method-separated points; label an Apple Watch value as an estimate and show source/date. Do not interpolate or join unlike protocols. | CRF is a strong population-level longevity marker, but consumer-device estimates are not laboratory tests. A living Apple Watch accuracy review found metric-specific, condition-dependent accuracy and sparse VO₂max validation; a small validation study reported underestimation. Treat trends within the same source cautiously [#176–177]. |
+| HRV/resting HR | Show HealthKit observations, selected source/value, freshness and baseline coverage beside the existing readiness result. Use supported HRV/RHR values as inputs to the existing readiness path under its current baseline/minimum-reading rules; manual values override imported values per field regardless of import timing. | Missing permission/sample/history is unknown, not zero or “recovered.” Do not infer subjective ratings or add new weights, thresholds or device-specific readiness scores. The server still computes the score and prescription. |
+| Sleep | Omit from v1. | `METHODOLOGY.md` §6 says sleep is outside this training app's scope. If reconsidered, begin with a descriptive observed-duration trend only; no stage-quality score, coaching, diagnosis or default prescription effect. |
+
+Do not add a “longevity score,” biological age, disease-risk category, causal lifespan claim,
+calorie advice or medical alert. The page should describe what was observed, its source and
+coverage; it should not turn a single-athlete record into a clinical or causal conclusion.
+
 ## Related
 
 - **UI surface:** [UI-MAP.md](UI-MAP.md)

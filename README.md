@@ -98,8 +98,9 @@ use `./setup-venv.sh --locked` for the `requirements.lock` versions.
 
 ## Moving the database between machines
 
-`tools/db_transfer.py` moves `data/coach.db` as a **full replacement**, not a merge. It is for
-the case where one machine is authoritative and another is used for development.
+`tools/db_transfer.py` moves `data/coach.db` as a **full replacement** by default. It is for
+the case where one machine is authoritative and another is used for development;
+`--upgrade-fill` is the narrow exception that can carry target-only rows.
 
 ```bash
 # authoritative machine
@@ -118,10 +119,24 @@ anything** if any migration, checksum or database hash differs. It refuses while
 has SQLite WAL side files, writes a `coach.db.pre-transfer-*` backup beside the target, and
 then replaces the file atomically.
 
+Default import requires the source and target schemas to match exactly. Two opt-in modes are
+available:
+
+- **`--upgrade`** accepts a source that is older than the local code, applies the missing
+  migrations to a copy, and then replaces the target. It fails if the source or target has a
+  migration the local code does not know, or a checksum differs — downgrade and divergence are
+  never applied.
+- **`--upgrade-fill`** does the same, but also copies **target-only rows** into the upgraded
+  source before replacement. It requires the target to already be at the local migration
+  version, and fails if the source has rows the target lacks, if a shared row differs, if a
+  table has no primary key and is not empty, or if a foreign-key/unique/trigger check fails.
+  It never overwrites an existing row.
+
 Neither side is labelled authoritative: you choose which archive to import and must pass
-`--force`. There is no merge and no conflict resolution; anything created only on the target
-is lost unless the automatic backup is restored. The archive contains personal health data
-and is not encrypted, so transfer it over SSH or an encrypted disk.
+`--force`. Default import is a full replacement; `--upgrade-fill` is the only data-fill path,
+and it is deliberately conservative. Anything the fill cannot prove safe aborts before the
+target is touched. The archive contains personal health data and is not encrypted, so
+transfer it over SSH or an encrypted disk.
 
 ## CI and releases
 
