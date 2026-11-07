@@ -588,6 +588,14 @@ documents:
   status: plan
   audience: public
   nav: true
+- id: ios-client-plan
+  path: docs/IOS-CLIENT-PLAN.md
+  title: Native iPhone Client — Local-Only Implementation Plan
+  description: 'proposal only: native local-first workout capture, Python-authoritative API, offline queue, HealthKit options, local-only security, phased implementation and evidence-informed Longevity display'
+  category: plans
+  status: plan
+  audience: public
+  nav: true
 - id: weakness-targeting-plan
   path: docs/WEAKNESS-TARGETING-PLAN.md
   title: Weakness targeting and testing — plan

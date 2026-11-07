@@ -319,6 +319,14 @@ conclusion is weaker than it looks.
 |---|---|---|---|
 | 174 | van Dyk N, Behan FP, Whiteley R. *Including the Nordic hamstring exercise in injury prevention programmes halves the rate of hamstring injuries: a systematic review and meta-analysis of 8459 athletes.* Br J Sports Med, 2019;53(21):1362-1370. PMID 30808663. | 10.1136/bjsports-2018-100045 | Nordic curl roughly halves hamstring injury rates; the reason a knee-flexion accessory is prescribed for a strength-and-longevity goal even though the programme is not hypertrophy-led (`DEC-KNEEFLEX-01`). It supports the exercise choice, not the exact sets, reps or landmarks. |
 
+## 27. Steps and consumer-wearable measurement
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 175 | Ding D, Nguyen B, Nau T, et al. *Daily steps and health outcomes in adults: a systematic review and dose-response meta-analysis.* Lancet Public Health, 2025;10(8):e668-e681. | 10.1016/S2468-2667(25)00164-1; correction: 10.1016/S2468-2667(25)00199-9 | 57 prospective studies (31 meta-analysed); population-level associations, including nonlinear associations around 5,000–7,000 steps/day for selected outcomes. A published correction exists; avoid reusing numerical effect estimates until the correction is reviewed. Observational, with residual confounding and limited age-specific analysis. |
+| 176 | Lambe R, Baldwin M, O’Grady B, et al. *The accuracy of Apple Watch measurements: a living systematic review and meta-analysis.* npj Digital Medicine, 2026;9:63. | 10.1038/s41746-025-02238-1 | 82 validation studies across 14 metrics; accuracy varies by metric, conditions and physiology. Apple Watch consumer estimates should be shown with source/provenance, not treated as clinical results. |
+| 177 | Lambe R, O’Grady B, Baldwin M, Doherty C. *Investigating the accuracy of Apple Watch VO2 max measurements: a validation study.* PLoS One, 2025;20:e0323741. | 10.1371/journal.pone.0323741 | Small validation study (n=30) found underestimation against indirect calorimetry; one study is insufficient to make a general individual correction. Label Apple Watch VO₂max as an estimate and interpret within-source trends cautiously. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow
@@ -335,6 +343,7 @@ claim that the study is definitive; the evidence notes state the limitations.
 - `docs/READINESS-SCORE.md` — global/per-lift readiness evidence and proposal
 - `docs/CORE-TRAINING.md` — core/trunk training evidence and the programme gap
 - `docs/LONGEVITY-REVIEW.md` — modality review against a longevity-first goal
+- `docs/LONGEVITY-REVIEW.md` §8 and `docs/IOS-CLIENT-PLAN.md` — proposed steps/HealthKit display, with wearable-measurement and evidence limits
 - `ROADMAP.md` §4.13 — cardio load and impulse-fatigue model plan
 - `docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md` — variant ratios, weakness assessment and screening
 - `docs/REVERSE-HYPER-BELT-SQUAT-EVIDENCE.md` — reverse hyperextension and belt squat evidence

@@ -1222,6 +1222,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
+| future | Native iPhone local-only client | proposal only; not approved for implementation (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1557,6 +1558,32 @@ later use needs a separate decision and validation.
 **Prerequisites.** Enough prospective symptom and exposure data, a written pre-registration
 and a separate owner decision to start. Phase 3 is independent of the closed Phase 1–2 plan
 and is not a reason to reopen it.
+
+### 4.29 Native iPhone client — local-only proposal (not approved)
+
+**Status:** documentation proposal only; no iOS project, API route, migration or behaviour change
+exists. The owner has explicitly constrained the app to run locally/offline and to communicate
+only with the owner's own local Python server—never an online non-local server. Do not begin
+implementation until the plan is approved.
+
+The detailed, repository-grounded plan is [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md).
+Recommendation: a small native SwiftUI client with Python remaining the sole authority for
+readiness and prescriptions; durable offline workout capture; a versioned authenticated local
+API; and direct read-only HealthKit integration phased after the core workout loop. Third-party
+Health exporters are not a core dependency; XML is, at most, a later manual history backfill.
+
+**Release gate:** the current API is unauthenticated HTTP on the home LAN (`LIM-57`) and the
+server can be configured to call a remote LLM. Before the phone sends health or workout data,
+add local transport/authentication and a regression test that mobile requests cannot trigger
+any non-local LLM/network call. No external analytics, telemetry, cloud sync or public endpoint
+is permitted by the proposal.
+
+**Proposed phases:** (0) confirm target device and prove local TLS/pairing/zero-egress; (1) add
+versioned API, scoped device tokens and idempotent receipts; (2) native shell/local persistence;
+(3) readiness → server prescription → workout capture; (4) durable offline queue/reconciliation;
+(5) cardio capture and opt-in HealthKit cardio-workout import; (6) selected HealthKit metric and
+descriptive Longevity display; (7) optional XML history import/background delivery only if needed.
+Full acceptance criteria and rollback gates are in the plan.
 
 ## 5. Known gaps and risks
 
