@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-11-06 · **v1.3.0 released; v1.4 planned** · version `1.3.0`
+Last updated: 2026-11-07 · **v1.3.0 released; v1.4 planned** · version `1.3.0`
 
 
 ---
@@ -52,7 +52,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.1 beta | Performance + monitoring analysis | **released 2026-10-31 (b2); b1 2026-10-30** | raw e1RM Performance view, rolling median, breaks, degraded observations, dose, configured relative-strength ratios, read-only monitoring analysis, calibration transparency; Phase 5A review follow-up |
 | v1.2 | Stable release + opt-in resolver | **released 2026-11-03** | beta label removed; deterministic template resolver shipped as opt-in (`resolver.enabled` default false) with acceptance audit closed; cardio depth, reproducible impulse/shadow load and comparable calibration depth deferred to v1.4 (§4.13a/§4.14) |
 | v1.3 | UI closure, measurement/readiness cleanup and documentation infrastructure | **released 2026-11-06** | UI redesign P0–P3 closed; body fat moved to measurements with historical migration, readiness inputs cleaned up, measurement chart windows, readiness override beside the score, and the manifest-backed documentation archive; no prescription change |
-| v1.4 | Cardio depth and calibration | **planned** | cardio data audit, reproducible cardio impulse/shadow load and comparable calibration data (§4.13a/§4.14) |
+| v1.4 | Cardio depth and calibration | **planned** | cardio data audit, reproducible cardio impulse/shadow load and comparable calibration data (§4.13a/§4.14); B1 rubric calibration review closed 2026-11-07 |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.4; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
@@ -948,7 +948,7 @@ No automatic cardio load effect and no parent-variant/weakness implementation in
 | phase | deliverable | gate / acceptance |
 |---|---|---|
 | B0. Comparable data | Use Workout mode so prescriptions have snapshots; collect optional per-rep CSV where available | Comparable counts are reported per item, not just mark counts |
-| B1. Review the measurable items | Inspect RIR, weekly spinal cost, redundancy and rotation disagreements first | A written review identifies whether disagreements are rubric, measurement or data-coverage problems |
+| B1. Review the measurable items | **done 2026-11-07** — written review in [RUBRIC-CALIBRATION.md](docs/RUBRIC-CALIBRATION.md); rotation is a definitional split (app-assigned neutral), essential work is coverage-limited | Acceptance met: the review classifies the remaining disagreements as rubric, measurement or data-coverage; no retune |
 | B2. Reach the item gate | Priority gaps: progression, essential work, duration and velocity loss | No rubric retune until each targeted item has enough comparable observations; unknowns stay unknown |
 | B3. Rubric decision | Change a definition/weight only after the gate and a pre-declared review | Decision recorded in DECISIONS; no automatic tuning from the latest report |
 
@@ -990,19 +990,22 @@ No code. Continue reviewing sessions while they are fresh; the rubric report nee
 *remembered* sessions per item before changing a definition or weight (DEC-EVAL-03,
 DEC-EVAL-04). Reconstructed marks are stored but excluded from agreement.
 
-Current state (2026-10-25): **10 high-confidence reviewed sessions**, with **10 high-confidence marks for every rubric item**. The 2026-10-20 session was completed to 8/8. Headline calibration: 40 comparable items, 75% agreement, MAE 0.19; progression and velocity loss remain non-comparable in the report, and rotation is the weakest measurable item. The label-count gate is met; any rubric retune is still a separate decision.
+Current state (2026-11-07): **12 high-confidence reviewed sessions**, every rubric item has a
+mark; **61 comparable items, 84% agreement, MAE 0.12**. RIR 9/89%, weekly spinal 12/92%,
+redundancy 12/92%, rotation 11/64%, form 11/100%; essential work 4/25%, duration 2, progression 0,
+velocity loss 0. **B1 review closed 2026-11-07**: rotation is a definitional split
+(app-assigned labels score neutral), essential work is coverage-limited (imports without a
+snapshot), and no rubric weight or definition is changed. See
+[`docs/RUBRIC-CALIBRATION.md`](docs/RUBRIC-CALIBRATION.md).
 
-**Next action (2026-10-25):** do not retune yet. Review the comparable items first
-(RIR n=7, weekly spinal n=10, redundancy n=10, rotation n=9); progression (n=0), essential
-work (n=3), duration (n=1) and velocity loss (n=0) lack enough engine comparisons because most
-sessions are imports without a prescription snapshot or per-rep detail. Use Workout mode, and
-the optional per-rep CSV, to build comparable sessions before changing a rubric definition or
-weight.
-The web Review page has the **Run rubric calibration** button; the CLI remains
-`strength-coach calibrate`.
+**Next action (2026-11-07):** keep a thin stream of fresh high-confidence marks from live
+workouts; do not backfill old imports for calibration. Run `strength-coach calibrate` (or the
+Review page button) monthly or at the Phase 5A gate, not after every session. B2/B3 remain
+gated to the 2027-01-22 review; no rubric retune before it.
 
-Acceptance: ten high-confidence marks per item before a rubric change; every review appends,
-never edits; the report states the sample size and excludes low-confidence marks.
+Acceptance: the B1/B2/B3 gate — a pre-declared review and enough comparable observations per
+targeted item before a rubric change; every review appends, never edits; the report states the
+sample size and excludes low-confidence marks.
 ### 4.15 Exercise selection adapted to readiness and fatigue  (v0.3; apply + comparability done)
 
 **Status: apply + comparability implemented 2026-10-20; tax metadata, accessory candidates and symptom/readiness suggestions implemented. Plan closed at suggestions + explicit apply; automatic withholding deferred to the 8-week/30-session review.** The selector now carries tax metadata and `symptom` / `stress_readiness` triggers; substitutions remain explicit. See [`READINESS-EXERCISE-SELECTION-PLAN.md`](docs/READINESS-EXERCISE-SELECTION-PLAN.md) and `DEC-SELECT-06`.

@@ -274,6 +274,7 @@ job completes.
 | `docs/SELECTION-COMPARABILITY.md` | evidence and proposed three-class guard for variant substitution |
 | `docs/READINESS-EXERCISE-SELECTION-PLAN.md` | implemented readiness/symptom substitution policy and review panel; automatic withholding deferred |
 | `docs/STRENGTH-PROGRAM-REVIEW.md` | evidence check and critique of the strength programme (review only) |
+| `docs/RUBRIC-CALIBRATION.md` | calibration loop, B1 review outcome, next actions and limits |
 | `docs/VOLUME-MANAGEMENT.md` | MEV/MAV/MRV evidence, configured landmarks, ledger and MRV cap |
 | `docs/archive/NEXT-PHASE-FATIGUE-PLAN.md` | final lean non-cardio fatigue plan: sRPE/duration backfill, descriptive calibration, optional deload; no experiments |
 | `docs/RETROSPECTIVE-VALIDATION.md` | retrospective walk-forward method/result; not prospective; no model adoption |

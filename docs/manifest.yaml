@@ -154,6 +154,14 @@ documents:
   status: evidence
   audience: public
   nav: true
+- id: rubric-calibration
+  path: docs/RUBRIC-CALIBRATION.md
+  title: Rubric calibration — B1 review
+  description: calibration loop, B1 review outcome and what to do next
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
 - id: rules-format
   path: docs/RULES-FORMAT.md
   title: RULES DOCUMENT FORMAT

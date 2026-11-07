@@ -1,6 +1,6 @@
 # LIMITATIONS REGISTER
 
-**Status:** living register, updated 2026-11-06. It is the only public place accepted
+**Status:** living register, updated 2026-11-07. It is the only public place accepted
 limitations are listed; the roadmap keeps no second table. Private historical-data limitations
 are kept in the git-ignored private record only.
 **Purpose:** keep every known limitation from the audits in one place so later work can revisit
@@ -72,6 +72,7 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-61 | Monitoring metrics and assumptions remain provisional until the Phase 5A prospective review (2026-10-30 to 2027-01-22); the current evidence does not establish reliability, calibration validity or practical utility for every metric | open | Phase 5A roadmap; ROADMAP §2A | complete the Phase 5A gate, classify each metric and decide proceed/extend/close before Phase 5B |
 | LIM-63 | Symptom attribution is the athlete's self-reported suspicion, is case-only and is non-causal. It cannot establish which lift caused a symptom, cannot supply a rate or a predictor, and is never read by the injury signal, suitability, selection, load or a prescription | accepted | DEC-INJURY-06, INJURY-ATTRIBUTION-PLAN | keep display-only; any causal or predictive use needs a separate pre-registered design and prospective data |
 | LIM-62 | Per-lift readiness is a retrospective, unvalidated composite, not a measurement. It combines the previous session's e1RM trend, mean RIR and VBT against arbitrary weights (0.20/0.15/0.15, `ASSUMPTION-25`); there is no lift-specific pre-session soreness/pain rating, VBT is sparse and load-dependent, and no prospective study shows that lowering a lift's load on this score improves outcomes. It is downward-only and the global score remains primary | open | DEC-LIFT-READY-01, LIFT-READINESS, W6 | a lift-specific pre-session rating, a standardised velocity check, more measured e1RM tests and a prospective test that a low per-lift score predicts a missed rep or worse session |
+| LIM-64 | Rubric calibration measures agreement with one athlete's fresh marks, not validity. There is no independent marker, inter-rater comparison or prospective outcome, so the 84% headline must not be read as proof that the rubric or its weights are correct | open (inherent) | B1 review / DEC-EVAL-07 | no action before the Phase 5A gate; do not claim validation |
 
 ## Rules
 
