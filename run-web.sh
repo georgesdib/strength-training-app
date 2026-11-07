@@ -132,4 +132,7 @@ if [ "$OPEN_BROWSER" = 1 ]; then
   ARGS+=(--open)
 fi
 
-exec "$PYTHON" -m strength_coach.cli "${DB_ARGS[@]}" web "${ARGS[@]}"
+# bash 3.2 (macOS `/bin/bash`) treats "${arr[@]}" on an empty array as an unbound
+# variable under `set -u`, so both option arrays are optional. ${arr[@]+...} expands to
+# nothing when the array is empty and to the quoted elements otherwise.
+exec "$PYTHON" -m strength_coach.cli ${DB_ARGS[@]+"${DB_ARGS[@]}"} web ${ARGS[@]+"${ARGS[@]}"}

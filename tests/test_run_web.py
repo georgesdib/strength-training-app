@@ -54,6 +54,36 @@ def test_help_shows_the_wrapper_options_and_the_web_options():
     assert "--open" in result.stdout  # from the underlying command
 
 
+def test_a_plain_launch_is_forwarded_without_spurious_arguments(tmp_path: Path):
+    """Regression: an empty option array must not abort the script before the CLI runs.
+
+    macOS ships bash 3.2, where `"${arr[@]}"` on an empty array is an unbound variable under
+    `set -u`. Running `./run-web.sh` with no `--db` (and no forwarded options) used to die on
+    line 135 instead of starting the server, so both empty-array cases are pinned here.
+    """
+    stub = tmp_path / "python-stub"
+    # The launcher first runs `$PYTHON -c 'import ...'`; the stub must accept that and then
+    # print the real argv instead of starting the server.
+    stub.write_text('#!/usr/bin/env bash\nif [ "$1" = "-c" ]; then exit 0; fi\nprintf "%s\\n" "$@"\n')
+    stub.chmod(0o755)
+    env = {**os.environ, "PYTHON": str(stub), "NO_COLOR": "1"}
+
+    for args, expected in (
+        (("--no-open",), ["-m", "strength_coach.cli", "web"]),
+        ((), ["-m", "strength_coach.cli", "web", "--open"]),
+    ):
+        result = subprocess.run(
+            ["bash", str(SCRIPT), *args],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=ROOT,
+            env=env,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.split() == expected, args
+
+
 def test_missing_values_are_rejected_before_starting():
     for flag, expected in (("--db", "--db needs a value"), ("--host", "--host needs a value")):
         result = run_launcher(flag)
