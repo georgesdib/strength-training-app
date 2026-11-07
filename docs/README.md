@@ -71,7 +71,7 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 
 - [HIGH-INTENSITY-EXPOSURE-PLAN.md](HIGH-INTENSITY-EXPOSURE-PLAN.md) (Phase 3 pending)
 - [INJURY-ATTRIBUTION-PLAN.md](INJURY-ATTRIBUTION-PLAN.md) (Phase 3 open)
-- [IOS-CLIENT-PLAN.md](IOS-CLIENT-PLAN.md) (proposal only: online-first strength workflow; offline, HealthKit and Apple Intelligence are later phases)
+- [IOS-CLIENT-PLAN.md](IOS-CLIENT-PLAN.md) (proposal only: online-first strength workflow; HealthKit readiness before offline capture; Apple Intelligence later)
 - [LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md)
 - [WEAKNESS-TARGETING-PLAN.md](WEAKNESS-TARGETING-PLAN.md) (gated)
 

@@ -1225,7 +1225,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
-| future | Native iPhone local-first client | proposal only; online strength workflow first; offline capture and HealthKit later; Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
+| future | Native iPhone online-first client | proposal only; online strength workflow first; HealthKit readiness before offline capture; Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1562,7 +1562,7 @@ later use needs a separate decision and validation.
 and a separate owner decision to start. Phase 3 is independent of the closed Phase 1–2 plan
 and is not a reason to reopen it.
 
-### 4.29 Native iPhone client — local-first proposal (not approved)
+### 4.29 Native iPhone client — online-first proposal (not approved)
 
 **Status:** documentation proposal only; no iOS project, API route, migration or behaviour change
 exists. The first useful release is an online, authenticated native strength-training workflow
@@ -1576,10 +1576,14 @@ The detailed, repository-grounded plan is [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-C
 Recommendation: a small native SwiftUI client with Python remaining the sole authority for
 readiness scores and prescriptions; the first release covers pairing, readiness entry, a server
 prescription, online workout capture/completion with session RPE, and basic history/progress.
-Add durable offline capture in Phase 3; opt-in read-only HRV/RHR readiness and reviewed Apple
-Workout imports in Phase 4, with manual values taking precedence; make post-workout review
-available in the app, with optional marks and server-owned scoring. Apple Foundation Models/PCC
-are optional later tools, never training authorities.
+Start with Phase 0 preconditions: a signed empty app under free provisioning, a HealthKit
+entitlement check, HTTPS on the Odroid with a trusted local certificate, and a rehearsed database
+backup. The first release covers pairing, readiness entry, a server prescription, online workout
+capture/completion with session RPE, optional inline form ratings and basic history/progress.
+Opt-in read-only HRV/RHR readiness (Phase 3A) comes before durable offline capture (Phase 4),
+because the server is always on at home; reviewed Apple Workout imports follow, with manual values
+taking precedence. Rubric review stays optional and may arrive after the first release. Apple
+Foundation Models/PCC are optional later tools, never training authorities.
 Third-party Health exporters are not a core dependency; XML is, at most, a later manual history
 backfill.
 
@@ -1591,12 +1595,15 @@ exception is the separately enabled Apple PCC AI mode, with per-request context 
 it is not part of the local server API. Do not require an elaborate egress-audit or certificate-
 pinning project for the core release.
 
-**Proposed phases:** (1) secure native foundation and read-only views; (2) online strength workflow
-with readiness, server prescription, set logging, completion/session RPE, an in-app review screen
-with optional entries, and basic history; (3)
-durable offline capture/reconciliation; (4) opt-in HealthKit HRV/RHR readiness inputs, then reviewed
-Apple Workout/cardio imports and source-aware effort mapping; (5) separately approved optional
-enhancements such as Apple Intelligence on-device/PCC. No sleep feature is proposed.
+**Proposed phases:** (0) preconditions: signed empty app under free provisioning, HealthKit
+entitlement check, Odroid HTTPS with a trusted local certificate, rehearsed backup; (1) secure
+native foundation and read-only views; (2) online strength workflow with readiness, server
+prescription, set logging, completion/session RPE, inline optional form ratings and basic history;
+(3) opt-in HealthKit HRV/RHR readiness inputs, then reviewed Apple Workout/cardio imports and
+source-aware effort mapping; (4) durable offline capture/reconciliation; (5) separately approved
+optional enhancements such as Apple Intelligence on-device/PCC. Implementation order is 0 → 1 → 2
+→ 3A → 4 → 3B → 5. The rubric review screen is optional and may follow the first release. No sleep
+feature is proposed.
 
 Full acceptance criteria and rollback gates are in the plan.
 
