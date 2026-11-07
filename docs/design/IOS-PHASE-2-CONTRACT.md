@@ -683,7 +683,7 @@ mutations. These are config/contract values, not new training rules.
   journal was added immediately after closure and closed on 2026-11-07 (51 client tests total); it
   replays attempted operations with the original UUID/body and is not an offline queue. R3
   explicit plan-item selection and R5 workout recovery/reconciliation UX were implemented and
-  verified on 2026-11-07. R2, R4 and R6 remain deferred in roadmap §4.30 and are not Phase 2
+  closed on 2026-11-07. R2, R4 and R6 remain deferred in roadmap §4.30 and are not Phase 2
   closure blockers.
 
 ## 17. References

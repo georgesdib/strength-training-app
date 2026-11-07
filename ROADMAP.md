@@ -1645,8 +1645,8 @@ committed by a started session remain valid. Residual limitations: no offline qu
 HealthKit; no plan editing on the phone; and plain HTTP on the trusted LAN. R1's durable
 pending-mutation journal was added immediately after closure (51 client tests), so a lost response
 is replayable after termination within its 28-day window while the server receipt remains. R3
-explicit plan-item selection and R5 recovery/reconciliation UX are implemented; R2, R4 and R6
-remain deferred in roadmap §4.30 and are not Phase 2 closure blockers. Phase 2 is closed
+explicit plan-item selection and R5 recovery/reconciliation UX are implemented and closed; R2, R4
+and R6 remain deferred in roadmap §4.30 and are not Phase 2 closure blockers. Phase 2 is closed
 2026-11-07.
 
 **Release gate:** the existing web/CLI API is unauthenticated HTTP on the home LAN
@@ -1673,23 +1673,22 @@ feature is proposed.
 
 Full acceptance criteria and rollback gates are in the plan.
 
-### 4.30 iOS reliability follow-ups (R1 closed; R3/R5 implemented; R2/R4/R6 deferred)
+### 4.30 iOS reliability follow-ups (R1/R3/R5 closed; R2/R4/R6 deferred)
 
-R1 was implemented and closed on 2026-11-07 after Phase 2 closure: the client now has a durable,
-device-scoped pending-mutation journal. R3 explicit plan-item selection and R5 recovery/
-reconciliation UX were implemented on 2026-11-07. R5 surfaces a server-active workout, a workout
-ended elsewhere, or an unusable prescription with explicit resume/abandon/refresh/clear actions;
-the R1 panel already covers unreplayable pending mutations. Unit and simulator verification pass;
-separate physical-device R1/R3/R5 passes were not performed. R2, R4 and R6 remain planned
-improvements. This work still does not add an unrestricted offline queue, HealthKit, or Phase 3.
+R1, R3 and R5 were implemented and closed on 2026-11-07. R1 provides the durable pending-mutation
+journal; R3 provides explicit plan-item selection for repeated exercises; R5 surfaces a
+server-active workout, a workout ended elsewhere, or an unusable prescription with explicit
+resume/abandon/refresh/clear actions. Unit and simulator verification pass; separate
+physical-device R1/R3/R5 passes were not performed. R2, R4 and R6 remain planned improvements.
+This work still does not add an unrestricted offline queue, HealthKit, or Phase 3.
 
 | id | priority | item | scope / constraints |
 |---|---|---|---|
 | R1 | High | Durable pending-mutation journal — **closed 2026-11-07** | Persists the operation UUID, device/server, mutation kind, target workout/plan id, route, exact encoded request body, creation timestamp and pending/conflict state in Application Support with iOS file protection and backup exclusion. Replays only the original UUID/body; 2xx removes, definitive 4xx removes, idempotency conflicts and terminal states are surfaced, and transport/5xx stay pending. Capped at 16 entries, 30-day retention, 28-day replay window. No unrestricted offline queue; new mutations are blocked while an unresolved operation exists. |
 | R2 | Low | Unstarted issued-plan recovery | Consider a server endpoint returning the device's current unconsumed, non-superseded issued plan, so a relaunched app can restore the preview without issuing a replacement. Never expose another device's plan or permit reuse. |
-| R3 | Medium | Explicit plan-item selection — **implemented 2026-11-07** | When an exercise appears multiple times, the active workout offers a prescription-item picker listing each occurrence; the default remains nil/unattributed. Unique exercises keep automatic attribution. The existing backend explicit-index validation is reused; no schema or API change. Covered by the plan-choice client test. |
+| R3 | Medium | Explicit plan-item selection — **closed 2026-11-07** | When an exercise appears multiple times, the active workout offers a prescription-item picker listing each occurrence; the default remains nil/unattributed. Unique exercises keep automatic attribution. The existing backend explicit-index validation is reused; no schema or API change. Covered by the plan-choice client test. |
 | R4 | Low | Form-rating correction UX | Distinguish an initial rating from a later correction/additional rating. Do not change append-only database semantics without a separate decision. |
-| R5 | Medium | Workout recovery/reconciliation UX — **implemented 2026-11-07** | Today shows a Recovery section when refresh finds a server active workout not represented locally, a local in-progress workout no longer active on the server, or a consumed/expired/superseded prescription. Actions: resume/abandon/dismiss a server workout, refresh/clear stale local state, refresh/dismiss an unusable prescription. A one-read grace prevents false ended-elsewhere states immediately after a local mutation. Unreplayable pending mutations remain in the R1 recovery panel. |
+| R5 | Medium | Workout recovery/reconciliation UX — **closed 2026-11-07** | Today shows a Recovery section when refresh finds a server active workout not represented locally, a local in-progress workout no longer active on the server, or a consumed/expired/superseded prescription. Actions: resume/abandon/dismiss a server workout, refresh/clear stale local state, refresh/dismiss an unusable prescription. A one-read grace prevents false ended-elsewhere states immediately after a local mutation. Unreplayable pending mutations remain in the R1 recovery panel. |
 | R6 | Low | Idempotency operational monitoring | Lightweight diagnostics for replay counts, idempotency conflicts, receipt expiry, unexpected mutation failures and reconciliation failures. No telemetry platform or unnecessary personal data. |
 
 **Recovery boundary after R1:** every attempted mutation is journaled before the HTTP request.
