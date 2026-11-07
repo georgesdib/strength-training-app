@@ -1225,7 +1225,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
-| future | Native iPhone online-first client | proposal only; online strength workflow first; HealthKit readiness before offline capture; Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
+| future | Native iPhone online-first client | Phase 0 complete 2026-11-07; Phase 1 approved; online strength workflow first; HealthKit readiness before offline capture; Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1562,21 +1562,23 @@ later use needs a separate decision and validation.
 and a separate owner decision to start. Phase 3 is independent of the closed Phase 1–2 plan
 and is not a reason to reopen it.
 
-### 4.29 Native iPhone client — online-first proposal (not approved)
+### 4.29 Native iPhone client — online-first (Phase 0 complete; Phase 1 approved)
 
-**Status:** documentation proposal only; no iOS project, API route, migration or behaviour change
-exists. The first useful release is an online, authenticated native strength-training workflow
+**Status:** Phase 0 complete (2026-11-07): an empty SwiftUI app is signed and launches on the
+owner's iPhone under a personal team, the HealthKit capability is verified, the phone reaches the
+server over plain HTTP on the home LAN, and CLI-only pairing was chosen. Phase 1 (native foundation
+and read-only views) is approved; no product code, API route, migration or behaviour change exists
+yet. The first useful release is an online, authenticated native strength-training workflow
 against the owner's local Python server. Durable offline capture, HealthKit and Apple Intelligence
 are later phases, not first-release dependencies. PCC may be a separately enabled Apple AI option;
 it is disabled by default, user-invoked, never an automatic fallback, and never used for HealthKit
-sync. No public cloud service is required for core use. Do not begin implementation until the plan
-is approved.
+sync. No public cloud service is required for core use. Do not begin a later phase until it is
+approved.
 
 The detailed, repository-grounded plan is [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md).
 Recommendation: a small native SwiftUI client with Python remaining the sole authority for
-readiness scores and prescriptions. Start with lightweight Phase 0 preconditions: a signed empty
-app under free provisioning (including a HealthKit capability check) and a phone that reaches the
-server over the home LAN. The first release covers pairing, readiness entry, a server prescription,
+readiness scores and prescriptions. Phase 0 is complete; Phase 1 is the approved next step. The
+first release covers pairing, readiness entry, a server prescription,
 online workout capture/completion with session RPE, optional inline form ratings and basic
 history/progress. Opt-in read-only HRV/RHR readiness (Phase 3A) comes before durable offline capture
 (Phase 4), because the server is always on at home; reviewed Apple Workout imports follow, with
@@ -1596,8 +1598,9 @@ analytics or telemetry is required. The sole proposed app-network exception is t
 enabled Apple PCC AI mode, with per-request context preview/consent; it is not part of the local
 server API. Do not require an elaborate egress-audit project for the core release.
 
-**Proposed phases:** (0) lightweight preconditions: signed empty app under free provisioning with
-a HealthKit capability check, and the phone reaching the server on the home LAN (plain HTTP);
+**Proposed phases:** (0) preconditions — complete 2026-11-07: signed empty app under free
+provisioning with a HealthKit capability check, and the phone reaching the server on the home LAN
+(plain HTTP);
 (1) native foundation and read-only views; (2) online strength workflow with readiness, server
 prescription, set logging, completion/session RPE, inline optional form ratings and basic history;
 (3) opt-in HealthKit HRV/RHR readiness inputs, then reviewed Apple Workout/cardio imports and

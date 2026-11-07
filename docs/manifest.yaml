@@ -599,7 +599,7 @@ documents:
 - id: ios-client-plan
   path: docs/IOS-CLIENT-PLAN.md
   title: Native iPhone Client — Online-First Implementation Plan
-  description: 'proposal only: authenticated online-first native strength workflow with Python-authoritative training; later HealthKit readiness/workout imports with manual-over-import precedence, then offline capture, optional Apple on-device/PCC AI'
+  description: 'Phase 0 complete 2026-11-07; Phase 1 approved; authenticated online-first native strength workflow with Python-authoritative training; later HealthKit readiness/workout imports with manual-over-import precedence, then offline capture, optional Apple on-device/PCC AI'
   category: plans
   status: plan
   audience: public

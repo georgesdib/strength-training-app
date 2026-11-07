@@ -1,6 +1,9 @@
 # Native iPhone Client — Online-First Implementation Plan
 
-**Status:** proposal only; not approved for implementation. Documentation and planning only: this plan does not create an iOS project, API route, migration, or production code.
+**Status:** Phase 0 complete 2026-11-07 (owner-confirmed); Phase 1 (native foundation and read-only
+views) approved 2026-11-07. Later phases remain proposals. No product code, API route or migration
+exists yet; the only build so far is the empty signing-check app. Phase 1 implementation has not
+started.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
 
@@ -57,14 +60,16 @@ HealthKit, Apple Workout import, offline mutation sync, manual cardio, advanced 
 
 ## 4. Phased implementation plan
 
-Each phase is separately reviewable. Add only the endpoints, migrations, client screens, and tests needed for that phase. The first connected vertical slice should be implemented before any offline queue, HealthKit importer, or model feature. Do not begin implementation until the owner approves the plan and the relevant phase.
+Each phase is separately reviewable. Add only the endpoints, migrations, client screens, and tests needed for that phase. The first connected vertical slice should be implemented before any offline queue, HealthKit importer, or model feature. Phase 1 is approved; do not begin a later phase until the owner approves that phase.
 
-**Implementation order (owner decision, 2026-11-07):** Phase 0, then 1, 2, 3A (HealthKit readiness),
-4 (offline), then 3B (Apple Workout imports) and Phase 5. Phase numbers stay stable so existing
-references do not move; the order reflects an always-on home server, where offline capture is
-optional and HealthKit readiness is the reason to build the app.
+**Implementation order (owner decision, 2026-11-07):** Phase 0 is complete; next are 1, 2, 3A
+(HealthKit readiness), 4 (offline), then 3B (Apple Workout imports) and Phase 5. Phase numbers stay
+stable so existing references do not move; the order reflects an always-on home server, where
+offline capture is optional and HealthKit readiness is the reason to build the app.
 
 ### Phase 0 — Preconditions (no app code)
+
+**Status:** complete 2026-11-07 (owner-confirmed): an empty SwiftUI app is signed and launches on the target iPhone under the personal team, the HealthKit capability is verified, the iPhone reaches the server over plain HTTP on the home LAN, and CLI-only pairing was chosen. Network details stay private; the pairing code length, TTL, attempt limit and token lifetime are fixed in the Phase 1 design.
 
 **Goal:** settle the environment facts that can invalidate the architecture before any Swift or
 server work starts. This phase writes no application code, adds no route and changes no data.
@@ -87,6 +92,8 @@ server work starts. This phase writes no application code, adds no route and cha
 phone; the phone reaches the server on the home LAN; the owner has approved Phase 1.
 
 ### Phase 1 — Native Foundation and Read-Only Views
+
+**Status:** approved 2026-11-07; implementation not started.
 
 **Goal:** install a small app that pairs with the owner's server and reads current server information.
 
@@ -312,9 +319,11 @@ Prioritize server contract/domain tests; keep UI tests focused and robust. Add c
 | PCC privacy and availability | Separate future decision; disabled by default, user-invoked, context preview/consent, no health data by default, no core dependency. |
 | Offline complexity | Defer durable offline mutation until an online session loop is proven. Cached reads do not imply the ability to prescribe or sync offline. |
 
-## 11. First task after approval
+## 11. Next task
 
-Complete Phase 0 first: the signed empty app (including the HealthKit capability check) and a phone that reaches the server over the home LAN. Then implement Phase 1 only — pairing and read-only today/history — and prove a paired device can fetch status. Do not begin the workout, HealthKit, offline, cardio, or PCC work before the core iPhone strength workflow is accepted, and take Phase 3A (HealthKit readiness) before Phase 4 (offline).
+Phase 0 is complete. The next task is Phase 1: pairing and read-only today/history over the home
+LAN. Do not begin the workout, HealthKit, offline, cardio, or PCC work before the core iPhone
+strength workflow is accepted, and take Phase 3A (HealthKit readiness) before Phase 4 (offline).
 
 ## 12. References
 
@@ -354,10 +363,10 @@ as part of a rollback.
 
 ## Related repository documents
 
-- [`ROADMAP.md`](../ROADMAP.md) §4.29 — proposal status and phase tracking.
+- [`ROADMAP.md`](../ROADMAP.md) §4.29 — approval status and phase tracking.
 - [`WEB-UI.md`](WEB-UI.md) and archived [`UI-MOBILE-AUDIT.md`](archive/UI-MOBILE-AUDIT.md) — existing responsive client.
 - [`DECISIONS.md`](DECISIONS.md), [`PRIVACY.md`](PRIVACY.md), [`OPEN-QUESTIONS.md`](OPEN-QUESTIONS.md), and [`manifest.yaml`](manifest.yaml).
 
 ## Completion state
 
-This remains a documentation proposal. No iOS application, backend route, migration, HealthKit integration, training logic, or server behavior is implemented by this document. Each implementation phase requires the owner's approval.
+Phase 0 is complete (2026-11-07) and Phase 1 is approved. No product iOS feature, backend route, migration, HealthKit integration, training logic or server behaviour has been implemented; the only artifact is the empty signing-check app. Each later phase requires the owner's approval before it starts.
