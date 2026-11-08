@@ -316,7 +316,7 @@ document version.
 |---|---|
 | item_id PK | |
 | prescription_id FK | |
-| order_index | |
+| order_index | stable plan-item identity within a prescription/workout; live R8 edits preserve it and add assigns the next value |
 | exercise_id | |
 | sets, reps_low, reps_high | |
 | load_kg, load_basis, rounding_increment | |
@@ -591,7 +591,7 @@ straight sets need no backfill.
 | exercise_id / set_index | one set per exercise per index |
 | load_kg / reps / rir / velocity | actual values |
 | source | `manual` \| `import` \| `device` |
-| prescription_item_index | index into the frozen plan, when matched |
+| prescription_item_index | stable plan-item identity (`prescription_item.order_index`), when matched; not the current display position. Legacy rows may hold a position, resolved only by an exact identity or a same-exercise fallback |
 | set_role | nullable `top_set` / `back_off`; ordinary and historical sets stay null (migration 0049) |
 
 `workout_event` records `start`, `add_set`, `update_set`, `remove_set`, `restore_set`, `end`,

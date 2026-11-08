@@ -129,7 +129,7 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
 | `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}, settings?: {session_type?, minimum_session?, minimum_target_minutes?}}` -> `202 {issued_plan_id, status, for_date, request_expires_at, plan_expires_at, retry_after_ms, settings}`; the request is built in the background (R7) |
 | `GET /api/ios/v1/plans/current` | bearer | the authoritative plan-request state: `{status: queued|building|ready|error|none, issued_plan_id, elapsed_seconds, settings, plan?, readiness?, warnings?, error?}`; `none` is a normal answer, not a 404 |
 | `POST /api/ios/v1/workouts` | bearer + Idempotency-Key | `{issued_plan_id}` -> the existing workout detail; starts by id only; expired/superseded/consumed plans are 410, another active workout is 409 |
-| `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, rep_velocities?}` -> workout detail; `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required |
+| `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, rep_velocities?}` -> workout detail; `plan_item_index` is the stable plan-item identity (not the display position); `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required |
 | `POST /api/ios/v1/workouts/<id>/form` | bearer + Idempotency-Key | `{exercise_id, rating 1-5, note?}` -> workout detail |
 | `GET /api/ios/v1/exercises` | bearer | `{exercises:[{id, display, pattern}]}`; canonical catalogue for the R8 picker |
 | `POST /api/ios/v1/workouts/<id>/plan/items/<index>/swap` | bearer + Idempotency-Key | `{exercise_id, expected_exercise_id}` -> workout detail; `409 sets_already_logged` after a set, `409 exercise_already_present`, `409 plan_changed` |
@@ -189,12 +189,14 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
 - **Errors.** Phase 2 conflicts use {"error", "code", "fields", "details"} with codes such as readiness_required,
   confirmation_required, workout_active, plan_expired, plan_superseded, plan_consumed,
   workout_not_active, session_rpe_required and idempotency_conflict. Validation failures remain 400.
-- **Plan-item attribution.** A set's plan_item_index is optional. The client auto-attributes a
+- **Plan-item attribution.** A set's `plan_item_index` is the stable plan-item identity
+  (`order_index`), not its current display position. It is optional. The client auto-attributes a
   unique exercise. When an exercise appears multiple times, the app lists the occurrences and
-  defaults to Not attributed; selecting one sends that explicit index, while leaving it unselected
-  sends nil. The backend accepts an explicit index only when it matches exercise_id, resolves an
-  omitted index only for a unique exercise, and otherwise stores the set with no plan-item
-  attribution.
+  defaults to Not attributed; selecting one sends that stable identity, while leaving it unselected
+  sends nil. For backward compatibility an old display position is accepted only when it names the
+  same exercise. The comparison response exposes `plan_item_index` (stable) and `display_index`
+  (current order). An omitted index resolves only for a unique exercise; otherwise the set keeps no
+  plan-item attribution.
 - **Progress is available to the client in Phase 2.** GET /api/ios/v1/progress is the same
   progress_feature.dashboard payload used by the web UI; the native client has a Progress tab.
 - **Retry boundary.** The client records each attempted mutation in a durable, capped journal

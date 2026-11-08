@@ -877,17 +877,25 @@ def _plan_item_index(workout: Mapping[str, Any], exercise_id: str,
     """
     items = list((workout.get("plan") or {}).get("items") or [])
     if plan_item_index is not None:
-        index = int(plan_item_index)
-        if not 0 <= index < len(items):
-            raise ValueError("plan_item_index is out of range")
-        if str(items[index].get("exercise_id")) != exercise_id:
-            raise ValueError("plan_item_index does not match exercise_id")
-        return index
+        identity = int(plan_item_index)
+        # New clients send the stable identity. Old clients send the display position; accept
+        # that only when it names the same exercise, so a shifted index is never misattributed.
+        for position, item in enumerate(items):
+            if (_item_identity(item, position) == identity
+                    and str(item.get("exercise_id")) == exercise_id):
+                return identity
+        if 0 <= identity < len(items):
+            item = items[identity]
+            if str(item.get("exercise_id")) == exercise_id:
+                return _item_identity(item, identity)
+        raise ValueError("plan_item_index does not match exercise_id")
     matches = [
-        index for index, item in enumerate(items)
+        position for position, item in enumerate(items)
         if str(item.get("exercise_id")) == exercise_id
     ]
-    return matches[0] if len(matches) == 1 else None
+    if len(matches) != 1:
+        return None
+    return _item_identity(items[matches[0]], matches[0])
 
 
 def add_set(
@@ -1083,22 +1091,61 @@ def _editable(workout: dict) -> list[dict]:
     return [dict(item) for item in (workout.get("plan") or {}).get("items") or []]
 
 
+def _item_identity(item: Mapping[str, Any], position: int) -> int:
+    """Stable identity within a workout; legacy rows fall back to their original position.
+
+    Plan edits preserve ``order_index`` and never renumber it. It is therefore an identity,
+    not the item's current display position. Old plan JSON without the field still gets a
+    deterministic identity from its initial order.
+    """
+    return int(item.get("order_index", position))
+
+
+def _row_plan_identity(workout: Mapping[str, Any], row: Mapping[str, Any]) -> int | None:
+    """Resolve a stored set to a stable item identity, including legacy positional rows.
+
+    New rows store the stable identity. Rows written before the identity fix store the list
+    position at write time; when that value no longer names an item of the same exercise, the
+    current position is accepted only if it names the same exercise, which preserves old
+    unmodified workouts without guessing across a moved item.
+    """
+    value = row.get("prescription_item_index")
+    if value is None:
+        return None
+    try:
+        index = int(value)
+    except (TypeError, ValueError):
+        return None
+    items = list((workout.get("plan") or {}).get("items") or [])
+    exercise = str(row.get("exercise_id"))
+    for position, item in enumerate(items):
+        if _item_identity(item, position) == index and str(item.get("exercise_id")) == exercise:
+            return index
+    if 0 <= index < len(items) and str(items[index].get("exercise_id")) == exercise:
+        return _item_identity(items[index], index)
+    return None
+
+
 def _logged_sets_for_item(workout: dict, item_index: int, exercise_id: str) -> tuple[int, int]:
     """Count sets attributed to one item plus same-exercise sets with no attribution.
 
     The second count is deliberately conservative: the phone cannot know which repeated
     exercise occurrence an unattributed set belongs to, so a plan edit must not guess.
     """
+    items = list((workout.get("plan") or {}).get("items") or [])
+    if not 0 <= int(item_index) < len(items):
+        return 0, 0
+    identity = _item_identity(items[int(item_index)], int(item_index))
     attributed = 0
     ambiguous = 0
     for row in workout.get("sets") or []:
         if str(row.get("exercise_id")) != str(exercise_id):
             continue
-        value = row.get("prescription_item_index")
-        if value is None:
-            ambiguous += 1
-        elif int(value) == int(item_index):
+        resolved = _row_plan_identity(workout, row)
+        if resolved == identity:
             attributed += 1
+        elif row.get("prescription_item_index") is None or resolved is None:
+            ambiguous += 1
     return attributed, ambiguous
 
 
@@ -1168,7 +1215,12 @@ def add_exercise(
     sets = max(1, min(20, int(sets)))
     low = max(1, min(50, int(reps_low)))
     high = max(low, min(50, int(reps_high)))
+    next_index = max(
+        (_item_identity(item, position) for position, item in enumerate(items)),
+        default=-1,
+    ) + 1
     item = {
+        "order_index": next_index,
         "exercise_id": new_id,
         "sets": sets,
         "reps_low": low,
@@ -1634,22 +1686,20 @@ def _comparison(workout: Mapping[str, Any], *, original: bool = False) -> dict:
         str(item.get("exercise_id")) for item in items
         if sum(1 for other in items if other.get("exercise_id") == item.get("exercise_id")) > 1
     }
-    def item_index_of(row: Mapping[str, Any]) -> int:
-        value = row.get("prescription_item_index")
-        return -1 if value is None else int(value)
-
     rows = []
     assigned: set[int] = set()
     for index, item in enumerate(items):
+        identity = _item_identity(item, index)
         planned_sets = int(item.get("sets") or 0)
         matching = [
             row for row in actual
-            if item_index_of(row) == index
+            if _row_plan_identity(workout, row) == identity
             and str(row.get("exercise_id")) == str(item.get("exercise_id"))
         ]
         mismatched = [
             row for row in actual
-            if item_index_of(row) == index
+            if row.get("prescription_item_index") is not None
+            and int(row.get("prescription_item_index")) == identity
             and str(row.get("exercise_id")) != str(item.get("exercise_id"))
         ]
         assigned.update(int(row["set_id"]) for row in matching)
@@ -1669,7 +1719,9 @@ def _comparison(workout: Mapping[str, Any], *, original: bool = False) -> dict:
             status = "over"
         rows.append({
             "index": index,
-            "plan_item_index": index,
+            "display_index": index,
+            "plan_item_index": identity,
+            "item_id": identity,
             "exercise_id": item.get("exercise_id"),
             "match_status": match_status,
             "status": status,
@@ -1694,6 +1746,8 @@ def _comparison(workout: Mapping[str, Any], *, original: bool = False) -> dict:
                 "ambiguous" if str(row.get("exercise_id")) in duplicate_exercises
                 else "unavailable"
             )
+        elif _row_plan_identity(workout, row) is None:
+            match_status = "stale_index"
         extra.append({**row, "match_status": match_status})
     return {"items": rows, "extra": extra}
 

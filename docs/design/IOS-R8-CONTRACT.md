@@ -110,6 +110,23 @@ Rules:
   started from, so "what was prescribed" and "what was performed" stay separately reconstructible.
 - No new table, no new column, no migration.
 
+### 5.1 Stable plan-item identity
+
+- Within a workout, each plan item's `order_index` is its **stable identity**. Removal preserves
+  the remaining items' `order_index` values (leaving gaps); swap preserves the item's identity;
+  add assigns `max(order_index) + 1`. There is no reordering in R8, so no renumbering occurs.
+- `workout_set.prescription_item_index` stores that stable identity for new rows. It is **not** the
+  item's current display position. The comparison response carries both `plan_item_index` (stable
+  identity, used for attribution) and `display_index` (current order, for rendering).
+- The set-writing API accepts the stable identity in `plan_item_index`. For backward compatibility,
+  an old client's display position is accepted only when it names an item of the same exercise;
+  ambiguous or stale values are not guessed into an item.
+- Existing rows written before this fix remain readable. Resolution prefers an exact stable
+  identity, then falls back to the same-exercise display position for legacy rows. Unresolved rows
+  stay visible as stale/unavailable, and unattributed rows remain conservatively ambiguous.
+- No historical event or set is rewritten and no migration is required. The item identity is
+  carried in the existing plan JSON and `prescription_item_index` column.
+
 ## 6. Client behaviour
 
 - The active-workout screen gains a per-item menu: **Swap exercise**, **Remove**, **Sets −/+**,
@@ -145,7 +162,10 @@ Rules:
   remove keeps logged sets; last-item and logged-set guards return 409; set count clamps and cannot
   drop below logged sets; ambiguous sets block edits; `expected_exercise_id` mismatch → 409
   `plan_changed`; duplicate swap target → 409; unknown exercise → 400; not in progress → 409;
-  idempotent replay applies once; `plan_json` unchanged; one `workout_event` per edit.
+  idempotent replay applies once; `plan_json` unchanged; one `workout_event` per edit. A dedicated
+  regression logs later-item sets, removes an earlier item, then checks reload-time attribution and
+  the set-count guard against the still-correct logged count. A web regression removes an earlier
+  item and applies a set-count edit to the correct shifted display item.
 - Client: catalogue decodes; the picker sends only the exercise id for add; response re-render after
   an edit keeps the correct item; journaling covers `.planEdit`; no load field is ever sent. The
   live simulator workflow adds an exercise through the authenticated picker.

@@ -643,6 +643,77 @@ def test_ios_remove_last_plan_item_is_blocked(ios):
     assert conflict["code"] == "last_plan_item"
 
 
+def test_ios_removing_an_item_keeps_later_set_identity(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    items = workout["plan"]["items"]
+    assert len(items) >= 2
+    first = items[0]
+    second = items[1]
+    second_identity = second.get("order_index", 1)
+    for index in (1, 2, 3):
+        status, body = _add_set(
+            ios, token, workout["workout_id"], second,
+            set_index=index, plan_item_index=second_identity,
+        )
+        assert status == 200, body
+
+    remove_key = uuid.uuid4().hex
+    status, body = _plan_edit(
+        ios, token, workout["workout_id"], "/items/0/remove",
+        {"expected_exercise_id": first["exercise_id"]}, key=remove_key,
+    )
+    assert status == 200, body
+    status, replay = _plan_edit(
+        ios, token, workout["workout_id"], "/items/0/remove",
+        {"expected_exercise_id": first["exercise_id"]}, key=remove_key,
+    )
+    assert status == 200, replay
+    assert _scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? AND event_type = 'remove_exercise'",
+        (workout["workout_id"],),
+    ) == 1
+    bench = next(
+        item for item in body["comparison"]["items"]
+        if item["exercise_id"] == second["exercise_id"]
+    )
+    assert bench["plan_item_index"] == second_identity
+    assert bench["actual_sets"] == 3
+
+    # Reload through the same authoritative workout read.
+    status, today = _request(ios["base"], "/api/ios/v1/today", token=token)
+    assert status == 200, today
+    reloaded = today["active_workout"]
+    bench = next(
+        item for item in reloaded["comparison"]["items"]
+        if item["exercise_id"] == second["exercise_id"]
+    )
+    assert bench["actual_sets"] == 3
+    assert bench["plan_item_index"] == second_identity
+
+    target = int(second["sets"])
+    assert target >= 4
+    status, conflict = _plan_edit(
+        ios, token, workout["workout_id"], "/items/0/sets",
+        {"delta": 1 - target, "expected_exercise_id": second["exercise_id"]},
+    )
+    assert status == 409, conflict
+    assert conflict["code"] == "sets_below_logged"
+    status, reduced = _plan_edit(
+        ios, token, workout["workout_id"], "/items/0/sets",
+        {"delta": 3 - target, "expected_exercise_id": second["exercise_id"]},
+    )
+    assert status == 200, reduced
+    bench = next(
+        item for item in reduced["plan"]["items"]
+        if item["exercise_id"] == second["exercise_id"]
+    )
+    assert bench["sets"] == 3
+
 def test_ios_manual_set_accepts_optional_per_rep_velocity(ios):
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)

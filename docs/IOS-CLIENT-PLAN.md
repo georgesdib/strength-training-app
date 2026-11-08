@@ -8,11 +8,11 @@
 the Swift client in the separate StrengthApp repository has pairing, Today, History,
 Settings/Forget, readiness entry, prescription preview/start-by-id, active workout,
 completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Keychain storage,
-73 unit tests
+74 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is implemented 2026-11-08;
 physical HealthKit acceptance remains pending and Phase 3B is out of scope. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is **implemented and closed
-2026-11-08**: 73 client tests pass on the iOS 27.2 simulator, the app builds and launches, and the
+2026-11-08**: 74 client tests pass on the iOS 27.2 simulator, the app builds and launches, and the
 live UI flow passed twice — once with the resolver off and once with it on against a copy of the
 real database. R2 is closed as absorbed by R7's `plans/current` read. R8 (active-workout plan editing) is **implemented 2026-11-08**;
 its authenticated exercise-catalogue, online-only and no-solved-load decisions are recorded.
@@ -365,7 +365,7 @@ Next, in this order:
 1. **R7 — implemented and closed 2026-11-08.** Contract:
    [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md). The asynchronous prescription request
    with session-type and minimum-session settings; it fixes the resolver-versus-10-second timeout
-   failure in the Phase 2 prescription path and absorbs R2. Verified by the server suite, 73 client
+   failure in the Phase 2 prescription path and absorbs R2. Verified by the server suite, 74 client
    tests on the iOS 27.2 simulator, and two live UI runs — resolver off, then resolver on against a
    copy of the real database (`202` in 0.1 s, plan ready in 4 s on the development host, full flow
    90.9 s). No physical-device pass is required (§14 decision 4).
@@ -851,6 +851,9 @@ exercise swap, set-count change".
   be removed; ambiguous unattributed sets block edits. Removing an item with logged sets keeps those
   sets and warns first. An expected-exercise guard returns `409 plan_changed` instead of letting a
   stale index edit the wrong lift.
+- A plan item's `order_index` is its stable identity across remove/swap/add; logged sets store it in
+  `prescription_item_index`, so removing an earlier item does not renumber later attributions. The
+  current display position is separate, and legacy positional rows use a same-exercise fallback.
 - The web UI shares the service guards and returns 409 for rejected edits; it does not gain the
   iPhone picker or any new R8 screen.
 - In progress only, idempotent, full workout payload returned; no schema change.
@@ -866,7 +869,7 @@ exercise swap, set-count change".
   deterministic Apple Watch classification, 48-hour HRV / current-day RHR / 30-day bodyweight
   selection, single-flight import, the healthkitReadiness mutation-journal kind, Settings opt-in
   and Today import/provenance display.
-- Verification: 1,660 server tests, 73 client tests, simulator build and the live UI workflow pass.
+- Verification: 1,663 server tests, 74 client tests, simulator build and the live UI workflow pass.
   Physical HealthKit acceptance with real samples remains pending.
 - Rollback: remove the client importer and canonical-merge integration, drop healthkit_readiness
   with the paired 0054/0055 migration rows, and leave readiness_day/readiness_entry untouched.

@@ -491,12 +491,13 @@ function renderWorkout(w) {
   var formById = {};
   (w.forms || []).forEach(function (form) { formById[form.exercise_id] = form; });
   function planSetState(item, index) {
+    var identity = item.order_index != null ? Number(item.order_index) : index;
     var attributed = 0;
     var ambiguous = 0;
     (w.sets || []).forEach(function (row) {
       if (row.exercise_id !== item.exercise_id) return;
       if (row.prescription_item_index == null) ambiguous += 1;
-      else if (Number(row.prescription_item_index) === index) attributed += 1;
+      else if (Number(row.prescription_item_index) === identity) attributed += 1;
     });
     return {
       attributed: attributed,
@@ -617,7 +618,8 @@ function renderWorkout(w) {
   var options = "";
   var previousExercise = $("#workout-set-exercise").value;
   items.forEach(function (item, index) {
-    options += '<option value="' + esc(item.exercise_id) + '" data-plan-index="' + index +
+    options += '<option value="' + esc(item.exercise_id) + '" data-plan-index="' +
+      (item.order_index != null ? Number(item.order_index) : index) +
       '">' + esc(item.exercise_id) + (items.filter(function (other) {
         return other.exercise_id === item.exercise_id;
       }).length > 1 ? " (item " + (index + 1) + ")" : "") + "</option>";

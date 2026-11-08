@@ -1670,6 +1670,33 @@ def test_review_marks_close_the_workout(server):
     assert comparison["trap_bar_deadlift"]["actual_sets"] == 1
 
 
+def test_web_plan_edit_targets_the_correct_item_after_removal(server):
+    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
+    readiness = {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+    data = post(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": plan, "readiness": readiness,
+    })
+    workout_id = data["workout"]["workout_id"]
+    first, second = plan["items"][0], plan["items"][1]
+    removed = post(server, f"/api/workout/{workout_id}/plan/remove-exercise", {
+        "item_index": 0,
+    })["workout"]
+    assert all(item["exercise_id"] != first["exercise_id"] for item in removed["plan"]["items"])
+    index = next(
+        index for index, item in enumerate(removed["plan"]["items"])
+        if item["exercise_id"] == second["exercise_id"]
+    )
+    before = removed["plan"]["items"][index]["sets"]
+    changed = post(server, f"/api/workout/{workout_id}/plan/set-count", {
+        "item_index": index, "delta": 1,
+    })["workout"]
+    assert changed["plan"]["items"][index]["exercise_id"] == second["exercise_id"]
+    assert changed["plan"]["items"][index]["sets"] == before + 1
+
+
 def test_web_plan_edits_reject_actions_that_would_rewrite_logged_sets(server):
     plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
     readiness = {

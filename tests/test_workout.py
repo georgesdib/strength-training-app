@@ -295,6 +295,51 @@ def test_original_comparison_is_unavailable_after_a_plan_swap(conn):
     assert changed["original_comparison"]["items"][0]["match_status"] == "unavailable"
 
 
+def test_removing_an_earlier_item_keeps_later_set_attribution(conn):
+    plan = {
+        "for_date": "2024-01-01",
+        "session_type": "hinge",
+        "items": [
+            {"order_index": 0, "exercise_id": "competition_squat", "sets": 3,
+             "reps_low": 5, "reps_high": 5, "load_kg": 140, "rir_target": 2},
+            {"order_index": 1, "exercise_id": "competition_bench_press", "sets": 5,
+             "reps_low": 5, "reps_high": 5, "load_kg": 100, "rir_target": 2},
+            {"order_index": 2, "exercise_id": "trap_bar_deadlift", "sets": 3,
+             "reps_low": 3, "reps_high": 5, "load_kg": 180, "rir_target": 2},
+        ],
+    }
+    started = workout.start(conn, for_date="2024-01-01", plan=plan, readiness=READINESS)
+    for index in (1, 2, 3):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="competition_bench_press",
+            load_kg=100, reps=5, rir=2, set_index=index, plan_item_index=1,
+        )
+
+    workout.remove_exercise(conn, started["workout_id"], 0)
+    reloaded = workout.get(conn, started["workout_id"])
+    bench = next(
+        item for item in reloaded["comparison"]["items"]
+        if item["exercise_id"] == "competition_bench_press"
+    )
+    assert bench["plan_item_index"] == 1
+    assert bench["actual_sets"] == 3
+    assert bench["status"] == "under"
+
+    # B still has three logged sets, so a reduction to two is rejected; a reduction to
+    # three is valid and an increase remains valid.
+    with pytest.raises(workout.PlanEditConflict, match="below"):
+        workout.change_sets(conn, started["workout_id"], 0, -3)
+    reduced = workout.change_sets(conn, started["workout_id"], 0, -2)
+    assert next(
+        item for item in reduced["plan"]["items"]
+        if item["exercise_id"] == "competition_bench_press"
+    )["sets"] == 3
+    increased = workout.change_sets(conn, started["workout_id"], 0, 1)
+    assert next(
+        item for item in increased["plan"]["items"]
+        if item["exercise_id"] == "competition_bench_press"
+    )["sets"] == 4
+
 def test_swap_is_blocked_after_a_set_is_logged(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
     workout.add_set(
