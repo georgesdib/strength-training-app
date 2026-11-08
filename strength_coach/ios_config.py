@@ -20,6 +20,12 @@ MAX_TTL_SECONDS = 86400
 MIN_RETENTION_DAYS = 1
 MAX_RETENTION_DAYS = 365
 
+# R7: how long a request may sit queued/building before it counts as a failed build. Separate
+# from issued_plan_ttl_seconds, which bounds how long a *ready* preview may be started.
+DEFAULT_PLAN_REQUEST_TTL_SECONDS = 900
+MIN_PLAN_REQUEST_TTL_SECONDS = 60
+MAX_PLAN_REQUEST_TTL_SECONDS = 3600
+
 
 class IOSConfigError(RuntimeError):
     """Malformed or out-of-range ios.v1.yaml; the server fails closed."""
@@ -30,6 +36,7 @@ class IOSConfig:
     mutations_enabled: bool
     issued_plan_ttl_seconds: int
     receipt_retention_days: int
+    plan_request_ttl_seconds: int = DEFAULT_PLAN_REQUEST_TTL_SECONDS
 
 
 def _boolean(value: object, name: str) -> bool:
@@ -61,6 +68,14 @@ def load_config(path: str | Path | None = None) -> IOSConfig:
             receipt_retention_days=_bounded_int(
                 data.get("receipt_retention_days"), "receipt_retention_days",
                 MIN_RETENTION_DAYS, MAX_RETENTION_DAYS,
+            ),
+            # Optional so an existing ios.v1.yaml keeps loading unchanged.
+            plan_request_ttl_seconds=_bounded_int(
+                data.get(
+                    "plan_request_ttl_seconds", DEFAULT_PLAN_REQUEST_TTL_SECONDS
+                ),
+                "plan_request_ttl_seconds",
+                MIN_PLAN_REQUEST_TTL_SECONDS, MAX_PLAN_REQUEST_TTL_SECONDS,
             ),
         )
     except (OSError, yaml.YAMLError, ValueError) as exc:

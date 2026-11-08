@@ -18,8 +18,9 @@ work. They are marked inline and left in place so the accepted Phase 2 record st
 | §8.2 "persist the normal prescription at issue" | [`IOS-R7-CONTRACT.md`](IOS-R7-CONTRACT.md) §8: persist at start |
 | §9 "no plan editing, exercise swap, set-count change" | [`IOS-R8-CONTRACT.md`](IOS-R8-CONTRACT.md) |
 
-R7 is approved for implementation (2026-11-08) and not started; R8 is specified and not approved
-for implementation. The tables above describe approved direction, not current behaviour.
+R7 is implemented (2026-11-08): the async issue route, `GET /api/ios/v1/plans/current`, the
+bounded dispatcher and start-time prescription persistence are current behaviour. R8 is specified
+and not approved for implementation. The marked clauses above keep their accepted text as history.
 
 **Scope:** fixes the exact server surface, data model, client surface, tests, acceptance and
 rollback for Phase 2 of [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md). The plan remains the

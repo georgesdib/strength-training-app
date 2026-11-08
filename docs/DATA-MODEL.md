@@ -726,12 +726,15 @@ Migration 0053_ios_workflow adds the Phase 2 plan/retry boundary. Both tables ar
 no training, readiness, prescription or review calculation reads them, and dropping both restores
 the non-iOS server unchanged apart from the already-created prescription/workout rows.
 
-**Pending change (R7, approved, not implemented).** Migration `0056` rebuilds `ios_issued_plan` as
-a request-and-result row: it adds `status`, `requested_session_type`, `settings_json`, two
-deadlines (`request_expires_at`, `plan_expires_at`), error fields, and a nullable
-`prescription_id`; the legacy rows are preserved with an explicit mapping. The column list below
-describes the Phase 2 table as it exists today; see
-[`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) §3 and §3.1 for the planned shape.
+**R7 rebuild (migration `0056`, implemented 2026-11-08).** `ios_issued_plan` is now a
+request-and-result row: it carries `status` (`queued`, `building`, `ready`, `error`, `skipped`),
+`requested_session_type`, `settings_json`, `build_inputs_json`, two deadlines
+(`request_expires_at`, `plan_expires_at`), error fields, and a nullable `prescription_id` because
+the normal prescription is written in the start transaction rather than at issue. The table below
+keeps the Phase 2 names for continuity; the current shape is
+[`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) §3, and §3.1 records the exact mapping
+used for every existing Phase 2 row (nothing dropped, deadlines reused, consumed/superseded state
+preserved).
 
 ios_issued_plan:
 
@@ -739,13 +742,14 @@ ios_issued_plan:
 |---|---|
 | issued_plan_id | uuid4 hex, primary key |
 | device_id | references ios_device; device-scoped |
-| prescription_id | references the normal prescription persisted at issue |
+| prescription_id | references the normal prescription; NULL for a post-R7 preview until start |
 | for_date | server-local YYYY-MM-DD; start is today-only |
 | session_type | resolved session type |
 | plan_json | exact plan shown to the client; never supplied by the phone |
 | readiness_json | validated readiness values for workout.start |
 | readiness_ack | 0/1; explicit start without a complete score |
-| created_at / expires_at | UTC ISO-8601; default 60-minute TTL |
+| created_at | UTC ISO-8601 |
+| request_expires_at / plan_expires_at | build deadline (default 15 min) and startable deadline (default 60 min, from `ready_at`) |
 | consumed_at | set atomically with workout creation |
 | superseded_at | set when a newer issue replaces this live plan |
 | workout_id | references workout_session after start |

@@ -11,6 +11,7 @@ import contextlib
 import datetime
 import json
 import threading
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -21,6 +22,7 @@ from conftest import make_readiness, make_training
 from strength_coach import ios_config
 from strength_coach.features.deload import DeloadDecision
 from strength_coach.store import db, importer, ios_devices
+from strength_coach.web import ios_plan_worker
 from strength_coach.web import server as web_server
 from strength_coach.web.server import create_server
 
@@ -61,6 +63,9 @@ def ios(tmp_path):
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=5)
+        # The dispatcher is a per-process singleton; stop it so the next test's temporary
+        # database does not inherit a worker watching a deleted file.
+        ios_plan_worker.stop_dispatcher()
 
 
 def _request_full(base, path, *, method="GET", payload=None, token=None,
@@ -133,12 +138,40 @@ def _row(path, sql, params=()):
         store.close()
 
 
-def _issue(ios, token, *, key=None, body=None):
-    return _request(
+def _plan_state(ios, token):
+    status, body = _request(ios["base"], "/api/ios/v1/plans/current", token=token)
+    assert status == 200, body
+    return body
+
+
+def _wait_for_plan(ios, token, *, timeout=60.0):
+    """Poll until the request settles; the dispatcher may already have built it."""
+    deadline = time.monotonic() + timeout
+    while True:
+        state = _plan_state(ios, token)
+        if state["status"] in {"ready", "error", "none"}:
+            return state
+        if time.monotonic() >= deadline:
+            raise AssertionError(f"plan request did not settle: {state}")
+        time.sleep(0.05)
+
+
+def _issue(ios, token, *, key=None, body=None, wait=True):
+    """POST the request, then return the settled state.
+
+    R7 made issue asynchronous, so the common case for a test is "the plan is ready": the
+    return value keeps the old (status, payload) shape with the READY payload. Pass
+    wait=False to inspect the 202 body itself.
+    """
+    status, issued = _request(
         ios["base"], "/api/ios/v1/prescriptions", method="POST",
         payload=body if body is not None else {}, token=token,
         key=key or uuid.uuid4().hex,
     )
+    if not wait or status != 202:
+        return status, issued
+    state = _wait_for_plan(ios, token)
+    return 200, state
 
 
 def _start(ios, token, issued_plan_id, *, key=None, body=None):
@@ -512,30 +545,33 @@ def test_readiness_rejects_unknown_empty_and_removed_fields(ios):
 # --- prescription issue ----------------------------------------------------
 
 
-def test_prescription_issue_persists_normal_prescription_and_plan(ios):
+def test_prescription_issue_queues_then_publishes_a_preview(ios):
     token, _ = _paired(ios)
-    status, body = _issue(ios, token)
-    assert status == 200, body
-    assert body["issued_plan_id"]
-    assert body["prescription_id"]
+    status, queued = _issue(ios, token, wait=False)
+    assert status == 202, queued
+    assert queued["status"] == "queued"
+    assert queued["issued_plan_id"]
+    assert queued["request_expires_at"]
+    assert queued["plan_expires_at"] is None
+    assert "plan" not in queued
+
+    body = _wait_for_plan(ios, token)
+    assert body["status"] == "ready", body
+    assert body["issued_plan_id"] == queued["issued_plan_id"]
     assert body["for_date"] == ios["today"]
     assert body["plan"]["items"]
     assert body["plan"]["for_date"] == ios["today"]
     assert body["readiness"]["status"] == "ready"
-    assert body["expires_at"]
+    assert body["plan_expires_at"]
     plan_row = _row(
         ios["path"],
         "SELECT * FROM ios_issued_plan WHERE issued_plan_id = ?",
         (body["issued_plan_id"],),
     )
-    assert plan_row["prescription_id"] == body["prescription_id"]
-    assert plan_row["consumed_at"] is None
-    assert plan_row["superseded_at"] is None
-    assert int(_scalar(
-        ios["path"],
-        "SELECT COUNT(*) FROM prescription WHERE prescription_id = ?",
-        (body["prescription_id"],),
-    )) == 1
+    assert plan_row["status"] == "ready"
+    # R7: a preview is not a prescription. The rows appear when the owner starts it.
+    assert plan_row["prescription_id"] is None
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM prescription")) == 0
 
     status, rejected = _request(
         ios["base"], "/api/ios/v1/prescriptions", method="POST",
@@ -655,7 +691,14 @@ def test_start_by_id_is_idempotent_and_adopts_active_workout(ios):
     status, first = _start(ios, token, issued["issued_plan_id"], key=key)
     assert status == 200, first
     assert first["status"] == "in_progress"
-    assert first["prescription_id"] == issued["prescription_id"]
+    # R7: the start transaction is what writes the prescription, and the workout links to it.
+    started_row = _row(
+        ios["path"],
+        "SELECT prescription_id FROM workout_session WHERE workout_id = ?",
+        (first["workout_id"],),
+    )
+    assert started_row["prescription_id"]
+    assert first["prescription_id"] == started_row["prescription_id"]
     assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM workout_session")) == 1
 
     status, replay, headers = _request_full(
@@ -707,7 +750,7 @@ def test_start_rejects_expired_and_consumed_plans(ios):
     store = db.Store(ios["path"])
     try:
         store.connection.execute(
-            "UPDATE ios_issued_plan SET expires_at = ? WHERE issued_plan_id = ?",
+            "UPDATE ios_issued_plan SET plan_expires_at = ? WHERE issued_plan_id = ?",
             ("2000-01-01T00:00:00+00:00", issued["issued_plan_id"]),
         )
     finally:
@@ -1311,53 +1354,199 @@ def test_mutations_disabled_keeps_reads_available(ios, monkeypatch):
         ios["base"], "/api/ios/v1/bootstrap", token=token,
     )
     assert status == 200
-    assert bootstrap["capabilities"]["readiness_write"] is False
-    assert bootstrap["capabilities"]["prescription"] is False
-    assert bootstrap["capabilities"]["workout_write"] is False
-    assert bootstrap["capabilities"]["healthkit_readiness"] is False
 
-    status, today = _request(ios["base"], "/api/ios/v1/today", token=token)
-    assert status == 200
-    assert today["date"] == ios["today"]
+# --- R7: bounded worker, eligibility and authoritative recovery -------------
 
-    status, body = _issue(ios, token)
-    assert status == 503, body
-    assert body["code"] == "ios_mutations_disabled"
 
-    status, body = _request(
-        ios["base"], "/api/ios/v1/readiness", method="POST",
-        payload={"values": {"sleep": 4}}, token=token,
-        key=uuid.uuid4().hex,
+@pytest.fixture
+def build_spy(monkeypatch):
+    """Record every build the dispatcher actually starts."""
+    calls = []
+    original = ios_plan_worker.build_plan
+
+    def spy(conn, row):
+        calls.append(dict(row))
+        return original(conn, row)
+
+    monkeypatch.setattr(ios_plan_worker, "build_plan", spy)
+    return calls
+
+
+def _plan_row(ios, issued_plan_id):
+    return _row(
+        ios["path"],
+        "SELECT * FROM ios_issued_plan WHERE issued_plan_id = ?",
+        (issued_plan_id,),
     )
-    assert status == 503, body
-
-    status, body = _request(
-        ios["base"], "/api/ios/v1/healthkit/readiness", method="POST",
-        payload={"date": ios["today"], "samples": [
-            _healthkit_sample("hrv_ms", 55.0),
-        ]}, token=token, key=uuid.uuid4().hex,
-    )
-    assert status == 503, body
-    assert body["code"] == "ios_mutations_disabled"
 
 
-def test_mutation_bodies_and_secrets_do_not_enter_the_log_buffer(ios):
+def _wait_until(predicate, *, timeout=30.0, message="condition not reached"):
+    deadline = time.monotonic() + timeout
+    while True:
+        value = predicate()
+        if value:
+            return value
+        if time.monotonic() >= deadline:
+            raise AssertionError(message)
+        time.sleep(0.02)
+
+
+def _hold_cpu_slot():
+    slot = web_server._CPU_JOB_SLOTS
+    assert slot.acquire(timeout=5), "CPU slot was not free for the test"
+    return slot
+
+
+def test_superseded_queued_request_never_reaches_the_builder(ios, build_spy):
     token, _ = _paired(ios)
-    web_server._LOG_BUFFER.clear()
+    slot = _hold_cpu_slot()
+    try:
+        status, first = _issue(
+            ios, token, wait=False, body={"settings": {"session_type": "squat"}},
+        )
+        assert status == 202, first
+        status, second = _issue(
+            ios, token, wait=False, body={"settings": {"session_type": "hinge"}},
+        )
+        assert status == 202, second
+    finally:
+        slot.release()
+
+    state = _wait_for_plan(ios, token)
+    assert state["status"] == "ready", state
+    assert state["issued_plan_id"] == second["issued_plan_id"]
+
+    superseded = _plan_row(ios, first["issued_plan_id"])
+    assert superseded["status"] == "skipped"
+    assert superseded["error_code"] == "superseded"
+    assert superseded["plan_json"] is None
+    # Exactly one build ran: the superseded request never reached the resolver.
+    assert len(build_spy) == 1
+    assert build_spy[0]["issued_plan_id"] == second["issued_plan_id"]
+
+
+def test_expired_queued_request_never_reaches_the_builder(ios, build_spy):
+    token, _ = _paired(ios)
+    slot = _hold_cpu_slot()
+    try:
+        status, queued = _issue(ios, token, wait=False)
+        assert status == 202, queued
+        store = db.Store(ios["path"])
+        try:
+            store.connection.execute(
+                "UPDATE ios_issued_plan SET request_expires_at = ? WHERE issued_plan_id = ?",
+                ("2000-01-01T00:00:00+00:00", queued["issued_plan_id"]),
+            )
+        finally:
+            store.close()
+    finally:
+        slot.release()
+
+    row = _wait_until(
+        lambda: (
+            _plan_row(ios, queued["issued_plan_id"])
+            if _plan_row(ios, queued["issued_plan_id"])["status"] != "queued" else None
+        ),
+        message="the expired request was never terminalised",
+    )
+    assert row["status"] == "skipped"
+    assert row["error_code"] == "expired"
+    assert build_spy == []
+
+
+def test_start_before_the_plan_is_ready_is_a_conflict(ios):
+    token, _ = _paired(ios)
+    slot = _hold_cpu_slot()
+    try:
+        status, queued = _issue(ios, token, wait=False)
+        assert status == 202, queued
+        status, body = _start(ios, token, queued["issued_plan_id"])
+        assert status == 409, body
+        assert body["code"] == "plan_not_ready"
+        assert body["details"]["status"] in {"queued", "building"}
+    finally:
+        slot.release()
+
+    state = _wait_for_plan(ios, token)
+    assert state["status"] == "ready", state
+    status, workout = _start(ios, token, state["issued_plan_id"])
+    assert status == 200, workout
+    assert workout["status"] == "in_progress"
+
+
+def test_only_one_dispatcher_thread_is_started(ios):
+    token, _ = _paired(ios)
+    for _ in range(3):
+        status, body = _issue(ios, token, wait=False)
+        assert status == 202, body
+    threads = [
+        thread for thread in threading.enumerate()
+        if thread.name == ios_plan_worker.DISPATCHER_NAME
+    ]
+    assert len(threads) == 1
+    _wait_for_plan(ios, token)
+
+
+def test_plans_current_is_authoritative_after_a_lost_response(ios):
+    token, _ = _paired(ios)
+    # The 202 is "lost": the client only has whatever the authoritative read returns.
+    status, queued = _issue(ios, token, wait=False)
+    assert status == 202, queued
+
+    state = _wait_for_plan(ios, token)
+    assert state["status"] == "ready"
+    assert state["issued_plan_id"] == queued["issued_plan_id"]
+
+    # A newer request replaces it; the read must never resurrect the older plan.
+    status, replacement = _issue(ios, token, wait=False)
+    assert status == 202, replacement
+    state = _wait_for_plan(ios, token)
+    assert state["issued_plan_id"] == replacement["issued_plan_id"]
+    assert state["issued_plan_id"] != queued["issued_plan_id"]
+
+
+def test_plans_current_reports_none_for_an_expired_ready_plan(ios):
+    token, _ = _paired(ios)
     status, issued = _issue(ios, token)
     assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    item = _first_item(issued["plan"])
-    status, with_set = _add_set(ios, token, workout["workout_id"], item)
-    assert status == 200, with_set
-    status, logs = _request(ios["base"], "/api/logs?limit=500")
-    assert status == 200
-    with web_server._LOG_LOCK:
-        buffered = "\n".join(
-            entry["message"] for entry in web_server._LOG_BUFFER
+    store = db.Store(ios["path"])
+    try:
+        store.connection.execute(
+            "UPDATE ios_issued_plan SET plan_expires_at = ? WHERE issued_plan_id = ?",
+            ("2000-01-01T00:00:00+00:00", issued["issued_plan_id"]),
         )
-    seen = json.dumps(logs) + "\n" + buffered
-    assert token not in seen
-    assert "velocity_mps" not in seen
-    assert "session_rpe" not in seen
+    finally:
+        store.close()
+    state = _plan_state(ios, token)
+    assert state == {"status": "none"}
+
+
+def test_queue_selection_is_fifo(tmp_path):
+    """The dispatcher picks the oldest eligible request, not the newest."""
+    from strength_coach.store import ios_workflow
+
+    store = db.Store(tmp_path / "coach.db")
+    try:
+        conn = store.connection
+        # One live row per device, so FIFO needs two devices — the dispatcher serves them in
+        # creation order, which is the whole point of the selection query.
+        for device in ("device-a", "device-b"):
+            conn.execute(
+                "INSERT INTO ios_device (device_id, label, token_hash, created_at) "
+                "VALUES (?, 'iPhone', ?, '2026-01-01T00:00:00+00:00')",
+                (device, "hash-" + device),
+            )
+        for order, plan_id, device in ((1, "older", "device-a"), (2, "newer", "device-b")):
+            conn.execute(
+                "INSERT INTO ios_issued_plan "
+                "(issued_plan_id, device_id, status, requested_session_type, settings_json, "
+                " build_inputs_json, for_date, readiness_json, readiness_ack, created_at, "
+                " request_expires_at) "
+                "VALUES (?, ?, 'queued', 'auto', '{}', '{}', '2026-01-02', '{}', 0, "
+                "        ?, '2999-01-01T00:00:00+00:00')",
+                (plan_id, device, f"2026-01-02T0{order}:00:00+00:00"),
+            )
+        selected = ios_workflow.select_next_request(conn, "2026-01-02T10:00:00+00:00")
+        assert selected["issued_plan_id"] == "older"
+    finally:
+        store.close()

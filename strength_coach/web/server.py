@@ -130,7 +130,7 @@ from strength_coach.store import (
 )
 from strength_coach.utils import docs_manifest, exercises, io_utils, paths
 from strength_coach.utils import readiness as readiness_utils
-from strength_coach.web import markdown, validation
+from strength_coach.web import ios_plan_worker, markdown, validation
 from strength_coach.web import options as options_mod
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -249,6 +249,20 @@ def _ios_capabilities() -> dict[str, bool]:
     capabilities["workout_write"] = enabled
     capabilities["healthkit_readiness"] = enabled
     return capabilities
+
+
+def _elapsed_seconds(start_iso: str, end_iso: str) -> int:
+    """Whole seconds between two stored ISO timestamps; never negative, never a guess."""
+    try:
+        start = datetime.datetime.fromisoformat(str(start_iso))
+        end = datetime.datetime.fromisoformat(str(end_iso))
+    except ValueError:
+        return 0
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=datetime.UTC)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=datetime.UTC)
+    return max(0, int((end - start).total_seconds()))
 
 
 def _ios_clock(now: datetime.datetime | None = None) -> dict[str, Any]:
@@ -1005,7 +1019,7 @@ class Handler(BaseHTTPRequestHandler):
         # token and 404 with one, so the facade does not become a route oracle.
         try:
             with db.Store(self.db_path) as store:
-                self._ios_authenticate(store.connection)
+                device = self._ios_authenticate(store.connection)
                 conn = store.connection
                 if path == "/api/ios/v1/bootstrap":
                     payload = {
@@ -1021,7 +1035,13 @@ class Handler(BaseHTTPRequestHandler):
                         "readiness": readiness,
                         "readiness_score": readiness["score"],
                         "active_workout": workout.active_workout(conn),
+                        # R7: lets a cold launch render the plan area in one round trip.
+                        # The client still reconciles against plans/current, which is the
+                        # authoritative read (contract §6).
+                        "plan": self._ios_plan_payload(conn, device),
                     }
+                elif path == "/api/ios/v1/plans/current":
+                    payload = self._ios_plan_payload(conn, device)
                 elif path == "/api/ios/v1/history":
                     params = _ios_history_params(
                         parse_qs(urlparse(self.path).query, keep_blank_values=True)
@@ -1108,8 +1128,11 @@ class Handler(BaseHTTPRequestHandler):
                 elif path == "/api/ios/v1/prescriptions":
                     config = self._ios_require_mutations()
                     body = self._body()
+                    # R7: validated now, built by the dispatcher. 202 so the phone does not
+                    # sit on a socket for the length of a resolver build.
                     self._ios_mutation(
                         conn, device, path, body, config, self._ios_prescription,
+                        status=202,
                     )
                 elif path == "/api/ios/v1/workouts":
                     config = self._ios_require_mutations()
@@ -1183,7 +1206,8 @@ class Handler(BaseHTTPRequestHandler):
             )
 
     def _ios_mutation(self, conn, device: dict, route: str, body: dict,
-                      config: ios_config.IOSConfig, callback) -> None:
+                      config: ios_config.IOSConfig, callback, *,
+                      status: int = 200) -> None:
         raw_key = self.headers.get("Idempotency-Key")
         if raw_key is None:
             raise ios_workflow.IOSWorkflowError(
@@ -1228,7 +1252,7 @@ class Handler(BaseHTTPRequestHandler):
                             operation_id=operation_id,
                             route=route,
                             digest=digest,
-                            status=200,
+                            status=status,
                             payload=result,
                             created_at=ios_workflow.iso(created),
                             expires_at=ios_workflow.iso(
@@ -1267,7 +1291,7 @@ class Handler(BaseHTTPRequestHandler):
                 headers={ios_workflow.RECEIPT_REPLAY_HEADER: "true"},
             )
             return
-        self._json(200, result)
+        self._json(status, result)
 
     def _ios_workout_mutation(self, conn, device: dict, route: str, body: dict,
                               config: ios_config.IOSConfig, workout_id: str,
@@ -1495,9 +1519,67 @@ class Handler(BaseHTTPRequestHandler):
             ) from exc
         return self._readiness(conn, today)
 
+    IOS_SESSION_TYPES = (
+        "auto", "squat", "hinge", "bench_squat", "bench_hinge", "accessory"
+    )
+
+    def _ios_request_settings(self, body: dict) -> dict[str, Any]:
+        """Validate the optional workout settings; closed schema, server-owned defaults.
+
+        The phone chooses an input (which session, whether a minimum session is acceptable);
+        it never chooses a load, an exercise or a prescription. Omitted settings reproduce the
+        Phase 2 behaviour exactly.
+        """
+        raw = body.get("settings")
+        if raw is None:
+            return {"session_type": "auto", "minimum_session": False}
+        if not isinstance(raw, dict):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "settings must be an object",
+                fields={"settings": "must be an object"},
+            )
+        unknown = sorted(
+            set(raw) - {"session_type", "minimum_session", "minimum_target_minutes"}
+        )
+        if unknown:
+            raise ios_workflow.IOSWorkflowError(
+                400, "unknown_field",
+                "unknown setting(s): " + ", ".join(unknown),
+                fields={key: "not accepted" for key in unknown},
+            )
+        session_type = raw.get("session_type", "auto")
+        if not isinstance(session_type, str) or session_type not in self.IOS_SESSION_TYPES:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "session_type is not a known session type",
+                fields={
+                    "session_type": "must be one of "
+                    + ", ".join(self.IOS_SESSION_TYPES)
+                },
+            )
+        minimum = raw.get("minimum_session", False)
+        if not isinstance(minimum, bool):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "minimum_session must be true or false",
+                fields={"minimum_session": "must be true or false"},
+            )
+        settings: dict[str, Any] = {
+            "session_type": session_type, "minimum_session": minimum,
+        }
+        target = raw.get("minimum_target_minutes")
+        if target not in (None, ""):
+            if isinstance(target, bool) or not isinstance(target, int) or not 1 <= target <= 240:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    "minimum_target_minutes must be an integer from 1 to 240",
+                    fields={"minimum_target_minutes": "must be an integer from 1 to 240"},
+                )
+            settings["minimum_target_minutes"] = int(target)
+        return settings
+
     def _ios_prescription(self, conn, device: dict, body: dict) -> dict:
         config = self._ios_require_mutations()
-        self._ios_closed_fields(body, {"readiness_ack", "confirmations"})
+        self._ios_closed_fields(body, {"readiness_ack", "confirmations", "settings"})
+        settings = self._ios_request_settings(body)
         acknowledge = body.get("readiness_ack", False)
         if not isinstance(acknowledge, bool):
             raise ios_workflow.IOSWorkflowError(
@@ -1550,10 +1632,10 @@ class Handler(BaseHTTPRequestHandler):
                 },
             ) from exc
 
+        # Only the scheduled deload needs an owner confirmation. A reactive deload is applied
+        # automatically by the builder and reported in the plan's warnings, so it needs no gate
+        # here — and the builder re-derives both decisions from the same date when it runs.
         resolved = settings_profile.feature_settings(conn, today)
-        reactive = deload_feature.reactive_decision(
-            conn, today, config=resolved.deload
-        )
         scheduled = deload_feature.scheduled_decision(
             conn, today, config=resolved.deload
         )
@@ -1573,28 +1655,9 @@ class Handler(BaseHTTPRequestHandler):
                 details=pending,
             )
 
-        deload_decision = reactive
-        if (
-            deload_decision is None
-            and scheduled is not None
-            and confirmations.get("deload") is True
-        ):
-            deload_decision = scheduled
-        scheduled_suggestion = (
-            scheduled if scheduled is not None and deload_decision is None else None
-        )
-        session_type = schedule_mod.next_session_type(conn, today)
-        prescription = build_prescription(
-            conn,
-            for_date=today,
-            session_type=session_type,
-            deload_decision=deload_decision,
-            drop_confirmed=bool(confirmations.get("drop")),
-        )
-        if scheduled_suggestion is not None:
-            prescription = deload_mod.suggest(prescription, scheduled_suggestion)
-        plan = prescription_dict(prescription)
-
+        # The gates above decided; the build runs in the dispatcher. The deload/drop inputs are
+        # date-based, so re-deriving them seconds later is the same decision; only the owner's
+        # confirmations need freezing, and they go into build_inputs_json.
         day = queries.readiness_day(conn, today) or {}
         readiness_values = {
             field: day[field]
@@ -1606,43 +1669,105 @@ class Handler(BaseHTTPRequestHandler):
         )
         created = ios_workflow.now()
         created_iso = ios_workflow.iso(created)
-        expires_at = ios_workflow.iso(
-            created + datetime.timedelta(seconds=config.issued_plan_ttl_seconds)
+        request_expires_at = ios_workflow.iso(
+            created + datetime.timedelta(seconds=config.plan_request_ttl_seconds)
         )
         issued_plan_id = uuid.uuid4().hex
-        with db.transaction(conn):
-            prescription_id = prescription_persistence.store_plan(conn, plan)
-            ios_workflow.mint_issued_plan(
-                conn,
-                issued_plan_id=issued_plan_id,
-                device_id=device["device_id"],
-                prescription_id=prescription_id,
-                for_date=today,
-                session_type=str(plan["session_type"]),
-                plan_json=json.dumps(plan, separators=(",", ":"), default=str),
-                readiness_json=json.dumps(
-                    clean_readiness, separators=(",", ":"), default=str
-                ),
-                readiness_ack=acknowledge,
-                created_at=created_iso,
-                expires_at=expires_at,
-            )
+        ios_workflow.enqueue_plan_request(
+            conn,
+            issued_plan_id=issued_plan_id,
+            device_id=device["device_id"],
+            for_date=today,
+            requested_session_type=str(settings["session_type"]),
+            settings=settings,
+            build_inputs={
+                "deload_confirmed": confirmations.get("deload") is True,
+                "drop_confirmed": confirmations.get("drop") is True,
+                "readiness_ack": acknowledge,
+            },
+            readiness_json=json.dumps(
+                clean_readiness, separators=(",", ":"), default=str
+            ),
+            readiness_ack=acknowledge,
+            created_at=created_iso,
+            request_expires_at=request_expires_at,
+        )
+        # The queue is the table; this only tells the dispatcher there is something to look at.
+        ios_plan_worker.start_dispatcher(self.db_path, _CPU_JOB_SLOTS)
         return {
             "issued_plan_id": issued_plan_id,
-            "prescription_id": prescription_id,
+            "status": "queued",
             "for_date": today,
-            "session_type": plan["session_type"],
-            "expires_at": expires_at,
-            "plan": plan,
-            "readiness": {
-                "status": assessment.status,
-                "score": assessment.score,
-                "basis": assessment.basis,
-                "overrides": assessment.overrides,
-                "context_flags": list(assessment.context_flags),
-            },
-            "warnings": list(plan.get("warnings") or []),
+            "request_expires_at": request_expires_at,
+            "plan_expires_at": None,
+            "retry_after_ms": self._ios_retry_after("queued"),
+            "settings": settings,
         }
+
+    @staticmethod
+    def _ios_retry_after(status: str) -> int:
+        """Poll guidance: the client's own schedule is the contract, this only seeds it."""
+        if status == "queued":
+            return 1000
+        if status == "building":
+            return 2000
+        return 0
+
+    def _ios_plan_payload(self, conn, device: dict) -> dict:
+        """The authoritative plan-request state for this device (contract §4.2, §6).
+
+        `none` is a normal answer, not a 404: no live request, or a request that expired
+        before it could be built or started. Expired rows are not deleted; they are simply no
+        longer live.
+        """
+        row = ios_workflow.current_plan(conn, device["device_id"])
+        if row is None:
+            return {"status": "none"}
+        status = str(row["status"])
+        now = ios_workflow.now_iso()
+        if status in {"queued", "building"}:
+            if str(row["request_expires_at"]) <= now:
+                return {"status": "none"}
+        elif status == "ready":
+            if row["plan_expires_at"] is not None and str(row["plan_expires_at"]) <= now:
+                return {"status": "none"}
+        elif status == "skipped":
+            return {"status": "none"}
+        payload: dict[str, Any] = {
+            "issued_plan_id": row["issued_plan_id"],
+            "status": status,
+            "for_date": row["for_date"],
+            "elapsed_seconds": _elapsed_seconds(row["created_at"], now),
+            "request_expires_at": row["request_expires_at"],
+            "plan_expires_at": row["plan_expires_at"],
+            "retry_after_ms": self._ios_retry_after(status),
+            "settings": ios_workflow.load_settings(row),
+            "plan": None,
+            "readiness": None,
+            "warnings": [],
+            "error": None,
+        }
+        if status == "ready":
+            plan = json.loads(row["plan_json"])
+            assessment = readiness_score.compute(conn, str(row["for_date"]))
+            payload.update({
+                "session_type": row["session_type"],
+                "plan": plan,
+                "readiness": {
+                    "status": assessment.status,
+                    "score": assessment.score,
+                    "basis": assessment.basis,
+                    "overrides": assessment.overrides,
+                    "context_flags": list(assessment.context_flags),
+                },
+                "warnings": list(plan.get("warnings") or []),
+            })
+        elif status == "error":
+            payload["error"] = {
+                "code": row["error_code"] or "build_failed",
+                "message": row["error_message"] or "the plan could not be built",
+            }
+        return payload
 
     def _ios_start(self, conn, device: dict, body: dict) -> dict:
         self._ios_closed_fields(body, {"issued_plan_id"})
@@ -1656,6 +1781,31 @@ class Handler(BaseHTTPRequestHandler):
         if row is None:
             raise ios_workflow.IOSWorkflowError(
                 404, "plan_not_found", "issued plan not found"
+            )
+        plan_status = str(row["status"])
+        if plan_status in {"queued", "building"}:
+            raise ios_workflow.IOSWorkflowError(
+                409, "plan_not_ready", "the plan is still being generated",
+                details={
+                    "status": plan_status,
+                    "retry_after_ms": self._ios_retry_after(plan_status),
+                },
+            )
+        if plan_status == "error":
+            raise ios_workflow.IOSWorkflowError(
+                410, "plan_failed", "the plan could not be generated",
+                details={
+                    "code": row["error_code"],
+                    "message": row["error_message"],
+                },
+            )
+        if plan_status == "skipped":
+            # Never built: superseded by a newer request, or past its build deadline.
+            raise ios_workflow.IOSWorkflowError(
+                410,
+                "plan_superseded" if row["error_code"] == "superseded" else "plan_expired",
+                "this plan is no longer available",
+                details={"code": row["error_code"]},
             )
         today = datetime.date.today().isoformat()
         if row["for_date"] != today:
@@ -1679,7 +1829,8 @@ class Handler(BaseHTTPRequestHandler):
                     "status": existing["status"] if existing else None,
                 },
             )
-        if row["expires_at"] <= ios_workflow.now_iso():
+        deadline = row["plan_expires_at"] or row["request_expires_at"]
+        if str(deadline) <= ios_workflow.now_iso():
             raise ios_workflow.IOSWorkflowError(
                 410, "plan_expired", "issued plan has expired"
             )
@@ -1693,13 +1844,20 @@ class Handler(BaseHTTPRequestHandler):
         readiness = json.loads(row["readiness_json"])
         try:
             with db.transaction(conn):
+                prescription_id = row["prescription_id"]
+                # A Phase 2 row already carries its prescription. Writing another here would
+                # duplicate append-only history; only a post-R7 preview persists at start.
+                written_prescription = None
+                if prescription_id is None:
+                    written_prescription = prescription_persistence.store_plan(conn, plan)
+                    prescription_id = written_prescription
                 result = workout.start(
                     conn,
                     for_date=row["for_date"],
                     plan=plan,
                     readiness=readiness,
                     session_type=row["session_type"],
-                    prescription_id=row["prescription_id"],
+                    prescription_id=prescription_id,
                     # The issue step already applied the readiness gate: a ready score may have
                     # only the fields it needs, and a non-ready score required an explicit ack.
                     # Re-applying the five-field workout default here rejects a valid ready day.
@@ -1708,6 +1866,7 @@ class Handler(BaseHTTPRequestHandler):
                 consumed = ios_workflow.consume_plan(
                     conn, issued_plan_id, result["workout_id"],
                     ios_workflow.now_iso(),
+                    prescription_id=written_prescription,
                 )
                 if consumed != 1:
                     raise ios_workflow.IOSWorkflowError(
@@ -4727,6 +4886,11 @@ def create_server(db_path: str | Path | None = None, host: str = "127.0.0.1",
     handler = type("BoundHandler", (Handler,), {"db_path": db_path})
     server = ThreadingHTTPServer((host, port), handler)
     server.daemon_threads = True
+    # R7: a build interrupted by the previous process is retried rather than failed — nothing
+    # is published before the guarded publish, so the work can simply run again.
+    with db.Store(db_path) as store:
+        ios_workflow.reset_interrupted(store.connection)
+    ios_plan_worker.start_dispatcher(db_path, _CPU_JOB_SLOTS)
     return server
 
 

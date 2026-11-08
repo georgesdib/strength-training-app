@@ -11,9 +11,9 @@ completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Key
 71 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is implemented 2026-11-08;
 physical HealthKit acceptance remains pending and Phase 3B is out of scope. R7 (asynchronous
-prescription request with session-type and minimum-session settings) is **approved for
-implementation (2026-11-08) and not started**; R8 (active-workout plan editing) is **specified and
-not approved for implementation**. Contracts:
+prescription request with session-type and minimum-session settings) is **implemented 2026-11-08**
+(server verified; the simulator pass is outstanding because this checkout cannot build the client);
+R8 (active-workout plan editing) is **specified and not approved for implementation**. Contracts:
 [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) and
 [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md). Later phases remain proposals and need
 separate approval.
@@ -359,11 +359,11 @@ HealthKit acceptance pending.
 
 Next, in this order:
 
-1. **R7 — approved 2026-11-08, implementation not started.** Contract:
+1. **R7 — implemented 2026-11-08; simulator acceptance outstanding.** Contract:
    [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md). The asynchronous prescription request
    with session-type and minimum-session settings; it fixes the resolver-versus-10-second timeout
-   failure in the Phase 2 prescription path and absorbs R2. Acceptance is simulator plus unit
-   coverage; no physical-device pass is required (§14 decision 4).
+   failure in the Phase 2 prescription path and absorbs R2. The remaining gate is one simulator pass
+   with the resolver enabled; no physical-device pass is required (§14 decision 4).
 2. **R8 — specified, not approved for implementation.** Contract:
    [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md). Swap/add/remove/set-count editing on an
    in-progress workout, reusing the existing Python services. Do not start it before R7 is merged.
@@ -764,7 +764,7 @@ dedicated physical-iPhone R1/R3/R5 passes were not separately performed.
   recovery. The normal live simulator workflow passes. R5 is closed; a separate physical R5 pass
   was not done.
 
-### R7 asynchronous prescription request with workout settings (approved 2026-11-08, not started)
+### R7 asynchronous prescription request with workout settings (implemented 2026-11-08)
 
 **Contract:** [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) — approved decisions, server
 model, routes, polling, tests, acceptance and rollback.
@@ -800,6 +800,11 @@ owner asked for.
   an unstarted preview is a preview and parameter tweaking cannot pollute the prescription history.
 - **Invalidation:** changing settings issues a new request that supersedes the previous row whatever
   its state; the superseded build finishes and is discarded by the guarded publish.
+- **Implemented:** migration `0056`, `web/ios_plan_worker.py` (one dispatcher, two eligibility
+  checks), the `202` issue route, `GET plans/current`, start-time prescription persistence and the
+  client's settings sheet, generating card, polling and foreground reconciliation. Server behaviour
+  is covered by the default suite; the client has not been built in this checkout (no
+  `project.pbxproj`), so the simulator pass remains the R7 gate.
 
 ### R8 active-workout plan editing (specified 2026-11-08, not implemented)
 

@@ -1,8 +1,9 @@
 # iOS R7 — Asynchronous prescription request with workout settings
 
-**Status:** **approved by the owner on 2026-11-08; implementation not started.** Documentation only:
-this contract still creates no code, route, migration or CLI by itself. Implementation begins only
-after this committed document is the reference.
+**Status:** **approved and implemented 2026-11-08.** Migration `0056`, the bounded dispatcher
+(`web/ios_plan_worker.py`), the asynchronous issue route, `GET /api/ios/v1/plans/current` and the
+start-transaction prescription are on `development`. §17 records where the implementation differs
+from the plan below; everything else here is current behaviour.
 
 **Why R7 exists.** Phase 2 issues a prescription by calling `build_prescription` synchronously
 inside the request handler ([server.py](../../strength_coach/web/server.py) `_ios_prescription`).
@@ -586,9 +587,12 @@ Client (unit):
 10. Default suite, docs tests and `ruff` pass; existing Phase 2 behaviour for readiness, sets, form,
     completion and abandon is unchanged.
 
-Accepted on 2026-11-08: criteria 1–9 are demonstrated on the iPhone 18 Pro simulator against a
-temporary SQLite database with the resolver enabled, plus the server and client unit tests. No physical-device pass is required for R7
-closure (§14 decision 4).
+**Implementation status (2026-11-08).** Server criteria 1–3 and 5–10 are covered by
+`tests/test_ios_workflow.py` and `tests/test_migration_0056.py`; the default suite, docs tests and
+`ruff` pass. The client-side criteria (the generating card, polling past 60 s and foreground
+reconciliation) are implemented in the `StrengthApp` sources but have **not** been built or run:
+the checked-out client repository has no `project.pbxproj`, so `xcodebuild` cannot run here. The
+simulator pass is still outstanding and is the remaining R7 gate.
 
 ## 13. Rollback
 
@@ -689,3 +693,28 @@ of what was agreed.
 Remaining known inconsistency, accepted: `docs/DATA-MODEL.md` §20 and `docs/API.md` describe the
 Phase 2 shape until T1 and T4 land. Both carry an explicit pending-change note, so no reader can
 mistake the description for current behaviour.
+
+## 17. Implementation record (2026-11-08)
+
+Where the shipped code differs from the specification above, and why. Everything else is current
+behaviour.
+
+| area | spec | implemented | why |
+|---|---|---|---|
+| storage | status, settings, two deadlines | adds `build_inputs_json` | The client's deload/drop confirmations and readiness acknowledgement must be frozen at request time; the build runs seconds later in another thread. |
+| pre-flight | "name the count and a sample id" | a CHECK/FK failure that `db.migrate` surfaces as `MigrationError` | SQLite cannot raise a custom message with a row count from a migration; the invariant is enforced and the rebuild rolls back, which is the property that matters. |
+| startup sweep | reset `building` to `queued` | same | Nothing is published before the guarded publish, so a retry is safe. |
+| settings validation | accessory coupling returns 400 at request time | accessory sessions surface as a build error (`error_code = resolver_build_failed`) | The coupling lives inside `build_prescription`, which also decides whether the resolver is enabled; pre-validating it here would duplicate a rule. |
+| worker tests | `tests/test_ios_plan_requests.py` | `tests/test_ios_workflow.py` | They share the live-server fixture and the same concerns; a second file would duplicate the fixture. |
+| acceptance | simulator pass | server criteria verified; client not built | No `project.pbxproj` in this checkout, so `xcodebuild` cannot run. |
+
+Client surface added: `PlanSettings`, `PlanRequestAck`, `PlansStateResponse`, `PlanProgress`;
+`IOSAPIClient.planState`; `AppModel` polling with the 1/2/5/10 s schedule, foreground
+reconciliation and the `generating` state; a Today settings sheet, generating card and Stop
+waiting. The client's own unit tests were updated to the new API and fixtures.
+
+## 18. References
+
+- [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md) — phase boundary, invariants, rollback gates.
+- [`IOS-PHASE-2-CONTRACT.md`](IOS-PHASE-2-CONTRACT.md) — the surface this amends.
+- [`API.md`](../API.md), [`DATA-MODEL.md`](../DATA-MODEL.md) — current route and schema reference.
