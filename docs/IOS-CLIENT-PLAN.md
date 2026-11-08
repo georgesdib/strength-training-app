@@ -65,7 +65,7 @@ HealthKit, Apple Workout import, offline mutation sync, manual cardio, advanced 
 
 ## 4. Phased implementation plan
 
-Each phase is separately reviewable. Add only the endpoints, migrations, client screens, and tests needed for that phase. The first connected vertical slice should be implemented before any offline queue, HealthKit importer, or model feature. Phase 1 is in progress; do not begin a later phase until the owner approves that phase.
+Each phase is separately reviewable. Add only the endpoints, migrations, client screens, and tests needed for that phase. The first connected vertical slice should be implemented before any offline queue, HealthKit importer, or model feature. Phases 0–2 and R1/R3/R5 are complete; the Phase 3A contract is draft and awaits approval, so do not begin a later phase until the owner approves that phase.
 
 **Implementation order (owner decision, 2026-11-07):** Phase 0 is complete; next are 1, 2, 3A
 (HealthKit readiness), 4 (offline), then 3B (Apple Workout imports) and Phase 5. Phase numbers stay
@@ -142,22 +142,14 @@ flow, migration, tests and acceptance for this phase.
 
 ### Phase 3 — HealthKit
 
-A separate Phase 3A contract was written on 2026-11-08:
-[`design/IOS-PHASE-3A-CONTRACT.md`](design/IOS-PHASE-3A-CONTRACT.md). It is a draft for owner
-approval; no Phase 3A implementation has started. Phase 3B remains out of scope.
-
 HealthKit is optional and read-only. Ask permissions only when the owner enables the related feature. Never require HealthKit permission to enter readiness or complete a workout.
 
-**Phase 3A: HRV and resting heart rate**
-
-1. Request only HRV and resting-heart-rate read access needed by this use case.
-2. Read available samples/aggregates with source, timestamp, unit and coverage; no sleep duration, sleep stages, or Apple Sleep Score.
-3. Use those values only in the existing HRV/RHR readiness inputs and server scoring path, with existing baseline/minimum-reading requirements and weights unchanged. Do not create a new device score or infer subjective sleep, energy, mood, soreness or stress.
-4. Display value/source/freshness and distinguish “no sample/limited history” from zero. Define an explicit acceptance window per field — for example, the newest HRV sample within 48 hours and the current local day's resting-HR aggregate — and show sample age; a stale sample must never silently represent today's readiness. HealthKit permission is epistemically limited: missing samples are not proof the user denied access.
-5. Add field-level precedence: manual > HealthKit > other imported source. A later HealthKit refresh never overwrites a manual entry; preserve competing observations/provenance as needed.
-6. Add the minimal source/provenance addition to readiness storage/API at implementation time. Existing source labels do not yet provide a HealthKit-specific import contract.
-
-**Acceptance:** with read access, available HRV/RHR flow to the existing server readiness assessment; without samples or permission, fields remain unknown; a manual correction remains selected after later HealthKit imports; baseline eligibility and score behavior match existing Python rules; no sleep data is requested or consumed.
+**Phase 3A: HRV and resting heart rate.** The authoritative specification is
+[design/IOS-PHASE-3A-CONTRACT.md](design/IOS-PHASE-3A-CONTRACT.md). The owner approved the
+Phase 3A scope on 2026-11-08; the contract remains draft pending approval, and no implementation
+has started. The contract fixes the canonical effective-readiness merge, sample identity,
+Apple Watch classification, permission-state wording, single-flight import, authoritative refresh,
+tests and rollback. Do not duplicate or vary those rules here. Phase 3B remains separate below.
 
 **Phase 3B: Apple Workout summaries and related cardio data, if useful**
 
@@ -312,10 +304,14 @@ Prioritize server contract/domain tests; keep UI tests focused and robust. Add c
 
 ### Phase 3
 
-- HealthKit unavailable/disabled/no-sample/limited-history cases remain unknown, not zero. Test manual-over-HealthKit precedence, source/timestamp display, and that a sample outside the acceptance window is not presented as today's value.
-- Existing readiness baselines and score are unchanged. Do not request or process sleep data.
-- Repeated workout import is idempotent; no inferred strength sets; ambiguous association remains separate.
-- Apple effort can be selected only for an explicit match and empty manual sRPE; later manual sRPE wins; provenance remains queryable; no prescription/rubric changes.
+Phase 3A: the contract's section 7 traceability and section 8 acceptance are authoritative; do
+not duplicate that matrix here. The minimum gates are the observable states (featureDisabled,
+unavailable, enabled, noEligibleSample, eligibleSample, staleSample, importError), manual-over-
+HealthKit precedence through the canonical effective-readiness merge, sample identity and
+single-flight import, authoritative refresh after acknowledgement, and no sleep/score changes.
+Phase 3B, a separate contract, must additionally prove repeated workout import idempotency, no
+inferred strength sets, separate ambiguous association, explicit Apple-effort provenance, manual
+sRPE precedence and no prescription/rubric changes.
 
 ### Phase 4
 
