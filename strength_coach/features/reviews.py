@@ -275,16 +275,7 @@ def _srpe_task(conn, on_date: str, cfg: dict) -> ReviewTask:
 def _baseline_task(conn, on_date: str, cfg: dict) -> ReviewTask:
     days = int(cfg.get("window_days", 28))
     start = (dt.date.fromisoformat(on_date) - dt.timedelta(days=days)).isoformat()
-    n = conn.execute(
-        """
-        SELECT COUNT(*) AS n FROM (
-            SELECT on_date FROM readiness_day WHERE on_date BETWEEN ? AND ?
-            UNION
-            SELECT on_date FROM readiness_entry WHERE on_date BETWEEN ? AND ?
-        )
-        """,
-        (start, on_date, start, on_date),
-    ).fetchone()[0]
+    n = len(queries.readiness_dates(conn, start, on_date))
     minimum = int(cfg.get("minimum_readings", 10))
     status = "ok" if n >= minimum else "insufficient"
     return ReviewTask(

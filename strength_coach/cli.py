@@ -95,12 +95,13 @@ from strength_coach.store import (
     db,
     exercise_admin,
     importer,
+    ios_devices,
     queries,
     repositories,
     symptom_attribution,
 )
 from strength_coach.trace import RunTrace
-from strength_coach.utils import io_utils, paths
+from strength_coach.utils import io_utils, ios_credentials, paths
 from strength_coach.utils import readiness as readiness_utils
 
 READINESS_CLI_FIELDS = {field: field for field in readiness_utils.INPUT_SCORE_FIELDS}
@@ -546,6 +547,16 @@ def main(argv: list[str] | None = None) -> int:
     measure.add_argument("--note", default=None)
     measure.add_argument("--show", action="store_true", help="show the summary")
 
+    ios = sub.add_parser("ios", help="pair, list or revoke iPhone devices")
+    ios_sub = ios.add_subparsers(dest="ios_action", required=True)
+    ios_pair = ios_sub.add_parser("pair", help="mint a one-use pairing code")
+    ios_pair.add_argument("--label", default=None, help="device label (default: iPhone)")
+    ios_pair.add_argument("--ttl", type=int, default=ios_credentials.DEFAULT_TTL_SECONDS,
+                          help="code lifetime in seconds (60-3600; default 300)")
+    ios_sub.add_parser("devices", help="list paired devices")
+    ios_revoke = ios_sub.add_parser("revoke", help="revoke one device")
+    ios_revoke.add_argument("device_id", help="device id shown by 'ios devices'")
+
     web = sub.add_parser("web", help="serve the web UI on the home network")
     web.add_argument("--host", default="0.0.0.0",
                      help="bind address (default 0.0.0.0; no authentication, home network only)")
@@ -601,6 +612,7 @@ def main(argv: list[str] | None = None) -> int:
         "block": _cmd_block,
         "break": _cmd_break,
         "readiness": _cmd_readiness,
+        "ios": _cmd_ios,
         "web": _cmd_web,
     }
     try:
@@ -1422,6 +1434,58 @@ def _cmd_programme(args) -> int:
             if p.warnings:
                 print(f"  warnings: {len(p.warnings)} (the day's run will show them)")
         return 0
+    finally:
+        store.close()
+
+
+def _cmd_ios(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        if args.ios_action == "pair":
+            try:
+                # The code row has no label column (contract §4), so --label is validated
+                # and echoed as a reminder; the app sends the label it stores at pairing.
+                label = ios_credentials.normalize_label(args.label)
+                minted = ios_devices.mint_pairing_code(
+                    conn, ttl_seconds=args.ttl,
+                )
+            except ValueError as exc:
+                print(str(exc))
+                return 2
+            code = minted["code"]
+            # Grouped for reading; the HTTP exchange strips the space. The plaintext code is
+            # shown once and only its hash is stored.
+            print(f"pairing code: {code[:4]} {code[4:]}")
+            print(f"expires at:   {minted['expires_at']} ({minted['ttl_seconds']}s)")
+            print(f"device label: {label} (enter it in the app if it differs)")
+            print("enter the code in the iPhone app; it works once")
+            return 0
+        if args.ios_action == "devices":
+            rows = ios_devices.list_devices(conn)
+            if not rows:
+                print("no paired devices")
+                return 0
+            print(f"{'device_id':32}  {'label':20}  created_at  last_seen_at  revoked_at")
+            for row in rows:
+                print(
+                    f"{row['device_id']:32}  {row['label']:20}  "
+                    f"{row['created_at']}  {row['last_seen_at'] or '-'}  "
+                    f"{row['revoked_at'] or '-'}"
+                )
+            return 0
+        if args.ios_action == "revoke":
+            result = ios_devices.revoke_device(conn, args.device_id)
+            if result is None:
+                print(f"unknown device: {args.device_id}")
+                return 2
+            if result["already_revoked"]:
+                print(f"already revoked: {result['device_id']} ({result['revoked_at']})")
+            else:
+                print(f"revoked: {result['device_id']} ({result['revoked_at']})")
+            return 0
+        print("unknown ios action")
+        return 2
     finally:
         store.close()
 

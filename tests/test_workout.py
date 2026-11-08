@@ -230,6 +230,15 @@ def test_end_materialises_session_and_comparison(conn):
     assert ended["comparison"]["items"][1]["status"] == "missing"
 
 
+def test_a_unique_exercise_is_matched_without_an_explicit_index(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    added = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2,
+    )
+    assert added["sets"][0]["prescription_item_index"] == 0
+
+
 def test_a_duplicate_exercise_is_matched_by_explicit_plan_item_index(conn):
     duplicate = {
         **PLAN,
@@ -274,15 +283,155 @@ def test_an_explicit_plan_item_index_must_match_the_exercise(conn):
 
 def test_original_comparison_is_unavailable_after_a_plan_swap(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    changed = workout.swap_exercise(
+        conn, started["workout_id"], 0, "conventional_deadlift",
+    )
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="conventional_deadlift",
+        load_kg=100, reps=5, rir=2, plan_item_index=0,
+    )
+    changed = workout.get(conn, started["workout_id"])
+    assert changed["comparison"]["items"][0]["match_status"] == "matched"
+    assert changed["original_comparison"]["items"][0]["match_status"] == "unavailable"
+
+
+def test_sets_and_end_preserve_explicit_local_timestamps(conn):
+    import datetime as dt
+
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    start = dt.datetime.fromisoformat(started["started_at"])
+    performed = start + dt.timedelta(seconds=1)
+    changed = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2, set_index=1, plan_item_index=0,
+        performed_at=performed.isoformat(),
+    )
+    assert changed["sets"][0]["created_at"].startswith(
+        performed.astimezone(dt.UTC).isoformat(timespec="milliseconds")[:19]
+    )
+
+    with pytest.raises(ValueError, match="before the workout start"):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=100, reps=5, rir=2, set_index=2, plan_item_index=0,
+            performed_at=(start - dt.timedelta(seconds=1)).isoformat(),
+        )
+    with pytest.raises(ValueError, match="future"):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=100, reps=5, rir=2, set_index=2, plan_item_index=0,
+            performed_at=(dt.datetime.now(dt.UTC) + dt.timedelta(minutes=5)).isoformat(),
+        )
+
+    now = dt.datetime.now(dt.UTC)
+    conn.execute(
+        "UPDATE workout_session SET started_at = ? WHERE workout_id = ?",
+        ((now - dt.timedelta(minutes=10)).isoformat(), started["workout_id"]),
+    )
+    with pytest.raises(ValueError, match="before the workout start"):
+        workout.end(
+            conn, started["workout_id"], session_rpe=7, not_recorded=False,
+            ended_at=(now - dt.timedelta(minutes=20)).isoformat(),
+        )
+    ended = workout.end(
+        conn, started["workout_id"], session_rpe=7, not_recorded=False,
+        ended_at=(now - dt.timedelta(minutes=1)).isoformat(),
+    )
+    assert ended["duration_source"] == "measured"
+    assert 8.5 <= ended["duration_min"] <= 9.5
+    assert ended["ended_at"].startswith((now - dt.timedelta(minutes=1)).isoformat()[:19])
+
+def test_removing_an_earlier_item_keeps_later_set_attribution(conn):
+    plan = {
+        "for_date": "2024-01-01",
+        "session_type": "hinge",
+        "items": [
+            {"order_index": 0, "exercise_id": "competition_squat", "sets": 3,
+             "reps_low": 5, "reps_high": 5, "load_kg": 140, "rir_target": 2},
+            {"order_index": 1, "exercise_id": "competition_bench_press", "sets": 5,
+             "reps_low": 5, "reps_high": 5, "load_kg": 100, "rir_target": 2},
+            {"order_index": 2, "exercise_id": "trap_bar_deadlift", "sets": 3,
+             "reps_low": 3, "reps_high": 5, "load_kg": 180, "rir_target": 2},
+        ],
+    }
+    started = workout.start(conn, for_date="2024-01-01", plan=plan, readiness=READINESS)
+    for index in (1, 2, 3):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="competition_bench_press",
+            load_kg=100, reps=5, rir=2, set_index=index, plan_item_index=1,
+        )
+
+    workout.remove_exercise(conn, started["workout_id"], 0)
+    reloaded = workout.get(conn, started["workout_id"])
+    bench = next(
+        item for item in reloaded["comparison"]["items"]
+        if item["exercise_id"] == "competition_bench_press"
+    )
+    assert bench["plan_item_index"] == 1
+    assert bench["actual_sets"] == 3
+    assert bench["status"] == "under"
+
+    # B still has three logged sets, so a reduction to two is rejected; a reduction to
+    # three is valid and an increase remains valid.
+    with pytest.raises(workout.PlanEditConflict, match="below"):
+        workout.change_sets(conn, started["workout_id"], 0, -3)
+    reduced = workout.change_sets(conn, started["workout_id"], 0, -2)
+    assert next(
+        item for item in reduced["plan"]["items"]
+        if item["exercise_id"] == "competition_bench_press"
+    )["sets"] == 3
+    increased = workout.change_sets(conn, started["workout_id"], 0, 1)
+    assert next(
+        item for item in increased["plan"]["items"]
+        if item["exercise_id"] == "competition_bench_press"
+    )["sets"] == 4
+
+def test_swap_is_blocked_after_a_set_is_logged(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
     workout.add_set(
         conn, started["workout_id"], exercise_id="trap_bar_deadlift",
         load_kg=100, reps=5, rir=2, plan_item_index=0,
     )
-    changed = workout.swap_exercise(
-        conn, started["workout_id"], 0, "bench_press",
+    with pytest.raises(workout.PlanEditConflict, match="after sets") as excinfo:
+        workout.swap_exercise(conn, started["workout_id"], 0, "conventional_deadlift")
+    assert excinfo.value.code == "sets_already_logged"
+
+
+def test_an_unattributed_set_blocks_swap_and_set_reduction(conn):
+    # A repeated exercise is the case where add_set deliberately leaves the item unattributed.
+    duplicate = {
+        **PLAN,
+        "items": [PLAN["items"][0], {**PLAN["items"][0]}, PLAN["items"][1]],
+    }
+    started = workout.start(conn, for_date="2024-01-01", plan=duplicate, readiness=READINESS)
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2,
     )
-    assert changed["comparison"]["items"][0]["match_status"] == "unavailable"
-    assert changed["original_comparison"]["items"][0]["match_status"] == "unavailable"
+    with pytest.raises(workout.PlanEditConflict, match="after sets"):
+        workout.swap_exercise(conn, started["workout_id"], 0, "conventional_deadlift")
+    with pytest.raises(workout.PlanEditConflict, match="below"):
+        workout.change_sets(conn, started["workout_id"], 0, -1)
+
+
+def test_set_count_cannot_go_below_logged_sets(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    for _ in range(3):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=100, reps=5, rir=2, plan_item_index=0,
+        )
+    workout.change_sets(conn, started["workout_id"], 0, -2)
+    assert workout.get(conn, started["workout_id"])["plan"]["items"][0]["sets"] == 3
+    with pytest.raises(workout.PlanEditConflict, match="below"):
+        workout.change_sets(conn, started["workout_id"], 0, -1)
+
+
+def test_remove_last_exercise_is_blocked(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    workout.remove_exercise(conn, started["workout_id"], 1)
+    with pytest.raises(workout.PlanEditConflict, match="last exercise"):
+        workout.remove_exercise(conn, started["workout_id"], 0)
 
 
 def test_weekly_residual_uses_stored_plan_item_target(conn):

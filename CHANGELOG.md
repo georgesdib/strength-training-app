@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Database transfer utility**: `tools/db_transfer.py export|import` moves `data/coach.db`
+  between machines. The archive carries a manifest with the complete applied migration set and a
+  database SHA-256; import fails before touching the target if any migration, checksum or hash
+  differs. Default import requires exact schema equality. `--upgrade` accepts an older source
+  and applies the missing local migrations, failing on downgrade or divergence.
+  `--upgrade-fill` also copies target-only rows into the upgraded copy, requiring the target at
+  the local migration version and failing on any source-only row, row conflict, missing primary
+  key, or foreign-key/unique/trigger problem. It requires `--force`, refuses a target with WAL
+  side files, and writes an automatic `pre-transfer` backup before the atomic replace. No
+  authoritative label.
+
+### Changed
+
+- **Rubric calibration review (B1) closed.** The review found the remaining disagreement is
+  concentrated in two items: rotation (app-assigned labels score neutral while human marks grade
+  churn) and essential work (imports without a prescription snapshot are unmeasurable). No weight
+  or definition changed; rubric 1.2.0 stays. The outcome and the thin ongoing marking routine are
+  recorded in `docs/RUBRIC-CALIBRATION.md` (`DEC-EVAL-07`), and any retune remains gated to the
+  2027-01-22 Phase 5A review.
+
 ## [1.3.0] — 2026-11-06
 
 ### Added

@@ -490,8 +490,26 @@ function renderWorkout(w) {
   var items = plan.items || [];
   var formById = {};
   (w.forms || []).forEach(function (form) { formById[form.exercise_id] = form; });
+  function planSetState(item, index) {
+    var identity = item.order_index != null ? Number(item.order_index) : index;
+    var attributed = 0;
+    var ambiguous = 0;
+    (w.sets || []).forEach(function (row) {
+      if (row.exercise_id !== item.exercise_id) return;
+      if (row.prescription_item_index == null) ambiguous += 1;
+      else if (Number(row.prescription_item_index) === identity) attributed += 1;
+    });
+    return {
+      attributed: attributed,
+      ambiguous: ambiguous,
+      swapBlocked: attributed + ambiguous > 0,
+      decreaseBlocked: ambiguous > 0 || Number(item.sets) <= attributed
+    };
+  }
   var rows = items.map(function (item, index) {
     var form = formById[item.exercise_id];
+    var setState = planSetState(item, index);
+    var lastItem = items.length === 1;
     var history = workoutHistoryFor(item.exercise_id);
     var formOptions = ['<option value="">—</option>'];
     for (var rating = 1; rating <= 5; rating += 1) {
@@ -518,17 +536,24 @@ function renderWorkout(w) {
       '<div class="workout-plan-actions">' +
       '<div class="set-stepper" role="group" aria-label="Planned sets for ' + esc(item.exercise_id) + '">' +
       '<button class="ghost" type="button" data-plan-set="-1" data-index="' + index +
-      '" aria-label="Remove one planned set">−</button><span>' + item.sets + '</span>' +
+      '" aria-label="Remove one planned set"' + (setState.decreaseBlocked ? " disabled" : "") +
+      '>−</button><span>' + item.sets + '</span>' +
       '<button class="ghost" type="button" data-plan-set="1" data-index="' + index +
-      '" aria-label="Add one planned set">+</button></div>' +
+      '" aria-label="Add one planned set"' + (Number(item.sets) >= 20 ? " disabled" : "") +
+      '>+</button></div>' +
       '<label class="inline-field">Form ' +
       '<select data-form-exercise="' + esc(item.exercise_id) + '" aria-label="Form rating for ' +
       esc(item.exercise_id) + '">' + formOptions.join("") + '</select></label>' +
       '</div>' +
       '<details class="plan-options"><summary>Swap or remove</summary>' +
       '<button class="ghost" type="button" aria-label="Swap ' + esc(item.exercise_id) +
-      '" data-swap-open="' + index + '">Swap exercise</button> ' +
-      '<button class="ghost danger" type="button" aria-label="Remove ' + esc(item.exercise_id) + ' from plan" data-remove-item="' + index + '">Remove from plan</button>' +
+      '" data-swap-open="' + index + '"' + (setState.swapBlocked ? " disabled" : "") +
+      '>Swap exercise</button> ' +
+      '<button class="ghost danger" type="button" aria-label="Remove ' + esc(item.exercise_id) + ' from plan" data-remove-item="' + index + '"' +
+      (lastItem ? " disabled" : "") + '>Remove from plan</button>' +
+      (setState.swapBlocked ? '<p class="muted">Swap is unavailable after sets are logged for this exercise.</p>' : "") +
+      (lastItem ? '<p class="muted">The last exercise cannot be removed.</p>' : "") +
+      (setState.decreaseBlocked ? '<p class="muted">The set target cannot go below the logged sets.</p>' : "") +
       '</details></article>';
   }).join("");
   $("#workout-plan").innerHTML = '<div id="workout-plan-msg" role="status" aria-live="polite"></div>' +
@@ -593,7 +618,8 @@ function renderWorkout(w) {
   var options = "";
   var previousExercise = $("#workout-set-exercise").value;
   items.forEach(function (item, index) {
-    options += '<option value="' + esc(item.exercise_id) + '" data-plan-index="' + index +
+    options += '<option value="' + esc(item.exercise_id) + '" data-plan-index="' +
+      (item.order_index != null ? Number(item.order_index) : index) +
       '">' + esc(item.exercise_id) + (items.filter(function (other) {
         return other.exercise_id === item.exercise_id;
       }).length > 1 ? " (item " + (index + 1) + ")" : "") + "</option>";

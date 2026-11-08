@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-11-06 · **v1.3.0 released; v1.4 planned** · version `1.3.0`
+Last updated: 2026-11-07 · **v1.3.0 released; v1.4 planned** · version `1.3.0`
 
 
 ---
@@ -52,7 +52,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.1 beta | Performance + monitoring analysis | **released 2026-10-31 (b2); b1 2026-10-30** | raw e1RM Performance view, rolling median, breaks, degraded observations, dose, configured relative-strength ratios, read-only monitoring analysis, calibration transparency; Phase 5A review follow-up |
 | v1.2 | Stable release + opt-in resolver | **released 2026-11-03** | beta label removed; deterministic template resolver shipped as opt-in (`resolver.enabled` default false) with acceptance audit closed; cardio depth, reproducible impulse/shadow load and comparable calibration depth deferred to v1.4 (§4.13a/§4.14) |
 | v1.3 | UI closure, measurement/readiness cleanup and documentation infrastructure | **released 2026-11-06** | UI redesign P0–P3 closed; body fat moved to measurements with historical migration, readiness inputs cleaned up, measurement chart windows, readiness override beside the score, and the manifest-backed documentation archive; no prescription change |
-| v1.4 | Cardio depth and calibration | **planned** | cardio data audit, reproducible cardio impulse/shadow load and comparable calibration data (§4.13a/§4.14) |
+| v1.4 | Cardio depth and calibration | **planned** | cardio data audit, reproducible cardio impulse/shadow load and comparable calibration data (§4.13a/§4.14); B1 rubric calibration review closed 2026-11-07 |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.4; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
@@ -948,7 +948,7 @@ No automatic cardio load effect and no parent-variant/weakness implementation in
 | phase | deliverable | gate / acceptance |
 |---|---|---|
 | B0. Comparable data | Use Workout mode so prescriptions have snapshots; collect optional per-rep CSV where available | Comparable counts are reported per item, not just mark counts |
-| B1. Review the measurable items | Inspect RIR, weekly spinal cost, redundancy and rotation disagreements first | A written review identifies whether disagreements are rubric, measurement or data-coverage problems |
+| B1. Review the measurable items | **done 2026-11-07** — written review in [RUBRIC-CALIBRATION.md](docs/RUBRIC-CALIBRATION.md); rotation is a definitional split (app-assigned neutral), essential work is coverage-limited | Acceptance met: the review classifies the remaining disagreements as rubric, measurement or data-coverage; no retune |
 | B2. Reach the item gate | Priority gaps: progression, essential work, duration and velocity loss | No rubric retune until each targeted item has enough comparable observations; unknowns stay unknown |
 | B3. Rubric decision | Change a definition/weight only after the gate and a pre-declared review | Decision recorded in DECISIONS; no automatic tuning from the latest report |
 
@@ -990,19 +990,22 @@ No code. Continue reviewing sessions while they are fresh; the rubric report nee
 *remembered* sessions per item before changing a definition or weight (DEC-EVAL-03,
 DEC-EVAL-04). Reconstructed marks are stored but excluded from agreement.
 
-Current state (2026-10-25): **10 high-confidence reviewed sessions**, with **10 high-confidence marks for every rubric item**. The 2026-10-20 session was completed to 8/8. Headline calibration: 40 comparable items, 75% agreement, MAE 0.19; progression and velocity loss remain non-comparable in the report, and rotation is the weakest measurable item. The label-count gate is met; any rubric retune is still a separate decision.
+Current state (2026-11-07): **12 high-confidence reviewed sessions**, every rubric item has a
+mark; **61 comparable items, 84% agreement, MAE 0.12**. RIR 9/89%, weekly spinal 12/92%,
+redundancy 12/92%, rotation 11/64%, form 11/100%; essential work 4/25%, duration 2, progression 0,
+velocity loss 0. **B1 review closed 2026-11-07**: rotation is a definitional split
+(app-assigned labels score neutral), essential work is coverage-limited (imports without a
+snapshot), and no rubric weight or definition is changed. See
+[`docs/RUBRIC-CALIBRATION.md`](docs/RUBRIC-CALIBRATION.md).
 
-**Next action (2026-10-25):** do not retune yet. Review the comparable items first
-(RIR n=7, weekly spinal n=10, redundancy n=10, rotation n=9); progression (n=0), essential
-work (n=3), duration (n=1) and velocity loss (n=0) lack enough engine comparisons because most
-sessions are imports without a prescription snapshot or per-rep detail. Use Workout mode, and
-the optional per-rep CSV, to build comparable sessions before changing a rubric definition or
-weight.
-The web Review page has the **Run rubric calibration** button; the CLI remains
-`strength-coach calibrate`.
+**Next action (2026-11-07):** keep a thin stream of fresh high-confidence marks from live
+workouts; do not backfill old imports for calibration. Run `strength-coach calibrate` (or the
+Review page button) monthly or at the Phase 5A gate, not after every session. B2/B3 remain
+gated to the 2027-01-22 review; no rubric retune before it.
 
-Acceptance: ten high-confidence marks per item before a rubric change; every review appends,
-never edits; the report states the sample size and excludes low-confidence marks.
+Acceptance: the B1/B2/B3 gate — a pre-declared review and enough comparable observations per
+targeted item before a rubric change; every review appends, never edits; the report states the
+sample size and excludes low-confidence marks.
 ### 4.15 Exercise selection adapted to readiness and fatigue  (v0.3; apply + comparability done)
 
 **Status: apply + comparability implemented 2026-10-20; tax metadata, accessory candidates and symptom/readiness suggestions implemented. Plan closed at suggestions + explicit apply; automatic withholding deferred to the 8-week/30-session review.** The selector now carries tax metadata and `symptom` / `stress_readiness` triggers; substitutions remain explicit. See [`READINESS-EXERCISE-SELECTION-PLAN.md`](docs/READINESS-EXERCISE-SELECTION-PLAN.md) and `DEC-SELECT-06`.
@@ -1222,6 +1225,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
+| done (Phases 0–3A) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified and owner-confirmed on the physical iPhone); **Phase 3A closed 2026-11-08** (opt-in read-only HealthKit HRV/RHR/bodyweight readiness; physical HealthKit acceptance owner-confirmed); Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1557,6 +1561,185 @@ later use needs a separate decision and validation.
 **Prerequisites.** Enough prospective symptom and exposure data, a written pre-registration
 and a separate owner decision to start. Phase 3 is independent of the closed Phase 1–2 plan
 and is not a reason to reopen it.
+
+### 4.29 Native iPhone client — online-first (Phases 0–3A closed)
+
+**Status:** Phase 0 complete (2026-11-07): an empty SwiftUI app is signed and launches on the
+owner's iPhone under a personal team, the HealthKit capability is verified, the phone reaches the
+server over plain HTTP on the home LAN, and CLI-only pairing was chosen. Phase 1 (native foundation
+and read-only views) is **complete 2026-11-07**: the server side is migration `0052_ios_device`,
+the `strength-coach ios pair/devices/revoke` CLI, the bearer-authenticated read-only
+`/api/ios/v1/` facade and `tests/test_ios_api.py`; the Swift client in the separate
+`StrengthApp` repository provides pairing, Today, History and Settings/Forget with Keychain
+storage, 29 unit tests and a live UI smoke test. It passed on the iPhone 18 Pro simulator and was
+owner-confirmed on the physical iPhone. Phase 2 (online strength workflow) is **complete
+2026-11-07**: migration 0053_ios_workflow.sql, the issued-plan/receipt store, the
+authenticated readiness/prescription/workout/complete/abandon routes, and 27 contract tests;
+the client adds readiness entry, prescription preview, start-by-id, active workout with optional
+manual mean velocity, form ratings, RPE/not-recorded completion, abandon and a Progress screen.
+The contract is [`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md).
+The default server suite is 1665 tests and the client has 86 unit tests after R1/R3/R4/R5 and
+Phase 3A; the live UI workflow passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2
+acceptance was owner-confirmed on 2026-11-07 on the iPhone 16 Pro Max (iPhone17,2), iOS 27.2.
+Phase 2 is closed. Phase 3A (opt-in HealthKit HRV/RHR/bodyweight readiness) is **implemented and
+closed 2026-11-08** under [`docs/design/IOS-PHASE-3A-CONTRACT.md`](docs/design/IOS-PHASE-3A-CONTRACT.md);
+physical HealthKit acceptance was owner-confirmed and Phase 3B remains out of scope.
+The first useful release is an online, authenticated native strength-training workflow against the
+owner's local Python server. Durable offline capture, reviewed Apple Workout imports (Phase 3B)
+and Apple Intelligence are later phases, not first-release dependencies; Phase 3A HealthKit
+readiness is closed. PCC may be a separately enabled Apple AI option;
+it is disabled by default, user-invoked, never an automatic fallback, and never used for HealthKit
+sync. No public cloud service is required for core use. Do not begin a later phase until it is
+approved.
+
+The detailed, repository-grounded plan is [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md).
+Recommendation: a small native SwiftUI client with Python remaining the sole authority for
+readiness scores and prescriptions. Phases 0–3A are complete; Phase 3B needs a separate approval. The SwiftUI client is its own repository (`StrengthApp`), developed alongside this one rather than as
+an `ios/` subdirectory here. The first release covers pairing, readiness entry, a server prescription,
+online workout capture/completion with session RPE, optional inline form ratings and basic
+history/progress. Opt-in read-only HRV/RHR/bodyweight readiness (Phase 3A) comes before durable offline capture
+(Phase 4), because the server is always on at home; reviewed Apple Workout imports follow, with
+manual values taking precedence. Rubric review stays optional and may arrive after the first
+release. Apple Foundation Models/PCC are optional later tools, never training authorities.
+Third-party Health exporters are not a core dependency; XML is, at most, a later manual history
+backfill.
+
+**Phase 1 completion record (2026-11-07).** Server: migration `0052_ios_device`, the
+`strength-coach ios pair/devices/revoke` CLI, the read-only `/api/ios/v1/` facade, and
+`tests/test_ios_api.py`; the default suite is 1604 tests and `ruff` passes. Client: pairing,
+Today, History and Settings/Forget in the separate `StrengthApp` repository, Keychain storage,
+29 unit tests and an optional live UI smoke test. The `/progress` facade route is server-only in
+Phase 1; the client has no Progress screen (deferred to Phase 2). Verification: the live test
+passed on the iPhone
+18 Pro simulator against a temporary SQLite database, then the owner confirmed the device checklist
+on the physical iPhone. No existing unversioned route, prescription, workout or readiness record
+changed. Rollback is additive: drop `ios_device` and `ios_pairing_code`, remove the
+`/api/ios/v1/` routes and the `ios` CLI group, and forget/uninstall the client. Residual
+limitations: plain HTTP on the trusted LAN only, no writes in Phase 1, no HealthKit or offline
+capture, and 7-day personal-team signing.
+
+**Phase 2 completion record (2026-11-07; remediation same day).** Server: migration
+0053_ios_workflow.sql, config/ios.v1.yaml, ios_config.py, the issued-plan/receipt store, the
+authenticated readiness/prescription/start/add-set/form/complete/abandon routes, and 27 contract
+tests in tests/test_ios_workflow.py; the default suite is 1632 tests and ruff passes. The normal
+prescription is persisted at issue, the phone starts by issued-plan id only, and every mutation
+requires a UUID Idempotency-Key with a 30-day receipt. The receipt lookup and mutation now share
+one BEGIN IMMEDIATE transaction, so concurrent duplicates replay the committed response instead
+of executing twice; a receipt uniqueness race is rolled back and re-read rather than returning a
+500. The server owns readiness, load and set decisions; manual mean velocity is stored as an
+optional performed value, never a new prescription input. Client: readiness form, prescription
+preview, active workout, optional form ratings, RPE or explicit not-recorded completion, abandon,
+and the Progress screen; 43 unit tests at closure (55 after R1/R3/R5) and optional live UI smoke tests. Plan-item attribution is
+sent only when the exercise occurs exactly once; repeated exercises remain nil/unmatched instead
+of being guessed. Retry keys are body-aware, duplicate UI mutations are guarded, and an ambiguous
+finish locks the exact completion body for replay. Verification: the live UI test passed on the
+iPhone 18 Pro simulator against a temporary SQLite database (pair -> readiness -> issue -> start ->
+add VBT set -> force-quit/relaunch recovery -> finish -> Progress). The owner confirmed the
+physical-iPhone Phase 2 checklist on 2026-11-07 (iPhone 16 Pro Max, iPhone17,2, iOS 27.2). The live
+data/coach.db is at schema 0053 with both Phase 2 tables present; PRAGMA quick_check returned ok.
+A post-acceptance backup was written to
+data/exports/phase2-post-acceptance-2026-11-07.tar.gz (SHA-256
+b919ae0283edef91e31ac1d1d2062537288258818ab707b527caee3be29db9d7) and verified by a dry-run
+import. The Release build passes. Rollback: set mutations_enabled: false to return mutation
+routes to 503 while reads stay available; drop ios_issued_plan and ios_operation_receipt, remove
+the Phase 2 routes/client screens, and forget the device. Existing prescriptions/workouts already
+committed by a started session remain valid. Residual limitations: no offline queue; no
+HealthKit; no plan editing on the phone; and plain HTTP on the trusted LAN. R1's durable
+pending-mutation journal was added immediately after closure (51 client tests), so a lost response
+is replayable after termination within its 28-day window while the server receipt remains. R3
+explicit plan-item selection and R5 recovery/reconciliation UX are implemented and closed; R2 is
+closed as absorbed by R7; R4 is implemented and closed in roadmap §4.30. R7 (asynchronous
+prescription request with session-type and minimum-session settings) is implemented as of
+2026-11-08: migration `0056`, the bounded dispatcher, the `202` issue route, `GET plans/current`
+and start-time prescription persistence; the client builds and passes 86 unit tests on the iOS 27.2
+simulator. R8 (active-workout plan editing) was approved, implemented and closed on 2026-11-08
+under `docs/design/IOS-R8-CONTRACT.md`. Phase 2 is closed 2026-11-07.
+
+**Phase 3A completion record (closed 2026-11-08; physical acceptance owner-confirmed).** Server: migrations 0054_healthkit_readiness.sql and
+0055_healthkit_bodyweight.sql; the append-only healthkit_readiness table; one canonical
+effective-readiness merge (manual/preset > HealthKit > imported) used by readiness day, series,
+history, scoring and the HRV/RHR baseline; the authenticated
+POST /api/ios/v1/healthkit/readiness route; device-scoped sample identity and operation receipts;
+bootstrap healthkit_readiness capability. The default suite is 1665 tests and ruff passes.
+Client: read-only HealthKit authorization for HRV SDNN, resting heart rate and bodyweight,
+deterministic source classification and selection, offline-free single-flight import,
+healthkitReadiness journal kind, Settings opt-in and Today provenance/freshness display; 86 unit
+tests. Verification: focused server tests, full server suite, client unit tests, simulator build and
+live UI workflow pass. Physical HealthKit acceptance with real samples was owner-confirmed on
+the iPhone on 2026-11-08. Rollback:
+remove the client importer and canonical-merge integration, drop healthkit_readiness and delete the
+0054/0055 schema_migration rows together, leaving readiness_day/readiness_entry untouched.
+Residual limits: HealthKit read denial is not observable and is reported as indeterminate; no
+sleep, workouts, cardio, raw series, HealthKit write or scoring change. Phase 3B remains separate.
+
+**Release gate:** the existing web/CLI API is unauthenticated HTTP on the home LAN
+(LIM-57); the phone uses the separate per-device bearer facade. Keep existing web/CLI
+routes compatible and keep the API on the trusted home LAN over plain HTTP: LAN traffic, including
+the device credential, is unencrypted and the deployment assumes a trusted network with no public
+exposure. No port-forwarding, remote access, TLS/Caddy/internal CA, certificate installation,
+pinning or certificate management is required for this personal deployment; reconsider TLS only if
+the network stops being trusted or remote access is added. No public endpoint, cloud database,
+analytics or telemetry is required. The sole proposed app-network exception is the separately
+enabled Apple PCC AI mode, with per-request context preview/consent; it is not part of the local
+server API. Do not require an elaborate egress-audit project for the core release.
+
+**Proposed phases:** (0) preconditions — complete 2026-11-07: signed empty app under free
+provisioning with a HealthKit capability check, and the phone reaching the server on the home LAN
+(plain HTTP);
+(1) native foundation and read-only views; (2) online strength workflow with readiness, server
+prescription, set logging, completion/session RPE, inline optional form ratings and basic history;
+(3) opt-in HealthKit HRV/RHR/bodyweight readiness inputs, then reviewed Apple Workout/cardio imports and
+source-aware effort mapping; (4) durable offline capture/reconciliation; (5) separately approved
+optional enhancements such as Apple Intelligence on-device/PCC. Implementation order is 0 → 1 → 2
+→ 3A → 4 → 3B → 5. The rubric review screen is optional and may follow the first release. No sleep
+feature is proposed.
+
+Full acceptance criteria and rollback gates are in the plan.
+
+### 4.30 iOS reliability follow-ups (R1–R5, R7 and R8 closed)
+
+R1, R3 and R5 were implemented and closed on 2026-11-07. R1 provides the durable pending-mutation
+journal; R3 provides explicit plan-item selection for repeated exercises; R5 surfaces a
+server-active workout, a workout ended elsewhere, or an unusable prescription with explicit
+resume/abandon/refresh/clear actions. Unit and simulator verification pass; separate
+physical-device R1/R3/R5 passes were not performed. R7 (asynchronous prescription request with
+workout settings) was specified, approved and **implemented and closed on 2026-11-08**: the server
+behaviour is
+covered by the default suite, the client builds, passes its 86 unit tests on the iOS 27.2
+simulator, launches, and passes the live UI flow twice against throwaway servers — once with the
+resolver off and once with it **on** against a copy of the real database (202 in 0.1 s, plan ready
+in 4 s, full flow 90.9 s). R8 (active-workout plan editing) was approved, implemented and closed on
+2026-11-08.
+R7's `plans/current` read closes R2 as absorbed; R4 is implemented and closed. This
+reliability work did not add HealthKit, an unrestricted offline queue or Phase 3; Phase 3A is a
+separate implementation under its own contract.
+
+| id | priority | item | scope / constraints |
+|---|---|---|---|
+| R1 | High | Durable pending-mutation journal — **closed 2026-11-07** | Persists the operation UUID, device/server, mutation kind, target workout/plan id, route, exact encoded request body, creation timestamp and pending/conflict state in Application Support with iOS file protection and backup exclusion. Replays only the original UUID/body; 2xx removes, definitive 4xx removes, idempotency conflicts and terminal states are surfaced, and transport/5xx stay pending. Capped at 16 entries, 30-day retention, 28-day replay window. No unrestricted offline queue; new mutations are blocked while an unresolved operation exists. |
+| R2 | Low | Unstarted issued-plan recovery — **closed 2026-11-08, absorbed by R7** | `GET /api/ios/v1/plans/current` returns the device's current unconsumed, non-superseded plan and also serves the R7 polling/foreground read. It never exposes another device's plan and never permits reuse. No separate R2 implementation exists. |
+| R3 | Medium | Explicit plan-item selection — **closed 2026-11-07** | When an exercise appears multiple times, the active workout offers a prescription-item picker listing each occurrence; the default remains nil/unattributed. Unique exercises keep automatic attribution. The existing backend explicit-index validation is reused; no schema or API change. Covered by the plan-choice client test. |
+| R4 | Low | Form-rating correction UX — **closed 2026-11-08** | The form section shows the current rating for the selected exercise, prefills it for a correction, labels a subsequent save **Save correction**, and states that the earlier rating is retained while the latest is shown. The server remains append-only and the workout payload still returns only the latest rating per exercise. No schema change. |
+| R5 | Medium | Workout recovery/reconciliation UX — **closed 2026-11-07** | Today shows a Recovery section when refresh finds a server active workout not represented locally, a local in-progress workout no longer active on the server, or a consumed/expired/superseded prescription. Actions: resume/abandon/dismiss a server workout, refresh/clear stale local state, refresh/dismiss an unusable prescription. A one-read grace prevents false ended-elsewhere states immediately after a local mutation. Unreplayable pending mutations remain in the R1 recovery panel. |
+| R7 | High | Asynchronous prescription request with workout settings — **implemented and closed 2026-11-08** | Replaces the blocking `POST /api/ios/v1/prescriptions` with a 202 and a database-backed request row: optional session type and minimum session, a shared CPU slot (no second concurrency budget), one bounded dispatcher with two eligibility checks so an ineligible request never reaches the resolver, a generation check so a superseded build is never published, an explicit legacy-row mapping in migration 0056, authoritative foreground recovery from `plans/current`, and prescription rows written at start instead of at issue. The client polls `GET /api/ios/v1/plans/current` (which also absorbs R2) at 1→2→5→10 s with no 60 s ceiling, survives app exit, and loads a ready plan on return. Contract: `docs/design/IOS-R7-CONTRACT.md`. |
+| R8 | Medium | Active-workout plan editing — **closed 2026-11-08** | Swap, add, remove and set-count edits on an in-progress workout through the existing `workout.py` services. The phone never supplies a load or a replacement plan; add uses the service defaults (3×8–12 @ RIR 2, no load), and swap clears the load. An authenticated read-only `GET /api/ios/v1/exercises` supplies the picker while online; edits are online-only and R1 journaling makes an attempted edit retry-safe. Swap is blocked after sets are logged; set count cannot go below logged sets; the last item cannot be removed; ambiguous unattributed sets block edits. Plan-item `order_index` is the stable identity carried into `prescription_item_index`, so removing an earlier item never renumbers later logged sets; display position is separate. Edits rewrite `plan_modified_json` and append `workout_event` rows; the issued plan JSON is never modified. The web UI shares the same guards and 409 mapping. Contract: `docs/design/IOS-R8-CONTRACT.md`. |
+
+**Recovery boundary after R1:** every attempted mutation is journaled before the HTTP request.
+After termination, the app replays journaled operations with the original UUID and exact body,
+then reconciles through the normal server responses. A response lost before acknowledgement is
+therefore recoverable within the replay window, provided the server receipt has not expired.
+Conflicts, stale entries, and terminal workout states stop automatic replay and require explicit
+review/discard in Today. The journal is capped and blocks new mutations while an unfinished
+operation exists; it is not a general offline queue.
+
+### 4.31 Phase 4 — reliable capture and offline support (closed 2026-11-08)
+
+Phase 4 caches the active workout and queues add set, form rating and finish while the server is
+unreachable. It preserves performed/finish timestamps, gives offline sets temporary local identities,
+replays strictly in order with the existing receipts, and keeps conflicts visible. Readiness,
+prescription/start, plan editing and HealthKit remain online-only. No server queue table is added.
+Contract: [`docs/design/IOS-PHASE-4-CONTRACT.md`](docs/design/IOS-PHASE-4-CONTRACT.md).
+Physical offline acceptance was owner-confirmed at closure on 2026-11-08.
 
 ## 5. Known gaps and risks
 

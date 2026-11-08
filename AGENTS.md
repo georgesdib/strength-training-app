@@ -53,8 +53,8 @@ What exists today is:
 - `strength_coach/eval/` — backtest harness, labelled-set comparison, and the database-backed
   marks that make calibration continuous (`rubric_mark`, append-only).
 - `strength_coach/cli.py` — `import`, `run`, `review`, `calibrate`, `state`, `block`, `regime`, `e1rm`,
-  `test`, `symptom`, `cardio`, `measure`, `fatigue`, `select`, `exercise`, `readiness`, `programme`, `validate`, `workout`, `web`. `review` (with `--pending`) is the routine that keeps calibration current.
-- `strength_coach/web/` — home-network HTTP UI and JSON API over the same core; no authentication, bind 0.0.0.0 (temporary accepted risk `LIM-57`; never expose to the internet).
+  `test`, `symptom`, `cardio`, `measure`, `fatigue`, `select`, `exercise`, `readiness`, `ios`, `programme`, `validate`, `workout`, `web`. `review` (with `--pending`) is the routine that keeps calibration current.
+- `strength_coach/web/` — home-network HTTP UI and JSON API over the same core; no authentication, bind 0.0.0.0 (temporary accepted risk `LIM-57`; never expose to the internet). The additive `/api/ios/v1/` facade is bearer-authenticated; Phase 1 is read-only, and Phase 2 adds readiness/prescription/workout mutations behind `config/ios.v1.yaml` (`mutations_enabled`). Credentials live in `store/ios_devices.py` and `utils/ios_credentials.py`; Phase 2 plans/receipts live in `store/ios_workflow.py`.
 - `strength_coach/agents/` — LLM interface, config, narrative, exercise-selection chooser and structured proposals.
   `NullLLM` is the default; the model may explain or propose, but never compute. Keys live in the git-ignored `config/llm.local.toml`
   or the environment (`config/llm.example.toml` is the committed template).
@@ -274,6 +274,7 @@ job completes.
 | `docs/SELECTION-COMPARABILITY.md` | evidence and proposed three-class guard for variant substitution |
 | `docs/READINESS-EXERCISE-SELECTION-PLAN.md` | implemented readiness/symptom substitution policy and review panel; automatic withholding deferred |
 | `docs/STRENGTH-PROGRAM-REVIEW.md` | evidence check and critique of the strength programme (review only) |
+| `docs/RUBRIC-CALIBRATION.md` | calibration loop, B1 review outcome, next actions and limits |
 | `docs/VOLUME-MANAGEMENT.md` | MEV/MAV/MRV evidence, configured landmarks, ledger and MRV cap |
 | `docs/archive/NEXT-PHASE-FATIGUE-PLAN.md` | final lean non-cardio fatigue plan: sRPE/duration backfill, descriptive calibration, optional deload; no experiments |
 | `docs/RETROSPECTIVE-VALIDATION.md` | retrospective walk-forward method/result; not prospective; no model adoption |
@@ -282,6 +283,7 @@ job completes.
 | `docs/REVERSE-HYPER-BELT-SQUAT-EVIDENCE.md` | reverse hyperextension and belt squat evidence; optional accessories, no programme change |
 | `docs/WEAKNESS-TARGETING-PLAN.md` | gated weakness metric, retrospective screen and N-of-1 test plan |
 | `docs/LLM-INTEGRATION-PLAN.md` | future LLM analyst/explainer/constrained-proposer architecture: Iteration 1 (practical capabilities, selector retirement), conditional Iteration 2 (retrieval/RAG/advanced orchestration), shared context/evidence contracts, approval, privacy and evaluation gates; plan only |
+| `docs/IOS-CLIENT-PLAN.md` | Phase 0, Phase 1 and Phase 2 complete and accepted 2026-11-07 (simulator and physical-iPhone verified); R1 durable pending-mutation journal closed post-acceptance; R3 explicit plan-item selection, R4 form-rating correction UX and R5 recovery/reconciliation UX closed; Phase 3A HealthKit HRV/RHR/bodyweight readiness closed 2026-11-08; R7 asynchronous prescription request with workout settings implemented, simulator-verified and closed 2026-11-08; R2 closed as absorbed by R7; R8 active-workout plan editing closed; Phase 4 offline capture/replay closed 2026-11-08; authenticated online-first native strength workflow; optional Apple on-device/PCC AI |
 | `docs/archive/PROGRAMME-BUILDER-PLAN.md` | deterministic dynamic template resolver: fixed four-template blueprint/fallback, per-session exercise resolution, versioned policy and provenance, reuse of the existing scheduler/prescription/volume/history; Steps 0–6 implemented and closed |
 | `docs/archive/RESOLVER-ACCEPTANCE-AUDIT.md` | closed end-to-end production acceptance audit: P0/P1/P2 findings, fixes, acceptance matrix and residual release gates |
 | `docs/PERFORMANCE-PROFILE.md` | 2026-11-04 resolver prescription benchmark, 2026-11-05 clean-set snapshot A/B, stage profile, cache design/invalidation and parallelism assessment |

@@ -65,11 +65,15 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
   SQLite, never written to the repository. New cumulative exports are overlap-matched against
   stored rows, so old history is not duplicated. An **After the import** panel states the
-  procedure: check the report, review recent sessions to create marks, then calibrate later —
-  importing alone does not require a calibration.
+  procedure: check the report, mark fresh live-workout sessions to create marks, then calibrate
+  later — importing alone does not require a calibration, and old imports are not backfilled for
+  labels.
 - **Review** — unreviewed/recent session sheet; engine scores shown for context; human marks, optional session RPE and session length,
   plus a **Run rubric calibration** button (same report as `strength-coach calibrate`),
-  confidence and note; calibration report after saving.
+  confidence and note; calibration report after saving. A **Calibration review (B1)** panel
+  records the 2026-11-07 outcome and the thin ongoing routine: mark fresh live workouts, skip
+  unmeasurable items, do not backfill imports, and run the report monthly or at the Phase 5A
+  gate. No automatic rubric change.
 - **Workflow** — guided readiness → preview → start → active workout → post-workout comparison; owns the daily readiness form, the computed global/category score and the **Override the score** panel beside it. The panel names the date it writes (the readiness date above it), offers global or per-pattern scopes, and states that a category override wins over global and that both expire with the date. The prescription preview is also here.
 - **Readiness** — baseline and policy settings; the daily log and score overrides live in Workflow;
   per-athlete baseline settings and the shadow baseline report are available; quick presets show
@@ -284,7 +288,10 @@ behaviour still require a physical-device pass.
   **Clear cached forecasts** button; entries otherwise live for the browser tab and have no
   TTL. The cache is transport-only: the CLI rebuilds the same deterministic forecast directly
   and has no cached-forecast command (`LIM-27`).
-- No authentication; home-network HTTP only, never public.
+- No authentication; home-network HTTP only, never public. The separately authenticated
+  `/api/ios/v1/` facade is for the native iPhone client, not this UI.
+- iPhone pairing and device revocation are CLI-only (`strength-coach ios ...`); managing phone
+  credentials is a host-level security action, so the web UI does not expose it.
 - No delete/void action for a completed workout; only active-workout abandon and set removal/edit. See DATA-MODEL §17 for the recommended void design.
 
 

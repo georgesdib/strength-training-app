@@ -195,6 +195,32 @@ latest entry per (date, field) over the imported `readiness_day` row, so a manua
 dict includes `sources` and `manual_merge_note` (imported value, manual value, winner) so the
 override is auditable. `readiness_day` remains the imported, derived row.
 
+
+### 5.1a `healthkit_readiness` (append-only, Phase 3A)
+
+| column | notes |
+|---|---|
+| observation_id PK | opaque uuid4 hex |
+| device_id | FK to `ios_device`; observations are device-scoped |
+| on_date | server-local date the observation is used for |
+| field | `hrv_ms`, `rhr_bpm` or `bodyweight_kg` |
+| value | positive finite observation |
+| sample_id | HealthKit object UUID |
+| sample_at | canonical UTC ISO-8601 sample timestamp |
+| source_name, source_bundle_id | provenance only; not used for source classification |
+| source_class | `apple_watch`, `non_apple_watch` or `unknown` |
+| source_model, source_manufacturer | optional HealthKit device metadata |
+| imported_at | UTC ISO-8601 import time |
+
+Migration 0055 rebuilds the table to add `bodyweight_kg` to the field check while preserving rows.
+One immutable identity is device + field + sample_id. Identical complete observations are no-ops;
+any changed value, timestamp or provenance attribute is a conflict. The latest observation per
+date/field is selected by sample_at, imported_at and observation_id. HealthKit is a middle
+precedence layer: manual/preset `readiness_entry` > `healthkit_readiness` > imported
+`readiness_day`. The one canonical readiness query (used by readiness day, series, history,
+scoring and HRV/RHR baseline eligibility) applies the merge; HealthKit observations are never
+written into `readiness_day` or `readiness_entry`. No raw HealthKit time series is stored.
+
 ### 5.2 `readiness_override` (append-only)
 
 | column | notes |
@@ -290,7 +316,7 @@ document version.
 |---|---|
 | item_id PK | |
 | prescription_id FK | |
-| order_index | |
+| order_index | stable plan-item identity within a prescription/workout; live R8 edits preserve it and add assigns the next value |
 | exercise_id | |
 | sets, reps_low, reps_high | |
 | load_kg, load_basis, rounding_increment | |
@@ -565,7 +591,7 @@ straight sets need no backfill.
 | exercise_id / set_index | one set per exercise per index |
 | load_kg / reps / rir / velocity | actual values |
 | source | `manual` \| `import` \| `device` |
-| prescription_item_index | index into the frozen plan, when matched |
+| prescription_item_index | stable plan-item identity (`prescription_item.order_index`), when matched; not the current display position. Legacy rows may hold a position, resolved only by an exact identity or a same-exercise fallback |
 | set_role | nullable `top_set` / `back_off`; ordinary and historical sets stay null (migration 0049) |
 
 `workout_event` records `start`, `add_set`, `update_set`, `remove_set`, `restore_set`, `end`,
@@ -660,6 +686,94 @@ unless another row names it in `cancels_break_id`; rows that only cancel are aud
 intervals. Reads: the trained-week index subtracts every week that contains a break day, so the
 DUP cycle and the erector ramp freeze for that week (`DEC-CONTINUITY-04`, `docs/CONTINUITY.md`).
 Nothing else reads this table — no load, RIR or set depends on it.
+
+## 19. `ios_device` / `ios_pairing_code` — iPhone credentials
+
+Migration `0052_ios_device` adds the Phase 1 credential boundary. Both tables are additive and
+nothing in training, readiness, prescription or review reads them; deleting both restores the
+non-iOS server unchanged. Only SHA-256 hex digests are stored: the plaintext code is printed
+once by the CLI and the plaintext token is returned once by the pairing exchange.
+
+`ios_device`:
+
+| column | notes |
+|---|---|
+| device_id | uuid4 hex, primary key |
+| label | device label; default `iPhone`, trimmed to 1-40 characters |
+| token_hash | hex SHA-256 of the bearer token; UNIQUE |
+| created_at | UTC ISO-8601 |
+| last_seen_at | UTC ISO-8601, nullable; updated at most once per 60 seconds |
+| revoked_at | UTC ISO-8601, nullable; set by `strength-coach ios revoke` and never cleared |
+
+`ios_pairing_code`:
+
+| column | notes |
+|---|---|
+| code_hash | hex SHA-256 of the 8-digit code; primary key |
+| created_at | UTC ISO-8601 |
+| expires_at | UTC ISO-8601; default 300 seconds after creation |
+| attempts | failed-exchange count, capped at 5 |
+| used_at | UTC ISO-8601, nullable; single use |
+
+The plaintext code/token never appear in a row, the application log or an error body.
+`last_seen_at` is audit/diagnostic, not an authorization input. The accepted risk of an
+8-digit digest is bounded by the TTL, the five-attempt limit, single use and the database being
+local-only ([IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CONTRACT.md) §4).
+
+## 20. ios_issued_plan / ios_operation_receipt — Phase 2 workflow
+
+Migration 0053_ios_workflow adds the Phase 2 plan/retry boundary. Both tables are additive;
+no training, readiness, prescription or review calculation reads them, and dropping both restores
+the non-iOS server unchanged apart from the already-created prescription/workout rows.
+
+**R7 rebuild (migration `0056`, implemented 2026-11-08).** `ios_issued_plan` is now a
+request-and-result row: it carries `status` (`queued`, `building`, `ready`, `error`, `skipped`),
+`requested_session_type`, `settings_json`, `build_inputs_json`, two deadlines
+(`request_expires_at`, `plan_expires_at`), error fields, and a nullable `prescription_id` because
+the normal prescription is written in the start transaction rather than at issue. The table below
+keeps the Phase 2 names for continuity; the current shape is
+[`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) §3, and §3.1 records the exact mapping
+used for every existing Phase 2 row (nothing dropped, deadlines reused, consumed/superseded state
+preserved).
+
+ios_issued_plan:
+
+| column | notes |
+|---|---|
+| issued_plan_id | uuid4 hex, primary key |
+| device_id | references ios_device; device-scoped |
+| prescription_id | references the normal prescription; NULL for a post-R7 preview until start |
+| for_date | server-local YYYY-MM-DD; start is today-only |
+| session_type | resolved session type |
+| plan_json | exact plan shown to the client; never supplied by the phone |
+| readiness_json | validated readiness values for workout.start |
+| readiness_ack | 0/1; explicit start without a complete score |
+| created_at | UTC ISO-8601 |
+| request_expires_at / plan_expires_at | build deadline (default 15 min) and startable deadline (default 60 min, from `ready_at`) |
+| consumed_at | set atomically with workout creation |
+| superseded_at | set when a newer issue replaces this live plan |
+| workout_id | references workout_session after start |
+
+A partial unique index permits one live, unstarted plan per device. Issuing supersedes the old
+live plan before inserting the new one. A consumed plan returns its in-progress workout on a
+same-key replay; a completed/abandoned or superseded plan is a 410.
+
+ios_operation_receipt:
+
+| column | notes |
+|---|---|
+| device_id + operation_id | composite primary key; operation UUID normalized lowercase |
+| route | exact request path |
+| request_hash | SHA-256 of canonical JSON body |
+| response_status / response_json | stored 2xx response |
+| created_at / expires_at | UTC ISO-8601; 30-day retention |
+
+Only successful 2xx responses are stored. The receipt lookup and mutation execute in one
+BEGIN IMMEDIATE transaction; a concurrent duplicate waits, finds the committed receipt and
+replays it. A receipt uniqueness race is rolled back and re-read rather than returned as 500.
+A device cannot see another device's plan or receipt. The client keeps its operation UUID and body
+only in memory; a lost response cannot be replayed after app termination until a durable
+pending-mutation journal is added (ROADMAP §4.30 R1).
 
 ## Related
 

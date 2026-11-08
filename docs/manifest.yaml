@@ -154,6 +154,14 @@ documents:
   status: evidence
   audience: public
   nav: true
+- id: rubric-calibration
+  path: docs/RUBRIC-CALIBRATION.md
+  title: Rubric calibration — B1 review
+  description: calibration loop, B1 review outcome and what to do next
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
 - id: rules-format
   path: docs/RULES-FORMAT.md
   title: RULES DOCUMENT FORMAT
@@ -588,6 +596,14 @@ documents:
   status: plan
   audience: public
   nav: true
+- id: ios-client-plan
+  path: docs/IOS-CLIENT-PLAN.md
+  title: Native iPhone Client — Online-First Implementation Plan
+  description: 'Phases 0-3A closed 2026-11-08; authenticated online-first native strength workflow with Python-authoritative training; R7 asynchronous prescription request implemented and closed 2026-11-08, R8 active-workout plan editing closed 2026-11-08; later HealthKit workout imports with manual-over-import precedence, then offline capture, optional Apple on-device/PCC AI'
+  category: plans
+  status: plan
+  audience: public
+  nav: true
 - id: weakness-targeting-plan
   path: docs/WEAKNESS-TARGETING-PLAN.md
   title: Weakness targeting and testing — plan
@@ -871,6 +887,54 @@ documents:
   status: archived
   audience: public
   nav: true
+- id: design-ios-phase-1-contract
+  path: docs/design/IOS-PHASE-1-CONTRACT.md
+  title: iOS Phase 1 native foundation contract
+  description: 'Phase 1 implementation contract: per-device pairing and hashed credentials, the authenticated /api/ios/v1 read facade, the Swift pairing/today/history shell, tests, acceptance and rollback'
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
+- id: design-ios-phase-2-contract
+  path: docs/design/IOS-PHASE-2-CONTRACT.md
+  title: iOS Phase 2 online strength workflow contract
+  description: 'Implemented and remediated Phase 2 contract: readiness write, server-issued prescriptions, start/sets/finish with transactional idempotency, manual VBT, Progress screen, tests, acceptance and rollback'
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
+- id: design-ios-phase-3a-contract
+  path: docs/design/IOS-PHASE-3A-CONTRACT.md
+  title: iOS Phase 3A HealthKit HRV/RHR/bodyweight readiness contract
+  description: 'Closed Phase 3A contract: opt-in read-only HealthKit HRV, resting heart rate and bodyweight, provenance, canonical merge precedence, authenticated server endpoint, client UX, tests, physical acceptance and rollback; Phase 3B is out of scope'
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
+- id: design-ios-phase-4-contract
+  path: docs/design/IOS-PHASE-4-CONTRACT.md
+  title: iOS Phase 4 reliable capture and offline support contract
+  description: 'Closed 2026-11-08: cached active workout, ordered outbox, unresolved retention and expiry, offline add set/form/finish, stable timestamps, ordered replay, foreground/network/manual sync, bounded retries, conflict handling, discard/retry and owner-confirmed physical acceptance'
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
+- id: design-ios-r7-contract
+  path: docs/design/IOS-R7-CONTRACT.md
+  title: iOS R7 asynchronous prescription request contract
+  description: 'Implemented and verified 2026-11-08 (unit + live UI run): non-blocking prescription requests with session-type and minimum-session settings, one bounded dispatcher, database-backed request state, polling past 60 s, authoritative foreground recovery, prescription persistence moved from issue to start, legacy-row migration mapping and rollback'
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
+- id: design-ios-r8-contract
+  path: docs/design/IOS-R8-CONTRACT.md
+  title: iOS R8 active-workout plan editing contract
+  description: 'Implemented and closed 2026-11-08: swap, add, remove and set-count edits on an in-progress workout through the existing Python services, no client-supplied loads, stable plan-item identity, expected-item guards, tests, acceptance and rollback'
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
 - id: design-monitoring-config-ui-plan
   path: docs/design/MONITORING-CONFIG-UI-PLAN.md
   title: Monitoring configuration and report-control UI plan

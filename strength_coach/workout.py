@@ -189,6 +189,17 @@ def get(conn, workout_id: str) -> dict | None:
     return data
 
 
+class PlanEditConflict(ValueError):
+    """A live plan edit the server refuses; the HTTP facade maps this to 409."""
+
+    status = 409
+
+    def __init__(self, code: str, message: str, details: dict | None = None):
+        super().__init__(message)
+        self.code = code
+        self.details = details or {}
+
+
 class WorkoutNotCompleted(ValueError):
     """A summary is available only after the workout has been materialised."""
 
@@ -866,17 +877,25 @@ def _plan_item_index(workout: Mapping[str, Any], exercise_id: str,
     """
     items = list((workout.get("plan") or {}).get("items") or [])
     if plan_item_index is not None:
-        index = int(plan_item_index)
-        if not 0 <= index < len(items):
-            raise ValueError("plan_item_index is out of range")
-        if str(items[index].get("exercise_id")) != exercise_id:
-            raise ValueError("plan_item_index does not match exercise_id")
-        return index
+        identity = int(plan_item_index)
+        # New clients send the stable identity. Old clients send the display position; accept
+        # that only when it names the same exercise, so a shifted index is never misattributed.
+        for position, item in enumerate(items):
+            if (_item_identity(item, position) == identity
+                    and str(item.get("exercise_id")) == exercise_id):
+                return identity
+        if 0 <= identity < len(items):
+            item = items[identity]
+            if str(item.get("exercise_id")) == exercise_id:
+                return _item_identity(item, identity)
+        raise ValueError("plan_item_index does not match exercise_id")
     matches = [
-        index for index, item in enumerate(items)
+        position for position, item in enumerate(items)
         if str(item.get("exercise_id")) == exercise_id
     ]
-    return matches[0] if len(matches) == 1 else None
+    if len(matches) != 1:
+        return None
+    return _item_identity(items[matches[0]], matches[0])
 
 
 def add_set(
@@ -893,6 +912,7 @@ def add_set(
     set_role: str | None = None,
     plan_item_index: int | None = None,
     rep_velocities: list[dict] | None = None,
+    performed_at: str | None = None,
 ) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
@@ -921,6 +941,16 @@ def add_set(
             sum(item["velocity_mps"] for item in rep_detail) / len(rep_detail), 3
         )
     item_index = _plan_item_index(workout, exercise_id, plan_item_index)
+    performed = _parse(performed_at)
+    if performed_at is not None:
+        start = _parse(workout.get("started_at"))
+        now = dt.datetime.now(dt.UTC)
+        if performed is None:
+            raise ValueError("performed_at must be an ISO-8601 timestamp")
+        if start is not None and performed < start:
+            raise ValueError("performed_at must not be before the workout start")
+        if performed > now + dt.timedelta(minutes=1):
+            raise ValueError("performed_at must not be in the future")
     with db.transaction(conn):
         existing = conn.execute(
             "SELECT set_id FROM workout_set WHERE workout_id = ? AND exercise_id = ? "
@@ -935,11 +965,13 @@ def add_set(
             """
             INSERT INTO workout_set
                 (workout_id, exercise_id, set_index, load_kg, reps, rir, velocity, source,
-                 prescription_item_index, set_role)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 prescription_item_index, set_role, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (workout_id, exercise_id, set_index, load_kg, reps, rir, velocity, source,
-             item_index, set_role),
+             item_index, set_role,
+             performed.astimezone(dt.UTC).isoformat(timespec="milliseconds")
+             if performed is not None else _now()),
         )
         _event(conn, workout_id, "add_set", {"exercise_id": exercise_id,
                                               "set_index": set_index},
@@ -1072,6 +1104,64 @@ def _editable(workout: dict) -> list[dict]:
     return [dict(item) for item in (workout.get("plan") or {}).get("items") or []]
 
 
+def _item_identity(item: Mapping[str, Any], position: int) -> int:
+    """Stable identity within a workout; legacy rows fall back to their original position.
+
+    Plan edits preserve ``order_index`` and never renumber it. It is therefore an identity,
+    not the item's current display position. Old plan JSON without the field still gets a
+    deterministic identity from its initial order.
+    """
+    return int(item.get("order_index", position))
+
+
+def _row_plan_identity(workout: Mapping[str, Any], row: Mapping[str, Any]) -> int | None:
+    """Resolve a stored set to a stable item identity, including legacy positional rows.
+
+    New rows store the stable identity. Rows written before the identity fix store the list
+    position at write time; when that value no longer names an item of the same exercise, the
+    current position is accepted only if it names the same exercise, which preserves old
+    unmodified workouts without guessing across a moved item.
+    """
+    value = row.get("prescription_item_index")
+    if value is None:
+        return None
+    try:
+        index = int(value)
+    except (TypeError, ValueError):
+        return None
+    items = list((workout.get("plan") or {}).get("items") or [])
+    exercise = str(row.get("exercise_id"))
+    for position, item in enumerate(items):
+        if _item_identity(item, position) == index and str(item.get("exercise_id")) == exercise:
+            return index
+    if 0 <= index < len(items) and str(items[index].get("exercise_id")) == exercise:
+        return _item_identity(items[index], index)
+    return None
+
+
+def _logged_sets_for_item(workout: dict, item_index: int, exercise_id: str) -> tuple[int, int]:
+    """Count sets attributed to one item plus same-exercise sets with no attribution.
+
+    The second count is deliberately conservative: the phone cannot know which repeated
+    exercise occurrence an unattributed set belongs to, so a plan edit must not guess.
+    """
+    items = list((workout.get("plan") or {}).get("items") or [])
+    if not 0 <= int(item_index) < len(items):
+        return 0, 0
+    identity = _item_identity(items[int(item_index)], int(item_index))
+    attributed = 0
+    ambiguous = 0
+    for row in workout.get("sets") or []:
+        if str(row.get("exercise_id")) != str(exercise_id):
+            continue
+        resolved = _row_plan_identity(workout, row)
+        if resolved == identity:
+            attributed += 1
+        elif row.get("prescription_item_index") is None or resolved is None:
+            ambiguous += 1
+    return attributed, ambiguous
+
+
 def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
@@ -1081,6 +1171,23 @@ def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> d
         raise ValueError("item_index out of range")
     new_id = _validate_exercise(exercise_id)
     old = items[int(item_index)].get("exercise_id")
+    if any(item.get("exercise_id") == new_id for item in items):
+        raise PlanEditConflict(
+            "exercise_already_present",
+            f"{new_id} is already in the plan",
+        )
+    attributed, ambiguous = _logged_sets_for_item(workout, int(item_index), str(old))
+    if attributed or ambiguous:
+        raise PlanEditConflict(
+            "sets_already_logged",
+            "cannot swap an exercise after sets have been logged for it",
+            {
+                "item_index": int(item_index),
+                "exercise_id": str(old),
+                "logged_sets": attributed + ambiguous,
+                "ambiguous_sets": ambiguous,
+            },
+        )
     items[int(item_index)] = {
         **items[int(item_index)],
         "exercise_id": new_id,
@@ -1114,11 +1221,19 @@ def add_exercise(
     items = _editable(workout)
     new_id = _validate_exercise(exercise_id)
     if any(item.get("exercise_id") == new_id for item in items):
-        raise ValueError(f"{new_id} is already in the plan")
+        raise PlanEditConflict(
+            "exercise_already_present",
+            f"{new_id} is already in the plan",
+        )
     sets = max(1, min(20, int(sets)))
     low = max(1, min(50, int(reps_low)))
     high = max(low, min(50, int(reps_high)))
+    next_index = max(
+        (_item_identity(item, position) for position, item in enumerate(items)),
+        default=-1,
+    ) + 1
     item = {
+        "order_index": next_index,
         "exercise_id": new_id,
         "sets": sets,
         "reps_low": low,
@@ -1140,6 +1255,12 @@ def remove_exercise(conn, workout_id: str, item_index: int) -> dict:
     index = int(item_index)
     if not 0 <= index < len(items):
         raise ValueError("item_index out of range")
+    if len(items) == 1:
+        raise PlanEditConflict(
+            "last_plan_item",
+            "cannot remove the last exercise from the plan",
+            {"item_index": index},
+        )
     removed = items.pop(index)
     plan = {**(workout.get("plan") or {}), "items": items}
     return _write_plan(conn, workout_id, plan, "remove_exercise",
@@ -1158,6 +1279,20 @@ def change_sets(conn, workout_id: str, item_index: int, delta: int) -> dict:
     after = max(1, min(20, before + int(delta)))
     if after == before:
         return workout
+    exercise_id = str(items[index].get("exercise_id"))
+    attributed, ambiguous = _logged_sets_for_item(workout, index, exercise_id)
+    if after < attributed or (ambiguous and after < before):
+        raise PlanEditConflict(
+            "sets_below_logged",
+            "cannot lower the set target below the sets already logged",
+            {
+                "item_index": index,
+                "logged_sets": attributed + ambiguous,
+                "ambiguous_sets": ambiguous,
+                "before": before,
+                "after": after,
+            },
+        )
     items[index]["sets"] = after
     if items[index].get("set_groups"):
         items[index] = resize_plan_item_set_groups(items[index])
@@ -1564,22 +1699,20 @@ def _comparison(workout: Mapping[str, Any], *, original: bool = False) -> dict:
         str(item.get("exercise_id")) for item in items
         if sum(1 for other in items if other.get("exercise_id") == item.get("exercise_id")) > 1
     }
-    def item_index_of(row: Mapping[str, Any]) -> int:
-        value = row.get("prescription_item_index")
-        return -1 if value is None else int(value)
-
     rows = []
     assigned: set[int] = set()
     for index, item in enumerate(items):
+        identity = _item_identity(item, index)
         planned_sets = int(item.get("sets") or 0)
         matching = [
             row for row in actual
-            if item_index_of(row) == index
+            if _row_plan_identity(workout, row) == identity
             and str(row.get("exercise_id")) == str(item.get("exercise_id"))
         ]
         mismatched = [
             row for row in actual
-            if item_index_of(row) == index
+            if row.get("prescription_item_index") is not None
+            and int(row.get("prescription_item_index")) == identity
             and str(row.get("exercise_id")) != str(item.get("exercise_id"))
         ]
         assigned.update(int(row["set_id"]) for row in matching)
@@ -1599,7 +1732,9 @@ def _comparison(workout: Mapping[str, Any], *, original: bool = False) -> dict:
             status = "over"
         rows.append({
             "index": index,
-            "plan_item_index": index,
+            "display_index": index,
+            "plan_item_index": identity,
+            "item_id": identity,
             "exercise_id": item.get("exercise_id"),
             "match_status": match_status,
             "status": status,
@@ -1624,6 +1759,8 @@ def _comparison(workout: Mapping[str, Any], *, original: bool = False) -> dict:
                 "ambiguous" if str(row.get("exercise_id")) in duplicate_exercises
                 else "unavailable"
             )
+        elif _row_plan_identity(workout, row) is None:
+            match_status = "stale_index"
         extra.append({**row, "match_status": match_status})
     return {"items": rows, "extra": extra}
 
@@ -1770,6 +1907,7 @@ def end(
     duration_min: float | None = None,
     productivity: int | None = None,
     notes: str | None = None,
+    ended_at: str | None = None,
 ) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
@@ -1779,13 +1917,26 @@ def end(
         return workout
     if workout["status"] != "in_progress":
         raise ValueError("workout is not in progress")
+    start = _parse(workout.get("started_at"))
+    ended_dt = _parse(ended_at) if ended_at is not None else dt.datetime.now(dt.UTC)
+    if ended_at is not None and ended_dt is None:
+        raise ValueError("ended_at must be an ISO-8601 timestamp")
+    if ended_dt is not None:
+        if start is not None and ended_dt < start:
+            raise ValueError("ended_at must not be before the workout start")
+        if ended_dt > dt.datetime.now(dt.UTC) + dt.timedelta(minutes=1):
+            raise ValueError("ended_at must not be in the future")
+    measured_seconds = (
+        max(0, int((ended_dt - start).total_seconds()))
+        if start is not None and ended_dt is not None else _elapsed(workout)
+    )
     if duration_min is not None:
         duration = float(duration_min)
         if duration <= 0:
             raise ValueError("duration_min must be positive")
         source = "manual"
     else:
-        duration = _elapsed(workout) / 60.0
+        duration = measured_seconds / 60.0
         source = "measured"
     if session_rpe is not None:
         rpe = float(session_rpe)
@@ -1795,7 +1946,8 @@ def end(
         rpe = None
     else:
         raise ValueError("session_rpe is required, or mark it not recorded")
-    ended = _now()
+    ended = (ended_dt.astimezone(dt.UTC).isoformat(timespec="seconds")
+             if ended_dt is not None else _now())
     with db.transaction(conn):
         _materialise(
             conn, workout, ended=ended, duration=duration, duration_source=source,
@@ -1813,8 +1965,8 @@ def end(
                 session_rpe_recorded = ?, notes = COALESCE(?, notes), critique_id = ?
             WHERE workout_id = ?
             """,
-            (ended, _elapsed(workout), duration, source, rpe, 0 if not_recorded else 1,
-             notes, critique_id, workout_id),
+            (ended, measured_seconds, duration, source, rpe,
+             0 if not_recorded else 1, notes, critique_id, workout_id),
         )
         _event(conn, workout_id, "end", {"duration_min": duration,
                                           "session_rpe": rpe,

@@ -15,6 +15,7 @@ Reconstructing those from the stored columns is safe because:
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 from collections.abc import Iterable
 from contextlib import contextmanager
@@ -23,6 +24,7 @@ from contextvars import ContextVar
 import pandas as pd
 
 from strength_coach.domain import rir as rir_mod
+from strength_coach.store import healthkit_readiness
 from strength_coach.utils import readiness as readiness_utils
 
 _SET_COLUMNS = {
@@ -364,64 +366,14 @@ def latest_rubric_marks(conn) -> list[dict]:
     return [dict(row) for row in rows]
 
 
-def readiness_day(conn, on_date: str) -> dict | None:
-    """One merged readiness row, or None when the date has no usable data.
+def _effective_readiness_rows(conn, start: str, end: str) -> dict[str, dict]:
+    """Merge imported readiness, HealthKit observations and manual/preset entries.
 
-    Imported values come from `readiness_day`; manual values are append-only entries and win
-    **per field** (DEC-READINESS-03). This is why a partial manual reading does not erase the
-    imported fields around it. Sources are returned so the caller can say which value won.
+    Precedence is manual/preset > HealthKit > imported. Every readiness consumer must use this
+    helper (directly or through readiness_day/readiness_series/readiness_history) so a HealthKit
+    value cannot be interpreted differently in Today, history, scoring or baseline eligibility.
     """
-    row = conn.execute(
-        "SELECT * FROM readiness_day WHERE on_date = ?", (str(on_date),)
-    ).fetchone()
-    base = dict(row) if row is not None else None
-
-    entries = conn.execute(
-        """
-        SELECT field, value, source, recorded_at, entry_id
-          FROM readiness_entry
-         WHERE on_date = ?
-         ORDER BY recorded_at, rowid
-        """,
-        (str(on_date),),
-    ).fetchall()
-
-    merged: dict = dict(base) if base is not None else {"on_date": str(on_date)}
-    sources: dict[str, str] = {}
-    manual_note: dict[str, dict] = {}
-    if base is not None:
-        for field in readiness_utils.READINESS_FIELDS:
-            if base.get(field) is not None:
-                sources[field] = "import"
-    for entry in entries:
-        field = str(entry["field"])
-        if str(entry["source"]) == "manual" and base is not None:
-            manual_note[field] = {
-                "imported": base.get(field),
-                "manual": entry["value"],
-                "winner": "manual",
-            }
-        merged[field] = entry["value"]
-        sources[field] = str(entry["source"])
-
-    if not any(merged.get(field) is not None for field in readiness_utils.READINESS_FIELDS):
-        return None
-    merged["sources"] = sources
-    merged["manual_merge_note"] = json.dumps(manual_note, sort_keys=True)
-    merged["manual_fields"] = sorted(
-        field for field, source in sources.items() if source == "manual"
-    )
-    return merged
-
-
-def readiness_series(conn, start: str, end: str, fields: tuple[str, ...]) -> list[dict]:
-    """Merge readiness values for an inclusive date window, observed dates only.
-
-    Imported values live in readiness_day; manual values are append-only entries and win per
-    field. Dates with no requested value are omitted rather than filled.
-    """
-    wanted = tuple(str(field) for field in fields)
-    rows = {
+    base_rows = {
         str(row["on_date"]): dict(row)
         for row in conn.execute(
             """
@@ -434,18 +386,84 @@ def readiness_series(conn, start: str, end: str, fields: tuple[str, ...]) -> lis
     }
     entries = conn.execute(
         """
-        SELECT on_date, field, value, source, recorded_at
+        SELECT on_date, field, value, source, recorded_at, entry_id
           FROM readiness_entry
          WHERE on_date BETWEEN ? AND ?
          ORDER BY on_date, recorded_at, rowid
         """,
         (str(start), str(end)),
-    )
-    for entry in entries:
-        day = str(entry["on_date"])
-        row = rows.setdefault(day, {"on_date": day})
-        row[str(entry["field"])] = entry["value"]
-        row.setdefault("sources", {})[str(entry["field"])] = str(entry["source"])
+    ).fetchall()
+    healthkit = healthkit_readiness.latest_observations(conn, str(start), str(end))
+
+    days = set(base_rows) | set(healthkit) | {str(entry["on_date"]) for entry in entries}
+    merged_by_day: dict[str, dict] = {}
+    for day in sorted(days):
+        base = base_rows.get(day)
+        merged: dict = dict(base) if base is not None else {"on_date": day}
+        sources: dict[str, str] = {}
+        if base is not None:
+            for field in readiness_utils.READINESS_FIELDS:
+                if base.get(field) is not None:
+                    sources[field] = "import"
+
+        healthkit_provenance: dict[str, dict] = {}
+        for field in healthkit_readiness.FIELDS:
+            observation = healthkit.get(day, {}).get(field)
+            if observation is None:
+                continue
+            merged[field] = observation["value"]
+            sources[field] = "healthkit"
+            healthkit_provenance[field] = healthkit_readiness.provenance(observation)
+
+        manual_note: dict[str, dict] = {}
+        manual_fields: list[str] = []
+        for entry in entries:
+            if str(entry["on_date"]) != day:
+                continue
+            field = str(entry["field"])
+            if str(entry["source"]) == "manual" and base is not None:
+                manual_note[field] = {
+                    "imported": base.get(field),
+                    "manual": entry["value"],
+                    "winner": "manual",
+                }
+            merged[field] = entry["value"]
+            sources[field] = str(entry["source"])
+            if str(entry["source"]) == "manual":
+                manual_fields.append(field)
+
+        merged["sources"] = sources
+        merged["healthkit"] = healthkit_provenance
+        merged["manual_merge_note"] = json.dumps(manual_note, sort_keys=True)
+        merged["manual_fields"] = sorted(set(manual_fields))
+        merged_by_day[day] = merged
+    return merged_by_day
+
+
+def readiness_day(conn, on_date: str) -> dict | None:
+    """One canonical effective readiness row, or None when the date has no usable data.
+
+    Imported values come from readiness_day, HealthKit observations are the middle layer, and
+    manual/preset entries win **per field** (DEC-READINESS-03). This is why a partial manual
+    reading does not erase the imported fields around it.
+    """
+    day = str(on_date)
+    merged = _effective_readiness_rows(conn, day, day).get(day)
+    if merged is None or not any(
+        merged.get(field) is not None for field in readiness_utils.READINESS_FIELDS
+    ):
+        return None
+    return merged
+
+
+def readiness_series(conn, start: str, end: str, fields: tuple[str, ...]) -> list[dict]:
+    """Effective readiness values for an inclusive date window, observed dates only.
+
+    Uses the same canonical merge as readiness_day and readiness_history. Dates with no requested
+    value are omitted rather than filled.
+    """
+    wanted = tuple(str(field) for field in fields)
+    rows = _effective_readiness_rows(conn, str(start), str(end))
     points = []
     for day in sorted(rows):
         row = rows[day]
@@ -455,45 +473,38 @@ def readiness_series(conn, start: str, end: str, fields: tuple[str, ...]) -> lis
         }
         if not values:
             continue
-        sources = dict(row.get("sources") or {})
-        for field in values:
-            sources.setdefault(field, "import")
-        points.append({"date": day, **values, "sources": sources})
+        points.append({
+            "date": day,
+            **values,
+            "sources": {field: row["sources"][field] for field in values},
+            "healthkit": {
+                field: row["healthkit"][field]
+                for field in values if field in row.get("healthkit", {})
+            },
+        })
     return points
 
 
 def readiness_history(conn, before: str, days: int = 28) -> list[dict]:
-    """Merged readiness rows in the window [before-days, before), newest last.
+    """Effective readiness rows in the window [before-days, before), newest last.
 
-    The baseline for HRV/RHR must include manual fields, not just the imported row, or a
-    manually entered morning reading would silently not count.
+    The baseline for HRV/RHR must include manual and HealthKit values, not just the imported
+    row, or an entered/imported morning reading would silently not count.
     """
-    rows = [
-        dict(row)
-        for row in conn.execute(
-            """
-            SELECT * FROM readiness_day
-             WHERE on_date < ? AND on_date >= date(?, ?)
-             ORDER BY on_date
-            """,
-            (str(before), str(before), f"-{int(days)} day"),
-        )
+    boundary = dt.date.fromisoformat(str(before))
+    start = (boundary - dt.timedelta(days=int(days))).isoformat()
+    end = (boundary - dt.timedelta(days=1)).isoformat()
+    rows = _effective_readiness_rows(conn, start, end)
+    return [rows[day] for day in sorted(rows)]
+
+
+def readiness_dates(conn, start: str, end: str) -> list[str]:
+    """Dates with at least one effective readiness value in the inclusive window."""
+    rows = _effective_readiness_rows(conn, str(start), str(end))
+    return [
+        day for day in sorted(rows)
+        if any(rows[day].get(field) is not None for field in readiness_utils.READINESS_FIELDS)
     ]
-    by_date = {str(row["on_date"]): row for row in rows}
-    entries = conn.execute(
-        """
-        SELECT on_date, field, value, recorded_at
-          FROM readiness_entry
-         WHERE on_date < ? AND on_date >= date(?, ?)
-         ORDER BY on_date, recorded_at, rowid
-        """,
-        (str(before), str(before), f"-{int(days)} day"),
-    )
-    for entry in entries:
-        day = str(entry["on_date"])
-        row = by_date.setdefault(day, {"on_date": day})
-        row[str(entry["field"])] = entry["value"]
-    return [by_date[key] for key in sorted(by_date)]
 
 
 def readiness_setting(conn, on_date: str) -> dict | None:

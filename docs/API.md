@@ -107,6 +107,113 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list and rendered doc from `docs/manifest.yaml`; public entries only, grouped by category; `private/` and maintainer-only design docs are never served |
 
+### iOS facade — Phase 1 reads and Phase 2 workflow
+
+/api/ios/v1/ is the authenticated boundary used by the native iPhone client. It is
+additive: every unversioned route above keeps its current behaviour and stays unauthenticated.
+The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CONTRACT.md),
+[IOS-PHASE-2-CONTRACT.md](design/IOS-PHASE-2-CONTRACT.md) and
+[IOS-PHASE-3A-CONTRACT.md](design/IOS-PHASE-3A-CONTRACT.md); the phase rules are in
+[IOS-CLIENT-PLAN.md](IOS-CLIENT-PLAN.md).
+
+| route | auth | payload |
+|---|---|---|
+| `POST /api/ios/v1/pair` | none | `{code, label?}` -> `{api_version, device, token, server_date, server_time, utc_offset_minutes, server_timezone}`; the token is shown once |
+| `GET /api/ios/v1/bootstrap` | bearer | `{api_version, server_date, server_time, utc_offset_minutes, server_timezone, capabilities}`; Phase 2 adds `readiness_write`, `prescription` and `workout_write`; Phase 3A adds `healthkit_readiness` (false when mutations are disabled) |
+| `GET /api/ios/v1/today` | bearer | `{date, readiness, readiness_score, active_workout}`; `readiness` is the existing `/api/readiness/<date>` payload and `active_workout` is null or the live workout detail |
+| `GET /api/ios/v1/history?limit=&offset=&start=&end=` | bearer | exactly `history.list_sessions`; limit 1-100, default 50; offset >= 0, default 0 |
+| `GET /api/ios/v1/history/<id>` | bearer | exactly `history.detail`; session outline, measured/manual duration, sets and feedback; unknown id 404 |
+| `GET /api/ios/v1/progress?weeks=&date=` | bearer | exactly `progress_feature.dashboard`; weeks 1-52, default 8 |
+| `POST /api/ios/v1/readiness` | bearer + Idempotency-Key | `{values, note?}` -> the existing readiness payload; values use the accepted manual field set; unknown/empty/zero-placeholder fields are rejected |
+| `POST /api/ios/v1/healthkit/readiness` | bearer + Idempotency-Key | `{date, samples:[{field, value, sample_id, sample_at, source_name, source_bundle_id?, source_class, source_model?, source_manufacturer?}]}` -> the canonical readiness payload plus `healthkit` provenance; one to three samples (HRV, RHR, bodyweight), server-local today for the import, sample identity deduplicated; see Phase 3A contract |
+| `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}, settings?: {session_type?, minimum_session?, minimum_target_minutes?}}` -> `202 {issued_plan_id, status, for_date, request_expires_at, plan_expires_at, retry_after_ms, settings}`; the request is built in the background (R7) |
+| `GET /api/ios/v1/plans/current` | bearer | the authoritative plan-request state: `{status: queued|building|ready|error|none, issued_plan_id, elapsed_seconds, settings, plan?, readiness?, warnings?, error?}`; `none` is a normal answer, not a 404 |
+| `POST /api/ios/v1/workouts` | bearer + Idempotency-Key | `{issued_plan_id}` -> the existing workout detail; starts by id only; expired/superseded/consumed plans are 410, another active workout is 409 |
+| `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, rep_velocities?, performed_at?}` -> workout detail; `plan_item_index` is the stable plan-item identity (not the display position); `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required |
+| `POST /api/ios/v1/workouts/<id>/form` | bearer + Idempotency-Key | `{exercise_id, rating 1-5, note?}` -> workout detail |
+| `GET /api/ios/v1/exercises` | bearer | `{exercises:[{id, display, pattern}]}`; canonical catalogue for the R8 picker |
+| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/swap` | bearer + Idempotency-Key | `{exercise_id, expected_exercise_id}` -> workout detail; `409 sets_already_logged` after a set, `409 exercise_already_present`, `409 plan_changed` |
+| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/remove` | bearer + Idempotency-Key | `{expected_exercise_id}` -> workout detail; logged sets are kept; `409 last_plan_item`, `409 plan_changed` |
+| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/sets` | bearer + Idempotency-Key | `{delta, expected_exercise_id}` -> workout detail; `409 sets_below_logged`, `409 plan_changed` |
+| `POST /api/ios/v1/workouts/<id>/plan/exercises` | bearer + Idempotency-Key | `{exercise_id}` -> workout detail; server defaults 3 sets, 8–12 reps, RIR 2, no load; duplicate is `409 exercise_already_present` |
+| `POST /api/ios/v1/workouts/<id>/complete` | bearer + Idempotency-Key | `{session_rpe? or not_recorded: true, duration_min?, notes?, ended_at?}` -> completed workout detail; RPE and not-recorded are mutually exclusive; `ended_at` preserves the local finish time and measured duration |
+| `POST /api/ios/v1/workouts/<id>/abandon` | bearer + Idempotency-Key | `{}` -> abandoned workout detail |
+
+- **Pairing is CLI-only.** `strength-coach ios pair [--label LABEL] [--ttl 300]` prints a
+  one-use 8-digit code (spaces/hyphens are ignored by the exchange); the default TTL is 300
+  seconds and the accepted range is 60-3600. `ios devices` lists devices and `ios revoke`
+  sets `revoked_at` (idempotent; an unknown id exits 2). No HTTP route issues a code.
+- **Credential model.** A successful exchange creates one device and returns a 32-byte
+  URL-safe bearer token. Only SHA-256 hex digests of the code and token are stored. A missing
+  or unknown token returns `401`; a revoked device returns `403`. Authentication runs before
+  route dispatch, so an unknown path under the namespace is `401` unauthenticated and `404`
+  authenticated.
+- **Pairing errors.** `400` malformed body/code/label, `401` wrong code, `410` expired or
+  already used, `429` attempts exhausted. Five failed attempts exhaust one code.
+- **Phase 2/3A writes.** Every mutation requires a UUID Idempotency-Key. A successful response is
+  stored for 30 days and replayed with Idempotent-Replay: true; the same key with a different body
+  or route is 409 idempotency_conflict. The receipt check and mutation run in one BEGIN IMMEDIATE
+  transaction, so concurrent duplicates replay the committed response rather than executing twice;
+  a receipt uniqueness race is rolled back and re-read instead of returning 500. Mutations are
+  authenticated before dispatch and run through the existing readiness, prescription and workout
+  services. Phase 3A adds the read-only HealthKit readiness import route; it stores observations,
+  never writes HealthKit itself, and does not request sleep or workouts.
+- **HealthKit readiness.** Phase 3A is read-only and opt-in. The client sends only HRV and
+  resting heart rate; manual/preset readiness wins over HealthKit, which wins over imported
+  readiness. HealthKit observations live in `healthkit_readiness`, never in `readiness_day` or
+  `readiness_entry`. Sample identity is device + field + HealthKit sample UUID; identical
+  observations are no-ops and changed immutable attributes are 409 healthkit_sample_conflict.
+  The route accepts only the server-local today, HRV within 48 hours and RHR on that date; the
+  canonical readiness payload exposes `sources` and `healthkit` provenance. No raw time series is
+  retained and no score is computed in Swift.
+- **Per-rep velocity.** The iOS set route accepts optional `rep_velocities` on a manual set. The
+  server validates indexes/values, derives `velocity_mps` from the reps when the mean is omitted,
+  and returns `reps_detail`/`rep_summary`. This is descriptive detail; it does not change load,
+  RIR, prescriptions or scoring. The existing web import/API contract remains authoritative.
+- **Issued plans.** POST /api/ios/v1/prescriptions persists the normal prescription and returns a
+  single-use issued plan with a 60-minute TTL. The phone starts it by id only; plan content never
+  comes from the phone. One live plan is allowed per device; a newer issue supersedes the older one.
+  Device-scoped plans and receipts keep one device from reading another device's plan.
+- **Asynchronous issue (R7).** The resolver build outlives the client's 10-second timeout, so the
+  request is queued and built by one bounded dispatcher: `202` plus a database-backed request row,
+  and `GET /api/ios/v1/plans/current` as the authoritative read for launch, foreground and polling.
+  Two deadlines are separate: `request_expires_at` (`plan_request_ttl_seconds`, default 900)
+  bounds the build, and `plan_expires_at` (`issued_plan_ttl_seconds`, default 3600) bounds starting
+  a ready plan. Prescription rows are written in the start transaction, so an unstarted ready plan
+  is a preview and not a prescription. Starting a `queued`/`building` plan is `409 plan_not_ready`;
+  a failed build is `410 plan_failed`. Legacy Phase 2 rows are preserved by migration `0056` and
+  keep their original prescription id.
+- **Mutation switch.** Set mutations_enabled: false in config/ios.v1.yaml to return every Phase 2
+  mutation as 503 ios_mutations_disabled while bootstrap/today/history/progress remain available.
+  The bootstrap capabilities report the writes as disabled.
+- **Errors.** Phase 2 conflicts use {"error", "code", "fields", "details"} with codes such as readiness_required,
+  confirmation_required, workout_active, plan_expired, plan_superseded, plan_consumed,
+  workout_not_active, session_rpe_required and idempotency_conflict. Validation failures remain 400.
+- **Offline timestamp preservation.** `performed_at` is optional on a set and must be an
+  ISO-8601 timestamp no earlier than the workout start and not in the future; it is retained as
+  the set's audit timestamp. `ended_at` is optional on completion and must fall between the start
+  and now; when no manual `duration_min` is supplied, measured duration is start-to-`ended_at`.
+- **Plan-item attribution.** A set's `plan_item_index` is the stable plan-item identity
+  (`order_index`), not its current display position. It is optional. The client auto-attributes a
+  unique exercise. When an exercise appears multiple times, the app lists the occurrences and
+  defaults to Not attributed; selecting one sends that stable identity, while leaving it unselected
+  sends nil. For backward compatibility an old display position is accepted only when it names the
+  same exercise. The comparison response exposes `plan_item_index` (stable) and `display_index`
+  (current order). An omitted index resolves only for a unique exercise; otherwise the set keeps no
+  plan-item attribution.
+- **Progress is available to the client in Phase 2.** GET /api/ios/v1/progress is the same
+  progress_feature.dashboard payload used by the web UI; the native client has a Progress tab.
+- **Retry boundary.** The client records each attempted mutation in a durable, capped journal
+  before sending it. After relaunch it replays only those attempted operations with the original
+  UUID and exact body, within a 28-day client window inside the server's 30-day receipt retention.
+  Definitive 4xx responses remove the entry; idempotency conflicts and stale entries stop
+  automatic replay and require review/discard. This is not an offline queue, and the server API is
+  unchanged.
+- **last_seen_at** is updated at most once per 60 seconds.
+- **Dates.** `server_date`/`server_time` come from the server's local clock; the phone must
+  not derive the training date from a UTC slice. `bootstrap` sends the numeric UTC offset and
+  the platform timezone abbreviation, not an IANA name.
+
 ## Request security
 
 **Temporary home-network mode (2026-10-28, `DEC-WEB-03`):** the loopback Host, Origin and
@@ -118,6 +225,8 @@ What remains:
 - `Content-Type: application/json` is required for mutation bodies, so a `text/plain` simple
   request cannot be used as a JSON body;
 - request bodies are capped at 64 MiB;
+- `/api/ios/v1/` is the only authenticated surface (per-device bearer token); every
+  unversioned route remains unauthenticated as described above;
 - logs do not record passwords or session tokens;
 - authentication, per-user data, password reset, birth date/gender/timezone, CSRF and TLS are
   the `ROADMAP.md` §4.19 backlog. They must land before any exposure beyond the home LAN.

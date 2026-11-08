@@ -90,9 +90,11 @@ Use the CLI when needed:
 
 Do not remove a hard constraint just because a readiness score is high. Constraints and exercise-suitability ratings are separate from day-to-day readiness.
 
-### Step 3 — Review a few recent sessions
+### Step 3 — Mark one or two recent sessions
 
-Open **Review**. Review only sessions you can reasonably remember and enter marks for the rubric items. Leave an item blank if you cannot judge it. Set memory confidence honestly (`high`, `low`, or `unknown`).
+Open **Review**. Start with one or two sessions you can still remember and enter scores for the rubric items. Leave an item blank if you cannot judge it. Set memory confidence honestly (`high`, `low`, or `unknown`).
+
+For the ongoing loop, mark each session on the day and prefer one you have just finished in Workout mode: the prescription snapshot is what makes essential work comparable. Do not backfill old imports just to create calibration labels; a reconstructed mark is stored but excluded from agreement.
 
 The calibration report compares the engine's rubric scores with your marks. It is not an automatic tuning system: the report is evidence for a human decision, and it does not automatically change rubric weights or prescription rules.
 
@@ -166,8 +168,8 @@ Marks and run history are append-only. A later correction adds a new record; it 
 
 Once a week, or after a meaningful change:
 
-- Review recent sessions you remember.
-- Run the rubric calibration report after entering marks.
+- Check that each new live workout was marked on the day; do not backfill old imports for calibration.
+- Run the rubric calibration report monthly or at the Phase 5A gate, not after every session. The B1 review closed on 2026-11-07 with no rubric change; see [`docs/RUBRIC-CALIBRATION.md`](docs/RUBRIC-CALIBRATION.md).
 - Inspect the **Weekly volume** panel and any MRV/volume warnings.
 - Check athlete state, exercise suitability, constraints and block dates if they have changed.
 - Review symptoms and injury-signal information where relevant.

@@ -64,12 +64,14 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 - [REFERENCES.md](REFERENCES.md) — bibliography with DOIs and usage
 - [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md) — living limitation index
 - [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — live ambiguities and defaults
+- [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md) — calibration loop, B1 outcome and what to do next
 - [SANITY-CHECKS.md](SANITY-CHECKS.md), [V0-SCOPE.md](V0-SCOPE.md)
 
 ## Active and gated plans
 
 - [HIGH-INTENSITY-EXPOSURE-PLAN.md](HIGH-INTENSITY-EXPOSURE-PLAN.md) (Phase 3 pending)
 - [INJURY-ATTRIBUTION-PLAN.md](INJURY-ATTRIBUTION-PLAN.md) (Phase 3 open)
+- [IOS-CLIENT-PLAN.md](IOS-CLIENT-PLAN.md) (Phase 0 complete 2026-11-07; Phase 1 approved; online-first strength workflow; HealthKit readiness before offline capture; Apple Intelligence later)
 - [LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md)
 - [WEAKNESS-TARGETING-PLAN.md](WEAKNESS-TARGETING-PLAN.md) (gated)
 

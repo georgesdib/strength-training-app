@@ -57,16 +57,9 @@ def _projection(history: list[dict], field: str, target: dt.date,
 def report(conn, end: str | None = None, days: int = 90) -> str:
     end = end or dt.date.today().isoformat()
     settings = readiness_score.effective_settings(conn, end)
-    rows = conn.execute(
-        """
-        SELECT on_date FROM readiness_day
-         WHERE on_date <= ?
-         ORDER BY on_date DESC
-         LIMIT ?
-        """,
-        (end, int(days)),
-    ).fetchall()
-    dates = [str(row["on_date"]) for row in reversed(rows)]
+    boundary = dt.date.fromisoformat(end)
+    start = (boundary - dt.timedelta(days=max(0, int(days) - 1))).isoformat()
+    dates = queries.readiness_dates(conn, start, end)
     results: dict[str, list[tuple[float, float, float, float]]] = {
         "hrv_ms": [], "rhr_bpm": []
     }
