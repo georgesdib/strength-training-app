@@ -412,6 +412,20 @@ Use a testable HealthKitReadinessProviding protocol; production uses HKHealthSto
   and may reject the date; the UI must show that result without silently changing the date.
 - Never copy HealthKit values into the manual readiness form.
 
+### 6.3a Per-metric availability
+
+Eligibility is represented independently for HRV, RHR and bodyweight. Each metric is one of:
+
+    eligible   an eligible observation was selected
+    missing    no observation of that field was returned
+    stale      observations were returned but none was eligible
+
+The overall state is only a summary and never makes a missing/stale metric look valid. The UI must
+show each metric row with its own eligible/missing/stale wording; an overall eligible sample with
+one stale metric is partial availability, not a complete success. Effective server values remain
+the authority; the client never fabricates a value for a missing/stale field. These per-metric
+states do not change backend selection, precedence or scoring.
+
 ### 6.4 Single-flight import
 
 All import triggers go through one serialized coordinator:
@@ -446,7 +460,8 @@ Rules:
 
 After selection, the flow is:
 
-1. Query HealthKit and select at most one HRV and one RHR using sections 5.3 and 6.3.
+1. Query HealthKit and select at most one HRV, one RHR and one bodyweight using sections 5.3
+   and 6.3.
 2. POST the selected observations to /api/ios/v1/healthkit/readiness with a UUID
    Idempotency-Key. Add MutationKind healthkitReadiness so the R1 journal and same-key retry rules
    apply.
@@ -454,7 +469,10 @@ After selection, the flow is:
    pending and retry with the same UUID/body; do not claim success.
 4. Fetch the authoritative Today/readiness payload from GET /api/ios/v1/today (or the equivalent
    readiness read) after the acknowledgement. Do not treat the POST response as the display
-   authority.
+   authority. This GET is mandatory and must not be silently skipped when another refresh is in
+   flight: serialize readiness GET/POST operations, coalesce concurrent refresh requests, and
+   enqueue at least one follow-up GET after the POST. Every waiting caller must receive the final
+   authoritative outcome.
 5. Display the effective values, effective sources, sample age, score/status and basis returned by
    the Python readiness implementation.
 6. Clearly distinguish stored HealthKit observations from effective readiness. The healthkit map
@@ -465,7 +483,9 @@ After selection, the flow is:
    changing the score.
 8. If the authoritative refresh fails after a successful acknowledgement, show the import as
    accepted but the readiness view as stale/unrefreshed, and offer a refresh retry. Do not show
-   the POST payload as authoritative.
+   the POST payload as authoritative, do not report the mutation as failed and do not resubmit
+   the POST. The acknowledged journal entry is complete before the GET; only an ambiguous POST
+   remains retryable with the original UUID/body.
 
 ## 7. Tests and acceptance traceability
 
@@ -505,8 +525,13 @@ After selection, the flow is:
   source name/bundle and Idempotency-Key.
 - Toggle default off; permission request only after enabling; manual readiness still works when
   unavailable, no sample or an indeterminate read result.
+- Refresh concurrency: a POST during an active refresh waits for the lock, the refresh cannot
+  skip the post-mutation GET, multiple refresh callers coalesce without losing the final GET, and
+  a POST-success/GET-failure is surfaced as a refresh failure without retrying the mutation.
 - Single-flight: explicit and automatic triggers never overlap; one coalesced follow-up; canceled
   task keeps the same operation UUID; new import uses a new UUID.
+- Per-metric states: HRV eligible + RHR stale, RHR eligible + HRV missing, both missing/stale,
+  and both eligible all produce independent eligible/missing/stale rows.
 - R1 journal captures the import and replays the same UUID/body; authoritative refresh occurs after
   acknowledgement; POST payload is not treated as display authority.
 - Display distinguishes observations from effective values and shows manual precedence and
@@ -527,7 +552,8 @@ After selection, the flow is:
 | Apple Watch classification and fallback | Three classes, missing metadata, name-only false positive, tie; Apple Watch only when positively identified |
 | Permission states indeterminate | Client state tests and acceptance copy |
 | Single-flight/cancellation/lifecycle | Coordinator tests with overlapping triggers and cancellation |
-| Authoritative refresh | Import acknowledgement then GET Today/readiness; refresh failure state |
+| Authoritative refresh | Import acknowledgement then mandatory GET; POST during active refresh; GET failure after POST; coalesced callers |
+| Per-metric eligibility | HRV eligible + RHR stale; RHR eligible + HRV missing; both missing/stale; both eligible |
 | Manual precedence | Manual entry after import; later import does not change effective source |
 | No score change implied | Observation stored without eligibility; score/status unchanged |
 | No backfill/raw time series | Import only current HRV/RHR/bodyweight; schema stores one observation per field/date |
@@ -541,6 +567,8 @@ After selection, the flow is:
 - Enabled with data: eligible HRV/RHR/bodyweight samples imported; effective values/sources,
   sample age, score/status and basis are shown from the authoritative server refresh.
 - No eligible sample: the noEligibleSample wording is used; no claim of denied permission.
+- Partial availability: each metric row independently says eligible or stale/missing; one stale
+  metric never appears as a valid value and the overall status does not imply completeness.
 - Stale sample: staleSample is shown and nothing is imported.
 - Import/network/server error: error state with retry; no zero or inferred value.
 - Manual entry after import remains selected after a later HealthKit import.
