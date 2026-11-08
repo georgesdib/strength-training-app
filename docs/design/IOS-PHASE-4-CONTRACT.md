@@ -1,8 +1,9 @@
 # iOS Phase 4 — reliable capture and offline support
 
-**Status:** approved by the owner on 2026-11-08; implementation complete. Chunks 1–4 are
-implemented: timestamps, durable snapshot/outbox, offline capture, replay/conflict handling,
-foreground/network/manual sync and discard/retry. Physical offline acceptance remains pending. This contract is
+**Status:** **implemented and closed 2026-11-08.** Chunks 1–4 are implemented: timestamps,
+durable snapshot/outbox, offline capture, ordered replay, conflict handling,
+foreground/network/manual sync, bounded retries and discard/retry. Physical offline acceptance was
+owner-confirmed at closure. This contract is
 the authoritative Phase 4 specification. Phase 4 does not start offline prescriptions, offline
 readiness scoring, plan editing or HealthKit imports.
 
@@ -182,7 +183,7 @@ Physical acceptance:
 - visible conflict for an ended-elsewhere/other-active-workout case;
 - no readiness/prescription/plan-edit/HealthKit path is presented as offline-capable.
 
-Phase 4 is not closed until the physical acceptance is owner-confirmed.
+Phase 4 was closed by the owner on 2026-11-08 after acceptance.
 
 ## 9. Rollback
 

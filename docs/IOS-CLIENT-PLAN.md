@@ -187,8 +187,8 @@ When supported effort data is available for an Apple workout that the owner has 
 
 ### Phase 4 — Reliable Capture and Offline Support
 
-**Status:** approved 2026-11-08; Chunks 1–4 implemented (timestamps, durable outbox, offline
-capture and replay/conflict handling). Physical offline acceptance remains.
+**Status:** **closed 2026-11-08.** Chunks 1–4 are implemented (timestamps, durable outbox, offline
+capture, ordered replay and conflict handling); physical offline acceptance was owner-confirmed.
 
 **Goal:** add offline resilience only after the online strength flow is stable.
 
