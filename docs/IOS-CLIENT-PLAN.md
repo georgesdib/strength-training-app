@@ -11,10 +11,10 @@ completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Key
 72 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is implemented 2026-11-08;
 physical HealthKit acceptance remains pending and Phase 3B is out of scope. R7 (asynchronous
-prescription request with session-type and minimum-session settings) is **implemented and
-simulator-verified 2026-11-08** (72 client tests pass on the iOS 27.2 simulator and the built app
-launches); only the resolver-enabled live UI run remains. R2 is closed as absorbed by R7's
-`plans/current` read. R8 (active-workout plan editing) is **approved and not yet implemented**;
+prescription request with session-type and minimum-session settings) is **implemented and closed
+2026-11-08**: 72 client tests pass on the iOS 27.2 simulator, the app builds and launches, and the
+live UI flow passed twice — once with the resolver off and once with it on against a copy of the
+real database. R2 is closed as absorbed by R7's `plans/current` read. R8 (active-workout plan editing) is **approved and not yet implemented**;
 its authenticated exercise-catalogue, online-only and no-solved-load decisions are recorded.
 Contracts:
 [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) and
@@ -230,7 +230,7 @@ Preserve `/api/ios/v1/` as the future facade namespace, but implement endpoints 
 |---|---|---|
 | Phase 1 | Protected pairing exchange; `GET bootstrap/today`; read-only recent history and a server-only progress summary | Return server/API version, server-local date/timezone, capabilities, readiness/workout status and small existing summaries. No config paths or secrets. The `progress` route is implemented and tested server-side; the Phase 1 client has no Progress screen (deferred to Phase 2). |
 | Phase 2 | Read/write readiness; request prescription; read active workout; start by issued-plan id; add set; complete/abandon; read history/progress; optional inline form ratings; optional review | Mutations require authentication and an idempotency receipt. The prescription is stored at issue and the client starts by id only, so plan content never comes from the phone. Validate every field via existing Python services. |
-| R7 (implemented and verified) | Asynchronous prescription request; optional session type and minimum session; authoritative `GET plans/current`; start that writes the prescription | Returns `202` and builds in one bounded dispatcher on the shared CPU slot; two deadlines (build vs startable); legacy `ios_issued_plan` rows preserved by an explicit mapping; prescription persistence moves to start. |
+| R7 (implemented and closed) | Asynchronous prescription request; optional session type and minimum session; authoritative `GET plans/current`; start that writes the prescription | Returns `202` and builds in one bounded dispatcher on the shared CPU slot; two deadlines (build vs startable); legacy `ios_issued_plan` rows preserved by an explicit mapping; prescription persistence moves to start. |
 | Phase 3 | HRV/RHR provenance; HealthKit record import and optional workout association | Add only the source/provenance fields and routes needed by enabled types; keep user-consented HealthKit read-only. |
 | Phase 4 | Add/correct/remove set and offline event replay/reconciliation | Reuse the Phase 2 receipts; add a conflict response only where replay needs it. |
 
@@ -362,17 +362,17 @@ HealthKit acceptance pending.
 
 Next, in this order:
 
-1. **R7 — implemented and verified 2026-11-08.** Contract:
+1. **R7 — implemented and closed 2026-11-08.** Contract:
    [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md). The asynchronous prescription request
    with session-type and minimum-session settings; it fixes the resolver-versus-10-second timeout
-   failure in the Phase 2 prescription path and absorbs R2. The client builds, all 72 client tests
-   pass on the iOS 27.2 simulator, and the app launches. The only remaining check is one live run
-   with the resolver enabled against a running server; no physical-device pass is required (§14
-   decision 4).
+   failure in the Phase 2 prescription path and absorbs R2. Verified by the server suite, 72 client
+   tests on the iOS 27.2 simulator, and two live UI runs — resolver off, then resolver on against a
+   copy of the real database (`202` in 0.1 s, plan ready in 4 s on the development host, full flow
+   90.9 s). No physical-device pass is required (§14 decision 4).
 2. **R8 — approved 2026-11-08, implementation not started.** Contract:
    [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md). Swap/add/remove/set-count editing on an
    in-progress workout, reusing the existing Python services; an authenticated online exercise
-   catalogue feeds the picker. Do not start it before R7 is settled.
+   catalogue feeds the picker. R7 is closed, so R8 may start once its contract is confirmed.
 
 Do not begin Phase 3B, offline capture, cardio or PCC work without a separate approval; take Phase 4
 (offline) after Phase 3A acceptance. Phase 3B remains a separate contract.
@@ -714,8 +714,8 @@ own approved contract and has not started.
   pending-mutation journal; that was added immediately after closure as R1 (see below). It is not
   a general offline queue: only attempted mutations are journaled, and new mutations are blocked
   while one is unresolved. R5 recovery/reconciliation UX is implemented and closed; R2 is closed
-  as absorbed by R7's `plans/current` read; R7 is implemented and verified by unit and live UI
-  runs; R8 is approved but not implemented; R4 is implemented and closed and is not a Phase 2 closure
+  as absorbed by R7's `plans/current` read; R7 is implemented and closed (unit, simulator and two
+  live UI runs); R8 is approved but not implemented; R4 is implemented and closed and is not a Phase 2 closure
   blocker.
 
 ### R1 durable pending-mutation journal (implemented and closed 2026-11-07)
@@ -782,7 +782,7 @@ dedicated physical-iPhone R1/R3/R5 passes were not separately performed.
 - Unit coverage verifies the current-rating lookup; the simulator build and 72-test client suite
   pass.
 
-### R7 asynchronous prescription request with workout settings (implemented 2026-11-08)
+### R7 asynchronous prescription request with workout settings (implemented and closed 2026-11-08)
 
 **Contract:** [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) — approved decisions, server
 model, routes, polling, tests, acceptance and rollback.

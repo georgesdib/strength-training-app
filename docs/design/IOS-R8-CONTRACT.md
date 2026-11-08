@@ -179,7 +179,8 @@ Owner-approved decisions on 2026-11-08:
 4. **Online-only edits:** R8 does not add an offline queue. R1 journaling covers attempted edits.
 5. **No solved load:** the phone never supplies a load for add/swap, and R8 does not run the load
    solver mid-session.
-6. **Order:** R8 follows R7; it does not start before R7 is settled.
+6. **Order:** R8 follows R7. R7 is closed (2026-11-08), so R8 may start once this contract is
+   confirmed.
 7. **No reordering:** reordering remains out of scope even though the event log could carry it.
 
 Still deferred:

@@ -599,7 +599,7 @@ documents:
 - id: ios-client-plan
   path: docs/IOS-CLIENT-PLAN.md
   title: Native iPhone Client — Online-First Implementation Plan
-  description: 'Phases 0-2 closed 2026-11-07; Phase 3A implemented 2026-11-08; authenticated online-first native strength workflow with Python-authoritative training; R7 asynchronous prescription request implemented and verified 2026-11-08, R8 active-workout plan editing approved and not implemented; later HealthKit workout imports with manual-over-import precedence, then offline capture, optional Apple on-device/PCC AI'
+  description: 'Phases 0-2 closed 2026-11-07; Phase 3A implemented 2026-11-08; authenticated online-first native strength workflow with Python-authoritative training; R7 asynchronous prescription request implemented and closed 2026-11-08, R8 active-workout plan editing approved and not started; later HealthKit workout imports with manual-over-import precedence, then offline capture, optional Apple on-device/PCC AI'
   category: plans
   status: plan
   audience: public
