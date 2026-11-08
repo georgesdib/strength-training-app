@@ -295,6 +295,52 @@ def test_original_comparison_is_unavailable_after_a_plan_swap(conn):
     assert changed["original_comparison"]["items"][0]["match_status"] == "unavailable"
 
 
+def test_sets_and_end_preserve_explicit_local_timestamps(conn):
+    import datetime as dt
+
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    start = dt.datetime.fromisoformat(started["started_at"])
+    performed = start + dt.timedelta(seconds=1)
+    changed = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2, set_index=1, plan_item_index=0,
+        performed_at=performed.isoformat(),
+    )
+    assert changed["sets"][0]["created_at"].startswith(
+        performed.astimezone(dt.UTC).isoformat(timespec="milliseconds")[:19]
+    )
+
+    with pytest.raises(ValueError, match="before the workout start"):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=100, reps=5, rir=2, set_index=2, plan_item_index=0,
+            performed_at=(start - dt.timedelta(seconds=1)).isoformat(),
+        )
+    with pytest.raises(ValueError, match="future"):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=100, reps=5, rir=2, set_index=2, plan_item_index=0,
+            performed_at=(dt.datetime.now(dt.UTC) + dt.timedelta(minutes=5)).isoformat(),
+        )
+
+    now = dt.datetime.now(dt.UTC)
+    conn.execute(
+        "UPDATE workout_session SET started_at = ? WHERE workout_id = ?",
+        ((now - dt.timedelta(minutes=10)).isoformat(), started["workout_id"]),
+    )
+    with pytest.raises(ValueError, match="before the workout start"):
+        workout.end(
+            conn, started["workout_id"], session_rpe=7, not_recorded=False,
+            ended_at=(now - dt.timedelta(minutes=20)).isoformat(),
+        )
+    ended = workout.end(
+        conn, started["workout_id"], session_rpe=7, not_recorded=False,
+        ended_at=(now - dt.timedelta(minutes=1)).isoformat(),
+    )
+    assert ended["duration_source"] == "measured"
+    assert 8.5 <= ended["duration_min"] <= 9.5
+    assert ended["ended_at"].startswith((now - dt.timedelta(minutes=1)).isoformat()[:19])
+
 def test_removing_an_earlier_item_keeps_later_set_attribution(conn):
     plan = {
         "for_date": "2024-01-01",

@@ -643,6 +643,51 @@ def test_ios_remove_last_plan_item_is_blocked(ios):
     assert conflict["code"] == "last_plan_item"
 
 
+def test_ios_set_and_complete_preserve_local_timestamps(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    started_at = datetime.datetime.fromisoformat(workout["started_at"])
+    item = workout["plan"]["items"][0]
+    performed_at = (started_at + datetime.timedelta(seconds=1)).isoformat()
+
+    status, rejected = _add_set(
+        ios, token, workout["workout_id"], item,
+        performed_at=(started_at - datetime.timedelta(seconds=1)).isoformat(),
+    )
+    assert status == 400, rejected
+
+    status, changed = _add_set(
+        ios, token, workout["workout_id"], item, performed_at=performed_at,
+    )
+    assert status == 200, changed
+    assert changed["sets"][-1]["created_at"].startswith(performed_at[:19])
+
+    status, rejected = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/complete",
+        method="POST",
+        payload={
+            "session_rpe": 7,
+            "ended_at": (started_at - datetime.timedelta(seconds=1)).isoformat(),
+        },
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 400, rejected
+
+    ended_at = datetime.datetime.now(datetime.UTC).isoformat()
+    status, completed = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/complete",
+        method="POST",
+        payload={"session_rpe": 7, "ended_at": ended_at},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, completed
+    assert completed["status"] == "completed"
+    assert completed["duration_source"] == "measured"
+
+
 def test_ios_removing_an_item_keeps_later_set_identity(ios):
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)

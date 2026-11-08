@@ -1578,7 +1578,7 @@ authenticated readiness/prescription/workout/complete/abandon routes, and 27 con
 the client adds readiness entry, prescription preview, start-by-id, active workout with optional
 manual mean velocity, form ratings, RPE/not-recorded completion, abandon and a Progress screen.
 The contract is [`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md).
-The default server suite is 1663 tests and the client has 74 unit tests after R1/R3/R4/R5 and
+The default server suite is 1665 tests and the client has 74 unit tests after R1/R3/R4/R5 and
 Phase 3A; the live UI workflow passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2
 acceptance was owner-confirmed on 2026-11-07 on the iPhone 16 Pro Max (iPhone17,2), iOS 27.2.
 Phase 2 is closed. Phase 3A (opt-in HealthKit HRV/RHR/bodyweight readiness) is **implemented and
@@ -1660,7 +1660,7 @@ under `docs/design/IOS-R8-CONTRACT.md`. Phase 2 is closed 2026-11-07.
 effective-readiness merge (manual/preset > HealthKit > imported) used by readiness day, series,
 history, scoring and the HRV/RHR baseline; the authenticated
 POST /api/ios/v1/healthkit/readiness route; device-scoped sample identity and operation receipts;
-bootstrap healthkit_readiness capability. The default suite is 1663 tests and ruff passes.
+bootstrap healthkit_readiness capability. The default suite is 1665 tests and ruff passes.
 Client: read-only HealthKit authorization for HRV SDNN, resting heart rate and bodyweight,
 deterministic source classification and selection, offline-free single-flight import,
 healthkitReadiness journal kind, Settings opt-in and Today provenance/freshness display; 74 unit

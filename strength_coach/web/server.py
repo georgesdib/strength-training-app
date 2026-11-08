@@ -1949,7 +1949,7 @@ class Handler(BaseHTTPRequestHandler):
     def _ios_workout_set(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {
             "exercise_id", "load_kg", "reps", "rir", "velocity_mps",
-            "set_index", "plan_item_index", "rep_velocities",
+            "set_index", "plan_item_index", "rep_velocities", "performed_at",
         })
         self._ios_workout(conn, workout_id)
         exercise_id = body.get("exercise_id")
@@ -2003,6 +2003,12 @@ class Handler(BaseHTTPRequestHandler):
             raise ios_workflow.IOSWorkflowError(
                 400, "validation_failed", "plan_item_index must be non-negative",
                 fields={"plan_item_index": "must be non-negative"},
+            )
+        performed_at = body.get("performed_at")
+        if performed_at is not None and not isinstance(performed_at, str):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "performed_at must be an ISO-8601 string",
+                fields={"performed_at": "must be an ISO-8601 string"},
             )
         raw_reps = body.get("rep_velocities")
         rep_velocities: list[dict] | None = None
@@ -2065,6 +2071,7 @@ class Handler(BaseHTTPRequestHandler):
             set_index=set_index,
             plan_item_index=plan_item_index,
             rep_velocities=rep_velocities,
+            performed_at=performed_at,
         )
 
     def _ios_workout_form(self, conn, workout_id: str, body: dict) -> dict:
@@ -2101,7 +2108,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _ios_workout_complete(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(
-            body, {"session_rpe", "not_recorded", "duration_min", "notes"}
+            body, {"session_rpe", "not_recorded", "duration_min", "notes", "ended_at"}
         )
         self._ios_workout(conn, workout_id)
         not_recorded = body.get("not_recorded", False)
@@ -2139,12 +2146,19 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "notes must be a string",
                 fields={"notes": "must be a string"},
             )
+        ended_at = body.get("ended_at")
+        if ended_at is not None and not isinstance(ended_at, str):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "ended_at must be an ISO-8601 string",
+                fields={"ended_at": "must be an ISO-8601 string"},
+            )
         return workout.end(
             conn, workout_id,
             session_rpe=rpe,
             not_recorded=not_recorded,
             duration_min=duration,
             notes=notes or None,
+            ended_at=ended_at,
         )
 
     def _ios_workout_abandon(self, conn, workout_id: str, body: dict) -> dict:

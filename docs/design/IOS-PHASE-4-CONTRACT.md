@@ -1,7 +1,8 @@
 # iOS Phase 4 — reliable capture and offline support
 
-**Status:** approved by the owner on 2026-11-08; implementation in progress. This contract is the
-authoritative Phase 4 specification. Phase 4 does not start offline prescriptions, offline
+**Status:** approved by the owner on 2026-11-08; implementation in progress. Chunk 1 (server
+performed/finish timestamps) is implemented; client outbox/capture chunks remain. This contract is
+the authoritative Phase 4 specification. Phase 4 does not start offline prescriptions, offline
 readiness scoring, plan editing or HealthKit imports.
 
 ## 1. Goal

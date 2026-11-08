@@ -129,14 +129,14 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
 | `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}, settings?: {session_type?, minimum_session?, minimum_target_minutes?}}` -> `202 {issued_plan_id, status, for_date, request_expires_at, plan_expires_at, retry_after_ms, settings}`; the request is built in the background (R7) |
 | `GET /api/ios/v1/plans/current` | bearer | the authoritative plan-request state: `{status: queued|building|ready|error|none, issued_plan_id, elapsed_seconds, settings, plan?, readiness?, warnings?, error?}`; `none` is a normal answer, not a 404 |
 | `POST /api/ios/v1/workouts` | bearer + Idempotency-Key | `{issued_plan_id}` -> the existing workout detail; starts by id only; expired/superseded/consumed plans are 410, another active workout is 409 |
-| `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, rep_velocities?}` -> workout detail; `plan_item_index` is the stable plan-item identity (not the display position); `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required |
+| `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, rep_velocities?, performed_at?}` -> workout detail; `plan_item_index` is the stable plan-item identity (not the display position); `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required |
 | `POST /api/ios/v1/workouts/<id>/form` | bearer + Idempotency-Key | `{exercise_id, rating 1-5, note?}` -> workout detail |
 | `GET /api/ios/v1/exercises` | bearer | `{exercises:[{id, display, pattern}]}`; canonical catalogue for the R8 picker |
 | `POST /api/ios/v1/workouts/<id>/plan/items/<index>/swap` | bearer + Idempotency-Key | `{exercise_id, expected_exercise_id}` -> workout detail; `409 sets_already_logged` after a set, `409 exercise_already_present`, `409 plan_changed` |
 | `POST /api/ios/v1/workouts/<id>/plan/items/<index>/remove` | bearer + Idempotency-Key | `{expected_exercise_id}` -> workout detail; logged sets are kept; `409 last_plan_item`, `409 plan_changed` |
 | `POST /api/ios/v1/workouts/<id>/plan/items/<index>/sets` | bearer + Idempotency-Key | `{delta, expected_exercise_id}` -> workout detail; `409 sets_below_logged`, `409 plan_changed` |
 | `POST /api/ios/v1/workouts/<id>/plan/exercises` | bearer + Idempotency-Key | `{exercise_id}` -> workout detail; server defaults 3 sets, 8–12 reps, RIR 2, no load; duplicate is `409 exercise_already_present` |
-| `POST /api/ios/v1/workouts/<id>/complete` | bearer + Idempotency-Key | `{session_rpe? or not_recorded: true, duration_min?, notes?}` -> completed workout detail; RPE and not-recorded are mutually exclusive |
+| `POST /api/ios/v1/workouts/<id>/complete` | bearer + Idempotency-Key | `{session_rpe? or not_recorded: true, duration_min?, notes?, ended_at?}` -> completed workout detail; RPE and not-recorded are mutually exclusive; `ended_at` preserves the local finish time and measured duration |
 | `POST /api/ios/v1/workouts/<id>/abandon` | bearer + Idempotency-Key | `{}` -> abandoned workout detail |
 
 - **Pairing is CLI-only.** `strength-coach ios pair [--label LABEL] [--ttl 300]` prints a
@@ -189,6 +189,10 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
 - **Errors.** Phase 2 conflicts use {"error", "code", "fields", "details"} with codes such as readiness_required,
   confirmation_required, workout_active, plan_expired, plan_superseded, plan_consumed,
   workout_not_active, session_rpe_required and idempotency_conflict. Validation failures remain 400.
+- **Offline timestamp preservation.** `performed_at` is optional on a set and must be an
+  ISO-8601 timestamp no earlier than the workout start and not in the future; it is retained as
+  the set's audit timestamp. `ended_at` is optional on completion and must fall between the start
+  and now; when no manual `duration_min` is supplied, measured duration is start-to-`ended_at`.
 - **Plan-item attribution.** A set's `plan_item_index` is the stable plan-item identity
   (`order_index`), not its current display position. It is optional. The client auto-attributes a
   unique exercise. When an exercise appears multiple times, the app lists the occurrences and

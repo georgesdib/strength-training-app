@@ -912,6 +912,7 @@ def add_set(
     set_role: str | None = None,
     plan_item_index: int | None = None,
     rep_velocities: list[dict] | None = None,
+    performed_at: str | None = None,
 ) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
@@ -940,6 +941,16 @@ def add_set(
             sum(item["velocity_mps"] for item in rep_detail) / len(rep_detail), 3
         )
     item_index = _plan_item_index(workout, exercise_id, plan_item_index)
+    performed = _parse(performed_at)
+    if performed_at is not None:
+        start = _parse(workout.get("started_at"))
+        now = dt.datetime.now(dt.UTC)
+        if performed is None:
+            raise ValueError("performed_at must be an ISO-8601 timestamp")
+        if start is not None and performed < start:
+            raise ValueError("performed_at must not be before the workout start")
+        if performed > now + dt.timedelta(minutes=1):
+            raise ValueError("performed_at must not be in the future")
     with db.transaction(conn):
         existing = conn.execute(
             "SELECT set_id FROM workout_set WHERE workout_id = ? AND exercise_id = ? "
@@ -954,11 +965,13 @@ def add_set(
             """
             INSERT INTO workout_set
                 (workout_id, exercise_id, set_index, load_kg, reps, rir, velocity, source,
-                 prescription_item_index, set_role)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 prescription_item_index, set_role, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (workout_id, exercise_id, set_index, load_kg, reps, rir, velocity, source,
-             item_index, set_role),
+             item_index, set_role,
+             performed.astimezone(dt.UTC).isoformat(timespec="milliseconds")
+             if performed is not None else _now()),
         )
         _event(conn, workout_id, "add_set", {"exercise_id": exercise_id,
                                               "set_index": set_index},
@@ -1894,6 +1907,7 @@ def end(
     duration_min: float | None = None,
     productivity: int | None = None,
     notes: str | None = None,
+    ended_at: str | None = None,
 ) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
@@ -1903,13 +1917,26 @@ def end(
         return workout
     if workout["status"] != "in_progress":
         raise ValueError("workout is not in progress")
+    start = _parse(workout.get("started_at"))
+    ended_dt = _parse(ended_at) if ended_at is not None else dt.datetime.now(dt.UTC)
+    if ended_at is not None and ended_dt is None:
+        raise ValueError("ended_at must be an ISO-8601 timestamp")
+    if ended_dt is not None:
+        if start is not None and ended_dt < start:
+            raise ValueError("ended_at must not be before the workout start")
+        if ended_dt > dt.datetime.now(dt.UTC) + dt.timedelta(minutes=1):
+            raise ValueError("ended_at must not be in the future")
+    measured_seconds = (
+        max(0, int((ended_dt - start).total_seconds()))
+        if start is not None and ended_dt is not None else _elapsed(workout)
+    )
     if duration_min is not None:
         duration = float(duration_min)
         if duration <= 0:
             raise ValueError("duration_min must be positive")
         source = "manual"
     else:
-        duration = _elapsed(workout) / 60.0
+        duration = measured_seconds / 60.0
         source = "measured"
     if session_rpe is not None:
         rpe = float(session_rpe)
@@ -1919,7 +1946,8 @@ def end(
         rpe = None
     else:
         raise ValueError("session_rpe is required, or mark it not recorded")
-    ended = _now()
+    ended = (ended_dt.astimezone(dt.UTC).isoformat(timespec="seconds")
+             if ended_dt is not None else _now())
     with db.transaction(conn):
         _materialise(
             conn, workout, ended=ended, duration=duration, duration_source=source,
@@ -1937,8 +1965,8 @@ def end(
                 session_rpe_recorded = ?, notes = COALESCE(?, notes), critique_id = ?
             WHERE workout_id = ?
             """,
-            (ended, _elapsed(workout), duration, source, rpe, 0 if not_recorded else 1,
-             notes, critique_id, workout_id),
+            (ended, measured_seconds, duration, source, rpe,
+             0 if not_recorded else 1, notes, critique_id, workout_id),
         )
         _event(conn, workout_id, "end", {"duration_min": duration,
                                           "session_rpe": rpe,
