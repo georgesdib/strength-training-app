@@ -15,6 +15,7 @@ import datetime
 import hashlib
 import json
 import logging
+import math
 import mimetypes
 import os
 import sqlite3
@@ -119,6 +120,7 @@ from strength_coach.rules import RuleContext
 from strength_coach.store import (
     db,
     exercise_admin,
+    healthkit_readiness,
     importer,
     ios_devices,
     ios_workflow,
@@ -150,6 +152,7 @@ IOS_BASE_CAPABILITIES = {
     "prescription": False,
     "workout_write": False,
     "healthkit": False,
+    "healthkit_readiness": False,
     "offline": False,
 }
 IOS_HISTORY_DEFAULT_LIMIT = 50
@@ -244,6 +247,7 @@ def _ios_capabilities() -> dict[str, bool]:
     capabilities["readiness_write"] = enabled
     capabilities["prescription"] = enabled
     capabilities["workout_write"] = enabled
+    capabilities["healthkit_readiness"] = enabled
     return capabilities
 
 
@@ -1084,6 +1088,13 @@ class Handler(BaseHTTPRequestHandler):
                     self._ios_mutation(
                         conn, device, path, body, config, self._ios_readiness,
                     )
+                elif path == "/api/ios/v1/healthkit/readiness":
+                    config = self._ios_require_mutations()
+                    body = self._body()
+                    self._ios_mutation(
+                        conn, device, path, body, config,
+                        self._ios_healthkit_readiness,
+                    )
                 elif path == "/api/ios/v1/prescriptions":
                     config = self._ios_require_mutations()
                     body = self._body()
@@ -1288,6 +1299,183 @@ class Handler(BaseHTTPRequestHandler):
         readiness_feature.record_manual(
             conn, today, clean, note=note or None
         )
+        return self._readiness(conn, today)
+
+    @staticmethod
+    def _ios_healthkit_optional_text(sample: dict, index: int, key: str, limit: int):
+        raw = sample.get(key)
+        if raw is None:
+            return None
+        if not isinstance(raw, str):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", f"{key} must be a string",
+                fields={f"samples[{index}].{key}": "must be a string"},
+            )
+        text = raw.strip()
+        if not text:
+            return None
+        if len(text) > limit:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", f"{key} is too long",
+                fields={f"samples[{index}].{key}": f"at most {limit} characters"},
+            )
+        return text
+
+    def _ios_healthkit_readiness(self, conn, device: dict, body: dict) -> dict:
+        self._ios_closed_fields(body, {"date", "samples"})
+        day = body.get("date")
+        if not isinstance(day, str):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "date is required",
+                fields={"date": "must be YYYY-MM-DD"},
+            )
+        try:
+            parsed_day = datetime.date.fromisoformat(day)
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "date must be YYYY-MM-DD",
+                fields={"date": "must be YYYY-MM-DD"},
+            ) from exc
+        today = datetime.date.today().isoformat()
+        if parsed_day.isoformat() != today:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "date must be the server-local today",
+                fields={"date": "must be the server-local today"},
+            )
+        samples = body.get("samples")
+        if not isinstance(samples, list) or not 1 <= len(samples) <= 2:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "samples must contain one or two observations",
+                fields={"samples": "must contain one or two observations"},
+            )
+        now = datetime.datetime.now(datetime.UTC)
+        clean: list[dict] = []
+        seen: set[str] = set()
+        allowed = {
+            "field", "value", "sample_id", "sample_at", "source_name",
+            "source_bundle_id", "source_class", "source_model", "source_manufacturer",
+        }
+        for index, sample in enumerate(samples):
+            if not isinstance(sample, dict):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"samples[{index}] must be an object",
+                    fields={f"samples[{index}]": "must be an object"},
+                )
+            self._ios_closed_fields(sample, allowed)
+            field = sample.get("field")
+            if field not in healthkit_readiness.FIELDS:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "unknown_field", "field must be hrv_ms or rhr_bpm",
+                    fields={f"samples[{index}].field": "must be hrv_ms or rhr_bpm"},
+                )
+            if field in seen:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "samples must not repeat a field",
+                    fields={f"samples[{index}].field": "duplicate field"},
+                )
+            seen.add(field)
+            value = sample.get("value")
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "value must be a positive number",
+                    fields={f"samples[{index}].value": "must be a positive number"},
+                )
+            number = float(value)
+            if not math.isfinite(number):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "value must be finite",
+                    fields={f"samples[{index}].value": "must be finite"},
+                )
+            try:
+                readiness_utils.validate(str(field), number)
+            except ValueError as exc:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", str(exc),
+                    fields={f"samples[{index}].value": str(exc)},
+                ) from exc
+            sample_id = sample.get("sample_id")
+            if not isinstance(sample_id, str) or not 1 <= len(sample_id.strip()) <= 128:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "sample_id must be a non-empty string",
+                    fields={f"samples[{index}].sample_id": "must be 1-128 characters"},
+                )
+            raw_at = sample.get("sample_at")
+            if not isinstance(raw_at, str):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "sample_at must be ISO-8601",
+                    fields={f"samples[{index}].sample_at": "must be ISO-8601"},
+                )
+            try:
+                parsed_at = datetime.datetime.fromisoformat(raw_at)
+            except ValueError as exc:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "sample_at must be ISO-8601",
+                    fields={f"samples[{index}].sample_at": "must be ISO-8601"},
+                ) from exc
+            if parsed_at.tzinfo is None:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "sample_at must include an offset",
+                    fields={f"samples[{index}].sample_at": "must include an offset"},
+                )
+            sample_at = parsed_at.astimezone(datetime.UTC)
+            if sample_at > now + datetime.timedelta(minutes=5):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "sample_at is in the future",
+                    fields={f"samples[{index}].sample_at": "must not be in the future"},
+                )
+            if field == "hrv_ms":
+                if now - sample_at > datetime.timedelta(hours=48):
+                    raise ios_workflow.IOSWorkflowError(
+                        400, "validation_failed", "HRV sample is older than 48 hours",
+                        fields={f"samples[{index}].sample_at": "must be within 48 hours"},
+                    )
+            elif sample_at.astimezone().date().isoformat() != today:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "RHR sample must be on the server-local today",
+                    fields={f"samples[{index}].sample_at": "must be on the server-local today"},
+                )
+            source_name = sample.get("source_name")
+            if not isinstance(source_name, str) or not 1 <= len(source_name.strip()) <= 128:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "source_name must be a non-empty string",
+                    fields={f"samples[{index}].source_name": "must be 1-128 characters"},
+                )
+            source_class = sample.get("source_class")
+            if source_class not in healthkit_readiness.SOURCE_CLASSES:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "source_class is invalid",
+                    fields={f"samples[{index}].source_class": "unknown source class"},
+                )
+
+            clean.append({
+                "field": field,
+                "value": number,
+                "sample_id": sample_id.strip(),
+                "sample_at": sample_at.isoformat(),
+                "source_name": source_name.strip(),
+                "source_bundle_id": self._ios_healthkit_optional_text(
+                    sample, index, "source_bundle_id", 200
+                ),
+                "source_class": source_class,
+                "source_model": self._ios_healthkit_optional_text(
+                    sample, index, "source_model", 200
+                ),
+                "source_manufacturer": self._ios_healthkit_optional_text(
+                    sample, index, "source_manufacturer", 200
+                ),
+            })
+        try:
+            healthkit_readiness.record_observations(
+                conn,
+                device_id=device["device_id"],
+                on_date=today,
+                samples=clean,
+                imported_at=ios_workflow.now_iso(),
+            )
+        except healthkit_readiness.HealthKitObservationConflict as exc:
+            raise ios_workflow.IOSWorkflowError(
+                409, "healthkit_sample_conflict", str(exc)
+            ) from exc
         return self._readiness(conn, today)
 
     def _ios_prescription(self, conn, device: dict, body: dict) -> dict:

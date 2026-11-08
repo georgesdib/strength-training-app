@@ -906,7 +906,7 @@ documents:
 - id: design-ios-phase-3a-contract
   path: docs/design/IOS-PHASE-3A-CONTRACT.md
   title: iOS Phase 3A HealthKit HRV/RHR readiness contract
-  description: 'Draft Phase 3A contract: opt-in read-only HealthKit HRV and resting heart rate, provenance, merge precedence, authenticated server endpoint, client UX, tests, acceptance and rollback; Phase 3B is out of scope'
+  description: 'Implemented Phase 3A contract: opt-in read-only HealthKit HRV and resting heart rate, provenance, canonical merge precedence, authenticated server endpoint, client UX, tests, acceptance and rollback; Phase 3B is out of scope and physical acceptance is pending'
   category: design
   status: design
   audience: maintainer

@@ -1,8 +1,9 @@
 # iOS Phase 3A — HealthKit HRV/RHR readiness: implementation contract
 
-**Status:** draft for owner approval (revised 2026-11-08 after review). Documentation only. No
-Phase 3A implementation, route, migration, entitlement, permission or runtime behavior has
-started. Do not implement Phase 3A until the owner approves this contract.
+**Status:** implemented 2026-11-08; unit, simulator and live-server workflow verified. Physical
+HealthKit acceptance remains pending. This contract remains the authoritative Phase 3A
+specification. No Phase 3B, Phase 4 offline capture, HealthKit write access, sleep imports, new
+score or training-rule change is authorized.
 
 **Scope:** fixes the exact server surface, canonical readiness merge, data model, client surface,
 permissions, concurrency, tests, acceptance and rollback for Phase 3A only: opt-in, read-only

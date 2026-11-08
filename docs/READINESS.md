@@ -35,7 +35,7 @@ several rows can share a date. Every cell is read as text and stored verbatim in
 before anything is interpreted.
 
 Manual entry (daily, occasional, or partial) feeds the same merge. Quick presets write the same ordinary fields with `source=preset`; they do not bypass the gate or the minimum-data rule. Context flags (`travel`, `timezone_change`, `illness`, `alcohol`, `poor_sleep_environment`, `high_work_stress`) are stored separately and are displayed, not scored by default. A manual value wins **per
-field**; the imported row fills the fields it does not provide (`DEC-READINESS-03`). The old
+field**; the imported row fills the fields it does not provide (`DEC-READINESS-03`). Phase 3A optionally adds read-only HealthKit HRV and resting heart rate through the same effective-readiness query; manual/preset wins over HealthKit, and HealthKit wins over the imported row. HealthKit observations are stored separately and are never written into `readiness_day` or `readiness_entry`. No sleep, workouts or subjective fields are imported. The old
 `squat_readiness`/`bench_readiness`/`deadlift_readiness` columns are retained only as
 calibration labels; they are not accepted as manual input (`DEC-READINESS-06`). Manual
 readings are appended to `readiness_entry`, never written into `readiness_day`, so a
@@ -98,6 +98,15 @@ Manual readings live in `readiness_entry`: one row per field, append-only, with 
 (date, field) wins. `queries.readiness_day` overlays those entries on the imported row and
 returns a `sources` map and a `manual_merge_note` with both values, so a partial manual day
 keeps the imported fields around it and the override is auditable.
+
+Phase 3A HealthKit observations live in the append-only `healthkit_readiness` table with a
+device-scoped sample identity and source/provenance. The same canonical query overlays the
+latest observation per date/field between the imported row and manual/preset entries, so
+readiness day, series, history, scoring and the HRV/RHR baseline all see identical effective
+values. The readiness payload exposes both the effective `sources` map and the stored
+`healthkit` provenance; a manual value can win while the observation remains visible. Only the
+two fields are retained, not a raw time series, and the existing Python scoring rules remain
+the sole authority.
 
 ## 5. What actually moves a load
 

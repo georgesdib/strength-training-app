@@ -206,6 +206,194 @@ def test_readiness_write_replays_without_a_second_manual_entry(ios):
     assert body["sleep"] == 4.0
 
 
+def _healthkit_sample(field="hrv_ms", value=55.0, *, sample_id=None, sample_at=None,
+                      source_name="Apple Watch", source_class="apple_watch",
+                      source_model="Watch6,18", source_manufacturer="Apple Inc."):
+    return {
+        "field": field,
+        "value": value,
+        "sample_id": sample_id or uuid.uuid4().hex,
+        "sample_at": sample_at or datetime.datetime.now(datetime.UTC).isoformat(),
+        "source_name": source_name,
+        "source_bundle_id": "com.apple.health",
+        "source_class": source_class,
+        "source_model": source_model,
+        "source_manufacturer": source_manufacturer,
+    }
+
+
+def _healthkit(ios, token, samples=None, *, day=None, key=None):
+    payload = {
+        "date": day or ios["today"],
+        "samples": samples if samples is not None else [
+            _healthkit_sample("hrv_ms", 55.0),
+            _healthkit_sample("rhr_bpm", 52.0),
+        ],
+    }
+    return _request(
+        ios["base"], "/api/ios/v1/healthkit/readiness", method="POST",
+        payload=payload, token=token, key=key or uuid.uuid4().hex,
+    )
+
+
+def test_healthkit_readiness_imports_and_replays(ios):
+    token, _ = _paired(ios)
+    samples = [_healthkit_sample("hrv_ms", 55.0), _healthkit_sample("rhr_bpm", 52.0)]
+    key = uuid.uuid4().hex
+    status, body = _healthkit(ios, token, samples, key=key)
+    assert status == 200, body
+    assert body["healthkit"]["hrv_ms"]["value"] == 55.0
+    assert body["healthkit"]["rhr_bpm"]["value"] == 52.0
+    assert body["sources"]["hrv_ms"] == "healthkit"
+    assert body["sources"]["rhr_bpm"] == "healthkit"
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM healthkit_readiness")) == 2
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM readiness_entry")) == 0
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM readiness_day WHERE hrv_ms IS NOT NULL")) == 0
+
+    status, today = _request(ios["base"], "/api/ios/v1/today", token=token)
+    assert status == 200
+    assert today["readiness"]["healthkit"]["hrv_ms"]["value"] == 55.0
+    assert today["readiness"]["sources"]["hrv_ms"] == "healthkit"
+
+    status, replay, headers = _request_full(
+        ios["base"], "/api/ios/v1/healthkit/readiness", method="POST",
+        payload={"date": ios["today"], "samples": samples},
+        token=token, key=key,
+    )
+    assert status == 200, replay
+    assert replay == body
+    assert headers.get("Idempotent-Replay") == "true"
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM healthkit_readiness")) == 2
+
+
+def test_healthkit_sample_identity_conflicts_are_atomic(ios):
+    token, _ = _paired(ios)
+    first = _healthkit_sample("hrv_ms", 55.0, sample_id="sample-a")
+    status, _ = _healthkit(ios, token, [first], key=uuid.uuid4().hex)
+    assert status == 200
+
+    changed_value = {**first, "value": 56.0}
+    status, body = _healthkit(ios, token, [changed_value], key=uuid.uuid4().hex)
+    assert status == 409, body
+    assert body["code"] == "healthkit_sample_conflict"
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM healthkit_readiness")) == 1
+
+    changed_at = {**first, "sample_at": datetime.datetime.now(datetime.UTC).isoformat()}
+    status, body = _healthkit(ios, token, [changed_at], key=uuid.uuid4().hex)
+    assert status == 409, body
+
+    changed_source = {**first, "source_name": "Other Source"}
+    status, body = _healthkit(ios, token, [changed_source], key=uuid.uuid4().hex)
+    assert status == 409, body
+
+    changed_class = {**first, "source_class": "unknown"}
+    status, body = _healthkit(ios, token, [changed_class], key=uuid.uuid4().hex)
+    assert status == 409, body
+
+    status, body = _healthkit(ios, token, [first], key=uuid.uuid4().hex)
+    assert status == 200, body
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM healthkit_readiness")) == 1
+
+    mixed = [
+        _healthkit_sample("rhr_bpm", 50.0, sample_id="sample-b"),
+        {**first, "value": 54.0},
+    ]
+    status, body = _healthkit(ios, token, mixed, key=uuid.uuid4().hex)
+    assert status == 409, body
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM healthkit_readiness")) == 1
+
+
+def test_healthkit_observations_are_device_scoped(ios):
+    first_token, first_device = _paired(ios)
+    second_token, second_device = _paired(ios)
+    assert first_device["device_id"] != second_device["device_id"]
+    first = _healthkit_sample("hrv_ms", 55.0, sample_id="shared-sample")
+    second = _healthkit_sample("hrv_ms", 56.0, sample_id="shared-sample")
+    status, body = _healthkit(ios, first_token, [first], key=uuid.uuid4().hex)
+    assert status == 200, body
+    status, body = _healthkit(ios, second_token, [second], key=uuid.uuid4().hex)
+    assert status == 200, body
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM healthkit_readiness")) == 2
+    status, today = _request(ios["base"], "/api/ios/v1/today", token=first_token)
+    assert status == 200
+    # Readiness is athlete-level; device scope protects the observation identity, not a separate
+    # per-device readiness view. The latest accepted observation is the effective one.
+    assert today["readiness"]["healthkit"]["hrv_ms"]["value"] == 56.0
+    status, today = _request(ios["base"], "/api/ios/v1/today", token=second_token)
+    assert status == 200
+    assert today["readiness"]["healthkit"]["hrv_ms"]["value"] == 56.0
+
+def test_healthkit_manual_precedence_keeps_observation(ios):
+    token, _ = _paired(ios)
+    status, body = _request(
+        ios["base"], "/api/ios/v1/readiness", method="POST",
+        payload={"values": {"hrv_ms": 60.0, "rhr_bpm": 58.0}},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["sources"]["hrv_ms"] == "manual"
+
+    status, body = _healthkit(ios, token, [
+        _healthkit_sample("hrv_ms", 55.0),
+        _healthkit_sample("rhr_bpm", 52.0),
+    ], key=uuid.uuid4().hex)
+    assert status == 200, body
+    assert body["hrv_ms"] == 60.0
+    assert body["rhr_bpm"] == 58.0
+    assert body["sources"]["hrv_ms"] == "manual"
+    assert body["healthkit"]["hrv_ms"]["value"] == 55.0
+    assert body["healthkit"]["rhr_bpm"]["value"] == 52.0
+
+
+def test_healthkit_validation_and_device_scope(ios):
+    token, _ = _paired(ios)
+    future = (datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=10)).isoformat()
+    stale = (datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=49)).isoformat()
+    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+    cases = [
+        ({"date": yesterday, "samples": [_healthkit_sample()]}, "date"),
+        ({"date": ios["today"], "samples": []}, "samples"),
+        ({"date": ios["today"], "samples": [
+            _healthkit_sample("hrv_ms", 0.0), _healthkit_sample("rhr_bpm", 52.0),
+        ]}, "value"),
+        ({"date": ios["today"], "samples": [
+            _healthkit_sample("hrv_ms", -1.0), _healthkit_sample("rhr_bpm", 52.0),
+        ]}, "value"),
+        ({"date": ios["today"], "samples": [
+            _healthkit_sample("hrv_ms", 55.0, sample_at=future),
+        ]}, "sample_at"),
+        ({"date": ios["today"], "samples": [
+            _healthkit_sample("hrv_ms", 55.0, sample_at=stale),
+        ]}, "sample_at"),
+        ({"date": ios["today"], "samples": [
+            _healthkit_sample("rhr_bpm", 52.0, sample_at=stale),
+        ]}, "sample_at"),
+        ({"date": ios["today"], "samples": [
+            _healthkit_sample("hrv_ms", 55.0), _healthkit_sample("hrv_ms", 56.0),
+        ]}, "field"),
+        ({"date": ios["today"], "samples": [
+            _healthkit_sample("hrv_ms", 55.0, source_class="watch"),
+        ]}, "source_class"),
+        ({"date": ios["today"], "samples": [
+            _healthkit_sample("sleep", 4.0),
+        ]}, "field"),
+    ]
+    for payload, field in cases:
+        status, body = _request(
+            ios["base"], "/api/ios/v1/healthkit/readiness", method="POST",
+            payload=payload, token=token, key=uuid.uuid4().hex,
+        )
+        assert status == 400, (payload, body)
+        fields = body.get("fields", {})
+        assert any(key == field or key.endswith("." + field) for key in fields), (payload, body)
+
+    status, body = _healthkit(ios, token, [_healthkit_sample("hrv_ms", 55.0)], key=uuid.uuid4().hex)
+    assert status == 200, body
+    status, body = _healthkit(ios, token, [_healthkit_sample("hrv_ms", 56.0)], key=uuid.uuid4().hex)
+    assert status == 200, body
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM healthkit_readiness")) == 2
+
+
 def test_readiness_rejects_unknown_empty_and_removed_fields(ios):
     token, _ = _paired(ios)
     cases = [
@@ -221,7 +409,8 @@ def test_readiness_rejects_unknown_empty_and_removed_fields(ios):
             payload=payload, token=token, key=uuid.uuid4().hex,
         )
         assert status == 400, (payload, body)
-        assert field in body.get("fields", {}), (payload, body)
+        fields = body.get("fields", {})
+        assert any(key == field or key.endswith("." + field) for key in fields), (payload, body)
 
 
 # --- prescription issue ----------------------------------------------------
@@ -1029,6 +1218,7 @@ def test_mutations_disabled_keeps_reads_available(ios, monkeypatch):
     assert bootstrap["capabilities"]["readiness_write"] is False
     assert bootstrap["capabilities"]["prescription"] is False
     assert bootstrap["capabilities"]["workout_write"] is False
+    assert bootstrap["capabilities"]["healthkit_readiness"] is False
 
     status, today = _request(ios["base"], "/api/ios/v1/today", token=token)
     assert status == 200
@@ -1044,6 +1234,15 @@ def test_mutations_disabled_keeps_reads_available(ios, monkeypatch):
         key=uuid.uuid4().hex,
     )
     assert status == 503, body
+
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/readiness", method="POST",
+        payload={"date": ios["today"], "samples": [
+            _healthkit_sample("hrv_ms", 55.0),
+        ]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 503, body
+    assert body["code"] == "ios_mutations_disabled"
 
 
 def test_mutation_bodies_and_secrets_do_not_enter_the_log_buffer(ios):

@@ -355,6 +355,7 @@ def test_bootstrap_contract(ios):
         "prescription": True,
         "workout_write": True,
         "healthkit": False,
+        "healthkit_readiness": True,
         "offline": False,
     }
 

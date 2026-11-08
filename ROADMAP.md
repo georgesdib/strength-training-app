@@ -1225,7 +1225,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
-| done (Phases 0–2) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified and owner-confirmed on the physical iPhone); online strength workflow first; HealthKit readiness before offline capture; Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
+| done (Phases 0–2; 3A implemented) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified and owner-confirmed on the physical iPhone); **Phase 3A implemented 2026-11-08** (opt-in read-only HealthKit HRV/RHR readiness; physical HealthKit acceptance pending); Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1562,7 +1562,7 @@ later use needs a separate decision and validation.
 and a separate owner decision to start. Phase 3 is independent of the closed Phase 1–2 plan
 and is not a reason to reopen it.
 
-### 4.29 Native iPhone client — online-first (Phases 0–2 complete)
+### 4.29 Native iPhone client — online-first (Phases 0–2 complete; Phase 3A implemented)
 
 **Status:** Phase 0 complete (2026-11-07): an empty SwiftUI app is signed and launches on the
 owner's iPhone under a personal team, the HealthKit capability is verified, the phone reaches the
@@ -1578,22 +1578,24 @@ authenticated readiness/prescription/workout/complete/abandon routes, and 27 con
 the client adds readiness entry, prescription preview, start-by-id, active workout with optional
 manual mean velocity, form ratings, RPE/not-recorded completion, abandon and a Progress screen.
 The contract is [`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md).
-The default server suite is 1632 tests and the client has 55 unit tests after R1/R3/R5; the live UI workflow
-passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2 acceptance was owner-confirmed on
-2026-11-07 on the iPhone 16 Pro Max (iPhone17,2), iOS 27.2. Phase 2 is closed. The Phase 3A
-contract is [`docs/design/IOS-PHASE-3A-CONTRACT.md`](docs/design/IOS-PHASE-3A-CONTRACT.md),
-written 2026-11-08 for owner approval; Phase 3A is not started and Phase 3B is out of scope.
+The default server suite is 1638 tests and the client has 63 unit tests after R1/R3/R5 and
+Phase 3A; the live UI workflow passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2
+acceptance was owner-confirmed on 2026-11-07 on the iPhone 16 Pro Max (iPhone17,2), iOS 27.2.
+Phase 2 is closed. Phase 3A (opt-in HealthKit HRV/RHR readiness) is implemented 2026-11-08 under
+[`docs/design/IOS-PHASE-3A-CONTRACT.md`](docs/design/IOS-PHASE-3A-CONTRACT.md); physical HealthKit
+acceptance remains pending and Phase 3B is out of scope.
 The first useful release is an online, authenticated native strength-training workflow against the
-owner's local Python server. Durable offline capture, HealthKit and Apple Intelligence
-are later phases, not first-release dependencies. PCC may be a separately enabled Apple AI option;
+owner's local Python server. Durable offline capture, reviewed Apple Workout imports (Phase 3B)
+and Apple Intelligence are later phases, not first-release dependencies; Phase 3A HealthKit
+readiness is implemented. PCC may be a separately enabled Apple AI option;
 it is disabled by default, user-invoked, never an automatic fallback, and never used for HealthKit
 sync. No public cloud service is required for core use. Do not begin a later phase until it is
 approved.
 
 The detailed, repository-grounded plan is [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md).
 Recommendation: a small native SwiftUI client with Python remaining the sole authority for
-readiness scores and prescriptions. Phases 0–2 are complete; Phase 3 needs approval. The
-SwiftUI client is its own repository (`StrengthApp`), developed alongside this one rather than as
+readiness scores and prescriptions. Phases 0–2 are complete and Phase 3A is implemented; Phase 3B
+needs a separate approval. The SwiftUI client is its own repository (`StrengthApp`), developed alongside this one rather than as
 an `ios/` subdirectory here. The first release covers pairing, readiness entry, a server prescription,
 online workout capture/completion with session RPE, optional inline form ratings and basic
 history/progress. Opt-in read-only HRV/RHR readiness (Phase 3A) comes before durable offline capture
@@ -1650,6 +1652,21 @@ explicit plan-item selection and R5 recovery/reconciliation UX are implemented a
 and R6 remain deferred in roadmap §4.30 and are not Phase 2 closure blockers. Phase 2 is closed
 2026-11-07.
 
+**Phase 3A completion record (2026-11-08).** Server: migration 0054_healthkit_readiness.sql and
+the append-only healthkit_readiness table; one canonical effective-readiness merge
+(manual/preset > HealthKit > imported) used by readiness day, series, history, scoring and the
+HRV/RHR baseline; the authenticated POST /api/ios/v1/healthkit/readiness route; device-scoped
+sample identity and operation receipts; bootstrap healthkit_readiness capability. The default
+suite is 1638 tests and ruff passes. Client: read-only HealthKit authorization for HRV SDNN and
+resting heart rate, deterministic source classification and selection, offline-free single-flight
+import, healthkitReadiness journal kind, Settings opt-in and Today provenance/freshness display;
+63 unit tests. Verification: focused server tests, full server suite, client unit tests, simulator
+build and live UI workflow pass. Physical HealthKit acceptance with real samples remains pending.
+Rollback: remove the client importer and canonical-merge integration, drop healthkit_readiness and
+delete the 0054 schema_migration row together, leaving readiness_day/readiness_entry untouched.
+Residual limits: HealthKit read denial is not observable and is reported as indeterminate; no
+sleep, workouts, cardio, raw series, HealthKit write or scoring change. Phase 3B remains separate.
+
 **Release gate:** the existing web/CLI API is unauthenticated HTTP on the home LAN
 (LIM-57); the phone uses the separate per-device bearer facade. Keep existing web/CLI
 routes compatible and keep the API on the trusted home LAN over plain HTTP: LAN traffic, including
@@ -1681,7 +1698,8 @@ journal; R3 provides explicit plan-item selection for repeated exercises; R5 sur
 server-active workout, a workout ended elsewhere, or an unusable prescription with explicit
 resume/abandon/refresh/clear actions. Unit and simulator verification pass; separate
 physical-device R1/R3/R5 passes were not performed. R2, R4 and R6 remain planned improvements.
-This work still does not add an unrestricted offline queue, HealthKit, or Phase 3.
+This reliability work did not add HealthKit, an unrestricted offline queue or Phase 3; Phase 3A
+is a separate implementation under its own contract.
 
 | id | priority | item | scope / constraints |
 |---|---|---|---|

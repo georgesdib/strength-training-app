@@ -195,6 +195,31 @@ latest entry per (date, field) over the imported `readiness_day` row, so a manua
 dict includes `sources` and `manual_merge_note` (imported value, manual value, winner) so the
 override is auditable. `readiness_day` remains the imported, derived row.
 
+
+### 5.1a `healthkit_readiness` (append-only, Phase 3A)
+
+| column | notes |
+|---|---|
+| observation_id PK | opaque uuid4 hex |
+| device_id | FK to `ios_device`; observations are device-scoped |
+| on_date | server-local date the observation is used for |
+| field | `hrv_ms` or `rhr_bpm` |
+| value | positive finite observation |
+| sample_id | HealthKit object UUID |
+| sample_at | canonical UTC ISO-8601 sample timestamp |
+| source_name, source_bundle_id | provenance only; not used for source classification |
+| source_class | `apple_watch`, `non_apple_watch` or `unknown` |
+| source_model, source_manufacturer | optional HealthKit device metadata |
+| imported_at | UTC ISO-8601 import time |
+
+One immutable identity is device + field + sample_id. Identical complete observations are no-ops;
+any changed value, timestamp or provenance attribute is a conflict. The latest observation per
+date/field is selected by sample_at, imported_at and observation_id. HealthKit is a middle
+precedence layer: manual/preset `readiness_entry` > `healthkit_readiness` > imported
+`readiness_day`. The one canonical readiness query (used by readiness day, series, history,
+scoring and HRV/RHR baseline eligibility) applies the merge; HealthKit observations are never
+written into `readiness_day` or `readiness_entry`. No raw HealthKit time series is stored.
+
 ### 5.2 `readiness_override` (append-only)
 
 | column | notes |

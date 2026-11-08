@@ -2,13 +2,14 @@
 
 **Status:** Phase 0 complete 2026-11-07 (owner-confirmed); **Phase 1 complete 2026-11-07**
 (owner-confirmed on the physical iPhone); **Phase 2 complete and closed 2026-11-07**
-(simulator-verified and owner-confirmed on the physical iPhone). The server side is migrations 0052_ios_device and
-0053_ios_workflow, the ios CLI, the bearer-authenticated /api/ios/v1/ facade, and its tests; the
-Swift client in the separate StrengthApp repository has pairing, Today, History, Settings/Forget,
-readiness entry, prescription preview/start-by-id, active workout, completion/abandon and
-Progress, Keychain storage, 55 unit tests after R1/R3/R5 and optional live UI smoke tests. The Phase 3A
-contract was written 2026-11-08 for owner approval; Phase 3A is not started and Phase 3B is out
-of scope. Later phases remain proposals and need separate approval.
+(simulator-verified and owner-confirmed on the physical iPhone). The server side is migrations 0052_ios_device, 0053_ios_workflow and
+0054_healthkit_readiness, the ios CLI, the bearer-authenticated /api/ios/v1/ facade, and its tests;
+the Swift client in the separate StrengthApp repository has pairing, Today, History,
+Settings/Forget, readiness entry, prescription preview/start-by-id, active workout,
+completion/abandon, Progress, opt-in HealthKit HRV/RHR readiness, Keychain storage, 63 unit tests
+after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is implemented 2026-11-08;
+physical HealthKit acceptance remains pending and Phase 3B is out of scope. Later phases remain
+proposals and need separate approval.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
 
@@ -145,11 +146,11 @@ flow, migration, tests and acceptance for this phase.
 HealthKit is optional and read-only. Ask permissions only when the owner enables the related feature. Never require HealthKit permission to enter readiness or complete a workout.
 
 **Phase 3A: HRV and resting heart rate.** The authoritative specification is
-[design/IOS-PHASE-3A-CONTRACT.md](design/IOS-PHASE-3A-CONTRACT.md). The owner approved the
-Phase 3A scope on 2026-11-08; the contract remains draft pending approval, and no implementation
-has started. The contract fixes the canonical effective-readiness merge, sample identity,
-Apple Watch classification, permission-state wording, single-flight import, authoritative refresh,
-tests and rollback. Do not duplicate or vary those rules here. Phase 3B remains separate below.
+[design/IOS-PHASE-3A-CONTRACT.md](design/IOS-PHASE-3A-CONTRACT.md). The owner approved the scope
+and implementation on 2026-11-08; the server migration, canonical merge, import route and client
+HealthKit path are implemented. Unit, simulator and live-server workflow verification pass;
+physical HealthKit acceptance remains pending. Do not duplicate or vary the contract rules here.
+Phase 3B remains separate below.
 
 **Phase 3B: Apple Workout summaries and related cardio data, if useful**
 
@@ -344,10 +345,11 @@ sRPE precedence and no prescription/rubric changes.
 Phases 0–2 are complete. Phase 2 delivered the online strength workflow (readiness write,
 server-issued prescription, start by issued-plan id, active workout, add set, complete/abandon,
 session RPE, optional form ratings, history/progress, manual VBT and idempotency receipts) under
-[`design/IOS-PHASE-2-CONTRACT.md`](design/IOS-PHASE-2-CONTRACT.md). The Phase 3A contract is
-[`design/IOS-PHASE-3A-CONTRACT.md`](design/IOS-PHASE-3A-CONTRACT.md), written 2026-11-08 and
-awaiting owner approval. Do not begin HealthKit, offline, cardio or PCC work before that approval;
-take Phase 3A before Phase 4 (offline). Phase 3B remains a separate contract.
+[`design/IOS-PHASE-2-CONTRACT.md`](design/IOS-PHASE-2-CONTRACT.md). Phase 3A is implemented
+under [`design/IOS-PHASE-3A-CONTRACT.md`](design/IOS-PHASE-3A-CONTRACT.md), with physical
+HealthKit acceptance pending. Do not begin Phase 3B, offline capture, cardio or PCC work without
+a separate approval; take Phase 4 (offline) after Phase 3A acceptance. Phase 3B remains a separate
+contract.
 
 ## 12. References
 
@@ -399,22 +401,24 @@ to. A backup is a precondition of the phase, not an optional extra.
 ### 13.2 Schema rollback is a paired operation
 
 Dropping the iOS tables alone leaves their `schema_migration` row in place. `migrate()` then treats
-`0052`/`0053` as applied and skips them forever, so re-enabling the feature later yields a database
-with no iOS tables and no migration that will recreate them. Roll a schema change back as one
-operation, with the server stopped:
+`0052`/`0053`/`0054` as applied and skips them forever, so re-enabling the feature later yields a
+database with no iOS tables and no migration that will recreate them. Roll a schema change back as
+one operation, with the server stopped:
 
 ```sql
 BEGIN IMMEDIATE;
+DROP TABLE IF EXISTS healthkit_readiness;
 DROP TABLE IF EXISTS ios_operation_receipt;
 DROP TABLE IF EXISTS ios_issued_plan;
 DROP TABLE IF EXISTS ios_pairing_code;
 DROP TABLE IF EXISTS ios_device;
-DELETE FROM schema_migration WHERE version IN ('0052', '0053');
+DELETE FROM schema_migration WHERE version IN ('0052', '0053', '0054');
 COMMIT;
 ```
 
-Order matters: `ios_issued_plan` references `ios_device` and `workout_session`, so it is dropped
-before the device table. Removing the `schema_migration` rows is what makes a later re-apply work;
+Order matters: `healthkit_readiness` and `ios_issued_plan` reference `ios_device`, so they are
+dropped before the device table. Remove the Phase 3A canonical-merge integration before dropping
+`healthkit_readiness`; do not leave code querying a dropped table. Removing the `schema_migration` rows is what makes a later re-apply work;
 neither statement touches a training, readiness, prescription or workout row. Restoring the §13.1
 backup is the fallback when the rollback itself went wrong.
 
@@ -423,7 +427,8 @@ backup is the fallback when the rollback itself went wrong.
 | 0 | Stop. No code, route or data. | Nothing. |
 | 1 | Remove the iOS facade routes and delete device rows (§13.2); the existing server is untouched. | Nothing. |
 | 2 | Disable the facade; the issued-plan and receipt tables are additive and can be dropped (§13.2). The web/CLI path never depended on them. | Prescriptions and workouts already committed remain valid. |
-| 3 | Disable the feature; imported values carry source provenance and can be ignored, leaving manual readiness untouched. No prescription is derived from them. | Manual entries and prior readiness history. |
+| 3A | Disable the feature and remove the canonical-merge integration; drop `healthkit_readiness` with the paired migration row (§13.2). Manual readiness and prior readiness history remain. | Manual entries and prior readiness history; no HealthKit observation survives. |
+| 3B | Separate contract; not implemented by Phase 3A. | — |
 | 4 | The queue is client-side; disabling it returns the Phase 2 online behavior. Server receipt rows can be pruned. | Any acknowledged server records remain. |
 | 5 | Each enhancement is independently disableable; removing one leaves the core flows intact. | Everything core. |
 
@@ -558,5 +563,19 @@ dedicated physical-iPhone R1/R3/R5 passes were not separately performed.
   recovery. The normal live simulator workflow passes. R5 is closed; a separate physical R5 pass
   was not done.
 
-No HealthKit integration, training logic or server-behaviour change exists beyond the additive
-Phase 1/2 facade. Each later phase requires the owner's approval before it starts.
+### Phase 3A — HealthKit HRV/RHR readiness (implemented 2026-11-08)
+
+- Server: migration 0054_healthkit_readiness.sql, the append-only healthkit_readiness table, the
+  shared effective-readiness merge (manual/preset > HealthKit > imported), and the authenticated
+  POST /api/ios/v1/healthkit/readiness route. bootstrap reports healthkit_readiness alongside the
+  existing capabilities; healthkit remains false for Phase 3B.
+- Client: read-only HealthKit authorization for HRV SDNN and resting heart rate, deterministic
+  Apple Watch classification, 48-hour HRV / current-day RHR selection, single-flight import,
+  the healthkitReadiness mutation-journal kind, Settings opt-in and Today import/provenance display.
+- Verification: focused server tests, the default server suite, client unit tests, simulator build
+  and the live UI workflow pass. Physical HealthKit acceptance with real samples remains pending.
+- Rollback: remove the client importer and canonical-merge integration, drop healthkit_readiness
+  with the paired 0054 migration row, and leave readiness_day/readiness_entry untouched.
+
+No Phase 3B, offline capture, HealthKit write access, sleep import, new score or training-rule
+change is included. Each later phase requires a separate approval.

@@ -111,18 +111,20 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 
 /api/ios/v1/ is the authenticated boundary used by the native iPhone client. It is
 additive: every unversioned route above keeps its current behaviour and stays unauthenticated.
-The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CONTRACT.md) and
-[IOS-PHASE-2-CONTRACT.md](design/IOS-PHASE-2-CONTRACT.md); the phase rules are in
+The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CONTRACT.md),
+[IOS-PHASE-2-CONTRACT.md](design/IOS-PHASE-2-CONTRACT.md) and
+[IOS-PHASE-3A-CONTRACT.md](design/IOS-PHASE-3A-CONTRACT.md); the phase rules are in
 [IOS-CLIENT-PLAN.md](IOS-CLIENT-PLAN.md).
 
 | route | auth | payload |
 |---|---|---|
 | `POST /api/ios/v1/pair` | none | `{code, label?}` -> `{api_version, device, token, server_date, server_time, utc_offset_minutes, server_timezone}`; the token is shown once |
-| `GET /api/ios/v1/bootstrap` | bearer | `{api_version, server_date, server_time, utc_offset_minutes, server_timezone, capabilities}`; Phase 2 capabilities add `readiness_write`, `prescription` and `workout_write` |
+| `GET /api/ios/v1/bootstrap` | bearer | `{api_version, server_date, server_time, utc_offset_minutes, server_timezone, capabilities}`; Phase 2 adds `readiness_write`, `prescription` and `workout_write`; Phase 3A adds `healthkit_readiness` (false when mutations are disabled) |
 | `GET /api/ios/v1/today` | bearer | `{date, readiness, readiness_score, active_workout}`; `readiness` is the existing `/api/readiness/<date>` payload and `active_workout` is null or the live workout detail |
 | `GET /api/ios/v1/history?limit=&offset=&start=&end=` | bearer | exactly `history.list_sessions`; limit 1-100, default 50; offset >= 0, default 0 |
 | `GET /api/ios/v1/progress?weeks=&date=` | bearer | exactly `progress_feature.dashboard`; weeks 1-52, default 8 |
 | `POST /api/ios/v1/readiness` | bearer + Idempotency-Key | `{values, note?}` -> the existing readiness payload; values use the accepted manual field set; unknown/empty/zero-placeholder fields are rejected |
+| `POST /api/ios/v1/healthkit/readiness` | bearer + Idempotency-Key | `{date, samples:[{field, value, sample_id, sample_at, source_name, source_bundle_id?, source_class, source_model?, source_manufacturer?}]}` -> the canonical readiness payload plus `healthkit` provenance; one or two samples, server-local today only, sample identity deduplicated; see Phase 3A contract |
 | `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}}` -> `{issued_plan_id, prescription_id, for_date, session_type, expires_at, plan, readiness, warnings}`; the normal prescription is persisted at issue |
 | `POST /api/ios/v1/workouts` | bearer + Idempotency-Key | `{issued_plan_id}` -> the existing workout detail; starts by id only; expired/superseded/consumed plans are 410, another active workout is 409 |
 | `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?}` -> workout detail; `velocity_mps` is optional manual mean velocity and must be positive |
@@ -141,13 +143,22 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
   authenticated.
 - **Pairing errors.** `400` malformed body/code/label, `401` wrong code, `410` expired or
   already used, `429` attempts exhausted. Five failed attempts exhaust one code.
-- **Phase 2 writes.** Every mutation requires a UUID Idempotency-Key. A successful response is
+- **Phase 2/3A writes.** Every mutation requires a UUID Idempotency-Key. A successful response is
   stored for 30 days and replayed with Idempotent-Replay: true; the same key with a different body
   or route is 409 idempotency_conflict. The receipt check and mutation run in one BEGIN IMMEDIATE
   transaction, so concurrent duplicates replay the committed response rather than executing twice;
   a receipt uniqueness race is rolled back and re-read instead of returning 500. Mutations are
   authenticated before dispatch and run through the existing readiness, prescription and workout
-  services. There is still no HealthKit route.
+  services. Phase 3A adds the read-only HealthKit readiness import route; it stores observations,
+  never writes HealthKit itself, and does not request sleep or workouts.
+- **HealthKit readiness.** Phase 3A is read-only and opt-in. The client sends only HRV and
+  resting heart rate; manual/preset readiness wins over HealthKit, which wins over imported
+  readiness. HealthKit observations live in `healthkit_readiness`, never in `readiness_day` or
+  `readiness_entry`. Sample identity is device + field + HealthKit sample UUID; identical
+  observations are no-ops and changed immutable attributes are 409 healthkit_sample_conflict.
+  The route accepts only the server-local today, HRV within 48 hours and RHR on that date; the
+  canonical readiness payload exposes `sources` and `healthkit` provenance. No raw time series is
+  retained and no score is computed in Swift.
 - **Issued plans.** POST /api/ios/v1/prescriptions persists the normal prescription and returns a
   single-use issued plan with a 60-minute TTL. The phone starts it by id only; plan content never
   comes from the phone. One live plan is allowed per device; a newer issue supersedes the older one.
