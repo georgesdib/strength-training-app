@@ -1047,6 +1047,21 @@ class Handler(BaseHTTPRequestHandler):
                         parse_qs(urlparse(self.path).query, keep_blank_values=True)
                     )
                     payload = history.list_sessions(conn, **params)
+                elif path.startswith("/api/ios/v1/exercises/"):
+                    tail = unquote(path[len("/api/ios/v1/exercises/"):]).strip("/")
+                    query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+                    if tail.endswith("/history"):
+                        exercise_id = tail[:-len("/history")].strip("/")
+                        payload = self._ios_exercise_history(
+                            conn, exercise_id,
+                            limit=int(query.get("limit", ["20"])[0]),
+                            offset=int(query.get("offset", ["0"])[0]),
+                        )
+                    else:
+                        payload = self._ios_exercise_detail(conn, tail)
+                    if payload is None:
+                        self._error(404, "exercise not found")
+                        return
                 elif path == "/api/ios/v1/exercises":
                     payload = {
                         "exercises": sorted(
@@ -1091,6 +1106,53 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             LOGGER.exception("unhandled iOS GET %s", path)
             self._error(500, "internal server error")
+
+    def _ios_exercise_detail(self, conn, exercise_id: str) -> dict | None:
+        """Read-only exercise configuration and the existing e1RM series."""
+        row = next(
+            (item for item in exercise_admin.catalog()["entities"]
+             if item["id"] == exercise_id),
+            None,
+        )
+        if row is None:
+            return None
+        properties = dict(row.get("props") or {})
+        applicable = bool(properties.get("e1rm_applicable"))
+        e1rm = None
+        if applicable:
+            clock = _ios_clock()
+            to_date = clock["server_date"]
+            from_date = (
+                datetime.date.fromisoformat(to_date) - datetime.timedelta(days=365)
+            ).isoformat()
+            e1rm = self._performance_e1rm(conn, {
+                "exercise_id": [exercise_id],
+                "from": [from_date],
+                "to": [to_date],
+                "quality": ["degraded"],
+            })
+        return {
+            "exercise": {
+                "id": row["id"],
+                "display": row["display"],
+                "pattern": row.get("pattern"),
+                "source": row.get("source"),
+            },
+            "properties": properties,
+            "e1rm_applicable": applicable,
+            "e1rm": e1rm,
+            "e1rm_reason": None if applicable else "not marked e1RM-applicable",
+        }
+
+    def _ios_exercise_history(
+        self, conn, exercise_id: str, *, limit: int, offset: int
+    ) -> dict | None:
+        if exercise_id not in exercises.taxonomy().entities:
+            return None
+        return exercise_history_feature.history(
+            conn, exercise_id, limit=max(1, min(100, limit)),
+            offset=max(0, offset), include_analytics=False,
+        )
 
     def _ios_pair(self) -> None:
         # The pairing exchange is the only unauthenticated iOS route. It is the one place a

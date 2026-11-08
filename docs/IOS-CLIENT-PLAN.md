@@ -9,12 +9,13 @@ the Swift client in the separate StrengthApp repository has pairing, Today, Hist
 Settings/Forget, readiness entry, Workout ready/start-by-id, active workout,
 completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Keychain storage,
 Home/Away server routing by Home Wi-Fi name (Precise Location and the Access Wi-Fi Information
-entitlement),
-94 unit tests
+entitlement), Settings Exercise Library with read-only configurations, e1RM and paginated
+working-set history,
+96 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is closed 2026-11-08; physical
 HealthKit acceptance was owner-confirmed and Phase 3B is out of scope. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is **implemented and closed
-2026-11-08**: 94 client tests pass on the iOS 27.2 simulator, the app builds and launches, and the
+2026-11-08**: 96 client tests pass on the iOS 27.2 simulator, the app builds and launches, and the
 live UI flow passed twice — once with the resolver off and once with it on against a copy of the
 real database. R2 is closed as absorbed by R7's `plans/current` read. R8 (active-workout plan editing) is **closed 2026-11-08**;
 its authenticated exercise-catalogue, online-only and no-solved-load decisions are recorded; R8 is
@@ -147,8 +148,9 @@ flow, migration, tests and acceptance for this phase.
 4. Build a focused exercise-first workout logger: select an exercise, show its planned sets, mark a performed set done with load/reps/RIR/velocity, and keep plan editing on the workout overview. Performed sets can be added or removed, including exercises outside the plan through the authenticated catalogue. Start a local rest timer for working sets only, using the plan item’s `rest_s`, and keep it available while navigating. Show an explicit saved/failed state based on the server response.
 5. Complete or abandon through existing services. Capture manual session RPE 1–10 or a single Not recorded choice, optional productivity 1–5, and preserve server-measured duration or clearly identified manual duration.
 6. Show recent workout history and a small set of existing progress summaries. No comprehensive dashboard or new calculation.
-7. Capture each lift's optional 1–5 form rating inline in the workout screen while the session is open; the existing contract accepts ratings only for an in-progress workout. The post-session rubric review stays optional and may ship after the first release, in which case marks are entered in the existing web UI. Keep review skippable, distinct from session RPE, and never a gate for completion. Do not invent marks.
-8. Add idempotency receipts from the start, not as part of the offline phase: a per-device operation id plus a request hash, the stored response, and a conflict when the same id arrives with a different body. Cover readiness save, set add/update/remove, end and review. Reconcile a retried start by reading the active workout instead of issuing a receipt. Keep the mechanism specific to these operations, not a generic replication framework.
+7. Add a read-only Settings Exercise Library: searchable catalogue, configuration details, server-computed e1RM and paginated working-set history. Cache the catalogue/configuration for the app session; fetch e1RM and history on detail entry; refresh explicitly. Do not edit taxonomy or calculate e1RM in Swift.
+8. Capture each lift's optional 1–5 form rating inline in the workout screen while the session is open; the existing contract accepts ratings only for an in-progress workout. The post-session rubric review stays optional and may ship after the first release, in which case marks are entered in the existing web UI. Keep review skippable, distinct from session RPE, and never a gate for completion. Do not invent marks.
+9. Add idempotency receipts from the start, not as part of the offline phase: a per-device operation id plus a request hash, the stored response, and a conflict when the same id arrives with a different body. Cover readiness save, set add/update/remove, end and review. Reconcile a retried start by reading the active workout instead of issuing a receipt. Keep the mechanism specific to these operations, not a generic replication framework.
 
 **Acceptance:** on the target iPhone, a user can save readiness, request the server prescription, start it, log sets, record optional inline form ratings, end it with manual session RPE (or explicitly not recorded), submit the optional rubric review when it exists, and view the completed session/history without opening the web UI. Tests establish that the client cannot submit plan content at all, an issued plan cannot be replayed or used twice, duplicate requests do not duplicate records, and existing web/CLI tests remain green.
 
@@ -874,7 +876,7 @@ exercise swap, set-count change".
   deterministic Apple Watch classification, 48-hour HRV / current-day RHR / 30-day bodyweight
   selection, single-flight import, the healthkitReadiness mutation-journal kind, Settings opt-in
   and Today import/provenance display.
-- Verification: 1,680 server tests, 94 client tests, simulator build and the live UI workflow pass.
+- Verification: 1,681 server tests, 96 client tests, simulator build and the live UI workflow pass.
   Physical HealthKit acceptance with real samples remains pending.
 - Rollback: remove the client importer and canonical-merge integration, drop healthkit_readiness
   with the paired 0054/0055 migration rows, and leave readiness_day/readiness_entry untouched.

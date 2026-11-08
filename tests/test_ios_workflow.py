@@ -1835,6 +1835,44 @@ def test_plans_current_reports_none_for_an_expired_ready_plan(ios):
     assert state == {"status": "none"}
 
 
+def test_ios_exercise_library_detail_e1rm_and_history(ios):
+    token, _ = _paired(ios)
+    status, detail = _request(
+        ios["base"], "/api/ios/v1/exercises/competition_squat", token=token
+    )
+    assert status == 200, detail
+    assert detail["exercise"]["id"] == "competition_squat"
+    assert detail["exercise"]["display"] == "Competition Squat"
+    assert detail["properties"]["pattern"] == "squat"
+    assert detail["e1rm_applicable"] is True
+    assert detail["e1rm"]["exercise_id"] == "competition_squat"
+    assert detail["e1rm"]["summary"]["n"] >= 1
+    assert detail["e1rm"]["basis"] == "raw_formula_epley_rir"
+
+    status, history = _request(
+        ios["base"], "/api/ios/v1/exercises/competition_squat/history?limit=1",
+        token=token,
+    )
+    assert status == 200, history
+    assert history["exercise_id"] == "competition_squat"
+    assert history["total"] >= 1
+    assert history["sessions"]
+    assert history["sessions"][0]["sets"]
+
+    status, not_applicable = _request(
+        ios["base"], "/api/ios/v1/exercises/medicine_ball_chest_pass",
+        token=token,
+    )
+    assert status == 200, not_applicable
+    assert not_applicable["e1rm_applicable"] is False
+    assert not_applicable["e1rm"] is None
+
+    status, missing = _request(
+        ios["base"], "/api/ios/v1/exercises/not_an_exercise", token=token
+    )
+    assert status == 404, missing
+
+
 def test_top_set_setting_is_validated_and_echoed(ios):
     token, _ = _paired(ios)
     status, accepted = _issue(
