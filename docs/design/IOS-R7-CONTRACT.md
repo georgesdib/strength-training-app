@@ -590,7 +590,7 @@ Client (unit):
 **Implementation status (2026-11-08).** Server criteria 1–3 and 5–10 are covered by
 `tests/test_ios_workflow.py` and `tests/test_migration_0056.py`; the default suite, docs tests and
 `ruff` pass. The client is implemented, **built and unit-tested on the iOS 27.2 simulator**
-(iPhone 17): 71 tests, 0 failures, and the built app installs and launches to the pairing screen.
+(iPhone 17): 72 tests, 0 failures, and the built app installs and launches to the pairing screen.
 Criteria 4 and 9 are exercised by the client unit tests (foreground reconciliation, lost response,
 supersession, expiry) rather than by a scripted live-server run.
 
@@ -635,12 +635,13 @@ Settled by the owner on 2026-11-08:
 4. **Acceptance scope:** simulator coverage plus the server and client unit tests close R7. A
    physical-iPhone acceptance pass is **not** required for R7 closure, unlike Phase 2 and Phase 3A.
    The device-shaped claim (tap, leave, return) is exercised on the iPhone 18 Pro simulator.
-5. **Timing measurement uses a copy of the live database.** A benchmark run may copy
-   `data/coach.db` to a temporary path, enable the resolver on **that copy**, and time the build;
-   the live database is never opened writable for a benchmark. The historical 35–46 s figure comes
-   from the ODROID-C4 ([`PERFORMANCE-PROFILE.md`](../PERFORMANCE-PROFILE.md)); the current host is
-   faster, so the elapsed time is re-measured before the polling table is tuned, and the numbers in
-   §1 are treated as an upper bound rather than a current fact.
+5. **The ODROID-C4 remains the server; timing is measured against it.** The 35–46 s resolver build
+   is the deployment figure ([`PERFORMANCE-PROFILE.md`](../PERFORMANCE-PROFILE.md)), not a
+   historical curiosity: the phone talks to the Odroid, so every design choice here is sized for a
+   build that can take most of a minute, and the polling table is built for it. A benchmark run may
+   copy `data/coach.db` to a temporary path and enable the resolver on **that copy**; the live
+   database is never opened writable for a benchmark. A faster development machine is not evidence
+   about the deployed host and must not be used to shorten the timeouts.
 
 Still open:
 

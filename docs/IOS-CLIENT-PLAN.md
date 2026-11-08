@@ -8,11 +8,11 @@
 the Swift client in the separate StrengthApp repository has pairing, Today, History,
 Settings/Forget, readiness entry, prescription preview/start-by-id, active workout,
 completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Keychain storage,
-71 unit tests
+72 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is implemented 2026-11-08;
 physical HealthKit acceptance remains pending and Phase 3B is out of scope. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is **implemented and
-simulator-verified 2026-11-08** (71 client tests pass on the iOS 27.2 simulator and the built app
+simulator-verified 2026-11-08** (72 client tests pass on the iOS 27.2 simulator and the built app
 launches); only the resolver-enabled live UI run remains. R2 is closed as absorbed by R7's
 `plans/current` read. R8 (active-workout plan editing) is **approved and not yet implemented**;
 its authenticated exercise-catalogue, online-only and no-solved-load decisions are recorded.
@@ -365,7 +365,7 @@ Next, in this order:
 1. **R7 — implemented and verified 2026-11-08.** Contract:
    [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md). The asynchronous prescription request
    with session-type and minimum-session settings; it fixes the resolver-versus-10-second timeout
-   failure in the Phase 2 prescription path and absorbs R2. The client builds, all 71 client tests
+   failure in the Phase 2 prescription path and absorbs R2. The client builds, all 72 client tests
    pass on the iOS 27.2 simulator, and the app launches. The only remaining check is one live run
    with the resolver enabled against a running server; no physical-device pass is required (§14
    decision 4).
@@ -715,7 +715,7 @@ own approved contract and has not started.
   a general offline queue: only attempted mutations are journaled, and new mutations are blocked
   while one is unresolved. R5 recovery/reconciliation UX is implemented and closed; R2 is closed
   as absorbed by R7's `plans/current` read; R7 is implemented and verified by unit and live UI
-  runs; R8 is approved but not implemented; R4 remains deferred and is not a Phase 2 closure
+  runs; R8 is approved but not implemented; R4 is implemented and closed and is not a Phase 2 closure
   blocker.
 
 ### R1 durable pending-mutation journal (implemented and closed 2026-11-07)
@@ -737,7 +737,7 @@ pass was not performed.
 - Today shows the pending operation with retry/discard actions. A conflict or terminal server
   response stops automatic replay rather than guessing.
 - This is not an offline queue: only operations the owner actually attempted are recorded, and
-  the cap/blocking prevent an unbounded queue. R4 remains deferred; R2 is closed as absorbed by R7.
+  the cap/blocking prevent an unbounded queue. R4 is closed; R2 is closed as absorbed by R7.
 
 Client tests: 55 (43 Phase 2 + 8 journal/recovery + 1 R3 plan-selection + 3 R5 recovery tests).
 The normal live simulator workflow passes with the journal and recovery UI enabled. R1 is closed;
@@ -770,6 +770,17 @@ dedicated physical-iPhone R1/R3/R5 passes were not separately performed.
 - Unit tests cover server-active discovery, ended-elsewhere detection and consumed-prescription
   recovery. The normal live simulator workflow passes. R5 is closed; a separate physical R5 pass
   was not done.
+
+### R4 form-rating correction UX (implemented and closed 2026-11-08)
+
+- Selecting an exercise that already has a rating shows **Current rating** and prefills the
+  segmented picker with that value.
+- A subsequent save is labelled **Save correction** and states that the earlier rating is retained
+  in the append-only record while the latest is shown in the workout.
+- The workout payload still returns only the latest rating per exercise; no database, API or
+  history semantics changed.
+- Unit coverage verifies the current-rating lookup; the simulator build and 72-test client suite
+  pass.
 
 ### R7 asynchronous prescription request with workout settings (implemented 2026-11-08)
 
@@ -811,7 +822,7 @@ owner asked for.
   checks), the `202` issue route, `GET plans/current`, start-time prescription persistence and the
   client's settings sheet, generating card, polling and foreground reconciliation. The server
   behaviour is covered by the default suite; the client is built and unit-tested on the iOS 27.2
-  simulator (71 tests, 0 failures), launches, and passes the live UI flow against a throwaway
+  simulator (72 tests, 0 failures), launches, and passes the live UI flow against a throwaway
   server: pair → readiness → request workout → preview → start → set → finish → Progress. That run
   found and fixed a real bug (the preview sheet was dismissed when the consumed plan made
   `plans/current` report `none`). The resolver was off for the run.
@@ -849,7 +860,7 @@ exercise swap, set-count change".
   deterministic Apple Watch classification, 48-hour HRV / current-day RHR / 30-day bodyweight
   selection, single-flight import, the healthkitReadiness mutation-journal kind, Settings opt-in
   and Today import/provenance display.
-- Verification: 1,642 server tests, 71 client tests, simulator build and the live UI workflow pass.
+- Verification: 1,642 server tests, 72 client tests, simulator build and the live UI workflow pass.
   Physical HealthKit acceptance with real samples remains pending.
 - Rollback: remove the client importer and canonical-merge integration, drop healthkit_readiness
   with the paired 0054/0055 migration rows, and leave readiness_day/readiness_entry untouched.
