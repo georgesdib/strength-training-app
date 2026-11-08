@@ -215,6 +215,22 @@ suite, or one sleep near the estimate. If it is still running after that single 
 and inspect; do not emit repeated near-identical status checks. Report the final summary when the
 job completes.
 
+### 7.3 Local iOS simulator test environment
+
+This Mac's default `xcode-select` points at `/Library/Developer/CommandLineTools`, so a plain
+`xcrun` cannot find `xctest` or `simctl`. Always prefix iOS builds/tests with:
+
+```bash
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+export PATH="/Applications/Xcode.app/Contents/Developer/usr/bin:$PATH"
+```
+
+`xcodebuild test` also needs pseudo-terminal access. If it fails with
+`IDEPseudoTerminalDomain` code 7 ("Operation not permitted"), request the
+`danger-full-access` sandbox for that test invocation; do not keep retrying under
+`workspace-write`. Do not run `sudo xcode-select -s` merely to make tests work: it changes the
+system-wide toolchain and needs explicit owner approval. Use `DEVELOPER_DIR` per command instead.
+
 ## 8. Style
 
 - Python 3.11+. `from __future__ import annotations`.
