@@ -94,9 +94,14 @@ Ordering is the append order. An unsynced local add gets a negative client-local
 never presented as a server `set_id`. A local cancellation removes that pending add before it is
 sent. Once an entry has been sent, it is resolved by the server response, never by local deletion.
 
-Capacity: one active workout, at most 128 pending operations, 30-day retention and a 28-day replay
-window, matching the server receipt window. The active workout snapshot and outbox use iOS file
-protection and are excluded from backup.
+Capacity: one active workout and at most 128 pending operations. The active workout snapshot and
+outbox use iOS file protection and are excluded from backup.
+
+Retention never deletes unresolved work. Pending operations older than the 28-day replay window
+are durably marked **expired**, remain visible and retain their original operation id/body; they
+cannot be replayed or have their idempotency key regenerated. They require reconciliation or an
+explicit discard. Only explicitly acknowledged/resolved operations are removed. The 28-day window
+matches the server receipt window.
 
 ### 4.3 Finish
 
@@ -126,6 +131,9 @@ No queue table or migration is required for the outbox itself.
 ## 6. Sync and conflict policy
 
 - Replay in FIFO order with the original operation UUID and exact body.
+- Before any network attempt, the client checks the operation's 28-day replay eligibility. An
+  expired operation is marked and never sent. A form-rating expiry is non-blocking; an expired set
+  or finish blocks dependent later operations.
 - A 2xx acknowledges and removes the entry; transport/5xx retry with bounded backoff.
 - A definitive 4xx removes a non-blocking form rating if it is unusable, while preserving the
   error as visible metadata; it does not block finish.
@@ -135,6 +143,9 @@ No queue table or migration is required for the outbox itself.
   or a changed plan that invalidates the target, the app must not guess. It keeps the local work
   visible and offers retry, keep/export and discard-with-confirmation.
 - If the app relaunches offline, the cached workout/outbox is restored before any network read.
+- A successful finish clears the persisted active-workout snapshot even when unrelated failed or
+  conflict operations remain; those operation payloads/states stay durable. Discarding them cannot
+  resurrect a stale in-progress workout after relaunch.
 - If the server read succeeds, the server active-workout state wins for authorization; pending
   local work remains explicit until replayed.
 
