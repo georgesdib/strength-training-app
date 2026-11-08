@@ -914,7 +914,7 @@ documents:
 - id: design-ios-phase-4-contract
   path: docs/design/IOS-PHASE-4-CONTRACT.md
   title: iOS Phase 4 reliable capture and offline support contract
-  description: 'Approved 2026-11-08: cached active workout, ordered outbox for add set/form rating/finish, temporary local identities, replay, conflict handling, timestamp preservation, tests and physical acceptance; implementation in progress'
+  description: 'Approved 2026-11-08: cached active workout, ordered outbox for add set/form rating/finish, temporary local identities, replay, conflict handling, timestamp preservation, tests and physical acceptance; Chunk 1 timestamps and Chunk 2 durable outbox foundation implemented, capture/replay pending'
   category: design
   status: design
   audience: maintainer
