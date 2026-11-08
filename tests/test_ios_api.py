@@ -409,6 +409,31 @@ def test_history_matches_the_existing_service(ios):
     assert body == expected_window
 
 
+def test_history_detail_matches_the_existing_service(ios):
+    token, _ = _paired(ios)
+    status, listing = _request(ios["base"], "/api/ios/v1/history", token=token)
+    assert status == 200
+    session_id = listing["sessions"][0]["session_id"]
+    store = db.Store(ios["path"])
+    try:
+        expected = history.detail(store.connection, session_id)
+    finally:
+        store.close()
+    status, body = _request(
+        ios["base"], f"/api/ios/v1/history/{session_id}", token=token
+    )
+    assert status == 200
+    assert body == expected
+    assert "duration_min" in body
+    assert "sets" in body
+
+    status, body = _request(
+        ios["base"], "/api/ios/v1/history/does-not-exist", token=token
+    )
+    assert status == 404
+    assert body["error"] == "session not found"
+
+
 def test_history_rejects_invalid_paging_and_dates(ios):
     token, _ = _paired(ios)
     cases = {

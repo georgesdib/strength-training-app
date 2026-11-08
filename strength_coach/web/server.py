@@ -1027,6 +1027,16 @@ class Handler(BaseHTTPRequestHandler):
                         parse_qs(urlparse(self.path).query, keep_blank_values=True)
                     )
                     payload = history.list_sessions(conn, **params)
+                elif path.startswith("/api/ios/v1/history/"):
+                    session_id = unquote(path.rsplit("/", 1)[-1]).strip()
+                    if not session_id:
+                        self._error(404, "not found")
+                        return
+                    try:
+                        payload = history.detail(conn, session_id)
+                    except ValueError:
+                        self._error(404, "session not found")
+                        return
                 elif path == "/api/ios/v1/progress":
                     params = _ios_progress_params(
                         parse_qs(urlparse(self.path).query, keep_blank_values=True)

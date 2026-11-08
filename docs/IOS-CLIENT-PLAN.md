@@ -8,7 +8,7 @@
 the Swift client in the separate StrengthApp repository has pairing, Today, History,
 Settings/Forget, readiness entry, prescription preview/start-by-id, active workout,
 completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Keychain storage,
-70 unit tests
+71 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is implemented 2026-11-08;
 physical HealthKit acceptance remains pending and Phase 3B is out of scope. Later phases remain
 proposals and need separate approval.
@@ -689,8 +689,8 @@ own approved contract and has not started.
   review screen; personal-team signing expires after 7 days. Phase 2 itself had no durable
   pending-mutation journal; that was added immediately after closure as R1 (see below). It is not
   a general offline queue: only attempted mutations are journaled, and new mutations are blocked
-  while one is unresolved. R5 recovery/reconciliation UX is implemented and closed; R2, R4 and R6
-  remain deferred and are not Phase 2 closure blockers.
+  while one is unresolved. R5 recovery/reconciliation UX is implemented and closed; R2, R4, R6
+  and R7 remain deferred and are not Phase 2 closure blockers.
 
 ### R1 durable pending-mutation journal (implemented and closed 2026-11-07)
 
@@ -711,7 +711,7 @@ pass was not performed.
 - Today shows the pending operation with retry/discard actions. A conflict or terminal server
   response stops automatic replay rather than guessing.
 - This is not an offline queue: only operations the owner actually attempted are recorded, and
-  the cap/blocking prevent an unbounded queue. R2, R4 and R6 remain deferred.
+  the cap/blocking prevent an unbounded queue. R2, R4, R6 and R7 remain deferred.
 
 Client tests: 55 (43 Phase 2 + 8 journal/recovery + 1 R3 plan-selection + 3 R5 recovery tests).
 The normal live simulator workflow passes with the journal and recovery UI enabled. R1 is closed;
@@ -756,7 +756,7 @@ dedicated physical-iPhone R1/R3/R5 passes were not separately performed.
   deterministic Apple Watch classification, 48-hour HRV / current-day RHR / 30-day bodyweight
   selection, single-flight import, the healthkitReadiness mutation-journal kind, Settings opt-in
   and Today import/provenance display.
-- Verification: 1,641 server tests, 70 client tests, simulator build and the live UI workflow pass.
+- Verification: 1,642 server tests, 71 client tests, simulator build and the live UI workflow pass.
   Physical HealthKit acceptance with real samples remains pending.
 - Rollback: remove the client importer and canonical-merge integration, drop healthkit_readiness
   with the paired 0054/0055 migration rows, and leave readiness_day/readiness_entry untouched.

@@ -1578,7 +1578,7 @@ authenticated readiness/prescription/workout/complete/abandon routes, and 27 con
 the client adds readiness entry, prescription preview, start-by-id, active workout with optional
 manual mean velocity, form ratings, RPE/not-recorded completion, abandon and a Progress screen.
 The contract is [`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md).
-The default server suite is 1641 tests and the client has 70 unit tests after R1/R3/R5 and
+The default server suite is 1642 tests and the client has 71 unit tests after R1/R3/R5 and
 Phase 3A; the live UI workflow passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2
 acceptance was owner-confirmed on 2026-11-07 on the iPhone 16 Pro Max (iPhone17,2), iOS 27.2.
 Phase 2 is closed. Phase 3A (opt-in HealthKit HRV/RHR/bodyweight readiness) is implemented 2026-11-08 under
@@ -1657,10 +1657,10 @@ and R6 remain deferred in roadmap §4.30 and are not Phase 2 closure blockers. P
 effective-readiness merge (manual/preset > HealthKit > imported) used by readiness day, series,
 history, scoring and the HRV/RHR baseline; the authenticated
 POST /api/ios/v1/healthkit/readiness route; device-scoped sample identity and operation receipts;
-bootstrap healthkit_readiness capability. The default suite is 1641 tests and ruff passes.
+bootstrap healthkit_readiness capability. The default suite is 1642 tests and ruff passes.
 Client: read-only HealthKit authorization for HRV SDNN, resting heart rate and bodyweight,
 deterministic source classification and selection, offline-free single-flight import,
-healthkitReadiness journal kind, Settings opt-in and Today provenance/freshness display; 70 unit
+healthkitReadiness journal kind, Settings opt-in and Today provenance/freshness display; 71 unit
 tests. Verification: focused server tests, full server suite, client unit tests, simulator build and
 live UI workflow pass. Physical HealthKit acceptance with real samples remains pending. Rollback:
 remove the client importer and canonical-merge integration, drop healthkit_readiness and delete the
@@ -1692,15 +1692,15 @@ feature is proposed.
 
 Full acceptance criteria and rollback gates are in the plan.
 
-### 4.30 iOS reliability follow-ups (R1/R3/R5 closed; R2/R4/R6 deferred)
+### 4.30 iOS reliability follow-ups (R1/R3/R5 closed; R2/R4/R6/R7 deferred)
 
 R1, R3 and R5 were implemented and closed on 2026-11-07. R1 provides the durable pending-mutation
 journal; R3 provides explicit plan-item selection for repeated exercises; R5 surfaces a
 server-active workout, a workout ended elsewhere, or an unusable prescription with explicit
 resume/abandon/refresh/clear actions. Unit and simulator verification pass; separate
-physical-device R1/R3/R5 passes were not performed. R2, R4 and R6 remain planned improvements.
-This reliability work did not add HealthKit, an unrestricted offline queue or Phase 3; Phase 3A
-is a separate implementation under its own contract.
+physical-device R1/R3/R5 passes were not performed. R2, R4, R6 and R7 remain planned
+improvements. This reliability work did not add HealthKit, an unrestricted offline queue or
+Phase 3; Phase 3A is a separate implementation under its own contract.
 
 | id | priority | item | scope / constraints |
 |---|---|---|---|
@@ -1710,6 +1710,7 @@ is a separate implementation under its own contract.
 | R4 | Low | Form-rating correction UX | Distinguish an initial rating from a later correction/additional rating. Do not change append-only database semantics without a separate decision. |
 | R5 | Medium | Workout recovery/reconciliation UX — **closed 2026-11-07** | Today shows a Recovery section when refresh finds a server active workout not represented locally, a local in-progress workout no longer active on the server, or a consumed/expired/superseded prescription. Actions: resume/abandon/dismiss a server workout, refresh/clear stale local state, refresh/dismiss an unusable prescription. A one-read grace prevents false ended-elsewhere states immediately after a local mutation. Unreplayable pending mutations remain in the R1 recovery panel. |
 | R6 | Low | Idempotency operational monitoring | Lightweight diagnostics for replay counts, idempotency conflicts, receipt expiry, unexpected mutation failures and reconciliation failures. No telemetry platform or unnecessary personal data. |
+| R7 | Medium | Optional session-type selection | Let the owner choose the next workout type from the iPhone before issuing a plan. The server remains the authority and must validate the request against the schedule, constraints and active state; the resolver remains responsible for exercise/template resolution, not type selection. Requires a separate API/policy decision and is deferred. |
 
 **Recovery boundary after R1:** every attempted mutation is journaled before the HTTP request.
 After termination, the app replays journaled operations with the original UUID and exact body,
