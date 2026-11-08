@@ -230,7 +230,7 @@ Preserve `/api/ios/v1/` as the future facade namespace, but implement endpoints 
 |---|---|---|
 | Phase 1 | Protected pairing exchange; `GET bootstrap/today`; read-only recent history and a server-only progress summary | Return server/API version, server-local date/timezone, capabilities, readiness/workout status and small existing summaries. No config paths or secrets. The `progress` route is implemented and tested server-side; the Phase 1 client has no Progress screen (deferred to Phase 2). |
 | Phase 2 | Read/write readiness; request prescription; read active workout; start by issued-plan id; add set; complete/abandon; read history/progress; optional inline form ratings; optional review | Mutations require authentication and an idempotency receipt. The prescription is stored at issue and the client starts by id only, so plan content never comes from the phone. Validate every field via existing Python services. |
-| R7 (implemented and simulator-verified) | Asynchronous prescription request; optional session type and minimum session; authoritative `GET plans/current`; start that writes the prescription | Returns `202` and builds in one bounded dispatcher on the shared CPU slot; two deadlines (build vs startable); legacy `ios_issued_plan` rows preserved by an explicit mapping; prescription persistence moves to start. |
+| R7 (implemented and verified) | Asynchronous prescription request; optional session type and minimum session; authoritative `GET plans/current`; start that writes the prescription | Returns `202` and builds in one bounded dispatcher on the shared CPU slot; two deadlines (build vs startable); legacy `ios_issued_plan` rows preserved by an explicit mapping; prescription persistence moves to start. |
 | Phase 3 | HRV/RHR provenance; HealthKit record import and optional workout association | Add only the source/provenance fields and routes needed by enabled types; keep user-consented HealthKit read-only. |
 | Phase 4 | Add/correct/remove set and offline event replay/reconciliation | Reuse the Phase 2 receipts; add a conflict response only where replay needs it. |
 
@@ -362,7 +362,7 @@ HealthKit acceptance pending.
 
 Next, in this order:
 
-1. **R7 — implemented and simulator-verified 2026-11-08.** Contract:
+1. **R7 — implemented and verified 2026-11-08.** Contract:
    [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md). The asynchronous prescription request
    with session-type and minimum-session settings; it fixes the resolver-versus-10-second timeout
    failure in the Phase 2 prescription path and absorbs R2. The client builds, all 71 client tests
@@ -714,8 +714,9 @@ own approved contract and has not started.
   pending-mutation journal; that was added immediately after closure as R1 (see below). It is not
   a general offline queue: only attempted mutations are journaled, and new mutations are blocked
   while one is unresolved. R5 recovery/reconciliation UX is implemented and closed; R2 is closed
-  as absorbed by R7's `plans/current` read; R7 is implemented and simulator-verified; R8 is
-  approved but not implemented; R4 remains deferred and is not a Phase 2 closure blocker.
+  as absorbed by R7's `plans/current` read; R7 is implemented and verified by unit and live UI
+  runs; R8 is approved but not implemented; R4 remains deferred and is not a Phase 2 closure
+  blocker.
 
 ### R1 durable pending-mutation journal (implemented and closed 2026-11-07)
 
@@ -810,8 +811,10 @@ owner asked for.
   checks), the `202` issue route, `GET plans/current`, start-time prescription persistence and the
   client's settings sheet, generating card, polling and foreground reconciliation. The server
   behaviour is covered by the default suite; the client is built and unit-tested on the iOS 27.2
-  simulator (71 tests, 0 failures) and launches in the simulator. The resolver-enabled live UI run
-  is the remaining check.
+  simulator (71 tests, 0 failures), launches, and passes the live UI flow against a throwaway
+  server: pair → readiness → request workout → preview → start → set → finish → Progress. That run
+  found and fixed a real bug (the preview sheet was dismissed when the consumed plan made
+  `plans/current` report `none`). The resolver was off for the run.
 
 ### R8 active-workout plan editing (approved 2026-11-08, not implemented)
 

@@ -594,8 +594,14 @@ Client (unit):
 Criteria 4 and 9 are exercised by the client unit tests (foreground reconciliation, lost response,
 supersession, expiry) rather than by a scripted live-server run.
 
-Remaining gate: the resolver-enabled live UI smoke test, which needs a running server and a
-generated `LiveConfig`; the physical-device pass is not required (§14 decision 4).
+The live UI smoke test **passed on 2026-11-08** against a throwaway server on a non-default port
+and a temporary database: pair → readiness → request workout → settings sheet → generating →
+preview → start → add a VBT set → finish → Progress (107.8 s). The client script had to be updated
+for the new settings sheet, and the run found a real bug: consuming the plan makes
+`plans/current` report `none`, and refreshing on that cleared the prescription state and dismissed
+the preview sheet mid-start. Fixed by leaving the state alone while a workout is active.
+The physical-device pass is not required (§14 decision 4). The resolver was **off** for this run;
+the resolver-enabled timing check remains optional follow-up, not a gate.
 
 ## 13. Rollback
 
@@ -709,7 +715,7 @@ behaviour.
 | startup sweep | reset `building` to `queued` | same | Nothing is published before the guarded publish, so a retry is safe. |
 | settings validation | accessory coupling returns 400 at request time | accessory sessions surface as a build error (`error_code = resolver_build_failed`) | The coupling lives inside `build_prescription`, which also decides whether the resolver is enabled; pre-validating it here would duplicate a rule. |
 | worker tests | `tests/test_ios_plan_requests.py` | `tests/test_ios_workflow.py` | They share the live-server fixture and the same concerns; a second file would duplicate the fixture. |
-| acceptance | simulator pass | built and unit-tested on the iOS 27.2 simulator; app launches | 71 client tests pass; only the resolver-enabled live UI run is left, because it needs a running server and a generated `LiveConfig`. |
+| acceptance | simulator pass | built, unit-tested (71) and exercised live against a throwaway server | The live UI flow passed; the resolver was off, so its timing is still the ODROID benchmark rather than a measurement on this host. |
 
 Client surface added: `PlanSettings`, `PlanRequestAck`, `PlansStateResponse`, `PlanProgress`;
 `IOSAPIClient.planState`; `AppModel` polling with the 1/2/5/10 s schedule, foreground

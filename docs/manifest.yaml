@@ -599,7 +599,7 @@ documents:
 - id: ios-client-plan
   path: docs/IOS-CLIENT-PLAN.md
   title: Native iPhone Client — Online-First Implementation Plan
-  description: 'Phases 0-2 closed 2026-11-07; Phase 3A implemented 2026-11-08; authenticated online-first native strength workflow with Python-authoritative training; R7 asynchronous prescription request implemented and simulator-verified 2026-11-08, R8 active-workout plan editing approved and not implemented; later HealthKit workout imports with manual-over-import precedence, then offline capture, optional Apple on-device/PCC AI'
+  description: 'Phases 0-2 closed 2026-11-07; Phase 3A implemented 2026-11-08; authenticated online-first native strength workflow with Python-authoritative training; R7 asynchronous prescription request implemented and verified 2026-11-08, R8 active-workout plan editing approved and not implemented; later HealthKit workout imports with manual-over-import precedence, then offline capture, optional Apple on-device/PCC AI'
   category: plans
   status: plan
   audience: public
@@ -914,7 +914,7 @@ documents:
 - id: design-ios-r7-contract
   path: docs/design/IOS-R7-CONTRACT.md
   title: iOS R7 asynchronous prescription request contract
-  description: 'Implemented and simulator-verified 2026-11-08: non-blocking prescription requests with session-type and minimum-session settings, one bounded dispatcher, database-backed request state, polling past 60 s, authoritative foreground recovery, prescription persistence moved from issue to start, legacy-row migration mapping and rollback'
+  description: 'Implemented and verified 2026-11-08 (unit + live UI run): non-blocking prescription requests with session-type and minimum-session settings, one bounded dispatcher, database-backed request state, polling past 60 s, authoritative foreground recovery, prescription persistence moved from issue to start, legacy-row migration mapping and rollback'
   category: design
   status: design
   audience: maintainer
