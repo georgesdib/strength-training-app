@@ -203,7 +203,7 @@ override is auditable. `readiness_day` remains the imported, derived row.
 | observation_id PK | opaque uuid4 hex |
 | device_id | FK to `ios_device`; observations are device-scoped |
 | on_date | server-local date the observation is used for |
-| field | `hrv_ms` or `rhr_bpm` |
+| field | `hrv_ms`, `rhr_bpm` or `bodyweight_kg` |
 | value | positive finite observation |
 | sample_id | HealthKit object UUID |
 | sample_at | canonical UTC ISO-8601 sample timestamp |
@@ -212,6 +212,7 @@ override is auditable. `readiness_day` remains the imported, derived row.
 | source_model, source_manufacturer | optional HealthKit device metadata |
 | imported_at | UTC ISO-8601 import time |
 
+Migration 0055 rebuilds the table to add `bodyweight_kg` to the field check while preserving rows.
 One immutable identity is device + field + sample_id. Identical complete observations are no-ops;
 any changed value, timestamp or provenance attribute is a conflict. The latest observation per
 date/field is selected by sample_at, imported_at and observation_id. HealthKit is a middle

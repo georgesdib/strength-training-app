@@ -345,6 +345,38 @@ def test_healthkit_manual_precedence_keeps_observation(ios):
     assert body["healthkit"]["rhr_bpm"]["value"] == 52.0
 
 
+def test_healthkit_bodyweight_is_an_optional_readiness_observation(ios):
+    token, _ = _paired(ios)
+    sample = _healthkit_sample(
+        "bodyweight_kg", 80.5,
+        sample_at=(datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)).isoformat(),
+    )
+    status, body = _healthkit(ios, token, [sample], key=uuid.uuid4().hex)
+    assert status == 200, body
+    assert body["bodyweight_kg"] == 80.5
+    assert body["healthkit"]["bodyweight_kg"]["value"] == 80.5
+    assert body["sources"]["bodyweight_kg"] == "healthkit"
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM healthkit_readiness")) == 1
+
+    status, manual = _request(
+        ios["base"], "/api/ios/v1/readiness", method="POST",
+        payload={"values": {"bodyweight_kg": 81.0}},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, manual
+    assert manual["bodyweight_kg"] == 81.0
+    assert manual["sources"]["bodyweight_kg"] == "manual"
+    assert manual["healthkit"]["bodyweight_kg"]["value"] == 80.5
+
+    stale = _healthkit_sample(
+        "bodyweight_kg", 79.0,
+        sample_at=(datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=31)).isoformat(),
+    )
+    status, body = _healthkit(ios, token, [stale], key=uuid.uuid4().hex)
+    assert status == 400, body
+    assert any(key.endswith("sample_at") for key in body.get("fields", {}))
+
+
 def test_healthkit_validation_and_device_scope(ios):
     token, _ = _paired(ios)
     future = (datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=10)).isoformat()
@@ -392,6 +424,34 @@ def test_healthkit_validation_and_device_scope(ios):
     status, body = _healthkit(ios, token, [_healthkit_sample("hrv_ms", 56.0)], key=uuid.uuid4().hex)
     assert status == 200, body
     assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM healthkit_readiness")) == 2
+
+
+def test_ready_partial_readiness_can_start_without_stress(ios):
+    token, _ = _paired(ios)
+    store = db.Store(ios["path"])
+    try:
+        store.connection.execute(
+            "DELETE FROM readiness_day WHERE on_date = ?", (ios["today"],)
+        )
+        store.connection.execute(
+            "DELETE FROM readiness_entry WHERE on_date = ?", (ios["today"],)
+        )
+    finally:
+        store.close()
+    status, readiness = _request(
+        ios["base"], "/api/ios/v1/readiness", method="POST",
+        payload={"values": {"sleep": 5, "energy": 3, "mood": 5, "soreness": 5}},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, readiness
+    assert readiness["score"]["status"] == "ready"
+    assert readiness.get("stress") is None
+
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    assert workout["status"] == "in_progress"
 
 
 def test_readiness_rejects_unknown_empty_and_removed_fields(ios):

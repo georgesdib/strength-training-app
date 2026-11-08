@@ -246,10 +246,13 @@ Starts the workout from a server-issued plan. The request contains no plan conte
     refreshes `today` and asks the owner whether to resume or abandon;
   - the plan is consumed and its workout is completed/abandoned → `410 plan_consumed` with
     `details.workout_id`.
-- Otherwise call the existing `workout.start` with the stored plan, readiness values,
-  `readiness_ack` as `allow_partial_readiness` and `prescription_id`. The client cannot submit
-  a plan. Mark `consumed_at` and `workout_id` in the same transaction; a failure must leave no
-  partial consumption or workout.
+- Otherwise call the existing `workout.start` with the stored plan, readiness values and
+  `prescription_id`. The issue step has already applied the readiness gate: a score-ready day may
+  legitimately omit a field the five-field workout validator would require, and a non-ready day
+  required an explicit acknowledgement before issue. Start therefore passes
+  `allow_partial_readiness=True` and treats the stored `readiness_ack` as provenance. The client
+  cannot submit a plan. Mark `consumed_at` and `workout_id` in the same transaction; a failure
+  must leave no partial consumption or workout.
 - Response `200`: the existing `workout.get` payload (plan, sets, forms, readiness snapshot,
   elapsed seconds, comparison). The client uses this to render/resume the workout.
 - Idempotency: same key + same body returns the stored workout; a different body with the same key

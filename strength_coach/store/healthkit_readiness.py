@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-FIELDS = ("hrv_ms", "rhr_bpm")
+FIELDS = ("hrv_ms", "rhr_bpm", "bodyweight_kg")
 SOURCE_CLASSES = ("apple_watch", "non_apple_watch", "unknown")
 
 _IMMUTABLE_FIELDS = (

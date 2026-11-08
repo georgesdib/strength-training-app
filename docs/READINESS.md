@@ -35,7 +35,7 @@ several rows can share a date. Every cell is read as text and stored verbatim in
 before anything is interpreted.
 
 Manual entry (daily, occasional, or partial) feeds the same merge. Quick presets write the same ordinary fields with `source=preset`; they do not bypass the gate or the minimum-data rule. Context flags (`travel`, `timezone_change`, `illness`, `alcohol`, `poor_sleep_environment`, `high_work_stress`) are stored separately and are displayed, not scored by default. A manual value wins **per
-field**; the imported row fills the fields it does not provide (`DEC-READINESS-03`). Phase 3A optionally adds read-only HealthKit HRV and resting heart rate through the same effective-readiness query; manual/preset wins over HealthKit, and HealthKit wins over the imported row. HealthKit observations are stored separately and are never written into `readiness_day` or `readiness_entry`. No sleep, workouts or subjective fields are imported. The old
+field**; the imported row fills the fields it does not provide (`DEC-READINESS-03`). Phase 3A optionally adds read-only HealthKit HRV, resting heart rate and bodyweight through the same effective-readiness query; manual/preset wins over HealthKit, and HealthKit wins over the imported row. HealthKit observations are stored separately and are never written into `readiness_day` or `readiness_entry`. No sleep, workouts or subjective fields are imported. The old
 `squat_readiness`/`bench_readiness`/`deadlift_readiness` columns are retained only as
 calibration labels; they are not accepted as manual input (`DEC-READINESS-06`). Manual
 readings are appended to `readiness_entry`, never written into `readiness_day`, so a

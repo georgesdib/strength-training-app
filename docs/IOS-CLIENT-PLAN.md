@@ -3,10 +3,12 @@
 **Status:** Phase 0 complete 2026-11-07 (owner-confirmed); **Phase 1 complete 2026-11-07**
 (owner-confirmed on the physical iPhone); **Phase 2 complete and closed 2026-11-07**
 (simulator-verified and owner-confirmed on the physical iPhone). The server side is migrations 0052_ios_device, 0053_ios_workflow and
-0054_healthkit_readiness, the ios CLI, the bearer-authenticated /api/ios/v1/ facade, and its tests;
+0054_healthkit_readiness and 0055_healthkit_bodyweight, the ios CLI, the bearer-authenticated
+/api/ios/v1/ facade, and its tests;
 the Swift client in the separate StrengthApp repository has pairing, Today, History,
 Settings/Forget, readiness entry, prescription preview/start-by-id, active workout,
-completion/abandon, Progress, opt-in HealthKit HRV/RHR readiness, Keychain storage, 63 unit tests
+completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Keychain storage,
+64 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is implemented 2026-11-08;
 physical HealthKit acceptance remains pending and Phase 3B is out of scope. Later phases remain
 proposals and need separate approval.
@@ -145,7 +147,7 @@ flow, migration, tests and acceptance for this phase.
 
 HealthKit is optional and read-only. Ask permissions only when the owner enables the related feature. Never require HealthKit permission to enter readiness or complete a workout.
 
-**Phase 3A: HRV and resting heart rate.** The authoritative specification is
+**Phase 3A: HRV, resting heart rate and bodyweight.** The authoritative specification is
 [design/IOS-PHASE-3A-CONTRACT.md](design/IOS-PHASE-3A-CONTRACT.md). The owner approved the scope
 and implementation on 2026-11-08; the server migration, canonical merge, import route and client
 HealthKit path are implemented. Unit, simulator and live-server workflow verification pass;
@@ -336,7 +338,7 @@ sRPE precedence and no prescription/rubric changes.
 | Partial or missing readiness | Show the server's status and warnings; no Swift score and no missing-as-zero behavior. |
 | Session RPE source | Manual remains first choice. Future Apple effort is source-labelled, only associated after confirmation, and usable only when no manual value exists. Current storage needs additive provenance. |
 | Rubric use | Reuse server's current review payload and rubric version. Marks are human optional feedback; do not implement scoring or calibration logic in Swift. |
-| HealthKit scope | HRV/RHR first; all other types later by explicit scope. No sleep/sleep score in this plan. |
+| HealthKit scope | HRV/RHR/bodyweight first; all other types later by explicit scope. No sleep/sleep score in this plan. |
 | PCC privacy and availability | Separate future decision; disabled by default, user-invoked, context preview/consent, no health data by default, no core dependency. |
 | Offline complexity | Defer durable offline mutation until an online session loop is proven. Cached reads do not imply the ability to prescribe or sync offline. |
 
@@ -401,8 +403,8 @@ to. A backup is a precondition of the phase, not an optional extra.
 ### 13.2 Schema rollback is a paired operation
 
 Dropping the iOS tables alone leaves their `schema_migration` row in place. `migrate()` then treats
-`0052`/`0053`/`0054` as applied and skips them forever, so re-enabling the feature later yields a
-database with no iOS tables and no migration that will recreate them. Roll a schema change back as
+`0052`/`0053`/`0054`/`0055` as applied and skips them forever, so re-enabling the feature later
+yields a database with no iOS tables and no migration that will recreate them. Roll a schema change back as
 one operation, with the server stopped:
 
 ```sql
@@ -412,7 +414,7 @@ DROP TABLE IF EXISTS ios_operation_receipt;
 DROP TABLE IF EXISTS ios_issued_plan;
 DROP TABLE IF EXISTS ios_pairing_code;
 DROP TABLE IF EXISTS ios_device;
-DELETE FROM schema_migration WHERE version IN ('0052', '0053', '0054');
+DELETE FROM schema_migration WHERE version IN ('0052', '0053', '0054', '0055');
 COMMIT;
 ```
 
@@ -437,7 +439,7 @@ as part of a rollback.
 
 ### 13.3 Live-phone acceptance runbook (Phase 3A)
 
-This is the canonical procedure for testing the opt-in HealthKit HRV/RHR slice on the owner's
+This is the canonical procedure for testing the opt-in HealthKit HRV/RHR/bodyweight slice on the owner's
 physical iPhone against the live local server. It includes the database backup, migration,
 pairing-code and rollback steps. The client checklist is
 `StrengthApp/DEVICE-ACCEPTANCE.md` in the separate client repository; this section is the
@@ -485,10 +487,10 @@ The full archive includes a consistent SQLite snapshot plus source/docs/config a
 but it is not encrypted. Keep it off the phone and out of git. Do not continue if the checksum or
 snapshot verification fails.
 
-#### 2. Apply migration 0054 and start the server
+#### 2. Apply migrations 0054/0055 and start the server
 
 Start the server exactly as it is normally run. On startup it applies the additive
-`0054_healthkit_readiness.sql` migration:
+`0054_healthkit_readiness.sql` and `0055_healthkit_bodyweight.sql` migrations:
 
 ```bash
 .venv/bin/strength-coach --db "$DB" web --host 0.0.0.0 --port "$PORT"
@@ -502,7 +504,7 @@ sqlite3 "$DB" "SELECT name FROM sqlite_master WHERE type='table' AND name='healt
 sqlite3 "$DB" "PRAGMA quick_check;"
 ```
 
-Expected: latest version `0054`, one `healthkit_readiness` row from the table query, and
+Expected: latest version `0055`, one `healthkit_readiness` row from the table query, and
 `ok` from `quick_check`.
 
 #### 3. Mint a one-use pairing code
@@ -544,12 +546,12 @@ open StrengthApp.xcodeproj
 
 Select the physical iPhone (iPhone 16 Pro Max, iOS 27.2 in the accepted environment), the personal
 team, and Run. Confirm the local-network permission is allowed. The HealthKit capability is already
-part of the app; Phase 3A adds only read access for HRV and resting heart rate.
+part of the app; Phase 3A adds only read access for HRV, resting heart rate and bodyweight.
 
 #### 5. Enable HealthKit and import
 
 1. Settings -> HealthKit -> enable **Readiness from HealthKit**.
-2. Grant read access to HRV and Resting Heart Rate. Do not grant write access; the app does not
+2. Grant read access to HRV, Resting Heart Rate and Body Mass. Do not grant write access; the app does not
    request it. The permission sheet is not proof of a grant after it closes.
 3. Return to Today and tap **Import from HealthKit** (or pull to refresh).
 4. If no eligible sample exists, the UI must say that no eligible sample was returned and that
@@ -559,17 +561,17 @@ part of the app; Phase 3A adds only read access for HRV and resting heart rate.
 #### 6. Acceptance checks
 
 - [ ] The HealthKit section appears only when the server reports `healthkit_readiness: true`.
-- [ ] Enabling the toggle requests read access for HRV and resting heart rate only; no sleep,
+- [ ] Enabling the toggle requests read access for HRV, resting heart rate and bodyweight only; no sleep,
       workout, general heart-rate or write access is requested.
 - [ ] An eligible HRV sample is the newest within 48 hours; an eligible RHR sample is from the
       current server-local date.
-- [ ] Today shows the effective HRV/RHR values, the effective source, sample age, and the
+- [ ] Today shows the effective HRV/RHR/bodyweight values, the effective source, sample age, and the
       score/status/basis returned by Python.
 - [ ] The stored `healthkit` provenance is visibly distinct from the effective values; a manual
       value can win while the HealthKit observation is still shown.
 - [ ] Importing the same sample twice does not create a duplicate observation (sample identity is
       device + field + sample UUID).
-- [ ] A manual HRV/RHR entry made after an import remains selected after a later import.
+- [ ] A manual HRV/RHR/bodyweight entry made after an import remains selected after a later import.
 - [ ] A stale sample or no sample does not appear as zero and does not silently become today's
       readiness.
 - [ ] Force-quit/relaunch keeps the HealthKit toggle and the server remains the source of truth.
@@ -596,8 +598,8 @@ readiness:
 2. Turn the client HealthKit toggle off. The observations remain dormant and manual readiness is
    unaffected.
 3. If a full schema rollback is required, remove the client importer and canonical-merge
-   integration first, then drop `healthkit_readiness` and delete the `0054` schema_migration row
-   together (§13.2). Do not leave code querying a dropped table.
+   integration first, then drop `healthkit_readiness` and delete the `0054`/`0055` schema_migration
+   rows together (§13.2). Do not leave code querying a dropped table.
 4. If restoring the pre-test database is safer, extract only the snapshot from the verified
    archive and replace `data/coach.db` with the server stopped:
 
@@ -739,19 +741,21 @@ dedicated physical-iPhone R1/R3/R5 passes were not separately performed.
   recovery. The normal live simulator workflow passes. R5 is closed; a separate physical R5 pass
   was not done.
 
-### Phase 3A — HealthKit HRV/RHR readiness (implemented 2026-11-08)
+### Phase 3A — HealthKit HRV/RHR/bodyweight readiness (implemented 2026-11-08)
 
-- Server: migration 0054_healthkit_readiness.sql, the append-only healthkit_readiness table, the
+- Server: migrations 0054_healthkit_readiness.sql and 0055_healthkit_bodyweight.sql, the
+  append-only healthkit_readiness table, the
   shared effective-readiness merge (manual/preset > HealthKit > imported), and the authenticated
   POST /api/ios/v1/healthkit/readiness route. bootstrap reports healthkit_readiness alongside the
   existing capabilities; healthkit remains false for Phase 3B.
-- Client: read-only HealthKit authorization for HRV SDNN and resting heart rate, deterministic
-  Apple Watch classification, 48-hour HRV / current-day RHR selection, single-flight import,
-  the healthkitReadiness mutation-journal kind, Settings opt-in and Today import/provenance display.
-- Verification: focused server tests, the default server suite, client unit tests, simulator build
-  and the live UI workflow pass. Physical HealthKit acceptance with real samples remains pending.
+- Client: read-only HealthKit authorization for HRV SDNN, resting heart rate and bodyweight,
+  deterministic Apple Watch classification, 48-hour HRV / current-day RHR / 30-day bodyweight
+  selection, single-flight import, the healthkitReadiness mutation-journal kind, Settings opt-in
+  and Today import/provenance display.
+- Verification: 1,640 server tests, 64 client tests, simulator build and the live UI workflow pass.
+  Physical HealthKit acceptance with real samples remains pending.
 - Rollback: remove the client importer and canonical-merge integration, drop healthkit_readiness
-  with the paired 0054 migration row, and leave readiness_day/readiness_entry untouched.
+  with the paired 0054/0055 migration rows, and leave readiness_day/readiness_entry untouched.
 
 No Phase 3B, offline capture, HealthKit write access, sleep import, new score or training-rule
 change is included. Each later phase requires a separate approval.

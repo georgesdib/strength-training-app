@@ -1,13 +1,15 @@
-# iOS Phase 3A — HealthKit HRV/RHR readiness: implementation contract
+# iOS Phase 3A — HealthKit readiness: HRV, RHR and bodyweight
 
-**Status:** implemented 2026-11-08; unit, simulator and live-server workflow verified. Physical
-HealthKit acceptance remains pending. This contract remains the authoritative Phase 3A
-specification. No Phase 3B, Phase 4 offline capture, HealthKit write access, sleep imports, new
-score or training-rule change is authorized.
+**Status:** implemented 2026-11-08; HRV/RHR/bodyweight unit, simulator and live-server workflow
+verified;
+bodyweight is an owner-requested extension added 2026-11-08. Physical HealthKit acceptance remains
+pending. This contract remains the authoritative Phase 3A specification. No Phase 3B, Phase 4
+offline capture, HealthKit write access, sleep imports, new score or training-rule change is
+authorized.
 
 **Scope:** fixes the exact server surface, canonical readiness merge, data model, client surface,
 permissions, concurrency, tests, acceptance and rollback for Phase 3A only: opt-in, read-only
-HealthKit heart-rate-variability (HRV) and resting-heart-rate (RHR) readiness values.
+HealthKit heart-rate-variability (HRV), resting-heart-rate (RHR) and bodyweight readiness values.
 
 **Explicitly separate:** Phase 3B (Apple Workout summaries, cardio imports, Apple effort values
 and any associated workout/session changes) is out of scope and requires its own contract and
@@ -17,18 +19,20 @@ access, sleep imports, a new score or any training-rule change.
 **Owner decisions approved 2026-11-08:**
 
 1. Phase 3A only; Phase 3B is separate.
-2. Read-only HeartRateVariabilitySDNN (ms) and RestingHeartRate (bpm) only. No sleep duration,
-   sleep stages, Apple Sleep Score, general heart rate, workouts, respiratory data or write access.
-3. Newest HRV sample within 48 hours; current local-day RHR; missing/stale means unknown, never zero.
+2. Read-only HeartRateVariabilitySDNN (ms), RestingHeartRate (bpm) and BodyMass (kg). No sleep
+   duration, sleep stages, Apple Sleep Score, general heart rate, workouts, respiratory data or
+   write access.
+3. Newest HRV sample within 48 hours; current local-day RHR; newest bodyweight within 30 days;
+   missing/stale means unknown, never zero.
 4. Manual readiness wins over HealthKit; within HealthKit prefer Apple Watch only when positively
    identified, otherwise the newest eligible sample. Show source and sample age.
-5. HealthKit is off by default. When enabled, values flow into the existing HRV/RHR readiness
-   inputs and the existing server scoring path. Existing weights, baselines, minimum-reading rules
+5. HealthKit is off by default. When enabled, values flow into the existing readiness inputs and
+   the existing server scoring path. Existing weights, baselines, minimum-reading rules
    and score semantics do not change. No inferred subjective fields or new score.
 6. Explicit Import from HealthKit on Today/Readiness plus an app-open/refresh attempt while
    enabled. No background delivery, observer queries or write access. Request permission only
    when enabled.
-7. No historical backfill; import only the current relevant HRV/RHR values.
+7. No historical backfill; import only the current relevant HRV/RHR/bodyweight values.
 8. Additive provenance schema/API only; no raw HealthKit time series.
 9. Physical iPhone testing with real HealthKit data is available.
 10. HealthKit values travel to the local server over the existing trusted-LAN plain-HTTP model;
@@ -113,7 +117,7 @@ The test suite must prove all consumers observe identical effective values and p
 - Review that no consumer contains a second HealthKit merge; the canonical query is the only
   reader of healthkit_readiness.
 
-## 3. Server data model — migration 0054_healthkit_readiness.sql
+## 3. Server data model — migrations 0054_healthkit_readiness.sql and 0055_healthkit_bodyweight.sql
 
 Additive only. Existing readiness_day, readiness_entry, readiness scoring, prescriptions,
 workouts, sessions and review tables are untouched.
@@ -122,7 +126,8 @@ workouts, sessions and review tables are untouched.
         observation_id       TEXT PRIMARY KEY,              -- uuid4 hex
         device_id            TEXT NOT NULL REFERENCES ios_device(device_id),
         on_date              TEXT NOT NULL,                 -- server-local YYYY-MM-DD
-        field                TEXT NOT NULL CHECK (field IN ('hrv_ms', 'rhr_bpm')),
+        field                TEXT NOT NULL
+                             CHECK (field IN ('hrv_ms', 'rhr_bpm', 'bodyweight_kg')),
         value                REAL NOT NULL CHECK (value > 0),
         sample_id            TEXT NOT NULL,                 -- HealthKit object UUID
         sample_at            TEXT NOT NULL,                 -- ISO-8601 with offset
@@ -149,8 +154,9 @@ workouts, sessions and review tables are untouched.
   metadata.
 - source_name is display/audit text and must never be the basis of source classification.
 - A later HealthKit import never overwrites a manual readiness entry; precedence is per field.
-- Migration rollback: drop the table and the matching 0054 schema_migration row together. The
-  paired statement is added to IOS-CLIENT-PLAN.md section 13.2 when implemented.
+- Migration 0055 rebuilds this table to extend the field CHECK for bodyweight while preserving
+  every observation. Rollback drops the table and the matching 0054/0055 schema_migration rows
+  together. The paired statement is in IOS-CLIENT-PLAN.md section 13.2.
 
 ### 3.1 Sample identity and complete observation
 
@@ -222,19 +228,30 @@ When mutations are disabled, healthkit_readiness is false and the route returns
           "source_class": "apple_watch",
           "source_model": "Watch6,18",
           "source_manufacturer": "Apple Inc."
+        },
+        {
+          "field": "bodyweight_kg",
+          "value": 80.5,
+          "sample_id": "B771...",
+          "sample_at": "2026-11-07T07:00:00Z",
+          "source_name": "Apple Watch",
+          "source_bundle_id": "com.apple.health",
+          "source_class": "apple_watch",
+          "source_model": "Watch6,18",
+          "source_manufacturer": "Apple Inc."
         }
       ]
     }
 
 - date is required and must equal the server-local current date. Historical/future dates are
   rejected; Phase 3A does not backfill.
-- samples has one or two entries, one per field, both optional individually but at least one.
+- samples has one to three entries, one per field, each optional individually but at least one.
   Unknown fields, duplicate fields, an empty list or extra keys are rejected.
 - value must be finite and greater than zero. Reject NaN, infinity, zero and negative values.
 - sample_id is the HealthKit object UUID string, required, 1-128 characters.
 - sample_at is required ISO-8601 with an offset. It must not be more than five minutes in the
   future. HRV must be no older than 48 hours at request time. RHR must fall on the supplied
-  server-local date.
+  server-local date. Bodyweight must be no older than 30 days.
 - source_name is required, trimmed, 1-128 characters. source_bundle_id is optional, 1-200
   characters. source_class is required and one of apple_watch, non_apple_watch or unknown.
   source_model and source_manufacturer are optional, each at most 200 characters. These fields
@@ -262,15 +279,16 @@ Return the canonical readiness payload from GET /api/ios/v1/today readiness, plu
           "source_manufacturer": "Apple Inc.",
           "imported_at": "2026-11-08T07:00:00+00:00"
         },
-        "rhr_bpm": { "...": "same shape" }
+        "rhr_bpm": { "...": "same shape" },
+        "bodyweight_kg": { "...": "same shape" }
       }
     }
 
 - healthkit contains the selected/latest stored observations, not necessarily the effective
   values. A manual entry can win while the HealthKit observation remains present here.
 - sources continues to label the effective field source; manual wins when present.
-- The normal readiness status/score fields remain; importing HRV/RHR alone does not fabricate a
-  ready score.
+- The normal readiness status/score fields remain; importing observations alone does not
+  fabricate a ready score.
 - GET /api/ios/v1/today must expose the same healthkit provenance map and effective sources. POST
   and GET must not diverge; both use the canonical merge.
 - The response is stored in the Phase 2 idempotency receipt only after the mutation succeeds.
@@ -341,10 +359,10 @@ with missing device metadata, fallback when no Apple Watch exists, and determini
 
 - Settings toggle: HealthKit readiness, default off. Persist the choice in UserDefaults.
 - Request read authorization only when the owner turns it on, for exactly
-  HeartRateVariabilitySDNN and RestingHeartRate. No write authorization. Do not request sleep,
-  workouts, heart rate, respiratory or other types.
+  HeartRateVariabilitySDNN, RestingHeartRate and BodyMass. No write authorization. Do not request
+  sleep, workouts, heart rate, respiratory or other types.
 - Manual readiness, prescription and workout flows work without HealthKit and without permission.
-- Update NSHealthShareUsageDescription to explain the two read types and that data stays on the
+- Update NSHealthShareUsageDescription to explain the three read types and that data stays on the
   owner's local server. No HealthKit entitlement beyond the existing app capability is added.
 
 ### 6.2 Observable states
@@ -384,8 +402,11 @@ Use a testable HealthKitReadinessProviding protocol; production uses HKHealthSto
   selection. Use a timestamp that lies on that server-local date: prefer the sample start for a
   daily resting-HR interval, and use the end only when the end also lies on the date. If neither
   timestamp lies on the date, treat the sample as not eligible rather than shifting the date.
-- Client sends at most one HRV and one RHR. If neither exists, make no request and show the
-  noEligibleSample state. If samples exist but all are stale, show staleSample and make no request.
+- Bodyweight: eligible samples are finite, >0, with sample time no older than 30 days. Apply
+  the same source selection; use the sample end timestamp.
+- Client sends at most one HRV, one RHR and one bodyweight. If none exists, make no request and
+  show the noEligibleSample state. If samples exist but all are stale, show staleSample and make
+  no request.
 - Use the server date from bootstrap/today as date. Convert sample timestamps to ISO-8601 with
   offset. If the phone and server are in different time zones, the server remains authoritative
   and may reject the date; the UI must show that result without silently changing the date.
@@ -439,9 +460,9 @@ After selection, the flow is:
 6. Clearly distinguish stored HealthKit observations from effective readiness. The healthkit map
    is an observation record; the readiness values/sources are the effective values. A manual value
    may win while the observation remains visible.
-7. Do not imply every imported HRV/RHR observation changes the readiness score. Baseline
-   eligibility and existing scoring rules still apply; an observation can be stored and displayed
-   without changing the score.
+7. Do not imply every imported observation changes the readiness score. Baseline eligibility
+   and existing scoring rules still apply; an observation can be stored and displayed without
+   changing the score.
 8. If the authoritative refresh fails after a successful acknowledgement, show the import as
    accepted but the readiness view as stale/unrefreshed, and offer a refresh retry. Do not show
    the POST payload as authoritative.
@@ -451,8 +472,8 @@ After selection, the flow is:
 ### 7.1 Server tests
 
 - Migration creates the append-only healthkit_readiness table and indexes.
-- Valid HRV-only, RHR-only and both-field imports return the canonical readiness payload and
-  provenance.
+- Valid HRV-only, RHR-only, bodyweight-only and combined imports return the canonical readiness
+  payload and provenance.
 - Canonical merge consumer parity: readiness day, series, history, scoring and baseline eligibility
   return identical effective values and provenance for the same fixture; POST and GET readiness
   return the same healthkit provenance for the same observations.
@@ -476,8 +497,8 @@ After selection, the flow is:
 - Fake provider classification: apple_watch, non_apple_watch, unknown; "Apple Watch" source name
   with missing device metadata is unknown; Apple Watch is preferred only when positively
   classified; no Apple Watch falls back to newest eligible; ties are deterministic.
-- HRV eligibility: newest within 48h, stale excluded; RHR current-day selection; both/missing/stale
-  states.
+- HRV eligibility: newest within 48h, stale excluded; RHR current-day selection; bodyweight
+  newest within 30 days; missing/stale states.
 - Observable states: featureDisabled, unavailable, enabled, noEligibleSample, eligibleSample,
   staleSample, importError. No test may expect a denied-read inference.
 - Payload encoding: date, field, value, sample id/timestamp, source class/model/manufacturer,
@@ -509,7 +530,7 @@ After selection, the flow is:
 | Authoritative refresh | Import acknowledgement then GET Today/readiness; refresh failure state |
 | Manual precedence | Manual entry after import; later import does not change effective source |
 | No score change implied | Observation stored without eligibility; score/status unchanged |
-| No backfill/raw time series | Import only current HRV/RHR; schema stores one observation per field/date |
+| No backfill/raw time series | Import only current HRV/RHR/bodyweight; schema stores one observation per field/date |
 | POST/GET provenance parity | Same observations return the same healthkit map from both paths |
 | Rollback | Merge integration removal, table/migration drop and client toggle-off rehearsal |
 
@@ -517,8 +538,8 @@ After selection, the flow is:
 
 - Feature off: no HealthKit prompt, no reads, manual readiness unchanged.
 - HealthKit unavailable: honest unavailable state; manual flow works.
-- Enabled with data: eligible sample imported; effective values/sources, sample age, score/status
-  and basis are shown from the authoritative server refresh.
+- Enabled with data: eligible HRV/RHR/bodyweight samples imported; effective values/sources,
+  sample age, score/status and basis are shown from the authoritative server refresh.
 - No eligible sample: the noEligibleSample wording is used; no claim of denied permission.
 - Stale sample: staleSample is shown and nothing is imported.
 - Import/network/server error: error state with retry; no zero or inferred value.
@@ -539,7 +560,7 @@ After selection, the flow is:
 - Remove the Phase 3A canonical-merge integration (or deploy a verified no-op that does not query
   the table) before dropping the table. Do not leave code that reads a dropped table.
 - With the server stopped and a verified backup, drop healthkit_readiness and delete the matching
-  0054 schema_migration row together. Do not drop or rewrite readiness_entry, readiness_day,
+  0054/0055 schema_migration rows together. Do not drop or rewrite readiness_entry, readiness_day,
   prescriptions, workouts or sessions.
 - Phase 3A receipts are harmless once the route is removed and expire under the existing 30-day
   window. Do not delete unrelated operation receipts.

@@ -1343,10 +1343,10 @@ class Handler(BaseHTTPRequestHandler):
                 fields={"date": "must be the server-local today"},
             )
         samples = body.get("samples")
-        if not isinstance(samples, list) or not 1 <= len(samples) <= 2:
+        if not isinstance(samples, list) or not 1 <= len(samples) <= 3:
             raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "samples must contain one or two observations",
-                fields={"samples": "must contain one or two observations"},
+                400, "validation_failed", "samples must contain one to three observations",
+                fields={"samples": "must contain one to three observations"},
             )
         now = datetime.datetime.now(datetime.UTC)
         clean: list[dict] = []
@@ -1365,8 +1365,9 @@ class Handler(BaseHTTPRequestHandler):
             field = sample.get("field")
             if field not in healthkit_readiness.FIELDS:
                 raise ios_workflow.IOSWorkflowError(
-                    400, "unknown_field", "field must be hrv_ms or rhr_bpm",
-                    fields={f"samples[{index}].field": "must be hrv_ms or rhr_bpm"},
+                    400, "unknown_field",
+                    "field must be hrv_ms, rhr_bpm or bodyweight_kg",
+                    fields={f"samples[{index}].field": "must be a supported HealthKit field"},
                 )
             if field in seen:
                 raise ios_workflow.IOSWorkflowError(
@@ -1429,10 +1430,16 @@ class Handler(BaseHTTPRequestHandler):
                         400, "validation_failed", "HRV sample is older than 48 hours",
                         fields={f"samples[{index}].sample_at": "must be within 48 hours"},
                     )
-            elif sample_at.astimezone().date().isoformat() != today:
+            elif field == "rhr_bpm":
+                if sample_at.astimezone().date().isoformat() != today:
+                    raise ios_workflow.IOSWorkflowError(
+                        400, "validation_failed", "RHR sample must be on the server-local today",
+                        fields={f"samples[{index}].sample_at": "must be on the server-local today"},
+                    )
+            elif now - sample_at > datetime.timedelta(days=30):
                 raise ios_workflow.IOSWorkflowError(
-                    400, "validation_failed", "RHR sample must be on the server-local today",
-                    fields={f"samples[{index}].sample_at": "must be on the server-local today"},
+                    400, "validation_failed", "bodyweight sample is older than 30 days",
+                    fields={f"samples[{index}].sample_at": "must be within 30 days"},
                 )
             source_name = sample.get("source_name")
             if not isinstance(source_name, str) or not 1 <= len(source_name.strip()) <= 128:
@@ -1683,7 +1690,10 @@ class Handler(BaseHTTPRequestHandler):
                     readiness=readiness,
                     session_type=row["session_type"],
                     prescription_id=row["prescription_id"],
-                    allow_partial_readiness=bool(row["readiness_ack"]),
+                    # The issue step already applied the readiness gate: a ready score may have
+                    # only the fields it needs, and a non-ready score required an explicit ack.
+                    # Re-applying the five-field workout default here rejects a valid ready day.
+                    allow_partial_readiness=True,
                 )
                 consumed = ios_workflow.consume_plan(
                     conn, issued_plan_id, result["workout_id"],
