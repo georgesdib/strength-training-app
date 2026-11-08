@@ -66,7 +66,7 @@ HealthKit, Apple Workout import, offline mutation sync, manual cardio, advanced 
 
 ## 4. Phased implementation plan
 
-Each phase is separately reviewable. Add only the endpoints, migrations, client screens, and tests needed for that phase. The first connected vertical slice should be implemented before any offline queue, HealthKit importer, or model feature. Phases 0–2 and R1/R3/R5 are complete; the Phase 3A contract is draft and awaits approval, so do not begin a later phase until the owner approves that phase.
+Each phase is separately reviewable. Add only the endpoints, migrations, client screens, and tests needed for that phase. The first connected vertical slice should be implemented before any offline queue, HealthKit importer, or model feature. Phases 0–2, R1/R3/R5 and Phase 3A are implemented; Phase 3A physical acceptance is pending, and Phase 3B/4 need separate approval before they start.
 
 **Implementation order (owner decision, 2026-11-07):** Phase 0 is complete; next are 1, 2, 3A
 (HealthKit readiness), 4 (offline), then 3B (Apple Workout imports) and Phase 5. Phase numbers stay
@@ -434,6 +434,182 @@ backup is the fallback when the rollback itself went wrong.
 
 Do not change the training methodology, existing web/CLI contracts, or stored append-only records
 as part of a rollback.
+
+### 13.3 Live-phone acceptance runbook (Phase 3A)
+
+This is the canonical procedure for testing the opt-in HealthKit HRV/RHR slice on the owner's
+physical iPhone against the live local server. It includes the database backup, migration,
+pairing-code and rollback steps. The client checklist is
+`StrengthApp/DEVICE-ACCEPTANCE.md` in the separate client repository; this section is the
+server-side source of truth for commands.
+
+Run it only on the trusted home LAN. Do not expose port 8000, forward it, or use a public
+address. The database and backup contain health data.
+
+#### 0. Set the shell variables
+
+From the server repository:
+
+```bash
+cd /Users/georgesdib/Dev/strength-app/strength-training-app
+export REPO="$PWD"
+export DB="$REPO/data/coach.db"
+export BACKUPS="$HOME/strength-app-backups"
+export PORT=8000
+```
+
+If the server uses a different database path, set `DB` to that path before continuing.
+
+#### 1. Stop the server and take a verified full backup
+
+Stop the running `strength-coach web` process using the same method that started it (foreground
+Ctrl-C, service manager, or the managed process). Confirm nothing is listening on the port before
+backing up.
+
+```bash
+lsof -nP -iTCP:$PORT -sTCP:LISTEN || true
+mkdir -p "$BACKUPS"
+.venv/bin/python tools/backup_app.py "$BACKUPS"
+```
+
+Record the archive path and checksum. Verify it immediately:
+
+```bash
+LATEST=$(ls -t "$BACKUPS"/strength-training-app-*.tar.gz | head -1)
+echo "$LATEST"
+(cd "$BACKUPS" && shasum -a 256 -c "$(basename "$LATEST").sha256")
+sqlite3 "$DB" "SELECT version FROM schema_migration ORDER BY version DESC LIMIT 1;"
+```
+
+The full archive includes a consistent SQLite snapshot plus source/docs/config and is mode 600,
+but it is not encrypted. Keep it off the phone and out of git. Do not continue if the checksum or
+snapshot verification fails.
+
+#### 2. Apply migration 0054 and start the server
+
+Start the server exactly as it is normally run. On startup it applies the additive
+`0054_healthkit_readiness.sql` migration:
+
+```bash
+.venv/bin/strength-coach --db "$DB" web --host 0.0.0.0 --port "$PORT"
+```
+
+In another terminal, verify the schema and health:
+
+```bash
+sqlite3 "$DB" "SELECT version FROM schema_migration ORDER BY version DESC LIMIT 1;"
+sqlite3 "$DB" "SELECT name FROM sqlite_master WHERE type='table' AND name='healthkit_readiness';"
+sqlite3 "$DB" "PRAGMA quick_check;"
+```
+
+Expected: latest version `0054`, one `healthkit_readiness` row from the table query, and
+`ok` from `quick_check`.
+
+#### 3. Mint a one-use pairing code
+
+Get the server's LAN address (macOS example):
+
+```bash
+ipconfig getifaddr en0
+```
+
+Then mint a code:
+
+```bash
+.venv/bin/strength-coach --db "$DB" ios pair --label "iPhone Phase 3A"
+```
+
+The CLI prints a grouped 8-digit code (for example `1234 5678`) and a 300-second expiry. The code
+is shown once, works once, allows five attempts, and is never written to the app log. Mint it only
+when the phone is ready; if it expires, mint a new one. Do not paste the code into chat, a ticket,
+a screenshot or a commit.
+
+In the app:
+
+1. If the phone is already paired, use the existing pairing; do not mint a code unless you are
+   testing the pairing flow. To test a fresh pairing, use Settings -> Forget this device first.
+2. On the Pairing screen enter the server URL, for example
+   `http://<LAN_IP>:8000`, the code (spaces are accepted), and the label.
+3. Tap Pair. A success returns to Today. An invalid, expired, reused or attempt-exhausted code
+   stays on Pairing with the server's error.
+
+#### 4. Build and install the physical client
+
+From the client repository:
+
+```bash
+cd /Users/georgesdib/Dev/strength-app/StrengthApp
+open StrengthApp.xcodeproj
+```
+
+Select the physical iPhone (iPhone 16 Pro Max, iOS 27.2 in the accepted environment), the personal
+team, and Run. Confirm the local-network permission is allowed. The HealthKit capability is already
+part of the app; Phase 3A adds only read access for HRV and resting heart rate.
+
+#### 5. Enable HealthKit and import
+
+1. Settings -> HealthKit -> enable **Readiness from HealthKit**.
+2. Grant read access to HRV and Resting Heart Rate. Do not grant write access; the app does not
+   request it. The permission sheet is not proof of a grant after it closes.
+3. Return to Today and tap **Import from HealthKit** (or pull to refresh).
+4. If no eligible sample exists, the UI must say that no eligible sample was returned and that
+   this can mean no data or that read access was not granted. It must not say "denied" or show
+   zero.
+
+#### 6. Acceptance checks
+
+- [ ] The HealthKit section appears only when the server reports `healthkit_readiness: true`.
+- [ ] Enabling the toggle requests read access for HRV and resting heart rate only; no sleep,
+      workout, general heart-rate or write access is requested.
+- [ ] An eligible HRV sample is the newest within 48 hours; an eligible RHR sample is from the
+      current server-local date.
+- [ ] Today shows the effective HRV/RHR values, the effective source, sample age, and the
+      score/status/basis returned by Python.
+- [ ] The stored `healthkit` provenance is visibly distinct from the effective values; a manual
+      value can win while the HealthKit observation is still shown.
+- [ ] Importing the same sample twice does not create a duplicate observation (sample identity is
+      device + field + sample UUID).
+- [ ] A manual HRV/RHR entry made after an import remains selected after a later import.
+- [ ] A stale sample or no sample does not appear as zero and does not silently become today's
+      readiness.
+- [ ] Force-quit/relaunch keeps the HealthKit toggle and the server remains the source of truth.
+- [ ] No sleep, workout, cardio or Apple effort data is requested or displayed by this slice.
+- [ ] The existing manual readiness, prescription, workout, completion and Progress flows still
+      work.
+
+Optional SQL spot checks while the server is stopped (use a read-only copy or accept that SQLite
+allows a read while the server is running):
+
+```bash
+sqlite3 "$DB" "SELECT COUNT(*), MIN(on_date), MAX(on_date) FROM healthkit_readiness;"
+sqlite3 "$DB" "SELECT field, value, source_class, sample_at FROM healthkit_readiness ORDER BY imported_at DESC LIMIT 5;"
+sqlite3 "$DB" "SELECT COUNT(*) FROM readiness_entry;"
+```
+
+#### 7. Record and rollback
+
+Record the archive path, checksum, schema version, device, iOS version, sample dates and the
+result in the Phase 3A acceptance table. A rejected slice can be handled without touching manual
+readiness:
+
+1. Stop the server.
+2. Turn the client HealthKit toggle off. The observations remain dormant and manual readiness is
+   unaffected.
+3. If a full schema rollback is required, remove the client importer and canonical-merge
+   integration first, then drop `healthkit_readiness` and delete the `0054` schema_migration row
+   together (§13.2). Do not leave code querying a dropped table.
+4. If restoring the pre-test database is safer, extract only the snapshot from the verified
+   archive and replace `data/coach.db` with the server stopped:
+
+```bash
+mkdir -p /tmp/strength-phase3a-restore
+tar -xzf "$LATEST" -C /tmp/strength-phase3a-restore
+cp /tmp/strength-phase3a-restore/strength-training-app/data/coach.db "$DB"
+rm -f "$DB-wal" "$DB-shm"
+```
+
+Restoring the pre-test database also discards any training recorded after the backup. Do not do
+that without checking. The additive table can otherwise remain while the client feature is off.
 
 ## Related repository documents
 
