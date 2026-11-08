@@ -6,7 +6,7 @@
 0054_healthkit_readiness and 0055_healthkit_bodyweight, the ios CLI, the bearer-authenticated
 /api/ios/v1/ facade, and its tests;
 the Swift client in the separate StrengthApp repository has pairing, Today, History,
-Settings/Forget, readiness entry, prescription preview/start-by-id, active workout,
+Settings/Forget, readiness entry, Workout ready/start-by-id, active workout,
 completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Keychain storage,
 74 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is implemented 2026-11-08;
@@ -687,7 +687,7 @@ own approved contract and has not started.
   transaction, so concurrent duplicates replay instead of executing twice; a receipt uniqueness
   race is re-read rather than returned as 500. The mutation switch fails closed to 503 while reads
   stay available.
-- **Client:** readiness form, prescription preview, active workout, optional manual mean velocity,
+- **Client:** readiness form, Workout ready card, active workout, optional manual mean velocity,
   optional form ratings, session RPE or explicit not-recorded completion, abandon, and the Progress
   screen; 43 unit tests at Phase 2 closure (51 after R1); optional live UI smoke tests; Release
   build passes. Plan-item attribution is sent only for a unique exercise; repeated exercises
@@ -813,9 +813,9 @@ owner asked for.
   TTL. 60 s is a copy threshold ("still generating, you can leave"), not a failure, so a 90 s build
   completes normally.
 - **App exit and return:** because the state is in the database, reopening the app finds a ready
-  plan in the preview, or resumes the counter from the server's elapsed seconds.
+  plan on the ready card, or resumes the counter from the server's elapsed seconds.
 - **Persistence change:** prescription rows are written in the start transaction, not at issue, so
-  an unstarted preview is a preview and parameter tweaking cannot pollute the prescription history.
+  an unstarted plan is a preview and parameter tweaking cannot pollute the prescription history.
 - **Invalidation:** changing settings issues a new request that supersedes the previous row whatever
   its state; the superseded build finishes and is discarded by the guarded publish.
 - **Implemented:** migration `0056`, `web/ios_plan_worker.py` (one dispatcher, two eligibility
@@ -823,8 +823,8 @@ owner asked for.
   client's settings sheet, generating card, polling and foreground reconciliation. The server
   behaviour is covered by the default suite; the client is built and unit-tested on the iOS 27.2
   simulator (73 tests, 0 failures), launches, and passes the live UI flow against a throwaway
-  server: pair → readiness → request workout → preview → start → set → finish → Progress. That run
-  found and fixed a real bug (the preview sheet was dismissed when the consumed plan made
+  server: pair → readiness → request workout → Workout ready → start → set → finish → Progress.
+  That run found and fixed a real bug (the plan sheet was dismissed when the consumed plan made
   `plans/current` report `none`). A second run with the **resolver enabled** against a copy of
   the real database also passed: `202` in 0.1 s, plan ready in 4 s on the development host, full
   flow green in 90.9 s. Migration `0056` applied to that copy preserved all five legacy plan rows.

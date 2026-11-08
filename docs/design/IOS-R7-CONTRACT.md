@@ -389,7 +389,7 @@ Reconciliation, on every launch and every foreground activation:
 
 | server says | UI must |
 |---|---|
-| `ready` | show the preview built from this response's `plan`; Start enabled |
+| `ready` | show a **Workout ready** card on Today from this response's `plan`; Start enabled. Do not auto-present a preview sheet. |
 | `queued` or `building` | show the generating card with the server's `elapsed_seconds`, and poll |
 | `error` | show the error and a Retry action |
 | `none` | show Today with "Request workout" |
@@ -407,11 +407,11 @@ Reconciliation, on every launch and every foreground activation:
 - **App termination during a build.** The request survives because it is a database row; reopening
   resumes the counter from `elapsed_seconds`, never from a local stopwatch.
 - **Superseded or expired.** A superseded plan is not returned at all (liveness filter) and an
-  expired one returns `none`, so the preview and any Start affordance are removed on the next
+  expired one returns `none`, so the ready card and any Start affordance are removed on the next
   foreground. The app must not keep a Start button for a plan the server will refuse.
-- **Active workout wins.** If Today reports an active workout, that card takes precedence over any
-  plan preview: the owner is mid-session, not choosing one. Starting a workout therefore removes the
-  preview from the UI on the next refresh.
+- **Active workout wins.** If Today reports an active workout, that card takes precedence over the
+  ready card: the owner is mid-session, not choosing one. Starting a workout consumes the plan and
+  opens the active workout screen directly; the ready card is not retained.
 - **Workout timer recovery is unchanged.** The elapsed timer stays anchored to the server's
   `started_at` for the active workout; foregrounding must not reset it, and R5's ended-elsewhere
   detection still applies. R7 adds no second timer and no second recovery path.
@@ -548,18 +548,19 @@ Client (unit):
 - Poll schedule advances 1 → 2 → 5 → 10 s and does not stop at 60 s; a 90 s scripted build ends
   `ready` and renders.
 - Settings round-trip; a settings change issues a new key; superseded id is never reused.
-- 409 `plan_not_ready` on Start is handled without losing the preview.
+- 409 `plan_not_ready` on Start is handled without losing the ready card.
 - **Foreground reconciliation is authoritative:**
   - a **lost `POST` response** (request created, response never received) resolves to the
-    generating card on the next foreground, then to the preview when the poll reports ready;
-  - a **locally retained preview** that the server no longer reports is cleared, not shown;
-  - a **cached Today payload** carrying a stale plan does not render a preview or enable Start;
+    generating card on the next foreground, then to the **Workout ready** card when the poll
+    reports ready;
+  - a **locally retained ready plan** that the server no longer reports is cleared, not shown;
+  - a **cached Today payload** carrying a stale plan does not render a ready card or enable Start;
   - **supersession** (a newer request replaced the plan while the app was closed) shows the newer
     request, never the old one;
-  - **expiry** removes the preview and the Start affordance and returns Today to
+  - **expiry** removes the ready card and the Start affordance and returns Today to
     "Request workout";
   - a **journalled `202`** naming a superseded plan is ignored in favour of `plans/current`;
-  - an **active workout** takes precedence over a plan preview, and the elapsed timer is unchanged
+  - an **active workout** takes precedence over a ready card, and the elapsed timer is unchanged
     by foregrounding (the R5 recovery tests still pass).
 
 ## 12. Acceptance
@@ -596,7 +597,7 @@ supersession, expiry) rather than by a scripted live-server run.
 
 The live UI smoke test **passed twice on 2026-11-08**, against throwaway servers on a non-default
 port and temporary databases: pair → readiness → request workout → settings sheet → generating →
-preview → start → add a VBT set → finish → Progress. The first run had the resolver **off**
+workout-ready card → start → add a VBT set → finish → Progress. The first run had the resolver **off**
 (107.8 s); the second had it **on**, against a copy of the real database (90.9 s), so criterion 1
 is demonstrated rather than assumed.
 
@@ -606,7 +607,7 @@ benchmark is 35–46 s; the polling table is sized for that, and a faster develo
 evidence about the deployed host (§14 decision 5).
 
 The run also found a real bug: consuming the plan makes `plans/current` report `none`, and
-refreshing on that cleared the prescription state and dismissed the preview sheet mid-start. Fixed
+refreshing on that cleared the prescription state and dismissed the then-current preview sheet mid-start. Fixed
 by leaving the state alone while a workout is active. Migration `0056` was additionally applied to
 a copy of the live database, preserving all five legacy plan rows with their prescription links,
 consumption and supersession state. The physical-device pass is not required (§14 decision 4).
