@@ -1705,9 +1705,10 @@ resume/abandon/refresh/clear actions. Unit and simulator verification pass; sepa
 physical-device R1/R3/R5 passes were not performed. R7 (asynchronous prescription request with
 workout settings) was specified, approved and **implemented on 2026-11-08**: the server behaviour is
 covered by the default suite, the client builds, passes its 72 unit tests on the iOS 27.2
-simulator, launches, and passes the live UI flow against a throwaway server (pair → readiness →
-request workout → preview → start → set → finish → Progress; resolver off). R8 (active-workout
-plan editing) was approved on 2026-11-08 and is not implemented.
+simulator, launches, and passes the live UI flow twice against throwaway servers — once with the
+resolver off and once with it **on** against a copy of the real database (202 in 0.1 s, plan ready
+in 4 s, full flow 90.9 s). R8 (active-workout plan editing) was approved on 2026-11-08 and is not
+implemented.
 R7's `plans/current` read closes R2 as absorbed; R4 is implemented and closed. This
 reliability work did not add HealthKit, an unrestricted offline queue or Phase 3; Phase 3A is a
 separate implementation under its own contract.

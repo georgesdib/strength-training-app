@@ -825,7 +825,9 @@ owner asked for.
   simulator (72 tests, 0 failures), launches, and passes the live UI flow against a throwaway
   server: pair → readiness → request workout → preview → start → set → finish → Progress. That run
   found and fixed a real bug (the preview sheet was dismissed when the consumed plan made
-  `plans/current` report `none`). The resolver was off for the run.
+  `plans/current` report `none`). A second run with the **resolver enabled** against a copy of
+  the real database also passed: `202` in 0.1 s, plan ready in 4 s on the development host, full
+  flow green in 90.9 s. Migration `0056` applied to that copy preserved all five legacy plan rows.
 
 ### R8 active-workout plan editing (approved 2026-11-08, not implemented)
 

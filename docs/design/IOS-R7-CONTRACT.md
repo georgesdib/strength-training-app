@@ -594,14 +594,22 @@ Client (unit):
 Criteria 4 and 9 are exercised by the client unit tests (foreground reconciliation, lost response,
 supersession, expiry) rather than by a scripted live-server run.
 
-The live UI smoke test **passed on 2026-11-08** against a throwaway server on a non-default port
-and a temporary database: pair → readiness → request workout → settings sheet → generating →
-preview → start → add a VBT set → finish → Progress (107.8 s). The client script had to be updated
-for the new settings sheet, and the run found a real bug: consuming the plan makes
-`plans/current` report `none`, and refreshing on that cleared the prescription state and dismissed
-the preview sheet mid-start. Fixed by leaving the state alone while a workout is active.
-The physical-device pass is not required (§14 decision 4). The resolver was **off** for this run;
-the resolver-enabled timing check remains optional follow-up, not a gate.
+The live UI smoke test **passed twice on 2026-11-08**, against throwaway servers on a non-default
+port and temporary databases: pair → readiness → request workout → settings sheet → generating →
+preview → start → add a VBT set → finish → Progress. The first run had the resolver **off**
+(107.8 s); the second had it **on**, against a copy of the real database (90.9 s), so criterion 1
+is demonstrated rather than assumed.
+
+Measurements from the resolver-enabled run: `POST` returned `202` in 0.1 s and the plan was
+ready 4 s after the request on the development host. The ODROID-C4 remains the server, where the
+benchmark is 35–46 s; the polling table is sized for that, and a faster development machine is not
+evidence about the deployed host (§14 decision 5).
+
+The run also found a real bug: consuming the plan makes `plans/current` report `none`, and
+refreshing on that cleared the prescription state and dismissed the preview sheet mid-start. Fixed
+by leaving the state alone while a workout is active. Migration `0056` was additionally applied to
+a copy of the live database, preserving all five legacy plan rows with their prescription links,
+consumption and supersession state. The physical-device pass is not required (§14 decision 4).
 
 ## 13. Rollback
 
