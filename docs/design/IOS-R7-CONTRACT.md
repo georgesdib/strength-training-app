@@ -18,7 +18,8 @@ for. It supersedes and absorbs the deferred R2 (unstarted issued-plan recovery).
 
 In scope:
 
-- Optional workout settings before issuing a plan: session type and the minimum-session fallback.
+- Optional workout settings before issuing a plan: session type, the minimum-session fallback
+  and an optional top-set/back-off versus straight-set request.
 - A non-blocking `POST /api/ios/v1/prescriptions` that returns immediately and builds in the
   background.
 - Durable request state in the database, pollable from the app, surviving app exit, server restart
@@ -455,9 +456,10 @@ Reconciliation, on every launch and every foreground activation:
 
 ## 9. Settings, provenance and invariants
 
-- The phone still never constructs a prescription. It chooses a **session type** and whether a
-  **minimum session** is acceptable; loads, sets, reps, RIR, exercise selection and validation
-  remain server-side.
+- The phone still never constructs a prescription. It chooses a **session type**, whether a
+  **minimum session** is acceptable and an optional **top-set/back-off versus straight-set**
+  request; loads, sets, reps, RIR, exercise selection and validation remain server-side. The
+  resolver decides whether the requested structure is eligible.
 - `settings_json` records exactly what was accepted, and the built plan carries the existing
   warnings; the preview shows them. A prescription must remain explicable after the fact.
 - Readiness, deload, drop and conflict rules are unchanged; only the transport is.
@@ -467,8 +469,8 @@ Reconciliation, on every launch and every foreground activation:
 ## 10. Swift client
 
 - **Today:** "Request workout" opens a settings sheet (session type picker defaulting to Auto;
-  minimum-session toggle and optional target minutes). The sheet shows the server's current
-  readiness/confirmation warnings.
+  main-lift structure defaulting to Server decides; minimum-session toggle and optional target
+  minutes). The sheet shows the server's current readiness/confirmation warnings.
 - **Generating card:** status, elapsed counter from the server, "you can leave this screen", the
   active settings, and a client-side "Stop waiting" that stops polling without claiming the request
   was cancelled.
@@ -591,7 +593,7 @@ Client (unit):
 **Implementation status (2026-11-08).** Server criteria 1–3 and 5–10 are covered by
 `tests/test_ios_workflow.py` and `tests/test_migration_0056.py`; the default suite, docs tests and
 `ruff` pass. The client is implemented, **built and unit-tested on the iOS 27.2 simulator**
-(iPhone 17): 93 tests, 0 failures, and the built app installs and launches to the pairing screen.
+(iPhone 17): 94 tests, 0 failures, and the built app installs and launches to the pairing screen.
 Criteria 4 and 9 are exercised by the client unit tests (foreground reconciliation, lost response,
 supersession, expiry) rather than by a scripted live-server run.
 

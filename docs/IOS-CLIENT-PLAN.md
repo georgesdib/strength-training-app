@@ -10,11 +10,11 @@ Settings/Forget, readiness entry, Workout ready/start-by-id, active workout,
 completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Keychain storage,
 Home/Away server routing by Home Wi-Fi name (Precise Location and the Access Wi-Fi Information
 entitlement),
-93 unit tests
+94 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is closed 2026-11-08; physical
 HealthKit acceptance was owner-confirmed and Phase 3B is out of scope. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is **implemented and closed
-2026-11-08**: 93 client tests pass on the iOS 27.2 simulator, the app builds and launches, and the
+2026-11-08**: 94 client tests pass on the iOS 27.2 simulator, the app builds and launches, and the
 live UI flow passed twice — once with the resolver off and once with it on against a copy of the
 real database. R2 is closed as absorbed by R7's `plans/current` read. R8 (active-workout plan editing) is **closed 2026-11-08**;
 its authenticated exercise-catalogue, online-only and no-solved-load decisions are recorded; R8 is
@@ -237,7 +237,7 @@ Preserve `/api/ios/v1/` as the future facade namespace, but implement endpoints 
 |---|---|---|
 | Phase 1 | Protected pairing exchange; `GET bootstrap/today`; read-only recent history and a server-only progress summary | Return server/API version, server-local date/timezone, capabilities, readiness/workout status and small existing summaries. No config paths or secrets. The `progress` route is implemented and tested server-side; the Phase 1 client has no Progress screen (deferred to Phase 2). |
 | Phase 2 | Read/write readiness; request prescription; read active workout; start by issued-plan id; add set; complete/abandon; read history/progress; optional inline form ratings; optional review | Mutations require authentication and an idempotency receipt. The prescription is stored at issue and the client starts by id only, so plan content never comes from the phone. Validate every field via existing Python services. |
-| R7 (implemented and closed) | Asynchronous prescription request; optional session type and minimum session; authoritative `GET plans/current`; start that writes the prescription | Returns `202` and builds in one bounded dispatcher on the shared CPU slot; two deadlines (build vs startable); legacy `ios_issued_plan` rows preserved by an explicit mapping; prescription persistence moves to start. |
+| R7 (implemented and closed) | Asynchronous prescription request; optional session type, minimum session and top-set/straight-set structure; authoritative `GET plans/current`; start that writes the prescription | Returns `202` and builds in one bounded dispatcher on the shared CPU slot; two deadlines (build vs startable); legacy `ios_issued_plan` rows preserved by an explicit mapping; prescription persistence moves to start. |
 | Phase 3 | HRV/RHR provenance; HealthKit record import and optional workout association | Add only the source/provenance fields and routes needed by enabled types; keep user-consented HealthKit read-only. |
 | Phase 4 | Add/correct/remove set and offline event replay/reconciliation | Reuse the Phase 2 receipts; add a conflict response only where replay needs it. |
 
@@ -802,9 +802,10 @@ request then fails visibly while the server completes it ~30 s later, leaving a 
 entry that blocks further mutations. R7 removes the blocking call and adds the workout settings the
 owner asked for.
 
-- **Settings before issuing:** session type (`auto` or an explicit type) and the minimum-session
-  fallback, validated by the server, recorded as provenance. This amends the Phase 2 rule that only
-  `auto` exists.
+- **Settings before issuing:** session type (`auto` or an explicit type), the minimum-session
+  fallback and an optional main-lift structure (`top_set` true for top set/back-off, false for
+  straight sets, omitted for the server/resolver default), validated by the server and recorded as
+  provenance. This amends the Phase 2 rule that only `auto` exists.
 - **Non-blocking request:** `POST /api/ios/v1/prescriptions` validates the gates, writes a
   `queued` row and returns 202 immediately. One bounded dispatcher thread drains the queue on the
   shared CPU slot (`_CPU_JOB_SLOTS`, no second budget), re-checking eligibility before the slot and
@@ -878,7 +879,7 @@ exercise swap, set-count change".
   deterministic Apple Watch classification, 48-hour HRV / current-day RHR / 30-day bodyweight
   selection, single-flight import, the healthkitReadiness mutation-journal kind, Settings opt-in
   and Today import/provenance display.
-- Verification: 1,665 server tests, 93 client tests, simulator build and the live UI workflow pass.
+- Verification: 1,679 server tests, 94 client tests, simulator build and the live UI workflow pass.
   Physical HealthKit acceptance with real samples remains pending.
 - Rollback: remove the client importer and canonical-merge integration, drop healthkit_readiness
   with the paired 0054/0055 migration rows, and leave readiness_day/readiness_entry untouched.

@@ -1578,7 +1578,7 @@ authenticated readiness/prescription/workout/complete/abandon routes, and 27 con
 the client adds readiness entry, prescription preview, start-by-id, active workout with optional
 manual mean velocity, form ratings, RPE/not-recorded completion, abandon and a Progress screen.
 The contract is [`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md).
-The default server suite is 1665 tests and the client has 93 unit tests after R1/R3/R4/R5 and
+The default server suite is 1679 tests and the client has 94 unit tests after R1/R3/R4/R5 and
 Phase 3A; the live UI workflow passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2
 acceptance was owner-confirmed on 2026-11-07 on the iPhone 16 Pro Max (iPhone17,2), iOS 27.2.
 Phase 2 is closed. Phase 3A (opt-in HealthKit HRV/RHR/bodyweight readiness) is **implemented and
@@ -1651,7 +1651,7 @@ explicit plan-item selection and R5 recovery/reconciliation UX are implemented a
 closed as absorbed by R7; R4 is implemented and closed in roadmap §4.30. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is implemented as of
 2026-11-08: migration `0056`, the bounded dispatcher, the `202` issue route, `GET plans/current`
-and start-time prescription persistence; the client builds and passes 93 unit tests on the iOS 27.2
+and start-time prescription persistence; the client builds and passes 94 unit tests on the iOS 27.2
 simulator. R8 (active-workout plan editing) was approved, implemented and closed on 2026-11-08
 under `docs/design/IOS-R8-CONTRACT.md`. Phase 2 is closed 2026-11-07.
 
@@ -1660,10 +1660,10 @@ under `docs/design/IOS-R8-CONTRACT.md`. Phase 2 is closed 2026-11-07.
 effective-readiness merge (manual/preset > HealthKit > imported) used by readiness day, series,
 history, scoring and the HRV/RHR baseline; the authenticated
 POST /api/ios/v1/healthkit/readiness route; device-scoped sample identity and operation receipts;
-bootstrap healthkit_readiness capability. The default suite is 1665 tests and ruff passes.
+bootstrap healthkit_readiness capability. The default suite is 1679 tests and ruff passes.
 Client: read-only HealthKit authorization for HRV SDNN, resting heart rate and bodyweight,
 deterministic source classification and selection, offline-free single-flight import,
-healthkitReadiness journal kind, Settings opt-in and Today provenance/freshness display; 93 unit
+healthkitReadiness journal kind, Settings opt-in and Today provenance/freshness display; 94 unit
 tests. Verification: focused server tests, full server suite, client unit tests, simulator build and
 live UI workflow pass. Physical HealthKit acceptance with real samples was owner-confirmed on
 the iPhone on 2026-11-08. Rollback:
@@ -1705,7 +1705,7 @@ resume/abandon/refresh/clear actions. Unit and simulator verification pass; sepa
 physical-device R1/R3/R5 passes were not performed. R7 (asynchronous prescription request with
 workout settings) was specified, approved and **implemented and closed on 2026-11-08**: the server
 behaviour is
-covered by the default suite, the client builds, passes its 93 unit tests on the iOS 27.2
+covered by the default suite, the client builds, passes its 94 unit tests on the iOS 27.2
 simulator, launches, and passes the live UI flow twice against throwaway servers — once with the
 resolver off and once with it **on** against a copy of the real database (202 in 0.1 s, plan ready
 in 4 s, full flow 90.9 s). R8 (active-workout plan editing) was approved, implemented and closed on

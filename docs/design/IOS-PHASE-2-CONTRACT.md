@@ -511,9 +511,9 @@ capabilities distinguish the phase:
   optional mean velocity (m/s); optional 1–5 form rating; finish/abandon. Show a clear
   server-acknowledged state after each 2xx; on failure keep the entered values and offer retry with
   the same key. No edit/remove.
-- **Completion:** RPE 1–10 or “not recorded”, optional duration prefilled from the server’s elapsed
-  value, optional notes. Submit → server response; return to Today/History. No client summary
-  calculation.
+- **Completion:** RPE 1–10 or “not recorded” in one picker, optional productivity 1–5 or “not
+  recorded”, optional duration prefilled from the server’s elapsed value, optional notes. Submit →
+  server response; return to Today/History. No client summary calculation.
 - **Progress:** new read-only screen using the existing `/progress` payload; default 8 weeks,
   selector 1–52; coverage, performance, volume, back symptom, attendance and the server’s note; no
   calculations. Empty/error/retry and pull-to-refresh.
@@ -682,9 +682,9 @@ Owner-approved for this contract (2026-11-07):
 3. Corrected against the live code: nutrition, hydration, body fat and grip are **not** readiness
    inputs (`DEC-READINESS-20`, `DEC-MEASURE-02`, `DEC-GRIP-01`). The accepted readiness fields
    are the ones in §5.1.
-4. Deferred: rubric/review screen, productivity rating, per-rep VBT, HealthKit, offline queue and
-   reconciliation, Apple Intelligence/PCC, sleep features and web authentication. Each needs its
-   own later approval.
+4. Deferred: rubric/review screen, per-rep VBT, HealthKit, offline queue and reconciliation,
+   Apple Intelligence/PCC, sleep features and web authentication. Productivity capture was added
+   later as an additive completion field. Each remaining feature needs its own approval.
 
 Settled defaults for this contract: 60-minute issued-plan TTL; 30-day receipt retention; 8-week
 Progress default with 1–52 selection; one active issued plan per device; 503 for disabled

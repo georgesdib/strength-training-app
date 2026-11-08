@@ -1126,8 +1126,19 @@ def test_form_and_complete_materialise_once(ios):
     assert status == 400, invalid
     assert invalid["code"] == "session_rpe_required"
 
+    status, invalid_productivity = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/complete",
+        method="POST", payload={"session_rpe": 7, "productivity": 6},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 400, invalid_productivity
+    assert invalid_productivity["fields"]["productivity"] == "must be an integer from 1 to 5"
+
     key = uuid.uuid4().hex
-    payload = {"session_rpe": 7, "duration_min": 45, "notes": "test session"}
+    payload = {
+        "session_rpe": 7, "duration_min": 45, "notes": "test session",
+        "productivity": 4,
+    }
     status, completed = _request(
         ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/complete",
         method="POST", payload=payload, token=token, key=key,
@@ -1135,6 +1146,10 @@ def test_form_and_complete_materialise_once(ios):
     assert status == 200, completed
     assert completed["status"] == "completed"
     assert completed["session_rpe"] == 7.0
+    assert _scalar(
+        ios["path"], "SELECT productivity FROM session_feedback WHERE session_id = ?",
+        (workout["workout_id"],),
+    ) == 4
     assert int(_scalar(
         ios["path"], "SELECT COUNT(*) FROM session WHERE session_id = ?",
         (workout["workout_id"],),
@@ -1791,6 +1806,46 @@ def test_plans_current_reports_none_for_an_expired_ready_plan(ios):
         store.close()
     state = _plan_state(ios, token)
     assert state == {"status": "none"}
+
+
+def test_top_set_setting_is_validated_and_echoed(ios):
+    token, _ = _paired(ios)
+    status, accepted = _issue(
+        ios, token, wait=False,
+        body={"settings": {"session_type": "squat", "top_set": True}},
+    )
+    assert status == 202, accepted
+    assert accepted["settings"]["top_set"] is True
+
+    status, rejected = _issue(
+        ios, token, wait=False,
+        body={"settings": {"top_set": "yes"}},
+    )
+    assert status == 400, rejected
+    assert rejected["code"] == "validation_failed"
+    assert rejected["fields"]["top_set"] == "must be true or false"
+
+
+def test_top_set_setting_reaches_the_builder(ios, monkeypatch):
+    from strength_coach.web import ios_plan_worker
+
+    calls = []
+    original = ios_plan_worker.build_prescription
+
+    def spy(*args, **kwargs):
+        calls.append(kwargs)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ios_plan_worker, "build_prescription", spy)
+    token, _ = _paired(ios)
+    status, state = _issue(
+        ios, token,
+        body={"settings": {"session_type": "squat", "top_set": False}},
+    )
+    assert status == 200, state
+    assert calls, "the plan builder was not called"
+    assert calls[-1]["top_set_requested"] is False
+    assert state["settings"]["top_set"] is False
 
 
 def test_queue_selection_is_fifo(tmp_path):

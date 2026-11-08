@@ -98,6 +98,7 @@ def build_plan(conn, row) -> tuple[str, str]:
         ),
         deload_decision=deload_decision,
         drop_confirmed=bool(inputs.get("drop_confirmed", False)),
+        top_set_requested=settings.get("top_set"),
     )
     if scheduled_suggestion is not None:
         prescription = deload_mod.suggest(prescription, scheduled_suggestion)

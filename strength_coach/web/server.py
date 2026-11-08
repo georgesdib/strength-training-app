@@ -1588,7 +1588,7 @@ class Handler(BaseHTTPRequestHandler):
                 fields={"settings": "must be an object"},
             )
         unknown = sorted(
-            set(raw) - {"session_type", "minimum_session", "minimum_target_minutes"}
+            set(raw) - {"session_type", "minimum_session", "minimum_target_minutes", "top_set"}
         )
         if unknown:
             raise ios_workflow.IOSWorkflowError(
@@ -1623,6 +1623,14 @@ class Handler(BaseHTTPRequestHandler):
                     fields={"minimum_target_minutes": "must be an integer from 1 to 240"},
                 )
             settings["minimum_target_minutes"] = int(target)
+        top_set = raw.get("top_set")
+        if top_set not in (None, ""):
+            if not isinstance(top_set, bool):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "top_set must be true or false",
+                    fields={"top_set": "must be true or false"},
+                )
+            settings["top_set"] = top_set
         return settings
 
     def _ios_prescription(self, conn, device: dict, body: dict) -> dict:
@@ -2108,7 +2116,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _ios_workout_complete(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(
-            body, {"session_rpe", "not_recorded", "duration_min", "notes", "ended_at"}
+            body,
+            {"session_rpe", "not_recorded", "duration_min", "notes", "ended_at", "productivity"},
         )
         self._ios_workout(conn, workout_id)
         not_recorded = body.get("not_recorded", False)
@@ -2140,6 +2149,14 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "duration_min must be positive",
                 fields={"duration_min": "must be positive"},
             )
+        productivity = body.get("productivity")
+        if productivity not in (None, ""):
+            if isinstance(productivity, bool) or not isinstance(productivity, int) \
+                    or not 1 <= productivity <= 5:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "productivity must be an integer from 1 to 5",
+                    fields={"productivity": "must be an integer from 1 to 5"},
+                )
         notes = body.get("notes")
         if notes is not None and not isinstance(notes, str):
             raise ios_workflow.IOSWorkflowError(
@@ -2157,6 +2174,7 @@ class Handler(BaseHTTPRequestHandler):
             session_rpe=rpe,
             not_recorded=not_recorded,
             duration_min=duration,
+            productivity=productivity,
             notes=notes or None,
             ended_at=ended_at,
         )
