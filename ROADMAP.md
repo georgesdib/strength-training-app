@@ -1648,9 +1648,11 @@ committed by a started session remain valid. Residual limitations: no offline qu
 HealthKit; no plan editing on the phone; and plain HTTP on the trusted LAN. R1's durable
 pending-mutation journal was added immediately after closure (51 client tests), so a lost response
 is replayable after termination within its 28-day window while the server receipt remains. R3
-explicit plan-item selection and R5 recovery/reconciliation UX are implemented and closed; R2, R4
-and R6 remain deferred in roadmap §4.30 and are not Phase 2 closure blockers. Phase 2 is closed
-2026-11-07.
+explicit plan-item selection and R5 recovery/reconciliation UX are implemented and closed; R4 and
+R6 remain deferred in roadmap §4.30 and are not Phase 2 closure blockers. R7 (asynchronous
+prescription request with session-type and minimum-session settings) and R8 (active-workout plan
+editing) are specified under `docs/design/IOS-R7-CONTRACT.md` and `IOS-R8-CONTRACT.md` as of
+2026-11-08 and are not implemented. Phase 2 is closed 2026-11-07.
 
 **Phase 3A completion record (2026-11-08).** Server: migrations 0054_healthkit_readiness.sql and
 0055_healthkit_bodyweight.sql; the append-only healthkit_readiness table; one canonical
@@ -1692,25 +1694,29 @@ feature is proposed.
 
 Full acceptance criteria and rollback gates are in the plan.
 
-### 4.30 iOS reliability follow-ups (R1/R3/R5 closed; R2/R4/R6/R7 deferred)
+### 4.30 iOS reliability follow-ups (R1/R3/R5 closed; R7 approved; R8 specified; R2 absorbed; R4/R6 deferred)
 
 R1, R3 and R5 were implemented and closed on 2026-11-07. R1 provides the durable pending-mutation
 journal; R3 provides explicit plan-item selection for repeated exercises; R5 surfaces a
 server-active workout, a workout ended elsewhere, or an unusable prescription with explicit
 resume/abandon/refresh/clear actions. Unit and simulator verification pass; separate
-physical-device R1/R3/R5 passes were not performed. R2, R4, R6 and R7 remain planned
-improvements. This reliability work did not add HealthKit, an unrestricted offline queue or
-Phase 3; Phase 3A is a separate implementation under its own contract.
+physical-device R1/R3/R5 passes were not performed. R7 (asynchronous prescription request with
+workout settings) was specified and **approved on 2026-11-08** and is not started; R8
+(active-workout plan editing) was specified on 2026-11-08 and is not approved for implementation.
+R7's `plans/current` read absorbs R2. R4 and R6 remain planned improvements. This
+reliability work did not add HealthKit, an unrestricted offline queue or Phase 3; Phase 3A is a
+separate implementation under its own contract.
 
 | id | priority | item | scope / constraints |
 |---|---|---|---|
 | R1 | High | Durable pending-mutation journal — **closed 2026-11-07** | Persists the operation UUID, device/server, mutation kind, target workout/plan id, route, exact encoded request body, creation timestamp and pending/conflict state in Application Support with iOS file protection and backup exclusion. Replays only the original UUID/body; 2xx removes, definitive 4xx removes, idempotency conflicts and terminal states are surfaced, and transport/5xx stay pending. Capped at 16 entries, 30-day retention, 28-day replay window. No unrestricted offline queue; new mutations are blocked while an unresolved operation exists. |
-| R2 | Low | Unstarted issued-plan recovery | Consider a server endpoint returning the device's current unconsumed, non-superseded issued plan, so a relaunched app can restore the preview without issuing a replacement. Never expose another device's plan or permit reuse. |
+| R2 | Low | Unstarted issued-plan recovery — **absorbed by R7** | The endpoint that returns the device's current unconsumed, non-superseded plan is specified as `GET /api/ios/v1/plans/current` in `docs/design/IOS-R7-CONTRACT.md` §4.2, which also serves the polling read. Never exposes another device's plan and never permits reuse. |
 | R3 | Medium | Explicit plan-item selection — **closed 2026-11-07** | When an exercise appears multiple times, the active workout offers a prescription-item picker listing each occurrence; the default remains nil/unattributed. Unique exercises keep automatic attribution. The existing backend explicit-index validation is reused; no schema or API change. Covered by the plan-choice client test. |
 | R4 | Low | Form-rating correction UX | Distinguish an initial rating from a later correction/additional rating. Do not change append-only database semantics without a separate decision. |
 | R5 | Medium | Workout recovery/reconciliation UX — **closed 2026-11-07** | Today shows a Recovery section when refresh finds a server active workout not represented locally, a local in-progress workout no longer active on the server, or a consumed/expired/superseded prescription. Actions: resume/abandon/dismiss a server workout, refresh/clear stale local state, refresh/dismiss an unusable prescription. A one-read grace prevents false ended-elsewhere states immediately after a local mutation. Unreplayable pending mutations remain in the R1 recovery panel. |
 | R6 | Low | Idempotency operational monitoring | Lightweight diagnostics for replay counts, idempotency conflicts, receipt expiry, unexpected mutation failures and reconciliation failures. No telemetry platform or unnecessary personal data. |
-| R7 | Medium | Optional session-type selection | Let the owner choose the next workout type from the iPhone before issuing a plan. The server remains the authority and must validate the request against the schedule, constraints and active state; the resolver remains responsible for exercise/template resolution, not type selection. Requires a separate API/policy decision and is deferred. |
+| R7 | High | Asynchronous prescription request with workout settings — **approved 2026-11-08; implementation not started** | Replaces the blocking `POST /api/ios/v1/prescriptions` with a 202 and a database-backed request row: optional session type and minimum session, a shared CPU slot (no second concurrency budget), a generation check so a superseded build is never published, and prescription rows written at start instead of at issue. The client polls `GET /api/ios/v1/plans/current` (which also absorbs R2) at 1→2→5→10 s with no 60 s ceiling, survives app exit, and loads a ready plan on return. Contract: `docs/design/IOS-R7-CONTRACT.md`. |
+| R8 | Medium | Active-workout plan editing — **specified 2026-11-08, not implemented** | Swap, add, remove and set-count edits on an in-progress workout through the existing `workout.py` services. The phone never supplies a load or a replacement plan; a swap or add clears the load and records the reason. Edits rewrite `plan_modified_json` and append `workout_event` rows; the issued plan JSON is never modified. An expected-item guard stops a stale index editing the wrong lift. Contract: `docs/design/IOS-R8-CONTRACT.md`. |
 
 **Recovery boundary after R1:** every attempted mutation is journaled before the HTTP request.
 After termination, the app replays journaled operations with the original UUID and exact body,

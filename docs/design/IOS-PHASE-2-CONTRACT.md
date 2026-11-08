@@ -7,6 +7,20 @@ was implemented on `iOS-app` and merged to `development`; client work is on `mai
 the Phase 2 surface. Physical-iPhone acceptance was owner-confirmed on 2026-11-07; Phase 2 is
 closed.
 
+**Amendment, 2026-11-08 (owner-approved):** five clauses below are superseded by later approved
+work. They are marked inline and left in place so the accepted Phase 2 record stays readable:
+
+| superseded clause | superseded by |
+|---|---|
+| §4.1 `prescription_id NOT NULL` — a plan must reference a stored prescription | [`IOS-R7-CONTRACT.md`](IOS-R7-CONTRACT.md) §3: a request row may hold no prescription until start |
+| §5.2 "Only `session_type = auto` exists" | [`IOS-R7-CONTRACT.md`](IOS-R7-CONTRACT.md) §4.1: session type and minimum session are accepted settings |
+| §5.2 synchronous issue response | [`IOS-R7-CONTRACT.md`](IOS-R7-CONTRACT.md) §4.1: 202 plus a polled `plans/current` |
+| §8.2 "persist the normal prescription at issue" | [`IOS-R7-CONTRACT.md`](IOS-R7-CONTRACT.md) §8: persist at start |
+| §9 "no plan editing, exercise swap, set-count change" | [`IOS-R8-CONTRACT.md`](IOS-R8-CONTRACT.md) |
+
+R7 is approved for implementation (2026-11-08) and not started; R8 is specified and not approved
+for implementation. The tables above describe approved direction, not current behaviour.
+
 **Scope:** fixes the exact server surface, data model, client surface, tests, acceptance and
 rollback for Phase 2 of [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md). The plan remains the
 authority for the phase boundary; this document exists so the server repository and the separate
@@ -56,6 +70,10 @@ Additive tables only. Existing tables, routes, prescriptions, workouts, readines
 review records are untouched.
 
 ### 4.1 `ios_issued_plan`
+
+> **Superseded by R7** ([`IOS-R7-CONTRACT.md`](IOS-R7-CONTRACT.md) §3): `prescription_id` becomes
+> nullable and the row gains a status, so a request can exist before a prescription does. The
+> description below is the Phase 2 shape as accepted.
 
 | column | notes |
 |---|---|
@@ -190,6 +208,12 @@ content.
 - Only `session_type = auto` exists. There is no session-type override, minimum-session,
   technique-throttle, selection-apply, LLM or drop/deload *option* in the request; the server uses
   the existing auto scheduler and the existing safety decisions.
+
+> **Superseded by R7** ([`IOS-R7-CONTRACT.md`](IOS-R7-CONTRACT.md) §4.1): an optional `settings`
+> object admits `session_type` and `minimum_session`, and the route returns `202` with a polled
+> request instead of a `200` with the plan. The auto scheduler and the safety decisions still
+> apply.
+
 - Readiness gate: if the readiness status is `ready`, proceed. If it is `insufficient` or
   `unknown` and `readiness_ack` is false, return `409 readiness_required` with
   `details: {"status", "score", "basis", "can_acknowledge": true}` and create no plan. With
@@ -416,6 +440,10 @@ capabilities distinguish the phase:
 
 ## 8. Prescription and start semantics
 
+> **Superseded by R7** ([`IOS-R7-CONTRACT.md`](IOS-R7-CONTRACT.md) §4 and §8). Issue returns
+> `202` and builds in the background; the prescription rows are written in the start transaction
+> rather than at issue, so an unstarted ready plan is a preview and not a prescription.
+
 ### 8.1 Issue
 
 - The server builds one auto-session prescription for the server-local today using the existing
@@ -430,6 +458,9 @@ capabilities distinguish the phase:
 
 - At issue, persist the normal `prescription`/`prescription_item` rows (and existing modifier
   provenance) exactly as the web start path does. The issued plan links to `prescription_id`.
+
+> **Superseded by R7 §8:** the rows are persisted in the start transaction from the stored
+> `plan_json`, and `prescription_id` is null until then.
 - The issued plan stores the exact `plan_json` because the prescription tables do not retain
   warm-ups, notes or the resolver snapshot.
 - Starting creates the workout with that `prescription_id`; the issued plan is marked consumed
@@ -453,6 +484,10 @@ capabilities distinguish the phase:
 - Complete/abandon as in §5.6/§5.7. Exactly-once materialisation; no second session on retry.
 - No plan edits, exercise swap, set-count change, set update/remove, or load/reps overrides. Those
   remain web/CLI (and set correction is Phase 4). The phone records performed work only.
+
+> **Superseded in part by R8** ([`IOS-R8-CONTRACT.md`](IOS-R8-CONTRACT.md)): swap, add, remove and
+> set-count edits are specified for an in-progress workout through the same Python services, with no
+> client-supplied load. Set update/remove and load/reps overrides remain out of scope.
 - Every mutation returns the full current workout; the client updates from the response and never
   treats local state as saved.
 
@@ -686,12 +721,17 @@ mutations. These are config/contract values, not new training rules.
   journal was added immediately after closure and closed on 2026-11-07 (51 client tests total); it
   replays attempted operations with the original UUID/body and is not an offline queue. R3
   explicit plan-item selection and R5 workout recovery/reconciliation UX were implemented and
-  closed on 2026-11-07. R2, R4 and R6 remain deferred in roadmap §4.30 and are not Phase 2
+  closed on 2026-11-07. R2 is absorbed by R7's `plans/current` read; R7 and R8 are specified
+  (2026-11-08) and not implemented; R4 and R6 remain deferred in roadmap §4.30 and are not Phase 2
   closure blockers.
 
 ## 17. References
 
 - [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md) — phase boundary, invariants, rollback gates.
+- [`IOS-R7-CONTRACT.md`](IOS-R7-CONTRACT.md) — asynchronous prescription request; supersedes §4.1,
+  §5.2 and §8.2 above.
+- [`IOS-R8-CONTRACT.md`](IOS-R8-CONTRACT.md) — active-workout plan editing; supersedes §9's
+  no-plan-editing clause.
 - [`IOS-PHASE-1-CONTRACT.md`](IOS-PHASE-1-CONTRACT.md) — accepted Phase 1 interface and
   completion record.
 - [`API.md`](../API.md) — existing routes, body limits, error behaviour, date semantics.

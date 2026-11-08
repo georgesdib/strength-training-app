@@ -10,8 +10,13 @@ Settings/Forget, readiness entry, prescription preview/start-by-id, active worko
 completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Keychain storage,
 71 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is implemented 2026-11-08;
-physical HealthKit acceptance remains pending and Phase 3B is out of scope. Later phases remain
-proposals and need separate approval.
+physical HealthKit acceptance remains pending and Phase 3B is out of scope. R7 (asynchronous
+prescription request with session-type and minimum-session settings) is **approved for
+implementation (2026-11-08) and not started**; R8 (active-workout plan editing) is **specified and
+not approved for implementation**. Contracts:
+[`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) and
+[`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md). Later phases remain proposals and need
+separate approval.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
 
@@ -349,9 +354,21 @@ server-issued prescription, start by issued-plan id, active workout, add set, co
 session RPE, optional form ratings, history/progress, manual VBT and idempotency receipts) under
 [`design/IOS-PHASE-2-CONTRACT.md`](design/IOS-PHASE-2-CONTRACT.md). Phase 3A is implemented
 under [`design/IOS-PHASE-3A-CONTRACT.md`](design/IOS-PHASE-3A-CONTRACT.md), with physical
-HealthKit acceptance pending. Do not begin Phase 3B, offline capture, cardio or PCC work without
-a separate approval; take Phase 4 (offline) after Phase 3A acceptance. Phase 3B remains a separate
-contract.
+HealthKit acceptance pending.
+
+Next, in this order:
+
+1. **R7 — approved 2026-11-08, implementation not started.** Contract:
+   [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md). The asynchronous prescription request
+   with session-type and minimum-session settings; it fixes the resolver-versus-10-second timeout
+   failure in the Phase 2 prescription path and absorbs R2. Acceptance is simulator plus unit
+   coverage; no physical-device pass is required (§14 decision 4).
+2. **R8 — specified, not approved for implementation.** Contract:
+   [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md). Swap/add/remove/set-count editing on an
+   in-progress workout, reusing the existing Python services. Do not start it before R7 is merged.
+
+Do not begin Phase 3B, offline capture, cardio or PCC work without a separate approval; take Phase 4
+(offline) after Phase 3A acceptance. Phase 3B remains a separate contract.
 
 ## 12. References
 
@@ -689,8 +706,9 @@ own approved contract and has not started.
   review screen; personal-team signing expires after 7 days. Phase 2 itself had no durable
   pending-mutation journal; that was added immediately after closure as R1 (see below). It is not
   a general offline queue: only attempted mutations are journaled, and new mutations are blocked
-  while one is unresolved. R5 recovery/reconciliation UX is implemented and closed; R2, R4, R6
-  and R7 remain deferred and are not Phase 2 closure blockers.
+  while one is unresolved. R5 recovery/reconciliation UX is implemented and closed; R2 is absorbed
+  by R7's `plans/current` read; R7 and R8 are specified below and not implemented; R4 and R6 remain
+  deferred and are not Phase 2 closure blockers.
 
 ### R1 durable pending-mutation journal (implemented and closed 2026-11-07)
 
@@ -711,7 +729,7 @@ pass was not performed.
 - Today shows the pending operation with retry/discard actions. A conflict or terminal server
   response stops automatic replay rather than guessing.
 - This is not an offline queue: only operations the owner actually attempted are recorded, and
-  the cap/blocking prevent an unbounded queue. R2, R4, R6 and R7 remain deferred.
+  the cap/blocking prevent an unbounded queue. R4 and R6 remain deferred; R2 is absorbed by R7.
 
 Client tests: 55 (43 Phase 2 + 8 journal/recovery + 1 R3 plan-selection + 3 R5 recovery tests).
 The normal live simulator workflow passes with the journal and recovery UI enabled. R1 is closed;
@@ -744,6 +762,54 @@ dedicated physical-iPhone R1/R3/R5 passes were not separately performed.
 - Unit tests cover server-active discovery, ended-elsewhere detection and consumed-prescription
   recovery. The normal live simulator workflow passes. R5 is closed; a separate physical R5 pass
   was not done.
+
+### R7 asynchronous prescription request with workout settings (approved 2026-11-08, not started)
+
+**Contract:** [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) — approved decisions, server
+model, routes, polling, tests, acceptance and rollback.
+
+R7 exists because the Phase 2 prescription route blocks: it calls `build_prescription` inside the
+request handler, the resolver takes 35–46 s on the ODROID-C4, and the client times out at 10 s. The
+request then fails visibly while the server completes it ~30 s later, leaving a pending journal
+entry that blocks further mutations. R7 removes the blocking call and adds the workout settings the
+owner asked for.
+
+- **Settings before issuing:** session type (`auto` or an explicit type) and the minimum-session
+  fallback, validated by the server, recorded as provenance. This amends the Phase 2 rule that only
+  `auto` exists.
+- **Non-blocking request:** `POST /api/ios/v1/prescriptions` validates the gates, writes a
+  `queued` row and returns 202 immediately; a worker builds on the shared CPU slot
+  (`_CPU_JOB_SLOTS`, no second budget) and publishes only if the row was not superseded meanwhile.
+- **Durable state:** the request row is the job. `GET /api/ios/v1/plans/current` returns its
+  status, server-computed age, and the plan when ready; this also closes R2.
+- **Polling:** 1 s → 2 s → 5 s → 10 s, stopping only at a terminal state or the 15-minute request
+  TTL. 60 s is a copy threshold ("still generating, you can leave"), not a failure, so a 90 s build
+  completes normally.
+- **App exit and return:** because the state is in the database, reopening the app finds a ready
+  plan in the preview, or resumes the counter from the server's elapsed seconds.
+- **Persistence change:** prescription rows are written in the start transaction, not at issue, so
+  an unstarted preview is a preview and parameter tweaking cannot pollute the prescription history.
+- **Invalidation:** changing settings issues a new request that supersedes the previous row whatever
+  its state; the superseded build finishes and is discarded by the guarded publish.
+
+### R8 active-workout plan editing (specified 2026-11-08, not implemented)
+
+**Contract:** [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md) — scope, load rule, routes,
+data effects, tests, acceptance and rollback.
+
+R8 brings the web UI's existing live-workout edits to the phone: swap a plan item's exercise, add an
+exercise, remove one, and change a set count. It supersedes the Phase 2 clause "no plan edits,
+exercise swap, set-count change".
+
+- Every edit runs through the existing `workout.py` services (`swap_exercise`, `add_exercise`,
+  `remove_exercise`, `change_sets`); they rewrite `plan_modified_json` and append
+  `workout_event` rows. The issued plan JSON is never modified, so prescribed and performed stay
+  separately reconstructible.
+- The phone never supplies a load or a replacement plan. A swap or an add clears the load and
+  records why; the owner enters the performed load when logging the set.
+- Removing an item with logged sets keeps those sets and warns first. An expected-exercise guard
+  returns `409 plan_changed` instead of letting a stale index edit the wrong lift.
+- In progress only, idempotent, full workout payload returned; no schema change.
 
 ### Phase 3A — HealthKit HRV/RHR/bodyweight readiness (implemented 2026-11-08)
 
