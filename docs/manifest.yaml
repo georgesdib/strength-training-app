@@ -911,6 +911,14 @@ documents:
   status: design
   audience: maintainer
   nav: false
+- id: design-ios-phase-4-contract
+  path: docs/design/IOS-PHASE-4-CONTRACT.md
+  title: iOS Phase 4 reliable capture and offline support contract
+  description: 'Approved 2026-11-08: cached active workout, ordered outbox for add set/form rating/finish, temporary local identities, replay, conflict handling, timestamp preservation, tests and physical acceptance; implementation in progress'
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
 - id: design-ios-r7-contract
   path: docs/design/IOS-R7-CONTRACT.md
   title: iOS R7 asynchronous prescription request contract
@@ -922,7 +930,7 @@ documents:
 - id: design-ios-r8-contract
   path: docs/design/IOS-R8-CONTRACT.md
   title: iOS R8 active-workout plan editing contract
-  description: 'Specified, not implemented: swap, add, remove and set-count edits on an in-progress workout through the existing Python services, no client-supplied loads, expected-item guards, tests, acceptance and rollback'
+  description: 'Implemented and closed 2026-11-08: swap, add, remove and set-count edits on an in-progress workout through the existing Python services, no client-supplied loads, stable plan-item identity, expected-item guards, tests, acceptance and rollback'
   category: design
   status: design
   audience: maintainer

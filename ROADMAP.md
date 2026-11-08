@@ -1732,6 +1732,15 @@ Conflicts, stale entries, and terminal workout states stop automatic replay and 
 review/discard in Today. The journal is capped and blocks new mutations while an unfinished
 operation exists; it is not a general offline queue.
 
+### 4.31 Phase 4 — reliable capture and offline support (approved 2026-11-08; in progress)
+
+Phase 4 caches the active workout and queues add set, form rating and finish while the server is
+unreachable. It preserves performed/finish timestamps, gives offline sets temporary local identities,
+replays strictly in order with the existing receipts, and keeps conflicts visible. Readiness,
+prescription/start, plan editing and HealthKit remain online-only. No server queue table is added.
+Contract: [`docs/design/IOS-PHASE-4-CONTRACT.md`](docs/design/IOS-PHASE-4-CONTRACT.md).
+Physical acceptance is required before closure.
+
 ## 5. Known gaps and risks
 
 This section keeps **no list**. Every accepted limitation is registered with an id, a status and
