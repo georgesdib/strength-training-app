@@ -6,8 +6,9 @@
 0053_ios_workflow, the ios CLI, the bearer-authenticated /api/ios/v1/ facade, and its tests; the
 Swift client in the separate StrengthApp repository has pairing, Today, History, Settings/Forget,
 readiness entry, prescription preview/start-by-id, active workout, completion/abandon and
-Progress, Keychain storage, 55 unit tests after R1/R3/R5 and optional live UI smoke tests. Phase 3 is not started
-and needs its own approved contract. Later phases remain proposals and need separate approval.
+Progress, Keychain storage, 55 unit tests after R1/R3/R5 and optional live UI smoke tests. The Phase 3A
+contract was written 2026-11-08 for owner approval; Phase 3A is not started and Phase 3B is out
+of scope. Later phases remain proposals and need separate approval.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
 
@@ -140,6 +141,10 @@ flow, migration, tests and acceptance for this phase.
 **Boundary:** this is an online workflow. If connectivity fails, the UI must not claim a set, readiness entry, or completion has been saved when it has not. Durable offline capture is Phase 4.
 
 ### Phase 3 — HealthKit
+
+A separate Phase 3A contract was written on 2026-11-08:
+[`design/IOS-PHASE-3A-CONTRACT.md`](design/IOS-PHASE-3A-CONTRACT.md). It is a draft for owner
+approval; no Phase 3A implementation has started. Phase 3B remains out of scope.
 
 HealthKit is optional and read-only. Ask permissions only when the owner enables the related feature. Never require HealthKit permission to enter readiness or complete a workout.
 
@@ -343,10 +348,10 @@ Prioritize server contract/domain tests; keep UI tests focused and robust. Add c
 Phases 0–2 are complete. Phase 2 delivered the online strength workflow (readiness write,
 server-issued prescription, start by issued-plan id, active workout, add set, complete/abandon,
 session RPE, optional form ratings, history/progress, manual VBT and idempotency receipts) under
-[`design/IOS-PHASE-2-CONTRACT.md`](design/IOS-PHASE-2-CONTRACT.md). The next task is Phase 3A
-(opt-in HealthKit HRV/RHR readiness), which needs its own approved contract; do not begin
-HealthKit, offline, cardio or PCC work before that approval, and take Phase 3A before Phase 4
-(offline).
+[`design/IOS-PHASE-2-CONTRACT.md`](design/IOS-PHASE-2-CONTRACT.md). The Phase 3A contract is
+[`design/IOS-PHASE-3A-CONTRACT.md`](design/IOS-PHASE-3A-CONTRACT.md), written 2026-11-08 and
+awaiting owner approval. Do not begin HealthKit, offline, cardio or PCC work before that approval;
+take Phase 3A before Phase 4 (offline). Phase 3B remains a separate contract.
 
 ## 12. References
 

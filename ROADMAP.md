@@ -1580,8 +1580,9 @@ manual mean velocity, form ratings, RPE/not-recorded completion, abandon and a P
 The contract is [`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md).
 The default server suite is 1632 tests and the client has 55 unit tests after R1/R3/R5; the live UI workflow
 passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2 acceptance was owner-confirmed on
-2026-11-07 on the iPhone 16 Pro Max (iPhone17,2), iOS 27.2. Phase 2 is closed; Phase 3 is not
-started and needs its own approval.
+2026-11-07 on the iPhone 16 Pro Max (iPhone17,2), iOS 27.2. Phase 2 is closed. The Phase 3A
+contract is [`docs/design/IOS-PHASE-3A-CONTRACT.md`](docs/design/IOS-PHASE-3A-CONTRACT.md),
+written 2026-11-08 for owner approval; Phase 3A is not started and Phase 3B is out of scope.
 The first useful release is an online, authenticated native strength-training workflow against the
 owner's local Python server. Durable offline capture, HealthKit and Apple Intelligence
 are later phases, not first-release dependencies. PCC may be a separately enabled Apple AI option;
