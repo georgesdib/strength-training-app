@@ -189,6 +189,17 @@ def get(conn, workout_id: str) -> dict | None:
     return data
 
 
+class PlanEditConflict(ValueError):
+    """A live plan edit the server refuses; the HTTP facade maps this to 409."""
+
+    status = 409
+
+    def __init__(self, code: str, message: str, details: dict | None = None):
+        super().__init__(message)
+        self.code = code
+        self.details = details or {}
+
+
 class WorkoutNotCompleted(ValueError):
     """A summary is available only after the workout has been materialised."""
 
@@ -1072,6 +1083,25 @@ def _editable(workout: dict) -> list[dict]:
     return [dict(item) for item in (workout.get("plan") or {}).get("items") or []]
 
 
+def _logged_sets_for_item(workout: dict, item_index: int, exercise_id: str) -> tuple[int, int]:
+    """Count sets attributed to one item plus same-exercise sets with no attribution.
+
+    The second count is deliberately conservative: the phone cannot know which repeated
+    exercise occurrence an unattributed set belongs to, so a plan edit must not guess.
+    """
+    attributed = 0
+    ambiguous = 0
+    for row in workout.get("sets") or []:
+        if str(row.get("exercise_id")) != str(exercise_id):
+            continue
+        value = row.get("prescription_item_index")
+        if value is None:
+            ambiguous += 1
+        elif int(value) == int(item_index):
+            attributed += 1
+    return attributed, ambiguous
+
+
 def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
@@ -1081,6 +1111,23 @@ def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> d
         raise ValueError("item_index out of range")
     new_id = _validate_exercise(exercise_id)
     old = items[int(item_index)].get("exercise_id")
+    if any(item.get("exercise_id") == new_id for item in items):
+        raise PlanEditConflict(
+            "exercise_already_present",
+            f"{new_id} is already in the plan",
+        )
+    attributed, ambiguous = _logged_sets_for_item(workout, int(item_index), str(old))
+    if attributed or ambiguous:
+        raise PlanEditConflict(
+            "sets_already_logged",
+            "cannot swap an exercise after sets have been logged for it",
+            {
+                "item_index": int(item_index),
+                "exercise_id": str(old),
+                "logged_sets": attributed + ambiguous,
+                "ambiguous_sets": ambiguous,
+            },
+        )
     items[int(item_index)] = {
         **items[int(item_index)],
         "exercise_id": new_id,
@@ -1114,7 +1161,10 @@ def add_exercise(
     items = _editable(workout)
     new_id = _validate_exercise(exercise_id)
     if any(item.get("exercise_id") == new_id for item in items):
-        raise ValueError(f"{new_id} is already in the plan")
+        raise PlanEditConflict(
+            "exercise_already_present",
+            f"{new_id} is already in the plan",
+        )
     sets = max(1, min(20, int(sets)))
     low = max(1, min(50, int(reps_low)))
     high = max(low, min(50, int(reps_high)))
@@ -1140,6 +1190,12 @@ def remove_exercise(conn, workout_id: str, item_index: int) -> dict:
     index = int(item_index)
     if not 0 <= index < len(items):
         raise ValueError("item_index out of range")
+    if len(items) == 1:
+        raise PlanEditConflict(
+            "last_plan_item",
+            "cannot remove the last exercise from the plan",
+            {"item_index": index},
+        )
     removed = items.pop(index)
     plan = {**(workout.get("plan") or {}), "items": items}
     return _write_plan(conn, workout_id, plan, "remove_exercise",
@@ -1158,6 +1214,20 @@ def change_sets(conn, workout_id: str, item_index: int, delta: int) -> dict:
     after = max(1, min(20, before + int(delta)))
     if after == before:
         return workout
+    exercise_id = str(items[index].get("exercise_id"))
+    attributed, ambiguous = _logged_sets_for_item(workout, index, exercise_id)
+    if after < attributed or (ambiguous and after < before):
+        raise PlanEditConflict(
+            "sets_below_logged",
+            "cannot lower the set target below the sets already logged",
+            {
+                "item_index": index,
+                "logged_sets": attributed + ambiguous,
+                "ambiguous_sets": ambiguous,
+                "before": before,
+                "after": after,
+            },
+        )
     items[index]["sets"] = after
     if items[index].get("set_groups"):
         items[index] = resize_plan_item_set_groups(items[index])

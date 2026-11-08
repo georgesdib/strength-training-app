@@ -20,7 +20,7 @@ work. They are marked inline and left in place so the accepted Phase 2 record st
 
 R7 is implemented (2026-11-08): the async issue route, `GET /api/ios/v1/plans/current`, the
 bounded dispatcher and start-time prescription persistence are current behaviour. R8 is approved
-and not implemented. The marked clauses above keep their accepted text as history.
+and implemented. The marked clauses above keep their accepted text as history.
 
 **Scope:** fixes the exact server surface, data model, client surface, tests, acceptance and
 rollback for Phase 2 of [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md). The plan remains the
@@ -723,7 +723,7 @@ mutations. These are config/contract values, not new training rules.
   replays attempted operations with the original UUID/body and is not an offline queue. R3
   explicit plan-item selection and R5 workout recovery/reconciliation UX were implemented and
   closed on 2026-11-07. R2 is closed as absorbed by R7's `plans/current` read; R7 is implemented
-  and simulator-verified; R8 is approved but not implemented; R4 remains deferred in roadmap
+  and simulator-verified; R8 is implemented; R4 remains deferred in roadmap
   §4.30 and is not a Phase 2 closure blocker.
 
 ## 17. References

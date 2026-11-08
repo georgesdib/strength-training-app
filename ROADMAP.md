@@ -1578,7 +1578,7 @@ authenticated readiness/prescription/workout/complete/abandon routes, and 27 con
 the client adds readiness entry, prescription preview, start-by-id, active workout with optional
 manual mean velocity, form ratings, RPE/not-recorded completion, abandon and a Progress screen.
 The contract is [`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md).
-The default server suite is 1642 tests and the client has 72 unit tests after R1/R3/R4/R5 and
+The default server suite is 1660 tests and the client has 73 unit tests after R1/R3/R4/R5 and
 Phase 3A; the live UI workflow passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2
 acceptance was owner-confirmed on 2026-11-07 on the iPhone 16 Pro Max (iPhone17,2), iOS 27.2.
 Phase 2 is closed. Phase 3A (opt-in HealthKit HRV/RHR/bodyweight readiness) is implemented 2026-11-08 under
@@ -1652,19 +1652,19 @@ explicit plan-item selection and R5 recovery/reconciliation UX are implemented a
 closed as absorbed by R7; R4 is implemented and closed in roadmap §4.30. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is implemented as of
 2026-11-08: migration `0056`, the bounded dispatcher, the `202` issue route, `GET plans/current`
-and start-time prescription persistence; the client builds and passes 72 unit tests on the iOS 27.2
-simulator. R8 (active-workout plan editing) was approved on 2026-11-08 under
-`docs/design/IOS-R8-CONTRACT.md` and is not implemented. Phase 2 is closed 2026-11-07.
+and start-time prescription persistence; the client builds and passes 73 unit tests on the iOS 27.2
+simulator. R8 (active-workout plan editing) was approved and implemented on 2026-11-08 under
+`docs/design/IOS-R8-CONTRACT.md`. Phase 2 is closed 2026-11-07.
 
 **Phase 3A completion record (2026-11-08).** Server: migrations 0054_healthkit_readiness.sql and
 0055_healthkit_bodyweight.sql; the append-only healthkit_readiness table; one canonical
 effective-readiness merge (manual/preset > HealthKit > imported) used by readiness day, series,
 history, scoring and the HRV/RHR baseline; the authenticated
 POST /api/ios/v1/healthkit/readiness route; device-scoped sample identity and operation receipts;
-bootstrap healthkit_readiness capability. The default suite is 1642 tests and ruff passes.
+bootstrap healthkit_readiness capability. The default suite is 1660 tests and ruff passes.
 Client: read-only HealthKit authorization for HRV SDNN, resting heart rate and bodyweight,
 deterministic source classification and selection, offline-free single-flight import,
-healthkitReadiness journal kind, Settings opt-in and Today provenance/freshness display; 72 unit
+healthkitReadiness journal kind, Settings opt-in and Today provenance/freshness display; 73 unit
 tests. Verification: focused server tests, full server suite, client unit tests, simulator build and
 live UI workflow pass. Physical HealthKit acceptance with real samples remains pending. Rollback:
 remove the client importer and canonical-merge integration, drop healthkit_readiness and delete the
@@ -1696,7 +1696,7 @@ feature is proposed.
 
 Full acceptance criteria and rollback gates are in the plan.
 
-### 4.30 iOS reliability follow-ups (R1–R5 closed; R7 closed; R8 approved)
+### 4.30 iOS reliability follow-ups (R1–R5 closed; R7 closed; R8 implemented)
 
 R1, R3 and R5 were implemented and closed on 2026-11-07. R1 provides the durable pending-mutation
 journal; R3 provides explicit plan-item selection for repeated exercises; R5 surfaces a
@@ -1705,11 +1705,11 @@ resume/abandon/refresh/clear actions. Unit and simulator verification pass; sepa
 physical-device R1/R3/R5 passes were not performed. R7 (asynchronous prescription request with
 workout settings) was specified, approved and **implemented and closed on 2026-11-08**: the server
 behaviour is
-covered by the default suite, the client builds, passes its 72 unit tests on the iOS 27.2
+covered by the default suite, the client builds, passes its 73 unit tests on the iOS 27.2
 simulator, launches, and passes the live UI flow twice against throwaway servers — once with the
 resolver off and once with it **on** against a copy of the real database (202 in 0.1 s, plan ready
-in 4 s, full flow 90.9 s). R8 (active-workout plan editing) was approved on 2026-11-08 and is not
-started.
+in 4 s, full flow 90.9 s). R8 (active-workout plan editing) was approved and implemented on
+2026-11-08.
 R7's `plans/current` read closes R2 as absorbed; R4 is implemented and closed. This
 reliability work did not add HealthKit, an unrestricted offline queue or Phase 3; Phase 3A is a
 separate implementation under its own contract.
@@ -1722,7 +1722,7 @@ separate implementation under its own contract.
 | R4 | Low | Form-rating correction UX — **closed 2026-11-08** | The form section shows the current rating for the selected exercise, prefills it for a correction, labels a subsequent save **Save correction**, and states that the earlier rating is retained while the latest is shown. The server remains append-only and the workout payload still returns only the latest rating per exercise. No schema change. |
 | R5 | Medium | Workout recovery/reconciliation UX — **closed 2026-11-07** | Today shows a Recovery section when refresh finds a server active workout not represented locally, a local in-progress workout no longer active on the server, or a consumed/expired/superseded prescription. Actions: resume/abandon/dismiss a server workout, refresh/clear stale local state, refresh/dismiss an unusable prescription. A one-read grace prevents false ended-elsewhere states immediately after a local mutation. Unreplayable pending mutations remain in the R1 recovery panel. |
 | R7 | High | Asynchronous prescription request with workout settings — **implemented and closed 2026-11-08** | Replaces the blocking `POST /api/ios/v1/prescriptions` with a 202 and a database-backed request row: optional session type and minimum session, a shared CPU slot (no second concurrency budget), one bounded dispatcher with two eligibility checks so an ineligible request never reaches the resolver, a generation check so a superseded build is never published, an explicit legacy-row mapping in migration 0056, authoritative foreground recovery from `plans/current`, and prescription rows written at start instead of at issue. The client polls `GET /api/ios/v1/plans/current` (which also absorbs R2) at 1→2→5→10 s with no 60 s ceiling, survives app exit, and loads a ready plan on return. Contract: `docs/design/IOS-R7-CONTRACT.md`. |
-| R8 | Medium | Active-workout plan editing — **approved 2026-11-08, implementation not started** | Swap, add, remove and set-count edits on an in-progress workout through the existing `workout.py` services. The phone never supplies a load or a replacement plan; a swap or add clears the load and records the reason. An authenticated read-only `GET /api/ios/v1/exercises` supplies the picker while online; edits are online-only and R1 journaling makes an attempted edit retry-safe. Edits rewrite `plan_modified_json` and append `workout_event` rows; the issued plan JSON is never modified. An expected-item guard stops a stale index editing the wrong lift. Contract: `docs/design/IOS-R8-CONTRACT.md`. |
+| R8 | Medium | Active-workout plan editing — **implemented 2026-11-08** | Swap, add, remove and set-count edits on an in-progress workout through the existing `workout.py` services. The phone never supplies a load or a replacement plan; add uses the service defaults (3×8–12 @ RIR 2, no load), and swap clears the load. An authenticated read-only `GET /api/ios/v1/exercises` supplies the picker while online; edits are online-only and R1 journaling makes an attempted edit retry-safe. Swap is blocked after sets are logged; set count cannot go below logged sets; the last item cannot be removed; ambiguous unattributed sets block edits. Edits rewrite `plan_modified_json` and append `workout_event` rows; the issued plan JSON is never modified. The web UI shares the same guards and 409 mapping. Contract: `docs/design/IOS-R8-CONTRACT.md`. |
 
 **Recovery boundary after R1:** every attempted mutation is journaled before the HTTP request.
 After termination, the app replays journaled operations with the original UUID and exact body,

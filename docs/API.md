@@ -131,6 +131,11 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
 | `POST /api/ios/v1/workouts` | bearer + Idempotency-Key | `{issued_plan_id}` -> the existing workout detail; starts by id only; expired/superseded/consumed plans are 410, another active workout is 409 |
 | `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, rep_velocities?}` -> workout detail; `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required |
 | `POST /api/ios/v1/workouts/<id>/form` | bearer + Idempotency-Key | `{exercise_id, rating 1-5, note?}` -> workout detail |
+| `GET /api/ios/v1/exercises` | bearer | `{exercises:[{id, display, pattern}]}`; canonical catalogue for the R8 picker |
+| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/swap` | bearer + Idempotency-Key | `{exercise_id, expected_exercise_id}` -> workout detail; `409 sets_already_logged` after a set, `409 exercise_already_present`, `409 plan_changed` |
+| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/remove` | bearer + Idempotency-Key | `{expected_exercise_id}` -> workout detail; logged sets are kept; `409 last_plan_item`, `409 plan_changed` |
+| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/sets` | bearer + Idempotency-Key | `{delta, expected_exercise_id}` -> workout detail; `409 sets_below_logged`, `409 plan_changed` |
+| `POST /api/ios/v1/workouts/<id>/plan/exercises` | bearer + Idempotency-Key | `{exercise_id}` -> workout detail; server defaults 3 sets, 8–12 reps, RIR 2, no load; duplicate is `409 exercise_already_present` |
 | `POST /api/ios/v1/workouts/<id>/complete` | bearer + Idempotency-Key | `{session_rpe? or not_recorded: true, duration_min?, notes?}` -> completed workout detail; RPE and not-recorded are mutually exclusive |
 | `POST /api/ios/v1/workouts/<id>/abandon` | bearer + Idempotency-Key | `{}` -> abandoned workout detail |
 

@@ -1670,6 +1670,37 @@ def test_review_marks_close_the_workout(server):
     assert comparison["trap_bar_deadlift"]["actual_sets"] == 1
 
 
+def test_web_plan_edits_reject_actions_that_would_rewrite_logged_sets(server):
+    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
+    readiness = {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+    data = post(server, "/api/workout/start", {
+        "date": "2024-01-01", "plan": plan, "readiness": readiness,
+    })
+    workout_id = data["workout"]["workout_id"]
+    index, item = next(
+        (index, item) for index, item in enumerate(plan["items"])
+        if item["exercise_id"] == "trap_bar_deadlift"
+    )
+    for set_index in (1, 2):
+        post(server, f"/api/workout/{workout_id}/sets", {
+            "exercise_id": item["exercise_id"], "load_kg": 100, "reps": 5, "rir": 2,
+            "set_index": set_index, "plan_item_index": index,
+        })
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        post(server, f"/api/workout/{workout_id}/plan/swap", {
+            "item_index": index, "exercise_id": "conventional_deadlift",
+        })
+    assert excinfo.value.code == 409
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        post(server, f"/api/workout/{workout_id}/plan/set-count", {
+            "item_index": index, "delta": -int(item["sets"]) + 1,
+        })
+    assert excinfo.value.code == 409
+
+
 def test_workout_plan_overrides_api(server):
     plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
     readiness = {

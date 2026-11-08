@@ -8,13 +8,13 @@
 the Swift client in the separate StrengthApp repository has pairing, Today, History,
 Settings/Forget, readiness entry, prescription preview/start-by-id, active workout,
 completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Keychain storage,
-72 unit tests
+73 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is implemented 2026-11-08;
 physical HealthKit acceptance remains pending and Phase 3B is out of scope. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is **implemented and closed
-2026-11-08**: 72 client tests pass on the iOS 27.2 simulator, the app builds and launches, and the
+2026-11-08**: 73 client tests pass on the iOS 27.2 simulator, the app builds and launches, and the
 live UI flow passed twice — once with the resolver off and once with it on against a copy of the
-real database. R2 is closed as absorbed by R7's `plans/current` read. R8 (active-workout plan editing) is **approved and not yet implemented**;
+real database. R2 is closed as absorbed by R7's `plans/current` read. R8 (active-workout plan editing) is **implemented 2026-11-08**;
 its authenticated exercise-catalogue, online-only and no-solved-load decisions are recorded.
 Contracts:
 [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) and
@@ -365,14 +365,14 @@ Next, in this order:
 1. **R7 — implemented and closed 2026-11-08.** Contract:
    [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md). The asynchronous prescription request
    with session-type and minimum-session settings; it fixes the resolver-versus-10-second timeout
-   failure in the Phase 2 prescription path and absorbs R2. Verified by the server suite, 72 client
+   failure in the Phase 2 prescription path and absorbs R2. Verified by the server suite, 73 client
    tests on the iOS 27.2 simulator, and two live UI runs — resolver off, then resolver on against a
    copy of the real database (`202` in 0.1 s, plan ready in 4 s on the development host, full flow
    90.9 s). No physical-device pass is required (§14 decision 4).
-2. **R8 — approved 2026-11-08, implementation not started.** Contract:
+2. **R8 — implemented 2026-11-08.** Contract:
    [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md). Swap/add/remove/set-count editing on an
    in-progress workout, reusing the existing Python services; an authenticated online exercise
-   catalogue feeds the picker. R7 is closed, so R8 may start once its contract is confirmed.
+   catalogue feeds the picker. The live simulator workflow adds an exercise through it.
 
 Do not begin Phase 3B, offline capture, cardio or PCC work without a separate approval; take Phase 4
 (offline) after Phase 3A acceptance. Phase 3B remains a separate contract.
@@ -715,7 +715,7 @@ own approved contract and has not started.
   a general offline queue: only attempted mutations are journaled, and new mutations are blocked
   while one is unresolved. R5 recovery/reconciliation UX is implemented and closed; R2 is closed
   as absorbed by R7's `plans/current` read; R7 is implemented and closed (unit, simulator and two
-  live UI runs); R8 is approved but not implemented; R4 is implemented and closed and is not a Phase 2 closure
+  live UI runs); R8 is implemented; R4 is implemented and closed and is not a Phase 2 closure
   blocker.
 
 ### R1 durable pending-mutation journal (implemented and closed 2026-11-07)
@@ -822,14 +822,14 @@ owner asked for.
   checks), the `202` issue route, `GET plans/current`, start-time prescription persistence and the
   client's settings sheet, generating card, polling and foreground reconciliation. The server
   behaviour is covered by the default suite; the client is built and unit-tested on the iOS 27.2
-  simulator (72 tests, 0 failures), launches, and passes the live UI flow against a throwaway
+  simulator (73 tests, 0 failures), launches, and passes the live UI flow against a throwaway
   server: pair → readiness → request workout → preview → start → set → finish → Progress. That run
   found and fixed a real bug (the preview sheet was dismissed when the consumed plan made
   `plans/current` report `none`). A second run with the **resolver enabled** against a copy of
   the real database also passed: `202` in 0.1 s, plan ready in 4 s on the development host, full
   flow green in 90.9 s. Migration `0056` applied to that copy preserved all five legacy plan rows.
 
-### R8 active-workout plan editing (approved 2026-11-08, not implemented)
+### R8 active-workout plan editing (implemented 2026-11-08)
 
 **Contract:** [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md) — scope, load rule, routes,
 data effects, tests, acceptance and rollback.
@@ -842,13 +842,17 @@ exercise swap, set-count change".
   `remove_exercise`, `change_sets`); they rewrite `plan_modified_json` and append
   `workout_event` rows. The issued plan JSON is never modified, so prescribed and performed stay
   separately reconstructible.
-- The phone never supplies a load or a replacement plan. A swap or an add clears the load and
-  records why; the owner enters the performed load when logging the set. R8 does not run the load
-  solver mid-session.
+- The phone never supplies a load or a replacement plan. Add sends only the exercise id and the
+  service applies its defaults (3×8–12 @ RIR 2, no load); swap clears the load and records why.
+  The owner enters the performed load when logging the set; R8 does not run the load solver.
 - Exercise choice comes from an authenticated read-only `GET /api/ios/v1/exercises`; the app loads
   it while online. R8 does not add an offline queue; R1 journaling covers attempted edits only.
-- Removing an item with logged sets keeps those sets and warns first. An expected-exercise guard
-  returns `409 plan_changed` instead of letting a stale index edit the wrong lift.
+- Swap is blocked after sets are logged; set count cannot go below logged sets; the last item cannot
+  be removed; ambiguous unattributed sets block edits. Removing an item with logged sets keeps those
+  sets and warns first. An expected-exercise guard returns `409 plan_changed` instead of letting a
+  stale index edit the wrong lift.
+- The web UI shares the service guards and returns 409 for rejected edits; it does not gain the
+  iPhone picker or any new R8 screen.
 - In progress only, idempotent, full workout payload returned; no schema change.
 
 ### Phase 3A — HealthKit HRV/RHR/bodyweight readiness (implemented 2026-11-08)
@@ -862,7 +866,7 @@ exercise swap, set-count change".
   deterministic Apple Watch classification, 48-hour HRV / current-day RHR / 30-day bodyweight
   selection, single-flight import, the healthkitReadiness mutation-journal kind, Settings opt-in
   and Today import/provenance display.
-- Verification: 1,642 server tests, 72 client tests, simulator build and the live UI workflow pass.
+- Verification: 1,660 server tests, 73 client tests, simulator build and the live UI workflow pass.
   Physical HealthKit acceptance with real samples remains pending.
 - Rollback: remove the client importer and canonical-merge integration, drop healthkit_readiness
   with the paired 0054/0055 migration rows, and leave readiness_day/readiness_entry untouched.

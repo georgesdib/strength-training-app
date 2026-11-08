@@ -283,15 +283,64 @@ def test_an_explicit_plan_item_index_must_match_the_exercise(conn):
 
 def test_original_comparison_is_unavailable_after_a_plan_swap(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    changed = workout.swap_exercise(
+        conn, started["workout_id"], 0, "conventional_deadlift",
+    )
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="conventional_deadlift",
+        load_kg=100, reps=5, rir=2, plan_item_index=0,
+    )
+    changed = workout.get(conn, started["workout_id"])
+    assert changed["comparison"]["items"][0]["match_status"] == "matched"
+    assert changed["original_comparison"]["items"][0]["match_status"] == "unavailable"
+
+
+def test_swap_is_blocked_after_a_set_is_logged(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
     workout.add_set(
         conn, started["workout_id"], exercise_id="trap_bar_deadlift",
         load_kg=100, reps=5, rir=2, plan_item_index=0,
     )
-    changed = workout.swap_exercise(
-        conn, started["workout_id"], 0, "bench_press",
+    with pytest.raises(workout.PlanEditConflict, match="after sets") as excinfo:
+        workout.swap_exercise(conn, started["workout_id"], 0, "conventional_deadlift")
+    assert excinfo.value.code == "sets_already_logged"
+
+
+def test_an_unattributed_set_blocks_swap_and_set_reduction(conn):
+    # A repeated exercise is the case where add_set deliberately leaves the item unattributed.
+    duplicate = {
+        **PLAN,
+        "items": [PLAN["items"][0], {**PLAN["items"][0]}, PLAN["items"][1]],
+    }
+    started = workout.start(conn, for_date="2024-01-01", plan=duplicate, readiness=READINESS)
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2,
     )
-    assert changed["comparison"]["items"][0]["match_status"] == "unavailable"
-    assert changed["original_comparison"]["items"][0]["match_status"] == "unavailable"
+    with pytest.raises(workout.PlanEditConflict, match="after sets"):
+        workout.swap_exercise(conn, started["workout_id"], 0, "conventional_deadlift")
+    with pytest.raises(workout.PlanEditConflict, match="below"):
+        workout.change_sets(conn, started["workout_id"], 0, -1)
+
+
+def test_set_count_cannot_go_below_logged_sets(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    for _ in range(3):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=100, reps=5, rir=2, plan_item_index=0,
+        )
+    workout.change_sets(conn, started["workout_id"], 0, -2)
+    assert workout.get(conn, started["workout_id"])["plan"]["items"][0]["sets"] == 3
+    with pytest.raises(workout.PlanEditConflict, match="below"):
+        workout.change_sets(conn, started["workout_id"], 0, -1)
+
+
+def test_remove_last_exercise_is_blocked(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    workout.remove_exercise(conn, started["workout_id"], 1)
+    with pytest.raises(workout.PlanEditConflict, match="last exercise"):
+        workout.remove_exercise(conn, started["workout_id"], 0)
 
 
 def test_weekly_residual_uses_stored_plan_item_target(conn):

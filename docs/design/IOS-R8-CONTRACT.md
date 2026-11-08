@@ -1,7 +1,8 @@
 # iOS R8 — Active-workout plan editing (add, swap, remove exercise)
 
-**Status:** approved by the owner on 2026-11-08; implementation not started. Documentation only;
-no code, route, migration or CLI is created by this document. R8 is not implemented.
+**Status:** **approved and implemented 2026-11-08.** The authenticated catalogue, four plan-edit
+routes, shared service guards, iPhone menus, web conflict handling and tests are on `development`.
+No migration is required.
 
 **Why R8 exists.** The Phase 2 contract deliberately excluded plan editing: "No plan edits, exercise
 swap, set-count change, set update/remove, or load/reps overrides. Those remain web/CLI"
@@ -71,12 +72,10 @@ new plan. The request schemas are closed.
 
 ```text
 GET  /api/ios/v1/exercises                                      -> {"exercises": [{"id", "display", "pattern"}]}
-POST /api/ios/v1/workouts/{id}/plan/items/{item_index}/swap     {"exercise_id": "…"}
-POST /api/ios/v1/workouts/{id}/plan/items/{item_index}/remove   {}
-POST /api/ios/v1/workouts/{id}/plan/items/{item_index}/sets     {"delta": -1}
-POST /api/ios/v1/workouts/{id}/plan/exercises                   {"exercise_id": "…", "sets": 3,
-                                                                 "reps_low": 8, "reps_high": 12,
-                                                                 "rir_target": 2}
+POST /api/ios/v1/workouts/{id}/plan/items/{item_index}/swap     {"exercise_id": "…", "expected_exercise_id": "…"}
+POST /api/ios/v1/workouts/{id}/plan/items/{item_index}/remove   {"expected_exercise_id": "…"}
+POST /api/ios/v1/workouts/{id}/plan/items/{item_index}/sets     {"delta": -1, "expected_exercise_id": "…"}
+POST /api/ios/v1/workouts/{id}/plan/exercises                   {"exercise_id": "…"}
 ```
 
 Rules:
@@ -86,12 +85,18 @@ Rules:
   compares it with the current item and returns `409 plan_changed` on mismatch, with the fresh
   workout in the body. Without this, two clients (phone plus web) can silently edit the wrong lift.
 - `swap` rejects a target exercise that is already in the plan (`409 exercise_already_present`).
-  `swap_exercise` does not check this today; the check is added at the service so the web and the
-  phone share one rule.
+  The check is in the shared service so the web and the phone share one rule.
+- `swap` is rejected after any set is logged for the target item (`409 sets_already_logged`). An
+  unattributed set for the same exercise is treated as ambiguous and also blocks the swap.
 - `remove` is allowed even when sets are already logged for that exercise. Those sets are
   append-only and stay; they simply no longer match a plan item, and the comparison will report the
   item missing. The client must warn before sending: "Remove <lift>? Logged sets are kept."
-- `sets` takes a delta of `-1`, `+1` or the set count directly; the service clamps to 1–20.
+- `remove` is rejected when it would leave no plan items (`409 last_plan_item`).
+- `sets` takes a non-zero delta; the iPhone uses `-1`/`+1`, and the service clamps to 1–20. A
+  delta that would put the target below the logged-set count is rejected (`409 sets_below_logged`);
+  an unattributed set for the same exercise blocks any decrease until that ambiguity is resolved.
+- `add` accepts only `exercise_id`; the shared service applies its defaults: 3 sets, 8–12 reps,
+  RIR 2 and no load.
 - Unknown workout → `404 workout_not_found`. Not in progress → `409 workout_not_active`. Unknown
   exercise → `400 validation_failed` (taxonomy lookup), never silently dropped.
 - Idempotency uses the existing receipt table: a replayed key returns the stored workout and does
@@ -135,13 +140,15 @@ Rules:
 
 ## 8. Tests
 
-- Server (`tests/test_ios_plan_edits.py`): swap clears load and set_groups and records
-  `substitution_for`; add appends with a null load and the unknown reason; remove keeps logged sets;
-  set count clamps; `expected_exercise_id` mismatch → 409 `plan_changed`; duplicate swap target →
-  409; unknown exercise → 400; not in progress → 409; idempotent replay applies once; `plan_json`
-  unchanged; one `workout_event` per edit.
-- Client: menu actions build the right bodies; response re-render after a removal keeps the correct
-  item; failure leaves the plan untouched; journaling covers edits; no load field is ever sent.
+- Server (`tests/test_workout.py`, `tests/test_ios_workflow.py`, `tests/test_web.py`): swap clears
+  load/set_groups and records `substitution_for`; add appends with a null load and server defaults;
+  remove keeps logged sets; last-item and logged-set guards return 409; set count clamps and cannot
+  drop below logged sets; ambiguous sets block edits; `expected_exercise_id` mismatch → 409
+  `plan_changed`; duplicate swap target → 409; unknown exercise → 400; not in progress → 409;
+  idempotent replay applies once; `plan_json` unchanged; one `workout_event` per edit.
+- Client: catalogue decodes; the picker sends only the exercise id for add; response re-render after
+  an edit keeps the correct item; journaling covers `.planEdit`; no load field is ever sent. The
+  live simulator workflow adds an exercise through the authenticated picker.
 - Existing workout, comparison, history and Phase 2 tests stay green.
 
 ## 9. Acceptance
@@ -151,7 +158,8 @@ Rules:
 3. Removing an item with logged sets keeps the sets and warns first.
 4. A concurrent web edit produces `plan_changed` rather than an edit to the wrong lift.
 5. The issued plan JSON is unchanged after editing; the event log shows every edit.
-6. Default suite, docs tests and `ruff` pass; the web UI's own editing is unchanged.
+6. Default suite, docs tests and `ruff` pass; the web UI shares the same guards and returns 409
+   for rejected edits.
 
 ## 10. Rollback
 
