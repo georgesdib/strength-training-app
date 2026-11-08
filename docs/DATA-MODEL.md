@@ -726,6 +726,13 @@ Migration 0053_ios_workflow adds the Phase 2 plan/retry boundary. Both tables ar
 no training, readiness, prescription or review calculation reads them, and dropping both restores
 the non-iOS server unchanged apart from the already-created prescription/workout rows.
 
+**Pending change (R7, approved, not implemented).** Migration `0056` rebuilds `ios_issued_plan` as
+a request-and-result row: it adds `status`, `requested_session_type`, `settings_json`, two
+deadlines (`request_expires_at`, `plan_expires_at`), error fields, and a nullable
+`prescription_id`; the legacy rows are preserved with an explicit mapping. The column list below
+describes the Phase 2 table as it exists today; see
+[`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) §3 and §3.1 for the planned shape.
+
 ios_issued_plan:
 
 | column | notes |

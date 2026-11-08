@@ -126,7 +126,7 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
 | `GET /api/ios/v1/progress?weeks=&date=` | bearer | exactly `progress_feature.dashboard`; weeks 1-52, default 8 |
 | `POST /api/ios/v1/readiness` | bearer + Idempotency-Key | `{values, note?}` -> the existing readiness payload; values use the accepted manual field set; unknown/empty/zero-placeholder fields are rejected |
 | `POST /api/ios/v1/healthkit/readiness` | bearer + Idempotency-Key | `{date, samples:[{field, value, sample_id, sample_at, source_name, source_bundle_id?, source_class, source_model?, source_manufacturer?}]}` -> the canonical readiness payload plus `healthkit` provenance; one to three samples (HRV, RHR, bodyweight), server-local today for the import, sample identity deduplicated; see Phase 3A contract |
-| `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}}` -> `{issued_plan_id, prescription_id, for_date, session_type, expires_at, plan, readiness, warnings}`; the normal prescription is persisted at issue |
+| `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}}` -> `{issued_plan_id, prescription_id, for_date, session_type, expires_at, plan, readiness, warnings}`; the normal prescription is persisted at issue. **R7 (approved, not implemented)** turns this into a `202` plus a polled `GET /api/ios/v1/plans/current`, adds optional `settings`, and moves prescription persistence to start — see [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) |
 | `POST /api/ios/v1/workouts` | bearer + Idempotency-Key | `{issued_plan_id}` -> the existing workout detail; starts by id only; expired/superseded/consumed plans are 410, another active workout is 409 |
 | `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, rep_velocities?}` -> workout detail; `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required |
 | `POST /api/ios/v1/workouts/<id>/form` | bearer + Idempotency-Key | `{exercise_id, rating 1-5, note?}` -> workout detail |
@@ -168,6 +168,10 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
   single-use issued plan with a 60-minute TTL. The phone starts it by id only; plan content never
   comes from the phone. One live plan is allowed per device; a newer issue supersedes the older one.
   Device-scoped plans and receipts keep one device from reading another device's plan.
+- **Planned R7 change (approved, not implemented).** The route becomes asynchronous because the
+  resolver build outlives the client's 10-second timeout: `202` plus a database-backed request,
+  `GET /api/ios/v1/plans/current` as the authoritative recovery read, and prescription rows written
+  at start rather than at issue. Until R7 ships, the synchronous behaviour above is current.
 - **Mutation switch.** Set mutations_enabled: false in config/ios.v1.yaml to return every Phase 2
   mutation as 503 ios_mutations_disabled while bootstrap/today/history/progress remain available.
   The bootstrap capabilities report the writes as disabled.

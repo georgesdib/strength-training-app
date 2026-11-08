@@ -227,6 +227,7 @@ Preserve `/api/ios/v1/` as the future facade namespace, but implement endpoints 
 |---|---|---|
 | Phase 1 | Protected pairing exchange; `GET bootstrap/today`; read-only recent history and a server-only progress summary | Return server/API version, server-local date/timezone, capabilities, readiness/workout status and small existing summaries. No config paths or secrets. The `progress` route is implemented and tested server-side; the Phase 1 client has no Progress screen (deferred to Phase 2). |
 | Phase 2 | Read/write readiness; request prescription; read active workout; start by issued-plan id; add set; complete/abandon; read history/progress; optional inline form ratings; optional review | Mutations require authentication and an idempotency receipt. The prescription is stored at issue and the client starts by id only, so plan content never comes from the phone. Validate every field via existing Python services. |
+| R7 (approved, not implemented) | Asynchronous prescription request; optional session type and minimum session; authoritative `GET plans/current`; start that writes the prescription | Returns `202` and builds in one bounded dispatcher on the shared CPU slot; two deadlines (build vs startable); legacy `ios_issued_plan` rows preserved by an explicit mapping; prescription persistence moves to start. |
 | Phase 3 | HRV/RHR provenance; HealthKit record import and optional workout association | Add only the source/provenance fields and routes needed by enabled types; keep user-consented HealthKit read-only. |
 | Phase 4 | Add/correct/remove set and offline event replay/reconciliation | Reuse the Phase 2 receipts; add a conflict response only where replay needs it. |
 
@@ -778,8 +779,16 @@ owner asked for.
   fallback, validated by the server, recorded as provenance. This amends the Phase 2 rule that only
   `auto` exists.
 - **Non-blocking request:** `POST /api/ios/v1/prescriptions` validates the gates, writes a
-  `queued` row and returns 202 immediately; a worker builds on the shared CPU slot
-  (`_CPU_JOB_SLOTS`, no second budget) and publishes only if the row was not superseded meanwhile.
+  `queued` row and returns 202 immediately. One bounded dispatcher thread drains the queue on the
+  shared CPU slot (`_CPU_JOB_SLOTS`, no second budget), re-checking eligibility before the slot and
+  again before the build so a superseded or expired request never reaches the resolver; it
+  publishes only if the row was not superseded meanwhile.
+- **Legacy rows:** migration `0056` rebuilds the table and carries every existing plan forward with
+  an explicit mapping (live → `ready`, consumed/superseded preserved, invalid rows abort the
+  migration). Prescriptions and receipts are untouched.
+- **Authoritative recovery:** on launch and foreground, `GET plans/current` decides what the app
+  shows; a cached Today, a retained preview or a journalled response can never override it, and a
+  superseded or expired plan is removed from the UI.
 - **Durable state:** the request row is the job. `GET /api/ios/v1/plans/current` returns its
   status, server-computed age, and the plan when ready; this also closes R2.
 - **Polling:** 1 s → 2 s → 5 s → 10 s, stopping only at a terminal state or the 15-minute request

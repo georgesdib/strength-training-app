@@ -66,7 +66,8 @@ CREATE TABLE ios_issued_plan_new (
     issued_plan_id          TEXT PRIMARY KEY,       -- uuid4 hex; also the request id
     device_id               TEXT NOT NULL REFERENCES ios_device(device_id),
     status                  TEXT NOT NULL DEFAULT 'queued'
-                            CHECK (status IN ('queued', 'building', 'ready', 'error')),
+                            CHECK (status IN ('queued', 'building', 'ready', 'error',
+                                              'skipped')),
     requested_session_type  TEXT NOT NULL,          -- 'auto' or an explicit type
     session_type            TEXT,                   -- resolved type; NULL until ready
     settings_json           TEXT NOT NULL,          -- accepted settings, canonical JSON
@@ -83,6 +84,8 @@ CREATE TABLE ios_issued_plan_new (
     error_message           TEXT,                   -- owner-safe copy; no paths or traces
     request_expires_at      TEXT NOT NULL,          -- created_at + plan_request_ttl_seconds
     plan_expires_at         TEXT,                   -- ready_at + issued_plan_ttl_seconds; NULL until ready
+                                                    -- status='skipped' = never built (superseded or
+                                                    -- expired while queued); error_code says which
     consumed_at             TEXT,                   -- set atomically with workout creation
     superseded_at           TEXT,                   -- newer request, or stale/interrupted
     workout_id              TEXT REFERENCES workout_session(workout_id)
@@ -122,6 +125,59 @@ requested.
 Worked example: Request workout at 09:00 → `request_expires_at` 09:15 → plan ready 09:00:45 →
 `plan_expires_at` 10:00:45. Reopening the app at 09:40 shows the plan and Start works. Reopening at
 10:10 shows no plan and Today returns to "Request workout".
+
+### 3.1 Legacy data mapping — what the rebuild does to existing rows
+
+Phase 2 wrote real rows into `ios_issued_plan` before R7 existed: there are no `status`,
+`request_expires_at`, `plan_expires_at` or `settings_json` values to read. The rebuild does not
+discard them; every existing row is copied with the mapping below. **No legacy `ios_issued_plan`
+row is deleted by `0056`.**
+
+| legacy condition | migrated `status` | other columns | may it become active again? |
+|---|---|---|---|
+| `consumed_at IS NOT NULL` (started) | `ready` | `consumed_at`, `workout_id`, `prescription_id`, `superseded_at` all copied unchanged | No — consumed stays consumed; the guarded publish and the start check both refuse it |
+| unconsumed, not superseded, `expires_at > now` (live preview) | `ready` | `prescription_id` kept, `plan_expires_at = expires_at` so it expires exactly when it would have | Yes, until its original deadline |
+| unconsumed, not superseded, `expires_at <= now` (expired) | `ready` | kept as-is; `plan_expires_at = expires_at` (already past) | No — expiry is checked first; it is inert and the next issue supersedes it as today |
+| `superseded_at IS NOT NULL` (replaced) | `ready` | `superseded_at` copied unchanged | No — supersession is checked before anything else |
+| any row whose `plan_json`/`readiness_json` are unserialisable or whose `prescription_id` has no `prescription` row | migration **aborts** | nothing is copied | n/a |
+
+Rules applied to every copied row:
+
+- `request_expires_at = expires_at` and `plan_expires_at = expires_at`. A legacy plan was already
+  built, so its build deadline is history; reusing `expires_at` for both preserves the original
+  behaviour exactly and never extends a plan's life.
+- `ready_at = created_at` and `finished_at = created_at`. The true publish time was never recorded;
+  inventing "now" would make an old plan look freshly built. `created_at` is the only honest value,
+  and nothing reads `ready_at` for a legacy row except the audit display.
+- `requested_session_type = session_type`, `session_type = session_type`, `settings_json = '{}'`.
+  A legacy plan had no settings; the empty object records "none were chosen" rather than a default.
+- `error_code`/`error_message` are null. No legacy row is `skipped`: every one of them produced a
+  plan.
+- `prescription_id` is copied verbatim for every row. It is only nullable for rows created **after**
+  R7, where the prescription is written at start.
+
+Preserved unchanged and **not** touched by the migration:
+
+- `prescription` and `prescription_item` — every row keeps its existing `prescription_id` link.
+  The migration neither duplicates nor deletes them. The "persist at start" rule of §8 applies only
+  to requests created after R7.
+- `ios_operation_receipt` — every receipt and stored response body survives untouched. A Phase 2
+  receipt still replays its original `200` body (see the compatibility note in §4.1).
+- `workout_session`, `session`, `clean_set`, readiness and review tables — no write at all.
+
+Pre-flight validation, run inside the migration's transaction before any copy:
+
+1. rows whose `prescription_id` has no matching `prescription` row (the FK would reject them) — fail
+   with `MigrationError` naming the count and a sample id, rather than silently dropping the row;
+2. rows whose `plan_json` or `readiness_json` is not valid JSON — same treatment;
+3. rows where `consumed_at IS NULL AND workout_id IS NOT NULL` (a state Phase 2 never produced) —
+   same treatment, because guessing the intent would rewrite history.
+
+The policy is **fail loudly, never silently lose a plan**. A corrupt row means the database has a
+problem worth seeing; a migration that quietly discards it would hide it.
+
+Rollback of the rebuild is the §13.1 backup: the migration copies every row, so restoring the
+pre-`0056` file restores the exact Phase 2 table, including rows R7 never produced.
 
 ## 4. Server behaviour
 
@@ -166,10 +222,22 @@ Response `202 Accepted`:
 - If a build is already running for this device, the new row still supersedes it; the running
   worker discovers this when it tries to publish (§4.4).
 
+> **Compatibility with Phase 2 receipts.** A receipt stored before R7 holds a synchronous `200`
+> body containing the plan. Replaying that key after R7 returns the stored body unchanged — the
+> facade must not rewrite receipts. The client therefore accepts both shapes during the transition:
+> a `200` carrying `plan` is treated exactly like a `ready` poll result (the legacy row is
+> `ready`, §3.1), and a `202` starts the poll. Receipts expire within 30 days, so this is a
+> transition, not a permanent dual protocol.
+
 ### 4.2 `GET /api/ios/v1/plans/current` — recovery and polling read
 
 Returns the device's live row (not consumed, not superseded), whatever its status. This is the R2
 scope: a relaunched app restores the preview without issuing a replacement.
+
+**This route is authoritative.** It, not the Today payload and not anything cached in the app,
+decides the current plan-request lifecycle. Whatever this call returns after launch or foreground
+is what the UI must show (§6); a previously fetched Today or a locally retained preview can never
+override it.
 
 ```json
 {"issued_plan_id": "…", "status": "building", "elapsed_seconds": 47,
@@ -189,6 +257,9 @@ scope: a relaunched app restores the preview without issuing a replacement.
   without deleting the row, so an hour-old workout is gone from the app but still auditable.
 - `plan_expires_at` is null until the plan is ready; after that it is the deadline that matters.
   The client stops polling at `request_expires_at` and stops offering Start at `plan_expires_at`.
+- A row that was `skipped` (never built) is never the live row from the client's point of view:
+  superseded rows fail the liveness filter, and expired rows fail the deadline check, so both
+  present as `none`. The `skipped` status exists for the database and the tests, not the UI.
 - Read-only; no idempotency key; a missed poll is harmless.
 
 ### 4.3 `POST /api/ios/v1/workouts` — start persists the prescription
@@ -203,32 +274,86 @@ longer points at a prescription stored at issue:
   stored `plan_json` via `prescription_persistence.store_plan`, call `workout.start` with that
   `prescription_id` and the stored readiness, then set `consumed_at`, `workout_id` and
   `prescription_id`. A failure leaves no partial consumption, no prescription row and no workout.
+- **Legacy rows already have a prescription.** If `prescription_id IS NOT NULL` — which is every
+  Phase 2 row (§3.1) — start reuses it and persists nothing. Writing a second prescription for a
+  plan that already has one would duplicate append-only history. A null `prescription_id` is the
+  signal that this is a post-R7 preview, and only then is the prescription written at start.
 - The workout snapshot remains the issued plan; the client still cannot supply plan content.
 
-### 4.4 Worker and generation check
+### 4.4 Worker: one bounded dispatcher, two eligibility checks, guarded publish
 
-- The worker acquires the shared `_CPU_JOB_SLOTS` semaphore **blocking**, with a bounded wait of
-  the row's remaining `expires_at`. While waiting, the row stays `queued`; there is no 409 "server
-  busy" to the client, because the queue is the answer.
-- On acquisition it sets `status = 'building'`, `building_started_at`. It then builds through the
-  shared path and publishes with a guarded update:
+**Bounded execution.** There is exactly **one** worker thread for the iOS plan queue: a
+module-level dispatcher started lazily under a lock on the first `queued` request and reused for
+the life of the process. The request handler never spawns a thread per request. With a 15-minute
+request TTL and a slot that can be held for a full build, a thread-per-request design would
+accumulate threads parked on `_CPU_JOB_SLOTS` — unbounded threads waiting on a bounded resource,
+which is precisely the shape to avoid.
 
-  ```sql
-  UPDATE ios_issued_plan
-     SET status='ready', plan_json=?, readiness_json=?, session_type=?, ready_at=?, …
-   WHERE issued_plan_id = ? AND superseded_at IS NULL AND status = 'building';
-  ```
+No `ThreadPoolExecutor`, no new queue abstraction, no second CPU budget. The dispatcher is a loop
+over the database, and it still acquires the existing shared
+`_CPU_JOB_SLOTS = threading.Semaphore(1)` before building, so the iOS queue competes with the web
+forecast rather than bypassing it.
 
-  Zero rows changed means the request was superseded or expired while building: the result is
-  discarded, never published. This is the decision-3 generation check, expressed as a conditional
-  write rather than a separate version column.
-- A build exception sets `status='error'` with an owner-safe code and message; no stack trace,
-  path or token is stored. Expected resolver failures (`ResolverBuildError`) map to
-  `error_code = 'resolver_build_failed'` with the existing stage/message.
-- **Startup sweep:** on server start, rows left `queued`/`building` whose thread died with the
-  process are marked `error` (`error_code = 'interrupted'`) or superseded, so a poll can never hang
-  forever on a worker that no longer exists.
-- The worker owns its own `db.Store` connection; it never reuses the request handler's.
+Loop (each iteration):
+
+1. **Select** the oldest eligible row:
+   `status='queued' AND consumed_at IS NULL AND superseded_at IS NULL AND request_expires_at > now`,
+   ordered by `created_at`. FIFO across devices; this deployment has one.
+2. **Wait** if none: block on a `threading.Event` that `POST` sets, with a two-second timeout. The
+   timeout terminalises rows that expired or were superseded while nobody was looking, without a
+   hot spin.
+3. **Eligibility check #1 — before touching the CPU slot.** Re-read the row and terminalise without
+   building when it is no longer eligible:
+   - `superseded_at IS NOT NULL` → `status='skipped'`, `error_code='superseded'`,
+     `finished_at=now`;
+   - `request_expires_at <= now` → `status='skipped'`, `error_code='expired'`,
+     `finished_at=now`;
+   - `for_date != server-local today` → `status='error'`, `error_code='stale_date'`
+     (the request crossed midnight; building "today's" plan against yesterday's date would be
+     wrong).
+
+   In every one of these cases the dispatcher returns to step 1 **without invoking the resolver**.
+4. **Acquire** `_CPU_JOB_SLOTS` blocking, bounded by the row's remaining `request_expires_at`. A
+   timeout is the expired case above. While waiting, the row stays `queued`; the client is told
+   nothing, because the queue is the answer and there is no 409 "server busy" on this route.
+5. **Eligibility check #2 — immediately before `build_prescription`.** The slot may have taken
+   minutes, so the row is re-read again; any condition from step 3 now terminalises it, releases
+   the slot and returns to step 1. The resolver is **never** invoked for a request that stopped
+   being eligible while the dispatcher waited.
+6. **Build and publish.** Set `status='building'`, `building_started_at=now`, call the shared
+   prescription path, then publish with a guarded update:
+
+   ```sql
+   UPDATE ios_issued_plan
+      SET status='ready', plan_json=?, readiness_json=?, session_type=?, ready_at=?,
+          plan_expires_at=?, finished_at=?
+    WHERE issued_plan_id = ? AND superseded_at IS NULL AND status = 'building';
+   ```
+
+   Zero rows changed means the request was superseded or expired **while building**: the result is
+   discarded and never published. A build already in flight when a newer request arrives is allowed
+   to finish its CPU work — Python cannot interrupt `build_resolved` — but it cannot publish. This
+   is decision 3's generation check expressed as a conditional write, not a version column.
+   Release the slot in a `finally`.
+
+Other rules:
+
+- A build exception sets `status='error'` with an owner-safe code and message and
+  `finished_at=now`; no stack trace, path or token is stored. `ResolverBuildError` maps to
+  `error_code='resolver_build_failed'` with the existing stage/message.
+- The loop body is wrapped so an unexpected exception terminalises that row and the dispatcher
+  survives. If the thread ever dies anyway, the next `POST` **or** `plans/current` read restarts it
+  under the lock (`is_alive()` check), because the queue is the table and no request lives in the
+  thread.
+- **Startup sweep.** Nothing is published before step 6, and the build has no side effects, so on
+  restart a row left `building` is reset to `queued` (`building_started_at=NULL`) and retried; a
+  row left `queued` is simply picked up. Rows already past `request_expires_at` become
+  `skipped/expired` immediately. This is better than marking orphans `error`: the work genuinely
+  can be redone, and a restarted server should not manufacture a failure for a request that can
+  still succeed.
+- The dispatcher owns its own `db.Store` connection; it never reuses the request handler's.
+- Bounded behaviour is testable: at most one dispatcher thread exists, and at most one build runs
+  at a time because the slot is held for the whole build.
 
 ## 5. Polling contract
 
@@ -252,18 +377,43 @@ The client polls `GET /api/ios/v1/plans/current` until a terminal state. The ser
 - Each poll is a cheap read, so the existing 10 s request timeout is correct here and needs no
   override.
 
-## 6. Leaving and returning to the app
+## 6. Leaving and returning: foreground recovery is authoritative
 
 Yes — a ready plan is loaded after the app is closed and reopened, because nothing about the request
-lives in memory on either side.
+lives in memory on either side. The recovery rule is a single sentence: **after launch or
+foreground, `GET /api/ios/v1/plans/current` decides what the app shows, and no local state may
+override it.**
 
-- On launch and on every foreground activation the client refreshes Today, which includes the
-  current plan summary, and then:
-  - `ready` → the preview screen with the returned plan;
-  - `queued`/`building` → the generating card resumes with `elapsed_seconds` from the server, not a
-    local stopwatch;
-  - `error` → the error with a Retry action;
-  - `none` → normal Today.
+Reconciliation, on every launch and every foreground activation:
+
+| server says | UI must |
+|---|---|
+| `ready` | show the preview built from this response's `plan`; Start enabled |
+| `queued` or `building` | show the generating card with the server's `elapsed_seconds`, and poll |
+| `error` | show the error and a Retry action |
+| `none` | show Today with "Request workout" |
+
+- **No stale override.** A locally retained preview, a cached Today payload, or a journal replay
+  from before termination may never be shown as the current plan. If any of them disagree with
+  `plans/current`, the server wins and the local copy is discarded. A cached Today may still be
+  displayed as stale for *other* panels under the Phase 1 rule, but the plan area renders only from
+  the authoritative response.
+- **Lost `POST` response.** If the request was created but its `202` never arrived, the next
+  `plans/current` finds the row (`queued`/`building`/`ready`) and the app resumes as if it had the
+  id. The R1 journal is a second layer, not the primary one: a replayed `202` that names a plan the
+  server has since superseded is **ignored**, because `plans/current` reports the newer request.
+  Reconciliation order is therefore plans/current first, journal second.
+- **App termination during a build.** The request survives because it is a database row; reopening
+  resumes the counter from `elapsed_seconds`, never from a local stopwatch.
+- **Superseded or expired.** A superseded plan is not returned at all (liveness filter) and an
+  expired one returns `none`, so the preview and any Start affordance are removed on the next
+  foreground. The app must not keep a Start button for a plan the server will refuse.
+- **Active workout wins.** If Today reports an active workout, that card takes precedence over any
+  plan preview: the owner is mid-session, not choosing one. Starting a workout therefore removes the
+  preview from the UI on the next refresh.
+- **Workout timer recovery is unchanged.** The elapsed timer stays anchored to the server's
+  `started_at` for the active workout; foregrounding must not reset it, and R5's ended-elsewhere
+  detection still applies. R7 adds no second timer and no second recovery path.
 - Because `elapsed_seconds` is server-computed, closing the app for two minutes and reopening shows
   the true age of the request; a plan that became ready while the app was closed is simply `ready`.
 - The plan deadline keeps working while the app is away. `plan_expires_at` is 60 minutes after the
@@ -343,7 +493,45 @@ Server (`tests/test_ios_plan_requests.py`, temporary SQLite, live-server fixture
 - CPU slot: a second request while one builds stays `queued` and later builds; no 409 to the client.
 - Start requires `ready`; `queued` → 409 `plan_not_ready`; `error` → 410 `plan_failed`.
 - Start writes prescription rows exactly once and links them; a retried start does not duplicate.
-- Startup sweep marks orphaned `queued`/`building` rows `error`/`interrupted`.
+- **Legacy start:** a migrated Phase 2 row with `prescription_id` set starts without persisting a
+  second prescription, and the workout links to the original `prescription_id`.
+
+Worker and bounded execution (`tests/test_ios_plan_requests.py`, with `build_prescription` spied):
+
+- **A superseded `queued` request never invokes the resolver.** Supersede the row, run one dispatcher
+  tick, assert the spy recorded zero calls and the row became `skipped`/`superseded`.
+- **An expired `queued` request never invokes the resolver.** Same shape, `error_code='expired'`.
+- **Mid-wait supersession never invokes the resolver.** Hold `_CPU_JOB_SLOTS` with a fake job, queue a
+  request, then supersede it and release the slot: eligibility check #2 fires, zero resolver calls.
+- **A request outstanding at midnight** (`for_date != today`) becomes `error`/`stale_date` with zero
+  resolver calls.
+- **Bounded execution:** after queueing N requests, at most one dispatcher thread exists
+  (`threading.enumerate` filtered by name) and at most one `build_prescription` is in flight
+  (the spy asserts no overlap). Requests beyond the first wait in the database, not in threads.
+- **Queue order:** two queued requests build oldest-first.
+- **Dispatcher restart:** with the dispatcher stopped, a `POST` (and separately a
+  `plans/current` read) restarts it and the queued row still builds.
+- **Startup sweep:** a row left `building` by a dead process returns to `queued` and is retried;
+  one already past `request_expires_at` becomes `skipped`/`expired`.
+- **Guarded publish survives the race:** supersede during a slow build, let the build finish, assert
+  the row stays without `plan_json` and no `ready` plan exists.
+
+Migration `0056` (`tests/test_migration_0056.py`, building a database at the `0053` shape):
+
+- A live unconsumed unexpired legacy plan becomes `ready` with `plan_expires_at = expires_at` and
+  remains startable.
+- A consumed legacy plan keeps `consumed_at`, `workout_id` and `prescription_id`, and cannot start
+  again.
+- A superseded legacy plan keeps `superseded_at` and never becomes live.
+- An expired unconsumed legacy plan becomes `ready` but is inert: `plans/current` reports `none`
+  and Start returns the expired code.
+- `prescription` and `prescription_item` row counts and contents are identical before and after;
+  no prescription is duplicated or deleted.
+- `ios_operation_receipt` rows and response bodies are byte-identical before and after.
+- The partial unique index still permits exactly one live row per device after the rebuild.
+- Pre-flight failure: a legacy row whose `prescription_id` has no prescription aborts the migration
+  with `MigrationError` and leaves the `0053` table intact.
+- Rollback: restoring the pre-migration file reproduces the `0053` table exactly.
 - Expiry is deadline-specific: a `queued`/`building` row past `request_expires_at` fails the
   request; a `ready` row past `plan_expires_at` reports `none` and `409 plan_expired` on Start.
   Publishing sets `plan_expires_at = ready_at + issued_plan_ttl_seconds`, so a 90 s build yields a
@@ -358,10 +546,20 @@ Client (unit):
 
 - Poll schedule advances 1 → 2 → 5 → 10 s and does not stop at 60 s; a 90 s scripted build ends
   `ready` and renders.
-- Foreground with a ready plan opens the preview; with a building plan resumes the counter from
-  `elapsed_seconds`; with an error shows retry; with none shows Today.
 - Settings round-trip; a settings change issues a new key; superseded id is never reused.
 - 409 `plan_not_ready` on Start is handled without losing the preview.
+- **Foreground reconciliation is authoritative:**
+  - a **lost `POST` response** (request created, response never received) resolves to the
+    generating card on the next foreground, then to the preview when the poll reports ready;
+  - a **locally retained preview** that the server no longer reports is cleared, not shown;
+  - a **cached Today payload** carrying a stale plan does not render a preview or enable Start;
+  - **supersession** (a newer request replaced the plan while the app was closed) shows the newer
+    request, never the old one;
+  - **expiry** removes the preview and the Start affordance and returns Today to
+    "Request workout";
+  - a **journalled `202`** naming a superseded plan is ignored in favour of `plans/current`;
+  - an **active workout** takes precedence over a plan preview, and the elapsed timer is unchanged
+    by foregrounding (the R5 recovery tests still pass).
 
 ## 12. Acceptance
 
@@ -376,11 +574,20 @@ Client (unit):
    start creates neither a second prescription nor a second workout.
 6. The web UI's forecast during an iOS build returns its existing "CPU-heavy job already running"
    behaviour, and the iOS client never sees a 409 for slot contention.
-7. Default suite, docs tests and `ruff` pass; existing Phase 2 behaviour for readiness, sets, form,
-   completion and abandon is unchanged.
+7. **Bounded execution:** queueing several requests creates no more than one dispatcher thread and
+   never more than one concurrent build; a superseded or expired `queued` request is terminalised
+   with zero calls into the resolver.
+8. **Legacy data preserved:** every pre-`0056` `ios_issued_plan` row survives with the §3.1
+   mapping, prescription and receipt rows are unchanged, and a corrupt legacy row aborts the
+   migration instead of being dropped.
+9. **Authoritative recovery:** after a lost `202`, a supersession or an expiry, launch and
+   foreground show exactly what `plans/current` reports; no cached Today or retained preview
+   overrides it; an active workout still takes precedence and its timer is unaffected.
+10. Default suite, docs tests and `ruff` pass; existing Phase 2 behaviour for readiness, sets, form,
+    completion and abandon is unchanged.
 
-Accepted on 2026-11-08: criteria 1–6 are demonstrated on the iPhone 18 Pro simulator against a
-temporary SQLite database with the resolver enabled. No physical-device pass is required for R7
+Accepted on 2026-11-08: criteria 1–9 are demonstrated on the iPhone 18 Pro simulator against a
+temporary SQLite database with the resolver enabled, plus the server and client unit tests. No physical-device pass is required for R7
 closure (§14 decision 4).
 
 ## 13. Rollback
@@ -389,9 +596,17 @@ closure (§14 decision 4).
 - Remove the route changes and the worker; revert `POST /api/ios/v1/prescriptions` to the
   synchronous Phase 2 behaviour if needed.
 - Drop `ios_issued_plan` and delete the `0056` `schema_migration` row together
-  (`IOS-CLIENT-PLAN.md` §13.2). Ready previews are lost; no prescription, workout, readiness or
-  session row is touched, because an unstarted preview no longer writes one.
-- Take the §13.1 backup first: the rebuild copies the whole table.
+  (`IOS-CLIENT-PLAN.md` §13.2). This drops the R7 previews **and** the legacy Phase 2 issued plans
+  that `0056` carried forward, so a rollback loses unstarted plans of both generations. Starting a
+  legacy plan before the rollback leaves its workout and prescription untouched, because those were
+  written by Phase 2, not by R7.
+- No prescription, workout, readiness or session row is touched by a rollback: an unstarted post-R7
+  preview never wrote one, and a legacy plan's prescription already existed.
+- Take the §13.1 backup first: the rebuild copies the whole table, and restoring that file is the
+  only way back if the rebuild itself misbehaved.
+- Rolling back after `0056` has been applied and the process has queued rows: stop the server first.
+  A dispatcher still running against a dropped table would only log errors, but it would also write
+  to the table between the drop and the `schema_migration` delete.
 
 ## 14. Decisions taken and remaining open questions
 
@@ -422,3 +637,55 @@ Still open:
    keep 60 minutes until the behaviour is observed, because a stale prescription is worse than a
    repeated request.
 2. **Poll cadence tuning** after the first real 40 s and 90 s builds on the device.
+
+## 15. Implementation plan and task breakdown
+
+Server first, then client, in this order. Each task lands with its own tests; a task is not done
+until the focused tests for it pass. Nothing here touches the prescription methodology, readiness
+scoring, resolver behaviour or load selection (constraint: keep the scope unchanged).
+
+| # | Task | Files | Done when |
+|---|---|---|---|
+| T1 | **Migration `0056`** — rebuild `ios_issued_plan` with the §3 schema and the §3.1 legacy mapping, pre-flight validation, and the `(status, request_expires_at)` index | `store/migrations/0056_ios_plan_request.sql` | `tests/test_migration_0056.py` passes; a real copy of the live database migrates and `PRAGMA quick_check` is ok |
+| T2 | **Store helpers** — enqueue, select-oldest-eligible, terminalise (`skipped`/`error`), set building, guarded publish, reset `building`→`queued` on startup | `store/ios_workflow.py` | helper tests cover each conditional write and the guarded publish's zero-row case |
+| T3 | **Bounded dispatcher** — the single module-level thread, the wait event, both eligibility checks, slot acquisition, startup sweep | `web/server.py` (or a small `web/ios_plan_worker.py` if the file grows) | worker tests (§11): zero resolver calls for superseded/expired/midnight requests; one dispatcher; one build at a time |
+| T4 | **`POST /api/ios/v1/prescriptions`** — closed schema with `settings`, gate reuse, 202 body, 202 receipts, supersede-then-insert, signal the dispatcher | `web/server.py`, `web/ios_config.py` | route tests; idempotent 202 replay; capability flag still returns 503 when disabled |
+| T5 | **`GET /api/ios/v1/plans/current`** — authoritative read, `none` for absent/expired, `retry_after_ms`, `elapsed_seconds` | `web/server.py` | read tests incl. expired → `none` and no cross-device leakage |
+| T6 | **Start path** — require `ready`; reuse a legacy `prescription_id`; otherwise persist from `plan_json` in the same transaction | `web/server.py` | start tests: one prescription, one workout, no duplicate on retry, legacy row starts without a second prescription |
+| T7 | **Capabilities and Today** — keep `prescription`/`workout_write`; add the plan summary to today so a cold launch can render without an extra call | `web/server.py` | today payload test; capability false hides the client write UI |
+| T8 | **Client: request flow** — settings sheet, generating card with server elapsed, polling schedule, cancellation of polling on leave | `StrengthApp/Core/*`, `Features/Today`, `Features/Workout` | client unit tests for the poll schedule and settings round-trip |
+| T9 | **Client: authoritative recovery** — reconcile on launch and foreground, plans/current over cache/journal, clear superseded/expired, preserve the workout timer | `StrengthApp/Core/AppModel.swift` | the foreground reconciliation tests in §11 |
+| T10 | **Close-out** — docs status updates, `ROADMAP` §4.30, acceptance run on the simulator against a temporary DB with the resolver on | docs, `ROADMAP.md` | acceptance 1–10 demonstrated; default suite, docs tests and `ruff` pass |
+
+Sequencing notes:
+
+- T1–T3 must be merged before any client work: the client cannot poll a route that does not exist.
+- T4 and T5 are one unit of review; a 202 with no read route is unusable.
+- T6 changes an existing accepted route, so the Phase 2 start tests are re-read, not rewritten: the
+  only new branch is the legacy `prescription_id`.
+- T8/T9 are client-only and can proceed against a temporary server once T4–T7 are merged.
+- Take the §13.1 backup immediately before applying T1 to the live database, not before the branch
+  is written.
+
+## 16. Documentation consistency review (2026-11-08)
+
+Checked every public document that mentions the iOS prescription path. Found and resolved:
+
+| stale claim | where | resolution |
+|---|---|---|
+| "hands it to a worker thread" — implied one thread per request | this contract §4.1/§4.4 | replaced by the single bounded dispatcher (§4.4) |
+| Startup sweep "marks orphaned rows `error`/`interrupted`" — contradicted the queue-is-the-table design | this contract §4.4, §11 | reset to `queued` and retried instead |
+| One `expires_at` serving two meanings | this contract §3 | split into `request_expires_at` and `plan_expires_at` |
+| `POST /api/ios/v1/prescriptions` returns the plan synchronously | `docs/API.md` route table and the "Issued plans" bullet | marked as current behaviour with the R7 change called out |
+| `ios_issued_plan` column list without status or deadlines | `docs/DATA-MODEL.md` §20 | pending-change note added, pointing at §3 and §3.1 |
+| "The prescription is stored at issue" | `docs/IOS-CLIENT-PLAN.md` §6 increment table | R7 row added with the new persistence rule |
+| "R2 deferred" | plan §4.30 and this contract | R2 marked absorbed by `plans/current` |
+| "specified, not implemented" for R7 | plan status header, §11 next task, manifest, roadmap | all say approved 2026-11-08, not started |
+
+Deliberately **not** changed: the Phase 2 contract's accepted prose. It keeps its historical text
+with inline "superseded by" markers, because rewriting an accepted contract would destroy the record
+of what was agreed.
+
+Remaining known inconsistency, accepted: `docs/DATA-MODEL.md` §20 and `docs/API.md` describe the
+Phase 2 shape until T1 and T4 land. Both carry an explicit pending-change note, so no reader can
+mistake the description for current behaviour.
