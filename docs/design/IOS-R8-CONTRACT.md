@@ -1,7 +1,7 @@
 # iOS R8 — Active-workout plan editing (add, swap, remove exercise)
 
-**Status:** specified for owner approval, 2026-11-08. Documentation only; no code, route, migration
-or CLI is created by this document. R8 is not implemented.
+**Status:** approved by the owner on 2026-11-08; implementation not started. Documentation only;
+no code, route, migration or CLI is created by this document. R8 is not implemented.
 
 **Why R8 exists.** The Phase 2 contract deliberately excluded plan editing: "No plan edits, exercise
 swap, set-count change, set update/remove, or load/reps overrides. Those remain web/CLI"
@@ -65,11 +65,12 @@ edit time) and is explicitly not part of R8.
 
 ## 4. API surface
 
-All routes are under `/api/ios/v1/`, require the bearer token and an `Idempotency-Key`, and return
-the full `workout.get` payload so the client never has to predict the new plan. The request schemas
-are closed.
+All routes are under `/api/ios/v1/` and require the bearer token. Mutating routes also require an
+`Idempotency-Key` and return the full `workout.get` payload so the client never has to predict the
+new plan. The request schemas are closed.
 
 ```text
+GET  /api/ios/v1/exercises                                      -> {"exercises": [{"id", "display", "pattern"}]}
 POST /api/ios/v1/workouts/{id}/plan/items/{item_index}/swap     {"exercise_id": "…"}
 POST /api/ios/v1/workouts/{id}/plan/items/{item_index}/remove   {}
 POST /api/ios/v1/workouts/{id}/plan/items/{item_index}/sets     {"delta": -1}
@@ -108,9 +109,13 @@ Rules:
 
 - The active-workout screen gains a per-item menu: **Swap exercise**, **Remove**, **Sets −/+**,
   and a plan-level **Add exercise**.
-- Exercise choice uses the taxonomy the server exposes; if the app cannot enumerate it, it accepts a
-  typed name resolved server-side and shows the server's error verbatim. No local validation beyond
-  emptiness.
+- Exercise choice uses an authenticated read-only catalogue route (`GET /api/ios/v1/exercises`)
+  rather than a typed-name-only picker. The phone loads it while online; the catalogue is not a
+  promise of offline editing. The server still validates every exercise id.
+- If the catalogue request fails, the menu reports the error and does not guess an exercise. A
+  typed fallback is not required for the first implementation.
+- The app is online-only for R8 edits. The R1 journal makes an attempted edit retry-safe; it is not
+  an offline queue and does not permit an edit without the server response.
 - Every edit shows a busy state and applies only when the 2xx workout payload returns; on failure the
   previous plan stays on screen with the server's message. No optimistic local plan edits.
 - After any edit the client re-renders from the response, which fixes index shifting for free.
@@ -167,8 +172,18 @@ Settled by the owner on 2026-11-08:
 2. **R8 stays a separate item from R7**, because it is a new write surface on a live workout rather
    than a reliability change.
 
-Still open:
+Owner-approved decisions on 2026-11-08:
 
-1. **Adding an exercise with a solved load.** Deferred; needs a decision about re-running the load
+3. **Authenticated exercise catalogue:** add `GET /api/ios/v1/exercises` for the picker. The phone
+   loads it online. No local taxonomy validation beyond the server response.
+4. **Online-only edits:** R8 does not add an offline queue. R1 journaling covers attempted edits.
+5. **No solved load:** the phone never supplies a load for add/swap, and R8 does not run the load
    solver mid-session.
-2. **Reordering items** is not in R8 even though the event log could carry it.
+6. **Order:** R8 follows R7; it does not start before R7 is settled.
+7. **No reordering:** reordering remains out of scope even though the event log could carry it.
+
+Still deferred:
+
+1. **Adding an exercise with a solved load.** Deferred; needs a separate decision about re-running
+   the load solver mid-session.
+2. **Reordering items** is not in R8.

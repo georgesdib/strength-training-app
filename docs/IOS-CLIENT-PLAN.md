@@ -13,8 +13,10 @@ after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is implemente
 physical HealthKit acceptance remains pending and Phase 3B is out of scope. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is **implemented and
 simulator-verified 2026-11-08** (71 client tests pass on the iOS 27.2 simulator and the built app
-launches); only the resolver-enabled live UI run remains. R8 (active-workout plan editing) is
-**specified and not approved for implementation**. Contracts:
+launches); only the resolver-enabled live UI run remains. R2 is closed as absorbed by R7's
+`plans/current` read. R8 (active-workout plan editing) is **approved and not yet implemented**;
+its authenticated exercise-catalogue, online-only and no-solved-load decisions are recorded.
+Contracts:
 [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) and
 [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md). Later phases remain proposals and need
 separate approval.
@@ -228,7 +230,7 @@ Preserve `/api/ios/v1/` as the future facade namespace, but implement endpoints 
 |---|---|---|
 | Phase 1 | Protected pairing exchange; `GET bootstrap/today`; read-only recent history and a server-only progress summary | Return server/API version, server-local date/timezone, capabilities, readiness/workout status and small existing summaries. No config paths or secrets. The `progress` route is implemented and tested server-side; the Phase 1 client has no Progress screen (deferred to Phase 2). |
 | Phase 2 | Read/write readiness; request prescription; read active workout; start by issued-plan id; add set; complete/abandon; read history/progress; optional inline form ratings; optional review | Mutations require authentication and an idempotency receipt. The prescription is stored at issue and the client starts by id only, so plan content never comes from the phone. Validate every field via existing Python services. |
-| R7 (approved, not implemented) | Asynchronous prescription request; optional session type and minimum session; authoritative `GET plans/current`; start that writes the prescription | Returns `202` and builds in one bounded dispatcher on the shared CPU slot; two deadlines (build vs startable); legacy `ios_issued_plan` rows preserved by an explicit mapping; prescription persistence moves to start. |
+| R7 (implemented and simulator-verified) | Asynchronous prescription request; optional session type and minimum session; authoritative `GET plans/current`; start that writes the prescription | Returns `202` and builds in one bounded dispatcher on the shared CPU slot; two deadlines (build vs startable); legacy `ios_issued_plan` rows preserved by an explicit mapping; prescription persistence moves to start. |
 | Phase 3 | HRV/RHR provenance; HealthKit record import and optional workout association | Add only the source/provenance fields and routes needed by enabled types; keep user-consented HealthKit read-only. |
 | Phase 4 | Add/correct/remove set and offline event replay/reconciliation | Reuse the Phase 2 receipts; add a conflict response only where replay needs it. |
 
@@ -367,9 +369,10 @@ Next, in this order:
    pass on the iOS 27.2 simulator, and the app launches. The only remaining check is one live run
    with the resolver enabled against a running server; no physical-device pass is required (§14
    decision 4).
-2. **R8 — specified, not approved for implementation.** Contract:
+2. **R8 — approved 2026-11-08, implementation not started.** Contract:
    [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md). Swap/add/remove/set-count editing on an
-   in-progress workout, reusing the existing Python services. Do not start it before R7 is merged.
+   in-progress workout, reusing the existing Python services; an authenticated online exercise
+   catalogue feeds the picker. Do not start it before R7 is settled.
 
 Do not begin Phase 3B, offline capture, cardio or PCC work without a separate approval; take Phase 4
 (offline) after Phase 3A acceptance. Phase 3B remains a separate contract.
@@ -710,9 +713,9 @@ own approved contract and has not started.
   review screen; personal-team signing expires after 7 days. Phase 2 itself had no durable
   pending-mutation journal; that was added immediately after closure as R1 (see below). It is not
   a general offline queue: only attempted mutations are journaled, and new mutations are blocked
-  while one is unresolved. R5 recovery/reconciliation UX is implemented and closed; R2 is absorbed
-  by R7's `plans/current` read; R7 and R8 are specified below and not implemented; R4 and R6 remain
-  deferred and are not Phase 2 closure blockers.
+  while one is unresolved. R5 recovery/reconciliation UX is implemented and closed; R2 is closed
+  as absorbed by R7's `plans/current` read; R7 is implemented and simulator-verified; R8 is
+  approved but not implemented; R4 remains deferred and is not a Phase 2 closure blocker.
 
 ### R1 durable pending-mutation journal (implemented and closed 2026-11-07)
 
@@ -733,7 +736,7 @@ pass was not performed.
 - Today shows the pending operation with retry/discard actions. A conflict or terminal server
   response stops automatic replay rather than guessing.
 - This is not an offline queue: only operations the owner actually attempted are recorded, and
-  the cap/blocking prevent an unbounded queue. R4 and R6 remain deferred; R2 is absorbed by R7.
+  the cap/blocking prevent an unbounded queue. R4 remains deferred; R2 is closed as absorbed by R7.
 
 Client tests: 55 (43 Phase 2 + 8 journal/recovery + 1 R3 plan-selection + 3 R5 recovery tests).
 The normal live simulator workflow passes with the journal and recovery UI enabled. R1 is closed;
@@ -810,7 +813,7 @@ owner asked for.
   simulator (71 tests, 0 failures) and launches in the simulator. The resolver-enabled live UI run
   is the remaining check.
 
-### R8 active-workout plan editing (specified 2026-11-08, not implemented)
+### R8 active-workout plan editing (approved 2026-11-08, not implemented)
 
 **Contract:** [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md) — scope, load rule, routes,
 data effects, tests, acceptance and rollback.
@@ -824,7 +827,10 @@ exercise swap, set-count change".
   `workout_event` rows. The issued plan JSON is never modified, so prescribed and performed stay
   separately reconstructible.
 - The phone never supplies a load or a replacement plan. A swap or an add clears the load and
-  records why; the owner enters the performed load when logging the set.
+  records why; the owner enters the performed load when logging the set. R8 does not run the load
+  solver mid-session.
+- Exercise choice comes from an authenticated read-only `GET /api/ios/v1/exercises`; the app loads
+  it while online. R8 does not add an offline queue; R1 journaling covers attempted edits only.
 - Removing an item with logged sets keeps those sets and warns first. An expected-exercise guard
   returns `409 plan_changed` instead of letting a stale index edit the wrong lift.
 - In progress only, idempotent, full workout payload returned; no schema change.
