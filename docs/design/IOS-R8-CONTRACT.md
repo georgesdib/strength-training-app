@@ -1,6 +1,6 @@
 # iOS R8 — Active-workout plan editing (add, swap, remove exercise)
 
-**Status:** **approved and implemented 2026-11-08.** The authenticated catalogue, four plan-edit
+**Status:** **implemented and closed 2026-11-08.** The authenticated catalogue, four plan-edit
 routes, shared service guards, iPhone menus, web conflict handling and tests are on `development`.
 No migration is required.
 

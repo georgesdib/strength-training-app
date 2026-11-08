@@ -1,11 +1,10 @@
 # iOS Phase 3A — HealthKit readiness: HRV, RHR and bodyweight
 
-**Status:** implemented 2026-11-08; HRV/RHR/bodyweight unit, simulator and live-server workflow
-verified;
-bodyweight is an owner-requested extension added 2026-11-08. Physical HealthKit acceptance remains
-pending. This contract remains the authoritative Phase 3A specification. No Phase 3B, Phase 4
-offline capture, HealthKit write access, sleep imports, new score or training-rule change is
-authorized.
+**Status:** **closed 2026-11-08.** HRV/RHR/bodyweight unit, simulator, live-server workflow and
+physical iPhone HealthKit acceptance are owner-confirmed. Bodyweight is an owner-requested
+extension added 2026-11-08. This contract remains the authoritative Phase 3A specification. No
+Phase 3B, Phase 4 offline capture, HealthKit write access, sleep imports, new score or
+training-rule change is authorized.
 
 **Scope:** fixes the exact server surface, canonical readiness merge, data model, client surface,
 permissions, concurrency, tests, acceptance and rollback for Phase 3A only: opt-in, read-only

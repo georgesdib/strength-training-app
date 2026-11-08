@@ -9,13 +9,14 @@ the Swift client in the separate StrengthApp repository has pairing, Today, Hist
 Settings/Forget, readiness entry, Workout ready/start-by-id, active workout,
 completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Keychain storage,
 74 unit tests
-after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is implemented 2026-11-08;
-physical HealthKit acceptance remains pending and Phase 3B is out of scope. R7 (asynchronous
+after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is closed 2026-11-08; physical
+HealthKit acceptance was owner-confirmed and Phase 3B is out of scope. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is **implemented and closed
 2026-11-08**: 74 client tests pass on the iOS 27.2 simulator, the app builds and launches, and the
 live UI flow passed twice — once with the resolver off and once with it on against a copy of the
-real database. R2 is closed as absorbed by R7's `plans/current` read. R8 (active-workout plan editing) is **implemented 2026-11-08**;
-its authenticated exercise-catalogue, online-only and no-solved-load decisions are recorded.
+real database. R2 is closed as absorbed by R7's `plans/current` read. R8 (active-workout plan editing) is **closed 2026-11-08**;
+its authenticated exercise-catalogue, online-only and no-solved-load decisions are recorded; R8 is
+closed.
 Contracts:
 [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) and
 [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md). Later phases remain proposals and need
@@ -76,7 +77,7 @@ HealthKit, Apple Workout import, offline mutation sync, manual cardio, advanced 
 
 ## 4. Phased implementation plan
 
-Each phase is separately reviewable. Add only the endpoints, migrations, client screens, and tests needed for that phase. The first connected vertical slice should be implemented before any offline queue, HealthKit importer, or model feature. Phases 0–2, R1/R3/R5 and Phase 3A are implemented; Phase 3A physical acceptance is pending, and Phase 3B/4 need separate approval before they start.
+Each phase is separately reviewable. Add only the endpoints, migrations, client screens, and tests needed for that phase. The first connected vertical slice should be implemented before any offline queue, HealthKit importer, or model feature. Phases 0–2, R1/R3/R5, Phase 3A and R8 are closed; Phase 3B/4 need separate approval before they start.
 
 **Implementation order (owner decision, 2026-11-07):** Phase 0 is complete; next are 1, 2, 3A
 (HealthKit readiness), 4 (offline), then 3B (Apple Workout imports) and Phase 5. Phase numbers stay
@@ -159,7 +160,8 @@ HealthKit is optional and read-only. Ask permissions only when the owner enables
 [design/IOS-PHASE-3A-CONTRACT.md](design/IOS-PHASE-3A-CONTRACT.md). The owner approved the scope
 and implementation on 2026-11-08; the server migration, canonical merge, import route and client
 HealthKit path are implemented. Unit, simulator and live-server workflow verification pass;
-physical HealthKit acceptance remains pending. Do not duplicate or vary the contract rules here.
+physical HealthKit acceptance is owner-confirmed and Phase 3A is closed. Do not duplicate or vary
+the contract rules here.
 Phase 3B remains separate below.
 
 **Phase 3B: Apple Workout summaries and related cardio data, if useful**
@@ -356,7 +358,7 @@ sRPE precedence and no prescription/rubric changes.
 Phases 0–2 are complete. Phase 2 delivered the online strength workflow (readiness write,
 server-issued prescription, start by issued-plan id, active workout, add set, complete/abandon,
 session RPE, optional form ratings, history/progress, manual VBT and idempotency receipts) under
-[`design/IOS-PHASE-2-CONTRACT.md`](design/IOS-PHASE-2-CONTRACT.md). Phase 3A is implemented
+[`design/IOS-PHASE-2-CONTRACT.md`](design/IOS-PHASE-2-CONTRACT.md). Phase 3A is closed
 under [`design/IOS-PHASE-3A-CONTRACT.md`](design/IOS-PHASE-3A-CONTRACT.md), with physical
 HealthKit acceptance pending.
 
@@ -369,7 +371,7 @@ Next, in this order:
    tests on the iOS 27.2 simulator, and two live UI runs — resolver off, then resolver on against a
    copy of the real database (`202` in 0.1 s, plan ready in 4 s on the development host, full flow
    90.9 s). No physical-device pass is required (§14 decision 4).
-2. **R8 — implemented 2026-11-08.** Contract:
+2. **R8 — closed 2026-11-08.** Contract:
    [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md). Swap/add/remove/set-count editing on an
    in-progress workout, reusing the existing Python services; an authenticated online exercise
    catalogue feeds the picker. The live simulator workflow adds an exercise through it.
@@ -715,7 +717,7 @@ own approved contract and has not started.
   a general offline queue: only attempted mutations are journaled, and new mutations are blocked
   while one is unresolved. R5 recovery/reconciliation UX is implemented and closed; R2 is closed
   as absorbed by R7's `plans/current` read; R7 is implemented and closed (unit, simulator and two
-  live UI runs); R8 is implemented; R4 is implemented and closed and is not a Phase 2 closure
+  live UI runs); R8 is closed; R4 is implemented and closed and is not a Phase 2 closure
   blocker.
 
 ### R1 durable pending-mutation journal (implemented and closed 2026-11-07)
@@ -829,7 +831,7 @@ owner asked for.
   the real database also passed: `202` in 0.1 s, plan ready in 4 s on the development host, full
   flow green in 90.9 s. Migration `0056` applied to that copy preserved all five legacy plan rows.
 
-### R8 active-workout plan editing (implemented 2026-11-08)
+### R8 active-workout plan editing (closed 2026-11-08)
 
 **Contract:** [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md) — scope, load rule, routes,
 data effects, tests, acceptance and rollback.
@@ -858,7 +860,7 @@ exercise swap, set-count change".
   iPhone picker or any new R8 screen.
 - In progress only, idempotent, full workout payload returned; no schema change.
 
-### Phase 3A — HealthKit HRV/RHR/bodyweight readiness (implemented 2026-11-08)
+### Phase 3A — HealthKit HRV/RHR/bodyweight readiness (closed 2026-11-08)
 
 - Server: migrations 0054_healthkit_readiness.sql and 0055_healthkit_bodyweight.sql, the
   append-only healthkit_readiness table, the
