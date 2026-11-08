@@ -684,7 +684,9 @@ own approved contract and has not started.
 ### Phase 2 completion record
 
 - **Server:** migration 0053_ios_workflow.sql; config/ios.v1.yaml; ios_config.py; the
-  issued-plan/receipt store; authenticated readiness, prescription issue, start-by-id, add-set,
+  issued-plan/receipt store; the Settings -> iOS settings panel (validated atomic edit of
+  `mutations_enabled`, issued-plan TTL, plan-request TTL and receipt retention; effective on the
+  next request without a restart); authenticated readiness, prescription issue, start-by-id, add-set,
   form-rating, complete and abandon routes; tests/test_ios_workflow.py. The default suite is 1632
   tests and ruff passes. The normal prescription is persisted at issue. The phone starts by
   issued-plan id only and cannot supply prescription content. Every mutation requires a UUID
@@ -881,3 +883,10 @@ exercise swap, set-count change".
 
 No Phase 3B, offline capture, HealthKit write access, sleep import, new score or training-rule
 change is included. Each later phase requires a separate approval.
+
+## Related
+
+- **UI surface:** [UI-MAP.md](UI-MAP.md), [WEB-UI.md](WEB-UI.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

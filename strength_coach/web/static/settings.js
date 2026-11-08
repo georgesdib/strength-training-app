@@ -96,6 +96,75 @@ function renderSettings(data) {
   syncLlmFields();
 }
 
+function renderIosSettings(data) {
+  window.__iosSettings = data || {};
+  const effective = data.effective || {};
+  const ranges = data.ranges || {};
+  $("#settings-ios-mutations").checked = !!effective.mutations_enabled;
+  $("#settings-ios-issued-ttl").value = effective.issued_plan_ttl_seconds ?? "";
+  $("#settings-ios-request-ttl").value = effective.plan_request_ttl_seconds ?? "";
+  $("#settings-ios-receipt-days").value = effective.receipt_retention_days ?? "";
+  [["#settings-ios-issued-ttl", "issued_plan_ttl_seconds"],
+   ["#settings-ios-request-ttl", "plan_request_ttl_seconds"],
+   ["#settings-ios-receipt-days", "receipt_retention_days"]].forEach(([selector, key]) => {
+    const node = $(selector);
+    const range = ranges[key] || {};
+    if (range.min != null) node.min = String(range.min);
+    if (range.max != null) node.max = String(range.max);
+  });
+  const status = $("#settings-ios-status");
+  status.textContent = effective.mutations_enabled ? "mutations on" : "mutations off";
+  status.className = "badge " + (effective.mutations_enabled ? "" : "warn");
+  $("#settings-ios-source").textContent = "Effective values below · source: " +
+    (data.source || "unknown") + " · reload: " + (data.reload || "per request") +
+    (data.restart_required ? " · restart required" : " · no restart required");
+}
+
+async function saveIosSettings(event) {
+  event.preventDefault();
+  const msg = $("#settings-ios-msg");
+  const values = {
+    mutations_enabled: $("#settings-ios-mutations").checked,
+    issued_plan_ttl_seconds: Number($("#settings-ios-issued-ttl").value),
+    plan_request_ttl_seconds: Number($("#settings-ios-request-ttl").value),
+    receipt_retention_days: Number($("#settings-ios-receipt-days").value),
+  };
+  const ranges = window.__iosSettings?.ranges || {};
+  for (const [key, selector] of [
+    ["issued_plan_ttl_seconds", "#settings-ios-issued-ttl"],
+    ["plan_request_ttl_seconds", "#settings-ios-request-ttl"],
+    ["receipt_retention_days", "#settings-ios-receipt-days"],
+  ]) {
+    const range = ranges[key] || {};
+    const value = values[key];
+    if (!Number.isInteger(value) || (range.min != null && value < range.min) ||
+        (range.max != null && value > range.max)) {
+      applyFieldErrors(new Error("Enter a whole number within the shown range."), msg, {
+        [key]: selector,
+      });
+      return;
+    }
+  }
+  msg.textContent = "Saving…";
+  try {
+    const data = await api("/api/settings/ios", {
+      method: "POST",
+      body: JSON.stringify({ values }),
+    });
+    renderIosSettings(data);
+    msg.textContent = "Saved. Effective immediately; no restart required.";
+    notify("iOS settings saved.");
+  } catch (error) {
+    applyFieldErrors(error, msg, {
+      mutations_enabled: "#settings-ios-mutations",
+      issued_plan_ttl_seconds: "#settings-ios-issued-ttl",
+      plan_request_ttl_seconds: "#settings-ios-request-ttl",
+      receipt_retention_days: "#settings-ios-receipt-days",
+      settings: "#settings-ios-form",
+    });
+  }
+}
+
 function volumePolicyValue(node) {
   if (node.type === "checkbox") return node.checked;
   if (node.dataset.kind === "int") return Number(node.value);
@@ -1238,12 +1307,21 @@ async function loadSettings() {
       "<p class='warnbox'>Monitoring inventory failed: " + esc(error.message) + "</p>";
   }
   try {
+    renderIosSettings(await api("/api/settings/ios"));
+  } catch (error) {
+    $("#settings-ios-status").textContent = "error";
+    $("#settings-ios-msg").textContent = "iOS settings failed: " + error.message;
+  }
+  try {
     const modalityData = await api("/api/modalities");
     renderModalities(modalityData);
   } catch (error) {
     $("#settings-profile-msg").textContent = "Modality settings failed: " + error.message;
   }
 }
+
+const iosForm = $("#settings-ios-form");
+if (iosForm) iosForm.addEventListener("submit", saveIosSettings);
 
 const moduleBox = $("#settings-modalities");
 if (moduleBox) moduleBox.addEventListener("click", (event) => {

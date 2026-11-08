@@ -2310,6 +2310,8 @@ class Handler(BaseHTTPRequestHandler):
                                  mimetypes.guess_type(path)[0] or "application/octet-stream")
             elif path == "/api/settings":
                 self._json(200, self._with_conn(lambda c: self._settings(c)))
+            elif path == "/api/settings/ios":
+                self._json(200, ios_config.describe_config())
             elif path == "/api/settings/monitoring":
                 self._json(200, config_inventory.build_inventory())
             elif path == "/api/settings/drop/window":
@@ -2841,6 +2843,8 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             elif path == "/api/exposures":
                 self._json(200, self._with_conn(lambda c: self._save_exposure(c, body)))
+            elif path == "/api/settings/ios":
+                self._json(200, self._save_ios_settings(body))
             elif path == "/api/settings/llm":
                 self._json(200, self._save_llm_settings(body))
             elif path == "/api/settings/drop":
@@ -3330,6 +3334,18 @@ class Handler(BaseHTTPRequestHandler):
             conn, set_values={"budget": budget}, effective_from=day,
         )
         return self._settings(conn)
+
+    def _save_ios_settings(self, body: dict) -> dict:
+        values = body.get("values") if isinstance(body.get("values"), dict) else body
+        try:
+            return ios_config.save_config(values)
+        except ios_config.IOSConfigError as exc:
+            message = str(exc)
+            field = next(
+                (key for key in ios_config.FIELDS if key in message),
+                "settings",
+            )
+            raise FieldError(message, {field: message}) from exc
 
     def _save_llm_settings(self, body: dict) -> dict:
         try:

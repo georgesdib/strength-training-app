@@ -2832,6 +2832,56 @@ def test_symptom_attribution_round_trips_and_exposes_options(server):
     assert "attribution_confidence" in json.loads(body).get("fields", {})
 
 
+
+IOS_CONFIG = """# header
+mutations_enabled: true
+issued_plan_ttl_seconds: 3600
+plan_request_ttl_seconds: 900
+receipt_retention_days: 30
+"""
+
+
+def test_ios_settings_api_round_trip_and_validation(server, tmp_path, monkeypatch):
+    config = tmp_path / "ios.v1.yaml"
+    config.write_text(IOS_CONFIG, encoding="utf-8")
+    monkeypatch.setattr(
+        web_server.ios_config, "config_path", lambda path=None: config
+    )
+
+    status, body = get(server, "/api/settings/ios")
+    assert status == 200
+    data = json.loads(body)
+    assert data["effective"]["issued_plan_ttl_seconds"] == 3600
+    assert data["source"] == str(config)
+    assert data["restart_required"] is False
+
+    saved = post(server, "/api/settings/ios", {
+        "values": {
+            "mutations_enabled": False,
+            "issued_plan_ttl_seconds": 7200,
+            "plan_request_ttl_seconds": 1200,
+            "receipt_retention_days": 14,
+        },
+    })
+    assert saved["effective"] == {
+        "mutations_enabled": False,
+        "issued_plan_ttl_seconds": 7200,
+        "plan_request_ttl_seconds": 1200,
+        "receipt_retention_days": 14,
+    }
+    assert "issued_plan_ttl_seconds: 7200" in config.read_text(encoding="utf-8")
+
+    before = config.read_text(encoding="utf-8")
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        post(server, "/api/settings/ios", {
+            "values": {"receipt_retention_days": 0},
+        })
+    assert excinfo.value.code == 400
+    fields = json.loads(excinfo.value.read().decode()).get("fields", {})
+    assert "receipt_retention_days" in fields
+    assert config.read_text(encoding="utf-8") == before
+
+
 def test_symptom_history_limit_order_and_all(server):
     empty = json.loads(get(server, "/api/symptoms/history?limit=5")[1])
     assert empty == {

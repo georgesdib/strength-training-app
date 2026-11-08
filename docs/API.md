@@ -73,6 +73,8 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/prospective?weeks=N&date=N` | W5 read-only prospective summary: statuses, attendance, work, RIR, duration, flags |
 | `GET /api/regime?weeks=N&date=N` | read-only main-lift/substitute regime check |
 | `GET /api/settings` | masked LLM settings, drop settings, config/database paths and app version |
+| `GET /api/settings/ios` | effective `ios.v1.yaml` values, defaults, ranges, labels, descriptions, path/source and per-request reload semantics |
+| `POST /api/settings/ios` | validate and atomically update only the four known `ios.v1.yaml` keys; the next request uses the new values, no restart |
 | `GET /api/settings/volume?date=N` | consolidated volume panel: effective budget, volume policy, landmarks, athlete-level values, profile source and local-overlay warning |
 | `POST /api/settings/volume` | validate and append a settings-profile version for volume budget/policy; requires reason and typed VOLUME for target/cap/MRV/landmark changes |
 | `GET /api/settings/drop/window?date=N` | whether per-session drop confirmation applies on that date; the Prescribe checkbox is hidden when false |
@@ -185,7 +187,8 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
   keep their original prescription id.
 - **Mutation switch.** Set mutations_enabled: false in config/ios.v1.yaml to return every Phase 2
   mutation as 503 ios_mutations_disabled while bootstrap/today/history/progress remain available.
-  The bootstrap capabilities report the writes as disabled.
+  The bootstrap capabilities report the writes as disabled. Settings → iOS settings edits this
+  switch and the two TTLs without restart; the save validates and rewrites only those keys.
 - **Errors.** Phase 2 conflicts use {"error", "code", "fields", "details"} with codes such as readiness_required,
   confirmation_required, workout_active, plan_expired, plan_superseded, plan_consumed,
   workout_not_active, session_rpe_required and idempotency_conflict. Validation failures remain 400.
@@ -267,7 +270,7 @@ What remains:
 No build step and no bundler. The scripts load in this order:
 
 1. `core.js` — API requests, HTML escaping, formatting, notices and local dates.
-2. `settings.js` — Settings panels: LLM, profile, volume, modalities and monitoring.
+2. `settings.js` — Settings panels: LLM, iOS, profile, volume, modalities and monitoring.
 3. `app.js` — navigation, routing, boot and the shared views.
 4. `exercises.js` — exercise catalogue, editor and e1RM override.
 5. `history.js` — history list, session details, corrections and VBT backfill.

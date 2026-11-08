@@ -1102,6 +1102,27 @@
           the file; if they do, the status says so.</p>
       </div>
 
+      <div class="panel" id="settings-ios-panel">
+        <div class="panel-head"><h2>iOS settings</h2>
+          <span class="badge" id="settings-ios-status">loading…</span></div>
+        <p class="section-help"><span>Server-side iOS facade configuration. Saving updates <code>config/ios.v1.yaml</code>; the server re-reads it for every request, so no restart is required.</span> <a class="doc-link" href="#docs?doc=docs/IOS-CLIENT-PLAN.md">iOS client plan</a></p>
+        <p class="muted" id="settings-ios-source">Effective values below · source loading…</p>
+        <form id="settings-ios-form">
+          <label><input type="checkbox" id="settings-ios-mutations"> Enable iOS mutations</label>
+          <p class="muted">Master write switch for the iOS facade. Off returns every iOS mutation as 503 while bootstrap, today, history and progress stay available.</p>
+          <div class="form-row">
+            <label>Issued plan TTL (seconds, 60–86400) <input type="number" id="settings-ios-issued-ttl" min="60" max="86400" step="1" required></label>
+            <label>Plan request TTL (seconds, 60–3600) <input type="number" id="settings-ios-request-ttl" min="60" max="3600" step="1" required></label>
+            <label>Receipt retention (days, 1–365) <input type="number" id="settings-ios-receipt-days" min="1" max="365" step="1" required></label>
+          </div>
+          <p class="muted">Issued plan TTL bounds how long a ready plan can be started. Plan request TTL bounds queued/building time before a failed build; it is not the plan lifetime. Receipt retention bounds idempotency records used for safe retries.</p>
+          <div class="form-row">
+            <button class="primary" type="submit">Save iOS settings</button>
+            <span class="muted" id="settings-ios-msg" role="status" aria-live="polite"></span>
+          </div>
+        </form>
+      </div>
+
       <div class="panel">
         <div class="panel-head"><h2>Prescribe defaults</h2><span class="muted">browser-only preferences</span></div>
         <p class="section-help"><span>Browser-only form preferences; they do not change server rules.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI</a></p>

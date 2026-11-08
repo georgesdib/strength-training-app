@@ -4,6 +4,12 @@
 
 ### Added
 
+- **iOS settings panel**: Settings → iOS settings now exposes `mutations_enabled`,
+  `issued_plan_ttl_seconds`, `plan_request_ttl_seconds` and `receipt_retention_days` with
+  integer/boolean controls, server ranges, descriptions, effective values and the config source.
+  Saving validates the complete object and atomically updates `config/ios.v1.yaml`; the server
+  re-reads it per request, so no restart is required. Defaults and behavior are unchanged.
+
 - **Database transfer utility**: `tools/db_transfer.py export|import` moves `data/coach.db`
   between machines. The archive carries a manifest with the complete applied migration set and a
   database SHA-256; import fails before touching the target if any migration, checksum or hash
