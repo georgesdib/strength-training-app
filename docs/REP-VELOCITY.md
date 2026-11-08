@@ -58,7 +58,7 @@ warning rather than an overwrite.
 |---|---|
 | schema, parser, preview/apply, undo | done |
 | materialisation into `clean_rep` | done |
-| optional Workout UI / CLI / API input | done |
+| optional Workout UI / CLI / API input | done for web and iOS; iOS mean velocity remains optional and per-rep detail is in an optional disclosure |
 | per-set first/last/loss report | done |
 | cross-session descriptive analyses | done |
 | evidence review: "does this add information beyond existing signals?" | done — descriptive only |
@@ -94,6 +94,7 @@ workout, it is descriptive.
 ## 6. Surfaces
 
 - Workout mode: optional per-rep field on **Log a set** (comma/space-separated m/s, rep 1..n), plus the optional per-rep file/paste box, preview table and rep summary.
+- iOS Workout: an optional **Per-rep velocity** disclosure on Add set, storing exact rep velocities through the authenticated set route; the logged set shows the rep summary and expandable rep detail. Mean velocity remains optional and is derived when omitted.
 - `GET /api/rep-velocity?session=...`: per-session report.
 - `GET /api/rep-velocity/analysis?weeks=...`: stratified cross-session report.
 - **Progress → Per-rep velocity**: correlations (n >= 10), recent session rows and missing-data context.

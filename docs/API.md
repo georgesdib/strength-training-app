@@ -127,7 +127,7 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
 | `POST /api/ios/v1/healthkit/readiness` | bearer + Idempotency-Key | `{date, samples:[{field, value, sample_id, sample_at, source_name, source_bundle_id?, source_class, source_model?, source_manufacturer?}]}` -> the canonical readiness payload plus `healthkit` provenance; one to three samples (HRV, RHR, bodyweight), server-local today for the import, sample identity deduplicated; see Phase 3A contract |
 | `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}}` -> `{issued_plan_id, prescription_id, for_date, session_type, expires_at, plan, readiness, warnings}`; the normal prescription is persisted at issue |
 | `POST /api/ios/v1/workouts` | bearer + Idempotency-Key | `{issued_plan_id}` -> the existing workout detail; starts by id only; expired/superseded/consumed plans are 410, another active workout is 409 |
-| `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?}` -> workout detail; `velocity_mps` is optional manual mean velocity and must be positive |
+| `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, rep_velocities?}` -> workout detail; `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required |
 | `POST /api/ios/v1/workouts/<id>/form` | bearer + Idempotency-Key | `{exercise_id, rating 1-5, note?}` -> workout detail |
 | `POST /api/ios/v1/workouts/<id>/complete` | bearer + Idempotency-Key | `{session_rpe? or not_recorded: true, duration_min?, notes?}` -> completed workout detail; RPE and not-recorded are mutually exclusive |
 | `POST /api/ios/v1/workouts/<id>/abandon` | bearer + Idempotency-Key | `{}` -> abandoned workout detail |
@@ -159,6 +159,10 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
   The route accepts only the server-local today, HRV within 48 hours and RHR on that date; the
   canonical readiness payload exposes `sources` and `healthkit` provenance. No raw time series is
   retained and no score is computed in Swift.
+- **Per-rep velocity.** The iOS set route accepts optional `rep_velocities` on a manual set. The
+  server validates indexes/values, derives `velocity_mps` from the reps when the mean is omitted,
+  and returns `reps_detail`/`rep_summary`. This is descriptive detail; it does not change load,
+  RIR, prescriptions or scoring. The existing web import/API contract remains authoritative.
 - **Issued plans.** POST /api/ios/v1/prescriptions persists the normal prescription and returns a
   single-use issued plan with a 60-minute TTL. The phone starts it by id only; plan content never
   comes from the phone. One live plan is allowed per device; a newer issue supersedes the older one.

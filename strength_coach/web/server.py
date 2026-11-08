@@ -1731,7 +1731,7 @@ class Handler(BaseHTTPRequestHandler):
     def _ios_workout_set(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {
             "exercise_id", "load_kg", "reps", "rir", "velocity_mps",
-            "set_index", "plan_item_index",
+            "set_index", "plan_item_index", "rep_velocities",
         })
         self._ios_workout(conn, workout_id)
         exercise_id = body.get("exercise_id")
@@ -1786,6 +1786,56 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "plan_item_index must be non-negative",
                 fields={"plan_item_index": "must be non-negative"},
             )
+        raw_reps = body.get("rep_velocities")
+        rep_velocities: list[dict] | None = None
+        if raw_reps is not None:
+            if not isinstance(raw_reps, list):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "rep_velocities must be a list",
+                    fields={"rep_velocities": "must be a list"},
+                )
+            rep_velocities = []
+            seen_indexes: set[int] = set()
+            for position, item in enumerate(raw_reps, start=1):
+                if not isinstance(item, dict):
+                    raise ios_workflow.IOSWorkflowError(
+                        400, "validation_failed", "rep velocity must be an object",
+                        fields={f"rep_velocities[{position - 1}]": "must be an object"},
+                    )
+                try:
+                    rep_index = _integer(item.get("rep_index", position))
+                    rep_velocity = _number(item.get("velocity_mps"))
+                except (TypeError, ValueError) as exc:
+                    raise ios_workflow.IOSWorkflowError(
+                        400, "validation_failed", str(exc),
+                        fields={f"rep_velocities[{position - 1}]": str(exc)},
+                    ) from exc
+                if rep_index is None or rep_index < 1:
+                    raise ios_workflow.IOSWorkflowError(
+                        400, "validation_failed", "per-rep index must be positive",
+                        fields={f"rep_velocities[{position - 1}].rep_index": "must be positive"},
+                    )
+                if rep_index > reps:
+                    raise ios_workflow.IOSWorkflowError(
+                        400, "validation_failed",
+                        f"per-rep index {rep_index} exceeds reps {reps}",
+                        fields={f"rep_velocities[{position - 1}].rep_index": "exceeds reps"},
+                    )
+                if rep_index in seen_indexes:
+                    raise ios_workflow.IOSWorkflowError(
+                        400, "validation_failed", "duplicate per-rep index",
+                        fields={f"rep_velocities[{position - 1}].rep_index": "duplicate"},
+                    )
+                if rep_velocity is None or rep_velocity <= 0:
+                    raise ios_workflow.IOSWorkflowError(
+                        400, "validation_failed", "per-rep velocity must be positive",
+                        fields={f"rep_velocities[{position - 1}].velocity_mps": "must be positive"},
+                    )
+                seen_indexes.add(rep_index)
+                rep_velocities.append({
+                    "rep_index": rep_index,
+                    "velocity_mps": rep_velocity,
+                })
         return workout.add_set(
             conn, workout_id,
             exercise_id=exercise_id.strip(),
@@ -1796,6 +1846,7 @@ class Handler(BaseHTTPRequestHandler):
             source="manual",
             set_index=set_index,
             plan_item_index=plan_item_index,
+            rep_velocities=rep_velocities,
         )
 
     def _ios_workout_form(self, conn, workout_id: str, body: dict) -> dict:

@@ -8,7 +8,7 @@
 the Swift client in the separate StrengthApp repository has pairing, Today, History,
 Settings/Forget, readiness entry, prescription preview/start-by-id, active workout,
 completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Keychain storage,
-68 unit tests
+70 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is implemented 2026-11-08;
 physical HealthKit acceptance remains pending and Phase 3B is out of scope. Later phases remain
 proposals and need separate approval.
@@ -756,7 +756,7 @@ dedicated physical-iPhone R1/R3/R5 passes were not separately performed.
   deterministic Apple Watch classification, 48-hour HRV / current-day RHR / 30-day bodyweight
   selection, single-flight import, the healthkitReadiness mutation-journal kind, Settings opt-in
   and Today import/provenance display.
-- Verification: 1,640 server tests, 68 client tests, simulator build and the live UI workflow pass.
+- Verification: 1,641 server tests, 70 client tests, simulator build and the live UI workflow pass.
   Physical HealthKit acceptance with real samples remains pending.
 - Rollback: remove the client importer and canonical-merge integration, drop healthkit_readiness
   with the paired 0054/0055 migration rows, and leave readiness_day/readiness_entry untouched.

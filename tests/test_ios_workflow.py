@@ -454,6 +454,42 @@ def test_ready_partial_readiness_can_start_without_stress(ios):
     assert workout["status"] == "in_progress"
 
 
+def test_ios_manual_set_accepts_optional_per_rep_velocity(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    item = _first_item(issued["plan"])
+    status, body = _add_set(
+        ios, token, workout["workout_id"], item,
+        velocity_mps=None,
+        reps=3,
+        rep_velocities=[
+            {"rep_index": 1, "velocity_mps": 0.62},
+            {"rep_index": 2, "velocity_mps": 0.58},
+            {"rep_index": 3, "velocity_mps": 0.54},
+        ],
+    )
+    assert status == 200, body
+    logged = body["sets"][-1]
+    assert logged["velocity"] == 0.58
+    assert [rep["velocity_mps"] for rep in logged["reps_detail"]["reps"]] == [0.62, 0.58, 0.54]
+    assert logged["rep_summary"]["count"] == 3
+    assert logged["rep_summary"]["loss_abs"] == 0.08
+
+    status, body = _add_set(
+        ios, token, workout["workout_id"], item,
+        velocity_mps=None,
+        reps=3,
+        rep_velocities=[
+            {"rep_index": 1, "velocity_mps": 0.62},
+            {"rep_index": 1, "velocity_mps": 0.58},
+        ],
+    )
+    assert status == 400, body
+    assert any(key.startswith("rep_velocities") for key in body.get("fields", {}))
+
 def test_readiness_rejects_unknown_empty_and_removed_fields(ios):
     token, _ = _paired(ios)
     cases = [
