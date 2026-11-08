@@ -49,7 +49,7 @@ Form ratings and the post-session review use existing server review/form contrac
 
 ### Explicitly not a first-release prerequisite
 
-HealthKit, Apple Workout import, offline mutation sync, manual cardio, advanced Longevity analytics, background processing, Apple Intelligence, and PCC are deferred. Basic history/progress means read-only use of existing summaries, not a new dashboard or analytics engine. Keep these as later phases below rather than quietly adding them to the release gate.
+HealthKit readiness (Phase 3A) and offline capture (Phase 4) were not first-release prerequisites and are now closed. Apple Workout import (Phase 3B), manual cardio, advanced Longevity analytics, background processing, Apple Intelligence, and PCC remain deferred. Basic history/progress means read-only use of existing summaries, not a new dashboard or analytics engine. Keep the remaining items as later phases below rather than quietly adding them to the release gate.
 
 ## 2. Architectural invariants
 
@@ -79,12 +79,12 @@ HealthKit, Apple Workout import, offline mutation sync, manual cardio, advanced 
 
 ## 4. Phased implementation plan
 
-Each phase is separately reviewable. Add only the endpoints, migrations, client screens, and tests needed for that phase. The first connected vertical slice should be implemented before any offline queue, HealthKit importer, or model feature. Phases 0–2, R1/R3/R5, Phase 3A and R8 are closed; Phase 3B/4 need separate approval before they start.
+Each phase is separately reviewable. Add only the endpoints, migrations, client screens, and tests needed for that phase. The first connected vertical slice was implemented before any offline queue, HealthKit importer, or model feature. Phases 0–2, Phase 3A, Phase 4, and R1–R5, R7 and R8 are closed; Phase 3B and Phase 5 need separate approval before they start.
 
-**Implementation order (owner decision, 2026-11-07):** Phase 0 is complete; next are 1, 2, 3A
-(HealthKit readiness), 4 (offline), then 3B (Apple Workout imports) and Phase 5. Phase numbers stay
-stable so existing references do not move; the order reflects an always-on home server, where
-offline capture is optional and HealthKit readiness is the reason to build the app.
+**Implementation order (owner decision, 2026-11-07):** Phases 0–2, 3A and 4 are complete; next are
+3B (Apple Workout imports) and Phase 5. Phase numbers stay stable so existing references do not move;
+the order reflected an always-on home server, where offline capture was optional and HealthKit
+readiness was the reason to build the app.
 
 ### Phase 0 — Preconditions (no app code)
 
@@ -358,31 +358,24 @@ sRPE precedence and no prescription/rubric changes.
 | PCC privacy and availability | Separate future decision; disabled by default, user-invoked, context preview/consent, no health data by default, no core dependency. |
 | Offline complexity | Defer durable offline mutation until an online session loop is proven. Cached reads do not imply the ability to prescribe or sync offline. |
 
-## 11. Next task
+## 11. Status and next task
 
-Phases 0–2 are complete. Phase 2 delivered the online strength workflow (readiness write,
-server-issued prescription, start by issued-plan id, active workout, add set, complete/abandon,
-session RPE, optional form ratings, history/progress, manual VBT and idempotency receipts) under
-[`design/IOS-PHASE-2-CONTRACT.md`](design/IOS-PHASE-2-CONTRACT.md). Phase 3A is closed
-under [`design/IOS-PHASE-3A-CONTRACT.md`](design/IOS-PHASE-3A-CONTRACT.md), with physical
-HealthKit acceptance pending.
+Phases 0–2, Phase 3A, Phase 4, and the R1–R5/R7/R8 reliability work are complete. Phase 2 delivered
+the online strength workflow (readiness write, server-issued prescription, start by issued-plan id,
+active workout, add set, complete/abandon, session RPE, optional form ratings, history/progress,
+manual VBT and idempotency receipts) under
+[`design/IOS-PHASE-2-CONTRACT.md`](design/IOS-PHASE-2-CONTRACT.md). Phase 3A is closed under
+[`design/IOS-PHASE-3A-CONTRACT.md`](design/IOS-PHASE-3A-CONTRACT.md); physical HealthKit acceptance
+was owner-confirmed. Phase 4 is closed under
+[`design/IOS-PHASE-4-CONTRACT.md`](design/IOS-PHASE-4-CONTRACT.md); physical offline acceptance was
+owner-confirmed.
 
-Next, in this order:
+The next proposal is Phase 3B (Apple Workout summaries and related cardio data), but it is not
+started and needs its own approved contract. Phase 5 remains optional and separately approved.
+R7 and R8 are recorded in section 4.30 and their contracts rather than as pending next steps.
 
-1. **R7 — implemented and closed 2026-11-08.** Contract:
-   [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md). The asynchronous prescription request
-   with session-type and minimum-session settings; it fixes the resolver-versus-10-second timeout
-   failure in the Phase 2 prescription path and absorbs R2. Verified by the server suite, 81 client
-   tests on the iOS 27.2 simulator, and two live UI runs — resolver off, then resolver on against a
-   copy of the real database (`202` in 0.1 s, plan ready in 4 s on the development host, full flow
-   90.9 s). No physical-device pass is required (§14 decision 4).
-2. **R8 — closed 2026-11-08.** Contract:
-   [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md). Swap/add/remove/set-count editing on an
-   in-progress workout, reusing the existing Python services; an authenticated online exercise
-   catalogue feeds the picker. The live simulator workflow adds an exercise through it.
-
-Do not begin Phase 3B, offline capture, cardio or PCC work without a separate approval; take Phase 4
-(offline) after Phase 3A acceptance. Phase 3B remains a separate contract.
+Do not begin Phase 3B, cardio or PCC work without separate approval. Phase 4 is closed; Phase 3B
+remains a separate contract.
 
 ## 12. References
 
@@ -712,14 +705,16 @@ own approved contract and has not started.
   data/exports/phase2-post-acceptance-2026-11-07.tar.gz
   (SHA-256 b919ae0283edef91e31ac1d1d2062537288258818ab707b527caee3be29db9d7), verified by a
   dry-run import.
-- **Data/decisions:** readiness is the accepted manual field set; the server owns load, sets and
-  RIR; manual mean velocity is a performed observation only; the normal prescription tables remain
-  the audit source; no plan editing on the phone; no offline queue, HealthKit or RPE coercion.
+- **Data/decisions at Phase 2 closure:** readiness is the accepted manual field set; the server owns
+  load, sets and RIR; manual mean velocity is a performed observation only; the normal prescription
+  tables remain the audit source; no plan editing on the phone; no offline queue, HealthKit or RPE
+  coercion. Plan editing (R8), HealthKit readiness (Phase 3A) and offline capture (Phase 4) were added
+  later under their own contracts.
 - **Rollback:** set mutations_enabled: false; drop ios_issued_plan and ios_operation_receipt;
   remove the Phase 2 routes/client screens and forget the device. Prescriptions/workouts already
   committed by a started session remain valid.
-- **Residual limitations:** plain HTTP on the trusted LAN only; no HealthKit, offline capture or
-  review screen; personal-team signing expires after 7 days. Phase 2 itself had no durable
+- **Residual limitations at Phase 2 closure:** plain HTTP on the trusted LAN only; no HealthKit,
+  offline capture or review screen; personal-team signing expires after 7 days. Phase 2 itself had no durable
   pending-mutation journal; that was added immediately after closure as R1 (see below). It is not
   a general offline queue: only attempted mutations are journaled, and new mutations are blocked
   while one is unresolved. R5 recovery/reconciliation UX is implemented and closed; R2 is closed

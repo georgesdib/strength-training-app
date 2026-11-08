@@ -1585,21 +1585,20 @@ Phase 2 is closed. Phase 3A (opt-in HealthKit HRV/RHR/bodyweight readiness) is *
 closed 2026-11-08** under [`docs/design/IOS-PHASE-3A-CONTRACT.md`](docs/design/IOS-PHASE-3A-CONTRACT.md);
 physical HealthKit acceptance was owner-confirmed and Phase 3B remains out of scope.
 The first useful release is an online, authenticated native strength-training workflow against the
-owner's local Python server. Durable offline capture, reviewed Apple Workout imports (Phase 3B)
-and Apple Intelligence are later phases, not first-release dependencies; Phase 3A HealthKit
-readiness is closed. PCC may be a separately enabled Apple AI option;
+owner's local Python server. Durable offline capture (Phase 4) is closed; reviewed Apple Workout
+imports (Phase 3B) and Apple Intelligence are later phases, not first-release dependencies. Phase 3A
+HealthKit readiness is closed. PCC may be a separately enabled Apple AI option;
 it is disabled by default, user-invoked, never an automatic fallback, and never used for HealthKit
 sync. No public cloud service is required for core use. Do not begin a later phase until it is
 approved.
 
 The detailed, repository-grounded plan is [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md).
 Recommendation: a small native SwiftUI client with Python remaining the sole authority for
-readiness scores and prescriptions. Phases 0–3A are complete; Phase 3B needs a separate approval. The SwiftUI client is its own repository (`StrengthApp`), developed alongside this one rather than as
+readiness scores and prescriptions. Phases 0–2, 3A and 4 are complete; Phase 3B needs a separate approval. The SwiftUI client is its own repository (`StrengthApp`), developed alongside this one rather than as
 an `ios/` subdirectory here. The first release covers pairing, readiness entry, a server prescription,
 online workout capture/completion with session RPE, optional inline form ratings and basic
-history/progress. Opt-in read-only HRV/RHR/bodyweight readiness (Phase 3A) comes before durable offline capture
-(Phase 4), because the server is always on at home; reviewed Apple Workout imports follow, with
-manual values taking precedence. Rubric review stays optional and may arrive after the first
+history/progress. Opt-in read-only HRV/RHR/bodyweight readiness (Phase 3A) and durable offline capture
+(Phase 4) are complete; reviewed Apple Workout imports follow, with manual values taking precedence. Rubric review stays optional and may arrive after the first
 release. Apple Foundation Models/PCC are optional later tools, never training authorities.
 Third-party Health exporters are not a core dependency; XML is, at most, a later manual history
 backfill.
@@ -1643,8 +1642,8 @@ b919ae0283edef91e31ac1d1d2062537288258818ab707b527caee3be29db9d7) and verified b
 import. The Release build passes. Rollback: set mutations_enabled: false to return mutation
 routes to 503 while reads stay available; drop ios_issued_plan and ios_operation_receipt, remove
 the Phase 2 routes/client screens, and forget the device. Existing prescriptions/workouts already
-committed by a started session remain valid. Residual limitations: no offline queue; no
-HealthKit; no plan editing on the phone; and plain HTTP on the trusted LAN. R1's durable
+committed by a started session remain valid. At Phase 2 closure, residual limitations were no
+offline queue, no HealthKit, no plan editing on the phone, and plain HTTP on the trusted LAN. R1's durable
 pending-mutation journal was added immediately after closure (51 client tests), so a lost response
 is replayable after termination within its 28-day window while the server receipt remains. R3
 explicit plan-item selection and R5 recovery/reconciliation UX are implemented and closed; R2 is
@@ -1690,9 +1689,9 @@ provisioning with a HealthKit capability check, and the phone reaching the serve
 prescription, set logging, completion/session RPE, inline optional form ratings and basic history;
 (3) opt-in HealthKit HRV/RHR/bodyweight readiness inputs, then reviewed Apple Workout/cardio imports and
 source-aware effort mapping; (4) durable offline capture/reconciliation; (5) separately approved
-optional enhancements such as Apple Intelligence on-device/PCC. Implementation order is 0 → 1 → 2
-→ 3A → 4 → 3B → 5. The rubric review screen is optional and may follow the first release. No sleep
-feature is proposed.
+optional enhancements such as Apple Intelligence on-device/PCC. The implementation order was 0 → 1 → 2
+→ 3A → 4 → 3B → 5; phases 0–2, 3A and 4 are complete. The rubric review screen is optional and may follow the
+first release. No sleep feature is proposed.
 
 Full acceptance criteria and rollback gates are in the plan.
 
