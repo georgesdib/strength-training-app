@@ -1652,7 +1652,8 @@ explicit plan-item selection and R5 recovery/reconciliation UX are implemented a
 R6 remain deferred in roadmap §4.30 and are not Phase 2 closure blockers. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is implemented as of
 2026-11-08: migration `0056`, the bounded dispatcher, the `202` issue route, `GET plans/current`
-and start-time prescription persistence; its simulator acceptance pass is outstanding. R8
+and start-time prescription persistence; the client builds and passes 71 unit tests on the iOS 27.2
+simulator. R8
 (active-workout plan editing) is specified under `docs/design/IOS-R8-CONTRACT.md` and is not
 implemented. Phase 2 is closed 2026-11-07.
 
@@ -1703,10 +1704,11 @@ journal; R3 provides explicit plan-item selection for repeated exercises; R5 sur
 server-active workout, a workout ended elsewhere, or an unusable prescription with explicit
 resume/abandon/refresh/clear actions. Unit and simulator verification pass; separate
 physical-device R1/R3/R5 passes were not performed. R7 (asynchronous prescription request with
-workout settings) was specified, approved and **implemented on 2026-11-08**; its server behaviour is
-covered by the default suite, and the simulator acceptance pass is outstanding because the client
-repository in this workspace has no Xcode project file to build. R8 (active-workout plan editing)
-was specified on 2026-11-08 and is not approved for implementation.
+workout settings) was specified, approved and **implemented on 2026-11-08**: the server behaviour is
+covered by the default suite, and the client builds, passes its 71 unit tests on the iOS 27.2
+simulator and launches there. The only outstanding R7 check is a live run with the resolver
+enabled. R8 (active-workout plan editing) was specified on 2026-11-08 and is not approved for
+implementation.
 R7's `plans/current` read absorbs R2. R4 and R6 remain planned improvements. This
 reliability work did not add HealthKit, an unrestricted offline queue or Phase 3; Phase 3A is a
 separate implementation under its own contract.
@@ -1719,7 +1721,7 @@ separate implementation under its own contract.
 | R4 | Low | Form-rating correction UX | Distinguish an initial rating from a later correction/additional rating. Do not change append-only database semantics without a separate decision. |
 | R5 | Medium | Workout recovery/reconciliation UX — **closed 2026-11-07** | Today shows a Recovery section when refresh finds a server active workout not represented locally, a local in-progress workout no longer active on the server, or a consumed/expired/superseded prescription. Actions: resume/abandon/dismiss a server workout, refresh/clear stale local state, refresh/dismiss an unusable prescription. A one-read grace prevents false ended-elsewhere states immediately after a local mutation. Unreplayable pending mutations remain in the R1 recovery panel. |
 | R6 | Low | Idempotency operational monitoring | Lightweight diagnostics for replay counts, idempotency conflicts, receipt expiry, unexpected mutation failures and reconciliation failures. No telemetry platform or unnecessary personal data. |
-| R7 | High | Asynchronous prescription request with workout settings — **implemented 2026-11-08; simulator acceptance outstanding** | Replaces the blocking `POST /api/ios/v1/prescriptions` with a 202 and a database-backed request row: optional session type and minimum session, a shared CPU slot (no second concurrency budget), one bounded dispatcher with two eligibility checks so an ineligible request never reaches the resolver, a generation check so a superseded build is never published, an explicit legacy-row mapping in migration 0056, authoritative foreground recovery from `plans/current`, and prescription rows written at start instead of at issue. The client polls `GET /api/ios/v1/plans/current` (which also absorbs R2) at 1→2→5→10 s with no 60 s ceiling, survives app exit, and loads a ready plan on return. Contract: `docs/design/IOS-R7-CONTRACT.md`. |
+| R7 | High | Asynchronous prescription request with workout settings — **implemented and simulator-verified 2026-11-08** | Replaces the blocking `POST /api/ios/v1/prescriptions` with a 202 and a database-backed request row: optional session type and minimum session, a shared CPU slot (no second concurrency budget), one bounded dispatcher with two eligibility checks so an ineligible request never reaches the resolver, a generation check so a superseded build is never published, an explicit legacy-row mapping in migration 0056, authoritative foreground recovery from `plans/current`, and prescription rows written at start instead of at issue. The client polls `GET /api/ios/v1/plans/current` (which also absorbs R2) at 1→2→5→10 s with no 60 s ceiling, survives app exit, and loads a ready plan on return. Contract: `docs/design/IOS-R7-CONTRACT.md`. |
 | R8 | Medium | Active-workout plan editing — **specified 2026-11-08, not implemented** | Swap, add, remove and set-count edits on an in-progress workout through the existing `workout.py` services. The phone never supplies a load or a replacement plan; a swap or add clears the load and records the reason. Edits rewrite `plan_modified_json` and append `workout_event` rows; the issued plan JSON is never modified. An expected-item guard stops a stale index editing the wrong lift. Contract: `docs/design/IOS-R8-CONTRACT.md`. |
 
 **Recovery boundary after R1:** every attempted mutation is journaled before the HTTP request.

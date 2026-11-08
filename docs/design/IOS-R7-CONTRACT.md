@@ -589,10 +589,13 @@ Client (unit):
 
 **Implementation status (2026-11-08).** Server criteria 1–3 and 5–10 are covered by
 `tests/test_ios_workflow.py` and `tests/test_migration_0056.py`; the default suite, docs tests and
-`ruff` pass. The client-side criteria (the generating card, polling past 60 s and foreground
-reconciliation) are implemented in the `StrengthApp` sources but have **not** been built or run:
-the checked-out client repository has no `project.pbxproj`, so `xcodebuild` cannot run here. The
-simulator pass is still outstanding and is the remaining R7 gate.
+`ruff` pass. The client is implemented, **built and unit-tested on the iOS 27.2 simulator**
+(iPhone 17): 71 tests, 0 failures, and the built app installs and launches to the pairing screen.
+Criteria 4 and 9 are exercised by the client unit tests (foreground reconciliation, lost response,
+supersession, expiry) rather than by a scripted live-server run.
+
+Remaining gate: the resolver-enabled live UI smoke test, which needs a running server and a
+generated `LiveConfig`; the physical-device pass is not required (§14 decision 4).
 
 ## 13. Rollback
 
@@ -706,7 +709,7 @@ behaviour.
 | startup sweep | reset `building` to `queued` | same | Nothing is published before the guarded publish, so a retry is safe. |
 | settings validation | accessory coupling returns 400 at request time | accessory sessions surface as a build error (`error_code = resolver_build_failed`) | The coupling lives inside `build_prescription`, which also decides whether the resolver is enabled; pre-validating it here would duplicate a rule. |
 | worker tests | `tests/test_ios_plan_requests.py` | `tests/test_ios_workflow.py` | They share the live-server fixture and the same concerns; a second file would duplicate the fixture. |
-| acceptance | simulator pass | server criteria verified; client not built | No `project.pbxproj` in this checkout, so `xcodebuild` cannot run. |
+| acceptance | simulator pass | built and unit-tested on the iOS 27.2 simulator; app launches | 71 client tests pass; only the resolver-enabled live UI run is left, because it needs a running server and a generated `LiveConfig`. |
 
 Client surface added: `PlanSettings`, `PlanRequestAck`, `PlansStateResponse`, `PlanProgress`;
 `IOSAPIClient.planState`; `AppModel` polling with the 1/2/5/10 s schedule, foreground
