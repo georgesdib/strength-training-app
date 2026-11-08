@@ -1102,6 +1102,33 @@ def test_add_set_stores_manual_velocity_and_retries_without_duplicates(ios):
     assert "rir" in invalid["fields"]
 
 
+def test_ios_remove_performed_set(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    item = _first_item(issued["plan"])
+    status, added = _add_set(ios, token, workout["workout_id"], item)
+    assert status == 200, added
+    set_id = added["sets"][-1]["set_id"]
+
+    key = uuid.uuid4().hex
+    status, removed = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/remove-set",
+        method="POST", payload={"set_id": set_id}, token=token, key=key,
+    )
+    assert status == 200, removed
+    assert all(row["set_id"] != set_id for row in removed["sets"])
+
+    status, replay, headers = _request_full(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/remove-set",
+        method="POST", payload={"set_id": set_id}, token=token, key=key,
+    )
+    assert status == 200, replay
+    assert headers.get("Idempotent-Replay") == "true"
+
+
 def test_form_and_complete_materialise_once(ios):
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)

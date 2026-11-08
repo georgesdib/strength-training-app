@@ -144,8 +144,8 @@ flow, migration, tests and acceptance for this phase.
 1. Add manual readiness entry for the five existing subjective fields, preserving partial/missing values and displaying the returned server result. The phone does not calculate a score.
 2. Add a prescription request that uses the current deterministic Python path, disables model-based selection for this client, stores the exact returned plan as an issued-plan record with a short expiry (for example, two hours or the end of the server-local day), and displays the plan and warnings without editing them.
 3. Start only by issued-plan identifier. The server loads the stored plan itself, rechecks expiry, readiness acknowledgement and conflicts, starts the workout and marks the plan consumed in the same transaction. The client never submits plan content, so a forged or altered plan is not a reachable input.
-4. Build a focused workout logger for the prescribed exercise order and set fields supported by the existing API. Show an explicit saved/failed state based on the server response.
-5. Complete or abandon through existing services. Capture manual session RPE 1–10, or an explicit “not recorded” choice; preserve server-measured duration or clearly identified manual duration.
+4. Build a focused exercise-first workout logger: select an exercise, show its planned sets, mark a performed set done with load/reps/RIR/velocity, and keep plan editing on the workout overview. Performed sets can be added or removed, including exercises outside the plan through the authenticated catalogue. Start a local rest timer for working sets only, using the plan item’s `rest_s`, and keep it available while navigating. Show an explicit saved/failed state based on the server response.
+5. Complete or abandon through existing services. Capture manual session RPE 1–10 or a single Not recorded choice, optional productivity 1–5, and preserve server-measured duration or clearly identified manual duration.
 6. Show recent workout history and a small set of existing progress summaries. No comprehensive dashboard or new calculation.
 7. Capture each lift's optional 1–5 form rating inline in the workout screen while the session is open; the existing contract accepts ratings only for an in-progress workout. The post-session rubric review stays optional and may ship after the first release, in which case marks are entered in the existing web UI. Keep review skippable, distinct from session RPE, and never a gate for completion. Do not invent marks.
 8. Add idempotency receipts from the start, not as part of the offline phase: a per-device operation id plus a request hash, the stored response, and a conflict when the same id arrives with a different body. Cover readiness save, set add/update/remove, end and review. Reconcile a retried start by reading the active workout instead of issuing a receipt. Keep the mechanism specific to these operations, not a generic replication framework.
@@ -874,7 +874,7 @@ exercise swap, set-count change".
   deterministic Apple Watch classification, 48-hour HRV / current-day RHR / 30-day bodyweight
   selection, single-flight import, the healthkitReadiness mutation-journal kind, Settings opt-in
   and Today import/provenance display.
-- Verification: 1,679 server tests, 94 client tests, simulator build and the live UI workflow pass.
+- Verification: 1,680 server tests, 94 client tests, simulator build and the live UI workflow pass.
   Physical HealthKit acceptance with real samples remains pending.
 - Rollback: remove the client importer and canonical-merge integration, drop healthkit_readiness
   with the paired 0054/0055 migration rows, and leave readiness_day/readiness_entry untouched.

@@ -1196,6 +1196,7 @@ class Handler(BaseHTTPRequestHandler):
                         action = parts[5]
                         handlers = {
                             "sets": self._ios_workout_set,
+                            "remove-set": self._ios_workout_remove_set,
                             "form": self._ios_workout_form,
                             "complete": self._ios_workout_complete,
                             "abandon": self._ios_workout_abandon,
@@ -2082,6 +2083,22 @@ class Handler(BaseHTTPRequestHandler):
             performed_at=performed_at,
         )
 
+    def _ios_workout_remove_set(self, conn, workout_id: str, body: dict) -> dict:
+        self._ios_closed_fields(body, {"set_id"})
+        self._ios_workout(conn, workout_id)
+        try:
+            set_id = _integer(body.get("set_id"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        if set_id is None or set_id < 1:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "set_id must be a positive integer",
+                fields={"set_id": "must be a positive integer"},
+            )
+        return workout.remove_set(conn, workout_id, set_id)
+
     def _ios_workout_form(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {"exercise_id", "rating", "note"})
         self._ios_workout(conn, workout_id)
@@ -2150,13 +2167,15 @@ class Handler(BaseHTTPRequestHandler):
                 fields={"duration_min": "must be positive"},
             )
         productivity = body.get("productivity")
-        if productivity not in (None, ""):
-            if isinstance(productivity, bool) or not isinstance(productivity, int) \
-                    or not 1 <= productivity <= 5:
-                raise ios_workflow.IOSWorkflowError(
-                    400, "validation_failed", "productivity must be an integer from 1 to 5",
-                    fields={"productivity": "must be an integer from 1 to 5"},
-                )
+        if productivity not in (None, "") and (
+            isinstance(productivity, bool)
+            or not isinstance(productivity, int)
+            or not 1 <= productivity <= 5
+        ):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "productivity must be an integer from 1 to 5",
+                fields={"productivity": "must be an integer from 1 to 5"},
+            )
         notes = body.get("notes")
         if notes is not None and not isinstance(notes, str):
             raise ios_workflow.IOSWorkflowError(

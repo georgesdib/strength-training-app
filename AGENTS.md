@@ -231,6 +231,22 @@ export PATH="/Applications/Xcode.app/Contents/Developer/usr/bin:$PATH"
 `workspace-write`. Do not run `sudo xcode-select -s` merely to make tests work: it changes the
 system-wide toolchain and needs explicit owner approval. Use `DEVELOPER_DIR` per command instead.
 
+### 7.4 Standing rule — write down every build/test quirk
+
+Owner instruction (2026-11-08): when building, running tests, or testing the iOS app, anything
+that costs a retry — an environmental failure, a wrong port, a wedged simulator, a hung test — is
+recorded, not just worked around. Add a dated row (symptom, cause, fix) to the iOS repository's
+machine-local notebook (`StrengthApp/private/BUILD-TEST-QUIRKS.md`, git-ignored) in the same turn,
+and read it before an iOS or full-suite run.
+
+- Append; do not rewrite. A fix that stops working gets a new row that supersedes the old one.
+- Durable, general fixes are promoted into `StrengthApp/README.md` or this file; the row stays.
+- The Python suite counts too: a green default lane still excludes `integration`, `golden`,
+  `regression` and `slow`.
+- Nothing private goes into a tracked file: no pairing codes, tokens, real server addresses,
+  paths to the live database or personal training data. The notebook stays private for the same
+  reason.
+
 ## 8. Style
 
 - Python 3.11+. `from __future__ import annotations`.
