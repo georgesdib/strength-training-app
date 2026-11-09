@@ -1650,8 +1650,8 @@ explicit plan-item selection and R5 recovery/reconciliation UX are implemented a
 closed as absorbed by R7; R4 is implemented and closed in roadmap §4.30. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is implemented as of
 2026-11-08: migration `0056`, the bounded dispatcher, the `202` issue route, `GET plans/current`
-and start-time prescription persistence; the client builds and passes 96 unit tests on the iOS 27.2
-simulator. R8 (active-workout plan editing) was approved, implemented and closed on 2026-11-08
+and start-time prescription persistence; the client builds with an iOS 27.0 deployment target and
+passes 96 unit tests on the available iOS 27.2 simulator. R8 (active-workout plan editing) was approved, implemented and closed on 2026-11-08
 under `docs/design/IOS-R8-CONTRACT.md`. Phase 2 is closed 2026-11-07.
 
 **Phase 3A completion record (closed 2026-11-08; physical acceptance owner-confirmed).** Server: migrations 0054_healthkit_readiness.sql and
@@ -1704,8 +1704,8 @@ resume/abandon/refresh/clear actions. Unit and simulator verification pass; sepa
 physical-device R1/R3/R5 passes were not performed. R7 (asynchronous prescription request with
 workout settings) was specified, approved and **implemented and closed on 2026-11-08**: the server
 behaviour is
-covered by the default suite, the client builds, passes its 96 unit tests on the iOS 27.2
-simulator, launches, and passes the live UI flow twice against throwaway servers — once with the
+covered by the default suite, the client builds with an iOS 27.0 deployment target, passes its
+96 unit tests on the iOS 27.2 simulator, launches, and passes the live UI flow twice against throwaway servers — once with the
 resolver off and once with it **on** against a copy of the real database (202 in 0.1 s, plan ready
 in 4 s, full flow 90.9 s). R8 (active-workout plan editing) was approved, implemented and closed on
 2026-11-08.

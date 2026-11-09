@@ -15,8 +15,8 @@ working-set history,
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is closed 2026-11-08; physical
 HealthKit acceptance was owner-confirmed and Phase 3B is out of scope. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is **implemented and closed
-2026-11-08**: 96 client tests pass on the iOS 27.2 simulator, the app builds and launches, and the
-live UI flow passed twice — once with the resolver off and once with it on against a copy of the
+2026-11-08**: the app builds with an iOS 27.0 deployment target and 96 client tests pass on the
+available iOS 27.2 simulator; the app launches, and the live UI flow passed twice — once with the resolver off and once with it on against a copy of the
 real database. R2 is closed as absorbed by R7's `plans/current` read. R8 (active-workout plan editing) is **closed 2026-11-08**;
 its authenticated exercise-catalogue, online-only and no-solved-load decisions are recorded; R8 is
 closed.
@@ -828,8 +828,8 @@ owner asked for.
 - **Implemented:** migration `0056`, `web/ios_plan_worker.py` (one dispatcher, two eligibility
   checks), the `202` issue route, `GET plans/current`, start-time prescription persistence and the
   client's settings sheet, generating card, polling and foreground reconciliation. The server
-  behaviour is covered by the default suite; the client is built and unit-tested on the iOS 27.2
-  simulator (73 tests, 0 failures), launches, and passes the live UI flow against a throwaway
+  behaviour is covered by the default suite; the client is built with an iOS 27.0 deployment
+target and unit-tested on the available iOS 27.2 simulator (73 tests, 0 failures), launches, and passes the live UI flow against a throwaway
   server: pair → readiness → request workout → Workout ready → start → set → finish → Progress.
   That run found and fixed a real bug (the plan sheet was dismissed when the consumed plan made
   `plans/current` report `none`). A second run with the **resolver enabled** against a copy of
