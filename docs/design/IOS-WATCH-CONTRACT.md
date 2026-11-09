@@ -15,12 +15,18 @@ the session.
 
 - A watch app target in the `StrengthApp` repository, sharing a Swift package with the iPhone app.
 - Its own paired server device and bearer token, minted by the phone and handed over once.
-- Plan fetch and start from the watch, within the existing issued-plan rules.
+- A plan carries an explicit execution target (`phone` or `watch`); the server records it and only
+  the target device may start it.
+- The watch is pinned to the home server: the phone hands over `homeBaseURL` and a monotonic
+  `configVersion`, never the phone's currently active Away route.
+- Plan fetch and start from the watch, within the existing issued-plan rules. Start is the only
+  online gate in v1; everything after it is offline-first.
 - Set logging, rest timer, form rating and finish with sRPE on the watch.
 - Execution telemetry (rest and set events with their original `occurred_at`) so the server
   timeline keeps the times the user acted, not the replay times.
-- Offline-safe logging: every mutation is persisted locally before the network call and replayed
-  in order; start and plan fetch still require connectivity.
+- Offline-first execution: every mutation is persisted locally before the network call and
+  replayed in order; partial flushes are normal. Start and plan fetch still require connectivity in
+  v1; the pending-session shell for offline start is deferred (section 21).
 - Heart rate during the session and one `traditionalStrengthTraining` HealthKit workout with
   heart rate, active energy and the effort rating derived from sRPE.
 - Plan-revision propagation so a substitution made on the phone reaches the watch without
@@ -39,8 +45,13 @@ the phone. The watch is a home-gym device on the same LAN as the server.
 
 The watch does not notify the phone: there is no watch→phone event channel and no attempt to
 auto-open the phone app. The phone discovers a watch-started session through its normal foreground
-refresh. WatchConnectivity is used only for the phone→watch credential handoff and for the
+refresh. WatchConnectivity is used only for the phone→watch credential/config handoff and for the
 phone→watch plan nudge described in section 10.
+
+No offline start in v1: the watch must reach the server once to start. The pending-session shell
+that would make start offline-capable is deferred (section 21). No phone relay in v1 either:
+"Send to iPhone" is deferred with the watch-token and idempotency constraints recorded in
+section 21. The watch performs no Home/Away switching and never follows the phone's Away route.
 
 ## 4. Locked decisions
 
@@ -58,6 +69,10 @@ phone→watch plan nudge described in section 10.
 | D10 | A watch session requires an `HKWorkoutSession`. Exactly one HealthKit workout is saved per session, keyed by a stable external UUID; a session with no saved workout is possible only on an unrecoverable HealthKit failure and is reported. |
 | D11 | Credential handoff is state, not events: one `updateApplicationContext` payload with a server-issued epoch and an acknowledgement. No queued event copying of tokens. |
 | D12 | Plan conflicts never overwrite: the watch applies only equal-or-newer revisions, and a replayed set whose plan item changed is preserved as an off-plan set rather than dropped. |
+| D13 | A plan has an `execution_target` (`phone` or `watch`); the server rejects a start from the other kind with `409 wrong_execution_target`. |
+| D14 | The watch is pinned to `homeBaseURL`; config changes carry a monotonic `configVersion` and apply only between sessions with an empty outbox. No Home/Away switching. |
+| D15 | Offline-first after start: sets, forms, telemetry, finish and HealthKit are local-first; the network is opportunistic and partially flushed. |
+| D16 | Post-finish sync is foreground retry on the summary plus sync on next open. The phone relay and offline start are deferred. |
 
 ## 5. Platform targets and project shape
 
@@ -150,13 +165,14 @@ of the extraction.
 ### 7.3 Delivery and acknowledgement
 
 - The phone sends one `updateApplicationContext` payload under a versioned key:
-  `{schema, epoch, baseURL, deviceID, token, issuedAt}`.
+  `{schema, epoch, configVersion, homeBaseURL, deviceID, token, issuedAt}`. `homeBaseURL` is the
+  Home server, never the phone's active Away route.
 - `updateApplicationContext` is asynchronous, coalesced to the latest value and may be delayed
   until the counterpart app runs. The design therefore treats it as latest-wins state, not as a
   message queue.
 - The watch accepts a payload only when `epoch` is greater than its stored epoch, validates the
   schema and base URL, writes the token to its Keychain, then acknowledges with a second
-  `updateApplicationContext`: `{schema, ackEpoch, deviceID, status: "ready"}`.
+  `updateApplicationContext`: `{schema, ackEpoch, configVersion, deviceID, status: "ready"}`.
 - A stale or duplicate payload is ignored but acknowledged again with the stored epoch, so a
   delayed delivery cannot roll the watch back.
 
@@ -206,18 +222,40 @@ of the extraction.
 | Token revoked mid-session | Watch wipes on 401, pauses API calls, requests credentials; queued local operations remain. |
 | Duplicate mint attempt | Partial unique index plus revoke-on-mint; no second active watch device. |
 
+### 7.8 Home server and config refresh
+
+- The watch is pinned to the phone's Home server for its whole lifetime. The payload carries
+  `homeBaseURL`; the Away URL is never sent and the watch never probes or switches routes.
+- `configVersion` is a phone-local monotonic integer, independent of `credentialEpoch`. Saving a new
+  home address or changing the reachability preference that selects it increments it.
+- The watch accepts a newer `configVersion` only when it has **no active session and an empty
+  outbox**. Applying a new base URL while queued operations exist would leave them pointing at the
+  old server, where their idempotency receipts live; the watch therefore defers the change.
+- If the home URL changes while queued operations target the old URL, the watch flushes them to the
+  old URL first. If that is impossible it surfaces a conflict and keeps the old URL; it never
+  silently retargets the queue.
+- Reachability failures mean **offline**, never “switch server”. Cellular availability does not make
+  the home LAN reachable.
+
 ## 8. Plan availability and start
 
 - `issued_plan_ttl_seconds` changes from 3600 to 14400 in `config/ios.v1.yaml`; validation
   already allows 60–86400. This is a start window, not a workout lifetime.
 - The server-date rule stays: a plan whose `for_date` is not today returns `410 plan_expired`.
   Late-night sessions regenerate rather than extend.
+- The plan request carries `execution_target: "phone" | "watch"`. The server stores it on the
+  issued plan and returns it from `GET /api/ios/v1/plans/current`; only a device of the matching
+  kind may start it. A phone start of a watch-targeted plan, or the reverse, returns
+  `409 wrong_execution_target`. This is the “plan for the watch” option.
 - The watch reads `GET /api/ios/v1/plans/current` on launch, on foreground and on **Refresh**.
   **Retrieve workout** is Refresh, not a transport.
 - `POST /api/ios/v1/workouts` with `issued_plan_id` starts the session and sets
   `owner_device_id` to the calling device. A retried start with the same plan returns the
   existing in-progress workout; the existing `409 workout_active`, `410 plan_expired`,
   `410 plan_consumed` and `409 plan_not_ready` responses keep their meaning.
+- Start is the only online gate in v1. If the watch cannot reach the home server it shows “connect
+  to home Wi-Fi”, retries within the plan TTL, and does not fabricate a session. Offline start via a
+  pending-session shell is deferred (section 21).
 - The watch must have HealthKit workout authorisation before it starts (section 11). If it does
   not, it explains why and offers to log on the phone instead.
 - The watch derives a clock offset from the server time in `bootstrap`/`today` and stamps
@@ -306,6 +344,27 @@ it may swap an item the watch has already performed. That is accepted: the repla
 set as off-plan (§10.4) and the revision guard keeps both devices coherent afterwards. There is no
 server-side reservation or locking while the watch is offline.
 
+### 10.7 Offline-first execution and network policy
+
+- **Network states:** `unknown`, `online(home)`, `offline`. “Cellular available” is **not** online:
+  the server is on the home LAN. The watch does not switch servers or fall back.
+- **Start gate:** start needs one successful call to the home server. Without it the watch shows
+  “connect to home Wi-Fi”, retries within the plan TTL, and does not fabricate a session. Offline
+  start via the pending-session shell is deferred (section 21).
+- **Persist first:** after start, every set, form, telemetry event and finish is written to the
+  session store before the request. The UI shows captured/pending until acknowledged.
+- **Partial flush:** the outbox flushes in order and acknowledges per operation; it stops on the
+  first failure and never clears an unacknowledged operation. Reconnecting mid-session and
+  flushing a prefix is normal.
+- **Retry:** on failure wait 5s, 15s, 60s, then every 5 minutes; reset on success. Also retry on a
+  network-path change and on foreground. No tight polling; the watch is on battery.
+- **Finish:** the finish intent and `ended_at` are persisted, HealthKit is saved locally, and the
+  server finish is queued. The summary retries while visible; if the app is suspended, the queue
+  survives and syncs on next open. There is no guaranteed background sync.
+- **Timestamps:** `performed_at` and `ended_at` are captured at action time and replayed unchanged;
+  the sync time never replaces them.
+- **Config changes** wait until the session is finished, synced and the outbox is empty (7.8).
+
 ## 11. Watch execution lifecycle
 
 ### 11.1 States
@@ -334,6 +393,9 @@ server-side reservation or locking while the watch is offline.
 | System termination / low power / reboot | HK session ends; on relaunch the store and server are reconciled (11.5); the HK workout is recovered per section 12. |
 | User force-quits the app | Same as system termination; no workout is finalised unless the finish intent was already persisted. |
 | Screen lock / Always-On | The dimmed screen shows the current set; no computation depends on it. |
+| Network drops mid-session | The set persists; the outbox flushes what it can on reconnect; no blocking error, retry with backoff. |
+| Finish while offline | Finish and `ended_at` persist; HealthKit saves locally; the server finish queues; the summary shows “syncing”. |
+| App suspended after finish, before sync | The queue survives; sync runs on next open. No background-sync guarantee. |
 
 ### 11.4 Set capture
 
@@ -414,8 +476,13 @@ Three vertically paged screens plus the end flow:
 
 - End flow: summary, sRPE picker (Digital Crown, 1–10), **Finish**. Productivity is not captured
   here; it defaults to “not recorded” and stays a phone concern.
-- Persistent states: offline banner, pending-sync count, “Plan updated”, “Logging moved to phone”,
-  plan-expired/regenerate, “credentials missing”, “resume session”, “finish pending”.
+- Persistent states: offline banner with pending count (“offline · 4 pending”), “Plan updated”,
+  “Logging moved to phone”, plan-expired/regenerate, “credentials missing”, “resume session”,
+  “finish saved on watch — syncing”.
+- The watch never labels itself online because cellular is available; only a successful home-server
+  call does. It never offers a server switch.
+- After finish the summary stays visible and retries; if it is dismissed or the app suspends, the
+  outbox syncs on next open.
 - A captured set shows a distinct confirmation before the server acknowledges; the screen never
   claims “saved” on a failed request.
 - No keyboard text entry except an optional short note if it proves necessary; v1 omits notes.
@@ -433,8 +500,9 @@ next foreground refresh.
 | `POST /api/ios/v1/devices/watch` | New. Phone-authenticated; revokes the previous watch, mints a new epoch, returns the token once. |
 | `GET /api/ios/v1/devices` | New. Lists devices with kind, label, epoch, created/last-seen/revoked. |
 | `DELETE /api/ios/v1/devices/{device_id}` | New. Revokes the watch from phone or itself. |
-| `GET /api/ios/v1/plans/current` | Unchanged. |
-| `POST /api/ios/v1/workouts` | Sets `owner_device_id`; response includes `owner_device_id`, `plan_revision`, `last_activity_at`. |
+| `POST /api/ios/v1/prescriptions` | Accepts `execution_target` (`phone` or `watch`) and stores it on the issued plan; absent means `phone` for older clients. |
+| `GET /api/ios/v1/plans/current` | Returns `execution_target` with the plan. |
+| `POST /api/ios/v1/workouts` | Rejects a start from the wrong device kind with `409 wrong_execution_target`; sets `owner_device_id`; response includes `owner_device_id`, `plan_revision`, `last_activity_at`. |
 | `GET /api/ios/v1/workouts/{id}/execution` | Adds `owner_device_id`, `plan_revision`, `last_activity_at`, `stale`. |
 | Existing set/form/finish routes | Owner check (`409 not_owner`); a set whose plan item changed returns `409 plan_item_mismatch` with the current item. |
 | Existing plan-edit routes | Increment `plan_revision`; response returns it. |
@@ -454,6 +522,7 @@ Migration `0058_watch_companion.sql` (additive, no data rewrite):
 - `ios_device.credential_epoch INTEGER NOT NULL DEFAULT 0`
 - Partial unique index: one active watch per parent
   (`(parent_device_id) WHERE kind = 'watch' AND revoked_at IS NULL`)
+- `ios_issued_plan.execution_target TEXT NOT NULL DEFAULT 'phone' CHECK (execution_target IN ('phone','watch'))`
 - `workout_session.owner_device_id TEXT` (nullable; NULL keeps legacy permissive behaviour)
 - `workout_session.plan_revision INTEGER NOT NULL DEFAULT 0`
 - `workout_session.last_activity_at TEXT` (backfilled from `started_at`)
@@ -481,14 +550,20 @@ every other table are untouched.
 | HealthKit save fails at finish | Retry on launch; if the builder is gone, save the minimal persisted workout once; else report unsaved. |
 | Watch stolen/lost | Phone takes over ownership, finishes or abandons; revoke the watch device. |
 | Phone substitutes the current exercise | Allowed only before any set; watch applies at the next idle point. |
-| Server unreachable at start | Blocking message; no fabricated session. |
+| Server unreachable at start | Blocking message; retry within the plan TTL; no fabricated session. |
+| Wrong execution target | `409 wrong_execution_target`; no state change; the phone must request a plan for its own target. |
+| Network drops mid-set | Set persists; partial flush on reconnect; no blocking error; backoff retry. |
+| Home URL changes mid-session | Config change deferred until the session is finished, synced and the outbox empty; old-URL operations flush first. |
+| Finish while offline | Finish and `ended_at` persist; HealthKit saves locally; server finish queues; summary shows “syncing”. |
+| App suspended after finish | Queue survives; sync on next open; no background guarantee. |
 
 ## 17. Tests and acceptance
 
 Server (pytest, default suite): TTL 4h boundary, same-date rejection, idle warning and 24h lazy
 abandon (idempotent, sets preserved), ownership enforcement and takeover, plan revision increments
 and ordering, `plan_item_mismatch` and off-plan retry, device mint/replace/revoke with one active
-watch and monotonic epochs, credential epoch in device responses, idempotency replay, and
+watch and monotonic epochs, credential epoch in device responses, idempotency replay, target
+enforcement (`409 wrong_execution_target` both ways), `execution_target` in `plans/current`, and
 rollback of `watch_enabled`.
 
 `StrengthCore` tests: outbox ordering, bounded retry, revision rejection, finish-after-sets,
@@ -524,11 +599,23 @@ Required scenario tests (unit/integration where possible, physical where not):
    `WATCHOS_DEPLOYMENT_TARGET = 27.0` for the watch target and
    `IPHONEOS_DEPLOYMENT_TARGET = 27.0` for the app; the CI watch scheme builds on a watchOS 27.0
    simulator.
+10. **Execution target:** a watch-targeted plan cannot be started by the phone and a phone-targeted
+    plan cannot be started by the watch; both return `409 wrong_execution_target`, and
+    `plans/current` reports the target.
+11. **Patchy Wi-Fi:** drop the network several times mid-session; each drop queues, each return
+    partially flushes, and no operation is cleared before acknowledgement. Finish offline, reconnect
+    two minutes later, and confirm the server matches the watch: same sets, same timestamps, one
+    finish, no duplicates.
+12. **Home config refresh:** change the home URL while no session is active and the outbox is empty;
+    the watch applies the new `configVersion` and keeps its token. With an active session or
+    queued operations, the change is deferred and the old-URL queue flushes first. The watch never
+    follows the phone's Away route.
 
-Physical acceptance on the Ultra 4: phone plan → phone app closed → watch fetch → start → sets →
-phone substitution → watch update → finish with sRPE → server completed → exactly one HealthKit
-workout with HR and effort. Repeat once with Wi-Fi disabled after start, then re-enabled before
-finish. Exercise the idle warning with a lowered test threshold or a seeded `last_activity_at`
+Physical acceptance on the Ultra 4: phone plan (watch target) → phone app closed → watch fetch →
+start → sets → phone substitution → watch update → finish with sRPE → server completed → exactly
+one HealthKit workout with HR and effort. Repeat with the network dropped repeatedly during the
+session and re-enabled only after finish: the session must sync, timestamps must stay at the times
+the sets were logged, and a suspended app must sync on next open. Exercise the idle warning with a lowered test threshold or a seeded `last_activity_at`
 (a real 3h wait is not an acceptance step); abandon, start another and confirm no 409.
 
 ## 18. CI and distribution
@@ -545,9 +632,15 @@ finish. Exercise the idle warning with a lowered test threshold or a seeded `las
 
 - WatchConnectivity handoff latency and the absence of any guaranteed background wake; the epoch
   and ack design tolerates delay but not a phone that is never opened.
-- LAN-only networking: the watch must be on the same Wi-Fi; cellular cannot reach the server.
+- LAN-only networking: the watch must be on the same Wi-Fi; cellular cannot reach the server and
+  is not treated as online.
 - watchOS suspension: logging depends on the HK session; persistence covers crashes but not user
-  force-quits during finalisation.
+  force-quits during finalisation. After finish, sync needs the app to run again; the deferred
+  phone relay is the only answer for a watch that never opens at home.
+- Start needs one moment of home connectivity; the deferred pending-session shell is the only way
+  to remove that gate.
+- Target enforcement must be right: a phone start of a watch plan, or the reverse, would create a
+  session the other device cannot log into.
 - HealthKit finalisation across a crash: the backdated minimal-workout fallback needs a spike
   (§22) and may be the only path to exactly one workout.
 - `AppModel` extraction is the largest refactor; a slice that cannot prove parity is reverted
@@ -567,11 +660,23 @@ finish. Exercise the idle warning with a lowered test threshold or a seeded `las
 
 ## 21. Deferred
 
+**Pending-session shell / offline start.** Create a shell at plan time (or on an explicit prepare)
+with `{shell_id, issued_plan_id, intended_device_id, start_expires_at}`, let the watch start
+against it offline with a client `started_at`, and convert it to a workout on sync. Needs a new
+state/table, expiry cleanup, target/conflict rules and a client-timestamp policy.
+
+**Phone relay — “Send to iPhone”.** The phone replays the watch's exact queued bodies using the
+watch token over WatchConnectivity, so the server sees the same `device_id` and
+`(device_id, operation_id)` receipts dedupe; ownership and provenance stay with the watch. Needs
+the token handoff, a relay envelope, per-operation acknowledgement and a partial-relay recovery
+path, and cannot be relied on while the watch app is suspended. Takeover is not a substitute: its
+receipts are phone-device-scoped, so a later watch retry could duplicate.
+
 Recovery of an offline session that outlives the abandonment window; a richer hand-back from phone
 to watch after take-over; automatic phone-side surfacing of watch events (there is no
 WatchConnectivity event channel); heart-rate zones; Shortcuts automation; complications;
-away-server/cellular support; watch-side readiness or history; Apple Intelligence. Each needs a
-separate decision.
+away-server/cellular support and watch-side Home/Away switching; watch-side readiness or history;
+Apple Intelligence. Each needs a separate decision.
 
 ## 22. Validation spikes before implementation
 
@@ -579,8 +684,9 @@ These are technical proofs, not open design decisions; they run before the corre
 package and do not change the decisions above.
 
 1. **WatchConnectivity (before 6.2):** measure `updateApplicationContext` delivery when the
-   counterpart is backgrounded, killed and relaunched; confirm the epoch/ack loop converges and
-   that no duplicate watch device is minted across a lost response.
+   counterpart is backgrounded, killed and relaunched; confirm the epoch/ack loop converges, that
+   no duplicate watch device is minted across a lost response, and that a `configVersion` change
+   arriving mid-session is deferred rather than applied to a non-empty outbox.
 2. **HealthKit (before 6.5):** confirm a minimal workout can be saved after relaunch with the
    original start date (backdated `beginCollection`), that a metadata UUID can be queried, and
    that a failed `finishWorkout` followed by a retry yields exactly one workout.

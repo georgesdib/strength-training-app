@@ -242,17 +242,20 @@ Only pursue after the core app is useful and stable, with a separate scope/appro
 
 The phone plans; the watch executes. Full contract:
 [`design/IOS-WATCH-CONTRACT.md`](design/IOS-WATCH-CONTRACT.md). Decisions locked 2026-11-09 and
-remediated the same day for extraction, credential handoff, lifecycle, offline conflicts,
-HealthKit idempotency and acceptance. Targets: **iOS 27.0** and **watchOS 27.0**. No code or
-migration is implemented.
+remediated the same day for extraction, credential handoff, the home-server config, offline-first
+execution, lifecycle, offline conflicts, HealthKit idempotency and acceptance. Targets:
+**iOS 27.0** and **watchOS 27.0**. No code or migration is implemented.
 
-**Scope.** The watch fetches the server-issued plan, starts the session, logs sets, rest, form
-ratings and finish with sRPE, shows heart rate, and writes exactly one HealthKit strength workout.
-It has its own paired device token, minted by the phone. Logging and finish are offline-safe; plan
-fetch and start need connectivity, and a watch session requires HealthKit workout authorisation so
-the app can stay alive. During a watch session the watch is the only set writer; the phone edits
-the plan and shows a read-only mirror with a take-over action. Readiness, history, progress,
-settings and the exercise library stay on the phone.
+**Scope.** The phone requests a plan with an explicit `execution_target` (`phone` or `watch`);
+the watch fetches the plan targeted for it, starts the session, logs sets, rest, form ratings and
+finish with sRPE, shows heart rate, and writes exactly one HealthKit strength workout. It has its
+own paired device token, minted by the phone, and is pinned to the phone's **home** server via
+`homeBaseURL` + `configVersion`; it never follows the Away route. Start is the only online gate in
+v1; after it, every set/form/telemetry/finish is local-first with opportunistic partial flushes and
+backoff, and HealthKit is local. Plan fetch and start need connectivity, and a watch session
+requires HealthKit workout authorisation so the app can stay alive. During a watch session the
+watch is the only set writer; the phone edits the plan and shows a read-only mirror with a
+take-over action. Readiness, history, progress, settings and the exercise library stay on the phone.
 
 **Shared core.** `StrengthCore` is extracted in five reviewable stages, each keeping the iPhone
 suite green: S1 models, S2 API client, S3 persistence/credentials, S4 session engine one operation
@@ -266,15 +269,18 @@ on boundaries and per-stage acceptance.
    per stage and a slice that cannot prove it is reverted. Acceptance: the same iPhone tests pass
    with the same count, no view changes, and the package builds for iOS 27.0 and watchOS 27.0.
 2. **6.1 Server contract.** `0058_watch_companion.sql` with watch kind, parent, monotonic
-   `credential_epoch` and the one-active-watch index; mint/list/revoke; `owner_device_id` and
-   takeover; `plan_revision`; `plan_item_mismatch`; `last_activity_at`; idle warning and 24h lazy
-   abandonment; `issued_plan_ttl_seconds` 14400; `watch_enabled`; tests.
+   `credential_epoch`, the one-active-watch index and `execution_target` on issued plans;
+   mint/list/revoke; target enforcement (`409 wrong_execution_target`) in start and
+   `plans/current`; `owner_device_id` and takeover; `plan_revision`; `plan_item_mismatch`;
+   `last_activity_at`; idle warning and 24h lazy abandonment; `issued_plan_ttl_seconds` 14400;
+   `watch_enabled`; tests.
 3. **6.2 Watch shell and credentials.** Watch target and scheme; WatchConnectivity handoff as
-   state with epoch and acknowledgement, bounded foreground retry, 401/revocation recovery; plan
-   fetch and a read-only Today.
+   state with epoch, `configVersion` and `homeBaseURL`, acknowledgement, bounded foreground retry,
+   401/revocation recovery; no Home/Away switching; plan fetch and a read-only Today.
 4. **6.3 Execution lifecycle.** HK-session-anchored state machine, persist-first set capture, rest
-   timer persistence, dim/background/termination/relaunch behaviour, and execution telemetry with
-   original `occurred_at` values.
+   timer persistence, offline-first network policy with partial flushes and 5s/15s/60s/5min backoff,
+   finish queue and foreground retry, dim/background/termination/relaunch behaviour, and execution
+   telemetry with original `occurred_at` values.
 5. **6.4 Offline and conflicts.** Session-scoped outbox, ordered replay, relaunch recovery,
    flush-before-revision on reconnect, off-plan preservation on `plan_item_mismatch`, and no
    stale-snapshot overwrite.
@@ -284,14 +290,18 @@ on boundaries and per-stage acceptance.
 7. **6.6 Phone mirror and plan revision.** Mirror mode with set logging disabled and a take-over
    confirmation, phone push on edit, watch refresh points, stale-revision rejection, and
    non-interruption of a set in progress.
-8. **6.7 Acceptance and CI.** Watch build and deployment-target assertion in `ios-ci`, the nine
+8. **6.7 Acceptance and CI.** Watch build and deployment-target assertion in `ios-ci`, the twelve
    scenario tests in contract §17, physical Ultra acceptance, docs and rollback notes.
 
 **Acceptance.** The physical script in contract §17 plus the required scenarios: delayed/failed
 credential delivery, relaunch with pending mutations, backgrounding and returning mid-session,
 phone plan modification while the watch is offline, stale-revision rejection, take-over and
 read-only state, HealthKit finish retry without duplication, clock skew and original timestamps,
-and the watchOS 27.0 deployment/CI build.
+execution-target enforcement, patchy Wi-Fi with partial flushes and an offline finish, home
+`configVersion` refresh, and the watchOS 27.0 deployment/CI build.
+
+**Deferred:** the pending-session shell for offline start and the “Send to iPhone” relay are
+explicitly out of v1; contract §21 records what each would require.
 
 ## 5. Offline behavior — explicit contract
 

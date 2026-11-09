@@ -922,7 +922,7 @@ documents:
 - id: design-ios-watch-contract
   path: docs/design/IOS-WATCH-CONTRACT.md
   title: iOS Phase 6 watchOS companion contract (planned)
-  description: 'Plan only, not started; remediated 2026-11-09: watch as the set-logging client for an issued plan on iOS 27.0/watchOS 27.0; five-stage StrengthCore extraction, credential-epoch handoff with acknowledgement, HK-session lifecycle and persist-first capture, watch-only ownership with phone mirror/take-over, plan-revision and off-plan conflict handling, exactly-once HealthKit workout by external UUID, 4h plan TTL, idle warning and 24h abandonment, tests, acceptance and rollback'
+  description: 'Plan only, not started; remediated 2026-11-09: watch as the set-logging client for a plan with an explicit execution target on iOS 27.0/watchOS 27.0; five-stage StrengthCore extraction, credential-epoch and home-config handoff with acknowledgement, home-server pinning (no Away switching), offline-first execution with partial flushes and backoff, HK-session lifecycle and persist-first capture, watch-only ownership with phone mirror/take-over, plan-revision and off-plan conflict handling, exactly-once HealthKit workout by external UUID, 4h plan TTL, idle warning and 24h abandonment; offline start and phone relay deferred; tests, acceptance and rollback'
   category: design
   status: design
   audience: maintainer

@@ -1746,17 +1746,21 @@ Physical offline acceptance was owner-confirmed at closure on 2026-11-08.
 
 ### 4.32 Phase 6 — watchOS companion (planned; not started)
 
-The phone remains the planner; the watch becomes the execution client for an issued plan: fetch,
-start, log sets/rest/forms, finish with sRPE, live heart rate and exactly one HealthKit strength
-workout. Targets are iOS 27.0 and watchOS 27.0. The watch gets its own device token with a
-server-issued credential epoch and acknowledgement, is the only set writer during its session (the
-phone mirrors it with plan edits and a take-over path), and keeps logging offline with original
-timestamps. An HKWorkoutSession anchors the app's lifetime; a replayed set whose plan item changed
-is preserved as off-plan rather than dropped, plan edits propagate by revision, and forgotten
-sessions are idle-abandoned. Shared code is extracted into `StrengthCore` in five staged,
-behaviour-preserving moves so iOS and watchOS use one client and one session state machine.
-Contract: [`docs/design/IOS-WATCH-CONTRACT.md`](docs/design/IOS-WATCH-CONTRACT.md). No code is
-implemented; implementation needs a separate go-ahead.
+The phone remains the planner; the watch becomes the execution client for a plan requested with an
+explicit `execution_target` (`phone` or `watch`): fetch, start, log sets/rest/forms, finish with
+sRPE, live heart rate and exactly one HealthKit strength workout. Targets are iOS 27.0 and
+watchOS 27.0. The watch gets its own device token with a server-issued credential epoch and
+acknowledgement, is pinned to the phone's **home** server via `homeBaseURL` + `configVersion`
+(never the Away route), and is the only set writer during its session (the phone mirrors it with
+plan edits and a take-over path). Start is the only online gate in v1; after it, logging is
+offline-first with partial flushes and backoff, preserved timestamps, and an offline finish that
+syncs by foreground retry or on next open. An HKWorkoutSession anchors the app's lifetime; a
+replayed set whose plan item changed is preserved as off-plan rather than dropped, plan edits
+propagate by revision, and forgotten sessions are idle-abandoned. Shared code is extracted into
+`StrengthCore` in five staged, behaviour-preserving moves. Contract:
+[`docs/design/IOS-WATCH-CONTRACT.md`](docs/design/IOS-WATCH-CONTRACT.md). Offline start (the
+pending-session shell) and the “Send to iPhone” relay are deferred. No code is implemented;
+implementation needs a separate go-ahead.
 
 ## 5. Known gaps and risks
 
